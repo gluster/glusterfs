@@ -4637,7 +4637,7 @@ fini (xlator_t *this_xl)
         /* Process should terminate once fuse xlator is finished.
          * Required for AUTH_FAILED event.
          */
-        raise (SIGTERM);
+        kill (getpid (), SIGTERM);
 }
 
 struct xlator_fops fops = {
