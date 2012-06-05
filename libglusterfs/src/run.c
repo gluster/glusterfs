@@ -67,7 +67,10 @@ runner_chio (runner_t *runner, int fd)
 {
         GF_ASSERT (fd > 0 && fd < 3);
 
-        return runner->chio[fd];
+        if ((fd > 0) && (fd < 3))
+                return runner->chio[fd];
+
+        return NULL;
 }
 
 static void
@@ -194,7 +197,8 @@ runner_redir (runner_t *runner, int fd, int tgt_fd)
 {
         GF_ASSERT (fd > 0 && fd < 3);
 
-        runner->chfd[fd] = (tgt_fd >= 0) ? tgt_fd : -2;
+        if ((fd > 0) && (fd < 3))
+                runner->chfd[fd] = (tgt_fd >= 0) ? tgt_fd : -2;
 }
 
 int

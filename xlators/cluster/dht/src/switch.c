@@ -67,29 +67,38 @@ get_switch_matching_subvol (const char *path, dht_conf_t *conf,
         struct switch_struct *cond      = NULL;
         struct switch_struct *trav      = NULL;
         char                 *pathname  = NULL;
-        int                   idx     = 0;
+        int                   idx       = 0;
+        xlator_t             *subvol    = NULL;
 
         cond = conf->private;
+        subvol = hashed_subvol;
         if (!cond)
-                return hashed_subvol;
+                goto out;
+
+        pathname = gf_strdup (path);
+        if (!pathname)
+                goto out;
 
         trav = cond;
-        pathname = gf_strdup (path);
         while (trav) {
                 if (fnmatch (trav->path_pattern,
                              pathname, FNM_NOESCAPE) == 0) {
                         for (idx = 0; idx < trav->num_child; idx++) {
                                 if (trav->array[idx].xl == hashed_subvol)
-                                        return hashed_subvol;
+                                        goto out;
                         }
                         idx = trav->node_index++;
                         trav->node_index %= trav->num_child;
-                        return trav->array[idx].xl;
+                        subvol = trav->array[idx].xl;
+                        goto out;
                 }
                 trav = trav->next;
         }
-        GF_FREE (pathname);
-        return hashed_subvol;
+out:
+        if (pathname)
+                GF_FREE (pathname);
+
+        return subvol;
 }
 
 
@@ -663,8 +672,10 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
                 dup_str = gf_strdup (switch_str);
                 switch_opt = GF_CALLOC (1, sizeof (struct switch_struct),
                                         gf_switch_mt_switch_struct);
-                if (!switch_opt)
+                if (!switch_opt) {
+                        GF_FREE (dup_str);
                         goto err;
+                }
 
                 pattern = strtok_r (dup_str, ":", &tmp_str1);
                 childs = strtok_r (NULL, ":", &tmp_str1);
@@ -674,6 +685,7 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
                                 "for all the unconfigured child nodes,"
                                 " hence neglecting current option");
                         switch_str = strtok_r (NULL, ";", &tmp_str);
+                        GF_FREE (switch_opt);
                         GF_FREE (dup_str);
                         continue;
                 }
@@ -746,6 +758,7 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
                         /* First entry */
                         switch_buf = switch_opt;
                 }
+                switch_opt = NULL;
                 switch_str = strtok_r (NULL, ";", &tmp_str);
         }
 
@@ -802,15 +815,19 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
                         /* First entry */
                         switch_buf = switch_opt;
                 }
+                switch_opt = NULL;
         }
         /* */
         conf->private = switch_buf;
 
         return 0;
 err:
+        if (switch_buf_array)
+                GF_FREE (switch_buf_array);
+        if (switch_opt)
+                GF_FREE (switch_opt);
+
         if (switch_buf) {
-                if (switch_buf_array)
-                        GF_FREE (switch_buf_array);
                 trav = switch_buf;
                 while (trav) {
                         if (trav->array)

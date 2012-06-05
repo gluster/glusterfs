@@ -168,6 +168,9 @@ xlator_volopt_dynload (char *xlator_type, void **dl_handle,
 
         ret = 0;
  out:
+        if (name)
+                GF_FREE (name);
+
         gf_log ("xlator", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 

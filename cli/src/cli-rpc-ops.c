@@ -2780,6 +2780,7 @@ done:
         if (local) {
                 local->dict = dict_ref (req_dict);
                 frame->local = local;
+                local = NULL;
         }
 
         ret = dict_allocate_and_serialize (req_dict,
@@ -2798,6 +2799,9 @@ done:
                               (xdrproc_t) xdr_gf_cli_req);
 
 out:
+        if (local)
+                cli_local_wipe (local);
+
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;

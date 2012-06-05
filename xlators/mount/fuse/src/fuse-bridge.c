@@ -106,7 +106,7 @@ send_fuse_iov (xlator_t *this, fuse_in_header_t *finh, struct iovec *iov_out,
 
         if (!this || !finh || !iov_out) {
                 gf_log ("send_fuse_iov", GF_LOG_ERROR,"Invalid arguments");
-                return -1;
+                return EINVAL;
         }
         priv = this->private;
 

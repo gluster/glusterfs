@@ -367,7 +367,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         ret = dict_set_dynstr (dict, "transport", trans_type);
         if (ret)
                 goto out;
-
+        trans_type = NULL;
 
         ret = dict_set_dynstr (dict, "bricks", bricks);
         if (ret)
@@ -385,6 +385,10 @@ out:
                 if (dict)
                         dict_destroy (dict);
         }
+
+        if (trans_type)
+                GF_FREE (trans_type);
+
         return ret;
 }
 
@@ -1576,8 +1580,12 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                         ret = dict_set_dynstr (dict, "op_value", append_str);
                 }
 
-                if (!subop || dict_set_dynstr (dict, "subop", subop) != 0)
-                        ret = -1;
+                ret = -1;
+                if (subop) {
+                        ret = dict_set_dynstr (dict, "subop", subop);
+                        if (!ret)
+                                subop = NULL;
+                }
         }
 
 out:
@@ -1588,6 +1596,9 @@ out:
                         GF_FREE (append_str);
         } else
                 *options = dict;
+
+        if (subop)
+                GF_FREE (subop);
 
         return ret;
 }

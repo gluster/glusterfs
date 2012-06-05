@@ -1521,6 +1521,9 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
 
         ret = 0;
 out:
+        if (oldvolfile_fp)
+                fclose (oldvolfile_fp);
+
         return ret;
 }
 

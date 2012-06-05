@@ -265,6 +265,8 @@ _dict_set (dict_t *this,
         if (this->free_pair_in_use) {
                 pair = mem_get0 (THIS->ctx->dict_pair_pool);
                 if (!pair) {
+                        if (key_free)
+                                GF_FREE (key);
                         return -1;
                 }
         }

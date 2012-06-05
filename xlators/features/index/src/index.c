@@ -1070,13 +1070,13 @@ init (xlator_t *this)
         uuid_generate (priv->xattrop_vgfid);
         INIT_LIST_HEAD (&priv->callstubs);
 
-        this->private = priv;
         ret = pthread_create (&thread, &priv->w_attr, index_worker, this);
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING, "Failed to create "
                         "worker thread, aborting");
                 goto out;
         }
+        this->private = priv;
         ret = 0;
 out:
         if (!this->private && priv)

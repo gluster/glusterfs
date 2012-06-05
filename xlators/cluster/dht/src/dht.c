@@ -391,6 +391,8 @@ init (xlator_t *this)
 
                 defrag->is_exiting = 0;
 
+                conf->defrag = defrag;
+
                 ret = dict_get_str (this->options, "node-uuid", &node_uuid);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "node-uuid not "
@@ -407,9 +409,6 @@ init (xlator_t *this)
                 defrag->cmd = cmd;
 
                 defrag->stats = _gf_false;
-
-                conf->defrag = defrag;
-
         }
 
         conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_ON;
@@ -492,6 +491,9 @@ err:
 
                 if (conf->du_stats)
                         GF_FREE (conf->du_stats);
+
+                if (conf->defrag)
+                        GF_FREE (conf->defrag);
 
                 GF_FREE (conf);
         }
