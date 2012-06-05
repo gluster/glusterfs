@@ -193,7 +193,7 @@ sh_full_read_cbk (call_frame_t *rw_frame, void *cookie,
         afr_self_heal_t *sh         = NULL;
         int              i          = 0;
         int              call_count = 0;
-        off_t            offset     = (long) cookie;
+        off_t            offset     = 0;
 
         priv = this->private;
         rw_local = rw_frame->local;
@@ -205,6 +205,7 @@ sh_full_read_cbk (call_frame_t *rw_frame, void *cookie,
 
         call_count = sh->active_sinks;
 
+        offset     = rw_sh->offset;
         rw_local->call_count = call_count;
 
         gf_log (this->name, GF_LOG_TRACE,
