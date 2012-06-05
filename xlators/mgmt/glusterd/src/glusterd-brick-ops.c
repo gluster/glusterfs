@@ -1141,6 +1141,9 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
                 if (!ret) {
                         gf_log (THIS->name, GF_LOG_ERROR,
                                 "Adding duplicate brick: %s", brick);
+                        snprintf (msg, sizeof (msg), "Brick %s is already a "
+                                  "part of the volume", brick);
+                        *op_errstr = gf_strdup (msg);
                         ret = -1;
                         goto out;
                 } else {
