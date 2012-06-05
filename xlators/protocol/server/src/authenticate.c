@@ -96,6 +96,7 @@ init (dict_t *this, char *key, data_t *value, void *data)
         if (!auth_handle->vol_opt) {
                 dict_set (this, key, data_from_dynptr (NULL, 0));
                 *error = -1;
+                GF_FREE (auth_handle);
                 dlclose (handle);
                 return;
         }

@@ -311,8 +311,6 @@ server_getspec (rpcsvc_request_t *req)
                         goto fail;
                 }
                 ret = read (spec_fd, rsp.spec, file_len);
-
-                close (spec_fd);
         }
 
         /* convert to XDR */
@@ -322,6 +320,9 @@ fail:
                 rsp.spec = "";
         rsp.op_errno = gf_errno_to_error (op_errno);
         rsp.op_ret   = ret;
+
+        if (spec_fd != -1)
+                close (spec_fd);
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_getspec_rsp);

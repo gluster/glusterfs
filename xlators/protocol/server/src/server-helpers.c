@@ -1289,10 +1289,14 @@ serialize_rsp_direntp (gf_dirent_t *entries, gfs3_readdirp_rsp *rsp)
                         rsp->reply = trav;
 
                 prev = trav;
+                trav = NULL;
         }
 
         ret = 0;
 out:
+        if (trav)
+                GF_FREE (trav);
+
         return ret;
 }
 

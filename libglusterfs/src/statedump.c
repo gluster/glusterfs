@@ -608,6 +608,9 @@ gf_proc_dump_options_init ()
 
         }
 
+        if (fp)
+                fclose (fp);
+
         return 0;
 }
 

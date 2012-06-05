@@ -471,12 +471,16 @@ set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data)
                         temp_stripeopt = NULL;
                 else
                         temp_stripeopt = priv->pattern;
-                priv->pattern = stripe_opt;
+
                 stripe_opt->next = temp_stripeopt;
 
-                stripe_str = strtok_r (NULL, ",", &tmp_str);
+                priv->pattern = stripe_opt;
+                stripe_opt = NULL;
+
                 GF_FREE (dup_str);
                 dup_str = NULL;
+
+                stripe_str = strtok_r (NULL, ",", &tmp_str);
         }
 
         ret = 0;
@@ -484,6 +488,9 @@ out:
 
         if (dup_str)
                 GF_FREE (dup_str);
+
+        if (stripe_opt)
+                GF_FREE (stripe_opt);
 
         return ret;
 }

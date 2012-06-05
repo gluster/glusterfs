@@ -1502,6 +1502,7 @@ rpcsvc_create_listeners (rpcsvc_t *svc, dict_t *options, char *name)
                 }
 
                 GF_FREE (transport_name);
+                transport_name = NULL;
                 count++;
         }
 
@@ -1513,17 +1514,17 @@ rpcsvc_create_listeners (rpcsvc_t *svc, dict_t *options, char *name)
         transport_type = NULL;
 
 out:
-        if (str != NULL) {
+        if (str)
                 GF_FREE (str);
-        }
 
-        if (transport_type != NULL) {
+        if (transport_type)
                 GF_FREE (transport_type);
-        }
 
-        if (tmp != NULL) {
+        if (tmp)
                 GF_FREE (tmp);
-        }
+
+        if (transport_name)
+                GF_FREE (transport_name);
 
         return count;
 }
@@ -2398,6 +2399,9 @@ rpcsvc_transport_privport_check (rpcsvc_t *svc, char *volname,
                         " allowed");
 
 err:
+        if (srchstr)
+                GF_FREE (srchstr);
+
         return ret;
 }
 

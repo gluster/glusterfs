@@ -80,7 +80,7 @@ dht_filter_loc_subvol_key (xlator_t *this, loc_t *loc, loc_t *new_loc,
         int            ret       = 0; /* not found */
 
         /* Why do other tasks if first required 'char' itself is not there */
-        if (!loc->name || !strchr (loc->name, '@'))
+        if (!new_loc || !loc || !loc->name || !strchr (loc->name, '@'))
                 goto out;
 
         trav = this->children;

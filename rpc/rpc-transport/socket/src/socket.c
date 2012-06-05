@@ -314,7 +314,7 @@ __socket_server_bind (rpc_transport_t *this)
                 memcpy (&unix_addr, SA (&this->myinfo.sockaddr),
                         this->myinfo.sockaddr_len);
                 reuse_check_sock = socket (AF_UNIX, SOCK_STREAM, 0);
-                if (reuse_check_sock > 0) {
+                if (reuse_check_sock >= 0) {
                         ret = connect (reuse_check_sock, SA (&unix_addr),
                                        this->myinfo.sockaddr_len);
                         if ((ret == -1) && (ECONNREFUSED == errno)) {
