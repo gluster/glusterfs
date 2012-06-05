@@ -76,8 +76,10 @@ cli_cmd_peer_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (ret == 1) {
                 ret = 0;
         } else {
+                cli_out ("%s is an invalid address", words[2]);
                 cli_usage_out (word->pattern);
                 parse_error = 1;
+                ret = -1;
                 goto out;
         }
 /*        if (words[3]) {
