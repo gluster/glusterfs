@@ -815,7 +815,6 @@ __socket_read_vectored_request (rpc_transport_t *this, rpcsvc_vector_sizer vecto
         uint32_t          remaining_size         = 0;
         ssize_t           readsize               = 0;
         size_t            size = 0;
-        char             *proghdr_buf = NULL;
 
         GF_VALIDATE_OR_GOTO ("socket", this, out);
         GF_VALIDATE_OR_GOTO ("socket", this->private, out);
@@ -872,10 +871,13 @@ __socket_read_vectored_request (rpc_transport_t *this, rpcsvc_vector_sizer vecto
 
         case SP_STATE_READ_VERFBYTES:
 sp_state_read_verfbytes:
-                proghdr_buf = priv->incoming.frag.fragcurrent;
+		/* set the base_addr 'persistently' across multiple calls
+		   into the state machine */
+                priv->incoming.proghdr_base_addr = priv->incoming.frag.fragcurrent;
+
                 priv->incoming.frag.call_body.request.vector_sizer_state =
                         vector_sizer (priv->incoming.frag.call_body.request.vector_sizer_state,
-                                      &readsize, proghdr_buf,
+                                      &readsize, priv->incoming.proghdr_base_addr,
                                       priv->incoming.frag.fragcurrent);
                 __socket_proto_init_pending (priv, readsize);
                 priv->incoming.frag.call_body.request.vector_state
@@ -885,21 +887,41 @@ sp_state_read_verfbytes:
 
         case SP_STATE_READING_PROGHDR:
                 __socket_proto_read (priv, ret);
-sp_state_reading_proghdr:
+		priv->incoming.frag.call_body.request.vector_state =
+			SP_STATE_READ_PROGHDR;
+
+		/* fall through */
+
+	case SP_STATE_READ_PROGHDR:
+sp_state_read_proghdr:
                 priv->incoming.frag.call_body.request.vector_sizer_state =
                         vector_sizer (priv->incoming.frag.call_body.request.vector_sizer_state,
-                                      &readsize, proghdr_buf,
+                                      &readsize,
+				      priv->incoming.proghdr_base_addr,
                                       priv->incoming.frag.fragcurrent);
                 if (readsize == 0) {
                         priv->incoming.frag.call_body.request.vector_state =
-                                SP_STATE_READ_PROGHDR;
-                } else {
-                        __socket_proto_init_pending (priv, readsize);
-                        __socket_proto_read (priv, ret);
-                        goto sp_state_reading_proghdr;
+                                SP_STATE_READ_PROGHDR_XDATA;
+			goto sp_state_read_proghdr_xdata;
                 }
 
-        case SP_STATE_READ_PROGHDR:
+		__socket_proto_init_pending (priv, readsize);
+
+                priv->incoming.frag.call_body.request.vector_state =
+			SP_STATE_READING_PROGHDR_XDATA;
+
+		/* fall through */
+
+	case SP_STATE_READING_PROGHDR_XDATA:
+		__socket_proto_read (priv, ret);
+
+		priv->incoming.frag.call_body.request.vector_state =
+			SP_STATE_READ_PROGHDR;
+		/* check if the vector_sizer() has more to say */
+		goto sp_state_read_proghdr;
+
+        case SP_STATE_READ_PROGHDR_XDATA:
+sp_state_read_proghdr_xdata:
                 if (priv->incoming.payload_vector.iov_base == NULL) {
 
                         size = RPC_FRAGSIZE (priv->incoming.fraghdr) -

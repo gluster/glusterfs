@@ -72,6 +72,12 @@ typedef enum {
         SP_STATE_READ_VERFBYTES,        /* read verifier data */
         SP_STATE_READING_PROGHDR,
         SP_STATE_READ_PROGHDR,
+        SP_STATE_READING_PROGHDR_XDATA,
+        SP_STATE_READ_PROGHDR_XDATA,    /* It's a bad "name" in the generic
+					   RPC state machine, but greatly
+					   aids code review (and xdata is
+					   the only "consumer" of this state)
+					*/
         SP_STATE_READING_PROG,
 } sp_rpcfrag_vectored_request_state_t;
 
@@ -165,6 +171,7 @@ typedef struct {
                         sp_rpcfrag_simple_msg_state_t     simple_state;
                         sp_rpcfrag_state_t state;
                 } frag;
+		char                *proghdr_base_addr;
                 struct iobuf        *iobuf;
                 size_t               iobuf_size;
                 struct iovec         vector[2];
