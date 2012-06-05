@@ -603,6 +603,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
                         "No self-heal needed for %s",
                         local->loc.path);
 
+                local->govinda_gOvinda = 0;
                 afr_sh_data_finish (frame, this);
                 return 0;
         }
@@ -635,6 +636,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
                 return 0;
         }
 
+        local->govinda_gOvinda = 0;
         source = afr_sh_select_source (sh->sources, priv->child_count);
 
         if (source == -1) {

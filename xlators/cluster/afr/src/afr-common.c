@@ -924,7 +924,6 @@ afr_detect_self_heal_by_lookup_status (afr_local_t *local, xlator_t *this)
             IA_ISREG (local->cont.lookup.inode->ia_type)) {
                 local->self_heal.need_data_self_heal = _gf_true;
                 local->self_heal.need_gfid_self_heal    = _gf_true;
-                local->self_heal.need_missing_entry_self_heal    = _gf_true;
                 gf_log (this->name, GF_LOG_WARNING,
                         "split brain detected during lookup of %s.",
                         local->loc.path);
