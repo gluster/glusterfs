@@ -305,6 +305,7 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 				"volume option validation failed");
 			goto fail;
 		}
+                vol_opt = NULL;
 	}
 
         trans->options = options;
