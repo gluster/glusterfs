@@ -2296,7 +2296,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
                               &local->loc);
         local->fop = GF_FOP_LOOKUP;
         if (priv->choose_local && !priv->did_discovery) {
-                if (__is_root_gfid(gfid_req)) {
+                if (gfid_req && __is_root_gfid(gfid_req)) {
                         local->do_discovery = _gf_true;
                         priv->did_discovery = _gf_true;
                 }
