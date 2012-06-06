@@ -626,7 +626,7 @@ fuse_fd_inherit_directio (xlator_t *this, fd_t *fd, struct fuse_open_out *foo)
 
         tmp_fd = fd_lookup (fd->inode, 0);
         if (tmp_fd) {
-                tmp_fdctx = fuse_fd_ctx_get (this, fd);
+                tmp_fdctx = fuse_fd_ctx_get (this, tmp_fd);
                 if (tmp_fdctx) {
                         foo->open_flags &= ~FOPEN_DIRECT_IO;
                         foo->open_flags |= (tmp_fdctx->open_flags
