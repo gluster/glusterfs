@@ -124,6 +124,14 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --volume-name=$volume_name");
     fi
 
+    if [ -n "$attribute_timeout" ]; then
+        cmd_line=$(echo "$cmd_line --attribute-time=$attribute_timeout");
+    fi
+
+    if [ -n "$entry_timeout" ]; then
+        cmd_line=$(echo "$cmd_line --entry-timeout=$entry_timeout");
+    fi
+
     # for rdma volume, we have to fetch volfile with '.rdma' added
     # to volume name, so that it fetches the right client vol file
     volume_id_rdma="";
@@ -309,6 +317,9 @@ main ()
                                 volfile_max_fetch_attempts=$value ;;
                             "backupvolfile-server")
                                 backupvolfile_server=$value ;;
+                            "attribute-timeout")
+                                attribute_timeout=$value ;;
+                            "entry-timeout")    entry_timeout=$value ;;
                             *) echo "unknown option $key (ignored)" ;;
                         esac
                 esac
