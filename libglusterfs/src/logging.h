@@ -73,6 +73,10 @@ extern char gf_log_xl_log_set;
                          levl, ##fmt);                                  \
         } while (0)
 
+#define gf_log_eh(fmt...) do {                                          \
+        _gf_log_eh (__FUNTION__, ##fmt);                                \
+        } while (0)
+
 #define gf_log_callingfn(dom, levl, fmt...) do {                        \
                 FMT_WARN (fmt);                                         \
                                                                         \
@@ -99,8 +103,7 @@ extern char gf_log_xl_log_set;
 
 
 void gf_log_logrotate (int signum);
-int
-gf_log_eh (void *data);
+
 void gf_log_globals_init (void);
 int gf_log_init (const char *filename);
 void gf_log_cleanup (void);
@@ -117,6 +120,8 @@ int _gf_log_callingfn (const char *domain, const char *file,
 int _gf_log_nomem (const char *domain, const char *file,
                    const char *function, int line, gf_loglevel_t level,
                    size_t size);
+
+int _gf_log_eh (const char *function, const char *fmt, ...);
 
 int gf_log_from_client (const char *msg, char *identifier);
 
