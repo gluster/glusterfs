@@ -589,13 +589,49 @@ out:
 }
 
 int
-gf_log_eh (void *data)
+_gf_log_eh (const char *function, const char *fmt, ...)
 {
-        int    ret = -1;
+        int          ret   = -1;
+        va_list      ap;
+        char         *str1 = NULL;
+        char         *str2 = NULL;
+        char         *msg  = NULL;
+        xlator_t     *this = NULL;
 
-        ret = eh_save_history (THIS->history, data);
+        this = THIS;
 
-        return ret;
+        ret = gf_asprintf (&str1, "[%d] %s: ",
+                           ((this->graph)?this->graph->id:0),
+                           function);
+        if (-1 == ret) {
+                goto out;
+        }
+
+        va_start (ap, fmt);
+
+        ret = vasprintf (&str2, fmt, ap);
+        if (-1 == ret) {
+                goto out;
+        }
+
+        va_end (ap);
+
+        msg = GF_MALLOC (strlen (str1) + strlen (str2) + 1, gf_common_mt_char);
+
+        strcpy (msg, str1);
+        strcat (msg, str2);
+
+        ret = eh_save_history (this->history, msg);
+
+out:
+        if (str1)
+                GF_FREE (str1);
+
+        /* Use FREE instead of GF_FREE since str2 was allocated by vasprintf */
+        if (str2)
+                FREE (str2);
+
+         return ret;
 }
 
 int
