@@ -220,7 +220,7 @@ cont:
 
         ret = -1;
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (uuid_compare (brickinfo->uuid, priv->uuid))
+                if (uuid_compare (brickinfo->uuid, MY_UUID))
                         continue;
 
                 if (brick &&

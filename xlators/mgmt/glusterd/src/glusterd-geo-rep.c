@@ -85,7 +85,7 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
                         dict->extra_stdfree = cli_req.dict.dict_val;
                 }
 
-                host_uuid = gf_strdup (uuid_utoa(priv->uuid));
+                host_uuid = gf_strdup (uuid_utoa(MY_UUID));
                 if (host_uuid == NULL) {
                         gf_log ("glusterd", GF_LOG_ERROR, "failed to get"
                                 "the uuid of the host machine");
@@ -897,7 +897,7 @@ glusterd_op_verify_gsync_start_options (glusterd_volinfo_t *volinfo,
         /*Check if the gsync is already started in cmd. inited host
          * If so initiate add it into the glusterd's priv*/
         ret = glusterd_gsync_get_uuid (slave, volinfo, uuid);
-        if ((ret == 0) && (uuid_compare (priv->uuid, uuid) == 0)) {
+        if ((ret == 0) && (uuid_compare (MY_UUID, uuid) == 0)) {
                 ret = glusterd_check_gsync_running_local (volinfo->volname,
                                                           slave, &is_running);
                 if (ret) {
@@ -1418,14 +1418,14 @@ glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave,
         if (glusterd_gsync_get_uuid (slave, volinfo, uuid))
                 /* session does not exist, nothing to do */
                 goto out;
-        if (uuid_compare (priv->uuid, uuid) == 0) {
+        if (uuid_compare (MY_UUID, uuid) == 0) {
                 ret = stop_gsync (volinfo->volname, slave, &status_msg);
                 if (ret == 0 && status_msg)
                         ret = dict_set_str (resp_dict, "gsync-status",
                                             status_msg);
                 if (ret == 0)
                         ret = glusterd_start_gsync (volinfo, slave,
-                                                    uuid_utoa(priv->uuid), NULL);
+                                                    uuid_utoa(MY_UUID), NULL);
         }
 
  out:
@@ -1518,7 +1518,7 @@ glusterd_get_gsync_status_mst_slv (glusterd_volinfo_t *volinfo,
         priv = THIS->private;
 
         ret = glusterd_gsync_get_uuid (slave, volinfo, uuid);
-        if ((ret == 0) && (uuid_compare (priv->uuid, uuid) != 0))
+        if ((ret == 0) && (uuid_compare (MY_UUID, uuid) != 0))
                 goto out;
 
         if (ret) {
@@ -1781,7 +1781,7 @@ glusterd_do_gsync_log_rotation_mst_slv (glusterd_volinfo_t *volinfo, char *slave
         priv = this->private;
 
         ret = glusterd_gsync_get_uuid (slave, volinfo, uuid);
-        if ((ret == 0) && (uuid_compare (priv->uuid, uuid) != 0))
+        if ((ret == 0) && (uuid_compare (MY_UUID, uuid) != 0))
                 goto out;
 
         if (ret) {
@@ -2010,7 +2010,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 if (ret)
                         goto out;
 
-                if (uuid_compare (priv->uuid, uuid) != 0) {
+                if (uuid_compare (MY_UUID, uuid) != 0) {
                         goto out;
                 }
 

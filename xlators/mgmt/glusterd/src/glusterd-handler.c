@@ -446,7 +446,7 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx)
         priv = this->private;
         GF_ASSERT (priv);
 
-        ret = glusterd_lock (priv->uuid);
+        ret = glusterd_lock (MY_UUID);
 
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -471,7 +471,7 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx)
 
 out:
         if (locked && ret)
-                glusterd_unlock (priv->uuid);
+                glusterd_unlock (MY_UUID);
 
         gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -749,7 +749,7 @@ glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
                 goto out;
         }
 
-        if (!uuid_compare (uuid, priv->uuid)) {
+        if (!uuid_compare (uuid, MY_UUID)) {
                 op_errno = GF_DEPROBE_LOCALHOST;
                 ret = -1;
                 goto out;
@@ -1678,7 +1678,7 @@ glusterd_handle_friend_update (rpcsvc_request_t *req)
                         continue;
                 }
 
-                if (!uuid_compare (uuid, priv->uuid)) {
+                if (!uuid_compare (uuid, MY_UUID)) {
                         gf_log ("", GF_LOG_INFO, "Received my uuid as Friend");
                         i++;
                         continue;
@@ -1703,7 +1703,7 @@ glusterd_handle_friend_update (rpcsvc_request_t *req)
         }
 
 out:
-        uuid_copy (rsp.uuid, priv->uuid);
+        uuid_copy (rsp.uuid, MY_UUID);
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gd1_mgmt_friend_update_rsp);
         if (dict) {

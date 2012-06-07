@@ -714,7 +714,7 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
-                if (!uuid_compare (brick_info->uuid, priv->uuid)) {
+                if (!uuid_compare (brick_info->uuid, MY_UUID)) {
                         ret = glusterd_brick_create_path (brick_info->hostname,
                                                           brick_info->path,
                                                           volume_uuid,
@@ -1765,7 +1765,7 @@ glusterd_clearlocks_get_local_client_ports (glusterd_volinfo_t *volinfo,
         index = -1;
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 index++;
-                if (uuid_compare (brickinfo->uuid, priv->uuid))
+                if (uuid_compare (brickinfo->uuid, MY_UUID))
                         continue;
 
                 port = pmap_registry_search (THIS, brickinfo->path,

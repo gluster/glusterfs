@@ -79,23 +79,21 @@ glusterd_opinfo_init ()
         return ret;
 }
 
-static int
-glusterd_uuid_init (int flag)
+int
+glusterd_uuid_init ()
 {
         int             ret = -1;
         glusterd_conf_t *priv = NULL;
 
         priv = THIS->private;
 
-        if (!flag) {
-                ret = glusterd_retrieve_uuid ();
-                if (!ret) {
-                        uuid_copy (glusterd_uuid, priv->uuid);
-                        gf_log ("glusterd", GF_LOG_INFO,
-                                "retrieved UUID: %s", uuid_utoa (priv->uuid));
-                        return 0;
-                }
-        }
+	ret = glusterd_retrieve_uuid ();
+	if (ret == 0) {
+		uuid_copy (glusterd_uuid, priv->uuid);
+		gf_log ("glusterd", GF_LOG_INFO,
+			"retrieved UUID: %s", uuid_utoa (priv->uuid));
+		return 0;
+	}
 
         uuid_generate (glusterd_uuid);
 
@@ -977,10 +975,6 @@ init (xlator_t *this)
         this->private = conf;
         (void) glusterd_nodesvc_set_running ("glustershd", _gf_false);
         /* this->ctx->top = this;*/
-
-        ret = glusterd_uuid_init (first_time);
-        if (ret < 0)
-                goto out;
 
         GLUSTERD_GET_HOOKS_DIR (hooks_dir, GLUSTERD_HOOK_VER, conf);
         if (stat (hooks_dir, &buf)) {

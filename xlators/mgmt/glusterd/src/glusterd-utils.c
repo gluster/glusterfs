@@ -340,7 +340,7 @@ glusterd_get_uuid (uuid_t *uuid)
 
         GF_ASSERT (priv);
 
-        uuid_copy (*uuid, priv->uuid);
+        uuid_copy (*uuid, MY_UUID);
 
         return 0;
 }
@@ -1243,7 +1243,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
 	}
 #endif
         (void) snprintf (glusterd_uuid, 1024, "*-posix.glusterd-uuid=%s",
-                         uuid_utoa (priv->uuid));
+                         uuid_utoa (MY_UUID));
 	runner_add_args (&runner, SBIN_DIR"/glusterfsd",
                          "-s", "localhost", "--volfile-id", volfile,
                          "-p", pidfile, "-S", socketpath,
@@ -2882,7 +2882,7 @@ glusterd_nodesvc_start (char *server)
                   server);
         snprintf (volfileid, sizeof (volfileid), "gluster/%s", server);
 
-        glusterd_nodesvc_set_socket_filepath (rundir, priv->uuid,
+        glusterd_nodesvc_set_socket_filepath (rundir, MY_UUID,
                                               sockfpath, sizeof (sockfpath));
 
         runinit (&runner);
@@ -2909,7 +2909,7 @@ glusterd_nodesvc_start (char *server)
 
         if (!strcmp (server, "glustershd")) {
                 snprintf (glusterd_uuid_option, sizeof (glusterd_uuid_option),
-                          "*replicate*.node-uuid=%s", uuid_utoa (priv->uuid));
+                          "*replicate*.node-uuid=%s", uuid_utoa (MY_UUID));
                 runner_add_args (&runner, "--xlator-option",
                                  glusterd_uuid_option, NULL);
         }
@@ -2958,7 +2958,7 @@ glusterd_nodesvc_unlink_socket_file (char *server)
         glusterd_get_nodesvc_rundir (server, priv->workdir,
                                      rundir, sizeof (rundir));
 
-        glusterd_nodesvc_set_socket_filepath (rundir, priv->uuid,
+        glusterd_nodesvc_set_socket_filepath (rundir, MY_UUID,
                                               sockfpath, sizeof (sockfpath));
 
         ret = unlink (sockfpath);
@@ -3084,7 +3084,7 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.path", count);
-        ret = dict_set_dynstr (dict, key, gf_strdup (uuid_utoa (priv->uuid)));
+        ret = dict_set_dynstr (dict, key, gf_strdup (uuid_utoa (MY_UUID)));
         if (ret)
                 goto out;
 
@@ -4186,7 +4186,7 @@ glusterd_hostname_to_uuid (char *hostname, uuid_t uuid)
                 if (ret)
                         goto out;
                 else
-                        uuid_copy (uuid, priv->uuid);
+                        uuid_copy (uuid, MY_UUID);
         } else {
                 uuid_copy (uuid, peerinfo->uuid);
         }
@@ -4301,7 +4301,7 @@ glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
                 goto out;
         }
 
-        if (!uuid_compare (priv->uuid, newbrickinfo->uuid))
+        if (!uuid_compare (MY_UUID, newbrickinfo->uuid))
                 goto brick_validation;
         ret = glusterd_friend_find_by_uuid (newbrickinfo->uuid, &peerinfo);
         if (ret)
@@ -4901,7 +4901,7 @@ glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
         priv = this->private;
         GF_ASSERT (priv);
 
-        uuid_utoa_r (priv->uuid, uuid_str);
+        uuid_utoa_r (MY_UUID, uuid_str);
         if (strcmp (uuid_str, glusterd_uuid_str))
                 goto out;
 
@@ -5437,7 +5437,7 @@ glusterd_uuid_to_hostname (uuid_t uuid)
         priv = THIS->private;
         GF_ASSERT (priv);
 
-        if (!uuid_compare (priv->uuid, uuid)) {
+        if (!uuid_compare (MY_UUID, uuid)) {
                 hostname = gf_strdup ("localhost");
         }
         if (!list_empty (&priv->peers)) {

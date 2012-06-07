@@ -296,7 +296,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         runner_add_arg (&runner, "--xlator-option");
         runner_argprintf ( &runner, "*dht.rebalance-cmd=%d",cmd);
         runner_add_arg (&runner, "--xlator-option");
-        runner_argprintf (&runner, "*dht.node-uuid=%s", uuid_utoa(priv->uuid));
+        runner_argprintf (&runner, "*dht.node-uuid=%s", uuid_utoa(MY_UUID));
         runner_add_arg (&runner, "--socket-file");
         runner_argprintf (&runner, "%s",sockfile);
         runner_add_arg (&runner, "--pid-file");
@@ -464,7 +464,7 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
 
         glusterd_rebalance_cmd_attempted_log (cmd, volname);
 
-        ret = dict_set_static_bin (dict, "node-uuid", priv->uuid, 16);
+        ret = dict_set_static_bin (dict, "node-uuid", MY_UUID, 16);
         if (ret)
                 goto out;
 
