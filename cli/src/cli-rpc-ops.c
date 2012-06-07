@@ -5802,8 +5802,9 @@ cmd_heal_volume_brick_out (dict_t *dict, int brick)
         char            *status = NULL;
         uint64_t        i = 0;
         uint32_t        time = 0;
-        char            timestr[256];
-        struct tm       *tm = NULL;
+        char            timestr[256] = {0};
+        struct tm       tm = {0};
+        time_t          ltime = 0;
 
         snprintf (key, sizeof (key), "%d-hostname", brick);
         ret = dict_get_str (dict, key, &hostname);
@@ -5832,9 +5833,15 @@ cmd_heal_volume_brick_out (dict_t *dict, int brick)
                 if (!time) {
                         cli_out ("%s", path);
                 } else {
-                        tm = localtime ((time_t*)(&time));
-                        strftime (timestr, sizeof (timestr),
-                                  "%Y-%m-%d %H:%M:%S", tm);
+                        ltime = time;
+                        memset (&tm, 0, sizeof (tm));
+                        if (!localtime_r (&ltime, &tm)) {
+                                snprintf (timestr, sizeof (timestr),
+                                          "Invalid time");
+                        } else {
+                                strftime (timestr, sizeof (timestr),
+                                          "%Y-%m-%d %H:%M:%S", &tm);
+                        }
                         if (i ==0) {
                                 cli_out ("at                    path on brick");
                                 cli_out ("-----------------------------------");
