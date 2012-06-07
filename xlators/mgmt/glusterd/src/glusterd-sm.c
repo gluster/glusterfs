@@ -554,7 +554,7 @@ glusterd_peer_detach_cleanup (glusterd_conf_t *priv)
         list_for_each_entry_safe (volinfo,tmp_volinfo,
                                   &priv->volumes, vol_list) {
                 if (!glusterd_friend_contains_vol_bricks (volinfo,
-                                                          priv->uuid)) {
+                                                          MY_UUID)) {
                         gf_log (THIS->name, GF_LOG_INFO,
                                 "Deleting stale volume %s", volinfo->volname);
                         ret = glusterd_delete_volume (volinfo);

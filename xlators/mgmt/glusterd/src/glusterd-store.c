@@ -1391,7 +1391,7 @@ glusterd_store_uuid ()
                 goto out;
         }
         ret = glusterd_store_save_value (handle->fd, GLUSTERD_STORE_UUID_KEY,
-                                         uuid_utoa (priv->uuid));
+                                         uuid_utoa (MY_UUID));
 
         if (ret) {
                 gf_log (this->name, GF_LOG_CRITICAL,
@@ -1444,7 +1444,7 @@ glusterd_retrieve_uuid ()
                 goto out;
         }
 
-        uuid_parse (uuid_str, priv->uuid);
+        uuid_parse (uuid_str, MY_UUID);
 
 out:
         if (uuid_str)

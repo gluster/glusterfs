@@ -1460,7 +1460,7 @@ glusterd3_1_probe (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
-        uuid_copy (req.uuid, priv->uuid);
+        uuid_copy (req.uuid, MY_UUID);
         req.hostname = gf_strdup (hostname);
         req.port = port;
 
@@ -1505,7 +1505,7 @@ glusterd3_1_friend_add (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
-        uuid_copy (req.uuid, priv->uuid);
+        uuid_copy (req.uuid, MY_UUID);
         req.hostname = peerinfo->hostname;
         req.port = peerinfo->port;
 
@@ -1553,7 +1553,7 @@ glusterd3_1_friend_remove (call_frame_t *frame, xlator_t *this,
 
         peerinfo = event->peerinfo;
 
-        uuid_copy (req.uuid, priv->uuid);
+        uuid_copy (req.uuid, MY_UUID);
         req.hostname = peerinfo->hostname;
         req.port = peerinfo->port;
         ret = glusterd_submit_request (peerinfo->rpc, &req, frame, peerinfo->peer,
@@ -1598,7 +1598,7 @@ glusterd3_1_friend_update (call_frame_t *frame, xlator_t *this,
         req.friends.friends_val = dict_buf;
         req.friends.friends_len = len;
 
-        uuid_copy (req.uuid, priv->uuid);
+        uuid_copy (req.uuid, MY_UUID);
 
         dummy_frame = create_frame (this, this->ctx->pool);
         ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,

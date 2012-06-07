@@ -1532,7 +1532,7 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                 if (ret)
                         goto out;
 
-                if (uuid_compare (brickinfo->uuid, priv->uuid))
+                if (uuid_compare (brickinfo->uuid, MY_UUID))
                         goto out;
 
                 glusterd_add_brick_to_dict (volinfo, brickinfo, rsp_dict,
@@ -1546,7 +1546,7 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
         } else {
                 list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                         brick_index++;
-                        if (uuid_compare (brickinfo->uuid, priv->uuid))
+                        if (uuid_compare (brickinfo->uuid, MY_UUID))
                                 continue;
 
                         glusterd_add_brick_to_dict (volinfo, brickinfo,
@@ -1684,7 +1684,7 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
         priv = this->private;
         GF_ASSERT (priv);
 
-        /*ret = glusterd_unlock (priv->uuid);
+        /*ret = glusterd_unlock (MY_UUID);
 
         if (ret)
                 goto out;
@@ -2670,7 +2670,7 @@ glusterd_op_txn_complete ()
         glusterd_op_reset_ctx ();
         glusterd_op_clear_errstr ();
 
-        ret = glusterd_unlock (priv->uuid);
+        ret = glusterd_unlock (MY_UUID);
 
         /* unlock cant/shouldnt fail here!! */
         if (ret) {
@@ -3146,7 +3146,7 @@ glusterd_profile_volume_brick_rsp (void *pending_entry,
                 snprintf (brick, sizeof (brick), "%s:%s", brickinfo->hostname,
                           brickinfo->path);
         } else if (type == GD_NODE_NFS) {
-                snprintf (brick, sizeof (brick), "%s", uuid_utoa (priv->uuid));
+                snprintf (brick, sizeof (brick), "%s", uuid_utoa (MY_UUID));
         }
         full_brick = gf_strdup (brick);
         GF_ASSERT (full_brick);
@@ -3350,7 +3350,7 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
         if (ret)
                 gf_log (THIS->name, GF_LOG_ERROR, "Failed to set count");
 
-        snprintf (buf, 1024, "%s", uuid_utoa (priv->uuid));
+        snprintf (buf, 1024, "%s", uuid_utoa (MY_UUID));
         node_str = gf_strdup (buf);
 
         snprintf (key, 256, "node-uuid-%d",i);
@@ -3769,7 +3769,7 @@ _select_rxlators_with_local_bricks (xlator_t *this, glusterd_volinfo_t *volinfo,
                 if (uuid_is_null (brickinfo->uuid))
                         (void)glusterd_resolve_brick (brickinfo);
 
-                if (!uuid_compare (priv->uuid, brickinfo->uuid))
+                if (!uuid_compare (MY_UUID, brickinfo->uuid))
                         add = _gf_true;
                 if (index % replica_count == 0) {
                         if (add) {
@@ -3809,7 +3809,7 @@ _select_rxlators_for_full_self_heal (xlator_t *this,
                         uuid_copy (candidate, brickinfo->uuid);
 
                 if (index % replica_count == 0) {
-                        if (!uuid_compare (priv->uuid, candidate)) {
+                        if (!uuid_compare (MY_UUID, candidate)) {
                                 _add_rxlator_to_dict (dict, volinfo->volname,
                                                       (index-1)/replica_count,
                                                       rxlator_count);
@@ -4016,7 +4016,7 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr)
                 if (ret)
                         goto out;
 
-                if (uuid_compare (brickinfo->uuid, priv->uuid)||
+                if (uuid_compare (brickinfo->uuid, MY_UUID)||
                     !glusterd_is_brick_started (brickinfo))
                         goto out;
 
@@ -4073,7 +4073,7 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr)
         } else {
                 list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                         brick_index++;
-                        if (uuid_compare (brickinfo->uuid, priv->uuid) ||
+                        if (uuid_compare (brickinfo->uuid, MY_UUID) ||
                             !glusterd_is_brick_started (brickinfo)) {
                                 continue;
                         }
@@ -4118,7 +4118,7 @@ glusterd_op_ac_send_brick_op (glusterd_op_sm_event_t *event, void *ctx)
                                      gf_gld_mt_op_allack_ctx_t);
                 op = glusterd_op_get_op ();
                 req_ctx->op = op;
-                uuid_copy (req_ctx->uuid, priv->uuid);
+                uuid_copy (req_ctx->uuid, MY_UUID);
                 ret = glusterd_op_build_payload (&req_ctx->dict, &op_errstr);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,

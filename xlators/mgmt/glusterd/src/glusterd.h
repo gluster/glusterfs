@@ -363,6 +363,20 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
         } while (0)
 
 
+int glusterd_uuid_init();
+
+#define MY_UUID (__glusterd_uuid())
+
+static inline unsigned char *
+__glusterd_uuid()
+{
+	glusterd_conf_t *priv = THIS->private;
+
+	if (uuid_is_null (priv->uuid))
+		glusterd_uuid_init();
+	return &priv->uuid[0];
+}
+
 int32_t
 glusterd_brick_from_brickinfo (glusterd_brickinfo_t *brickinfo,
                                char **new_brick);
