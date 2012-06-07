@@ -178,6 +178,32 @@ sh_full_write_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+static void
+sh_prune_writes_needed (call_frame_t *sh_frame, call_frame_t *rw_frame,
+                        afr_private_t *priv)
+{
+        afr_local_t     *sh_local     = NULL;
+        afr_self_heal_t *sh           = NULL;
+        afr_local_t     *rw_local   = NULL;
+        afr_self_heal_t *rw_sh      = NULL;
+        int             i             = 0;
+
+        sh_local   = sh_frame->local;
+        sh         = &sh_local->self_heal;
+
+        rw_local = rw_frame->local;
+        rw_sh    = &rw_local->self_heal;
+
+        /* full self-heal guarantees there exists atleast 1 file with size 0
+         * That means for other files we can preserve holes that come after
+         * its size
+         */
+        for (i = 0; i < priv->child_count; i++) {
+                if (rw_sh->write_needed[i] &&
+                    ((rw_sh->offset + 1) > sh->buf[i].ia_size))
+                        rw_sh->write_needed[i] = 0;
+        }
+}
 
 static int
 sh_full_read_cbk (call_frame_t *rw_frame, void *cookie,
@@ -203,10 +229,7 @@ sh_full_read_cbk (call_frame_t *rw_frame, void *cookie,
         sh_local = sh_frame->local;
         sh       = &sh_local->self_heal;
 
-        call_count = sh->active_sinks;
-
         offset     = rw_sh->offset;
-        rw_local->call_count = call_count;
 
         gf_log (this->name, GF_LOG_TRACE,
                 "read %d bytes of data from %s, offset %"PRId64"",
@@ -223,26 +246,25 @@ sh_full_read_cbk (call_frame_t *rw_frame, void *cookie,
                 return 0;
         }
 
+        if (sh->file_has_holes && iov_0filled (vector, count) == 0)
+                sh_prune_writes_needed (sh_frame, rw_frame, priv);
+
+        for (i = 0; i < priv->child_count; i++)
+                if (rw_sh->write_needed[i])
+                        call_count++;
+
         rw_sh->offset += op_ret;
 
-        if (sh->file_has_holes) {
-                if (iov_0filled (vector, count) == 0) {
-                        /* the iter function depends on the
-                           sh->offset already being updated
-                           above
-                        */
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "block has all 0 filled");
-                        sh_full_loop_return (rw_frame, this, offset);
-                        goto out;
-                }
+        rw_local->call_count = call_count;
+        if (call_count == 0) {
+                gf_log (this->name, GF_LOG_DEBUG, "block has all 0 filled");
+                sh_full_loop_return (rw_frame, this, offset);
+                goto out;
         }
 
         for (i = 0; i < priv->child_count; i++) {
-                if (sh->sources[i] || !sh_local->child_up[i])
+                if (!rw_sh->write_needed[i])
                         continue;
-
-                /* this is a sink, so write to it */
 
                 STACK_WIND_COOKIE (rw_frame, sh_full_write_cbk,
                                    (void *) (long) i,
@@ -270,6 +292,7 @@ sh_full_read_write (call_frame_t *frame, xlator_t *this, off_t offset)
         afr_self_heal_t *sh       = NULL;
         call_frame_t    *rw_frame = NULL;
         int32_t          op_errno = 0;
+        int              i = 0;
 
         priv  = this->private;
         local = frame->local;
@@ -283,6 +306,16 @@ sh_full_read_write (call_frame_t *frame, xlator_t *this, off_t offset)
 
         rw_frame->local = rw_local;
         rw_sh           = &rw_local->self_heal;
+        rw_sh->write_needed = GF_CALLOC (priv->child_count,
+                                         sizeof (*rw_sh->write_needed),
+                                         gf_afr_mt_char);
+        if (!rw_sh->write_needed)
+                goto out;
+        for (i = 0; i < priv->child_count; i++) {
+                if (sh->sources[i] || !local->child_up[i])
+                        continue;
+                rw_sh->write_needed[i] = 1;
+        }
 
         rw_sh->offset       = offset;
         rw_sh->sh_frame     = frame;
@@ -297,6 +330,8 @@ sh_full_read_write (call_frame_t *frame, xlator_t *this, off_t offset)
 
 out:
         sh->op_failed = 1;
+        if (rw_frame)
+                AFR_STACK_DESTROY (rw_frame);
 
         sh_full_loop_driver (frame, this, _gf_false);
 
@@ -417,9 +452,6 @@ sh_diff_private_cleanup (call_frame_t *frame, xlator_t *this)
 
         for (i = 0; i < priv->data_self_heal_window_size; i++) {
                 if (sh_priv->loops[i]) {
-                        if (sh_priv->loops[i]->write_needed)
-                                GF_FREE (sh_priv->loops[i]->write_needed);
-
                         if (sh_priv->loops[i]->checksum)
                                 GF_FREE (sh_priv->loops[i]->checksum);
 
@@ -465,9 +497,6 @@ sh_diff_loop_state_reset (struct sh_diff_loop_state *loop_state, int child_count
 {
         loop_state->active = _gf_false;
 //        loop_state->offset = 0;
-
-        memset (loop_state->write_needed,
-                0, sizeof (*loop_state->write_needed) * child_count);
 
         memset (loop_state->checksum,
                 0, MD5_DIGEST_LEN * child_count);
@@ -654,7 +683,7 @@ sh_diff_read_cbk (call_frame_t *rw_frame, void *cookie,
         loop_index = __loop_index ((uint32_t) (long) cookie);
         loop_state = sh_priv->loops[loop_index];
 
-        call_count = sh_diff_number_of_writes_needed (loop_state->write_needed,
+        call_count = sh_diff_number_of_writes_needed (rw_sh->write_needed,
                                                       priv->child_count);
 
         rw_local->call_count = call_count;
@@ -670,16 +699,8 @@ sh_diff_read_cbk (call_frame_t *rw_frame, void *cookie,
                 return 0;
         }
 
-        if (sh->file_has_holes) {
-                if (iov_0filled (vector, count) == 0) {
-                        gf_log (this->name, GF_LOG_DEBUG, "0 filled block");
-                        sh_diff_loop_return (rw_frame, this, loop_state);
-                        goto out;
-                }
-        }
-
         for (i = 0; i < priv->child_count; i++) {
-                if (loop_state->write_needed[i]) {
+                if (rw_sh->write_needed[i]) {
                         wcookie = __make_cookie (loop_index, i);
 
                         STACK_WIND_COOKIE (rw_frame, sh_diff_write_cbk,
@@ -694,7 +715,6 @@ sh_diff_read_cbk (call_frame_t *rw_frame, void *cookie,
                 }
         }
 
-out:
         return 0;
 }
 
@@ -805,7 +825,7 @@ sh_diff_checksum_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
                                         PRId64" differs from that on source",
                                         priv->children[i]->name, loop_state->offset);
 
-                                write_needed = loop_state->write_needed[i] = 1;
+                                write_needed = rw_sh->write_needed[i] = 1;
                         }
                 }
 
@@ -887,6 +907,11 @@ sh_diff_checksum (call_frame_t *frame, xlator_t *this, off_t offset)
 
         rw_frame->local = rw_local;
         rw_sh           = &rw_local->self_heal;
+        rw_sh->write_needed = GF_CALLOC (priv->child_count,
+                                         sizeof (*rw_sh->write_needed),
+                                         gf_afr_mt_char);
+        if (!rw_sh->write_needed)
+                goto out;
 
         rw_sh->offset       = sh->offset;
         rw_sh->sh_frame     = frame;
@@ -934,6 +959,8 @@ sh_diff_checksum (call_frame_t *frame, xlator_t *this, off_t offset)
 out:
         sh->op_failed = 1;
 
+        if (rw_frame)
+                AFR_STACK_DESTROY (rw_frame);
         sh_diff_loop_driver (frame, this, _gf_false, loop_state);
 
         return 0;
@@ -1052,12 +1079,6 @@ afr_sh_algo_diff (call_frame_t *frame, xlator_t *this)
                 if (!sh_priv->loops[i]->checksum)
                         goto err;
 
-                sh_priv->loops[i]->write_needed = GF_CALLOC (priv->child_count,
-                                                             sizeof (*sh_priv->loops[i]->write_needed),
-                                                             gf_afr_mt_char);
-                if (!sh_priv->loops[i]->write_needed)
-                        goto err;
-
         }
 
         sh_diff_loop_driver (frame, this, _gf_true, NULL);
@@ -1067,8 +1088,6 @@ err:
         if (sh_priv) {
                 if (sh_priv->loops) {
                         for (i = 0; i < priv->data_self_heal_window_size; i++) {
-                                if (sh_priv->loops[i]->write_needed)
-                                        GF_FREE (sh_priv->loops[i]->write_needed);
                                 if (sh_priv->loops[i]->checksum)
                                         GF_FREE (sh_priv->loops[i]->checksum);
                                 if (sh_priv->loops[i])

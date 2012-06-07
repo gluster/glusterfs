@@ -39,7 +39,6 @@ typedef struct {
 
 struct sh_diff_loop_state {
         off_t   offset;
-        unsigned char *write_needed;
         uint8_t *checksum;
         gf_boolean_t active;
 };

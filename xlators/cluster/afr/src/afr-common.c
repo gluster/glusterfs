@@ -515,6 +515,8 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
         if (sh->fresh_parent_dirs)
                 GF_FREE (sh->fresh_parent_dirs);
 
+        if (sh->write_needed)
+                GF_FREE (sh->write_needed);
         loc_wipe (&sh->parent_loc);
         loc_wipe (&sh->lookup_loc);
 

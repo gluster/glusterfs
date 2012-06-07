@@ -210,6 +210,7 @@ typedef struct {
 
         /* private data for the particular self-heal algorithm */
         void *private;
+        unsigned char *write_needed;
 
         int (*flush_self_heal_cbk) (call_frame_t *frame, xlator_t *this);
 
