@@ -30,32 +30,34 @@
 
 struct mdc_conf {
 	int  timeout;
+	gf_boolean_t cache_posix_acl;
+	gf_boolean_t cache_selinux;
 };
 
 
-struct mdc_key {
+static struct mdc_key {
 	const char *name;
 	int         load;
 	int         check;
 } mdc_keys[] = {
 	{
 		.name = "system.posix_acl_access",
-		.load = 1,
+		.load = 0,
 		.check = 1,
 	},
 	{
 		.name = "system.posix_acl_default",
-		.load = 1,
+		.load = 0,
 		.check = 1,
 	},
 	{
 		.name = "security.selinux",
-		.load = 1,
+		.load = 0,
 		.check = 1,
 	},
 	{
 		.name = "security.capability",
-		.load = 1,
+		.load = 0,
 		.check = 1,
 	},
 	{
@@ -1798,6 +1800,35 @@ mdc_forget (xlator_t *this, inode_t *inode)
 
 
 int
+is_strpfx (const char *str1, const char *str2)
+{
+	/* is one of the string a prefix of the other? */
+	int i;
+
+	for (i = 0; str1[i] == str2[i]; i++) {
+		if (!str1[i] || !str2[i])
+			break;
+	}
+
+	return !(str1[i] && str2[i]);
+}
+
+
+int
+mdc_key_load_set (struct mdc_key *keys, char *pattern, gf_boolean_t val)
+{
+	struct mdc_key *key = NULL;
+
+	for (key = keys; key->name; key++) {
+		if (is_strpfx (key->name, pattern))
+			key->load = val;
+	}
+
+	return 0;
+}
+
+
+int
 reconfigure (xlator_t *this, dict_t *options)
 {
 	struct mdc_conf *conf = NULL;
@@ -1805,6 +1836,13 @@ reconfigure (xlator_t *this, dict_t *options)
 	conf = this->private;
 
 	GF_OPTION_RECONF ("md-cache-timeout", conf->timeout, options, int32, out);
+
+	GF_OPTION_RECONF ("cache-selinux", conf->cache_selinux, options, bool, out);
+	mdc_key_load_set (mdc_keys, "security.", conf->cache_selinux);
+
+	GF_OPTION_RECONF ("cache-posix-acl", conf->cache_posix_acl, options, bool, out);
+	mdc_key_load_set (mdc_keys, "system.posix_acl_", conf->cache_posix_acl);
+
 out:
 	return 0;
 }
@@ -1832,6 +1870,11 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("md-cache-timeout", conf->timeout, int32, out);
 
+	GF_OPTION_INIT ("cache-selinux", conf->cache_selinux, bool, out);
+	mdc_key_load_set (mdc_keys, "security.", conf->cache_selinux);
+
+	GF_OPTION_INIT ("cache-posix-acl", conf->cache_posix_acl, bool, out);
+	mdc_key_load_set (mdc_keys, "system.posix_acl_", conf->cache_posix_acl);
 out:
 	this->private = conf;
 
@@ -1879,6 +1922,14 @@ struct xlator_cbks cbks = {
 };
 
 struct volume_options options[] = {
+	{ .key = {"cache-selinux"},
+	  .type = GF_OPTION_TYPE_BOOL,
+	  .default_value = "false",
+	},
+	{ .key = {"cache-posix-acl"},
+	  .type = GF_OPTION_TYPE_BOOL,
+	  .default_value = "false",
+	},
         { .key = {"md-cache-timeout"},
           .type = GF_OPTION_TYPE_INT,
           .min = 0,
