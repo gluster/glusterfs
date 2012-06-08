@@ -259,6 +259,7 @@ fi
 %{_sbindir}/glusterfs*
 %{_mandir}/man8/*gluster*.8*
 %dir %{_localstatedir}/log/glusterfs
+%dir %{_sharedstatedir}/glusterd
 %if 0%{!?_without_rdma:1}
 %exclude %{_libdir}/glusterfs/%{version}/rpc-transport/rdma*
 %endif
@@ -287,6 +288,8 @@ fi
 %defattr(-,root,root)
 %{_libexecdir}/glusterfs/gsyncd
 %{_libexecdir}/glusterfs/python/syncdaemon/*
+%ghost %attr(0755,-,-) %dir %{_sharedstatedir}/glusterd/geo-replication
+%ghost %attr(0644,-,-) %{_sharedstatedir}/glusterd/geo-replication/gsyncd.conf
 %endif
 %endif
 
@@ -353,7 +356,6 @@ fi
 %defattr(-,root,root,-)
 #%doc examples/ doc/glusterfs*.vol.sample
 %config(noreplace) %{_sysconfdir}/glusterfs
-%{_sharedstatedir}/glusterd
 %{_sysconfdir}/init.d/glusterd
 %{_sbindir}/gluster
 %{_sbindir}/glusterd
@@ -362,6 +364,38 @@ fi
 %{_libdir}/glusterfs/%{version}/xlator/protocol/server*
 %{_libdir}/glusterfs/%{version}/xlator/mgmt*
 %{_libdir}/glusterfs/%{version}/xlator/nfs*
+%{_sharedstatedir}/glusterd/hook-scripts
+%ghost %attr(0644,-,-) %{_sharedstatedir}/glusterd/glusterd.info
+# This is really ugly, but I have no idea how to mark these directories in an
+# other way. They should belong to the glusterfs-server package, but don't
+# exist after installation. They are generated on the first start...
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop/post
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop/pre
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/start
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/start/post
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/start/pre
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/remove-brick
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/remove-brick/post
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/remove-brick/pre
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/add-brick
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/add-brick/post
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/add-brick/pre
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/set
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/set/post
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/set/pre
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/create
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/create/post
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/create/pre
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/post
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/pre
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glustershd
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/vols
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/peers
 
 %files devel
 %defattr(-,root,root,-)
@@ -370,6 +404,9 @@ fi
 %{_libdir}/*.so
 
 %changelog
+* Thu Jun 07 2012 Niels de Vos <ndevos@redhat.com>
+- Mark /var/lib/glusterd as owned by glusterfs, subdirs belong to -server
+
 * Wed May 9 2012 Kaleb S. KEITHLEY <kkeithle[at]redhat.com>
 - Add BuildRequires: libxml2-devel so that configure will DTRT on for
 - Fedora's Koji build system
