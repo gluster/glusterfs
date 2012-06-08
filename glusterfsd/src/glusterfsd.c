@@ -573,10 +573,14 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
         case ARGP_ACL_KEY:
                 cmd_args->acl = 1;
+		gf_remember_xlator_option (&cmd_args->xlator_options,
+					   "*-md-cache.cache-posix-acl=true");
                 break;
 
         case ARGP_SELINUX_KEY:
                 cmd_args->selinux = 1;
+		gf_remember_xlator_option (&cmd_args->xlator_options,
+					   "*-md-cache.cache-selinux=true");
                 break;
 
         case ARGP_WORM_KEY:
