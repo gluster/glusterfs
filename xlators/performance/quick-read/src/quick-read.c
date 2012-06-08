@@ -3600,7 +3600,8 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
-gf_boolean_t
+
+static gf_boolean_t
 check_cache_size_ok (xlator_t *this, int64_t cache_size)
 {
         int                     ret = _gf_true;
@@ -3623,7 +3624,7 @@ check_cache_size_ok (xlator_t *this, int64_t cache_size)
         else
                 max_cache_size = total_mem;
 
-        gf_log (this->name, GF_LOG_INFO, "Max cache size is %"PRIu64,
+        gf_log (this->name, GF_LOG_DEBUG, "Max cache size is %"PRIu64,
                 max_cache_size);
         if (cache_size > max_cache_size) {
                 ret = _gf_false;
