@@ -515,7 +515,7 @@ def get_account_details_from_fs(acc_path, memcache=None):
     if os.path.isdir(acc_path):
         for name in do_listdir(acc_path):
             if not os.path.isdir(acc_path + '/' + name) or \
-               name.lower() == 'tmp':
+               name.lower() == 'tmp' or name.lower() == 'async_pending':
                 continue
             container_count += 1
             container_list.append(name)
