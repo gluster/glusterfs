@@ -234,7 +234,8 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"features.lock-heal",                   "protocol/server",           "lk-heal", NULL, DOC, 0},
         {"features.grace-timeout",               "protocol/client",           "grace-timeout", NULL, NO_DOC, 0},
         {"features.grace-timeout",               "protocol/server",           "grace-timeout", NULL, DOC, 0},
-        {"feature.read-only",                    "features/read-only",        "!read-only", "off", DOC, 0},
+        {"features.read-only",                   "features/read-only",        "!read-only", "off", DOC, 0},
+        {"features.worm",                        "features/worm",             "!worm", "off", DOC, 0},
         {NULL,                                                                }
 };
 
@@ -1736,9 +1737,26 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 return -1;
 
+        if (dict_get_str_boolean (set_dict, "features.read-only", 0) &&
+            dict_get_str_boolean (set_dict, "features.worm",0)) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "read-only and worm cannot be set together");
+                ret = -1;
+                goto out;
+        }
+
         /* Check for read-only volume option, and add it to the graph */
-        if (dict_get_str_boolean (set_dict, "feature.read-only", 0)) {
+        if (dict_get_str_boolean (set_dict, "features.read-only", 0)) {
                 xl = volgen_graph_add (graph, "features/read-only", volname);
+                if (!xl) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        /* Check for worm volume option, and add it to the graph */
+        if (dict_get_str_boolean (set_dict, "features.worm", 0)) {
+                xl = volgen_graph_add (graph, "features/worm", volname);
                 if (!xl) {
                         ret = -1;
                         goto out;
