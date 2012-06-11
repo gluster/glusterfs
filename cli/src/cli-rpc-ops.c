@@ -5924,6 +5924,8 @@ gf_cli3_1_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
         int                     brick_count = 0;
         int                     i = 0;
         gf_xl_afr_op_t          heal_op = GF_AFR_OP_INVALID;
+        char                    *operation = NULL;
+        char                    *substr = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -5967,11 +5969,26 @@ gf_cli3_1_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to heal volume");
 
-        if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                cli_err ("%s", rsp.op_errstr);
-        else
-                cli_out ("Heal operation on volume %s has been %s", volname,
-                        (rsp.op_ret) ? "unsuccessful": "successful");
+        if ((heal_op == GF_AFR_OP_HEAL_FULL) ||
+            (heal_op == GF_AFR_OP_HEAL_INDEX)) {
+                operation = "Launching Heal operation";
+                substr = "\nUse heal info commands to check status";
+        } else {
+                operation = "Gathering Heal info";
+                substr = "";
+        }
+
+        if (rsp.op_ret) {
+                if (strcmp (rsp.op_errstr, "")) {
+                        cli_err ("%s", rsp.op_errstr);
+                } else {
+                        cli_err ("%s on volume %s has been unsuccessful",
+                                 operation, volname);
+                }
+        } else {
+                cli_out ("%s on volume %s has been successful%s", operation,
+                         volname, substr);
+        }
 
         ret = rsp.op_ret;
         if ((heal_op == GF_AFR_OP_HEAL_FULL) ||
