@@ -308,7 +308,8 @@ fi
 # Move legacy sysconf files to the correct sysconfdir
 if [ -d /etc/glusterd ]; then
     mkdir -p /var/lib
-    mv /etc/glusterd /var/lib/
+    cp -a /etc/glusterd /var/lib
+    rm -rf /etc/glusterd
     ln -sf /var/lib/glusterd /etc/glusterd
 fi
 

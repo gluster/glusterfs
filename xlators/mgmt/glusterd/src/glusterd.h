@@ -282,7 +282,7 @@ enum glusterd_vol_comp_status_ {
         GLUSTERD_VOL_COMP_RJT,
 };
 
-#define GLUSTERD_DEFAULT_WORKDIR "/etc/glusterd"
+#define GLUSTERD_DEFAULT_WORKDIR "/var/lib/glusterd"
 #define GLUSTERD_DEFAULT_PORT    GF_DEFAULT_BASE_PORT
 #define GLUSTERD_INFO_FILE      "glusterd.info"
 #define GLUSTERD_VOLUME_DIR_PREFIX "vols"
