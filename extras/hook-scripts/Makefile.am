@@ -1,2 +1,2 @@
-SUBDIRS = start
+SUBDIRS = start stop
 CLEANFILES =

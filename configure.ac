@@ -136,6 +136,8 @@ AC_CONFIG_FILES([Makefile
                 extras/hook-scripts/Makefile
                 extras/hook-scripts/start/Makefile
                 extras/hook-scripts/start/post/Makefile
+                extras/hook-scripts/stop/Makefile
+                extras/hook-scripts/stop/pre/Makefile
 		contrib/fuse-util/Makefile
 		contrib/uuid/uuid_types.h
                 xlators/nfs/Makefile
