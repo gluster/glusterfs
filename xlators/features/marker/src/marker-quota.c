@@ -380,7 +380,7 @@ mq_update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
 
         if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+                uuid_copy (local->loc.gfid, buf->ia_gfid);
 
         GF_UUID_ASSERT (local->loc.gfid);
 
@@ -766,7 +766,7 @@ mq_check_if_still_dirty (call_frame_t *frame,
         local->d_off = 0;
 
         if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+                uuid_copy (local->loc.gfid, buf->ia_gfid);
 
         GF_UUID_ASSERT (local->loc.gfid);
         STACK_WIND(frame,
@@ -1689,7 +1689,7 @@ unlock:
         }
 
         if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+                uuid_copy (local->loc.gfid, buf->ia_gfid);
 
         GF_UUID_ASSERT (local->loc.gfid);
 
