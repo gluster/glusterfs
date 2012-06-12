@@ -228,9 +228,16 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
     %{buildroot}%{_sysconfdir}/glusterfs/glusterd.vol
 
 # Following needed by the hooks interface
-%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/hook-scripts
-%{__install} -p -m 0644 extras/hook-scripts/*.sh   \
-    %{buildroot}%{_sharedstatedir}/glusterd/hook-scripts/
+subdirs=("add-brick" "create" "delete" "remove-brick" "set" "start" "stop")
+for dir in ${subdirs[@]}
+do
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/"$dir"/pre
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/"$dir"/post
+done
+%{__install} -p -m 0744 extras/hook-scripts/start/post/*.sh   \
+    %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/start/post
+%{__install} -p -m 0744 extras/hook-scripts/stop/pre/*.sh   \
+    %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/stop/pre
 
 # Clean up the examples we want to include as %%doc
 #%{__cp} -a doc/examples examples
