@@ -1,5 +1,5 @@
 #! /bin/bash
-#non-portable - RHS-2.0 only
+# RHS-2.0 only
 # - The script mounts the 'meta-vol' on start 'event' on a known
 #   directory (eg. /gluster/lock)
 # - Adds the necessary configuration changes for ctdb in smb.conf and
@@ -19,16 +19,6 @@ VOL=
 # to prevent the script from running for volumes it was not intended.
 # User needs to set META to the volume that serves CTDB lockfile.
 META="all"
-
-function sighup_samba () {
-        pid=`cat /var/run/smbd.pid`
-        if [ $pid != " " ]
-        then
-                kill -HUP $pid;
-        else
-                /etc/init.d/smb start
-        fi
-}
 
 function parse_args () {
         ARGS=$(getopt -l $OPTSPEC  -name $PROGNAME $@)
@@ -54,16 +44,34 @@ function parse_args () {
 
 function add_glusterfs_ctdb_options () {
         PAT="Share Definitions"
-        GLUSTER_CTDB_CONFIG="# ctdb config for glusterfs\n\tclustering = yes\n\tidmap backend = tdb2\n\tprivate dir = "$CTDB_MNT"\n"
+        GLUSTER_CTDB_CONFIG="# ctdb config for glusterfs\n\tclustering = yes\n\tidmap backend = tdb2\n"
+        exists=`grep "clustering = yes" "$SMB_CONF"`
+        if [ "$exists" == "" ]
+        then
+            sed -i /"$PAT"/i\ "$GLUSTER_CTDB_CONFIG" "$SMB_CONF"
+        fi
+}
 
-        sed -i /"$PAT"/i\ "$GLUSTER_CTDB_CONFIG" $SMB_CONF
+function add_fstab_entry () {
+        volname=$1
+        mntpt=$2
+        mntent="`hostname`:/$volname $mntpt glusterfs defaults,transport=tcp 0 0"
+        exists=`grep "$mntent" /etc/fstab`
+        if [ "$exists" == "" ]
+        then
+            echo "$mntent" >> /etc/fstab
+        fi
 }
 
 parse_args $@
 if [ "$META" = "$VOL" ]
 then
-        add_glusterfs_ctdb_options
-        sighup_samba
-        mount -t glusterfs `hostname`:$VOL "$CTDB_MNT" &
+    #expects ctdb service to manage smb
+    service smb stop
+    add_glusterfs_ctdb_options
+    add_fstab_entry $VOL $CTDB_MNT
+    mkdir -p $CTDB_MNT
+    sleep 5
+    mount -t glusterfs `hostname`:$VOL "$CTDB_MNT"
+    chkconfig ctdb on
 fi
-
