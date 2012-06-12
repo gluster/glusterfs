@@ -1,10 +1,8 @@
 #! /bin/bash
-#Need to be copied to hooks/<HOOKS_VER>/stop/post
 
 PROGNAME="Ssamba-stop"
-OPTSPEC="volname:,mnt:"
+OPTSPEC="volname:"
 VOL=
-#FIXME: gluster will eventually pass mnt prefix as command line argument
 MNT_PRE="/mnt/samba"
 
 function parse_args () {
@@ -16,11 +14,6 @@ function parse_args () {
         --volname)
          shift
          VOL=$1
-         ;;
-        --mnt)
-         shift
-         MNT_PRE=$1
-         echo $1
          ;;
         *)
          shift
