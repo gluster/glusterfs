@@ -199,15 +199,16 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         glusterd_brickinfo_t                    *src_brickinfo = NULL;
         char                                    *host          = NULL;
         char                                    *path          = NULL;
-        char                                    msg[2048]      = {0};
+        char                                     msg[2048]     = {0};
         char                                    *dup_dstbrick  = NULL;
         glusterd_peerinfo_t                     *peerinfo = NULL;
         glusterd_brickinfo_t                    *dst_brickinfo = NULL;
-        gf_boolean_t                            is_run         = _gf_false;
+        gf_boolean_t                             is_run        = _gf_false;
         dict_t                                  *ctx           = NULL;
         glusterd_conf_t                         *priv          = NULL;
-        char                                    voldir[PATH_MAX] = {0};
-        char                                    pidfile[PATH_MAX] = {0};
+        char                                    *savetok       = NULL;
+        char                                     voldir[PATH_MAX] = {0};
+        char                                     pidfile[PATH_MAX] = {0};
 
         priv = THIS->private;
         GF_ASSERT (priv);
@@ -422,8 +423,8 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 gf_log ("", GF_LOG_ERROR, "Memory allocation failed");
                 goto out;
         }
-        host = strtok (dup_dstbrick, ":");
-        path = strtok (NULL, ":");
+        host = strtok_r (dup_dstbrick, ":", &savetok);
+        path = strtok_r (NULL, ":", &savetok);
 
         if (!host || !path) {
                 gf_log ("", GF_LOG_ERROR,

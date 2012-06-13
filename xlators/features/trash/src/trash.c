@@ -504,9 +504,7 @@ trash_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         trash_elim_pattern_t  *trav  = NULL;
         trash_private_t *priv = NULL;
         trash_local_t   *local = NULL;
-        struct tm       *tm = NULL;
-        char             timestr[256] = {0,};
-        time_t           utime = 0;
+        char             timestr[64] = {0,};
         int32_t          match = 0;
 
         priv = this->private;
@@ -553,9 +551,8 @@ trash_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         {
                 /* append timestamp to file name */
                 /* TODO: can we make it optional? */
-                utime = time (NULL);
-                tm    = localtime (&utime);
-                strftime (timestr, 256, ".%Y-%m-%d-%H%M%S", tm);
+                gf_time_ftm (timestr, sizeof timestr, time (NULL),
+                             gf_timefmt_F_HMS);
                 strcat (local->newpath, timestr);
         }
 
@@ -574,9 +571,7 @@ trash_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         trash_elim_pattern_t  *trav  = NULL;
         trash_private_t *priv = NULL;
         trash_local_t   *local = NULL;
-        struct tm       *tm = NULL;
-        char             timestr[256] = {0,};
-        time_t           utime = 0;
+        char             timestr[64] = {0,};
         int32_t          match = 0;
 
         priv = this->private;
@@ -625,9 +620,8 @@ trash_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         {
                 /* append timestamp to file name */
                 /* TODO: can we make it optional? */
-                utime = time (NULL);
-                tm    = localtime (&utime);
-                strftime (timestr, 256, ".%Y-%m-%d-%H%M%S", tm);
+                gf_time_fmt (timestr, sizeof timestr, time (NULL),
+                             gf_timefmt_F_HMS);
                 strcat (local->newpath, timestr);
         }
 
@@ -943,10 +937,8 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         trash_private_t     *priv  = NULL;
         trash_local_t       *local = NULL;
-        struct tm           *tm = NULL;
-        char                 timestr[256] = {0,};
+        char                 timestr[64] = {0,};
         char                 loc_newname[PATH_MAX] = {0,};
-        time_t               utime = 0;
         int32_t              flags = 0;
 
         priv = this->private;
@@ -978,9 +970,8 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         strcat (local->newpath, local->loc.path);
 
         {
-                utime = time (NULL);
-                tm    = localtime (&utime);
-                strftime (timestr, 256, ".%Y-%m-%d-%H%M%S", tm);
+                gf_time_fmt (timestr, sizeof timestr, time (NULL),
+                             gf_timefmt_F_HMS);
                 strcat (local->newpath, timestr);
         }
         strcpy (loc_newname,local->loc.name);
@@ -1346,11 +1337,9 @@ trash_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         trash_private_t       *priv = NULL;
         trash_local_t         *local = NULL;
         dentry_t              *dir_entry = NULL;
-        struct tm             *tm = NULL;
         char                  *pathbuf = NULL;
         inode_t               *newinode = NULL;
-        time_t                 utime = 0;
-        char                   timestr[256];
+        char                   timestr[64];
         int32_t                retval = 0;
         int32_t                match = 0;
 
@@ -1389,10 +1378,7 @@ trash_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
                 return 0;
         }
 
-        utime = time (NULL);
-        tm    = localtime (&utime);
-        strftime (timestr, 256, ".%Y-%m-%d-%H%M%S", tm);
-
+        gf_time_fmt (timestr, sizeof timestr, time (NULL), gf_timefmt_F_HMS);
         strcpy (local->newpath, priv->trash_dir);
         strcat (local->newpath, pathbuf);
         strcat (local->newpath, timestr);

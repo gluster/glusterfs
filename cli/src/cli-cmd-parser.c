@@ -1581,12 +1581,10 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                         if (strcmp (words[cmdi + 1], "checkpoint") == 0 &&
                             strcmp (append_str, "now") == 0) {
                                 struct timeval tv = {0,};
-                                struct tm     *tm = NULL;
 
                                 ret = gettimeofday (&tv, NULL);
                                 if (ret == -1)
-                                         goto out;
-                                tm = localtime (&tv.tv_sec);
+                                         goto out; /* FIXME: free append_str? */
 
                                 GF_FREE (append_str);
                                 append_str = GF_CALLOC (1, 300, cli_mt_append_str);
@@ -1595,9 +1593,9 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                                         goto out;
                                 }
                                 strcpy (append_str, "as of ");
-                                strftime (append_str + strlen ("as of "),
-                                          300 - strlen ("as of "),
-                                          "%Y-%m-%d %H:%M:%S", tm);
+                                gf_time_fmt (append_str + strlen ("as of "),
+                                             300 - strlen ("as of "),
+                                             tv.tv_sec, gf_timefmt_FT);
                         }
 
                         ret = dict_set_dynstr (dict, "op_value", append_str);

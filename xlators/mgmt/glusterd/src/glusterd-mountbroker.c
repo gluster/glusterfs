@@ -276,6 +276,7 @@ make_georep_mountspec (gf_mount_spec_t *mspec, const char *volnames,
         char *vols            = NULL;
         char *vol             = NULL;
         char *p               = NULL;
+        char *savetok         = NULL;
         char *fa[3]           = {0,};
         size_t siz            = 0;
         int vc                = 0;
@@ -296,7 +297,7 @@ make_georep_mountspec (gf_mount_spec_t *mspec, const char *volnames,
                 goto out;
 
         for (p = vols;;) {
-                vol = strtok (p, ",");
+                vol = strtok_r (p, ",", &savetok);
                 if (!vol) {
                         GF_ASSERT (vc == 0);
                         break;

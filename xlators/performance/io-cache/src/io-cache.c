@@ -1816,7 +1816,6 @@ __ioc_cache_dump (ioc_inode_t *ioc_inode, char *prefix)
         ioc_table_t *table                    = NULL;
         ioc_page_t  *page                     = NULL;
         int          i                        = 0;
-        struct tm   *tm                       = NULL;
         char         key[GF_DUMP_MAX_BUF_LEN] = {0, };
         char         timestr[256]             = {0, };
 
@@ -1827,9 +1826,9 @@ __ioc_cache_dump (ioc_inode_t *ioc_inode, char *prefix)
         table = ioc_inode->table;
 
         if (ioc_inode->cache.tv.tv_sec) {
-                tm = localtime (&ioc_inode->cache.tv.tv_sec);
-                strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
-                snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                gf_time_fmt (timestr, sizeof timestr,
+                             ioc_inode->cache.tv.tv_sec, gf_timefmt_FT);
+                snprintf (timestr + strlen (timestr), sizeof timestr - strlen (timestr),
                           ".%"GF_PRI_SUSECONDS, ioc_inode->cache.tv.tv_usec);
 
                 gf_proc_dump_write ("last-cache-validation-time", "%s",

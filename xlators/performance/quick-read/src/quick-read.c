@@ -3435,7 +3435,6 @@ qr_inodectx_dump (xlator_t *this, inode_t *inode)
         int32_t     ret      = -1;
         char        key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
         char        buf[256]                        = {0, };
-        struct tm  *tm                              = NULL;
         ret = inode_ctx_get (inode, this, &value);
         if (ret != 0) {
                 goto out;
@@ -3453,9 +3452,9 @@ qr_inodectx_dump (xlator_t *this, inode_t *inode)
         gf_proc_dump_write ("entire-file-cached", "%s", qr_inode->xattr ? "yes" : "no");
 
         if (qr_inode->tv.tv_sec) {
-                tm = localtime (&qr_inode->tv.tv_sec);
-                strftime (buf, 256, "%Y-%m-%d %H:%M:%S", tm);
-                snprintf (buf + strlen (buf), 256 - strlen (buf),
+                gf_time_fmt (buf, sizeof buf, qr_inode->tv.tv_sec,
+                             gf_timefmt_FT);
+                snprintf (buf + strlen (buf), sizeof buf - strlen (buf),
                           ".%"GF_PRI_SUSECONDS, qr_inode->tv.tv_usec);
 
                 gf_proc_dump_write ("last-cache-validation-time", "%s", buf);
