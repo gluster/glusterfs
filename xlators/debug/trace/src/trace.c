@@ -46,30 +46,20 @@ int trace_log_level = GF_LOG_INFO;
 static char *
 trace_stat_to_str (struct iatt *buf)
 {
-        char    *statstr           = NULL;
-        char     atime_buf[256]    = {0,};
-        char     mtime_buf[256]    = {0,};
-        char     ctime_buf[256]    = {0,};
-        int      asprint_ret_value = 0;
-        uint64_t ia_time           = 0;
+        char     *statstr           = NULL;
+        char      atime_buf[64]     = {0,};
+        char      mtime_buf[64]     = {0,};
+        char      ctime_buf[64]     = {0,};
+        int       asprint_ret_value = 0;
 
         if (!buf) {
                 statstr = NULL;
                 goto out;
         }
 
-        ia_time = buf->ia_atime;
-        strftime (atime_buf, 256, "[%b %d %H:%M:%S]",
-                  localtime ((time_t *)&ia_time));
-
-        ia_time = buf->ia_mtime;
-        strftime (mtime_buf, 256, "[%b %d %H:%M:%S]",
-                  localtime ((time_t *)&ia_time));
-
-        ia_time = buf->ia_ctime;
-        strftime (ctime_buf, 256, "[%b %d %H:%M:%S]",
-                  localtime ((time_t *)&ia_time));
-
+        gf_time_fmt (atime_buf, sizeof atime_buf, buf->ia_atime, gf_timefmt_bdT);
+        gf_time_fmt (mtime_buf, sizeof mtime_buf, buf->ia_mtime, gf_timefmt_bdT);
+        gf_time_fmt (ctime_buf, sizeof ctime_buf, buf->ia_ctime, gf_timefmt_bdT);
         asprint_ret_value = gf_asprintf (&statstr,
                                          "gfid=%s ino=%"PRIu64", mode=%o, "
                                          "nlink=%"GF_PRI_NLINK", uid=%u, "
@@ -1665,9 +1655,8 @@ int
 trace_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
-        uint64_t ia_time          = 0;
-        char     actime_str[256]  = {0,};
-        char     modtime_str[256] = {0,};
+        char      actime_str[64]   = {0,};
+        char      modtime_str[64]  = {0,};
 
         if (trace_fop_names[GF_FOP_SETATTR].enabled) {
                 if (valid & GF_SET_ATTR_MODE) {
@@ -1685,13 +1674,10 @@ trace_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 }
 
                 if (valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME)) {
-                        ia_time = stbuf->ia_atime;
-                        strftime (actime_str, 256, "[%b %d %H:%M:%S]",
-                                  localtime ((time_t *)&ia_time));
-
-                        ia_time = stbuf->ia_mtime;
-                        strftime (modtime_str, 256, "[%b %d %H:%M:%S]",
-                                  localtime ((time_t *)&ia_time));
+                        gf_time_fmt (actime_str, sizeof actime_str,
+                                     stbuf->ia_atime, gf_timefmt_bdT);
+                        gf_time_fmt (modtime_str, sizeof modtime_str,
+                                     stbuf->ia_mtime, gf_timefmt_bdT);
 
                         gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s path=%s ia_atime=%s, ia_mtime=%s",
@@ -1714,9 +1700,8 @@ int
 trace_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
-        uint64_t ia_time          = 0;
-        char     actime_str[256]  = {0,};
-        char     modtime_str[256] = {0,};
+        char      actime_str[64]  = {0,};
+        char      modtime_str[64] = {0,};
 
         if (trace_fop_names[GF_FOP_FSETATTR].enabled) {
                 if (valid & GF_SET_ATTR_MODE) {
@@ -1734,13 +1719,10 @@ trace_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 }
 
                 if (valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME)) {
-                        ia_time = stbuf->ia_atime;
-                        strftime (actime_str, 256, "[%b %d %H:%M:%S]",
-                                  localtime ((time_t *)&ia_time));
-
-                        ia_time = stbuf->ia_mtime;
-                        strftime (modtime_str, 256, "[%b %d %H:%M:%S]",
-                                  localtime ((time_t *)&ia_time));
+                        gf_time_fmt (actime_str, sizeof actime_str,
+                                     stbuf->ia_atime, gf_timefmt_bdT);
+                        gf_time_fmt (modtime_str, sizeof modtime_str,
+                                     stbuf->ia_mtime, gf_timefmt_bdT);
 
                         gf_log (this->name, GF_LOG_INFO,
                                 "%"PRId64": gfid=%s fd=%p ia_atime=%s, ia_mtime=%s",

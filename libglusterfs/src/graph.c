@@ -28,20 +28,17 @@ _gf_dump_details (int argc, char **argv)
 {
         extern FILE *gf_log_logfile;
         int          i = 0;
-        char         timestr[256];
+        char         timestr[64];
         time_t       utime = 0;
-        struct tm   *tm = NULL;
         pid_t        mypid = 0;
         struct utsname uname_buf = {{0, }, };
         int            uname_ret = -1;
 
-        utime = time (NULL);
-        tm    = localtime (&utime);
         mypid = getpid ();
         uname_ret   = uname (&uname_buf);
 
-        /* Which git? What time? */
-        strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
+        utime = time (NULL);
+        gf_time_fmt (timestr, sizeof timestr, utime, gf_timefmt_FT);
         fprintf (gf_log_logfile,
                  "========================================"
                  "========================================\n");
@@ -340,8 +337,7 @@ fill_uuid (char *uuid, int size)
 {
         char           hostname[256] = {0,};
         struct timeval tv = {0,};
-        struct tm      now = {0, };
-        char           now_str[32];
+        char           now_str[64];
 
         if (gettimeofday (&tv, NULL) == -1) {
                 gf_log ("graph", GF_LOG_ERROR,
@@ -355,8 +351,7 @@ fill_uuid (char *uuid, int size)
                         strerror (errno));
         }
 
-        localtime_r (&tv.tv_sec, &now);
-        strftime (now_str, 32, "%Y/%m/%d-%H:%M:%S", &now);
+        gf_time_fmt (now_str, sizeof now_str, tv.tv_sec, gf_timefmt_Ymd_T);
         snprintf (uuid, size, "%s-%d-%s:%"GF_PRI_SUSECONDS,
                   hostname, getpid(), now_str, tv.tv_usec);
 

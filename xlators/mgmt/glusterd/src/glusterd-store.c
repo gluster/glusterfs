@@ -1108,6 +1108,7 @@ glusterd_store_read_and_tokenize (FILE *file, char *str,
                                   glusterd_store_op_errno_t *store_errno)
 {
         int32_t  ret = -1;
+        char *savetok = NULL;
 
         GF_ASSERT (file);
         GF_ASSERT (str);
@@ -1122,14 +1123,14 @@ glusterd_store_read_and_tokenize (FILE *file, char *str,
                 goto out;
         }
 
-        *iter_key = strtok (str, "=");
+        *iter_key = strtok_r (str, "=", &savetok);
         if (*iter_key == NULL) {
                 ret = -1;
                 *store_errno = GD_STORE_KEY_NULL;
                 goto out;
         }
 
-        *iter_val = strtok (NULL, "=");
+        *iter_val = strtok_r (NULL, "=", &savetok);
         if (*iter_key == NULL) {
                 ret = -1;
                 *store_errno = GD_STORE_VALUE_NULL;

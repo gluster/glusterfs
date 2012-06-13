@@ -4069,15 +4069,15 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
 {
         gf_cli_rsp                        rsp   = {0,};
         int                               ret   = -1;
-        dict_t                            *dict = NULL;
+        dict_t                           *dict = NULL;
         gf1_cli_stats_op                  op = GF_CLI_STATS_NONE;
         char                              key[256] = {0};
         int                               i = 0;
         int32_t                           brick_count = 0;
         char                              brick[1024];
         int32_t                           members = 0;
-        char                              *filename;
-        char                              *bricks;
+        char                             *filename;
+        char                             *bricks;
         uint64_t                          value = 0;
         int32_t                           j = 0;
         gf1_cli_top_op                    top_op = GF_CLI_TOP_NONE;
@@ -4085,11 +4085,10 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
         uint64_t                          max_nr_open = 0;
         double                            throughput = 0;
         double                            time = 0;
-        long int                          time_sec = 0;
+        int32_t                           time_sec = 0;
         long int                          time_usec = 0;
-        struct tm                         *tm = NULL;
         char                              timestr[256] = {0, };
-        char                              *openfd_str = NULL;
+        char                             *openfd_str = NULL;
         gf_boolean_t                      nfs = _gf_false;
         gf_boolean_t                      clear_stats = _gf_false;
         int                               stats_cleared = 0;
@@ -4262,11 +4261,9 @@ gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                 ret = dict_get_int32 (dict, key, (int32_t *)&time_usec);
                                 if (ret)
                                         goto out;
-                                tm    = localtime (&time_sec);
-                                if (!tm)
-                                        goto out;
-                                strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
-                                snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                                gf_time_fmt (timestr, sizeof timestr,
+                                             time_sec, gf_timefmt_FT);
+                                snprintf (timestr + strlen (timestr), sizeof timestr - strlen (timestr),
                                   ".%"GF_PRI_SUSECONDS, time_usec);
                                 if (strlen (filename) < VOL_TOP_PERF_FILENAME_DEF_WIDTH)
                                         cli_out ("%*"PRIu64" %-*s %-*s",
@@ -5854,52 +5851,43 @@ cmd_heal_volume_brick_out (dict_t *dict, int brick)
         uint64_t        num_entries = 0;
         int             ret = 0;
         char            key[256] = {0};
-        char            *hostname = NULL;
-        char            *path = NULL;
-        char            *status = NULL;
+        char           *hostname = NULL;
+        char           *path = NULL;
+        char           *status = NULL;
         uint64_t        i = 0;
         uint32_t        time = 0;
-        char            timestr[256] = {0};
-        struct tm       tm = {0};
-        time_t          ltime = 0;
+        char            timestr[32] = {0};
 
-        snprintf (key, sizeof (key), "%d-hostname", brick);
+        snprintf (key, sizeof key, "%d-hostname", brick);
         ret = dict_get_str (dict, key, &hostname);
         if (ret)
                 goto out;
-        snprintf (key, sizeof (key), "%d-path", brick);
+        snprintf (key, sizeof key, "%d-path", brick);
         ret = dict_get_str (dict, key, &path);
         if (ret)
                 goto out;
         cli_out ("\nBrick %s:%s", hostname, path);
-        snprintf (key, sizeof (key), "%d-count", brick);
+        snprintf (key, sizeof key, "%d-count", brick);
         ret = dict_get_uint64 (dict, key, &num_entries);
         cli_out ("Number of entries: %"PRIu64, num_entries);
-        snprintf (key, sizeof (key), "%d-status", brick);
+        snprintf (key, sizeof key, "%d-status", brick);
         ret = dict_get_str (dict, key, &status);
         if (status && strlen (status))
                 cli_out ("Status: %s", status);
         for (i = 0; i < num_entries; i++) {
-                snprintf (key, sizeof (key), "%d-%"PRIu64, brick, i);
+                snprintf (key, sizeof key, "%d-%"PRIu64, brick, i);
                 ret = dict_get_str (dict, key, &path);
                 if (ret)
                         continue;
                 time = 0;
-                snprintf (key, sizeof (key), "%d-%"PRIu64"-time", brick, i);
+                snprintf (key, sizeof key, "%d-%"PRIu64"-time", brick, i);
                 ret = dict_get_uint32 (dict, key, &time);
                 if (!time) {
                         cli_out ("%s", path);
                 } else {
-                        ltime = time;
-                        memset (&tm, 0, sizeof (tm));
-                        if (!localtime_r (&ltime, &tm)) {
-                                snprintf (timestr, sizeof (timestr),
-                                          "Invalid time");
-                        } else {
-                                strftime (timestr, sizeof (timestr),
-                                          "%Y-%m-%d %H:%M:%S", &tm);
-                        }
-                        if (i ==0) {
+                        gf_time_fmt (timestr, sizeof timestr,
+                                     time, gf_timefmt_FT);
+                        if (i == 0) {
                                 cli_out ("at                    path on brick");
                                 cli_out ("-----------------------------------");
                         }

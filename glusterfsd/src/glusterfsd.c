@@ -910,7 +910,6 @@ generate_uuid ()
         char           tmp_str[1024] = {0,};
         char           hostname[256] = {0,};
         struct timeval tv = {0,};
-        struct tm      now = {0, };
         char           now_str[32];
 
         if (gettimeofday (&tv, NULL) == -1) {
@@ -919,15 +918,14 @@ generate_uuid ()
                         strerror (errno));
         }
 
-        if (gethostname (hostname, 256) == -1) {
+        if (gethostname (hostname, sizeof hostname) == -1) {
                 gf_log ("glusterfsd", GF_LOG_ERROR,
                         "gethostname: failed %s",
                         strerror (errno));
         }
 
-        localtime_r (&tv.tv_sec, &now);
-        strftime (now_str, 32, "%Y/%m/%d-%H:%M:%S", &now);
-        snprintf (tmp_str, 1024, "%s-%d-%s:%" GF_PRI_SUSECONDS,
+        gf_time_fmt (now_str, sizeof now_str, tv.tv_sec, gf_timefmt_Ymd_T);
+        snprintf (tmp_str, sizeof tmp_str, "%s-%d-%s:%" GF_PRI_SUSECONDS,
                   hostname, getpid(), now_str, tv.tv_usec);
 
         return gf_strdup (tmp_str);
@@ -1197,16 +1195,14 @@ gf_check_and_set_mem_acct (int argc, char *argv[], glusterfs_ctx_t *ctx)
 int
 parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
 {
-        int               process_mode = 0;
-        int               ret = 0;
-        struct stat       stbuf = {0, };
-        struct tm        *tm = NULL;
-        time_t            utime;
-        char              timestr[256];
-        char              tmp_logfile[1024] = { 0 };
-        char              *tmp_logfile_dyn = NULL;
-        char              *tmp_logfilebase = NULL;
-        cmd_args_t        *cmd_args = NULL;
+        int          process_mode = 0;
+        int          ret = 0;
+        struct stat  stbuf = {0, };
+        char         timestr[32];
+        char         tmp_logfile[1024] = { 0 };
+        char        *tmp_logfile_dyn = NULL;
+        char        *tmp_logfilebase = NULL;
+        cmd_args_t  *cmd_args = NULL;
 
         cmd_args = &ctx->cmd_args;
 
@@ -1263,8 +1259,8 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
                      (S_ISREG (stbuf.st_mode) || S_ISLNK (stbuf.st_mode))) ||
                     (ret == -1)) {
                         /* Have separate logfile per run */
-                        tm = localtime (&utime);
-                        strftime (timestr, 256, "%Y%m%d.%H%M%S", tm);
+                        gf_time_fmt (timestr, sizeof timestr, time (NULL),
+                                     gf_timefmt_FT);
                         sprintf (tmp_logfile, "%s.%s.%d",
                                  cmd_args->log_file, timestr, getpid ());
 

@@ -1739,7 +1739,9 @@ pl_dump_lock (char *str, int size, struct gf_flock *flock,
               gf_lkowner_t *owner, void *trans, time_t *granted_time,
               time_t *blkd_time, gf_boolean_t active)
 {
-        char *type_str = NULL;
+        char  *type_str    = NULL;
+        char   granted[32] = {0,};
+        char   blocked[32] = {0,};
 
         switch (flock->l_type) {
         case F_RDLCK:
@@ -1763,16 +1765,17 @@ pl_dump_lock (char *str, int size, struct gf_flock *flock,
                                   (unsigned long long) flock->l_start,
                                   (unsigned long long) flock->l_len,
                                   (unsigned long long) flock->l_pid,
-                                  lkowner_utoa (owner),
-                                  trans, ctime (granted_time));
+                                  lkowner_utoa (owner), trans,
+                                  ctime_r (granted_time, granted));
                 } else {
                         snprintf (str, size, RANGE_BLKD_GRNTD_FMT,
                                   type_str, flock->l_whence,
                                   (unsigned long long) flock->l_start,
                                   (unsigned long long) flock->l_len,
                                   (unsigned long long) flock->l_pid,
-                                  lkowner_utoa (owner),
-                                  trans, ctime (blkd_time), ctime (granted_time));
+                                  lkowner_utoa (owner), trans,
+                                  ctime_r (blkd_time, blocked),
+                                  ctime_r (granted_time, granted));
                 }
         }
         else {
@@ -1781,8 +1784,8 @@ pl_dump_lock (char *str, int size, struct gf_flock *flock,
                           (unsigned long long) flock->l_start,
                           (unsigned long long) flock->l_len,
                           (unsigned long long) flock->l_pid,
-                          lkowner_utoa (owner),
-                          trans, ctime (blkd_time));
+                          lkowner_utoa (owner), trans,
+                          ctime_r (blkd_time, blocked));
         }
 
 }
@@ -1792,8 +1795,10 @@ __dump_entrylks (pl_inode_t *pl_inode)
 {
         pl_dom_list_t   *dom  = NULL;
         pl_entry_lock_t *lock = NULL;
-        int             count = 0;
-        char            key[GF_DUMP_MAX_BUF_LEN];
+        char             blocked[32] = {0,};
+        char             granted[32] = {0,};
+        int              count = 0;
+        char             key[GF_DUMP_MAX_BUF_LEN] = {0,};
 
         char tmp[256];
 
@@ -1817,15 +1822,15 @@ __dump_entrylks (pl_inode_t *pl_inode)
                                           "ENTRYLK_WRLCK", lock->basename,
                                           (unsigned long long) lock->client_pid,
                                           lkowner_utoa (&lock->owner), lock->trans,
-                                          ctime (&lock->granted_time.tv_sec));
+                                          ctime_r (&lock->granted_time.tv_sec, granted));
                         } else {
                                 snprintf (tmp, 256, ENTRY_BLKD_GRNTD_FMT,
                                           lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
                                           "ENTRYLK_WRLCK", lock->basename,
                                           (unsigned long long) lock->client_pid,
                                           lkowner_utoa (&lock->owner), lock->trans,
-                                          ctime (&lock->blkd_time.tv_sec),
-                                          ctime (&lock->granted_time.tv_sec));
+                                          ctime_r (&lock->blkd_time.tv_sec, blocked),
+                                          ctime_r (&lock->granted_time.tv_sec, granted));
                         }
 
                         gf_proc_dump_write(key, tmp);
@@ -1843,7 +1848,7 @@ __dump_entrylks (pl_inode_t *pl_inode)
                                   "ENTRYLK_WRLCK", lock->basename,
                                   (unsigned long long) lock->client_pid,
                                   lkowner_utoa (&lock->owner), lock->trans,
-                                  ctime (&lock->blkd_time.tv_sec));
+                                  ctime_r (&lock->blkd_time.tv_sec, blocked));
 
                         gf_proc_dump_write(key, tmp);
 

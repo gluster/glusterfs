@@ -61,6 +61,7 @@ static int
 str2argv (char *str, char ***argv)
 {
         char *p         = NULL;
+        char *savetok   = NULL;
         int argc        = 0;
         size_t argv_len = 32;
         int ret         = 0;
@@ -74,7 +75,7 @@ str2argv (char *str, char ***argv)
         if (!*argv)
                 goto error;
 
-        while ((p = strtok (str, " "))) {
+        while ((p = strtok_r (str, " ", &savetok))) {
                 str = NULL;
 
                 argc++;

@@ -396,10 +396,8 @@ void
 gf_print_trace (int32_t signum)
 {
         extern FILE *gf_log_logfile;
-        struct tm   *tm = NULL;
         char         msg[1024] = {0,};
-        char         timestr[256] = {0,};
-        time_t       utime = 0;
+        char         timestr[64] = {0,};
         int          ret = 0;
         int          fd = 0;
 
@@ -448,9 +446,7 @@ gf_print_trace (int32_t signum)
         {
                 /* Dump the timestamp of the crash too, so the previous logs
                    can be related */
-                utime = time (NULL);
-                tm    = localtime (&utime);
-                strftime (timestr, 256, "%Y-%m-%d %H:%M:%S\n", tm);
+                gf_time_fmt (timestr, sizeof timestr, time (NULL), gf_timefmt_FT);
                 ret = write (fd, "time of crash: ", 15);
                 if (ret < 0)
                         goto out;
@@ -2134,3 +2130,26 @@ gf_canonicalize_path (char *path)
 
         return ret;
 }
+
+static const char *__gf_timefmts[] = {
+        "%F %T",
+        "%Y/%m/%d-%T",
+        "%b %d %T",
+        "%F %H%M%S"
+};
+
+static const char *__gf_zerotimes[] = {
+        "0000-00-00 00:00:00",
+        "0000/00/00-00:00:00",
+        "xxx 00 00:00:00",
+        "0000-00-00 000000"
+};
+
+void
+_gf_timestuff (gf_timefmts *fmt, const char ***fmts, const char ***zeros)
+{
+        *fmt = gf_timefmt_last;
+        *fmts = __gf_timefmts;
+        *zeros = __gf_zerotimes;
+}
+

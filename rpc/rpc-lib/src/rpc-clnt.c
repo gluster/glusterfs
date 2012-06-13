@@ -144,7 +144,6 @@ call_bail (void *data)
         struct saved_frame    *saved_frame = NULL;
         struct saved_frame    *trav = NULL;
         struct saved_frame    *tmp = NULL;
-        struct tm              frame_sent_tm;
         char                   frame_sent[256] = {0,};
         struct timeval         timeout = {0,};
         struct iovec           iov = {0,};
@@ -191,8 +190,8 @@ call_bail (void *data)
         pthread_mutex_unlock (&conn->lock);
 
         list_for_each_entry_safe (trav, tmp, &list, list) {
-                localtime_r (&trav->saved_at.tv_sec, &frame_sent_tm);
-                strftime (frame_sent, 32, "%Y-%m-%d %H:%M:%S", &frame_sent_tm);
+                gf_time_fmt (frame_sent, sizeof frame_sent,
+                             trav->saved_at.tv_sec, gf_timefmt_FT);
                 snprintf (frame_sent + strlen (frame_sent),
                           256 - strlen (frame_sent),
                           ".%"GF_PRI_SUSECONDS, trav->saved_at.tv_usec);
@@ -343,17 +342,15 @@ saved_frames_unwind (struct saved_frames *saved_frames)
         struct rpc_clnt      *clnt = NULL;
 	struct saved_frame   *trav = NULL;
 	struct saved_frame   *tmp = NULL;
-        struct tm            *frame_sent_tm = NULL;
-        char                 timestr[256] = {0,};
+        char                  timestr[1024] = {0,};
 
         struct iovec          iov = {0,};
 
         list_splice_init (&saved_frames->lk_sf.list, &saved_frames->sf.list);
 
 	list_for_each_entry_safe (trav, tmp, &saved_frames->sf.list, list) {
-                frame_sent_tm = localtime (&trav->saved_at.tv_sec);
-                strftime (timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S",
-                          frame_sent_tm);
+                gf_time_fmt (timestr, sizeof timestr,
+                             trav->saved_at.tv_sec, gf_timefmt_FT);
                 snprintf (timestr + strlen (timestr),
                           sizeof(timestr) - strlen (timestr),
                           ".%"GF_PRI_SUSECONDS, trav->saved_at.tv_usec);
