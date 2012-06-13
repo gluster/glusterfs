@@ -987,6 +987,8 @@ init (xlator_t *this)
         }
 
         INIT_LIST_HEAD (&conf->mount_specs);
+
+        ret = 0;
         dict_foreach (this->options, _install_mount_spec, &ret);
         if (ret)
                 goto out;
