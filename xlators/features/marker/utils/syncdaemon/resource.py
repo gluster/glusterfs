@@ -125,12 +125,12 @@ class Popen(subprocess.Popen):
                     continue
                 for po in errstore:
                     if po.stderr not in poe:
-                        next
+                        continue
                     po.lock.acquire()
                     try:
-                        la = errstore.get(po)
-                        if la == None:
+                        if po.on_death_row:
                             continue
+                        la = errstore[po]
                         try:
                             fd = po.stderr.fileno()
                         except ValueError:  # file is already closed
@@ -169,6 +169,7 @@ class Popen(subprocess.Popen):
         if 'close_fds' not in kw:
             kw['close_fds'] = True
         self.lock = threading.Lock()
+        self.on_death_row = False
         try:
             sup(self, args, *a, **kw)
         except:
@@ -177,7 +178,7 @@ class Popen(subprocess.Popen):
                 raise
             raise GsyncdError("""execution of "%s" failed with %s (%s)""" % \
                               (args[0], errno.errorcode[ex.errno], os.strerror(ex.errno)))
-        if kw['stderr'] == subprocess.PIPE:
+        if kw.get('stderr') == subprocess.PIPE:
             assert(getattr(self, 'errhandler', None))
             self.errstore[self] = []
 
@@ -212,16 +213,19 @@ class Popen(subprocess.Popen):
         """
         self.lock.acquire()
         try:
-            elines = self.errstore.pop(self)
+            self.on_death_row = True
         finally:
             self.lock.release()
+        elines = self.errstore.pop(self)
         if self.poll() == None:
             self.terminate()
             if self.poll() == None:
                 time.sleep(0.1)
-            self.kill()
-            self.wait()
+                self.kill()
+                self.wait()
         while True:
+            if not select([self.stderr],[],[],0.1)[0]:
+                break
             b = os.read(self.stderr.fileno(), 1024)
             if b:
                 elines.append(b)
