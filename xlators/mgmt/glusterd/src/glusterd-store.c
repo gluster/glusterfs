@@ -1444,7 +1444,7 @@ glusterd_retrieve_uuid ()
                 goto out;
         }
 
-        uuid_parse (uuid_str, MY_UUID);
+        uuid_parse (uuid_str, priv->uuid);
 
 out:
         if (uuid_str)
