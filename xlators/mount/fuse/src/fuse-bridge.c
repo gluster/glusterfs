@@ -25,6 +25,34 @@ static int gf_fuse_xattr_enotsup_log;
 
 void fini (xlator_t *this_xl);
 
+static void fuse_invalidate_inode(xlator_t *this, uint64_t fuse_ino);
+
+/*
+ * Send an invalidate notification up to fuse to purge the file from local
+ * page cache.
+ */
+static int32_t
+fuse_invalidate(xlator_t *this, inode_t *inode)
+{
+	fuse_private_t *priv = this->private;
+	uint64_t nodeid;
+
+	/*
+	 * NOTE: We only invalidate at the moment if fopen_keep_cache is
+	 * enabled because otherwise this is a departure from default
+	 * behavior. Specifically, the performance/write-behind xlator
+	 * causes unconditional invalidations on write requests.
+	 */
+	if (!priv->fopen_keep_cache)
+		return 0;
+
+	nodeid = inode_to_fuse_nodeid(inode);
+	gf_log(this->name, GF_LOG_DEBUG, "Invalidate inode id %lu.", nodeid);
+	fuse_invalidate_inode(this, nodeid);
+
+	return 0;
+}
+
 fuse_fd_ctx_t *
 __fuse_fd_ctx_check_n_create (xlator_t *this, fd_t *fd)
 {
@@ -161,7 +189,7 @@ send_fuse_data (xlator_t *this, fuse_in_header_t *finh, void *data, size_t size)
 
 
 static void
-fuse_invalidate (xlator_t *this, uint64_t fuse_ino)
+fuse_invalidate_entry (xlator_t *this, uint64_t fuse_ino)
 {
         struct fuse_out_header             *fouh   = NULL;
         struct fuse_notify_inval_entry_out *fnieo  = NULL;
@@ -205,6 +233,47 @@ fuse_invalidate (xlator_t *this, uint64_t fuse_ino)
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE, "INVALIDATE entry: "
                         "%"PRIu64"/%s", fnieo->parent, dentry->name);
         }
+}
+
+/*
+ * Send an inval inode notification to fuse. This causes an invalidation of the
+ * entire page cache mapping on the inode.
+ */
+static void
+fuse_invalidate_inode(xlator_t *this, uint64_t fuse_ino)
+{
+	struct fuse_out_header *fouh = NULL;
+	struct fuse_notify_inval_inode_out *fniio = NULL;
+	fuse_private_t *priv = NULL;
+	int rv = 0;
+	char inval_buf[INVAL_BUF_SIZE] = {0};
+
+	fouh = (struct fuse_out_header *) inval_buf;
+	fniio = (struct fuse_notify_inval_inode_out *) (fouh + 1);
+
+	priv = this->private;
+
+	if (priv->revchan_out < 0)
+		return;
+
+	fouh->unique = 0;
+	fouh->error = FUSE_NOTIFY_INVAL_INODE;
+	fouh->len = sizeof(struct fuse_out_header) +
+		sizeof(struct fuse_notify_inval_inode_out);
+
+	/* inval the entire mapping until we learn how to be more granular */
+	fniio->ino = fuse_ino;
+	fniio->off = 0;
+	fniio->len = -1;
+
+	rv = write(priv->revchan_out, inval_buf, fouh->len);
+	if (rv != fouh->len) {
+		gf_log("glusterfs-fuse", GF_LOG_ERROR, "kernel notification "
+			"daemon defunct");
+		close(priv->fd);
+	}
+
+	gf_log("glusterfs-fuse", GF_LOG_TRACE, "INVALIDATE inode: %lu", fuse_ino);
 }
 
 int
@@ -670,17 +739,27 @@ fuse_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             || (priv->direct_io_mode == 1))
                                 foo.open_flags |= FOPEN_DIRECT_IO;
 #ifdef GF_DARWIN_HOST_OS
-                                /* In Linux: by default, buffer cache
-                                 * is purged upon open, setting
-                                 * FOPEN_KEEP_CACHE implies no-purge
-                                 *
-                                 * In MacFUSE: by default, buffer cache
-                                 * is left intact upon open, setting
-                                 * FOPEN_PURGE_UBC implies purge
-                                 *
-                                 * [[Interesting...]]
-                                 */
-                                foo.open_flags |= FOPEN_PURGE_UBC;
+                        /* In Linux: by default, buffer cache
+                         * is purged upon open, setting
+                         * FOPEN_KEEP_CACHE implies no-purge
+                         *
+                         * In MacFUSE: by default, buffer cache
+                         * is left intact upon open, setting
+                         * FOPEN_PURGE_UBC implies purge
+                         *
+                         * [[Interesting...]]
+                         */
+			if (!priv->fopen_keep_cache)
+				foo.open_flags |= FOPEN_PURGE_UBC;
+#else
+			/*
+			 * If fopen-keep-cache is enabled, we set the associated
+			 * flag here such that files are not invalidated on open.
+			 * File invalidations occur either in fuse or explicitly
+			 * when the cache is set invalid on the inode.
+			 */
+			if (priv->fopen_keep_cache)
+				foo.open_flags |= FOPEN_KEEP_CACHE;
 #endif
                 }
 
@@ -2663,7 +2742,7 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 gf_log ("fuse", GF_LOG_TRACE,
                         "got request to invalidate %"PRIu64, finh->nodeid);
                 send_fuse_err (this, finh, 0);
-                fuse_invalidate (this, finh->nodeid);
+                fuse_invalidate_entry (this, finh->nodeid);
                 GF_FREE (finh);
                 return;
         }
@@ -4523,6 +4602,9 @@ init (xlator_t *this_xl)
                 GF_ASSERT (ret == 0);
         }
 
+	GF_OPTION_INIT("fopen-keep-cache", priv->fopen_keep_cache, bool,
+		cleanup_exit);
+
         cmd_args = &this_xl->ctx->cmd_args;
         fsname = cmd_args->volfile;
         if (!fsname && cmd_args->volfile_server) {
@@ -4644,6 +4726,7 @@ struct xlator_fops fops = {
 };
 
 struct xlator_cbks cbks = {
+	.invalidate = fuse_invalidate,
 };
 
 
@@ -4683,5 +4766,9 @@ struct volume_options options[] = {
         { .key = {"read-only"},
           .type = GF_OPTION_TYPE_BOOL
         },
+	{ .key = {"fopen-keep-cache"},
+	  .type = GF_OPTION_TYPE_BOOL,
+	  .default_value = "false"
+	},
         { .key = {NULL} },
 };

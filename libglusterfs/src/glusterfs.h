@@ -285,6 +285,7 @@ struct _cmd_args {
         int              selinux;
         int              worm;
         int              mac_compat;
+	int		 fopen_keep_cache;
 	struct list_head xlator_options;  /* list of xlator_option_t */
 
 	/* fuse options */

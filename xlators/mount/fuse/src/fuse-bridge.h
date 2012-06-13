@@ -109,6 +109,7 @@ struct fuse_private {
         gf_boolean_t         acl;
         gf_boolean_t         selinux;
         gf_boolean_t         read_only;
+	gf_boolean_t	     fopen_keep_cache;
         fdtable_t           *fdtable;
 
         /* For fuse-reverse-validation */

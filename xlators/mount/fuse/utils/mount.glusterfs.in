@@ -132,6 +132,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --entry-timeout=$entry_timeout");
     fi
 
+    if [ -n "$fopen_keep_cache" ]; then
+	cmd_line=$(echo "$cmd_line --fopen-keep-cache");
+    fi
+
     # for rdma volume, we have to fetch volfile with '.rdma' added
     # to volume name, so that it fetches the right client vol file
     volume_id_rdma="";
@@ -297,6 +301,7 @@ main ()
                     "acl")      acl=1 ;;
                     "selinux")  selinux=1 ;;
                     "worm")     worm=1 ;;
+		    "fopen-keep-cache")	fopen_keep_cache=1 ;;
                     # "mount -t glusterfs" sends this, but it's useless.
                     "rw")       ;;
                     *)
