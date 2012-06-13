@@ -69,9 +69,9 @@ then
     #expects ctdb service to manage smb
     service smb stop
     add_glusterfs_ctdb_options
-    add_fstab_entry $VOL $CTDB_MNT
     mkdir -p $CTDB_MNT
     sleep 5
-    mount -t glusterfs `hostname`:$VOL "$CTDB_MNT"
+    mount -t glusterfs `hostname`:$VOL "$CTDB_MNT" && \
+        add_fstab_entry $VOL $CTDB_MNT
     chkconfig ctdb on
 fi

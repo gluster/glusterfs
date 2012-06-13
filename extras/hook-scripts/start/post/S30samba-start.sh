@@ -41,9 +41,22 @@ function sighup_samba () {
         fi
 }
 
+function add_fstab_entry () {
+        volname=$1
+        mntpt=$2
+        mntent="`hostname`:/$volname $mntpt glusterfs defaults,transport=tcp 0 0"
+        exists=`grep "$mntent" /etc/fstab`
+        if [ "$exists" == "" ]
+        then
+            echo "$mntent" >> /etc/fstab
+        fi
+}
+
 
 parse_args $@
 add_samba_export $VOL $MNT_PRE
+mkdir -p $MNT_PRE/$VOL
 sleep 5
-mount -t glusterfs `hostname`:$volname $mnt_pre/$volname
+mount -t glusterfs `hostname`:$VOL $MNT_PRE/$VOL && \
+        add_fstab_entry $VOL $MNT_PRE/$VOL
 sighup_samba

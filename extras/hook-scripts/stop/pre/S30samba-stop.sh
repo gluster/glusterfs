@@ -37,6 +37,18 @@ function umount_volume () {
         umount -l $mnt_pre/$volname
 }
 
+function remove_fstab_entry () {
+	volname=$1
+	mntpt=$2
+	mntent="`hostname`:/$volname $mntpt glusterfs defaults,transport=tcp 0 0"
+	esc_mntent=$(echo -e "$mntent" | sed 's/\//\\\//g')
+	exists=`grep "$mntent" /etc/fstab`
+	if [ "$exists" != " " ]
+	then
+		sed -i /"$esc_mntent"/d /etc/fstab
+	fi
+}
+
 function sighup_samba () {
         pid=`cat /var/run/smbd.pid`
         if [ $pid != " " ]
@@ -50,4 +62,5 @@ function sighup_samba () {
 parse_args $@
 del_samba_export $VOL
 umount_volume $VOL $MNT_PRE
+remove_fstab_entry $VOL $MNT_PRE/$VOL
 sighup_samba
