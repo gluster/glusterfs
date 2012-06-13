@@ -730,10 +730,13 @@ typedef int32_t (*cbk_forget_t) (xlator_t *this,
 typedef int32_t (*cbk_release_t) (xlator_t *this,
                                   fd_t *fd);
 
+typedef int32_t (*cbk_invalidate_t)(xlator_t *this, inode_t *inode);
+
 struct xlator_cbks {
         cbk_forget_t    forget;
         cbk_release_t   release;
         cbk_release_t   releasedir;
+	cbk_invalidate_t invalidate;
 };
 
 typedef int32_t (*dumpop_priv_t) (xlator_t *this);

@@ -313,6 +313,18 @@ ioc_forget (xlator_t *this, inode_t *inode)
         return 0;
 }
 
+static int32_t
+ioc_invalidate(xlator_t *this, inode_t *inode)
+{
+	ioc_inode_t *ioc_inode = NULL;
+
+	inode_ctx_get(inode, this, (uint64_t *) &ioc_inode);
+
+	if (ioc_inode)
+		ioc_inode_flush(ioc_inode);
+
+	return 0;
+}
 
 /*
  * ioc_cache_validate_cbk -
@@ -1977,7 +1989,8 @@ struct xlator_dumpops dumpops = {
 
 struct xlator_cbks cbks = {
         .forget      = ioc_forget,
-        .release     = ioc_release
+        .release     = ioc_release,
+	.invalidate  = ioc_invalidate,
 };
 
 struct volume_options options[] = {

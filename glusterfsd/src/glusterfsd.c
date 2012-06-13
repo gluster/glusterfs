@@ -168,6 +168,8 @@ static struct argp_option gf_options[] = {
          "Brick name to be registered with Gluster portmapper" },
         {"brick-port", ARGP_BRICK_PORT_KEY, "BRICK-PORT", OPTION_HIDDEN,
          "Brick Port to be registered with Gluster portmapper" },
+	{"fopen-keep-cache", ARGP_FOPEN_KEEP_CACHE_KEY, 0, 0,
+	 "Do not purge the cache on file open"},
 
         {0, 0, 0, 0, "Fuse options:"},
         {"direct-io-mode", ARGP_DIRECT_IO_MODE_KEY, "BOOL", OPTION_ARG_OPTIONAL,
@@ -367,6 +369,17 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
                         goto err;
                 }
         }
+
+	if (cmd_args->fopen_keep_cache) {
+		ret = dict_set_static_ptr(master->options, "fopen-keep-cache",
+			"on");
+		if (ret < 0) {
+			gf_log("glusterfsd", GF_LOG_ERROR,
+				"failed to set dict value for key "
+				"fopen-keep-cache");
+			goto err;
+		}
+	}
 
         switch (cmd_args->fuse_direct_io_mode) {
         case GF_OPTION_DISABLE: /* disable */
@@ -814,7 +827,11 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 ctx = glusterfs_ctx_get ();
                 ctx->mem_accounting = 1;
                 break;
-        }
+
+	case ARGP_FOPEN_KEEP_CACHE_KEY:
+		cmd_args->fopen_keep_cache = 1;
+		break;
+	}
 
         return 0;
 }

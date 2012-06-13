@@ -131,6 +131,9 @@ int
 inode_forget (inode_t *inode, uint64_t nlookup);
 
 int
+inode_invalidate(inode_t *inode);
+
+int
 inode_rename (inode_table_t *table, inode_t *olddir, const char *oldname,
 	      inode_t *newdir, const char *newname,
 	      inode_t *inode, struct iatt *stbuf);
