@@ -462,7 +462,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
 
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_args (&runner, "remote-gsyncd",
-                         "/usr/local/libexec/glusterfs/gsyncd", ".", "^ssh:", NULL);
+                         "/usr/libexec/glusterfs/gsyncd", ".", "^ssh:", NULL);
         RUN_GSYNCD_CMD;
 
         /* gluster-command-dir */
