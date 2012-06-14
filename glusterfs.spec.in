@@ -37,7 +37,7 @@ Version: %{version}
 Release: %{release}
 License: GPLv2 or LGPLv3+
 Group: System Environment/Base
-Vendor: Gluster Inc
+Vendor: Red Hat Inc
 Packager: @PACKAGE_BUGREPORT@
 URL: http://www.gluster.org/docs/index.php/GlusterFS
 Source0: @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz
