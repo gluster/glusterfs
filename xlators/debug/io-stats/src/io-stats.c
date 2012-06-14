@@ -1114,7 +1114,10 @@ io_stats_dump_stats_to_dict (xlator_t *this, dict_t *resp,
                         }
         unlock:
                         UNLOCK (&conf->lock);
-
+                        /* Do not proceed if we came here because of some error
+                         * during the dict operation */
+                        if (ret)
+                                goto out;
                         break;
                 case IOS_STATS_TYPE_READ:
                         list_head = &conf->list[IOS_STATS_TYPE_READ];
@@ -1175,7 +1178,10 @@ io_stats_dump_stats_to_dict (xlator_t *this, dict_t *resp,
         }
 unlock_list_head:
         UNLOCK (&list_head->lock);
-
+        /* ret is !=0 if some dict operation in the above critical region
+         * failed. */
+        if (ret)
+                goto out;
         ret = dict_set_int32 (resp, "members", cnt);
  out:
         return ret;
