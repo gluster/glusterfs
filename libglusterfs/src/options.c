@@ -120,7 +120,7 @@ xlator_option_validate_sizet (xlator_t *xl, const char *key, const char *value,
                               volume_option_t *opt, char **op_errstr)
 {
         uint64_t  size = 0;
-        int       ret = -1;
+        int       ret = 0;
         char      errstr[256];
 
         /* Check the range */
@@ -129,6 +129,7 @@ xlator_option_validate_sizet (xlator_t *xl, const char *key, const char *value,
                           "invalid number format \"%s\" in option \"%s\"",
                           value, key);
                 gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
+                ret = -1;
                 goto out;
         }
 
@@ -136,29 +137,26 @@ xlator_option_validate_sizet (xlator_t *xl, const char *key, const char *value,
                 gf_log (xl->name, GF_LOG_TRACE,
                         "no range check required for 'option %s %s'",
                         key, value);
-                ret = 0;
                 goto out;
         }
 
         if ((size < opt->min) || (size > opt->max)) {
-                if (strncmp (key, "cache-size", 10) == 0) {
+                if ((strncmp (key, "cache-size", 10) == 0) &&
+                    (size > opt->max)) {
                        snprintf (errstr, 256, "Cache size %"PRId64" is out of "
                                  "range [%"PRId64" - %"PRId64"]",
                                  size, opt->min, opt->max);
                        gf_log (xl->name, GF_LOG_WARNING, "%s", errstr);
-                       ret = 0;
-                       goto out;
                 } else {
                         snprintf (errstr, 256,
                                   "'%"PRId64"' in 'option %s %s' "
                                   "is out of range [%"PRId64" - %"PRId64"]",
                                   size, key, value, opt->min, opt->max);
                         gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
-                        goto out;
+                        ret = -1;
                 }
         }
 
-        ret = 0;
 out:
         if (ret && op_errstr)
                 *op_errstr = gf_strdup (errstr);
