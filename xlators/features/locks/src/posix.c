@@ -614,10 +614,9 @@ int
 pl_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
          fd_t *fd, dict_t *xdata)
 {
-        /* why isn't O_TRUNC being handled ? */
         STACK_WIND (frame, pl_open_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->open,
-                    loc, flags & ~O_TRUNC, fd, xdata);
+                    loc, flags, fd, xdata);
 
         return 0;
 }

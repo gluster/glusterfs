@@ -119,7 +119,6 @@ typedef struct _client_fd_ctx {
         char              is_dir;
         char              released;
         int32_t           flags;
-        int32_t           wbflags;
         fd_lk_ctx_t      *lk_ctx;
         pthread_mutex_t   mutex;
         lk_heal_state_t   lk_heal_state;
@@ -145,7 +144,6 @@ typedef struct client_local {
         fd_t                *fd;
         clnt_fd_ctx_t       *fdctx;
         uint32_t             flags;
-        uint32_t             wbflags;
         struct iobref       *iobref;
 
         client_posix_lock_t *client_lock;
