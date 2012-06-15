@@ -1188,6 +1188,7 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
 
         memcpy (req.gfid, fdctx->gfid, 16);
         req.flags    = gf_flags_from_flags (fdctx->flags);
+        req.flags    = req.flags & (~(O_TRUNC|O_CREAT|O_EXCL));
 
         gf_log (frame->this->name, GF_LOG_DEBUG,
                 "attempting reopen on %s", local->loc.path);

@@ -372,7 +372,7 @@ out:
 
 int
 client_add_fd_to_saved_fds (xlator_t *this, fd_t *fd, loc_t *loc, int32_t flags,
-                            int32_t wbflags, int64_t remote_fd, int is_dir)
+                            int64_t remote_fd, int is_dir)
 {
         int             ret = 0;
         uuid_t          gfid = {0};
@@ -397,7 +397,6 @@ client_add_fd_to_saved_fds (xlator_t *this, fd_t *fd, loc_t *loc, int32_t flags,
         fdctx->is_dir        = is_dir;
         fdctx->remote_fd     = remote_fd;
         fdctx->flags         = flags;
-        fdctx->wbflags       = wbflags;
         fdctx->lk_ctx        = fd_lk_ctx_ref (fd->lk_ctx);
         fdctx->lk_heal_state = GF_LK_HEAL_DONE;
 
@@ -452,8 +451,7 @@ client3_1_open_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         if (-1 != rsp.op_ret) {
                 ret = client_add_fd_to_saved_fds (frame->this, fd, &local->loc,
-                                                  local->flags, local->wbflags,
-                                                  rsp.fd, 0);
+                                                  local->flags, rsp.fd, 0);
                 if (ret) {
                         rsp.op_ret = -1;
                         rsp.op_errno = -ret;
@@ -2067,8 +2065,7 @@ client3_1_create_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 gf_stat_to_iatt (&rsp.postparent, &postparent);
                 uuid_copy (local->loc.gfid, stbuf.ia_gfid);
                 ret = client_add_fd_to_saved_fds (frame->this, fd, &local->loc,
-                                                  local->flags, 0,
-                                                  rsp.fd, 0);
+                                                  local->flags, rsp.fd, 0);
                 if (ret) {
                         rsp.op_ret = -1;
                         rsp.op_errno = -ret;
@@ -2546,7 +2543,7 @@ client3_1_opendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         if (-1 != rsp.op_ret) {
                 ret = client_add_fd_to_saved_fds (frame->this, fd, &local->loc,
-                                                  0, 0, rsp.fd, 1);
+                                                  0, rsp.fd, 1);
                 if (ret) {
                         rsp.op_ret = -1;
                         rsp.op_errno = -ret;
