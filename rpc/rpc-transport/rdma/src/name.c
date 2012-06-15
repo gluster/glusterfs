@@ -153,13 +153,11 @@ client_fill_address_family (rpc_transport_t *this, struct sockaddr *sockaddr)
                         sockaddr->sa_family = AF_INET6;
                 } else if (!strcasecmp (address_family, "inet-sdp")) {
                         sockaddr->sa_family = AF_INET_SDP;
-                } else if (!strcasecmp (address_family, "inet/inet6")
-                           || !strcasecmp (address_family, "inet6/inet")) {
-                        sockaddr->sa_family = AF_UNSPEC;
                 } else {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "unknown address-family (%s) specified",
                                 address_family);
+                        sockaddr->sa_family = AF_UNSPEC;
                         return -1;
                 }
         }
@@ -521,21 +519,19 @@ gf_rdma_server_get_local_sockaddr (rpc_transport_t *this,
                         addr->sa_family = AF_INET_SDP;
                 } else if (!strcasecmp (address_family, "unix")) {
                         addr->sa_family = AF_UNIX;
-                } else if (!strcasecmp (address_family, "inet/inet6")
-                           || !strcasecmp (address_family, "inet6/inet")) {
-                        addr->sa_family = AF_UNSPEC;
                 } else {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "unknown address family (%s) specified",
                                 address_family);
+                        addr->sa_family = AF_UNSPEC;
                         ret = -1;
                         goto err;
                 }
         } else {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "option address-family not specified, defaulting "
-                        "to inet/inet6");
-                addr->sa_family = AF_UNSPEC;
+                        "to inet");
+                addr->sa_family = AF_INET;
         }
 
         switch (addr->sa_family)
