@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <ctype.h>
+#include <sys/param.h> /* for PATH_MAX */
 
 #include "common-utils.h"
 #include "procdiggy.h"
