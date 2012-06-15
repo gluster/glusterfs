@@ -32,6 +32,8 @@ _init ()
     cmd_line=$(echo "@sbindir@/glusterfs");
 
     UPDATEDBCONF=/etc/updatedb.conf
+    LD_LIBRARY_PATH=@libdir@:${LD_LIBRARY_PATH}
+    export LD_LIBRARY_PATH
 }
 
 start_glusterfs ()
