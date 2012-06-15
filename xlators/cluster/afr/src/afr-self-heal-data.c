@@ -1393,6 +1393,8 @@ afr_self_heal_data (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         sh = &local->self_heal;
 
+        local->govinda_gOvinda = afr_is_split_brain (this, sh->inode);
+
         if (sh->do_data_self_heal &&
             afr_data_self_heal_enabled (priv->data_self_heal)) {
                 afr_sh_data_open (frame, this);
