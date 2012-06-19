@@ -560,7 +560,6 @@ struct volume_options options[] = {
         },
         { .key  = {"data-self-heal"},
           .type = GF_OPTION_TYPE_STR,
-          .default_value = "",
           .value = {"1", "on", "yes", "true", "enable",
                     "0", "off", "no", "false", "disable",
                     "open"},
