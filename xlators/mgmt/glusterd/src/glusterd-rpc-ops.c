@@ -1033,8 +1033,10 @@ glusterd_volume_status_add_peer_rsp (dict_t *this, char *key, data_t *value,
         if (index > rsp_ctx->brick_index_max) {
                 snprintf (new_key, sizeof (new_key), "brick%d.%s",
                           index + rsp_ctx->other_count, brick_key);
-        } else
+        } else {
                 strncpy (new_key, key, sizeof (new_key));
+                new_key[sizeof (new_key) - 1] = 0;
+        }
 
         ret = dict_set (rsp_ctx->dict, new_key, new_value);
         if (ret)
