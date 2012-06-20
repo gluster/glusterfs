@@ -107,6 +107,7 @@ invoke_gsyncd (int argc, char **argv)
         char *nargv[argc + 4];
 
         if (restricted) {
+                size_t len;
                 /* in restricted mode we forcibly use the system-wide config */
                 runinit (&runner);
                 runner_add_args (&runner, SBIN_DIR"/gluster",
@@ -116,9 +117,10 @@ invoke_gsyncd (int argc, char **argv)
                 if (runner_start (&runner) == 0 &&
                     fgets (config_file, PATH_MAX,
                            runner_chio (&runner, STDOUT_FILENO)) != NULL &&
-                    config_file[strlen (config_file) - 1] == '\n' &&
+                    (len = strlen (config_file)) &&
+                    config_file[len - 1] == '\n' &&
                     runner_end (&runner) == 0)
-                        gluster_workdir_len = strlen (config_file) - 1;
+                        gluster_workdir_len = len - 1;
 
                 if (gluster_workdir_len) {
                         if (gluster_workdir_len + 1 + strlen (GSYNCD_CONF) + 1 >
