@@ -214,6 +214,7 @@ libgf_alloc_fd_ctx (libglusterfs_client_ctx_t *ctx, fd_t *fd, char *vpath)
 
         if (vpath != NULL) {
                 strcpy (fdctx->vpath, vpath);
+                assert (strlen(vpath) > 0);
                 if (vpath[strlen(vpath) - 1] != '/') {
                         strcat (fdctx->vpath, "/");
                 }
@@ -743,7 +744,7 @@ xlator_graph_fini (xlator_t *xl)
 char *
 libgf_rrindex (char *str, int c, int n)
 {
-        int     len = 0;
+        size_t  len;
         int     occurrence = 0;
 
         if (str == NULL)
@@ -751,7 +752,8 @@ libgf_rrindex (char *str, int c, int n)
 
         len = strlen (str);
         /* Point to last character of string. */
-        str += (len - 1);
+        if (len)
+                str += (len - 1);
         while (len > 0) {
                 if ((int)*str == c) {
                         ++occurrence;
@@ -778,7 +780,7 @@ libgf_trim_to_prev_dir (char * path)
          * then there is no prev dir.
          */
         len = strlen (path);
-        if (len == 1)
+        if (len <= 1)
                 return path;
 
         if (path[len - 1] == '/') {
