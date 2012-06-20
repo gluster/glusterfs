@@ -1105,12 +1105,6 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto done;
         }
 
-        ret = dict_get_int32 (dict, "count", &counter);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "count not set");
-                goto out;
-        }
-
         if (cmd == GF_DEFRAG_CMD_STOP) {
                 if (rsp.op_ret == -1) {
                         if (strcmp (rsp.op_errstr, ""))
@@ -1139,12 +1133,18 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         goto done;
                 }
         }
+
+        ret = dict_get_int32 (dict, "count", &counter);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "count not set");
+                goto out;
+        }
+
         cli_out ("%40s %16s %13s %13s %13s %14s %s", "Node", "Rebalanced-files",
                  "size", "scanned", "failures", "status", "run time in secs");
         cli_out ("%40s %16s %13s %13s %13s %14s %14s", "---------",
                  "-----------", "-----------", "-----------", "-----------",
                  "------------", "-----------");
-
         do {
                 snprintf (key, 256, "node-uuid-%d", i);
                 ret = dict_get_str (dict, key, &node_uuid);
@@ -1211,7 +1211,7 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         status = "failed";
                         break;
                 }
-                cli_out ("%40s %16"PRId64 "%13"PRId64 "%13"PRId64 "%13"PRId64
+                cli_out ("%40s %16"PRIu64 "%13"PRIu64 "%13"PRIu64 "%13"PRIu64
                          " %14s %14.2f", node_uuid, files, size, lookup,
                          failures, status, elapsed);
                 i++;
@@ -1595,7 +1595,7 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
                         status = "failed";
                         break;
                 }
-                cli_out ("%40s %16"PRId64 "%13"PRId64 "%13"PRId64 "%13"PRId64
+                cli_out ("%40s %16"PRIu64 "%13"PRIu64 "%13"PRIu64 "%13"PRIu64
                          " %14s %14.2f", node_uuid, files, size, lookup,
                          failures, status, elapsed);
                 i++;
