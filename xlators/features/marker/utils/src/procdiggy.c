@@ -51,13 +51,15 @@ pidinfo (pid_t pid, char **name)
         if (name)
                 *name = NULL;
         for (;;) {
+                size_t len;
                 memset (buf, 0, sizeof (buf));
                 if (fgets (buf, sizeof (buf), f) == NULL ||
-                    buf[strlen (buf) - 1] != '\n') {
+                    (len = strlen (buf)) == 0 ||
+                    buf[len - 1] != '\n') {
                         pid = -1;
                         goto out;
                 }
-                buf[strlen (buf) -1] = '\0';
+                buf[len - 1] = '\0';
 
                 if (name && !*name) {
                         p = strtail (buf, "Name:");
