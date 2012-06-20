@@ -1505,7 +1505,7 @@ libgf_count_path_components (char *path)
         char    *pathdup = NULL;
         int     len = 0;
 
-        if (!path)
+        if (!path || !*path)
                 return -1;
 
         pathdup = strdup (path);
