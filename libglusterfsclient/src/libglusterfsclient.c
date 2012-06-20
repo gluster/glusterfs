@@ -7806,7 +7806,7 @@ libgf_client_chdir (const char *path)
         {
                 if (!libgf_path_absolute (path)) {
                         resulting_cwd_len = strlen (path) + strlen (cwd)
-                                + ((path[strlen (path) - 1] == '/')
+                                + ((strlen (path) && path[strlen (path) - 1] == '/')
                                    ? 0 : 1) + 1;
 
                         if (resulting_cwd_len > PATH_MAX) {
