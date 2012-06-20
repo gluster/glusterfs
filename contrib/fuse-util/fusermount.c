@@ -606,7 +606,7 @@ static int add_option(char **optsp, const char *opt, unsigned expand)
 static int get_mnt_opts(int flags, char *opts, char **mnt_optsp)
 {
 	int i;
-	int l;
+	size_t l;
 
 	if (!(flags & MS_RDONLY) && add_option(mnt_optsp, "rw", 0) == -1)
 		return -1;
@@ -621,7 +621,7 @@ static int get_mnt_opts(int flags, char *opts, char **mnt_optsp)
 		return -1;
 	/* remove comma from end of opts*/
 	l = strlen(*mnt_optsp);
-	if ((*mnt_optsp)[l-1] == ',')
+	if (l && (*mnt_optsp)[l-1] == ',')
 		(*mnt_optsp)[l-1] = '\0';
 	if (getuid() != 0) {
 		const char *user = get_user_name();
