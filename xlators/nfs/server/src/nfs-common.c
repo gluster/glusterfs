@@ -88,7 +88,7 @@ nfs_mntpath_to_xlator (xlator_list_t *cl, char *path)
 {
         char            volname[MNTPATHLEN];
         char            *volptr = NULL;
-        int             pathlen = 0;
+        size_t          pathlen;
         xlator_t        *targetxl = NULL;
 
         if ((!cl) || (!path))
@@ -102,7 +102,7 @@ nfs_mntpath_to_xlator (xlator_list_t *cl, char *path)
         else
                 volptr = &volname[0];
 
-        if (volname[pathlen - 1] == '/')
+        if (pathlen && volname[pathlen - 1] == '/')
                 volname[pathlen - 1] = '\0';
 
         while (cl) {
