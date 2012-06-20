@@ -324,7 +324,7 @@ int
 mnt3_match_dirpath_export (char *expname, char *dirpath)
 {
         int     ret = 0;
-        int     dlen = 0;
+        size_t  dlen;
 
         if ((!expname) || (!dirpath))
                 return 0;
@@ -335,7 +335,7 @@ mnt3_match_dirpath_export (char *expname, char *dirpath)
          * compare.
          */
         dlen = strlen (dirpath);
-        if (dirpath [dlen - 1] == '/')
+        if (dlen && dirpath [dlen - 1] == '/')
                 dirpath [dlen - 1] = '\0';
 
         if (dirpath[0] != '/')
