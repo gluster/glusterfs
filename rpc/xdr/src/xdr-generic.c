@@ -127,7 +127,7 @@ xdr_vector_round_up (struct iovec *vec, int vcount, uint32_t count)
 
         round_count = xdr_length_round_up (count, 1048576);
         round_count -= count;
-        if (round_count == 0)
+        if (round_count == 0 || vcount <= 0)
                 return;
 
         vec[vcount-1].iov_len += round_count;
