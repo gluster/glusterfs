@@ -505,13 +505,13 @@ static void read_conf(void)
 		int isnewline = 1;
 		while (fgets(line, sizeof(line), fp) != NULL) {
 			if (isnewline) {
-				if (line[strlen(line)-1] == '\n') {
+				if (strlen(line) && line[strlen(line)-1] == '\n') {
 					strip_line(line);
 					parse_line(line, linenum);
 				} else {
 					isnewline = 0;
 				}
-			} else if(line[strlen(line)-1] == '\n') {
+			} else if(strlen(line) && line[strlen(line)-1] == '\n') {
 				fprintf(stderr, "%s: reading %s: line %i too long\n", progname, FUSE_CONF, linenum);
 
 				isnewline = 1;
