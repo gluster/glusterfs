@@ -229,6 +229,7 @@ glusterd_urltransform (runner_t *runner, char ***linearrp)
 
         arr_idx = 0;
         for (;;) {
+                size_t len;
                 line = GF_MALLOC (1024, gf_gld_mt_linebuf);
                 if (!line) {
                         error = _gf_true;
@@ -239,12 +240,13 @@ glusterd_urltransform (runner_t *runner, char ***linearrp)
                     NULL)
                         break;
 
-                if (line[strlen (line) - 1] != '\n') {
+                len = strlen (line);
+                if (len == 0 || line[len - 1] != '\n') {
                         GF_FREE (line);
                         error = _gf_true;
                         goto out;
                 }
-                line[strlen (line) - 1] = '\0';
+                line[len - 1] = '\0';
 
                 if (arr_idx == arr_len) {
                         arr_len <<= 1;
@@ -383,8 +385,11 @@ _fcbk_singleline(char *resbuf, size_t blen, FILE *fp, void *data)
 
         errno = 0;
         ptr = fgets (resbuf, blen, fp);
-        if (ptr)
-                resbuf[strlen(resbuf)-1] = '\0'; //strip off \n
+        if (ptr) {
+                size_t len = strlen(resbuf);
+                if (len && resbuf[len-1] == '\n')
+                        resbuf[len-1] = '\0'; //strip off \n
+        }
 
         return errno ? -1 : 0;
 }
