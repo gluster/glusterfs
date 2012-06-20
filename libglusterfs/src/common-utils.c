@@ -1703,7 +1703,8 @@ valid_ipv4_address (char *address, int length, gf_boolean_t wildcard_acc)
         tmp = gf_strdup (address);
 
         /* To prevent cases where last character is '.' */
-        if (!isdigit (tmp[length - 1]) && (tmp[length - 1] != '*')) {
+        if (length <= 0 ||
+            (!isdigit (tmp[length - 1]) && (tmp[length - 1] != '*'))) {
                 ret = 0;
                 goto out;
         }
@@ -1749,7 +1750,7 @@ valid_ipv6_address (char *address, int length, gf_boolean_t wildcard_acc)
         tmp = gf_strdup (address);
 
         /* Check for compressed form */
-        if (tmp[length - 1] == ':') {
+        if (length <= 0 || tmp[length - 1] == ':') {
                 ret = 0;
                 goto out;
         }
