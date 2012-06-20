@@ -545,7 +545,7 @@ cli_cmd_get_confirmation (struct cli_state *state, const char *question)
 {
         char                    answer[5] = {'\0', };
         char                    flush = '\0';
-	int			len = 0;
+        size_t			len;
 
         if (state->mode & GLUSTER_MODE_SCRIPT)
                 return GF_ANSWER_YES;
@@ -559,7 +559,7 @@ cli_cmd_get_confirmation (struct cli_state *state, const char *question)
 
 	len = strlen (answer);
 
-	if (answer [len - 1] == '\n'){
+	if (len && answer [len - 1] == '\n'){
 		answer [--len] = '\0';
 	} else {
 		do{
