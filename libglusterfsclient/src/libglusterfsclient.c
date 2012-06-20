@@ -1443,7 +1443,7 @@ struct vmp_entry *
 libgf_init_vmpentry (char *vmp, glusterfs_handle_t *vmphandle)
 {
         struct vmp_entry        *entry = NULL;
-        int                     vmplen = 0;
+        size_t                  vmplen = 0;
         int                     appendslash = 0;
         int                     ret = -1;
 
@@ -1454,6 +1454,7 @@ libgf_init_vmpentry (char *vmp, glusterfs_handle_t *vmphandle)
         }
 
         vmplen = strlen (vmp);
+        assert (vmplen > 0);
         if (vmp[vmplen - 1] != '/') {
                 vmplen++;
                 appendslash = 1;
