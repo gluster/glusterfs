@@ -255,7 +255,9 @@ glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
         char                            *volname = NULL;
         dict_t                          *dict = NULL;
         glusterd_op_t                   cli_op = GD_OP_START_VOLUME;
+        xlator_t                        *this = NULL;
 
+        this = THIS;
         GF_ASSERT (req);
 
         if (!xdr_to_generic (req->msg[0], &cli_req,
@@ -282,12 +284,12 @@ glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "dict get failed");
+                gf_log (this->name, GF_LOG_ERROR, "dict get failed");
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_INFO, "Received start vol req"
-                "for volume %s", volname);
+        gf_log (this->name, GF_LOG_INFO, "Received start vol req"
+                " for volume %s", volname);
 
         ret = glusterd_op_begin (req, GD_OP_START_VOLUME, dict);
 
@@ -319,7 +321,9 @@ glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
         char                            *dup_volname = NULL;
         dict_t                          *dict = NULL;
         glusterd_op_t                   cli_op = GD_OP_STOP_VOLUME;
+        xlator_t                        *this = NULL;
 
+        this = THIS;
         GF_ASSERT (req);
 
         if (!xdr_to_generic (req->msg[0], &cli_req,
@@ -336,7 +340,7 @@ glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
                                         cli_req.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "failed to "
                                 "unserialize req-buffer to dictionary");
                         goto out;
@@ -350,7 +354,7 @@ glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_INFO, "Received stop vol req"
+        gf_log (this->name, GF_LOG_INFO, "Received stop vol req "
                 "for volume %s", dup_volname);
 
         ret = glusterd_op_begin (req, GD_OP_STOP_VOLUME, dict);
