@@ -334,6 +334,8 @@ struct _glusterfs_graph {
 typedef struct _glusterfs_graph glusterfs_graph_t;
 
 
+typedef int32_t (*glusterfsd_mgmt_event_notify_fn_t) (int32_t event, void *data,
+                                                      ...);
 struct _glusterfs_ctx {
 	cmd_args_t          cmd_args;
 	char               *process_uuid;
@@ -373,6 +375,8 @@ struct _glusterfs_ctx {
 
         int                 mem_accounting; /* if value is other than 0, it
                                                will be set */
+        glusterfsd_mgmt_event_notify_fn_t notify; /* Used for xlators to make
+                                                     call to fsd-mgmt */
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 

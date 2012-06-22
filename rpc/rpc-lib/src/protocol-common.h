@@ -194,11 +194,6 @@ typedef enum {
         GF_AFR_OP_SPLIT_BRAIN_FILES
 } gf_xl_afr_op_t ;
 
-enum gf_hdsk_event_notify_op {
-        GF_EN_DEFRAG_STATUS,
-        GF_EN_MAX,
-};
-
 #define GLUSTER_HNDSK_PROGRAM    14398633 /* Completely random */
 #define GLUSTER_HNDSK_VERSION    2   /* 0.0.1 */
 

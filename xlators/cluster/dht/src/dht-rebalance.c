@@ -1404,9 +1404,14 @@ gf_defrag_start_crawl (void *data)
         dict_t                  *fix_layout = NULL;
         dict_t                  *migrate_data = NULL;
         dict_t                  *status = NULL;
+        glusterfs_ctx_t         *ctx = NULL;
 
         this = data;
         if (!this)
+                goto out;
+
+        ctx = glusterfs_ctx_get ();
+        if (!ctx)
                 goto out;
 
         conf = this->private;
@@ -1480,7 +1485,8 @@ out:
         {
                 status = dict_new ();
                 gf_defrag_status_get (defrag, status);
-                glusterfs_rebalance_event_notify (status);
+                if (ctx->notify)
+                        ctx->notify (GF_EN_DEFRAG_STATUS, status);
                 if (status)
                         dict_unref (status);
                 defrag->is_exiting = 1;
