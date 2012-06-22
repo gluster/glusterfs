@@ -568,19 +568,16 @@ ios_dump_throughput_stats (struct ios_stat_head *list_head, xlator_t *this,
                             FILE* logfp, ios_stats_type_t type)
 {
         struct ios_stat_list *entry = NULL;
-        struct timeval        time = {0, };
-        struct tm             *tm = NULL;
+        struct timeval        time  = {0, };
         char                  timestr[256] = {0, };
 
         LOCK (&list_head->lock);
         {
                 list_for_each_entry (entry, &list_head->iosstats->list, list) {
-                        time = entry->iosstat->thru_counters[type].time;
-                        tm    = localtime (&time.tv_sec);
-                        if (!tm)
-                                continue;
-                        strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
-                        snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                        gf_time_fmt (timestr, sizeof timestr,
+                                     entry->iosstat->thru_counters[type].time.tv_sec,
+                                     gf_timefmt_FT);
+                        snprintf (timestr + strlen (timestr), sizeof timestr - strlen (timestr),
                           ".%"GF_PRI_SUSECONDS, time.tv_usec);
 
                         ios_log (this, logfp, "%s \t %-10.2f  \t  %s",
@@ -600,7 +597,6 @@ io_stats_dump_global_to_logfp (xlator_t *this, struct ios_global_stats *stats,
         int                   index = 0;
         struct ios_stat_head *list_head = NULL;
         struct ios_conf      *conf = NULL;
-        struct tm            *tm = NULL;
         char                  timestr[256] = {0, };
         char                  str_header[128] = {0};
         char                  str_read[128] = {0};
@@ -694,9 +690,10 @@ io_stats_dump_global_to_logfp (xlator_t *this, struct ios_global_stats *stats,
         if (interval == -1) {
                 LOCK (&conf->lock);
                 {
-                        tm = localtime (&conf->cumulative.max_openfd_time.tv_sec);
-                        strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
-                        snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                        gf_time_fmt (timestr, sizeof timestr,
+                                     conf->cumulative.max_openfd_time.tv_sec,
+                                     gf_timefmt_FT);
+                        snprintf (timestr + strlen (timestr), sizeof timestr - strlen (timestr),
                                   ".%"GF_PRI_SUSECONDS,
                                   conf->cumulative.max_openfd_time.tv_usec);
                         ios_log (this, logfp, "Current open fd's: %"PRId64
@@ -1080,7 +1077,6 @@ io_stats_dump_stats_to_dict (xlator_t *this, dict_t *resp,
         struct ios_stat_list    *entry = NULL;
         int                      ret = -1;
         ios_stats_thru_t         index = IOS_STATS_THRU_MAX;
-        struct tm               *tm = NULL;
         char                     timestr[256] = {0, };
 
         conf = this->private;
@@ -1097,9 +1093,10 @@ io_stats_dump_stats_to_dict (xlator_t *this, dict_t *resp,
                                 ret = dict_set_uint64 (resp, "max-open",
                                                        conf->cumulative.max_nr_opens);
 
-                                tm = localtime (&conf->cumulative.max_openfd_time.tv_sec);
-                                strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
-                                snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                                gf_time_fmt (timestr, sizeof timestr,
+                                             conf->cumulative.max_openfd_time.tv_sec,
+                                             gf_timefmt_FT);
+                                snprintf (timestr + strlen (timestr), sizeof timestr - strlen (timestr),
                                           ".%"GF_PRI_SUSECONDS,
                                           conf->cumulative.max_openfd_time.tv_usec);
 

@@ -4558,9 +4558,8 @@ glusterd_sm_tr_log_transition_add_to_dict (dict_t *dict,
 {
         int     ret = -1;
         char    key[512] = {0};
-	char    timestr[256] = {0,};
+	char    timestr[64] = {0,};
         char    *str = NULL;
-	struct tm   tm = {0};
 
         GF_ASSERT (dict);
         GF_ASSERT (log);
@@ -4589,9 +4588,8 @@ glusterd_sm_tr_log_transition_add_to_dict (dict_t *dict,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "log%d-time", count);
-	localtime_r ((const time_t*)&log->transitions[i].time, &tm);
-        memset (timestr, 0, sizeof (timestr));
-	strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", &tm);
+        gf_time_fmt (timestr, sizeof timestr, log->transitions[i].time,
+                     gf_timefmt_FT);
         str = gf_strdup (timestr);
         ret = dict_set_dynstr (dict, key, str);
         if (ret)

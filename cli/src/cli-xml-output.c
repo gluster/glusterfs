@@ -1429,14 +1429,13 @@ int
 cli_xml_output_vol_top_rw_perf (xmlTextWriterPtr writer, dict_t *dict,
                                 int brick_index, int member_index)
 {
-        int             ret = -1;
-        char            *filename = NULL;
-        uint64_t        throughput = 0;
-        long int        time_sec = 0;
-        long int        time_usec = 0;
-        struct tm       *tm = NULL;
-        char            timestr[256] = {0,};
-        char            key[1024] = {0,};
+        int        ret = -1;
+        char      *filename = NULL;
+        uint64_t   throughput = 0;
+        long int   time_sec = 0;
+        long int   time_usec = 0;
+        char       timestr[256] = {0,};
+        char       key[1024] = {0,};
 
         /* <file> */
         ret = xmlTextWriterStartElement (writer, (xmlChar *)"file");
@@ -1474,14 +1473,9 @@ cli_xml_output_vol_top_rw_perf (xmlTextWriterPtr writer, dict_t *dict,
         if (ret)
                 goto out;
 
-        tm = localtime (&time_sec);
-        if (!tm) {
-                ret = -1;
-                goto out;
-        }
-        strftime (timestr, sizeof (timestr), "%Y-%m-%d %H:%M:%S", tm);
+        gf_time_fmt (timestr, sizeof timestr, time_sec, gf_timefmt_FT);
         snprintf (timestr + strlen (timestr),
-                  sizeof (timestr) - strlen (timestr),
+                  sizeof timestr - strlen (timestr),
                   ".%"GF_PRI_SUSECONDS, time_usec);
         ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"time",
                                                "%s", timestr);
