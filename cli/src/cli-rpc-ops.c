@@ -129,8 +129,8 @@ gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                                 break;
                         default:
                                 snprintf (msg, sizeof (msg),
-                                          "Probe returned with unknown errno %d",
-                                           rsp.op_errno);
+                                          "Probe returned with unknown errno"
+                                          " %d", rsp.op_errno);
                                 break;
                 }
          }
@@ -168,7 +168,12 @@ gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                                                   "information on %s" ,
                                                   rsp.hostname);
                                         break;
-
+                                case GF_PROBE_SAME_UUID:
+                                        snprintf (msg, sizeof (msg),
+                                                  "Peer uuid (host: %s) is"
+                                                  "same as local uuid",
+                                                  rsp.hostname);
+                                break;
                                 default:
                                         snprintf (msg, sizeof (msg),
                                                   "Probe unsuccessful\nProbe "

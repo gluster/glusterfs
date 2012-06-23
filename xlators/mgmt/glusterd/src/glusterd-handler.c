@@ -1753,6 +1753,20 @@ glusterd_handle_probe_query (rpcsvc_request_t *req)
         gf_log ("glusterd", GF_LOG_INFO,
                 "Received probe from uuid: %s", uuid_utoa (probe_req.uuid));
 
+        /* Check for uuid collision and handle it in a user friendly way by
+         * sending the error.
+         */
+        if (!uuid_compare (probe_req.uuid, MY_UUID)) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Peer uuid %s is same as "
+                        "local uuid. Please check the uuid of both the peers "
+                        "from %s/%s", uuid_utoa (probe_req.uuid),
+                        GLUSTERD_DEFAULT_WORKDIR, GLUSTERD_INFO_FILE);
+                rsp.op_ret = -1;
+                rsp.op_errno = GF_PROBE_SAME_UUID;
+                rsp.port = port;
+                goto respond;
+        }
+
         ret = glusterd_remote_hostname_get (req, remote_hostname,
                                             sizeof (remote_hostname));
         if (ret) {
@@ -1777,6 +1791,7 @@ glusterd_handle_probe_query (rpcsvc_request_t *req)
                 }
         }
 
+respond:
         uuid_copy (rsp.uuid, conf->uuid);
 
         rsp.hostname = probe_req.hostname;
