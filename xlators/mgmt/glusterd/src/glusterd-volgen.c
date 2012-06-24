@@ -123,6 +123,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
 
         {"cluster.entry-change-log",             "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
         {"cluster.read-subvolume",               "cluster/replicate",  NULL, NULL, NO_DOC, 0    },
+        {"cluster.read-subvolume-index",               "cluster/replicate",  NULL, NULL, NO_DOC, 0    },
         {"cluster.read-hash-mode",               "cluster/replicate",  NULL, NULL, NO_DOC, 0},
         {"cluster.background-self-heal-count",   "cluster/replicate",  NULL, NULL, NO_DOC, 0    },
         {"cluster.metadata-self-heal",           "cluster/replicate",  NULL, NULL, NO_DOC, 0     },
