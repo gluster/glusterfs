@@ -610,12 +610,12 @@ afr_select_read_child_from_policy (int32_t *success_children,
 
         GF_ASSERT (success_children);
 
-        read_child = prev_read_child;
+        read_child = config_read_child;
         if (afr_is_read_child (success_children, sources, child_count,
                                read_child))
                 goto out;
 
-        read_child = config_read_child;
+        read_child = prev_read_child;
         if (afr_is_read_child (success_children, sources, child_count,
                                read_child))
                 goto out;
