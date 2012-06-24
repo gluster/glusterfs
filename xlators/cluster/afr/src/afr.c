@@ -107,6 +107,7 @@ reconfigure (xlator_t *this, dict_t *options)
 {
         afr_private_t *priv        = NULL;
         xlator_t      *read_subvol = NULL;
+        int            read_subvol_index = -1;
         int            ret         = -1;
         int            index       = -1;
         char          *qtype       = NULL;
@@ -162,6 +163,18 @@ reconfigure (xlator_t *this, dict_t *options)
                 priv->read_child = index;
         }
 
+        GF_OPTION_RECONF ("read-subvolume-index",read_subvol_index, options,int32,out);
+
+        if (read_subvol_index >-1) {
+                index=read_subvol_index;
+                if (index >= priv->child_count) {
+                        gf_log (this->name, GF_LOG_ERROR, "%d not a subvolume-index",
+                                index);
+                        goto out;
+                }
+                priv->read_child = index;
+        }
+
         GF_OPTION_RECONF ("eager-lock", priv->eager_lock, options, bool, out);
         GF_OPTION_RECONF ("quorum-type", qtype, options, str, out);
         GF_OPTION_RECONF ("quorum-count", priv->quorum_count, options,
@@ -199,6 +212,7 @@ init (xlator_t *this)
         int            ret         = -1;
         GF_UNUSED int  op_errno    = 0;
         xlator_t      *read_subvol = NULL;
+        int            read_subvol_index = -1;
         xlator_t      *fav_child   = NULL;
         char          *qtype       = NULL;
 
@@ -240,6 +254,15 @@ init (xlator_t *this)
                                 read_subvol->name);
                         goto out;
                 }
+        }
+        GF_OPTION_INIT ("read-subvolume-index",read_subvol_index,int32,out);
+        if (read_subvol_index > -1) {
+                if (read_subvol_index >= priv->child_count) {
+                        gf_log (this->name, GF_LOG_ERROR, "%d not a subvolume-index",
+                                read_subvol_index);
+                        goto out;
+                }
+                priv->read_child = read_subvol_index;
         }
         GF_OPTION_INIT ("choose-local", priv->choose_local, bool, out);
 
@@ -501,6 +524,10 @@ struct xlator_cbks cbks = {
 struct volume_options options[] = {
         { .key  = {"read-subvolume" },
           .type = GF_OPTION_TYPE_XLATOR
+        },
+        { .key  = {"read-subvolume-index" },
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "-1",
         },
         { .key = {"read-hash-mode" },
           .type = GF_OPTION_TYPE_INT,
