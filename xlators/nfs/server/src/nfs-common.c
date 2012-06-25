@@ -322,7 +322,7 @@ nfs_parent_inode_loc_fill (inode_t *parent, inode_t *entryinode, char *entry,
                 goto err;
 
         ret = nfs_loc_fill (loc, entryinode, parent, path);
-
+        GF_FREE (path);
 err:
         return ret;
 }

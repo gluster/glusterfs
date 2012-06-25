@@ -38,6 +38,7 @@
 #include "inode.h"
 #include "mount3.h"
 #include "nfs3.h"
+#include "nfs3-helpers.h"
 #include "nfs-mem-types.h"
 #include "statedump.h"
 
@@ -798,7 +799,24 @@ out:
         return 0;
 }
 
-struct xlator_cbks cbks = { };
+int32_t
+nfs_forget (xlator_t *this, inode_t *inode)
+{
+        uint64_t           ctx        = 0;
+
+        if (inode_ctx_del (inode, this, &ctx))
+                return -1;
+
+        if (ctx != GF_NFS3_FD_CACHED)
+                GF_FREE ((void *)ctx);
+
+        return 0;
+}
+
+struct xlator_cbks cbks = {
+        .forget = nfs_forget
+};
+
 struct xlator_fops fops = { };
 
 struct xlator_dumpops dumpops = {

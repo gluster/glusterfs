@@ -418,6 +418,11 @@ nfs3_call_state_wipe (nfs3_call_state_t *cs)
         if (cs->pathname)
                 GF_FREE (cs->pathname);
 
+        if (cs->hashmatch) {
+                gf_dirent_free (cs->hashmatch);
+                GF_FREE (cs->hashmatch);
+        }
+
         if (!list_empty (&cs->entries.list))
                 gf_dirent_free (&cs->entries);
 
@@ -1322,8 +1327,7 @@ nfs3_lookup (rpcsvc_request_t *req, struct nfs3_fh *fh, int fhlen, char *name)
 nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (nfs_rpcsvc_request_xid (req), "LOOKUP",
-                                     stat,
-                                     -ret);
+                                     stat, -ret);
                 nfs3_lookup_reply (req, stat, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -3657,6 +3661,7 @@ nfs3_rename_resume_src (void *carg)
          */
         nfs_loc_copy (&cs->oploc, &cs->resolvedloc);
         nfs_loc_wipe (&cs->resolvedloc);
+        GF_FREE (cs->resolventry);
 
         ret = nfs3_fh_resolve_and_resume (cs, &cs->fh, cs->pathname,
                                           nfs3_rename_resume_dst);

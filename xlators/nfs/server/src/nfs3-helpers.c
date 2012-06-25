@@ -1844,7 +1844,6 @@ __nfs3_fdcache_remove_entry (struct nfs3_state *nfs3, struct nfs3_fd_entry *fde)
         return 0;
 }
 
-
 int
 nfs3_fdcache_remove (struct nfs3_state *nfs3, fd_t *fd)
 {
@@ -1897,7 +1896,7 @@ nfs3_fdcache_add (struct nfs3_state *nfs3, fd_t *fd)
         if ((!nfs3) || (!fd))
                 return -1;
 
-        fde = GF_CALLOC (1, sizeof (*fd), gf_nfs_mt_nfs3_fd_entry);
+        fde = GF_CALLOC (1, sizeof (*fde), gf_nfs_mt_nfs3_fd_entry);
         if (!fde) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "fd entry allocation failed");
                 goto out;
@@ -2870,8 +2869,10 @@ nfs3_fh_resolve_search_dir (nfs3_call_state_t *cs, gf_dirent_t *entries)
                 if (ret == GF_NFS3_FHRESOLVE_FOUND)
                         cs->entrymatch = gf_dirent_for_name (candidate->d_name);
                 else if (ret == GF_NFS3_FHRESOLVE_DIRFOUND) {
-                        if (cs->hashmatch)
+                        if (cs->hashmatch) {
                                 gf_dirent_free (cs->hashmatch);
+                                GF_FREE (cs->hashmatch);
+                        }
                         cs->hashmatch = gf_dirent_for_name (candidate->d_name);
                 }
         }
