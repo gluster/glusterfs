@@ -36,16 +36,7 @@
 #define GF_NFSFH_IDENT0         ':'
 #define GF_NFSFH_IDENT1         'O'
 #define GF_NFSFH_IDENT_SIZE     (sizeof(char) * 2)
-#define GF_NFSFH_STATIC_SIZE    (GF_NFSFH_IDENT_SIZE + (2*sizeof (uuid_t)) + sizeof (uint16_t))
-#define GF_NFSFH_MAX_HASH_BYTES (NFS3_FHSIZE - GF_NFSFH_STATIC_SIZE)
-
-/* Each hash element in the file handle is of 2 bytes thus giving
- * us theoretically 65536 unique entries in a directory.
- */
-typedef uint16_t                nfs3_hash_entry_t;
-#define GF_NFSFH_ENTRYHASH_SIZE (sizeof (nfs3_hash_entry_t))
-#define GF_NFSFH_MAXHASHES      ((int)(GF_NFSFH_MAX_HASH_BYTES / GF_NFSFH_ENTRYHASH_SIZE))
-#define nfs3_fh_hashcounted_size(hcount) (GF_NFSFH_STATIC_SIZE + (hcount * GF_NFSFH_ENTRYHASH_SIZE))
+#define GF_NFSFH_STATIC_SIZE    (GF_NFSFH_IDENT_SIZE + (2*sizeof (uuid_t)))
 
 #define nfs3_fh_exportid_to_index(exprtid)      ((uint16_t)exprtid[15])
 /* ATTENTION: Change in size of the structure below should be reflected in the
@@ -72,20 +63,12 @@ struct nfs3_fh {
 
         /* File/dir gfid. */
         uuid_t                  gfid;
-
-        /* Number of file/ino hash elements that follow the ino. */
-        uint16_t                hashcount;
-
-        nfs3_hash_entry_t       entryhash[GF_NFSFH_MAXHASHES];
 } __attribute__((__packed__));
 
 #define GF_NFS3FH_STATIC_INITIALIZER    {{0},}
 
 extern uint32_t
 nfs3_fh_compute_size (struct nfs3_fh *fh);
-
-extern int
-nfs3_fh_hash_index_is_beyond (struct nfs3_fh *fh, int hashidx);
 
 extern uint16_t
 nfs3_fh_hash_entry (uuid_t gfid);
