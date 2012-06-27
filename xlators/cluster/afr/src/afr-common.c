@@ -2400,6 +2400,7 @@ __afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                 goto out;
         }
 
+	pthread_mutex_init (&fd_ctx->delay_lock, NULL);
         INIT_LIST_HEAD (&fd_ctx->paused_calls);
         INIT_LIST_HEAD (&fd_ctx->entries);
 
@@ -2653,6 +2654,8 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
 
                 if (fd_ctx->lock_acquired)
                         GF_FREE (fd_ctx->lock_acquired);
+
+		pthread_mutex_destroy (&fd_ctx->delay_lock);
 
                 GF_FREE (fd_ctx);
         }

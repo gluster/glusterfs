@@ -31,4 +31,6 @@ afr_fd_ctx_get (fd_t *fd, xlator_t *this);
 int
 afr_set_pending_dict (afr_private_t *priv, dict_t *xattr, int32_t **pending,
                       int child, afr_xattrop_type_t op);
+void
+afr_set_delayed_post_op (call_frame_t *frame, xlator_t *this);
 #endif /* __TRANSACTION_H__ */

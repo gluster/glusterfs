@@ -151,6 +151,7 @@ typedef struct _afr_private {
         struct list_head saved_fds;   /* list of fds on which locks have succeeded */
         gf_boolean_t      optimistic_change_log;
         gf_boolean_t      eager_lock;
+	uint32_t          post_op_delay_secs;
         unsigned int      quorum_count;
 
         char                   vol_uuid[UUID_SIZE + 1];
@@ -413,6 +414,7 @@ typedef struct _afr_local {
 
         dict_t  *dict;
         int      optimistic_change_log;
+	gf_boolean_t      delayed_post_op;
 
         gf_boolean_t    fop_paused;
         int (*fop_call_continue) (call_frame_t *frame, xlator_t *this);
@@ -733,6 +735,11 @@ typedef struct {
 
         unsigned char *locked_on; /* which subvolumes locks have been successful */
 	struct list_head  paused_calls; /* queued calls while fix_open happens  */
+
+	/* used for delayed-post-op optimization */
+	pthread_mutex_t    delay_lock;
+	gf_timer_t        *delay_timer;
+	call_frame_t      *delay_frame;
 } afr_fd_ctx_t;
 
 
