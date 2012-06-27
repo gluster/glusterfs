@@ -165,6 +165,8 @@ reconfigure (xlator_t *this, dict_t *options)
                           uint32, out);
         fix_quorum_options(this,priv,qtype);
 
+	GF_OPTION_RECONF ("post-op-delay-secs", priv->post_op_delay_secs, options,
+			  uint32, out);
         ret = 0;
 out:
         return ret;
@@ -290,6 +292,8 @@ init (xlator_t *this)
         GF_OPTION_INIT ("quorum-type", qtype, str, out);
         GF_OPTION_INIT ("quorum-count", priv->quorum_count, uint32, out);
         fix_quorum_options(this,priv,qtype);
+
+	GF_OPTION_INIT ("post-op-delay-secs", priv->post_op_delay_secs, uint32, out);
 
         priv->wait_count = 1;
 
@@ -595,6 +599,15 @@ struct volume_options options[] = {
         { .key  = {"node-uuid"},
           .type = GF_OPTION_TYPE_STR,
           .description = "Local glusterd uuid string",
+        },
+        { .key  = {"post-op-delay-secs"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = 0,
+          .max  = INT_MAX,
+          .default_value = "1",
+          .description = "Time interval induced artificially before "
+	                 "post-operation phase of the transaction to "
+                         "enhance overlap of adjacent write operations.",
         },
         { .key  = {NULL} },
 };

@@ -1477,6 +1477,8 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
                         piggyback = 0;
                         local->transaction.eager_lock[i] = 1;
 
+			afr_set_delayed_post_op (frame, this);
+
                         LOCK (&local->fd->lock);
                         {
                                 if (fd_ctx->lock_acquired[i]) {

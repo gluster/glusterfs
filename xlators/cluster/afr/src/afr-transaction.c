@@ -11,6 +11,7 @@
 #include "dict.h"
 #include "byte-order.h"
 #include "common-utils.h"
+#include "timer.h"
 
 #include "afr.h"
 #include "afr-transaction.h"
@@ -492,7 +493,7 @@ afr_changelog_post_op_call_count (afr_transaction_type type,
 }
 
 int
-afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
+afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
 {
         afr_private_t * priv = this->private;
         afr_internal_lock_t *int_lock = NULL;
@@ -862,6 +863,8 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                         }
                         UNLOCK (&local->fd->lock);
 
+			afr_set_delayed_post_op (frame, this);
+
                         if (piggyback)
                                 afr_changelog_pre_op_cbk (frame, (void *)(long)i,
                                                           this, 1, 0, xattr[i],
@@ -1227,16 +1230,158 @@ afr_internal_lock_finish (call_frame_t *frame, xlator_t *this)
 }
 
 
+void
+afr_set_delayed_post_op (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t    *local = NULL;
+	afr_private_t  *priv = NULL;
+
+	/* call this function from any of the related optimizations
+	   which benefit from delaying post op are enabled, namely:
+
+	   - changelog piggybacking
+	   - eager locking
+	*/
+
+	priv = this->private;
+	if (!priv)
+		return;
+
+	if (!priv->post_op_delay_secs)
+		return;
+
+	local = frame->local;
+	if (!local)
+		return;
+
+	if (!local->fd)
+		return;
+
+	if (local->op == GF_FOP_WRITE)
+		local->delayed_post_op = _gf_true;
+}
+
+
+gf_boolean_t
+is_afr_delayed_changelog_post_op_needed (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t      *local = NULL;
+	gf_boolean_t      res = _gf_false;
+
+	local = frame->local;
+	if (!local)
+		goto out;
+
+	if (!local->delayed_post_op)
+		goto out;
+
+	res = _gf_true;
+out:
+	return res;
+}
+
+
+void
+afr_delayed_changelog_post_op (xlator_t *this, call_frame_t *frame, fd_t *fd);
+
+void
+afr_delayed_changelog_wake_up (xlator_t *this, fd_t *fd);
+
+void
+afr_delayed_changelog_wake_up_cbk (void *data)
+{
+	fd_t           *fd = NULL;
+
+	fd = data;
+
+	afr_delayed_changelog_wake_up (THIS, fd);
+}
+
+
+void
+afr_delayed_changelog_post_op (xlator_t *this, call_frame_t *frame, fd_t *fd)
+{
+	afr_fd_ctx_t      *fd_ctx = NULL;
+	call_frame_t      *prev_frame = NULL;
+	struct timeval     delta = {0, };
+	afr_private_t     *priv = NULL;
+
+	priv = this->private;
+
+	fd_ctx = afr_fd_ctx_get (fd, this);
+	if (!fd_ctx)
+		return;
+
+	delta.tv_sec = priv->post_op_delay_secs;
+	delta.tv_usec = 0;
+
+	pthread_mutex_lock (&fd_ctx->delay_lock);
+	{
+		prev_frame = fd_ctx->delay_frame;
+		fd_ctx->delay_frame = NULL;
+		if (fd_ctx->delay_timer)
+			gf_timer_call_cancel (this->ctx, fd_ctx->delay_timer);
+		fd_ctx->delay_timer = NULL;
+		if (!frame)
+			goto unlock;
+		fd_ctx->delay_timer = gf_timer_call_after (this->ctx, delta,
+							   afr_delayed_changelog_wake_up_cbk,
+							   fd);
+		fd_ctx->delay_frame = frame;
+	}
+unlock:
+	pthread_mutex_unlock (&fd_ctx->delay_lock);
+
+	if (prev_frame) {
+		afr_changelog_post_op_now (prev_frame, this);
+	}
+}
+
+
+void
+afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
+{
+	afr_local_t  *local = NULL;
+
+	local = frame->local;
+
+	if (is_afr_delayed_changelog_post_op_needed (frame, this))
+		afr_delayed_changelog_post_op (this, frame, local->fd);
+	else
+		afr_changelog_post_op_now (frame, this);
+}
+
+
+void
+afr_delayed_changelog_wake_up (xlator_t *this, fd_t *fd)
+{
+	afr_delayed_changelog_post_op (this, NULL, fd);
+}
+
+
 int
 afr_transaction_resume (call_frame_t *frame, xlator_t *this)
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
         afr_private_t       *priv     = NULL;
+	fd_t                *fd = NULL;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
         priv     = this->private;
+	fd       = local->fd;
+
+	if (fd)
+		/* The wake up needs to happen independent of
+		   what type of fop arrives here. If it was
+		   a write, then it has already inherited the
+		   lock and changelog. If it was not a write,
+		   then the presumption of the optimization (of
+		   optimizing for successive write operations)
+		   fails.
+		*/
+		afr_delayed_changelog_wake_up (this, fd);
 
 	afr_restore_lk_owner (frame);
 
