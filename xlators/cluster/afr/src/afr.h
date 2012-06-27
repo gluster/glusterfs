@@ -170,6 +170,8 @@ typedef struct {
         gf_boolean_t do_entry_self_heal;
         gf_boolean_t do_gfid_self_heal;
         gf_boolean_t do_missing_entry_self_heal;
+        gf_boolean_t force_confirm_spb; /* Check for split-brains even when
+                                           self-heal is turned off */
 
         gf_boolean_t forced_merge;        /* Is this a self-heal triggered to
                                              forcibly merge the directories? */
@@ -266,6 +268,8 @@ typedef struct {
         int (*algo_completion_cbk) (call_frame_t *frame, xlator_t *this);
         int (*algo_abort_cbk) (call_frame_t *frame, xlator_t *this);
         void (*gfid_sh_success_cbk) (call_frame_t *sh_frame, xlator_t *this);
+        gf_boolean_t    mdata_spb;
+        gf_boolean_t    data_spb;
 
         call_frame_t *sh_frame;
 } afr_self_heal_t;
@@ -444,7 +448,9 @@ typedef struct _afr_local {
                         int32_t read_child;
                         int32_t *sources;
                         int32_t *success_children;
+                        int32_t **pending_matrix;
                         gf_boolean_t fresh_lookup;
+                        gf_boolean_t possible_spb;
                 } lookup;
 
                 struct {

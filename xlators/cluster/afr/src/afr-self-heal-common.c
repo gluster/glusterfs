@@ -2095,6 +2095,7 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
         shc->do_data_self_heal = sh->do_data_self_heal;
         shc->do_metadata_self_heal = sh->do_metadata_self_heal;
         shc->do_entry_self_heal = sh->do_entry_self_heal;
+        shc->force_confirm_spb = sh->force_confirm_spb;
         shc->forced_merge = sh->forced_merge;
         shc->background = sh->background;
         shc->type = sh->type;
@@ -2162,7 +2163,7 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
         local = bgsh_frame->local;
         sh    = &local->self_heal;
 
-        if (local->govinda_gOvinda)
+        if (local->govinda_gOvinda || sh->mdata_spb || sh->data_spb)
                 split_brain = _gf_true;
 
         afr_set_split_brain (this, sh->inode, split_brain);

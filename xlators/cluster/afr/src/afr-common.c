@@ -908,6 +908,8 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
                 GF_FREE (local->cont.lookup.success_children);
 
                 GF_FREE (local->cont.lookup.sources);
+                afr_matrix_cleanup (local->cont.lookup.pending_matrix,
+                                    priv->child_count);
         }
 
         { /* getxattr */
@@ -1181,6 +1183,36 @@ afr_lookup_set_self_heal_params_by_xattr (afr_local_t *local, xlator_t *this,
         }
 }
 
+void
+afr_lookup_check_set_metadata_split_brain (afr_local_t *local, xlator_t *this)
+{
+        int32_t                  *sources = NULL;
+        afr_private_t            *priv = NULL;
+        int32_t                  subvol_status = 0;
+        int32_t                  *success_children   = NULL;
+        dict_t                   **xattrs = NULL;
+        struct iatt              *bufs = NULL;
+        int32_t                  **pending_matrix = NULL;
+
+        priv = this->private;
+
+        sources = GF_CALLOC (priv->child_count, sizeof (*sources),
+                             gf_afr_mt_int32_t);
+        if (NULL == sources)
+                goto out;
+        success_children = local->cont.lookup.success_children;
+        xattrs = local->cont.lookup.xattrs;
+        bufs = local->cont.lookup.bufs;
+        pending_matrix = local->cont.lookup.pending_matrix;
+        afr_build_sources (this, xattrs, bufs, pending_matrix,
+                           sources, success_children, AFR_METADATA_TRANSACTION,
+                           &subvol_status, _gf_false);
+        if (subvol_status & SPLIT_BRAIN)
+                local->cont.lookup.possible_spb = _gf_true;
+out:
+        GF_FREE (sources);
+}
+
 static void
 afr_detect_self_heal_by_iatt (afr_local_t *local, xlator_t *this,
                             struct iatt *buf, struct iatt *lookup_buf)
@@ -1214,8 +1246,26 @@ afr_detect_self_heal_by_iatt (afr_local_t *local, xlator_t *this,
 }
 
 static void
-afr_detect_self_heal_by_lookup_status (afr_local_t *local, xlator_t *this,
-                                       gf_boolean_t split_brain)
+afr_detect_self_heal_by_split_brain_status (afr_local_t *local, xlator_t *this)
+{
+        gf_boolean_t split_brain = _gf_false;
+        afr_self_heal_t *sh = NULL;
+
+        sh = &local->self_heal;
+
+        split_brain = afr_is_split_brain (this, local->cont.lookup.inode);
+        split_brain = split_brain || local->cont.lookup.possible_spb;
+        if ((local->success_count > 0) && split_brain &&
+            IA_ISREG (local->cont.lookup.inode->ia_type)) {
+                sh->force_confirm_spb = _gf_true;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "split brain detected during lookup of %s.",
+                        local->loc.path);
+        }
+}
+
+static void
+afr_detect_self_heal_by_lookup_status (afr_local_t *local, xlator_t *this)
 {
         GF_ASSERT (local);
         GF_ASSERT (this);
@@ -1233,15 +1283,6 @@ afr_detect_self_heal_by_lookup_status (afr_local_t *local, xlator_t *this,
                 goto out;
         }
 
-        if ((local->success_count > 0) && split_brain &&
-            IA_ISREG (local->cont.lookup.inode->ia_type)) {
-                local->self_heal.do_data_self_heal = _gf_true;
-                local->self_heal.do_gfid_self_heal    = _gf_true;
-                gf_log (this->name, GF_LOG_WARNING,
-                        "split brain detected during lookup of %s.",
-                        local->loc.path);
-        }
-
 out:
         return;
 }
@@ -1252,6 +1293,8 @@ afr_can_self_heal_proceed (afr_self_heal_t *sh, afr_private_t *priv)
         GF_ASSERT (sh);
         GF_ASSERT (priv);
 
+        if (sh->force_confirm_spb)
+                return _gf_true;
         return (sh->do_gfid_self_heal
                 || sh->do_missing_entry_self_heal
                 || (afr_data_self_heal_enabled (priv->data_self_heal) &&
@@ -1516,13 +1559,11 @@ afr_lookup_set_self_heal_params (afr_local_t *local, xlator_t *this)
         int32_t                 child1 = -1;
         int32_t                 child2 = -1;
         afr_self_heal_t         *sh = NULL;
-        gf_boolean_t            split_brain = _gf_false;
 
         priv  = this->private;
         sh = &local->self_heal;
 
-        split_brain = afr_is_split_brain (this, local->cont.lookup.inode);
-        afr_detect_self_heal_by_lookup_status (local, this, split_brain);
+        afr_detect_self_heal_by_lookup_status (local, this);
 
         if (afr_lookup_gfid_missing_count (local, this))
                 local->self_heal.do_gfid_self_heal    = _gf_true;
@@ -1549,9 +1590,11 @@ afr_lookup_set_self_heal_params (afr_local_t *local, xlator_t *this)
                 afr_lookup_set_self_heal_params_by_xattr (local, this,
                                                           xattr[child1]);
         }
-        if (afr_open_only_data_self_heal (priv->data_self_heal)
-            && !split_brain)
+        if (afr_open_only_data_self_heal (priv->data_self_heal))
                 sh->do_data_self_heal = _gf_false;
+        if (sh->do_metadata_self_heal)
+                afr_lookup_check_set_metadata_split_brain (local, this);
+        afr_detect_self_heal_by_split_brain_status (local, this);
 }
 
 int
@@ -2143,6 +2186,7 @@ afr_lookup_cont_init (afr_local_t *local, unsigned int child_count)
         struct iatt       *iatts         = NULL;
         int32_t           *success_children = NULL;
         int32_t           *sources       = NULL;
+        int32_t           **pending_matrix = NULL;
 
         GF_ASSERT (local);
         local->cont.lookup.xattrs = GF_CALLOC (child_count,
@@ -2174,6 +2218,11 @@ afr_lookup_cont_init (afr_local_t *local, unsigned int child_count)
         if (NULL == sources)
                 goto out;
         local->cont.lookup.sources = sources;
+
+        pending_matrix = afr_matrix_create (child_count, child_count);
+        if (NULL == pending_matrix)
+                goto out;
+        local->cont.lookup.pending_matrix = pending_matrix;
 
         ret = 0;
 out:
