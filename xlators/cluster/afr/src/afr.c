@@ -183,6 +183,9 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("heal-timeout", priv->shd.timeout, options,
                           int32, out);
 
+	GF_OPTION_RECONF ("post-op-delay-secs", priv->post_op_delay_secs, options,
+			  uint32, out);
+
         /* Reset this so we re-discover in case the topology changed.  */
         priv->did_discovery = _gf_false;
 
@@ -323,6 +326,8 @@ init (xlator_t *this)
         GF_OPTION_INIT ("quorum-type", qtype, str, out);
         GF_OPTION_INIT ("quorum-count", priv->quorum_count, uint32, out);
         fix_quorum_options(this,priv,qtype);
+
+	GF_OPTION_INIT ("post-op-delay-secs", priv->post_op_delay_secs, uint32, out);
 
         priv->wait_count = 1;
 
@@ -617,7 +622,7 @@ struct volume_options options[] = {
         },
         { .key = {"eager-lock"},
           .type = GF_OPTION_TYPE_BOOL,
-          .default_value = "off",
+          .default_value = "on",
         },
         { .key = {"self-heal-daemon"},
           .type = GF_OPTION_TYPE_BOOL,
@@ -656,6 +661,15 @@ struct volume_options options[] = {
           .max  = INT_MAX,
           .default_value = "600",
           .description = "Poll timeout for checking the need to self-heal"
+        },
+        { .key  = {"post-op-delay-secs"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = 0,
+          .max  = INT_MAX,
+          .default_value = "1",
+          .description = "Time interval induced artificially before "
+	                 "post-operation phase of the transaction to "
+                         "enhance overlap of adjacent write operations.",
         },
         { .key  = {NULL} },
 };
