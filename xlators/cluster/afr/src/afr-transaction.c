@@ -72,24 +72,24 @@ afr_fd_ctx_get (fd_t *fd, xlator_t *this)
 
 
 static void
-afr_pid_save (call_frame_t *frame)
+afr_save_lk_owner (call_frame_t *frame)
 {
         afr_local_t * local = NULL;
 
         local = frame->local;
 
-        local->saved_pid = frame->root->pid;
+	local->saved_lk_owner = frame->root->lk_owner;
 }
 
 
 static void
-afr_pid_restore (call_frame_t *frame)
+afr_restore_lk_owner (call_frame_t *frame)
 {
         afr_local_t * local = NULL;
 
         local = frame->local;
 
-        frame->root->pid = local->saved_pid;
+	frame->root->lk_owner = local->saved_lk_owner;
 }
 
 
@@ -780,7 +780,13 @@ afr_changelog_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         __mark_all_success (local->pending, priv->child_count,
                                             local->transaction.type);
 
-                        afr_pid_restore (frame);
+			/*  Perform fops with the lk-owner from top xlator.
+			 *  Eg: lk-owner of posix-lk and flush should be same,
+			 *  flush cant clear the  posix-lks without that lk-owner.
+			 */
+			afr_save_lk_owner (frame);
+			frame->root->lk_owner =
+				local->transaction.main_frame->root->lk_owner;
 
                         local->transaction.fop (frame, this);
                 }
@@ -1035,7 +1041,6 @@ afr_post_nonblocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Non blocking inodelks failed. Proceeding to blocking");
                 int_lock->lock_cbk = afr_post_blocking_inodelk_cbk;
-                afr_set_lk_owner (frame, this, frame->root);
                 afr_blocking_lock (frame, this);
         } else {
 
@@ -1199,12 +1204,6 @@ afr_lock_rec (call_frame_t *frame, xlator_t *this)
 int
 afr_lock (call_frame_t *frame, xlator_t *this)
 {
-        afr_pid_save (frame);
-
-        frame->root->pid = (long) frame->root;
-
-        afr_set_lk_owner (frame, this, frame->root);
-
         afr_set_lock_number (frame, this);
 
         return afr_lock_rec (frame, this);
@@ -1222,18 +1221,20 @@ afr_internal_lock_finish (call_frame_t *frame, xlator_t *this)
         priv  = this->private;
         local = frame->local;
 
-        /*  Perform fops with the lk-owner from top xlator.
-         *  Eg: lk-owner of posix-lk and flush should be same,
-         *  flush cant clear the  posix-lks without that lk-owner.
-         */
-        frame->root->lk_owner = local->transaction.main_frame->root->lk_owner;
         if (__fop_changelog_needed (frame, this)) {
                 afr_changelog_pre_op (frame, this);
         } else {
                 __mark_all_success (local->pending, priv->child_count,
                                     local->transaction.type);
 
-                afr_pid_restore (frame);
+
+		/*  Perform fops with the lk-owner from top xlator.
+		 *  Eg: lk-owner of posix-lk and flush should be same,
+		 *  flush cant clear the  posix-lks without that lk-owner.
+		 */
+		afr_save_lk_owner (frame);
+		frame->root->lk_owner =
+			local->transaction.main_frame->root->lk_owner;
 
                 local->transaction.fop (frame, this);
         }
@@ -1252,6 +1253,8 @@ afr_transaction_resume (call_frame_t *frame, xlator_t *this)
         local    = frame->local;
         int_lock = &local->internal_lock;
         priv     = this->private;
+
+	afr_restore_lk_owner (frame);
 
         if (__fop_changelog_needed (frame, this)) {
                 afr_changelog_post_op (frame, this);
@@ -1293,6 +1296,12 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
 
         local = frame->local;
         priv  = this->private;
+
+	if (local->fd && priv->eager_lock &&
+	    local->transaction.type == AFR_DATA_TRANSACTION)
+		afr_set_lk_owner (frame, this, local->fd);
+	else
+		afr_set_lk_owner (frame, this, frame->root);
 
         afr_transaction_local_init (local, this);
 

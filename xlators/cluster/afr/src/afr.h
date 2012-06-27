@@ -380,7 +380,7 @@ typedef struct _afr_local {
         unsigned char read_child_returned;
         unsigned int first_up_child;
 
-        pid_t saved_pid;
+	gf_lkowner_t  saved_lk_owner;
 
         int32_t op_ret;
         int32_t op_errno;
