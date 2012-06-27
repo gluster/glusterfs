@@ -1730,24 +1730,20 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.username", count);
         str = glusterd_auth_get_username (volinfo);
-        if (!str) {
-                ret = -1;
-                goto out;
+        if (str) {
+                ret = dict_set_dynstr (dict, key, gf_strdup (str));
+                if (ret)
+                        goto out;
         }
-        ret = dict_set_dynstr (dict, key, gf_strdup (str));
-        if (ret)
-                goto out;
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.password", count);
         str = glusterd_auth_get_password (volinfo);
-        if (!str) {
-                ret = -1;
-                goto out;
+        if (str) {
+                ret = dict_set_dynstr (dict, key, gf_strdup (str));
+                if (ret)
+                        goto out;
         }
-        ret = dict_set_dynstr (dict, key, gf_strdup (str));
-        if (ret)
-                goto out;
 
         memset (key, 0, sizeof (key));
         snprintf (key, 256, "volume%d."GLUSTERD_STORE_KEY_RB_STATUS, count);
