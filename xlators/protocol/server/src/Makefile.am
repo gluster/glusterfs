@@ -8,7 +8,7 @@ server_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/xdr/src/libgfxdr.la
 
 server_la_SOURCES = server.c server-resolve.c server-helpers.c  \
-	server3_1-fops.c server-handshake.c authenticate.c
+	server-rpc-fops.c server-handshake.c authenticate.c
 
 noinst_HEADERS = server.h server-helpers.h server-mem-types.h authenticate.h
 
