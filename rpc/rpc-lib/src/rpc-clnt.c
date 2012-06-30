@@ -1494,7 +1494,6 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                 }
 
                 if ((ret >= 0) && frame) {
-                        gettimeofday (&conn->last_sent, NULL);
                         /* Save the frame in queue */
                         __save_frame (rpc, frame, rpcreq);
 
