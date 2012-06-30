@@ -2931,7 +2931,7 @@ err:
 /* Fop section */
 
 int
-server_stat (rpcsvc_request_t *req)
+server3_3_stat (rpcsvc_request_t *req)
 {
         server_state_t *state    = NULL;
         call_frame_t   *frame    = NULL;
@@ -2989,7 +2989,7 @@ out:
 
 
 int
-server_setattr (rpcsvc_request_t *req)
+server3_3_setattr (rpcsvc_request_t *req)
 {
         server_state_t   *state                 = NULL;
         call_frame_t     *frame                 = NULL;
@@ -3047,7 +3047,7 @@ out:
 
 
 int
-server_fsetattr (rpcsvc_request_t *req)
+server3_3_fsetattr (rpcsvc_request_t *req)
 {
         server_state_t    *state = NULL;
         call_frame_t      *frame = NULL;
@@ -3105,7 +3105,7 @@ out:
 
 
 int
-server_readlink (rpcsvc_request_t *req)
+server3_3_readlink (rpcsvc_request_t *req)
 {
         server_state_t    *state                 = NULL;
         call_frame_t      *frame                 = NULL;
@@ -3162,7 +3162,7 @@ out:
 
 
 int
-server_create (rpcsvc_request_t *req)
+server3_3_create (rpcsvc_request_t *req)
 {
         server_state_t  *state    = NULL;
         call_frame_t    *frame    = NULL;
@@ -3231,7 +3231,7 @@ out:
 
 
 int
-server_open (rpcsvc_request_t *req)
+server3_3_open (rpcsvc_request_t *req)
 {
         server_state_t *state                 = NULL;
         call_frame_t   *frame                 = NULL;
@@ -3287,7 +3287,7 @@ out:
 
 
 int
-server_readv (rpcsvc_request_t *req)
+server3_3_readv (rpcsvc_request_t *req)
 {
         server_state_t *state = NULL;
         call_frame_t   *frame = NULL;
@@ -3347,7 +3347,7 @@ out:
 
 
 int
-server_writev (rpcsvc_request_t *req)
+server3_3_writev (rpcsvc_request_t *req)
 {
         server_state_t      *state  = NULL;
         call_frame_t        *frame  = NULL;
@@ -3429,18 +3429,18 @@ out:
 
 
 int
-server_writev_vec (rpcsvc_request_t *req, struct iovec *payload,
+server3_3_writev_vec (rpcsvc_request_t *req, struct iovec *payload,
                    int payload_count, struct iobref *iobref)
 {
-        return server_writev (req);
+        return server3_3_writev (req);
 }
 
-#define SERVER3_1_VECWRITE_START 0
-#define SERVER3_1_VECWRITE_READING_HDR 1
-#define SERVER3_1_VECWRITE_READING_OPAQUE 2
+#define SERVER3_3_VECWRITE_START 0
+#define SERVER3_3_VECWRITE_READING_HDR 1
+#define SERVER3_3_VECWRITE_READING_OPAQUE 2
 
 int
-server_writev_vecsizer (int state, ssize_t *readsize, char *base_addr,
+server3_3_writev_vecsizer (int state, ssize_t *readsize, char *base_addr,
                         char *curr_addr)
 {
         ssize_t         size = 0;
@@ -3449,13 +3449,13 @@ server_writev_vecsizer (int state, ssize_t *readsize, char *base_addr,
         XDR             xdr;
 
         switch (state) {
-        case SERVER3_1_VECWRITE_START:
+        case SERVER3_3_VECWRITE_START:
                 size = xdr_sizeof ((xdrproc_t) xdr_gfs3_write_req,
                                    &write_req);
                 *readsize = size;
-                nextstate = SERVER3_1_VECWRITE_READING_HDR;
+                nextstate = SERVER3_3_VECWRITE_READING_HDR;
                 break;
-        case SERVER3_1_VECWRITE_READING_HDR:
+        case SERVER3_3_VECWRITE_READING_HDR:
                 size = xdr_sizeof ((xdrproc_t) xdr_gfs3_write_req,
                                            &write_req);
 
@@ -3472,18 +3472,18 @@ server_writev_vecsizer (int state, ssize_t *readsize, char *base_addr,
                 *readsize = size;
 
                 if (!size)
-                        nextstate = SERVER3_1_VECWRITE_START;
+                        nextstate = SERVER3_3_VECWRITE_START;
                 else
-                        nextstate = SERVER3_1_VECWRITE_READING_OPAQUE;
+                        nextstate = SERVER3_3_VECWRITE_READING_OPAQUE;
 
                 if (write_req.xdata.xdata_val)
                         free (write_req.xdata.xdata_val);
 
                 break;
 
-        case SERVER3_1_VECWRITE_READING_OPAQUE:
+        case SERVER3_3_VECWRITE_READING_OPAQUE:
                 *readsize = 0;
-                nextstate = SERVER3_1_VECWRITE_START;
+                nextstate = SERVER3_3_VECWRITE_START;
                 break;
         default:
                 gf_log ("server", GF_LOG_ERROR, "wrong state: %d", state);
@@ -3494,7 +3494,7 @@ server_writev_vecsizer (int state, ssize_t *readsize, char *base_addr,
 
 
 int
-server_release (rpcsvc_request_t *req)
+server3_3_release (rpcsvc_request_t *req)
 {
         server_connection_t *conn = NULL;
         gfs3_release_req     args = {{0,},};
@@ -3523,7 +3523,7 @@ out:
 }
 
 int
-server_releasedir (rpcsvc_request_t *req)
+server3_3_releasedir (rpcsvc_request_t *req)
 {
         server_connection_t *conn = NULL;
         gfs3_releasedir_req  args = {{0,},};
@@ -3554,7 +3554,7 @@ out:
 
 
 int
-server_fsync (rpcsvc_request_t *req)
+server3_3_fsync (rpcsvc_request_t *req)
 {
         server_state_t *state = NULL;
         call_frame_t   *frame = NULL;
@@ -3611,7 +3611,7 @@ out:
 
 
 int
-server_flush (rpcsvc_request_t *req)
+server3_3_flush (rpcsvc_request_t *req)
 {
         server_state_t *state = NULL;
         call_frame_t   *frame = NULL;
@@ -3667,7 +3667,7 @@ out:
 
 
 int
-server_ftruncate (rpcsvc_request_t *req)
+server3_3_ftruncate (rpcsvc_request_t *req)
 {
         server_state_t     *state = NULL;
         call_frame_t       *frame = NULL;
@@ -3723,7 +3723,7 @@ out:
 
 
 int
-server_fstat (rpcsvc_request_t *req)
+server3_3_fstat (rpcsvc_request_t *req)
 {
         server_state_t *state = NULL;
         call_frame_t   *frame = NULL;
@@ -3778,7 +3778,7 @@ out:
 
 
 int
-server_truncate (rpcsvc_request_t *req)
+server3_3_truncate (rpcsvc_request_t *req)
 {
         server_state_t    *state                 = NULL;
         call_frame_t      *frame                 = NULL;
@@ -3834,7 +3834,7 @@ out:
 
 
 int
-server_unlink (rpcsvc_request_t *req)
+server3_3_unlink (rpcsvc_request_t *req)
 {
         server_state_t  *state                  = NULL;
         call_frame_t    *frame                  = NULL;
@@ -3893,7 +3893,7 @@ out:
 
 
 int
-server_setxattr (rpcsvc_request_t *req)
+server3_3_setxattr (rpcsvc_request_t *req)
 {
         server_state_t      *state                 = NULL;
         dict_t              *dict                  = NULL;
@@ -3967,7 +3967,7 @@ out:
 
 
 int
-server_fsetxattr (rpcsvc_request_t *req)
+server3_3_fsetxattr (rpcsvc_request_t *req)
 {
         server_state_t      *state                = NULL;
         dict_t              *dict                 = NULL;
@@ -4038,7 +4038,7 @@ out:
 
 
 int
-server_fxattrop (rpcsvc_request_t *req)
+server3_3_fxattrop (rpcsvc_request_t *req)
 {
         dict_t              *dict                 = NULL;
         server_state_t      *state                = NULL;
@@ -4110,7 +4110,7 @@ out:
 
 
 int
-server_xattrop (rpcsvc_request_t *req)
+server3_3_xattrop (rpcsvc_request_t *req)
 {
         dict_t              *dict                  = NULL;
         server_state_t      *state                 = NULL;
@@ -4180,7 +4180,7 @@ out:
 
 
 int
-server_getxattr (rpcsvc_request_t *req)
+server3_3_getxattr (rpcsvc_request_t *req)
 {
         server_state_t      *state                 = NULL;
         call_frame_t        *frame                 = NULL;
@@ -4242,7 +4242,7 @@ out:
 
 
 int
-server_fgetxattr (rpcsvc_request_t *req)
+server3_3_fgetxattr (rpcsvc_request_t *req)
 {
         server_state_t      *state      = NULL;
         call_frame_t        *frame      = NULL;
@@ -4302,7 +4302,7 @@ out:
 
 
 int
-server_removexattr (rpcsvc_request_t *req)
+server3_3_removexattr (rpcsvc_request_t *req)
 {
         server_state_t       *state                 = NULL;
         call_frame_t         *frame                 = NULL;
@@ -4358,7 +4358,7 @@ out:
 }
 
 int
-server_fremovexattr (rpcsvc_request_t *req)
+server3_3_fremovexattr (rpcsvc_request_t *req)
 {
         server_state_t       *state                 = NULL;
         call_frame_t         *frame                 = NULL;
@@ -4419,7 +4419,7 @@ out:
 
 
 int
-server_opendir (rpcsvc_request_t *req)
+server3_3_opendir (rpcsvc_request_t *req)
 {
         server_state_t   *state                 = NULL;
         call_frame_t     *frame                 = NULL;
@@ -4473,7 +4473,7 @@ out:
 
 
 int
-server_readdirp (rpcsvc_request_t *req)
+server3_3_readdirp (rpcsvc_request_t *req)
 {
         server_state_t      *state        = NULL;
         call_frame_t        *frame        = NULL;
@@ -4542,7 +4542,7 @@ out:
 }
 
 int
-server_readdir (rpcsvc_request_t *req)
+server3_3_readdir (rpcsvc_request_t *req)
 {
         server_state_t      *state        = NULL;
         call_frame_t        *frame        = NULL;
@@ -4609,7 +4609,7 @@ out:
 }
 
 int
-server_fsyncdir (rpcsvc_request_t *req)
+server3_3_fsyncdir (rpcsvc_request_t *req)
 {
         server_state_t      *state = NULL;
         call_frame_t        *frame = NULL;
@@ -4666,7 +4666,7 @@ out:
 
 
 int
-server_mknod (rpcsvc_request_t *req)
+server3_3_mknod (rpcsvc_request_t *req)
 {
         server_state_t      *state                  = NULL;
         call_frame_t        *frame                  = NULL;
@@ -4730,7 +4730,7 @@ out:
 
 
 int
-server_mkdir (rpcsvc_request_t *req)
+server3_3_mkdir (rpcsvc_request_t *req)
 {
         server_state_t      *state                  = NULL;
         call_frame_t        *frame                  = NULL;
@@ -4792,7 +4792,7 @@ out:
 
 
 int
-server_rmdir (rpcsvc_request_t *req)
+server3_3_rmdir (rpcsvc_request_t *req)
 {
         server_state_t      *state                  = NULL;
         call_frame_t        *frame                  = NULL;
@@ -4852,7 +4852,7 @@ out:
 
 
 int
-server_inodelk (rpcsvc_request_t *req)
+server3_3_inodelk (rpcsvc_request_t *req)
 {
         server_state_t      *state                 = NULL;
         call_frame_t        *frame                 = NULL;
@@ -4941,7 +4941,7 @@ out:
 }
 
 int
-server_finodelk (rpcsvc_request_t *req)
+server3_3_finodelk (rpcsvc_request_t *req)
 {
         server_state_t      *state        = NULL;
         call_frame_t        *frame        = NULL;
@@ -5030,7 +5030,7 @@ out:
 
 
 int
-server_entrylk (rpcsvc_request_t *req)
+server3_3_entrylk (rpcsvc_request_t *req)
 {
         server_state_t      *state                 = NULL;
         call_frame_t        *frame                 = NULL;
@@ -5093,7 +5093,7 @@ out:
 }
 
 int
-server_fentrylk (rpcsvc_request_t *req)
+server3_3_fentrylk (rpcsvc_request_t *req)
 {
         server_state_t      *state        = NULL;
         call_frame_t        *frame        = NULL;
@@ -5156,7 +5156,7 @@ out:
 }
 
 int
-server_access (rpcsvc_request_t *req)
+server3_3_access (rpcsvc_request_t *req)
 {
         server_state_t      *state                 = NULL;
         call_frame_t        *frame                 = NULL;
@@ -5212,7 +5212,7 @@ out:
 
 
 int
-server_symlink (rpcsvc_request_t *req)
+server3_3_symlink (rpcsvc_request_t *req)
 {
         server_state_t      *state                 = NULL;
         call_frame_t        *frame                 = NULL;
@@ -5275,7 +5275,7 @@ out:
 
 
 int
-server_link (rpcsvc_request_t *req)
+server3_3_link (rpcsvc_request_t *req)
 {
         server_state_t      *state                     = NULL;
         call_frame_t        *frame                     = NULL;
@@ -5335,7 +5335,7 @@ out:
 
 
 int
-server_rename (rpcsvc_request_t *req)
+server3_3_rename (rpcsvc_request_t *req)
 {
         server_state_t      *state                     = NULL;
         call_frame_t        *frame                     = NULL;
@@ -5396,7 +5396,7 @@ out:
 }
 
 int
-server_lk (rpcsvc_request_t *req)
+server3_3_lk (rpcsvc_request_t *req)
 {
         server_state_t      *state = NULL;
         call_frame_t        *frame = NULL;
@@ -5502,7 +5502,7 @@ out:
 
 
 int
-server_rchecksum (rpcsvc_request_t *req)
+server3_3_rchecksum (rpcsvc_request_t *req)
 {
         server_state_t      *state = NULL;
         call_frame_t        *frame = NULL;
@@ -5571,7 +5571,7 @@ server_null (rpcsvc_request_t *req)
 }
 
 int
-server_lookup (rpcsvc_request_t *req)
+server3_3_lookup (rpcsvc_request_t *req)
 {
         call_frame_t        *frame    = NULL;
         server_state_t      *state    = NULL;
@@ -5637,7 +5637,7 @@ err:
 }
 
 int
-server_statfs (rpcsvc_request_t *req)
+server3_3_statfs (rpcsvc_request_t *req)
 {
         server_state_t      *state = NULL;
         call_frame_t        *frame = NULL;
@@ -5687,58 +5687,58 @@ out:
 }
 
 
-rpcsvc_actor_t glusterfs3_1_fop_actors[] = {
+rpcsvc_actor_t glusterfs3_3_fop_actors[] = {
         [GFS3_OP_NULL]        = { "NULL",       GFS3_OP_NULL, server_null, NULL, NULL, 0},
-        [GFS3_OP_STAT]        = { "STAT",       GFS3_OP_STAT, server_stat, NULL, NULL, 0},
-        [GFS3_OP_READLINK]    = { "READLINK",   GFS3_OP_READLINK, server_readlink, NULL, NULL, 0},
-        [GFS3_OP_MKNOD]       = { "MKNOD",      GFS3_OP_MKNOD, server_mknod, NULL, NULL, 0},
-        [GFS3_OP_MKDIR]       = { "MKDIR",      GFS3_OP_MKDIR, server_mkdir, NULL, NULL, 0},
-        [GFS3_OP_UNLINK]      = { "UNLINK",     GFS3_OP_UNLINK, server_unlink, NULL, NULL, 0},
-        [GFS3_OP_RMDIR]       = { "RMDIR",      GFS3_OP_RMDIR, server_rmdir, NULL, NULL, 0},
-        [GFS3_OP_SYMLINK]     = { "SYMLINK",    GFS3_OP_SYMLINK, server_symlink, NULL, NULL, 0},
-        [GFS3_OP_RENAME]      = { "RENAME",     GFS3_OP_RENAME, server_rename, NULL, NULL, 0},
-        [GFS3_OP_LINK]        = { "LINK",       GFS3_OP_LINK, server_link, NULL, NULL, 0},
-        [GFS3_OP_TRUNCATE]    = { "TRUNCATE",   GFS3_OP_TRUNCATE, server_truncate, NULL, NULL, 0},
-        [GFS3_OP_OPEN]        = { "OPEN",       GFS3_OP_OPEN, server_open, NULL, NULL, 0},
-        [GFS3_OP_READ]        = { "READ",       GFS3_OP_READ, server_readv, NULL, NULL, 0},
-        [GFS3_OP_WRITE]       = { "WRITE",      GFS3_OP_WRITE, server_writev, server_writev_vec, server_writev_vecsizer, 0},
-        [GFS3_OP_STATFS]      = { "STATFS",     GFS3_OP_STATFS, server_statfs, NULL, NULL, 0},
-        [GFS3_OP_FLUSH]       = { "FLUSH",      GFS3_OP_FLUSH, server_flush, NULL, NULL, 0},
-        [GFS3_OP_FSYNC]       = { "FSYNC",      GFS3_OP_FSYNC, server_fsync, NULL, NULL, 0},
-        [GFS3_OP_SETXATTR]    = { "SETXATTR",   GFS3_OP_SETXATTR, server_setxattr, NULL, NULL, 0},
-        [GFS3_OP_GETXATTR]    = { "GETXATTR",   GFS3_OP_GETXATTR, server_getxattr, NULL, NULL, 0},
-        [GFS3_OP_REMOVEXATTR] = { "REMOVEXATTR", GFS3_OP_REMOVEXATTR, server_removexattr, NULL, NULL, 0},
-        [GFS3_OP_OPENDIR]     = { "OPENDIR",    GFS3_OP_OPENDIR, server_opendir, NULL, NULL, 0},
-        [GFS3_OP_FSYNCDIR]    = { "FSYNCDIR",   GFS3_OP_FSYNCDIR, server_fsyncdir, NULL, NULL, 0},
-        [GFS3_OP_ACCESS]      = { "ACCESS",     GFS3_OP_ACCESS, server_access, NULL, NULL, 0},
-        [GFS3_OP_CREATE]      = { "CREATE",     GFS3_OP_CREATE, server_create, NULL, NULL, 0},
-        [GFS3_OP_FTRUNCATE]   = { "FTRUNCATE",  GFS3_OP_FTRUNCATE, server_ftruncate, NULL, NULL, 0},
-        [GFS3_OP_FSTAT]       = { "FSTAT",      GFS3_OP_FSTAT, server_fstat, NULL, NULL, 0},
-        [GFS3_OP_LK]          = { "LK",         GFS3_OP_LK, server_lk, NULL, NULL, 0},
-        [GFS3_OP_LOOKUP]      = { "LOOKUP",     GFS3_OP_LOOKUP, server_lookup, NULL, NULL, 0},
-        [GFS3_OP_READDIR]     = { "READDIR",    GFS3_OP_READDIR, server_readdir, NULL, NULL, 0},
-        [GFS3_OP_INODELK]     = { "INODELK",    GFS3_OP_INODELK, server_inodelk, NULL, NULL, 0},
-        [GFS3_OP_FINODELK]    = { "FINODELK",   GFS3_OP_FINODELK, server_finodelk, NULL, NULL, 0},
-        [GFS3_OP_ENTRYLK]     = { "ENTRYLK",    GFS3_OP_ENTRYLK, server_entrylk, NULL, NULL, 0},
-        [GFS3_OP_FENTRYLK]    = { "FENTRYLK",   GFS3_OP_FENTRYLK, server_fentrylk, NULL, NULL, 0},
-        [GFS3_OP_XATTROP]     = { "XATTROP",    GFS3_OP_XATTROP, server_xattrop, NULL, NULL, 0},
-        [GFS3_OP_FXATTROP]    = { "FXATTROP",   GFS3_OP_FXATTROP, server_fxattrop, NULL, NULL, 0},
-        [GFS3_OP_FGETXATTR]   = { "FGETXATTR",  GFS3_OP_FGETXATTR, server_fgetxattr, NULL, NULL, 0},
-        [GFS3_OP_FSETXATTR]   = { "FSETXATTR",  GFS3_OP_FSETXATTR, server_fsetxattr, NULL, NULL, 0},
-        [GFS3_OP_RCHECKSUM]   = { "RCHECKSUM",  GFS3_OP_RCHECKSUM, server_rchecksum, NULL, NULL, 0},
-        [GFS3_OP_SETATTR]     = { "SETATTR",    GFS3_OP_SETATTR, server_setattr, NULL, NULL, 0},
-        [GFS3_OP_FSETATTR]    = { "FSETATTR",   GFS3_OP_FSETATTR, server_fsetattr, NULL, NULL, 0},
-        [GFS3_OP_READDIRP]    = { "READDIRP",   GFS3_OP_READDIRP, server_readdirp, NULL, NULL, 0},
-        [GFS3_OP_RELEASE]     = { "RELEASE",    GFS3_OP_RELEASE, server_release, NULL, NULL, 0},
-        [GFS3_OP_RELEASEDIR]  = { "RELEASEDIR", GFS3_OP_RELEASEDIR, server_releasedir, NULL, NULL, 0},
-        [GFS3_OP_FREMOVEXATTR] = { "FREMOVEXATTR", GFS3_OP_FREMOVEXATTR, server_fremovexattr, NULL, NULL, 0},
+        [GFS3_OP_STAT]        = { "STAT",       GFS3_OP_STAT, server3_3_stat, NULL, NULL, 0},
+        [GFS3_OP_READLINK]    = { "READLINK",   GFS3_OP_READLINK, server3_3_readlink, NULL, NULL, 0},
+        [GFS3_OP_MKNOD]       = { "MKNOD",      GFS3_OP_MKNOD, server3_3_mknod, NULL, NULL, 0},
+        [GFS3_OP_MKDIR]       = { "MKDIR",      GFS3_OP_MKDIR, server3_3_mkdir, NULL, NULL, 0},
+        [GFS3_OP_UNLINK]      = { "UNLINK",     GFS3_OP_UNLINK, server3_3_unlink, NULL, NULL, 0},
+        [GFS3_OP_RMDIR]       = { "RMDIR",      GFS3_OP_RMDIR, server3_3_rmdir, NULL, NULL, 0},
+        [GFS3_OP_SYMLINK]     = { "SYMLINK",    GFS3_OP_SYMLINK, server3_3_symlink, NULL, NULL, 0},
+        [GFS3_OP_RENAME]      = { "RENAME",     GFS3_OP_RENAME, server3_3_rename, NULL, NULL, 0},
+        [GFS3_OP_LINK]        = { "LINK",       GFS3_OP_LINK, server3_3_link, NULL, NULL, 0},
+        [GFS3_OP_TRUNCATE]    = { "TRUNCATE",   GFS3_OP_TRUNCATE, server3_3_truncate, NULL, NULL, 0},
+        [GFS3_OP_OPEN]        = { "OPEN",       GFS3_OP_OPEN, server3_3_open, NULL, NULL, 0},
+        [GFS3_OP_READ]        = { "READ",       GFS3_OP_READ, server3_3_readv, NULL, NULL, 0},
+        [GFS3_OP_WRITE]       = { "WRITE",      GFS3_OP_WRITE, server3_3_writev, server3_3_writev_vec, server3_3_writev_vecsizer, 0},
+        [GFS3_OP_STATFS]      = { "STATFS",     GFS3_OP_STATFS, server3_3_statfs, NULL, NULL, 0},
+        [GFS3_OP_FLUSH]       = { "FLUSH",      GFS3_OP_FLUSH, server3_3_flush, NULL, NULL, 0},
+        [GFS3_OP_FSYNC]       = { "FSYNC",      GFS3_OP_FSYNC, server3_3_fsync, NULL, NULL, 0},
+        [GFS3_OP_SETXATTR]    = { "SETXATTR",   GFS3_OP_SETXATTR, server3_3_setxattr, NULL, NULL, 0},
+        [GFS3_OP_GETXATTR]    = { "GETXATTR",   GFS3_OP_GETXATTR, server3_3_getxattr, NULL, NULL, 0},
+        [GFS3_OP_REMOVEXATTR] = { "REMOVEXATTR", GFS3_OP_REMOVEXATTR, server3_3_removexattr, NULL, NULL, 0},
+        [GFS3_OP_OPENDIR]     = { "OPENDIR",    GFS3_OP_OPENDIR, server3_3_opendir, NULL, NULL, 0},
+        [GFS3_OP_FSYNCDIR]    = { "FSYNCDIR",   GFS3_OP_FSYNCDIR, server3_3_fsyncdir, NULL, NULL, 0},
+        [GFS3_OP_ACCESS]      = { "ACCESS",     GFS3_OP_ACCESS, server3_3_access, NULL, NULL, 0},
+        [GFS3_OP_CREATE]      = { "CREATE",     GFS3_OP_CREATE, server3_3_create, NULL, NULL, 0},
+        [GFS3_OP_FTRUNCATE]   = { "FTRUNCATE",  GFS3_OP_FTRUNCATE, server3_3_ftruncate, NULL, NULL, 0},
+        [GFS3_OP_FSTAT]       = { "FSTAT",      GFS3_OP_FSTAT, server3_3_fstat, NULL, NULL, 0},
+        [GFS3_OP_LK]          = { "LK",         GFS3_OP_LK, server3_3_lk, NULL, NULL, 0},
+        [GFS3_OP_LOOKUP]      = { "LOOKUP",     GFS3_OP_LOOKUP, server3_3_lookup, NULL, NULL, 0},
+        [GFS3_OP_READDIR]     = { "READDIR",    GFS3_OP_READDIR, server3_3_readdir, NULL, NULL, 0},
+        [GFS3_OP_INODELK]     = { "INODELK",    GFS3_OP_INODELK, server3_3_inodelk, NULL, NULL, 0},
+        [GFS3_OP_FINODELK]    = { "FINODELK",   GFS3_OP_FINODELK, server3_3_finodelk, NULL, NULL, 0},
+        [GFS3_OP_ENTRYLK]     = { "ENTRYLK",    GFS3_OP_ENTRYLK, server3_3_entrylk, NULL, NULL, 0},
+        [GFS3_OP_FENTRYLK]    = { "FENTRYLK",   GFS3_OP_FENTRYLK, server3_3_fentrylk, NULL, NULL, 0},
+        [GFS3_OP_XATTROP]     = { "XATTROP",    GFS3_OP_XATTROP, server3_3_xattrop, NULL, NULL, 0},
+        [GFS3_OP_FXATTROP]    = { "FXATTROP",   GFS3_OP_FXATTROP, server3_3_fxattrop, NULL, NULL, 0},
+        [GFS3_OP_FGETXATTR]   = { "FGETXATTR",  GFS3_OP_FGETXATTR, server3_3_fgetxattr, NULL, NULL, 0},
+        [GFS3_OP_FSETXATTR]   = { "FSETXATTR",  GFS3_OP_FSETXATTR, server3_3_fsetxattr, NULL, NULL, 0},
+        [GFS3_OP_RCHECKSUM]   = { "RCHECKSUM",  GFS3_OP_RCHECKSUM, server3_3_rchecksum, NULL, NULL, 0},
+        [GFS3_OP_SETATTR]     = { "SETATTR",    GFS3_OP_SETATTR, server3_3_setattr, NULL, NULL, 0},
+        [GFS3_OP_FSETATTR]    = { "FSETATTR",   GFS3_OP_FSETATTR, server3_3_fsetattr, NULL, NULL, 0},
+        [GFS3_OP_READDIRP]    = { "READDIRP",   GFS3_OP_READDIRP, server3_3_readdirp, NULL, NULL, 0},
+        [GFS3_OP_RELEASE]     = { "RELEASE",    GFS3_OP_RELEASE, server3_3_release, NULL, NULL, 0},
+        [GFS3_OP_RELEASEDIR]  = { "RELEASEDIR", GFS3_OP_RELEASEDIR, server3_3_releasedir, NULL, NULL, 0},
+        [GFS3_OP_FREMOVEXATTR] = { "FREMOVEXATTR", GFS3_OP_FREMOVEXATTR, server3_3_fremovexattr, NULL, NULL, 0},
 };
 
 
-struct rpcsvc_program glusterfs3_1_fop_prog = {
-        .progname  = "GlusterFS " PACKAGE_VERSION,
-        .prognum   = GLUSTER3_1_FOP_PROGRAM,
-        .progver   = GLUSTER3_1_FOP_VERSION,
-        .numactors = GLUSTER3_1_FOP_PROCCNT,
-        .actors    = glusterfs3_1_fop_actors,
+struct rpcsvc_program glusterfs3_3_fop_prog = {
+        .progname  = "GlusterFS 3.3",
+        .prognum   = GLUSTER_FOP_PROGRAM,
+        .progver   = GLUSTER_FOP_VERSION,
+        .numactors = GLUSTER_FOP_PROCCNT,
+        .actors    = glusterfs3_3_fop_actors,
 };

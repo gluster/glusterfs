@@ -203,7 +203,7 @@ struct _server_state {
 };
 
 extern struct rpcsvc_program gluster_handshake_prog;
-extern struct rpcsvc_program glusterfs3_1_fop_prog;
+extern struct rpcsvc_program glusterfs3_3_fop_prog;
 extern struct rpcsvc_program gluster_ping_prog;
 
 int

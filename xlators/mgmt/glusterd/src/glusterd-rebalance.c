@@ -48,7 +48,7 @@
 #include "xdr-generic.h"
 
 int32_t
-glusterd3_1_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
+glusterd_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe);
 
 void

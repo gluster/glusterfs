@@ -204,9 +204,9 @@ typedef enum {
 #define GLUSTER_CBK_PROGRAM      52743234 /* Completely random */
 #define GLUSTER_CBK_VERSION      1   /* 0.0.1 */
 
-#define GLUSTER3_1_FOP_PROGRAM   1298437 /* Completely random */
-#define GLUSTER3_1_FOP_VERSION   330 /* 3.3.0 */
-#define GLUSTER3_1_FOP_PROCCNT   GFS3_OP_MAXVALUE
+#define GLUSTER_FOP_PROGRAM   1298437 /* Completely random */
+#define GLUSTER_FOP_VERSION   330 /* 3.3.0 */
+#define GLUSTER_FOP_PROCCNT   GFS3_OP_MAXVALUE
 
 /* Second version */
 #define GD_MGMT_PROGRAM          1238433 /* Completely random */

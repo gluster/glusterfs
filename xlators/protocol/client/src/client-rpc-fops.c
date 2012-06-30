@@ -20,7 +20,7 @@
 
 int32_t client3_getspec (call_frame_t *frame, xlator_t *this, void *data);
 void client_start_ping (void *data);
-rpc_clnt_prog_t clnt3_1_fop_prog;
+rpc_clnt_prog_t clnt3_3_fop_prog;
 
 
 int
@@ -132,7 +132,7 @@ unwind:
 /* CBK */
 
 int
-client3_1_symlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_symlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
                        void *myframe)
 {
         call_frame_t     *frame      = NULL;
@@ -204,7 +204,7 @@ out:
 
 
 int
-client3_1_mknod_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_mknod_cbk (struct rpc_req *req, struct iovec *iov, int count,
                      void *myframe)
 {
         call_frame_t     *frame      = NULL;
@@ -274,7 +274,7 @@ out:
 }
 
 int
-client3_1_mkdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_mkdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                      void *myframe)
 {
         call_frame_t     *frame      = NULL;
@@ -415,7 +415,7 @@ out:
 }
 
 int
-client3_1_open_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_open_cbk (struct rpc_req *req, struct iovec *iov, int count,
                     void *myframe)
 {
         clnt_local_t  *local = NULL;
@@ -487,7 +487,7 @@ out:
 
 
 int
-client3_1_stat_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_stat_cbk (struct rpc_req *req, struct iovec *iov, int count,
                     void *myframe)
 {
         gfs3_stat_rsp rsp = {0,};
@@ -542,7 +542,7 @@ out:
 }
 
 int
-client3_1_readlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_readlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         void *myframe)
 {
         gfs3_readlink_rsp rsp = {0,};
@@ -603,7 +603,7 @@ out:
 }
 
 int
-client3_1_unlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_unlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
                       void *myframe)
 {
         call_frame_t    *frame      = NULL;
@@ -660,7 +660,7 @@ out:
 }
 
 int
-client3_1_rmdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_rmdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                      void *myframe)
 {
         gfs3_rmdir_rsp rsp = {0,};
@@ -718,7 +718,7 @@ out:
 
 
 int
-client3_1_truncate_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_truncate_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         void *myframe)
 {
         gfs3_truncate_rsp rsp = {0,};
@@ -776,7 +776,7 @@ out:
 
 
 int
-client3_1_statfs_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_statfs_cbk (struct rpc_req *req, struct iovec *iov, int count,
                       void *myframe)
 {
         gfs3_statfs_rsp rsp = {0,};
@@ -831,7 +831,7 @@ out:
 
 
 int
-client3_1_writev_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_writev_cbk (struct rpc_req *req, struct iovec *iov, int count,
                       void *myframe)
 {
         gfs3_write_rsp rsp = {0,};
@@ -889,7 +889,7 @@ out:
 }
 
 int
-client3_1_flush_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_flush_cbk (struct rpc_req *req, struct iovec *iov, int count,
                      void *myframe)
 {
         call_frame_t    *frame      = NULL;
@@ -948,7 +948,7 @@ out:
 }
 
 int
-client3_1_fsync_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_fsync_cbk (struct rpc_req *req, struct iovec *iov, int count,
                      void *myframe)
 {
         gfs3_fsync_rsp rsp = {0,};
@@ -1006,7 +1006,7 @@ out:
 }
 
 int
-client3_1_setxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_setxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         void *myframe)
 {
         call_frame_t  *frame    = NULL;
@@ -1058,7 +1058,7 @@ out:
 }
 
 int
-client3_1_getxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_getxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         void *myframe)
 {
         call_frame_t      *frame    = NULL;
@@ -1133,7 +1133,7 @@ out:
 }
 
 int
-client3_1_fgetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_fgetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
                          void *myframe)
 {
         call_frame_t       *frame    = NULL;
@@ -1201,7 +1201,7 @@ out:
 }
 
 int
-client3_1_removexattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_removexattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
                            void *myframe)
 {
         call_frame_t    *frame      = NULL;
@@ -1251,7 +1251,7 @@ out:
 }
 
 int
-client3_1_fremovexattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_fremovexattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
                             void *myframe)
 {
         call_frame_t    *frame      = NULL;
@@ -1301,7 +1301,7 @@ out:
 }
 
 int
-client3_1_fsyncdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_fsyncdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         void *myframe)
 {
         call_frame_t    *frame      = NULL;
@@ -1350,7 +1350,7 @@ out:
 }
 
 int
-client3_1_access_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_access_cbk (struct rpc_req *req, struct iovec *iov, int count,
                       void *myframe)
 {
         call_frame_t    *frame      = NULL;
@@ -1400,7 +1400,7 @@ out:
 
 
 int
-client3_1_ftruncate_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_ftruncate_cbk (struct rpc_req *req, struct iovec *iov, int count,
                          void *myframe)
 {
         gfs3_ftruncate_rsp rsp = {0,};
@@ -1457,7 +1457,7 @@ out:
 }
 
 int
-client3_1_fstat_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_fstat_cbk (struct rpc_req *req, struct iovec *iov, int count,
                      void *myframe)
 {
         gfs3_fstat_rsp rsp = {0,};
@@ -1512,7 +1512,7 @@ out:
 
 
 int
-client3_1_inodelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_inodelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
                        void *myframe)
 {
         call_frame_t    *frame      = NULL;
@@ -1562,7 +1562,7 @@ out:
 }
 
 int
-client3_1_finodelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_finodelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         void *myframe)
 {
         call_frame_t    *frame      = NULL;
@@ -1612,7 +1612,7 @@ out:
 }
 
 int
-client3_1_entrylk_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_entrylk_cbk (struct rpc_req *req, struct iovec *iov, int count,
                        void *myframe)
 {
         call_frame_t    *frame      = NULL;
@@ -1663,7 +1663,7 @@ out:
 }
 
 int
-client3_1_fentrylk_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_fentrylk_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         void *myframe)
 {
         call_frame_t    *frame      = NULL;
@@ -1714,7 +1714,7 @@ out:
 }
 
 int
-client3_1_xattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_xattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
                        void *myframe)
 {
         call_frame_t     *frame    = NULL;
@@ -1786,7 +1786,7 @@ out:
 }
 
 int
-client3_1_fxattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_fxattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         void *myframe)
 {
         call_frame_t      *frame    = NULL;
@@ -1854,7 +1854,7 @@ out:
 }
 
 int
-client3_1_fsetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_fsetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
                          void *myframe)
 {
         call_frame_t  *frame    = NULL;
@@ -1906,7 +1906,7 @@ out:
 }
 
 int
-client3_1_fsetattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_fsetattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         void *myframe)
 {
         call_frame_t    *frame      = NULL;
@@ -1964,7 +1964,7 @@ out:
 
 
 int
-client3_1_setattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_setattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
                        void *myframe)
 {
         call_frame_t    *frame      = NULL;
@@ -2022,7 +2022,7 @@ out:
 }
 
 int
-client3_1_create_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_create_cbk (struct rpc_req *req, struct iovec *iov, int count,
                       void *myframe)
 {
         call_frame_t    *frame      = NULL;
@@ -2102,7 +2102,7 @@ out:
 
 
 int
-client3_1_rchecksum_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_rchecksum_cbk (struct rpc_req *req, struct iovec *iov, int count,
                          void *myframe)
 {
         call_frame_t *frame = NULL;
@@ -2161,7 +2161,7 @@ out:
 }
 
 int
-client3_1_lk_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_lk_cbk (struct rpc_req *req, struct iovec *iov, int count,
                   void *myframe)
 {
         call_frame_t    *frame      = NULL;
@@ -2237,7 +2237,7 @@ out:
 }
 
 int
-client3_1_readdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_readdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                        void *myframe)
 {
         call_frame_t     *frame    = NULL;
@@ -2304,7 +2304,7 @@ out:
 
 
 int
-client3_1_readdirp_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_readdirp_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         void *myframe)
 {
         call_frame_t      *frame = NULL;
@@ -2368,7 +2368,7 @@ out:
 
 
 int
-client3_1_rename_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_rename_cbk (struct rpc_req *req, struct iovec *iov, int count,
                       void *myframe)
 {
         call_frame_t     *frame      = NULL;
@@ -2434,7 +2434,7 @@ out:
 }
 
 int
-client3_1_link_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_link_cbk (struct rpc_req *req, struct iovec *iov, int count,
                     void *myframe)
 {
         call_frame_t     *frame      = NULL;
@@ -2507,7 +2507,7 @@ out:
 
 
 int
-client3_1_opendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_opendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                        void *myframe)
 {
         clnt_local_t      *local = NULL;
@@ -2578,7 +2578,7 @@ out:
 
 
 int
-client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
                       void *myframe)
 {
         clnt_local_t    *local      = NULL;
@@ -2665,7 +2665,7 @@ out:
 }
 
 int
-client3_1_readv_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_readv_cbk (struct rpc_req *req, struct iovec *iov, int count,
                      void *myframe)
 {
         call_frame_t   *frame  = NULL;
@@ -2736,7 +2736,7 @@ out:
 }
 
 int
-client3_1_release_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_release_cbk (struct rpc_req *req, struct iovec *iov, int count,
                        void *myframe)
 {
         call_frame_t   *frame = NULL;
@@ -2746,7 +2746,7 @@ client3_1_release_cbk (struct rpc_req *req, struct iovec *iov, int count,
         return 0;
 }
 int
-client3_1_releasedir_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_releasedir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                           void *myframe)
 {
         call_frame_t   *frame = NULL;
@@ -2802,18 +2802,18 @@ client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx)
                 gfs3_releasedir_req  req = {{0,},};
                 req.fd = fdctx->remote_fd;
                 gf_log (this->name, GF_LOG_DEBUG, "sending releasedir on fd");
-                client_submit_request (this, &req, fr, &clnt3_1_fop_prog,
+                client_submit_request (this, &req, fr, &clnt3_3_fop_prog,
                                        GFS3_OP_RELEASEDIR,
-                                       client3_1_releasedir_cbk,
+                                       client3_3_releasedir_cbk,
                                        NULL, NULL, 0, NULL, 0, NULL,
                                        (xdrproc_t)xdr_gfs3_releasedir_req);
         } else {
                 gfs3_release_req  req = {{0,},};
                 req.fd = fdctx->remote_fd;
                 gf_log (this->name, GF_LOG_DEBUG, "sending release on fd");
-                client_submit_request (this, &req, fr, &clnt3_1_fop_prog,
+                client_submit_request (this, &req, fr, &clnt3_3_fop_prog,
                                        GFS3_OP_RELEASE,
-                                       client3_1_release_cbk, NULL,
+                                       client3_3_release_cbk, NULL,
                                        NULL, 0, NULL, 0, NULL,
                                        (xdrproc_t)xdr_gfs3_release_req);
         }
@@ -2832,7 +2832,7 @@ out:
 }
 
 int32_t
-client3_1_releasedir (call_frame_t *frame, xlator_t *this,
+client3_3_releasedir (call_frame_t *frame, xlator_t *this,
                       void *data)
 {
         clnt_conf_t         *conf        = NULL;
@@ -2873,7 +2873,7 @@ out:
 }
 
 int32_t
-client3_1_release (call_frame_t *frame, xlator_t *this,
+client3_3_release (call_frame_t *frame, xlator_t *this,
                    void *data)
 {
         int64_t           remote_fd     = -1;
@@ -2917,7 +2917,7 @@ out:
 
 
 int32_t
-client3_1_lookup (call_frame_t *frame, xlator_t *this,
+client3_3_lookup (call_frame_t *frame, xlator_t *this,
                   void *data)
 {
         clnt_conf_t     *conf              = NULL;
@@ -3003,7 +3003,7 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
                 req.bname = "";
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_LOOKUP, client3_1_lookup_cbk,
+                                     GFS3_OP_LOOKUP, client3_3_lookup_cbk,
                                      NULL, rsphdr, count,
                                      NULL, 0, local->iobref,
                                      (xdrproc_t)xdr_gfs3_lookup_req);
@@ -3040,7 +3040,7 @@ unwind:
 }
 
 int32_t
-client3_1_stat (call_frame_t *frame, xlator_t *this,
+client3_3_stat (call_frame_t *frame, xlator_t *this,
                 void *data)
 {
         clnt_conf_t   *conf     = NULL;
@@ -3070,7 +3070,7 @@ client3_1_stat (call_frame_t *frame, xlator_t *this,
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_STAT, client3_1_stat_cbk, NULL,
+                                     GFS3_OP_STAT, client3_3_stat_cbk, NULL,
                                      NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_stat_req);
         if (ret) {
@@ -3092,7 +3092,7 @@ unwind:
 
 
 int32_t
-client3_1_truncate (call_frame_t *frame, xlator_t *this,
+client3_3_truncate (call_frame_t *frame, xlator_t *this,
                     void *data)
 {
         clnt_conf_t       *conf     = NULL;
@@ -3126,7 +3126,7 @@ client3_1_truncate (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_TRUNCATE,
-                                     client3_1_truncate_cbk, NULL,
+                                     client3_3_truncate_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_truncate_req);
         if (ret) {
@@ -3147,7 +3147,7 @@ unwind:
 
 
 int32_t
-client3_1_ftruncate (call_frame_t *frame, xlator_t *this,
+client3_3_ftruncate (call_frame_t *frame, xlator_t *this,
                      void *data)
 {
         clnt_args_t        *args     = NULL;
@@ -3175,7 +3175,7 @@ client3_1_ftruncate (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FTRUNCATE,
-                                     client3_1_ftruncate_cbk, NULL,
+                                     client3_3_ftruncate_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_ftruncate_req);
         if (ret) {
@@ -3197,7 +3197,7 @@ unwind:
 
 
 int32_t
-client3_1_access (call_frame_t *frame, xlator_t *this,
+client3_3_access (call_frame_t *frame, xlator_t *this,
                   void *data)
 {
         clnt_conf_t     *conf     = NULL;
@@ -3231,7 +3231,7 @@ client3_1_access (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_ACCESS,
-                                     client3_1_access_cbk, NULL,
+                                     client3_3_access_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_access_req);
         if (ret) {
@@ -3251,7 +3251,7 @@ unwind:
 }
 
 int32_t
-client3_1_readlink (call_frame_t *frame, xlator_t *this,
+client3_3_readlink (call_frame_t *frame, xlator_t *this,
                     void *data)
 {
         clnt_conf_t       *conf              = NULL;
@@ -3318,7 +3318,7 @@ client3_1_readlink (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_READLINK,
-                                     client3_1_readlink_cbk, NULL,
+                                     client3_3_readlink_cbk, NULL,
                                      rsphdr, count, NULL, 0,
                                      local->iobref,
                                      (xdrproc_t)xdr_gfs3_readlink_req);
@@ -3346,7 +3346,7 @@ unwind:
 
 
 int32_t
-client3_1_unlink (call_frame_t *frame, xlator_t *this,
+client3_3_unlink (call_frame_t *frame, xlator_t *this,
                   void *data)
 {
         clnt_conf_t     *conf     = NULL;
@@ -3379,7 +3379,7 @@ client3_1_unlink (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_UNLINK,
-                                     client3_1_unlink_cbk, NULL,
+                                     client3_3_unlink_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_unlink_req);
         if (ret) {
@@ -3401,7 +3401,7 @@ unwind:
 
 
 int32_t
-client3_1_rmdir (call_frame_t *frame, xlator_t *this,
+client3_3_rmdir (call_frame_t *frame, xlator_t *this,
                  void *data)
 {
         clnt_conf_t    *conf     = NULL;
@@ -3434,7 +3434,7 @@ client3_1_rmdir (call_frame_t *frame, xlator_t *this,
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_RMDIR, client3_1_rmdir_cbk, NULL,
+                                     GFS3_OP_RMDIR, client3_3_rmdir_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_rmdir_req);
         if (ret) {
@@ -3455,7 +3455,7 @@ unwind:
 
 
 int32_t
-client3_1_symlink (call_frame_t *frame, xlator_t *this,
+client3_3_symlink (call_frame_t *frame, xlator_t *this,
                    void *data)
 {
         clnt_local_t     *local    = NULL;
@@ -3501,7 +3501,7 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_SYMLINK, client3_1_symlink_cbk,
+                                     GFS3_OP_SYMLINK, client3_3_symlink_cbk,
                                      NULL,  NULL, 0, NULL,
                                      0, NULL, (xdrproc_t)xdr_gfs3_symlink_req);
         if (ret) {
@@ -3526,7 +3526,7 @@ unwind:
 
 
 int32_t
-client3_1_rename (call_frame_t *frame, xlator_t *this,
+client3_3_rename (call_frame_t *frame, xlator_t *this,
                   void *data)
 {
         clnt_conf_t     *conf     = NULL;
@@ -3568,7 +3568,7 @@ client3_1_rename (call_frame_t *frame, xlator_t *this,
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_RENAME, client3_1_rename_cbk, NULL,
+                                     GFS3_OP_RENAME, client3_3_rename_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_rename_req);
         if (ret) {
@@ -3592,7 +3592,7 @@ unwind:
 
 
 int32_t
-client3_1_link (call_frame_t *frame, xlator_t *this,
+client3_3_link (call_frame_t *frame, xlator_t *this,
                 void *data)
 {
         clnt_local_t  *local    = NULL;
@@ -3644,7 +3644,7 @@ client3_1_link (call_frame_t *frame, xlator_t *this,
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_LINK, client3_1_link_cbk, NULL,
+                                     GFS3_OP_LINK, client3_3_link_cbk, NULL,
                                      NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_link_req);
         if (ret) {
@@ -3666,7 +3666,7 @@ unwind:
 
 
 int32_t
-client3_1_mknod (call_frame_t *frame, xlator_t *this,
+client3_3_mknod (call_frame_t *frame, xlator_t *this,
                  void *data)
 {
         clnt_local_t   *local    = NULL;
@@ -3712,7 +3712,7 @@ client3_1_mknod (call_frame_t *frame, xlator_t *this,
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_MKNOD, client3_1_mknod_cbk, NULL,
+                                     GFS3_OP_MKNOD, client3_3_mknod_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_mknod_req);
         if (ret) {
@@ -3735,7 +3735,7 @@ unwind:
 
 
 int32_t
-client3_1_mkdir (call_frame_t *frame, xlator_t *this,
+client3_3_mkdir (call_frame_t *frame, xlator_t *this,
                  void *data)
 {
         clnt_local_t   *local    = NULL;
@@ -3781,7 +3781,7 @@ client3_1_mkdir (call_frame_t *frame, xlator_t *this,
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_MKDIR, client3_1_mkdir_cbk, NULL,
+                                     GFS3_OP_MKDIR, client3_3_mkdir_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_mkdir_req);
         if (ret) {
@@ -3803,7 +3803,7 @@ unwind:
 
 
 int32_t
-client3_1_create (call_frame_t *frame, xlator_t *this,
+client3_3_create (call_frame_t *frame, xlator_t *this,
                   void *data)
 {
         clnt_local_t    *local    = NULL;
@@ -3851,7 +3851,7 @@ client3_1_create (call_frame_t *frame, xlator_t *this,
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_CREATE, client3_1_create_cbk, NULL,
+                                     GFS3_OP_CREATE, client3_3_create_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_create_req);
         if (ret) {
@@ -3875,7 +3875,7 @@ unwind:
 
 
 int32_t
-client3_1_open (call_frame_t *frame, xlator_t *this,
+client3_3_open (call_frame_t *frame, xlator_t *this,
                 void *data)
 {
         clnt_local_t  *local    = NULL;
@@ -3919,7 +3919,7 @@ client3_1_open (call_frame_t *frame, xlator_t *this,
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_OPEN, client3_1_open_cbk, NULL,
+                                     GFS3_OP_OPEN, client3_3_open_cbk, NULL,
                                      NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_open_req);
         if (ret) {
@@ -3942,7 +3942,7 @@ unwind:
 
 
 int32_t
-client3_1_readv (call_frame_t *frame, xlator_t *this,
+client3_3_readv (call_frame_t *frame, xlator_t *this,
                  void *data)
 {
         clnt_args_t    *args       = NULL;
@@ -4014,7 +4014,7 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_READ, client3_1_readv_cbk, NULL,
+                                     GFS3_OP_READ, client3_3_readv_cbk, NULL,
                                      NULL, 0, &rsp_vec, 1,
                                      local->iobref,
                                      (xdrproc_t)xdr_gfs3_read_req);
@@ -4048,7 +4048,7 @@ unwind:
 
 
 int32_t
-client3_1_writev (call_frame_t *frame, xlator_t *this, void *data)
+client3_3_writev (call_frame_t *frame, xlator_t *this, void *data)
 {
         clnt_args_t    *args     = NULL;
         int64_t         remote_fd = -1;
@@ -4084,7 +4084,7 @@ client3_1_writev (call_frame_t *frame, xlator_t *this, void *data)
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_vec_request (this, &req, frame, conf->fops,
-                                         GFS3_OP_WRITE, client3_1_writev_cbk,
+                                         GFS3_OP_WRITE, client3_3_writev_cbk,
                                          args->vector, args->count,
                                          args->iobref,
                                          (xdrproc_t)xdr_gfs3_write_req);
@@ -4112,7 +4112,7 @@ unwind:
 
 
 int32_t
-client3_1_flush (call_frame_t *frame, xlator_t *this,
+client3_3_flush (call_frame_t *frame, xlator_t *this,
                  void *data)
 {
         clnt_args_t    *args     = NULL;
@@ -4150,7 +4150,7 @@ client3_1_flush (call_frame_t *frame, xlator_t *this,
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_FLUSH, client3_1_flush_cbk, NULL,
+                                     GFS3_OP_FLUSH, client3_3_flush_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_flush_req);
         if (ret) {
@@ -4174,7 +4174,7 @@ unwind:
 
 
 int32_t
-client3_1_fsync (call_frame_t *frame, xlator_t *this,
+client3_3_fsync (call_frame_t *frame, xlator_t *this,
                  void *data)
 {
         clnt_args_t    *args      = NULL;
@@ -4200,7 +4200,7 @@ client3_1_fsync (call_frame_t *frame, xlator_t *this,
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_FSYNC, client3_1_fsync_cbk, NULL,
+                                     GFS3_OP_FSYNC, client3_3_fsync_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_fsync_req);
         if (ret) {
@@ -4224,7 +4224,7 @@ unwind:
 
 
 int32_t
-client3_1_fstat (call_frame_t *frame, xlator_t *this,
+client3_3_fstat (call_frame_t *frame, xlator_t *this,
                  void *data)
 {
         clnt_args_t    *args     = NULL;
@@ -4249,7 +4249,7 @@ client3_1_fstat (call_frame_t *frame, xlator_t *this,
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_FSTAT, client3_1_fstat_cbk, NULL,
+                                     GFS3_OP_FSTAT, client3_3_fstat_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_fstat_req);
         if (ret) {
@@ -4272,7 +4272,7 @@ unwind:
 
 
 int32_t
-client3_1_opendir (call_frame_t *frame, xlator_t *this,
+client3_3_opendir (call_frame_t *frame, xlator_t *this,
                    void *data)
 {
         clnt_local_t     *local    = NULL;
@@ -4314,7 +4314,7 @@ client3_1_opendir (call_frame_t *frame, xlator_t *this,
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_OPENDIR, client3_1_opendir_cbk,
+                                     GFS3_OP_OPENDIR, client3_3_opendir_cbk,
                                      NULL, NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_opendir_req);
         if (ret) {
@@ -4338,7 +4338,7 @@ unwind:
 
 
 int32_t
-client3_1_fsyncdir (call_frame_t *frame, xlator_t *this, void *data)
+client3_3_fsyncdir (call_frame_t *frame, xlator_t *this, void *data)
 {
         clnt_args_t       *args      = NULL;
         int64_t            remote_fd = -1;
@@ -4365,7 +4365,7 @@ client3_1_fsyncdir (call_frame_t *frame, xlator_t *this, void *data)
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_FSYNCDIR, client3_1_fsyncdir_cbk,
+                                     GFS3_OP_FSYNCDIR, client3_3_fsyncdir_cbk,
                                      NULL, NULL, 0,
                                      NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_fsyncdir_req);
@@ -4389,7 +4389,7 @@ unwind:
 
 
 int32_t
-client3_1_statfs (call_frame_t *frame, xlator_t *this,
+client3_3_statfs (call_frame_t *frame, xlator_t *this,
                   void *data)
 {
         clnt_conf_t     *conf     = NULL;
@@ -4424,7 +4424,7 @@ client3_1_statfs (call_frame_t *frame, xlator_t *this,
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_STATFS, client3_1_statfs_cbk, NULL,
+                                     GFS3_OP_STATFS, client3_3_statfs_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_statfs_req);
         if (ret) {
@@ -4447,7 +4447,7 @@ unwind:
 
 
 int32_t
-client3_1_setxattr (call_frame_t *frame, xlator_t *this,
+client3_3_setxattr (call_frame_t *frame, xlator_t *this,
                     void *data)
 {
         clnt_conf_t       *conf     = NULL;
@@ -4487,7 +4487,7 @@ client3_1_setxattr (call_frame_t *frame, xlator_t *this,
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_SETXATTR, client3_1_setxattr_cbk,
+                                     GFS3_OP_SETXATTR, client3_3_setxattr_cbk,
                                      NULL, NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_setxattr_req);
         if (ret) {
@@ -4514,7 +4514,7 @@ unwind:
 
 
 int32_t
-client3_1_fsetxattr (call_frame_t *frame, xlator_t *this,
+client3_3_fsetxattr (call_frame_t *frame, xlator_t *this,
                      void *data)
 {
         clnt_args_t        *args     = NULL;
@@ -4547,7 +4547,7 @@ client3_1_fsetxattr (call_frame_t *frame, xlator_t *this,
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_FSETXATTR, client3_1_fsetxattr_cbk,
+                                     GFS3_OP_FSETXATTR, client3_3_fsetxattr_cbk,
                                      NULL, NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_fsetxattr_req);
         if (ret) {
@@ -4576,7 +4576,7 @@ unwind:
 
 
 int32_t
-client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
+client3_3_fgetxattr (call_frame_t *frame, xlator_t *this,
                      void *data)
 {
         clnt_args_t        *args       = NULL;
@@ -4645,7 +4645,7 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FGETXATTR,
-                                     client3_1_fgetxattr_cbk, NULL,
+                                     client3_3_fgetxattr_cbk, NULL,
                                      rsphdr, count,
                                      NULL, 0, local->iobref,
                                      (xdrproc_t)xdr_gfs3_fgetxattr_req);
@@ -4681,7 +4681,7 @@ unwind:
 
 
 int32_t
-client3_1_getxattr (call_frame_t *frame, xlator_t *this,
+client3_3_getxattr (call_frame_t *frame, xlator_t *this,
                     void *data)
 {
         clnt_conf_t       *conf       = NULL;
@@ -4787,7 +4787,7 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_GETXATTR,
-                                     client3_1_getxattr_cbk, NULL,
+                                     client3_3_getxattr_cbk, NULL,
                                      rsphdr, count,
                                      NULL, 0, local->iobref,
                                      (xdrproc_t)xdr_gfs3_getxattr_req);
@@ -4823,7 +4823,7 @@ unwind:
 
 
 int32_t
-client3_1_xattrop (call_frame_t *frame, xlator_t *this,
+client3_3_xattrop (call_frame_t *frame, xlator_t *this,
                    void *data)
 {
         clnt_conf_t      *conf       = NULL;
@@ -4901,7 +4901,7 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_XATTROP,
-                                     client3_1_xattrop_cbk, NULL,
+                                     client3_3_xattrop_cbk, NULL,
                                      rsphdr, count,
                                      NULL, 0, local->iobref,
                                      (xdrproc_t)xdr_gfs3_xattrop_req);
@@ -4944,7 +4944,7 @@ unwind:
 
 
 int32_t
-client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
+client3_3_fxattrop (call_frame_t *frame, xlator_t *this,
                     void *data)
 {
         clnt_args_t       *args       = NULL;
@@ -5014,7 +5014,7 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FXATTROP,
-                                     client3_1_fxattrop_cbk, NULL,
+                                     client3_3_fxattrop_cbk, NULL,
                                      rsphdr, count,
                                      NULL, 0, local->iobref,
                                      (xdrproc_t)xdr_gfs3_fxattrop_req);
@@ -5055,7 +5055,7 @@ unwind:
 
 
 int32_t
-client3_1_removexattr (call_frame_t *frame, xlator_t *this,
+client3_3_removexattr (call_frame_t *frame, xlator_t *this,
                        void *data)
 {
         clnt_conf_t          *conf     = NULL;
@@ -5089,7 +5089,7 @@ client3_1_removexattr (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_REMOVEXATTR,
-                                     client3_1_removexattr_cbk, NULL,
+                                     client3_3_removexattr_cbk, NULL,
                                      NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_removexattr_req);
         if (ret) {
@@ -5109,7 +5109,7 @@ unwind:
 }
 
 int32_t
-client3_1_fremovexattr (call_frame_t *frame, xlator_t *this,
+client3_3_fremovexattr (call_frame_t *frame, xlator_t *this,
                         void *data)
 {
         clnt_conf_t           *conf     = NULL;
@@ -5140,7 +5140,7 @@ client3_1_fremovexattr (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FREMOVEXATTR,
-                                     client3_1_fremovexattr_cbk, NULL,
+                                     client3_3_fremovexattr_cbk, NULL,
                                      NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_fremovexattr_req);
         if (ret) {
@@ -5160,7 +5160,7 @@ unwind:
 }
 
 int32_t
-client3_1_lk (call_frame_t *frame, xlator_t *this,
+client3_3_lk (call_frame_t *frame, xlator_t *this,
               void *data)
 {
         clnt_args_t     *args       = NULL;
@@ -5222,7 +5222,7 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
                                     req.xdata.xdata_len, op_errno, unwind);
 
         ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_LK,
-                                     client3_1_lk_cbk, NULL,
+                                     client3_3_lk_cbk, NULL,
                                      NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_lk_req);
         if (ret) {
@@ -5243,7 +5243,7 @@ unwind:
 
 
 int32_t
-client3_1_inodelk (call_frame_t *frame, xlator_t *this,
+client3_3_inodelk (call_frame_t *frame, xlator_t *this,
                    void *data)
 {
         clnt_conf_t      *conf     = NULL;
@@ -5306,7 +5306,7 @@ client3_1_inodelk (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_INODELK,
-                                     client3_1_inodelk_cbk, NULL,
+                                     client3_3_inodelk_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_inodelk_req);
         if (ret) {
@@ -5328,7 +5328,7 @@ unwind:
 
 
 int32_t
-client3_1_finodelk (call_frame_t *frame, xlator_t *this,
+client3_3_finodelk (call_frame_t *frame, xlator_t *this,
                     void *data)
 {
         clnt_args_t       *args     = NULL;
@@ -5384,7 +5384,7 @@ client3_1_finodelk (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FINODELK,
-                                     client3_1_finodelk_cbk, NULL,
+                                     client3_3_finodelk_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_finodelk_req);
         if (ret) {
@@ -5404,7 +5404,7 @@ unwind:
 
 
 int32_t
-client3_1_entrylk (call_frame_t *frame, xlator_t *this,
+client3_3_entrylk (call_frame_t *frame, xlator_t *this,
                    void *data)
 {
         clnt_conf_t      *conf     = NULL;
@@ -5445,7 +5445,7 @@ client3_1_entrylk (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_ENTRYLK,
-                                     client3_1_entrylk_cbk, NULL,
+                                     client3_3_entrylk_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_entrylk_req);
         if (ret) {
@@ -5467,7 +5467,7 @@ unwind:
 
 
 int32_t
-client3_1_fentrylk (call_frame_t *frame, xlator_t *this,
+client3_3_fentrylk (call_frame_t *frame, xlator_t *this,
                     void *data)
 {
         clnt_args_t       *args     = NULL;
@@ -5501,7 +5501,7 @@ client3_1_fentrylk (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FENTRYLK,
-                                     client3_1_fentrylk_cbk, NULL,
+                                     client3_3_fentrylk_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_fentrylk_req);
         if (ret) {
@@ -5522,7 +5522,7 @@ unwind:
 
 
 int32_t
-client3_1_rchecksum (call_frame_t *frame, xlator_t *this,
+client3_3_rchecksum (call_frame_t *frame, xlator_t *this,
                      void *data)
 {
         clnt_args_t        *args     = NULL;
@@ -5549,7 +5549,7 @@ client3_1_rchecksum (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_RCHECKSUM,
-                                     client3_1_rchecksum_cbk, NULL,
+                                     client3_3_rchecksum_cbk, NULL,
                                      NULL, 0, NULL,
                                      0, NULL,
                                      (xdrproc_t)xdr_gfs3_rchecksum_req);
@@ -5572,7 +5572,7 @@ unwind:
 
 
 int32_t
-client3_1_readdir (call_frame_t *frame, xlator_t *this,
+client3_3_readdir (call_frame_t *frame, xlator_t *this,
                    void *data)
 {
         clnt_args_t      *args       = NULL;
@@ -5647,7 +5647,7 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_READDIR,
-                                     client3_1_readdir_cbk, NULL,
+                                     client3_3_readdir_cbk, NULL,
                                      rsphdr, count,
                                      NULL, 0, rsp_iobref,
                                      (xdrproc_t)xdr_gfs3_readdir_req);
@@ -5683,7 +5683,7 @@ unwind:
 
 
 int32_t
-client3_1_readdirp (call_frame_t *frame, xlator_t *this,
+client3_3_readdirp (call_frame_t *frame, xlator_t *this,
                     void *data)
 {
         clnt_args_t      *args              = NULL;
@@ -5760,7 +5760,7 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_READDIRP,
-                                     client3_1_readdirp_cbk, NULL,
+                                     client3_3_readdirp_cbk, NULL,
                                      rsphdr, count, NULL,
                                      0, rsp_iobref,
                                      (xdrproc_t)xdr_gfs3_readdirp_req);
@@ -5794,7 +5794,7 @@ unwind:
 
 
 int32_t
-client3_1_setattr (call_frame_t *frame, xlator_t *this,
+client3_3_setattr (call_frame_t *frame, xlator_t *this,
                    void *data)
 {
         clnt_conf_t      *conf     = NULL;
@@ -5829,7 +5829,7 @@ client3_1_setattr (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_SETATTR,
-                                     client3_1_setattr_cbk, NULL,
+                                     client3_3_setattr_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_setattr_req);
         if (ret) {
@@ -5849,7 +5849,7 @@ unwind:
 }
 
 int32_t
-client3_1_fsetattr (call_frame_t *frame, xlator_t *this, void *data)
+client3_3_fsetattr (call_frame_t *frame, xlator_t *this, void *data)
 {
         clnt_args_t       *args     = NULL;
         int64_t            remote_fd = -1;
@@ -5875,7 +5875,7 @@ client3_1_fsetattr (call_frame_t *frame, xlator_t *this, void *data)
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FSETATTR,
-                                     client3_1_fsetattr_cbk, NULL,
+                                     client3_3_fsetattr_cbk, NULL,
                                      NULL, 0, NULL, 0,
                                      NULL, (xdrproc_t)xdr_gfs3_fsetattr_req);
         if (ret) {
@@ -5899,56 +5899,56 @@ unwind:
 /* Table Specific to FOPS */
 
 
-rpc_clnt_procedure_t clnt3_1_fop_actors[GF_FOP_MAXVALUE] = {
+rpc_clnt_procedure_t clnt3_3_fop_actors[GF_FOP_MAXVALUE] = {
         [GF_FOP_NULL]        = { "NULL",        NULL},
-        [GF_FOP_STAT]        = { "STAT",        client3_1_stat },
-        [GF_FOP_READLINK]    = { "READLINK",    client3_1_readlink },
-        [GF_FOP_MKNOD]       = { "MKNOD",       client3_1_mknod },
-        [GF_FOP_MKDIR]       = { "MKDIR",       client3_1_mkdir },
-        [GF_FOP_UNLINK]      = { "UNLINK",      client3_1_unlink },
-        [GF_FOP_RMDIR]       = { "RMDIR",       client3_1_rmdir },
-        [GF_FOP_SYMLINK]     = { "SYMLINK",     client3_1_symlink },
-        [GF_FOP_RENAME]      = { "RENAME",      client3_1_rename },
-        [GF_FOP_LINK]        = { "LINK",        client3_1_link },
-        [GF_FOP_TRUNCATE]    = { "TRUNCATE",    client3_1_truncate },
-        [GF_FOP_OPEN]        = { "OPEN",        client3_1_open },
-        [GF_FOP_READ]        = { "READ",        client3_1_readv },
-        [GF_FOP_WRITE]       = { "WRITE",       client3_1_writev },
-        [GF_FOP_STATFS]      = { "STATFS",      client3_1_statfs },
-        [GF_FOP_FLUSH]       = { "FLUSH",       client3_1_flush },
-        [GF_FOP_FSYNC]       = { "FSYNC",       client3_1_fsync },
-        [GF_FOP_SETXATTR]    = { "SETXATTR",    client3_1_setxattr },
-        [GF_FOP_GETXATTR]    = { "GETXATTR",    client3_1_getxattr },
-        [GF_FOP_REMOVEXATTR] = { "REMOVEXATTR", client3_1_removexattr },
-        [GF_FOP_OPENDIR]     = { "OPENDIR",     client3_1_opendir },
-        [GF_FOP_FSYNCDIR]    = { "FSYNCDIR",    client3_1_fsyncdir },
-        [GF_FOP_ACCESS]      = { "ACCESS",      client3_1_access },
-        [GF_FOP_CREATE]      = { "CREATE",      client3_1_create },
-        [GF_FOP_FTRUNCATE]   = { "FTRUNCATE",   client3_1_ftruncate },
-        [GF_FOP_FSTAT]       = { "FSTAT",       client3_1_fstat },
-        [GF_FOP_LK]          = { "LK",          client3_1_lk },
-        [GF_FOP_LOOKUP]      = { "LOOKUP",      client3_1_lookup },
-        [GF_FOP_READDIR]     = { "READDIR",     client3_1_readdir },
-        [GF_FOP_INODELK]     = { "INODELK",     client3_1_inodelk },
-        [GF_FOP_FINODELK]    = { "FINODELK",    client3_1_finodelk },
-        [GF_FOP_ENTRYLK]     = { "ENTRYLK",     client3_1_entrylk },
-        [GF_FOP_FENTRYLK]    = { "FENTRYLK",    client3_1_fentrylk },
-        [GF_FOP_XATTROP]     = { "XATTROP",     client3_1_xattrop },
-        [GF_FOP_FXATTROP]    = { "FXATTROP",    client3_1_fxattrop },
-        [GF_FOP_FGETXATTR]   = { "FGETXATTR",   client3_1_fgetxattr },
-        [GF_FOP_FSETXATTR]   = { "FSETXATTR",   client3_1_fsetxattr },
-        [GF_FOP_RCHECKSUM]   = { "RCHECKSUM",   client3_1_rchecksum },
-        [GF_FOP_SETATTR]     = { "SETATTR",     client3_1_setattr },
-        [GF_FOP_FSETATTR]    = { "FSETATTR",    client3_1_fsetattr },
-        [GF_FOP_READDIRP]    = { "READDIRP",    client3_1_readdirp },
-        [GF_FOP_RELEASE]     = { "RELEASE",     client3_1_release },
-        [GF_FOP_RELEASEDIR]  = { "RELEASEDIR",  client3_1_releasedir },
+        [GF_FOP_STAT]        = { "STAT",        client3_3_stat },
+        [GF_FOP_READLINK]    = { "READLINK",    client3_3_readlink },
+        [GF_FOP_MKNOD]       = { "MKNOD",       client3_3_mknod },
+        [GF_FOP_MKDIR]       = { "MKDIR",       client3_3_mkdir },
+        [GF_FOP_UNLINK]      = { "UNLINK",      client3_3_unlink },
+        [GF_FOP_RMDIR]       = { "RMDIR",       client3_3_rmdir },
+        [GF_FOP_SYMLINK]     = { "SYMLINK",     client3_3_symlink },
+        [GF_FOP_RENAME]      = { "RENAME",      client3_3_rename },
+        [GF_FOP_LINK]        = { "LINK",        client3_3_link },
+        [GF_FOP_TRUNCATE]    = { "TRUNCATE",    client3_3_truncate },
+        [GF_FOP_OPEN]        = { "OPEN",        client3_3_open },
+        [GF_FOP_READ]        = { "READ",        client3_3_readv },
+        [GF_FOP_WRITE]       = { "WRITE",       client3_3_writev },
+        [GF_FOP_STATFS]      = { "STATFS",      client3_3_statfs },
+        [GF_FOP_FLUSH]       = { "FLUSH",       client3_3_flush },
+        [GF_FOP_FSYNC]       = { "FSYNC",       client3_3_fsync },
+        [GF_FOP_SETXATTR]    = { "SETXATTR",    client3_3_setxattr },
+        [GF_FOP_GETXATTR]    = { "GETXATTR",    client3_3_getxattr },
+        [GF_FOP_REMOVEXATTR] = { "REMOVEXATTR", client3_3_removexattr },
+        [GF_FOP_OPENDIR]     = { "OPENDIR",     client3_3_opendir },
+        [GF_FOP_FSYNCDIR]    = { "FSYNCDIR",    client3_3_fsyncdir },
+        [GF_FOP_ACCESS]      = { "ACCESS",      client3_3_access },
+        [GF_FOP_CREATE]      = { "CREATE",      client3_3_create },
+        [GF_FOP_FTRUNCATE]   = { "FTRUNCATE",   client3_3_ftruncate },
+        [GF_FOP_FSTAT]       = { "FSTAT",       client3_3_fstat },
+        [GF_FOP_LK]          = { "LK",          client3_3_lk },
+        [GF_FOP_LOOKUP]      = { "LOOKUP",      client3_3_lookup },
+        [GF_FOP_READDIR]     = { "READDIR",     client3_3_readdir },
+        [GF_FOP_INODELK]     = { "INODELK",     client3_3_inodelk },
+        [GF_FOP_FINODELK]    = { "FINODELK",    client3_3_finodelk },
+        [GF_FOP_ENTRYLK]     = { "ENTRYLK",     client3_3_entrylk },
+        [GF_FOP_FENTRYLK]    = { "FENTRYLK",    client3_3_fentrylk },
+        [GF_FOP_XATTROP]     = { "XATTROP",     client3_3_xattrop },
+        [GF_FOP_FXATTROP]    = { "FXATTROP",    client3_3_fxattrop },
+        [GF_FOP_FGETXATTR]   = { "FGETXATTR",   client3_3_fgetxattr },
+        [GF_FOP_FSETXATTR]   = { "FSETXATTR",   client3_3_fsetxattr },
+        [GF_FOP_RCHECKSUM]   = { "RCHECKSUM",   client3_3_rchecksum },
+        [GF_FOP_SETATTR]     = { "SETATTR",     client3_3_setattr },
+        [GF_FOP_FSETATTR]    = { "FSETATTR",    client3_3_fsetattr },
+        [GF_FOP_READDIRP]    = { "READDIRP",    client3_3_readdirp },
+        [GF_FOP_RELEASE]     = { "RELEASE",     client3_3_release },
+        [GF_FOP_RELEASEDIR]  = { "RELEASEDIR",  client3_3_releasedir },
         [GF_FOP_GETSPEC]     = { "GETSPEC",     client3_getspec },
-        [GF_FOP_FREMOVEXATTR] = { "FREMOVEXATTR", client3_1_fremovexattr },
+        [GF_FOP_FREMOVEXATTR] = { "FREMOVEXATTR", client3_3_fremovexattr },
 };
 
 /* Used From RPC-CLNT library to log proper name of procedure based on number */
-char *clnt3_1_fop_names[GFS3_OP_MAXVALUE] = {
+char *clnt3_3_fop_names[GFS3_OP_MAXVALUE] = {
         [GFS3_OP_NULL]        = "NULL",
         [GFS3_OP_STAT]        = "STAT",
         [GFS3_OP_READLINK]    = "READLINK",
@@ -5995,11 +5995,11 @@ char *clnt3_1_fop_names[GFS3_OP_MAXVALUE] = {
         [GFS3_OP_FREMOVEXATTR] = "FREMOVEXATTR",
 };
 
-rpc_clnt_prog_t clnt3_1_fop_prog = {
-        .progname  = "GlusterFS 3.1",
-        .prognum   = GLUSTER3_1_FOP_PROGRAM,
-        .progver   = GLUSTER3_1_FOP_VERSION,
-        .numproc   = GLUSTER3_1_FOP_PROCCNT,
-        .proctable = clnt3_1_fop_actors,
-        .procnames = clnt3_1_fop_names,
+rpc_clnt_prog_t clnt3_3_fop_prog = {
+        .progname  = "GlusterFS 3.3",
+        .prognum   = GLUSTER_FOP_PROGRAM,
+        .progver   = GLUSTER_FOP_VERSION,
+        .numproc   = GLUSTER_FOP_PROCCNT,
+        .proctable = clnt3_3_fop_actors,
+        .procnames = clnt3_3_fop_names,
 };

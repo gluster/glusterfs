@@ -25,7 +25,7 @@
 #include "portmap-xdr.h"
 #include "rpc-common-xdr.h"
 
-extern rpc_clnt_prog_t clnt3_1_fop_prog;
+extern rpc_clnt_prog_t clnt3_3_fop_prog;
 extern rpc_clnt_prog_t clnt_pmap_prog;
 
 int client_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
@@ -887,7 +887,7 @@ out:
 }
 
 int
-client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
                       void           *myframe)
 {
         int32_t        ret                   = -1;
@@ -998,7 +998,7 @@ out:
 }
 
 int
-client3_1_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
+client3_3_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                          void           *myframe)
 {
         int32_t        ret   = -1;
@@ -1125,7 +1125,7 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_OPENDIR,
-                                     client3_1_reopendir_cbk, NULL,
+                                     client3_3_reopendir_cbk, NULL,
                                      NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_opendir_req);
         if (ret) {
@@ -1195,7 +1195,7 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
 
         local = NULL;
         ret = client_submit_request (this, &req, frame, conf->fops,
-                                     GFS3_OP_OPEN, client3_1_reopen_cbk, NULL,
+                                     GFS3_OP_OPEN, client3_3_reopen_cbk, NULL,
                                      NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_open_req);
         if (ret) {
@@ -1606,9 +1606,9 @@ select_server_supported_programs (xlator_t *this, gf_prog_detail *prog)
 
         while (trav) {
                 /* Select 'programs' */
-                if ((clnt3_1_fop_prog.prognum == trav->prognum) &&
-                    (clnt3_1_fop_prog.progver == trav->progver)) {
-                        conf->fops = &clnt3_1_fop_prog;
+                if ((clnt3_3_fop_prog.prognum == trav->prognum) &&
+                    (clnt3_3_fop_prog.progver == trav->progver)) {
+                        conf->fops = &clnt3_3_fop_prog;
                         gf_log (this->name, GF_LOG_INFO,
                                 "Using Program %s, Num (%"PRId64"), "
                                 "Version (%"PRId64")",
