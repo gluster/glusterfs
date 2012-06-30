@@ -1411,7 +1411,7 @@ __socket_read_reply (rpc_transport_t *this)
                 }
         }
 
-        if ((request_info->prognum == GLUSTER3_1_FOP_PROGRAM)
+        if ((request_info->prognum == GLUSTER_FOP_PROGRAM)
             && (request_info->procnum == GF_FOP_READ)) {
                 if (map_xid && request_info->rsp.rsp_payload_count != 0) {
                         priv->incoming.iobref

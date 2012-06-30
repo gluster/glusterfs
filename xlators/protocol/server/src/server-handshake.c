@@ -40,7 +40,7 @@ gf_compare_client_version (rpcsvc_request_t *req, int fop_prognum,
 {
         int ret = -1;
         /* TODO: think.. */
-        if (glusterfs3_1_fop_prog.prognum == fop_prognum)
+        if (glusterfs3_3_fop_prog.prognum == fop_prognum)
                 ret = 0;
 
         return ret;

@@ -192,7 +192,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
 }
 
 int
-glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
+glusterd_probe_cbk (struct rpc_req *req, struct iovec *iov,
                         int count, void *myframe)
 {
         gd1_mgmt_probe_rsp    rsp   = {{0},};
@@ -295,7 +295,7 @@ out:
 }
 
 int
-glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
+glusterd_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
                             int count, void *myframe)
 {
         gd1_mgmt_friend_rsp           rsp   = {{0},};
@@ -389,7 +389,7 @@ out:
 }
 
 int
-glusterd3_1_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
+glusterd_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
                                int count, void *myframe)
 {
         gd1_mgmt_friend_rsp             rsp   = {{0},};
@@ -484,7 +484,7 @@ respond:
 }
 
 int32_t
-glusterd3_1_friend_update_cbk (struct rpc_req *req, struct iovec *iov,
+glusterd_friend_update_cbk (struct rpc_req *req, struct iovec *iov,
                               int count, void *myframe)
 {
         int                           ret    = -1;
@@ -517,7 +517,7 @@ out:
 }
 
 int32_t
-glusterd3_1_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
+glusterd_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
                               int count, void *myframe)
 {
         gd1_mgmt_cluster_lock_rsp     rsp   = {{0},};
@@ -575,7 +575,7 @@ out:
 }
 
 int32_t
-glusterd3_1_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
+glusterd_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
                                  int count, void *myframe)
 {
         gd1_mgmt_cluster_lock_rsp     rsp   = {{0},};
@@ -823,7 +823,7 @@ out:
 }
 
 int32_t
-glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
+glusterd_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe)
 {
         gd1_mgmt_stage_op_rsp         rsp   = {{0},};
@@ -1273,7 +1273,7 @@ out:
 }
 
 int32_t
-glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
+glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe)
 {
         gd1_mgmt_commit_op_rsp         rsp   = {{0},};
@@ -1431,8 +1431,8 @@ out:
 
 
 int32_t
-glusterd3_1_probe (call_frame_t *frame, xlator_t *this,
-                   void *data)
+glusterd_rpc_probe (call_frame_t *frame, xlator_t *this,
+                    void *data)
 {
         gd1_mgmt_probe_req      req = {{0},};
         int                     ret = 0;
@@ -1468,7 +1468,7 @@ glusterd3_1_probe (call_frame_t *frame, xlator_t *this,
 
         ret = glusterd_submit_request (peerinfo->rpc, &req, frame, peerinfo->peer,
                                        GLUSTERD_PROBE_QUERY,
-                                       NULL, this, glusterd3_1_probe_cbk,
+                                       NULL, this, glusterd_probe_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_probe_req);
 
 out:
@@ -1480,8 +1480,8 @@ out:
 
 
 int32_t
-glusterd3_1_friend_add (call_frame_t *frame, xlator_t *this,
-                        void *data)
+glusterd_rpc_friend_add (call_frame_t *frame, xlator_t *this,
+                         void *data)
 {
         gd1_mgmt_friend_req         req      = {{0},};
         int                         ret      = 0;
@@ -1518,7 +1518,7 @@ glusterd3_1_friend_add (call_frame_t *frame, xlator_t *this,
 
         ret = glusterd_submit_request (peerinfo->rpc, &req, frame, peerinfo->peer,
                                        GLUSTERD_FRIEND_ADD,
-                                       NULL, this, glusterd3_1_friend_add_cbk,
+                                       NULL, this, glusterd_friend_add_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_friend_req);
 
 
@@ -1534,8 +1534,8 @@ out:
 }
 
 int32_t
-glusterd3_1_friend_remove (call_frame_t *frame, xlator_t *this,
-                           void *data)
+glusterd_rpc_friend_remove (call_frame_t *frame, xlator_t *this,
+                            void *data)
 {
         gd1_mgmt_friend_req             req = {{0},};
         int                             ret = 0;
@@ -1560,7 +1560,7 @@ glusterd3_1_friend_remove (call_frame_t *frame, xlator_t *this,
         req.port = peerinfo->port;
         ret = glusterd_submit_request (peerinfo->rpc, &req, frame, peerinfo->peer,
                                        GLUSTERD_FRIEND_REMOVE, NULL,
-                                       this, glusterd3_1_friend_remove_cbk,
+                                       this, glusterd_friend_remove_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_friend_req);
 
 out:
@@ -1570,8 +1570,8 @@ out:
 
 
 int32_t
-glusterd3_1_friend_update (call_frame_t *frame, xlator_t *this,
-                           void *data)
+glusterd_rpc_friend_update (call_frame_t *frame, xlator_t *this,
+                            void *data)
 {
         gd1_mgmt_friend_update  req         = {{0},};
         int                     ret         = 0;
@@ -1602,7 +1602,7 @@ glusterd3_1_friend_update (call_frame_t *frame, xlator_t *this,
         ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
                                        peerinfo->peer,
                                        GLUSTERD_FRIEND_UPDATE, NULL,
-                                       this, glusterd3_1_friend_update_cbk,
+                                       this, glusterd_friend_update_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_friend_update);
 
 out:
@@ -1614,7 +1614,7 @@ out:
 }
 
 int32_t
-glusterd3_1_cluster_lock (call_frame_t *frame, xlator_t *this,
+glusterd_cluster_lock (call_frame_t *frame, xlator_t *this,
                           void *data)
 {
         gd1_mgmt_cluster_lock_req       req = {{0},};
@@ -1640,7 +1640,7 @@ glusterd3_1_cluster_lock (call_frame_t *frame, xlator_t *this,
         ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
                                        peerinfo->mgmt, GLUSTERD_MGMT_CLUSTER_LOCK,
                                        NULL,
-                                       this, glusterd3_1_cluster_lock_cbk,
+                                       this, glusterd_cluster_lock_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_cluster_lock_req);
 out:
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1648,7 +1648,7 @@ out:
 }
 
 int32_t
-glusterd3_1_cluster_unlock (call_frame_t *frame, xlator_t *this,
+glusterd_cluster_unlock (call_frame_t *frame, xlator_t *this,
                             void *data)
 {
         gd1_mgmt_cluster_lock_req       req = {{0},};
@@ -1674,7 +1674,7 @@ glusterd3_1_cluster_unlock (call_frame_t *frame, xlator_t *this,
         ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
                                        peerinfo->mgmt, GLUSTERD_MGMT_CLUSTER_UNLOCK,
                                        NULL,
-                                       this, glusterd3_1_cluster_unlock_cbk,
+                                       this, glusterd_cluster_unlock_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_cluster_unlock_req);
 out:
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1682,7 +1682,7 @@ out:
 }
 
 int32_t
-glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
+glusterd_stage_op (call_frame_t *frame, xlator_t *this,
                       void *data)
 {
         gd1_mgmt_stage_op_req           req = {{0,},};
@@ -1725,7 +1725,7 @@ glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
         ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
                                        peerinfo->mgmt, GLUSTERD_MGMT_STAGE_OP,
                                        NULL,
-                                       this, glusterd3_1_stage_op_cbk,
+                                       this, glusterd_stage_op_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_stage_op_req);
 
 out:
@@ -1737,7 +1737,7 @@ out:
 }
 
 int32_t
-glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
+glusterd_commit_op (call_frame_t *frame, xlator_t *this,
                       void *data)
 {
         gd1_mgmt_commit_op_req  req         = {{0,},};
@@ -1778,7 +1778,7 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
         ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
                                        peerinfo->mgmt, GLUSTERD_MGMT_COMMIT_OP,
                                        NULL,
-                                       this, glusterd3_1_commit_op_cbk,
+                                       this, glusterd_commit_op_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_commit_op_req);
 
 out:
@@ -1790,7 +1790,7 @@ out:
 }
 
 int32_t
-glusterd3_1_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
+glusterd_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe)
 {
         gd1_mgmt_brick_op_rsp         rsp   = {0};
@@ -1889,7 +1889,7 @@ out:
 }
 
 int32_t
-glusterd3_1_brick_op (call_frame_t *frame, xlator_t *this,
+glusterd_brick_op (call_frame_t *frame, xlator_t *this,
                       void *data)
 {
         gd1_mgmt_brick_op_req           *req = NULL;
@@ -1976,7 +1976,7 @@ glusterd3_1_brick_op (call_frame_t *frame, xlator_t *this,
                 ret = glusterd_submit_request (rpc, req, dummy_frame,
                                                priv->gfs_mgmt,
                                                req->op, NULL,
-                                               this, glusterd3_1_brick_op_cbk,
+                                               this, glusterd_brick_op_cbk,
                                                (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
                 if (req) {
                         if (req->input.input_val)
@@ -2003,23 +2003,23 @@ out:
 
 struct rpc_clnt_procedure gd_brick_actors[GLUSTERD_BRICK_MAXVALUE] = {
         [GLUSTERD_BRICK_NULL] = {"NULL", NULL },
-        [GLUSTERD_BRICK_OP]   = {"BRICK_OP", glusterd3_1_brick_op},
+        [GLUSTERD_BRICK_OP]   = {"BRICK_OP", glusterd_brick_op},
 };
 
 struct rpc_clnt_procedure gd_peer_actors[GLUSTERD_FRIEND_MAXVALUE] = {
         [GLUSTERD_FRIEND_NULL]   = {"NULL", NULL },
-        [GLUSTERD_PROBE_QUERY]   = {"PROBE_QUERY", glusterd3_1_probe},
-        [GLUSTERD_FRIEND_ADD]    = {"FRIEND_ADD", glusterd3_1_friend_add},
-        [GLUSTERD_FRIEND_REMOVE] = {"FRIEND_REMOVE", glusterd3_1_friend_remove},
-        [GLUSTERD_FRIEND_UPDATE] = {"FRIEND_UPDATE", glusterd3_1_friend_update},
+        [GLUSTERD_PROBE_QUERY]   = {"PROBE_QUERY", glusterd_rpc_probe},
+        [GLUSTERD_FRIEND_ADD]    = {"FRIEND_ADD", glusterd_rpc_friend_add},
+        [GLUSTERD_FRIEND_REMOVE] = {"FRIEND_REMOVE", glusterd_rpc_friend_remove},
+        [GLUSTERD_FRIEND_UPDATE] = {"FRIEND_UPDATE", glusterd_rpc_friend_update},
 };
 
 struct rpc_clnt_procedure gd_mgmt_actors[GLUSTERD_MGMT_MAXVALUE] = {
         [GLUSTERD_MGMT_NULL]           = {"NULL", NULL },
-        [GLUSTERD_MGMT_CLUSTER_LOCK]   = {"CLUSTER_LOCK", glusterd3_1_cluster_lock},
-        [GLUSTERD_MGMT_CLUSTER_UNLOCK] = {"CLUSTER_UNLOCK", glusterd3_1_cluster_unlock},
-        [GLUSTERD_MGMT_STAGE_OP]       = {"STAGE_OP", glusterd3_1_stage_op},
-        [GLUSTERD_MGMT_COMMIT_OP]      = {"COMMIT_OP", glusterd3_1_commit_op},
+        [GLUSTERD_MGMT_CLUSTER_LOCK]   = {"CLUSTER_LOCK", glusterd_cluster_lock},
+        [GLUSTERD_MGMT_CLUSTER_UNLOCK] = {"CLUSTER_UNLOCK", glusterd_cluster_unlock},
+        [GLUSTERD_MGMT_STAGE_OP]       = {"STAGE_OP", glusterd_stage_op},
+        [GLUSTERD_MGMT_COMMIT_OP]      = {"COMMIT_OP", glusterd_commit_op},
 };
 
 struct rpc_clnt_program gd_mgmt_prog = {

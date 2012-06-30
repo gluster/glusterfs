@@ -66,8 +66,8 @@ _is_lock_fop (struct saved_frame *sframe)
 {
         int     fop     = 0;
 
-        if (SFRAME_GET_PROGNUM (sframe) == GLUSTER3_1_FOP_PROGRAM &&
-            SFRAME_GET_PROGVER (sframe) == GLUSTER3_1_FOP_VERSION)
+        if (SFRAME_GET_PROGNUM (sframe) == GLUSTER_FOP_PROGRAM &&
+            SFRAME_GET_PROGVER (sframe) == GLUSTER_FOP_VERSION)
                 fop = SFRAME_GET_PROCNUM (sframe);
 
         return ((fop == GFS3_OP_LK) ||
