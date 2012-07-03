@@ -1473,6 +1473,9 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
         }
         fwrite (oldvolfile, oldvollen, 1, oldvolfile_fp);
         fflush (oldvolfile_fp);
+        if (ferror (oldvolfile_fp)) {
+                goto out;
+        }
 
 
         oldvolfile_graph = glusterfs_graph_construct (oldvolfile_fp);
@@ -1581,6 +1584,10 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         fwrite (rsp.spec, size, 1, tmpfp);
         fflush (tmpfp);
+        if (ferror (tmpfp)) {
+                ret = -1;
+                goto out;
+        }
 
         /*  Check if only options have changed. No need to reload the
         *  volfile if topology hasn't changed.
