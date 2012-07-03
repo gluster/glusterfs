@@ -1362,7 +1362,6 @@ glusterd_gsync_read_frm_status (char *path, char *buf, size_t blen)
 {
         int                 ret = 0;
         int           status_fd = -1;
-        char                 *p = NULL;
 
         GF_ASSERT (path);
         GF_ASSERT (buf);
@@ -1374,10 +1373,16 @@ glusterd_gsync_read_frm_status (char *path, char *buf, size_t blen)
         }
         ret = read (status_fd, buf, blen - 1);
         if (ret > 0) {
-                p = buf + strlen (buf) - 1;
-                while (isspace (*p))
-                        *p-- = '\0';
-                ret = 0;
+                size_t len = strnlen (buf, ret);
+                /* Ensure there is a NUL byte and that it's not the first.  */
+                if (len == 0 || len == blen - 1) {
+                        ret = -1;
+                } else {
+                        char *p = buf + len - 1;
+                        while (isspace (*p))
+                                *p-- = '\0';
+                        ret = 0;
+                }
         } else if (ret < 0)
                 gf_log ("", GF_LOG_ERROR, "Status file of gsyncd is corrupt");
 
