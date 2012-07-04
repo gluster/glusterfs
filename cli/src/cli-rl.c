@@ -374,7 +374,7 @@ cli_rl_input (void *_data)
         for (;;) {
                 line = readline (state->prompt);
                 if (!line)
-                        break;
+                        exit(0);  //break;
 
                 cli_rl_process_line (line);
 
