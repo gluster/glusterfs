@@ -115,19 +115,20 @@ gf_cli_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 switch (rsp.op_errno) {
                         case GF_PROBE_SUCCESS:
                                 snprintf (msg, sizeof (msg),
-                                          "Probe successful");
+                                          "success");
                                 break;
                         case GF_PROBE_LOCALHOST:
                                 snprintf (msg, sizeof (msg),
-                                          "Probe on localhost not needed");
+                                          "success: on localhost not needed");
                                 break;
                         case GF_PROBE_FRIEND:
                                 snprintf (msg, sizeof (msg),
-                                          "Probe on host %s port %d already"
+                                          "success: host %s port %d already"
                                           " in peer list", rsp.hostname,
                                           rsp.port);
                                 break;
                         default:
+                                rsp.op_ret = -1;
                                 snprintf (msg, sizeof (msg),
                                           "Probe returned with unknown errno"
                                           " %d", rsp.op_errno);
@@ -170,15 +171,14 @@ gf_cli_probe_cbk (struct rpc_req *req, struct iovec *iov,
                                         break;
                                 case GF_PROBE_SAME_UUID:
                                         snprintf (msg, sizeof (msg),
-                                                  "Peer uuid (host: %s) is"
+                                                  "Peer uuid (host %s) is"
                                                   "same as local uuid",
                                                   rsp.hostname);
                                 break;
                                 default:
                                         snprintf (msg, sizeof (msg),
-                                                  "Probe unsuccessful\nProbe "
-                                                  "returned with unknown errno "
-                                                  "%d", rsp.op_errno);
+                                                  "Probe returned with unknown "
+                                                  "errno %d", rsp.op_errno);
                                         break;
                         }
                 }
@@ -196,9 +196,9 @@ gf_cli_probe_cbk (struct rpc_req *req, struct iovec *iov,
         }
 #endif
         if (!rsp.op_ret)
-                cli_out ("%s", msg);
+                cli_out ("peer probe: %s", msg);
         else
-                cli_err ("%s", msg);
+                cli_err ("peer probe: failed: %s", msg);
 
         ret = rsp.op_ret;
 
@@ -258,16 +258,15 @@ gf_cli_deprobe_cbk (struct rpc_req *req, struct iovec *iov,
                                         break;
                                 default:
                                         snprintf (msg, sizeof (msg),
-                                                  "Detach unsuccessful\nDetach"
-                                                  " returned with unknown "
-                                                  "errno %d", rsp.op_errno);
+                                                  "Detach returned with unknown"
+                                                  " errno %d", rsp.op_errno);
                                         break;
                         }
                         gf_log ("cli", GF_LOG_ERROR,"Detach failed with op_ret "
                                 "%d and op_errno %d", rsp.op_ret, rsp.op_errno);
                 }
         } else {
-                snprintf (msg, sizeof (msg), "Detach successful");
+                snprintf (msg, sizeof (msg), "success");
         }
 
 #if (HAVE_LIB_XML)
@@ -281,9 +280,9 @@ gf_cli_deprobe_cbk (struct rpc_req *req, struct iovec *iov,
         }
 #endif
         if (!rsp.op_ret)
-                cli_out ("%s", msg);
+                cli_out ("peer detach: %s", msg);
         else
-                cli_err ("%s", msg);
+                cli_err ("peer detach: failed: %s", msg);
 
         ret = rsp.op_ret;
 
@@ -328,7 +327,7 @@ gf_cli_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
         if (!rsp.op_ret) {
 
                 if (!rsp.friends.friends_len) {
-                        cli_out ("No peers present");
+                        cli_err ("peer status: No peers present");
                         ret = 0;
                         goto out;
                 }
@@ -368,7 +367,7 @@ gf_cli_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
                 }
 
                 cli_out ("Number of Peers: %d", count);
-
+                i = 1;
                 while ( i <= count) {
                         snprintf (key, 256, "friend%d.uuid", i);
                         ret = dict_get_str (dict, key, &uuid_buf);
@@ -422,7 +421,7 @@ gf_cli_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
 out:
         cli_cmd_broadcast_response (ret);
         if (ret)
-                cli_err ("Peer status unsuccessful");
+                cli_err ("peer status: failed");
 
         if (dict)
                 dict_destroy (dict);
@@ -508,7 +507,7 @@ gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 if (global_state->mode & GLUSTER_MODE_XML)
                         goto xml_output;
 #endif
-                cli_out ("No volumes present");
+                cli_err ("No volumes present");
                 ret = 0;
                 goto out;
         }
@@ -792,12 +791,14 @@ gf_cli_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
 #endif
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                cli_err ("%s", rsp.op_errstr);
+                cli_err ("volume create: %s: failed: %s", volname,
+                         rsp.op_errstr);
+        else if (rsp.op_ret)
+                cli_err ("volume create: %s: failed", volname);
         else
-                cli_out ("Creation of volume %s has been %s", volname,
-                                (rsp.op_ret) ? "unsuccessful":
-                                "successful. Please start the volume to "
-                                "access data.");
+                cli_out ("volume create: %s: success: "
+                         "please start the volume to access data", volname);
+
         ret = rsp.op_ret;
 
 out:
@@ -859,10 +860,13 @@ gf_cli_delete_volume_cbk (struct rpc_req *req, struct iovec *iov,
 #endif
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                cli_err ("%s", rsp.op_errstr);
+                cli_err ("volume delete: %s: failed: %s", volname,
+                         rsp.op_errstr);
+        else if (rsp.op_ret)
+                cli_err ("volume delete: %s: failed", volname);
         else
-                cli_out ("Deleting volume %s has been %s", volname,
-                         (rsp.op_ret) ? "unsuccessful": "successful");
+                cli_out ("volume delete: %s: success", volname);
+
         ret = rsp.op_ret;
 
 out:
@@ -927,10 +931,12 @@ gf_cli_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
 #endif
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                cli_err ("%s", rsp.op_errstr);
+                cli_err ("volume start: %s: failed: %s", volname,
+                         rsp.op_errstr);
+        else if (rsp.op_ret)
+                cli_err ("volume start: %s: failed", volname);
         else
-                cli_out ("Starting volume %s has been %s", volname,
-                        (rsp.op_ret) ? "unsuccessful": "successful");
+                cli_out ("volume start: %s: success", volname);
 
         ret = rsp.op_ret;
 
@@ -997,10 +1003,12 @@ gf_cli_stop_volume_cbk (struct rpc_req *req, struct iovec *iov,
 #endif
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                cli_err ("%s", rsp.op_errstr);
+                cli_err ("volume stop: %s: failed: %s", volname, rsp.op_errstr);
+        else if (rsp.op_ret)
+                cli_err ("volume stop: %s: failed", volname);
         else
-                cli_out ("Stopping volume %s has been %s", volname,
-                        (rsp.op_ret) ? "unsuccessful": "successful");
+                cli_out ("volume stop: %s: success", volname);
+
         ret = rsp.op_ret;
 
 out:
@@ -1226,9 +1234,9 @@ done:
         }
 #endif
         if (rsp.op_ret)
-                cli_err ("%s", msg);
+                cli_err ("volume rebalance: %s: failed: %s", volname, msg);
         else
-                cli_out ("%s", msg);
+                cli_out ("volume rebalance: %s: success: %s", volname, msg);
         ret = rsp.op_ret;
 
 out:
@@ -1279,9 +1287,10 @@ gf_cli_rename_volume_cbk (struct rpc_req *req, struct iovec *iov,
 #endif
 
         if (rsp.op_ret)
-                cli_err ("%s", msg);
+                cli_err ("volume rename: failed");
         else
-                cli_out ("%s", msg);
+                cli_out ("volume rename: success");
+
         ret = rsp.op_ret;
 
 out:
@@ -1327,13 +1336,14 @@ gf_cli_reset_volume_cbk (struct rpc_req *req, struct iovec *iov,
 #endif
 
         if (rsp.op_ret)
-                cli_err ("%s", msg);
+                cli_err ("volume reset: failed: %s", msg);
         else
-                cli_out ("%s", msg);
+                cli_out ("volume reset: success");
+
         ret = rsp.op_ret;
 
 out:
-                cli_cmd_broadcast_response (ret);
+        cli_cmd_broadcast_response (ret);
         return ret;
 }
 
@@ -1387,12 +1397,16 @@ gf_cli_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
 #endif
 
         if (rsp.op_ret &&  strcmp (rsp.op_errstr, ""))
-                cli_err ("%s", rsp.op_errstr);
+                cli_err ("volume set: failed: %s", rsp.op_errstr);
 
-        if (rsp.op_ret)
-                cli_err ("%s", msg);
-        else
-                cli_out ("%s", ((help_str == NULL) ? msg : help_str));
+        if (!rsp.op_ret) {
+                if (help_str == NULL)
+                        cli_out ("volume set: success");
+                else
+                        cli_out ("%s", help_str);
+        } else {
+                cli_err ("volume set: failed");
+        }
 
         ret = rsp.op_ret;
 
@@ -1440,9 +1454,9 @@ gf_cli_add_brick_cbk (struct rpc_req *req, struct iovec *iov,
 #endif
 
         if (rsp.op_ret)
-                cli_err ("%s", msg);
+                cli_err ("volume add-brick: failed: %s", rsp.op_errstr);
         else
-                cli_out ("%s", msg);
+                cli_out ("volume add-brick: success");
         ret = rsp.op_ret;
 
 out:
@@ -1487,10 +1501,11 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
         if (rsp.op_ret == -1) {
                 if (strcmp (rsp.op_errstr, ""))
-                        cli_err ("%s", rsp.op_errstr);
+                        cli_err ("volume remove-brick: failed: %s",
+                                 rsp.op_errstr);
                 else
-                        cli_err ("failed to get the status of "
-                                 "remove-brick process");
+                        cli_err ("volume remove-brick: failed: "
+                                 "status getting failed");
                 goto out;
         }
 
@@ -1683,9 +1698,10 @@ gf_cli_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
         }
 #endif
         if (rsp.op_ret)
-                cli_err ("%s", msg);
+                cli_err ("volume remove-brick: failed: %s", rsp.op_errstr);
         else
-                cli_out ("%s", msg);
+                cli_out ("volume remove-brick: success");
+
         ret = rsp.op_ret;
 
 out:
@@ -1835,7 +1851,7 @@ gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to replace brick");
-        snprintf (msg,sizeof (msg), "%s",
+        snprintf (msg, sizeof (msg), "%s",
                   rb_operation_str ? rb_operation_str : "Unknown operation");
 
 #if (HAVE_LIB_XML)
@@ -1850,9 +1866,9 @@ gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
 #endif
 
         if (rsp.op_ret)
-                cli_err ("%s", msg);
+                cli_err ("volume replace-brick: failed: %s", msg);
         else
-                cli_out ("%s", msg);
+                cli_out ("volume replace-brick: success");
         ret = rsp.op_ret;
 
 out:
@@ -1911,9 +1927,9 @@ gf_cli_log_rotate_cbk (struct rpc_req *req, struct iovec *iov,
 #endif
 
         if (rsp.op_ret)
-                cli_err ("%s", msg);
+                cli_err ("volume log-rotate: failed: %s", msg);
         else
-                cli_out ("%s", msg);
+                cli_out ("volume log-rotate: success");
         ret = rsp.op_ret;
 
 out:
@@ -1944,10 +1960,11 @@ gf_cli_sync_volume_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_DEBUG, "Received resp to sync");
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
+                snprintf (msg, sizeof (msg), "volume sync: failed: %s",
+                          rsp.op_errstr);
         else
                 snprintf (msg, sizeof (msg), "volume sync: %s",
-                         (rsp.op_ret) ? "unsuccessful": "successful");
+                          (rsp.op_ret) ? "failed": "success");
 
 #if (HAVE_LIB_XML)
         if (global_state->mode & GLUSTER_MODE_XML) {
@@ -2021,7 +2038,7 @@ gf_cli_print_limit_list (char *volname, char *limit_list,
 
         len = strlen (limit_list);
         if (len == 0) {
-                cli_out ("quota limit not set ");
+                cli_err ("quota limit not set ");
                 goto unmount;
         }
 
@@ -2415,7 +2432,7 @@ gf_cli_get_next_volume (call_frame_t *frame, xlator_t *this,
                 if ((global_state->mode & GLUSTER_MODE_XML))
                         goto end_xml;
 #endif
-                cli_out ("No volumes present");
+                cli_err ("No volumes present");
                 goto out;
         }
 
@@ -3347,7 +3364,7 @@ gf_cli_fsm_log_cbk (struct rpc_req *req, struct iovec *iov,
         if (tr_count)
                 cli_out("number of transitions: %d", tr_count);
         else
-                cli_out("No transitions");
+                cli_err("No transitions");
         for (i = 0; i < tr_count; i++) {
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "log%d-old-state", i);
@@ -3932,7 +3949,7 @@ gf_cli_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
 
         if (!brick_count) {
-                cli_out ("All bricks of volume %s are down.", volname);
+                cli_err ("All bricks of volume %s are down.", volname);
                 goto out;
         }
 
@@ -4962,7 +4979,7 @@ cli_print_volume_status_fdtable (dict_t *dict, char *prefix)
         if (ret)
                 goto out;
         if (0 == openfds) {
-                cli_out ("No open fds");
+                cli_err ("No open fds");
                 goto out;
         }
 
@@ -5616,7 +5633,7 @@ gf_cli_status_volume_all (call_frame_t *frame, xlator_t *this, void *data)
         }
 
         if (vol_count == 0) {
-                cli_out ("No volumes present");
+                cli_err ("No volumes present");
                 ret = 0;
                 goto out;
         }
@@ -5951,7 +5968,7 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
 
         if (!brick_count) {
-                cli_out ("All bricks of volume %s are down.", volname);
+                cli_err ("All bricks of volume %s are down.", volname);
                 goto out;
         }
 
@@ -6047,9 +6064,9 @@ gf_cli_statedump_volume_cbk (struct rpc_req *req, struct iovec *iov,
 #endif
 
         if (rsp.op_ret)
-                cli_err ("%s", msg);
+                cli_err ("volume statedump: failed: %s", msg);
         else
-                cli_out ("%s", msg);
+                cli_out ("volume statedump: success");
         ret = rsp.op_ret;
 
 out:
@@ -6144,7 +6161,7 @@ gf_cli_list_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         goto out;
 
                 if (vol_count == 0) {
-                        cli_out ("No volumes present in cluster");
+                        cli_err ("No volumes present in cluster");
                         goto out;
                 }
                 for (i = 0; i < vol_count; i++) {
@@ -6210,7 +6227,7 @@ gf_cli_clearlocks_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         } else {
                 if (!rsp.dict.dict_len) {
-                        cli_out ("Possibly no locks cleared");
+                        cli_err ("Possibly no locks cleared");
                         ret = 0;
                         goto out;
                 }
