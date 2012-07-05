@@ -36,6 +36,11 @@
 
 #include <signal.h>
 
+#define GLUSTERD_GET_RB_MNTPT(path, len, volinfo)                           \
+        snprintf (path, len, "/tmp/%s-"RB_CLIENT_MOUNTPOINT,      \
+                  volinfo->volname);
+
+
 int
 glusterd_get_replace_op_str (gf1_cli_replace_op op, char *op_str)
 {
@@ -507,6 +512,44 @@ out:
 }
 
 static int
+rb_set_mntfd (int mntfd)
+{
+        int     ret = -1;
+        dict_t *ctx = NULL;
+
+        ctx = glusterd_op_get_ctx ();
+        if (!ctx) {
+                gf_log (THIS->name, GF_LOG_CRITICAL, "Failed to get op ctx");
+                goto out;
+        }
+        ret = dict_set_int32 (ctx, "mntfd", mntfd);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_DEBUG, "Failed to set mnt fd "
+                        "in op ctx");
+out:
+        return ret;
+}
+
+static int
+rb_get_mntfd (int *mntfd)
+{
+        int     ret = -1;
+        dict_t *ctx = NULL;
+
+        ctx = glusterd_op_get_ctx ();
+        if (!ctx) {
+                gf_log (THIS->name, GF_LOG_CRITICAL, "Failed to get op ctx");
+                goto out;
+        }
+        ret = dict_get_int32 (ctx, "mntfd", mntfd);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_DEBUG, "Failed to get mnt fd "
+                        "from op ctx");
+out:
+        return ret;
+}
+
+static int
 rb_regenerate_volfiles (glusterd_volinfo_t *volinfo,
                         glusterd_brickinfo_t *brickinfo,
                         int32_t pump_needed)
@@ -598,22 +641,19 @@ rb_send_xattr_command (glusterd_volinfo_t *volinfo,
                        glusterd_brickinfo_t *dst_brickinfo,
                        const char *xattr_key, const char *value)
 {
-        glusterd_conf_t  *priv                        = NULL;
-        xlator_t         *this                        = NULL;
-        char              mount_point_path[PATH_MAX]  = {0,};
-        int               ret                         = -1;
+        int             ret   = -1;
+        int             mntfd = -1;
 
-        this = THIS;
-        priv = this->private;
-
-        snprintf (mount_point_path, PATH_MAX, "%s/vols/%s/%s",
-                  priv->workdir, volinfo->volname, RB_CLIENT_MOUNTPOINT);
-
-        ret = sys_lsetxattr (mount_point_path, xattr_key, value,
-                             strlen (value) + 1, 0);
+        ret = rb_get_mntfd (&mntfd);
         if (ret)
-                gf_log (this->name, GF_LOG_DEBUG, "setxattr on key: "
-                        "%s failed", xattr_key);
+                goto out;
+
+        ret = sys_fsetxattr (mntfd, xattr_key, value, strlen (value) + 1, 0);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_DEBUG, "setxattr on key: "
+                        "%s, reason: %s", xattr_key, strerror (errno));
+
+out:
         return ret;
 }
 
@@ -665,53 +705,70 @@ static int
 rb_spawn_glusterfs_client (glusterd_volinfo_t *volinfo,
                            glusterd_brickinfo_t *brickinfo)
 {
-        glusterd_conf_t    *priv           = NULL;
-        char                cmd_str[8192]  = {0,};
-        runner_t            runner         = {0,};
-        struct stat         buf;
-        int                 ret            = -1;
+        xlator_t           *this            = NULL;
+        glusterd_conf_t    *priv            = NULL;
+        runner_t            runner          = {0,};
+        struct stat         buf             = {0,};
+        char                mntpt[PATH_MAX] = {0,};
+        int                 mntfd           = -1;
+        int                 ret             = -1;
 
-        priv = THIS->private;
+        this = THIS;
+        priv = this->private;
 
+        GLUSTERD_GET_RB_MNTPT (mntpt, sizeof (mntpt), volinfo);
         runinit (&runner);
         runner_add_arg (&runner, SBIN_DIR"/glusterfs");
         runner_argprintf (&runner, "-f" "%s/vols/%s/"RB_CLIENTVOL_FILENAME,
                           priv->workdir, volinfo->volname);
-        runner_argprintf (&runner, "%s/vols/%s/"RB_CLIENT_MOUNTPOINT,
-                          priv->workdir, volinfo->volname);
+        runner_add_arg (&runner, mntpt);
         if (volinfo->memory_accounting)
                 runner_add_arg (&runner, "--mem-accounting");
 
-        ret = runner_run (&runner);
+        ret = runner_run_reuse (&runner);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not start glusterfs");
+                runner_log (&runner, this->name, GF_LOG_DEBUG,
+                            "Could not start glusterfs");
+                runner_end (&runner);
                 goto out;
+        } else {
+                runner_log (&runner, this->name, GF_LOG_DEBUG,
+                            "Successfully started  glusterfs");
+                runner_end (&runner);
         }
 
-        gf_log ("", GF_LOG_DEBUG,
-                "Successfully started glusterfs: brick=%s:%s",
-                brickinfo->hostname, brickinfo->path);
-
-        memset (cmd_str, 0, sizeof (cmd_str));
-
-        snprintf (cmd_str, 4096, "%s/vols/%s/%s",
-                  priv->workdir, volinfo->volname,
-                  RB_CLIENT_MOUNTPOINT);
-
-        ret = stat (cmd_str, &buf);
+        ret = stat (mntpt, &buf);
         if (ret) {
-                 gf_log ("", GF_LOG_DEBUG,
-                         "stat on mountpoint failed");
+                 gf_log (this->name, GF_LOG_DEBUG, "stat on mount point %s "
+                         "failed", mntpt);
                  goto out;
-         }
+        }
 
-         gf_log ("", GF_LOG_DEBUG,
-                 "stat on mountpoint succeeded");
+        mntfd = open (mntpt, O_DIRECTORY);
+        if (mntfd == -1)
+                goto out;
 
-        ret = 0;
+        ret = rb_set_mntfd (mntfd);
+        if (ret)
+                goto out;
+
+        runinit (&runner);
+        runner_add_args (&runner, "/bin/umount", "-l", mntpt, NULL);
+        ret = runner_run_reuse (&runner);
+        if (ret) {
+                runner_log (&runner, this->name, GF_LOG_DEBUG,
+                            "Lazy unmount failed on maintenance client");
+                runner_end (&runner);
+                goto out;
+        } else {
+                runner_log (&runner, this->name, GF_LOG_DEBUG,
+                            "Successfully unmounted  maintenance client");
+                runner_end (&runner);
+        }
+
 
 out:
+
         return ret;
 }
 
@@ -878,20 +935,14 @@ static int
 rb_mountpoint_mkdir (glusterd_volinfo_t *volinfo,
                      glusterd_brickinfo_t *src_brickinfo)
 {
-        glusterd_conf_t *priv                       = NULL;
-        char             mount_point_path[PATH_MAX] = {0,};
-        int              ret                        = -1;
+        char             mntpt[PATH_MAX]        = {0,};
+        int              ret                    = -1;
 
-        priv = THIS->private;
-
-        snprintf (mount_point_path, PATH_MAX, "%s/vols/%s/%s",
-                  priv->workdir, volinfo->volname,
-                  RB_CLIENT_MOUNTPOINT);
-
-        ret = mkdir (mount_point_path, 0777);
+        GLUSTERD_GET_RB_MNTPT (mntpt, sizeof (mntpt), volinfo);
+        ret = mkdir (mntpt, 0777);
         if (ret && (errno != EEXIST)) {
-                gf_log ("", GF_LOG_DEBUG, "mkdir failed, errno: %d",
-                        errno);
+                gf_log ("", GF_LOG_DEBUG, "mkdir failed, due to %s",
+                        strerror (errno));
                 goto out;
         }
 
@@ -905,19 +956,14 @@ static int
 rb_mountpoint_rmdir (glusterd_volinfo_t *volinfo,
                      glusterd_brickinfo_t *src_brickinfo)
 {
-        glusterd_conf_t *priv                       = NULL;
-        char             mount_point_path[PATH_MAX] = {0,};
+        char             mntpt[PATH_MAX] = {0,};
         int              ret                        = -1;
 
-        priv = THIS->private;
-
-        snprintf (mount_point_path, PATH_MAX, "%s/vols/%s/%s",
-                  priv->workdir, volinfo->volname,
-                  RB_CLIENT_MOUNTPOINT);
-
-        ret = rmdir (mount_point_path);
+        GLUSTERD_GET_RB_MNTPT (mntpt, sizeof (mntpt), volinfo);
+        ret = rmdir (mntpt);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG, "rmdir failed");
+                gf_log ("", GF_LOG_DEBUG, "rmdir failed, due to %s",
+                        strerror (errno));
                 goto out;
         }
 
@@ -929,42 +975,42 @@ out:
 
 static int
 rb_destroy_maintenance_client (glusterd_volinfo_t *volinfo,
-                                glusterd_brickinfo_t *src_brickinfo)
+                               glusterd_brickinfo_t *src_brickinfo)
 {
+        xlator_t         *this                        = NULL;
         glusterd_conf_t  *priv                        = NULL;
-        runner_t          runner                      = {0,};
-        char              filename[PATH_MAX]          = {0,};
+        char              volfile[PATH_MAX]           = {0,};
         int               ret                         = -1;
+        int               mntfd                       = -1;
 
-        priv = THIS->private;
+        this = THIS;
+        priv = this->private;
 
-        runinit (&runner);
-        runner_add_args (&runner, "/bin/umount", "-f", NULL);
-        runner_argprintf (&runner, "%s/vols/%s/"RB_CLIENT_MOUNTPOINT,
-                          priv->workdir, volinfo->volname);
+        ret = rb_get_mntfd (&mntfd);
+        if (ret)
+                goto out;
 
-        ret = runner_run (&runner);
+        ret = close (mntfd);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "umount failed on maintenance client");
+                gf_log (this->name, GF_LOG_DEBUG, "Failed to close mount "
+                        "point directory");
                 goto out;
         }
 
         ret = rb_mountpoint_rmdir (volinfo, src_brickinfo);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "rmdir of mountpoint failed");
+                gf_log (this->name, GF_LOG_DEBUG, "rmdir of mountpoint "
+                        "failed");
                 goto out;
         }
 
-        snprintf (filename, PATH_MAX, "%s/vols/%s/%s",
-                  priv->workdir, volinfo->volname,
-                  RB_CLIENTVOL_FILENAME);
+        snprintf (volfile, PATH_MAX, "%s/vols/%s/%s", priv->workdir,
+                  volinfo->volname, RB_CLIENTVOL_FILENAME);
 
-        ret = unlink (filename);
+        ret = unlink (volfile);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "unlink failed");
+                gf_log (this->name, GF_LOG_DEBUG, "unlink of volfile %s "
+                        "failed", volfile);
                 goto out;
         }
 
@@ -1053,23 +1099,18 @@ rb_get_xattr_command (glusterd_volinfo_t *volinfo,
                       const char *xattr_key,
                       char *value)
 {
-        glusterd_conf_t  *priv                        = NULL;
-        xlator_t         *this                        = NULL;
-        char              mount_point_path[PATH_MAX]  = {0,};
-        int               ret                         = -1;
+        int             ret    = -1;
+        int             mntfd  = -1;
 
-        this = THIS;
-        priv = THIS->private;
+        ret = rb_get_mntfd (&mntfd);
+        if (ret)
+                goto out;
 
-        snprintf (mount_point_path, PATH_MAX, "%s/vols/%s/%s",
-                  priv->workdir, volinfo->volname,
-                  RB_CLIENT_MOUNTPOINT);
-
-        ret = sys_lgetxattr (mount_point_path, xattr_key, value, 8192);
+        ret = sys_fgetxattr (mntfd, xattr_key, value, 8192);
 
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG, "getxattr on key: %s "
-                        "failed", xattr_key);
+                gf_log (THIS->name, GF_LOG_DEBUG, "getxattr on key: %s "
+                        "failed, reason: %s", xattr_key, strerror (errno));
                 goto out;
         }
 
