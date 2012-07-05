@@ -45,6 +45,9 @@ server_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req = frame->local;
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "%"PRId64": STATFS (%s)",
@@ -53,9 +56,6 @@ server_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         gf_statfs_from_statfs (&rsp.statfs, buf);
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -104,6 +104,9 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         gf_stat_from_iatt (&rsp.postparent, postparent);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret) {
                 if (state->is_revalidate && op_errno == ENOENT) {
                         if (!__is_root_gfid (state->resolve.gfid)) {
@@ -135,9 +138,6 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         inode_unref (link_inode);
                 }
         }
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret   = op_ret;
@@ -184,6 +184,9 @@ server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret) {
                 if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                         gf_log (this->name, GF_LOG_INFO,
@@ -213,9 +216,6 @@ server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         gf_proto_flock_from_flock (&rsp.flock, lock);
 
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
-
 out:
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
@@ -243,6 +243,9 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         conn = SERVER_CONNECTION(frame);
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                         gf_log (this->name, GF_LOG_INFO,
@@ -263,9 +266,6 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                &state->loc, NULL, frame->root->pid,
                                &frame->root->lk_owner,
                                GF_FOP_INODELK);
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -294,6 +294,9 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         conn = SERVER_CONNECTION(frame);
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                         gf_log (this->name, GF_LOG_INFO,
@@ -314,9 +317,6 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                NULL, state->fd,
                                frame->root->pid,
                                &frame->root->lk_owner, GF_FOP_INODELK);
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -344,6 +344,9 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         conn = SERVER_CONNECTION(frame);
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                         gf_log (this->name, GF_LOG_INFO,
@@ -364,9 +367,6 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                &state->loc, NULL, frame->root->pid,
                                &frame->root->lk_owner,
                                GF_FOP_ENTRYLK);
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -395,6 +395,9 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         conn  = SERVER_CONNECTION(frame);
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                         gf_log (this->name, GF_LOG_INFO,
@@ -414,9 +417,6 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_add_locker (conn, state->volume,
                                NULL, state->fd, frame->root->pid,
                                &frame->root->lk_owner, GF_FOP_ENTRYLK);
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -443,6 +443,9 @@ server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": ACCESS %s (%s) ==> (%s)",
@@ -451,9 +454,6 @@ server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
                 goto out;
         }
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -481,6 +481,9 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": RMDIR %s (%s/%s) ==> (%s)",
@@ -504,9 +507,6 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         gf_stat_from_iatt (&rsp.preparent, preparent);
         gf_stat_from_iatt (&rsp.postparent, postparent);
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -535,6 +535,9 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": MKDIR %s (%s/%s) ==> (%s)",
@@ -552,9 +555,6 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                  state->loc.name, stbuf);
         inode_lookup (link_inode);
         inode_unref (link_inode);
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -583,6 +583,9 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": MKNOD %s (%s/%s) ==> (%s)",
@@ -600,9 +603,6 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                  state->loc.name, stbuf);
         inode_lookup (link_inode);
         inode_unref (link_inode);
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -628,6 +628,9 @@ server_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": FSYNCDIR %"PRId64" (%s) ==> (%s)",
@@ -636,9 +639,6 @@ server_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
                 goto out;
         }
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -666,6 +666,9 @@ server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": READDIR %"PRId64" (%s) ==> (%s)",
@@ -684,9 +687,6 @@ server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto out;
                 }
         }
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -717,6 +717,9 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         conn = SERVER_CONNECTION (frame);
         state = CALL_STATE (frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": OPENDIR %s (%s) ==> (%s)",
@@ -728,9 +731,6 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fd_bind (fd);
         fd_no = gf_fd_unused_get (conn->fdtable, fd);
         fd_ref (fd); // on behalf of the client
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.fd = fd_no;
@@ -757,6 +757,9 @@ server_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req   = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": REMOVEXATTR %s (%s) of key %s ==> (%s)",
@@ -765,9 +768,6 @@ server_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         state->name, strerror (op_errno));
                 goto out;
         }
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -793,6 +793,9 @@ server_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req   = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": FREMOVEXATTR %"PRId64" (%s) (%s) ==> (%s)",
@@ -801,9 +804,6 @@ server_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
                 goto out;
         }
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -830,8 +830,12 @@ server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE (frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret == -1) {
-                gf_log (this->name, (((op_errno == ENOTSUP) || (op_errno == ENODATA)) ?
+                gf_log (this->name, (((op_errno == ENOTSUP) ||
+                                      (op_errno == ENODATA)) ?
                                      GF_LOG_DEBUG : GF_LOG_INFO),
                         "%"PRId64": GETXATTR %s (%s) (%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
@@ -842,9 +846,6 @@ server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         GF_PROTOCOL_DICT_SERIALIZE (this, dict, (&rsp.dict.dict_val),
                                     rsp.dict.dict_len, op_errno, out);
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret        = op_ret;
@@ -875,6 +876,9 @@ server_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE (frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret == -1) {
                 gf_log (this->name, ((op_errno == ENOTSUP) ?
                                      GF_LOG_DEBUG : GF_LOG_INFO),
@@ -887,9 +891,6 @@ server_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         GF_PROTOCOL_DICT_SERIALIZE (this, dict, (&rsp.dict.dict_val),
                                     rsp.dict.dict_len, op_errno, out);
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
 
@@ -919,6 +920,9 @@ server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret == -1) {
                 gf_log (this->name, ((op_errno == ENOTSUP) ?
                                      GF_LOG_DEBUG : GF_LOG_INFO),
@@ -931,9 +935,6 @@ server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
                 goto out;
         }
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -960,6 +961,9 @@ server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret == -1) {
                 gf_log (this->name, ((op_errno == ENOTSUP) ?
                                      GF_LOG_DEBUG : GF_LOG_INFO),
@@ -972,9 +976,6 @@ server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
                 goto out;
         }
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1006,6 +1007,9 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req   = frame->local;
         state = CALL_STATE(frame);
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret == -1) {
                 uuid_utoa_r (state->resolve.gfid, oldpar_str);
@@ -1059,9 +1063,6 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_stat_from_iatt (&rsp.prenewparent, prenewparent);
         gf_stat_from_iatt (&rsp.postnewparent, postnewparent);
 
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
-
 out:
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
@@ -1088,6 +1089,9 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": UNLINK %s (%s/%s) ==> (%s)",
@@ -1113,9 +1117,6 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         gf_stat_from_iatt (&rsp.preparent, preparent);
         gf_stat_from_iatt (&rsp.postparent, postparent);
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1144,6 +1145,9 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": SYMLINK %s (%s/%s) ==> (%s)",
@@ -1161,9 +1165,6 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                  state->loc.name, stbuf);
         inode_lookup (link_inode);
         inode_unref (link_inode);
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1195,6 +1196,9 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret) {
                 uuid_utoa_r (state->resolve.gfid, gfid_str);
                 uuid_utoa_r (state->resolve2.pargfid, newpar_str);
@@ -1213,9 +1217,6 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         link_inode = inode_link (inode, state->loc2.parent,
                                  state->loc2.name, stbuf);
         inode_unref (link_inode);
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1242,6 +1243,9 @@ server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE (frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": TRUNCATE %s (%s) ==> (%s)",
@@ -1252,8 +1256,6 @@ server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         gf_stat_from_iatt (&rsp.prestat, prebuf);
         gf_stat_from_iatt (&rsp.poststat, postbuf);
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1280,6 +1282,9 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": FSTAT %"PRId64" (%s) ==> (%s)",
@@ -1289,8 +1294,6 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         gf_stat_from_iatt (&rsp.stat, stbuf);
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1317,6 +1320,9 @@ server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE (frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": FTRUNCATE %"PRId64" (%s)==> (%s)",
@@ -1327,8 +1333,6 @@ server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         gf_stat_from_iatt (&rsp.prestat, prebuf);
         gf_stat_from_iatt (&rsp.poststat, postbuf);
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1354,6 +1358,9 @@ server_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": FLUSH %"PRId64" (%s) ==>  (%s)",
@@ -1361,9 +1368,6 @@ server_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          uuid_utoa (state->resolve.gfid), strerror (op_errno));
                 goto out;
         }
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1390,6 +1394,9 @@ server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": FSYNC %"PRId64" (%s) ==> (%s)",
@@ -1400,8 +1407,6 @@ server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         gf_stat_from_iatt (&(rsp.prestat), prebuf);
         gf_stat_from_iatt (&(rsp.poststat), postbuf);
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1428,6 +1433,9 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": WRITEV %"PRId64" (%s) ==> (%s)",
@@ -1438,8 +1446,6 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         gf_stat_from_iatt (&rsp.prestat, prebuf);
         gf_stat_from_iatt (&rsp.poststat, postbuf);
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1468,17 +1474,6 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
-        if (op_ret < 0) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": READV %"PRId64" (%s) ==> (%s)",
-                        frame->root->unique, state->resolve.fd_no,
-                        uuid_utoa (state->resolve.gfid), strerror (op_errno));
-                goto out;
-        }
-
-        gf_stat_from_iatt (&rsp.stat, stbuf);
-        rsp.size = op_ret;
-
 #ifdef GF_TESTING_IO_XDATA
         {
                 int ret = 0;
@@ -1491,6 +1486,17 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 #endif
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
+
+        if (op_ret < 0) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "%"PRId64": READV %"PRId64" (%s) ==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
+                        uuid_utoa (state->resolve.gfid), strerror (op_errno));
+                goto out;
+        }
+
+        gf_stat_from_iatt (&rsp.stat, stbuf);
+        rsp.size = op_ret;
 
 out:
         rsp.op_ret    = op_ret;
@@ -1518,6 +1524,9 @@ server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": RCHECKSUM %"PRId64" (%s)==> (%s)",
@@ -1530,9 +1539,6 @@ server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         rsp.strong_checksum.strong_checksum_val = (char *)strong_checksum;
         rsp.strong_checksum.strong_checksum_len = MD5_DIGEST_LENGTH;
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1562,6 +1568,9 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         conn = SERVER_CONNECTION (frame);
         state = CALL_STATE (frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": OPEN %s (%s) ==> (%s)",
@@ -1575,9 +1584,6 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fd_no = gf_fd_unused_get (conn->fdtable, fd);
         fd_ref (fd);
         rsp.fd = fd_no;
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1608,6 +1614,9 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         conn = SERVER_CONNECTION (frame);
         state = CALL_STATE (frame);
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
@@ -1660,9 +1669,6 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_stat_from_iatt (&rsp.preparent, preparent);
         gf_stat_from_iatt (&rsp.postparent, postparent);
 
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
-
 out:
         rsp.fd        = fd_no;
         rsp.op_ret    = op_ret;
@@ -1689,6 +1695,9 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": READLINK %s (%s) ==> (%s)",
@@ -1700,9 +1709,6 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         gf_stat_from_iatt (&rsp.buf, stbuf);
         rsp.path = (char *)buf;
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1732,6 +1738,9 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state  = CALL_STATE (frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": STAT %s (%s) ==> (%s)",
@@ -1742,8 +1751,6 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         gf_stat_from_iatt (&rsp.stat, stbuf);
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1771,6 +1778,9 @@ server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE (frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": SETATTR %s (%s) ==> (%s)",
@@ -1782,8 +1792,6 @@ server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         gf_stat_from_iatt (&rsp.statpre, statpre);
         gf_stat_from_iatt (&rsp.statpost, statpost);
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1810,6 +1818,9 @@ server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state  = CALL_STATE (frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": FSETATTR %"PRId64" (%s) ==> (%s)",
@@ -1821,9 +1832,6 @@ server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         gf_stat_from_iatt (&rsp.statpre, statpre);
         gf_stat_from_iatt (&rsp.statpost, statpost);
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1851,6 +1859,9 @@ server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE (frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": XATTROP %s (%s) ==> (%s)",
@@ -1862,9 +1873,6 @@ server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         GF_PROTOCOL_DICT_SERIALIZE (this, dict, (&rsp.dict.dict_val),
                                     rsp.dict.dict_len, op_errno, out);
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret        = op_ret;
@@ -1895,6 +1903,9 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": FXATTROP %"PRId64" (%s) ==> (%s)",
@@ -1906,10 +1917,6 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         GF_PROTOCOL_DICT_SERIALIZE (this, dict, (&rsp.dict.dict_val),
                                     rsp.dict.dict_len, op_errno, out);
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
-
 
 out:
         rsp.op_ret        = op_ret;
@@ -1940,6 +1947,9 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req = frame->local;
         state = CALL_STATE(frame);
 
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
                         "%"PRId64": READDIRP %"PRId64" (%s) ==> (%s)",
@@ -1961,9 +1971,6 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* TODO: need more clear thoughts before calling this function. */
         /* gf_link_inodes_from_dirent (this, state->fd->inode, entries); */
-
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
-                                    rsp.xdata.xdata_len, op_errno, out);
 
 out:
         rsp.op_ret    = op_ret;
