@@ -265,6 +265,24 @@ iatt_from_stat (struct iatt *iatt, struct stat *stat)
         iatt->ia_blksize    = stat->st_blksize;
         iatt->ia_blocks     = stat->st_blocks;
 
+        /* There is a possibility that the backend FS (like XFS) can
+           allocate blocks beyond EOF for better performance reasons, which
+           results in 'st_blocks' with higher values than what is consumed by
+           the file descriptor. This would break few logic inside GlusterFS,
+           like quota behavior etc, thus we need the exact number of blocks
+           which are consumed by the file to the higher layers inside GlusterFS.
+           Currently, this logic won't work for sparse files (ie, file with
+           holes)
+        */
+        {
+                uint64_t maxblocks;
+
+                maxblocks = (iatt->ia_size + 511) / 512;
+
+                if (iatt->ia_blocks > maxblocks)
+                        iatt->ia_blocks = maxblocks;
+        }
+
         iatt->ia_atime      = stat->st_atime;
         iatt->ia_atime_nsec = ST_ATIM_NSEC (stat);
 
