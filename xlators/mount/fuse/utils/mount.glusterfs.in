@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # (C) 2006, 2007, 2008 Gluster Inc. <http://www.gluster.com>
 #
 # This program is free software; you can redistribute it and/or
@@ -218,7 +218,7 @@ check_recursive_mount ()
         return;
     fi
 
-    brick_path=(`grep ^path "$GLUSTERD_WORKDIR"/vols/*/bricks/* | cut -d "=" -f 2`);
+    brick_path=`grep ^path "$GLUSTERD_WORKDIR"/vols/*/bricks/* | cut -d "=" -f 2`;
     root_inode=`stat -Lc %i /`;
     root_dev=`stat -Lc %d /`;
     mnt_inode=`stat -Lc %i $mnt_dir`;
@@ -269,7 +269,8 @@ main ()
                     # "mount -t glusterfs" sends this, but it's useless.
                     "rw")       ;;
                     *)
-                        read key value < <(echo "$pair" | tr "=" " ")
+                        key=$(echo "$pair" | cut -f1 -d'=');
+                        value=$(echo "$pair" | cut -f2- -d'=');
                         # Handle options with values.
                         case "$key" in
                             "log-level")        log_level_str=$value ;;
@@ -329,8 +330,17 @@ main ()
         exit 0;
     }
 
+    case `uname -s` in
+    NetBSD)
+        mounttab=/proc/mounts
+        ;;
+    Linux)
+        mounttab=/etc/mtab
+        ;;
+    esac
+
     # Simple check to avoid multiple identical mounts
-    if grep -q " $mount_point fuse" /etc/mtab; then
+    if grep -q " ${mount_point}.*fuse" $mounttab; then
         echo -n "$0: according to mtab, GlusterFS is already mounted on "
         echo "$mount_point"
         exit 0;
