@@ -214,16 +214,25 @@ _posix_xattr_get_set (dict_t *xattr_req,
                         if (!value)
                                 return;
 
-                        sys_lgetxattr (filler->real_path, key, value,
+                        ret = sys_lgetxattr (filler->real_path, key, value,
                                        xattr_size);
+                        if (ret <= 0) {
+                                gf_log (filler->this->name, GF_LOG_WARNING,
+                                        "getxattr failed. path: %s, key: %s",
+                                        filler->real_path, key);
+                                GF_FREE (value);
+                                return;
+                        }
 
                         value[xattr_size] = '\0';
                         ret = dict_set_bin (filler->xattr, key,
                                             value, xattr_size);
-                        if (ret < 0)
+                        if (ret < 0) {
                                 gf_log (filler->this->name, GF_LOG_DEBUG,
                                         "dict set failed. path: %s, key: %s",
                                         filler->real_path, key);
+                                GF_FREE (value);
+                        }
                 }
         }
 out:
