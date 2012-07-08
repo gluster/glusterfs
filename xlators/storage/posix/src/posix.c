@@ -2434,7 +2434,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         int32_t               op_ret         = -1;
         int32_t               op_errno       = 0;
         int32_t               list_offset    = 0;
-        size_t                size           = 0;
+        ssize_t               size           = 0;
         size_t                remaining_size = 0;
         char     key[4096]                   = {0,};
         char     host_buf[1024]              = {0,};
@@ -2516,6 +2516,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         gf_log (this->name, GF_LOG_WARNING,
                                 "could not set value (%s) in dictionary",
                                 dyn_rpath);
+                        GF_FREE (dyn_rpath);
                 }
 
                 goto done;
@@ -2540,6 +2541,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         gf_log (this->name, GF_LOG_WARNING,
                                 "could not set value (%s) in dictionary",
                                 dyn_rpath);
+                        GF_FREE (dyn_rpath);
                 }
                 goto done;
         }
@@ -2558,6 +2560,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         gf_log (this->name, GF_LOG_WARNING,
                                 "could not set value (%s) in dictionary",
                                 host_buf);
+                        GF_FREE (path);
                 }
                 goto done;
         }
@@ -2591,11 +2594,18 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 op_ret = sys_lgetxattr (real_path, key, value, size);
                 if (op_ret == -1) {
                         op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR, "getxattr failed on "
+                                "%s: key = %s (%s)", real_path, key,
+                                strerror (op_errno));
+                        GF_FREE (value);
                         goto out;
                 }
                 value [op_ret] = '\0';
                 op_ret = dict_set_dynptr (dict, key, value, op_ret);
                 if (op_ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "dict set operation "
+                                "on %s for the key %s failed.", real_path, key);
+                        GF_FREE (value);
                         goto out;
                 }
 
@@ -2640,8 +2650,13 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
 
                 strcpy (key, list + list_offset);
                 op_ret = sys_lgetxattr (real_path, key, NULL, 0);
-                if (op_ret == -1)
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR, "getxattr failed on "
+                                "%s: key = %s (%s)", real_path, key,
+                                strerror (op_errno));
                         break;
+                }
 
                 value = GF_CALLOC (op_ret + 1, sizeof(char),
                                    gf_posix_mt_char);
@@ -2653,12 +2668,19 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 op_ret = sys_lgetxattr (real_path, key, value, op_ret);
                 if (op_ret == -1) {
                         op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR, "getxattr failed on "
+                                "%s: key = %s (%s)", real_path, key,
+                                strerror (op_errno));
+                        GF_FREE (value);
                         break;
                 }
 
                 value [op_ret] = '\0';
                 op_ret = dict_set_dynptr (dict, key, value, op_ret);
                 if (op_ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "dict set operation "
+                                "on %s for the key %s failed.", real_path, key);
+                        GF_FREE (value);
                         goto out;
                 }
 
@@ -2695,7 +2717,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
         struct posix_fd * pfd            = NULL;
         int               _fd            = -1;
         int32_t           list_offset    = 0;
-        size_t            size           = 0;
+        ssize_t           size           = 0;
         size_t            remaining_size = 0;
         char              key[4096]      = {0,};
         char *            value          = NULL;
@@ -2742,6 +2764,8 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                 size = sys_fgetxattr (_fd, key, NULL, 0);
                 if (size <= 0) {
                         op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR, "fgetxattr failed on "
+                                "key %s (%s)", key, strerror (op_errno));
                         goto done;
                 }
 
@@ -2753,11 +2777,18 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                 op_ret = sys_fgetxattr (_fd, key, value, op_ret);
                 if (op_ret == -1) {
                         op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR, "fgetxattr failed on "
+                                "fd %p for the key %s (%s)", fd, key,
+                                strerror (op_errno));
+                        GF_FREE (value);
                         goto out;
                 }
                 value [op_ret] = '\0';
                 op_ret = dict_set_dynptr (dict, key, value, op_ret);
                 if (op_ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "dict set operation "
+                                "on key %s failed", key);
+                        GF_FREE (value);
                         goto out;
                 }
                 goto done;
@@ -2800,8 +2831,13 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
 
                 strcpy (key, list + list_offset);
                 op_ret = sys_fgetxattr (_fd, key, NULL, 0);
-                if (op_ret == -1)
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR, "fgetxattr failed on "
+                                "fd %p for the key %s (%s)", fd, key,
+                                strerror (op_errno));
                         break;
+                }
 
                 value = GF_CALLOC (op_ret + 1, sizeof(char),
                                    gf_posix_mt_char);
@@ -2811,12 +2847,21 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                 }
 
                 op_ret = sys_fgetxattr (_fd, key, value, op_ret);
-                if (op_ret == -1)
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR, "fgetxattr failed on "
+                                "the fd %p for the key %s (%s)", fd, key,
+                                strerror (op_errno));
+                        GF_FREE (value);
                         break;
+                }
 
                 value [op_ret] = '\0';
                 op_ret = dict_set_dynptr (dict, key, value, op_ret);
                 if (op_ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "dict set operation "
+                                "failed on key %s", key);
+                        GF_FREE (value);
                         goto out;
                 }
                 remaining_size -= strlen (key) + 1;
