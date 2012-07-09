@@ -1582,21 +1582,16 @@ int
 cli_print_brick_status (cli_volume_status_t *status)
 {
         int  fieldlen = CLI_VOL_STATUS_BRICK_LEN;
-        char buf[80] = {0,};
         int  bricklen = 0;
-        int  i = 0;
         char *p = NULL;
         int  num_tabs = 0;
 
-        bricklen = strlen (status->brick);
         p = status->brick;
+        bricklen = strlen (p);
         while (bricklen > 0) {
                 if (bricklen > fieldlen) {
-                        i++;
-                        strncpy (buf, p, min (fieldlen, (sizeof (buf)-1)));
-                        buf[strlen(buf) + 1] = '\0';
-                        cli_out ("%s", buf);
-                        p = status->brick + i * fieldlen;
+                        cli_out ("%.*s", fieldlen, p);
+                        p += fieldlen;
                         bricklen -= fieldlen;
                 } else {
                         num_tabs = (fieldlen - bricklen) / CLI_TAB_LENGTH + 1;
