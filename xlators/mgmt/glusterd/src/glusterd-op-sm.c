@@ -233,7 +233,7 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
         }
 
         ret = dict_allocate_and_serialize (dict, &brick_req->input.input_val,
-                                           (size_t*)&brick_req->input.input_len);
+                                           &brick_req->input.input_len);
         if (ret)
                 goto out;
         *req = brick_req;
@@ -285,7 +285,7 @@ glusterd_node_op_build_payload (glusterd_op_t op, gd1_mgmt_brick_op_req **req,
         }
 
         ret = dict_allocate_and_serialize (dict, &brick_req->input.input_val,
-                                           (size_t*)&brick_req->input.input_len);
+                                           &brick_req->input.input_len);
 
         if (ret)
                 goto out;

@@ -2450,7 +2450,7 @@ out:
  */
 
 int32_t
-dict_allocate_and_serialize (dict_t *this, char **buf, size_t *length)
+dict_allocate_and_serialize (dict_t *this, char **buf, u_int *length)
 {
         int           ret    = -EINVAL;
         ssize_t       len = 0;

@@ -928,7 +928,7 @@ glusterd_handle_cli_list_volume (rpcsvc_request_t *req)
                 goto out;
 
         ret = dict_allocate_and_serialize (dict, &rsp.dict.dict_val,
-                                           (size_t *)&rsp.dict.dict_len);
+                                           &rsp.dict.dict_len);
         if (ret)
                 goto out;
 
@@ -1229,7 +1229,7 @@ glusterd_fsm_log_send_resp (rpcsvc_request_t *req, int op_ret,
         rsp.op_errstr = op_errstr;
         if (rsp.op_ret == 0)
                 ret = dict_allocate_and_serialize (dict, &rsp.fsm_log.fsm_log_val,
-                                                (size_t *)&rsp.fsm_log.fsm_log_len);
+                                                &rsp.fsm_log.fsm_log_len);
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gf1_cli_fsm_log_rsp);
@@ -1401,9 +1401,8 @@ glusterd_op_stage_send_resp (rpcsvc_request_t   *req,
         else
                 rsp.op_errstr = "";
 
-        ret = dict_allocate_and_serialize (rsp_dict,
-                                           &rsp.dict.dict_val,
-                                           (size_t *)&rsp.dict.dict_len);
+        ret = dict_allocate_and_serialize (rsp_dict, &rsp.dict.dict_val,
+                                           &rsp.dict.dict_len);
         if (ret < 0) {
                 gf_log ("", GF_LOG_DEBUG,
                         "failed to get serialized length of dict");
@@ -1440,9 +1439,8 @@ glusterd_op_commit_send_resp (rpcsvc_request_t *req,
                 rsp.op_errstr = "";
 
         if (rsp_dict) {
-                ret = dict_allocate_and_serialize (rsp_dict,
-                                                   &rsp.dict.dict_val,
-                                                   (size_t *)&rsp.dict.dict_len);
+                ret = dict_allocate_and_serialize (rsp_dict, &rsp.dict.dict_val,
+                                                   &rsp.dict.dict_len);
                 if (ret < 0) {
                         gf_log ("", GF_LOG_DEBUG,
                                 "failed to get serialized length of dict");
@@ -2469,7 +2467,7 @@ glusterd_list_friends (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
         }
 
         ret = dict_allocate_and_serialize (friends, &rsp.friends.friends_val,
-                                           (size_t *)&rsp.friends.friends_len);
+                                           &rsp.friends.friends_len);
 
         if (ret)
                 goto out;
@@ -2576,7 +2574,7 @@ respond:
         if (ret)
                 goto out;
         ret = dict_allocate_and_serialize (volumes, &rsp.dict.dict_val,
-                                           (size_t *)&rsp.dict.dict_len);
+                                           &rsp.dict.dict_len);
 
         if (ret)
                 goto out;

@@ -295,8 +295,8 @@ gd_syncop_mgmt_stage_op (struct rpc_clnt *rpc, uuid_t my_uuid, uuid_t recv_uuid,
         args.op_ret = -1;
         args.op_errno = ENOTCONN;
 
-        ret = dict_allocate_and_serialize (dict_out, &req.buf.buf_val,
-                                           (size_t *)&req.buf.buf_len);
+        ret = dict_allocate_and_serialize (dict_out,
+                                           &req.buf.buf_val, &req.buf.buf_len);
         if (ret)
                 goto out;
 
@@ -395,8 +395,8 @@ gd_syncop_mgmt_commit_op (struct rpc_clnt *rpc, uuid_t my_uuid, uuid_t recv_uuid
         args.op_ret = -1;
         args.op_errno = ENOTCONN;
 
-        ret = dict_allocate_and_serialize (dict_out, &req.buf.buf_val,
-                                           (size_t *)&req.buf.buf_len);
+        ret = dict_allocate_and_serialize (dict_out,
+                                           &req.buf.buf_val, &req.buf.buf_len);
         if (ret)
                 goto out;
 

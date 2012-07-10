@@ -184,7 +184,7 @@ glusterfs_terminate_response_send (rpcsvc_request_t *req, int op_ret)
 
         if (dict)
                 ret = dict_allocate_and_serialize (dict, &rsp.output.output_val,
-                                                (size_t *)&rsp.output.output_len);
+                                                   &rsp.output.output_len);
 
 
         if (ret == 0)
@@ -226,7 +226,7 @@ glusterfs_translator_info_response_send (rpcsvc_request_t *req, int ret,
         if (output) {
                 ret = dict_allocate_and_serialize (output,
                                                    &rsp.output.output_val,
-                                              (size_t *)&rsp.output.output_len);
+                                                   &rsp.output.output_len);
         }
         if (!ret)
                 free_ptr = _gf_true;
@@ -318,7 +318,7 @@ glusterfs_xlator_op_response_send (rpcsvc_request_t *req, int op_ret,
         if (output) {
                 ret = dict_allocate_and_serialize (output,
                                                    &rsp.output.output_val,
-                                              (size_t *)&rsp.output.output_len);
+                                                   &rsp.output.output_len);
         }
         if (!ret)
                 free_ptr = _gf_true;
@@ -904,7 +904,7 @@ glusterfs_handle_brick_status (rpcsvc_request_t *req)
                 rsp.op_errstr = "";
 
         ret = dict_allocate_and_serialize (output, &rsp.output.output_val,
-                                           (size_t *)&rsp.output.output_len);
+                                           &rsp.output.output_len);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to serialize output dict to rsp");
@@ -1088,7 +1088,7 @@ glusterfs_handle_node_status (rpcsvc_request_t *req)
                 rsp.op_errstr = "";
 
         ret = dict_allocate_and_serialize (output, &rsp.output.output_val,
-                                           (size_t *)&rsp.output.output_len);
+                                           &rsp.output.output_len);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "Failed to serialize output dict to rsp");
@@ -1186,7 +1186,7 @@ glusterfs_handle_nfs_profile (rpcsvc_request_t *req)
         rsp.op_errstr = "";
 
         ret = dict_allocate_and_serialize (output, &rsp.output.output_val,
-                                           (size_t *)&rsp.output.output_len);
+                                           &rsp.output.output_len);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "Failed to serialize output dict to rsp");
@@ -1748,7 +1748,7 @@ glusterfs_rebalance_event_notify (dict_t *dict)
                         gf_log ("", GF_LOG_ERROR, "failed to set volname");
 
                 ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                                (size_t *)&req.dict.dict_len);
+                                                   &req.dict.dict_len);
         }
 
         ret = mgmt_submit_request (&req, frame, ctx, &clnt_handshake_prog,

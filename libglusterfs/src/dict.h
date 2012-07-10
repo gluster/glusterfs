@@ -29,13 +29,11 @@ typedef struct _data_pair data_pair_t;
 
 #define GF_PROTOCOL_DICT_SERIALIZE(this,from_dict,to,len,ope,labl) do { \
                 int    ret     = 0;                                     \
-                size_t dictlen = 0;                                     \
                                                                         \
                 if (!from_dict)                                         \
                         break;                                          \
                                                                         \
-                ret = dict_allocate_and_serialize (from_dict, to,       \
-                                                   &dictlen);           \
+                ret = dict_allocate_and_serialize (from_dict, to, &len);\
                 if (ret < 0) {                                          \
                         gf_log (this->name, GF_LOG_WARNING,             \
                                 "failed to get serialized dict (%s)",   \
@@ -43,7 +41,6 @@ typedef struct _data_pair data_pair_t;
                         ope = EINVAL;                                   \
                         goto labl;                                      \
                 }                                                       \
-                len = dictlen;                                          \
         } while (0)
 
 
@@ -114,7 +111,7 @@ int32_t dict_serialized_length (dict_t *dict);
 int32_t dict_serialize (dict_t *dict, char *buf);
 int32_t dict_unserialize (char *buf, int32_t size, dict_t **fill);
 
-int32_t dict_allocate_and_serialize (dict_t *this, char **buf, size_t *length);
+int32_t dict_allocate_and_serialize (dict_t *this, char **buf, u_int *length);
 
 void dict_destroy (dict_t *dict);
 void dict_unref (dict_t *dict);

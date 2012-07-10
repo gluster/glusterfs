@@ -167,7 +167,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
 
         if (ctx) {
                 ret = dict_allocate_and_serialize (ctx, &rsp.dict.dict_val,
-                                                   (size_t*)&rsp.dict.dict_len);
+                                                   &rsp.dict.dict_len);
                 if (ret < 0 )
                         gf_log (THIS->name, GF_LOG_ERROR, "failed to "
                                 "serialize buffer");
@@ -1493,7 +1493,7 @@ glusterd3_1_friend_add (call_frame_t *frame, xlator_t *this,
         req.port = peerinfo->port;
 
         ret = dict_allocate_and_serialize (vols, &req.vols.vols_val,
-                                           (size_t *)&req.vols.vols_len);
+                                           &req.vols.vols_len);
         if (ret)
                 goto out;
 
@@ -1558,8 +1558,6 @@ glusterd3_1_friend_update (call_frame_t *frame, xlator_t *this,
         int                     ret         = 0;
         glusterd_conf_t        *priv        = NULL;
         dict_t                 *friends     = NULL;
-        char                   *dict_buf    = NULL;
-        size_t                  len         = -1;
         call_frame_t           *dummy_frame = NULL;
         glusterd_peerinfo_t    *peerinfo    = NULL;
 
@@ -1574,12 +1572,10 @@ glusterd3_1_friend_update (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
-        ret = dict_allocate_and_serialize (friends, &dict_buf, (size_t *)&len);
+        ret = dict_allocate_and_serialize (friends, &req.friends.friends_val,
+                                           &req.friends.friends_len);
         if (ret)
                 goto out;
-
-        req.friends.friends_val = dict_buf;
-        req.friends.friends_len = len;
 
         uuid_copy (req.uuid, priv->uuid);
 
@@ -1698,7 +1694,7 @@ glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
         req.op = glusterd_op_get_op ();
 
         ret = dict_allocate_and_serialize (dict, &req.buf.buf_val,
-                                           (size_t *)&req.buf.buf_len);
+                                           &req.buf.buf_len);
         if (ret)
                 goto out;
 
@@ -1752,7 +1748,7 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
         req.op = glusterd_op_get_op ();
 
         ret = dict_allocate_and_serialize (dict, &req.buf.buf_val,
-                                           (size_t *)&req.buf.buf_len);
+                                           &req.buf.buf_len);
         if (ret)
                 goto out;
 
