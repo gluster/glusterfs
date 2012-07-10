@@ -2496,9 +2496,8 @@ gf_cli3_1_get_volume (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           (size_t *)&req.dict.dict_len);
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_GET_VOLUME, NULL,
@@ -2533,9 +2532,8 @@ gf_cli3_1_create_volume (call_frame_t *frame, xlator_t *this,
 
         dict = dict_ref ((dict_t *)data);
 
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           (size_t *)&req.dict.dict_len);
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "failed to get serialized length of dict");
@@ -2596,9 +2594,8 @@ gf_cli3_1_delete_volume (call_frame_t *frame, xlator_t *this,
                 frame->local = local;
         }
 
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           (size_t *)&req.dict.dict_len);
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to get serialize dict");
@@ -2637,9 +2634,8 @@ gf_cli3_1_start_volume (call_frame_t *frame, xlator_t *this,
         dict = data;
         local = cli_local_get ();
 
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           (size_t *)&req.dict.dict_len);
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to serialize dict");
@@ -2685,9 +2681,8 @@ gf_cli3_1_stop_volume (call_frame_t *frame, xlator_t *this,
                 frame->local = local;
         }
 
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           (size_t *) &req.dict.dict_len);
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to serialize the data");
@@ -2788,9 +2783,8 @@ done:
                 local = NULL;
         }
 
-        ret = dict_allocate_and_serialize (req_dict,
-                                           &req.dict.dict_val,
-                                           (size_t *) &req.dict.dict_len);
+        ret = dict_allocate_and_serialize (req_dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to serialize the data");
@@ -2827,9 +2821,8 @@ gf_cli3_1_rename_volume (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           (size_t *) &req.dict.dict_len);
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to serialize the data");
@@ -2864,9 +2857,8 @@ gf_cli3_1_reset_volume (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           (size_t *)&req.dict.dict_len);
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to get serialized length of dict");
@@ -2899,9 +2891,8 @@ gf_cli3_1_set_volume (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           (size_t *)&req.dict.dict_len);
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "failed to get serialized length of dict");
@@ -2946,9 +2937,8 @@ gf_cli3_1_add_brick (call_frame_t *frame, xlator_t *this,
                 goto out;
 
 
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           (size_t *)&req.dict.dict_len);
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "failed to get serialized length of dict");
@@ -3014,9 +3004,8 @@ gf_cli3_1_remove_brick (call_frame_t *frame, xlator_t *this,
         if ((command != GF_OP_CMD_STATUS) &&
             (command != GF_OP_CMD_STOP)) {
 
-                ret = dict_allocate_and_serialize (dict,
-                                                   &req.dict.dict_val,
-                                                   (size_t *)&req.dict.dict_len);
+                ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                                   &req.dict.dict_len);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "failed to get serialized length of dict");
@@ -3054,9 +3043,8 @@ gf_cli3_1_remove_brick (call_frame_t *frame, xlator_t *this,
                         goto out;
                 }
 
-                ret = dict_allocate_and_serialize (req_dict,
-                                                   &status_req.dict.dict_val,
-                                                   (size_t *) &status_req.dict.dict_len);
+                ret = dict_allocate_and_serialize (req_dict, &status_req.dict.dict_val,
+                                                   &status_req.dict.dict_len);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "failed to serialize the data");
@@ -3151,9 +3139,8 @@ gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
                 dst_brick, op);
 
 
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           (size_t *)&req.dict.dict_len);
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "failed to get serialized length of dict");
@@ -3191,9 +3178,8 @@ gf_cli3_1_log_rotate (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           (size_t *)&req.dict.dict_len);
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
 
         if (ret < 0) {
                 gf_log (THIS->name, GF_LOG_ERROR, "failed to serialize dict");
@@ -3228,9 +3214,8 @@ gf_cli3_1_sync_volume (call_frame_t *frame, xlator_t *this,
         }
 
         dict = data;
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           (size_t *)&req.dict.dict_len);
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
 
         if (ret < 0) {
                 gf_log (THIS->name, GF_LOG_ERROR, "failed to serialize dict");
@@ -3295,9 +3280,8 @@ gf_cli3_1_quota (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           (size_t *)&req.dict.dict_len);
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to get serialized length of dict");
@@ -3671,9 +3655,8 @@ gf_cli3_1_gsync_set (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           (size_t *) &req.dict.dict_len);
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to serialize the data");
@@ -4043,9 +4026,8 @@ gf_cli3_1_profile_volume (call_frame_t *frame, xlator_t *this, void *data)
                 goto out;
         dict = data;
 
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           (size_t *)&req.dict.dict_len);
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
 
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -4320,9 +4302,8 @@ gf_cli3_1_top_volume (call_frame_t *frame, xlator_t *this, void *data)
                 goto out;
         dict = data;
 
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           (size_t *)&req.dict.dict_len);
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to serialize the data");
@@ -5616,9 +5597,8 @@ gf_cli3_1_status_volume (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           (size_t *)&req.dict.dict_len);
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
         if (ret < 0) {
                 gf_log ("cli", GF_LOG_ERROR,
                         "failed to serialize the data");
@@ -5772,7 +5752,7 @@ gf_cli3_1_mount (call_frame_t *frame, xlator_t *this, void *data)
 
         req.label = label;
         ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                           (size_t *)&req.dict.dict_len);
+                                           &req.dict.dict_len);
         if (ret) {
                 ret = -1;
                 goto out;
@@ -6051,9 +6031,8 @@ gf_cli3_1_heal_volume (call_frame_t *frame, xlator_t *this,
                 frame->local = local;
         }
 
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           (size_t *)&req.dict.dict_len);
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to serialize the data");
@@ -6132,9 +6111,8 @@ gf_cli3_1_statedump_volume (call_frame_t *frame, xlator_t *this,
 
         options = data;
 
-        ret = dict_allocate_and_serialize (options,
-                                           &req.dict.dict_val,
-                                           (size_t *)&req.dict.dict_len);
+        ret = dict_allocate_and_serialize (options, &req.dict.dict_val,
+                                           &req.dict.dict_len);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to serialize the data");
@@ -6334,9 +6312,8 @@ gf_cli3_1_clearlocks_volume (call_frame_t *frame, xlator_t *this,
 
         options = data;
 
-        ret = dict_allocate_and_serialize (options,
-                                           &req.dict.dict_val,
-                                           (size_t *)&req.dict.dict_len);
+        ret = dict_allocate_and_serialize (options, &req.dict.dict_val,
+                                           &req.dict.dict_len);
         if (ret < 0) {
                 gf_log ("cli", GF_LOG_ERROR,
                         "failed to serialize the data");
