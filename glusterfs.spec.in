@@ -355,6 +355,7 @@ fi
 
 %files server
 %defattr(-,root,root,-)
+%doc extras/clear_xattrs.sh
 #%doc examples/ doc/glusterfs*.vol.sample
 %config(noreplace) %{_sysconfdir}/glusterfs
 %{_sysconfdir}/init.d/glusterd
@@ -405,6 +406,9 @@ fi
 %{_libdir}/*.so
 
 %changelog
+* Tue Jul 10 2012 Niels de Vos <ndevos@redhat.com>
+- Include extras/clear_xattrs.sh in the glusterfs-server sub-package
+
 * Thu Jun 07 2012 Niels de Vos <ndevos@redhat.com>
 - Mark /var/lib/glusterd as owned by glusterfs, subdirs belong to -server
 
