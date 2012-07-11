@@ -112,22 +112,75 @@ struct syncargs {
 
         /* do not touch */
         struct synctask    *task;
+	pthread_mutex_t     mutex;
+	pthread_cond_t      cond;
+	int                 done;
 };
 
-#define __wake(args) synctask_wake(args->task)
+
+#define __yawn(args) do {					\
+	if (!args->task) {					\
+		pthread_mutex_init (&args->mutex, NULL);	\
+		pthread_cond_init (&args->cond, NULL);		\
+		args->done = 0;					\
+	}							\
+	} while (0)
+
+
+#define __wake(args) do {					\
+	if (args->task) {					\
+		synctask_wake (args->task);			\
+	} else {						\
+		pthread_mutex_lock (&args->mutex);		\
+		{						\
+			args->done = 1;				\
+			pthread_cond_signal (&args->cond);	\
+		}						\
+		pthread_mutex_unlock (&args->mutex);		\
+	}							\
+	} while (0)
+
+
+#define __yield(args) do {						\
+	if (args->task) {						\
+		synctask_yield (args->task);				\
+	} else {							\
+		pthread_mutex_lock (&args->mutex);			\
+		{							\
+			while (!args->done)				\
+				pthread_cond_wait (&args->cond,		\
+						   &args->mutex);	\
+		}							\
+		pthread_mutex_unlock (&args->mutex);			\
+		pthread_mutex_destroy (&args->mutex);			\
+		pthread_cond_destroy (&args->cond);			\
+	}								\
+	} while (0)
 
 
 #define SYNCOP(subvol, stb, cbk, op, params ...) do {                   \
                 struct  synctask        *task = NULL;                   \
+		call_frame_t            *frame = NULL;			\
                                                                         \
                 task = synctask_get ();                                 \
                 stb->task = task;                                       \
+		if (task)						\
+			frame = task->opframe;				\
+		else							\
+			frame = create_frame (THIS, THIS->ctx->pool);	\
+									\
+		__yawn (stb);						\
                                                                         \
-                STACK_WIND_COOKIE (task->opframe, cbk, (void *)stb,     \
-                                   subvol, op, params);                 \
-                task->state = SYNCTASK_SUSPEND;                         \
-                synctask_yield (stb->task);                             \
-                STACK_RESET (task->opframe->root);                      \
+                STACK_WIND_COOKIE (frame, cbk, (void *)stb, subvol,	\
+				   op, params);				\
+		if (task)						\
+			task->state = SYNCTASK_SUSPEND;			\
+									\
+                __yield (stb);						\
+		if (task)						\
+			STACK_RESET (frame->root);			\
+		else							\
+			STACK_DESTROY (frame->root);			\
         } while (0)
 
 
@@ -180,7 +233,7 @@ int syncop_close (fd_t *fd);
 
 int syncop_write (xlator_t *subvol, fd_t *fd, const char *buf, int size,
                   off_t offset, struct iobref *iobref, uint32_t flags);
-int syncop_writev (xlator_t *subvol, fd_t *fd, struct iovec *vector,
+int syncop_writev (xlator_t *subvol, fd_t *fd, const struct iovec *vector,
                    int32_t count, off_t offset, struct iobref *iobref,
                    uint32_t flags);
 int syncop_readv (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
