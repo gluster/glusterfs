@@ -737,7 +737,8 @@ rpc_clnt_handle_cbk (struct rpc_clnt *clnt, rpc_transport_pollin_t *msg)
 
         if (found && (procnum < program->numactors) &&
             (program->actors[procnum].actor)) {
-                program->actors[procnum].actor (&progmsg);
+                program->actors[procnum].actor (clnt, program->mydata,
+                                                &progmsg);
         }
 
 out:
@@ -1321,7 +1322,7 @@ out:
 
 int
 rpcclnt_cbk_program_register (struct rpc_clnt *clnt,
-                              rpcclnt_cb_program_t *program)
+                              rpcclnt_cb_program_t *program, void *mydata)
 {
         int                   ret                = -1;
         char                  already_registered = 0;
@@ -1360,6 +1361,8 @@ rpcclnt_cbk_program_register (struct rpc_clnt *clnt,
 
         memcpy (tmp, program, sizeof (*tmp));
         INIT_LIST_HEAD (&tmp->program);
+
+        tmp->mydata = mydata;
 
         pthread_mutex_lock (&clnt->lock);
         {

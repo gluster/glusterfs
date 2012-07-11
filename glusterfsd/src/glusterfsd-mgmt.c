@@ -57,10 +57,12 @@ int glusterfs_process_volfp (glusterfs_ctx_t *ctx, FILE *fp);
 int glusterfs_graph_unknown_options (glusterfs_graph_t *graph);
 
 int
-mgmt_cbk_spec (void *data)
+mgmt_cbk_spec (struct rpc_clnt *rpc, void *mydata, void *data)
 {
         glusterfs_ctx_t *ctx = NULL;
+        xlator_t *this = NULL;
 
+        this = mydata;
         ctx = glusterfs_ctx_get ();
         gf_log ("mgmt", GF_LOG_INFO, "Volume file changed");
 
@@ -70,10 +72,11 @@ mgmt_cbk_spec (void *data)
 
 
 int
-mgmt_cbk_event (void *data)
+mgmt_cbk_event (struct rpc_clnt *rpc, void *mydata, void *data)
 {
         return 0;
 }
+
 struct iobuf *
 glusterfs_serialize_reply (rpcsvc_request_t *req, void *arg,
                            struct iovec *outmsg, xdrproc_t xdrproc)
@@ -1994,9 +1997,10 @@ glusterfs_mgmt_init (glusterfs_ctx_t *ctx)
                 goto out;
         }
 
-        ret = rpcclnt_cbk_program_register (rpc, &mgmt_cbk_prog);
+        ret = rpcclnt_cbk_program_register (rpc, &mgmt_cbk_prog, THIS);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_WARNING, "failed to register callback function");
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "failed to register callback function");
                 goto out;
         }
 
