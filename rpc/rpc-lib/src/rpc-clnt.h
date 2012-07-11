@@ -78,7 +78,7 @@ typedef struct rpc_clnt_program {
         int                   numproc;
 } rpc_clnt_prog_t;
 
-typedef int (*rpcclnt_cb_fn) (void *data);
+typedef int (*rpcclnt_cb_fn) (struct rpc_clnt *rpc, void *mydata, void *data);
 
 /* The descriptor for each procedure/actor that runs
  * over the RPC service.
@@ -106,6 +106,9 @@ typedef struct rpcclnt_cb_program {
 
         /* list member to link to list of registered services with rpc_clnt */
         struct list_head        program;
+
+        /* Needed for passing back in cb_actor */
+        void                   *mydata;
 } rpcclnt_cb_program_t;
 
 
@@ -232,7 +235,7 @@ void rpc_clnt_reconfig (struct rpc_clnt *rpc, struct rpc_clnt_config *config);
  * procedure handlers.
  */
 int rpcclnt_cbk_program_register (struct rpc_clnt *svc,
-                                  rpcclnt_cb_program_t *program);
+                                  rpcclnt_cb_program_t *program, void *mydata);
 
 int
 rpc_clnt_transport_unix_options_build (dict_t **options, char *filepath);

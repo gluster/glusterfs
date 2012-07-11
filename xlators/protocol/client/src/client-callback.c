@@ -17,7 +17,7 @@
 #include "rpc-clnt.h"
 
 int
-client_cbk_null (void *data)
+client_cbk_null (struct rpc_clnt *rpc, void *mydata, void *data)
 {
         gf_log (THIS->name, GF_LOG_WARNING,
                 "this function should not be called");
@@ -25,7 +25,7 @@ client_cbk_null (void *data)
 }
 
 int
-client_cbk_fetchspec (void *data)
+client_cbk_fetchspec (struct rpc_clnt *rpc, void *mydata, void *data)
 {
         gf_log (THIS->name, GF_LOG_WARNING,
                 "this function should not be called");
@@ -33,7 +33,7 @@ client_cbk_fetchspec (void *data)
 }
 
 int
-client_cbk_ino_flush (void *data)
+client_cbk_ino_flush (struct rpc_clnt *rpc, void *mydata, void *data)
 {
         gf_log (THIS->name, GF_LOG_WARNING,
                 "this function should not be called");
