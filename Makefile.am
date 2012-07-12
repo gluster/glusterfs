@@ -1,9 +1,15 @@
-EXTRA_DIST = autogen.sh COPYING-GPLV2 COPYING-LGPLV3 INSTALL README AUTHORS THANKS NEWS glusterfs.spec
+EXTRA_DIST = autogen.sh \
+	COPYING-GPLV2 COPYING-LGPLV3 \
+	INSTALL README AUTHORS THANKS NEWS \
+	glusterfs.spec glusterfs-api.pc.in
 
 SUBDIRS = argp-standalone libglusterfs rpc api xlators glusterfsd \
 	$(FUSERMOUNT_SUBDIR) doc extras cli
 
-CLEANFILES = 
+pkgconfigdir = @pkgconfigdir@
+pkgconfig_DATA = glusterfs-api.pc
+
+CLEANFILES =
 
 gitclean: distclean
 	find . -name Makefile.in -exec rm -f {} \;
