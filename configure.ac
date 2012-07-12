@@ -142,6 +142,7 @@ AC_CONFIG_FILES([Makefile
                 xlators/mgmt/Makefile
                 xlators/mgmt/glusterd/Makefile
                 xlators/mgmt/glusterd/src/Makefile
+		glusterfs-api.pc
 		api/Makefile
 		api/src/Makefile
 		glusterfs.spec])
@@ -150,6 +151,12 @@ AC_CANONICAL_HOST
 
 AC_PROG_CC
 AC_PROG_LIBTOOL
+
+AC_ARG_WITH(pkgconfigdir,
+            [  --with-pkgconfigdir=DIR      pkgconfig file in DIR @<:@LIBDIR/pkgconfig@:>@],
+            [pkgconfigdir=$withval],
+            [pkgconfigdir='${libdir}/pkgconfig'])
+AC_SUBST(pkgconfigdir)
 
 AC_ARG_WITH(mountutildir,
             [  --with-mountutildir=DIR mount helper utility in DIR @<:@/sbin@:>@],
