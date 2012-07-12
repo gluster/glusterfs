@@ -1,0 +1,19 @@
+This is an example application which uses libgfapi. It is
+a complete autotools based build system which demonstrates the
+required changes in configure.ac, Makefile.am etc to successfuly
+detect for and build an application against libgfapi.
+
+There are two approaches to building a libgfapi based application:
+
+1. In the presence of pkg-config in your build system.
+This is the recommended approach which is also used in this example.
+For this approach to work, you need to build glusterfs by passing
+--pkgconfigdir=/usr/lib64/pkgconfig (or the appropriate directory)
+in your distro. This already happens if you build RPMs with the
+glusterfs.spec provided in glusterfs.git. You will also need to
+install glusterfs-api RPM.
+
+2. In the absence of pkg-config in your build system.
+Make sure your LDFLAGS includes -L/path/to/lib where libgfapi.so is
+installed and -I/path/to/include/glusterfs where the 'api' directory
+containing the headers are available.
