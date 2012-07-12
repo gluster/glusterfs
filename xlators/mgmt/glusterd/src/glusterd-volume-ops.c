@@ -58,7 +58,6 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         char                   *trans_type  = NULL;
         uuid_t                  volume_id   = {0,};
         uuid_t                  tmp_uuid    = {0};
-        glusterd_brickinfo_t    *tmpbrkinfo = NULL;
         glusterd_volinfo_t      tmpvolinfo  = {{0},};
         int32_t                 type        = 0;
         char                   *username    = NULL;
@@ -126,12 +125,12 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         }
 
         ret = dict_get_int32 (dict, "type", &type);
-        /*if (ret) {
+        if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to get type");
                 snprintf (err_str, sizeof (err_str), "Unable to get volume "
                           "type");
                 goto out;
-        }*/
+        }
 
         ret = dict_get_str (dict, "transport", &trans_type);
         if (ret) {
@@ -173,7 +172,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                 i++;
                 brick= strtok_r (brick_list, " \n", &tmpptr);
                 brick_list = tmpptr;
-                ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
+                ret = glusterd_brickinfo_new_from_brick (brick, &brickinfo);
                 if (ret) {
                         snprintf (err_str, sizeof (err_str), "Unable to get "
                                   "brick info from brick %s", brick);
@@ -184,18 +183,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                                                    sizeof (err_str));
                 if (ret)
                         goto out;
-                ret = glusterd_volume_brickinfo_get (brickinfo->uuid,
-                                                     brickinfo->hostname,
-                                                     brickinfo->path,
-                                                     &tmpvolinfo, &tmpbrkinfo,
-                                                     GF_PATH_PARTIAL);
-                if (!ret) {
-                        ret = -1;
-                        snprintf (err_str, sizeof (err_str), "Brick: %s:%s, %s"
-                                  " one of the bricks contain the other",
-                                  tmpbrkinfo->hostname, tmpbrkinfo->path, brick);
-                        goto out;
-                }
+
                 list_add_tail (&brickinfo->brick_list, &tmpvolinfo.bricks);
                 brickinfo = NULL;
         }
@@ -701,7 +689,7 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
-                ret = glusterd_brickinfo_from_brick (brick, &brick_info);
+                ret = glusterd_brickinfo_new_from_brick (brick, &brick_info);
                 if (ret)
                         goto out;
                 snprintf (cmd_str, 1024, "%s", brick_info->path);
@@ -1396,7 +1384,7 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 brick = strtok_r (brick_list+1, " \n", &saveptr);
 
         while ( i <= count) {
-                ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
+                ret = glusterd_brickinfo_new_from_brick (brick, &brickinfo);
                 if (ret)
                         goto out;
 

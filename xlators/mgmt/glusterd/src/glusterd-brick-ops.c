@@ -740,8 +740,7 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                         i, brick);
 
                 ret = glusterd_volume_brickinfo_get_by_brick(brick, volinfo,
-                                                             &brickinfo,
-                                                             GF_PATH_COMPLETE);
+                                                             &brickinfo);
                 if (ret) {
                         snprintf(err_str, 2048,"Incorrect brick %s for volume"
                                 " %s", brick, volname);
@@ -904,7 +903,7 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
         }
 
         while ( i <= count) {
-                ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
+                ret = glusterd_brickinfo_new_from_brick (brick, &brickinfo);
                 if (ret)
                         goto out;
 
@@ -953,12 +952,6 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
 
         while (i <= count) {
 
-                ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
-                                                              &brickinfo,
-                                                              GF_PATH_PARTIAL);
-                if (ret)
-                        goto out;
-
                 if (GLUSTERD_STATUS_STARTED == volinfo->status) {
                         ret = glusterd_brick_start (volinfo, brickinfo);
                         if (ret)
@@ -982,7 +975,6 @@ glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick,
                                   int force, int *need_migrate)
 {
         glusterd_brickinfo_t    *brickinfo = NULL;
-        char                    *dup_brick = NULL;
         int32_t                  ret = -1;
         glusterd_conf_t         *priv = NULL;
 
@@ -992,12 +984,8 @@ glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick,
         priv = THIS->private;
         GF_ASSERT (priv);
 
-        dup_brick = gf_strdup (brick);
-        if (!dup_brick)
-                goto out;
-
-        ret = glusterd_volume_brickinfo_get_by_brick (dup_brick, volinfo,
-                                                      &brickinfo, GF_PATH_COMPLETE);
+        ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
+                                                      &brickinfo);
         if (ret)
                 goto out;
 
@@ -1027,9 +1015,8 @@ glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick,
         }
 
         brickinfo->decommissioned = 1;
+        ret = 0;
 out:
-        GF_FREE (dup_brick);
-
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -1129,27 +1116,14 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
 
                 }
 
-                ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
-                                                              &brickinfo,
-                                                              GF_PATH_PARTIAL);
-                if (!ret) {
+                ret = glusterd_brickinfo_new_from_brick (brick, &brickinfo);
+                if (ret) {
                         gf_log (THIS->name, GF_LOG_ERROR,
-                                "Adding duplicate brick: %s", brick);
-                        snprintf (msg, sizeof (msg), "Brick %s is already a "
-                                  "part of the volume", brick);
-                        *op_errstr = gf_strdup (msg);
-                        ret = -1;
+                                "Add-brick: Unable"
+                                " to get brickinfo");
                         goto out;
-                } else {
-                        ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
-                        if (ret) {
-                                gf_log (THIS->name, GF_LOG_ERROR,
-                                        "Add-brick: Unable"
-                                        " to get brickinfo");
-                                goto out;
-                        }
-                        brick_alloc = _gf_true;
                 }
+                brick_alloc = _gf_true;
 
                 ret = glusterd_new_brick_validate (brick, brickinfo, msg,
                                                    sizeof (msg));

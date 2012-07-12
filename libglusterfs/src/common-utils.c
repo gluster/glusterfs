@@ -2082,9 +2082,6 @@ gf_strip_whitespace (char *str, int len)
         return new_len;
 }
 
-/* If the path exists use realpath(3) to handle extra slashes and to resolve
- * symlinks else strip the extra slashes in the path and return */
-
 int
 gf_canonicalize_path (char *path)
 {

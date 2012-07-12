@@ -141,16 +141,13 @@ glusterd_op_stage_log_rotate (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        if (strchr (brick, ':')) {
-                ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo, NULL,
-                                                              GF_PATH_COMPLETE);
-                if (ret) {
-                        snprintf (msg, sizeof (msg), "Incorrect brick %s "
-                                  "for volume %s", brick, volname);
-                        gf_log ("", GF_LOG_ERROR, "%s", msg);
-                        *op_errstr = gf_strdup (msg);
-                        goto out;
-                }
+        ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo, NULL);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Incorrect brick %s "
+                          "for volume %s", brick, volname);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                goto out;
         }
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
@@ -201,15 +198,11 @@ glusterd_op_log_rotate (dict_t *dict)
         if (ret)
                 goto cont;
 
-        if (!strchr (brick, ':'))
-                brick = NULL;
-        else {
-                ret = glusterd_brickinfo_from_brick (brick, &tmpbrkinfo);
-                if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
-                                "cannot get brickinfo from brick");
-                        goto out;
-                }
+        ret = glusterd_brickinfo_new_from_brick (brick, &tmpbrkinfo);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "cannot get brickinfo from brick");
+                goto out;
         }
 
 cont:

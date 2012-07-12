@@ -234,7 +234,7 @@ glusterd_store_is_valid_brickpath (char *volname, char *brick)
         int32_t                 ret = 0;
         size_t                  volname_len = strlen (volname);
 
-        ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
+        ret = glusterd_brickinfo_new_from_brick (brick, &brickinfo);
         if (ret) {
                 gf_log ("", GF_LOG_WARNING, "brick path validation failed");
                 ret = 0;
@@ -1991,13 +1991,13 @@ glusterd_store_retrieve_rbstate (char   *volname)
                 if (volinfo->rb_status > GF_RB_STATUS_NONE) {
                         if (!strncmp (key, GLUSTERD_STORE_KEY_RB_SRC_BRICK,
                                       strlen (GLUSTERD_STORE_KEY_RB_SRC_BRICK))) {
-                                ret = glusterd_brickinfo_from_brick (value,
+                                ret = glusterd_brickinfo_new_from_brick (value,
                                                                      &volinfo->src_brick);
                                 if (ret)
                                         goto out;
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_RB_DST_BRICK,
                                              strlen (GLUSTERD_STORE_KEY_RB_DST_BRICK))) {
-                                ret = glusterd_brickinfo_from_brick (value,
+                                ret = glusterd_brickinfo_new_from_brick (value,
                                                                      &volinfo->dst_brick);
                                 if (ret)
                                         goto out;

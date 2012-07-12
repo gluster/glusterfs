@@ -3110,7 +3110,7 @@ glusterd_is_valid_volfpath (char *volname, char *brick)
         glusterd_volinfo_t      *volinfo = NULL;
         int32_t                 ret = 0;
 
-        ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
+        ret = glusterd_brickinfo_new_from_brick (brick, &brickinfo);
         if (ret) {
                 gf_log ("", GF_LOG_WARNING, "brick path validation failed");
                 ret = 0;
