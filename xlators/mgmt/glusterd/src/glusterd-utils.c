@@ -735,8 +735,8 @@ glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo)
 }
 
 int32_t
-glusterd_brickinfo_from_brick (char *brick,
-                               glusterd_brickinfo_t **brickinfo)
+glusterd_brickinfo_new_from_brick (char *brick,
+                                   glusterd_brickinfo_t **brickinfo)
 {
         int32_t                 ret = -1;
         glusterd_brickinfo_t    *new_brickinfo = NULL;
@@ -780,11 +780,69 @@ out:
         return ret;
 }
 
+static gf_boolean_t
+_is_prefix (char *str1, char *str2)
+{
+        GF_ASSERT (str1);
+        GF_ASSERT (str2);
+
+        int             i = 0;
+        int             small_len = 0;
+        gf_boolean_t    prefix = _gf_true;
+
+        small_len = min (strlen (str1), strlen (str2));
+        for (i = 0; i < small_len; i++) {
+                if (str1[i] != str2[i]) {
+                        prefix = _gf_false;
+                        break;
+                }
+
+        }
+
+        return prefix;
+}
+
+/* Checks if @path is available in the peer identified by @uuid
+ * 'availability' is determined by querying current state of volumes
+ * in the cluster. */
+gf_boolean_t
+glusterd_is_brickpath_available (uuid_t uuid, char *path)
+{
+        glusterd_brickinfo_t    *brickinfo = NULL;
+        glusterd_volinfo_t      *volinfo   = NULL;
+        glusterd_conf_t         *priv      = NULL;
+        gf_boolean_t            available  = _gf_false;
+        char                    tmp_path[PATH_MAX+1] = {0};
+        char                    tmp_brickpath[PATH_MAX+1] = {0};
+
+        priv = THIS->private;
+
+        strncpy (tmp_path, path, PATH_MAX);
+        /* path may not yet exist */
+        if (!realpath (path, tmp_path) && (errno != ENOENT))
+                goto out;
+
+        list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                        if (uuid_compare (uuid, brickinfo->uuid))
+                                continue;
+
+                        if (!realpath (brickinfo->path, tmp_brickpath))
+                                goto out;
+
+                        if (_is_prefix (tmp_brickpath, tmp_path))
+                                goto out;
+                }
+        }
+        available = _gf_true;
+out:
+        return available;
+}
+
 int32_t
 glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                                glusterd_volinfo_t *volinfo,
-                               glusterd_brickinfo_t **brickinfo,
-                               gf_path_match_t path_match)
+                               glusterd_brickinfo_t **brickinfo)
 {
         glusterd_brickinfo_t    *brickiter = NULL;
         uuid_t                  peer_uuid = {0};
@@ -800,34 +858,19 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
         ret = -1;
         list_for_each_entry (brickiter, &volinfo->bricks, brick_list) {
 
-                if (uuid_is_null (brickiter->uuid) &&
-                    glusterd_resolve_brick (brickiter))
+                if ((uuid_is_null (brickiter->uuid)) &&
+                    (glusterd_resolve_brick (brickiter) != 0))
                         goto out;
                 if (uuid_compare (peer_uuid, brickiter->uuid))
                         continue;
 
-                if (!strcmp (brickiter->path, path)) {
+                if (strcmp (brickiter->path, path) == 0) {
                         gf_log (THIS->name, GF_LOG_INFO, "Found brick");
                         ret = 0;
                         if (brickinfo)
                                 *brickinfo = brickiter;
                         break;
                 }
-
-                if (path_match != GF_PATH_PARTIAL)
-                        continue;
-
-#ifdef GF_LINUX_HOST_OS
-                if (!fnmatch (path, brickiter->path, FNM_LEADING_DIR) ||
-                    !fnmatch (brickiter->path, path, FNM_LEADING_DIR)) {
-                        gf_log (THIS->name, GF_LOG_ERROR,
-                                "paths %s and %s are recursive",
-                                path, brickiter->path);
-                        *brickinfo = brickiter;
-                        ret = 0;
-                        break;
-                }
-#endif
         }
 
 out:
@@ -838,40 +881,23 @@ out:
 int32_t
 glusterd_volume_brickinfo_get_by_brick (char *brick,
                                         glusterd_volinfo_t *volinfo,
-                                        glusterd_brickinfo_t **brickinfo,
-                                        gf_path_match_t path_match)
+                                        glusterd_brickinfo_t **brickinfo)
 {
         int32_t                 ret = -1;
-        char                    *hostname = NULL;
-        char                    *path = NULL;
-        char                    *tmp_host = NULL;
-        char                    *tmp_path = NULL;
+        glusterd_brickinfo_t    *tmp_brickinfo = NULL;
 
         GF_ASSERT (brick);
         GF_ASSERT (volinfo);
 
-        gf_log ("", GF_LOG_INFO, "brick: %s", brick);
-
-        tmp_host = gf_strdup (brick);
-        if (tmp_host)
-                get_host_name (tmp_host, &hostname);
-        tmp_path = gf_strdup (brick);
-        if (tmp_path)
-                get_path_name (tmp_path, &path);
-
-        if (!hostname || !path) {
-                gf_log ("", GF_LOG_ERROR,
-                        "brick %s is not of form <HOSTNAME>:<export-dir>",
-                        brick);
-                ret = -1;
+        ret = glusterd_brickinfo_new_from_brick (brick, &tmp_brickinfo);
+        if (ret)
                 goto out;
-        }
 
-        ret = glusterd_volume_brickinfo_get (NULL, hostname, path, volinfo,
-                                             brickinfo, path_match);
+        ret = glusterd_volume_brickinfo_get (NULL, tmp_brickinfo->hostname,
+                                             tmp_brickinfo->path, volinfo,
+                                             brickinfo);
+        (void) glusterd_brickinfo_delete (tmp_brickinfo);
 out:
-        GF_FREE (tmp_host);
-        GF_FREE (tmp_path);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -885,7 +911,7 @@ glusterd_is_brick_decommissioned (glusterd_volinfo_t *volinfo, char *hostname,
         int                     ret = -1;
 
         ret = glusterd_volume_brickinfo_get (NULL, hostname, path, volinfo,
-                                             &brickinfo, GF_PATH_COMPLETE);
+                                             &brickinfo);
         if (ret)
                 goto out;
         decommissioned = brickinfo->decommissioned;
@@ -2289,7 +2315,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
                 if (ret)
                         goto out;
 
-                ret = glusterd_brickinfo_from_brick (src_brick,
+                ret = glusterd_brickinfo_new_from_brick (src_brick,
                                                      &new_volinfo->src_brick);
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR, "Unable to create"
@@ -2304,7 +2330,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
                 if (ret)
                         goto out;
 
-                ret = glusterd_brickinfo_from_brick (dst_brick,
+                ret = glusterd_brickinfo_new_from_brick (dst_brick,
                                                      &new_volinfo->dst_brick);
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR, "Unable to create"
@@ -2366,8 +2392,7 @@ glusterd_volinfo_copy_brick_portinfo (glusterd_volinfo_t *new_volinfo,
                 ret = glusterd_volume_brickinfo_get (new_brickinfo->uuid,
                                                      new_brickinfo->hostname,
                                                      new_brickinfo->path,
-                                                     old_volinfo, &old_brickinfo,
-                                                     GF_PATH_COMPLETE);
+                                                     old_volinfo, &old_brickinfo);
                 if ((0 == ret) && glusterd_is_brick_started (old_brickinfo)) {
                         new_brickinfo->port = old_brickinfo->port;
                 }
@@ -2393,8 +2418,7 @@ glusterd_volinfo_stop_stale_bricks (glusterd_volinfo_t *new_volinfo,
                 ret = glusterd_volume_brickinfo_get (old_brickinfo->uuid,
                                                      old_brickinfo->hostname,
                                                      old_brickinfo->path,
-                                                     new_volinfo, &new_brickinfo,
-                                                     GF_PATH_COMPLETE);
+                                                     new_volinfo, &new_brickinfo);
                 if (ret) {
                         ret = glusterd_brick_stop (old_volinfo, old_brickinfo);
                         if (ret)
@@ -3373,9 +3397,9 @@ glusterd_brickinfo_get (uuid_t uuid, char *hostname, char *path,
         list_for_each_entry (volinfo, &priv->volumes, vol_list) {
 
                 ret = glusterd_volume_brickinfo_get (uuid, hostname, path,
-                                                     volinfo, brickinfo,
-                                                     GF_PATH_COMPLETE);
-                if (!ret)
+                                                     volinfo, brickinfo);
+                if (ret == 0)
+                        /*Found*/
                         goto out;
         }
 out:
@@ -4250,7 +4274,6 @@ glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
                              char *op_errstr, size_t len)
 {
         glusterd_brickinfo_t    *newbrickinfo = NULL;
-        glusterd_brickinfo_t    *tmpbrkinfo = NULL;
         int                     ret = -1;
         gf_boolean_t            is_allocated = _gf_false;
         glusterd_peerinfo_t     *peerinfo = NULL;
@@ -4267,7 +4290,7 @@ glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
         GF_ASSERT (op_errstr);
 
         if (!brickinfo) {
-                ret = glusterd_brickinfo_from_brick (brick, &newbrickinfo);
+                ret = glusterd_brickinfo_new_from_brick (brick, &newbrickinfo);
                 if (ret)
                         goto out;
                 is_allocated = _gf_true;
@@ -4297,11 +4320,10 @@ glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
                 goto out;
         }
 brick_validation:
-        ret = glusterd_brickinfo_get (newbrickinfo->uuid,
-                                      newbrickinfo->hostname,
-                                      newbrickinfo->path, &tmpbrkinfo);
-        if (!ret) {
-                snprintf(op_errstr, len, "Brick: %s already in use",
+        if (!glusterd_is_brickpath_available (newbrickinfo->uuid,
+                                              newbrickinfo->path)) {
+                snprintf(op_errstr, len, "Brick: %s not available. Brick may "
+                         "be containing or be contained by an existing brick",
                          brick);
                 gf_log (THIS->name, GF_LOG_ERROR, "%s", op_errstr);
                 ret = -1;
@@ -4836,7 +4858,7 @@ glusterd_delete_brick (glusterd_volinfo_t* volinfo,
         ret = glusterd_volume_brickinfo_get (brickinfo->uuid,
                                              brickinfo->hostname,
                                              brickinfo->path, volinfo,
-                                             NULL, GF_PATH_COMPLETE);
+                                             NULL);
         GF_ASSERT (0 == ret);
 #endif
         glusterd_delete_volfile (volinfo, brickinfo);

@@ -654,7 +654,6 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
         xlator_t              *this           = NULL;
         glusterd_conf_t       *priv           = NULL;
         glusterd_brickinfo_t  *brickinfo      = NULL;
-        glusterd_brickinfo_t  *tmpbrickinfo   = NULL;
         glusterd_volinfo_t    *volinfo        = NULL;
         dict_t                *vol_opts       = NULL;
         gf_boolean_t           nfs_disabled   = _gf_false;
@@ -742,21 +741,8 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
                 if (ret)
                         goto out;
 
-                ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
-                if (ret) {
-                        snprintf (msg, sizeof (msg), "%s is not a brick",
-                                  brick);
-                        gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
-                        goto out;
-                }
-
-                ret = glusterd_volume_brickinfo_get (NULL,
-                                                     brickinfo->hostname,
-                                                     brickinfo->path,
-                                                     volinfo,
-                                                     &tmpbrickinfo,
-                                                     GF_PATH_COMPLETE);
-
+                ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
+                                                              &brickinfo);
                 if (ret) {
                         snprintf (msg, sizeof(msg), "No brick %s in"
                                   " volume %s", brick, volname);
@@ -1523,8 +1509,7 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
 
                 ret = glusterd_volume_brickinfo_get_by_brick (brick,
                                                               volinfo,
-                                                              &brickinfo,
-                                                              GF_PATH_COMPLETE);
+                                                              &brickinfo);
                 if (ret)
                         goto out;
 
@@ -3528,8 +3513,7 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr)
                 }
 
                 ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
-                                                              &brickinfo,
-                                                              GF_PATH_COMPLETE);
+                                                              &brickinfo);
                 if (ret)
                         goto out;
                 if (glusterd_is_brick_started (brickinfo)) {
@@ -3670,8 +3654,7 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
                 ret = dict_get_str (dict, "brick", &brick);
                 if (!ret) {
                         ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
-                                                                      &brickinfo,
-                                                                      GF_PATH_COMPLETE);
+                                                                      &brickinfo);
                         if (ret)
                                 goto out;
 
@@ -4007,8 +3990,7 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr)
                 }
                 ret = glusterd_volume_brickinfo_get_by_brick (brickname,
                                                               volinfo,
-                                                              &brickinfo,
-                                                              GF_PATH_COMPLETE);
+                                                              &brickinfo);
                 if (ret)
                         goto out;
 
