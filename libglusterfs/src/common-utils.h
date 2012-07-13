@@ -267,7 +267,7 @@ iov_length (const struct iovec *vector, int count)
 
 
 static inline struct iovec *
-iov_dup (struct iovec *vector, int count)
+iov_dup (const struct iovec *vector, int count)
 {
 	int           bytecount = 0;
 	int           i;
@@ -344,6 +344,43 @@ iov_unload (char *buf, const struct iovec *vector, int count)
 		memcpy (buf + copied, vector[i].iov_base, vector[i].iov_len);
 		copied += vector[i].iov_len;
 	}
+}
+
+
+static inline size_t
+iov_copy (const struct iovec *dst, int dcnt,
+	  const struct iovec *src, int scnt)
+{
+	size_t  ret = 0;
+	size_t  left = 0;
+	size_t  min_i = 0;
+	int     s_i = 0, s_ii = 0;
+	int     d_i = 0, d_ii = 0;
+
+	ret = min (iov_length (dst, dcnt), iov_length (src, scnt));
+	left = ret;
+
+	while (left) {
+		min_i = min (dst[d_i].iov_len - d_ii, src[s_i].iov_len - s_ii);
+		memcpy (dst[d_i].iov_base + d_ii, src[s_i].iov_base + s_ii,
+			min_i);
+
+		d_ii += min_i;
+		if (d_ii == dst[d_i].iov_len) {
+			d_ii = 0;
+			d_i++;
+		}
+
+		s_ii += min_i;
+		if (s_ii == src[s_i].iov_len) {
+			s_ii = 0;
+			s_i++;
+		}
+
+		left -= min_i;
+	}
+
+	return ret;
 }
 
 
