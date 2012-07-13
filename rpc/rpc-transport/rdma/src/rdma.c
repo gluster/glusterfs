@@ -196,9 +196,7 @@ gf_rdma_new_post (gf_rdma_device_t *device, int32_t len,
         ret = 0;
 out:
         if (ret != 0) {
-                if (post->buf != NULL) {
-                        free (post->buf);
-                }
+                free (post->buf);
 
                 GF_FREE (post);
                 post = NULL;
@@ -2931,9 +2929,7 @@ out:
                         *readch = NULL;
                 }
 
-                if (write_ary != NULL) {
-                        GF_FREE (write_ary);
-                }
+                GF_FREE (write_ary);
         }
 
         return ret;

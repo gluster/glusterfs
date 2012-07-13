@@ -67,8 +67,7 @@ afr_build_parent_loc (loc_t *parent, loc_t *child, int32_t *op_errno)
 
         ret = 0;
 out:
-	if (child_path)
-		GF_FREE(child_path);
+	GF_FREE(child_path);
 
         return ret;
 }

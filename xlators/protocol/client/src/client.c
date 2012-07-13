@@ -1269,8 +1269,7 @@ client_set_remote_options (char *value, xlator_t *this)
 
         ret = _gf_true;
 out:
-        if (dup_value)
-                GF_FREE (dup_value);
+        GF_FREE (dup_value);
 
         return ret;
 }

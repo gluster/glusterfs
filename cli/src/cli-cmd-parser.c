@@ -148,8 +148,7 @@ cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
         if (!*bricks)
                 ret = -1;
 out:
-        if (free_list_ptr)
-                GF_FREE (free_list_ptr);
+        GF_FREE (free_list_ptr);
         return ret;
 }
 
@@ -386,8 +385,7 @@ out:
                         dict_destroy (dict);
         }
 
-        if (trans_type)
-                GF_FREE (trans_type);
+        GF_FREE (trans_type);
 
         return ret;
 }
@@ -1022,10 +1020,8 @@ out:
                         dict_destroy (dict);
         }
 
-        if (tmp_brick)
-                GF_FREE (tmp_brick);
-        if (tmp_brick1)
-                GF_FREE (tmp_brick1);
+        GF_FREE (tmp_brick);
+        GF_FREE (tmp_brick1);
 
         return ret;
 }
@@ -1613,13 +1609,11 @@ out:
         if (ret) {
                 if (dict)
                         dict_destroy (dict);
-                if (append_str)
-                        GF_FREE (append_str);
+                GF_FREE (append_str);
         } else
                 *options = dict;
 
-        if (subop)
-                GF_FREE (subop);
+        GF_FREE (subop);
 
         return ret;
 }

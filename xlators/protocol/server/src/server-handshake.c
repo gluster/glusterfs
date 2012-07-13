@@ -669,19 +669,15 @@ fail:
                              (xdrproc_t)xdr_gf_setvolume_rsp);
 
 
-        if (args.dict.dict_val)
-                free (args.dict.dict_val);
+        free (args.dict.dict_val);
 
-        if (rsp.dict.dict_val)
-                GF_FREE (rsp.dict.dict_val);
+        GF_FREE (rsp.dict.dict_val);
 
         dict_unref (params);
         dict_unref (reply);
         dict_unref (config_params);
 
-        if (buf) {
-                GF_FREE (buf);
-        }
+        GF_FREE (buf);
 
         return 0;
 }
@@ -737,9 +733,7 @@ fail:
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_set_lk_ver_rsp);
 
-        if (args.uid != NULL) {
-                free (args.uid);
-        }
+        free (args.uid);
 
         return 0;
 }

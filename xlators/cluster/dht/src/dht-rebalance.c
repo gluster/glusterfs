@@ -408,8 +408,7 @@ __dht_rebalance_migrate_data (xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst
                 offset += ret;
                 total += ret;
 
-                if (vector)
-                        GF_FREE (vector);
+                GF_FREE (vector);
                 if (iobref)
                         iobref_unref (iobref);
                 iobref = NULL;
@@ -417,8 +416,7 @@ __dht_rebalance_migrate_data (xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst
         }
         if (iobref)
                 iobref_unref (iobref);
-        if (vector)
-                GF_FREE (vector);
+        GF_FREE (vector);
 
         if (ret >= 0)
                 ret = 0;

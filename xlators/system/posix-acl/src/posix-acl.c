@@ -2072,11 +2072,9 @@ fini (xlator_t *this)
 
         LOCK_DESTROY (&conf->acl_lock);
 
-        if (minacl)
-                GF_FREE (minacl);
+        GF_FREE (minacl);
 
-        if (conf)
-                GF_FREE (conf);
+        GF_FREE (conf);
 
         return 0;
 }

@@ -2375,8 +2375,7 @@ fini (xlator_t *this)
 	priv = this->private;
 
 	if (priv) {
-		if (priv->xlarray)
-			GF_FREE (priv->xlarray);
+		GF_FREE (priv->xlarray);
 
 		trav_map = priv->map;
 		while (trav_map) {

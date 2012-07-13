@@ -743,11 +743,9 @@ out:
         if (dict)
                 dict_destroy (dict);
 
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val);
+        free (rsp.dict.dict_val);
 
-        if (rsp.op_errstr)
-                free (rsp.op_errstr);
+        free (rsp.op_errstr);
 
         gf_log ("cli", GF_LOG_INFO, "Returning: %d", ret);
         return ret;
@@ -808,10 +806,8 @@ out:
                 dict_unref (dict);
         if (local)
                 cli_local_wipe (local);
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val);
-        if (rsp.op_errstr)
-                free (rsp.op_errstr);
+        free (rsp.dict.dict_val);
+        free (rsp.op_errstr);
         return ret;
 }
 
@@ -872,8 +868,7 @@ gf_cli_delete_volume_cbk (struct rpc_req *req, struct iovec *iov,
 out:
         cli_cmd_broadcast_response (ret);
         cli_local_wipe (local);
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val);
+        free (rsp.dict.dict_val);
         if (dict)
                 dict_unref (dict);
 
@@ -943,10 +938,8 @@ out:
         cli_cmd_broadcast_response (ret);
         if (local)
                 cli_local_wipe (local);
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val);
-        if (rsp.op_errstr)
-                free (rsp.op_errstr);
+        free (rsp.dict.dict_val);
+        free (rsp.op_errstr);
         if (dict)
                 dict_unref (dict);
         return ret;
@@ -1012,10 +1005,8 @@ gf_cli_stop_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 out:
         cli_cmd_broadcast_response (ret);
-        if (rsp.op_errstr)
-                free (rsp.op_errstr);
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val);
+        free (rsp.op_errstr);
+        free (rsp.dict.dict_val);
         if (local)
                 cli_local_wipe (local);
 
@@ -1241,10 +1232,8 @@ done:
         ret = rsp.op_ret;
 
 out:
-        if (rsp.op_errstr)
-                free (rsp.op_errstr); //malloced by xdr
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val); //malloced by xdr
+        free (rsp.op_errstr); //malloced by xdr
+        free (rsp.dict.dict_val); //malloced by xdr
         if (dict)
                 dict_unref (dict);
         if (local_dict)
@@ -1458,10 +1447,8 @@ gf_cli_add_brick_cbk (struct rpc_req *req, struct iovec *iov,
 
 out:
         cli_cmd_broadcast_response (ret);
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val);
-        if (rsp.op_errstr)
-                free (rsp.op_errstr);
+        free (rsp.dict.dict_val);
+        free (rsp.op_errstr);
         return ret;
 }
 
@@ -1622,8 +1609,7 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
         cli_out ("%s", msg);
         */
 out:
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val); //malloced by xdr
+        free (rsp.dict.dict_val); //malloced by xdr
         if (dict)
                 dict_unref (dict);
         cli_cmd_broadcast_response (ret);
@@ -1712,10 +1698,8 @@ out:
         }
 
         cli_cmd_broadcast_response (ret);
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val);
-        if (rsp.op_errstr)
-                free (rsp.op_errstr);
+        free (rsp.dict.dict_val);
+        free (rsp.op_errstr);
 
         return ret;
 }
@@ -1881,8 +1865,7 @@ out:
         }
 
         cli_cmd_broadcast_response (ret);
-        if (rsp.dict.dict_val)
-               free (rsp.dict.dict_val);
+        free (rsp.dict.dict_val);
         if (rsp_dict)
                 dict_unref (rsp_dict);
 
@@ -1935,8 +1918,7 @@ gf_cli_log_rotate_cbk (struct rpc_req *req, struct iovec *iov,
 
 out:
         cli_cmd_broadcast_response (ret);
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val);
+        free (rsp.dict.dict_val);
 
         return ret;
 }
@@ -2222,8 +2204,7 @@ xml_output:
 out:
         cli_cmd_broadcast_response (ret);
 
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val);
+        free (rsp.dict.dict_val);
 
         return ret;
 }
@@ -2508,8 +2489,7 @@ out:
         if (dict)
                 dict_unref (dict);
 
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
 
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -2560,9 +2540,7 @@ out:
         if (dict)
                 dict_unref (dict);
 
-        if (req.dict.dict_val) {
-                GF_FREE (req.dict.dict_val);
-        }
+        GF_FREE (req.dict.dict_val);
 
         return ret;
 }
@@ -2610,8 +2588,7 @@ gf_cli_delete_volume (call_frame_t *frame, xlator_t *this,
 out:
         if (dict)
                 dict_unref (dict);
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
@@ -2953,9 +2930,7 @@ gf_cli_add_brick (call_frame_t *frame, xlator_t *this,
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
-        if (req.dict.dict_val) {
-                GF_FREE (req.dict.dict_val);
-        }
+        GF_FREE (req.dict.dict_val);
 
         return ret;
 }
@@ -3062,12 +3037,9 @@ gf_cli_remove_brick (call_frame_t *frame, xlator_t *this,
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
-        if (req.dict.dict_val) {
-                GF_FREE (req.dict.dict_val);
-        }
+        GF_FREE (req.dict.dict_val);
 
-        if (status_req.dict.dict_val)
-                GF_FREE (status_req.dict.dict_val);
+        GF_FREE (status_req.dict.dict_val);
 
         if (req_dict)
                 dict_unref (req_dict);
@@ -3155,9 +3127,7 @@ gf_cli_replace_brick (call_frame_t *frame, xlator_t *this,
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
-        if (req.dict.dict_val) {
-                GF_FREE (req.dict.dict_val);
-        }
+        GF_FREE (req.dict.dict_val);
 
         return ret;
 }
@@ -3195,8 +3165,7 @@ gf_cli_log_rotate (call_frame_t *frame, xlator_t *this,
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
         return ret;
 }
 
@@ -3229,8 +3198,7 @@ gf_cli_sync_volume (call_frame_t *frame, xlator_t *this,
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
 
         return ret;
 }
@@ -3634,8 +3602,7 @@ out:
 
         cli_cmd_broadcast_response (ret);
 
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val);
+        free (rsp.dict.dict_val);
 
         return ret;
 }
@@ -3670,8 +3637,7 @@ gf_cli_gsync_set (call_frame_t *frame, xlator_t *this,
                               (xdrproc_t) xdr_gf_cli_req);
 
 out:
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
 
         return ret;
 }
@@ -4005,8 +3971,7 @@ gf_cli_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
 out:
         if (dict)
                 dict_unref (dict);
-        if (rsp.op_errstr)
-                free (rsp.op_errstr);
+        free (rsp.op_errstr);
         cli_cmd_broadcast_response (ret);
         return ret;
 }
@@ -4045,8 +4010,7 @@ gf_cli_profile_volume (call_frame_t *frame, xlator_t *this, void *data)
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
         return ret;
 }
 
@@ -4282,8 +4246,7 @@ out:
         if (dict)
                 dict_unref (dict);
 
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val);
+        free (rsp.dict.dict_val);
         return ret;
 }
 
@@ -4319,8 +4282,7 @@ gf_cli_top_volume (call_frame_t *frame, xlator_t *this, void *data)
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
         return ret;
 }
 
@@ -5577,8 +5539,7 @@ cont:
         ret = rsp.op_ret;
 
 out:
-        if (status.brick)
-                GF_FREE (status.brick);
+        GF_FREE (status.brick);
 
         cli_cmd_broadcast_response (ret);
         return ret;
@@ -6002,8 +5963,7 @@ out:
         cli_cmd_broadcast_response (ret);
         if (local)
                 cli_local_wipe (local);
-        if (rsp.op_errstr)
-                free (rsp.op_errstr);
+        free (rsp.op_errstr);
         if (dict)
                 dict_unref (dict);
         return ret;
@@ -6048,8 +6008,7 @@ gf_cli_heal_volume (call_frame_t *frame, xlator_t *this,
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
 
         return ret;
 }
@@ -6130,8 +6089,7 @@ out:
                 dict_destroy (options);
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
         return ret;
 }
 
@@ -6331,8 +6289,7 @@ out:
                 dict_destroy (options);
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
         return ret;
 }
 

@@ -322,19 +322,15 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 
         return_trans = trans;
 
-        if (name)
-                GF_FREE (name);
+        GF_FREE (name);
 
-        if (vol_opt)
-                GF_FREE (vol_opt);
+        GF_FREE (vol_opt);
 
 	return return_trans;
 
 fail:
         if (trans) {
-                if (trans->name) {
-                        GF_FREE (trans->name);
-                }
+                GF_FREE (trans->name);
 
                 if (trans->dl_handle)
                         dlclose (trans->dl_handle);
@@ -342,11 +338,9 @@ fail:
                 GF_FREE (trans);
         }
 
-        if (name)
-                GF_FREE (name);
+        GF_FREE (name);
 
-        if (vol_opt)
-                GF_FREE (vol_opt);
+        GF_FREE (vol_opt);
 
         return NULL;
 }
@@ -433,8 +427,7 @@ rpc_transport_destroy (rpc_transport_t *this)
 
 	pthread_mutex_destroy (&this->lock);
 
-        if (this->name)
-                GF_FREE (this->name);
+        GF_FREE (this->name);
 
         if (this->dl_handle)
                 dlclose (this->dl_handle);
@@ -615,8 +608,7 @@ rpc_transport_inet_options_build (dict_t **options, const char *hostname,
         *options = dict;
 out:
         if (ret) {
-                if (host)
-                        GF_FREE (host);
+                GF_FREE (host);
                 if (dict)
                         dict_unref (dict);
         }

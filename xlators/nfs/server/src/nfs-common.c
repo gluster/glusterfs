@@ -235,8 +235,7 @@ err:
         if (parent)
                 inode_unref (parent);
 
-        if (resolvedpath)
-                GF_FREE (resolvedpath);
+        GF_FREE (resolvedpath);
 
         return ret;
 }
@@ -397,8 +396,7 @@ err:
         if (entryinode)
                 inode_unref (entryinode);
 
-        if (resolvedpath)
-                GF_FREE (resolvedpath);
+        GF_FREE (resolvedpath);
 
         return ret;
 }

@@ -3265,8 +3265,7 @@ stripe_readv_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                      count, &tmp_stbuf, tmp_iobref, NULL);
 
                 iobref_unref (tmp_iobref);
-                if (vec)
-                        GF_FREE (vec);
+                GF_FREE (vec);
         }
 out:
         return 0;
@@ -3399,8 +3398,7 @@ stripe_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                      final_count, &tmp_stbuf, tmp_iobref, NULL);
 
                 iobref_unref (tmp_iobref);
-                if (final_vec)
-                        GF_FREE (final_vec);
+                GF_FREE (final_vec);
         }
 
         goto out;
@@ -4489,8 +4487,7 @@ init (xlator_t *this)
 out:
         if (ret) {
                 if (priv) {
-                        if (priv->xl_array)
-                                GF_FREE (priv->xl_array);
+                        GF_FREE (priv->xl_array);
                         GF_FREE (priv);
                 }
         }
@@ -4514,8 +4511,7 @@ fini (xlator_t *this)
         priv = this->private;
         if (priv) {
                 this->private = NULL;
-                if (priv->xl_array)
-                        GF_FREE (priv->xl_array);
+                GF_FREE (priv->xl_array);
 
                 trav = priv->pattern;
                 while (trav) {
@@ -4699,8 +4695,7 @@ stripe_vgetxattr_cbk (call_frame_t *frame, void *cookie,
 
                 ret = stripe_free_xattr_str (local);
 
-                if (local->xattr_list)
-                        GF_FREE (local->xattr_list);
+                GF_FREE (local->xattr_list);
 
                 if (stripe_xattr)
                         dict_unref (stripe_xattr);

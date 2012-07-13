@@ -497,8 +497,7 @@ quota_get_limit_value (inode_t *inode, xlator_t *this, int64_t *n)
         }
 
 out:
-        if (path)
-                GF_FREE (path);
+        GF_FREE (path);
 
         return ret;
 }

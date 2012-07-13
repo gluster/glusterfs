@@ -192,8 +192,7 @@ out:
                                      dict, xdata);
         }
 
-        if (marker_xattr)
-                GF_FREE (marker_xattr);
+        GF_FREE (marker_xattr);
         return 0;
 
 }

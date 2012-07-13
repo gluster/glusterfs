@@ -848,8 +848,7 @@ path_setxattr (call_frame_t *frame,
 	if (tmp_path != loc_path)
 		GF_FREE (tmp_path);
 
-	if (tmp_name)
-		GF_FREE (tmp_name);
+	GF_FREE (tmp_name);
 
 	return 0;
 }

@@ -467,9 +467,7 @@ __socket_reset (rpc_transport_t *this)
                 iobuf_unref (priv->incoming.iobuf);
         }
 
-        if (priv->incoming.request_info != NULL) {
-                GF_FREE (priv->incoming.request_info);
-        }
+        GF_FREE (priv->incoming.request_info);
 
         memset (&priv->incoming, 0, sizeof (priv->incoming));
 
@@ -1102,8 +1100,7 @@ __socket_read_accepted_successful_reply (rpc_transport_t *this)
                    well and good, we don't need to worry about  */
                 xdr_gfs3_read_rsp (&xdr, &read_rsp);
 
-                if (read_rsp.xdata.xdata_val)
-                        free (read_rsp.xdata.xdata_val);
+                free (read_rsp.xdata.xdata_val);
 
                 /* need to round off to proper roof (%4), as XDR packing pads
                    the end of opaque object with '0' */

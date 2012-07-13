@@ -1222,8 +1222,7 @@ out:
                 handle->read = NULL;
         }
 
-        if (free_str)
-                GF_FREE (free_str);
+        GF_FREE (free_str);
 
         return ret;
 }
@@ -1304,11 +1303,8 @@ out:
                 close (fd);
 
         if (ret == -1) {
-                if (spath)
-                        GF_FREE (spath);
-                if (shandle) {
-                        GF_FREE (shandle);
-                }
+                GF_FREE (spath);
+                GF_FREE (shandle);
         }
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1454,8 +1450,7 @@ glusterd_retrieve_uuid ()
         uuid_parse (uuid_str, priv->uuid);
 
 out:
-        if (uuid_str)
-                GF_FREE (uuid_str);
+        GF_FREE (uuid_str);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -1616,8 +1611,7 @@ out:
                         *value = NULL;
                 }
         }
-        if (free_str)
-                GF_FREE (free_str);
+        GF_FREE (free_str);
         if (op_errno)
                 *op_errno = store_errno;
 

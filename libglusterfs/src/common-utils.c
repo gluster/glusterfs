@@ -602,8 +602,7 @@ gf_strstr (const char *str, const char *delim, const char *match)
         }
 
 out:
-        if (tmp_str)
-                free (tmp_str);
+        free (tmp_str);
 
         return ret;
 
@@ -1684,8 +1683,7 @@ valid_host_name (char *address, int length)
         }
 
 out:
-        if (dup_addr)
-                GF_FREE (dup_addr);
+        GF_FREE (dup_addr);
         return ret;
 }
 
@@ -1916,8 +1914,7 @@ gf_is_str_int (const char *value)
         }
 
 out:
-        if (fptr)
-                GF_FREE (fptr);
+        GF_FREE (fptr);
 
         return flag;
 }
@@ -2126,8 +2123,7 @@ gf_canonicalize_path (char *path)
                 gf_log ("common-utils", GF_LOG_ERROR,
                         "Path manipulation failed");
 
-        if (tmppath)
-                GF_FREE(tmppath);
+        GF_FREE(tmppath);
 
         return ret;
 }

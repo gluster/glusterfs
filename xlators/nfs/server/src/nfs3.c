@@ -448,11 +448,9 @@ nfs3_call_state_wipe (nfs3_call_state_t *cs)
                 fd_unref (cs->fd);
         }
 
-        if (cs->resolventry)
-                GF_FREE (cs->resolventry);
+        GF_FREE (cs->resolventry);
 
-        if (cs->pathname)
-                GF_FREE (cs->pathname);
+        GF_FREE (cs->pathname);
 
         if (!list_empty (&cs->entries.list))
                 gf_dirent_free (&cs->entries);

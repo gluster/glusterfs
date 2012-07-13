@@ -436,14 +436,11 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
         pthread_mutex_unlock (&logfile_mutex);
 
 out:
-        if (msg)
-                GF_FREE (msg);
+        GF_FREE (msg);
 
-        if (str1)
-                GF_FREE (str1);
+        GF_FREE (str1);
 
-        if (str2)
-                FREE (str2);
+        FREE (str2);
 
         return ret;
 }
@@ -581,15 +578,11 @@ log:
         pthread_mutex_unlock (&logfile_mutex);
 
 err:
-        if (msg) {
-                GF_FREE (msg);
-        }
+        GF_FREE (msg);
 
-        if (str1)
-                GF_FREE (str1);
+        GF_FREE (str1);
 
-        if (str2)
-                FREE (str2);
+        FREE (str2);
 
 out:
         return (0);
@@ -702,15 +695,11 @@ gf_cmd_log (const char *domain, const char *fmt, ...)
         fflush (cmdlogfile);
 
 out:
-        if (msg) {
-                GF_FREE (msg);
-        }
+        GF_FREE (msg);
 
-        if (str1)
-                GF_FREE (str1);
+        GF_FREE (str1);
 
-        if (str2)
-                FREE (str2);
+        FREE (str2);
 
         return (0);
 }

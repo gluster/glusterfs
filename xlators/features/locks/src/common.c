@@ -182,8 +182,7 @@ pl_print_lockee (char *str, int size, fd_t *fd, loc_t *loc)
                   uuid_utoa (inode->gfid), fd,
                   ipath ? ipath : "<nul>");
 
-        if (ipath)
-                GF_FREE (ipath);
+        GF_FREE (ipath);
 }
 
 

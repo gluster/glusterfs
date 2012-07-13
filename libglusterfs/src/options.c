@@ -522,8 +522,7 @@ xlator_option_validate_addr_list (xlator_t *xl, const char *key,
  out:
         if (op_errstr && ret)
                 *op_errstr = gf_strdup (errstr);
-        if (dup_val)
-                GF_FREE (dup_val);
+        GF_FREE (dup_val);
 
         return ret;
 }
@@ -605,8 +604,7 @@ validate_list_elements (const char *string, volume_option_t *opt,
                 substr_sav = NULL;
         }
  out:
-        if (dup_string)
-                GF_FREE (dup_string);
+        GF_FREE (dup_string);
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }

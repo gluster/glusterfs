@@ -1061,8 +1061,7 @@ fini (xlator_t *this)
                 goto out;
 
         conf = this->private;
-        if (conf->pmap)
-                FREE (conf->pmap);
+        FREE (conf->pmap);
         if (conf->handle)
                 glusterd_store_handle_destroy (conf->handle);
         glusterd_sm_tr_log_delete (&conf->op_sm_log);

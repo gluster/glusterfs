@@ -306,8 +306,7 @@ gd_syncop_mgmt_stage_op (struct rpc_clnt *rpc, uuid_t my_uuid, uuid_t recv_uuid,
 
         if (args.errstr && errstr)
                 *errstr = args.errstr;
-        else if (args.errstr)
-                GF_FREE (args.errstr);
+        else GF_FREE (args.errstr);
 
         if (args.dict && dict_in)
                 *dict_in = args.dict;
@@ -406,8 +405,7 @@ gd_syncop_mgmt_commit_op (struct rpc_clnt *rpc, uuid_t my_uuid, uuid_t recv_uuid
 
         if (args.errstr && errstr)
                 *errstr = args.errstr;
-        else if (args.errstr)
-                GF_FREE (args.errstr);
+        else GF_FREE (args.errstr);
 
         if (args.dict && dict_in)
                 *dict_in = args.dict;

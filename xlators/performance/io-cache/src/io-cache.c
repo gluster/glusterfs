@@ -1495,13 +1495,9 @@ ioc_get_priority_list (const char *opt_str, struct list_head *first)
                 stripe_str = strtok_r (NULL, ",", &tmp_str);
         }
 out:
-        if (string != NULL) {
-                GF_FREE (string);
-        }
+        GF_FREE (string);
 
-        if (dup_str != NULL) {
-                GF_FREE (dup_str);
-        }
+        GF_FREE (dup_str);
 
         if (max_pri == -1) {
                 list_for_each_entry_safe (curr, tmp, first, list) {

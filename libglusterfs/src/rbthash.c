@@ -208,8 +208,7 @@ rbthash_deinit_entry (rbthash_table_t *tbl, rbthash_entry_t *entry)
         if (!entry)
                 return;
 
-        if (entry->key)
-                GF_FREE (entry->key);
+        GF_FREE (entry->key);
 
         if (tbl) {
                 if ((entry->data) && (tbl->dfunc))

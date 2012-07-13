@@ -137,8 +137,7 @@ sc_cache_set (xlator_t *this, inode_t *inode, struct iatt *buf,
 err:
 
 	if (sc) {
-		if (sc->readlink)
-			FREE (sc->readlink);
+		FREE (sc->readlink);
 		sc->readlink = NULL;
 		FREE (sc);
 	}

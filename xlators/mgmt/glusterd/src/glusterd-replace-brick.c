@@ -156,8 +156,7 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
 out:
         if (ret && dict)
                 dict_unref (dict);
-        if (cli_req.dict.dict_val)
-                free (cli_req.dict.dict_val);//malloced by xdr
+        free (cli_req.dict.dict_val);//malloced by xdr
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
@@ -500,8 +499,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         ret = 0;
 
 out:
-        if (dup_dstbrick)
-                GF_FREE (dup_dstbrick);
+        GF_FREE (dup_dstbrick);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;

@@ -414,8 +414,7 @@ afr_transaction_rm_stale_children (call_frame_t *frame, xlator_t *this,
 
         afr_inode_rm_stale_children (this, inode, stale_children);
 out:
-        if (stale_children)
-                GF_FREE (stale_children);
+        GF_FREE (stale_children);
         return;
 }
 

@@ -508,11 +508,9 @@ set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data)
         ret = 0;
 out:
 
-        if (dup_str)
-                GF_FREE (dup_str);
+        GF_FREE (dup_str);
 
-        if (stripe_opt)
-                GF_FREE (stripe_opt);
+        GF_FREE (stripe_opt);
 
         return ret;
 }

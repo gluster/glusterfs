@@ -65,8 +65,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_statfs_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -165,8 +164,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_lookup_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -223,8 +221,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_lk_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -274,8 +271,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_common_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -325,8 +321,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_common_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -375,8 +370,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_common_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -425,8 +419,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_common_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -462,8 +455,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_common_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -515,8 +507,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_rmdir_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -563,8 +554,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_mkdir_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -611,8 +601,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_mknod_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -647,8 +636,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_common_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -695,8 +683,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_readdir_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         readdir_rsp_cleanup (&rsp);
 
@@ -740,8 +727,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_opendir_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -776,8 +762,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_common_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -812,8 +797,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_common_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -854,11 +838,9 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_getxattr_rsp);
 
-        if (rsp.dict.dict_val)
-                GF_FREE (rsp.dict.dict_val);
+        GF_FREE (rsp.dict.dict_val);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -900,11 +882,9 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_fgetxattr_rsp);
 
-        if (rsp.dict.dict_val)
-                GF_FREE (rsp.dict.dict_val);
+        GF_FREE (rsp.dict.dict_val);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -943,8 +923,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_common_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -984,8 +963,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_common_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1070,8 +1048,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_rename_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1125,8 +1102,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_unlink_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1173,8 +1149,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_symlink_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1225,8 +1200,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_link_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1264,8 +1238,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_truncate_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1302,8 +1275,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_fstat_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1341,8 +1313,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_ftruncate_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1376,8 +1347,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_common_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1415,8 +1385,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_fsync_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1454,8 +1423,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_write_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1505,8 +1473,7 @@ out:
         server_submit_reply (frame, req, &rsp, vector, count, iobref,
                              (xdrproc_t)xdr_gfs3_read_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1547,8 +1514,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_rchecksum_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1591,8 +1557,7 @@ out:
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_open_rsp);
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1677,8 +1642,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_create_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1720,8 +1684,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_readlink_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1759,8 +1722,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_stat_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1800,8 +1762,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_setattr_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1840,8 +1801,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_fsetattr_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1881,11 +1841,9 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_xattrop_rsp);
 
-        if (rsp.dict.dict_val)
-                GF_FREE (rsp.dict.dict_val);
+        GF_FREE (rsp.dict.dict_val);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1925,11 +1883,9 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_fxattrop_rsp);
 
-        if (rsp.dict.dict_val)
-                GF_FREE (rsp.dict.dict_val);
+        GF_FREE (rsp.dict.dict_val);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -1979,8 +1935,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_readdirp_rsp);
 
-        if (rsp.xdata.xdata_val)
-                GF_FREE (rsp.xdata.xdata_val);
+        GF_FREE (rsp.xdata.xdata_val);
 
         readdirp_rsp_cleanup (&rsp);
 
@@ -2985,8 +2940,7 @@ server3_3_stat (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_stat_resume);
 
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -3046,8 +3000,7 @@ out:
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
 
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         return ret;
 }
@@ -3101,8 +3054,7 @@ server3_3_fsetattr (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_fsetattr_resume);
 
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -3158,8 +3110,7 @@ server3_3_readlink (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_readlink_resume);
 
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -3227,8 +3178,7 @@ server3_3_create (rpcsvc_request_t *req)
 
 out:
         /* memory allocated by libc, don't use GF_FREE */
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -3286,8 +3236,7 @@ out:
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
 
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         return ret;
 }
@@ -3343,8 +3292,7 @@ server3_3_readv (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_readv_resume);
 out:
         /* memory allocated by libc, don't use GF_FREE */
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -3425,8 +3373,7 @@ server3_3_writev (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_writev_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -3483,8 +3430,7 @@ server3_3_writev_vecsizer (int state, ssize_t *readsize, char *base_addr,
                 else
                         nextstate = SERVER3_3_VECWRITE_READING_OPAQUE;
 
-                if (write_req.xdata.xdata_val)
-                        free (write_req.xdata.xdata_val);
+                free (write_req.xdata.xdata_val);
 
                 break;
 
@@ -3606,8 +3552,7 @@ server3_3_fsync (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_fsync_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -3662,8 +3607,7 @@ server3_3_flush (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_flush_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -3719,8 +3663,7 @@ server3_3_ftruncate (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_ftruncate_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -3774,8 +3717,7 @@ server3_3_fstat (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_fstat_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -3829,8 +3771,7 @@ server3_3_truncate (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_truncate_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -3889,8 +3830,7 @@ server3_3_unlink (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_unlink_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -3959,8 +3899,7 @@ server3_3_setxattr (rpcsvc_request_t *req)
 
         return ret;
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -4030,8 +3969,7 @@ server3_3_fsetxattr (rpcsvc_request_t *req)
 
         return ret;
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -4102,8 +4040,7 @@ server3_3_fxattrop (rpcsvc_request_t *req)
         return ret;
 
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -4173,8 +4110,7 @@ server3_3_xattrop (rpcsvc_request_t *req)
 
         return ret;
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -4238,8 +4174,7 @@ server3_3_getxattr (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_getxattr_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -4297,8 +4232,7 @@ server3_3_fgetxattr (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_fgetxattr_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -4355,8 +4289,7 @@ server3_3_removexattr (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_removexattr_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -4413,8 +4346,7 @@ server3_3_fremovexattr (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_fremovexattr_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -4469,8 +4401,7 @@ server3_3_opendir (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_opendir_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -4542,8 +4473,7 @@ out:
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
 
-        if (args.dict.dict_val)
-                free (args.dict.dict_val);
+        free (args.dict.dict_val);
 
         return ret;
 }
@@ -4606,8 +4536,7 @@ server3_3_readdir (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_readdir_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -4661,8 +4590,7 @@ server3_3_fsyncdir (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_fsyncdir_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -4728,8 +4656,7 @@ out:
                 req->rpc_err = GARBAGE_ARGS;
 
         /* memory allocated by libc, don't use GF_FREE */
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         return ret;
 
@@ -4791,8 +4718,7 @@ out:
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
 
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         return ret;
 }
@@ -4847,8 +4773,7 @@ server3_3_rmdir (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_rmdir_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -4935,11 +4860,9 @@ server3_3_inodelk (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_inodelk_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
-        if (args.flock.lk_owner.lk_owner_val)
-                free (args.flock.lk_owner.lk_owner_val);
+        free (args.flock.lk_owner.lk_owner_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -5023,11 +4946,9 @@ server3_3_finodelk (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_finodelk_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
-        if (args.flock.lk_owner.lk_owner_val)
-                free (args.flock.lk_owner.lk_owner_val);
+        free (args.flock.lk_owner.lk_owner_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -5090,8 +5011,7 @@ server3_3_entrylk (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_entrylk_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -5153,8 +5073,7 @@ server3_3_fentrylk (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_fentrylk_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -5207,8 +5126,7 @@ server3_3_access (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_access_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -5273,8 +5191,7 @@ out:
                 req->rpc_err = GARBAGE_ARGS;
 
         /* memory allocated by libc, don't use GF_FREE */
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         return ret;
 }
@@ -5331,8 +5248,7 @@ server3_3_link (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_link_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -5393,8 +5309,7 @@ server3_3_rename (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_rename_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -5495,11 +5410,9 @@ server3_3_lk (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_lk_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
-        if (args.flock.lk_owner.lk_owner_val)
-                free (args.flock.lk_owner.lk_owner_val);
+        free (args.flock.lk_owner.lk_owner_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
@@ -5554,8 +5467,7 @@ server3_3_rchecksum (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_rchecksum_resume);
 out:
-        if (args.xdata.xdata_val)
-                free (args.xdata.xdata_val);
+        free (args.xdata.xdata_val);
 
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;

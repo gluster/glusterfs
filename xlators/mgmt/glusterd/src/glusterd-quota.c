@@ -237,8 +237,7 @@ _glusterd_quota_remove_limits (char **quota_limits, char *path,
         }
 
 out:
-        if (limits)
-                GF_FREE (limits);
+        GF_FREE (limits);
 
         return ret;
 }

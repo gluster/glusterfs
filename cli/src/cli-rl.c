@@ -226,8 +226,7 @@ cli_rl_tokenize (const char *text)
         }
 
 out:
-        if (copy)
-                free (copy);
+        free (copy);
 
         if (i < count) {
                 cli_cmd_tokens_destroy (tokens);

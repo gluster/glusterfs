@@ -41,16 +41,13 @@ gf_quiesce_local_wipe (xlator_t *this, quiesce_local_t *local)
                 loc_wipe (&local->loc);
         if (local->fd)
                 fd_unref (local->fd);
-        if (local->name)
-                GF_FREE (local->name);
-        if (local->volname)
-                GF_FREE (local->volname);
+        GF_FREE (local->name);
+        GF_FREE (local->volname);
         if (local->dict)
                 dict_unref (local->dict);
         if (local->iobref)
                 iobref_unref (local->iobref);
-        if (local->vector)
-                GF_FREE (local->vector);
+        GF_FREE (local->vector);
 
         mem_put (local);
 }

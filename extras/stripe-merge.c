@@ -305,14 +305,10 @@ file_stripe_info *validate_and_open_files(char *paths[], int count)
 	return finfo;
 err:
 
-	if (stripe_count_attr)
-		free(stripe_count_attr);
-	if (stripe_size_attr)
-		free(stripe_size_attr);
-	if (stripe_index_attr)
-		free(stripe_index_attr);
-	if (stripe_coalesce_attr)
-		free(stripe_coalesce_attr);
+	free(stripe_count_attr);
+	free(stripe_size_attr);
+	free(stripe_index_attr);
+	free(stripe_coalesce_attr);
 
 	if (finfo) {
 		close_files(finfo);

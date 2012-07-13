@@ -158,8 +158,7 @@ cb_buffer_destroy (buffer_t *buffer)
         if (buffer) {
                 if (buffer->cb) {
                         for (i = 0; i < buffer->used_len ; i++) {
-                                if (buffer->cb[i])
-                                        GF_FREE (buffer->cb[i]);
+                                GF_FREE (buffer->cb[i]);
                         }
                         GF_FREE (buffer->cb);
                 }

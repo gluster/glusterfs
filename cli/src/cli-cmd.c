@@ -211,8 +211,7 @@ cli_cmd_process_line (struct cli_state *state, const char *text)
 
         ret = cli_cmd_process (state, count, tokens);
 out:
-        if (copy)
-                free (copy);
+        free (copy);
 
         if (tokens)
                 cli_cmd_tokens_destroy (tokens);

@@ -346,8 +346,7 @@ glusterd_hooks_run_hooks (char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
 out:
         if (lines) {
                 for (lineno = 0; lineno < line_count+1; lineno++)
-                        if (lines[lineno])
-                                GF_FREE (lines[lineno]);
+                        GF_FREE (lines[lineno]);
 
                 GF_FREE (lines);
         }
@@ -437,11 +436,9 @@ glusterd_hooks_stub_cleanup (glusterd_hooks_stub_t *stub)
         if (stub->op_ctx)
                 dict_unref (stub->op_ctx);
 
-        if (stub->scriptdir)
-                GF_FREE (stub->scriptdir);
+        GF_FREE (stub->scriptdir);
 
-        if (stub)
-                GF_FREE (stub);
+        GF_FREE (stub);
 }
 
 static void*

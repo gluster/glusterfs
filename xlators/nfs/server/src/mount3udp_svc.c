@@ -78,12 +78,9 @@ mountudpproc3_mnt_3_svc(dirpath **dpp, struct svc_req *req)
         return res;
 
  err:
-        if (fh)
-                GF_FREE (fh);
-        if (res)
-                GF_FREE (res);
-        if (autharr)
-                GF_FREE (autharr);
+        GF_FREE (fh);
+        GF_FREE (res);
+        GF_FREE (autharr);
         return NULL;
 }
 

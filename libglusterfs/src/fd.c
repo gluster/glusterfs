@@ -1057,9 +1057,7 @@ unlock:
         }
 
 out:
-        if (fd_ctx != NULL) {
-                GF_FREE (fd_ctx);
-        }
+        GF_FREE (fd_ctx);
 
         return;
 }

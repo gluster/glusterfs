@@ -697,8 +697,7 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
                 *path = cookie;
         }
 
-        if (mtptemp)
-                GF_FREE (mtptemp);
+        GF_FREE (mtptemp);
 
         return ret;
 }

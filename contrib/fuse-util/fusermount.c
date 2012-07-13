@@ -650,8 +650,7 @@ static int get_string_opt(const char *s, unsigned len, const char *opt,
 	unsigned opt_len = strlen(opt);
 	char *d;
 
-	if (*val)
-		free(*val);
+	free(*val);
 	*val = (char *) malloc(len - opt_len + 1);
 	if (!*val) {
 		fprintf(stderr, "%s: failed to allocate memory\n", progname);

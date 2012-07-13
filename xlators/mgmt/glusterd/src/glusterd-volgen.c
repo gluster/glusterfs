@@ -295,8 +295,7 @@ xlator_instantiate_va (const char *type, const char *format, va_list arg)
  error:
         gf_log ("", GF_LOG_ERROR, "creating xlator of type %s failed",
                 type);
-        if (volname)
-                GF_FREE (volname);
+        GF_FREE (volname);
         if (xl)
                 xlator_destroy (xl);
 
@@ -619,8 +618,7 @@ volopt_trie (char *key, char **hint)
         }
 
  out:
-        if (patt[0])
-                GF_FREE (patt[0]);
+        GF_FREE (patt[0]);
         if (ret)
                 *hint = NULL;
 
@@ -1244,8 +1242,7 @@ volgen_write_volfile (volgen_graph_t *graph, char *filename)
 
  error:
 
-        if (ftmp)
-                GF_FREE (ftmp);
+        GF_FREE (ftmp);
         if (f)
                 fclose (f);
 
@@ -2407,8 +2404,7 @@ volgen_graph_build_dht_cluster (volgen_graph_t *graph,
         }
         ret = 0;
 out:
-        if (decommissioned_children)
-                GF_FREE (decommissioned_children);
+        GF_FREE (decommissioned_children);
         return ret;
 }
 

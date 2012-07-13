@@ -95,8 +95,7 @@ get_switch_matching_subvol (const char *path, dht_conf_t *conf,
                 trav = trav->next;
         }
 out:
-        if (pathname)
-                GF_FREE (pathname);
+        GF_FREE (pathname);
 
         return subvol;
 }
@@ -589,8 +588,7 @@ fini (xlator_t *this)
                 trav = (struct switch_struct *)conf->private;
                 conf->private = NULL;
                 while (trav) {
-                        if (trav->array)
-                                GF_FREE (trav->array);
+                        GF_FREE (trav->array);
                         prev = trav;
                         trav = trav->next;
                         GF_FREE (prev);
@@ -603,11 +601,9 @@ fini (xlator_t *this)
                         GF_FREE (conf->file_layouts);
                 }
 
-                if (conf->subvolumes)
-                        GF_FREE (conf->subvolumes);
+                GF_FREE (conf->subvolumes);
 
-                if (conf->subvolume_status)
-                        GF_FREE (conf->subvolume_status);
+                GF_FREE (conf->subvolume_status);
 
                 GF_FREE (conf);
         }
@@ -822,16 +818,13 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
 
         return 0;
 err:
-        if (switch_buf_array)
-                GF_FREE (switch_buf_array);
-        if (switch_opt)
-                GF_FREE (switch_opt);
+        GF_FREE (switch_buf_array);
+        GF_FREE (switch_opt);
 
         if (switch_buf) {
                 trav = switch_buf;
                 while (trav) {
-                        if (trav->array)
-                                GF_FREE (trav->array);
+                        GF_FREE (trav->array);
                         switch_opt = trav;
                         trav = trav->next;
                         GF_FREE (switch_opt);
@@ -954,14 +947,11 @@ err:
                         GF_FREE (conf->file_layouts);
                 }
 
-                if (conf->subvolumes)
-                        GF_FREE (conf->subvolumes);
+                GF_FREE (conf->subvolumes);
 
-                if (conf->subvolume_status)
-                        GF_FREE (conf->subvolume_status);
+                GF_FREE (conf->subvolume_status);
 
-                if (conf->du_stats)
-                        GF_FREE (conf->du_stats);
+                GF_FREE (conf->du_stats);
 
                 GF_FREE (conf);
         }

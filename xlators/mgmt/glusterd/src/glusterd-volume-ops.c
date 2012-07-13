@@ -234,8 +234,7 @@ out:
                 ret = 0; //Client response sent, prevent second response
         }
 
-        if (free_ptr)
-                GF_FREE(free_ptr);
+        GF_FREE(free_ptr);
 
         glusterd_volume_brickinfos_delete (&tmpvolinfo);
         if (brickinfo)
@@ -299,8 +298,7 @@ glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
 out:
         if (ret && dict)
                 dict_unref (dict);
-        if (cli_req.dict.dict_val)
-                free (cli_req.dict.dict_val); //its malloced by xdr
+        free (cli_req.dict.dict_val); //its malloced by xdr
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
@@ -362,8 +360,7 @@ glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
                     ((ret)?"FAILED":"SUCCESS"));
 
 out:
-        if (cli_req.dict.dict_val)
-                free (cli_req.dict.dict_val); //its malloced by xdr
+        free (cli_req.dict.dict_val); //its malloced by xdr
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
@@ -429,8 +426,7 @@ glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
                    ((ret) ? "FAILED" : "SUCCESS"));
 
 out:
-        if (cli_req.dict.dict_val)
-                free (cli_req.dict.dict_val); //its malloced by xdr
+        free (cli_req.dict.dict_val); //its malloced by xdr
         if (ret && dict)
                 dict_unref (dict);
 
@@ -594,8 +590,7 @@ glusterd_handle_cli_statedump_volume (rpcsvc_request_t *req)
 out:
         if (ret && dict)
                 dict_unref (dict);
-        if (cli_req.dict.dict_val)
-                free (cli_req.dict.dict_val);
+        free (cli_req.dict.dict_val);
         glusterd_friend_sm ();
         glusterd_op_sm();
 
@@ -731,8 +726,7 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
                 brick_info = NULL;
         }
 out:
-        if (free_ptr)
-                GF_FREE (free_ptr);
+        GF_FREE (free_ptr);
         if (brick_info)
                 glusterd_brickinfo_delete (brick_info);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1437,8 +1431,7 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
         list_add_tail (&volinfo->vol_list, &priv->volumes);
         vol_added = _gf_true;
 out:
-        if (free_ptr)
-                GF_FREE(free_ptr);
+        GF_FREE(free_ptr);
         if (!vol_added && volinfo)
                 glusterd_volinfo_delete (volinfo);
         return ret;
@@ -1932,11 +1925,9 @@ out:
                 GF_FREE (xl_opts);
         }
 
-        if (cmd_str)
-                GF_FREE (cmd_str);
+        GF_FREE (cmd_str);
 
-        if (mntpt)
-                GF_FREE (mntpt);
+        GF_FREE (mntpt);
 
         return ret;
 }

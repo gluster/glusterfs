@@ -117,8 +117,7 @@ err:
 	if (parent)
 		inode_unref (parent);
 
-        if (resolvedpath)
-                GF_FREE (resolvedpath);
+        GF_FREE (resolvedpath);
 
         return ret;
 }
@@ -2419,14 +2418,11 @@ marker_xtime_priv_cleanup (xlator_t *this)
 
         GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
-        if (priv->volume_uuid != NULL)
-                GF_FREE (priv->volume_uuid);
+        GF_FREE (priv->volume_uuid);
 
-        if (priv->timestamp_file != NULL)
-                GF_FREE (priv->timestamp_file);
+        GF_FREE (priv->timestamp_file);
 
-        if (priv->marker_xattr != NULL)
-                GF_FREE (priv->marker_xattr);
+        GF_FREE (priv->marker_xattr);
 out:
         return;
 }

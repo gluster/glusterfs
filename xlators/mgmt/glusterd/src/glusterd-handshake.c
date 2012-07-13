@@ -113,8 +113,7 @@ build_volfile_path (const char *volname, char *path,
 
         ret = 1;
 out:
-        if (free_ptr)
-                GF_FREE (free_ptr);
+        GF_FREE (free_ptr);
         return ret;
 }
 
@@ -213,10 +212,8 @@ fail:
 
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (xdrproc_t)xdr_gf_getspec_rsp);
-        if (args.key)
-                free (args.key);//malloced by xdr
-        if (rsp.spec)
-                free (rsp.spec);
+        free (args.key);//malloced by xdr
+        free (rsp.spec);
 
         return 0;
 }
@@ -276,8 +273,7 @@ fail:
                                        (xdrproc_t)xdr_gf_event_notify_rsp);
         if (dict)
                 dict_unref (dict);
-        if (args.dict.dict_val)
-                free (args.dict.dict_val);//malloced by xdr
+        free (args.dict.dict_val);//malloced by xdr
 
         return 0;
 }

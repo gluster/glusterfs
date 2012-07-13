@@ -120,10 +120,8 @@ dht_filter_loc_subvol_key (xlator_t *this, loc_t *loc, loc_t *new_loc,
 out:
         if (!ret) {
                 /* !success */
-                if (new_path)
-                        GF_FREE (new_path);
-                if (new_name)
-                        GF_FREE (new_name);
+                GF_FREE (new_path);
+                GF_FREE (new_name);
         }
         return ret;
 }
@@ -206,16 +204,11 @@ dht_local_wipe (xlator_t *this, dht_local_t *local)
                 local->selfheal.layout = NULL;
         }
 
-        if (local->newpath) {
-                GF_FREE (local->newpath);
-        }
+        GF_FREE (local->newpath);
 
-        if (local->key) {
-                GF_FREE (local->key);
-        }
+        GF_FREE (local->key);
 
-        if (local->rebalance.vector)
-                GF_FREE (local->rebalance.vector);
+        GF_FREE (local->rebalance.vector);
 
         if (local->rebalance.iobref)
                 iobref_unref (local->rebalance.iobref);
@@ -750,8 +743,7 @@ dht_migration_complete_check_task (void *data)
                         tmp_loc.path = path;
                 ret = syncop_open (dst_node, &tmp_loc,
                                    local->fd->flags, local->fd);
-                if (path)
-                        GF_FREE (path);
+                GF_FREE (path);
 
         }
         if (ret == -1) {
@@ -874,8 +866,7 @@ dht_rebalance_inprogress_task (void *data)
                         tmp_loc.path = path;
                 ret = syncop_open (dst_node, &tmp_loc,
                                    local->fd->flags, local->fd);
-                if (path)
-                        GF_FREE (path);
+                GF_FREE (path);
         }
 
         if (ret == -1) {

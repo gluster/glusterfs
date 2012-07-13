@@ -1916,8 +1916,7 @@ nlm4_create_share_reservation (nfs3_call_state_t *cs)
  out:
         if (ret && inode) {
                 inode_unref (inode);
-                if (share)
-                        GF_FREE (share);
+                GF_FREE (share);
         }
 
         UNLOCK (&nlm_client_list_lk);

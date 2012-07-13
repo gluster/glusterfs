@@ -561,16 +561,14 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
 
         new_volinfo->dict = dict_new ();
         if (!new_volinfo->dict) {
-                if (new_volinfo)
-                        GF_FREE (new_volinfo);
+                GF_FREE (new_volinfo);
 
                 goto out;
         }
 
         new_volinfo->gsync_slaves = dict_new ();
         if (!new_volinfo->gsync_slaves) {
-                if (new_volinfo)
-                        GF_FREE (new_volinfo);
+                GF_FREE (new_volinfo);
 
                 goto out;
         }
@@ -591,11 +589,9 @@ glusterd_auth_cleanup (glusterd_volinfo_t *volinfo) {
 
         GF_ASSERT (volinfo);
 
-        if (volinfo->auth.username)
-                GF_FREE (volinfo->auth.username);
+        GF_FREE (volinfo->auth.username);
 
-        if (volinfo->auth.password)
-                GF_FREE (volinfo->auth.password);
+        GF_FREE (volinfo->auth.password);
 }
 
 char *
@@ -643,8 +639,7 @@ glusterd_brickinfo_delete (glusterd_brickinfo_t *brickinfo)
 
         list_del_init (&brickinfo->brick_list);
 
-        if (brickinfo->logfile)
-                GF_FREE (brickinfo->logfile);
+        GF_FREE (brickinfo->logfile);
         GF_FREE (brickinfo);
 
         ret = 0;
@@ -689,8 +684,7 @@ glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
                 dict_unref (volinfo->dict);
         if (volinfo->gsync_slaves)
                 dict_unref (volinfo->gsync_slaves);
-        if (volinfo->logdir)
-                GF_FREE (volinfo->logdir);
+        GF_FREE (volinfo->logdir);
 
         glusterd_auth_cleanup (volinfo);
 
@@ -779,8 +773,7 @@ glusterd_brickinfo_from_brick (char *brick,
 
         ret = 0;
 out:
-        if (tmp_host)
-                GF_FREE (tmp_host);
+        GF_FREE (tmp_host);
         if (tmp_host)
                 GF_FREE (tmp_path);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
@@ -877,10 +870,8 @@ glusterd_volume_brickinfo_get_by_brick (char *brick,
         ret = glusterd_volume_brickinfo_get (NULL, hostname, path, volinfo,
                                              brickinfo, path_match);
 out:
-        if (tmp_host)
-                GF_FREE (tmp_host);
-        if (tmp_path)
-                GF_FREE (tmp_path);
+        GF_FREE (tmp_host);
+        GF_FREE (tmp_path);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -917,8 +908,7 @@ glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
                 peerinfo->rpc = rpc_clnt_unref (peerinfo->rpc);
                 peerinfo->rpc = NULL;
                 if (peerctx) {
-                        if (peerctx->errstr)
-                                GF_FREE (peerctx->errstr);
+                        GF_FREE (peerctx->errstr);
                         GF_FREE (peerctx);
                 }
         }
@@ -1482,8 +1472,7 @@ glusterd_sort_and_redirect (const char *src_filepath, int dest_fd)
 
         ret = 0;
  out:
-        if (lines)
-                GF_FREE (lines);
+        GF_FREE (lines);
 
         return ret;
 }
@@ -3148,8 +3137,7 @@ glusterd_remote_hostname_get (rpcsvc_request_t *req, char *remote_host, int len)
 
 
 out:
-        if (tmp_host)
-                GF_FREE (tmp_host);
+        GF_FREE (tmp_host);
         return ret;
 }
 
@@ -3635,8 +3623,7 @@ glusterd_get_brick_root (char *path, char **mount_point)
         return 0;
 
  err:
-        if (*mount_point)
-                GF_FREE (*mount_point);
+        GF_FREE (*mount_point);
         return -1;
 }
 
@@ -3818,8 +3805,7 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
         ret = dict_set_dynstr (dict, key, mnt_options);
 
  out:
-        if (mnt_pt)
-                GF_FREE (mnt_pt);
+        GF_FREE (mnt_pt);
         return ret;
 }
 #endif
@@ -4667,8 +4653,7 @@ glusterd_sm_tr_log_delete (glusterd_sm_tr_log_t *log)
 {
         if (!log)
                 return;
-        if (log->transitions)
-                GF_FREE (log->transitions);
+        GF_FREE (log->transitions);
         return;
 }
 
@@ -4766,8 +4751,7 @@ glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo)
         }
 
         list_del_init (&peerinfo->uuid_list);
-        if (peerinfo->hostname)
-                GF_FREE (peerinfo->hostname);
+        GF_FREE (peerinfo->hostname);
         glusterd_sm_tr_log_delete (&peerinfo->sm_log);
         GF_FREE (peerinfo);
         peerinfo = NULL;
@@ -5078,8 +5062,7 @@ glusterd_set_dump_options (char *dumpoptions_path, char *options,
 out:
         if (fp)
                 fclose (fp);
-        if (dup_options)
-                GF_FREE (dup_options);
+        GF_FREE (dup_options);
         return ret;
 }
 
@@ -5231,8 +5214,7 @@ out:
         if (pidfile)
                 fclose (pidfile);
         unlink (dumpoptions_path);
-        if (dup_options)
-                GF_FREE (dup_options);
+        GF_FREE (dup_options);
         return ret;
 }
 

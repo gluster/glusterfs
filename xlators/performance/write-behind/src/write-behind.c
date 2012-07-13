@@ -577,9 +577,7 @@ out:
                 iobref_unref (iobref);
         }
 
-        if (vector != NULL) {
-                GF_FREE (vector);
-        }
+        GF_FREE (vector);
 
         if (bytes == -1) {
                 /*
@@ -2963,8 +2961,7 @@ init (xlator_t *this)
 
 out:
         if (ret) {
-                if (conf)
-                        GF_FREE (conf);
+                GF_FREE (conf);
         }
         return ret;
 }

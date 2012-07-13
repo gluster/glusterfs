@@ -185,8 +185,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         ret = glusterd_submit_reply (req, cli_rsp, NULL, 0, NULL,
                                      xdrproc);
 
-        if (free_ptr)
-                GF_FREE (free_ptr);
+        GF_FREE (free_ptr);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -288,8 +287,7 @@ glusterd_probe_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("glusterd", GF_LOG_INFO, "Received resp to probe req");
 
 out:
-        if (rsp.hostname)
-                free (rsp.hostname);//malloced by xdr
+        free (rsp.hostname);//malloced by xdr
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
@@ -382,8 +380,7 @@ out:
         }
         if (ctx)
                 glusterd_destroy_probe_ctx (ctx);
-        if (rsp.hostname)
-                free (rsp.hostname);//malloced by xdr
+        free (rsp.hostname);//malloced by xdr
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
@@ -477,8 +474,7 @@ respond:
                 glusterd_destroy_probe_ctx (ctx);
         }
 
-        if (rsp.hostname)
-                free (rsp.hostname);//malloced by xdr
+        free (rsp.hostname);//malloced by xdr
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
@@ -925,15 +921,13 @@ out:
                 glusterd_op_sm ();
         }
 
-        if (rsp.op_errstr)
-                free (rsp.op_errstr); //malloced by xdr
+        free (rsp.op_errstr); //malloced by xdr
         if (dict) {
                 if (!dict->extra_stdfree && rsp.dict.dict_val)
                         free (rsp.dict.dict_val); //malloced by xdr
                 dict_unref (dict);
         } else {
-                if (rsp.dict.dict_val)
-                        free (rsp.dict.dict_val); //malloced by xdr
+                free (rsp.dict.dict_val); //malloced by xdr
         }
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
@@ -1422,8 +1416,7 @@ out:
 
         if (dict)
                 dict_unref (dict);
-        if (rsp.op_errstr)
-                free (rsp.op_errstr); //malloced by xdr
+        free (rsp.op_errstr); //malloced by xdr
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
@@ -1472,8 +1465,7 @@ glusterd_rpc_probe (call_frame_t *frame, xlator_t *this,
                                        (xdrproc_t)xdr_gd1_mgmt_probe_req);
 
 out:
-        if (req.hostname)
-                GF_FREE (req.hostname);
+        GF_FREE (req.hostname);
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -1523,8 +1515,7 @@ glusterd_rpc_friend_add (call_frame_t *frame, xlator_t *this,
 
 
 out:
-        if (req.vols.vols_val)
-                GF_FREE (req.vols.vols_val);
+        GF_FREE (req.vols.vols_val);
 
         if (vols)
                 dict_unref (vols);
@@ -1606,8 +1597,7 @@ glusterd_rpc_friend_update (call_frame_t *frame, xlator_t *this,
                                        (xdrproc_t)xdr_gd1_mgmt_friend_update);
 
 out:
-        if (req.friends.friends_val)
-                GF_FREE (req.friends.friends_val);
+        GF_FREE (req.friends.friends_val);
 
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -1882,8 +1872,7 @@ out:
 
         if (ret && dict)
                 dict_unref (dict);
-        if (rsp.op_errstr)
-                free (rsp.op_errstr); //malloced by xdr
+        free (rsp.op_errstr); //malloced by xdr
         GLUSTERD_STACK_DESTROY (frame);
         return ret;
 }
@@ -1951,8 +1940,7 @@ glusterd_brick_op (call_frame_t *frame, xlator_t *this,
                                 opinfo.brick_pending_count = 0;
                                 ret = 0;
                                 if (req) {
-                                        if (req->input.input_val)
-                                                GF_FREE (req->input.input_val);
+                                        GF_FREE (req->input.input_val);
                                         GF_FREE (req);
                                         req = NULL;
                                 }
@@ -1979,8 +1967,7 @@ glusterd_brick_op (call_frame_t *frame, xlator_t *this,
                                                this, glusterd_brick_op_cbk,
                                                (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
                 if (req) {
-                        if (req->input.input_val)
-                                GF_FREE (req->input.input_val);
+                        GF_FREE (req->input.input_val);
                         GF_FREE (req);
                         req = NULL;
                 }

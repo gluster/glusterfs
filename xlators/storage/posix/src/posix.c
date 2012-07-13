@@ -2070,8 +2070,7 @@ __posix_writev (int fd, struct iovec *vector, int count, off_t startoff,
         }
 
 err:
-        if (alloc_buf)
-                GF_FREE (alloc_buf);
+        GF_FREE (alloc_buf);
 
         return op_ret;
 }
@@ -3280,11 +3279,9 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         }
 
 out:
-        if (array)
-                GF_FREE (array);
+        GF_FREE (array);
 
-        if (path)
-                GF_FREE (path);
+        GF_FREE (path);
 
         STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, xattr, NULL);
         return 0;
@@ -3872,8 +3869,7 @@ out:
         STACK_UNWIND_STRICT (rchecksum, frame, op_ret, op_errno,
                              weak_checksum, strong_checksum, NULL);
 
-        if (buf)
-                GF_FREE (buf);
+        GF_FREE (buf);
 
         return 0;
 }

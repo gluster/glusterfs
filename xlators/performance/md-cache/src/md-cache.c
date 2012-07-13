@@ -222,8 +222,7 @@ mdc_local_wipe (xlator_t *this, mdc_local_t *local)
         if (local->fd)
                 fd_unref (local->fd);
 
-        if (local->linkname)
-                GF_FREE (local->linkname);
+        GF_FREE (local->linkname);
 
         if (local->xattr)
                 dict_unref (local->xattr);
@@ -249,8 +248,7 @@ mdc_inode_wipe (xlator_t *this, inode_t *inode)
         if (mdc->xattr)
                 dict_unref (mdc->xattr);
 
-        if (mdc->linkname)
-                GF_FREE (mdc->linkname);
+        GF_FREE (mdc->linkname);
 
         GF_FREE (mdc);
 

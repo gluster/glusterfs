@@ -988,8 +988,7 @@ afr_sh_data_fstat (call_frame_t *frame, xlator_t *this)
         }
         GF_ASSERT (!call_count);
 out:
-        if (fstat_children)
-                GF_FREE (fstat_children);
+        GF_FREE (fstat_children);
         return 0;
 }
 
@@ -1130,8 +1129,7 @@ out:
                 dict_unref (xattr_req);
 
         if (ret) {
-                if (zero_pending)
-                        GF_FREE (zero_pending);
+                GF_FREE (zero_pending);
                 afr_sh_data_fail (frame, this);
         }
 

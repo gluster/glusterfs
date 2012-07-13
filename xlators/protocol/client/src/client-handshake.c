@@ -347,8 +347,7 @@ out:
                              rsp.spec);
 
         /* Don't use 'GF_FREE', this is allocated by libc */
-        if (rsp.spec)
-                free (rsp.spec);
+        free (rsp.spec);
 
         return 0;
 }
@@ -1460,8 +1459,7 @@ out:
                 ret = 0;
         }
 
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val);
+        free (rsp.dict.dict_val);
 
         STACK_DESTROY (frame->root);
 
@@ -1582,8 +1580,7 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
                                      (xdrproc_t)xdr_gf_setvolume_req);
 
 fail:
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
 
         return ret;
 }

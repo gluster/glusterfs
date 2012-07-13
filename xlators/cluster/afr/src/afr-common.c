@@ -228,8 +228,7 @@ afr_inode_ctx_get_from_addr (uint64_t addr, int32_t child_count)
         ret = 0;
 out:
         if (ret && ctx) {
-                if (ctx->fresh_children)
-                        GF_FREE (ctx->fresh_children);
+                GF_FREE (ctx->fresh_children);
                 GF_FREE (ctx);
                 ctx = NULL;
         }
@@ -774,11 +773,9 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
         sh = &local->self_heal;
         priv = this->private;
 
-        if (sh->buf)
-                GF_FREE (sh->buf);
+        GF_FREE (sh->buf);
 
-        if (sh->parentbufs)
-                GF_FREE (sh->parentbufs);
+        GF_FREE (sh->parentbufs);
 
         if (sh->inode)
                 inode_unref (sh->inode);
@@ -788,46 +785,36 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
                 GF_FREE (sh->xattr);
         }
 
-        if (sh->child_errno)
-                GF_FREE (sh->child_errno);
+        GF_FREE (sh->child_errno);
 
         afr_matrix_cleanup (sh->pending_matrix, priv->child_count);
         afr_matrix_cleanup (sh->delta_matrix, priv->child_count);
 
-        if (sh->sources)
-                GF_FREE (sh->sources);
+        GF_FREE (sh->sources);
 
-        if (sh->success)
-                GF_FREE (sh->success);
+        GF_FREE (sh->success);
 
-        if (sh->locked_nodes)
-                GF_FREE (sh->locked_nodes);
+        GF_FREE (sh->locked_nodes);
 
         if (sh->healing_fd) {
                 fd_unref (sh->healing_fd);
                 sh->healing_fd = NULL;
         }
 
-        if (sh->linkname)
-                GF_FREE ((char *)sh->linkname);
+        GF_FREE ((char *)sh->linkname);
 
-        if (sh->success_children)
-                GF_FREE (sh->success_children);
+        GF_FREE (sh->success_children);
 
-        if (sh->fresh_children)
-                GF_FREE (sh->fresh_children);
+        GF_FREE (sh->fresh_children);
 
-        if (sh->fresh_parent_dirs)
-                GF_FREE (sh->fresh_parent_dirs);
+        GF_FREE (sh->fresh_parent_dirs);
 
         loc_wipe (&sh->parent_loc);
         loc_wipe (&sh->lookup_loc);
 
-        if (sh->checksum)
-                GF_FREE (sh->checksum);
+        GF_FREE (sh->checksum);
 
-        if (sh->write_needed)
-                GF_FREE (sh->write_needed);
+        GF_FREE (sh->write_needed);
         if (sh->healing_fd)
                 fd_unref (sh->healing_fd);
 }
@@ -844,17 +831,13 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
         afr_matrix_cleanup (local->transaction.txn_changelog,
                             priv->child_count);
 
-        if (local->internal_lock.locked_nodes)
-                GF_FREE (local->internal_lock.locked_nodes);
+        GF_FREE (local->internal_lock.locked_nodes);
 
-        if (local->internal_lock.inode_locked_nodes)
-                GF_FREE (local->internal_lock.inode_locked_nodes);
+        GF_FREE (local->internal_lock.inode_locked_nodes);
 
-        if (local->internal_lock.entry_locked_nodes)
-                GF_FREE (local->internal_lock.entry_locked_nodes);
+        GF_FREE (local->internal_lock.entry_locked_nodes);
 
-        if (local->internal_lock.lower_locked_nodes)
-                GF_FREE (local->internal_lock.lower_locked_nodes);
+        GF_FREE (local->internal_lock.lower_locked_nodes);
 
 
         GF_FREE (local->transaction.pre_op);
@@ -894,17 +877,13 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
         if (local->dict)
                 dict_unref (local->dict);
 
-        if (local->child_up)
-                GF_FREE (local->child_up);
+        GF_FREE (local->child_up);
 
-        if (local->child_errno)
-                GF_FREE (local->child_errno);
+        GF_FREE (local->child_errno);
 
-        if (local->fresh_children)
-                GF_FREE (local->fresh_children);
+        GF_FREE (local->fresh_children);
 
-        if (local->fd_open_on)
-                GF_FREE (local->fd_open_on);
+        GF_FREE (local->fd_open_on);
 
         { /* lookup */
                 if (local->cont.lookup.xattrs) {
@@ -922,27 +901,21 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
                         inode_unref (local->cont.lookup.inode);
                 }
 
-                if (local->cont.lookup.postparents)
-                        GF_FREE (local->cont.lookup.postparents);
+                GF_FREE (local->cont.lookup.postparents);
 
-                if (local->cont.lookup.bufs)
-                        GF_FREE (local->cont.lookup.bufs);
+                GF_FREE (local->cont.lookup.bufs);
 
-                if (local->cont.lookup.success_children)
-                        GF_FREE (local->cont.lookup.success_children);
+                GF_FREE (local->cont.lookup.success_children);
 
-                if (local->cont.lookup.sources)
-                        GF_FREE (local->cont.lookup.sources);
+                GF_FREE (local->cont.lookup.sources);
         }
 
         { /* getxattr */
-                if (local->cont.getxattr.name)
-                        GF_FREE (local->cont.getxattr.name);
+                GF_FREE (local->cont.getxattr.name);
         }
 
         { /* lk */
-                if (local->cont.lk.locked_nodes)
-                        GF_FREE (local->cont.lk.locked_nodes);
+                GF_FREE (local->cont.lk.locked_nodes);
         }
 
         { /* create */
@@ -997,8 +970,7 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
         }
 
         { /* opendir */
-                if (local->cont.opendir.checksum)
-                        GF_FREE (local->cont.opendir.checksum);
+                GF_FREE (local->cont.opendir.checksum);
         }
 
         { /* readdirp */
@@ -2632,28 +2604,22 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
         fd_ctx = (afr_fd_ctx_t *)(long) ctx;
 
         if (fd_ctx) {
-                if (fd_ctx->pre_op_done)
-                        GF_FREE (fd_ctx->pre_op_done);
+                GF_FREE (fd_ctx->pre_op_done);
 
-                if (fd_ctx->opened_on)
-                        GF_FREE (fd_ctx->opened_on);
+                GF_FREE (fd_ctx->opened_on);
 
-                if (fd_ctx->locked_on)
-                        GF_FREE (fd_ctx->locked_on);
+                GF_FREE (fd_ctx->locked_on);
 
-                if (fd_ctx->pre_op_piggyback)
-                        GF_FREE (fd_ctx->pre_op_piggyback);
+                GF_FREE (fd_ctx->pre_op_piggyback);
                 list_for_each_entry_safe (paused_call, tmp, &fd_ctx->paused_calls,
                                           call_list) {
                         list_del_init (&paused_call->call_list);
                         GF_FREE (paused_call);
                 }
 
-                if (fd_ctx->lock_piggyback)
-                        GF_FREE (fd_ctx->lock_piggyback);
+                GF_FREE (fd_ctx->lock_piggyback);
 
-                if (fd_ctx->lock_acquired)
-                        GF_FREE (fd_ctx->lock_acquired);
+                GF_FREE (fd_ctx->lock_acquired);
 
 		pthread_mutex_destroy (&fd_ctx->delay_lock);
 
@@ -3615,8 +3581,7 @@ afr_forget (xlator_t *this, inode_t *inode)
                 goto out;
 
         ctx = (afr_inode_ctx_t *)(long)ctx_addr;
-        if (ctx->fresh_children)
-                GF_FREE (ctx->fresh_children);
+        GF_FREE (ctx->fresh_children);
         GF_FREE (ctx);
 out:
         return 0;

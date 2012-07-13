@@ -61,19 +61,16 @@ server_loc_wipe (loc_t *loc)
                 loc->inode = NULL;
         }
 
-        if (loc->path)
-                GF_FREE ((void *)loc->path);
+        GF_FREE ((void *)loc->path);
 }
 
 
 void
 server_resolve_wipe (server_resolve_t *resolve)
 {
-        if (resolve->path)
-                GF_FREE ((void *)resolve->path);
+        GF_FREE ((void *)resolve->path);
 
-        if (resolve->bname)
-                GF_FREE ((void *)resolve->bname);
+        GF_FREE ((void *)resolve->bname);
 
         loc_wipe (&resolve->resolve_loc);
 }
@@ -121,11 +118,9 @@ free_state (server_state_t *state)
                 state->xdata = NULL;
         }
 
-        if (state->volume)
-                GF_FREE ((void *)state->volume);
+        GF_FREE ((void *)state->volume);
 
-        if (state->name)
-                GF_FREE ((void *)state->name);
+        GF_FREE ((void *)state->name);
 
         server_loc_wipe (&state->loc);
         server_loc_wipe (&state->loc2);
@@ -528,8 +523,7 @@ do_connection_cleanup (xlator_t *this, server_connection_t *conn,
         }
 
         state = CALL_STATE (frame);
-        if (state)
-                GF_FREE (state);
+        GF_FREE (state);
 
         STACK_DESTROY (frame->root);
 
@@ -1294,8 +1288,7 @@ serialize_rsp_direntp (gf_dirent_t *entries, gfs3_readdirp_rsp *rsp)
 
         ret = 0;
 out:
-        if (trav)
-                GF_FREE (trav);
+        GF_FREE (trav);
 
         return ret;
 }
@@ -1361,8 +1354,7 @@ readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp)
         prev = trav;
         while (trav) {
                 trav = trav->nextentry;
-                if (prev->dict.dict_val)
-                        GF_FREE (prev->dict.dict_val);
+                GF_FREE (prev->dict.dict_val);
                 GF_FREE (prev);
                 prev = trav;
         }
