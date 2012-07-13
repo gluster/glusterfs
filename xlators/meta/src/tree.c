@@ -123,7 +123,7 @@ lookup_meta_entry (meta_dirent_t *root, const char *path,
 	    gf_asprintf (remain, "/%s/%s", *remain, piece);
 	  else
 	    gf_asprintf (remain, "/%s", piece);
-	  if (tmp) GF_FREE (tmp);
+	  GF_FREE (tmp);
 	  piece = strtok (NULL, "/");
 	}
       }

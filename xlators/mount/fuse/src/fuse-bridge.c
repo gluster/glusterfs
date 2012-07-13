@@ -2444,8 +2444,7 @@ fuse_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 out:
         free_fuse_state (state);
         STACK_DESTROY (frame->root);
-        if (buf)
-                GF_FREE (buf);
+        GF_FREE (buf);
         return 0;
 
 }
@@ -4687,8 +4686,7 @@ cleanup_exit:
                         close (priv->fuse_dump_fd);
                 GF_FREE (priv);
         }
-        if (mnt_args)
-                GF_FREE (mnt_args);
+        GF_FREE (mnt_args);
         return -1;
 }
 

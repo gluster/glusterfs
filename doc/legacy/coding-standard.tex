@@ -370,8 +370,7 @@ sample_fop (call_frame_t *frame, xlator_t *this, ...)
                 }
 
                 if (pfd) {
-                        if (pfd->path)
-                                FREE (pfd->path);
+                        FREE (pfd->path);
                         FREE (pfd);
                         pfd = NULL;
                 }

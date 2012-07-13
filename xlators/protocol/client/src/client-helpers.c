@@ -133,9 +133,7 @@ client_local_wipe (clnt_local_t *local)
                         iobref_unref (local->iobref);
                 }
 
-                if (local->name) {
-                        GF_FREE (local->name);
-                }
+                GF_FREE (local->name);
 
                 mem_put (local);
         }

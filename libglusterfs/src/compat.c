@@ -142,8 +142,7 @@ done:
                 *path = export_path;
         }
 out:
-        if (freeptr)
-                GF_FREE (freeptr);
+        GF_FREE (freeptr);
         if (ret && export_path)
                 GF_FREE (export_path);
 
@@ -195,8 +194,7 @@ solaris_xattr_resolve_path (const char *real_path, char **path)
                 *path = gf_strdup (xattr_path);
         }
 out:
-        if (export_path)
-                GF_FREE (export_path);
+        GF_FREE (export_path);
         if (*path)
                 return 0;
         else
@@ -230,8 +228,7 @@ solaris_setxattr(const char *path, const char* key, const char *value,
                                 path, errno);
                 ret = -1;
         }
-        if (mapped_path)
-                GF_FREE (mapped_path);
+        GF_FREE (mapped_path);
         return ret;
 }
 
@@ -297,8 +294,7 @@ solaris_listxattr(const char *path, char *list, size_t size)
                 close (attrdirfd);
         }
 out:
-        if (mapped_path)
-                GF_FREE (mapped_path);
+        GF_FREE (mapped_path);
         return len;
 }
 
@@ -380,8 +376,7 @@ solaris_removexattr(const char *path, const char* key)
                 ret = -1;
         }
 
-        if (mapped_path)
-                GF_FREE (mapped_path);
+        GF_FREE (mapped_path);
 
         return ret;
 }
@@ -421,8 +416,7 @@ solaris_getxattr(const char *path,
                         errno = ENODATA;
                 ret = -1;
         }
-        if (mapped_path)
-                GF_FREE (mapped_path);
+        GF_FREE (mapped_path);
         return ret;
 }
 
@@ -494,8 +488,7 @@ int solaris_unlink (const char *path)
         }
 
 out:
-        if (mapped_path)
-                GF_FREE (mapped_path);
+        GF_FREE (mapped_path);
 
         return  unlink (path);
 }

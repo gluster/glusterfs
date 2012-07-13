@@ -126,8 +126,7 @@ static pthread_key_t this_xlator_key;
 void
 glusterfs_this_destroy (void *ptr)
 {
-        if (ptr)
-                FREE (ptr);
+        FREE (ptr);
 }
 
 
@@ -254,8 +253,7 @@ static char global_uuid_buf[GF_UUID_BUF_SIZE];
 void
 glusterfs_uuid_buf_destroy (void *ptr)
 {
-        if (ptr)
-                FREE (ptr);
+        FREE (ptr);
 }
 
 int
@@ -291,8 +289,7 @@ static char global_lkowner_buf[GF_LKOWNER_BUF_SIZE];
 void
 glusterfs_lkowner_buf_destroy (void *ptr)
 {
-        if (ptr)
-                FREE (ptr);
+        FREE (ptr);
 }
 
 int

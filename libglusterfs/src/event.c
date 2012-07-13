@@ -376,8 +376,7 @@ event_dispatch_poll_resize (struct event_pool *event_pool,
                 }
 
                 if (event_pool->used > event_pool->evcache_size) {
-                        if (event_pool->evcache)
-                                GF_FREE (event_pool->evcache);
+                        GF_FREE (event_pool->evcache);
 
                         event_pool->evcache = ufds = NULL;
 
@@ -808,8 +807,7 @@ event_dispatch_epoll (struct event_pool *event_pool)
                                                    &event_pool->mutex);
 
                         if (event_pool->used > event_pool->evcache_size) {
-                                if (event_pool->evcache)
-                                        GF_FREE (event_pool->evcache);
+                                GF_FREE (event_pool->evcache);
 
                                 event_pool->evcache = events = NULL;
 

@@ -317,13 +317,11 @@ found_bad_brick_order:
 out:
         ai_list_tmp2 = NULL;
         i = 0;
-        if (brick_list_dup)
-                GF_FREE (brick_list_dup);
+        GF_FREE (brick_list_dup);
         list_for_each_entry (ai_list_tmp1, &ai_list->list, list) {
                 if (ai_list_tmp1->info)
                         freeaddrinfo (ai_list_tmp1->info);
-                if (ai_list_tmp2)
-                        free (ai_list_tmp2);
+                free (ai_list_tmp2);
                 ai_list_tmp2 = ai_list_tmp1;
         }
         free (ai_list_tmp2);

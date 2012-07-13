@@ -218,8 +218,7 @@ gf_auth (dict_t *input_params, dict_t *config_params)
         }
 
 out:
-        if (addr_cpy)
-                GF_FREE (addr_cpy);
+        GF_FREE (addr_cpy);
 
         return result;
 }

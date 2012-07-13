@@ -476,8 +476,7 @@ pl_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 out:
         STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict, xdata);
 
-        if (args.opts)
-                GF_FREE (args.opts);
+        GF_FREE (args.opts);
         if (op_ret && lk_summary)
                 GF_FREE (lk_summary);
         if (dict)
@@ -1351,8 +1350,7 @@ pl_forget (xlator_t *this,
                                 list_for_each_entry_safe (entry_l, entry_tmp, &dom->entrylk_list, domain_list) {
                                         list_del_init (&entry_l->domain_list);
 
-                                        if (entry_l->basename)
-                                                GF_FREE ((char *)entry_l->basename);
+                                        GF_FREE ((char *)entry_l->basename);
                                         GF_FREE (entry_l);
                                 }
 
@@ -1385,8 +1383,7 @@ pl_forget (xlator_t *this,
         list_for_each_entry_safe (entry_l, entry_tmp, &entrylks_released, blocked_locks) {
 
                 STACK_UNWIND_STRICT (entrylk, entry_l->frame, -1, 0, NULL);
-                if (entry_l->basename)
-                        GF_FREE ((char *)entry_l->basename);
+                GF_FREE ((char *)entry_l->basename);
                 GF_FREE (entry_l);
 
         }
@@ -2033,8 +2030,7 @@ pl_dump_inode_priv (xlator_t *this, inode_t *inode)
         }
 
 out:
-        if (pathname)
-                GF_FREE (pathname);
+        GF_FREE (pathname);
 
         return ret;
 }
@@ -2120,8 +2116,7 @@ init (xlator_t *this)
 
 out:
         if (ret) {
-                if (priv)
-                        GF_FREE (priv);
+                GF_FREE (priv);
         }
         return ret;
 }

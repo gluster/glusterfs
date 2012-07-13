@@ -213,11 +213,9 @@ fini (xlator_t *this)
                         GF_FREE (conf->file_layouts);
                 }
 
-                if (conf->subvolumes)
-                        GF_FREE (conf->subvolumes);
+                GF_FREE (conf->subvolumes);
 
-                if (conf->subvolume_status)
-                        GF_FREE (conf->subvolume_status);
+                GF_FREE (conf->subvolume_status);
 
                 GF_FREE (conf);
         }
@@ -280,8 +278,7 @@ dht_parse_decommissioned_bricks (xlator_t *this, dht_conf_t *conf,
         ret = 0;
         conf->decommission_in_progress = 1;
 out:
-        if (dup_brick)
-                GF_FREE (dup_brick);
+        GF_FREE (dup_brick);
 
         return ret;
 }
@@ -483,17 +480,13 @@ err:
                         GF_FREE (conf->file_layouts);
                 }
 
-                if (conf->subvolumes)
-                        GF_FREE (conf->subvolumes);
+                GF_FREE (conf->subvolumes);
 
-                if (conf->subvolume_status)
-                        GF_FREE (conf->subvolume_status);
+                GF_FREE (conf->subvolume_status);
 
-                if (conf->du_stats)
-                        GF_FREE (conf->du_stats);
+                GF_FREE (conf->du_stats);
 
-                if (conf->defrag)
-                        GF_FREE (conf->defrag);
+                GF_FREE (conf->defrag);
 
                 GF_FREE (conf);
         }

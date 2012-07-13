@@ -187,8 +187,7 @@ _posix_xattr_get_set (dict_t *xattr_req,
                 err:
                         if (_fd != -1)
                                 close (_fd);
-                        if (databuf)
-                                GF_FREE (databuf);
+                        GF_FREE (databuf);
                 }
         } else if (!strcmp (key, GLUSTERFS_OPEN_FD_COUNT)) {
                 loc = filler->loc;
@@ -639,8 +638,7 @@ posix_get_file_contents (xlator_t *this, uuid_t pargfid,
 
 out:
         if (op_ret < 0) {
-                if (*contents)
-                        GF_FREE (*contents);
+                GF_FREE (*contents);
                 if (file_fd != -1)
                         close (file_fd);
         }

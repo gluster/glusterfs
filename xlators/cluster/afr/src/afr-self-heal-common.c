@@ -474,8 +474,7 @@ afr_mark_biggest_of_fools_as_source (int32_t *sources, int32_t **pending_matrix,
                                                        characters, child_count,
                                                        biggest_witness);
 out:
-        if (witnesses)
-                GF_FREE (witnesses);
+        GF_FREE (witnesses);
         return nsources;
 }
 

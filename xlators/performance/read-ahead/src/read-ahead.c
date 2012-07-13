@@ -1071,9 +1071,7 @@ init (xlator_t *this)
 
 out:
         if (ret == -1) {
-                if (conf != NULL) {
-                        GF_FREE (conf);
-                }
+                GF_FREE (conf);
         }
 
         return ret;

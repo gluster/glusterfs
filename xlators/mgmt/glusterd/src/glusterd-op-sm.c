@@ -489,8 +489,7 @@ out:
         if (val_dict)
                 dict_unref (val_dict);
 
-        if (key_fixed)
-                GF_FREE (key_fixed);
+        GF_FREE (key_fixed);
 
         if (ret) {
                 if (!(*op_errstr)) {
@@ -568,8 +567,7 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
         }
 
 out:
-        if (key_fixed)
-                GF_FREE (key_fixed);
+        GF_FREE (key_fixed);
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
@@ -959,8 +957,7 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
         ret = 0;
 
 out:
-        if (key_fixed)
-                GF_FREE (key_fixed);
+        GF_FREE (key_fixed);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -1235,8 +1232,7 @@ glusterd_op_set_volume (dict_t *dict)
 
         ret = 0;
  out:
-        if (key_fixed)
-                GF_FREE (key_fixed);
+        GF_FREE (key_fixed);
         gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
         return ret;
 }

@@ -85,8 +85,7 @@ shd_cleanup_event (void *event)
 
         if (!shd_event)
                 goto out;
-        if (shd_event->path)
-                GF_FREE (shd_event->path);
+        GF_FREE (shd_event->path);
         GF_FREE (shd_event);
 out:
         return;

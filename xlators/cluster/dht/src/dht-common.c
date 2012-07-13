@@ -1784,8 +1784,7 @@ dht_vgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 ret = dict_set_dynstr (dict, local->xsel, xattr_buf);
 
-                if (local->xattr_val)
-                        GF_FREE (local->xattr_val);
+                GF_FREE (local->xattr_val);
 
                 DHT_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict,
                                   xdata);

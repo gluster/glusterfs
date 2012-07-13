@@ -170,8 +170,7 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         GF_FREE (cookie);
-        if (tmp_str)
-                GF_FREE (tmp_str);
+        GF_FREE (tmp_str);
 
         return 0;
 }
@@ -442,8 +441,7 @@ trash_rename_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         GF_FREE (cookie); /* strdup (dir_name) was sent here :) */
-        if (tmp_str)
-                GF_FREE (tmp_str);
+        GF_FREE (tmp_str);
 
         return 0;
 }
@@ -924,8 +922,7 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         GF_FREE (cookie); /* strdup (dir_name) was sent here :) */
-        if (tmp_str)
-                GF_FREE (tmp_str);
+        GF_FREE (tmp_str);
 
         return 0;
 }
@@ -1287,8 +1284,7 @@ trash_ftruncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         GF_FREE (cookie); /* strdup (dir_name) was sent here :) */
-        if (tmp_str)
-                GF_FREE (tmp_str);
+        GF_FREE (tmp_str);
 
         return 0;
 }
@@ -1522,8 +1518,7 @@ fini (xlator_t *this)
         trash_private_t *priv = NULL;
 
         priv = this->private;
-        if (priv)
-                GF_FREE (priv);
+        GF_FREE (priv);
 
         return;
 }

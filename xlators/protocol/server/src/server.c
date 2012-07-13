@@ -619,8 +619,7 @@ validate_auth_options (xlator_t *this, dict_t *dict)
         }
 
 out:
-        if (tmp_addr_list)
-                GF_FREE (tmp_addr_list);
+        GF_FREE (tmp_addr_list);
         return error;
 }
 
@@ -865,8 +864,7 @@ reconfigure (xlator_t *this, dict_t *options)
         /*ret = dict_get_str (options, "statedump-path", &statedump_path);
         if (!ret) {
                 gf_path_strip_trailing_slashes (statedump_path);
-                if (this->ctx->statedump_path)
-                        GF_FREE (this->ctx->statedump_path);
+                GF_FREE (this->ctx->statedump_path);
                 this->ctx->statedump_path = gf_strdup (statedump_path);
         }*/
         GF_OPTION_RECONF ("statedump-path", statedump_path,
@@ -878,8 +876,7 @@ reconfigure (xlator_t *this, dict_t *options)
                 goto out;
         }
         gf_path_strip_trailing_slashes (statedump_path);
-        if (this->ctx->statedump_path)
-                GF_FREE (this->ctx->statedump_path);
+        GF_FREE (this->ctx->statedump_path);
         this->ctx->statedump_path = gf_strdup (statedump_path);
 
         if (!conf->auth_modules)

@@ -121,8 +121,7 @@ auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
         }
 
 out:
-        if (username_cpy)
-                GF_FREE (username_cpy);
+        GF_FREE (username_cpy);
 
         return result;
 }

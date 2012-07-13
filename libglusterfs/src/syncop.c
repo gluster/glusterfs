@@ -133,8 +133,7 @@ synctask_destroy (struct synctask *task)
         if (!task)
                 return;
 
-        if (task->stack)
-                FREE (task->stack);
+        FREE (task->stack);
 
         if (task->opframe)
                 STACK_DESTROY (task->opframe->root);
@@ -243,8 +242,7 @@ synctask_new (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
         return ret;
 err:
         if (newtask) {
-                if (newtask->stack)
-                        FREE (newtask->stack);
+                FREE (newtask->stack);
                 if (newtask->opframe)
                         STACK_DESTROY (newtask->opframe->root);
                 FREE (newtask);
@@ -983,8 +981,7 @@ syncop_readv (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
 
         if (vector)
                 *vector = args.vector;
-        else if (args.vector)
-                GF_FREE (args.vector);
+        else GF_FREE (args.vector);
 
         if (count)
                 *count = args.count;
@@ -1367,8 +1364,7 @@ syncop_readlink (xlator_t *subvol, loc_t *loc, char **buffer, size_t size)
 
         if (buffer)
                 *buffer = args.buffer;
-        else if (args.buffer)
-                GF_FREE (args.buffer);
+        else GF_FREE (args.buffer);
 
         errno = args.op_errno;
         return args.op_ret;

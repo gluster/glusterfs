@@ -1514,17 +1514,13 @@ rpcsvc_create_listeners (rpcsvc_t *svc, dict_t *options, char *name)
         transport_type = NULL;
 
 out:
-        if (str)
-                GF_FREE (str);
+        GF_FREE (str);
 
-        if (transport_type)
-                GF_FREE (transport_type);
+        GF_FREE (transport_type);
 
-        if (tmp)
-                GF_FREE (tmp);
+        GF_FREE (tmp);
 
-        if (transport_name)
-                GF_FREE (transport_name);
+        GF_FREE (transport_name);
 
         return count;
 }
@@ -1812,8 +1808,7 @@ rpcsvc_transport_unix_options_build (dict_t **options, char *filepath)
         *options = dict;
 out:
         if (ret) {
-                if (fpath)
-                        GF_FREE (fpath);
+                GF_FREE (fpath);
                 if (dict)
                         dict_unref (dict);
         }
@@ -1935,8 +1930,7 @@ rpcsvc_transport_peer_check_search (dict_t *options, char *pattern, char *clstr)
 
         ret = -1;
 err:
-        if (dup_addrstr)
-                GF_FREE (dup_addrstr);
+        GF_FREE (dup_addrstr);
 
         return ret;
 }
@@ -2399,8 +2393,7 @@ rpcsvc_transport_privport_check (rpcsvc_t *svc, char *volname,
                         " allowed");
 
 err:
-        if (srchstr)
-                GF_FREE (srchstr);
+        GF_FREE (srchstr);
 
         return ret;
 }
@@ -2429,8 +2422,7 @@ rpcsvc_volume_allowed (dict_t *options, char *volname)
                 ret = dict_get_str (options, srchstr, &addrstr);
 
 out:
-        if (srchstr)
-                GF_FREE (srchstr);
+        GF_FREE (srchstr);
 
         return addrstr;
 }

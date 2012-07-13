@@ -1584,8 +1584,7 @@ __mnt3_init_volume_direxports (struct mount3_state *ms, xlator_t *xlator,
 
         ret = 0;
 err:
-        if (dupopt)
-                GF_FREE (dupopt);
+        GF_FREE (dupopt);
 
         return ret;
 }

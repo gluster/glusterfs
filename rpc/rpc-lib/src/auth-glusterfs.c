@@ -213,10 +213,8 @@ int auth_glusterfs_v2_authenticate (rpcsvc_request_t *req, void *priv)
         ret = RPCSVC_AUTH_ACCEPT;
 err:
         /* TODO: instead use alloca() for these variables */
-        if (au.groups.groups_val)
-                free (au.groups.groups_val);
-        if (au.lk_owner.lk_owner_val)
-                free (au.lk_owner.lk_owner_val);
+        free (au.groups.groups_val);
+        free (au.lk_owner.lk_owner_val);
 
         return ret;
 }

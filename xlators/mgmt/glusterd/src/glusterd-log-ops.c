@@ -92,8 +92,7 @@ out:
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      NULL, "operation failed");
 
-        if (cli_req.dict.dict_val)
-                free (cli_req.dict.dict_val);
+        free (cli_req.dict.dict_val);
         return ret;
 }
 

@@ -481,11 +481,9 @@ fini (xlator_t *this)
                         GF_FREE (conf->file_layouts);
                 }
 
-                if (conf->subvolumes)
-                        GF_FREE (conf->subvolumes);
+                GF_FREE (conf->subvolumes);
 
-                if (conf->subvolume_status)
-                        GF_FREE (conf->subvolume_status);
+                GF_FREE (conf->subvolume_status);
 
                 GF_FREE (conf);
         }
@@ -629,14 +627,11 @@ err:
                         GF_FREE (conf->file_layouts);
                 }
 
-                if (conf->subvolumes)
-                        GF_FREE (conf->subvolumes);
+                GF_FREE (conf->subvolumes);
 
-                if (conf->subvolume_status)
-                        GF_FREE (conf->subvolume_status);
+                GF_FREE (conf->subvolume_status);
 
-                if (conf->du_stats)
-                        GF_FREE (conf->du_stats);
+                GF_FREE (conf->du_stats);
 
                 GF_FREE (conf);
         }

@@ -193,8 +193,7 @@ out:
                              gf_error_to_errno (rsp.op_errno), inode, &stbuf,
                              &preparent, &postparent, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -264,8 +263,7 @@ out:
                              gf_error_to_errno (rsp.op_errno), inode,
                              &stbuf, &preparent, &postparent, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -333,8 +331,7 @@ out:
                              gf_error_to_errno (rsp.op_errno), inode,
                              &stbuf, &preparent, &postparent, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -476,8 +473,7 @@ out:
         CLIENT_STACK_UNWIND (open, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), fd, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -532,8 +528,7 @@ out:
         CLIENT_STACK_UNWIND (stat, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &iatt, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -590,11 +585,9 @@ out:
 
         /* This is allocated by the libc while decoding RPC msg */
         /* Hence no 'GF_FREE', but just 'free' */
-        if (rsp.path)
-                free (rsp.path);
+        free (rsp.path);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -650,8 +643,7 @@ out:
                              gf_error_to_errno (rsp.op_errno), &preparent,
                              &postparent, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -707,8 +699,7 @@ out:
                              gf_error_to_errno (rsp.op_errno), &preparent,
                              &postparent, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -765,8 +756,7 @@ out:
                              gf_error_to_errno (rsp.op_errno), &prestat,
                              &poststat, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -820,8 +810,7 @@ out:
         CLIENT_STACK_UNWIND (statfs, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &statfs, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -879,8 +868,7 @@ out:
                              gf_error_to_errno (rsp.op_errno), &prestat,
                              &poststat, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -938,8 +926,7 @@ out:
         CLIENT_STACK_UNWIND (flush, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -996,8 +983,7 @@ out:
                              gf_error_to_errno (rsp.op_errno), &prestat,
                              &poststat, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -1048,8 +1034,7 @@ out:
         }
         CLIENT_STACK_UNWIND (setxattr, frame, rsp.op_ret, op_errno, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -1117,11 +1102,9 @@ out:
         CLIENT_STACK_UNWIND (getxattr, frame, rsp.op_ret, op_errno, dict, xdata);
 
         /* don't use GF_FREE, this memory was allocated by libc */
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val);
+        free (rsp.dict.dict_val);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -1185,11 +1168,9 @@ out:
 
         CLIENT_STACK_UNWIND (fgetxattr, frame, rsp.op_ret, op_errno, dict, xdata);
 
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val);
+        free (rsp.dict.dict_val);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -1241,8 +1222,7 @@ out:
         CLIENT_STACK_UNWIND (removexattr, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -1291,8 +1271,7 @@ out:
         CLIENT_STACK_UNWIND (fremovexattr, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -1340,8 +1319,7 @@ out:
         CLIENT_STACK_UNWIND (fsyncdir, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -1389,8 +1367,7 @@ out:
         CLIENT_STACK_UNWIND (access, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -1447,8 +1424,7 @@ out:
                              gf_error_to_errno (rsp.op_errno), &prestat,
                              &poststat, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -1501,8 +1477,7 @@ out:
         CLIENT_STACK_UNWIND (fstat, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &stat,  xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -1552,8 +1527,7 @@ out:
         CLIENT_STACK_UNWIND (inodelk, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -1602,8 +1576,7 @@ out:
         CLIENT_STACK_UNWIND (finodelk, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -1653,8 +1626,7 @@ out:
         CLIENT_STACK_UNWIND (entrylk, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -1704,8 +1676,7 @@ out:
         CLIENT_STACK_UNWIND (fentrylk, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -1770,11 +1741,9 @@ out:
         CLIENT_STACK_UNWIND (xattrop, frame, rsp.op_ret,
                              gf_error_to_errno (op_errno), dict, xdata);
 
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val);
+        free (rsp.dict.dict_val);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -1838,11 +1807,9 @@ out:
         CLIENT_STACK_UNWIND (fxattrop, frame, rsp.op_ret,
                              gf_error_to_errno (op_errno), dict, xdata);
 
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val);
+        free (rsp.dict.dict_val);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -1896,8 +1863,7 @@ out:
 
         CLIENT_STACK_UNWIND (fsetxattr, frame, rsp.op_ret, op_errno, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -1953,8 +1919,7 @@ out:
                              gf_error_to_errno (rsp.op_errno), &prestat,
                              &poststat, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -2012,8 +1977,7 @@ out:
                              gf_error_to_errno (rsp.op_errno), &prestat,
                              &poststat, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -2091,8 +2055,7 @@ out:
                              gf_error_to_errno (rsp.op_errno), fd, inode,
                              &stbuf, &preparent, &postparent, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -2151,8 +2114,7 @@ out:
                 free (rsp.strong_checksum.strong_checksum_val);
         }
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -2224,11 +2186,9 @@ out:
         CLIENT_STACK_UNWIND (lk, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &lock, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
-        if (rsp.flock.lk_owner.lk_owner_val)
-                free (rsp.flock.lk_owner.lk_owner_val);
+        free (rsp.flock.lk_owner.lk_owner_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -2291,8 +2251,7 @@ out:
                 gf_dirent_free (&entries);
         }
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -2355,8 +2314,7 @@ out:
         if (rsp.op_ret != -1) {
                 gf_dirent_free (&entries);
         }
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -2424,8 +2382,7 @@ out:
                              &stbuf, &preoldparent, &postoldparent,
                              &prenewparent, &postnewparent, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -2496,8 +2453,7 @@ out:
                              gf_error_to_errno (rsp.op_errno), inode,
                              &stbuf, &preparent, &postparent, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -2567,8 +2523,7 @@ out:
         CLIENT_STACK_UNWIND (opendir, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), fd, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -2658,8 +2613,7 @@ out:
         if (xdata)
                 dict_unref (xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         return 0;
 }
@@ -2726,8 +2680,7 @@ out:
                              gf_error_to_errno (rsp.op_errno), vector, rspcount,
                              &stat, iobref, xdata);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        free (rsp.xdata.xdata_val);
 
         if (xdata)
                 dict_unref (xdata);
@@ -3012,8 +2965,7 @@ client3_3_lookup (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         if (rsp_iobref)
                 iobref_unref (rsp_iobref);
@@ -3027,8 +2979,7 @@ unwind:
         CLIENT_STACK_UNWIND (lookup, frame, -1, op_errno, NULL, NULL, NULL,
                              NULL);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         if (rsp_iobref)
                 iobref_unref (rsp_iobref);
@@ -3077,15 +3028,13 @@ client3_3_stat (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (stat, frame, -1, op_errno, NULL, NULL);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -3133,14 +3082,12 @@ client3_3_truncate (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (truncate, frame, -1, op_errno, NULL, NULL, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -3182,14 +3129,12 @@ client3_3_ftruncate (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (ftruncate, frame, -1, op_errno, NULL, NULL, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -3238,14 +3183,12 @@ client3_3_access (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (access, frame, -1, op_errno, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -3326,8 +3269,7 @@ client3_3_readlink (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
@@ -3336,8 +3278,7 @@ unwind:
         }
 
         CLIENT_STACK_UNWIND (readlink, frame, -1, op_errno, NULL, NULL, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -3386,14 +3327,12 @@ client3_3_unlink (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (unlink, frame, -1, op_errno, NULL, NULL, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -3440,14 +3379,12 @@ client3_3_rmdir (call_frame_t *frame, xlator_t *this,
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (rmdir, frame, -1, op_errno, NULL, NULL, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -3508,8 +3445,7 @@ client3_3_symlink (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
@@ -3517,8 +3453,7 @@ unwind:
         CLIENT_STACK_UNWIND (symlink, frame, -1, op_errno, NULL, NULL, NULL,
                              NULL, NULL);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -3575,16 +3510,14 @@ client3_3_rename (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (rename, frame, -1, op_errno, NULL, NULL, NULL,
                              NULL, NULL, NULL);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -3651,14 +3584,12 @@ client3_3_link (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (link, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -3718,16 +3649,14 @@ client3_3_mknod (call_frame_t *frame, xlator_t *this,
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (mknod, frame, -1, op_errno, NULL, NULL, NULL,
                              NULL, NULL);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -3787,16 +3716,14 @@ client3_3_mkdir (call_frame_t *frame, xlator_t *this,
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (mkdir, frame, -1, op_errno, NULL, NULL, NULL,
                              NULL, NULL);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -3858,16 +3785,14 @@ client3_3_create (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (create, frame, -1, op_errno, NULL, NULL, NULL,
                              NULL, NULL, NULL);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -3926,15 +3851,13 @@ client3_3_open (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (open, frame, -1, op_errno, NULL, NULL);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -4022,8 +3945,7 @@ client3_3_readv (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         if (rsp_iobuf)
                 iobuf_unref (rsp_iobuf);
@@ -4040,8 +3962,7 @@ unwind:
                 iobref_unref (rsp_iobref);
 
         CLIENT_STACK_UNWIND (readv, frame, -1, op_errno, NULL, 0, NULL, NULL, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -4097,15 +4018,13 @@ client3_3_writev (call_frame_t *frame, xlator_t *this, void *data)
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 
 unwind:
         CLIENT_STACK_UNWIND (writev, frame, -1, op_errno, NULL, NULL, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -4157,16 +4076,14 @@ client3_3_flush (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
 
         return 0;
 
 unwind:
         CLIENT_STACK_UNWIND (flush, frame, -1, op_errno, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -4208,15 +4125,13 @@ client3_3_fsync (call_frame_t *frame, xlator_t *this,
 
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 
 unwind:
         CLIENT_STACK_UNWIND (fsync, frame, -1, op_errno, NULL, NULL, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -4256,15 +4171,13 @@ client3_3_fstat (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 
 unwind:
         CLIENT_STACK_UNWIND (fstat, frame, -1, op_errno, NULL, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -4321,16 +4234,14 @@ client3_3_opendir (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 
 unwind:
         CLIENT_STACK_UNWIND (opendir, frame, -1, op_errno, NULL, NULL);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -4373,15 +4284,13 @@ client3_3_fsyncdir (call_frame_t *frame, xlator_t *this, void *data)
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 
 unwind:
         CLIENT_STACK_UNWIND (fsyncdir, frame, -1, op_errno, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -4431,15 +4340,13 @@ client3_3_statfs (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 
 unwind:
         CLIENT_STACK_UNWIND (statfs, frame, -1, op_errno, NULL, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -4493,20 +4400,16 @@ client3_3_setxattr (call_frame_t *frame, xlator_t *this,
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (setxattr, frame, -1, op_errno, NULL);
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -4554,20 +4457,16 @@ client3_3_fsetxattr (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (fsetxattr, frame, -1, op_errno, NULL);
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -4653,8 +4552,7 @@ client3_3_fgetxattr (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         if (rsp_iobuf)
                 iobuf_unref (rsp_iobuf);
@@ -4672,8 +4570,7 @@ unwind:
         if (rsp_iobref)
                 iobref_unref (rsp_iobref);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -4795,8 +4692,7 @@ client3_3_getxattr (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         if (rsp_iobuf)
                 iobuf_unref (rsp_iobuf);
@@ -4814,8 +4710,7 @@ unwind:
 
         CLIENT_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict, NULL);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -4909,11 +4804,9 @@ client3_3_xattrop (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         if (rsp_iobuf)
                 iobuf_unref (rsp_iobuf);
@@ -4925,9 +4818,7 @@ client3_3_xattrop (call_frame_t *frame, xlator_t *this,
 unwind:
         CLIENT_STACK_UNWIND (xattrop, frame, -1, op_errno, NULL, NULL);
 
-        if (req.dict.dict_val) {
-                GF_FREE (req.dict.dict_val);
-        }
+        GF_FREE (req.dict.dict_val);
 
         if (rsp_iobuf)
                 iobuf_unref (rsp_iobuf);
@@ -4935,8 +4826,7 @@ unwind:
         if (rsp_iobref)
                 iobref_unref (rsp_iobref);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -5022,11 +4912,9 @@ client3_3_fxattrop (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         if (rsp_iobuf)
                 iobuf_unref (rsp_iobuf);
@@ -5038,8 +4926,7 @@ client3_3_fxattrop (call_frame_t *frame, xlator_t *this,
 unwind:
         CLIENT_STACK_UNWIND (fxattrop, frame, -1, op_errno, NULL, NULL);
 
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
 
         if (rsp_iobref)
                 iobref_unref (rsp_iobref);
@@ -5047,8 +4934,7 @@ unwind:
         if (rsp_iobuf)
                 iobuf_unref (rsp_iobuf);
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -5096,14 +4982,12 @@ client3_3_removexattr (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (removexattr, frame, -1, op_errno, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -5147,14 +5031,12 @@ client3_3_fremovexattr (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (fremovexattr, frame, -1, op_errno, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -5229,14 +5111,12 @@ client3_3_lk (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (lk, frame, -1, op_errno, NULL, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -5313,14 +5193,12 @@ client3_3_inodelk (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (inodelk, frame, -1, op_errno, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -5391,13 +5269,11 @@ client3_3_finodelk (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (finodelk, frame, -1, op_errno, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -5452,14 +5328,12 @@ client3_3_entrylk (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (entrylk, frame, -1, op_errno, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -5508,14 +5382,12 @@ client3_3_fentrylk (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (fentrylk, frame, -1, op_errno, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -5557,14 +5429,12 @@ client3_3_rchecksum (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (rchecksum, frame, -1, op_errno, 0, NULL, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -5656,8 +5526,7 @@ client3_3_readdir (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         if (rsp_iobuf)
                 iobuf_unref (rsp_iobuf);
@@ -5675,8 +5544,7 @@ unwind:
                 iobuf_unref (rsp_iobuf);
 
         CLIENT_STACK_UNWIND (readdir, frame, -1, op_errno, NULL, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -5768,8 +5636,7 @@ client3_3_readdirp (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
 
         if (rsp_iobuf)
                 iobuf_unref (rsp_iobuf);
@@ -5785,8 +5652,7 @@ unwind:
         if (rsp_iobuf)
                 iobuf_unref (rsp_iobuf);
 
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
 
         CLIENT_STACK_UNWIND (readdirp, frame, -1, op_errno, NULL, NULL);
         return 0;
@@ -5836,14 +5702,12 @@ client3_3_setattr (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (setattr, frame, -1, op_errno, NULL, NULL, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }
@@ -5882,14 +5746,12 @@ client3_3_fsetattr (call_frame_t *frame, xlator_t *this, void *data)
                 gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
         }
 
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (fsetattr, frame, -1, op_errno, NULL, NULL, NULL);
-        if (req.xdata.xdata_val)
-                GF_FREE (req.xdata.xdata_val);
+        GF_FREE (req.xdata.xdata_val);
 
         return 0;
 }

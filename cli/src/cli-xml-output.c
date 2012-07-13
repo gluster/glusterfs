@@ -2493,8 +2493,7 @@ cont:
         ret = cli_end_xml_output (writer, buf);
 
 out:
-        if (size_str)
-                GF_FREE (size_str);
+        GF_FREE (size_str);
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }

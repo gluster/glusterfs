@@ -3712,8 +3712,7 @@ call_stub_destroy_wind (call_stub_t *stub)
 
         case GF_FOP_GETXATTR:
         {
-                if (stub->args.getxattr.name)
-                        GF_FREE ((char *)stub->args.getxattr.name);
+                GF_FREE ((char *)stub->args.getxattr.name);
                 loc_wipe (&stub->args.getxattr.loc);
                 break;
         }
@@ -3728,8 +3727,7 @@ call_stub_destroy_wind (call_stub_t *stub)
 
         case GF_FOP_FGETXATTR:
         {
-                if (stub->args.fgetxattr.name)
-                        GF_FREE ((char *)stub->args.fgetxattr.name);
+                GF_FREE ((char *)stub->args.fgetxattr.name);
                 fd_unref (stub->args.fgetxattr.fd);
                 break;
         }
@@ -3792,16 +3790,14 @@ call_stub_destroy_wind (call_stub_t *stub)
 
         case GF_FOP_INODELK:
         {
-                if (stub->args.inodelk.volume)
-                        GF_FREE ((char *)stub->args.inodelk.volume);
+                GF_FREE ((char *)stub->args.inodelk.volume);
 
                 loc_wipe (&stub->args.inodelk.loc);
                 break;
         }
         case GF_FOP_FINODELK:
         {
-                if (stub->args.finodelk.volume)
-                        GF_FREE ((char *)stub->args.finodelk.volume);
+                GF_FREE ((char *)stub->args.finodelk.volume);
 
                 if (stub->args.finodelk.fd)
                         fd_unref (stub->args.finodelk.fd);
@@ -3809,21 +3805,17 @@ call_stub_destroy_wind (call_stub_t *stub)
         }
         case GF_FOP_ENTRYLK:
         {
-                if (stub->args.entrylk.volume)
-                        GF_FREE ((char *)stub->args.entrylk.volume);
+                GF_FREE ((char *)stub->args.entrylk.volume);
 
-                if (stub->args.entrylk.name)
-                        GF_FREE ((char *)stub->args.entrylk.name);
+                GF_FREE ((char *)stub->args.entrylk.name);
                 loc_wipe (&stub->args.entrylk.loc);
                 break;
         }
         case GF_FOP_FENTRYLK:
         {
-                if (stub->args.fentrylk.volume)
-                        GF_FREE ((char *)stub->args.fentrylk.volume);
+                GF_FREE ((char *)stub->args.fentrylk.volume);
 
-                if (stub->args.fentrylk.name)
-                        GF_FREE ((char *)stub->args.fentrylk.name);
+                GF_FREE ((char *)stub->args.fentrylk.name);
 
                 if (stub->args.fentrylk.fd)
                         fd_unref (stub->args.fentrylk.fd);
@@ -3922,8 +3914,7 @@ call_stub_destroy_unwind (call_stub_t *stub)
 
         case GF_FOP_READLINK:
         {
-                if (stub->args.readlink_cbk.buf)
-                        GF_FREE ((char *)stub->args.readlink_cbk.buf);
+                GF_FREE ((char *)stub->args.readlink_cbk.buf);
         }
         break;
 

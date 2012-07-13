@@ -1876,13 +1876,9 @@ err:
         }
 
         if (hafdp) {
-                if (hafdp->fdstate) {
-                        GF_FREE (hafdp->fdstate);
-                }
+                GF_FREE (hafdp->fdstate);
 
-                if (hafdp->path) {
-                        GF_FREE (hafdp->path);
-                }
+                GF_FREE (hafdp->path);
 
                 GF_FREE (hafdp);
         }

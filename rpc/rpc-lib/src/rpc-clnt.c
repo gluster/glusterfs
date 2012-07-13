@@ -1721,8 +1721,7 @@ rpc_clnt_transport_unix_options_build (dict_t **options, char *filepath)
         *options = dict;
 out:
         if (ret) {
-                if (fpath)
-                        GF_FREE (fpath);
+                GF_FREE (fpath);
                 if (dict)
                         dict_unref (dict);
         }

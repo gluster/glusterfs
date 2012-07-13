@@ -228,8 +228,7 @@ pmap_registry_bind (xlator_t *this, int port, const char *brickname,
 
         p = port;
         pmap->ports[p].type = type;
-        if (pmap->ports[p].brickname)
-                free (pmap->ports[p].brickname);
+        free (pmap->ports[p].brickname);
         pmap->ports[p].brickname = strdup (brickname);
         pmap->ports[p].type = type;
         pmap->ports[p].xprt = xprt;
@@ -281,8 +280,7 @@ remove:
         gf_log ("pmap", GF_LOG_INFO, "removing brick %s on port %d",
                 pmap->ports[p].brickname, p);
 
-        if (pmap->ports[p].brickname)
-                free (pmap->ports[p].brickname);
+        free (pmap->ports[p].brickname);
 
         pmap->ports[p].brickname = NULL;
         pmap->ports[p].xprt = NULL;
@@ -317,8 +315,7 @@ gluster_pmap_portbybrick (rpcsvc_request_t *req)
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (xdrproc_t)xdr_pmap_port_by_brick_rsp);
-        if (args.brick)
-                free (args.brick);//malloced by xdr
+        free (args.brick);//malloced by xdr
 
         return 0;
 }
@@ -377,8 +374,7 @@ gluster_pmap_signup (rpcsvc_request_t *req)
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (xdrproc_t)xdr_pmap_signup_rsp);
-        if (args.brick)
-                free (args.brick);//malloced by xdr
+        free (args.brick);//malloced by xdr
 
         return 0;
 }
@@ -405,8 +401,7 @@ gluster_pmap_signin (rpcsvc_request_t *req)
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (xdrproc_t)xdr_pmap_signin_rsp);
-        if (args.brick)
-                free (args.brick);//malloced by xdr
+        free (args.brick);//malloced by xdr
 
         if (!ret)
                 glusterd_brick_update_signin (brickinfo, _gf_true);
@@ -439,8 +434,7 @@ gluster_pmap_signout (rpcsvc_request_t *req)
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (xdrproc_t)xdr_pmap_signout_rsp);
-        if (args.brick)
-                free (args.brick);//malloced by xdr
+        free (args.brick);//malloced by xdr
 
         if (!ret)
                 glusterd_brick_update_signin (brickinfo, _gf_false);

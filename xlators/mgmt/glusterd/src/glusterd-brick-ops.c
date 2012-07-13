@@ -552,8 +552,7 @@ out:
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
-        if (cli_req.dict.dict_val)
-                free (cli_req.dict.dict_val); //its malloced by xdr
+        free (cli_req.dict.dict_val); //its malloced by xdr
 
         return ret;
 }
@@ -850,10 +849,8 @@ out:
                 ret = 0; //sent error to cli, prevent second reply
 
         }
-        if (brick_list)
-                GF_FREE (brick_list);
-        if (cli_req.dict.dict_val)
-                free (cli_req.dict.dict_val); //its malloced by xdr
+        GF_FREE (brick_list);
+        free (cli_req.dict.dict_val); //its malloced by xdr
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
@@ -972,10 +969,8 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
         }
 
 out:
-        if (free_ptr1)
-                GF_FREE (free_ptr1);
-        if (free_ptr2)
-                GF_FREE (free_ptr2);
+        GF_FREE (free_ptr1);
+        GF_FREE (free_ptr2);
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -1033,8 +1028,7 @@ glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick,
 
         brickinfo->decommissioned = 1;
 out:
-        if (dup_brick)
-                GF_FREE (dup_brick);
+        GF_FREE (dup_brick);
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -1182,14 +1176,11 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
         }
 
 out:
-        if (free_ptr)
-                GF_FREE (free_ptr);
+        GF_FREE (free_ptr);
         if (brick_alloc && brickinfo)
                 glusterd_brickinfo_delete (brickinfo);
-        if (str_ret)
-                GF_FREE (str_ret);
-        if (all_bricks)
-                GF_FREE (all_bricks);
+        GF_FREE (str_ret);
+        GF_FREE (all_bricks);
 
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
 

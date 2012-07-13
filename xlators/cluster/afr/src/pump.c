@@ -996,8 +996,7 @@ out:
         if (dict)
                 dict_unref (dict);
 
-        if (dict_str)
-                GF_FREE (dict_str);
+        GF_FREE (dict_str);
 
         return 0;
 }

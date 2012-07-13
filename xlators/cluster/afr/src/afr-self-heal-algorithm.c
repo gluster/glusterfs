@@ -63,8 +63,7 @@ sh_private_cleanup (call_frame_t *frame, xlator_t *this)
         sh    = &local->self_heal;
 
         sh_priv = sh->private;
-        if (sh_priv)
-                GF_FREE (sh_priv);
+        GF_FREE (sh_priv);
 }
 
 static int

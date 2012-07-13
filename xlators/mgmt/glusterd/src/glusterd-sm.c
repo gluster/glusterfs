@@ -100,8 +100,7 @@ glusterd_destroy_probe_ctx (glusterd_probe_ctx_t *ctx)
         if (!ctx)
                 return;
 
-        if (ctx->hostname)
-                GF_FREE (ctx->hostname);
+        GF_FREE (ctx->hostname);
         GF_FREE (ctx);
 }
 
@@ -113,8 +112,7 @@ glusterd_destroy_friend_req_ctx (glusterd_friend_req_ctx_t *ctx)
 
         if (ctx->vols)
                 dict_unref (ctx->vols);
-        if (ctx->hostname)
-                GF_FREE (ctx->hostname);
+        GF_FREE (ctx->hostname);
         GF_FREE (ctx);
 }
 
@@ -123,8 +121,7 @@ glusterd_destroy_friend_update_ctx (glusterd_friend_update_ctx_t *ctx)
 {
         if (!ctx)
                 return;
-        if (ctx->hostname)
-                GF_FREE (ctx->hostname);
+        GF_FREE (ctx->hostname);
         GF_FREE (ctx);
 }
 
@@ -257,12 +254,9 @@ glusterd_ac_reverse_probe_begin (glusterd_friend_sm_event_t *event, void *ctx)
 
 out:
         if (ret) {
-                if (new_event)
-                        GF_FREE (new_event);
-                if (new_ev_ctx->hostname)
-                        GF_FREE (new_ev_ctx->hostname);
-                if (new_ev_ctx)
-                        GF_FREE (new_ev_ctx);
+                GF_FREE (new_event);
+                GF_FREE (new_ev_ctx->hostname);
+                GF_FREE (new_ev_ctx);
         }
         gf_log ("", GF_LOG_DEBUG, "returning with %d", ret);
         return ret;

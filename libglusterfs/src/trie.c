@@ -114,8 +114,7 @@ trienode_free (trienode_t *node)
                         trienode_free (trav);
         }
 
-        if (node->data)
-                GF_FREE (node->data);
+        GF_FREE (node->data);
         GF_FREE (node);
 }
 
@@ -373,8 +372,7 @@ trie_measure_vec (trie_t *trie, const char *word, struct trienodevec *nodevec)
 static int
 trienode_reset (trienode_t *node, void *data)
 {
-        if (node->data)
-                GF_FREE (node->data);
+        GF_FREE (node->data);
 
         return 0;
 }

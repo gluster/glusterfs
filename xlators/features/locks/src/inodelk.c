@@ -454,8 +454,7 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
                         __pl_inodelk_unref (l);
                 }
         }
-        if (path)
-                GF_FREE (path);
+        GF_FREE (path);
 
         pthread_mutex_unlock (&pinode->mutex);
 

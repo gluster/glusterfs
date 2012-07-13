@@ -429,8 +429,7 @@ unlock:
         afr_fix_open (frame, this, fd_ctx, need_open_count, need_open);
         fop_continue = _gf_false;
 out:
-        if (need_open)
-                GF_FREE (need_open);
+        GF_FREE (need_open);
         if (fop_continue && local->fop_call_continue)
                 local->fop_call_continue (frame, this);
         return ret;

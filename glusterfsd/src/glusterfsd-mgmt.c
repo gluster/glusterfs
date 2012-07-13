@@ -194,8 +194,7 @@ glusterfs_terminate_response_send (rpcsvc_request_t *req, int op_ret)
                 ret = glusterfs_submit_reply (req, &rsp, NULL, 0, NULL,
                                               (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
 
-        if (rsp.output.output_val)
-                GF_FREE (rsp.output.output_val);
+        GF_FREE (rsp.output.output_val);
         if (dict)
                 dict_unref (dict);
         return ret;
@@ -289,10 +288,8 @@ out:
         ret = glusterfs_translator_info_response_send (priv->req, ret,
                                                        msg, output);
 
-        if (priv->xlator_req.name)
-                free (priv->xlator_req.name);
-        if (priv->xlator_req.input.input_val)
-                free (priv->xlator_req.input.input_val);
+        free (priv->xlator_req.name);
+        free (priv->xlator_req.input.input_val);
         if (dict)
                 dict_unref (dict);
         if (output)
@@ -499,8 +496,7 @@ out:
                 close (fd);
         if (input_fd >= 0)
                 close (input_fd);
-        if (buf)
-                GF_FREE (buf);
+        GF_FREE (buf);
         unlink (export_path);
 
         (void)glusterfs_handle_translator_info_get_cont (priv);
@@ -625,8 +621,7 @@ out:
                 close (input_fd);
         if (output_fd >= 0)
                 close (output_fd);
-        if (buf)
-                GF_FREE (buf);
+        GF_FREE (buf);
         unlink (export_path);
 
         (void)glusterfs_handle_translator_info_get_cont (priv);
@@ -716,8 +711,7 @@ out:
                 dict_unref (input);
         if (output)
                 dict_unref (output);
-        if (xlator_req.name)
-                free (xlator_req.name); //malloced by xdr
+        free (xlator_req.name); //malloced by xdr
 
         return 0;
 }
@@ -790,12 +784,10 @@ glusterfs_handle_defrag (rpcsvc_request_t *req)
 out:
         if (dict)
                 dict_unref (dict);
-        if (xlator_req.input.input_val)
-                free (xlator_req.input.input_val); // malloced by xdr
+        free (xlator_req.input.input_val); // malloced by xdr
         if (output)
                 dict_unref (output);
-        if (xlator_req.name)
-                free (xlator_req.name); //malloced by xdr
+        free (xlator_req.name); //malloced by xdr
 
         return ret;
 
@@ -922,14 +914,10 @@ out:
                 dict_unref (dict);
         if (output)
                 dict_unref (output);
-        if (brick_req.input.input_val)
-                free (brick_req.input.input_val);
-        if (xname)
-                GF_FREE (xname);
-        if (msg)
-                GF_FREE (msg);
-        if (rsp.output.output_val)
-                GF_FREE (rsp.output.output_val);
+        free (brick_req.input.input_val);
+        GF_FREE (xname);
+        GF_FREE (msg);
+        GF_FREE (rsp.output.output_val);
 
         return ret;
 }
@@ -1104,16 +1092,11 @@ glusterfs_handle_node_status (rpcsvc_request_t *req)
 out:
         if (dict)
                 dict_unref (dict);
-        if (node_req.input.input_val)
-                free (node_req.input.input_val);
-        if (msg)
-                GF_FREE (msg);
-        if (rsp.output.output_val)
-                GF_FREE (rsp.output.output_val);
-        if (node_name)
-                GF_FREE (node_name);
-        if (subvol_name)
-                GF_FREE (subvol_name);
+        free (node_req.input.input_val);
+        GF_FREE (msg);
+        GF_FREE (rsp.output.output_val);
+        GF_FREE (node_name);
+        GF_FREE (subvol_name);
 
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -1200,14 +1183,12 @@ glusterfs_handle_nfs_profile (rpcsvc_request_t *req)
                                       (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
 
 out:
-        if (nfs_req.input.input_val)
-                free (nfs_req.input.input_val);
+        free (nfs_req.input.input_val);
         if (dict)
                 dict_unref (dict);
         if (output)
                 dict_unref (output);
-        if (rsp.output.output_val)
-                GF_FREE (rsp.output.output_val);
+        GF_FREE (rsp.output.output_val);
 
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -1627,8 +1608,7 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 out:
         STACK_DESTROY (frame->root);
 
-        if (rsp.spec)
-                free (rsp.spec);
+        free (rsp.spec);
 
         if (ret && ctx && !ctx->active) {
                 /* Do it only for the first time */
@@ -1699,8 +1679,7 @@ mgmt_event_notify_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 out:
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val); //malloced by xdr
+        free (rsp.dict.dict_val); //malloced by xdr
         return ret;
 
 }
@@ -1739,8 +1718,7 @@ glusterfs_rebalance_event_notify_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 out:
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val); //malloced by xdr
+        free (rsp.dict.dict_val); //malloced by xdr
         return ret;
 
 }
@@ -1775,8 +1753,7 @@ glusterfs_rebalance_event_notify (dict_t *dict)
                                    glusterfs_rebalance_event_notify_cbk,
                                    (xdrproc_t)xdr_gf_event_notify_req);
 
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
+        GF_FREE (req.dict.dict_val);
 
         STACK_DESTROY (frame->root);
         return ret;

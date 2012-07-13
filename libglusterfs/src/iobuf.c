@@ -562,8 +562,7 @@ iobuf_get_from_stdalloc (struct iobuf_pool *iobuf_pool, size_t page_size)
         ret = 0;
 out:
         if (ret && iobuf) {
-                if (iobuf->free_ptr)
-                        GF_FREE (iobuf->free_ptr);
+                GF_FREE (iobuf->free_ptr);
                 GF_FREE (iobuf);
                 iobuf = NULL;
         }

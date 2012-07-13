@@ -531,12 +531,9 @@ gf_remember_xlator_option (struct list_head *options, char *arg)
 out:
         if (ret == -1) {
                 if (option) {
-                        if (option->volume)
-                                GF_FREE (option->volume);
-                        if (option->key)
-                                GF_FREE (option->key);
-                        if (option->value)
-                                GF_FREE (option->value);
+                        GF_FREE (option->volume);
+                        GF_FREE (option->key);
+                        GF_FREE (option->value);
 
                         GF_FREE (option);
                 }
@@ -615,8 +612,7 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 break;
 
         case ARGP_VOLUME_FILE_KEY:
-                if (cmd_args->volfile)
-                        GF_FREE (cmd_args->volfile);
+                GF_FREE (cmd_args->volfile);
 
                 if (arg[0] != '/') {
                         pwd = getcwd (NULL, PATH_MAX);

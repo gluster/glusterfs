@@ -1541,8 +1541,7 @@ io_stats_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 unwind:
         /* local is assigned with path */
-        if (frame->local)
-                GF_FREE (frame->local);
+        GF_FREE (frame->local);
         frame->local = NULL;
         STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent, xdata);
@@ -2435,8 +2434,7 @@ io_stats_release (xlator_t *this, fd_t *fd)
         if (iosfd) {
                 io_stats_dump_fd (this, iosfd);
 
-                if (iosfd->filename)
-                        GF_FREE (iosfd->filename);
+                GF_FREE (iosfd->filename);
                 GF_FREE (iosfd);
         }
 
@@ -2524,8 +2522,7 @@ ios_destroy_top_stats (struct ios_conf *conf)
                         stat = list->iosstat;
                         ios_stat_unref (stat);
                         list_del (&list->list);
-                        if (list)
-                                GF_FREE (list);
+                        GF_FREE (list);
                         list_head->members--;
                 }
         }
@@ -2540,8 +2537,7 @@ ios_destroy_top_stats (struct ios_conf *conf)
                         stat = list->iosstat;
                         ios_stat_unref (stat);
                         list_del (&list->list);
-                        if (list)
-                                GF_FREE (list);
+                        GF_FREE (list);
                         list_head->members--;
                 }
         }
@@ -2699,8 +2695,7 @@ fini (xlator_t *this)
 
         ios_destroy_top_stats (conf);
 
-        if (conf)
-                GF_FREE(conf);
+        GF_FREE(conf);
 
         gf_log (this->name, GF_LOG_INFO,
                 "io-stats translator unloaded");

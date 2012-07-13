@@ -149,8 +149,7 @@ clrlk_parse_args (const char* cmd, clrlk_args *args)
 
         ret = 0;
 out:
-        if (free_ptr)
-                GF_FREE (free_ptr);
+        GF_FREE (free_ptr);
         return ret;
 }
 

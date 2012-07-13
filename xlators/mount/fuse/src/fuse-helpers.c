@@ -31,14 +31,11 @@
 static void
 fuse_resolve_wipe (fuse_resolve_t *resolve)
 {
-        if (resolve->path)
-                GF_FREE ((void *)resolve->path);
+        GF_FREE ((void *)resolve->path);
 
-        if (resolve->bname)
-                GF_FREE ((void *)resolve->bname);
+        GF_FREE ((void *)resolve->bname);
 
-        if (resolve->resolved)
-                GF_FREE ((void *)resolve->resolved);
+        GF_FREE ((void *)resolve->resolved);
 
         if (resolve->fd)
                 fd_unref (resolve->fd);

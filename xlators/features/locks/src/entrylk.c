@@ -341,8 +341,7 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
         if (conf) {
                 ret = -EAGAIN;
                 if (nonblock){
-                        if (lock->basename)
-                                GF_FREE ((char *)lock->basename);
+                        GF_FREE ((char *)lock->basename);
                         GF_FREE (lock);
                         goto out;
 
@@ -361,8 +360,7 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
         if ( __blocked_lock_conflict (dom, basename, type) && !(__owner_has_lock (dom, lock))) {
                 ret = -EAGAIN;
                 if (nonblock) {
-                        if (lock->basename)
-                                GF_FREE ((char *) lock->basename);
+                        GF_FREE ((char *) lock->basename);
                         GF_FREE (lock);
                         goto out;
 
@@ -499,8 +497,7 @@ __grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
                 } else {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "should never happen");
-                        if (bl->basename)
-                                GF_FREE ((char *)bl->basename);
+                        GF_FREE ((char *)bl->basename);
                         GF_FREE (bl);
                 }
         }
@@ -601,8 +598,7 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
 
                 STACK_UNWIND_STRICT (entrylk, lock->frame, -1, EAGAIN, NULL);
 
-                if (lock->basename)
-                        GF_FREE ((char *)lock->basename);
+                GF_FREE ((char *)lock->basename);
                 GF_FREE (lock);
 
         }
@@ -612,8 +608,7 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
 
                 STACK_UNWIND_STRICT (entrylk, lock->frame, 0, 0, NULL);
 
-                if (lock->basename)
-                        GF_FREE ((char *)lock->basename);
+                GF_FREE ((char *)lock->basename);
                 GF_FREE (lock);
         }
 
