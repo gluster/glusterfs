@@ -45,7 +45,7 @@ cli_begin_xml_output (xmlTextWriterPtr *writer, xmlBufferPtr *buf)
         int             ret = -1;
 
         *buf = xmlBufferCreateSize (8192);
-        if (buf == NULL) {
+        if (*buf == NULL) {
                 ret = -1;
                 goto out;
         }
