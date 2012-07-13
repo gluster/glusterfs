@@ -194,6 +194,7 @@ int syncop_truncate (xlator_t *subvol, loc_t *loc, off_t offset);
 int syncop_unlink (xlator_t *subvol, loc_t *loc);
 
 int syncop_fsync (xlator_t *subvol, fd_t *fd);
+int syncop_flush (xlator_t *subvol, fd_t *fd);
 int syncop_fstat (xlator_t *subvol, fd_t *fd, struct iatt *stbuf);
 int syncop_stat (xlator_t *subvol, loc_t *loc, struct iatt *stbuf);
 
