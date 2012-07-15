@@ -213,9 +213,9 @@ _posix_xattr_get_set (dict_t *xattr_req,
                         if (!value)
                                 return;
 
-                        ret = sys_lgetxattr (filler->real_path, key, value,
-                                       xattr_size);
-                        if (ret <= 0) {
+                        xattr_size = sys_lgetxattr (filler->real_path, key, value,
+                                                    xattr_size);
+                        if (xattr_size <= 0) {
                                 gf_log (filler->this->name, GF_LOG_WARNING,
                                         "getxattr failed. path: %s, key: %s",
                                         filler->real_path, key);
@@ -243,14 +243,17 @@ int
 posix_fill_gfid_path (xlator_t *this, const char *path, struct iatt *iatt)
 {
         int ret = 0;
+        ssize_t size = 0;
 
         if (!iatt)
                 return 0;
 
-        ret = sys_lgetxattr (path, GFID_XATTR_KEY, iatt->ia_gfid, 16);
+        size = sys_lgetxattr (path, GFID_XATTR_KEY, iatt->ia_gfid, 16);
         /* Return value of getxattr */
-        if ((ret == 16) || (ret == -1))
+        if ((size == 16) || (size == -1))
                 ret = 0;
+        else
+                ret = size;
 
         return ret;
 }
@@ -260,14 +263,17 @@ int
 posix_fill_gfid_fd (xlator_t *this, int fd, struct iatt *iatt)
 {
         int ret = 0;
+        ssize_t size = 0;
 
         if (!iatt)
                 return 0;
 
-        ret = sys_fgetxattr (fd, GFID_XATTR_KEY, iatt->ia_gfid, 16);
+        size = sys_fgetxattr (fd, GFID_XATTR_KEY, iatt->ia_gfid, 16);
         /* Return value of getxattr */
-        if ((ret == 16) || (ret == -1))
+        if ((size == 16) || (size == -1))
                 ret = 0;
+        else
+                ret = size;
 
         return ret;
 }
@@ -451,6 +457,7 @@ posix_gfid_set (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
         void        *uuid_req = NULL;
         uuid_t       uuid_curr;
         int          ret = 0;
+        ssize_t      size = 0;
         struct stat  stat = {0, };
 
 
@@ -460,8 +467,8 @@ posix_gfid_set (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
         if (sys_lstat (path, &stat) != 0)
                 goto out;
 
-        ret = sys_lgetxattr (path, GFID_XATTR_KEY, uuid_curr, 16);
-        if (ret == 16) {
+        size = sys_lgetxattr (path, GFID_XATTR_KEY, uuid_curr, 16);
+        if (size == 16) {
                 ret = 0;
                 goto verify_handle;
         }

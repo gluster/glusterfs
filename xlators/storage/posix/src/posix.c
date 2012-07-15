@@ -2591,8 +2591,9 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         op_ret = -1;
                         goto out;
                 }
-                op_ret = sys_lgetxattr (real_path, key, value, size);
-                if (op_ret == -1) {
+                size = sys_lgetxattr (real_path, key, value, size);
+                if (size == -1) {
+                        op_ret = -1;
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR, "getxattr failed on "
                                 "%s: key = %s (%s)", real_path, key,
@@ -2600,8 +2601,8 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         GF_FREE (value);
                         goto out;
                 }
-                value [op_ret] = '\0';
-                op_ret = dict_set_dynptr (dict, key, value, op_ret);
+                value [size] = '\0';
+                op_ret = dict_set_dynptr (dict, key, value, size);
                 if (op_ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR, "dict set operation "
                                 "on %s for the key %s failed.", real_path, key);
@@ -2649,8 +2650,9 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         break;
 
                 strcpy (key, list + list_offset);
-                op_ret = sys_lgetxattr (real_path, key, NULL, 0);
-                if (op_ret == -1) {
+                size = sys_lgetxattr (real_path, key, NULL, 0);
+                if (size == -1) {
+                        op_ret = -1;
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR, "getxattr failed on "
                                 "%s: key = %s (%s)", real_path, key,
@@ -2665,8 +2667,9 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         goto out;
                 }
 
-                op_ret = sys_lgetxattr (real_path, key, value, op_ret);
-                if (op_ret == -1) {
+                size = sys_lgetxattr (real_path, key, value, size);
+                if (size == -1) {
+                        op_ret = -1;
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR, "getxattr failed on "
                                 "%s: key = %s (%s)", real_path, key,
@@ -2675,8 +2678,8 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         break;
                 }
 
-                value [op_ret] = '\0';
-                op_ret = dict_set_dynptr (dict, key, value, op_ret);
+                value [size] = '\0';
+                op_ret = dict_set_dynptr (dict, key, value, size);
                 if (op_ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR, "dict set operation "
                                 "on %s for the key %s failed.", real_path, key);
@@ -2774,8 +2777,9 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         op_ret = -1;
                         goto out;
                 }
-                op_ret = sys_fgetxattr (_fd, key, value, op_ret);
-                if (op_ret == -1) {
+                size = sys_fgetxattr (_fd, key, value, size);
+                if (size == -1) {
+                        op_ret = -1;
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR, "fgetxattr failed on "
                                 "fd %p for the key %s (%s)", fd, key,
@@ -2783,8 +2787,8 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         GF_FREE (value);
                         goto out;
                 }
-                value [op_ret] = '\0';
-                op_ret = dict_set_dynptr (dict, key, value, op_ret);
+                value [size] = '\0';
+                op_ret = dict_set_dynptr (dict, key, value, size);
                 if (op_ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR, "dict set operation "
                                 "on key %s failed", key);
@@ -2830,8 +2834,9 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         break;
 
                 strcpy (key, list + list_offset);
-                op_ret = sys_fgetxattr (_fd, key, NULL, 0);
-                if (op_ret == -1) {
+                size = sys_fgetxattr (_fd, key, NULL, 0);
+                if (size == -1) {
+                        op_ret = -1;
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR, "fgetxattr failed on "
                                 "fd %p for the key %s (%s)", fd, key,
@@ -2842,12 +2847,14 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                 value = GF_CALLOC (op_ret + 1, sizeof(char),
                                    gf_posix_mt_char);
                 if (!value) {
+                        op_ret = -1;
                         op_errno = errno;
                         goto out;
                 }
 
-                op_ret = sys_fgetxattr (_fd, key, value, op_ret);
-                if (op_ret == -1) {
+                size = sys_fgetxattr (_fd, key, value, size);
+                if (size == -1) {
+                        op_ret = -1;
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR, "fgetxattr failed on "
                                 "the fd %p for the key %s (%s)", fd, key,
@@ -2856,8 +2863,8 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         break;
                 }
 
-                value [op_ret] = '\0';
-                op_ret = dict_set_dynptr (dict, key, value, op_ret);
+                value [size] = '\0';
+                op_ret = dict_set_dynptr (dict, key, value, size);
                 if (op_ret) {
                         gf_log (this->name, GF_LOG_ERROR, "dict set operation "
                                 "failed on key %s", key);
@@ -3956,6 +3963,7 @@ init (xlator_t *this)
         int                   dict_ret      = 0;
         int                   ret           = 0;
         int                   op_ret        = -1;
+        ssize_t               size          = -1;
         int32_t               janitor_sleep = 0;
         uuid_t                old_uuid      = {0,};
         uuid_t                dict_uuid     = {0,};
@@ -4042,9 +4050,9 @@ init (xlator_t *this)
                         ret = -1;
                         goto out;
                 }
-                op_ret = sys_lgetxattr (dir_data->data,
-                                        "trusted.glusterfs.volume-id", old_uuid, 16);
-                if (op_ret == 16) {
+                size = sys_lgetxattr (dir_data->data,
+                                      "trusted.glusterfs.volume-id", old_uuid, 16);
+                if (size == 16) {
                         if (uuid_compare (old_uuid, dict_uuid)) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "mismatching volume-id (%s) received. "
@@ -4053,22 +4061,23 @@ init (xlator_t *this)
                                 ret = -1;
                                 goto out;
                         }
-                } else if ((op_ret == -1) && (errno == ENODATA)) {
+                } else if ((size == -1) && (errno == ENODATA)) {
                         /* Using the export for first time */
-                        op_ret = sys_lsetxattr (dir_data->data,
+                        size = sys_lsetxattr (dir_data->data,
                                                 "trusted.glusterfs.volume-id",
                                                 dict_uuid, 16, 0);
-                        if (op_ret == -1) {
+                        if (size == -1) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "failed to set volume id on export");
                                 ret = -1;
                                 goto out;
                         }
-                }  else if ((op_ret == -1) && (errno != ENODATA)) {
+                }  else if ((size == -1) && (errno != ENODATA)) {
                         /* Wrong 'volume-id' is set, it should be error */
                         gf_log (this->name, GF_LOG_WARNING,
                                 "%s: failed to fetch volume-id (%s)",
                                 dir_data->data, strerror (errno));
+                        ret = -1;
                         goto out;
                 } else {
                         ret = -1;
@@ -4080,8 +4089,8 @@ init (xlator_t *this)
 
         /* Now check if the export directory has some other 'gfid',
            other than that of root '/' */
-        ret = sys_lgetxattr (dir_data->data, "trusted.gfid", gfid, 16);
-        if (ret == 16) {
+        size = sys_lgetxattr (dir_data->data, "trusted.gfid", gfid, 16);
+        if (size == 16) {
                 if (!__is_root_gfid (gfid)) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "%s: gfid (%s) is not that of glusterfs '/' ",
@@ -4089,34 +4098,36 @@ init (xlator_t *this)
                         ret = -1;
                         goto out;
                 }
-        } else if (ret != -1) {
+        } else if (size != -1) {
                 /* Wrong 'gfid' is set, it should be error */
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: wrong value set as gfid",
                         dir_data->data);
                 ret = -1;
                 goto out;
-        } else if ((ret == -1) && (errno != ENODATA)) {
+        } else if ((size == -1) && (errno != ENODATA)) {
                 /* Wrong 'gfid' is set, it should be error */
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: failed to fetch gfid (%s)",
                         dir_data->data, strerror (errno));
+                ret = -1;
                 goto out;
         } else {
                 /* First time volume, set the GFID */
-                ret = sys_lsetxattr (dir_data->data, "trusted.gfid", rootgfid,
+                size = sys_lsetxattr (dir_data->data, "trusted.gfid", rootgfid,
                                      16, XATTR_CREATE);
-                if (ret) {
+                if (size) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "%s: failed to set gfid (%s)",
                                 dir_data->data, strerror (errno));
+                        ret = -1;
                         goto out;
                 }
         }
 
-        op_ret = sys_lgetxattr (dir_data->data, "system.posix_acl_access",
-                                NULL, 0);
-        if ((op_ret < 0) && (errno == ENOTSUP))
+        size = sys_lgetxattr (dir_data->data, "system.posix_acl_access",
+                              NULL, 0);
+        if ((size < 0) && (errno == ENOTSUP))
                 gf_log (this->name, GF_LOG_WARNING,
                         "Posix access control list is not supported.");
 
