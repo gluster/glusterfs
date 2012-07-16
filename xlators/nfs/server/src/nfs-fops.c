@@ -39,13 +39,6 @@
 #include <libgen.h>
 #include <semaphore.h>
 
-/*
- * We treat this as a very simple set-associative LRU cache, with entries aged
- * out after a configurable interval.  Hardly rocket science, but lots of
- * details to worry about.
- */
-#define BUCKET_START(p,n)       ((p) + ((n) * AUX_GID_CACHE_ASSOC))
-
 void
 nfs_fix_groups (xlator_t *this, call_stack_t *root)
 {
@@ -56,47 +49,23 @@ nfs_fix_groups (xlator_t *this, call_stack_t *root)
         int              ngroups;
         int              i;
         struct nfs_state *priv = this->private;
-        aux_gid_list_t   *agl = NULL;
-        int              bucket = 0;
-        time_t           now = 0;
+        const gid_list_t *agl;
+	gid_list_t gl;
 
         if (!priv->server_aux_gids) {
                 return;
         }
 
-        LOCK(&priv->aux_gid_lock);
-        now = time(NULL);
-        bucket = root->uid % priv->aux_gid_nbuckets;
-        agl = BUCKET_START(priv->aux_gid_cache,bucket);
-        for (i = 0; i < AUX_GID_CACHE_ASSOC; ++i, ++agl) {
-                if (!agl->gid_list) {
-                        continue;
-                }
-                if (agl->uid != root->uid) {
-                        continue;
-                }
-                /*
-                 * We don't put new entries in the cache when expiration=0, but
-                 * there might be entries still in there if expiration was
-                 * changed very recently.  Writing the check this way ensures
-                 * that they're not used.
-                 */
-                if (now < agl->deadline) {
-                        for (ngroups = 0; ngroups < agl->gid_count; ++ngroups) {
-                                root->groups[ngroups] = agl->gid_list[ngroups];
-                        }
-                        UNLOCK(&priv->aux_gid_lock);
-                        root->ngrps = ngroups;
-                        return;
-                }
-                /*
-                 * We're not going to find any more UID matches, and reaping
-                 * is handled further down to maintain LRU order.
-                 */
-                break;
-        }
-        UNLOCK(&priv->aux_gid_lock);
+	agl = gid_cache_lookup(&priv->gid_cache, root->uid);
+	if (agl) {
+		for (ngroups = 0; ngroups < agl->gl_count; ngroups++) 
+			root->groups[ngroups] = agl->gl_list[ngroups];
+		root->ngrps = ngroups;
+		gid_cache_release(&priv->gid_cache, agl);
+		return;
+	}
 
+	/* No cached list found. */
         if (getpwuid_r(root->uid,&mypw,mystrs,sizeof(mystrs),&result) != 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "getpwuid_r(%u) failed", root->uid);
@@ -119,51 +88,18 @@ nfs_fix_groups (xlator_t *this, call_stack_t *root)
                 return;
         }
 
-        if (priv->aux_gid_max_age) {
-                LOCK(&priv->aux_gid_lock);
-                /* Bucket should still be valid from before. */
-                agl = BUCKET_START(priv->aux_gid_cache,bucket);
-                for (i = 0; i < AUX_GID_CACHE_ASSOC; ++i, ++agl) {
-                        if (!agl->gid_list) {
-                                break;
-                        }
-                }
-                /*
-                 * The way we allocate free entries naturally places the newest
-                 * ones at the highest indices, so evicting the lowest makes
-                 * sense, but that also means we can't just replace it with the
-                 * one that caused the eviction.  That would cause us to thrash
-                 * the first entry while others remain idle.  Therefore, we
-                 * need to slide the other entries down and add the new one at
-                 * the end just as if the *last* slot had been free.
-                 *
-                 * Deadline expiration is also handled here, since the oldest
-                 * expired entry will be in the first position.  This does mean
-                 * the bucket can stay full of expired entries if we're idle
-                 * but, if the small amount of extra memory or scan time before
-                 * we decide to evict someone ever become issues, we could
-                 * easily add a reaper thread.
-                 */
-                if (i >= AUX_GID_CACHE_ASSOC) {
-                        agl = BUCKET_START(priv->aux_gid_cache,bucket);
-                        GF_FREE(agl->gid_list);
-                        for (i = 1; i < AUX_GID_CACHE_ASSOC; ++i) {
-                                agl[0] = agl[1];
-                                ++agl;
-                        }
-                }
-                agl->gid_list = GF_CALLOC(ngroups,sizeof(gid_t),
-                                          gf_nfs_mt_aux_gids);
-                if (agl->gid_list) {
-                        /* It's not fatal if the alloc failed. */
-                        agl->uid = root->uid;
-                        agl->gid_count = ngroups;
-                        memcpy(agl->gid_list,mygroups,sizeof(gid_t)*ngroups);
-                        agl->deadline = now + priv->aux_gid_max_age;
-                }
-                UNLOCK(&priv->aux_gid_lock);
-        }
+	/* Add the group data to the cache. */
+	gl.gl_list = GF_CALLOC(ngroups, sizeof(gid_t), gf_nfs_mt_aux_gids);
+	if (gl.gl_list) {
+		/* It's not fatal if the alloc failed. */
+		gl.gl_id = root->uid;
+		gl.gl_count = ngroups;
+		memcpy(gl.gl_list, mygroups, sizeof(gid_t) * ngroups);
+		if (gid_cache_add(&priv->gid_cache, &gl) != 1)
+			GF_FREE(gl.gl_list);
+	}
 
+	/* Copy data to the frame. */
         for (i = 0; i < ngroups; ++i) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "%s is in group %u", result->pw_name, mygroups[i]);

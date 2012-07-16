@@ -286,6 +286,7 @@ struct _cmd_args {
         int              worm;
         int              mac_compat;
 	int		 fopen_keep_cache;
+	int		 gid_timeout;
 	struct list_head xlator_options;  /* list of xlator_option_t */
 
 	/* fuse options */

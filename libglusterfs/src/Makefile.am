@@ -22,7 +22,8 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	$(CONTRIBDIR)/uuid/parse.c $(CONTRIBDIR)/uuid/unparse.c \
 	$(CONTRIBDIR)/uuid/uuid_time.c $(CONTRIBDIR)/uuid/compare.c \
 	$(CONTRIBDIR)/uuid/isnull.c $(CONTRIBDIR)/uuid/unpack.c syncop.c \
-	graph-print.c trie.c run.c options.c fd-lk.c circ-buff.c event-history.c
+	graph-print.c trie.c run.c options.c fd-lk.c circ-buff.c \
+	event-history.c gidcache.c
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c
 
@@ -36,7 +37,7 @@ noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h \
 	rbthash.h iatt.h latency.h mem-types.h $(CONTRIBDIR)/uuid/uuidd.h \
 	$(CONTRIBDIR)/uuid/uuid.h $(CONTRIBDIR)/uuid/uuidP.h \
 	$(CONTRIB_BUILDDIR)/uuid/uuid_types.h syncop.h graph-utils.h trie.h run.h \
-	options.h lkowner.h fd-lk.h circ-buff.h event-history.h
+	options.h lkowner.h fd-lk.h circ-buff.h event-history.h gidcache.h
 
 EXTRA_DIST = graph.l graph.y
 

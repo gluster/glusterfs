@@ -29,6 +29,7 @@
 #include "dict.h"
 #include "xlator.h"
 #include "lkowner.h"
+#include "gidcache.h"
 
 #define GF_NFS                  "nfs"
 
@@ -65,28 +66,6 @@ struct nfs_initer_list {
         rpcsvc_program_t        *program;
 };
 
-/*
- * TBD: make the cache size tunable
- *
- * The current size represents a pretty trivial amount of memory, and should
- * provide good hit rates even for quite busy systems.  If we ever want to
- * support really large cache sizes, we'll need to do dynamic allocation
- * instead of just defining an array within nfs_state.  It doesn't make a
- * whole lot of sense to change the associativity, because it won't improve
- * hit rates all that much and will increase the maintenance cost as we have
- * to scan more entries with every lookup/update.
- */
-#define AUX_GID_CACHE_ASSOC     4
-#define AUX_GID_CACHE_BUCKETS   256
-#define AUX_GID_CACHE_SIZE      (AUX_GID_CACHE_ASSOC * AUX_GID_CACHE_BUCKETS)
-
-typedef struct {
-        uid_t                   uid;
-        int                     gid_count;
-        gid_t                   *gid_list;
-        time_t                  deadline;
-} aux_gid_list_t;
-
 struct nfs_state {
         rpcsvc_t                *rpcsvc;
         struct list_head        versions;
@@ -110,10 +89,8 @@ struct nfs_state {
         int                     mount_udp;
         struct rpc_clnt         *rpc_clnt;
         gf_boolean_t            server_aux_gids;
-        gf_lock_t               aux_gid_lock;
-        uint32_t                aux_gid_max_age;
-        unsigned int            aux_gid_nbuckets;
-        aux_gid_list_t          aux_gid_cache[AUX_GID_CACHE_SIZE];
+	uint32_t		server_aux_gids_max_age;
+	gid_cache_t		gid_cache;
 };
 
 #define gf_nfs_dvm_on(nfsstt)   (((struct nfs_state *)nfsstt)->dynamicvolumes == GF_NFS_DVM_ON)
