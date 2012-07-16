@@ -99,41 +99,6 @@ rpc_clnt_prog_t *cli_rpc_prog;
 
 extern struct rpc_clnt_program cli_prog;
 
-
-
-
-static char *
-generate_uuid ()
-{
-        char           tmp_str[1024] = {0,};
-        char           hostname[256] = {0,};
-        struct timeval tv = {0,};
-        char           now_str[32];
-
-        if (gettimeofday (&tv, NULL) == -1) {
-                gf_log ("glusterfsd", GF_LOG_ERROR,
-                        "gettimeofday: failed %s",
-                        strerror (errno));
-        }
-
-        if (gethostname (hostname, 256) == -1) {
-                gf_log ("glusterfsd", GF_LOG_ERROR,
-                        "gethostname: failed %s",
-                        strerror (errno));
-        }
-
-        gf_time_fmt (now_str, sizeof now_str, tv.tv_sec, gf_timefmt_Ymd_T);
-        snprintf (tmp_str, sizeof tmp_str, "%s-%d-%s:%"
-#ifdef GF_DARWIN_HOST_OS
-                  PRId32,
-#else
-                  "ld",
-#endif
-                  hostname, getpid(), now_str, tv.tv_usec);
-
-        return gf_strdup (tmp_str);
-}
-
 static int
 glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 {
@@ -143,7 +108,7 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 
         xlator_mem_acct_init (THIS, cli_mt_end);
 
-        ctx->process_uuid = generate_uuid ();
+        ctx->process_uuid = generate_glusterfs_ctx_id ();
         if (!ctx->process_uuid)
                 return -1;
 
