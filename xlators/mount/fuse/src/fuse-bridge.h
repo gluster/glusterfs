@@ -55,6 +55,7 @@
 #include "list.h"
 #include "dict.h"
 #include "syncop.h"
+#include "gidcache.h"
 
 #if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
 #define FUSE_OP_HIGH (FUSE_POLL + 1)
@@ -109,6 +110,8 @@ struct fuse_private {
         gf_boolean_t         acl;
         gf_boolean_t         selinux;
         gf_boolean_t         read_only;
+	int32_t		     gid_cache_timeout;
+	gid_cache_t	     gid_cache;
         gf_boolean_t         enable_ino32;
         fdtable_t           *fdtable;
 

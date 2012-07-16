@@ -105,6 +105,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --volume-name=$volume_name");
     fi
 
+    if [ -n "$gid_timeout" ]; then
+	cmd_line=$(echo "$cmd_line --gid-timeout=$gid_timeout");
+    fi
+
     if [ -z "$volfile_loc" ]; then
         if  [ -n "$server_ip" ]; then
             if [ -n "$server_port" ]; then
@@ -279,6 +283,7 @@ main ()
                                 volfile_max_fetch_attempts=$value ;;
                             "backupvolfile-server")
                                 backupvolfile_server=$value ;;
+			    "gid-timeout")	gid_timeout=$value ;;
                             *) echo "unknown option $key (ignored)" ;;
                         esac
                 esac
