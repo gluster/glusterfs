@@ -392,8 +392,9 @@ out:
 /* Obtain a backtrace and print it to stdout. */
 /* TODO: It looks like backtrace_symbols allocates memory,
    it may be problem because mostly memory allocation/free causes 'sigsegv' */
+
 void
-gf_print_trace (int32_t signum)
+gf_print_trace (int32_t signum, glusterfs_ctx_t *ctx)
 {
         extern FILE *gf_log_logfile;
         char         msg[1024] = {0,};
@@ -409,7 +410,6 @@ gf_print_trace (int32_t signum)
                 goto out;
 
         {
-                glusterfs_ctx_t *ctx = glusterfs_ctx_get ();
                 struct list_head *trav = ((call_pool_t *)ctx->pool)->all_frames.next;
                 while (trav != (&((call_pool_t *)ctx->pool)->all_frames)) {
                         call_frame_t *tmp = (call_frame_t *)(&((call_stack_t *)trav)->frames);

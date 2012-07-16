@@ -944,14 +944,13 @@ dht_start_rebalance_task (xlator_t *this, call_frame_t *frame)
 }
 
 int
-gf_listener_stop (void)
+gf_listener_stop (xlator_t *this)
 {
         glusterfs_ctx_t  *ctx = NULL;
         cmd_args_t       *cmd_args = NULL;
         int              ret = 0;
-        xlator_t         *this = NULL;
 
-        ctx = glusterfs_ctx_get ();
+        ctx = this->ctx;
         GF_ASSERT (ctx);
         cmd_args = &ctx->cmd_args;
         if (cmd_args->sock_file) {
@@ -962,7 +961,6 @@ gf_listener_stop (void)
         }
 
         if (ret) {
-                this = THIS;
                 gf_log (this->name, GF_LOG_ERROR, "Failed to unlink listener "
                         "socket %s, error: %s", cmd_args->sock_file,
                         strerror (errno));
@@ -1431,7 +1429,7 @@ gf_defrag_start_crawl (void *data)
         if (!this)
                 goto out;
 
-        ctx = glusterfs_ctx_get ();
+        ctx = this->ctx;
         if (!ctx)
                 goto out;
 
@@ -1528,7 +1526,7 @@ out:
 static int
 gf_defrag_done  (int ret, call_frame_t *sync_frame, void *data)
 {
-        gf_listener_stop();
+        gf_listener_stop (sync_frame->this);
 
         STACK_DESTROY (sync_frame->root);
         kill (getpid(), SIGTERM);

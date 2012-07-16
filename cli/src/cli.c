@@ -552,9 +552,10 @@ main (int argc, char *argv[])
         if (ret)
                 return ret;
 
-        ctx = glusterfs_ctx_get ();
+        ctx = glusterfs_ctx_new ();
         if (!ctx)
                 return ENOMEM;
+	THIS->ctx = ctx;
 
         ret = glusterfs_ctx_defaults_init (ctx);
         if (ret)

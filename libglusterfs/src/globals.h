@@ -13,13 +13,6 @@
 
 #define GF_DEFAULT_BASE_PORT 24007
 
-#include "glusterfs.h"
-
-/* CTX */
-#define CTX (glusterfs_ctx_get())
-
-glusterfs_ctx_t *glusterfs_ctx_get ();
-
 #include "xlator.h"
 
 /* THIS */

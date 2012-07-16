@@ -81,43 +81,6 @@ gf_op_list_init()
 }
 
 
-/* CTX */
-static glusterfs_ctx_t *glusterfs_ctx;
-
-
-int
-glusterfs_ctx_init ()
-{
-        int  ret = 0;
-
-        if (glusterfs_ctx) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "init called again");
-                goto out;
-        }
-
-        glusterfs_ctx = CALLOC (1, sizeof (*glusterfs_ctx));
-        if (!glusterfs_ctx) {
-                ret = -1;
-                goto out;
-        }
-
-        INIT_LIST_HEAD (&glusterfs_ctx->graphs);
-        INIT_LIST_HEAD (&glusterfs_ctx->mempool_list);
-        ret = pthread_mutex_init (&glusterfs_ctx->lock, NULL);
-
-out:
-        return ret;
-}
-
-
-glusterfs_ctx_t *
-glusterfs_ctx_get ()
-{
-        return glusterfs_ctx;
-
-}
-
-
 /* THIS */
 
 xlator_t global_xlator;
@@ -143,7 +106,6 @@ glusterfs_this_init ()
 
         global_xlator.name = "glusterfs";
         global_xlator.type = "global";
-        global_xlator.ctx  = glusterfs_ctx;
 
         INIT_LIST_HEAD (&global_xlator.volume_options);
 
@@ -326,13 +288,6 @@ glusterfs_globals_init ()
         gf_op_list_init ();
 
         gf_log_globals_init ();
-
-        ret = glusterfs_ctx_init ();
-        if (ret) {
-                gf_log ("", GF_LOG_CRITICAL,
-                        "ERROR: glusterfs context init failed");
-                goto out;
-        }
 
         ret = glusterfs_this_init ();
         if (ret) {

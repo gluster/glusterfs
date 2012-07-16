@@ -11,6 +11,7 @@
 #ifndef __LATENCY_H__
 #define __LATENCY_H__
 
+#include "glusterfs.h"
 
 typedef struct fop_latency {
         uint64_t min;           /* min time for the call (microseconds) */
@@ -22,6 +23,6 @@ typedef struct fop_latency {
 } fop_latency_t;
 
 void
-gf_latency_toggle (int signum);
+gf_latency_toggle (int signum, glusterfs_ctx_t *ctx);
 
 #endif /* __LATENCY_H__ */

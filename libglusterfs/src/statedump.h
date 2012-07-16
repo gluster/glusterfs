@@ -61,7 +61,7 @@ void gf_proc_dump_fini(void);
 
 void gf_proc_dump_cleanup(void);
 
-void gf_proc_dump_info(int signum);
+void gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx);
 
 int gf_proc_dump_add_section(char *key,...);
 

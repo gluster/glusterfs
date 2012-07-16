@@ -4447,7 +4447,7 @@ init (xlator_t *this_xl)
         if (this_xl->options == NULL)
                 return -1;
 
-        ctx = glusterfs_ctx_get ();
+        ctx = this_xl->ctx;
         if (!ctx)
                 return -1;
 

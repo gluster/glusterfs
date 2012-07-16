@@ -369,13 +369,12 @@ struct _glusterfs_ctx {
         struct mem_pool    *dict_pair_pool;
         struct mem_pool    *dict_data_pool;
 
-        int                 mem_accounting; /* if value is other than 0, it
-                                               will be set */
         glusterfsd_mgmt_event_notify_fn_t notify; /* Used for xlators to make
                                                      call to fsd-mgmt */
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
+glusterfs_ctx_t *glusterfs_ctx_new (void);
 
 /* If you edit this structure then, make a corresponding change in
  * globals.c in the eventstring.
