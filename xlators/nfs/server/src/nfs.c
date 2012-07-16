@@ -736,8 +736,13 @@ nfs_init_state (xlator_t *this)
 
         GF_OPTION_INIT (OPT_SERVER_AUX_GIDS, nfs->server_aux_gids,
                         bool, free_foppool);
-        GF_OPTION_INIT (OPT_SERVER_GID_CACHE_TIMEOUT,nfs->aux_gid_max_age,
+        GF_OPTION_INIT (OPT_SERVER_GID_CACHE_TIMEOUT, nfs->server_aux_gids_max_age,
                         uint32, free_foppool);
+
+	if (gid_cache_init(&nfs->gid_cache, nfs->server_aux_gids_max_age) < 0) {
+		gf_log(GF_NFS, GF_LOG_ERROR, "Failed to initialize group cache.");
+		goto free_foppool;
+	}
 
         if (stat("/sbin/rpc.statd", &stbuf) == -1) {
                 gf_log (GF_NFS, GF_LOG_WARNING, "/sbin/rpc.statd not found. "
@@ -826,9 +831,6 @@ init (xlator_t *this) {
                 ret = 0;
                 goto err;
         }
-
-        LOCK_INIT(&nfs->aux_gid_lock);
-        nfs->aux_gid_nbuckets = AUX_GID_CACHE_BUCKETS;
 
         gf_log (GF_NFS, GF_LOG_INFO, "NFS service started");
 err:

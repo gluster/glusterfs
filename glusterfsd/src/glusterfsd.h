@@ -88,6 +88,7 @@ enum argp_option_keys {
         ARGP_MEM_ACCOUNTING_KEY           = 157,
         ARGP_SELINUX_KEY                  = 158,
 	ARGP_FOPEN_KEEP_CACHE_KEY	  = 159,
+	ARGP_GID_TIMEOUT_KEY		  = 160,
 };
 
 struct _gfd_vol_top_priv_t {

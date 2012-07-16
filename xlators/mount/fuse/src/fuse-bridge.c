@@ -4604,6 +4604,15 @@ init (xlator_t *this_xl)
 	GF_OPTION_INIT("fopen-keep-cache", priv->fopen_keep_cache, bool,
 		cleanup_exit);
 
+	GF_OPTION_INIT("gid-timeout", priv->gid_cache_timeout, int32,
+		cleanup_exit);
+
+	if (gid_cache_init(&priv->gid_cache, priv->gid_cache_timeout) < 0) {
+		gf_log("glusterfs-fuse", GF_LOG_ERROR, "Failed to initialize "
+			"group cache.");
+		goto cleanup_exit;
+	}
+
         cmd_args = &this_xl->ctx->cmd_args;
         fsname = cmd_args->volfile;
         if (!fsname && cmd_args->volfile_server) {
@@ -4767,6 +4776,10 @@ struct volume_options options[] = {
 	{ .key = {"fopen-keep-cache"},
 	  .type = GF_OPTION_TYPE_BOOL,
 	  .default_value = "false"
+	},
+	{ .key = {"gid-timeout"},
+	  .type = GF_OPTION_TYPE_INT,
+	  .default_value = "0"
 	},
         { .key = {NULL} },
 };

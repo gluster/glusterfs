@@ -181,6 +181,9 @@ static struct argp_option gf_options[] = {
         {"attribute-timeout", ARGP_ATTRIBUTE_TIMEOUT_KEY, "SECONDS", 0,
          "Set attribute timeout to SECONDS for inodes in fuse kernel module "
          "[default: 1]"},
+	{"gid-timeout", ARGP_GID_TIMEOUT_KEY, "SECONDS", 0,
+	 "Set auxilary group list timeout to SECONDS for fuse translator "
+	 "[default: 0]"},
         {"client-pid", ARGP_CLIENT_PID_KEY, "PID", OPTION_HIDDEN,
          "client will authenticate itself with process id PID to server"},
         {"user-map-root", ARGP_USER_MAP_ROOT_KEY, "USER", OPTION_HIDDEN,
@@ -377,6 +380,16 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
 			gf_log("glusterfsd", GF_LOG_ERROR,
 				"failed to set dict value for key "
 				"fopen-keep-cache");
+			goto err;
+		}
+	}
+
+	if (cmd_args->gid_timeout) {
+		ret = dict_set_int32(master->options, "gid-timeout",
+			cmd_args->gid_timeout);
+		if (ret < 0) {
+			gf_log("glusterfsd", GF_LOG_ERROR, "failed to set dict "
+				"value for key gid-timeout");
 			goto err;
 		}
 	}
@@ -826,6 +839,13 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
 	case ARGP_FOPEN_KEEP_CACHE_KEY:
 		cmd_args->fopen_keep_cache = 1;
+		break;
+
+	case ARGP_GID_TIMEOUT_KEY:
+		if (!gf_string2int(arg, &cmd_args->gid_timeout))
+			break;
+
+		argp_failure(state, -1, 0, "unknown group list timeout %s", arg);
 		break;
 	}
 

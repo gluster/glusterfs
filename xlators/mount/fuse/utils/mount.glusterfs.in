@@ -132,6 +132,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --entry-timeout=$entry_timeout");
     fi
 
+    if [ -n "$gid_timeout" ]; then
+	cmd_line=$(echo "$cmd_line --gid-timeout=$gid_timeout");
+    fi
+
     if [ -n "$fopen_keep_cache" ]; then
 	cmd_line=$(echo "$cmd_line --fopen-keep-cache");
     fi
@@ -325,6 +329,7 @@ main ()
                             "attribute-timeout")
                                 attribute_timeout=$value ;;
                             "entry-timeout")    entry_timeout=$value ;;
+			    "gid-timeout")	gid_timeout=$value ;;
                             *) echo "unknown option $key (ignored)" ;;
                         esac
                 esac
