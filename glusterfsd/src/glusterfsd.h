@@ -109,4 +109,6 @@ void cleanup_and_exit (int signum);
 
 void *glusterfs_volume_top_read_perf (void *args);
 void *glusterfs_volume_top_write_perf (void *args);
+
+extern glusterfs_ctx_t *glusterfsd_ctx;
 #endif /* __GLUSTERFSD_H__ */

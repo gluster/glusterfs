@@ -578,7 +578,7 @@ glusterd_op_begin_synctask (rpcsvc_request_t *req, glusterd_op_t op,
                 goto out;
         }
 
-        ctx = glusterfs_ctx_get ();
+        ctx = THIS->ctx;
 
         ret = synctask_new (ctx->env, gd_sync_task_begin,
                             gd_sync_task_completion,

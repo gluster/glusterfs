@@ -38,23 +38,14 @@ gf_mem_acct_is_enabled ()
         return gf_mem_acct_enable;
 }
 
+
 void
 gf_mem_acct_enable_set ()
 {
-#ifdef DEBUG
-        gf_mem_acct_enable = 1;
-        return;
-#endif
-        glusterfs_ctx_t *ctx = NULL;
         char            *opt = NULL;
         long             val = -1;
 
-        gf_mem_acct_enable = 0;
-
-        ctx = glusterfs_ctx_get ();
-
-        if (ctx->mem_accounting) {
-                gf_mem_acct_enable = 1;
+        if (gf_mem_acct_enable) {
                 return;
         }
 
@@ -365,7 +356,7 @@ mem_pool_new_fn (unsigned long sizeof_type,
         mem_pool->pool_end = pool + (count * (padded_sizeof_type));
 
         /* add this pool to the global list */
-        ctx = glusterfs_ctx_get ();
+        ctx = THIS->ctx;
         if (!ctx)
                 goto out;
 

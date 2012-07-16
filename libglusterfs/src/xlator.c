@@ -460,7 +460,7 @@ xlator_mem_acct_init (xlator_t *xl, int num_types)
         int             i = 0;
         int             ret = 0;
 
-        if (!gf_mem_acct_is_enabled())
+        if (!gf_mem_acct_is_enabled ())
                 return 0;
 
         if (!xl)
@@ -721,7 +721,7 @@ is_gf_log_command (xlator_t *this, const char *name, char *value)
                 goto out;
         }
 
-        ctx = glusterfs_ctx_get();
+        ctx = this->ctx;
         if (!ctx)
                 goto out;
         if (!ctx->active)

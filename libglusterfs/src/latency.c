@@ -159,12 +159,8 @@ gf_proc_dump_latency_info (xlator_t *xl)
 
 
 void
-gf_latency_toggle (int signum)
+gf_latency_toggle (int signum, glusterfs_ctx_t *ctx)
 {
-        glusterfs_ctx_t *ctx = NULL;
-
-        ctx = glusterfs_ctx_get ();
-
         if (ctx) {
                 ctx->measure_latency = !ctx->measure_latency;
                 gf_log ("[core]", GF_LOG_INFO,

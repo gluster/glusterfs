@@ -63,7 +63,7 @@ mgmt_cbk_spec (struct rpc_clnt *rpc, void *mydata, void *data)
         xlator_t *this = NULL;
 
         this = mydata;
-        ctx = glusterfs_ctx_get ();
+        ctx = glusterfsd_ctx;
         gf_log ("mgmt", GF_LOG_INFO, "Volume file changed");
 
         glusterfs_volfile_fetch (ctx);
@@ -269,7 +269,7 @@ glusterfs_handle_translator_info_get_cont (gfd_vol_top_priv_t *priv)
                 goto cont;
 
 cont:
-        ctx = glusterfs_ctx_get ();
+        ctx = glusterfsd_ctx;
         GF_ASSERT (ctx);
         active = ctx->active;
         any = active->first;
@@ -658,7 +658,7 @@ glusterfs_handle_translator_op (void *data)
                 goto out;
         }
 
-        ctx = glusterfs_ctx_get ();
+        ctx = glusterfsd_ctx;
         active = ctx->active;
         any = active->first;
         input = dict_new ();
@@ -735,7 +735,7 @@ glusterfs_handle_defrag (rpcsvc_request_t *req)
         this = THIS;
         GF_ASSERT (this);
 
-        ctx = glusterfs_ctx_get ();
+        ctx = glusterfsd_ctx;
         GF_ASSERT (ctx);
 
         active = ctx->active;
@@ -841,7 +841,7 @@ glusterfs_handle_brick_status (rpcsvc_request_t *req)
                 goto out;
         }
 
-        ctx = glusterfs_ctx_get ();
+        ctx = glusterfsd_ctx;
         GF_ASSERT (ctx);
         active = ctx->active;
         any = active->first;
@@ -977,7 +977,7 @@ glusterfs_handle_node_status (rpcsvc_request_t *req)
                 goto out;
         }
 
-        ctx = glusterfs_ctx_get ();
+        ctx = glusterfsd_ctx;
         GF_ASSERT (ctx);
         active = ctx->active;
         any = active->first;
@@ -1140,7 +1140,7 @@ glusterfs_handle_nfs_profile (rpcsvc_request_t *req)
                 goto out;
         }
 
-        ctx = glusterfs_ctx_get ();
+        ctx = glusterfsd_ctx;
         GF_ASSERT (ctx);
 
         active = ctx->active;
@@ -1482,13 +1482,7 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
                 "Only options have changed in the new "
                 "graph");
 
-        ctx = glusterfs_ctx_get ();
-
-        if (!ctx) {
-                gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
-                        "glusterfs_ctx_get() returned NULL");
-                goto out;
-        }
+        ctx = glusterfsd_ctx;
 
         oldvolfile_graph = ctx->active;
 
@@ -1732,7 +1726,7 @@ glusterfs_rebalance_event_notify (dict_t *dict)
         cmd_args_t              *cmd_args = NULL;
         call_frame_t            *frame = NULL;
 
-        ctx = glusterfs_ctx_get ();
+        ctx = glusterfsd_ctx;
         cmd_args = &ctx->cmd_args;
 
         frame = create_frame (THIS, ctx->pool);
@@ -2068,7 +2062,7 @@ mgmt_pmap_signin_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        ctx = glusterfs_ctx_get ();
+        ctx = glusterfsd_ctx;
         cmd_args = &ctx->cmd_args;
 
         if (!cmd_args->brick_port2) {
@@ -2137,7 +2131,7 @@ mgmt_pmap_signout_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        ctx = glusterfs_ctx_get ();
+        ctx = glusterfsd_ctx;
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_pmap_signout_rsp);
         if (ret < 0) {
                 gf_log (THIS->name, GF_LOG_ERROR, "XDR decoding failed");

@@ -381,7 +381,7 @@ gf_proc_dump_xlator_info (xlator_t *top)
         if (!top)
                 return;
 
-        ctx = glusterfs_ctx_get ();
+        ctx = top->ctx;
 
         trav = top;
         while (trav) {
@@ -436,7 +436,7 @@ gf_proc_dump_oldgraph_xlator_info (xlator_t *top)
         if (!top)
                 return;
 
-        ctx = glusterfs_ctx_get ();
+        ctx = top->ctx;
 
         trav = top;
         while (trav) {
@@ -614,18 +614,17 @@ gf_proc_dump_options_init ()
         return 0;
 }
 
+
 void
-gf_proc_dump_info (int signum)
+gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
 {
         int                i    = 0;
         int                ret  = -1;
-        glusterfs_ctx_t   *ctx  = NULL;
         glusterfs_graph_t *trav = NULL;
         char               brick_name[PATH_MAX] = {0,};
 
         gf_proc_dump_lock ();
 
-        ctx = glusterfs_ctx_get ();
         if (!ctx)
                 goto out;
 
