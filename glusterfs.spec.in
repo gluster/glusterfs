@@ -232,6 +232,23 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
 %{__install} -p -m 0644 extras/hook-scripts/*.sh   \
     %{buildroot}%{_sharedstatedir}/glusterd/hook-scripts/
 
+# Create directories and files that get created during runtime. This should
+# not be needed for files marged as "ghost", but rpm-4.9 is broken in this
+# respect :-(
+# - see also https://bugzilla.redhat.com/show_bug.cgi?id=839656
+touch %{buildroot}%{_sharedstatedir}/glusterd/glusterd.info
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/glustershd
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/{add-brick,create,delete,set,start,stop,remove,remove-brick}/{pre,post}
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/nfs
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/peers
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/vols
+%if 0%{?_can_georeplicate}
+%if 0%{!?_without_georeplication:1}
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/geo-replication
+touch %{buildroot}%{_sharedstatedir}/glusterd/geo-replication/gsyncd.conf
+%endif
+%endif
+
 # Clean up the examples we want to include as %%doc
 #%{__cp} -a doc/examples examples
 #%{__rm} -f examples/Makefile*
