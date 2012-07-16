@@ -941,34 +941,6 @@ reincarnate (int signum)
 }
 
 
-static char *
-generate_uuid ()
-{
-        char           tmp_str[1024] = {0,};
-        char           hostname[256] = {0,};
-        struct timeval tv = {0,};
-        char           now_str[32];
-
-        if (gettimeofday (&tv, NULL) == -1) {
-                gf_log ("glusterfsd", GF_LOG_ERROR,
-                        "gettimeofday: failed %s",
-                        strerror (errno));
-        }
-
-        if (gethostname (hostname, sizeof hostname) == -1) {
-                gf_log ("glusterfsd", GF_LOG_ERROR,
-                        "gethostname: failed %s",
-                        strerror (errno));
-        }
-
-        gf_time_fmt (now_str, sizeof now_str, tv.tv_sec, gf_timefmt_Ymd_T);
-        snprintf (tmp_str, sizeof tmp_str, "%s-%d-%s:%" GF_PRI_SUSECONDS,
-                  hostname, getpid(), now_str, tv.tv_usec);
-
-        return gf_strdup (tmp_str);
-}
-
-
 static uint8_t
 gf_get_process_mode (char *exec_name)
 {
@@ -1064,7 +1036,7 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 
         xlator_mem_acct_init (THIS, gfd_mt_end);
 
-        ctx->process_uuid = generate_uuid ();
+        ctx->process_uuid = generate_glusterfs_ctx_id ();
         if (!ctx->process_uuid) {
                 gf_log ("", GF_LOG_CRITICAL,
                         "ERROR: glusterfs uuid generation failed");
