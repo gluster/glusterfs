@@ -359,4 +359,5 @@ int fuse_resolve_entry_init (fuse_state_t *state, fuse_resolve_t *resolve,
 			     ino_t par, char *name);
 int fuse_resolve_fd_init (fuse_state_t *state, fuse_resolve_t *resolve,
 			  fd_t *fd);
+int fuse_ignore_xattr_set (fuse_private_t *priv, char *key);
 #endif /* _GF_FUSE_BRIDGE_H_ */
