@@ -3462,7 +3462,8 @@ server3_3_release (rpcsvc_request_t *req)
 
         conn = req->trans->xl_private;
         if (!conn) {
-                req->rpc_err = GARBAGE_ARGS;
+                /* Handshake is not complete yet. */
+                req->rpc_err = SYSTEM_ERR;
                 goto out;
         }
         gf_fd_put (conn->fdtable, args.fd);

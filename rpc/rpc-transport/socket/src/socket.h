@@ -11,6 +11,8 @@
 #ifndef _SOCKET_H
 #define _SOCKET_H
 
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -144,7 +146,8 @@ typedef struct {
 typedef struct {
         int32_t                sock;
         int32_t                idx;
-        unsigned char          connected; // -1 = not connected. 0 = in progress. 1 = connected
+        /* -1 = not connected. 0 = in progress. 1 = connected */
+        char                   connected;
         char                   bio;
         char                   connect_finish_log;
         char                   submit_log;
@@ -195,6 +198,20 @@ typedef struct {
         int                    keepaliveintvl;
         uint32_t               backlog;
         gf_boolean_t           read_fail_log;
+        gf_boolean_t           ssl_enabled;
+	gf_boolean_t           use_ssl;
+	SSL_METHOD            *ssl_meth;
+	SSL_CTX               *ssl_ctx;
+	int                    ssl_session_id;
+	BIO                   *ssl_sbio;
+	SSL                   *ssl_ssl;
+	char                  *ssl_own_cert;
+	char                  *ssl_private_key;
+	char                  *ssl_ca_list;
+	pthread_t              thread;
+	int                    pipe[2];
+	gf_boolean_t           own_thread;
+	volatile int           socket_gen;
 } socket_private_t;
 
 

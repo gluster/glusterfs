@@ -42,6 +42,7 @@ Packager: @PACKAGE_BUGREPORT@
 URL: http://www.gluster.org/docs/index.php/GlusterFS
 Source0: @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
+Requires: openssl >= 1.0
 Requires(post): /sbin/chkconfig
 Requires(preun): /sbin/service, /sbin/chkconfig
 Requires(postun): /sbin/service
@@ -54,7 +55,7 @@ BuildRequires: python-ctypes
 %if 0%{?suse_version}
 BuildRequires: python-devel
 %endif
-Requires: openssl
+BuildRequires: openssl-devel >= 1.0
 
 Obsoletes:        %{name}-libs <= 2.0.0
 Obsoletes:        %{name}-common < %{version}-%{release}
