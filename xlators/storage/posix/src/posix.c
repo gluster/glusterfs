@@ -2660,7 +2660,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         break;
                 }
 
-                value = GF_CALLOC (op_ret + 1, sizeof(char),
+                value = GF_CALLOC (size + 1, sizeof(char),
                                    gf_posix_mt_char);
                 if (!value) {
                         op_errno = errno;
@@ -2844,7 +2844,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         break;
                 }
 
-                value = GF_CALLOC (op_ret + 1, sizeof(char),
+                value = GF_CALLOC (size + 1, sizeof(char),
                                    gf_posix_mt_char);
                 if (!value) {
                         op_ret = -1;
