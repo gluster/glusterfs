@@ -175,6 +175,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"network.frame-timeout",                "protocol/client",           NULL, NULL, NO_DOC, 0},
         {"network.ping-timeout",                 "protocol/client",           NULL, NULL, NO_DOC, 0},
         {"network.tcp-window-size",              "protocol/client",           NULL, NULL, NO_DOC, 0},
+        { "client.ssl",                          "protocol/client",           "transport.socket.ssl-enabled", NULL, NO_DOC, 0},
 
         {"network.tcp-window-size",              "protocol/server",           NULL, NULL, NO_DOC, 0},
         {"network.inode-lru-limit",              "protocol/server",           NULL, NULL, NO_DOC, 0},
@@ -182,6 +183,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {AUTH_REJECT_MAP_KEY,                    "protocol/server",           "!server-auth", NULL, DOC, 0},
         {"transport.keepalive",                  "protocol/server",           "transport.socket.keepalive", NULL, NO_DOC, 0},
         {"server.allow-insecure",                "protocol/server",           "rpc-auth-allow-insecure", NULL, NO_DOC, 0},
+        { "server.ssl",                          "protocol/server",           "transport.socket.ssl-enabled", NULL, NO_DOC, 0},
 
         {"performance.write-behind",             "performance/write-behind",  "!perf", "on", NO_DOC, 0},
         {"performance.read-ahead",               "performance/read-ahead",    "!perf", "on", NO_DOC, 0},
@@ -2157,6 +2159,8 @@ volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char                    *str                = NULL;
         glusterd_brickinfo_t    *brick              = NULL;
         xlator_t                *xl                 = NULL;
+        char                    *ssl_str            = NULL;
+        gf_boolean_t             ssl_bool;
 
         volname = volinfo->volname;
 
@@ -2219,6 +2223,19 @@ volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                                          str);
                                 if (ret)
                                         goto out;
+                        }
+                }
+
+                if (dict_get_str(set_dict,"client.ssl",&ssl_str) == 0) {
+                        if (gf_string2boolean(ssl_str,&ssl_bool) == 0) {
+                                if (ssl_bool) {
+                                        ret = xlator_set_option(xl,
+                                                "transport.socket.ssl-enabled",
+                                                "true");
+                                        if (ret) {
+                                                goto out;
+                                        }
+                                }
                         }
                 }
 

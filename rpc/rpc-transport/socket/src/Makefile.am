@@ -3,7 +3,7 @@ noinst_HEADERS = socket.h name.h
 rpctransport_LTLIBRARIES = socket.la
 rpctransportdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/rpc-transport
 
-socket_la_LDFLAGS = -module -avoidversion
+socket_la_LDFLAGS = -module -avoidversion -lssl
 
 socket_la_SOURCES = socket.c name.c
 socket_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
