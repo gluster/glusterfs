@@ -545,3 +545,31 @@ fuse_flip_xattr_ns (fuse_private_t *priv, char *okey, char **nkey)
 
         return ret;
 }
+
+int
+fuse_ignore_xattr_set (fuse_private_t *priv, char *key)
+{
+        int ret = 0;
+
+        /* don't mess with user namespace */
+        if (fnmatch ("user.*", key, FNM_PERIOD) == 0)
+                goto out;
+
+        if (priv->client_pid != GF_CLIENT_PID_GSYNCD)
+                goto out;
+
+        /* trusted NS check */
+        if (!((fnmatch (PRIV_XA_NS".glusterfs.*.xtime", key, FNM_PERIOD) == 0)
+              || (fnmatch (PRIV_XA_NS".glusterfs.volume-mark",
+                           key, FNM_PERIOD) == 0)
+              || (fnmatch (PRIV_XA_NS".glusterfs.volume-mark.*",
+                           key, FNM_PERIOD) == 0)))
+                ret = -1;
+
+ out:
+        gf_log ("glusterfs-fuse", GF_LOG_DEBUG, "%s setxattr: key [%s], "
+                " client pid [%d]", (ret ? "disallowing" : "allowing"), key,
+                priv->client_pid);
+
+        return ret;
+}

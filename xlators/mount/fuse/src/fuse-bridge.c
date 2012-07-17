@@ -2711,6 +2711,11 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
 #endif
 
+        if (fuse_ignore_xattr_set (priv, name)) {
+                (void) send_fuse_err (this, finh, 0);
+                return;
+        }
+
         if (!priv->acl) {
                 if ((strcmp (name, "system.posix_acl_access") == 0) ||
                     (strcmp (name, "system.posix_acl_default") == 0)) {
