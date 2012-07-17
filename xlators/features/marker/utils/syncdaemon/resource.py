@@ -531,7 +531,8 @@ class SlaveRemote(object):
         if not files:
             raise GsyncdError("no files to sync")
         logging.debug("files: " + ", ".join(files))
-        argv = gconf.rsync_command.split() + ['-aRS', '--super', '--numeric-ids'] + files + list(args)
+        argv = gconf.rsync_command.split() + ['-aR', '--super', '--numeric-ids', '--no-implied-dirs'] + \
+               gconf.rsync_options.split() +  files + list(args)
         po = Popen(argv, stderr=subprocess.PIPE)
         po.wait()
         po.terminate_geterr(fail_on_err = False)
@@ -954,4 +955,5 @@ class SSH(AbstractUrl, SlaveRemote):
             return 'should'
 
     def rsync(self, files):
-        return sup(self, files, '-ze', " ".join(gconf.ssh_command.split() + gconf.ssh_ctl_args), self.slaveurl)
+        return sup(self, files, '-e', " ".join(gconf.ssh_command.split() + gconf.ssh_ctl_args),
+                   *(gconf.rsync_ssh_options.split() + [self.slaveurl]))
