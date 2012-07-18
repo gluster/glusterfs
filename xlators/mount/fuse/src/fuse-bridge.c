@@ -3437,7 +3437,21 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         goto out;
                 }
                 priv->reverse_fuse_thread_started = _gf_true;
-        }
+        } else {
+		/*
+		 * FUSE minor < 12 does not implement invalidate notifications.
+		 * This mechanism is required for fopen-keep-cache to operate
+		 * correctly. Disable and warn the user.
+		 */
+		if (priv->fopen_keep_cache) {
+			gf_log("glusterfs-fuse", GF_LOG_WARNING, "FUSE version "
+				"%d.%d does not support inval notifications. "
+				"fopen-keep-cache disabled.", fini->major,
+				fini->minor);
+			priv->fopen_keep_cache = 0;
+		}
+	}
+
         if (fini->minor >= 13) {
                 /* these values seemed to work fine during testing */
                 fino.max_background = 64;
