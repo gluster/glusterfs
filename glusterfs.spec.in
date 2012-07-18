@@ -420,6 +420,7 @@ fi
 %files devel
 %defattr(-,root,root,-)
 %{_includedir}/glusterfs
+%{_libdir}/pkgconfig/glusterfs-api.pc
 %exclude %{_includedir}/glusterfs/y.tab.h
 %{_libdir}/*.so
 
