@@ -60,7 +60,8 @@ def gmaster_builder():
     logging.info('setting up master for %s sync mode' % modemixin)
     modemixin = getattr(this, modemixin.capitalize() + 'Mixin')
     sendmarkmixin = boolify(gconf.use_rsync_xattrs) and SendmarkNormalMixin or SendmarkRsyncMixin
-    class _GMaster(GMasterBase, modemixin, sendmarkmixin):
+    purgemixin = boolify(gconf.ignore_deletes) and PurgeNoopMixin or PurgeNormalMixin
+    class _GMaster(GMasterBase, modemixin, sendmarkmixin, purgemixin):
         pass
     return _GMaster
 
@@ -307,6 +308,18 @@ class SendmarkRsyncMixin(object):
 
     def sendmark_regular(self, *a, **kw):
         pass
+
+
+class PurgeNormalMixin(object):
+
+    def purge_missing(self, path, names):
+        self.slave.server.purge(path, dd)
+
+class PurgeNoopMixin(object):
+
+    def purge_missing(self, path, names):
+        pass
+
 
 
 class GMasterBase(object):
@@ -728,8 +741,8 @@ class GMasterBase(object):
                 self.add_failjob(path, 'remote-entries-fail')
                 return
         dd = set(des) - set(dem)
-        if dd and not boolify(gconf.ignore_deletes):
-            self.slave.server.purge(path, dd)
+        if dd:
+            self.purge_missing(path, dd)
         chld = []
         for e in dem:
             e = os.path.join(path, e)
