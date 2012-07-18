@@ -19,7 +19,7 @@ import repce
 from repce import RepceServer, RepceClient
 from  master import gmaster_builder
 import syncdutils
-from syncdutils import GsyncdError, select, privileged
+from syncdutils import GsyncdError, select, privileged, boolify
 
 UrlRX  = re.compile('\A(\w+)://([^ *?[]*)\Z')
 HostRX = re.compile('[a-z\d](?:[a-z\d.-]*[a-z\d])?', re.I)
@@ -460,6 +460,10 @@ class SlaveLocal(object):
         stop servicing if a timeout is configured and got no
         keep-alime in that inteval
         """
+
+        if boolify(gconf.use_rsync_xattrs) and not privileged():
+            raise GsyncdError("using rsync for extended attributes is not supported")
+
         repce = RepceServer(self.server, sys.stdin, sys.stdout, int(gconf.sync_jobs))
         t = syncdutils.Thread(target=lambda: (repce.service_loop(),
                                               syncdutils.finalize()))
@@ -486,12 +490,13 @@ class SlaveRemote(object):
         communicate throuh its stdio.
         """
         slave = opts.get('slave', self.url)
+        extra_opts = []
         so = getattr(gconf, 'session_owner', None)
         if so:
-            so_args = ['--session-owner', so]
-        else:
-            so_args = []
-        po = Popen(rargs + gconf.remote_gsyncd.split() + so_args + \
+            extra_opts += ['--session-owner', so]
+        if boolify(gconf.use_rsync_xattrs):
+            extra_opts.append('--use-rsync-xattrs')
+        po = Popen(rargs + gconf.remote_gsyncd.split() + extra_opts + \
                    ['-N', '--listen', '--timeout', str(gconf.timeout), slave],
                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         gconf.transport = po
@@ -520,7 +525,8 @@ class SlaveRemote(object):
             raise GsyncdError("no files to sync")
         logging.debug("files: " + ", ".join(files))
         argv = gconf.rsync_command.split() + ['-aR', '--super', '--numeric-ids', '--no-implied-dirs'] + \
-               gconf.rsync_options.split() +  files + list(args)
+               gconf.rsync_options.split() + (boolify(gconf.use_rsync_xattrs) and ['--xattrs'] or []) + \
+               files + list(args)
         po = Popen(argv, stderr=subprocess.PIPE)
         po.wait()
         po.terminate_geterr(fail_on_err = False)
