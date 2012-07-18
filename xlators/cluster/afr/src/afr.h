@@ -261,6 +261,8 @@ typedef struct {
         int (*algo_completion_cbk) (call_frame_t *frame, xlator_t *this);
         int (*algo_abort_cbk) (call_frame_t *frame, xlator_t *this);
         void (*gfid_sh_success_cbk) (call_frame_t *sh_frame, xlator_t *this);
+        gf_boolean_t mdata_spb;
+        gf_boolean_t data_spb;
 
         call_frame_t *sh_frame;
 } afr_self_heal_t;
@@ -368,10 +370,7 @@ typedef struct _afr_local {
         unsigned int call_count;
         unsigned int success_count;
         unsigned int enoent_count;
-
-
         unsigned int govinda_gOvinda;
-
         unsigned int read_child_index;
         unsigned char read_child_returned;
         unsigned int first_up_child;
@@ -439,6 +438,7 @@ typedef struct _afr_local {
                         int32_t *sources;
                         int32_t *success_children;
                         gf_boolean_t fresh_lookup;
+                        gf_boolean_t possible_spb;
                 } lookup;
 
                 struct {

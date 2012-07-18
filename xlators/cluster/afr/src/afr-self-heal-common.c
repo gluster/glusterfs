@@ -2144,7 +2144,7 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
         local = bgsh_frame->local;
         sh    = &local->self_heal;
 
-        if (local->govinda_gOvinda)
+        if (local->govinda_gOvinda || sh->mdata_spb || sh->data_spb)
                 split_brain = _gf_true;
 
         afr_set_split_brain (this, sh->inode, split_brain);
