@@ -63,8 +63,6 @@ const gid_list_t *gid_cache_lookup(gid_cache_t *cache, uint64_t id)
 		 * that they're not used.
 		 */
 		if (now < agl->gl_deadline) {
-			gf_log("gid-cache", GF_LOG_DEBUG, "id %lu gl found - "
-				"bucket %d, index %d", id, bucket, i);
 			return agl;
 		}
 
@@ -173,8 +171,6 @@ int gid_cache_add(gid_cache_t *cache, gid_list_t *gl)
 	agl->gl_list = gl->gl_list;
 	agl->gl_deadline = now + cache->gc_max_age;
 
-	gf_log("gid-cache", GF_LOG_DEBUG, "id %lu gl added - bucket %d, index %d",
-		gl->gl_id, bucket, i);
 	UNLOCK(&cache->gc_lock);
 
 	return 1;
