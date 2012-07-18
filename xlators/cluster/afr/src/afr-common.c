@@ -1220,7 +1220,7 @@ afr_detect_self_heal_by_lookup_status (afr_local_t *local, xlator_t *this,
         if ((local->success_count > 0) && split_brain &&
             IA_ISREG (local->cont.lookup.inode->ia_type)) {
                 local->self_heal.do_data_self_heal = _gf_true;
-                local->self_heal.do_gfid_self_heal    = _gf_true;
+                local->self_heal.do_metadata_self_heal = _gf_true;
                 gf_log (this->name, GF_LOG_WARNING,
                         "split brain detected during lookup of %s.",
                         local->loc.path);
@@ -1504,6 +1504,7 @@ afr_lookup_set_self_heal_params (afr_local_t *local, xlator_t *this)
         sh = &local->self_heal;
 
         split_brain = afr_is_split_brain (this, local->cont.lookup.inode);
+        split_brain = split_brain || local->cont.lookup.possible_spb;
         afr_detect_self_heal_by_lookup_status (local, this, split_brain);
 
         if (afr_lookup_gfid_missing_count (local, this))

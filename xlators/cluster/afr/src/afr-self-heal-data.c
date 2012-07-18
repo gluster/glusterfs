@@ -740,16 +740,6 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
         nsources = afr_build_sources (this, sh->xattr, sh->buf, sh->pending_matrix,
                                       sh->sources, sh->success_children,
                                       AFR_DATA_TRANSACTION, NULL, _gf_true);
-        if ((nsources == 0) && !sh->sync_done) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "No self-heal needed for %s",
-                        local->loc.path);
-
-                local->govinda_gOvinda = 0;
-                afr_sh_data_finish (frame, this);
-                return 0;
-        }
-
         if ((nsources == -1)
             && (priv->favorite_child != -1)
             && (sh->child_errno[priv->favorite_child] == 0)) {
@@ -772,12 +762,12 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
                         "split-brain). Please delete the file from all but "
                         "the preferred subvolume.", local->loc.path);
 
-                local->govinda_gOvinda = 1;
+                sh->data_spb = _gf_true;
                 afr_sh_data_fail (frame, this);
                 return 0;
         }
 
-        local->govinda_gOvinda = 0;
+        sh->data_spb = _gf_false;
         ret = afr_sh_inode_set_read_ctx (sh, this);
         if (ret) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -790,6 +780,15 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
         if (sh->sync_done) {
                 afr_sh_data_setattr (frame, this);
         } else {
+                if (nsources == 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "No self-heal needed for %s",
+                                local->loc.path);
+
+                        afr_sh_data_finish (frame, this);
+                        return 0;
+                }
+
                 afr_sh_data_fix (frame, this);
         }
         return 0;
@@ -831,9 +830,7 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
                         local->loc.path);
                 switch (txn_type) {
                 case AFR_DATA_TRANSACTION:
-                        afr_set_split_brain (this,
-                                             local->cont.lookup.inode,
-                                             _gf_true);
+                        local->cont.lookup.possible_spb = _gf_true;
                         nsources = 1;
                         sources[success_children[0]] = 1;
                         break;
@@ -1393,8 +1390,13 @@ afr_self_heal_data (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         sh = &local->self_heal;
 
-        local->govinda_gOvinda = afr_is_split_brain (this, sh->inode);
-
+        /* Self-heal completion cbk changes inode split-brain status based on
+         * govinda_gOvinda, mdata_spb, data_spb values. Initialize data_spb
+         * with current split-brain status. If for some reason self-heal
+         * fails(locking phase etc), it makes sure we retain the split-brain
+         * status before this self-heal started.
+         */
+        sh->data_spb = afr_is_split_brain (this, sh->inode);
         if (sh->do_data_self_heal &&
             afr_data_self_heal_enabled (priv->data_self_heal)) {
                 afr_sh_data_open (frame, this);
