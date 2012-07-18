@@ -54,12 +54,13 @@ def gmaster_builder():
     """produce the GMaster class variant corresponding
        to sync mode"""
     this = sys.modules[__name__]
-    mixin = gconf.special_sync_mode
-    if not mixin:
-        mixin = 'normal'
-    logging.info('setting up master for %s sync mode' % mixin)
-    mixin = getattr(this, mixin.capitalize() + 'Mixin')
-    class _GMaster(GMasterBase, mixin):
+    modemixin = gconf.special_sync_mode
+    if not modemixin:
+        modemixin = 'normal'
+    logging.info('setting up master for %s sync mode' % modemixin)
+    modemixin = getattr(this, modemixin.capitalize() + 'Mixin')
+    sendmarkmixin = boolify(gconf.use_rsync_xattrs) and SendmarkNormalMixin or SendmarkRsyncMixin
+    class _GMaster(GMasterBase, modemixin, sendmarkmixin):
         pass
     return _GMaster
 
@@ -293,6 +294,19 @@ class BlindMixin(object):
             if t:
                 xtd[u] = t
         self.slave.server.set_xtime_vec(path, xtd)
+
+
+# Further mixins for certain tunable behaviors
+
+class SendmarkNormalMixin(object):
+
+    def sendmark_regular(self, *a, **kw):
+        return self.sendmark(self, *a, **kw)
+
+class SendmarkRsyncMixin(object):
+
+    def sendmark_regular(self, *a, **kw):
+        pass
 
 
 class GMasterBase(object):
@@ -753,7 +767,7 @@ class GMasterBase(object):
                 def regjob(e, xte, pb):
                     if pb.wait():
                         logging.debug("synced " + e)
-                        self.sendmark(e, xte)
+                        self.sendmark_regular(e, xte)
                         return True
                     else:
                         logging.warn("failed to sync " + e)
