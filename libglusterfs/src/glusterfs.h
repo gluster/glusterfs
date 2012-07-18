@@ -66,6 +66,7 @@
 #define ZR_MOUNTPOINT_OPT       "mountpoint"
 #define ZR_ATTR_TIMEOUT_OPT     "attribute-timeout"
 #define ZR_ENTRY_TIMEOUT_OPT    "entry-timeout"
+#define ZR_NEGATIVE_TIMEOUT_OPT "negative-timeout"
 #define ZR_DIRECT_IO_OPT        "direct-io-mode"
 #define ZR_STRICT_VOLFILE_CHECK "strict-volfile-check"
 #define ZR_DUMP_FUSE            "dump-fuse"
@@ -293,6 +294,7 @@ struct _cmd_args {
 	int              fuse_direct_io_mode;
         int              volfile_check;
 	double           fuse_entry_timeout;
+	double           fuse_negative_timeout;
 	double           fuse_attribute_timeout;
 	char            *volume_name;
 	int              fuse_nodev;

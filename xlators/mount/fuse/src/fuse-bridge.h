@@ -86,6 +86,7 @@ struct fuse_private {
         size_t              *msg0_len_p;
 
         double               entry_timeout;
+        double               negative_timeout;
         double               attribute_timeout;
 
         pthread_cond_t       sync_cond;

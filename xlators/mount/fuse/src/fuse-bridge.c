@@ -359,7 +359,15 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "%"PRIu64": %s() %s => -1 (%s)", frame->root->unique,
                         gf_fop_list[frame->root->op], state->loc.path,
                         strerror (op_errno));
-                send_fuse_err (this, state->finh, op_errno);
+		if (op_errno == ENOENT) {
+			feo.entry_valid =
+				calc_timeout_sec (priv->negative_timeout);
+			feo.entry_valid_nsec =
+				calc_timeout_nsec (priv->negative_timeout);
+			send_fuse_obj (this, finh, &feo);
+		} else {
+			send_fuse_err (this, state->finh, op_errno);
+		}
         }
 
         free_fuse_state (state);
@@ -4547,6 +4555,11 @@ init (xlator_t *this_xl)
         if (ret != 0)
                 priv->entry_timeout = 1.0; /* default */
 
+        ret = dict_get_double (options, "negative-timeout",
+                               &priv->negative_timeout);
+        if (ret != 0)
+                priv->negative_timeout = 0.0; /* default */
+
         ret = dict_get_int32 (options, "client-pid",
                               &priv->client_pid);
         if (ret == 0)
@@ -4775,6 +4788,9 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_DOUBLE
         },
         { .key  = {ZR_ENTRY_TIMEOUT_OPT},
+          .type = GF_OPTION_TYPE_DOUBLE
+        },
+        { .key  = {ZR_NEGATIVE_TIMEOUT_OPT},
           .type = GF_OPTION_TYPE_DOUBLE
         },
         { .key  = {ZR_STRICT_VOLFILE_CHECK},
