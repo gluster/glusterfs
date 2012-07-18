@@ -55,8 +55,8 @@ typedef struct volume_options {
         char                    *key[ZR_VOLUME_MAX_NUM_KEY];
         /* different key, same meaning */
         volume_option_type_t    type;
-        int64_t                 min;  /* 0 means no range */
-        int64_t                 max;  /* 0 means no range */
+        double                  min;  /* 0 means no range */
+        double                  max;  /* 0 means no range */
         char                    *value[ZR_OPTION_MAX_ARRAY_SIZE];
         /* If specified, will check for one of
            the value from this array */
@@ -110,6 +110,7 @@ DECLARE_INIT_OPT(uint64_t, percent_or_size);
 DECLARE_INIT_OPT(gf_boolean_t, bool);
 DECLARE_INIT_OPT(xlator_t *, xlator);
 DECLARE_INIT_OPT(char *, path);
+DECLARE_INIT_OPT(double, double);
 
 
 #define DEFINE_INIT_OPT(type_t, type, conv)                             \
@@ -189,6 +190,7 @@ DECLARE_RECONF_OPT(uint64_t, percent_or_size);
 DECLARE_RECONF_OPT(gf_boolean_t, bool);
 DECLARE_RECONF_OPT(xlator_t *, xlator);
 DECLARE_RECONF_OPT(char *, path);
+DECLARE_RECONF_OPT(double, double);
 
 
 #define DEFINE_RECONF_OPT(type_t, type, conv)                            \
