@@ -178,6 +178,8 @@ static struct argp_option gf_options[] = {
          "\"on\" for fds not opened with O_RDONLY]"},
         {"entry-timeout", ARGP_ENTRY_TIMEOUT_KEY, "SECONDS", 0,
          "Set entry timeout to SECONDS in fuse kernel module [default: 1]"},
+        {"negative-timeout", ARGP_NEGATIVE_TIMEOUT_KEY, "SECONDS", 0,
+         "Set negative timeout to SECONDS in fuse kernel module [default: 0]"},
         {"attribute-timeout", ARGP_ATTRIBUTE_TIMEOUT_KEY, "SECONDS", 0,
          "Set attribute timeout to SECONDS for inodes in fuse kernel module "
          "[default: 1]"},
@@ -298,6 +300,17 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
                         gf_log ("glusterfsd", GF_LOG_ERROR,
                                 "failed to set dict value for key %s",
                                 ZR_ENTRY_TIMEOUT_OPT);
+                        goto err;
+                }
+        }
+
+        if (cmd_args->fuse_negative_timeout >= 0) {
+                ret = dict_set_double (master->options, ZR_NEGATIVE_TIMEOUT_OPT,
+                                       cmd_args->fuse_negative_timeout);
+                if (ret < 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "failed to set dict value for key %s",
+                                ZR_NEGATIVE_TIMEOUT_OPT);
                         goto err;
                 }
         }
@@ -744,6 +757,18 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 }
 
                 argp_failure (state, -1, 0, "unknown entry timeout %s", arg);
+                break;
+
+        case ARGP_NEGATIVE_TIMEOUT_KEY:
+                d = 0.0;
+
+                gf_string2double (arg, &d);
+                if (!(d < 0.0)) {
+                        cmd_args->fuse_negative_timeout = d;
+                        break;
+                }
+
+                argp_failure (state, -1, 0, "unknown negative timeout %s", arg);
                 break;
 
         case ARGP_ATTRIBUTE_TIMEOUT_KEY:

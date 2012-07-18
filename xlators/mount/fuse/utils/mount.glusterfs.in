@@ -125,11 +125,15 @@ start_glusterfs ()
     fi
 
     if [ -n "$attribute_timeout" ]; then
-        cmd_line=$(echo "$cmd_line --attribute-time=$attribute_timeout");
+        cmd_line=$(echo "$cmd_line --attribute-timeout=$attribute_timeout");
     fi
 
     if [ -n "$entry_timeout" ]; then
         cmd_line=$(echo "$cmd_line --entry-timeout=$entry_timeout");
+    fi
+
+    if [ -n "$negative_timeout" ]; then
+        cmd_line=$(echo "$cmd_line --negative-timeout=$negative_timeout");
     fi
 
     if [ -n "$gid_timeout" ]; then
@@ -329,6 +333,7 @@ main ()
                             "attribute-timeout")
                                 attribute_timeout=$value ;;
                             "entry-timeout")    entry_timeout=$value ;;
+                            "negative-timeout")    negative_timeout=$value ;;
 			    "gid-timeout")	gid_timeout=$value ;;
                             *) echo "unknown option $key (ignored)" ;;
                         esac

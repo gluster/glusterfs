@@ -63,6 +63,7 @@ enum argp_option_keys {
         ARGP_NO_DAEMON_KEY                = 'N',
         ARGP_RUN_ID_KEY                   = 'r',
         ARGP_DEBUG_KEY                    = 133,
+        ARGP_NEGATIVE_TIMEOUT_KEY         = 134,
         ARGP_ENTRY_TIMEOUT_KEY            = 135,
         ARGP_ATTRIBUTE_TIMEOUT_KEY        = 136,
         ARGP_VOLUME_NAME_KEY              = 137,
