@@ -4545,30 +4545,19 @@ init (xlator_t *this_xl)
                 goto cleanup_exit;
         }
 
-        ret = dict_get_double (options, "attribute-timeout",
-                               &priv->attribute_timeout);
-        if (ret != 0)
-                priv->attribute_timeout = 1.0; /* default */
+	GF_OPTION_INIT ("attribute-timeout", priv->attribute_timeout, double,
+			cleanup_exit);
 
-        ret = dict_get_double (options, "entry-timeout",
-                               &priv->entry_timeout);
-        if (ret != 0)
-                priv->entry_timeout = 1.0; /* default */
+	GF_OPTION_INIT ("entry-timeout", priv->attribute_timeout, double,
+			cleanup_exit);
 
-        ret = dict_get_double (options, "negative-timeout",
-                               &priv->negative_timeout);
-        if (ret != 0)
-                priv->negative_timeout = 0.0; /* default */
+	GF_OPTION_INIT ("negative-timeout", priv->attribute_timeout, double,
+			cleanup_exit);
 
-        ret = dict_get_int32 (options, "client-pid",
-                              &priv->client_pid);
-        if (ret == 0)
-                priv->client_pid_set = _gf_true;
+	GF_OPTION_INIT ("client-pid", priv->client_pid, int32, cleanup_exit);
 
-        ret = dict_get_uint32 (options, "uid-map-root",
-                               &priv->uid_map_root);
-        if (ret != 0)
-                priv->uid_map_root = 0;
+	GF_OPTION_INIT ("uid-map-root", priv->uid_map_root, uint32,
+			cleanup_exit);
 
         priv->direct_io_mode = 2;
         ret = dict_get_str (options, ZR_DIRECT_IO_OPT, &value_string);
@@ -4577,36 +4566,17 @@ init (xlator_t *this_xl)
                 GF_ASSERT (ret == 0);
         }
 
-        priv->strict_volfile_check = 0;
-        ret = dict_get_str (options, ZR_STRICT_VOLFILE_CHECK, &value_string);
-        if (ret == 0) {
-                ret = gf_string2boolean (value_string,
-                                         &priv->strict_volfile_check);
-                GF_ASSERT (ret == 0);
-        }
+	GF_OPTION_INIT (ZR_STRICT_VOLFILE_CHECK, priv->strict_volfile_check,
+			bool, cleanup_exit);
 
-        priv->acl = 0;
-        ret = dict_get_str (options, "acl", &value_string);
-        if (ret == 0) {
-                ret = gf_string2boolean (value_string, &priv->acl);
-                GF_ASSERT (ret == 0);
-        }
+	GF_OPTION_INIT ("acl", priv->acl, bool, cleanup_exit);
+
         if (priv->uid_map_root)
                 priv->acl = 1;
 
-        priv->selinux = 0;
-        ret = dict_get_str (options, "selinux", &value_string);
-        if (ret == 0) {
-                ret = gf_string2boolean (value_string, &priv->selinux);
-                GF_ASSERT (ret == 0);
-        }
+	GF_OPTION_INIT ("selinux", priv->selinux, bool, cleanup_exit);
 
-        priv->read_only = 0;
-        ret = dict_get_str (options, "read-only", &value_string);
-        if (ret == 0) {
-                ret = gf_string2boolean (value_string, &priv->read_only);
-                GF_ASSERT (ret == 0);
-        }
+	GF_OPTION_INIT ("read-only", priv->read_only, bool, cleanup_exit);
 
         priv->fuse_dump_fd = -1;
         ret = dict_get_str (options, "dump-fuse", &value_string);
@@ -4785,16 +4755,20 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_PATH
         },
         { .key  = {ZR_ATTR_TIMEOUT_OPT},
-          .type = GF_OPTION_TYPE_DOUBLE
+          .type = GF_OPTION_TYPE_DOUBLE,
+	  .default_value = "1.0"
         },
         { .key  = {ZR_ENTRY_TIMEOUT_OPT},
-          .type = GF_OPTION_TYPE_DOUBLE
+          .type = GF_OPTION_TYPE_DOUBLE,
+	  .default_value = "1.0"
         },
         { .key  = {ZR_NEGATIVE_TIMEOUT_OPT},
-          .type = GF_OPTION_TYPE_DOUBLE
+          .type = GF_OPTION_TYPE_DOUBLE,
+	  .default_value = "0.0"
         },
         { .key  = {ZR_STRICT_VOLFILE_CHECK},
-          .type = GF_OPTION_TYPE_BOOL
+          .type = GF_OPTION_TYPE_BOOL,
+	  .default_value = "false"
         },
         { .key  = {"client-pid"},
           .type = GF_OPTION_TYPE_INT
@@ -4815,6 +4789,14 @@ struct volume_options options[] = {
 	{ .key = {"gid-timeout"},
 	  .type = GF_OPTION_TYPE_INT,
 	  .default_value = "0"
+	},
+	{ .key = {"acl"},
+	  .type = GF_OPTION_TYPE_BOOL,
+	  .default_value = "false"
+	},
+	{ .key = {"selinux"},
+	  .type = GF_OPTION_TYPE_BOOL,
+	  .default_value = "false"
 	},
         { .key = {NULL} },
 };
