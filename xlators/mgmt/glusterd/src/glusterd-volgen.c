@@ -2554,6 +2554,12 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
+        /* add debug translators depending on the options */
+        ret = check_and_add_debug_xl (graph, set_dict, volname,
+                                      "client");
+        if (ret)
+                return -1;
+
         ret = -1;
         xl = volgen_graph_add_as (graph, "debug/io-stats", volname);
         if (!xl)
