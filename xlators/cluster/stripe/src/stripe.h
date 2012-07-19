@@ -106,9 +106,9 @@ struct stripe_private {
 };
 
 /**
- * Used to keep info about the replies received from fops->readv calls
+ * Used to keep info about the replies received from readv/writev calls
  */
-struct readv_replies {
+struct stripe_replies {
         struct iovec *vector;
         int32_t       count;    //count of vector
         int32_t       op_ret;   //op_ret of readv
@@ -156,7 +156,7 @@ struct stripe_local {
         blkcnt_t             preparent_blocks;
         blkcnt_t             postparent_blocks;
 
-        struct readv_replies *replies;
+        struct stripe_replies *replies;
         struct statvfs        statvfs_buf;
         dir_entry_t          *entry;
 
