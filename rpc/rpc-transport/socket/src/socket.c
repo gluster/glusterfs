@@ -2098,11 +2098,39 @@ socket_poller (void *ctx)
 	int               ret = 0;
 	int               orig_gen;
 
+        if (priv->use_ssl) {
+                if (ssl_setup_connection(this,priv->connected) < 0) {
+                        gf_log (this->name,GF_LOG_ERROR, "%s setup failed",
+                                priv->connected ? "server" : "client");
+                        goto err;
+                }
+        }
+
+        if (!priv->bio) {
+                ret = __socket_nonblock (priv->sock);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "NBIO on %d failed (%s)",
+                                priv->sock, strerror (errno));
+                        goto err;
+                }
+        }
+
 	orig_gen = ++(priv->socket_gen);
 
         if (priv->connected == 0) {
 		THIS = this->xl;
                 ret = socket_connect_finish (this);
+                if (ret != 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "asynchronous socket_connect_finish failed");
+                }
+                ret = rpc_transport_notify (this->listener,
+                                            RPC_TRANSPORT_ACCEPT, this);
+                if (ret != 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "asynchronous rpc_transport_notify failed");
+                }
         }
 
 	for (;;) {
@@ -2178,6 +2206,7 @@ socket_poller (void *ctx)
 		}
 	}
 
+err:
 	/* All (and only) I/O errors should come here. */
 	__socket_disconnect (this);
         rpc_transport_notify (this, RPC_TRANSPORT_DISCONNECT, this);
@@ -2290,8 +2319,8 @@ socket_server_event_handler (int fd, int idx, void *data,
 			new_priv->sock = new_sock;
 			new_priv->own_thread = priv->own_thread;
 
-			if (priv->use_ssl) {
-				new_priv->ssl_ctx = priv->ssl_ctx;
+                        new_priv->ssl_ctx = priv->ssl_ctx;
+			if (priv->use_ssl && !priv->own_thread) {
 				if (ssl_setup_connection(new_trans,1) < 0) {
 					gf_log(this->name,GF_LOG_ERROR,
 					       "server setup failed");
@@ -2300,7 +2329,7 @@ socket_server_event_handler (int fd, int idx, void *data,
 				}
 			}
 
-                        if (!priv->bio) {
+                        if (!priv->bio && !priv->own_thread) {
                                 ret = __socket_nonblock (new_sock);
 
                                 if (ret == -1) {
@@ -2315,6 +2344,11 @@ socket_server_event_handler (int fd, int idx, void *data,
 
                         pthread_mutex_lock (&new_priv->lock);
                         {
+                                /*
+                                 * In the own_thread case, this is used to
+                                 * indicate that we're initializing a server
+                                 * connection.
+                                 */
                                 new_priv->connected = 1;
                                 rpc_transport_ref (new_trans);
 
@@ -2349,8 +2383,10 @@ socket_server_event_handler (int fd, int idx, void *data,
                                 goto unlock;
                         }
 
-                        ret = rpc_transport_notify (this, RPC_TRANSPORT_ACCEPT,
-                                                    new_trans);
+                        if (!priv->own_thread) {
+                                ret = rpc_transport_notify (this,
+                                        RPC_TRANSPORT_ACCEPT, new_trans);
+                        }
                 }
         }
 unlock:
@@ -2534,7 +2570,7 @@ socket_connect (rpc_transport_t *this, int port)
                         goto unlock;
                 }
 
-		if (priv->use_ssl) {
+		if (priv->use_ssl && !priv->own_thread) {
 			ret = ssl_setup_connection(this,0);
 			if (ret < 0) {
 				gf_log(this->name,GF_LOG_ERROR,
@@ -2545,7 +2581,7 @@ socket_connect (rpc_transport_t *this, int port)
 			}
 		}
 
-                if (!priv->bio) {
+                if (!priv->bio && !priv->own_thread) {
                         ret = __socket_nonblock (priv->sock);
 
                         if (ret == -1) {
@@ -2558,6 +2594,10 @@ socket_connect (rpc_transport_t *this, int port)
                         }
                 }
 
+                /*
+                 * In the own_thread case, this is used to indicate that we're
+                 * initializing a client connection.
+                 */
                 priv->connected = 0;
                 rpc_transport_ref (this);
 
