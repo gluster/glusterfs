@@ -51,9 +51,26 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                                int32_t op_errno, rpcsvc_request_t *req,
                                void *op_ctx, char *op_errstr)
 {
-        int32_t         ret = -1;
-        gd_serialize_t  sfunc = NULL;
-        void            *cli_rsp = NULL;
+        union {
+                gf1_cli_create_vol_rsp    createv_rsp;
+                gf1_cli_start_vol_rsp     startv_rsp;
+                gf1_cli_stop_vol_rsp      stopv_rsp;
+                gf1_cli_delete_vol_rsp    delv_rsp;
+                gf1_cli_defrag_vol_rsp    defragv_rsp;
+                gf1_cli_set_vol_rsp       setv_rsp;
+                gf1_cli_reset_vol_rsp     resetv_rsp;
+                gf1_cli_sync_volume_rsp   syncv_rsp;
+                gf1_cli_stats_volume_rsp  statsv_rsp;
+                gf1_cli_add_brick_rsp     addb_rsp;
+                gf1_cli_remove_brick_rsp  rmb_rsp;
+                gf1_cli_replace_brick_rsp replb_rsp;
+                gf1_cli_log_filename_rsp  logfn_rsp;
+                gf1_cli_log_rotate_rsp    logrot_rsp;
+                gf1_cli_gsync_set_rsp     gsyncs_rsp;
+                gf1_cli_quota_rsp         quota_rsp;
+        }                cli_rsp;
+        int32_t          ret = -1;
+        gd_serialize_t   sfunc = NULL;
         dict_t          *ctx = NULL;
         char            *free_ptr = NULL;
         glusterd_conf_t *conf = NULL;
@@ -67,145 +84,103 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         switch (op) {
         case GD_OP_CREATE_VOLUME:
         {
-                gf1_cli_create_vol_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.volname = "";
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                cli_rsp = &rsp;
+                cli_rsp.createv_rsp.op_ret = op_ret;
+                cli_rsp.createv_rsp.op_errno = op_errno;
+                cli_rsp.createv_rsp.volname = "";
+                cli_rsp.createv_rsp.op_errstr = op_errstr ? op_errstr : "";
                 sfunc = gf_xdr_serialize_cli_create_vol_rsp;
                 break;
         }
 
         case GD_OP_START_VOLUME:
         {
-                gf1_cli_start_vol_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.volname = "";
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                cli_rsp = &rsp;
+                cli_rsp.startv_rsp.op_ret = op_ret;
+                cli_rsp.startv_rsp.op_errno = op_errno;
+                cli_rsp.startv_rsp.volname = "";
+                cli_rsp.startv_rsp.op_errstr = op_errstr ? op_errstr : "";
                 sfunc = gf_xdr_serialize_cli_start_vol_rsp;
                 break;
         }
 
         case GD_OP_STOP_VOLUME:
         {
-                gf1_cli_stop_vol_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.volname = "";
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                cli_rsp = &rsp;
+                cli_rsp.stopv_rsp.op_ret = op_ret;
+                cli_rsp.stopv_rsp.op_errno = op_errno;
+                cli_rsp.stopv_rsp.volname = "";
+                cli_rsp.stopv_rsp.op_errstr = op_errstr ? op_errstr : "";
                 sfunc = gf_xdr_serialize_cli_stop_vol_rsp;
                 break;
         }
 
         case GD_OP_DELETE_VOLUME:
         {
-                gf1_cli_delete_vol_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.volname = "";
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                cli_rsp = &rsp;
+                cli_rsp.delv_rsp.op_ret = op_ret;
+                cli_rsp.delv_rsp.op_errno = op_errno;
+                cli_rsp.delv_rsp.volname = "";
+                cli_rsp.delv_rsp.op_errstr = op_errstr ? op_errstr : "";
                 sfunc = gf_xdr_serialize_cli_delete_vol_rsp;
                 break;
         }
 
         case GD_OP_DEFRAG_VOLUME:
         {
-                gf1_cli_defrag_vol_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                //rsp.volname = "";
-                cli_rsp = &rsp;
+                cli_rsp.defragv_rsp.op_ret = op_ret;
+                cli_rsp.defragv_rsp.op_errno = op_errno;
+                //cli_rsp.defragv_rsp.volname = "";
                 sfunc = gf_xdr_serialize_cli_defrag_vol_rsp;
                 break;
         }
 
         case GD_OP_ADD_BRICK:
         {
-                gf1_cli_add_brick_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.volname = "";
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                cli_rsp = &rsp;
+                cli_rsp.addb_rsp.op_ret = op_ret;
+                cli_rsp.addb_rsp.op_errno = op_errno;
+                cli_rsp.addb_rsp.volname = "";
+                cli_rsp.addb_rsp.op_errstr = op_errstr ? op_errstr : "";
                 sfunc = gf_xdr_serialize_cli_add_brick_rsp;
                 break;
         }
 
         case GD_OP_REMOVE_BRICK:
         {
-                gf1_cli_remove_brick_rsp rsp = {0,};
                 ctx = op_ctx;
                 if (ctx &&
-                    dict_get_str (ctx, "errstr", &rsp.op_errstr))
-                        rsp.op_errstr = "";
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.volname = "";
-                cli_rsp = &rsp;
+                    dict_get_str (ctx, "errstr", &cli_rsp.rmb_rsp.op_errstr))
+                        cli_rsp.rmb_rsp.op_errstr = "";
+                cli_rsp.rmb_rsp.op_ret = op_ret;
+                cli_rsp.rmb_rsp.op_errno = op_errno;
+                cli_rsp.rmb_rsp.volname = "";
                 sfunc = gf_xdr_serialize_cli_remove_brick_rsp;
                 break;
         }
 
         case GD_OP_REPLACE_BRICK:
         {
-                gf1_cli_replace_brick_rsp rsp = {0,};
                 ctx = op_ctx;
                 if (ctx &&
-                    dict_get_str (ctx, "status-reply", &rsp.status))
-                        rsp.status = "";
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                rsp.volname = "";
-                cli_rsp = &rsp;
+                    dict_get_str (ctx, "status-reply", &cli_rsp.replb_rsp.status))
+                        cli_rsp.replb_rsp.status = "";
+                cli_rsp.replb_rsp.op_ret = op_ret;
+                cli_rsp.replb_rsp.op_errno = op_errno;
+                cli_rsp.replb_rsp.volname = "";
+                cli_rsp.replb_rsp.op_errstr = op_errstr ? op_errstr : "";
                 sfunc = gf_xdr_serialize_cli_replace_brick_rsp;
                 break;
         }
 
         case GD_OP_SET_VOLUME:
         {
-                gf1_cli_set_vol_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.volname = "";
                 ctx = op_ctx;
-
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
                 if (ctx) {
                         ret = dict_allocate_and_serialize (ctx,
-                                                           &rsp.dict.dict_val,
-                                                           (size_t*)&rsp.dict.dict_len);
+                                                           &cli_rsp.setv_rsp.dict.dict_val,
+                                                           (size_t*)&cli_rsp.setv_rsp.dict.dict_len);
                         if (ret == 0)
-                                free_ptr = rsp.dict.dict_val;
+                                free_ptr = cli_rsp.setv_rsp.dict.dict_val;
                 }
-
-                cli_rsp = &rsp;
+                cli_rsp.setv_rsp.op_errno = op_errno;
+                cli_rsp.setv_rsp.volname = "";
+                cli_rsp.setv_rsp.op_errstr = op_errstr ? op_errstr : "";
                 sfunc = gf_xdr_serialize_cli_set_vol_rsp;
                 break;
         }
@@ -213,55 +188,35 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         case GD_OP_RESET_VOLUME:
         {
                 gf_log ("", GF_LOG_DEBUG, "Return value to CLI");
-                gf1_cli_reset_vol_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = 1;
-                rsp.volname = "";
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "Error while resetting options";
-                cli_rsp = &rsp;
+                cli_rsp.resetv_rsp.op_ret = op_ret;
+                cli_rsp.resetv_rsp.op_errno = 1;
+                cli_rsp.resetv_rsp.volname = "";
+                cli_rsp.resetv_rsp.op_errstr = op_errstr ? op_errstr : "Error while resetting options";
                 sfunc = gf_xdr_serialize_cli_reset_vol_rsp;
                 break;
         }
 
         case GD_OP_LOG_FILENAME:
         {
-                gf1_cli_log_filename_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                if (op_errstr)
-                        rsp.errstr = op_errstr;
-                else
-                        rsp.errstr = "";
-                cli_rsp = &rsp;
+                cli_rsp.logfn_rsp.op_ret = op_ret;
+                cli_rsp.logfn_rsp.op_errno = op_errno;
+                cli_rsp.logfn_rsp.errstr = op_errstr ? op_errstr : "";
                 sfunc = gf_xdr_serialize_cli_log_filename_rsp;
                 break;
         }
         case GD_OP_LOG_ROTATE:
         {
-                gf1_cli_log_rotate_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                if (op_errstr)
-                        rsp.errstr = op_errstr;
-                else
-                        rsp.errstr = "";
-                cli_rsp = &rsp;
+                cli_rsp.logrot_rsp.op_ret = op_ret;
+                cli_rsp.logrot_rsp.op_errno = op_errno;
+                cli_rsp.logrot_rsp.errstr = op_errstr ? op_errstr : "";
                 sfunc = gf_xdr_serialize_cli_log_rotate_rsp;
                 break;
         }
         case GD_OP_SYNC_VOLUME:
         {
-                gf1_cli_sync_volume_rsp rsp = {0,};
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
-                cli_rsp = &rsp;
+                cli_rsp.syncv_rsp.op_ret = op_ret;
+                cli_rsp.syncv_rsp.op_errno = op_errno;
+                cli_rsp.syncv_rsp.op_errstr = op_errstr ? op_errstr : "";
                 sfunc = gf_xdr_from_cli_sync_volume_rsp;
                 break;
         }
@@ -273,72 +228,56 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 char    *slave  = NULL;
                 char    *op_name = NULL;
                 char    *subop = NULL;
-                gf1_cli_gsync_set_rsp rsp = {0,};
 
+                cli_rsp.gsyncs_rsp.op_ret = op_ret;
+                cli_rsp.gsyncs_rsp.op_errno = op_errno;
+                cli_rsp.gsyncs_rsp.op_errstr = op_errstr ? op_errstr : "";
+                cli_rsp.gsyncs_rsp.op_name = "";
+                cli_rsp.gsyncs_rsp.subop = "";
+                cli_rsp.gsyncs_rsp.master = "";
+                cli_rsp.gsyncs_rsp.slave = "";
+                cli_rsp.gsyncs_rsp.glusterd_workdir = conf->workdir;
+                cli_rsp.gsyncs_rsp.gsync_prefix = GSYNCD_PREFIX;
                 ctx = op_ctx;
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.op_errstr = "";
-                rsp.op_name = "";
-                rsp.subop = "";
-                rsp.master = "";
-                rsp.slave = "";
-                rsp.glusterd_workdir = conf->workdir;
-                rsp.gsync_prefix = GSYNCD_PREFIX;
                 if (ctx) {
                         ret = dict_get_str (ctx, "errstr", &str);
                         if (ret == 0)
-                                rsp.op_errstr = str;
+                                cli_rsp.gsyncs_rsp.op_errstr = str;
                         ret = dict_get_int32 (ctx, "type", &type);
                         if (ret == 0)
-                                rsp.type = type;
+                                cli_rsp.gsyncs_rsp.type = type;
                         ret = dict_get_str (ctx, "master", &master);
                         if (ret == 0)
-                                rsp.master = master;
+                                cli_rsp.gsyncs_rsp.master = master;
 
                         ret = dict_get_str (ctx, "slave", &slave);
                         if (ret == 0)
-                                rsp.slave = slave;
+                                cli_rsp.gsyncs_rsp.slave = slave;
 
                         if (type == GF_GSYNC_OPTION_TYPE_CONFIG) {
                                 if (dict_get_str (ctx, "op_name", &op_name) == 0)
-                                        rsp.op_name = op_name;
+                                        cli_rsp.gsyncs_rsp.op_name = op_name;
                                 if (dict_get_str (ctx, "subop", &subop) == 0)
-                                        rsp.subop = subop;
+                                        cli_rsp.gsyncs_rsp.subop = subop;
                         }
 
                         ret = dict_allocate_and_serialize (ctx,
-                                        &rsp.status_dict.status_dict_val,
-                                    (size_t*)&rsp.status_dict.status_dict_len);
+                                        &cli_rsp.gsyncs_rsp.status_dict.status_dict_val,
+                                    (size_t*)&cli_rsp.gsyncs_rsp.status_dict.status_dict_len);
 
                         if (ret == 0)
-                                free_ptr = rsp.status_dict.status_dict_val;
+                                free_ptr = cli_rsp.gsyncs_rsp.status_dict.status_dict_val;
 
                 }
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                cli_rsp = &rsp;
                 sfunc = gf_xdr_serialize_cli_gsync_set_rsp;
-                break;
-        }
-        case GD_OP_RENAME_VOLUME:
-        case GD_OP_START_BRICK:
-        case GD_OP_STOP_BRICK:
-        case GD_OP_LOG_LOCATE:
-        {
-                gf_log ("", GF_LOG_DEBUG, "not supported op %d", op);
                 break;
         }
         case GD_OP_PROFILE_VOLUME:
         {
-                gf1_cli_stats_volume_rsp rsp   = {0,};
                 int32_t                  count = 0;
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                if (op_errstr)
-                        rsp.op_errstr = op_errstr;
-                else
-                        rsp.op_errstr = "";
+                cli_rsp.statsv_rsp.op_ret = op_ret;
+                cli_rsp.statsv_rsp.op_errno = op_errno;
+                cli_rsp.statsv_rsp.op_errstr = op_errstr ? op_errstr : "";
                 ctx = op_ctx;
                 if (dict_get_int32 (ctx, "count", &count)) {
                         ret = dict_set_int32 (ctx, "count", 0);
@@ -347,10 +286,9 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                                         "to set brick count.");
                 }
                 dict_allocate_and_serialize (ctx,
-                             &rsp.stats_info.stats_info_val,
-                        (size_t*)&rsp.stats_info.stats_info_len);
-                free_ptr = rsp.stats_info.stats_info_val;
-                cli_rsp = &rsp;
+                             &cli_rsp.statsv_rsp.stats_info.stats_info_val,
+                        (size_t*)&cli_rsp.statsv_rsp.stats_info.stats_info_len);
+                free_ptr = cli_rsp.statsv_rsp.stats_info.stats_info_val;
                 sfunc = gf_xdr_from_cli_stats_volume_rsp;
                 break;
         }
@@ -360,46 +298,53 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 int32_t               type;
                 char                 *str    = NULL;
                 char                 *errstr = NULL;
-                gf1_cli_quota_rsp     rsp    = {0,};
 
-                rsp.op_ret = op_ret;
-                rsp.op_errno = op_errno;
-                rsp.volname = "";
+                cli_rsp.quota_rsp.op_ret = op_ret;
+                cli_rsp.quota_rsp.op_errno = op_errno;
+                cli_rsp.quota_rsp.volname = "";
 
                 ctx = op_ctx;
 
                 if (op_errstr)
-                        rsp.op_errstr = op_errstr;
+                        cli_rsp.quota_rsp.op_errstr = op_errstr;
                 else {
                         ret = dict_get_str (ctx, "errstr", &errstr);
                         if (ret == 0)
-                                rsp.op_errstr = errstr;
+                                cli_rsp.quota_rsp.op_errstr = errstr;
                         else
-                                rsp.op_errstr = "";
+                                cli_rsp.quota_rsp.op_errstr = "";
                 }
 
-                rsp.limit_list = "";
+                cli_rsp.quota_rsp.limit_list = "";
 
                 if (op_ret == 0 && ctx) {
                         ret = dict_get_str (ctx, "volname", &str);
                         if (ret == 0)
-                                rsp.volname = str;
+                                cli_rsp.quota_rsp.volname = str;
 
                         ret = dict_get_int32 (ctx, "type", &type);
                         if (ret == 0)
-                                rsp.type = type;
+                                cli_rsp.quota_rsp.type = type;
                         else
-                                rsp.type = 0;
+                                cli_rsp.quota_rsp.type = 0;
 
                         if (type == GF_QUOTA_OPTION_TYPE_LIST) {
                                  ret = dict_get_str (ctx,"limit_list", &str);
 
                                  if (ret == 0)
-                                         rsp.limit_list = str;
+                                         cli_rsp.quota_rsp.limit_list = str;
                         }
                 }
-                cli_rsp = &rsp;
                 sfunc = gf_xdr_serialize_cli_quota_rsp;
+                break;
+        }
+
+        case GD_OP_RENAME_VOLUME:
+        case GD_OP_START_BRICK:
+        case GD_OP_STOP_BRICK:
+        case GD_OP_LOG_LOCATE:
+        {
+                gf_log ("", GF_LOG_DEBUG, "not supported op %d", op);
                 break;
         }
 
@@ -411,7 +356,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         }
         }
 
-        ret = glusterd_submit_reply (req, cli_rsp, NULL, 0, NULL,
+        ret = glusterd_submit_reply (req, &cli_rsp, NULL, 0, NULL,
                                      sfunc);
 
         if (free_ptr)
