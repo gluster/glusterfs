@@ -313,7 +313,7 @@ class SendmarkRsyncMixin(object):
 class PurgeNormalMixin(object):
 
     def purge_missing(self, path, names):
-        self.slave.server.purge(path, dd)
+        self.slave.server.purge(path, names)
 
 class PurgeNoopMixin(object):
 
