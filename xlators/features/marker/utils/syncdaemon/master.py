@@ -59,7 +59,7 @@ def gmaster_builder():
         modemixin = 'normal'
     logging.info('setting up master for %s sync mode' % modemixin)
     modemixin = getattr(this, modemixin.capitalize() + 'Mixin')
-    sendmarkmixin = boolify(gconf.use_rsync_xattrs) and SendmarkNormalMixin or SendmarkRsyncMixin
+    sendmarkmixin = boolify(gconf.use_rsync_xattrs) and SendmarkRsyncMixin or SendmarkNormalMixin
     purgemixin = boolify(gconf.ignore_deletes) and PurgeNoopMixin or PurgeNormalMixin
     class _GMaster(GMasterBase, modemixin, sendmarkmixin, purgemixin):
         pass
@@ -301,12 +301,12 @@ class BlindMixin(object):
 
 class SendmarkNormalMixin(object):
 
-    def sendmark_regular(self, *a, **kw):
-        return self.sendmark(self, *a, **kw)
+    def sendmark_regular(self, a, *kw):
+        return self.sendmark(self, a, *kw)
 
 class SendmarkRsyncMixin(object):
 
-    def sendmark_regular(self, *a, **kw):
+    def sendmark_regular(self, a, *kw):
         pass
 
 
