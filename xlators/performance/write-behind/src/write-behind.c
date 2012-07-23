@@ -423,6 +423,7 @@ wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         wb_request_t *request           = NULL, *dummy = NULL;
         wb_local_t   *per_request_local = NULL;
         int32_t       ret               = -1;
+	int32_t	      total_write_size	= 0;
         fd_t         *fd                = NULL;
 
         GF_ASSERT (frame);
@@ -448,6 +449,7 @@ wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
                         if (request->flags.write_request.write_behind) {
                                 file->window_current -= request->write_size;
+				total_write_size += request->write_size;
                         }
 
                         __wb_request_unref (request);
@@ -456,7 +458,19 @@ wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 if (op_ret == -1) {
                         file->op_ret = op_ret;
                         file->op_errno = op_errno;
-                }
+		} else if (op_ret < total_write_size) {
+			/*
+			 * We've encountered a short write, for whatever reason.
+			 * Set an EIO error for the next fop. This should be
+			 * valid for writev or flush (close).
+			 *
+			 * TODO: Retry the write so we can potentially capture
+			 * a real error condition (i.e., ENOSPC).
+			 */
+			file->op_ret = -1;
+			file->op_errno = EIO;
+		}
+
                 fd = file->fd;
         }
         UNLOCK (&file->lock);
