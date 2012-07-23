@@ -105,7 +105,7 @@ afr_create_unwind (call_frame_t *frame, xlator_t *this)
                                   local->cont.create.inode,
                                   unwind_buf, &local->cont.create.preparent,
                                   &local->cont.create.postparent,
-                                  NULL);
+                                  local->xdata_rsp);
         }
 
         return 0;
@@ -167,8 +167,11 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         fd_ctx->opened_on[child_index] = AFR_FD_OPENED;
                         fd_ctx->flags                  = local->cont.create.flags;
 
-                        if (local->success_count == 0)
+                        if (local->success_count == 0) {
                                 local->cont.create.buf        = *buf;
+				if (xdata)
+					local->xdata_rsp = dict_ref(xdata);
+			}
 
                         if (child_index == local->read_child_index) {
                                 local->cont.create.read_child_buf = *buf;
