@@ -829,14 +829,13 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
                 if (uuid_is_null (iatt->ia_gfid))
                         return NULL;
 
-                uuid_copy (inode->gfid, iatt->ia_gfid);
-                inode->ia_type    = iatt->ia_type;
-
-                old_inode = __inode_find (table, inode->gfid);
+                old_inode = __inode_find (table, iatt->ia_gfid);
 
                 if (old_inode) {
                         link_inode = old_inode;
                 } else {
+                        uuid_copy (inode->gfid, iatt->ia_gfid);
+                        inode->ia_type    = iatt->ia_type;
                         __inode_hash (inode);
                 }
         }
@@ -1300,8 +1299,8 @@ __inode_table_init_root (inode_table_t *table)
         iatt.ia_ino = 1;
         iatt.ia_type = IA_IFDIR;
 
-        table->root = root;
         __inode_link (root, NULL, NULL, &iatt);
+        table->root = root;
 }
 
 
