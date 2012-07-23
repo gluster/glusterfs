@@ -2743,6 +2743,24 @@ send_fuse_xattr (xlator_t *this, fuse_in_header_t *finh, const char *value,
         }
 }
 
+/* filter out xattrs that need not be visible on the
+ * mount point. this is _specifically_ for geo-rep
+ * as of now, to prevent Rsync from crying out loud
+ * when it tries to setxattr() for selinux xattrs
+ */
+static int
+fuse_filter_xattr(xlator_t *this, char *key)
+{
+        int need_filter = 0;
+        struct fuse_private *priv = this->private;
+
+        if ((priv->client_pid == GF_CLIENT_PID_GSYNCD)
+            && fnmatch ("*.selinux*", key, FNM_PERIOD) == 0)
+                need_filter = 1;
+
+        return need_filter;
+}
+
 
 static int
 fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2781,9 +2799,13 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         } /* if(value_data)...else */
                 } else {
                         /* if callback for listxattr */
+                        /* we need to invoke fuse_filter_xattr() twice. Once
+                         * while counting size and then while filling buffer
+                         */
                         trav = dict->members_list;
                         while (trav) {
-                                len += strlen (trav->key) + 1;
+                                if (!fuse_filter_xattr (this, trav->key))
+                                        len += strlen (trav->key) + 1;
                                 trav = trav->next;
                         } /* while(trav) */
                         value = alloca (len + 1);
@@ -2792,9 +2814,11 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         len = 0;
                         trav = dict->members_list;
                         while (trav) {
-                                strcpy (value + len, trav->key);
-                                value[len + strlen (trav->key)] = '\0';
-                                len += strlen (trav->key) + 1;
+                                if (!fuse_filter_xattr (this, trav->key)) {
+                                        strcpy (value + len, trav->key);
+                                        value[len + strlen (trav->key)] = '\0';
+                                        len += strlen (trav->key) + 1;
+                                }
                                 trav = trav->next;
                         } /* while(trav) */
                         send_fuse_xattr (this, finh, value, len, state->size);
