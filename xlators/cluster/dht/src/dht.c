@@ -34,8 +34,10 @@ dht_layout_dump (dht_layout_t  *layout, const char *prefix)
         char    key[GF_DUMP_MAX_BUF_LEN];
         int     i = 0;
 
-        GF_VALIDATE_OR_GOTO ("dht", layout, out);
-        GF_VALIDATE_OR_GOTO ("dht", prefix, out);
+        if (!layout)
+                goto out;
+        if (!prefix)
+                goto out;
 
         gf_proc_dump_build_key(key, prefix, "cnt");
         gf_proc_dump_write(key, "%d", layout->cnt);
@@ -43,8 +45,13 @@ dht_layout_dump (dht_layout_t  *layout, const char *prefix)
         gf_proc_dump_write(key, "%d", layout->preset);
         gf_proc_dump_build_key(key, prefix, "gen");
         gf_proc_dump_write(key, "%d", layout->gen);
-        gf_proc_dump_build_key(key, prefix, "type");
-        gf_proc_dump_write(key, "%d", layout->type);
+        if (layout->type != IA_INVAL) {
+                gf_proc_dump_build_key(key, prefix, "inode type");
+                gf_proc_dump_write(key, "%d", layout->type);
+        }
+
+        if  (!IA_ISDIR (layout->type))
+                goto out;
 
         for (i = 0; i < layout->cnt; i++) {
                 gf_proc_dump_build_key(key, prefix,"list[%d].err", i);
@@ -79,12 +86,12 @@ dht_priv_dump (xlator_t *this)
         dht_conf_t      *conf = NULL;
         int             ret = -1;
 
-        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        if (!this)
+                goto out;
 
         conf = this->private;
-
         if (!conf)
-                return -1;
+                goto out;
 
         ret = TRY_LOCK(&conf->subvolume_lock);
         if (ret != 0) {
@@ -149,8 +156,10 @@ dht_inodectx_dump (xlator_t *this, inode_t *inode)
         int             ret = -1;
         dht_layout_t    *layout = NULL;
 
-        GF_VALIDATE_OR_GOTO ("dht", this, out);
-        GF_VALIDATE_OR_GOTO ("dht", inode, out);
+        if (!this)
+                goto out;
+        if (!inode)
+                goto out;
 
         ret = dht_inode_ctx_layout_get (inode, this, &layout);
 
