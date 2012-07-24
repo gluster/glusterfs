@@ -416,10 +416,8 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
-                if (is_key_glusterd_hooks_friendly (this, volname, key)) {
-                        ret = 0;
-                        goto out;
-                }
+                if (is_key_glusterd_hooks_friendly (key))
+                        continue;
 
                 exists = glusterd_check_option_exists (key, &key_fixed);
                 if (exists == -1) {
@@ -444,8 +442,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 if (key_fixed)
                         key = key_fixed;
 
-                ret = glusterd_check_globaloption (key);
-                if (ret)
+                if (glusterd_check_globaloption (key))
                         global_opt = _gf_true;
 
                 ret = dict_set_str (val_dict, key, value);
@@ -1111,20 +1108,17 @@ glusterd_op_set_volume (dict_t *dict)
                         goto out;
                 }
 
-                if (is_key_glusterd_hooks_friendly (this, volname, key)) {
-                        ret = 0;
-                        goto out;
+                if (!is_key_glusterd_hooks_friendly (key)) {
+                        ret = glusterd_check_option_exists (key, &key_fixed);
+                        GF_ASSERT (ret);
+                        if (ret <= 0) {
+                                key_fixed = NULL;
+                                goto out;
+                        }
+
                 }
 
-                ret = glusterd_check_option_exists (key, &key_fixed);
-                GF_ASSERT (ret);
-                if (ret == -1) {
-                        key_fixed = NULL;
-                        goto out;
-                }
-
-                ret = glusterd_check_globaloption (key);
-                if (ret)
+                if (glusterd_check_globaloption (key))
                         global_opt = _gf_true;
 
                 if (!global_opt)
