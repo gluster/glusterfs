@@ -60,15 +60,13 @@ typedef struct hooks_stub {
 
 
 static inline gf_boolean_t
-is_key_glusterd_hooks_friendly (xlator_t *this, char *volname, char *key)
+is_key_glusterd_hooks_friendly (char *key)
 {
         gf_boolean_t is_friendly = _gf_false;
 
         /* This is very specific to hooks friendly behavior */
         if (fnmatch (GD_HOOKS_SPECIFIC_KEY, key, FNM_NOESCAPE) == 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "user configured key (%s) sent on volume %s",
-                        key, volname);
+                gf_log (THIS->name, GF_LOG_DEBUG, "user namespace key %s", key);
                 is_friendly = _gf_true;
         }
 
