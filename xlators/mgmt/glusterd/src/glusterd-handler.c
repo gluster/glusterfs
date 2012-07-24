@@ -285,7 +285,6 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         data_pair_t             *pairs = NULL;
         char                    reconfig_key[256] = {0, };
         dict_t                  *dict = NULL;
-        data_t                  *value = NULL;
         int                     opt_count = 0;
         glusterd_conf_t         *priv = NULL;
         char                    *volume_id_str  = NULL;
@@ -370,21 +369,13 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        pairs = dict->members_list;
+        for (pairs = dict->members_list; pairs != NULL; pairs = pairs->next) {
+                snprintf (reconfig_key, 256, "volume%d.option.%s", count,
+                          pairs->key);
+                ret = dict_set_str  (volumes, reconfig_key, pairs->value->data);
+                if (0 == ret)
+                    opt_count++;
 
-        while (pairs) {
-                if (1 == glusterd_check_option_exists (pairs->key, NULL)) {
-                        value = pairs->value;
-                        if (!value)
-                                continue;
-
-                        snprintf (reconfig_key, 256, "volume%d.option.%s", count,
-                                  pairs->key);
-                        ret = dict_set_str  (volumes, reconfig_key, value->data);
-                        if (!ret)
-                            opt_count++;
-                }
-                pairs = pairs->next;
         }
 
         snprintf (key, 256, "volume%d.opt_count", count);

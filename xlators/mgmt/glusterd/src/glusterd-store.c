@@ -42,6 +42,7 @@
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
+#include "glusterd-hooks.h"
 #include "glusterd-store.h"
 
 #include "rpc-clnt.h"
@@ -605,10 +606,17 @@ void _storeopts (dict_t *this, char *key, data_t *value, void *data)
         if (!value || !value->data)
                 return;
 
-        exists = glusterd_check_option_exists (key, NULL);
+        if (is_key_glusterd_hooks_friendly (key)) {
+                exists = 1;
+
+        } else {
+                exists = glusterd_check_option_exists (key, NULL);
+        }
+
         if (1 == exists) {
                 gf_log ("", GF_LOG_DEBUG, "Storing in volinfo:key= %s, val=%s",
                         key, value->data);
+
         } else {
                 gf_log ("", GF_LOG_DEBUG, "Discarding:key= %s, val=%s",
                         key, value->data);
@@ -2230,27 +2238,39 @@ glusterd_store_retrieve_volume (char    *volname)
                         }
                         gf_log ("", GF_LOG_DEBUG, "Parsed as "GEOREP" "
                                 " slave:key=%s,value:%s", key, value);
+
                 } else {
-                        exists = glusterd_check_option_exists (key, NULL);
-                        if (exists == -1) {
+
+                        if (is_key_glusterd_hooks_friendly (key)) {
+                                exists = 1;
+
+                        } else  {
+                                exists = glusterd_check_option_exists (key,
+                                                                       NULL);
+                        }
+
+                        switch (exists) {
+                        case -1:
                                 ret = -1;
                                 goto out;
-                        }
-                        if (exists) {
+
+                        case 0:
+                                gf_log ("", GF_LOG_ERROR, "Unknown key: %s",
+                                        key);
+                                break;
+
+                        case 1:
                                 ret = dict_set_str(volinfo->dict, key,
-                                                     gf_strdup (value));
+                                                   gf_strdup (value));
                                 if (ret) {
                                         gf_log ("",GF_LOG_ERROR, "Error in "
-                                                        "dict_set_str");
+                                                "dict_set_str");
                                         goto out;
                                 }
                                 gf_log ("", GF_LOG_DEBUG, "Parsed as Volume-"
-                                                "set:key=%s,value:%s",
-                                                                key, value);
+                                        "set:key=%s,value:%s", key, value);
+                                break;
                         }
-                        else
-                                gf_log ("", GF_LOG_ERROR, "Unknown key: %s",
-                                        key);
                 }
 
                 GF_FREE (key);
