@@ -96,13 +96,59 @@ glusterd_store_mkstemp (glusterd_store_handle_t *shandle)
         GF_ASSERT (shandle->path);
 
         snprintf (tmppath, sizeof (tmppath), "%s.tmp", shandle->path);
-        fd = open (tmppath, O_RDWR | O_CREAT | O_TRUNC, 0600);
+        fd = open (tmppath, O_RDWR | O_CREAT | O_TRUNC | O_SYNC, 0600);
         if (fd <= 0) {
                 gf_log ("glusterd", GF_LOG_ERROR, "Failed to open %s, "
                         "error: %s", tmppath, strerror (errno));
         }
 
         return fd;
+}
+
+int
+glusterd_store_sync_direntry (char *path)
+{
+        int             ret     = -1;
+        int             dirfd   = -1;
+        char            *dir    = NULL;
+        char            *pdir   = NULL;
+        xlator_t        *this = NULL;
+
+        this = THIS;
+
+        dir = gf_strdup (path);
+        if (!dir)
+                goto out;
+
+        pdir = dirname (dir);
+        dirfd = open (pdir, O_RDONLY);
+        if (dirfd == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to open directory "
+                        "%s, due to %s", pdir, strerror (errno));
+                goto out;
+        }
+
+        ret = fsync (dirfd);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to fsync %s, due to "
+                        "%s", pdir, strerror (errno));
+                goto out;
+        }
+
+        ret = 0;
+out:
+        if (dirfd >= 0) {
+                ret = close (dirfd);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to close "
+                                "%s, due to %s", pdir, strerror (errno));
+                }
+        }
+
+        if (dir)
+                GF_FREE (dir);
+
+        return ret;
 }
 
 int32_t
@@ -117,10 +163,13 @@ glusterd_store_rename_tmppath (glusterd_store_handle_t *shandle)
         snprintf (tmppath, sizeof (tmppath), "%s.tmp", shandle->path);
         ret = rename (tmppath, shandle->path);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Failed to mv %s to %s, "
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to rename %s to %s, "
                         "error: %s", tmppath, shandle->path, strerror (errno));
+                goto out;
         }
 
+        ret = glusterd_store_sync_direntry (tmppath);
+out:
         return ret;
 }
 
@@ -283,8 +332,6 @@ glusterd_store_volinfo_brick_fname_write (int vol_fd,
         if (ret)
                 goto out;
 
-        ret = fsync (vol_fd);
-
 out:
         return ret;
 }
@@ -339,7 +386,6 @@ glusterd_store_brickinfo_write (int fd, glusterd_brickinfo_t *brickinfo)
         if (ret)
                 goto out;
 
-        ret = fsync (fd);
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -655,8 +701,6 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
                 if (ret)
                         goto out;
         }
-        ret = fsync (fd);
-
 out:
         if (ret)
                 gf_log ("", GF_LOG_ERROR, "Unable to write volume values"
@@ -712,7 +756,6 @@ glusterd_store_volinfo_write (int fd, glusterd_volinfo_t *volinfo)
 
         dict_foreach (volinfo->gsync_slaves, _storeslaves, shandle);
         shandle->fd = 0;
-        ret = fsync (fd);
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -862,7 +905,6 @@ glusterd_store_rbstate_write (int fd, glusterd_volinfo_t *volinfo)
                         goto out;
         }
 
-        ret = fsync (fd);
 out:
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -915,10 +957,6 @@ glusterd_store_node_state_write (int fd, glusterd_volinfo_t *volinfo)
         snprintf (buf, sizeof (buf), "%d", volinfo->defrag_cmd);
         ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_DEFRAG,
                                          buf);
-        if (ret)
-                goto out;
-
-        ret = fsync (fd);
         if (ret)
                 goto out;
 
@@ -1404,11 +1442,14 @@ glusterd_store_handle_new (char *path, glusterd_store_handle_t **handle)
                 goto out;
         }
 
+        ret = glusterd_store_sync_direntry (spath);
+        if (ret)
+                goto out;
+
         shandle->path = spath;
         *handle = shandle;
 
         ret = 0;
-
 out:
         if (fd > 0)
                 close (fd);
@@ -2541,7 +2582,6 @@ glusterd_store_peer_write (int fd, glusterd_peerinfo_t *peerinfo)
         if (ret)
                 goto out;
 
-        ret = fsync (fd);
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
