@@ -865,13 +865,12 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 local->cont.link.postparent     = *postparent;
                         }
 
-                        local->cont.link.inode    = inode;
-
                         fresh_children = local->fresh_children;
                         fresh_children[local->success_count] = child_index;
                         local->success_count++;
                 }
 
+		local->cont.link.inode = inode;
                 local->op_errno = op_errno;
         }
         UNLOCK (&frame->lock);
