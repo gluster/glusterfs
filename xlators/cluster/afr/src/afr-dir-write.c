@@ -138,7 +138,7 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (afr_fop_failed (op_ret, op_errno))
                         afr_transaction_fop_failed (frame, this, child_index);
 
-                if (op_ret != -1) {
+                if (op_ret > -1) {
                         local->op_ret = op_ret;
 
                         ret = afr_fd_ctx_set (this, fd);
@@ -195,11 +195,14 @@ unlock:
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
-                afr_set_read_ctx_from_policy (this, inode,
-                                              local->fresh_children,
-                                              local->read_child_index,
-                                              priv->read_child,
-                                              local->cont.create.buf.ia_gfid);
+                if (local->op_ret > -1) {
+                        afr_set_read_ctx_from_policy (this,
+                                                      local->cont.create.inode,
+                                                      local->fresh_children,
+                                                      local->read_child_index,
+                                                      priv->read_child,
+                                                local->cont.create.buf.ia_gfid);
+                }
                 local->transaction.unwind (frame, this);
 
                 local->transaction.resume (frame, this);
@@ -403,7 +406,7 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (afr_fop_failed (op_ret, op_errno))
                         afr_transaction_fop_failed (frame, this, child_index);
 
-                if (op_ret != -1) {
+                if (op_ret > -1) {
                         local->op_ret = op_ret;
 
                         if (local->success_count == 0)
@@ -429,11 +432,14 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
-                afr_set_read_ctx_from_policy (this, inode,
-                                              local->fresh_children,
-                                              local->read_child_index,
-                                              priv->read_child,
-                                              local->cont.mknod.buf.ia_gfid);
+                if (local->op_ret > -1) {
+                        afr_set_read_ctx_from_policy (this,
+                                                      local->cont.mknod.inode,
+                                                      local->fresh_children,
+                                                      local->read_child_index,
+                                                      priv->read_child,
+                                                 local->cont.mknod.buf.ia_gfid);
+                }
                 local->transaction.unwind (frame, this);
 
                 local->transaction.resume (frame, this);
@@ -632,7 +638,7 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (afr_fop_failed (op_ret, op_errno))
                         afr_transaction_fop_failed (frame, this, child_index);
 
-                if (op_ret != -1) {
+                if (op_ret > -1) {
                         local->op_ret           = op_ret;
 
                         if (local->success_count == 0)
@@ -658,11 +664,14 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
-                afr_set_read_ctx_from_policy (this, inode,
-                                              local->fresh_children,
-                                              local->read_child_index,
-                                              priv->read_child,
-                                              local->cont.mkdir.buf.ia_gfid);
+                if (local->op_ret > -1) {
+                        afr_set_read_ctx_from_policy (this,
+                                                      local->cont.mkdir.inode,
+                                                      local->fresh_children,
+                                                      local->read_child_index,
+                                                      priv->read_child,
+                                                 local->cont.mkdir.buf.ia_gfid);
+                }
                 local->transaction.unwind (frame, this);
 
                 local->transaction.resume (frame, this);
@@ -862,7 +871,7 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (afr_fop_failed (op_ret, op_errno))
                         afr_transaction_fop_failed (frame, this, child_index);
 
-                if (op_ret != -1) {
+                if (op_ret > -1) {
                         local->op_ret   = op_ret;
 
                         if (local->success_count == 0) {
@@ -877,10 +886,10 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         fresh_children = local->fresh_children;
                         fresh_children[local->success_count] = child_index;
+                        local->cont.link.inode = inode;
                         local->success_count++;
                 }
 
-		local->cont.link.inode = inode;
                 local->op_errno = op_errno;
         }
         UNLOCK (&frame->lock);
@@ -888,11 +897,14 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
-                afr_set_read_ctx_from_policy (this, inode,
-                                              local->fresh_children,
-                                              local->read_child_index,
-                                              priv->read_child,
-                                              local->cont.link.buf.ia_gfid);
+                if (local->op_ret > -1) {
+                        afr_set_read_ctx_from_policy (this,
+                                                      local->cont.link.inode,
+                                                      local->fresh_children,
+                                                      local->read_child_index,
+                                                      priv->read_child,
+                                                  local->cont.link.buf.ia_gfid);
+                }
                 local->transaction.unwind (frame, this);
 
                 local->transaction.resume (frame, this);
@@ -1086,7 +1098,7 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (afr_fop_failed (op_ret, op_errno))
                         afr_transaction_fop_failed (frame, this, child_index);
 
-                if (op_ret != -1) {
+                if (op_ret > -1) {
                         local->op_ret   = op_ret;
 
                         if (local->success_count == 0)
@@ -1112,11 +1124,14 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
-                afr_set_read_ctx_from_policy (this, inode,
-                                              local->fresh_children,
-                                              local->read_child_index,
-                                              priv->read_child,
-                                              local->cont.symlink.buf.ia_gfid);
+                if (local->op_ret > -1) {
+                        afr_set_read_ctx_from_policy (this,
+                                                      local->cont.symlink.inode,
+                                                      local->fresh_children,
+                                                      local->read_child_index,
+                                                      priv->read_child,
+                                               local->cont.symlink.buf.ia_gfid);
+                }
                 local->transaction.unwind (frame, this);
 
                 local->transaction.resume (frame, this);
