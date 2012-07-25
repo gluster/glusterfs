@@ -132,80 +132,13 @@ afr_sh_metadata_erase_pending_cbk (call_frame_t *frame, void *cookie,
         return 0;
 }
 
-
 int
 afr_sh_metadata_erase_pending (call_frame_t *frame, xlator_t *this)
 {
-        afr_local_t     *local = NULL;
-        afr_self_heal_t *sh = NULL;
-        afr_private_t   *priv = NULL;
-        int              call_count = 0;
-        int              i = 0;
-        dict_t          **erase_xattr = NULL;
-
-
-        local = frame->local;
-        sh = &local->self_heal;
-        priv = this->private;
-
-        afr_sh_pending_to_delta (priv, sh->xattr, sh->delta_matrix,
-                                 sh->success, priv->child_count,
-                                 AFR_METADATA_TRANSACTION);
-
-        erase_xattr = GF_CALLOC (sizeof (*erase_xattr), priv->child_count,
-                                 gf_afr_mt_dict_t);
-        if (!erase_xattr)
-                return -ENOMEM;
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (sh->xattr[i]) {
-                        call_count++;
-
-                        erase_xattr[i] = get_new_dict();
-                        dict_ref (erase_xattr[i]);
-                }
-        }
-
-        afr_sh_delta_to_xattr (this, sh->delta_matrix, erase_xattr,
-                               priv->child_count, AFR_METADATA_TRANSACTION);
-
-        local->call_count = call_count;
-
-        if (call_count == 0) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "metadata of %s not healed on any subvolume",
-                        local->loc.path);
-
-                afr_sh_metadata_finish (frame, this);
-        }
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (!erase_xattr[i])
-                        continue;
-
-                gf_log (this->name, GF_LOG_TRACE,
-                        "erasing pending flags from %s on %s",
-                        local->loc.path, priv->children[i]->name);
-
-                STACK_WIND_COOKIE (frame, afr_sh_metadata_erase_pending_cbk,
-                                   (void *) (long) i,
-                                   priv->children[i],
-                                   priv->children[i]->fops->xattrop,
-                                   &local->loc,
-                                   GF_XATTROP_ADD_ARRAY, erase_xattr[i],
-                                   NULL);
-                if (!--call_count)
-                        break;
-        }
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (erase_xattr[i]) {
-                        dict_unref (erase_xattr[i]);
-                }
-        }
-        GF_FREE (erase_xattr);
-
-        return 0;
+         afr_sh_erase_pending (frame, this, AFR_METADATA_TRANSACTION,
+                               afr_sh_metadata_erase_pending_cbk,
+                               afr_sh_metadata_finish);
+         return 0;
 }
 
 

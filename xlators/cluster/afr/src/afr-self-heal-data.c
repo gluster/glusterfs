@@ -121,6 +121,11 @@ afr_sh_data_close (call_frame_t *frame, xlator_t *this)
         sh    = &local->self_heal;
         priv  = this->private;
 
+        if (!sh->healing_fd) {
+                //This happens when file is non-reg
+                afr_sh_data_done (frame, this);
+                return 0;
+        }
         call_count        = afr_set_elem_count_get (sh->success,
                                                     priv->child_count);
         local->call_count = call_count;
@@ -395,66 +400,9 @@ out:
 int
 afr_sh_data_erase_pending (call_frame_t *frame, xlator_t *this)
 {
-        afr_local_t     *local = NULL;
-        afr_self_heal_t *sh = NULL;
-        afr_private_t   *priv = NULL;
-        int              call_count = 0;
-        int              i = 0;
-        dict_t          **erase_xattr = NULL;
-
-        local = frame->local;
-        sh = &local->self_heal;
-        priv = this->private;
-
-        afr_sh_pending_to_delta (priv, sh->xattr, sh->delta_matrix, sh->success,
-                                 priv->child_count, AFR_DATA_TRANSACTION);
-        gf_log (this->name, GF_LOG_DEBUG, "Delta matrix for: %s",
-                lkowner_utoa (&frame->root->lk_owner));
-        afr_sh_print_pending_matrix (sh->delta_matrix, this);
-
-        erase_xattr = GF_CALLOC (sizeof (*erase_xattr), priv->child_count,
-                                 gf_afr_mt_dict_t);
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (sh->xattr[i]) {
-                        call_count++;
-
-                        erase_xattr[i] = get_new_dict();
-                        dict_ref (erase_xattr[i]);
-                }
-        }
-
-        afr_sh_delta_to_xattr (this, sh->delta_matrix, erase_xattr,
-                               priv->child_count, AFR_DATA_TRANSACTION);
-
-        GF_ASSERT (call_count);
-        local->call_count = call_count;
-        for (i = 0; i < priv->child_count; i++) {
-                if (!erase_xattr[i])
-                        continue;
-
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "erasing pending flags from %s on %s",
-                        local->loc.path, priv->children[i]->name);
-
-                STACK_WIND_COOKIE (frame, afr_sh_data_erase_pending_cbk,
-                                   (void *) (long) i,
-                                   priv->children[i],
-                                   priv->children[i]->fops->fxattrop,
-                                   sh->healing_fd,
-                                   GF_XATTROP_ADD_ARRAY, erase_xattr[i],
-                                   NULL);
-                if (!--call_count)
-                        break;
-        }
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (erase_xattr[i]) {
-                        dict_unref (erase_xattr[i]);
-                }
-        }
-        GF_FREE (erase_xattr);
-
+        afr_sh_erase_pending (frame, this, AFR_DATA_TRANSACTION,
+                              afr_sh_data_erase_pending_cbk,
+                              afr_sh_data_finish);
         return 0;
 }
 
@@ -868,27 +816,6 @@ out:
 }
 
 int
-afr_sh_data_special_file_fix (call_frame_t *frame, xlator_t *this)
-{
-        afr_private_t   *priv = NULL;
-        afr_self_heal_t *sh = NULL;
-        afr_local_t     *local = NULL;
-        int             i = 0;
-
-        local = frame->local;
-        sh = &local->self_heal;
-        priv = this->private;
-
-        for (i = 0; i < priv->child_count ; i++)
-                if (1 == local->child_up[i])
-                        sh->success[i] = 1;
-
-        afr_sh_data_erase_pending (frame, this);
-
-        return 0;
-}
-
-int
 afr_sh_data_fstat_cbk (call_frame_t *frame, void *cookie,
                        xlator_t *this, int32_t op_ret, int32_t op_errno,
                        struct iatt *buf, dict_t *xdata)
@@ -938,10 +865,7 @@ afr_sh_data_fstat_cbk (call_frame_t *frame, void *cookie,
                         afr_sh_data_fail (frame, this);
                         goto out;
                 }
-                if (IA_ISREG (sh->type))
-                        afr_sh_data_fxattrop_fstat_done (frame, this);
-                else
-                        afr_sh_data_special_file_fix (frame, this);
+                afr_sh_data_fxattrop_fstat_done (frame, this);
         }
 out:
         return 0;
@@ -1382,6 +1306,50 @@ afr_sh_data_open (call_frame_t *frame, xlator_t *this)
         return 0;
 }
 
+void
+afr_sh_non_reg_fix (call_frame_t *frame, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno)
+{
+        afr_private_t   *priv = NULL;
+        afr_self_heal_t *sh = NULL;
+        afr_local_t     *local = NULL;
+        int             i = 0;
+
+        if (op_ret < 0) {
+                afr_sh_data_fail (frame, this);
+                return;
+        }
+
+        local = frame->local;
+        sh = &local->self_heal;
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count ; i++) {
+                if (1 == local->child_up[i])
+                        sh->success[i] = 1;
+        }
+
+        afr_sh_erase_pending (frame, this, AFR_DATA_TRANSACTION,
+                              afr_sh_data_erase_pending_cbk,
+                              afr_sh_data_finish);
+}
+
+int
+afr_sh_non_reg_lock_success (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t   *local = NULL;
+        afr_self_heal_t *sh = NULL;
+
+        local = frame->local;
+        sh = &local->self_heal;
+        sh->data_lock_held = _gf_true;
+        afr_sh_common_lookup (frame, this, &local->loc,
+                              afr_sh_non_reg_fix, NULL,
+                              AFR_LOOKUP_FAIL_CONFLICTS |
+                              AFR_LOOKUP_FAIL_MISSING_GFIDS,
+                              NULL);
+        return 0;
+}
 
 int
 afr_self_heal_data (call_frame_t *frame, xlator_t *this)
@@ -1397,7 +1365,13 @@ afr_self_heal_data (call_frame_t *frame, xlator_t *this)
 
         if (sh->do_data_self_heal &&
             afr_data_self_heal_enabled (priv->data_self_heal)) {
-                afr_sh_data_open (frame, this);
+                if (IA_ISREG (sh->type)) {
+                        afr_sh_data_open (frame, this);
+                } else {
+                        afr_sh_data_lock (frame, this, 0, 0,
+                                          afr_sh_non_reg_lock_success,
+                                          afr_sh_data_fail);
+                }
         } else {
                 gf_log (this->name, GF_LOG_TRACE,
                         "not doing data self heal on %s",
