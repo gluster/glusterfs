@@ -60,8 +60,9 @@ gf_proc_dump_open (char *dump_dir, char *brickname)
         char path[PATH_MAX] = {0,};
         int  dump_fd = -1;
 
-        snprintf (path, sizeof (path), "%s/%s.%d.dump", (dump_dir ?
-                  dump_dir : "/tmp"), brickname, getpid());
+        snprintf (path, sizeof (path), "%s/%s.%d.dump.%"PRIu64,
+                  (dump_dir ? dump_dir : "/tmp"), brickname, getpid(),
+                  (uint64_t) time (NULL));
 
         dump_fd = open (path, O_CREAT|O_RDWR|O_TRUNC|O_APPEND, 0600);
         if (dump_fd < 0)
@@ -622,6 +623,9 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
         int                ret  = -1;
         glusterfs_graph_t *trav = NULL;
         char               brick_name[PATH_MAX] = {0,};
+        struct timeval     tv   = {0,};
+        char timestr[256]       = {0,};
+        char sign_string[512]   = {0,};
 
         gf_proc_dump_lock ();
 
@@ -640,6 +644,25 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
         ret = gf_proc_dump_options_init ();
         if (ret < 0)
                 goto out;
+
+        //continue even though gettimeofday() has failed
+        ret = gettimeofday (&tv, NULL);
+        if (0 == ret) {
+                gf_time_fmt (timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
+                snprintf (timestr + strlen (timestr),
+                          sizeof timestr - strlen (timestr),
+                          ".%"GF_PRI_SUSECONDS, tv.tv_usec);
+        }
+
+        snprintf (sign_string, sizeof (sign_string), "DUMP-START-TIME: %s\n",
+                  timestr);
+
+        //swallow the errors of write for start and end marker
+        ret = write (gf_dump_fd, sign_string, strlen (sign_string));
+
+        memset (sign_string, 0, sizeof (sign_string));
+        memset (timestr, 0, sizeof (timestr));
+        memset (&tv, 0, sizeof (tv));
 
         if (GF_PROC_DUMP_IS_OPTION_ENABLED (mem)) {
                 gf_proc_dump_mem_info ();
@@ -671,6 +694,18 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
                 gf_proc_dump_oldgraph_xlator_info (trav->top);
                 i++;
         }
+
+        ret = gettimeofday (&tv, NULL);
+        if (0 == ret) {
+                gf_time_fmt (timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
+                snprintf (timestr + strlen (timestr),
+                          sizeof timestr - strlen (timestr),
+                          ".%"GF_PRI_SUSECONDS, tv.tv_usec);
+        }
+
+        snprintf (sign_string, sizeof (sign_string), "\nDUMP-END-TIME: %s",
+                  timestr);
+        ret = write (gf_dump_fd, sign_string, strlen (sign_string));
 
 out:
         if (gf_dump_fd != -1)
