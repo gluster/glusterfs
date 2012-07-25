@@ -1029,6 +1029,7 @@ init (xlator_t *this)
         int ret = -1;
         index_priv_t *priv = NULL;
         pthread_t thread;
+        pthread_attr_t  w_attr;
         gf_boolean_t    mutex_inited = _gf_false;
         gf_boolean_t    cond_inited  = _gf_false;
         gf_boolean_t    attr_inited  = _gf_false;
@@ -1063,15 +1064,14 @@ init (xlator_t *this)
         }
         mutex_inited = _gf_true;
 
-        if ((ret = pthread_attr_init (&priv->w_attr)) != 0) {
+        if ((ret = pthread_attr_init (&w_attr)) != 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "pthread_attr_init failed (%d)", ret);
                 goto out;
         }
         attr_inited = _gf_true;
 
-        ret = pthread_attr_setstacksize (&priv->w_attr,
-                                         INDEX_THREAD_STACK_SIZE);
+        ret = pthread_attr_setstacksize (&w_attr, INDEX_THREAD_STACK_SIZE);
         if (ret == EINVAL) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "Using default thread stack size");
@@ -1082,7 +1082,7 @@ init (xlator_t *this)
         INIT_LIST_HEAD (&priv->callstubs);
 
         this->private = priv;
-        ret = pthread_create (&thread, &priv->w_attr, index_worker, this);
+        ret = pthread_create (&thread, &w_attr, index_worker, this);
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING, "Failed to create "
                         "worker thread, aborting");
@@ -1095,12 +1095,12 @@ out:
                         pthread_cond_destroy (&priv->cond);
                 if (mutex_inited)
                         pthread_mutex_destroy (&priv->mutex);
-                if (attr_inited)
-                        pthread_attr_destroy (&priv->w_attr);
                 if (priv)
                         GF_FREE (priv);
                 this->private = NULL;
         }
+        if (attr_inited)
+                pthread_attr_destroy (&w_attr);
         return ret;
 }
 
@@ -1116,7 +1116,6 @@ fini (xlator_t *this)
         LOCK_DESTROY (&priv->lock);
         pthread_cond_destroy (&priv->cond);
         pthread_mutex_destroy (&priv->mutex);
-        pthread_attr_destroy (&priv->w_attr);
         GF_FREE (priv);
 out:
         return;
