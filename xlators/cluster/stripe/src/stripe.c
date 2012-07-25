@@ -1951,16 +1951,6 @@ stripe_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         {
                 callcnt = --local->call_count;
 
-		if (IA_ISREG(inode->ia_type)) {
-			inode_ctx_get(inode, this, (uint64_t *) &fctx);
-			if (!fctx) {
-				gf_log(this->name, GF_LOG_ERROR,
-					"failed to get stripe context");
-				op_ret = -1;
-				op_errno = EINVAL;
-			}
-		}
-
                 if (op_ret == -1) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "%s returned error %s",
@@ -1973,6 +1963,16 @@ stripe_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (op_ret >= 0) {
                         local->op_ret = 0;
+
+			if (IA_ISREG(inode->ia_type)) {
+				inode_ctx_get(inode, this, (uint64_t *) &fctx);
+				if (!fctx) {
+					gf_log(this->name, GF_LOG_ERROR,
+						"failed to get stripe context");
+					op_ret = -1;
+					op_errno = EINVAL;
+				}
+			}
 
                         if (FIRST_CHILD(this) == prev->this) {
                                 local->inode      = inode_ref (inode);
