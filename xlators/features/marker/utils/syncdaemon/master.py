@@ -302,7 +302,7 @@ class BlindMixin(object):
 class SendmarkNormalMixin(object):
 
     def sendmark_regular(self, a, *kw):
-        return self.sendmark(self, a, *kw)
+        return self.sendmark(a, *kw)
 
 class SendmarkRsyncMixin(object):
 
