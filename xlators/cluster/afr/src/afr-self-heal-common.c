@@ -135,8 +135,7 @@ afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
                         ptr += sprintf (ptr, "%d ", pending_matrix[i][j]);
                 }
                 sprintf (ptr, "]");
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "pending_matrix: %s", buf);
+                gf_log (this->name, GF_LOG_DEBUG, "pending_matrix: %s", buf);
         }
 
         GF_FREE (buf);
@@ -2425,4 +2424,92 @@ out:
                 loc_wipe (child);
 
         return ret;
+}
+
+int
+afr_sh_erase_pending (call_frame_t *frame, xlator_t *this,
+                      afr_transaction_type type, afr_fxattrop_cbk_t cbk,
+                      int (*finish)(call_frame_t *frame, xlator_t *this))
+{
+        afr_local_t     *local = NULL;
+        afr_self_heal_t *sh = NULL;
+        afr_private_t   *priv = NULL;
+        int              call_count = 0;
+        int              i = 0;
+        dict_t          **erase_xattr = NULL;
+        int             ret = -1;
+
+        local = frame->local;
+        sh = &local->self_heal;
+        priv = this->private;
+
+        afr_sh_pending_to_delta (priv, sh->xattr, sh->delta_matrix,
+                                 sh->success, priv->child_count, type);
+
+        erase_xattr = GF_CALLOC (sizeof (*erase_xattr), priv->child_count,
+                                 gf_afr_mt_dict_t);
+        if (!erase_xattr)
+                goto out;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (sh->xattr[i]) {
+                        call_count++;
+                        erase_xattr[i] = dict_new ();
+                        if (!erase_xattr[i])
+                                goto out;
+                }
+        }
+
+        afr_sh_delta_to_xattr (this, sh->delta_matrix, erase_xattr,
+                               priv->child_count, type);
+
+        gf_log (this->name, GF_LOG_DEBUG, "Delta matrix for: %s",
+                lkowner_utoa (&frame->root->lk_owner));
+        afr_sh_print_pending_matrix (sh->delta_matrix, this);
+        local->call_count = call_count;
+        if (call_count == 0) {
+                ret = 0;
+                finish (frame, this);
+                goto out;
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!erase_xattr[i])
+                        continue;
+
+                if (sh->healing_fd) {//true for ENTRY, reg file DATA transaction
+                        STACK_WIND_COOKIE (frame, cbk, (void *) (long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->fxattrop,
+                                           sh->healing_fd,
+                                           GF_XATTROP_ADD_ARRAY, erase_xattr[i],
+                                           NULL);
+                } else {
+                        STACK_WIND_COOKIE (frame, cbk, (void *) (long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->xattrop,
+                                           &local->loc,
+                                           GF_XATTROP_ADD_ARRAY, erase_xattr[i],
+                                           NULL);
+                }
+        }
+
+        ret = 0;
+out:
+        if (erase_xattr) {
+                for (i = 0; i < priv->child_count; i++) {
+                        if (erase_xattr[i]) {
+                                dict_unref (erase_xattr[i]);
+                        }
+                }
+        }
+
+        GF_FREE (erase_xattr);
+
+        if (ret < 0) {
+                sh->op_failed = _gf_true;
+                finish (frame, this);
+        }
+
+        return 0;
 }
