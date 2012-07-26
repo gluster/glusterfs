@@ -54,6 +54,8 @@
 
 #define GF_O_LARGEFILE     0100000
 
+#define GF_O_FMODE_EXEC        040
+
 #define XLATE_BIT(from, to, bit)    do {                \
                 if (from & bit)                         \
                         to = to | GF_##bit;             \
@@ -112,6 +114,7 @@ gf_flags_from_flags (uint32_t flags)
         XLATE_BIT (flags, gf_flags, O_CLOEXEC);
 #endif
         XLATE_BIT (flags, gf_flags, O_LARGEFILE);
+        XLATE_BIT (flags, gf_flags, O_FMODE_EXEC);
 
         return gf_flags;
 }
@@ -142,6 +145,7 @@ gf_flags_to_flags (uint32_t gf_flags)
         UNXLATE_BIT (gf_flags, flags, O_CLOEXEC);
 #endif
         UNXLATE_BIT (gf_flags, flags, O_LARGEFILE);
+        UNXLATE_BIT (gf_flags, flags, O_FMODE_EXEC);
 
         return flags;
 }
