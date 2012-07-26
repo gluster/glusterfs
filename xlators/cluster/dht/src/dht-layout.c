@@ -59,9 +59,7 @@ dht_layout_t *
 dht_layout_get (xlator_t *this, inode_t *inode)
 {
         dht_conf_t   *conf = NULL;
-        uint64_t      layout_int = 0;
         dht_layout_t *layout = NULL;
-        int           ret    = -1;
 
         conf = this->private;
         if (!conf)
@@ -69,9 +67,8 @@ dht_layout_get (xlator_t *this, inode_t *inode)
 
         LOCK (&conf->layout_lock);
         {
-                ret = inode_ctx_get (inode, this, &layout_int);
-                if (ret == 0) {
-                        layout = (dht_layout_t *) (unsigned long) layout_int;
+                dht_inode_ctx_layout_get (inode, this, &layout);
+                if (layout) {
                         layout->ref++;
                 }
         }
@@ -89,7 +86,6 @@ dht_layout_set (xlator_t *this, inode_t *inode, dht_layout_t *layout)
         int           oldret = -1;
         int           ret = 0;
         dht_layout_t *old_layout;
-        uint64_t      old_layout_int;
 
         conf = this->private;
         if (!conf)
@@ -97,16 +93,13 @@ dht_layout_set (xlator_t *this, inode_t *inode, dht_layout_t *layout)
 
         LOCK (&conf->layout_lock);
         {
-                oldret = inode_ctx_get (inode, this, &old_layout_int);
-
+                oldret = dht_inode_ctx_layout_get (inode, this, &old_layout);
                 layout->ref++;
-                ret = inode_ctx_put (inode, this, (uint64_t) (unsigned long)
-                                     layout);
+                dht_inode_ctx_layout_set (inode, this, layout);
         }
         UNLOCK (&conf->layout_lock);
 
-        if (oldret == 0) {
-                old_layout = (dht_layout_t *) (unsigned long) old_layout_int;
+        if (!oldret) {
                 dht_layout_unref (this, old_layout);
         }
 
@@ -731,7 +724,7 @@ dht_layout_preset (xlator_t *this, xlator_t *subvol, inode_t *inode)
 
         LOCK (&conf->layout_lock);
         {
-                inode_ctx_put (inode, this, (uint64_t)(long)layout);
+                dht_inode_ctx_layout_set (inode, this, layout);
         }
         UNLOCK (&conf->layout_lock);
 
