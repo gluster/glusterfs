@@ -392,6 +392,7 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 	int			 ret   = 0;
 	ssize_t			 size = 0;
 	FILE			*tmpfp = NULL;
+	int                      need_retry = 0;
 	struct glfs		*fs = NULL;
 
 	frame = myframe;
@@ -400,6 +401,7 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 	if (-1 == req->rpc_status) {
 		ret = -1;
+		need_retry = 1;
 		goto out;
 	}
 
@@ -482,6 +484,8 @@ out:
 		gf_log ("glfs-mgmt", GF_LOG_ERROR,
 			"failed to fetch volume file (key:%s)",
 			ctx->cmd_args.volfile_id);
+		if (!need_retry)
+			glfs_init_done (fs, -1);
 	}
 
 	if (tmpfp)
