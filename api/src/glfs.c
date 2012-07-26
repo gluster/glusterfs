@@ -427,6 +427,7 @@ glfs_set_volfile_server (struct glfs *fs, const char *transport,
 
 	cmd_args->volfile_server = gf_strdup (host);
 	cmd_args->volfile_server_transport = gf_strdup (transport);
+	cmd_args->volfile_server_port = port;
 	cmd_args->max_connect_attempts = 2;
 
 	return 0;
