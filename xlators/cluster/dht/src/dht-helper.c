@@ -900,3 +900,88 @@ dht_rebalance_in_progress_check (xlator_t *this, call_frame_t *frame)
                             frame, frame);
         return ret;
 }
+
+int
+dht_inode_ctx_layout_set (inode_t *inode, xlator_t *this,
+                          dht_layout_t *layout_int)
+{
+        dht_inode_ctx_t         *ctx            = NULL;
+        int                      ret            = -1;
+
+        ret = dht_inode_ctx_get (inode, this, &ctx);
+        if (!ret && ctx) {
+                ctx->layout = layout_int;
+        } else {
+                ctx = GF_CALLOC (1, sizeof (*ctx), gf_dht_mt_inode_ctx_t);
+                if (!ctx)
+                        return ret;
+                ctx->layout = layout_int;
+        }
+
+        ret = dht_inode_ctx_set (inode, this, ctx);
+
+        return ret;
+}
+
+int
+dht_inode_ctx_time_update (inode_t *inode, xlator_t *this, struct iatt *stat,
+                           int32_t post)
+{
+        dht_inode_ctx_t         *ctx            = NULL;
+        dht_stat_time_t         *time           = 0;
+        int                      ret            = -1;
+
+        ret = dht_inode_ctx_get (inode, this, &ctx);
+
+        if (ret) {
+                ctx = GF_CALLOC (1, sizeof (*ctx), gf_dht_mt_inode_ctx_t);
+                if (!ctx)
+                        return -1;
+        }
+
+        time = &ctx->time;
+
+        DHT_UPDATE_TIME(time->mtime, time->mtime_nsec,
+                        stat->ia_mtime, stat->ia_mtime_nsec, inode, post);
+        DHT_UPDATE_TIME(time->ctime, time->ctime_nsec,
+                        stat->ia_ctime, stat->ia_ctime_nsec, inode, post);
+        DHT_UPDATE_TIME(time->atime, time->atime_nsec,
+                        stat->ia_atime, stat->ia_atime_nsec, inode, post);
+
+        return 0;
+}
+
+int
+dht_inode_ctx_get (inode_t *inode, xlator_t *this, dht_inode_ctx_t **ctx)
+{
+        int             ret     = -1;
+        uint64_t        ctx_int = 0;
+
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
+        ret = inode_ctx_get (inode, this, &ctx_int);
+
+        if (ret)
+                return ret;
+
+        if (ctx)
+                *ctx = (dht_inode_ctx_t *) ctx_int;
+out:
+        return ret;
+}
+
+int dht_inode_ctx_set (inode_t *inode, xlator_t *this, dht_inode_ctx_t *ctx)
+{
+        int             ret = -1;
+        uint64_t        ctx_int = 0;
+
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+        GF_VALIDATE_OR_GOTO (this->name, ctx, out);
+
+        ctx_int = (long)ctx;
+        ret = inode_ctx_set (inode, this, &ctx_int);
+out:
+        return ret;
+}

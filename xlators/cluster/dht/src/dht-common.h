@@ -57,6 +57,24 @@ struct dht_layout {
 };
 typedef struct dht_layout  dht_layout_t;
 
+struct dht_stat_time {
+        uint32_t        atime;
+        uint32_t        atime_nsec;
+        uint32_t        ctime;
+        uint32_t        ctime_nsec;
+        uint32_t        mtime;
+        uint32_t        mtime_nsec;
+};
+
+typedef struct dht_stat_time dht_stat_time_t;
+
+struct dht_inode_ctx {
+        dht_layout_t    *layout;
+        dht_stat_time_t  time;
+};
+
+typedef struct dht_inode_ctx dht_inode_ctx_t;
+
 
 typedef enum {
         DHT_HASH_TYPE_DM,
@@ -276,7 +294,7 @@ typedef enum {
 
 #define ENTRY_MISSING(op_ret, op_errno) (op_ret == -1 && op_errno == ENOENT)
 
-#define is_revalidate(loc) (inode_ctx_get (loc->inode, this, NULL) == 0)
+#define is_revalidate(loc) (dht_inode_ctx_layout_get (loc->inode, this, NULL) == 0)
 
 #define is_last_call(cnt) (cnt == 0)
 
@@ -332,6 +350,24 @@ typedef enum {
                 frame->local         = NULL;            \
                 STACK_DESTROY (frame->root);            \
                 dht_local_wipe (__xl, __local);         \
+        } while (0)
+
+#define DHT_UPDATE_TIME(ctx_sec, ctx_nsec, new_sec, new_nsec, inode, post) do {\
+                int32_t sec = 0;                                        \
+                sec = new_sec;                                          \
+                LOCK (&inode->lock);                                    \
+                {                                                       \
+                        new_sec = max(new_sec, ctx_sec);                \
+                        if (sec < new_sec)                              \
+                                new_nsec = ctx_nsec;                    \
+                        if (sec == new_sec)                             \
+                                new_nsec = max (new_nsec, ctx_nsec);    \
+                        if (post) {                                     \
+                                ctx_sec = new_sec;                      \
+                                ctx_nsec = new_nsec;                    \
+                        }                                               \
+                }                                                       \
+                UNLOCK (&inode->lock);                                  \
         } while (0)
 
 dht_layout_t                            *dht_layout_new (xlator_t *this, int cnt);
@@ -667,4 +703,16 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
 int
 dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                  int flag);
+int
+dht_inode_ctx_layout_get (inode_t *inode, xlator_t *this,
+                          dht_layout_t **layout_int);
+int
+dht_inode_ctx_layout_set (inode_t *inode, xlator_t *this,
+                          dht_layout_t* layout_int);
+int
+dht_inode_ctx_time_update (inode_t *inode, xlator_t *this, struct iatt *stat,
+                           int32_t update_ctx);
+
+int dht_inode_ctx_get (inode_t *inode, xlator_t *this, dht_inode_ctx_t **ctx);
+int dht_inode_ctx_set (inode_t *inode, xlator_t *this, dht_inode_ctx_t *ctx);
 #endif/* _DHT_H */

@@ -125,7 +125,10 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
                 ret = dht_layout_set (this, local->inode, layout);
         }
 
-        WIPE (&local->postparent);
+        if (local->loc.parent) {
+                dht_inode_ctx_time_update (local->loc.parent, this,
+                                           &local->postparent, 1);
+        }
 
         DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
 
@@ -486,6 +489,11 @@ unlock:
                         dht_layout_set (this, local->inode, layout);
                 }
 
+                if (local->loc.parent) {
+                        dht_inode_ctx_time_update (local->loc.parent, this,
+                                                   &local->postparent, 1);
+                }
+
                 DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
                                   local->inode, &local->stbuf, local->xattr,
@@ -651,7 +659,10 @@ out:
                         local->op_errno = ESTALE;
                 }
 
-                WIPE (&local->postparent);
+                if (local->loc.parent) {
+                        dht_inode_ctx_time_update (local->loc.parent, this,
+                                                   postparent, 1);
+                }
 
                 DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
@@ -704,7 +715,10 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         }
 
 unwind:
-        WIPE (&local->postparent);
+        if (local->loc.parent) {
+                dht_inode_ctx_time_update (local->loc.parent, this,
+                                           postparent, 1);
+        }
 
         DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
         DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
@@ -777,7 +791,10 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                                                   "<nil>"));
                 }
 
-                WIPE (&local->postparent);
+                if (local->loc.parent) {
+                        dht_inode_ctx_time_update (local->loc.parent, this,
+                                                   &local->postparent, 1);
+                }
 
                 DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret,
@@ -807,7 +824,10 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                         local->op_errno = EINVAL;
                 }
 
-                WIPE (&local->postparent);
+                if (local->loc.parent) {
+                        dht_inode_ctx_time_update (local->loc.parent, this,
+                                                   &local->postparent, 1);
+                }
 
                 DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret,
@@ -1074,7 +1094,10 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
         }
 
 unwind:
-        WIPE (postparent);
+        if (local->loc.parent) {
+                dht_inode_ctx_time_update (local->loc.parent, this,
+                                           postparent, 1);
+        }
 
         DHT_STRIP_PHASE1_FLAGS (stbuf);
         DHT_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, stbuf, xattr,
@@ -1157,7 +1180,6 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         loc_t        *loc           = NULL;
         call_frame_t *prev          = NULL;
         int           ret           = 0;
-        uint64_t      tmp_layout    = 0;
         dht_layout_t *parent_layout = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
@@ -1188,8 +1210,10 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
                 if ((conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_AUTO) &&
                     (loc->parent)) {
-                        ret = inode_ctx_get (loc->parent, this, &tmp_layout);
-                        parent_layout = (dht_layout_t *)(long)tmp_layout;
+                        ret = dht_inode_ctx_layout_get (loc->parent, this,
+                                                        &parent_layout);
+                        if (ret || !parent_layout)
+                                goto out;
                         if (parent_layout->search_unhashed) {
                                 local->op_errno = ENOENT;
                                 dht_lookup_everywhere (frame, this, loc);
@@ -1258,7 +1282,10 @@ out:
          * from each of the subvolume. See dht_iatt_merge for reference.
          */
 
-        WIPE (postparent);
+        if (local->loc.parent) {
+                dht_inode_ctx_time_update (local->loc.parent, this,
+                                           postparent, 1);
+        }
 
         DHT_STRIP_PHASE1_FLAGS (stbuf);
         DHT_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, stbuf, xattr,
@@ -1517,8 +1544,12 @@ dht_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->postparent = *postparent;
                 local->preparent = *preparent;
 
-                WIPE (&local->postparent);
-                WIPE (&local->preparent);
+                if (local->loc.parent) {
+                        dht_inode_ctx_time_update (local->loc.parent, this,
+                                                   &local->preparent, 0);
+                        dht_inode_ctx_time_update (local->loc.parent, this,
+                                                   &local->postparent, 1);
+                }
         }
 unlock:
         UNLOCK (&frame->lock);
@@ -2825,6 +2856,9 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "failed to link the layout in inode");
                         entry->inode = inode_ref (orig_entry->inode);
+                } else if (orig_entry->inode) {
+                        dht_inode_ctx_time_update (orig_entry->inode, this,
+                                                   &entry->d_stat, 1);
                 }
 
                 list_add_tail (&entry->list, &entries.list);
@@ -3187,8 +3221,11 @@ dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         prev = cookie;
 
         if (local->loc.parent) {
-                WIPE (preparent);
-                WIPE (postparent);
+
+                dht_inode_ctx_time_update (local->loc.parent, this,
+                                           preparent, 0);
+                dht_inode_ctx_time_update (local->loc.parent, this,
+                                           postparent, 1);
         }
 
         ret = dht_layout_preset (this, prev->this, inode);
@@ -3437,8 +3474,11 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         call_frame_t *prev = NULL;
         dht_layout_t *layout = NULL;
+        dht_local_t  *local = NULL;
 
         prev = cookie;
+
+        local = frame->local;
 
         if (op_ret == -1)
                 goto out;
@@ -3453,8 +3493,12 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        WIPE (preparent);
-        WIPE (postparent);
+        if (local->loc.parent) {
+                dht_inode_ctx_time_update (local->loc.parent, this,
+                                           preparent, 0);
+                dht_inode_ctx_time_update (local->loc.parent, this,
+                                           postparent, 1);
+        }
 
 out:
         DHT_STRIP_PHASE1_FLAGS (stbuf);
@@ -3583,8 +3627,11 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         prev = cookie;
 
         if (local->loc.parent) {
-                WIPE (preparent);
-                WIPE (postparent);
+                dht_inode_ctx_time_update (local->loc.parent, this,
+                                           preparent, 0);
+
+                dht_inode_ctx_time_update (local->loc.parent, this,
+                                           postparent, 1);
         }
 
         ret = dht_layout_preset (this, prev->this, inode);
@@ -3733,8 +3780,11 @@ dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
         if (op_ret == 0) {
                 dht_layout_set (this, local->inode, layout);
                 if (local->loc.parent) {
-                        WIPE (&local->preparent);
-                        WIPE (&local->postparent);
+                        dht_inode_ctx_time_update (local->loc.parent, this,
+                                                   &local->preparent, 0);
+
+                        dht_inode_ctx_time_update (local->loc.parent, this,
+                                                   &local->postparent, 1);
                 }
         }
 
@@ -4001,8 +4051,15 @@ unlock:
                } else {
 
                         if (local->loc.parent) {
-                                WIPE (&local->preparent);
-                                WIPE (&local->postparent);
+                                dht_inode_ctx_time_update (local->loc.parent,
+                                                           this,
+                                                           &local->preparent,
+                                                           0);
+
+                                dht_inode_ctx_time_update (local->loc.parent,
+                                                           this,
+                                                           &local->postparent,
+                                                           1);
                         }
 
                         DHT_STACK_UNWIND (rmdir, frame, local->op_ret,
@@ -4088,8 +4145,17 @@ unlock:
                         /* All subvol's have responded, proceed */
 
                         if (local->loc.parent) {
-                                WIPE (&local->preparent);
-                                WIPE (&local->postparent);
+
+                                dht_inode_ctx_time_update (local->loc.parent,
+                                                           this,
+                                                           &local->preparent,
+                                                           0);
+
+                                dht_inode_ctx_time_update (local->loc.parent,
+                                                           this,
+                                                           &local->postparent,
+                                                           1);
+
                         }
 
                         DHT_STACK_UNWIND (rmdir, frame, local->op_ret,
@@ -4611,16 +4677,21 @@ err:
 int
 dht_forget (xlator_t *this, inode_t *inode)
 {
-        uint64_t      tmp_layout = 0;
+        uint64_t        ctx_int = 0;
+        dht_inode_ctx_t *ctx    = NULL;
         dht_layout_t *layout = NULL;
 
-        inode_ctx_del (inode, this, &tmp_layout);
+        inode_ctx_del (inode, this, &ctx_int);
 
-        if (!tmp_layout)
+        if (!ctx_int)
                 return 0;
 
-        layout = (dht_layout_t *)(long)tmp_layout;
+        ctx = (dht_inode_ctx_t *) (long) ctx_int;
+
+        layout = ctx->layout;
+        ctx->layout = NULL;
         dht_layout_unref (this, layout);
+        GF_FREE (ctx);
 
         return 0;
 }
@@ -4843,6 +4914,27 @@ unlock:
         ret = 0;
         if (propagate)
                 ret = default_notify (this, event, data);
+
+        return ret;
+}
+
+int
+dht_inode_ctx_layout_get (inode_t *inode, xlator_t *this, dht_layout_t **layout)
+{
+        dht_inode_ctx_t         *ctx            = NULL;
+        int                      ret            = -1;
+
+        ret = dht_inode_ctx_get (inode, this, &ctx);
+
+        if (!ret && ctx) {
+                if (ctx->layout) {
+                        if (layout)
+                                *layout = ctx->layout;
+                        ret = 0;
+                } else {
+                        ret = -1;
+                }
+        }
 
         return ret;
 }

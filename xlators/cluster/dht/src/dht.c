@@ -148,20 +148,14 @@ dht_inodectx_dump (xlator_t *this, inode_t *inode)
 {
         int             ret = -1;
         dht_layout_t    *layout = NULL;
-        uint64_t        tmp_layout = 0;
 
         GF_VALIDATE_OR_GOTO ("dht", this, out);
         GF_VALIDATE_OR_GOTO ("dht", inode, out);
 
-        ret = inode_ctx_get (inode, this, &tmp_layout);
+        ret = dht_inode_ctx_layout_get (inode, this, &layout);
 
-        if (ret != 0)
+        if ((ret != 0) || !layout)
                 return ret;
-
-        layout = (dht_layout_t *)(long)tmp_layout;
-
-        if (!layout)
-                return -1;
 
         gf_proc_dump_add_section("xlator.cluster.dht.%s.inode", this->name);
         dht_layout_dump(layout, "layout");
