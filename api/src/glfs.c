@@ -25,6 +25,7 @@
   - implement glfs_fini()
   - modify syncop_fsync() to accept 'dataonly' flag
   - 0-copy for readv/writev
+  - reconcile the open/creat mess
 */
 
 #include <unistd.h>
