@@ -32,6 +32,9 @@ struct glfs {
 	int                 ret;
 
 	xlator_t           *active_subvol;
+
+	char               *oldvolfile;
+	ssize_t             oldvollen;
 };
 
 struct glfs_fd {

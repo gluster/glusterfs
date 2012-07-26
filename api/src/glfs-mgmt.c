@@ -37,6 +37,7 @@
 #include "xlator.h"
 
 #include "glfs-internal.h"
+#include "glfs-mem-types.h"
 
 
 int glfs_volfile_fetch (struct glfs *fs);
@@ -201,10 +202,6 @@ out:
 }
 
 
-/* XXX: move these into @ctx */
-static char oldvolfile[131072];
-static int oldvollen = 0;
-
 static int
 xlator_equal_rec (xlator_t *xl1, xlator_t *xl2)
 {
@@ -294,11 +291,11 @@ glusterfs_volfile_reconfigure (struct glfs *fs, FILE *newvolfile_fp)
 	if (!oldvolfile_fp)
 		goto out;
 
-	if (!oldvollen) {
+	if (!fs->oldvollen) {
 		ret = 1; // Has to call INIT for the whole graph
 		goto out;
 	}
-	fwrite (oldvolfile, oldvollen, 1, oldvolfile_fp);
+	fwrite (fs->oldvolfile, fs->oldvollen, 1, oldvolfile_fp);
 	fflush (oldvolfile_fp);
 	if (ferror (oldvolfile_fp)) {
 		goto out;
@@ -361,6 +358,30 @@ out:
 }
 
 
+static int
+glusterfs_oldvolfile_update (struct glfs *fs, char *volfile, ssize_t size)
+{
+	int ret = -1;
+
+	fs->oldvollen = size;
+	if (!fs->oldvolfile) {
+		fs->oldvolfile = GF_CALLOC (1, size+1, glfs_mt_volfile_t);
+	} else {
+		fs->oldvolfile = GF_REALLOC (fs->oldvolfile, size+1);
+	}
+
+	if (!fs->oldvolfile) {
+		fs->oldvollen = 0;
+	} else {
+		memcpy (fs->oldvolfile, volfile, size);
+		fs->oldvollen = size;
+		ret = 0;
+	}
+
+	return ret;
+}
+
+
 int
 mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 		  void *myframe)
@@ -399,7 +420,8 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 	ret = 0;
 	size = rsp.op_ret;
 
-	if (size == oldvollen && (memcmp (oldvolfile, rsp.spec, size) == 0)) {
+	if ((size == fs->oldvollen) &&
+	    (memcmp (fs->oldvolfile, rsp.spec, size) == 0)) {
 		gf_log (frame->this->name, GF_LOG_INFO,
 			"No change in volfile, continuing");
 		goto out;
@@ -430,8 +452,7 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 	if (ret == 0) {
 		gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
 			"No need to re-load volfile, reconfigure done");
-		oldvollen = size;
-		memcpy (oldvolfile, rsp.spec, size);
+		ret = glusterfs_oldvolfile_update (fs, rsp.spec, size);
 		goto out;
 	}
 
@@ -447,9 +468,7 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 	if (ret)
 		goto out;
 
-	oldvollen = size;
-	memcpy (oldvolfile, rsp.spec, size);
-
+	ret = glusterfs_oldvolfile_update (fs, rsp.spec, size);
 out:
 	STACK_DESTROY (frame->root);
 
