@@ -28,6 +28,7 @@
 #include "locking.h"
 #include "iot-mem-types.h"
 #include <semaphore.h>
+#include "statedump.h"
 
 
 struct iot_conf;
@@ -73,6 +74,7 @@ struct iot_conf {
         gf_boolean_t         least_priority; /*Enable/Disable least-priority */
 
         xlator_t            *this;
+        size_t              stack_size;
 };
 
 typedef struct iot_conf iot_conf_t;

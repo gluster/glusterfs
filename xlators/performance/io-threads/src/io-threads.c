@@ -2413,13 +2413,24 @@ set_stack_size (iot_conf_t *conf)
 {
         int     err = 0;
         size_t  stacksize = IOT_THREAD_STACK_SIZE;
+        xlator_t *this = NULL;
+
+        this = THIS;
 
         pthread_attr_init (&conf->w_attr);
         err = pthread_attr_setstacksize (&conf->w_attr, stacksize);
         if (err == EINVAL) {
-                gf_log (conf->this->name, GF_LOG_WARNING,
-                        "Using default thread stack size");
+                err = pthread_attr_getstacksize (&conf->w_attr, &stacksize);
+                if (!err)
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Using default thread stack size %zd",
+                                stacksize);
+                else
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Using default thread stack size");
         }
+
+        conf->stack_size = stacksize;
 }
 
 
@@ -2442,6 +2453,40 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
+int
+iot_priv_dump (xlator_t *this)
+{
+        iot_conf_t     *conf   =   NULL;
+        char           key_prefix[GF_DUMP_MAX_BUF_LEN];
+
+        if (!this)
+                return 0;
+
+        conf = this->private;
+        if (!conf)
+                return 0;
+
+        snprintf (key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type,
+                  this->name);
+
+        gf_proc_dump_add_section(key_prefix);
+
+        gf_proc_dump_write("maximum_threads_count", "%d", conf->max_count);
+        gf_proc_dump_write("current_threads_count", "%d", conf->curr_count);
+        gf_proc_dump_write("sleep_count", "%d", conf->sleep_count);
+        gf_proc_dump_write("idle_time", "%d", conf->idle_time);
+        gf_proc_dump_write("stack_size", "%zd", conf->stack_size);
+        gf_proc_dump_write("high_priority_threads", "%d",
+                           conf->ac_iot_limit[IOT_PRI_HI]);
+        gf_proc_dump_write("normal_priority_threads", "%d",
+                           conf->ac_iot_limit[IOT_PRI_NORMAL]);
+        gf_proc_dump_write("low_priority_threads", "%d",
+                           conf->ac_iot_limit[IOT_PRI_LO]);
+        gf_proc_dump_write("least_priority_threads", "%d",
+                           conf->ac_iot_limit[IOT_PRI_LEAST]);
+
+        return 0;
+}
 
 int
 reconfigure (xlator_t *this, dict_t *options)
@@ -2570,6 +2615,9 @@ fini (xlator_t *this)
 	return;
 }
 
+struct xlator_dumpops dumpops = {
+        .priv    = iot_priv_dump,
+};
 
 struct xlator_fops fops = {
 	.open        = iot_open,
