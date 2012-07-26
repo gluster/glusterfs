@@ -33,6 +33,7 @@
 #include <sys/poll.h>
 #include <pthread.h>
 
+
 #include "list.h"
 #include "logging.h"
 
@@ -41,7 +42,12 @@
 
 #ifndef O_LARGEFILE
 /* savannah bug #20053, patch for compiling on darwin */
-#define O_LARGEFILE 0
+#define O_LARGEFILE 0100000 /* from bits/fcntl.h */
+#endif
+
+#ifndef O_FMODE_EXEC
+/* redhat bug 843080, added from linux/fs.h */
+#define O_FMODE_EXEC 040 //0x20
 #endif
 
 #ifndef O_DIRECT

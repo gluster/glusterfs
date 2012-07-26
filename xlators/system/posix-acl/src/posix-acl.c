@@ -919,6 +919,13 @@ posix_acl_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
         switch (flags & O_ACCMODE) {
         case O_RDONLY:
                 perm = POSIX_ACL_READ;
+
+                /* If O_FMODE_EXEC is present, its good enough
+                   to have '--x' perm, and its not covered in
+                   O_ACCMODE bits */
+                if (flags & O_FMODE_EXEC)
+                        perm = POSIX_ACL_EXECUTE;
+
                 break;
         case O_WRONLY:
         case O_APPEND:
