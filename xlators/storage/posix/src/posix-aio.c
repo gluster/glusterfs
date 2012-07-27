@@ -49,7 +49,6 @@ posix_aio_readv_complete (struct posix_aio_cb *paiocb, int res, int res2)
         call_frame_t   *frame = NULL;
         xlator_t       *this = NULL;
         struct iobuf   *iobuf = NULL;
-        struct iatt     prebuf = {0,};
         struct iatt     postbuf = {0,};
         int             _fd = -1;
         int             op_ret = -1;
@@ -65,7 +64,6 @@ posix_aio_readv_complete (struct posix_aio_cb *paiocb, int res, int res2)
         this = frame->this;
         priv = this->private;
         iobuf = paiocb->iobuf;
-        prebuf = paiocb->prebuf;
         _fd = paiocb->fd;
         offset = paiocb->offset;
 
