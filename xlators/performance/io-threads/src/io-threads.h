@@ -70,6 +70,7 @@ struct iot_conf {
         int                  queue_sizes[IOT_PRI_MAX];
         int                  queue_size;
         pthread_attr_t       w_attr;
+        gf_boolean_t         least_priority; /*Enable/Disable least-priority */
 
         xlator_t            *this;
 };

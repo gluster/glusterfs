@@ -192,8 +192,9 @@ iot_schedule (call_frame_t *frame, xlator_t *this, call_stub_t *stub)
 {
         int             ret = -1;
         iot_pri_t       pri = IOT_PRI_MAX - 1;
+        iot_conf_t      *conf = this->private;
 
-        if (frame->root->pid < GF_CLIENT_PID_MAX) {
+        if ((frame->root->pid < GF_CLIENT_PID_MAX) && conf->least_priority) {
                 pri = IOT_PRI_LEAST;
                 goto out;
         }
@@ -245,11 +246,8 @@ iot_schedule (call_frame_t *frame, xlator_t *this, call_stub_t *stub)
         case GF_FOP_FSYNCDIR:
         case GF_FOP_XATTROP:
         case GF_FOP_FXATTROP:
-                pri = IOT_PRI_LO;
-                break;
-
         case GF_FOP_RCHECKSUM:
-                pri = IOT_PRI_LEAST;
+                pri = IOT_PRI_LO;
                 break;
 
         case GF_FOP_NULL:
@@ -2470,6 +2468,8 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("least-prio-threads",
                           conf->ac_iot_limit[IOT_PRI_LEAST], options, int32,
                           out);
+        GF_OPTION_RECONF ("enable-least-priority", conf->least_priority,
+                          options, bool, out);
 
 	ret = 0;
 out:
@@ -2532,6 +2532,8 @@ init (xlator_t *this)
                         conf->ac_iot_limit[IOT_PRI_LEAST], int32, out);
 
         GF_OPTION_INIT ("idle-time", conf->idle_time, int32, out);
+        GF_OPTION_INIT ("enable-least-priority", conf->least_priority,
+                        bool, out);
 
         conf->this = this;
 
@@ -2661,6 +2663,11 @@ struct volume_options options[] = {
           .description = "Max number of threads in IO threads translator which "
                          "perform least priority IO operations at a given time"
 	},
+        { .key  = {"enable-least-priority"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "on",
+          .description = "Enable/Disable least priority"
+        },
         {.key   = {"idle-time"},
          .type  = GF_OPTION_TYPE_INT,
          .min   = 1,
