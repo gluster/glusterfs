@@ -168,6 +168,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.normal-prio-threads",      "performance/io-threads",    NULL, NULL, DOC, 0},
         {"performance.low-prio-threads",         "performance/io-threads",    NULL, NULL, DOC, 0},
         {"performance.least-prio-threads",       "performance/io-threads",    NULL, NULL, DOC, 0},
+        {"performance.enable-least-priority",    "performance/io-threads",    NULL, NULL, DOC, 0},
         {"performance.disk-usage-limit",         "performance/quota",         NULL, NULL, NO_DOC, 0},
         {"performance.min-free-disk-limit",      "performance/quota",         NULL, NULL, NO_DOC, 0},
         {"performance.write-behind-window-size", "performance/write-behind",  "cache-size", NULL, DOC},
