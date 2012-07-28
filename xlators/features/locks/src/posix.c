@@ -1459,23 +1459,13 @@ out:
         return ret;
 }
 
-static int32_t
+int32_t
 __get_posixlk_count (xlator_t *this, pl_inode_t *pl_inode)
 {
         posix_lock_t *lock   = NULL;
         int32_t       count  = 0;
 
         list_for_each_entry (lock, &pl_inode->ext_list, list) {
-
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                " XATTR DEBUG"
-                                "%s (pid=%d) (lk-owner=%s) %"PRId64" - %"PRId64" state: %s",
-                                lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
-                                lock->client_pid,
-                                lkowner_utoa (&lock->owner),
-                                lock->user_flock.l_start,
-                                lock->user_flock.l_len,
-                                lock->blocked == 1 ? "Blocked" : "Active");
 
                 count++;
         }
@@ -1960,9 +1950,6 @@ __dump_posixlks (pl_inode_t *pl_inode)
 
               count++;
         }
-
-
-
 }
 
 void
@@ -1984,24 +1971,36 @@ pl_dump_inode_priv (xlator_t *this, inode_t *inode)
         uint64_t        tmp_pl_inode = 0;
         pl_inode_t      *pl_inode = NULL;
         char            *pathname = NULL;
+        gf_boolean_t    section_added = _gf_false;
 
         int count      = 0;
 
-        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+        if (!inode) {
+                errno = EINVAL;
+                goto out;
+        }
 
-        ret = inode_ctx_get (inode, this, &tmp_pl_inode);
-
-        if (ret != 0)
+        ret = TRY_LOCK (&inode->lock);
+        if (ret)
+                goto out;
+        {
+                ret = __inode_ctx_get (inode, this, &tmp_pl_inode);
+                if (ret)
+                        goto unlock;
+        }
+unlock:
+        UNLOCK (&inode->lock);
+        if (ret)
                 goto out;
 
         pl_inode = (pl_inode_t *)(long)tmp_pl_inode;
-
         if (!pl_inode) {
                 ret = -1;
                 goto out;
         }
 
         gf_proc_dump_add_section("xlator.features.locks.%s.inode", this->name);
+        section_added = _gf_true;
 
         /*We are safe to call __inode_path since we have the
          * inode->table->lock */
@@ -2011,27 +2010,41 @@ pl_dump_inode_priv (xlator_t *this, inode_t *inode)
 
         gf_proc_dump_write("mandatory", "%d", pl_inode->mandatory);
 
-        count = get_entrylk_count (this, inode);
-        if (count) {
-                gf_proc_dump_write("entrylk-count", "%d", count);
-                dump_entrylks(pl_inode);
-        }
+        ret = pthread_mutex_trylock (&pl_inode->mutex);
+        if (ret)
+                goto out;
+        {
+                count = __get_entrylk_count (this, pl_inode);
+                if (count) {
+                        gf_proc_dump_write("entrylk-count", "%d", count);
+                        __dump_entrylks (pl_inode);
+                }
 
-        count = get_inodelk_count (this, inode);
-        if (count) {
-                gf_proc_dump_write("inodelk-count", "%d", count);
-                dump_inodelks(pl_inode);
-        }
+                count = __get_inodelk_count (this, pl_inode);
+                if (count) {
+                        gf_proc_dump_write("inodelk-count", "%d", count);
+                        __dump_inodelks (pl_inode);
+                }
 
-        count = get_posixlk_count (this, inode);
-        if (count) {
-                gf_proc_dump_write("posixlk-count", "%d", count);
-                dump_posixlks(pl_inode);
+                count = __get_posixlk_count (this, pl_inode);
+                if (count) {
+                        gf_proc_dump_write("posixlk-count", "%d", count);
+                        __dump_posixlks (pl_inode);
+                }
         }
+        pthread_mutex_unlock (&pl_inode->mutex);
 
 out:
         GF_FREE (pathname);
 
+        if (ret && inode) {
+                if (!section_added)
+                        gf_proc_dump_add_section ("xlator.features.locks.%s."
+                                                  "inode", this->name);
+                gf_proc_dump_write ("Unable to print lock state", "(Lock "
+                                    "acquisition failure) %s",
+                                    uuid_utoa (inode->gfid));
+        }
         return ret;
 }
 

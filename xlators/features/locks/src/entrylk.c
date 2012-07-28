@@ -777,7 +777,7 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 }
 
 
-static int32_t
+int32_t
 __get_entrylk_count (xlator_t *this, pl_inode_t *pl_inode)
 {
         int32_t            count = 0;
@@ -786,24 +786,10 @@ __get_entrylk_count (xlator_t *this, pl_inode_t *pl_inode)
 
         list_for_each_entry (dom, &pl_inode->dom_list, inode_list) {
                 list_for_each_entry (lock, &dom->entrylk_list, domain_list) {
-
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                " XATTR DEBUG"
-                                " domain: %s  %s on %s state = Active",
-                                dom->domain,
-                                lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
-                                "ENTRYLK_WRLCK", lock->basename);
                         count++;
                 }
 
                 list_for_each_entry (lock, &dom->blocked_entrylks, blocked_locks) {
-
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                " XATTR DEBUG"
-                                " domain: %s  %s on %s state = Blocked",
-                                dom->domain,
-                                lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
-                                "ENTRYLK_WRLCK", lock->basename);
                         count++;
                 }
 
