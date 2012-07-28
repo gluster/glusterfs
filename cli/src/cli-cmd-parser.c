@@ -168,6 +168,8 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         char    *bricks = NULL;
         int32_t brick_count = 0;
         char    *opwords[] = { "replica", "stripe", "transport", NULL };
+        char    *invalid_volnames[] = {"volume", "type", "subvolumes", "option",
+                                      "end-volume", "all", NULL};
         char    *w = NULL;
         int      op_count = 0;
         int32_t  replica_count = 1;
@@ -193,9 +195,12 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 if (volname[0] == '-')
                         goto out;
 
-                if (!strcmp (volname, "all")) {
-                        cli_err ("\"all\" cannot be the name of a volume.");
-                        goto out;
+                for (i = 0; invalid_volnames[i]; i++) {
+                        if (!strcmp (volname, invalid_volnames[i])) {
+                                cli_err ("\"%s\" cannot be the name of a volume.",
+                                         volname);
+                                goto out;
+                        }
                 }
 
                 if (strchr (volname, '/'))
