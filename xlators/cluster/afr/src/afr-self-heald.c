@@ -698,6 +698,25 @@ out:
 }
 
 int
+_link_inode_update_loc (xlator_t *this, loc_t *loc, struct iatt *iattr)
+{
+        inode_t       *link_inode = NULL;
+        int           ret = -1;
+
+        link_inode = inode_link (loc->inode, NULL, NULL, iattr);
+        if (link_inode == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "inode link failed "
+                        "on the inode (%s)", uuid_utoa (iattr->ia_gfid));
+                goto out;
+        }
+        inode_unref (loc->inode);
+        loc->inode = link_inode;
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 afr_local_pathinfo (char *pathinfo, gf_boolean_t *local)
 {
         int             ret   = 0;
@@ -738,7 +757,6 @@ afr_crawl_build_start_loc (xlator_t *this, afr_crawl_data_t *crawl_data,
         struct iatt   parent = {0};
         int           ret = 0;
         xlator_t      *readdir_xl = crawl_data->readdir_xl;
-        inode_t       *link_inode = NULL;
 
         priv = this->private;
         if (crawl_data->crawl == FULL) {
@@ -774,8 +792,9 @@ afr_crawl_build_start_loc (xlator_t *this, afr_crawl_data_t *crawl_data,
                         }
                         goto out;
                 }
-                link_inode = inode_link (dirloc->inode, NULL, NULL, &iattr);
-                inode_unref (link_inode);
+                ret = _link_inode_update_loc (this, dirloc, &iattr);
+                if (ret)
+                        goto out;
         }
         ret = 0;
 out:
@@ -861,7 +880,6 @@ _process_entries (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
         loc_t            entry_loc = {0};
         fd_t             *fd = NULL;
         struct iatt      iattr = {0};
-        inode_t          *link_inode = NULL;
 
         list_for_each_entry_safe (entry, tmp, &entries->list, list) {
                 if (!_crawl_proceed (this, crawl_data->child,
@@ -893,15 +911,9 @@ _process_entries (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
                 if (ret)
                         continue;
 
-                link_inode = inode_link (entry_loc.inode, NULL, NULL, &iattr);
-                if (link_inode == NULL) {
-                        gf_log (this->name, GF_LOG_ERROR, "inode link failed "
-                                "on the inode (%s)",entry_loc.path);
-                        ret = -1;
+                ret = _link_inode_update_loc (this, &entry_loc, &iattr);
+                if (ret)
                         goto out;
-                }
-                inode_unref (link_inode);
-
                 if (crawl_data->crawl == INDEX)
                         continue;
 
