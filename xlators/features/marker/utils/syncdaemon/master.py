@@ -301,12 +301,12 @@ class BlindMixin(object):
 
 class SendmarkNormalMixin(object):
 
-    def sendmark_regular(self, a, *kw):
-        return self.sendmark(a, *kw)
+    def sendmark_regular(self, *a, **kw):
+        return self.sendmark(*a, **kw)
 
 class SendmarkRsyncMixin(object):
 
-    def sendmark_regular(self, a, *kw):
+    def sendmark_regular(self, *a, **kw):
         pass
 
 
