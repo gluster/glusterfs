@@ -1554,13 +1554,14 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
                         client_get_lk_ver (conf));
         }
 
-        req.dict.dict_len = dict_serialized_length (options);
-        if (req.dict.dict_len < 0) {
+        ret = dict_serialized_length (options);
+        if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to get serialized length of dict");
                 ret = -1;
                 goto fail;
         }
+        req.dict.dict_len = ret;
         req.dict.dict_val = GF_CALLOC (1, req.dict.dict_len,
                                        gf_client_mt_clnt_req_buf_t);
         ret = dict_serialize (options, req.dict.dict_val);
