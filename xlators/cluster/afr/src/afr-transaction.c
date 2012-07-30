@@ -175,16 +175,16 @@ out:
 
 
 static void
-__mark_down_children (int32_t *pending[], int child_count,
-                      unsigned char *child_up, afr_transaction_type type)
+__mark_non_participant_children (int32_t *pending[], int child_count,
+                                 unsigned char *participants,
+                                 afr_transaction_type type)
 {
         int i = 0;
         int j = 0;
 
+        j = afr_index_for_transaction_type (type);
         for (i = 0; i < child_count; i++) {
-                j = afr_index_for_transaction_type (type);
-
-                if (!child_up[i])
+                if (!participants[i])
                         pending[i][j] = 0;
         }
 }
@@ -511,8 +511,9 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
         local    = frame->local;
         int_lock = &local->internal_lock;
 
-        __mark_down_children (local->pending, priv->child_count,
-                              local->child_up, local->transaction.type);
+        __mark_non_participant_children (local->pending, priv->child_count,
+                                         local->transaction.pre_op,
+                                         local->transaction.type);
 
         if (local->fd)
                 afr_transaction_rm_stale_children (frame, this,
