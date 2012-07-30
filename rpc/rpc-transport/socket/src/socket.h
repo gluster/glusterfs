@@ -143,6 +143,40 @@ typedef struct {
         sp_rpcfrag_vectored_reply_accepted_success_state_t accepted_success_state;
 } sp_rpcfrag_vectored_reply_state_t;
 
+struct gf_sock_incoming_frag {
+        char         *fragcurrent;
+        uint32_t      bytes_read;
+        uint32_t      remaining_size;
+        struct iovec  vector;
+        struct iovec *pending_vector;
+        union {
+                sp_rpcfrag_request_state_t        request;
+                sp_rpcfrag_vectored_reply_state_t reply;
+        } call_body;
+
+        sp_rpcfrag_simple_msg_state_t     simple_state;
+        sp_rpcfrag_state_t state;
+};
+
+struct gf_sock_incoming {
+        sp_rpcrecord_state_t  record_state;
+        struct gf_sock_incoming_frag frag;
+        char                *proghdr_base_addr;
+        struct iobuf        *iobuf;
+        size_t               iobuf_size;
+        struct iovec         vector[2];
+        int                  count;
+        struct iovec         payload_vector;
+        struct iobref       *iobref;
+        rpc_request_info_t  *request_info;
+        struct iovec        *pending_vector;
+        int                  pending_count;
+        uint32_t             fraghdr;
+        char                 complete_record;
+        msg_type_t           msg_type;
+        size_t               total_bytes_read;
+};
+
 typedef struct {
         int32_t                sock;
         int32_t                idx;
@@ -158,37 +192,7 @@ typedef struct {
                         struct ioq        *ioq_prev;
                 };
         };
-        struct {
-                sp_rpcrecord_state_t  record_state;
-                struct {
-                        char         *fragcurrent;
-                        uint32_t      bytes_read;
-                        uint32_t      remaining_size;
-                        struct iovec  vector;
-                        struct iovec *pending_vector;
-                        union {
-                                sp_rpcfrag_request_state_t        request;
-                                sp_rpcfrag_vectored_reply_state_t reply;
-                        } call_body;
-
-                        sp_rpcfrag_simple_msg_state_t     simple_state;
-                        sp_rpcfrag_state_t state;
-                } frag;
-		char                *proghdr_base_addr;
-                struct iobuf        *iobuf;
-                size_t               iobuf_size;
-                struct iovec         vector[2];
-                int                  count;
-                struct iovec         payload_vector;
-                struct iobref       *iobref;
-                rpc_request_info_t  *request_info;
-                struct iovec        *pending_vector;
-                int                  pending_count;
-                uint32_t             fraghdr;
-                char                 complete_record;
-                msg_type_t           msg_type;
-                size_t               total_bytes_read;
-        } incoming;
+        struct gf_sock_incoming incoming;
         pthread_mutex_t        lock;
         int                    windowsize;
         char                   lowlat;
