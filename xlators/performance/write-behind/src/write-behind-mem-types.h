@@ -19,6 +19,7 @@ enum gf_wb_mem_types_ {
         gf_wb_mt_wb_request_t,
         gf_wb_mt_iovec,
         gf_wb_mt_wb_conf_t,
+        gf_wb_mt_wb_inode_t,
         gf_wb_mt_end
 };
 #endif
