@@ -1357,7 +1357,7 @@ afr_sh_entry_impunge_symlink (call_frame_t *impunge_frame, xlator_t *this,
         priv = this->private;
         impunge_local = impunge_frame->local;
 
-        buf = &impunge_local->cont.symlink.buf;
+        buf = &impunge_local->cont.dir_fop.buf;
 
         dict = dict_new ();
         if (!dict) {
@@ -1617,7 +1617,7 @@ afr_sh_entry_impunge_readlink (call_frame_t *impunge_frame, xlator_t *this,
         impunge_local = impunge_frame->local;
         impunge_sh = &impunge_local->self_heal;
         active_src = impunge_sh->active_source;
-        impunge_local->cont.symlink.buf = *stbuf;
+        impunge_local->cont.dir_fop.buf = *stbuf;
 
         STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_readlink_cbk,
                            (void *) (long) child_index,

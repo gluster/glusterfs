@@ -72,6 +72,66 @@ out:
         return ret;
 }
 
+void
+__dir_entry_fop_common_cbk (call_frame_t *frame, int child_index,
+                            xlator_t *this, int32_t op_ret,
+                            int32_t op_errno, inode_t *inode,
+                            struct iatt *buf, struct iatt *preparent,
+                            struct iatt *postparent, struct iatt *prenewparent,
+                            struct iatt *postnewparent)
+{
+        afr_local_t     *local          = NULL;
+
+        local = frame->local;
+
+        if (afr_fop_failed (op_ret, op_errno))
+                afr_transaction_fop_failed (frame, this, child_index);
+
+        if (op_ret > -1) {
+                local->op_ret = op_ret;
+
+                if ((local->success_count == 0) ||
+                    (child_index == local->read_child_index)) {
+                        local->cont.dir_fop.preparent      = *preparent;
+                        local->cont.dir_fop.postparent     = *postparent;
+                        if (buf)
+                                local->cont.dir_fop.buf            = *buf;
+                        if (prenewparent)
+                             local->cont.dir_fop.prenewparent  = *prenewparent;
+                        if (postnewparent)
+                             local->cont.dir_fop.postnewparent = *postnewparent;
+                }
+
+                local->cont.dir_fop.inode = inode;
+
+                local->fresh_children[local->success_count] = child_index;
+                local->success_count++;
+        }
+
+        local->op_errno = op_errno;
+}
+
+void
+afr_dir_fop_done (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t     *local          = NULL;
+        afr_private_t   *priv           = NULL;
+
+        local = frame->local;
+        priv  = this->private;
+
+        if (local->cont.dir_fop.inode == NULL)
+                goto done;
+        afr_set_read_ctx_from_policy (this, local->cont.dir_fop.inode,
+                                      local->fresh_children,
+                                      local->read_child_index,
+                                      priv->read_child,
+                                      local->cont.dir_fop.buf.ia_gfid);
+done:
+        local->transaction.unwind (frame, this);
+        local->transaction.resume (frame, this);
+}
+
 /* {{{ create */
 
 int
@@ -79,7 +139,6 @@ afr_create_unwind (call_frame_t *frame, xlator_t *this)
 {
         call_frame_t *main_frame = NULL;
         afr_local_t  *local = NULL;
-        struct iatt  *unwind_buf = NULL;
 
         local = frame->local;
 
@@ -93,18 +152,13 @@ afr_create_unwind (call_frame_t *frame, xlator_t *this)
         UNLOCK (&frame->lock);
 
         if (main_frame) {
-                if (local->cont.create.read_child_buf.ia_ino) {
-                        unwind_buf = &local->cont.create.read_child_buf;
-                } else {
-                        unwind_buf = &local->cont.create.buf;
-                }
-
                 AFR_STACK_UNWIND (create, main_frame,
                                   local->op_ret, local->op_errno,
                                   local->cont.create.fd,
-                                  local->cont.create.inode,
-                                  unwind_buf, &local->cont.create.preparent,
-                                  &local->cont.create.postparent,
+                                  local->cont.dir_fop.inode,
+                                  &local->cont.dir_fop.buf,
+                                  &local->cont.dir_fop.preparent,
+                                  &local->cont.dir_fop.postparent,
                                   local->xdata_rsp);
         }
 
@@ -120,29 +174,20 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      dict_t *xdata)
 {
         afr_local_t     *local = NULL;
-        afr_private_t   *priv  = NULL;
         uint64_t        ctx = 0;
         afr_fd_ctx_t    *fd_ctx = NULL;
         int             ret = 0;
         int             call_count = -1;
         int             child_index = -1;
-        int32_t         *fresh_children = NULL;
 
         local = frame->local;
-        priv  = this->private;
 
         child_index = (long) cookie;
 
         LOCK (&frame->lock);
         {
-                if (afr_fop_failed (op_ret, op_errno))
-                        afr_transaction_fop_failed (frame, this, child_index);
-
                 if (op_ret > -1) {
-                        local->op_ret = op_ret;
-
                         ret = afr_fd_ctx_set (this, fd);
-
                         if (ret < 0) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "could not set ctx on fd=%p", fd);
@@ -153,7 +198,6 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         }
 
                         ret = fd_ctx_get (fd, this, &ctx);
-
                         if (ret < 0) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "could not get fd ctx for fd=%p", fd);
@@ -168,25 +212,13 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         fd_ctx->flags                  = local->cont.create.flags;
 
                         if (local->success_count == 0) {
-                                local->cont.create.buf        = *buf;
 				if (xdata)
 					local->xdata_rsp = dict_ref(xdata);
 			}
-
-                        if (child_index == local->read_child_index) {
-                                local->cont.create.read_child_buf = *buf;
-                                local->cont.create.preparent      = *preparent;
-                                local->cont.create.postparent     = *postparent;
-                        }
-
-                        local->cont.create.inode = inode;
-
-                        fresh_children = local->fresh_children;
-                        fresh_children[local->success_count] = child_index;
-                        local->success_count++;
                 }
-
-                local->op_errno = op_errno;
+                __dir_entry_fop_common_cbk (frame, child_index, this,
+                                            op_ret, op_errno, inode, buf,
+                                            preparent, postparent, NULL, NULL);
         }
 
 unlock:
@@ -194,19 +226,8 @@ unlock:
 
         call_count = afr_frame_return (frame);
 
-        if (call_count == 0) {
-                if (local->op_ret > -1) {
-                        afr_set_read_ctx_from_policy (this,
-                                                      local->cont.create.inode,
-                                                      local->fresh_children,
-                                                      local->read_child_index,
-                                                      priv->read_child,
-                                                local->cont.create.buf.ia_gfid);
-                }
-                local->transaction.unwind (frame, this);
-
-                local->transaction.resume (frame, this);
-        }
+        if (call_count == 0)
+                afr_dir_fop_done (frame, this);
 
         return 0;
 }
@@ -352,7 +373,6 @@ afr_mknod_unwind (call_frame_t *frame, xlator_t *this)
 {
         call_frame_t *main_frame = NULL;
         afr_local_t  *local = NULL;
-        struct iatt *unwind_buf = NULL;
 
         local = frame->local;
 
@@ -366,17 +386,12 @@ afr_mknod_unwind (call_frame_t *frame, xlator_t *this)
         UNLOCK (&frame->lock);
 
         if (main_frame) {
-                if (local->cont.mknod.read_child_buf.ia_ino) {
-                        unwind_buf = &local->cont.mknod.read_child_buf;
-                } else {
-                        unwind_buf = &local->cont.mknod.buf;
-                }
-
                 AFR_STACK_UNWIND (mknod, main_frame,
                                   local->op_ret, local->op_errno,
-                                  local->cont.mknod.inode,
-                                  unwind_buf, &local->cont.mknod.preparent,
-                                  &local->cont.mknod.postparent,
+                                  local->cont.dir_fop.inode,
+                                  &local->cont.dir_fop.buf,
+                                  &local->cont.dir_fop.preparent,
+                                  &local->cont.dir_fop.postparent,
                                   NULL);
         }
 
@@ -390,60 +405,23 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     struct iatt *buf, struct iatt *preparent,
                     struct iatt *postparent, dict_t *xdata)
 {
-        afr_local_t     *local          = NULL;
-        afr_private_t   *priv           = NULL;
         int             call_count      = -1;
         int             child_index     = -1;
-        int32_t         *fresh_children = NULL;
-
-        local = frame->local;
-        priv = this->private;
 
         child_index = (long) cookie;
 
         LOCK (&frame->lock);
         {
-                if (afr_fop_failed (op_ret, op_errno))
-                        afr_transaction_fop_failed (frame, this, child_index);
-
-                if (op_ret > -1) {
-                        local->op_ret = op_ret;
-
-                        if (local->success_count == 0)
-                                local->cont.mknod.buf   = *buf;
-
-                        if (child_index == local->read_child_index) {
-                                local->cont.mknod.read_child_buf = *buf;
-                                local->cont.mknod.preparent      = *preparent;
-                                local->cont.mknod.postparent     = *postparent;
-                        }
-
-                        local->cont.mknod.inode = inode;
-
-                        fresh_children = local->fresh_children;
-                        fresh_children[local->success_count] = child_index;
-                        local->success_count++;
-                }
-
-                local->op_errno = op_errno;
+                __dir_entry_fop_common_cbk (frame, child_index, this,
+                                            op_ret, op_errno, inode, buf,
+                                            preparent, postparent, NULL, NULL);
         }
         UNLOCK (&frame->lock);
 
         call_count = afr_frame_return (frame);
 
-        if (call_count == 0) {
-                if (local->op_ret > -1) {
-                        afr_set_read_ctx_from_policy (this,
-                                                      local->cont.mknod.inode,
-                                                      local->fresh_children,
-                                                      local->read_child_index,
-                                                      priv->read_child,
-                                                 local->cont.mknod.buf.ia_gfid);
-                }
-                local->transaction.unwind (frame, this);
-
-                local->transaction.resume (frame, this);
-        }
+        if (call_count == 0)
+                afr_dir_fop_done (frame, this);
 
         return 0;
 }
@@ -584,7 +562,6 @@ afr_mkdir_unwind (call_frame_t *frame, xlator_t *this)
 {
         call_frame_t *main_frame = NULL;
         afr_local_t  *local = NULL;
-        struct iatt *unwind_buf = NULL;
 
         local = frame->local;
 
@@ -598,17 +575,12 @@ afr_mkdir_unwind (call_frame_t *frame, xlator_t *this)
         UNLOCK (&frame->lock);
 
         if (main_frame) {
-                if (local->cont.mkdir.read_child_buf.ia_ino) {
-                        unwind_buf = &local->cont.mkdir.read_child_buf;
-                } else {
-                        unwind_buf = &local->cont.mkdir.buf;
-                }
-
                 AFR_STACK_UNWIND (mkdir, main_frame,
                                   local->op_ret, local->op_errno,
-                                  local->cont.mkdir.inode,
-                                  unwind_buf, &local->cont.mkdir.preparent,
-                                  &local->cont.mkdir.postparent,
+                                  local->cont.dir_fop.inode,
+                                  &local->cont.dir_fop.buf,
+                                  &local->cont.dir_fop.preparent,
+                                  &local->cont.dir_fop.postparent,
                                   NULL);
         }
 
@@ -622,60 +594,23 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     struct iatt *buf, struct iatt *preparent,
                     struct iatt *postparent, dict_t *xdata)
 {
-        afr_local_t     *local          = NULL;
-        afr_private_t   *priv           = NULL;
         int             call_count      = -1;
         int             child_index     = -1;
-        int32_t         *fresh_children = NULL;
-
-        local = frame->local;
-        priv = this->private;
 
         child_index = (long) cookie;
 
         LOCK (&frame->lock);
         {
-                if (afr_fop_failed (op_ret, op_errno))
-                        afr_transaction_fop_failed (frame, this, child_index);
-
-                if (op_ret > -1) {
-                        local->op_ret           = op_ret;
-
-                        if (local->success_count == 0)
-                                local->cont.mkdir.buf   = *buf;
-
-                        if (child_index == local->read_child_index) {
-                                local->cont.mkdir.read_child_buf = *buf;
-                                local->cont.mkdir.preparent      = *preparent;
-                                local->cont.mkdir.postparent     = *postparent;
-                        }
-
-                        local->cont.mkdir.inode = inode;
-
-                        fresh_children = local->fresh_children;
-                        fresh_children[local->success_count] = child_index;
-                        local->success_count++;
-                }
-
-                local->op_errno         = op_errno;
+                __dir_entry_fop_common_cbk (frame, child_index, this,
+                                            op_ret, op_errno, inode, buf,
+                                            preparent, postparent, NULL, NULL);
         }
         UNLOCK (&frame->lock);
 
         call_count = afr_frame_return (frame);
 
-        if (call_count == 0) {
-                if (local->op_ret > -1) {
-                        afr_set_read_ctx_from_policy (this,
-                                                      local->cont.mkdir.inode,
-                                                      local->fresh_children,
-                                                      local->read_child_index,
-                                                      priv->read_child,
-                                                 local->cont.mkdir.buf.ia_gfid);
-                }
-                local->transaction.unwind (frame, this);
-
-                local->transaction.resume (frame, this);
-        }
+        if (call_count == 0)
+                afr_dir_fop_done (frame, this);
 
         return 0;
 }
@@ -817,7 +752,6 @@ afr_link_unwind (call_frame_t *frame, xlator_t *this)
 {
         call_frame_t *main_frame = NULL;
         afr_local_t  *local = NULL;
-        struct iatt *unwind_buf = NULL;
 
         local = frame->local;
 
@@ -831,17 +765,12 @@ afr_link_unwind (call_frame_t *frame, xlator_t *this)
         UNLOCK (&frame->lock);
 
         if (main_frame) {
-                if (local->cont.link.read_child_buf.ia_ino) {
-                        unwind_buf = &local->cont.link.read_child_buf;
-                } else {
-                        unwind_buf = &local->cont.link.buf;
-                }
-
                 AFR_STACK_UNWIND (link, main_frame,
                                   local->op_ret, local->op_errno,
-                                  local->cont.link.inode,
-                                  unwind_buf, &local->cont.link.preparent,
-                                  &local->cont.link.postparent,
+                                  local->cont.dir_fop.inode,
+                                  &local->cont.dir_fop.buf,
+                                  &local->cont.dir_fop.preparent,
+                                  &local->cont.dir_fop.postparent,
                                   NULL);
         }
 
@@ -855,60 +784,23 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    struct iatt *buf, struct iatt *preparent,
                    struct iatt *postparent, dict_t *xdata)
 {
-        afr_local_t     *local          = NULL;
-        afr_private_t   *priv           = NULL;
         int             call_count      = -1;
         int             child_index     = -1;
-        int32_t         *fresh_children = NULL;
-
-        local = frame->local;
-        priv = this->private;
 
         child_index = (long) cookie;
 
         LOCK (&frame->lock);
         {
-                if (afr_fop_failed (op_ret, op_errno))
-                        afr_transaction_fop_failed (frame, this, child_index);
-
-                if (op_ret > -1) {
-                        local->op_ret   = op_ret;
-
-                        if (local->success_count == 0) {
-                                local->cont.link.buf        = *buf;
-                        }
-
-                        if (child_index == local->read_child_index) {
-                                local->cont.link.read_child_buf = *buf;
-                                local->cont.link.preparent      = *preparent;
-                                local->cont.link.postparent     = *postparent;
-                        }
-
-                        fresh_children = local->fresh_children;
-                        fresh_children[local->success_count] = child_index;
-                        local->cont.link.inode = inode;
-                        local->success_count++;
-                }
-
-                local->op_errno = op_errno;
+                __dir_entry_fop_common_cbk (frame, child_index, this,
+                                            op_ret, op_errno, inode, buf,
+                                            preparent, postparent, NULL, NULL);
         }
         UNLOCK (&frame->lock);
 
         call_count = afr_frame_return (frame);
 
-        if (call_count == 0) {
-                if (local->op_ret > -1) {
-                        afr_set_read_ctx_from_policy (this,
-                                                      local->cont.link.inode,
-                                                      local->fresh_children,
-                                                      local->read_child_index,
-                                                      priv->read_child,
-                                                  local->cont.link.buf.ia_gfid);
-                }
-                local->transaction.unwind (frame, this);
-
-                local->transaction.resume (frame, this);
-        }
+        if (call_count == 0)
+                afr_dir_fop_done (frame, this);
 
         return 0;
 }
@@ -1044,7 +936,6 @@ afr_symlink_unwind (call_frame_t *frame, xlator_t *this)
 {
         call_frame_t *main_frame = NULL;
         afr_local_t  *local = NULL;
-        struct iatt *unwind_buf = NULL;
 
         local = frame->local;
 
@@ -1058,17 +949,12 @@ afr_symlink_unwind (call_frame_t *frame, xlator_t *this)
         UNLOCK (&frame->lock);
 
         if (main_frame) {
-                if (local->cont.symlink.read_child_buf.ia_ino) {
-                        unwind_buf = &local->cont.symlink.read_child_buf;
-                } else {
-                        unwind_buf = &local->cont.symlink.buf;
-                }
-
                 AFR_STACK_UNWIND (symlink, main_frame,
                                   local->op_ret, local->op_errno,
-                                  local->cont.symlink.inode,
-                                  unwind_buf, &local->cont.symlink.preparent,
-                                  &local->cont.symlink.postparent,
+                                  local->cont.dir_fop.inode,
+                                  &local->cont.dir_fop.buf,
+                                  &local->cont.dir_fop.preparent,
+                                  &local->cont.dir_fop.postparent,
                                   NULL);
         }
 
@@ -1082,60 +968,23 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       struct iatt *buf, struct iatt *preparent,
                       struct iatt *postparent, dict_t *xdata)
 {
-        afr_local_t     *local          = NULL;
-        afr_private_t   *priv           = NULL;
         int             call_count      = -1;
         int             child_index     = -1;
-        int32_t         *fresh_children = NULL;
-
-        local = frame->local;
-        priv = this->private;
 
         child_index = (long) cookie;
 
         LOCK (&frame->lock);
         {
-                if (afr_fop_failed (op_ret, op_errno))
-                        afr_transaction_fop_failed (frame, this, child_index);
-
-                if (op_ret > -1) {
-                        local->op_ret   = op_ret;
-
-                        if (local->success_count == 0)
-                                local->cont.symlink.buf        = *buf;
-
-                        if (child_index == local->read_child_index) {
-                                local->cont.symlink.read_child_buf = *buf;
-                                local->cont.symlink.preparent      = *preparent;
-                                local->cont.symlink.postparent     = *postparent;
-                        }
-
-                        local->cont.symlink.inode    = inode;
-
-                        fresh_children = local->fresh_children;
-                        fresh_children[local->success_count] = child_index;
-                        local->success_count++;
-                }
-
-                local->op_errno = op_errno;
+                __dir_entry_fop_common_cbk (frame, child_index, this,
+                                            op_ret, op_errno, inode, buf,
+                                            preparent, postparent, NULL, NULL);
         }
         UNLOCK (&frame->lock);
 
         call_count = afr_frame_return (frame);
 
-        if (call_count == 0) {
-                if (local->op_ret > -1) {
-                        afr_set_read_ctx_from_policy (this,
-                                                      local->cont.symlink.inode,
-                                                      local->fresh_children,
-                                                      local->read_child_index,
-                                                      priv->read_child,
-                                               local->cont.symlink.buf.ia_gfid);
-                }
-                local->transaction.unwind (frame, this);
-
-                local->transaction.resume (frame, this);
-        }
+        if (call_count == 0)
+                afr_dir_fop_done (frame, this);
 
         return 0;
 }
@@ -1276,7 +1125,6 @@ afr_rename_unwind (call_frame_t *frame, xlator_t *this)
 {
         call_frame_t *main_frame = NULL;
         afr_local_t  *local = NULL;
-        struct iatt *unwind_buf = NULL;
 
         local = frame->local;
 
@@ -1290,19 +1138,13 @@ afr_rename_unwind (call_frame_t *frame, xlator_t *this)
         UNLOCK (&frame->lock);
 
         if (main_frame) {
-                if (local->cont.rename.read_child_buf.ia_ino) {
-                        unwind_buf = &local->cont.rename.read_child_buf;
-                } else {
-                        unwind_buf = &local->cont.rename.buf;
-                }
-
                 AFR_STACK_UNWIND (rename, main_frame,
                                   local->op_ret, local->op_errno,
-                                  unwind_buf,
-                                  &local->cont.rename.preoldparent,
-                                  &local->cont.rename.postoldparent,
-                                  &local->cont.rename.prenewparent,
-                                  &local->cont.rename.postnewparent,
+                                  &local->cont.dir_fop.buf,
+                                  &local->cont.dir_fop.preparent,
+                                  &local->cont.dir_fop.postparent,
+                                  &local->cont.dir_fop.prenewparent,
+                                  &local->cont.dir_fop.postnewparent,
                                   NULL);
         }
 
@@ -1329,38 +1171,21 @@ afr_rename_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         {
                 if (afr_fop_failed (op_ret, op_errno) && op_errno != ENOTEMPTY)
                         afr_transaction_fop_failed (frame, this, child_index);
-
-                if (op_ret != -1) {
-                        if (local->success_count == 0) {
-                                local->op_ret = op_ret;
-
-                                if (buf) {
-                                        local->cont.rename.buf = *buf;
-                                }
-
-                                local->success_count++;
-                        }
-
-                        if (child_index == local->read_child_index) {
-                                local->cont.rename.read_child_buf = *buf;
-
-                                local->cont.rename.preoldparent  = *preoldparent;
-                                local->cont.rename.postoldparent = *postoldparent;
-                                local->cont.rename.prenewparent  = *prenewparent;
-                                local->cont.rename.postnewparent = *postnewparent;
-                        }
-                }
-
                 local->op_errno = op_errno;
+
+                if (op_ret > -1)
+                        __dir_entry_fop_common_cbk (frame, child_index, this,
+                                                   op_ret, op_errno, NULL, buf,
+                                                   preoldparent, postoldparent,
+                                                   prenewparent, postnewparent);
+
         }
         UNLOCK (&frame->lock);
 
         call_count = afr_frame_return (frame);
 
-        if (call_count == 0) {
-                local->transaction.unwind (frame, this);
-                local->transaction.resume (frame, this);
-        }
+        if (call_count == 0)
+                afr_dir_fop_done (frame, this);
 
         return 0;
 }
@@ -1509,8 +1334,8 @@ afr_unlink_unwind (call_frame_t *frame, xlator_t *this)
         if (main_frame) {
                 AFR_STACK_UNWIND (unlink, main_frame,
                                   local->op_ret, local->op_errno,
-                                  &local->cont.unlink.preparent,
-                                  &local->cont.unlink.postparent,
+                                  &local->cont.dir_fop.preparent,
+                                  &local->cont.dir_fop.postparent,
                                   NULL);
         }
 
@@ -1534,36 +1359,15 @@ afr_unlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (child_index == local->read_child_index) {
                         local->read_child_returned = _gf_true;
                 }
-
-                if (afr_fop_failed (op_ret, op_errno))
-                        afr_transaction_fop_failed (frame, this, child_index);
-
-                if (op_ret != -1) {
-                        if (local->success_count == 0) {
-                                local->op_ret   = op_ret;
-                                local->cont.unlink.preparent  = *preparent;
-                                local->cont.unlink.postparent = *postparent;
-                        }
-
-                        if (child_index == local->read_child_index) {
-                                local->cont.unlink.preparent  = *preparent;
-                                local->cont.unlink.postparent = *postparent;
-                        }
-
-                        local->success_count++;
-                }
-
-                local->op_errno = op_errno;
+                __dir_entry_fop_common_cbk (frame, child_index, this,
+                                            op_ret, op_errno, NULL, NULL,
+                                            preparent, postparent, NULL, NULL);
         }
         UNLOCK (&frame->lock);
 
         call_count = afr_frame_return (frame);
-
-        if (call_count == 0) {
-                local->transaction.unwind (frame, this);
-
-                local->transaction.resume (frame, this);
-        }
+        if (call_count == 0)
+                afr_dir_fop_done (frame, this);
 
         return 0;
 }
@@ -1709,8 +1513,8 @@ afr_rmdir_unwind (call_frame_t *frame, xlator_t *this)
         if (main_frame) {
                 AFR_STACK_UNWIND (rmdir, main_frame,
                                   local->op_ret, local->op_errno,
-                                  &local->cont.rmdir.preparent,
-                                  &local->cont.rmdir.postparent,
+                                  &local->cont.dir_fop.preparent,
+                                  &local->cont.dir_fop.postparent,
                                   NULL);
         }
 
@@ -1735,36 +1539,21 @@ afr_rmdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (child_index == read_child) {
                         local->read_child_returned = _gf_true;
                 }
-
                 if (afr_fop_failed (op_ret, op_errno) && (op_errno != ENOTEMPTY))
                         afr_transaction_fop_failed (frame, this, child_index);
-
-                if (op_ret != -1) {
-                        if (local->success_count == 0) {
-                                local->op_ret = op_ret;
-                                local->cont.rmdir.preparent  = *preparent;
-                                local->cont.rmdir.postparent = *postparent;
-
-                        }
-
-                        if (child_index == read_child) {
-                                local->cont.rmdir.preparent  = *preparent;
-                                local->cont.rmdir.postparent = *postparent;
-                        }
-
-                        local->success_count++;
-                }
-
                 local->op_errno = op_errno;
+                if (op_ret > -1)
+                        __dir_entry_fop_common_cbk (frame, child_index, this,
+                                                   op_ret, op_errno, NULL, NULL,
+                                                   preparent, postparent, NULL,
+                                                   NULL);
+
         }
         UNLOCK (&frame->lock);
 
         call_count = afr_frame_return (frame);
-
-        if (call_count == 0) {
-                local->transaction.unwind (frame, this);
-                local->transaction.resume (frame, this);
-        }
+        if (call_count == 0)
+                afr_dir_fop_done (frame, this);
 
         return 0;
 }
