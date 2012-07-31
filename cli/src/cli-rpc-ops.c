@@ -1378,9 +1378,6 @@ gf_cli_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len, &dict);
 
-        if (ret)
-                goto out;
-
         if (dict_get_str (dict, "help-str", &help_str) && !msg[0])
                 snprintf (msg, sizeof (msg), "Set volume %s",
                           (rsp.op_ret) ? "unsuccessful": "successful");

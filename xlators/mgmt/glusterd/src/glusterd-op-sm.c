@@ -338,15 +338,14 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        if ( dict_count == 0 ) {
-                /*No options would be specified of volume set help */
+        if (dict_count == 0) {
+        /*No options would be specified of volume set help */
                 if (dict_get (dict, "help" ))  {
                         ret = 0;
                         goto out;
                 }
 
                 if (dict_get (dict, "help-xml" )) {
-
 #if (HAVE_LIB_XML)
                         ret = 0;
                         goto out;
@@ -1018,25 +1017,6 @@ glusterd_start_bricks (glusterd_volinfo_t *volinfo)
 }
 
 static int
-glusterd_volset_help (dict_t *dict)
-{
-        int                     ret = -1;
-        gf_boolean_t            xml_out = _gf_false;
-
-        if (dict_get (dict, "help" ))
-                xml_out = _gf_false;
-        else if (dict_get (dict, "help-xml" ))
-                xml_out = _gf_true;
-        else
-                goto out;
-
-        ret = glusterd_get_volopt_content (xml_out);
- out:
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
-}
-
-static int
 glusterd_op_set_volume (dict_t *dict)
 {
         int                                      ret = 0;
@@ -1049,6 +1029,7 @@ glusterd_op_set_volume (dict_t *dict)
         char                                    *key_fixed = NULL;
         char                                    *value = NULL;
         char                                     str[50] = {0, };
+        char                                    *op_errstr = NULL;
         gf_boolean_t                             global_opt    = _gf_false;
         glusterd_volinfo_t                      *voliter = NULL;
         int32_t                                  dict_count = 0;
@@ -1066,12 +1047,14 @@ glusterd_op_set_volume (dict_t *dict)
         }
 
         if (dict_count == 0) {
-                ret = glusterd_volset_help (dict);
-                if (ret)
-                        gf_log (this->name, GF_LOG_ERROR, "Volume set"
-                                " help internal error");
+                ret = glusterd_volset_help (NULL, &op_errstr);
+                if (ret) {
+                        op_errstr = (op_errstr)? op_errstr:
+                                     "Volume set help internal error";
+                        gf_log (this->name, GF_LOG_ERROR, op_errstr);
+                }
                 goto out;
-        }
+         }
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
@@ -1898,7 +1881,7 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr)
                                 if (strcmp (volname, "help") &&
                                     strcmp (volname, "help-xml")) {
                                         ret = glusterd_dict_set_volid
-                                                (dict, volname, op_errstr);
+                                                 (dict, volname, op_errstr);
                                         if (ret)
                                                 goto out;
                                 }
