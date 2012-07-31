@@ -46,12 +46,14 @@ static int
 duplexpand (void **buf, size_t tsiz, size_t *len)
 {
         size_t osiz = tsiz * *len;
-
-        *buf = realloc (*buf, osiz << 1);
-        if (!*buf)
+        char *p = realloc (*buf, osiz << 1);
+        if (!p) {
+                free(*buf);
                 return -1;
+        }
 
-        memset ((char *)*buf + osiz, 0, osiz);
+        memset (p + osiz, 0, osiz);
+        *buf = p;
         *len <<= 1;
 
         return 0;
