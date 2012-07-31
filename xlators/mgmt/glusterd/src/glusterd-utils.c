@@ -5614,3 +5614,46 @@ out:
         gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
 }
+
+int
+glusterd_volset_help (dict_t *dict, char **op_errstr)
+{
+        int                     ret = -1;
+        gf_boolean_t            xml_out = _gf_false;
+
+        if (!dict) {
+                if (!(dict = glusterd_op_get_ctx ())) {
+                        ret = 0;
+                        goto out;
+                }
+        }
+
+        if (dict_get (dict, "help" )) {
+                xml_out = _gf_false;
+
+        } else if (dict_get (dict, "help-xml" )) {
+                xml_out = _gf_true;
+#if (HAVE_LIB_XML)
+                ret = 0;
+#else
+                gf_log (this->name, GF_LOG_ERROR,
+                        "libxml not present in the system");
+                if (op_errstr)
+                        *op_errstr = gf_strdup ("Error: xml libraries not "
+                                                "present to produce "
+                                                "xml-output");
+                goto out;
+#endif
+
+        } else {
+                goto out;
+        }
+
+        ret = glusterd_get_volopt_content (dict, xml_out);
+        if (ret && op_errstr)
+                *op_errstr = gf_strdup ("Failed to get volume options help");
+ out:
+
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}

@@ -2041,7 +2041,7 @@ get_key_from_volopt ( struct volopt_map_entry *vme, char **key)
 }
 
 int
-glusterd_get_volopt_content (gf_boolean_t xml_out)
+glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
 {
 
         char                    *xlator_type = NULL;
@@ -2055,7 +2055,6 @@ glusterd_get_volopt_content (gf_boolean_t xml_out)
         char                     output_string[16384] = {0, };
         char                    *output = NULL;
         char                     tmp_str[1024] = {0, };
-        dict_t                  *ctx = NULL;
 #if (HAVE_LIB_XML)
         xmlTextWriterPtr         writer = NULL;
         xmlBufferPtr             buf = NULL;
@@ -2066,14 +2065,6 @@ glusterd_get_volopt_content (gf_boolean_t xml_out)
                         goto out;
         }
 #endif
-
-        ctx = glusterd_op_get_ctx ();
-
-        if (!ctx) {
-                /*extract the vol-set-help output only in host glusterd*/
-                ret = 0;
-                goto out;
-        }
 
         INIT_LIST_HEAD (&vol_opt_handle.list);
 

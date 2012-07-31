@@ -1014,6 +1014,8 @@ glusterd_handle_set_volume (rpcsvc_request_t *req)
         char                            *key = NULL;
         char                            *value = NULL;
         char                            *volname = NULL;
+        char                            *op_errstr = NULL;
+        gf_boolean_t                    help = _gf_false;
 
         GF_ASSERT (req);
 
@@ -1047,22 +1049,25 @@ glusterd_handle_set_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
+        if (strcmp (volname, "help") == 0 ||
+            strcmp (volname, "help-xml") == 0) {
+                ret = glusterd_volset_help (dict, &op_errstr);
+                help = _gf_true;
+                goto out;
+        }
+
         ret = dict_get_str (dict, "key1", &key);
         if (ret) {
-                if (strcmp (volname, "help-xml") && strcmp (volname, "help")) {
-                        gf_log ("", GF_LOG_WARNING, "Unable to get key, while "
-                                "handling volume set for %s",volname);
-                        goto out;
-                }
+                gf_log ("", GF_LOG_WARNING, "Unable to get key, while "
+                        "handling volume set for %s",volname);
+                goto out;
         }
 
         ret = dict_get_str (dict, "value1", &value);
         if (ret) {
-                if (strcmp (volname, "help-xml") && strcmp (volname, "help")) {
-                        gf_log ("", GF_LOG_WARNING, "Unable to get value, while"
-                                "handling volume set for %s",volname);
-                        goto out;
-                }
+                gf_log ("", GF_LOG_WARNING, "Unable to get value, while"
+                        "handling volume set for %s",volname);
+                goto out;
         }
 
 
@@ -1071,17 +1076,20 @@ glusterd_handle_set_volume (rpcsvc_request_t *req)
         ret = glusterd_op_begin (req, GD_OP_SET_VOLUME, dict);
         gf_cmd_log ("volume set", "volume-name:%s: key:%s, value:%s %s",
                     volname, key, value, (ret == 0)? "SUCCEDED" : "FAILED" );
-out:
 
+out:
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
-        if (ret) {
-                if (dict)
-                        dict_unref (dict);
+        if (help)
+                ret = glusterd_op_send_cli_response (cli_op, ret, 0, req, dict,
+                                                     (op_errstr)? op_errstr:"");
+        else if (ret)
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      NULL, "operation failed");
-        }
+        if (op_errstr)
+                GF_FREE (op_errstr);
+
         return ret;
 }
 

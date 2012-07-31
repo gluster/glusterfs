@@ -441,4 +441,6 @@ glusterd_check_files_identical (char *filename1, char *filename2,
                                 gf_boolean_t *identical);
 void
 glusterd_volinfo_reset_defrag_stats (glusterd_volinfo_t *volinfo);
+int
+glusterd_volset_help (dict_t *dict, char **op_errstr);
 #endif
