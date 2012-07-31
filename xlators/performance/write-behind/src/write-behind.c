@@ -35,24 +35,28 @@
 typedef struct list_head list_head_t;
 struct wb_conf;
 struct wb_page;
-struct wb_file;
+struct wb_inode;
 
-typedef struct wb_file {
-        int          disabled;
-        uint64_t     disable_till;
+typedef struct wb_inode {
         size_t       window_conf;
         size_t       window_current;
-        int32_t      flags;
         size_t       aggregate_current;
-        int32_t      refcount;
         int32_t      op_ret;
         int32_t      op_errno;
         list_head_t  request;
         list_head_t  passive_requests;
-        fd_t        *fd;
         gf_lock_t    lock;
         xlator_t    *this;
-}wb_file_t;
+}wb_inode_t;
+
+typedef struct wb_file {
+        int32_t           flags;
+        int               disabled;
+        fd_t             *fd;
+        size_t            disable_till;
+        enum _gf_boolean  dont_wind;
+} wb_file_t;
+
 
 typedef struct wb_request {
         list_head_t           list;
@@ -62,7 +66,7 @@ typedef struct wb_request {
         call_stub_t          *stub;
         size_t                write_size;
         int32_t               refcount;
-        wb_file_t            *file;
+        wb_inode_t           *wb_inode;
         glusterfs_fop_t       fop;
         gf_lkowner_t          lk_owner;
         union {
@@ -99,26 +103,89 @@ struct wb_conf {
 typedef struct wb_local {
         list_head_t     winds;
         int32_t         flags;
-        struct wb_file *file;
+        fd_t           *fd;
         wb_request_t   *request;
         int             op_ret;
         int             op_errno;
         call_frame_t   *frame;
         int32_t         reply_count;
+        wb_inode_t     *wb_inode;
 } wb_local_t;
 
 typedef struct wb_conf wb_conf_t;
 typedef struct wb_page wb_page_t;
 
 int32_t
-wb_process_queue (call_frame_t *frame, wb_file_t *file);
+wb_process_queue (call_frame_t *frame, wb_inode_t *wb_inode);
 
 ssize_t
-wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds);
+wb_sync (call_frame_t *frame, wb_inode_t *wb_inode, list_head_t *winds);
 
 ssize_t
 __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_size,
                  char enable_trickling_writes);
+
+wb_inode_t *
+__wb_inode_ctx_get (xlator_t *this, inode_t *inode)
+{
+        uint64_t    value    = 0;
+        wb_inode_t *wb_inode = NULL;
+
+        __inode_ctx_get (inode, this, &value);
+        wb_inode = (wb_inode_t *)(unsigned long) value;
+
+        return wb_inode;
+}
+
+
+wb_inode_t *
+wb_inode_ctx_get (xlator_t *this, inode_t *inode)
+{
+        wb_inode_t *wb_inode = NULL;
+
+        GF_VALIDATE_OR_GOTO ("write-behind", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
+        LOCK (&inode->lock);
+        {
+                wb_inode = __wb_inode_ctx_get (this, inode);
+        }
+        UNLOCK (&inode->lock);
+out:
+        return wb_inode;
+}
+
+
+wb_file_t *
+__wb_fd_ctx_get (xlator_t *this, fd_t *fd)
+{
+        wb_file_t *wb_file = NULL;
+        uint64_t   value   = 0;
+
+        fd_ctx_get (fd, this, &value);
+        wb_file = (wb_file_t *)(unsigned long)value;
+
+        return wb_file;
+}
+
+
+wb_file_t *
+wb_fd_ctx_get (xlator_t *this, fd_t *fd)
+{
+        wb_file_t *wb_file = NULL;
+
+        GF_VALIDATE_OR_GOTO ("write-behind", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
+
+        LOCK (&fd->lock);
+        {
+                wb_file = __wb_fd_ctx_get (this, fd);
+        }
+        UNLOCK (&fd->lock);
+
+out:
+        return wb_file;
+}
 
 /*
   Below is a succinct explanation of the code deciding whether two regions
@@ -147,7 +214,8 @@ __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_size,
 static inline char
 wb_requests_overlap (wb_request_t *request1, wb_request_t *request2)
 {
-        off_t r1_start = 0, r1_end = 0, r2_start = 0, r2_end = 0;
+        off_t            r1_start   = 0, r1_end = 0, r2_start = 0, r2_end = 0;
+        enum _gf_boolean do_overlap = 0;
 
         r1_start = request1->stub->args.writev.off;
         r1_end = r1_start + iov_length (request1->stub->args.writev.vector,
@@ -157,7 +225,9 @@ wb_requests_overlap (wb_request_t *request1, wb_request_t *request2)
         r2_end = r2_start + iov_length (request2->stub->args.writev.vector,
                                         request2->stub->args.writev.count);
 
-        return ((r1_end >= r2_start) && (r2_end >= r1_start));
+        do_overlap = ((r1_end >= r2_start) && (r2_end >= r1_start));
+
+        return do_overlap;
 }
 
 
@@ -217,18 +287,18 @@ out:
 static int
 wb_request_unref (wb_request_t *this)
 {
-        wb_file_t *file = NULL;
-        int        ret  = -1;
+        wb_inode_t *wb_inode = NULL;
+        int         ret      = -1;
 
         GF_VALIDATE_OR_GOTO ("write-behind", this, out);
 
-        file = this->file;
+        wb_inode = this->wb_inode;
 
-        LOCK (&file->lock);
+        LOCK (&wb_inode->lock);
         {
                 ret = __wb_request_unref (this);
         }
-        UNLOCK (&file->lock);
+        UNLOCK (&wb_inode->lock);
 
 out:
         return ret;
@@ -257,16 +327,16 @@ out:
 wb_request_t *
 wb_request_ref (wb_request_t *this)
 {
-        wb_file_t *file = NULL;
+        wb_inode_t *wb_inode = NULL;
 
         GF_VALIDATE_OR_GOTO ("write-behind", this, out);
 
-        file = this->file;
-        LOCK (&file->lock);
+        wb_inode = this->wb_inode;
+        LOCK (&wb_inode->lock);
         {
                 this = __wb_request_ref (this);
         }
-        UNLOCK (&file->lock);
+        UNLOCK (&wb_inode->lock);
 
 out:
         return this;
@@ -274,7 +344,7 @@ out:
 
 
 wb_request_t *
-wb_enqueue (wb_file_t *file, call_stub_t *stub)
+wb_enqueue (wb_inode_t *wb_inode, call_stub_t *stub)
 {
         wb_request_t *request = NULL, *tmp = NULL;
         call_frame_t *frame   = NULL;
@@ -282,8 +352,8 @@ wb_enqueue (wb_file_t *file, call_stub_t *stub)
         struct iovec *vector  = NULL;
         int32_t       count   = 0;
 
-        GF_VALIDATE_OR_GOTO ("write-behind", file, out);
-        GF_VALIDATE_OR_GOTO (file->this->name, stub, out);
+        GF_VALIDATE_OR_GOTO ("write-behind", wb_inode, out);
+        GF_VALIDATE_OR_GOTO (wb_inode->this->name, stub, out);
 
         request = GF_CALLOC (1, sizeof (*request), gf_wb_mt_wb_request_t);
         if (request == NULL) {
@@ -296,7 +366,7 @@ wb_enqueue (wb_file_t *file, call_stub_t *stub)
         INIT_LIST_HEAD (&request->other_requests);
 
         request->stub = stub;
-        request->file = file;
+        request->wb_inode = wb_inode;
         request->fop  = stub->fop;
 
         frame = stub->frame;
@@ -320,9 +390,9 @@ wb_enqueue (wb_file_t *file, call_stub_t *stub)
 
         request->lk_owner = frame->root->lk_owner;
 
-        LOCK (&file->lock);
+        LOCK (&wb_inode->lock);
         {
-                list_add_tail (&request->list, &file->request);
+                list_add_tail (&request->list, &wb_inode->request);
                 if (stub->fop == GF_FOP_WRITE) {
                         /* reference for stack winding */
                         __wb_request_ref (request);
@@ -330,9 +400,9 @@ wb_enqueue (wb_file_t *file, call_stub_t *stub)
                         /* reference for stack unwinding */
                         __wb_request_ref (request);
 
-                        file->aggregate_current += request->write_size;
+                        wb_inode->aggregate_current += request->write_size;
                 } else {
-                        list_for_each_entry (tmp, &file->request, list) {
+                        list_for_each_entry (tmp, &wb_inode->request, list) {
                                 if (tmp->stub && tmp->stub->fop
                                     == GF_FOP_WRITE) {
                                         tmp->flags.write_request.flush_all = 1;
@@ -343,10 +413,42 @@ wb_enqueue (wb_file_t *file, call_stub_t *stub)
                         __wb_request_ref (request);
                 }
         }
-        UNLOCK (&file->lock);
+        UNLOCK (&wb_inode->lock);
 
 out:
         return request;
+}
+
+
+wb_inode_t *
+__wb_inode_create (xlator_t *this, inode_t *inode)
+{
+        wb_inode_t *wb_inode = NULL;
+        wb_conf_t  *conf     = NULL;
+
+        GF_VALIDATE_OR_GOTO ("write-behind", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
+        conf = this->private;
+
+        wb_inode = GF_CALLOC (1, sizeof (*wb_inode), gf_wb_mt_wb_inode_t);
+        if (wb_inode == NULL) {
+                goto out;
+        }
+
+        INIT_LIST_HEAD (&wb_inode->request);
+        INIT_LIST_HEAD (&wb_inode->passive_requests);
+
+        wb_inode->this = this;
+
+        wb_inode->window_conf = conf->window_size;
+
+        LOCK_INIT (&wb_inode->lock);
+
+        __inode_ctx_put (inode, this, (uint64_t)(unsigned long)wb_inode);
+
+out:
+        return wb_inode;
 }
 
 
@@ -366,49 +468,94 @@ wb_file_create (xlator_t *this, fd_t *fd, int32_t flags)
                 goto out;
         }
 
-        INIT_LIST_HEAD (&file->request);
-        INIT_LIST_HEAD (&file->passive_requests);
-
         /*
           fd_ref() not required, file should never decide the existence of
           an fd
         */
         file->fd= fd;
-        file->disable_till = conf->disable_till;
-        file->this = this;
-        file->refcount = 1;
-        file->window_conf = conf->window_size;
+        /* If O_DIRECT then, we disable chaching */
+        if (((flags & O_DIRECT) == O_DIRECT)
+            || ((flags & O_ACCMODE) == O_RDONLY)
+            || (((flags & O_SYNC) == O_SYNC)
+                && conf->enable_O_SYNC == _gf_true)) {
+                file->disabled = 1;
+        }
+
         file->flags = flags;
 
-        LOCK_INIT (&file->lock);
-
-        fd_ctx_set (fd, this, (uint64_t)(long)file);
+        fd_ctx_set (fd, this, (uint64_t)(unsigned long)file);
 
 out:
         return file;
 }
 
 
-void
-wb_file_destroy (wb_file_t *file)
+wb_inode_t *
+wb_inode_create (xlator_t *this, inode_t *inode)
 {
-        int32_t refcount = 0;
+        wb_inode_t *wb_inode = NULL;
 
-        GF_VALIDATE_OR_GOTO ("write-behind", file, out);
+        GF_VALIDATE_OR_GOTO ("write-behind", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
-        LOCK (&file->lock);
+        LOCK (&inode->lock);
         {
-                refcount = --file->refcount;
+                wb_inode = __wb_inode_ctx_get (this, inode);
+                if (wb_inode == NULL) {
+                        wb_inode = __wb_inode_create (this, inode);
+                }
         }
-        UNLOCK (&file->lock);
-
-        if (!refcount){
-                LOCK_DESTROY (&file->lock);
-                GF_FREE (file);
-        }
+        UNLOCK (&inode->lock);
 
 out:
+        return wb_inode;
+}
+
+
+void
+wb_inode_destroy (wb_inode_t *wb_inode)
+{
+        GF_VALIDATE_OR_GOTO ("write-behind", wb_inode, out);
+
+        LOCK_DESTROY (&wb_inode->lock);
+        GF_FREE (wb_inode);
+out:
         return;
+}
+
+
+int32_t
+wb_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, inode_t *inode,
+               struct iatt *buf, dict_t *dict, struct iatt *postparent)
+{
+        wb_inode_t *wb_inode = NULL;
+
+        if (op_ret < 0) {
+                goto unwind;
+        }
+
+        wb_inode = wb_inode_create (this, inode);
+        if (wb_inode == NULL) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+        }
+
+unwind:
+        STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf,
+                             dict, postparent);
+
+        return 0;
+}
+
+
+int32_t
+wb_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
+           dict_t *xdata)
+{
+        STACK_WIND (frame, wb_lookup_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->lookup, loc, xdata);
+        return 0;
 }
 
 
@@ -419,7 +566,7 @@ wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 {
         wb_local_t   *local             = NULL;
         list_head_t  *winds             = NULL;
-        wb_file_t    *file              = NULL;
+        wb_inode_t   *wb_inode          = NULL;
         wb_request_t *request           = NULL, *dummy = NULL;
         wb_local_t   *per_request_local = NULL;
         int32_t       ret               = -1;
@@ -432,10 +579,12 @@ wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         local = frame->local;
         winds = &local->winds;
 
-        file = local->file;
-        GF_VALIDATE_OR_GOTO (this->name, file, out);
+        fd = local->fd;
 
-        LOCK (&file->lock);
+        wb_inode = wb_inode_ctx_get (this, fd->inode);
+        GF_VALIDATE_OR_GOTO (this->name, wb_inode, out);
+
+        LOCK (&wb_inode->lock);
         {
                 list_for_each_entry_safe (request, dummy, winds, winds) {
                         request->flags.write_request.got_reply = 1;
@@ -448,7 +597,7 @@ wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                         }
 
                         if (request->flags.write_request.write_behind) {
-                                file->window_current -= request->write_size;
+                                wb_inode->window_current -= request->write_size;
 				total_write_size += request->write_size;
                         }
 
@@ -456,8 +605,8 @@ wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 }
 
                 if (op_ret == -1) {
-                        file->op_ret = op_ret;
-                        file->op_errno = op_errno;
+                        wb_inode->op_ret = op_ret;
+                        wb_inode->op_errno = op_errno;
 		} else if (op_ret < total_write_size) {
 			/*
 			 * We've encountered a short write, for whatever reason.
@@ -467,23 +616,21 @@ wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 			 * TODO: Retry the write so we can potentially capture
 			 * a real error condition (i.e., ENOSPC).
 			 */
-			file->op_ret = -1;
-			file->op_errno = EIO;
+			wb_inode->op_ret = -1;
+			wb_inode->op_errno = EIO;
 		}
-
-                fd = file->fd;
         }
-        UNLOCK (&file->lock);
+        UNLOCK (&wb_inode->lock);
 
-        ret = wb_process_queue (frame, file);
+        ret = wb_process_queue (frame, wb_inode);
         if (ret == -1) {
                 if (errno == ENOMEM) {
-                        LOCK (&file->lock);
+                        LOCK (&wb_inode->lock);
                         {
-                                file->op_ret = -1;
-                                file->op_errno = ENOMEM;
+                                wb_inode->op_ret = -1;
+                                wb_inode->op_errno = ENOMEM;
                         }
-                        UNLOCK (&file->lock);
+                        UNLOCK (&wb_inode->lock);
                 }
 
                 gf_log (this->name, GF_LOG_WARNING,
@@ -493,6 +640,12 @@ wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         /* safe place to do fd_unref */
         fd_unref (fd);
 
+        frame->local = NULL;
+
+        if (local != NULL) {
+                mem_put (frame->local);
+        }
+
         STACK_DESTROY (frame->root);
 
 out:
@@ -501,7 +654,7 @@ out:
 
 
 ssize_t
-wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
+wb_sync (call_frame_t *frame, wb_inode_t *wb_inode, list_head_t *winds)
 {
         wb_request_t  *dummy                = NULL, *request = NULL;
         wb_request_t  *first_request        = NULL, *next = NULL;
@@ -519,15 +672,15 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
         off_t          next_offset_expected = 0;
         gf_lkowner_t   lk_owner             = {0, };
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR ((file ? file->this->name
+        GF_VALIDATE_OR_GOTO_WITH_ERROR ((wb_inode ? wb_inode->this->name
                                          : "write-behind"), frame,
                                         out, bytes, -1);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, file, out, bytes,
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, wb_inode, out, bytes,
                                         -1);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, winds, out, bytes,
                                         -1);
 
-        conf = file->this->private;
+        conf = wb_inode->this->private;
         list_for_each_entry (request, winds, winds) {
                 total_count += request->stub->args.writev.count;
                 if (total_count > 0) {
@@ -536,8 +689,8 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
         }
 
         if (total_count == 0) {
-                gf_log (file->this->name, GF_LOG_TRACE, "no vectors are to be"
-                        "synced");
+                gf_log (wb_inode->this->name, GF_LOG_TRACE,
+                        "no vectors are to be synced");
                 goto out;
         }
 
@@ -604,7 +757,10 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                     || ((current_size + next->write_size)
                         > conf->aggregate_size)
                     || (next_offset_expected != next->stub->args.writev.off)
-                    || (!is_same_lkowner (&lk_owner, &next->lk_owner))) {
+                    || (!is_same_lkowner (&lk_owner, &next->lk_owner))
+                    || (request->stub->args.writev.fd
+                        != next->stub->args.writev.fd)) {
+
                         sync_frame = copy_frame (frame);
                         if (sync_frame == NULL) {
                                 bytes = -1;
@@ -615,15 +771,8 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                         frame->root->lk_owner = lk_owner;
 
                         sync_frame->local = local;
-                        local->file = file;
 
-                        LOCK (&file->lock);
-                        {
-                                fd = file->fd;
-                        }
-                        UNLOCK (&file->lock);
-
-                        fd_ref (fd);
+                        local->fd = fd = fd_ref (request->stub->args.writev.fd);
 
                         bytes += current_size;
                         STACK_WIND (sync_frame, wb_sync_cbk,
@@ -682,13 +831,13 @@ out:
                         }
                 }
 
-                if (file != NULL) {
-                        LOCK (&file->lock);
+                if (wb_inode != NULL) {
+                        LOCK (&wb_inode->lock);
                         {
-                                file->op_ret = -1;
-                                file->op_errno = op_errno;
+                                wb_inode->op_ret = -1;
+                                wb_inode->op_errno = op_errno;
                         }
-                        UNLOCK (&file->lock);
+                        UNLOCK (&wb_inode->lock);
                 }
         }
 
@@ -703,15 +852,14 @@ wb_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         wb_local_t   *local         = NULL;
         wb_request_t *request       = NULL;
         call_frame_t *process_frame = NULL;
-        wb_file_t    *file          = NULL;
+        wb_inode_t   *wb_inode      = NULL;
         int32_t       ret           = -1;
-        fd_t         *fd            = NULL;
 
         GF_ASSERT (frame);
         GF_ASSERT (this);
 
         local = frame->local;
-        file = local->file;
+        wb_inode = local->wb_inode;
 
         request = local->request;
         if (request) {
@@ -729,15 +877,15 @@ wb_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         }
 
         if (process_frame != NULL) {
-                ret = wb_process_queue (process_frame, file);
+                ret = wb_process_queue (process_frame, wb_inode);
                 if (ret == -1) {
-                        if ((errno == ENOMEM) && (file != NULL)) {
-                                LOCK (&file->lock);
+                        if ((errno == ENOMEM) && (wb_inode != NULL)) {
+                                LOCK (&wb_inode->lock);
                                 {
-                                        file->op_ret = -1;
-                                        file->op_errno = ENOMEM;
+                                        wb_inode->op_ret = -1;
+                                        wb_inode->op_errno = ENOMEM;
                                 }
-                                UNLOCK (&file->lock);
+                                UNLOCK (&wb_inode->lock);
                         }
 
                         gf_log (this->name, GF_LOG_WARNING,
@@ -745,16 +893,6 @@ wb_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 }
 
                 STACK_DESTROY (process_frame->root);
-        }
-
-        if (file) {
-                LOCK (&file->lock);
-                {
-                        fd = file->fd;
-                }
-                UNLOCK (&file->lock);
-
-                fd_unref (fd);
         }
 
         return 0;
@@ -776,29 +914,18 @@ wb_stat_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 int32_t
 wb_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-        wb_file_t    *file     = NULL;
-        fd_t         *iter_fd  = NULL;
-        wb_local_t   *local    = NULL;
-        uint64_t      tmp_file = 0;
-        call_stub_t  *stub     = NULL;
-        wb_request_t *request  = NULL;
-        int32_t       ret      = -1, op_errno = EINVAL;
+        wb_inode_t   *wb_inode     = NULL;
+        wb_local_t   *local        = NULL;
+        call_stub_t  *stub         = NULL;
+        wb_request_t *request      = NULL;
+        int32_t       ret          = -1, op_errno = EINVAL;
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
         GF_VALIDATE_OR_GOTO (frame->this->name, loc, unwind);
 
         if (loc->inode) {
-                /* FIXME: fd_lookup extends life of fd till stat returns */
-                iter_fd = fd_lookup (loc->inode, frame->root->pid);
-                if (iter_fd) {
-                        if (!fd_ctx_get (iter_fd, this, &tmp_file)) {
-                                file = (wb_file_t *)(long)tmp_file;
-                        } else {
-                                fd_unref (iter_fd);
-                                iter_fd = NULL;
-                        }
-                }
+                wb_inode = wb_inode_ctx_get (this, loc->inode);
         }
 
         local = mem_get0 (this->local_pool);
@@ -807,24 +934,24 @@ wb_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 goto unwind;
         }
 
-        local->file = file;
+        local->wb_inode = wb_inode;
 
         frame->local = local;
 
-        if (file) {
+        if (wb_inode) {
                 stub = fop_stat_stub (frame, wb_stat_helper, loc, xdata);
                 if (stub == NULL) {
                         op_errno = ENOMEM;
                         goto unwind;
                 }
 
-                request = wb_enqueue (file, stub);
+                request = wb_enqueue (wb_inode, stub);
                 if (request == NULL) {
                         op_errno = ENOMEM;
                         goto unwind;
                 }
 
-                ret = wb_process_queue (frame, file);
+                ret = wb_process_queue (frame, wb_inode);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "request queue processing failed");
@@ -842,10 +969,6 @@ unwind:
                 call_stub_destroy (stub);
         }
 
-        if (iter_fd != NULL) {
-                fd_unref (iter_fd);
-        }
-
         return 0;
 }
 
@@ -854,20 +977,20 @@ int32_t
 wb_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iatt *buf, dict_t *xdata)
 {
-        wb_local_t   *local   = NULL;
-        wb_request_t *request = NULL;
-        wb_file_t    *file    = NULL;
-        int32_t       ret     = -1;
+        wb_local_t   *local    = NULL;
+        wb_request_t *request  = NULL;
+        wb_inode_t   *wb_inode = NULL;
+        int32_t       ret      = -1;
 
         GF_ASSERT (frame);
 
         local = frame->local;
-        file = local->file;
+        wb_inode = local->wb_inode;
 
         request = local->request;
-        if ((file != NULL) && (request != NULL)) {
+        if ((wb_inode != NULL) && (request != NULL)) {
                 wb_request_unref (request);
-                ret = wb_process_queue (frame, file);
+                ret = wb_process_queue (frame, wb_inode);
                 if (ret == -1) {
                         if (errno == ENOMEM) {
                                 op_ret = -1;
@@ -900,30 +1023,23 @@ wb_fstat_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 int32_t
 wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
-        wb_file_t    *file     = NULL;
-        wb_local_t   *local    = NULL;
-        uint64_t      tmp_file = 0;
-        call_stub_t  *stub     = NULL;
-        wb_request_t *request  = NULL;
-        int32_t       ret      = -1;
-        int           op_errno = EINVAL;
+        wb_inode_t   *wb_inode     = NULL;
+        wb_local_t   *local        = NULL;
+        call_stub_t  *stub         = NULL;
+        wb_request_t *request      = NULL;
+        int32_t       ret          = -1;
+        int           op_errno     = EINVAL;
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
         GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
 
-
-        if ((!IA_ISDIR (fd->inode->ia_type))
-            && fd_ctx_get (fd, this, &tmp_file)) {
-                file = wb_file_create (this, fd, 0);
-        } else {
-                file = (wb_file_t *)(long)tmp_file;
-                if ((!IA_ISDIR (fd->inode->ia_type)) && (file == NULL)) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "wb_file not found for fd %p", fd);
-                        op_errno = EBADFD;
-                        goto unwind;
-                }
+        wb_inode = wb_inode_ctx_get (this, fd->inode);
+        if ((!IA_ISDIR (fd->inode->ia_type)) && (wb_inode == NULL)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "wb_inode not found for fd %p", fd);
+                op_errno = EBADFD;
+                goto unwind;
         }
 
         local = mem_get0 (this->local_pool);
@@ -932,18 +1048,18 @@ wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
                 goto unwind;
         }
 
-        local->file = file;
+        local->wb_inode = wb_inode;
 
         frame->local = local;
 
-        if (file) {
+        if (wb_inode) {
                 stub = fop_fstat_stub (frame, wb_fstat_helper, fd, xdata);
                 if (stub == NULL) {
                         op_errno = ENOMEM;
                         goto unwind;
                 }
 
-                request = wb_enqueue (file, stub);
+                request = wb_enqueue (wb_inode, stub);
                 if (request == NULL) {
                         op_errno = ENOMEM;
                         goto unwind;
@@ -952,7 +1068,7 @@ wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
                 /*
                   FIXME:should the request queue be emptied in case of error?
                 */
-                ret = wb_process_queue (frame, file);
+                ret = wb_process_queue (frame, wb_inode);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "request queue processing failed");
@@ -982,18 +1098,17 @@ wb_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         wb_local_t   *local         = NULL;
         wb_request_t *request       = NULL;
-        wb_file_t    *file          = NULL;
+        wb_inode_t   *wb_inode      = NULL;
         call_frame_t *process_frame = NULL;
         int32_t       ret           = -1;
-        fd_t         *fd            = NULL;
 
         GF_ASSERT (frame);
 
         local = frame->local;
-        file = local->file;
+        wb_inode = local->wb_inode;
         request = local->request;
 
-        if ((request != NULL) && (file != NULL)) {
+        if ((request != NULL) && (wb_inode != NULL)) {
                 process_frame = copy_frame (frame);
                 if (process_frame == NULL) {
                         op_ret = -1;
@@ -1009,15 +1124,15 @@ wb_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (process_frame != NULL) {
-                ret = wb_process_queue (process_frame, file);
+                ret = wb_process_queue (process_frame, wb_inode);
                 if (ret == -1) {
-                        if ((errno == ENOMEM) && (file != NULL)) {
-                                LOCK (&file->lock);
+                        if ((errno == ENOMEM) && (wb_inode != NULL)) {
+                                LOCK (&wb_inode->lock);
                                 {
-                                        file->op_ret = -1;
-                                        file->op_errno = ENOMEM;
+                                        wb_inode->op_ret = -1;
+                                        wb_inode->op_errno = ENOMEM;
                                 }
-                                UNLOCK (&file->lock);
+                                UNLOCK (&wb_inode->lock);
                         }
 
                         gf_log (this->name, GF_LOG_WARNING,
@@ -1025,16 +1140,6 @@ wb_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 STACK_DESTROY (process_frame->root);
-        }
-
-        if (file) {
-                LOCK (&file->lock);
-                {
-                        fd = file->fd;
-                }
-                UNLOCK (&file->lock);
-
-                fd_unref (fd);
         }
 
         return 0;
@@ -1059,31 +1164,18 @@ int32_t
 wb_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
              dict_t *xdata)
 {
-        wb_file_t    *file     = NULL;
-        fd_t         *iter_fd  = NULL;
-        wb_local_t   *local    = NULL;
-        uint64_t      tmp_file = 0;
-        call_stub_t  *stub     = NULL;
-        wb_request_t *request  = NULL;
-        int32_t       ret      = -1, op_errno = EINVAL;
+        wb_inode_t   *wb_inode     = NULL;
+        wb_local_t   *local        = NULL;
+        call_stub_t  *stub         = NULL;
+        wb_request_t *request      = NULL;
+        int32_t       ret          = -1, op_errno = EINVAL;
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
         GF_VALIDATE_OR_GOTO (frame->this->name, loc, unwind);
 
         if (loc->inode) {
-                /*
-                  FIXME: fd_lookup extends life of fd till the execution of
-                  truncate_cbk
-                */
-                iter_fd = fd_lookup (loc->inode, frame->root->pid);
-                if (iter_fd) {
-                        if (!fd_ctx_get (iter_fd, this, &tmp_file)){
-                                file = (wb_file_t *)(long)tmp_file;
-                        } else {
-                                fd_unref (iter_fd);
-                        }
-                }
+                wb_inode = wb_inode_ctx_get (this, loc->inode);
         }
 
         local = mem_get0 (this->local_pool);
@@ -1092,10 +1184,10 @@ wb_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                 goto unwind;
         }
 
-        local->file = file;
+        local->wb_inode = wb_inode;
 
         frame->local = local;
-        if (file) {
+        if (wb_inode) {
                 stub = fop_truncate_stub (frame, wb_truncate_helper, loc,
                                           offset, xdata);
                 if (stub == NULL) {
@@ -1103,13 +1195,13 @@ wb_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                         goto unwind;
                 }
 
-                request = wb_enqueue (file, stub);
+                request = wb_enqueue (wb_inode, stub);
                 if (request == NULL) {
                         op_errno = ENOMEM;
                         goto unwind;
                 }
 
-                ret = wb_process_queue (frame, file);
+                ret = wb_process_queue (frame, wb_inode);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "request queue processing failed");
@@ -1138,20 +1230,20 @@ wb_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                   struct iatt *postbuf, dict_t *xdata)
 {
-        wb_local_t   *local   = NULL;
-        wb_request_t *request = NULL;
-        wb_file_t    *file    = NULL;
-        int32_t       ret     = -1;
+        wb_local_t   *local    = NULL;
+        wb_request_t *request  = NULL;
+        wb_inode_t   *wb_inode = NULL;
+        int32_t       ret      = -1;
 
         GF_ASSERT (frame);
 
         local = frame->local;
-        file = local->file;
+        wb_inode = local->wb_inode;
         request = local->request;
 
-        if ((request != NULL) && (file != NULL)) {
+        if ((request != NULL) && (wb_inode != NULL)) {
                 wb_request_unref (request);
-                ret = wb_process_queue (frame, file);
+                ret = wb_process_queue (frame, wb_inode);
                 if (ret == -1) {
                         if (errno == ENOMEM) {
                                 op_ret = -1;
@@ -1187,30 +1279,23 @@ int32_t
 wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
               dict_t *xdata)
 {
-        wb_file_t    *file     = NULL;
-        wb_local_t   *local    = NULL;
-        uint64_t      tmp_file = 0;
-        call_stub_t  *stub     = NULL;
-        wb_request_t *request  = NULL;
-        int32_t       ret      = -1;
-        int           op_errno = EINVAL;
+        wb_inode_t   *wb_inode     = NULL;
+        wb_local_t   *local        = NULL;
+        call_stub_t  *stub         = NULL;
+        wb_request_t *request      = NULL;
+        int32_t       ret          = -1;
+        int           op_errno     = EINVAL;
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
         GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
 
-
-        if ((!IA_ISDIR (fd->inode->ia_type))
-            && fd_ctx_get (fd, this, &tmp_file)) {
-                file = wb_file_create (this, fd, 0);
-        } else {
-                file = (wb_file_t *)(long)tmp_file;
-                if ((!IA_ISDIR (fd->inode->ia_type)) && (file == NULL)) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "wb_file not found for fd %p", fd);
-                        op_errno = EBADFD;
-                        goto unwind;
-                }
+        wb_inode = wb_inode_ctx_get (this, fd->inode);
+        if ((!IA_ISDIR (fd->inode->ia_type)) && (wb_inode == NULL)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "wb_inode not found for fd %p", fd);
+                op_errno = EBADFD;
+                goto unwind;
         }
 
         local = mem_get0 (this->local_pool);
@@ -1219,11 +1304,11 @@ wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 goto unwind;
         }
 
-        local->file = file;
+        local->wb_inode = wb_inode;
 
         frame->local = local;
 
-        if (file) {
+        if (wb_inode) {
                 stub = fop_ftruncate_stub (frame, wb_ftruncate_helper, fd,
                                            offset, xdata);
                 if (stub == NULL) {
@@ -1231,13 +1316,13 @@ wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                         goto unwind;
                 }
 
-                request = wb_enqueue (file, stub);
+                request = wb_enqueue (wb_inode, stub);
                 if (request == NULL) {
                         op_errno = ENOMEM;
                         goto unwind;
                 }
 
-                ret = wb_process_queue (frame, file);
+                ret = wb_process_queue (frame, wb_inode);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "request queue processing failed");
@@ -1268,14 +1353,13 @@ wb_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         wb_local_t   *local         = NULL;
         wb_request_t *request       = NULL;
         call_frame_t *process_frame = NULL;
-        wb_file_t    *file          = NULL;
+        wb_inode_t   *wb_inode      = NULL;
         int32_t       ret           = -1;
-        fd_t         *fd            = NULL;
 
         GF_ASSERT (frame);
 
         local = frame->local;
-        file = local->file;
+        wb_inode = local->wb_inode;
         request = local->request;
 
         if (request) {
@@ -1294,15 +1378,15 @@ wb_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (request && (process_frame != NULL)) {
-                ret = wb_process_queue (process_frame, file);
+                ret = wb_process_queue (process_frame, wb_inode);
                 if (ret == -1) {
-                        if ((errno == ENOMEM) && (file != NULL)) {
-                                LOCK (&file->lock);
+                        if ((errno == ENOMEM) && (wb_inode != NULL)) {
+                                LOCK (&wb_inode->lock);
                                 {
-                                        file->op_ret = -1;
-                                        file->op_errno = ENOMEM;
+                                        wb_inode->op_ret = -1;
+                                        wb_inode->op_errno = ENOMEM;
                                 }
-                                UNLOCK (&file->lock);
+                                UNLOCK (&wb_inode->lock);
                         }
 
                         gf_log (this->name, GF_LOG_WARNING,
@@ -1310,16 +1394,6 @@ wb_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 STACK_DESTROY (process_frame->root);
-        }
-
-        if (file) {
-                LOCK (&file->lock);
-                {
-                        fd = file->fd;
-                }
-                UNLOCK (&file->lock);
-
-                fd_unref (fd);
         }
 
         return 0;
@@ -1343,13 +1417,11 @@ int32_t
 wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
             struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
-        wb_file_t    *file     = NULL;
-        fd_t         *iter_fd  = NULL;
-        wb_local_t   *local    = NULL;
-        uint64_t      tmp_file = 0;
-        call_stub_t  *stub     = NULL;
-        wb_request_t *request  = NULL;
-        int32_t       ret      = -1, op_errno = EINVAL;
+        wb_inode_t   *wb_inode     = NULL;
+        wb_local_t   *local        = NULL;
+        call_stub_t  *stub         = NULL;
+        wb_request_t *request      = NULL;
+        int32_t       ret          = -1, op_errno = EINVAL;
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
@@ -1364,24 +1436,12 @@ wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         frame->local = local;
 
         if (loc->inode) {
-                /*
-                  FIXME: fd_lookup extends life of fd till the execution
-                  of wb_utimens_cbk
-                */
-                iter_fd = fd_lookup (loc->inode, frame->root->pid);
-                if (iter_fd) {
-                        if (!fd_ctx_get (iter_fd, this, &tmp_file)) {
-                                file = (wb_file_t *)(long)tmp_file;
-                        } else {
-                                fd_unref (iter_fd);
-                        }
-                }
-
+                wb_inode = wb_inode_ctx_get (this, loc->inode);
         }
 
-        local->file = file;
+        local->wb_inode = wb_inode;
 
-        if (file) {
+        if (wb_inode) {
                 stub = fop_setattr_stub (frame, wb_setattr_helper, loc, stbuf,
                                          valid, xdata);
                 if (stub == NULL) {
@@ -1389,13 +1449,13 @@ wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         goto unwind;
                 }
 
-                request = wb_enqueue (file, stub);
+                request = wb_enqueue (wb_inode, stub);
                 if (request == NULL) {
                         op_errno = ENOMEM;
                         goto unwind;
                 }
 
-                ret = wb_process_queue (frame, file);
+                ret = wb_process_queue (frame, wb_inode);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "request queue processing failed");
@@ -1420,23 +1480,29 @@ unwind:
 void
 wb_disable_all (xlator_t *this, fd_t *origfd)
 {
-        inode_t *inode    = NULL;
-        fd_t    *otherfd  = NULL;
-        uint64_t tmp_file = 0;
+        inode_t   *inode   = NULL;
+        fd_t      *otherfd = NULL;
+        wb_file_t *wb_file = NULL;
 
         inode = origfd->inode;
+
         LOCK(&inode->lock);
-        list_for_each_entry (otherfd, &inode->fd_list, inode_list) {
-                if (otherfd == origfd) {
-                        continue;
+        {
+                list_for_each_entry (otherfd, &inode->fd_list, inode_list) {
+                        if (otherfd == origfd) {
+                                continue;
+                        }
+
+                        wb_file = wb_fd_ctx_get (this, otherfd);
+                        if (wb_file == NULL) {
+                                continue;
+                        }
+
+                        gf_log(this->name,GF_LOG_DEBUG,
+                               "disabling wb on %p because %p is O_SYNC",
+                               otherfd, origfd);
+                        wb_file->disabled = 1;
                 }
-                if (fd_ctx_get(otherfd,this,&tmp_file)) {
-                        continue;
-                }
-                gf_log(this->name,GF_LOG_DEBUG,
-                       "disabling wb on %p because %p is O_SYNC",
-                       otherfd, origfd);
-                ((wb_file_t *)(long)tmp_file)->disabled = 1;
         }
         UNLOCK(&inode->lock);
 }
@@ -1447,15 +1513,11 @@ wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 {
         int32_t     flags   = 0;
         wb_file_t  *file    = NULL;
-        wb_conf_t  *conf    = NULL;
         wb_local_t *local   = NULL;
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, this, out, op_errno,
                                         EINVAL);
-
-        conf = this->private;
-
         local = frame->local;
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, out, op_errno,
                                         EINVAL);
@@ -1469,30 +1531,14 @@ wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                         op_errno = ENOMEM;
                         goto out;
                 }
-
-                LOCK (&file->lock);
-                {
-                        /* If O_DIRECT then, we disable caching */
-                        if (((flags & O_DIRECT) == O_DIRECT)
-                            || ((flags & O_ACCMODE) == O_RDONLY)
-                            || (((flags & O_SYNC) == O_SYNC)
-                                && conf->enable_O_SYNC == _gf_true)) {
-                                gf_log(this->name,GF_LOG_DEBUG,
-                                       "disabling wb on %p", fd);
-                                file->disabled = 1;
-                                wb_disable_all(this,fd);
-                        }
-                        /* TODO: decide about wbflags's fate */
-                        /*
-                          else if (wbflags & GF_OPEN_NOWB) {
-                                file->disabled = 1;
-                        }
-                        */
-                }
-                UNLOCK (&file->lock);
         }
 
 out:
+        frame->local = NULL;
+        if (local != NULL) {
+                mem_put (local);
+        }
+
         STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd, xdata);
         return 0;
 }
@@ -1531,15 +1577,15 @@ wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                struct iatt *buf, struct iatt *preparent,
                struct iatt *postparent, dict_t *xdata)
 {
-        long       flags = 0;
-        wb_file_t *file  = NULL;
-        wb_conf_t *conf  = NULL;
+        long        flags    = 0;
+        wb_inode_t *wb_inode = NULL;
+        wb_file_t  *file     = NULL;
+        wb_local_t *local    = NULL;
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, this, out,
                                         op_errno, EINVAL);
 
-        conf = this->private;
         if (op_ret != -1) {
                 if (frame->local) {
                         flags = (long) frame->local;
@@ -1552,19 +1598,15 @@ wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto out;
                 }
 
-                LOCK (&file->lock);
+                LOCK (&inode->lock);
                 {
-                        /* If O_DIRECT then, we disable caching */
-                        if (frame->local) {
-                                if (((flags & O_DIRECT) == O_DIRECT)
-                                    || ((flags & O_ACCMODE) == O_RDONLY)
-                                    || (((flags & O_SYNC) == O_SYNC)
-                                        && (conf->enable_O_SYNC == _gf_true))) {
-                                        file->window_conf = 0;
-                                }
+                        wb_inode = __wb_inode_create (this, inode);
+                        if (wb_inode == NULL) {
+                                op_ret = -1;
+                                op_errno = ENOMEM;
                         }
                 }
-                UNLOCK (&file->lock);
+                UNLOCK (&inode->lock);
         }
 
         frame->local = NULL;
@@ -1572,6 +1614,11 @@ wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 out:
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
                              preparent, postparent, xdata);
+
+        if (local != NULL) {
+                mem_put (local);
+        }
+
         return 0;
 }
 
@@ -1580,14 +1627,23 @@ int32_t
 wb_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
            mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
 {
-        int32_t op_errno = EINVAL;
+        int32_t     op_errno = EINVAL;
+        wb_local_t *local    = NULL;
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
         GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
         GF_VALIDATE_OR_GOTO (frame->this->name, loc, unwind);
 
-        frame->local = (void *)(long)flags;
+        local = mem_get0 (this->local_pool);
+        if (local == NULL) {
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+
+        local->flags = flags;
+
+        frame->local = local;
 
         STACK_WIND (frame, wb_create_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->create,
@@ -1607,19 +1663,22 @@ unwind:
  * will fit into a single write call to server.
  */
 size_t
-__wb_mark_wind_all (wb_file_t *file, list_head_t *list, list_head_t *winds)
+__wb_mark_wind_all (wb_inode_t *wb_inode, list_head_t *list, list_head_t *winds)
 {
-        wb_request_t *request           = NULL;
-        size_t        size              = 0;
-        char          first_request     = 1, overlap = 0;
-        wb_conf_t    *conf              = NULL;
-        int           count             = 0;
+        wb_request_t     *request       = NULL, *prev_request = NULL;
+        wb_file_t        *wb_file       = NULL, *prev_wb_file = NULL;
+        wb_file_t        *last_wb_file  = NULL;
+        size_t            size          = 0;
+        char              first_request = 1, overlap = 0;
+        wb_conf_t        *conf          = NULL;
+        int               count         = 0;
+        enum _gf_boolean  dont_wind_set = 0;
 
-        GF_VALIDATE_OR_GOTO ("write-behind", file, out);
-        GF_VALIDATE_OR_GOTO (file->this->name, list, out);
-        GF_VALIDATE_OR_GOTO (file->this->name, winds, out);
+        GF_VALIDATE_OR_GOTO ("write-behind", wb_inode, out);
+        GF_VALIDATE_OR_GOTO (wb_inode->this->name, list, out);
+        GF_VALIDATE_OR_GOTO (wb_inode->this->name, winds, out);
 
-        conf = file->this->private;
+        conf = wb_inode->this->private;
 
         list_for_each_entry (request, list, list)
         {
@@ -1628,25 +1687,60 @@ __wb_mark_wind_all (wb_file_t *file, list_head_t *list, list_head_t *winds)
                         break;
                 }
 
+                wb_file = wb_fd_ctx_get (wb_inode->this,
+                                         request->stub->args.writev.fd);
+                if (wb_file == NULL) {
+                        gf_log (wb_inode->this->name, GF_LOG_WARNING,
+                                "write behind wb_file pointer is"
+                                " not stored in context of fd(%p)",
+                                request->stub->args.writev.fd);
+                        goto out;
+                }
+
+                /* If write requests from two fds are interleaved, for
+                 * each of them, we can only send first set of adjacent
+                 * requests that are on same fd. This is because, fds
+                 * with O_APPEND cannot have more than one write fop in
+                 * progress while syncing, so that order is not messed
+                 * up. Since we group adjacent requests with same fd into
+                 * single write call whenever possible, we need the above said
+                 * measure.
+                 */
+                if ((prev_wb_file != NULL) && (prev_wb_file->flags & O_APPEND)
+                    && (prev_request->stub->args.writev.fd
+                        != request->stub->args.writev.fd)
+                    && (!prev_wb_file->dont_wind)) {
+                        prev_wb_file->dont_wind = 1;
+                        dont_wind_set = 1;
+                        last_wb_file = prev_wb_file;
+                }
+
+                prev_request = request;
+                prev_wb_file = wb_file;
+
                 if (!request->flags.write_request.stack_wound) {
                         if (first_request) {
                                 first_request = 0;
                         } else {
                                 overlap = wb_overlap (list, request);
                                 if (overlap) {
-                                        goto out;
+                                        continue;
                                 }
                         }
 
-                        if ((file->flags & O_APPEND)
+                        if ((wb_file->flags & O_APPEND)
                             && (((size + request->write_size)
                                  > conf->aggregate_size)
                                 || ((count + request->stub->args.writev.count)
-                                    > MAX_VECTOR_COUNT))) {
-                                goto out;
+                                    > MAX_VECTOR_COUNT)
+                                || (wb_file->dont_wind))) {
+                                continue;
                         }
 
                         size += request->write_size;
+
+                        wb_inode->aggregate_current -= request->write_size;
+
                         count += request->stub->args.writev.count;
 
                         request->flags.write_request.stack_wound = 1;
@@ -1655,8 +1749,22 @@ __wb_mark_wind_all (wb_file_t *file, list_head_t *list, list_head_t *winds)
         }
 
 out:
-        if (file != NULL) {
-                file->aggregate_current -= size;
+        if (wb_inode != NULL) {
+                wb_inode->aggregate_current -= size;
+        }
+
+        if (dont_wind_set && (list != NULL)) {
+                list_for_each_entry (request, list, list) {
+                        wb_file = wb_fd_ctx_get (wb_inode->this,
+                                                 request->stub->args.writev.fd);
+                        if (wb_file != NULL) {
+                                wb_file->dont_wind = 0;
+                        }
+
+                        if (wb_file == last_wb_file) {
+                                break;
+                        }
+                }
         }
 
         return size;
@@ -1729,7 +1837,7 @@ __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf,
         char          incomplete_writes      = 0;
         char          overlapping_writes     = 0;
         wb_request_t *request                = NULL;
-        wb_file_t    *file                   = NULL;
+        wb_inode_t   *wb_inode               = NULL;
         char          wind_all               = 0;
         int32_t       ret                    = 0;
 
@@ -1741,13 +1849,13 @@ __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf,
         }
 
         request = list_entry (list->next, typeof (*request), list);
-        file = request->file;
+        wb_inode = request->wb_inode;
 
         ret = __wb_can_wind (list, &other_fop_in_queue,
                              &overlapping_writes, &incomplete_writes,
                              &wind_all);
         if (ret == -1) {
-                gf_log (file->this->name, GF_LOG_WARNING,
+                gf_log (wb_inode->this->name, GF_LOG_WARNING,
                         "cannot decide whether to wind or not");
                 goto out;
         }
@@ -1755,9 +1863,9 @@ __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf,
         if (!incomplete_writes && ((enable_trickling_writes)
                                    || (wind_all) || (overlapping_writes)
                                    || (other_fop_in_queue)
-                                   || (file->aggregate_current
+                                   || (wb_inode->aggregate_current
                                        >= aggregate_conf))) {
-                size = __wb_mark_wind_all (file, list, winds);
+                size = __wb_mark_wind_all (wb_inode, list, winds);
         }
 
 out:
@@ -1770,14 +1878,14 @@ __wb_mark_unwind_till (list_head_t *list, list_head_t *unwinds, size_t size)
 {
         size_t        written_behind = 0;
         wb_request_t *request        = NULL;
-        wb_file_t    *file           = NULL;
+        wb_inode_t   *wb_inode       = NULL;
 
         if (list_empty (list)) {
                 goto out;
         }
 
         request = list_entry (list->next, typeof (*request), list);
-        file = request->file;
+        wb_inode = request->wb_inode;
 
         list_for_each_entry (request, list, list)
         {
@@ -1793,7 +1901,7 @@ __wb_mark_unwind_till (list_head_t *list, list_head_t *unwinds, size_t size)
                                 list_add_tail (&request->unwinds, unwinds);
 
                                 if (!request->flags.write_request.got_reply) {
-                                        file->window_current
+                                        wb_inode->window_current
                                                 += request->write_size;
                                 }
                         }
@@ -1810,8 +1918,8 @@ out:
 void
 __wb_mark_unwinds (list_head_t *list, list_head_t *unwinds)
 {
-        wb_request_t *request = NULL;
-        wb_file_t    *file    = NULL;
+        wb_request_t *request  = NULL;
+        wb_inode_t   *wb_inode = NULL;
 
         GF_VALIDATE_OR_GOTO ("write-behind", list, out);
         GF_VALIDATE_OR_GOTO ("write-behind", unwinds, out);
@@ -1821,12 +1929,12 @@ __wb_mark_unwinds (list_head_t *list, list_head_t *unwinds)
         }
 
         request = list_entry (list->next, typeof (*request), list);
-        file = request->file;
+        wb_inode = request->wb_inode;
 
-        if (file->window_current <= file->window_conf) {
+        if (wb_inode->window_current <= wb_inode->window_conf) {
                 __wb_mark_unwind_till (list, unwinds,
-                                       file->window_conf
-                                       - file->window_current);
+                                       wb_inode->window_conf
+                                       - wb_inode->window_current);
         }
 
 out:
@@ -1892,7 +2000,7 @@ out:
 
 
 int32_t
-wb_resume_other_requests (call_frame_t *frame, wb_file_t *file,
+wb_resume_other_requests (call_frame_t *frame, wb_inode_t *wb_inode,
                           list_head_t *other_requests)
 {
         int32_t       ret          = -1;
@@ -1901,9 +2009,9 @@ wb_resume_other_requests (call_frame_t *frame, wb_file_t *file,
         char          wind         = 0;
         call_stub_t  *stub         = NULL;
 
-        GF_VALIDATE_OR_GOTO ((file ? file->this->name : "write-behind"), frame,
-                             out);
-        GF_VALIDATE_OR_GOTO (frame->this->name, file, out);
+        GF_VALIDATE_OR_GOTO ((wb_inode ? wb_inode->this->name : "write-behind"),
+                             frame, out);
+        GF_VALIDATE_OR_GOTO (frame->this->name, wb_inode, out);
         GF_VALIDATE_OR_GOTO (frame->this->name, other_requests, out);
 
         if (list_empty (other_requests)) {
@@ -1916,11 +2024,11 @@ wb_resume_other_requests (call_frame_t *frame, wb_file_t *file,
                 wind = request->stub->wind;
                 stub = request->stub;
 
-                LOCK (&file->lock);
+                LOCK (&wb_inode->lock);
                 {
                         request->stub = NULL;
                 }
-                UNLOCK (&file->lock);
+                UNLOCK (&wb_inode->lock);
 
                 if (!wind) {
                         wb_request_unref (request);
@@ -1933,7 +2041,7 @@ wb_resume_other_requests (call_frame_t *frame, wb_file_t *file,
         ret = 0;
 
         if (fops_removed > 0) {
-                ret = wb_process_queue (frame, file);
+                ret = wb_process_queue (frame, wb_inode);
                 if (ret == -1) {
                         gf_log (frame->this->name, GF_LOG_WARNING,
                                 "request queue processing failed");
@@ -1946,26 +2054,26 @@ out:
 
 
 int32_t
-wb_do_ops (call_frame_t *frame, wb_file_t *file, list_head_t *winds,
+wb_do_ops (call_frame_t *frame, wb_inode_t *wb_inode, list_head_t *winds,
            list_head_t *unwinds, list_head_t *other_requests)
 {
         int32_t ret = -1, write_requests_removed = 0;
 
-        GF_VALIDATE_OR_GOTO ((file ? file->this->name : "write-behind"),
+        GF_VALIDATE_OR_GOTO ((wb_inode ? wb_inode->this->name : "write-behind"),
                              frame, out);
-        GF_VALIDATE_OR_GOTO (frame->this->name, file, out);
+        GF_VALIDATE_OR_GOTO (frame->this->name, wb_inode, out);
 
         ret = wb_stack_unwind (unwinds);
 
         write_requests_removed = ret;
 
-        ret = wb_sync (frame, file, winds);
+        ret = wb_sync (frame, wb_inode, winds);
         if (ret == -1) {
                 gf_log (frame->this->name, GF_LOG_WARNING,
                         "syncing of write requests failed");
         }
 
-        ret = wb_resume_other_requests (frame, file, other_requests);
+        ret = wb_resume_other_requests (frame, wb_inode, other_requests);
         if (ret == -1) {
                 gf_log (frame->this->name, GF_LOG_WARNING,
                         "cannot resume non-write requests in request queue");
@@ -1977,7 +2085,7 @@ wb_do_ops (call_frame_t *frame, wb_file_t *file, list_head_t *winds,
          * blocked on the writes just unwound.
          */
         if (write_requests_removed > 0) {
-                ret = wb_process_queue (frame, file);
+                ret = wb_process_queue (frame, wb_inode);
                 if (ret == -1) {
                         gf_log (frame->this->name, GF_LOG_WARNING,
                                 "request queue processing failed");
@@ -1999,7 +2107,7 @@ __wb_copy_into_holder (wb_request_t *holder, wb_request_t *request)
 
         if (holder->flags.write_request.virgin) {
                 /* TODO: check the required size */
-                iobuf = iobuf_get (request->file->this->ctx->iobuf_pool);
+                iobuf = iobuf_get (request->wb_inode->this->ctx->iobuf_pool);
                 if (iobuf == NULL) {
                         goto out;
                 }
@@ -2014,7 +2122,7 @@ __wb_copy_into_holder (wb_request_t *holder, wb_request_t *request)
                 if (ret != 0) {
                         iobuf_unref (iobuf);
                         iobref_unref (iobref);
-                        gf_log (request->file->this->name, GF_LOG_WARNING,
+                        gf_log (request->wb_inode->this->name, GF_LOG_WARNING,
                                 "cannot add iobuf (%p) into iobref (%p)",
                                 iobuf, iobref);
                         goto out;
@@ -2041,7 +2149,7 @@ __wb_copy_into_holder (wb_request_t *holder, wb_request_t *request)
         holder->write_size += request->write_size;
 
         request->flags.write_request.stack_wound = 1;
-        list_move_tail (&request->list, &request->file->passive_requests);
+        list_move_tail (&request->list, &request->wb_inode->passive_requests);
 
         ret = 0;
 out:
@@ -2079,7 +2187,9 @@ __wb_collapse_write_bufs (list_head_t *requests, size_t page_size)
 
                         if ((request->stub->args.writev.off != offset_expected)
                             || (!is_same_lkowner (&request->lk_owner,
-                                                  &holder->lk_owner))) {
+                                                  &holder->lk_owner))
+                            || (holder->stub->args.writev.fd
+                                != request->stub->args.writev.fd)) {
                                 holder = request;
                                 continue;
                         }
@@ -2107,7 +2217,7 @@ out:
 
 
 int32_t
-wb_process_queue (call_frame_t *frame, wb_file_t *file)
+wb_process_queue (call_frame_t *frame, wb_inode_t *wb_inode)
 {
         list_head_t winds  = {0, }, unwinds = {0, }, other_requests = {0, };
         size_t      size   = 0;
@@ -2119,15 +2229,15 @@ wb_process_queue (call_frame_t *frame, wb_file_t *file)
         INIT_LIST_HEAD (&unwinds);
         INIT_LIST_HEAD (&other_requests);
 
-        GF_VALIDATE_OR_GOTO ((file ? file->this->name : "write-behind"), frame,
-                             out);
-        GF_VALIDATE_OR_GOTO (file->this->name, frame, out);
+        GF_VALIDATE_OR_GOTO ((wb_inode ? wb_inode->this->name : "write-behind"),
+                             frame, out);
+        GF_VALIDATE_OR_GOTO (wb_inode->this->name, frame, out);
 
-        conf = file->this->private;
-        GF_VALIDATE_OR_GOTO (file->this->name, conf, out);
+        conf = wb_inode->this->private;
+        GF_VALIDATE_OR_GOTO (wb_inode->this->name, conf, out);
 
         size = conf->aggregate_size;
-        LOCK (&file->lock);
+        LOCK (&wb_inode->lock);
         {
                 /*
                  * make sure requests are marked for unwinding and adjacent
@@ -2135,23 +2245,23 @@ wb_process_queue (call_frame_t *frame, wb_file_t *file)
                  * an iobuf) are packed properly so that iobufs are filled to
                  * their maximum capacity, before calling __wb_mark_winds.
                  */
-                __wb_mark_unwinds (&file->request, &unwinds);
+                __wb_mark_unwinds (&wb_inode->request, &unwinds);
 
-                __wb_collapse_write_bufs (&file->request,
-                                          file->this->ctx->page_size);
+                __wb_collapse_write_bufs (&wb_inode->request,
+                                          wb_inode->this->ctx->page_size);
 
-                count = __wb_get_other_requests (&file->request,
+                count = __wb_get_other_requests (&wb_inode->request,
                                                  &other_requests);
 
                 if (count == 0) {
-                        __wb_mark_winds (&file->request, &winds, size,
+                        __wb_mark_winds (&wb_inode->request, &winds, size,
                                          conf->enable_trickling_writes);
                 }
 
         }
-        UNLOCK (&file->lock);
+        UNLOCK (&wb_inode->lock);
 
-        ret = wb_do_ops (frame, file, &winds, &unwinds, &other_requests);
+        ret = wb_do_ops (frame, wb_inode, &winds, &unwinds, &other_requests);
 
 out:
         return ret;
@@ -2176,15 +2286,15 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
            int32_t count, off_t offset, uint32_t flags, struct iobref *iobref,
            dict_t *xdata)
 {
-        wb_file_t    *file          = NULL;
+        wb_inode_t   *wb_inode      = NULL;
+        wb_file_t    *wb_file       = NULL;
         char          wb_disabled   = 0;
         call_frame_t *process_frame = NULL;
-        size_t        size          = 0;
-        uint64_t      tmp_file      = 0;
         call_stub_t  *stub          = NULL;
         wb_local_t   *local         = NULL;
         wb_request_t *request       = NULL;
         int32_t       ret           = -1;
+        size_t        size          = 0;
         int32_t       op_ret        = -1, op_errno = EINVAL;
 
         GF_ASSERT (frame);
@@ -2194,49 +2304,44 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, fd, unwind, op_errno,
                                         EINVAL);
 
-        if (vector != NULL)
+        if (vector != NULL) {
                 size = iov_length (vector, count);
-
-        if ((!IA_ISDIR (fd->inode->ia_type))
-            && fd_ctx_get (fd, this, &tmp_file)) {
-                file = wb_file_create (this, fd, 0);
-        } else {
-                file = (wb_file_t *)(long)tmp_file;
-                if ((!IA_ISDIR (fd->inode->ia_type)) && (file == NULL)) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "wb_file not found for fd %p", fd);
-                        op_errno = EBADFD;
-                        goto unwind;
-                }
         }
 
-        if (file != NULL) {
-                LOCK (&file->lock);
-                {
-                        op_ret = file->op_ret;
-                        op_errno = file->op_errno;
+        wb_inode = wb_inode_ctx_get (this, fd->inode);
+        if ((!IA_ISDIR (fd->inode->ia_type)) && (wb_inode == NULL)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "write behind wb_inode pointer is"
+                        " not stored in context of inode(%p), returning EBADFD",
+                        fd->inode);
+                op_errno = EBADFD;
+                goto unwind;
+        }
 
-                        file->op_ret = 0;
-
-                        if ((op_ret == 0)
-                            && (file->disabled || file->disable_till)) {
-                                if (size > file->disable_till) {
-                                        file->disable_till = 0;
-                                } else {
-                                        file->disable_till -= size;
-                                }
-                                wb_disabled = 1;
+        if (wb_file != NULL) {
+                if (wb_file->disabled || wb_file->disable_till) {
+                        if (size > wb_file->disable_till) {
+                                wb_file->disable_till = 0;
+                        } else {
+                                wb_file->disable_till -= size;
                         }
+                        wb_disabled = 1;
                 }
-                UNLOCK (&file->lock);
         } else {
                 wb_disabled = 1;
         }
 
+        if (wb_inode != NULL) {
+                LOCK (&wb_inode->lock);
+                {
+                        op_ret = wb_inode->op_ret;
+                        op_errno = wb_inode->op_errno;
+                }
+                UNLOCK (&wb_inode->lock);
+        }
+
         if (op_ret == -1) {
-                STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, NULL,
-                                     NULL, NULL);
-                return 0;
+                goto unwind;
         }
 
         if (wb_disabled) {
@@ -2259,7 +2364,7 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         }
 
         frame->local = local;
-        local->file = file;
+        local->wb_inode = wb_inode;
 
         stub = fop_writev_stub (frame, NULL, fd, vector, count, offset, flags,
                                 iobref, xdata);
@@ -2268,13 +2373,13 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
                 goto unwind;
         }
 
-        request = wb_enqueue (file, stub);
+        request = wb_enqueue (wb_inode, stub);
         if (request == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
         }
 
-        ret = wb_process_queue (process_frame, file);
+        ret = wb_process_queue (process_frame, wb_inode);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "request queue processing failed");
@@ -2285,6 +2390,10 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         return 0;
 
 unwind:
+        local = frame->local;
+        frame->local = NULL;
+        mem_put (local);
+
         STACK_UNWIND_STRICT (writev, frame, -1, op_errno, NULL, NULL, NULL);
 
         if (process_frame) {
@@ -2304,21 +2413,21 @@ wb_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iovec *vector, int32_t count,
               struct iatt *stbuf, struct iobref *iobref, dict_t *xdata)
 {
-        wb_local_t   *local   = NULL;
-        wb_file_t    *file    = NULL;
-        wb_request_t *request = NULL;
-        int32_t       ret     = 0;
+        wb_local_t   *local    = NULL;
+        wb_inode_t   *wb_inode = NULL;
+        wb_request_t *request  = NULL;
+        int32_t       ret      = 0;
 
         GF_ASSERT (frame);
 
         local = frame->local;
-        file = local->file;
+        wb_inode = local->wb_inode;
         request = local->request;
 
-        if ((request != NULL) && (file != NULL)) {
+        if ((request != NULL) && (wb_inode != NULL)) {
                 wb_request_unref (request);
 
-                ret = wb_process_queue (frame, file);
+                ret = wb_process_queue (frame, wb_inode);
                 if (ret == -1) {
                         if (errno == ENOMEM) {
                                 op_ret = -1;
@@ -2353,12 +2462,11 @@ int32_t
 wb_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
           off_t offset, uint32_t flags, dict_t *xdata)
 {
-        wb_file_t    *file     = NULL;
-        wb_local_t   *local    = NULL;
-        uint64_t      tmp_file = 0;
-        call_stub_t  *stub     = NULL;
-        int32_t       ret      = -1, op_errno = 0;
-        wb_request_t *request  = NULL;
+        wb_inode_t   *wb_inode     = NULL;
+        wb_local_t   *local        = NULL;
+        call_stub_t  *stub         = NULL;
+        int32_t       ret          = -1, op_errno = 0;
+        wb_request_t *request      = NULL;
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, this, unwind,
@@ -2366,17 +2474,14 @@ wb_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, fd, unwind, op_errno,
                                         EINVAL);
 
-        if ((!IA_ISDIR (fd->inode->ia_type))
-            && fd_ctx_get (fd, this, &tmp_file)) {
-                file = wb_file_create (this, fd, 0);
-        } else {
-                file = (wb_file_t *)(long)tmp_file;
-                if ((!IA_ISDIR (fd->inode->ia_type)) && (file == NULL)) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "wb_file not found for fd %p", fd);
-                        op_errno = EBADFD;
-                        goto unwind;
-                }
+        wb_inode = wb_inode_ctx_get (this, fd->inode);
+        if ((!IA_ISDIR (fd->inode->ia_type)) && (wb_inode == NULL)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "write behind wb_inode pointer is"
+                        " not stored in context of inode(%p), returning "
+                        "EBADFD", fd->inode);
+                op_errno = EBADFD;
+                goto unwind;
         }
 
         local = mem_get0 (this->local_pool);
@@ -2385,10 +2490,10 @@ wb_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 goto unwind;
         }
 
-        local->file = file;
+        local->wb_inode = wb_inode;
 
         frame->local = local;
-        if (file) {
+        if (wb_inode) {
                 stub = fop_readv_stub (frame, wb_readv_helper, fd, size,
                                        offset, flags, xdata);
                 if (stub == NULL) {
@@ -2396,14 +2501,14 @@ wb_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                         goto unwind;
                 }
 
-                request = wb_enqueue (file, stub);
+                request = wb_enqueue (wb_inode, stub);
                 if (request == NULL) {
                         call_stub_destroy (stub);
                         op_errno = ENOMEM;
                         goto unwind;
                 }
 
-                ret = wb_process_queue (frame, file);
+                ret = wb_process_queue (frame, wb_inode);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "request queue processing failed");
@@ -2436,25 +2541,25 @@ int32_t
 wb_ffr_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
             int32_t op_errno, dict_t *xdata)
 {
-        wb_local_t *local = NULL;
-        wb_file_t  *file  = NULL;
+        wb_local_t *local    = NULL;
+        wb_inode_t *wb_inode = NULL;
 
         GF_ASSERT (frame);
 
         local = frame->local;
-        file = local->file;
+        wb_inode = local->wb_inode;
 
-        if (file != NULL) {
-                LOCK (&file->lock);
+        if (wb_inode != NULL) {
+                LOCK (&wb_inode->lock);
                 {
-                        if (file->op_ret == -1) {
-                                op_ret = file->op_ret;
-                                op_errno = file->op_errno;
+                        if (wb_inode->op_ret == -1) {
+                                op_ret = wb_inode->op_ret;
+                                op_errno = wb_inode->op_errno;
 
-                                file->op_ret = 0;
+                                wb_inode->op_ret = 0;
                         }
                 }
-                UNLOCK (&file->lock);
+                UNLOCK (&wb_inode->lock);
         }
 
         STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno, xdata);
@@ -2468,7 +2573,7 @@ wb_flush_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
         wb_conf_t    *conf        = NULL;
         wb_local_t   *local       = NULL;
-        wb_file_t    *file        = NULL;
+        wb_inode_t   *wb_inode    = NULL;
         call_frame_t *flush_frame = NULL, *process_frame = NULL;
         int32_t       op_ret      = -1, op_errno = -1, ret = -1;
 
@@ -2479,14 +2584,14 @@ wb_flush_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         conf = this->private;
 
         local = frame->local;
-        file = local->file;
+        wb_inode = local->wb_inode;
 
-        LOCK (&file->lock);
+        LOCK (&wb_inode->lock);
         {
-                op_ret = file->op_ret;
-                op_errno = file->op_errno;
+                op_ret = wb_inode->op_ret;
+                op_errno = wb_inode->op_errno;
         }
-        UNLOCK (&file->lock);
+        UNLOCK (&wb_inode->lock);
 
         if (local && local->request) {
                 process_frame = copy_frame (frame);
@@ -2513,7 +2618,7 @@ wb_flush_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         }
 
         if (process_frame != NULL) {
-                ret = wb_process_queue (process_frame, file);
+                ret = wb_process_queue (process_frame, wb_inode);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "request queue processing failed");
@@ -2537,14 +2642,13 @@ unwind:
 int32_t
 wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
-        wb_conf_t    *conf        = NULL;
-        wb_file_t    *file        = NULL;
-        wb_local_t   *local       = NULL;
-        uint64_t      tmp_file    = 0;
-        call_stub_t  *stub        = NULL;
-        call_frame_t *flush_frame = NULL;
-        wb_request_t *request     = NULL;
-        int32_t       ret         = 0, op_errno = 0;
+        wb_conf_t    *conf         = NULL;
+        wb_inode_t   *wb_inode     = NULL;
+        wb_local_t   *local        = NULL;
+        call_stub_t  *stub         = NULL;
+        call_frame_t *flush_frame  = NULL;
+        wb_request_t *request      = NULL;
+        int32_t       ret          = 0, op_errno = 0;
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, this, unwind,
@@ -2554,28 +2658,24 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 
         conf = this->private;
 
-
-        if ((!IA_ISDIR (fd->inode->ia_type))
-            && fd_ctx_get (fd, this, &tmp_file)) {
-                file = wb_file_create (this, fd, 0);
-        } else {
-                file = (wb_file_t *)(long)tmp_file;
-                if ((!IA_ISDIR (fd->inode->ia_type)) && (file == NULL)) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "wb_file not found for fd %p", fd);
-                        op_errno = EBADFD;
-                        goto unwind;
-                }
+        wb_inode = wb_inode_ctx_get (this, fd->inode);
+        if ((!IA_ISDIR (fd->inode->ia_type)) && (wb_inode == NULL)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "write behind wb_inode pointer is"
+                        " not stored in context of inode(%p), "
+                        "returning EBADFD", fd->inode);
+                op_errno = EBADFD;
+                goto unwind;
         }
 
-        if (file != NULL) {
+        if (wb_inode != NULL) {
                 local = mem_get0 (this->local_pool);
                 if (local == NULL) {
                         op_errno = ENOMEM;
                         goto unwind;
                 }
 
-                local->file = file;
+                local->wb_inode = wb_inode;
 
                 frame->local = local;
 
@@ -2585,14 +2685,14 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
                         goto unwind;
                 }
 
-                request = wb_enqueue (file, stub);
+                request = wb_enqueue (wb_inode, stub);
                 if (request == NULL) {
                         call_stub_destroy (stub);
                         op_errno = ENOMEM;
                         goto unwind;
                 }
 
-                ret = wb_process_queue (frame, file);
+                ret = wb_process_queue (frame, wb_inode);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "request queue processing failed");
@@ -2629,32 +2729,32 @@ wb_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iatt *prebuf, struct iatt *postbuf,
               dict_t *xdata)
 {
-        wb_local_t   *local   = NULL;
-        wb_file_t    *file    = NULL;
-        wb_request_t *request = NULL;
-        int32_t       ret     = -1;
+        wb_local_t   *local    = NULL;
+        wb_inode_t   *wb_inode = NULL;
+        wb_request_t *request  = NULL;
+        int32_t       ret      = -1;
 
         GF_ASSERT (frame);
 
         local = frame->local;
-        file = local->file;
+        wb_inode = local->wb_inode;
         request = local->request;
 
-        if (file != NULL) {
-                LOCK (&file->lock);
+        if (wb_inode != NULL) {
+                LOCK (&wb_inode->lock);
                 {
-                        if (file->op_ret == -1) {
-                                op_ret = file->op_ret;
-                                op_errno = file->op_errno;
+                        if (wb_inode->op_ret == -1) {
+                                op_ret = wb_inode->op_ret;
+                                op_errno = wb_inode->op_errno;
 
-                                file->op_ret = 0;
+                                wb_inode->op_ret = 0;
                         }
                 }
-                UNLOCK (&file->lock);
+                UNLOCK (&wb_inode->lock);
 
                 if (request) {
                         wb_request_unref (request);
-                        ret = wb_process_queue (frame, file);
+                        ret = wb_process_queue (frame, wb_inode);
                         if (ret == -1) {
                                 if (errno == ENOMEM) {
                                         op_ret = -1;
@@ -2689,12 +2789,11 @@ int32_t
 wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
           dict_t *xdata)
 {
-        wb_file_t    *file     = NULL;
-        wb_local_t   *local    = NULL;
-        uint64_t      tmp_file = 0;
-        call_stub_t  *stub     = NULL;
-        wb_request_t *request  = NULL;
-        int32_t       ret      = -1, op_errno = 0;
+        wb_inode_t   *wb_inode     = NULL;
+        wb_local_t   *local        = NULL;
+        call_stub_t  *stub         = NULL;
+        wb_request_t *request      = NULL;
+        int32_t       ret          = -1, op_errno = 0;
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, this, unwind,
@@ -2702,18 +2801,14 @@ wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
         GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, fd, unwind,
                                         op_errno, EINVAL);
 
-
-        if ((!IA_ISDIR (fd->inode->ia_type))
-            && fd_ctx_get (fd, this, &tmp_file)) {
-                file = wb_file_create (this, fd, 0);
-        } else {
-                file = (wb_file_t *)(long)tmp_file;
-                if ((!IA_ISDIR (fd->inode->ia_type)) && (file == NULL)) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "wb_file not found for fd %p", fd);
-                        op_errno = EBADFD;
-                        goto unwind;
-                }
+        wb_inode = wb_inode_ctx_get (this, fd->inode);
+        if ((!IA_ISDIR (fd->inode->ia_type))) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "write behind wb_inode pointer is"
+                        " not stored in context of inode(%p), "
+                        "returning EBADFD", fd->inode);
+                op_errno = EBADFD;
+                goto unwind;
         }
 
         local = mem_get0 (this->local_pool);
@@ -2722,11 +2817,9 @@ wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
                 goto unwind;
         }
 
-        local->file = file;
-
         frame->local = local;
 
-        if (file) {
+        if (wb_inode) {
                 stub = fop_fsync_stub (frame, wb_fsync_helper, fd, datasync,
                                        xdata);
                 if (stub == NULL) {
@@ -2734,21 +2827,22 @@ wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
                         goto unwind;
                 }
 
-                request = wb_enqueue (file, stub);
+                request = wb_enqueue (wb_inode, stub);
                 if (request == NULL) {
                         op_errno = ENOMEM;
                         call_stub_destroy (stub);
                         goto unwind;
                 }
 
-                ret = wb_process_queue (frame, file);
+                ret = wb_process_queue (frame, wb_inode);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "request queue processing failed");
                 }
         } else {
                 STACK_WIND (frame, wb_fsync_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->fsync, fd, datasync, xdata);
+                            FIRST_CHILD(this)->fops->fsync, fd, datasync,
+                            xdata);
         }
 
         return 0;
@@ -2760,28 +2854,77 @@ unwind:
 
 
 int32_t
+wb_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
+                 dict_t *xdata)
+{
+        gf_dirent_t *entry      = NULL;
+
+        if (op_ret <= 0) {
+                goto unwind;
+        }
+
+        list_for_each_entry (entry, &entries->list, list) {
+                if (!entry->inode)
+			continue;
+                wb_inode_create (this, entry->inode);
+        }
+
+unwind:
+        STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, entries, xdata);
+        return 0;
+}
+
+
+int32_t
+wb_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
+             size_t size, off_t off, dict_t *xdata)
+{
+        STACK_WIND (frame, wb_readdirp_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->readdirp, fd, size, off, xdata);
+        return 0;
+}
+
+
+int32_t
 wb_release (xlator_t *this, fd_t *fd)
 {
-        uint64_t   file_ptr = 0;
-        wb_file_t *file     = NULL;
+        uint64_t    wb_file_ptr = 0;
+        wb_file_t  *wb_file      = NULL;
 
         GF_VALIDATE_OR_GOTO ("write-behind", this, out);
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
 
-        fd_ctx_get (fd, this, &file_ptr);
-        file = (wb_file_t *) (long) file_ptr;
+        fd_ctx_del (fd, this, &wb_file_ptr);
+        wb_file = (wb_file_t *)(long) wb_file_ptr;
 
-        if (file != NULL) {
-                LOCK (&file->lock);
-                {
-                        GF_ASSERT (list_empty (&file->request));
-                }
-                UNLOCK (&file->lock);
-
-                wb_file_destroy (file);
-        }
+        GF_FREE (wb_file);
 
 out:
+        return 0;
+}
+
+
+int32_t
+wb_forget (xlator_t *this, inode_t *inode)
+{
+        uint64_t    tmp      = 0;
+        wb_inode_t *wb_inode = NULL;
+
+        inode_ctx_del (inode, this, &tmp);
+
+        wb_inode = (wb_inode_t *)(long)tmp;
+
+        if (wb_inode != NULL) {
+                LOCK (&wb_inode->lock);
+                {
+                        GF_ASSERT (list_empty (&wb_inode->request));
+                }
+                UNLOCK (&wb_inode->lock);
+
+                wb_inode_destroy (wb_inode);
+        }
+
         return 0;
 }
 
@@ -2805,7 +2948,6 @@ wb_priv_dump (xlator_t *this)
 
         gf_proc_dump_write ("aggregate_size", "%d", conf->aggregate_size);
         gf_proc_dump_write ("window_size", "%d", conf->window_size);
-        gf_proc_dump_write ("disable_till", "%d", conf->disable_till);
         gf_proc_dump_write ("enable_O_SYNC", "%d", conf->enable_O_SYNC);
         gf_proc_dump_write ("flush_behind", "%d", conf->flush_behind);
         gf_proc_dump_write ("enable_trickling_writes", "%d",
@@ -2866,33 +3008,87 @@ __wb_dump_requests (struct list_head *head, char *prefix, char passive)
 
 
 int
-wb_file_dump (xlator_t *this, fd_t *fd)
+wb_inode_dump (xlator_t *this, inode_t *inode)
 {
-        wb_file_t *file                            = NULL;
-        uint64_t   tmp_file                        = 0;
-        int32_t    ret                             = -1;
-        char      *path                            = NULL;
+        wb_inode_t *wb_inode                       = NULL;
+        int32_t     ret                            = -1;
+        char       *path                           = NULL;
         char       key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
 
-        if ((fd == NULL) || (this == NULL)) {
+        if ((inode == NULL) || (this == NULL)) {
                 ret = 0;
                 goto out;
         }
 
-        ret = fd_ctx_get (fd, this, &tmp_file);
-        if (ret == -1) {
-                ret = 0;
-                goto out;
-        }
-
-        file = (wb_file_t *)(long)tmp_file;
-        if (file == NULL) {
+        wb_inode = wb_inode_ctx_get (this, inode);
+        if (wb_inode == NULL) {
                 ret = 0;
                 goto out;
         }
 
         gf_proc_dump_build_key (key_prefix, "xlator.performance.write-behind",
-                                "file");
+                                "wb_inode");
+
+        gf_proc_dump_add_section (key_prefix);
+
+        __inode_path (inode, NULL, &path);
+        if (path != NULL) {
+                gf_proc_dump_write ("path", "%s", path);
+                GF_FREE (path);
+        }
+
+        gf_proc_dump_write ("inode", "%p", inode);
+
+        gf_proc_dump_write ("window_conf", "%"GF_PRI_SIZET,
+                            wb_inode->window_conf);
+
+        gf_proc_dump_write ("window_current", "%"GF_PRI_SIZET,
+                            wb_inode->window_current);
+
+        gf_proc_dump_write ("aggregate_current", "%"GF_PRI_SIZET,
+                            wb_inode->aggregate_current);
+
+        gf_proc_dump_write ("op_ret", "%d", wb_inode->op_ret);
+
+        gf_proc_dump_write ("op_errno", "%d", wb_inode->op_errno);
+
+        LOCK (&wb_inode->lock);
+        {
+                if (!list_empty (&wb_inode->request)) {
+                        __wb_dump_requests (&wb_inode->request, key_prefix, 0);
+                }
+
+                if (!list_empty (&wb_inode->passive_requests)) {
+                        __wb_dump_requests (&wb_inode->passive_requests,
+                                            key_prefix, 1);
+                }
+        }
+        UNLOCK (&wb_inode->lock);
+
+        ret = 0;
+out:
+        return ret;
+}
+
+
+int
+wb_fd_dump (xlator_t *this, fd_t *fd)
+{
+        wb_file_t  *wb_file                        = NULL;
+        char       *path                           = NULL;
+        char       key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
+
+        if ((fd == NULL) || (this == NULL)) {
+                goto out;
+        }
+
+        wb_file = wb_fd_ctx_get (this, fd);
+        if (wb_file == NULL) {
+                goto out;
+        }
+
+        gf_proc_dump_build_key (key_prefix, "xlator.performance.write-behind",
+                                "wb_file");
 
         gf_proc_dump_add_section (key_prefix);
 
@@ -2904,41 +3100,16 @@ wb_file_dump (xlator_t *this, fd_t *fd)
 
         gf_proc_dump_write ("fd", "%p", fd);
 
-        gf_proc_dump_write ("disabled", "%d", file->disabled);
+        gf_proc_dump_write ("flags", "%d", wb_file->flags);
 
-        gf_proc_dump_write ("disable_till", "%lu", file->disable_till);
-
-        gf_proc_dump_write ("window_conf", "%"GF_PRI_SIZET, file->window_conf);
-
-        gf_proc_dump_write ("window_current", "%"GF_PRI_SIZET, file->window_current);
-
-        gf_proc_dump_write ("flags", "%s", (file->flags & O_APPEND) ? "O_APPEND"
+        gf_proc_dump_write ("flags", "%s",
+                            (wb_file->flags & O_APPEND) ? "O_APPEND"
                             : "!O_APPEND");
 
-        gf_proc_dump_write ("aggregate_current", "%"GF_PRI_SIZET, file->aggregate_current);
+        gf_proc_dump_write ("disabled", "%d", wb_file->disabled);
 
-        gf_proc_dump_write ("refcount", "%d", file->refcount);
-
-        gf_proc_dump_write ("op_ret", "%d", file->op_ret);
-
-        gf_proc_dump_write ("op_errno", "%d", file->op_errno);
-
-        LOCK (&file->lock);
-        {
-                if (!list_empty (&file->request)) {
-                        __wb_dump_requests (&file->request, key_prefix, 0);
-                }
-
-                if (!list_empty (&file->passive_requests)) {
-                        __wb_dump_requests (&file->passive_requests, key_prefix,
-                                            1);
-                }
-        }
-        UNLOCK (&file->lock);
-
-        ret = 0;
 out:
-        return ret;
+        return 0;
 }
 
 
@@ -2998,7 +3169,7 @@ init (xlator_t *this)
 
         if (this->parents == NULL) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "dangling volume. check volfile");
+                        "dangling volume. check volfilex");
         }
 
         conf = GF_CALLOC (1, sizeof (*conf), gf_wb_mt_wb_conf_t);
@@ -3010,9 +3181,6 @@ init (xlator_t *this)
 
         /* configure 'options aggregate-size <size>' */
         conf->aggregate_size = WB_AGGREGATE_SIZE;
-
-        GF_OPTION_INIT("disable-for-first-nbytes", conf->disable_till, size,
-                       out);
 
         /* configure 'option window-size <size>' */
         GF_OPTION_INIT ("cache-size", conf->window_size, size, out);
@@ -3036,8 +3204,8 @@ init (xlator_t *this)
         /* configure 'option flush-behind <on/off>' */
         GF_OPTION_INIT ("flush-behind", conf->flush_behind, bool, out);
 
-        GF_OPTION_INIT ("enable-trickling-writes", conf->enable_trickling_writes,
-                        bool, out);
+        GF_OPTION_INIT ("enable-trickling-writes",
+                        conf->enable_trickling_writes, bool, out);
 
         this->local_pool = mem_pool_new (wb_local_t, 64);
         if (!this->local_pool) {
@@ -3079,6 +3247,7 @@ out:
 
 
 struct xlator_fops fops = {
+        .lookup      = wb_lookup,
         .writev      = wb_writev,
         .open        = wb_open,
         .create      = wb_create,
@@ -3090,6 +3259,7 @@ struct xlator_fops fops = {
         .truncate    = wb_truncate,
         .ftruncate   = wb_ftruncate,
         .setattr     = wb_setattr,
+        .readdirp    = wb_readdirp,
 };
 
 struct xlator_cbks cbks = {
@@ -3098,7 +3268,8 @@ struct xlator_cbks cbks = {
 
 struct xlator_dumpops dumpops = {
         .priv      =  wb_priv_dump,
-        .fdctx     =  wb_file_dump,
+        .inodectx  =  wb_inode_dump,
+        .fdctx     =  wb_fd_dump,
 };
 
 struct volume_options options[] = {
@@ -3116,7 +3287,8 @@ struct volume_options options[] = {
           .min  = 512 * GF_UNIT_KB,
           .max  = 1 * GF_UNIT_GB,
           .default_value = "1MB",
-          .description = "Size of the per-file write-behind buffer. "
+          .description = "Size of the write-behind buffer for a single file "
+                         "(inode)."
 
         },
         { .key = {"disable-for-first-nbytes"},
