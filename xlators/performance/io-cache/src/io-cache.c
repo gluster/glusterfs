@@ -1806,7 +1806,16 @@ void
 __ioc_page_dump (ioc_page_t *page, char *prefix)
 {
 
-        ioc_page_lock (page);
+        int    ret = -1;
+
+        if (!page)
+                return;
+        /* ioc_page_lock can be used to hold the mutex. But in statedump
+         * its better to use trylock to avoid deadlocks.
+         */
+        ret = pthread_mutex_trylock (&page->page_lock);
+        if (ret)
+                goto out;
         {
                 gf_proc_dump_write ("offset", "%"PRId64, page->offset);
                 gf_proc_dump_write ("size", "%"PRId64, page->size);
@@ -1814,7 +1823,14 @@ __ioc_page_dump (ioc_page_t *page, char *prefix)
                 gf_proc_dump_write ("ready", "%s", page->ready ? "yes" : "no");
                 ioc_page_waitq_dump (page, prefix);
         }
-        ioc_page_unlock (page);
+        pthread_mutex_unlock (&page->page_lock);
+
+out:
+        if (ret && page)
+                gf_proc_dump_write ("Unable to dump the page information",
+                                    "(Lock acquisition failed) %p", page);
+
+        return;
 }
 
 void
@@ -1863,15 +1879,30 @@ ioc_inode_dump (ioc_inode_t *ioc_inode, char *prefix)
 {
 
         char    *path = NULL;
+        int     ret   = -1;
 
         if ((ioc_inode == NULL) || (prefix == NULL)) {
                 goto out;
         }
 
-        ioc_inode_lock (ioc_inode);
+        /* Similar to ioc_page_dump function its better to use
+         * pthread_mutex_trylock and not to use gf_log in statedump
+         * to avoid deadlocks.
+         */
+        ret = pthread_mutex_trylock (&ioc_inode->inode_lock);
+        if (ret)
+                goto out;
         {
                 gf_proc_dump_write ("inode.weight", "%d", ioc_inode->weight);
-                inode_path (ioc_inode->inode, NULL, &path);
+                //inode_path takes blocking lock on the itable.
+                ret = pthread_mutex_trylock (&ioc_inode->inode->table->lock);
+                if (ret)
+                        goto unlock;
+                {
+                        __inode_path (ioc_inode->inode, NULL, &path);
+                }
+                pthread_mutex_unlock (&ioc_inode->inode->table->lock);
+
                 if (path) {
                         gf_proc_dump_write ("path", "%s", path);
                         GF_FREE (path);
@@ -1881,8 +1912,14 @@ ioc_inode_dump (ioc_inode_t *ioc_inode, char *prefix)
                 __ioc_cache_dump (ioc_inode, prefix);
                 __ioc_inode_waitq_dump (ioc_inode, prefix);
         }
-        ioc_inode_unlock (ioc_inode);
+unlock:
+        pthread_mutex_unlock (&ioc_inode->inode_lock);
+
 out:
+        if (ret && ioc_inode)
+                gf_proc_dump_write ("Unable to print the status of ioc_inode",
+                                    "(Lock acquisition failed) %s",
+                                    uuid_utoa (ioc_inode->inode->gfid));
         return;
 }
 
@@ -1892,6 +1929,8 @@ ioc_priv_dump (xlator_t *this)
         ioc_table_t *priv                            = NULL;
         ioc_inode_t *ioc_inode                       = NULL;
         char         key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
+        int          ret                             = -1;
+        gf_boolean_t add_section                     = _gf_false;
 
         if (!this || !this->private)
                 goto out;
@@ -1900,8 +1939,11 @@ ioc_priv_dump (xlator_t *this)
         gf_proc_dump_build_key (key_prefix, "xlator.performance.io-cache",
                                 "priv");
         gf_proc_dump_add_section (key_prefix);
+        add_section = _gf_true;
 
-        ioc_table_lock (priv);
+        ret = pthread_mutex_trylock (&priv->table_lock);
+        if (ret)
+                goto out;
         {
                 gf_proc_dump_write ("page_size", "%ld", priv->page_size);
                 gf_proc_dump_write ("cache_size", "%ld", priv->cache_size);
@@ -1915,8 +1957,19 @@ ioc_priv_dump (xlator_t *this)
                         ioc_inode_dump (ioc_inode, key_prefix);
                 }
         }
-        ioc_table_unlock (priv);
+        pthread_mutex_unlock (&priv->table_lock);
 out:
+        if (ret && priv) {
+                if (!add_section) {
+                        gf_proc_dump_build_key (key_prefix, "xlator."
+                                                "performance.io-cache", "priv");
+                        gf_proc_dump_add_section (key_prefix);
+                }
+                gf_proc_dump_write ("Unable to dump the state of private "
+                                    "structure of io-cache xlator", "(Lock "
+                                    "acquisition failed) %s", this->name);
+        }
+
         return 0;
 }
 
