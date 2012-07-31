@@ -587,85 +587,40 @@ typedef struct _afr_local {
                 /* dir write */
 
                 struct {
-                        fd_t *fd;
-                        dict_t *params;
-                        int32_t flags;
-                        mode_t mode;
                         inode_t *inode;
                         struct iatt buf;
                         struct iatt preparent;
                         struct iatt postparent;
-                        struct iatt read_child_buf;
+                        struct iatt prenewparent;
+                        struct iatt postnewparent;
+                } dir_fop; //common structure for all dir fops
+
+                struct {
+                        fd_t *fd;
+                        dict_t *params;
+                        int32_t flags;
+                        mode_t mode;
                 } create;
 
                 struct {
                         dev_t dev;
                         mode_t mode;
                         dict_t *params;
-                        inode_t *inode;
-                        struct iatt buf;
-                        struct iatt preparent;
-                        struct iatt postparent;
-                        struct iatt read_child_buf;
                 } mknod;
 
                 struct {
                         int32_t mode;
                         dict_t *params;
-                        inode_t *inode;
-                        struct iatt buf;
-                        struct iatt read_child_buf;
-                        struct iatt preparent;
-                        struct iatt postparent;
                 } mkdir;
 
                 struct {
-                        int32_t op_ret;
-                        int32_t op_errno;
-                        struct iatt preparent;
-                        struct iatt postparent;
-                } unlink;
-
-                struct {
-                        int   flags;
-                        int32_t op_ret;
-                        int32_t op_errno;
-                        struct iatt preparent;
-                        struct iatt postparent;
+                        int flags;
                 } rmdir;
 
                 struct {
-                        struct iatt buf;
-                        struct iatt read_child_buf;
-                        struct iatt preoldparent;
-                        struct iatt prenewparent;
-                        struct iatt postoldparent;
-                        struct iatt postnewparent;
-                } rename;
-
-                struct {
-                        inode_t *inode;
-                        struct iatt buf;
-                        struct iatt read_child_buf;
-                        struct iatt preparent;
-                        struct iatt postparent;
-                } link;
-
-                struct {
-                        inode_t *inode;
                         dict_t *params;
-                        struct iatt buf;
-                        struct iatt read_child_buf;
                         char *linkpath;
-                        struct iatt preparent;
-                        struct iatt postparent;
                 } symlink;
-
-                struct {
-                        int32_t flags;
-                        dir_entry_t *entries;
-                        int32_t count;
-                } setdents;
         } cont;
 
         struct {
