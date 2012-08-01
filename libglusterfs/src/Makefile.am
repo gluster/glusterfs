@@ -3,8 +3,7 @@ libglusterfs_la_CFLAGS = -fPIC  -Wall -g -shared -nostartfiles $(GF_CFLAGS) \
 
 libglusterfs_la_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -D__USE_FILE_OFFSET64 \
 	-D_GNU_SOURCE -DXLATORDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator\" \
-	-D$(GF_HOST_OS) -I$(CONTRIBDIR)/rbtree \
-	-DSCHEDULERDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/scheduler\"
+	-D$(GF_HOST_OS) -I$(CONTRIBDIR)/rbtree
 
 libglusterfs_la_LIBADD = @LEXLIB@
 
