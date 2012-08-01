@@ -4572,10 +4572,10 @@ init (xlator_t *this_xl)
 	GF_OPTION_INIT ("attribute-timeout", priv->attribute_timeout, double,
 			cleanup_exit);
 
-	GF_OPTION_INIT ("entry-timeout", priv->attribute_timeout, double,
+	GF_OPTION_INIT ("entry-timeout", priv->entry_timeout, double,
 			cleanup_exit);
 
-	GF_OPTION_INIT ("negative-timeout", priv->attribute_timeout, double,
+	GF_OPTION_INIT ("negative-timeout", priv->negative_timeout, double,
 			cleanup_exit);
 
 	GF_OPTION_INIT ("client-pid", priv->client_pid, int32, cleanup_exit);
