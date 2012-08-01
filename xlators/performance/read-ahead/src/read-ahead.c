@@ -949,6 +949,7 @@ ra_priv_dump (xlator_t *this)
         ra_conf_t       *conf                           = NULL;
         int             ret                             = -1;
         char            key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
+        gf_boolean_t    add_section                     = _gf_false;
 
         if (!this) {
                 goto out;
@@ -960,26 +961,32 @@ ra_priv_dump (xlator_t *this)
                 goto out;
         }
 
-        ret = pthread_mutex_trylock (&conf->conf_lock);
-        if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "Unable to lock client %s "
-                        "(%s)", this->name, strerror (ret));
-                ret = -1;
-                goto out;
-        }
-
         gf_proc_dump_build_key (key_prefix, "xlator.performance.read-ahead",
                                 "priv");
 
         gf_proc_dump_add_section (key_prefix);
-        gf_proc_dump_write ("page_size", "%d", conf->page_size);
-        gf_proc_dump_write ("page_count", "%d", conf->page_count);
-        gf_proc_dump_write ("force_atime_update", "%d", conf->force_atime_update);
+        add_section = _gf_true;
 
+        ret = pthread_mutex_trylock (&conf->conf_lock);
+        if (ret)
+                goto out;
+        {
+                gf_proc_dump_write ("page_size", "%d", conf->page_size);
+                gf_proc_dump_write ("page_count", "%d", conf->page_count);
+                gf_proc_dump_write ("force_atime_update", "%d",
+                                    conf->force_atime_update);
+        }
         pthread_mutex_unlock (&conf->conf_lock);
 
         ret = 0;
 out:
+        if (ret && conf) {
+                if (add_section == _gf_false)
+                        gf_proc_dump_add_section (key_prefix);
+
+                gf_proc_dump_write ("Unable to dump priv",
+                                    "(Lock acquisition failed) %s", this->name);
+        }
         return ret;
 }
 
