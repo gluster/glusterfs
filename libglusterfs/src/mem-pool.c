@@ -71,17 +71,11 @@ gf_mem_set_acct_info (xlator_t *xl, char **alloc_ptr,
 
         ptr = (char *) (*alloc_ptr);
 
-        if (!xl) {
-                GF_ASSERT (0);
-        }
+        GF_ASSERT (xl != NULL);
 
-        if (!(xl->mem_acct.rec)) {
-                GF_ASSERT (0);
-        }
+        GF_ASSERT (xl->mem_acct.rec != NULL);
 
-        if (type > xl->mem_acct.num_types) {
-                GF_ASSERT (0);
-        }
+        GF_ASSERT (type <= xl->mem_acct.num_types);
 
         LOCK(&xl->mem_acct.rec[type].lock);
         {
@@ -255,20 +249,16 @@ __gf_free (void *free_ptr)
 
         ptr = (char *)free_ptr - 8 - 4;
 
-        if (GF_MEM_HEADER_MAGIC != *(uint32_t *)ptr) {
-                //Possible corruption, assert here
-                GF_ASSERT (0);
-        }
+        //Possible corruption, assert here
+        GF_ASSERT (GF_MEM_HEADER_MAGIC == *(uint32_t *)ptr);
 
         *(uint32_t *)ptr = 0;
 
         ptr = ptr - sizeof(xlator_t *);
         memcpy (&xl, ptr, sizeof(xlator_t *));
 
-        if (!xl) {
-                //gf_free expects xl to be available
-                GF_ASSERT (0);
-        }
+        //gf_free expects xl to be available
+        GF_ASSERT (xl != NULL);
 
         if (!xl->mem_acct.rec) {
                 ptr = (char *)free_ptr - GF_MEM_HEADER_SIZE;
@@ -281,11 +271,10 @@ __gf_free (void *free_ptr)
         ptr = ptr - 4;
         type = *(uint32_t *)ptr;
 
-        if (GF_MEM_TRAILER_MAGIC != *(uint32_t *)
-            ((char *)free_ptr + req_size)) {
-                // This points to a memory overrun
-                GF_ASSERT (0);
-        }
+        // This points to a memory overrun
+        GF_ASSERT (GF_MEM_TRAILER_MAGIC ==
+                *(uint32_t *)((char *)free_ptr + req_size));
+
         *(uint32_t *) ((char *)free_ptr + req_size) = 0;
 
         LOCK (&xl->mem_acct.rec[type].lock);
