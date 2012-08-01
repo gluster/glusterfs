@@ -1664,7 +1664,7 @@ rpc_clnt_reconfig (struct rpc_clnt *rpc, struct rpc_clnt_config *config)
                         if (strcmp (rpc->conn.config.remote_host,
                                     config->remote_host))
                                 gf_log (rpc->conn.trans->name, GF_LOG_INFO,
-                                        "changing port to %s (from %s)",
+                                        "changing hostname to %s (from %s)",
                                         config->remote_host,
                                         rpc->conn.config.remote_host);
                         FREE (rpc->conn.config.remote_host);
