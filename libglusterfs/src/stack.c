@@ -104,8 +104,8 @@ gf_proc_dump_call_stack (call_stack_t *call_stack, const char *key_buf,...)
 
         if (call_stack->type == GF_OP_TYPE_FOP)
                 gf_proc_dump_write("op", "%s", gf_fop_list[call_stack->op]);
-        else if (call_stack->type == GF_OP_TYPE_MGMT)
-                gf_proc_dump_write("op", "%s", gf_mgmt_list[call_stack->op]);
+        else
+                gf_proc_dump_write("op", "stack");
 
         gf_proc_dump_write("type", "%d", call_stack->type);
         gf_proc_dump_write("cnt", "%d", cnt);
@@ -278,9 +278,9 @@ gf_proc_dump_call_stack_to_dict (call_stack_t *call_stack,
         if (call_stack->type == GF_OP_TYPE_FOP)
                 ret = dict_set_str (dict, key,
                                     gf_fop_list[call_stack->op]);
-        else if (call_stack->type == GF_OP_TYPE_MGMT)
-                ret = dict_set_str (dict, key,
-                                    gf_mgmt_list[call_stack->op]);
+        else
+                ret = dict_set_str (dict, key, "other");
+
         if (ret)
                 return;
 
