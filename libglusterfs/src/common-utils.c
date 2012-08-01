@@ -417,10 +417,10 @@ gf_print_trace (int32_t signum, glusterfs_ctx_t *ctx)
                                 sprintf (msg,"frame : type(%d) op(%s)\n",
                                          tmp->root->type,
                                          gf_fop_list[tmp->root->op]);
-                        if (tmp->root->type == GF_OP_TYPE_MGMT)
-                                sprintf (msg,"frame : type(%d) op(%s)\n",
+                        else
+                                sprintf (msg,"frame : type(%d) op(%d)\n",
                                          tmp->root->type,
-                                         gf_mgmt_list[tmp->root->op]);
+                                         tmp->root->op);
 
                         ret = write (fd, msg, strlen (msg));
                         if (ret < 0)
