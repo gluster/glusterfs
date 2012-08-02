@@ -16,8 +16,6 @@
 #include <pthread.h>
 
 #include "glusterfs.h"
-#include "mem-pool.h"
-
 
 glusterfs_ctx_t *
 glusterfs_ctx_new ()
@@ -27,7 +25,7 @@ glusterfs_ctx_new ()
 
 	/* no GF_CALLOC here, gf_acct_mem_set_enable is not
 	   yet decided at this point */
-        ctx = CALLOC (1, sizeof (*ctx));
+        ctx = calloc (1, sizeof (*ctx));
         if (!ctx) {
                 ret = -1;
                 goto out;
@@ -38,7 +36,7 @@ glusterfs_ctx_new ()
 
 	ret = pthread_mutex_init (&ctx->lock, NULL);
 	if (ret) {
-		FREE (ctx);
+		free (ctx);
 		ctx = NULL;
 	}
 out:

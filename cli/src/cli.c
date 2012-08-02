@@ -173,12 +173,12 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 
 
 static int
-logging_init (struct cli_state *state)
+logging_init (glusterfs_ctx_t *ctx, struct cli_state *state)
 {
         char *log_file = state->log_file ? state->log_file :
                          DEFAULT_CLI_LOG_FILE_DIRECTORY "/cli.log";
 
-        if (gf_log_init (log_file) == -1) {
+        if (gf_log_init (ctx, log_file) == -1) {
                 fprintf (stderr, "ERROR: failed to open logfile %s\n",
                          log_file);
                 return -1;
@@ -548,13 +548,16 @@ main (int argc, char *argv[])
         int                ret = -1;
         glusterfs_ctx_t   *ctx = NULL;
 
-        ret = glusterfs_globals_init ();
-        if (ret)
-                return ret;
-
         ctx = glusterfs_ctx_new ();
         if (!ctx)
                 return ENOMEM;
+
+        gf_mem_acct_enable_set (ctx);
+
+        ret = glusterfs_globals_init (ctx);
+        if (ret)
+                return ret;
+
 	THIS->ctx = ctx;
 
         ret = glusterfs_ctx_defaults_init (ctx);
@@ -572,7 +575,7 @@ main (int argc, char *argv[])
         if (ret)
                 goto out;
 
-        ret = logging_init (&state);
+        ret = logging_init (ctx, &state);
         if (ret)
                 goto out;
 

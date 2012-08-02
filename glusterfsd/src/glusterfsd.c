@@ -857,7 +857,7 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
         case ARGP_MEM_ACCOUNTING_KEY:
                 /* TODO: it should have got handled much earlier */
-		gf_mem_acct_enable_set ();
+		//gf_mem_acct_enable_set (THIS->ctx);
                 break;
 
 	case ARGP_FOPEN_KEEP_CACHE_KEY:
@@ -1201,7 +1201,7 @@ logging_init (glusterfs_ctx_t *ctx)
                 }
         }
 
-        if (gf_log_init (cmd_args->log_file) == -1) {
+        if (gf_log_init (ctx, cmd_args->log_file) == -1) {
                 fprintf (stderr, "ERROR: failed to open logfile %s\n",
                          cmd_args->log_file);
                 return -1;
@@ -1213,12 +1213,12 @@ logging_init (glusterfs_ctx_t *ctx)
 }
 
 void
-gf_check_and_set_mem_acct (int argc, char *argv[])
+gf_check_and_set_mem_acct (glusterfs_ctx_t *ctx, int argc, char *argv[])
 {
         int i = 0;
         for (i = 0; i < argc; i++) {
                 if (strcmp (argv[i], "--mem-accounting") == 0) {
-			gf_mem_acct_enable_set ();
+			gf_mem_acct_enable_set (ctx);
                         break;
                 }
         }
@@ -1706,15 +1706,6 @@ main (int argc, char *argv[])
         glusterfs_ctx_t  *ctx = NULL;
         int               ret = -1;
 
-        ret = glusterfs_globals_init ();
-        if (ret)
-                return ret;
-
-#ifndef DEBUG
-        /* Enable memory accounting on the fly based on argument */
-        gf_check_and_set_mem_acct (argc, argv);
-#endif
-
 	ctx = glusterfs_ctx_new ();
         if (!ctx) {
                 gf_log ("glusterfs", GF_LOG_CRITICAL,
@@ -1722,6 +1713,18 @@ main (int argc, char *argv[])
                 return ENOMEM;
         }
 	glusterfsd_ctx = ctx;
+
+        gf_mem_acct_enable_set (ctx);
+
+#ifndef DEBUG
+        /* Enable memory accounting on the fly based on argument */
+        gf_check_and_set_mem_acct (ctx, argc, argv);
+#endif
+
+        ret = glusterfs_globals_init (ctx);
+        if (ret)
+                return ret;
+
 	THIS->ctx = ctx;
 
         ret = glusterfs_ctx_defaults_init (ctx);

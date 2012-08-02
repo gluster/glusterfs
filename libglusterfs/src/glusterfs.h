@@ -33,9 +33,9 @@
 #include <sys/poll.h>
 #include <pthread.h>
 
-
 #include "list.h"
 #include "logging.h"
+#include "lkowner.h"
 
 #define GF_YES 1
 #define GF_NO  0
@@ -133,6 +133,8 @@
  * in RPC server code, if there is ever need for having more aux-gids, then
  * we have to add aux-gid in payload of actors */
 #define GF_MAX_AUX_GROUPS   200
+
+#define GF_UUID_BUF_SIZE 50
 
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {
@@ -379,14 +381,21 @@ struct _glusterfs_ctx {
 
         glusterfsd_mgmt_event_notify_fn_t notify; /* Used for xlators to make
                                                      call to fsd-mgmt */
+        gf_log_handle_t     log; /* all logging related variables */
+
+        pthread_key_t synctask_key;
+        pthread_key_t uuid_buf_key;
+        char          uuid_buf[GF_UUID_BUF_SIZE];
+        pthread_key_t lkowner_buf_key;
+        char          lkowner_buf[GF_LKOWNER_BUF_SIZE];
+
+        int           mem_acct_enable;
+
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
 glusterfs_ctx_t *glusterfs_ctx_new (void);
 
-/* If you edit this structure then, make a corresponding change in
- * globals.c in the eventstring.
- */
 typedef enum {
         GF_EVENT_PARENT_UP = 1,
         GF_EVENT_POLLIN,
@@ -408,9 +417,6 @@ typedef enum {
         GF_EVENT_MAXVAL,
 } glusterfs_event_t;
 
-/* gf_lkowner_t is defined in lkowner.h */
-#include "lkowner.h"
-
 struct gf_flock {
         short        l_type;
         short        l_whence;
@@ -419,8 +425,6 @@ struct gf_flock {
         pid_t        l_pid;
         gf_lkowner_t l_owner;
 };
-
-extern char *glusterfs_strevent (glusterfs_event_t ev);
 
 #define GF_MUST_CHECK __attribute__((warn_unused_result))
 /*

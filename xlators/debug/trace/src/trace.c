@@ -2267,7 +2267,8 @@ init (xlator_t *this)
                 int i;
                 for (i = 0; i < GF_FOP_MAXVALUE; i++) {
                         trace_fop_names[i].name = (gf_fop_list[i] ?
-                                                   gf_fop_list[i] : ":O");
+                                                   (char *)gf_fop_list[i] :
+                                                   ":O");
                         trace_fop_names[i].enabled = 1;
                 }
         }

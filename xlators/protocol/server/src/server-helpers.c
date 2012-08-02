@@ -1136,10 +1136,7 @@ server_print_reply (call_frame_t *frame, int op_ret, int op_errno)
 
         switch (frame->root->type) {
         case GF_OP_TYPE_FOP:
-                op = gf_fop_list[frame->root->op];
-                break;
-        case GF_OP_TYPE_MGMT:
-                op = gf_mgmt_list[frame->root->op];
+                op = (char *)gf_fop_list[frame->root->op];
                 break;
         default:
                 op = "";
@@ -1205,10 +1202,7 @@ server_print_request (call_frame_t *frame)
 
         switch (frame->root->type) {
         case GF_OP_TYPE_FOP:
-                op = gf_fop_list[frame->root->op];
-                break;
-        case GF_OP_TYPE_MGMT:
-                op = gf_mgmt_list[frame->root->op];
+                op = (char *)gf_fop_list[frame->root->op];
                 break;
         default:
                 op = "";

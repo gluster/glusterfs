@@ -880,4 +880,5 @@ enum gf_hdsk_event_notify_op {
         GF_EN_DEFRAG_STATUS,
         GF_EN_MAX,
 };
+
 #endif /* _XLATOR_H */

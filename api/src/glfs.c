@@ -365,15 +365,18 @@ glfs_new (const char *volname)
 	int              ret = -1;
 	glusterfs_ctx_t *ctx = NULL;
 
-	/* first globals init, for gf_mem_acct_enable_set () */
-	ret = glusterfs_globals_init ();
-	if (ret)
-		return NULL;
-
 	ctx = glusterfs_ctx_new ();
 	if (!ctx) {
 		return NULL;
 	}
+
+        gf_mem_acct_enable_set (ctx);
+
+	/* first globals init, for gf_mem_acct_enable_set () */
+	ret = glusterfs_globals_init (ctx);
+	if (ret)
+		return NULL;
+
 	THIS->ctx = ctx;
 
 	/* then ctx_defaults_init, for xlator_mem_acct_init(THIS) */
@@ -440,7 +443,7 @@ glfs_set_logging (struct glfs *fs, const char *logfile, int loglevel)
 {
 	int  ret = -1;
 
-	ret = gf_log_init (logfile);
+	ret = gf_log_init (fs->ctx, logfile);
 	if (ret)
 		return ret;
 

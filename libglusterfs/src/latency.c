@@ -148,7 +148,8 @@ gf_proc_dump_latency_info (xlator_t *xl)
         gf_proc_dump_add_section (key_prefix);
 
         for (i = 0; i < GF_FOP_MAXVALUE; i++) {
-                gf_proc_dump_build_key (key, key_prefix, gf_fop_list[i]);
+                gf_proc_dump_build_key (key, key_prefix,
+                                        (char *)gf_fop_list[i]);
 
                 gf_proc_dump_write (key, "%.03f,%"PRId64",%.03f",
                                     xl->latencies[i].mean,

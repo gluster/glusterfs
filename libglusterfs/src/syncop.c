@@ -284,7 +284,7 @@ synctask_switchto (struct synctask *task)
 
         env = task->env;
 
-        synctask_set (task);
+        synctask_set (THIS->ctx, task);
         THIS = task->xl;
 
         task->woken = 0;

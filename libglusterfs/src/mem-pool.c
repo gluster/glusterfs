@@ -30,22 +30,16 @@
 
 #define GLUSTERFS_ENV_MEM_ACCT_STR  "GLUSTERFS_DISABLE_MEM_ACCT"
 
-static int gf_mem_acct_enable = 0;
-
-int
-gf_mem_acct_is_enabled ()
-{
-        return gf_mem_acct_enable;
-}
-
-
 void
-gf_mem_acct_enable_set ()
+gf_mem_acct_enable_set (void *data)
 {
         char            *opt = NULL;
         long             val = -1;
+        glusterfs_ctx_t *ctx = NULL;
 
-        if (gf_mem_acct_enable) {
+        ctx = data;
+
+        if (ctx->mem_acct_enable) {
                 return;
         }
 
@@ -53,7 +47,7 @@ gf_mem_acct_enable_set ()
         if (opt) {
                 val = strtol (opt, NULL, 0);
                 if (val)
-                        gf_mem_acct_enable = 1;
+                        ctx->mem_acct_enable = 1;
         }
 
         return;
@@ -115,7 +109,7 @@ __gf_calloc (size_t nmemb, size_t size, uint32_t type)
         char            *ptr = NULL;
         xlator_t        *xl = NULL;
 
-        if (!gf_mem_acct_enable)
+        if (!THIS->ctx->mem_acct_enable)
                 return CALLOC (nmemb, size);
 
         xl = THIS;
@@ -141,7 +135,7 @@ __gf_malloc (size_t size, uint32_t type)
         char            *ptr = NULL;
         xlator_t        *xl = NULL;
 
-        if (!gf_mem_acct_enable)
+        if (!THIS->ctx->mem_acct_enable)
                 return MALLOC (size);
 
         xl = THIS;
@@ -166,7 +160,7 @@ __gf_realloc (void *ptr, size_t size)
         xlator_t        *xl = NULL;
         uint32_t        type = 0;
 
-        if (!gf_mem_acct_enable)
+        if (!THIS->ctx->mem_acct_enable)
                 return REALLOC (ptr, size);
 
         tot_size = size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
@@ -239,7 +233,7 @@ __gf_free (void *free_ptr)
         uint32_t        type = 0;
         xlator_t        *xl = NULL;
 
-        if (!gf_mem_acct_enable) {
+        if (!THIS->ctx->mem_acct_enable) {
                 FREE (free_ptr);
                 return;
         }

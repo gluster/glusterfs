@@ -239,24 +239,26 @@ err:
 void
 gf_log_volume_file (FILE *specfp)
 {
-        extern FILE *gf_log_logfile;
         int          lcount = 0;
         char         data[GF_UNIT_KB];
+        glusterfs_ctx_t *ctx;
+
+        ctx = THIS->ctx;
 
         fseek (specfp, 0L, SEEK_SET);
 
-        fprintf (gf_log_logfile, "Given volfile:\n");
-        fprintf (gf_log_logfile,
+        fprintf (ctx->log.gf_log_logfile, "Given volfile:\n");
+        fprintf (ctx->log.gf_log_logfile,
                  "+---------------------------------------"
                  "---------------------------------------+\n");
         while (fgets (data, GF_UNIT_KB, specfp) != NULL){
                 lcount++;
-                fprintf (gf_log_logfile, "%3d: %s", lcount, data);
+                fprintf (ctx->log.gf_log_logfile, "%3d: %s", lcount, data);
         }
-        fprintf (gf_log_logfile,
+        fprintf (ctx->log.gf_log_logfile,
                  "\n+---------------------------------------"
                  "---------------------------------------+\n");
-        fflush (gf_log_logfile);
+        fflush (ctx->log.gf_log_logfile);
         fseek (specfp, 0L, SEEK_SET);
 }
 
@@ -396,13 +398,12 @@ out:
 void
 gf_print_trace (int32_t signum, glusterfs_ctx_t *ctx)
 {
-        extern FILE *gf_log_logfile;
         char         msg[1024] = {0,};
         char         timestr[64] = {0,};
         int          ret = 0;
         int          fd = 0;
 
-        fd = fileno (gf_log_logfile);
+        fd = fileno (ctx->log.gf_log_logfile);
 
         /* Pending frames, (if any), list them in order */
         ret = write (fd, "pending frames:\n", 16);
@@ -1818,7 +1819,7 @@ out:
 char *
 uuid_utoa (uuid_t uuid)
 {
-        char *uuid_buffer = glusterfs_uuid_buf_get();
+        char *uuid_buffer = glusterfs_uuid_buf_get(THIS->ctx);
         uuid_unparse (uuid, uuid_buffer);
         return uuid_buffer;
 }
@@ -1837,7 +1838,7 @@ uuid_utoa_r (uuid_t uuid, char *dst)
 char *
 lkowner_utoa (gf_lkowner_t *lkowner)
 {
-        char *lkowner_buffer = glusterfs_lkowner_buf_get();
+        char *lkowner_buffer = glusterfs_lkowner_buf_get(THIS->ctx);
         lkowner_unparse (lkowner, lkowner_buffer, GF_LKOWNER_BUF_SIZE);
         return lkowner_buffer;
 }
