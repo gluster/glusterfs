@@ -4163,11 +4163,12 @@ fuse_thread_proc (void *data)
                         msg = iov_in[1].iov_base;
                 else {
                         if (res > msg0_size) {
-                                iov_in[0].iov_base =
-                                  GF_REALLOC (iov_in[0].iov_base, res);
-                                if (iov_in[0].iov_base)
+                                void *b = GF_REALLOC (iov_in[0].iov_base, res);
+                                if (b) {
+                                        iov_in[0].iov_base = b;
                                         finh = (fuse_in_header_t *)
                                                  iov_in[0].iov_base;
+                                }
                                 else {
                                         gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                                                 "Out of memory");
