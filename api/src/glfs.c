@@ -460,6 +460,7 @@ glfs_init_wait (struct glfs *fs)
 			pthread_cond_wait (&fs->cond,
 					   &fs->mutex);
 		ret = fs->ret;
+		errno = fs->err;
 	}
 	pthread_mutex_unlock (&fs->mutex);
 
@@ -479,6 +480,7 @@ glfs_init_done (struct glfs *fs, int ret)
 	{
 		fs->init = 1;
 		fs->ret = ret;
+		fs->err = errno;
 
 		pthread_cond_broadcast (&fs->cond);
 	}

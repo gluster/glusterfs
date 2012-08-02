@@ -30,6 +30,7 @@ struct glfs {
 	pthread_cond_t      cond;
 	int                 init;
 	int                 ret;
+	int                 err;
 
 	xlator_t           *active_subvol;
 
