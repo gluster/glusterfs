@@ -18,21 +18,22 @@
 /* THIS */
 #define THIS (*__glusterfs_this_location())
 
-#define GF_UUID_BUF_SIZE 50
-
 xlator_t **__glusterfs_this_location ();
 xlator_t *glusterfs_this_get ();
 int glusterfs_this_set (xlator_t *);
 
 /* task */
 void *synctask_get ();
-int synctask_set (void *);
+int synctask_set (glusterfs_ctx_t *, void *);
 
 /* uuid_buf */
-char *glusterfs_uuid_buf_get();
-char *glusterfs_lkowner_buf_get();
+char *glusterfs_uuid_buf_get(glusterfs_ctx_t *);
+/* lkowner_buf */
+char *glusterfs_lkowner_buf_get(glusterfs_ctx_t *);
 
 /* init */
-int glusterfs_globals_init (void);
+int glusterfs_globals_init (glusterfs_ctx_t *ctx);
+
+extern const char *gf_fop_list[];
 
 #endif /* !_GLOBALS_H */

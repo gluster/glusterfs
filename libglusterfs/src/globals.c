@@ -20,67 +20,54 @@
 #include "xlator.h"
 #include "mem-pool.h"
 
-
-/* gf_*_list[] */
-
-char *gf_fop_list[GF_FOP_MAXVALUE];
-char *gf_mgmt_list[GF_MGMT_MAXVALUE];
-
-
-void
-gf_op_list_init()
-{
-        gf_fop_list[GF_FOP_NULL]        = "NULL";
-        gf_fop_list[GF_FOP_STAT]        = "STAT";
-        gf_fop_list[GF_FOP_READLINK]    = "READLINK";
-        gf_fop_list[GF_FOP_MKNOD]       = "MKNOD";
-        gf_fop_list[GF_FOP_MKDIR]       = "MKDIR";
-        gf_fop_list[GF_FOP_UNLINK]      = "UNLINK";
-        gf_fop_list[GF_FOP_RMDIR]       = "RMDIR";
-        gf_fop_list[GF_FOP_SYMLINK]     = "SYMLINK";
-        gf_fop_list[GF_FOP_RENAME]      = "RENAME";
-        gf_fop_list[GF_FOP_LINK]        = "LINK";
-        gf_fop_list[GF_FOP_TRUNCATE]    = "TRUNCATE";
-        gf_fop_list[GF_FOP_OPEN]        = "OPEN";
-        gf_fop_list[GF_FOP_READ]        = "READ";
-        gf_fop_list[GF_FOP_WRITE]       = "WRITE";
-        gf_fop_list[GF_FOP_STATFS]      = "STATFS";
-        gf_fop_list[GF_FOP_FLUSH]       = "FLUSH";
-        gf_fop_list[GF_FOP_FSYNC]       = "FSYNC";
-        gf_fop_list[GF_FOP_SETXATTR]    = "SETXATTR";
-        gf_fop_list[GF_FOP_GETXATTR]    = "GETXATTR";
-        gf_fop_list[GF_FOP_REMOVEXATTR] = "REMOVEXATTR";
-        gf_fop_list[GF_FOP_OPENDIR]     = "OPENDIR";
-        gf_fop_list[GF_FOP_FSYNCDIR]    = "FSYNCDIR";
-        gf_fop_list[GF_FOP_ACCESS]      = "ACCESS";
-        gf_fop_list[GF_FOP_CREATE]      = "CREATE";
-        gf_fop_list[GF_FOP_FTRUNCATE]   = "FTRUNCATE";
-        gf_fop_list[GF_FOP_FSTAT]       = "FSTAT";
-        gf_fop_list[GF_FOP_LK]          = "LK";
-        gf_fop_list[GF_FOP_LOOKUP]      = "LOOKUP";
-        gf_fop_list[GF_FOP_READDIR]     = "READDIR";
-        gf_fop_list[GF_FOP_INODELK]     = "INODELK";
-        gf_fop_list[GF_FOP_FINODELK]    = "FINODELK";
-        gf_fop_list[GF_FOP_ENTRYLK]     = "ENTRYLK";
-        gf_fop_list[GF_FOP_FENTRYLK]    = "FENTRYLK";
-        gf_fop_list[GF_FOP_XATTROP]     = "XATTROP";
-        gf_fop_list[GF_FOP_FXATTROP]    = "FXATTROP";
-        gf_fop_list[GF_FOP_FSETXATTR]   = "FSETXATTR";
-        gf_fop_list[GF_FOP_FGETXATTR]   = "FGETXATTR";
-        gf_fop_list[GF_FOP_RCHECKSUM]   = "RCHECKSUM";
-        gf_fop_list[GF_FOP_SETATTR]     = "SETATTR";
-        gf_fop_list[GF_FOP_FSETATTR]    = "FSETATTR";
-        gf_fop_list[GF_FOP_READDIRP]    = "READDIRP";
-        gf_fop_list[GF_FOP_GETSPEC]     = "GETSPEC";
-        gf_fop_list[GF_FOP_FORGET]      = "FORGET";
-        gf_fop_list[GF_FOP_RELEASE]     = "RELEASE";
-        gf_fop_list[GF_FOP_RELEASEDIR]  = "RELEASEDIR";
-
-        gf_fop_list[GF_MGMT_NULL]  = "NULL";
-        return;
-}
-
-
+const char *gf_fop_list[GF_FOP_MAXVALUE] = {
+        [GF_FOP_NULL]        = "NULL",
+        [GF_FOP_STAT]        = "STAT",
+        [GF_FOP_READLINK]    = "READLINK",
+        [GF_FOP_MKNOD]       = "MKNOD",
+        [GF_FOP_MKDIR]       = "MKDIR",
+        [GF_FOP_UNLINK]      = "UNLINK",
+        [GF_FOP_RMDIR]       = "RMDIR",
+        [GF_FOP_SYMLINK]     = "SYMLINK",
+        [GF_FOP_RENAME]      = "RENAME",
+        [GF_FOP_LINK]        = "LINK",
+        [GF_FOP_TRUNCATE]    = "TRUNCATE",
+        [GF_FOP_OPEN]        = "OPEN",
+        [GF_FOP_READ]        = "READ",
+        [GF_FOP_WRITE]       = "WRITE",
+        [GF_FOP_STATFS]      = "STATFS",
+        [GF_FOP_FLUSH]       = "FLUSH",
+        [GF_FOP_FSYNC]       = "FSYNC",
+        [GF_FOP_SETXATTR]    = "SETXATTR",
+        [GF_FOP_GETXATTR]    = "GETXATTR",
+        [GF_FOP_REMOVEXATTR] = "REMOVEXATTR",
+        [GF_FOP_OPENDIR]     = "OPENDIR",
+        [GF_FOP_FSYNCDIR]    = "FSYNCDIR",
+        [GF_FOP_ACCESS]      = "ACCESS",
+        [GF_FOP_CREATE]      = "CREATE",
+        [GF_FOP_FTRUNCATE]   = "FTRUNCATE",
+        [GF_FOP_FSTAT]       = "FSTAT",
+        [GF_FOP_LK]          = "LK",
+        [GF_FOP_LOOKUP]      = "LOOKUP",
+        [GF_FOP_READDIR]     = "READDIR",
+        [GF_FOP_INODELK]     = "INODELK",
+        [GF_FOP_FINODELK]    = "FINODELK",
+        [GF_FOP_ENTRYLK]     = "ENTRYLK",
+        [GF_FOP_FENTRYLK]    = "FENTRYLK",
+        [GF_FOP_XATTROP]     = "XATTROP",
+        [GF_FOP_FXATTROP]    = "FXATTROP",
+        [GF_FOP_FSETXATTR]   = "FSETXATTR",
+        [GF_FOP_FGETXATTR]   = "FGETXATTR",
+        [GF_FOP_RCHECKSUM]   = "RCHECKSUM",
+        [GF_FOP_SETATTR]     = "SETATTR",
+        [GF_FOP_FSETATTR]    = "FSETATTR",
+        [GF_FOP_READDIRP]    = "READDIRP",
+        [GF_FOP_GETSPEC]     = "GETSPEC",
+        [GF_FOP_FORGET]      = "FORGET",
+        [GF_FOP_RELEASE]     = "RELEASE",
+        [GF_FOP_RELEASEDIR]  = "RELEASEDIR",
+        [GF_FOP_FREMOVEXATTR]= "FREMOVEXATTR",
+};
 /* THIS */
 
 xlator_t global_xlator;
@@ -173,45 +160,40 @@ glusterfs_this_set (xlator_t *this)
 
 /* SYNCTASK */
 
-static pthread_key_t synctask_key;
-
-
 int
-synctask_init ()
+synctask_init (glusterfs_ctx_t *ctx)
 {
         int  ret = 0;
 
-        ret = pthread_key_create (&synctask_key, NULL);
+        ret = pthread_key_create (&ctx->synctask_key, NULL);
 
         return ret;
 }
 
 
 void *
-synctask_get ()
+synctask_get (glusterfs_ctx_t *ctx)
 {
         void   *synctask = NULL;
 
-        synctask = pthread_getspecific (synctask_key);
+        synctask = pthread_getspecific (ctx->synctask_key);
 
         return synctask;
 }
 
 
 int
-synctask_set (void *synctask)
+synctask_set (glusterfs_ctx_t *ctx, void *synctask)
 {
         int     ret = 0;
 
-        pthread_setspecific (synctask_key, synctask);
+        pthread_setspecific (ctx->synctask_key, synctask);
 
         return ret;
 }
 
 //UUID_BUFFER
 
-static pthread_key_t uuid_buf_key;
-static char global_uuid_buf[GF_UUID_BUF_SIZE];
 void
 glusterfs_uuid_buf_destroy (void *ptr)
 {
@@ -219,35 +201,33 @@ glusterfs_uuid_buf_destroy (void *ptr)
 }
 
 int
-glusterfs_uuid_buf_init ()
+glusterfs_uuid_buf_init (glusterfs_ctx_t *ctx)
 {
         int ret = 0;
 
-        ret = pthread_key_create (&uuid_buf_key,
+        ret = pthread_key_create (&ctx->uuid_buf_key,
                                   glusterfs_uuid_buf_destroy);
         return ret;
 }
 
 char *
-glusterfs_uuid_buf_get ()
+glusterfs_uuid_buf_get (glusterfs_ctx_t *ctx)
 {
         char *buf;
         int ret = 0;
 
-        buf = pthread_getspecific (uuid_buf_key);
+        buf = pthread_getspecific (ctx->uuid_buf_key);
         if(!buf) {
                 buf = MALLOC (GF_UUID_BUF_SIZE);
-                ret = pthread_setspecific (uuid_buf_key, (void *) buf);
-                if(ret)
-                        buf = global_uuid_buf;
+                ret = pthread_setspecific (ctx->uuid_buf_key, (void *) buf);
+                if (ret)
+                        buf = ctx->uuid_buf;
         }
         return buf;
 }
 
 /* LKOWNER_BUFFER */
 
-static pthread_key_t lkowner_buf_key;
-static char global_lkowner_buf[GF_LKOWNER_BUF_SIZE];
 void
 glusterfs_lkowner_buf_destroy (void *ptr)
 {
@@ -255,39 +235,37 @@ glusterfs_lkowner_buf_destroy (void *ptr)
 }
 
 int
-glusterfs_lkowner_buf_init ()
+glusterfs_lkowner_buf_init (glusterfs_ctx_t *ctx)
 {
         int ret = 0;
 
-        ret = pthread_key_create (&lkowner_buf_key,
+        ret = pthread_key_create (&ctx->lkowner_buf_key,
                                   glusterfs_lkowner_buf_destroy);
         return ret;
 }
 
 char *
-glusterfs_lkowner_buf_get ()
+glusterfs_lkowner_buf_get (glusterfs_ctx_t *ctx)
 {
         char *buf;
         int ret = 0;
 
-        buf = pthread_getspecific (lkowner_buf_key);
+        buf = pthread_getspecific (ctx->lkowner_buf_key);
         if(!buf) {
                 buf = MALLOC (GF_LKOWNER_BUF_SIZE);
-                ret = pthread_setspecific (lkowner_buf_key, (void *) buf);
-                if(ret)
-                        buf = global_lkowner_buf;
+                ret = pthread_setspecific (ctx->lkowner_buf_key, (void *) buf);
+                if (ret)
+                        buf = ctx->lkowner_buf;
         }
         return buf;
 }
 
 int
-glusterfs_globals_init ()
+glusterfs_globals_init (glusterfs_ctx_t *ctx)
 {
         int ret = 0;
 
-        gf_op_list_init ();
-
-        gf_log_globals_init ();
+        gf_log_globals_init (ctx);
 
         ret = glusterfs_this_init ();
         if (ret) {
@@ -296,23 +274,21 @@ glusterfs_globals_init ()
                 goto out;
         }
 
-        ret = glusterfs_uuid_buf_init ();
+        ret = glusterfs_uuid_buf_init (ctx);
         if(ret) {
                 gf_log ("", GF_LOG_CRITICAL,
                         "ERROR: glusterfs uuid buffer init failed");
                 goto out;
         }
 
-        ret = glusterfs_lkowner_buf_init ();
+        ret = glusterfs_lkowner_buf_init (ctx);
         if(ret) {
                 gf_log ("", GF_LOG_CRITICAL,
                         "ERROR: glusterfs lkowner buffer init failed");
                 goto out;
         }
 
-        gf_mem_acct_enable_set ();
-
-        ret = synctask_init ();
+        ret = synctask_init (ctx);
         if (ret) {
                 gf_log ("", GF_LOG_CRITICAL,
                         "ERROR: glusterfs synctask init failed");
@@ -320,32 +296,4 @@ glusterfs_globals_init ()
         }
 out:
         return ret;
-}
-
-
-char eventstring[GF_EVENT_MAXVAL+1][64] = {
-        "Invalid event",
-        "Parent Up",
-        "Poll In",
-        "Poll Out",
-        "Poll Err",
-        "Child Up",
-        "Child Down",
-        "Child Connecting",
-        "Child Modified",
-        "Transport Cleanup",
-        "Transport Connected",
-        "Volfile Modified",
-        "New Volfile",
-        "Translator Info",
-        "Xlator Op",
-        "Authentication Failed",
-        "Invalid event",
-};
-
-/* Copy the string ptr contents if needed for yourself */
-char *
-glusterfs_strevent (glusterfs_event_t ev)
-{
-        return eventstring[ev];
 }

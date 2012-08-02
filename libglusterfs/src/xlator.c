@@ -460,11 +460,11 @@ xlator_mem_acct_init (xlator_t *xl, int num_types)
         int             i = 0;
         int             ret = 0;
 
-        if (!gf_mem_acct_is_enabled ())
-                return 0;
-
         if (!xl)
                 return -1;
+
+        if (!xl->ctx->mem_acct_enable)
+                return 0;
 
         xl->mem_acct.num_types = num_types;
 

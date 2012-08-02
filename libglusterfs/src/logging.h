@@ -59,60 +59,33 @@ typedef enum {
         GF_LOG_TRACE,      /* full trace of operation */
 } gf_loglevel_t;
 
-extern gf_loglevel_t gf_log_loglevel;
-extern char gf_log_xl_log_set;
+typedef struct gf_log_handle_ {
+        pthread_mutex_t  logfile_mutex;
+        uint8_t          logrotate;
+        gf_loglevel_t    loglevel;
+        int              gf_log_syslog;
+        gf_loglevel_t    sys_log_level;
+        char             gf_log_xl_log_set;
+        char            *filename;
+        FILE            *logfile;
+        FILE            *gf_log_logfile;
+        char            *cmd_log_filename;
+        FILE            *cmdlogfile;
 
-#define FMT_WARN(fmt...) do { if (0) printf (fmt); } while (0)
+} gf_log_handle_t;
 
-#define gf_log(dom, levl, fmt...) do {                                  \
-                FMT_WARN (fmt);                                         \
-                                                                        \
-                if ((levl > gf_log_loglevel) && !gf_log_xl_log_set)     \
-                        break;                                          \
-                _gf_log (dom, __FILE__, __FUNCTION__, __LINE__,         \
-                         levl, ##fmt);                                  \
-        } while (0)
-
-#define gf_log_eh(fmt...) do {                                          \
-        _gf_log_eh (__FUNTION__, ##fmt);                                \
-        } while (0)
-
-#define gf_log_callingfn(dom, levl, fmt...) do {                        \
-                FMT_WARN (fmt);                                         \
-                                                                        \
-                if ((levl > gf_log_loglevel) && !gf_log_xl_log_set)     \
-                        break;                                          \
-                _gf_log_callingfn (dom, __FILE__, __FUNCTION__, __LINE__, \
-                                   levl, ##fmt);                        \
-        } while (0)
-
-
-/* No malloc or calloc should be called in this function */
-#define gf_log_nomem(dom, levl, size) do {                              \
-                if ((levl > gf_log_loglevel) && !gf_log_xl_log_set)     \
-                        break;                                          \
-                _gf_log_nomem (dom, __FILE__, __FUNCTION__, __LINE__,   \
-                               levl, size);                             \
-        } while (0)
-
-
-/* Log once in GF_UNIVERSAL_ANSWER times */
-#define GF_LOG_OCCASIONALLY(var, args...) if (!(var++%GF_UNIVERSAL_ANSWER)) { \
-                gf_log (args);                                          \
-        }
-
+void gf_log_globals_init (void *ctx);
+int gf_log_init (void *data, const char *filename);
 
 void gf_log_logrotate (int signum);
 
-void gf_log_globals_init (void);
-int gf_log_init (const char *filename);
 void gf_log_cleanup (void);
 
 int _gf_log (const char *domain, const char *file,
              const char *function, int32_t line, gf_loglevel_t level,
              const char *fmt, ...)
              __attribute__ ((__format__ (__printf__, 6, 7)));
-int _gf_log_callingfn (const char *domain, const char *file, 
+int _gf_log_callingfn (const char *domain, const char *file,
                        const char *function, int32_t line, gf_loglevel_t level,
                        const char *fmt, ...)
                        __attribute__ ((__format__ (__printf__, 6, 7)));
@@ -123,10 +96,39 @@ int _gf_log_nomem (const char *domain, const char *file,
 
 int _gf_log_eh (const char *function, const char *fmt, ...);
 
-int gf_log_from_client (const char *msg, char *identifier);
 
-void gf_log_lock (void);
-void gf_log_unlock (void);
+
+#define FMT_WARN(fmt...) do { if (0) printf (fmt); } while (0)
+
+#define gf_log(dom, levl, fmt...) do {                                  \
+                FMT_WARN (fmt);                                         \
+                _gf_log (dom, __FILE__, __FUNCTION__, __LINE__,         \
+                         levl, ##fmt);                                  \
+        } while (0)
+
+#define gf_log_eh(fmt...) do {                                          \
+                FMT_WARN (fmt);                                         \
+                _gf_log_eh (__FUNTION__, ##fmt);                        \
+        } while (0)
+
+#define gf_log_callingfn(dom, levl, fmt...) do {                        \
+                FMT_WARN (fmt);                                         \
+                _gf_log_callingfn (dom, __FILE__, __FUNCTION__, __LINE__, \
+                                   levl, ##fmt);                        \
+        } while (0)
+
+
+/* No malloc or calloc should be called in this function */
+#define gf_log_nomem(dom, levl, size) do {                              \
+                _gf_log_nomem (dom, __FILE__, __FUNCTION__, __LINE__,   \
+                               levl, size);                             \
+        } while (0)
+
+
+/* Log once in GF_UNIVERSAL_ANSWER times */
+#define GF_LOG_OCCASIONALLY(var, args...) if (!(var++%GF_UNIVERSAL_ANSWER)) { \
+                gf_log (args);                                          \
+        }
 
 void gf_log_disable_syslog (void);
 void gf_log_enable_syslog (void);
@@ -134,6 +136,13 @@ gf_loglevel_t gf_log_get_loglevel (void);
 void gf_log_set_loglevel (gf_loglevel_t level);
 gf_loglevel_t gf_log_get_xl_loglevel (void *xl);
 void gf_log_set_xl_loglevel (void *xl, gf_loglevel_t level);
+
+int gf_cmd_log (const char *domain, const char *fmt, ...)
+                __attribute__ ((__format__ (__printf__, 2, 3)));
+
+int gf_cmd_log_init (const char *filename);
+
+void set_sys_log_level (gf_loglevel_t level);
 
 #define GF_DEBUG(xl, format, args...)                           \
         gf_log ((xl)->name, GF_LOG_DEBUG, format, ##args)
@@ -144,10 +153,4 @@ void gf_log_set_xl_loglevel (void *xl, gf_loglevel_t level);
 #define GF_ERROR(xl, format, args...)                           \
         gf_log ((xl)->name, GF_LOG_ERROR, format, ##args)
 
-int gf_cmd_log (const char *domain, const char *fmt, ...)
-                __attribute__ ((__format__ (__printf__, 2, 3)));
-
-int gf_cmd_log_init (const char *filename);
-
-void set_sys_log_level (gf_loglevel_t level);
 #endif /* __LOGGING_H__ */

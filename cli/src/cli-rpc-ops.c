@@ -3730,7 +3730,7 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                 snprintf (key, sizeof (key), "%d-%d-%d-maxlatency", count,
                           interval, i);
                 ret = dict_get_double (dict, key, &profile_info[i].max_latency);
-                profile_info[i].fop_name = gf_fop_list[i];
+                profile_info[i].fop_name = (char *)gf_fop_list[i];
 
                 total_percentage_latency +=
                        (profile_info[i].fop_hits * profile_info[i].avg_latency);

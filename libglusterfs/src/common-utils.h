@@ -109,9 +109,6 @@ in_addr_t gf_resolve_ip (const char *hostname, void **dnscache);
 void gf_log_volume_file (FILE *specfp);
 void gf_print_trace (int32_t signal, glusterfs_ctx_t *ctx);
 
-extern char *gf_fop_list[GF_FOP_MAXVALUE];
-extern char *gf_mgmt_list[GF_MGMT_MAXVALUE];
-
 #define VECTORSIZE(count) (count * (sizeof (struct iovec)))
 
 #define STRLEN_0(str) (strlen(str) + 1)

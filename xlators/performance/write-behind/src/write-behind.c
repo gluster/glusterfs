@@ -2970,7 +2970,7 @@ __wb_dump_requests (struct list_head *head, char *prefix, char passive)
                 gf_proc_dump_build_key (key, prefix, passive ? "passive-request"
                                         : "active-request");
                 gf_proc_dump_build_key (key_prefix, key,
-                                        gf_fop_list[request->fop]);
+                                        (char *)gf_fop_list[request->fop]);
 
                 gf_proc_dump_add_section(key_prefix);
 
