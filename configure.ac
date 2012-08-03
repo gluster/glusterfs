@@ -460,6 +460,7 @@ AC_SUBST(GF_DISTRIBUTION)
 
 GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
+CFLAGS="-g"
 
 case $host_os in
      linux*)
@@ -518,6 +519,22 @@ case $host_os in
 	;;
 esac
 
+# enable debug section
+AC_ARG_ENABLE([debug],
+              AC_HELP_STRING([--enable-debug],
+                             [Enable debug build options.]))
+
+DEBUG=no
+if test "x$enable_debug" = "xyes"; then
+   DEBUG=yes
+   CFLAGS="-O0 $CFLAGS"
+else
+   CFLAGS="-O2 $CFLAGS"
+   DEBUG=no
+fi
+AC_SUBST(CFLAGS)
+# end enable debug section
+
 BUILD_READLINE=no
 AC_CHECK_LIB([readline -lcurses],[readline],[RLLIBS="-lreadline -lcurses"])
 AC_CHECK_LIB([readline -ltermcap],[readline],[RLLIBS="-lreadline -ltermcap"])
@@ -573,4 +590,5 @@ echo "fusermount         : $BUILD_FUSERMOUNT"
 echo "readline           : $BUILD_READLINE"
 echo "georeplication     : $BUILD_SYNCDAEMON"
 echo "Linux-AIO          : $BUILD_LIBAIO"
+echo "Enable Debug       : $DEBUG"
 echo
