@@ -5620,6 +5620,9 @@ glusterd_volset_help (dict_t *dict, char **op_errstr)
 {
         int                     ret = -1;
         gf_boolean_t            xml_out = _gf_false;
+        xlator_t                *this = NULL;
+
+        this = THIS;
 
         if (!dict) {
                 if (!(dict = glusterd_op_get_ctx ())) {
