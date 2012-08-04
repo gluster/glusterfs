@@ -261,13 +261,27 @@ syncenv_task (struct syncproc *proc)
 {
 	struct syncenv   *env = NULL;
         struct synctask  *task = NULL;
+        struct timespec   sleep_till = {0, };
+        int               ret = 0;
 
 	env = proc->env;
 
         pthread_mutex_lock (&env->mutex);
         {
-                while (list_empty (&env->runq))
-                        pthread_cond_wait (&env->cond, &env->mutex);
+                while (list_empty (&env->runq)) {
+                        sleep_till.tv_sec = time (NULL) + SYNCPROC_IDLE_TIME;
+                        ret = pthread_cond_timedwait (&env->cond, &env->mutex,
+                                                      &sleep_till);
+                        if (!list_empty (&env->runq))
+                                break;
+                        if ((ret == ETIMEDOUT) &&
+                            (env->procs > SYNCENV_PROC_MIN)) {
+                                task = NULL;
+                                env->procs--;
+                                memset (proc, 0, sizeof (*proc));
+                                goto unlock;
+                        }
+                }
 
                 task = list_entry (env->runq.next, struct synctask, all_tasks);
 
@@ -276,6 +290,7 @@ syncenv_task (struct syncproc *proc)
 
 		task->proc = proc;
         }
+unlock:
         pthread_mutex_unlock (&env->mutex);
 
         return task;
@@ -334,6 +349,8 @@ syncenv_processor (void *thdata)
 
         for (;;) {
                 task = syncenv_task (proc);
+                if (!task)
+                        break;
 
                 synctask_switchto (task);
 
@@ -347,7 +364,8 @@ syncenv_processor (void *thdata)
 void
 syncenv_scale (struct syncenv *env)
 {
-	int  thmax = 0;
+	int  diff = 0;
+        int  scale = 0;
 	int  i = 0;
 	int  ret = 0;
 
@@ -356,14 +374,25 @@ syncenv_scale (struct syncenv *env)
 		if (env->procs > env->runcount)
 			goto unlock;
 
-		thmax = min (env->runcount, SYNCENV_PROC_MAX);
-		for (i = env->procs; i < thmax; i++) {
+                scale = env->runcount;
+                if (scale > SYNCENV_PROC_MAX)
+                        scale = SYNCENV_PROC_MAX;
+                if (scale > env->procs)
+                        diff = scale - env->procs;
+                while (diff) {
+                        diff--;
+                        for (; (i < SYNCENV_PROC_MAX); i++) {
+                                if (env->proc[i].processor == 0)
+                                        break;
+                        }
+
 			env->proc[i].env = env;
 			ret = pthread_create (&env->proc[i].processor, NULL,
 					      syncenv_processor, &env->proc[i]);
 			if (ret)
 				break;
 			env->procs++;
+                        i++;
 		}
 	}
 unlock:
