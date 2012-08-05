@@ -295,6 +295,8 @@ xlator_instantiate_va (const char *type, const char *format, va_list arg)
         xl->name = volname;
         INIT_LIST_HEAD (&xl->volume_options);
 
+        xl->ctx = THIS->ctx;
+
         return xl;
 
  error:
