@@ -192,9 +192,9 @@ _gf_log_nomem (const char *domain, const char *file,
         if (ctx->log.gf_log_xl_log_set) {
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
-                else if (level > ctx->log.loglevel)
-                        goto out;
         }
+        if (level > ctx->log.loglevel)
+                goto out;
 
         static char *level_strings[] = {"",  /* NONE */
                                         "M", /* EMERGENCY */
@@ -308,9 +308,9 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
         if (ctx->log.gf_log_xl_log_set) {
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
-                else if (level > ctx->log.loglevel)
-                        goto out;
         }
+        if (level > ctx->log.loglevel)
+                goto out;
 
         static char *level_strings[] = {"",  /* NONE */
                                         "M", /* EMERGENCY */
@@ -445,9 +445,9 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
         if (ctx->log.gf_log_xl_log_set) {
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
-                else if (level > ctx->log.loglevel)
-                        goto out;
         }
+        if (level > ctx->log.loglevel)
+                goto out;
 
         static char *level_strings[] = {"",  /* NONE */
                                         "M", /* EMERGENCY */
