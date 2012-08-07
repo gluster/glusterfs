@@ -16,6 +16,9 @@ set_hooks_commit_msg()
     curl -o $f $u || wget -O $f $u;
 
     chmod +x .git/hooks/commit-msg;
+
+    # Let the 'Change-Id: ' header get assigned on first run of rfc.sh
+    GIT_EDITOR=true git commit --amend;
 }
 
 
