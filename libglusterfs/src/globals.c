@@ -72,6 +72,12 @@ const char *gf_fop_list[GF_FOP_MAXVALUE] = {
 
 xlator_t global_xlator;
 static pthread_key_t this_xlator_key;
+static pthread_key_t synctask_key;
+static pthread_key_t uuid_buf_key;
+static char          global_uuid_buf[GF_UUID_BUF_SIZE];
+static pthread_key_t lkowner_buf_key;
+static char          global_lkowner_buf[GF_LKOWNER_BUF_SIZE];
+
 
 void
 glusterfs_this_destroy (void *ptr)
@@ -161,33 +167,33 @@ glusterfs_this_set (xlator_t *this)
 /* SYNCTASK */
 
 int
-synctask_init (glusterfs_ctx_t *ctx)
+synctask_init ()
 {
         int  ret = 0;
 
-        ret = pthread_key_create (&ctx->synctask_key, NULL);
+        ret = pthread_key_create (&synctask_key, NULL);
 
         return ret;
 }
 
 
 void *
-synctask_get (glusterfs_ctx_t *ctx)
+synctask_get ()
 {
         void   *synctask = NULL;
 
-        synctask = pthread_getspecific (ctx->synctask_key);
+        synctask = pthread_getspecific (synctask_key);
 
         return synctask;
 }
 
 
 int
-synctask_set (glusterfs_ctx_t *ctx, void *synctask)
+synctask_set (void *synctask)
 {
         int     ret = 0;
 
-        pthread_setspecific (ctx->synctask_key, synctask);
+        pthread_setspecific (synctask_key, synctask);
 
         return ret;
 }
@@ -201,27 +207,27 @@ glusterfs_uuid_buf_destroy (void *ptr)
 }
 
 int
-glusterfs_uuid_buf_init (glusterfs_ctx_t *ctx)
+glusterfs_uuid_buf_init ()
 {
         int ret = 0;
 
-        ret = pthread_key_create (&ctx->uuid_buf_key,
+        ret = pthread_key_create (&uuid_buf_key,
                                   glusterfs_uuid_buf_destroy);
         return ret;
 }
 
 char *
-glusterfs_uuid_buf_get (glusterfs_ctx_t *ctx)
+glusterfs_uuid_buf_get ()
 {
         char *buf;
         int ret = 0;
 
-        buf = pthread_getspecific (ctx->uuid_buf_key);
+        buf = pthread_getspecific (uuid_buf_key);
         if(!buf) {
                 buf = MALLOC (GF_UUID_BUF_SIZE);
-                ret = pthread_setspecific (ctx->uuid_buf_key, (void *) buf);
+                ret = pthread_setspecific (uuid_buf_key, (void *) buf);
                 if (ret)
-                        buf = ctx->uuid_buf;
+                        buf = global_uuid_buf;
         }
         return buf;
 }
@@ -235,27 +241,27 @@ glusterfs_lkowner_buf_destroy (void *ptr)
 }
 
 int
-glusterfs_lkowner_buf_init (glusterfs_ctx_t *ctx)
+glusterfs_lkowner_buf_init ()
 {
         int ret = 0;
 
-        ret = pthread_key_create (&ctx->lkowner_buf_key,
+        ret = pthread_key_create (&lkowner_buf_key,
                                   glusterfs_lkowner_buf_destroy);
         return ret;
 }
 
 char *
-glusterfs_lkowner_buf_get (glusterfs_ctx_t *ctx)
+glusterfs_lkowner_buf_get ()
 {
         char *buf;
         int ret = 0;
 
-        buf = pthread_getspecific (ctx->lkowner_buf_key);
+        buf = pthread_getspecific (lkowner_buf_key);
         if(!buf) {
                 buf = MALLOC (GF_LKOWNER_BUF_SIZE);
-                ret = pthread_setspecific (ctx->lkowner_buf_key, (void *) buf);
+                ret = pthread_setspecific (lkowner_buf_key, (void *) buf);
                 if (ret)
-                        buf = ctx->lkowner_buf;
+                        buf = global_lkowner_buf;
         }
         return buf;
 }
@@ -274,21 +280,21 @@ glusterfs_globals_init (glusterfs_ctx_t *ctx)
                 goto out;
         }
 
-        ret = glusterfs_uuid_buf_init (ctx);
+        ret = glusterfs_uuid_buf_init ();
         if(ret) {
                 gf_log ("", GF_LOG_CRITICAL,
                         "ERROR: glusterfs uuid buffer init failed");
                 goto out;
         }
 
-        ret = glusterfs_lkowner_buf_init (ctx);
+        ret = glusterfs_lkowner_buf_init ();
         if(ret) {
                 gf_log ("", GF_LOG_CRITICAL,
                         "ERROR: glusterfs lkowner buffer init failed");
                 goto out;
         }
 
-        ret = synctask_init (ctx);
+        ret = synctask_init ();
         if (ret) {
                 gf_log ("", GF_LOG_CRITICAL,
                         "ERROR: glusterfs synctask init failed");

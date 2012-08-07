@@ -383,12 +383,6 @@ struct _glusterfs_ctx {
                                                      call to fsd-mgmt */
         gf_log_handle_t     log; /* all logging related variables */
 
-        pthread_key_t synctask_key;
-        pthread_key_t uuid_buf_key;
-        char          uuid_buf[GF_UUID_BUF_SIZE];
-        pthread_key_t lkowner_buf_key;
-        char          lkowner_buf[GF_LKOWNER_BUF_SIZE];
-
         int           mem_acct_enable;
 
 };
