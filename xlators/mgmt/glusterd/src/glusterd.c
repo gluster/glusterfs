@@ -392,7 +392,6 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         gf_log("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
-#endif
 
 static void
 runinit_gsyncd_setrx (runner_t *runner, glusterd_conf_t *conf)
@@ -416,7 +415,6 @@ configure_syncdaemon (glusterd_conf_t *conf)
 } while (0)
 {
         int ret = 0;
-#if SYNCDAEMON_COMPILE
         runner_t runner = {0,};
         char georepdir[PATH_MAX] = {0,};
         int valid_state = 0;
@@ -547,12 +545,17 @@ configure_syncdaemon (glusterd_conf_t *conf)
         RUN_GSYNCD_CMD;
 
  out:
-#else
-        (void)conf;
-#endif
         return ret ? -1 : 0;
 }
 #undef RUN_GSYNCD_CMD
+#else /* SYNCDAEMON_COMPILE */
+static int
+configure_syncdaemon (glusterd_conf_t *conf)
+{
+        return 0;
+}
+#endif /* !SYNCDAEMON_COMPILE */
+
 
 static int
 check_prepare_mountbroker_root (char *mountbroker_root)
