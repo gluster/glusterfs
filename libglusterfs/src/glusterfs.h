@@ -82,6 +82,8 @@
 #define GF_XATTR_NODE_UUID_KEY  "trusted.glusterfs.node-uuid"
 #define GF_XATTR_VOL_ID_KEY   "trusted.glusterfs.volume-id"
 
+#define GF_READDIR_SKIP_DIRS       "readdir-filter-directories"
+
 #define XATTR_IS_PATHINFO(x)  (strncmp (x, GF_XATTR_PATHINFO_KEY,       \
                                         strlen (GF_XATTR_PATHINFO_KEY)) == 0)
 #define XATTR_IS_NODE_UUID(x) (strncmp (x, GF_XATTR_NODE_UUID_KEY,      \

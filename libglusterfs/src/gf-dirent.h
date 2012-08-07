@@ -48,6 +48,7 @@ struct _gf_dirent_t {
 	char                                 d_name[0];
 };
 
+#define DT_ISDIR(mode) (mode == DT_DIR)
 
 gf_dirent_t *gf_dirent_for_name (const char *name);
 void gf_dirent_free (gf_dirent_t *entries);
