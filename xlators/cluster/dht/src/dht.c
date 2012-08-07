@@ -329,6 +329,8 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("directory-layout-spread", conf->dir_spread_cnt,
                           options, uint32, out);
 
+        GF_OPTION_RECONF ("readdir-optimize", conf->readdir_optimize, options,
+                          bool, out);
         if (conf->defrag) {
                 GF_OPTION_RECONF ("rebalance-stats", conf->defrag->stats,
                                   options, bool, out);
@@ -434,6 +436,8 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("assert-no-child-down", conf->assert_no_child_down,
                         bool, err);
+
+        GF_OPTION_INIT ("readdir-optimize", conf->readdir_optimize, bool, err);
 
         if (defrag) {
                 GF_OPTION_INIT ("rebalance-stats", defrag->stats, bool, err);
@@ -600,6 +604,10 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_STR,
         },
         { .key = {"rebalance-stats"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+        },
+        { .key = {"readdir-optimize"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
         },
