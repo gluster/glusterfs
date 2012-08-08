@@ -1059,10 +1059,12 @@ stripe_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
         local->call_count = priv->child_count;
 
-	inode_ctx_get(oldloc->inode, this, (uint64_t *) &fctx);
-	if (!fctx)
-		goto err;
-	local->fctx = fctx;
+	if (IA_ISREG(oldloc->inode->ia_type)) {
+		inode_ctx_get(oldloc->inode, this, (uint64_t *) &fctx);
+		if (!fctx)
+			goto err;
+		local->fctx = fctx;
+	}
 
         frame->local = local;
 
@@ -1949,12 +1951,14 @@ stripe_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         {
                 callcnt = --local->call_count;
 
-		inode_ctx_get(inode, this, (uint64_t *) &fctx);
-		if (!fctx) {
-			gf_log(this->name, GF_LOG_ERROR, "failed to get stripe "
-				"context");
-			op_ret = -1;
-			op_errno = EINVAL;
+		if (IA_ISREG(inode->ia_type)) {
+			inode_ctx_get(inode, this, (uint64_t *) &fctx);
+			if (!fctx) {
+				gf_log(this->name, GF_LOG_ERROR,
+					"failed to get stripe context");
+				op_ret = -1;
+				op_errno = EINVAL;
+			}
 		}
 
                 if (op_ret == -1) {
