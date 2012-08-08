@@ -249,13 +249,15 @@ glusterd_urltransform (runner_t *runner, char ***linearrp)
                 line[len - 1] = '\0';
 
                 if (arr_idx == arr_len) {
+                        void *p = linearr;
                         arr_len <<= 1;
-                        linearr = GF_REALLOC (linearr, arr_len);
-                        if (!linearr) {
+                        p = GF_REALLOC (linearr, arr_len);
+                        if (!p) {
                                 GF_FREE (line);
                                 error = _gf_true;
                                 goto out;
                         }
+                        linearr = p;
                 }
                 linearr[arr_idx] = line;
 
