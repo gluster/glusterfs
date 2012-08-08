@@ -1728,13 +1728,14 @@ dht_vgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (local->xattr_val) {
                                 plen = strlen (local->xattr_val);
                                 if (plen) {
+                                        void *p;
                                         /* extra byte(s) for \0 to be safe */
                                         alloc_len += (plen + 2);
-                                        local->xattr_val =
-                                                GF_REALLOC (local->xattr_val,
-                                                            alloc_len);
-                                        if (!local->xattr_val)
+                                        p = GF_REALLOC (local->xattr_val,
+                                                        alloc_len);
+                                        if (!p)
                                                 goto out;
+                                        local->xattr_val = p;
                                 }
 
                                 strcat (local->xattr_val, value_got);
