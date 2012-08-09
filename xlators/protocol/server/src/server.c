@@ -245,6 +245,7 @@ server_fd (xlator_t *this)
         char                 key[GF_DUMP_MAX_BUF_LEN];
         int                  i = 1;
         int                  ret = -1;
+        gf_boolean_t         section_added = _gf_false;
 
         GF_VALIDATE_OR_GOTO ("server", this, out);
 
@@ -256,13 +257,11 @@ server_fd (xlator_t *this)
         }
 
         gf_proc_dump_add_section("xlator.protocol.server.conn");
+        section_added = _gf_true;
 
         ret = pthread_mutex_trylock (&conf->mutex);
-        if (ret) {
-                gf_log("", GF_LOG_WARNING, "Unable to dump fdtable"
-                       " errno: %d", errno);
-                return -1;
-        }
+        if (ret)
+                goto out;
 
         list_for_each_entry (trav, &conf->conns, list) {
                 if (trav->id) {
@@ -288,6 +287,13 @@ server_fd (xlator_t *this)
 
         ret = 0;
 out:
+        if (ret) {
+                if (section_added == _gf_false)
+                        gf_proc_dump_add_section("xlator.protocol.server.conn");
+                gf_proc_dump_write ("Unable to dump the list of connections",
+                                    "(Lock acquisition failed) %s",
+                                    this?this->name:"server");
+        }
         return ret;
 }
 
@@ -366,7 +372,12 @@ server_priv (xlator_t *this)
         if (!conf)
                 return 0;
 
-        pthread_mutex_lock (&conf->mutex);
+        gf_proc_dump_build_key (key, "xlator.protocol.server", "priv");
+        gf_proc_dump_add_section (key);
+
+        ret = pthread_mutex_trylock (&conf->mutex);
+        if (ret != 0)
+                goto out;
         {
                 list_for_each_entry (xprt, &conf->xprt_list, list) {
                         total_read  += xprt->total_bytes_read;
@@ -383,6 +394,11 @@ server_priv (xlator_t *this)
 
         ret = 0;
 out:
+        if (ret)
+                gf_proc_dump_write ("Unable to print priv",
+                                    "(Lock acquisition failed) %s",
+                                    this?this->name:"server");
+
         return ret;
 }
 
@@ -457,11 +473,8 @@ server_inode (xlator_t *this)
         }
 
         ret = pthread_mutex_trylock (&conf->mutex);
-        if (ret) {
-                gf_log("", GF_LOG_WARNING, "Unable to dump itable"
-                       " errno: %d", errno);
-                return -1;
-        }
+        if (ret)
+                goto out;
 
         list_for_each_entry (trav, &conf->conns, list) {
                 if (trav->bound_xl && trav->bound_xl->itable) {
@@ -487,6 +500,11 @@ server_inode (xlator_t *this)
 
         ret = 0;
 out:
+        if (ret)
+                gf_proc_dump_write ("Unable to dump the inode table",
+                                    "(Lock acquisition failed) %s",
+                                    this?this->name:"server");
+
         return ret;
 }
 
