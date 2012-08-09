@@ -770,6 +770,7 @@ wb_sync (call_frame_t *frame, wb_inode_t *wb_inode, list_head_t *winds)
 
                         frame->root->lk_owner = lk_owner;
 
+                        local->wb_inode = wb_inode;
                         sync_frame->local = local;
 
                         local->fd = fd = fd_ref (request->stub->args.writev.fd);
@@ -2802,7 +2803,7 @@ wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
                                         op_errno, EINVAL);
 
         wb_inode = wb_inode_ctx_get (this, fd->inode);
-        if ((!IA_ISDIR (fd->inode->ia_type))) {
+        if (wb_inode == NULL && (!IA_ISDIR (fd->inode->ia_type))) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "write behind wb_inode pointer is"
                         " not stored in context of inode(%p), "
@@ -2818,6 +2819,7 @@ wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
         }
 
         frame->local = local;
+        local->wb_inode = wb_inode;
 
         if (wb_inode) {
                 stub = fop_fsync_stub (frame, wb_fsync_helper, fd, datasync,
