@@ -162,7 +162,7 @@ __wb_fd_ctx_get (xlator_t *this, fd_t *fd)
         wb_file_t *wb_file = NULL;
         uint64_t   value   = 0;
 
-        fd_ctx_get (fd, this, &value);
+        __fd_ctx_get (fd, this, &value);
         wb_file = (wb_file_t *)(unsigned long)value;
 
         return wb_file;
@@ -3079,20 +3079,30 @@ wb_fd_dump (xlator_t *this, fd_t *fd)
         wb_file_t  *wb_file                        = NULL;
         char       *path                           = NULL;
         char       key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
+        int        ret                             = -1;
+        gf_boolean_t  section_added                = _gf_false;
+
+        gf_proc_dump_build_key (key_prefix, "xlator.performance.write-behind",
+                                "wb_file");
 
         if ((fd == NULL) || (this == NULL)) {
                 goto out;
         }
 
-        wb_file = wb_fd_ctx_get (this, fd);
+        ret = TRY_LOCK(&fd->lock);
+        if (ret)
+                goto out;
+        {
+                wb_file = __wb_fd_ctx_get (this, fd);
+        }
+        UNLOCK(&fd->lock);
+
         if (wb_file == NULL) {
                 goto out;
         }
 
-        gf_proc_dump_build_key (key_prefix, "xlator.performance.write-behind",
-                                "wb_file");
-
         gf_proc_dump_add_section (key_prefix);
+        section_added = _gf_true;
 
         __inode_path (fd->inode, NULL, &path);
         if (path != NULL) {
@@ -3111,6 +3121,13 @@ wb_fd_dump (xlator_t *this, fd_t *fd)
         gf_proc_dump_write ("disabled", "%d", wb_file->disabled);
 
 out:
+        if (ret && fd && this) {
+                if (_gf_false == section_added)
+                        gf_proc_dump_add_section (key_prefix);
+                gf_proc_dump_write ("Unable to dump the fd",
+                                    "(Lock acquisition failed) %s",
+                                    uuid_utoa (fd->inode->gfid));
+        }
         return 0;
 }
 
@@ -3265,7 +3282,8 @@ struct xlator_fops fops = {
 };
 
 struct xlator_cbks cbks = {
-        .release  = wb_release
+        .forget   = wb_forget,
+        .release  = wb_release,
 };
 
 struct xlator_dumpops dumpops = {
