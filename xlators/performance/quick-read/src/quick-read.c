@@ -3436,6 +3436,7 @@ qr_inodectx_dump (xlator_t *this, inode_t *inode)
         char        key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
         char        buf[256]                        = {0, };
         struct tm  *tm                              = NULL;
+
         ret = inode_ctx_get (inode, this, &value);
         if (ret != 0) {
                 goto out;
@@ -3475,6 +3476,7 @@ qr_fdctx_dump (xlator_t *this, fd_t *fd)
         char         key[GF_DUMP_MAX_BUF_LEN]        = {0, };
         char         key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
         call_stub_t *stub                            = NULL;
+        gf_boolean_t section_added = _gf_false;
 
         ret = fd_ctx_get (fd, this, &value);
         if (ret != 0) {
@@ -3489,13 +3491,16 @@ qr_fdctx_dump (xlator_t *this, fd_t *fd)
         gf_proc_dump_build_key (key_prefix, "xlator.performance.quick-read",
                                 "fdctx");
         gf_proc_dump_add_section (key_prefix);
+        section_added = _gf_true;
 
         gf_proc_dump_write ("fd", "%p", fd);
 
-        gf_proc_dump_write ("path", "%s", fdctx->path);
-
-        LOCK (&fdctx->lock);
+        ret = TRY_LOCK (&fdctx->lock);
+        if (ret)
+                goto out;
         {
+                gf_proc_dump_write ("path", "%s", fdctx->path);
+
                 gf_proc_dump_write ("opened", "%s", fdctx->opened ? "yes" : "no");
 
                 gf_proc_dump_write ("open-in-progress", "%s", fdctx->open_in_transit ?
@@ -3523,6 +3528,15 @@ qr_fdctx_dump (xlator_t *this, fd_t *fd)
 
         ret = 0;
 out:
+        if (ret && fdctx) {
+                if (_gf_false == section_added)
+                        gf_proc_dump_add_section (key_prefix);
+
+                gf_proc_dump_write ("Unable to dump the state of fdctx",
+                                    "(Lock acquisition failed) fd: %p, "
+                                    "gfid: %s", fd,
+                                    uuid_utoa (fd->inode->gfid));
+        }
         return ret;
 }
 
