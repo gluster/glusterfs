@@ -134,6 +134,7 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
                              sizeof (struct fuse_notify_inval_entry_out) + \
                              NAME_MAX + 1))
 
+#define FUSE_EVENT_HISTORY_SIZE 1024
 
 #define _FH_TO_FD(fh) ((fd_t *)(uintptr_t)(fh))
 
@@ -216,6 +217,14 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
                         free_fuse_state (state);                        \
                         STACK_DESTROY (frame->root);                    \
                 } else {                                                \
+                        if (state->this->history)                       \
+                                gf_log_eh ("%"PRIu64", %s, path: (%s), gfid: " \
+                                           "(%s)", frame->root->unique, \
+                                           gf_fop_list[frame->root->op], \
+                                           state->loc.path,             \
+                                           (state->fd == NULL)?         \
+                                           uuid_utoa (state->loc.gfid): \
+                                           uuid_utoa (state->fd->inode->gfid));\
                         STACK_WIND (frame, ret, xl, xl->fops->fop, args); \
                 }                                                       \
                                                                         \
@@ -291,6 +300,12 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
                         free_fuse_state (state);                        \
                         STACK_DESTROY (frame->root);                    \
                 } else {                                                \
+                        if (xl->history)                                \
+                                gf_log_eh ("%"PRIu64", %s, path: (%s), gfid: " \
+                                           "(%s)", frame->root->unique, \
+                                           gf_fop_list[frame->root->op], \
+                                           state->loc.path,             \
+                                           uuid_utoa (state->loc.gfid)); \
                         STACK_WIND_COOKIE (frame, ret, cky, xl, xl->fops->fop, \
                                            args);                       \
                 }                                                       \
@@ -317,7 +332,80 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
                 }                                                          \
         } while (0)
 
+#define FUSE_ENTRY_CREATE(this, priv, finh, state, fci, op)             \
+                do {                                                    \
+                        if (priv->proto_minor >= 12)                    \
+                                state->mode &= ~fci->umask;             \
+                        if (priv->proto_minor >= 12 && priv->acl) {     \
+                                state->xdata = dict_new ();             \
+                                if (!state->xdata) {                    \
+                                        gf_log ("glusterfs-fuse",       \
+                                                GF_LOG_WARNING,         \
+                                                "%s failed to allocate " \
+                                                "a param dictionary", op); \
+                                        send_fuse_err (this, finh, ENOMEM); \
+                                        free_fuse_state (state);        \
+                                        return;                         \
+                                }                                       \
+                                state->umask = fci->umask;              \
+                                                                        \
+/* TODO: remove this after 3.4.0 release. keeping it for the            \
+   sake of backward compatibility with old (3.3.[01])                   \
+   releases till then. */                                               \
+                                ret = dict_set_int16 (state->xdata, "umask", \
+                                                      fci->umask);      \
+                                if (ret < 0) {                          \
+                                        gf_log ("glusterfs-fuse",       \
+                                                GF_LOG_WARNING,         \
+                                                "%s Failed adding umask"\
+                                                " to request", op);     \
+                                        dict_destroy (state->xdata);    \
+                                        send_fuse_err (this, finh, ENOMEM); \
+                                        free_fuse_state (state);        \
+                                        return;                         \
+                                }                                       \
+                                ret = dict_set_int16 (state->xdata, "mode", \
+                                                      fci->mode);       \
+                                if (ret < 0) {                          \
+                                        gf_log ("glusterfs-fuse",       \
+                                                GF_LOG_WARNING,         \
+                                                "%s Failed adding mode " \
+                                                "to request", op);         \
+                                        dict_destroy (state->xdata);    \
+                                        send_fuse_err (this, finh, ENOMEM); \
+                                        free_fuse_state (state);        \
+                                        return;                         \
+                                }                                       \
+                        }                                               \
+                } while (0)
 
+#define fuse_log_eh_fop(this, state, frame, op_ret, op_errno)               \
+        do {                                                            \
+                if (this->history) {                                    \
+                        if (state->fd)                                  \
+                                gf_log_eh ("op_ret: %d, op_errno: %d, " \
+                                           "%"PRIu64", %s () => %p, gfid: %s", \
+                                           op_ret, op_errno,            \
+                                           frame->root->unique,         \
+                                           gf_fop_list[frame->root->op], \
+                                           state->fd,                   \
+                                           uuid_utoa (state->fd->inode->gfid)); \
+                        else                                            \
+                                gf_log_eh ("op_ret: %d, op_errno: %d, " \
+                                           "%"PRIu64", %s () => %s, gfid: %s", \
+                                           op_ret, op_errno,            \
+                                           frame->root->unique,         \
+                                           gf_fop_list[frame->root->op], \
+                                           state->loc.path,             \
+                                           uuid_utoa (state->loc.gfid)); \
+                }                                                       \
+        } while(0)
+
+#define fuse_log_eh(this, args...)              \
+        do {                                    \
+                if (this->history)              \
+                        gf_log_eh(args);        \
+        } while (0)
 
 static inline xlator_t *
 fuse_active_subvol (xlator_t *fuse)
@@ -435,4 +523,5 @@ int fuse_resolve_entry_init (fuse_state_t *state, fuse_resolve_t *resolve,
 int fuse_resolve_fd_init (fuse_state_t *state, fuse_resolve_t *resolve,
 			  fd_t *fd);
 int fuse_ignore_xattr_set (fuse_private_t *priv, char *key);
+int dump_history_fuse (circular_buffer_t *cb, void *data);
 #endif /* _GF_FUSE_BRIDGE_H_ */

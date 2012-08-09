@@ -108,7 +108,7 @@ int _gf_log_eh (const char *function, const char *fmt, ...);
 
 #define gf_log_eh(fmt...) do {                                          \
                 FMT_WARN (fmt);                                         \
-                _gf_log_eh (__FUNTION__, ##fmt);                        \
+                _gf_log_eh (__FUNCTION__, ##fmt);                        \
         } while (0)
 
 #define gf_log_callingfn(dom, levl, fmt...) do {                        \
