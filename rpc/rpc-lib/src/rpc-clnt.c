@@ -1679,7 +1679,8 @@ rpc_clnt_reconfig (struct rpc_clnt *rpc, struct rpc_clnt_config *config)
 }
 
 int
-rpc_clnt_transport_unix_options_build (dict_t **options, char *filepath)
+rpc_clnt_transport_unix_options_build (dict_t **options, char *filepath,
+                                       int frame_timeout)
 {
         dict_t                  *dict = NULL;
         char                    *fpath = NULL;
@@ -1717,6 +1718,12 @@ rpc_clnt_transport_unix_options_build (dict_t **options, char *filepath)
         ret = dict_set_str (dict, "transport.socket.keepalive", "off");
         if (ret)
                 goto out;
+
+        if (frame_timeout > 0) {
+                ret = dict_set_int32 (dict, "frame-timeout", frame_timeout);
+                if (ret)
+                        goto out;
+        }
 
         *options = dict;
 out:
