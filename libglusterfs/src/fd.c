@@ -989,10 +989,8 @@ fdtable_dump (fdtable_t *fdtable, char *prefix)
 
         ret = pthread_mutex_trylock (&fdtable->lock);
 
-        if (ret) {
-                gf_log ("fd", GF_LOG_WARNING, "Unable to acquire lock");
-                return;
-        }
+        if (ret)
+                goto out;
 
         memset(key, 0, sizeof(key));
         gf_proc_dump_build_key(key, prefix, "refcount");
@@ -1012,6 +1010,12 @@ fdtable_dump (fdtable_t *fdtable, char *prefix)
         }
 
         pthread_mutex_unlock(&fdtable->lock);
+
+out:
+        if (ret != 0)
+                gf_proc_dump_write ("Unable to dump the fdtable",
+                                    "(Lock acquistion failed) %p", fdtable);
+        return;
 }
 
 
