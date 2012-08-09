@@ -1421,6 +1421,16 @@ out:
         return ret;
 }
 
+/* Free LINE[0..N-1] and then the LINE buffer.  */
+static void
+free_lines (char **line, size_t n)
+{
+  size_t i;
+  for (i = 0; i < n; i++)
+    GF_FREE (line[i]);
+  GF_FREE (line);
+}
+
 char **
 glusterd_readin_file (const char *filepath, int *line_count)
 {
@@ -1430,6 +1440,7 @@ glusterd_readin_file (const char *filepath, int *line_count)
         char        buffer[PATH_MAX + 256] = {0};
         char      **lines                  = NULL;
         FILE       *fp                     = NULL;
+        void       *p;
 
         fp = fopen (filepath, "r");
         if (!fp)
@@ -1443,19 +1454,27 @@ glusterd_readin_file (const char *filepath, int *line_count)
 
                 if (counter == n-1) {
                         n *= 2;
-                        lines = GF_REALLOC (lines, n * sizeof (char *));
-                        if (!lines)
+                        p = GF_REALLOC (lines, n * sizeof (char *));
+                        if (!p) {
+                                free_lines (lines, n/2);
+                                lines = NULL;
                                 goto out;
+                        }
+                        lines = p;
                 }
 
                 lines[counter] = gf_strdup (buffer);
-                memset (buffer, 0, sizeof (buffer));
         }
 
         lines[counter] = NULL;
-        lines = GF_REALLOC (lines, (counter + 1) * sizeof (char *));
-        if (!lines)
+        /* Reduce allocation to minimal size.  */
+        p = GF_REALLOC (lines, (counter + 1) * sizeof (char *));
+        if (!p) {
+                free_lines (lines, counter);
+                lines = NULL;
                 goto out;
+        }
+        lines = p;
 
         *line_count = counter;
         ret = 0;
