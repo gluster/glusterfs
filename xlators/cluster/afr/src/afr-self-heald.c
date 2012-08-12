@@ -275,7 +275,7 @@ _remove_stale_index (xlator_t *this, xlator_t *readdir_xl,
         ret = _build_index_loc (this, &index_loc, fname, parent);
         if (ret)
                 goto out;
-        gf_log (this->name, GF_LOG_INFO, "Removing stale index "
+        gf_log (this->name, GF_LOG_DEBUG, "Removing stale index "
                 "for %s on %s", index_loc.name, readdir_xl->name);
         ret = syncop_unlink (readdir_xl, &index_loc);
         if(ret && (errno != ENOENT)) {
