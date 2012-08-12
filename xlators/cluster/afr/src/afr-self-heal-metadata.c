@@ -51,7 +51,7 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 
         afr_sh_reset (frame, this);
         if (sh->mdata_spb) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "split-brain detected, aborting selfheal of %s",
                         local->loc.path);
                 sh->op_failed = 1;
@@ -472,9 +472,9 @@ afr_sh_metadata_post_nonblocking_inodelk_cbk (call_frame_t *frame,
         int_lock = &local->internal_lock;
 
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Non Blocking metadata "
+                gf_log (this->name, GF_LOG_DEBUG, "Non Blocking metadata "
                         "inodelks failed for %s.", local->loc.path);
-                gf_log (this->name, GF_LOG_ERROR, "Metadata self-heal "
+                gf_log (this->name, GF_LOG_DEBUG, "Metadata self-heal "
                         "failed for %s.", local->loc.path);
                 afr_sh_metadata_done (frame, this);
         } else {

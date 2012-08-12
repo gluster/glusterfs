@@ -103,7 +103,7 @@ sh_loop_driver_done (call_frame_t *sh_frame, xlator_t *this,
         if (sh->op_failed) {
                 GF_ASSERT (!last_loop_frame);
                 //loop_finish should have happened and the old_loop should be NULL
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "self-heal aborting on %s",
                         local->loc.path);
 
@@ -111,10 +111,10 @@ sh_loop_driver_done (call_frame_t *sh_frame, xlator_t *this,
         } else {
                 GF_ASSERT (last_loop_frame);
                 if (diff_blocks == total_blocks) {
-                        gf_log (this->name, GF_LOG_INFO, "full self-heal "
+                        gf_log (this->name, GF_LOG_DEBUG, "full self-heal "
                                 "completed on %s",local->loc.path);
                 } else {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "diff self-heal on %s: completed. "
                                 "(%d blocks of %d were different (%.2f%%))",
                                 local->loc.path, diff_blocks, total_blocks,

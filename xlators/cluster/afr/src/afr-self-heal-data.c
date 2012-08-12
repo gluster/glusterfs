@@ -91,7 +91,7 @@ afr_sh_data_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         LOCK (&frame->lock);
         {
                 if (op_ret == -1) {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "flush failed on %s on subvolume %s: %s",
                                 local->loc.path, priv->children[child_index]->name,
                                 strerror (op_errno));
@@ -775,7 +775,7 @@ afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
                                       sources, success_children, txn_type,
                                       &subvol_status, _gf_false);
         if (subvol_status & SPLIT_BRAIN) {
-                gf_log (this->name, GF_LOG_WARNING, "%s: Possible split-brain",
+                gf_log (this->name, GF_LOG_DEBUG, "%s: Possible split-brain",
                         local->loc.path);
                 switch (txn_type) {
                 case AFR_DATA_TRANSACTION:
