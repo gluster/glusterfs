@@ -331,7 +331,8 @@ reconfigure (xlator_t *this, dict_t *options)
                           percent, out);
         GF_OPTION_RECONF ("directory-layout-spread", conf->dir_spread_cnt,
                           options, uint32, out);
-
+        GF_OPTION_RECONF ("readdir-optimize", conf->readdir_optimize, options,
+                          bool, out);
         if (dict_get_str (options, "decommissioned-bricks", &temp_str) == 0) {
                 ret = dht_parse_decommissioned_bricks (this, conf, temp_str);
                 if (ret == -1)
@@ -431,6 +432,7 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("assert-no-child-down", conf->assert_no_child_down,
                         bool, err);
+        GF_OPTION_INIT ("readdir-optimize", conf->readdir_optimize, bool, err);
 
         ret = dht_init_subvolumes (this, conf);
         if (ret == -1) {
@@ -592,6 +594,10 @@ struct volume_options options[] = {
         },
         { .key = {"node-uuid"},
           .type = GF_OPTION_TYPE_STR,
+        },
+        { .key = {"readdir-optimize"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
         },
 
         { .key  = {NULL} },

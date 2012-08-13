@@ -246,6 +246,10 @@ struct dht_conf {
 
         /* defrag related */
         gf_defrag_info_t *defrag;
+
+        /* Request to filter directory entries in readdir request */
+
+        gf_boolean_t    readdir_optimize;
 };
 typedef struct dht_conf dht_conf_t;
 
