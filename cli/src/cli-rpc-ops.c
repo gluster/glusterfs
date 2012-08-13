@@ -306,6 +306,7 @@ gf_cli_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                    port = 0;
         int32_t                    connected = 0;
         char                       *connected_str = NULL;
+        char                       msg[1024] = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -327,7 +328,21 @@ gf_cli_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
         if (!rsp.op_ret) {
 
                 if (!rsp.friends.friends_len) {
-                        cli_err ("peer status: No peers present");
+                        snprintf (msg, sizeof (msg),
+                                  "peer status: No peers present");
+#if (HAVE_LIB_XML)
+                        if (global_state->mode & GLUSTER_MODE_XML) {
+                                ret = cli_xml_output_peer_status (dict,
+                                                                  rsp.op_ret,
+                                                                  rsp.op_errno,
+                                                                  msg);
+                                if (ret)
+                                        gf_log ("cli", GF_LOG_ERROR,
+                                                "Error outputting to xml");
+                                goto out;
+                        }
+#endif
+                        cli_err ("%s", msg);
                         ret = 0;
                         goto out;
                 }
@@ -351,9 +366,8 @@ gf_cli_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
 
 #if (HAVE_LIB_XML)
                 if (global_state->mode & GLUSTER_MODE_XML) {
-                        ret = cli_xml_output_dict ("peerStatus", dict,
-                                                   rsp.op_ret, rsp.op_errno,
-                                                   NULL);
+                        ret = cli_xml_output_peer_status (dict, rsp.op_ret,
+                                                          rsp.op_errno, msg);
                         if (ret)
                                 gf_log ("cli", GF_LOG_ERROR,
                                         "Error outputting to xml");
@@ -411,7 +425,18 @@ gf_cli_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
                         i++;
                 }
         } else {
-                ret = -1;
+#if (HAVE_LIB_XML)
+                if (global_state->mode & GLUSTER_MODE_XML) {
+                        ret = cli_xml_output_peer_status (dict, rsp.op_ret,
+                                                          rsp.op_errno, NULL);
+                        if (ret)
+                                gf_log ("cli", GF_LOG_ERROR,
+                                        "Error outputting to xml");
+                } else
+#endif
+                {
+                        ret = -1;
+                }
                 goto out;
         }
 
