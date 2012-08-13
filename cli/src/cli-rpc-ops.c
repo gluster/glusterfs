@@ -1025,6 +1025,7 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
         char                     key[256] = {0,};
         int32_t                  i = 1;
         uint64_t                 failures = 0;
+        char                    *size_str = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1187,9 +1188,13 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         status = "failed";
                         break;
                 }
-                cli_out ("%40s %16"PRId64 "%13"PRId64 "%13"PRId64 "%13"PRId64
-                         " %14s", node_uuid, files, size, lookup, failures,
+
+                size_str = gf_uint64_2human_readable(size);
+                cli_out ("%40s %16"PRId64 " %13s" " %13"PRId64 " %13"PRId64
+                         " %14s", node_uuid, files, size_str, lookup, failures,
                          status);
+                GF_FREE(size_str);
+
                 i++;
         } while (i <= counter);
 
@@ -1454,6 +1459,7 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
         char                    *node_uuid = 0;
         gf_defrag_status_t       status_rcd = GF_DEFRAG_STATUS_NOT_STARTED;
         uint64_t                 failures = 0;
+        char                    *size_str = NULL;
 
 
         if (-1 == req->rpc_status) {
@@ -1562,9 +1568,13 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
                         status = "failed";
                         break;
                 }
-                cli_out ("%40s %16"PRId64 "%13"PRId64 "%13"PRId64 "%13"PRId64
-                        " %14s", node_uuid, files, size, lookup, failures,
+
+                size_str = gf_uint64_2human_readable(size);
+                cli_out ("%40s %16"PRId64 " %13s" " %13"PRId64 " %13"PRId64
+                        " %14s", node_uuid, files, size_str, lookup, failures,
                         status);
+                GF_FREE(size_str);
+
                 i++;
         } while (i <= counter);
 
