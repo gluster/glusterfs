@@ -3547,7 +3547,7 @@ posix_fentrylk (call_frame_t *frame, xlator_t *this,
 
 int
 posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
-                    gf_dirent_t *entries)
+                    gf_dirent_t *entries, xlator_t *this, int32_t skip_dirs)
 {
         off_t     in_case = -1;
         size_t    filled = 0;
@@ -3557,6 +3557,18 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
         int32_t               this_size      = -1;
         gf_dirent_t          *this_entry     = NULL;
         uuid_t                rootgfid = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
+        struct stat           stbuf = {0,};
+        char                 *hpath = NULL;
+        int                   len = 0;
+        int                   ret = 0;
+
+        if (skip_dirs) {
+                len = posix_handle_path (this, fd->inode->gfid, NULL, NULL, 0);
+                hpath = alloca (len + 256); /* NAME_MAX */
+                posix_handle_path (this, fd->inode->gfid, NULL, hpath, len);
+                len = strlen (hpath);
+                hpath[len] = '/';
+        }
 
         if (!off) {
                 rewinddir (dir);
@@ -3609,6 +3621,17 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
                 if ((uuid_compare (fd->inode->gfid, rootgfid) == 0)
                     && (!strcmp (GF_HIDDEN_PATH, entry->d_name))) {
                         continue;
+                }
+
+                if (skip_dirs) {
+                        if (DT_ISDIR (entry->d_type)) {
+                                continue;
+                        } else if (hpath) {
+                                strcpy (&hpath[len+1],entry->d_name);
+                                ret = lstat (hpath, &stbuf);
+                                if (!ret && S_ISDIR (stbuf.st_mode))
+                                        continue;
+                        }
                 }
 
                 this_size = max (sizeof (gf_dirent_t),
@@ -3731,6 +3754,7 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
         int32_t               op_ret         = -1;
         int32_t               op_errno       = 0;
         gf_dirent_t           entries;
+        int32_t               skip_dirs      = 0;
 
 
         VALIDATE_OR_GOTO (frame, out);
@@ -3756,7 +3780,13 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
                 goto out;
 	}
 
-        count = posix_fill_readdir (fd, dir, off, size, &entries);
+        /* When READDIR_FILTER option is set to on, we can filter out
+         * directory's entry from the entry->list.
+         */
+        ret = dict_get_int32 (dict, GF_READDIR_SKIP_DIRS, &skip_dirs);
+
+        count = posix_fill_readdir (fd, dir, off, size, &entries, this,
+                                    skip_dirs);
 
         /* pick ENOENT to indicate EOF */
         op_errno = errno;

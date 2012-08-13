@@ -2766,6 +2766,7 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         dht_layout_t *layout = 0;
         dht_conf_t   *conf   = NULL;
         xlator_t     *subvol = 0;
+        int           ret = 0;
 
         INIT_LIST_HEAD (&entries.list);
         prev = cookie;
@@ -2841,6 +2842,16 @@ done:
 
                 if (!next_subvol) {
                         goto unwind;
+                }
+
+		if (conf->readdir_optimize == _gf_true) {
+                        if (next_subvol != dht_first_up_subvol (this)) {
+                                ret = dict_set_int32 (local->xattr,
+                                                      GF_READDIR_SKIP_DIRS, 1);
+                                if (ret)
+                                        gf_log (this->name, GF_LOG_ERROR,
+					         "dict set failed");
+		        }
                 }
 
                 STACK_WIND (frame, dht_readdirp_cbk,
@@ -2968,10 +2979,13 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         xlator_t     *xvol = NULL;
         off_t         xoff = 0;
         int           ret = 0;
+        dht_conf_t   *conf = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
+
+        conf = this->private;
 
         local = dht_local_init (frame, NULL, NULL, whichop);
         if (!local) {
@@ -3000,6 +3014,16 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "failed to set 'glusterfs.dht.linkto'"
                                         " key");
+			if (conf->readdir_optimize == _gf_true) {
+                                if (xvol != dht_first_up_subvol (this)) {
+				        ret = dict_set_int32 (local->xattr,
+			                               GF_READDIR_SKIP_DIRS, 1);
+				        if (ret)
+					        gf_log (this->name,
+                                                        GF_LOG_ERROR,
+						        "Dict set failed");
+                                }
+			}
                 }
 
                 STACK_WIND (frame, dht_readdirp_cbk, xvol, xvol->fops->readdirp,
