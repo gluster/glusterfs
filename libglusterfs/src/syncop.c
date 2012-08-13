@@ -82,6 +82,11 @@ __wait (struct synctask *task)
 void
 synctask_yield (struct synctask *task)
 {
+#if defined(__NetBSD__) && defined(_UC_TLSBASE)
+	/* Preserve pthread private pointer through swapcontex() */
+	task->proc->sched.uc_flags &= ~_UC_TLSBASE;
+#endif
+
         if (swapcontext (&task->ctx, &task->proc->sched) < 0) {
                 gf_log ("syncop", GF_LOG_ERROR,
                         "swapcontext failed (%s)", strerror (errno));
@@ -289,6 +294,11 @@ synctask_switchto (struct synctask *task)
 
         task->woken = 0;
         task->slept = 0;
+
+#if defined(__NetBSD__) && defined(_UC_TLSBASE)
+	/* Preserve pthread private pointer through swapcontex() */
+	task->ctx.uc_flags &= ~_UC_TLSBASE;
+#endif
 
         if (swapcontext (&task->proc->sched, &task->ctx) < 0) {
                 gf_log ("syncop", GF_LOG_ERROR,
