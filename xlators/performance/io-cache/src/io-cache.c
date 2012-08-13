@@ -1874,16 +1874,30 @@ out:
 }
 
 
-void
-ioc_inode_dump (ioc_inode_t *ioc_inode, char *prefix)
+int
+ioc_inode_dump (xlator_t *this, inode_t *inode)
 {
 
-        char    *path = NULL;
-        int     ret   = -1;
+        char          *path                           = NULL;
+        int           ret                             = -1;
+        char          key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
+        uint64_t      tmp_ioc_inode                   = 0;
+        ioc_inode_t   *ioc_inode                      = NULL;
+        gf_boolean_t  section_added                   = _gf_false;
+        char          uuid_str[64]                    = {0,};
 
-        if ((ioc_inode == NULL) || (prefix == NULL)) {
+        if (this == NULL || inode == NULL)
                 goto out;
-        }
+
+        gf_proc_dump_build_key (key_prefix, "io-cache", "inode");
+
+        inode_ctx_get (inode, this, &tmp_ioc_inode);
+        ioc_inode = (ioc_inode_t *)(long)tmp_ioc_inode;
+        if (ioc_inode == NULL)
+                goto out;
+
+        gf_proc_dump_add_section (key_prefix);
+        section_added = _gf_true;
 
         /* Similar to ioc_page_dump function its better to use
          * pthread_mutex_trylock and not to use gf_log in statedump
@@ -1892,42 +1906,40 @@ ioc_inode_dump (ioc_inode_t *ioc_inode, char *prefix)
         ret = pthread_mutex_trylock (&ioc_inode->inode_lock);
         if (ret)
                 goto out;
+        else
         {
                 gf_proc_dump_write ("inode.weight", "%d", ioc_inode->weight);
+
                 //inode_path takes blocking lock on the itable.
-                ret = pthread_mutex_trylock (&ioc_inode->inode->table->lock);
-                if (ret)
-                        goto unlock;
-                {
-                        __inode_path (ioc_inode->inode, NULL, &path);
-                }
-                pthread_mutex_unlock (&ioc_inode->inode->table->lock);
+                __inode_path (ioc_inode->inode, NULL, &path);
 
                 if (path) {
                         gf_proc_dump_write ("path", "%s", path);
                         GF_FREE (path);
                 }
-                gf_proc_dump_write ("uuid", "%s", uuid_utoa
-                                    (ioc_inode->inode->gfid));
-                __ioc_cache_dump (ioc_inode, prefix);
-                __ioc_inode_waitq_dump (ioc_inode, prefix);
+                gf_proc_dump_write ("uuid", "%s", uuid_utoa_r
+                                    (ioc_inode->inode->gfid, uuid_str));
+                __ioc_cache_dump (ioc_inode, key_prefix);
+                __ioc_inode_waitq_dump (ioc_inode, key_prefix);
+
+                pthread_mutex_unlock (&ioc_inode->inode_lock);
         }
-unlock:
-        pthread_mutex_unlock (&ioc_inode->inode_lock);
 
 out:
-        if (ret && ioc_inode)
+        if (ret && ioc_inode) {
+                if (section_added == _gf_false)
+                        gf_proc_dump_add_section (key_prefix);
                 gf_proc_dump_write ("Unable to print the status of ioc_inode",
                                     "(Lock acquisition failed) %s",
-                                    uuid_utoa (ioc_inode->inode->gfid));
-        return;
+                                    uuid_utoa (inode->gfid));
+        }
+        return ret;
 }
 
 int
 ioc_priv_dump (xlator_t *this)
 {
         ioc_table_t *priv                            = NULL;
-        ioc_inode_t *ioc_inode                       = NULL;
         char         key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
         int          ret                             = -1;
         gf_boolean_t add_section                     = _gf_false;
@@ -1936,8 +1948,8 @@ ioc_priv_dump (xlator_t *this)
                 goto out;
 
         priv = this->private;
-        gf_proc_dump_build_key (key_prefix, "xlator.performance.io-cache",
-                                "priv");
+
+        gf_proc_dump_build_key (key_prefix, "io-cache", "priv");
         gf_proc_dump_add_section (key_prefix);
         add_section = _gf_true;
 
@@ -1952,10 +1964,6 @@ ioc_priv_dump (xlator_t *this)
                 gf_proc_dump_write ("cache_timeout", "%u", priv->cache_timeout);
                 gf_proc_dump_write ("min-file-size", "%u", priv->min_file_size);
                 gf_proc_dump_write ("max-file-size", "%u", priv->max_file_size);
-
-                list_for_each_entry (ioc_inode, &priv->inodes, inode_list) {
-                        ioc_inode_dump (ioc_inode, key_prefix);
-                }
         }
         pthread_mutex_unlock (&priv->table_lock);
 out:
@@ -2034,6 +2042,7 @@ struct xlator_fops fops = {
 
 struct xlator_dumpops dumpops = {
         .priv        = ioc_priv_dump,
+        .inodectx    = ioc_inode_dump,
 };
 
 struct xlator_cbks cbks = {
