@@ -2784,6 +2784,7 @@ wb_file_dump (xlator_t *this, fd_t *fd)
         int32_t    ret                             = -1;
         char      *path                            = NULL;
         char       key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
+        gf_boolean_t section_added = _gf_true;
 
         if ((fd == NULL) || (this == NULL)) {
                 ret = 0;
@@ -2806,6 +2807,7 @@ wb_file_dump (xlator_t *this, fd_t *fd)
                                 "file");
 
         gf_proc_dump_add_section (key_prefix);
+        section_added = _gf_true;
 
         __inode_path (fd->inode, NULL, &path);
         if (path != NULL) {
@@ -2834,7 +2836,10 @@ wb_file_dump (xlator_t *this, fd_t *fd)
 
         gf_proc_dump_write ("op_errno", "%d", file->op_errno);
 
-        LOCK (&file->lock);
+        ret = TRY_LOCK (&file->lock);
+        if (ret)
+                goto out;
+        else
         {
                 if (!list_empty (&file->request)) {
                         __wb_dump_requests (&file->request, key_prefix, 0);
@@ -2844,11 +2849,18 @@ wb_file_dump (xlator_t *this, fd_t *fd)
                         __wb_dump_requests (&file->passive_requests, key_prefix,
                                             1);
                 }
-        }
-        UNLOCK (&file->lock);
 
-        ret = 0;
+        UNLOCK (&file->lock);
+        }
+
 out:
+        if (ret && file) {
+                if (section_added == _gf_false)
+                        gf_proc_dump_add_section (key_prefix);
+                gf_proc_dump_write ("Unable to dump the fd context",
+                                    "(Lock acquisition failed) fd:%p, gfid:%s",
+                                    fd, uuid_utoa (fd->inode->gfid));
+        }
         return ret;
 }
 
