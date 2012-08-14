@@ -4588,6 +4588,8 @@ init (xlator_t *this_xl)
 			cleanup_exit);
 
 	GF_OPTION_INIT ("client-pid", priv->client_pid, int32, cleanup_exit);
+        /* have to check & register the presence of client-pid manually */
+        priv->client_pid_set = !!dict_get (this_xl->options, "client-pid");
 
 	GF_OPTION_INIT ("uid-map-root", priv->uid_map_root, uint32,
 			cleanup_exit);
