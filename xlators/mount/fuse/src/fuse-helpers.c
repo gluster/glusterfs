@@ -559,10 +559,10 @@ fuse_ignore_xattr_set (fuse_private_t *priv, char *key)
                 goto out;
 
         /* trusted NS check */
-        if (!((fnmatch (PRIV_XA_NS".glusterfs.*.xtime", key, FNM_PERIOD) == 0)
-              || (fnmatch (PRIV_XA_NS".glusterfs.volume-mark",
+        if (!((fnmatch ("*.glusterfs.*.xtime", key, FNM_PERIOD) == 0)
+              || (fnmatch ("*.glusterfs.volume-mark",
                            key, FNM_PERIOD) == 0)
-              || (fnmatch (PRIV_XA_NS".glusterfs.volume-mark.*",
+              || (fnmatch ("*.glusterfs.volume-mark.*",
                            key, FNM_PERIOD) == 0)))
                 ret = -1;
 
