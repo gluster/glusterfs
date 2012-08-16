@@ -33,9 +33,9 @@ function add_samba_export () {
 
 function sighup_samba () {
         pid=`cat /var/run/smbd.pid`
-        if [ $pid != " " ]
+        if [ "$pid" != "" ]
         then
-                kill -HUP $pid;
+                kill -HUP "$pid";
         else
                 /etc/init.d/smb condrestart
         fi
@@ -52,11 +52,27 @@ function add_fstab_entry () {
         fi
 }
 
+function get_cifs () {
+        volname=$1
+        echo "$(grep user.cifs /var/lib/glusterd/vols/"$volname"/info | cut -d"=" -f2)"
+}
+
+function mount_volume () {
+	volname=$1
+	mntpt=$2
+	if [ "$(cat /proc/mounts | grep "$mntpt")" == "" ]; then
+		mount -t glusterfs `hostname`:$volname $mntpt && \
+				add_fstab_entry $volname $mntpt
+	fi
+}
 
 parse_args $@
+if [ $(get_cifs "$VOL") = "disable" ]; then
+        exit 0
+fi
+
 add_samba_export $VOL $MNT_PRE
 mkdir -p $MNT_PRE/$VOL
 sleep 5
-mount -t glusterfs `hostname`:$VOL $MNT_PRE/$VOL && \
-        add_fstab_entry $VOL $MNT_PRE/$VOL
+mount_volume $VOL $MNT_PRE/$VOL
 sighup_samba
