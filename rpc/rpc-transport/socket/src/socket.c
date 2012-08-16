@@ -594,7 +594,7 @@ __socket_nodelay (int fd)
 
 
 static int
-__socket_keepalive (int fd, int keepalive_intvl, int keepalive_idle)
+__socket_keepalive (int fd, int family, int keepalive_intvl, int keepalive_idle)
 {
         int     on = 1;
         int     ret = -1;
@@ -623,18 +623,23 @@ __socket_keepalive (int fd, int keepalive_intvl, int keepalive_idle)
                 goto err;
         }
 #else
+        if (family != AF_INET)
+                goto done;
+
         ret = setsockopt (fd, IPPROTO_TCP, TCP_KEEPIDLE, &keepalive_idle,
                           sizeof (keepalive_intvl));
         if (ret == -1) {
                 gf_log ("socket", GF_LOG_WARNING,
-                        "failed to set keep idle on socket %d", fd);
+                        "failed to set keep idle %d on socket %d, %s",
+                        keepalive_idle, fd, strerror(errno));
                 goto err;
         }
-        ret = setsockopt (fd, IPPROTO_TCP, TCP_KEEPINTVL, &keepalive_intvl,
+        ret = setsockopt (fd, IPPROTO_TCP , TCP_KEEPINTVL, &keepalive_intvl,
                           sizeof (keepalive_intvl));
         if (ret == -1) {
                 gf_log ("socket", GF_LOG_WARNING,
-                        "failed to set keep alive interval on socket %d", fd);
+                        "failed to set keep interval %d on socket %d, %s",
+                        keepalive_intvl, fd, strerror(errno));
                 goto err;
         }
 #endif
@@ -2266,6 +2271,7 @@ socket_server_event_handler (int fd, int idx, void *data,
 
                         if (priv->keepalive) {
                                 ret = __socket_keepalive (new_sock,
+                                                          new_sockaddr.ss_family,
                                                           priv->keepaliveintvl,
                                                           priv->keepaliveidle);
                                 if (ret == -1)
@@ -2537,6 +2543,7 @@ socket_connect (rpc_transport_t *this, int port)
 
                 if (priv->keepalive) {
                         ret = __socket_keepalive (priv->sock,
+                                                  sa_family,
                                                   priv->keepaliveintvl,
                                                   priv->keepaliveidle);
                         if (ret == -1)
