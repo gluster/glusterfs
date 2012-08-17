@@ -235,7 +235,8 @@ int rpcclnt_cbk_program_register (struct rpc_clnt *svc,
                                   rpcclnt_cb_program_t *program);
 
 int
-rpc_clnt_transport_unix_options_build (dict_t **options, char *filepath);
+rpc_clnt_transport_unix_options_build (dict_t **options, char *filepath,
+                                       int frame_timeout);
 
 void
 rpc_clnt_disable (struct rpc_clnt *rpc);
