@@ -3717,7 +3717,7 @@ fuse_migrate_fd (xlator_t *this, fd_t *fd, xlator_t *old_subvol,
         } while (create_in_progress);
 
         if (fd->inode->table->xl == old_subvol) {
-                ret = syncop_fsync (old_subvol, fd);
+                ret = syncop_fsync (old_subvol, fd, 0);
                 if (ret < 0) {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                 "syncop_fsync failed (%s)", strerror (errno));

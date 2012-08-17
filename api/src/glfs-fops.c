@@ -699,8 +699,7 @@ glfs_fsync (struct glfs_fd *glfd)
 		goto out;
 	}
 
-	ret = syncop_fsync (subvol, glfd->fd);
-//	ret = syncop_fsync (subvol, glfd->fd, 0);
+	ret = syncop_fsync (subvol, glfd->fd, 0);
 out:
 	return ret;
 }
@@ -761,8 +760,7 @@ glfs_fdatasync (struct glfs_fd *glfd)
 		goto out;
 	}
 
-	ret = syncop_fsync (subvol, glfd->fd);
-//	ret = syncop_fsync (subvol, glfd->fd, 1);
+	ret = syncop_fsync (subvol, glfd->fd, 1);
 out:
 	return ret;
 }
