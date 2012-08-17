@@ -989,9 +989,13 @@ syncop_readv (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
         SYNCOP (subvol, (&args), syncop_readv_cbk, subvol->fops->readv,
                 fd, size, off, flags, NULL);
 
+        if (args.op_ret < 0)
+                goto out;
+
         if (vector)
                 *vector = args.vector;
-        else GF_FREE (args.vector);
+        else
+                GF_FREE (args.vector);
 
         if (count)
                 *count = args.count;
@@ -1002,6 +1006,7 @@ syncop_readv (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
         else if (args.iobref)
                 iobref_unref (args.iobref);
 
+out:
         errno = args.op_errno;
         return args.op_ret;
 
@@ -1220,12 +1225,12 @@ syncop_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
-syncop_fsync (xlator_t *subvol, fd_t *fd)
+syncop_fsync (xlator_t *subvol, fd_t *fd, int dataonly)
 {
         struct syncargs args = {0, };
 
         SYNCOP (subvol, (&args), syncop_fsync_cbk, subvol->fops->fsync,
-                fd, 0, NULL);
+                fd, dataonly, NULL);
 
         errno = args.op_errno;
         return args.op_ret;

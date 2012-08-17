@@ -736,7 +736,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
 
         /* TODO: Sync the locks */
 
-        ret = syncop_fsync (to, dst_fd);
+        ret = syncop_fsync (to, dst_fd, 0);
         if (ret)
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: failed to fsync on %s (%s)",

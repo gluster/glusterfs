@@ -16,14 +16,12 @@
     reach it via THIS.
   - fd migration on graph switch.
   - update syncop functions to accept/return xdata. ???
-  - syncop_readv to not touch params if args.op_ret < 0.
   - protocol/client to reconnect immediately after portmap disconnect.
   - handle SEEK_END failure in _lseek()
   - handle umask (per filesystem?)
   - implement glfs_set_xlator_option(), like --xlator-option
   - make itables LRU based
   - implement glfs_fini()
-  - modify syncop_fsync() to accept 'dataonly' flag
   - 0-copy for readv/writev
   - reconcile the open/creat mess
 */
