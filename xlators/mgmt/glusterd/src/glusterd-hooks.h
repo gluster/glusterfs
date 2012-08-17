@@ -25,11 +25,15 @@
 #include "config.h"
 #endif
 
+#include <fnmatch.h>
+
 #define GLUSTERD_GET_HOOKS_DIR(path, version, priv) \
         snprintf (path, PATH_MAX, "%s/hooks/%d", priv->workdir,\
                   version);
 
 #define GLUSTERD_HOOK_VER       1
+
+#define GD_HOOKS_SPECIFIC_KEY   "user.*"
 
 typedef enum glusterd_commit_hook_type {
         GD_COMMIT_HOOK_NONE = 0,
@@ -54,6 +58,22 @@ typedef struct hooks_stub {
 
 } glusterd_hooks_stub_t;
 
+
+static inline gf_boolean_t
+is_key_glusterd_hooks_friendly (xlator_t *this, char *volname, char *key)
+{
+        gf_boolean_t is_friendly = _gf_false;
+
+        /* This is very specific to hooks friendly behavior */
+        if (fnmatch (GD_HOOKS_SPECIFIC_KEY, key, FNM_NOESCAPE) == 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "user configured key (%s) sent on volume %s",
+                        key, volname);
+                is_friendly = _gf_true;
+        }
+
+        return is_friendly;
+}
 
 int
 glusterd_hooks_create_hooks_directory (char *basedir);
