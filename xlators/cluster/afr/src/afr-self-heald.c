@@ -278,10 +278,10 @@ _remove_stale_index (xlator_t *this, xlator_t *readdir_xl,
         gf_log (this->name, GF_LOG_INFO, "Removing stale index "
                 "for %s on %s", index_loc.name, readdir_xl->name);
         ret = syncop_unlink (readdir_xl, &index_loc);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "%s: Failed to remove"
-                        " index on %s - %s", index_loc.name,
-                        readdir_xl->name, strerror (errno));
+        if(ret && (errno != ENOENT)) {
+                gf_log(this->name, GF_LOG_ERROR, "%s: Failed to remove index "
+                       "on %s - %s",index_loc.name, readdir_xl->name,
+                       strerror (errno));
         }
         index_loc.path = NULL;
         loc_wipe (&index_loc);
