@@ -1171,7 +1171,7 @@ afr_detect_self_heal_by_iatt (afr_local_t *local, xlator_t *this,
 {
         if (PERMISSION_DIFFERS (buf, lookup_buf)) {
                 /* mismatching permissions */
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "permissions differ for %s ", local->loc.path);
                 local->self_heal.do_metadata_self_heal = _gf_true;
         }
@@ -1179,13 +1179,13 @@ afr_detect_self_heal_by_iatt (afr_local_t *local, xlator_t *this,
         if (OWNERSHIP_DIFFERS (buf, lookup_buf)) {
                 /* mismatching permissions */
                 local->self_heal.do_metadata_self_heal = _gf_true;
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "ownership differs for %s ", local->loc.path);
         }
 
         if (SIZE_DIFFERS (buf, lookup_buf)
             && IA_ISREG (buf->ia_type)) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "size differs for %s ", local->loc.path);
                 local->self_heal.do_data_self_heal = _gf_true;
         }
@@ -1210,7 +1210,7 @@ afr_detect_self_heal_by_lookup_status (afr_local_t *local, xlator_t *this,
                 local->self_heal.do_entry_self_heal    = _gf_true;
                 local->self_heal.do_gfid_self_heal    = _gf_true;
                 local->self_heal.do_missing_entry_self_heal    = _gf_true;
-                gf_log(this->name, GF_LOG_INFO,
+                gf_log(this->name, GF_LOG_DEBUG,
                        "entries are missing in lookup of %s.",
                        local->loc.path);
                 //If all self-heals are needed no need to check for other rules
@@ -1221,7 +1221,7 @@ afr_detect_self_heal_by_lookup_status (afr_local_t *local, xlator_t *this,
             IA_ISREG (local->cont.lookup.inode->ia_type)) {
                 local->self_heal.do_data_self_heal = _gf_true;
                 local->self_heal.do_metadata_self_heal = _gf_true;
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "split brain detected during lookup of %s.",
                         local->loc.path);
         }
@@ -1335,7 +1335,7 @@ afr_launch_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
         if (background)
                 bg = "background";
-        gf_log (this->name, GF_LOG_INFO,
+        gf_log (this->name, GF_LOG_DEBUG,
                 "%s %s self-heal triggered. path: %s, reason: %s", bg,
                 sh_type_str, local->loc.path, reason);
 

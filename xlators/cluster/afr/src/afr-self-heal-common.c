@@ -989,7 +989,7 @@ afr_sh_missing_entries_done (call_frame_t *frame, xlator_t *this)
         afr_sh_reset (frame, this);
 
         if (local->govinda_gOvinda) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "split brain found, aborting selfheal of %s",
                         local->loc.path);
                 sh->op_failed = 1;
@@ -1081,7 +1081,7 @@ afr_sh_common_lookup_resp_handler (call_frame_t *frame, void *cookie,
                         sh->success_count++;
                         sh->xattr[child_index] = dict_ref (xattr);
                 } else {
-                        gf_log (this->name, GF_LOG_ERROR, "path %s on subvolume"
+                        gf_log (this->name, GF_LOG_DEBUG, "path %s on subvolume"
                                 " %s => -1 (%s)", loc->path,
                                 priv->children[child_index]->name,
                                 strerror (op_errno));
@@ -2152,11 +2152,17 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
         afr_self_heal_type_str_get (sh, sh_type_str,
                                     sizeof(sh_type_str));
         if (sh->op_failed) {
-                gf_log (this->name, GF_LOG_ERROR, "background %s self-heal "
+                gf_loglevel_t loglevel = GF_LOG_ERROR;
+                if (priv->shd.iamshd)
+                        loglevel = GF_LOG_DEBUG;
+
+                gf_log (this->name, loglevel, "background %s self-heal "
                         "failed on %s", sh_type_str, local->loc.path);
+
         } else {
-                gf_log (this->name, GF_LOG_INFO, "background %s self-heal "
+                gf_log (this->name, GF_LOG_DEBUG, "background %s self-heal "
                         "completed on %s", sh_type_str, local->loc.path);
+
         }
 
         FRAME_SU_UNDO (bgsh_frame, afr_local_t);
