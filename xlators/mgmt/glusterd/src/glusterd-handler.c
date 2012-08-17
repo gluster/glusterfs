@@ -2106,8 +2106,8 @@ glusterd_transport_keepalive_options_get (int *interval, int *time)
 }
 
 int
-glusterd_transport_inet_keepalive_options_build (dict_t **options,
-                                                 const char *hostname, int port)
+glusterd_transport_inet_options_build (dict_t **options, const char *hostname,
+                                       int port)
 {
         dict_t  *dict = NULL;
         int32_t interval = -1;
@@ -2119,10 +2119,25 @@ glusterd_transport_inet_keepalive_options_build (dict_t **options,
 
         if (!port)
                 port = GLUSTERD_DEFAULT_PORT;
+
+        /* Build default transport options */
         ret = rpc_transport_inet_options_build (&dict, hostname, port);
         if (ret)
                 goto out;
 
+        /* Set frame-timeout to 10mins. Default timeout of 30 mins is too long
+         * when compared to 2 mins for cli timeout. This ensures users don't
+         * wait too long after cli timesout before being able to resume normal
+         * operations
+         */
+        ret = dict_set_int32 (dict, "frame-timeout", 600);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "Failed to set frame-timeout");
+                goto out;
+        }
+
+        /* Set keepalive options */
         glusterd_transport_keepalive_options_get (&interval, &time);
 
         if ((interval > 0) || (time > 0))
@@ -2168,8 +2183,7 @@ glusterd_friend_add (const char *hoststr, int port,
 
         peerctx->peerinfo = *friend;
 
-        ret = glusterd_transport_inet_keepalive_options_build (&options,
-                                                         hoststr, port);
+        ret = glusterd_transport_inet_options_build (&options, hoststr, port);
         if (ret)
                 goto out;
 

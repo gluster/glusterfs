@@ -1091,7 +1091,14 @@ glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
                 glusterd_set_brick_socket_filepath (volinfo, brickinfo,
                                                     socketpath,
                                                     sizeof (socketpath));
-                ret = rpc_clnt_transport_unix_options_build (&options, socketpath);
+
+                /* Setting frame-timeout to 10mins (600seconds).
+                 * Unix domain sockets ensures that the connection is reliable.
+                 * The default timeout of 30mins used for unreliable network
+                 * connections is too long for unix domain socket connections.
+                 */
+                ret = rpc_clnt_transport_unix_options_build (&options,
+                                                             socketpath, 600);
                 if (ret)
                         goto out;
                 ret = glusterd_rpc_create (&rpc, options,
@@ -2787,8 +2794,13 @@ glusterd_nodesvc_connect (char *server, char *socketpath) {
         rpc = glusterd_nodesvc_get_rpc (server);
 
         if (rpc == NULL) {
+                /* Setting frame-timeout to 10mins (600seconds).
+                 * Unix domain sockets ensures that the connection is reliable.
+                 * The default timeout of 30mins used for unreliable network
+                 * connections is too long for unix domain socket connections.
+                 */
                 ret = rpc_clnt_transport_unix_options_build (&options,
-                                                             socketpath);
+                                                             socketpath, 600);
                 if (ret)
                         goto out;
                 ret = glusterd_rpc_create (&rpc, options,

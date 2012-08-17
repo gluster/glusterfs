@@ -326,7 +326,13 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         }
 
         sleep (5);
-        ret = rpc_clnt_transport_unix_options_build (&options, sockfile);
+
+        /* Setting frame-timeout to 10mins (600seconds).
+         * Unix domain sockets ensures that the connection is reliable. The
+         * default timeout of 30mins used for unreliable network connections is
+         * too long for unix domain socket connections.
+         */
+        ret = rpc_clnt_transport_unix_options_build (&options, sockfile, 600);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Unix options build failed");
                 goto out;
@@ -370,7 +376,13 @@ glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
         LOCK_INIT (&defrag->lock);
 
         GLUSTERD_GET_DEFRAG_SOCK_FILE (sockfile, volinfo, priv);
-        ret = rpc_clnt_transport_unix_options_build (&options, sockfile);
+
+        /* Setting frame-timeout to 10mins (600seconds).
+         * Unix domain sockets ensures that the connection is reliable. The
+         * default timeout of 30mins used for unreliable network connections is
+         * too long for unix domain socket connections.
+         */
+        ret = rpc_clnt_transport_unix_options_build (&options, sockfile, 600);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Unix options build failed");
                 goto out;
