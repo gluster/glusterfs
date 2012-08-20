@@ -2298,12 +2298,6 @@ rpcerr:
         return ret;
 }
 
-int
-nfs3svc_write_vec (rpcsvc_request_t *req, struct iovec *payload,
-                   int payload_count, struct iobref *iobref)
-{
-        return nfs3svc_write (req);
-}
 
 int
 nfs3_create_reply (rpcsvc_request_t *req, nfsstat3 stat, struct nfs3_fh *newfh,
@@ -5087,28 +5081,28 @@ rpcerr:
 
 
 rpcsvc_actor_t          nfs3svc_actors[NFS3_PROC_COUNT] = {
-        {"NULL",        NFS3_NULL,      nfs3svc_null,   NULL,   NULL, 0},
-        {"GETATTR",     NFS3_GETATTR,   nfs3svc_getattr,NULL,   NULL, 0},
-        {"SETATTR",     NFS3_SETATTR,   nfs3svc_setattr,NULL,   NULL, 0},
-        {"LOOKUP",      NFS3_LOOKUP,    nfs3svc_lookup, NULL,   NULL, 0},
-        {"ACCESS",      NFS3_ACCESS,    nfs3svc_access, NULL,   NULL, 0},
-        {"READLINK",    NFS3_READLINK,  nfs3svc_readlink,NULL,  NULL, 0},
-        {"READ",        NFS3_READ,      nfs3svc_read,   NULL,   NULL, 0},
-        {"WRITE",       NFS3_WRITE,     nfs3svc_write, nfs3svc_write_vec, nfs3svc_write_vecsizer, 0},
-        {"CREATE",      NFS3_CREATE,    nfs3svc_create, NULL,   NULL, 0},
-        {"MKDIR",       NFS3_MKDIR,     nfs3svc_mkdir,  NULL,   NULL, 0},
-        {"SYMLINK",     NFS3_SYMLINK,   nfs3svc_symlink,NULL,   NULL, 0},
-        {"MKNOD",       NFS3_MKNOD,     nfs3svc_mknod,  NULL,   NULL, 0},
-        {"REMOVE",      NFS3_REMOVE,    nfs3svc_remove, NULL,   NULL, 0},
-        {"RMDIR",       NFS3_RMDIR,     nfs3svc_rmdir,  NULL,   NULL, 0},
-        {"RENAME",      NFS3_RENAME,    nfs3svc_rename, NULL,   NULL, 0},
-        {"LINK",        NFS3_LINK,      nfs3svc_link,   NULL,   NULL, 0},
-        {"READDIR",     NFS3_READDIR,   nfs3svc_readdir,NULL,   NULL, 0},
-        {"READDIRPLUS", NFS3_READDIRP,  nfs3svc_readdirp,NULL,  NULL, 0},
-        {"FSSTAT",      NFS3_FSSTAT,    nfs3svc_fsstat, NULL,   NULL, 0},
-        {"FSINFO",      NFS3_FSINFO,    nfs3svc_fsinfo, NULL,   NULL, 0},
-        {"PATHCONF",    NFS3_PATHCONF,  nfs3svc_pathconf,NULL,  NULL, 0},
-        {"COMMIT",      NFS3_COMMIT,    nfs3svc_commit, NULL,   NULL, 0}
+        {"NULL",        NFS3_NULL,      nfs3svc_null,   NULL,   0},
+        {"GETATTR",     NFS3_GETATTR,   nfs3svc_getattr,NULL,   0},
+        {"SETATTR",     NFS3_SETATTR,   nfs3svc_setattr,NULL,   0},
+        {"LOOKUP",      NFS3_LOOKUP,    nfs3svc_lookup, NULL,   0},
+        {"ACCESS",      NFS3_ACCESS,    nfs3svc_access, NULL,   0},
+        {"READLINK",    NFS3_READLINK,  nfs3svc_readlink,NULL,  0},
+        {"READ",        NFS3_READ,      nfs3svc_read,   NULL,   0},
+        {"WRITE",       NFS3_WRITE,     nfs3svc_write, nfs3svc_write_vecsizer, 0},
+        {"CREATE",      NFS3_CREATE,    nfs3svc_create, NULL,   0},
+        {"MKDIR",       NFS3_MKDIR,     nfs3svc_mkdir,  NULL,   0},
+        {"SYMLINK",     NFS3_SYMLINK,   nfs3svc_symlink,NULL,   0},
+        {"MKNOD",       NFS3_MKNOD,     nfs3svc_mknod,  NULL,   0},
+        {"REMOVE",      NFS3_REMOVE,    nfs3svc_remove, NULL,   0},
+        {"RMDIR",       NFS3_RMDIR,     nfs3svc_rmdir,  NULL,   0},
+        {"RENAME",      NFS3_RENAME,    nfs3svc_rename, NULL,   0},
+        {"LINK",        NFS3_LINK,      nfs3svc_link,   NULL,   0},
+        {"READDIR",     NFS3_READDIR,   nfs3svc_readdir,NULL,   0},
+        {"READDIRPLUS", NFS3_READDIRP,  nfs3svc_readdirp,NULL,  0},
+        {"FSSTAT",      NFS3_FSSTAT,    nfs3svc_fsstat, NULL,   0},
+        {"FSINFO",      NFS3_FSINFO,    nfs3svc_fsinfo, NULL,   0},
+        {"PATHCONF",    NFS3_PATHCONF,  nfs3svc_pathconf,NULL,  0},
+        {"COMMIT",      NFS3_COMMIT,    nfs3svc_commit, NULL,   0}
 };
 
 

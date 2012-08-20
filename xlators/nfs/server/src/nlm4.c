@@ -2257,34 +2257,34 @@ nlm4svc_sm_notify (struct nlm_sm_status *status)
 
 rpcsvc_actor_t  nlm4svc_actors[NLM4_PROC_COUNT] = {
         /* 0 */
-        {"NULL",       NLM4_NULL,         nlm4svc_null,      NULL, NULL},
-        {"TEST",       NLM4_TEST,         nlm4svc_test,      NULL, NULL},
-        {"LOCK",       NLM4_LOCK,         nlm4svc_lock,      NULL, NULL},
-        {"CANCEL",     NLM4_CANCEL,       nlm4svc_cancel,    NULL, NULL},
-        {"UNLOCK",     NLM4_UNLOCK,       nlm4svc_unlock,    NULL, NULL},
+        {"NULL",       NLM4_NULL,         nlm4svc_null,      NULL},
+        {"TEST",       NLM4_TEST,         nlm4svc_test,      NULL},
+        {"LOCK",       NLM4_LOCK,         nlm4svc_lock,      NULL},
+        {"CANCEL",     NLM4_CANCEL,       nlm4svc_cancel,    NULL},
+        {"UNLOCK",     NLM4_UNLOCK,       nlm4svc_unlock,    NULL},
         /* 5 */
-        {"GRANTED",    NLM4_GRANTED,      NULL,              NULL, NULL},
-        {"TEST",       NLM4_TEST_MSG,     NULL,              NULL, NULL},
-        {"LOCK",       NLM4_LOCK_MSG,     NULL,              NULL, NULL},
-        {"CANCEL",     NLM4_CANCEL_MSG,   NULL,              NULL, NULL},
-        {"UNLOCK",     NLM4_UNLOCK_MSG,   NULL,              NULL, NULL},
+        {"GRANTED",    NLM4_GRANTED,      NULL,              NULL},
+        {"TEST",       NLM4_TEST_MSG,     NULL,              NULL},
+        {"LOCK",       NLM4_LOCK_MSG,     NULL,              NULL},
+        {"CANCEL",     NLM4_CANCEL_MSG,   NULL,              NULL},
+        {"UNLOCK",     NLM4_UNLOCK_MSG,   NULL,              NULL},
         /* 10 */
-        {"GRANTED",    NLM4_GRANTED_MSG,  NULL,              NULL, NULL},
-        {"TEST",       NLM4_TEST_RES,     NULL,              NULL, NULL},
-        {"LOCK",       NLM4_LOCK_RES,     NULL,              NULL, NULL},
-        {"CANCEL",     NLM4_CANCEL_RES,   NULL,              NULL, NULL},
-        {"UNLOCK",     NLM4_UNLOCK_RES,   NULL,              NULL, NULL},
+        {"GRANTED",    NLM4_GRANTED_MSG,  NULL,              NULL},
+        {"TEST",       NLM4_TEST_RES,     NULL,              NULL},
+        {"LOCK",       NLM4_LOCK_RES,     NULL,              NULL},
+        {"CANCEL",     NLM4_CANCEL_RES,   NULL,              NULL},
+        {"UNLOCK",     NLM4_UNLOCK_RES,   NULL,              NULL},
         /* 15 ; procedures 17,18,19 are not defined by nlm */
-        {"GRANTED",    NLM4_GRANTED_RES,  NULL,              NULL, NULL},
-        {"SM_NOTIFY",  NLM4_SM_NOTIFY,    NULL,              NULL, NULL},
-        {"SEVENTEEN",  NLM4_SEVENTEEN,    NULL,              NULL, NULL},
-        {"EIGHTEEN",   NLM4_EIGHTEEN,     NULL,              NULL, NULL},
-        {"NINETEEN",   NLM4_NINETEEN,     NULL,              NULL, NULL},
+        {"GRANTED",    NLM4_GRANTED_RES,  NULL,              NULL},
+        {"SM_NOTIFY",  NLM4_SM_NOTIFY,    NULL,              NULL},
+        {"SEVENTEEN",  NLM4_SEVENTEEN,    NULL,              NULL},
+        {"EIGHTEEN",   NLM4_EIGHTEEN,     NULL,              NULL},
+        {"NINETEEN",   NLM4_NINETEEN,     NULL,              NULL},
         /* 20 */
-        {"SHARE",      NLM4_SHARE,        nlm4svc_share,     NULL, NULL},
-        {"UNSHARE",    NLM4_UNSHARE,      nlm4svc_unshare,   NULL, NULL},
-        {"NM_LOCK",    NLM4_NM_LOCK,      nlm4svc_nm_lock,   NULL, NULL},
-        {"FREE_ALL",   NLM4_FREE_ALL,     nlm4svc_free_all,  NULL, NULL},
+        {"SHARE",      NLM4_SHARE,        nlm4svc_share,     NULL},
+        {"UNSHARE",    NLM4_UNSHARE,      nlm4svc_unshare,   NULL},
+        {"NM_LOCK",    NLM4_NM_LOCK,      nlm4svc_nm_lock,   NULL},
+        {"FREE_ALL",   NLM4_FREE_ALL,     nlm4svc_free_all,  NULL},
 };
 
 rpcsvc_program_t        nlm4prog = {
