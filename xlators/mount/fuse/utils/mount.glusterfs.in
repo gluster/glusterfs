@@ -144,6 +144,14 @@ start_glusterfs ()
 	cmd_line=$(echo "$cmd_line --fopen-keep-cache");
     fi
 
+    if [ -n "$bg_qlen" ]; then
+	cmd_line=$(echo "$cmd_line --background-qlen=$bg_qlen");
+    fi
+
+    if [ -n "$cong_threshold" ]; then
+	cmd_line=$(echo "$cmd_line --congestion-threshold=$cong_threshold");
+    fi
+
     # for rdma volume, we have to fetch volfile with '.rdma' added
     # to volume name, so that it fetches the right client vol file
     volume_id_rdma="";
@@ -335,6 +343,8 @@ main ()
                             "entry-timeout")    entry_timeout=$value ;;
                             "negative-timeout")    negative_timeout=$value ;;
 			    "gid-timeout")	gid_timeout=$value ;;
+			    "background-qlen")	bg_qlen=$value ;;
+			    "congestion-threshold")	cong_threshold=$value ;;
                             *) echo "unknown option $key (ignored)" ;;
                         esac
                 esac
