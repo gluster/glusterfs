@@ -224,6 +224,9 @@ struct rpcsvc_request {
          */
         rpcsvc_auth_data_t      verf;
 
+	/* Execute this request's actor function as a synctask? */
+	gf_boolean_t            synctask;
+
         /* Container for a RPC program wanting to store a temp
          * request-specific item.
          */
@@ -366,6 +369,9 @@ struct rpcsvc_program {
          * See RFC 1813, Section 5.2.1.
          */
         int                     min_auth;
+
+	/* Execute actor function as a synctask? */
+	gf_boolean_t            synctask;
 
         /* list member to link to list of registered services with rpcsvc */
         struct list_head        program;
