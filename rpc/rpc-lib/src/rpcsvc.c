@@ -27,6 +27,7 @@
 #include "xdr-common.h"
 #include "xdr-generic.h"
 #include "rpc-common-xdr.h"
+#include "syncop.h"
 
 #include <errno.h>
 #include <pthread.h>
@@ -205,6 +206,8 @@ rpcsvc_program_actor (rpcsvc_request_t *req)
                 actor = NULL;
                 goto err;
         }
+
+	req->synctask = program->synctask;
 
         err = SUCCESS;
         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Actor found: %s - %s",
@@ -431,6 +434,20 @@ err:
 
 
 int
+rpcsvc_synctask_cbk (int ret, call_frame_t *frame, void *opaque)
+{
+	rpcsvc_request_t  *req = NULL;
+
+	req = opaque;
+
+        if (ret == RPCSVC_ACTOR_ERROR)
+                rpcsvc_error_reply (req);
+
+	return 0;
+}
+
+
+int
 rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
                         rpc_transport_pollin_t *msg)
 {
@@ -510,7 +527,12 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
 			goto err_reply;
 		}
 
-		ret = actor_fn (req);
+		if (req->synctask)
+			ret = synctask_new (THIS->ctx->env,
+					    (synctask_fn_t) actor_fn,
+					    rpcsvc_synctask_cbk, NULL, req);
+		else
+			ret = actor_fn (req);
         }
 
 err_reply:
