@@ -276,8 +276,6 @@ struct rpcsvc_request {
  *
  */
 typedef int (*rpcsvc_actor) (rpcsvc_request_t *req);
-typedef int (*rpcsvc_vector_actor) (rpcsvc_request_t *req, struct iovec *vec,
-                                    int count, struct iobref *iobref);
 typedef int (*rpcsvc_vector_sizer) (int state, ssize_t *readsize,
                                     char *base_addr, char *curr_addr);
 
@@ -311,7 +309,6 @@ typedef struct rpcsvc_actor_desc {
          * handler for letting the RPC program read the data from the network
          * directly into its aligned buffers.
          */
-        rpcsvc_vector_actor     vector_actor;
         rpcsvc_vector_sizer     vector_sizer;
 
         /* Can actor be ran on behalf an unprivileged requestor? */

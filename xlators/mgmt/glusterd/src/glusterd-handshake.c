@@ -278,10 +278,10 @@ fail:
         return 0;
 }
 rpcsvc_actor_t gluster_handshake_actors[] = {
-        [GF_HNDSK_NULL]      = {"NULL",      GF_HNDSK_NULL,      NULL, NULL, NULL, 0},
-        [GF_HNDSK_GETSPEC]   = {"GETSPEC",   GF_HNDSK_GETSPEC,   server_getspec, NULL, NULL, 0},
+        [GF_HNDSK_NULL]      = {"NULL",      GF_HNDSK_NULL,      NULL, NULL, 0},
+        [GF_HNDSK_GETSPEC]   = {"GETSPEC",   GF_HNDSK_GETSPEC,   server_getspec, NULL, 0},
         [GF_HNDSK_EVENT_NOTIFY] = {"EVENTNOTIFY", GF_HNDSK_EVENT_NOTIFY, server_event_notify,
-                                    NULL, NULL, 0},
+                                    NULL, 0},
 };
 
 

@@ -435,6 +435,7 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
                         rpc_transport_pollin_t *msg)
 {
         rpcsvc_actor_t          *actor = NULL;
+	rpcsvc_actor            actor_fn = NULL;
         rpcsvc_request_t        *req = NULL;
         int                     ret = -1;
         uint16_t                port = 0;
@@ -497,21 +498,19 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
                 /* Before going to xlator code, set the THIS properly */
                 THIS = svc->mydata;
 
-                if (req->count == 2) {
-                        if (actor->vector_actor) {
-                                ret = actor->vector_actor (req, &req->msg[1], 1,
-                                                           req->iobref);
-                        } else {
-                                rpcsvc_request_seterr (req, PROC_UNAVAIL);
-                                /* LOG TODO: print more info about procnum,
-                                   prognum etc, also print transport info */
-                                gf_log (GF_RPCSVC, GF_LOG_ERROR,
-                                        "No vectored handler present");
-                                ret = RPCSVC_ACTOR_ERROR;
-                        }
-                } else if (actor->actor) {
-                        ret = actor->actor (req);
-                }
+		actor_fn = actor->actor;
+
+		if (!actor_fn) {
+			rpcsvc_request_seterr (req, PROC_UNAVAIL);
+			/* LOG TODO: print more info about procnum,
+			   prognum etc, also print transport info */
+			gf_log (GF_RPCSVC, GF_LOG_ERROR,
+				"No vectored handler present");
+			ret = RPCSVC_ACTOR_ERROR;
+			goto err_reply;
+		}
+
+		ret = actor_fn (req);
         }
 
 err_reply:
@@ -2429,9 +2428,9 @@ out:
 
 
 rpcsvc_actor_t gluster_dump_actors[] = {
-        [GF_DUMP_NULL] = {"NULL", GF_DUMP_NULL, NULL, NULL, NULL, 0},
-        [GF_DUMP_DUMP] = {"DUMP", GF_DUMP_DUMP, rpcsvc_dump, NULL, NULL, 0},
-        [GF_DUMP_MAXVALUE] = {"MAXVALUE", GF_DUMP_MAXVALUE, NULL, NULL, NULL, 0},
+        [GF_DUMP_NULL] = {"NULL", GF_DUMP_NULL, NULL, NULL, 0},
+        [GF_DUMP_DUMP] = {"DUMP", GF_DUMP_DUMP, rpcsvc_dump, NULL, 0},
+        [GF_DUMP_MAXVALUE] = {"MAXVALUE", GF_DUMP_MAXVALUE, NULL, NULL, 0},
 };
 
 
