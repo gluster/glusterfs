@@ -797,10 +797,10 @@ init (xlator_t *this)
         glusterd_conf_t   *conf              = NULL;
         data_t            *dir_data          = NULL;
         struct stat        buf               = {0,};
-        char               voldir [PATH_MAX] = {0,};
-        char               dirname [PATH_MAX];
-        char               cmd_log_filename [PATH_MAX] = {0,};
+        char               storedir [PATH_MAX] = {0,};
+        char               workdir [PATH_MAX] = {0,};
         char               hooks_dir [PATH_MAX] = {0,};
+        char               cmd_log_filename [PATH_MAX] = {0,};
         int                first_time        = 0;
         char              *mountbroker_root  = NULL;
 
@@ -811,34 +811,34 @@ init (xlator_t *this)
 
         if (!dir_data) {
                 //Use default working dir
-                strncpy (dirname, GLUSTERD_DEFAULT_WORKDIR, PATH_MAX);
+                strncpy (workdir, GLUSTERD_DEFAULT_WORKDIR, PATH_MAX);
         } else {
-                strncpy (dirname, dir_data->data, PATH_MAX);
+                strncpy (workdir, dir_data->data, PATH_MAX);
         }
 
-        ret = stat (dirname, &buf);
+        ret = stat (workdir, &buf);
         if ((ret != 0) && (ENOENT != errno)) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "stat fails on %s, exiting. (errno = %d)",
-			dirname, errno);
+			workdir, errno);
                 exit (1);
         }
 
         if ((!ret) && (!S_ISDIR(buf.st_mode))) {
                 gf_log (this->name, GF_LOG_CRITICAL,
                         "Provided working area %s is not a directory,"
-                        "exiting", dirname);
+                        "exiting", workdir);
                 exit (1);
         }
 
 
         if ((-1 == ret) && (ENOENT == errno)) {
-                ret = mkdir (dirname, 0777);
+                ret = mkdir (workdir, 0777);
 
                 if (-1 == ret) {
                         gf_log (this->name, GF_LOG_CRITICAL,
                                 "Unable to create directory %s"
-                                " ,errno = %d", dirname, errno);
+                                " ,errno = %d", workdir, errno);
                         exit (1);
                 }
 
@@ -846,7 +846,7 @@ init (xlator_t *this)
         }
 
         gf_log (this->name, GF_LOG_INFO, "Using %s as working directory",
-                dirname);
+                workdir);
 
         snprintf (cmd_log_filename, PATH_MAX,"%s/.cmd_log_history",
                   DEFAULT_LOG_FILE_DIRECTORY);
@@ -858,52 +858,61 @@ init (xlator_t *this)
                 exit (1);
         }
 
-        snprintf (voldir, PATH_MAX, "%s/vols", dirname);
+        snprintf (storedir, PATH_MAX, "%s/vols", workdir);
 
-        ret = mkdir (voldir, 0777);
+        ret = mkdir (storedir, 0777);
 
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_log (this->name, GF_LOG_CRITICAL,
                         "Unable to create volume directory %s"
-                        " ,errno = %d", voldir, errno);
+                        " ,errno = %d", storedir, errno);
                 exit (1);
         }
 
-        snprintf (voldir, PATH_MAX, "%s/peers", dirname);
+        snprintf (storedir, PATH_MAX, "%s/peers", workdir);
 
-        ret = mkdir (voldir, 0777);
+        ret = mkdir (storedir, 0777);
 
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_log (this->name, GF_LOG_CRITICAL,
                         "Unable to create peers directory %s"
-                        " ,errno = %d", voldir, errno);
+                        " ,errno = %d", storedir, errno);
                 exit (1);
         }
 
-        snprintf (voldir, PATH_MAX, "%s/bricks", DEFAULT_LOG_FILE_DIRECTORY);
-        ret = mkdir (voldir, 0777);
+        snprintf (storedir, PATH_MAX, "%s/bricks", DEFAULT_LOG_FILE_DIRECTORY);
+        ret = mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_log (this->name, GF_LOG_CRITICAL,
                         "Unable to create logs directory %s"
-                        " ,errno = %d", voldir, errno);
+                        " ,errno = %d", storedir, errno);
                 exit (1);
         }
 
-        snprintf (voldir, PATH_MAX, "%s/nfs", dirname);
-        ret = mkdir (voldir, 0777);
+        snprintf (storedir, PATH_MAX, "%s/nfs", workdir);
+        ret = mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_log (this->name, GF_LOG_CRITICAL,
                         "Unable to create nfs directory %s"
-                        " ,errno = %d", voldir, errno);
+                        " ,errno = %d", storedir, errno);
                 exit (1);
         }
 
-        snprintf (voldir, PATH_MAX, "%s/glustershd", dirname);
-        ret = mkdir (voldir, 0777);
+        snprintf (storedir, PATH_MAX, "%s/glustershd", workdir);
+        ret = mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_log (this->name, GF_LOG_CRITICAL,
                         "Unable to create glustershd directory %s"
-                        " ,errno = %d", voldir, errno);
+                        " ,errno = %d", storedir, errno);
+                exit (1);
+        }
+
+        snprintf (storedir, PATH_MAX, "%s/groups", workdir);
+        ret = mkdir (storedir, 0777);
+        if ((-1 == ret) && (errno != EEXIST)) {
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "Unable to create glustershd directory %s"
+                        " ,errno = %d", storedir, errno);
                 exit (1);
         }
 
@@ -986,7 +995,7 @@ init (xlator_t *this)
         pthread_mutex_init (&conf->mutex, NULL);
         conf->rpc = rpc;
         conf->gfs_mgmt = &gd_brick_prog;
-        strncpy (conf->workdir, dirname, PATH_MAX);
+        strncpy (conf->workdir, workdir, PATH_MAX);
 
         INIT_LIST_HEAD (&conf->xprt_list);
 
@@ -1018,7 +1027,6 @@ init (xlator_t *this)
 
         this->private = conf;
         (void) glusterd_nodesvc_set_running ("glustershd", _gf_false);
-        /* this->ctx->top = this;*/
 
         ret = glusterd_uuid_init (first_time);
         if (ret < 0)
@@ -1026,7 +1034,7 @@ init (xlator_t *this)
 
         GLUSTERD_GET_HOOKS_DIR (hooks_dir, GLUSTERD_HOOK_VER, conf);
         if (stat (hooks_dir, &buf)) {
-                ret = glusterd_hooks_create_hooks_directory (dirname);
+                ret = glusterd_hooks_create_hooks_directory (conf->workdir);
                 if (-1 == ret) {
                         gf_log (this->name, GF_LOG_CRITICAL,
                                 "Unable to create hooks directory ");
