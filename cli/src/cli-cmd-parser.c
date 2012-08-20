@@ -643,6 +643,90 @@ out:
         return ret;
 }
 
+static inline gf_boolean_t
+cli_is_key_spl (char *key)
+{
+        return (strcmp (key, "group") == 0);
+}
+
+#define GLUSTERD_DEFAULT_WORKDIR "/var/lib/glusterd"
+static int
+cli_add_key_group (dict_t *dict, char *key, char *value)
+{
+        int             ret = -1;
+        int             opt_count = 0;
+        char            iter_key[1024] = {0,};
+        char            iter_val[1024] = {0,};
+        char            *saveptr = NULL;
+        char            *tok_key = NULL;
+        char            *tok_val = NULL;
+        char            *dkey = NULL;
+        char            *dval = NULL;
+        char            *tagpath = NULL;
+        char            *buf = NULL;
+        char            line[PATH_MAX + 256] = {0,};
+        FILE            *fp = NULL;
+
+        ret = gf_asprintf (&tagpath, "%s/groups/%s",
+                           GLUSTERD_DEFAULT_WORKDIR, value);
+        if (ret == -1) {
+                tagpath = NULL;
+                goto out;
+        }
+
+        fp = fopen (tagpath, "r");
+        if (!fp) {
+                ret = -1;
+                goto out;
+        }
+
+        opt_count = 0;
+        buf = line;
+        while (fscanf (fp, "%s", buf) != EOF) {
+
+                opt_count++;
+                tok_key = strtok_r (line, "=", &saveptr);
+                tok_val = strtok_r (NULL, "=", &saveptr);
+                if (!tok_key || !tok_val) {
+                        ret = -1;
+                        goto out;
+                }
+
+                snprintf (iter_key, sizeof (iter_key), "key%d", opt_count);
+                dkey = gf_strdup (tok_key);
+                ret = dict_set_dynstr (dict, iter_key, dkey);
+                if (ret)
+                        goto out;
+
+                snprintf (iter_val, sizeof (iter_val), "value%d", opt_count);
+                dval = gf_strdup (tok_val);
+                ret = dict_set_dynstr (dict, iter_val, dval);
+                if (ret)
+                        goto out;
+
+        }
+
+        if (!opt_count) {
+                ret = -1;
+                goto out;
+        }
+        ret = dict_set_int32 (dict, "count", opt_count);
+out:
+
+        GF_FREE (tagpath);
+
+        if (ret) {
+                GF_FREE (dkey);
+                GF_FREE (dval);
+        }
+
+        if (fp)
+                fclose (fp);
+
+        return ret;
+}
+#undef GLUSTERD_DEFAULT_WORKDIR
+
 int32_t
 cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
 {
@@ -680,8 +764,26 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
                 ret = dict_set_str (dict, volname, volname);
                 if (ret)
                         goto out;
+
         } else if (wordcount < 5) {
                 ret = -1;
+                goto out;
+
+        } else if (wordcount == 5  && cli_is_key_spl ((char *)words[3])) {
+                key = (char *) words[3];
+                value = (char *) words[4];
+                if ( !key || !value) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = gf_strip_whitespace (value, strlen (value));
+                if (ret == -1)
+                        goto out;
+
+                ret = cli_add_key_group (dict, key, value);
+                if (ret == 0)
+                        *options = dict;
                 goto out;
         }
 
@@ -700,6 +802,11 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
                 ret = gf_strip_whitespace (value, strlen (value));
                 if (ret == -1)
                         goto out;
+
+                if (cli_is_key_spl (key)) {
+                        ret = -1;
+                        goto out;
+                }
 
                 sprintf (str, "key%d", count);
                 ret = dict_set_str (dict, str, key);
@@ -721,10 +828,8 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
         *options = dict;
 
 out:
-        if (ret) {
-                if (dict)
-                        dict_destroy (dict);
-        }
+        if (ret)
+                dict_destroy (dict);
 
         return ret;
 }
