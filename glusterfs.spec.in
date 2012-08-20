@@ -244,6 +244,7 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/glusterd.info
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/nfs
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/peers
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/vols
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/groups
 %if 0%{?_can_georeplicate}
 %if 0%{!?_without_georeplication:1}
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/geo-replication
@@ -417,6 +418,7 @@ fi
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/vols
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/peers
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/groups
 
 %files devel
 %defattr(-,root,root,-)
