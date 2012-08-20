@@ -393,6 +393,7 @@ struct _glusterfs_ctx {
 
         int           mem_acct_enable;
 
+        int                 daemon_pipe[2];
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
