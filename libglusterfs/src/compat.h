@@ -340,7 +340,7 @@ char *basename_r(const char *);
 #endif /* THREAD_UNSAFE_BASENAME */
 
 #ifdef THREAD_UNSAFE_DIRNAME
-char *dirname_r(const char *path);
+char *dirname_r(char *path);
 #define dirname(path) dirname_r(path)
 #endif /* THREAD_UNSAFE_DIRNAME */
 
