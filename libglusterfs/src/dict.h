@@ -45,27 +45,21 @@ typedef struct _data_pair data_pair_t;
 
 
 #define GF_PROTOCOL_DICT_UNSERIALIZE(xl,to,buff,len,ret,ope,labl) do {  \
-                char *buf = NULL;                                       \
                 if (!len)                                               \
                         break;                                          \
                 to = dict_new();                                        \
                 GF_VALIDATE_OR_GOTO (xl->name, to, labl);               \
                                                                         \
-                buf = memdup (buff, len);                               \
-                GF_VALIDATE_OR_GOTO (xl->name, buf, labl);              \
-                                                                        \
-                ret = dict_unserialize (buf, len, &to);                 \
+                ret = dict_unserialize (buff, len, &to);                 \
                 if (ret < 0) {                                          \
                         gf_log (xl->name, GF_LOG_WARNING,               \
                                 "failed to unserialize dictionary (%s)", \
                                 (#to));                                 \
                                                                         \
                         ope = EINVAL;                                   \
-                        GF_FREE (buf);                                  \
                         goto labl;                                      \
                 }                                                       \
                                                                         \
-                to->extra_free = buf;                                   \
         } while (0)
 
 struct _data {
