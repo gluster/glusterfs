@@ -435,8 +435,6 @@ gf_proc_dump_xlator_info (xlator_t *top)
                     (trav->itable)) {
                         snprintf (itable_key, 1024, "%d.%s.itable",
                                   ctx->graph_id, trav->name);
-
-                        inode_table_dump (trav->itable, itable_key);
                 }
 
                 if (!trav->dumpops) {
@@ -470,13 +468,9 @@ static void
 gf_proc_dump_oldgraph_xlator_info (xlator_t *top)
 {
         xlator_t        *trav = NULL;
-        glusterfs_ctx_t *ctx = NULL;
-        char             itable_key[1024] = {0,};
 
         if (!top)
                 return;
-
-        ctx = top->ctx;
 
         trav = top;
         while (trav) {
@@ -484,10 +478,10 @@ gf_proc_dump_oldgraph_xlator_info (xlator_t *top)
 
                 if (GF_PROC_DUMP_IS_XL_OPTION_ENABLED (inode) &&
                     (trav->itable)) {
-                        snprintf (itable_key, 1024, "%d.%s.itable",
-                                  ctx->graph_id, trav->name);
-
-                        inode_table_dump (trav->itable, itable_key);
+                        /*TODO: dump inode table info if necessary by
+                          printing the graph id (taken by glusterfs_cbtx_t)
+                          in the key
+                        */
                 }
 
                 if (!trav->dumpops) {

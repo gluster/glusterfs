@@ -960,6 +960,13 @@ fd_dump (fd_t *fd, char *prefix)
         gf_proc_dump_write("pid", "%llu", fd->pid);
         gf_proc_dump_write("refcount", "%d", fd->refcount);
         gf_proc_dump_write("flags", "%d", fd->flags);
+
+        if (fd->inode) {
+                gf_proc_dump_build_key (key, "inode", NULL);
+                gf_proc_dump_add_section(key);
+                inode_dump (fd->inode, key);
+        }
+
 }
 
 
