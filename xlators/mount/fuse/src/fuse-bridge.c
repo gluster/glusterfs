@@ -1319,6 +1319,10 @@ fuse_mknod (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         return;
                 }
                 state->umask = fmi->umask;
+
+                /* TODO: remove this after 3.4.0 release. keeping it for the
+                   sake of backward compatibility with old (3.3.[01])
+                   releases till then. */
                 ret = dict_set_int16 (state->xdata, "umask", fmi->umask);
                 if (ret < 0) {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING,
@@ -1413,6 +1417,10 @@ fuse_mkdir (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         return;
                 }
                 state->umask = fmi->umask;
+
+                /* TODO: remove this after 3.4.0 release. keeping it for the
+                   sake of backward compatibility with old (3.3.[01])
+                   releases till then. */
                 ret = dict_set_int16 (state->xdata, "umask", fmi->umask);
                 if (ret < 0) {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING,
@@ -1922,6 +1930,10 @@ fuse_create (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         return;
                 }
                 state->umask = fci->umask;
+
+                /* TODO: remove this after 3.4.0 release. keeping it for the
+                   sake of backward compatibility with old (3.3.[01])
+                   releases till then. */
                 ret = dict_set_int16 (state->xdata, "umask", fci->umask);
                 if (ret < 0) {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING,
