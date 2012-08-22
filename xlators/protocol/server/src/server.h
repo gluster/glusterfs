@@ -54,7 +54,6 @@ struct _locker {
 struct _lock_table {
         struct list_head  inodelk_lockers;
         struct list_head  entrylk_lockers;
-        size_t            count;
 };
 
 /* private structure per connection (transport object)
@@ -213,5 +212,7 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
 
 int gf_server_check_setxattr_cmd (call_frame_t *frame, dict_t *dict);
 int gf_server_check_getxattr_cmd (call_frame_t *frame, const char *name);
+
+void ltable_dump (server_connection_t *conn);
 
 #endif /* !_SERVER_H */
