@@ -540,7 +540,7 @@ posix_acl_inherit_mode (struct posix_acl *acl, mode_t modein)
 
 mode_t
 posix_acl_inherit (xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
-                   int is_dir)
+                   int32_t umask, int is_dir)
 {
         int                    ret = 0;
         struct posix_acl      *par_default = NULL;
@@ -556,12 +556,15 @@ posix_acl_inherit (xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
         mode_t                 client_umask = 0;
 
         retmode = mode;
+        client_umask = umask;
         ret = dict_get_int16 (params, "umask", &tmp_mode);
         if (ret == 0) {
                 client_umask = (mode_t)tmp_mode;
+                dict_del (params, "umask");
                 ret = dict_get_int16 (params, "mode", &tmp_mode);
                 if (ret == 0) {
                         retmode = (mode_t)tmp_mode;
+                        dict_del (params, "mode");
                 } else {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "client sent umask, but not the original mode");
@@ -643,22 +646,24 @@ out:
 
 
 mode_t
-posix_acl_inherit_dir (xlator_t *this, loc_t *loc, dict_t *params, mode_t mode)
+posix_acl_inherit_dir (xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
+                       int32_t umask)
 {
         mode_t  retmode = 0;
 
-        retmode = posix_acl_inherit (this, loc, params, mode, 1);
+        retmode = posix_acl_inherit (this, loc, params, mode, umask, 1);
 
         return retmode;
 }
 
 
 mode_t
-posix_acl_inherit_file (xlator_t *this, loc_t *loc, dict_t *params, mode_t mode)
+posix_acl_inherit_file (xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
+                        int32_t umask)
 {
         mode_t  retmode = 0;
 
-        retmode = posix_acl_inherit (this, loc, params, mode, 0);
+        retmode = posix_acl_inherit (this, loc, params, mode, umask, 0);
 
         return retmode;
 }
@@ -1115,7 +1120,7 @@ posix_acl_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         else
                 goto red;
 green:
-        newmode = posix_acl_inherit_dir (this, loc, xdata, mode);
+        newmode = posix_acl_inherit_dir (this, loc, xdata, mode, umask);
 
         STACK_WIND (frame, posix_acl_mkdir_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->mkdir,
@@ -1158,7 +1163,7 @@ posix_acl_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         else
                 goto red;
 green:
-        newmode = posix_acl_inherit_file (this, loc, xdata, mode);
+        newmode = posix_acl_inherit_file (this, loc, xdata, mode, umask);
 
         STACK_WIND (frame, posix_acl_mknod_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->mknod,
@@ -1201,7 +1206,7 @@ posix_acl_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
         else
                 goto red;
 green:
-        newmode = posix_acl_inherit_file (this, loc, xdata, mode);
+        newmode = posix_acl_inherit_file (this, loc, xdata, mode, umask);
 
         STACK_WIND (frame, posix_acl_create_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->create,
