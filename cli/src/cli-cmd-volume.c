@@ -29,19 +29,6 @@
 #include "cli1-xdr.h"
 #include "run.h"
 
-#define CLI_LOCAL_INIT(local, words, frame, dictionary) \
-        do {                                                 \
-                local = cli_local_get ();                    \
-                                                             \
-                if (local) {                                 \
-                        local->words = words;                \
-                        if (dictionary)                      \
-                                local->dict = dictionary;    \
-                        if (frame)                           \
-                                frame->local = local;        \
-                }                                            \
-        } while (0)
-
 extern struct rpc_clnt *global_rpc;
 
 extern rpc_clnt_prog_t *cli_rpc_prog;

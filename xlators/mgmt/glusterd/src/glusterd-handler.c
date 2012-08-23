@@ -921,6 +921,105 @@ out:
 }
 
 int
+glusterd_handle_cli_uuid_reset (rpcsvc_request_t *req)
+{
+        int                     ret     = -1;
+        dict_t                  *dict   = NULL;
+        xlator_t                *this   = NULL;
+        glusterd_conf_t         *priv   = NULL;
+        uuid_t                  uuid    = {0};
+        gf_cli_rsp              rsp     = {0,};
+        gf_cli_req              cli_req = {{0,}};
+        char                    msg_str[2048] = {0,};
+
+        GF_ASSERT (req);
+
+        this = THIS;
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        if (!xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        gf_log ("glusterd", GF_LOG_DEBUG, "Received uuid reset req");
+
+        if (cli_req.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        snprintf (msg_str, sizeof (msg_str), "Unable to decode "
+                                  "the buffer");
+                        goto out;
+                } else {
+                        dict->extra_stdfree = cli_req.dict.dict_val;
+                }
+        }
+
+        /* In the above section if dict_unserialize is successful, ret is set
+         * to zero.
+         */
+        ret = -1;
+        // Do not allow peer reset if there are any volumes in the cluster
+        if (!list_empty (&priv->volumes)) {
+                snprintf (msg_str, sizeof (msg_str), "volumes are already "
+                          "present in the cluster. Resetting uuid is not "
+                          "allowed");
+                gf_log (this->name, GF_LOG_WARNING, msg_str);
+                goto out;
+        }
+
+        // Do not allow peer reset if trusted storage pool is already formed
+        if (!list_empty (&priv->peers)) {
+                snprintf (msg_str, sizeof (msg_str),"trusted storage pool "
+                          "has been already formed. Please detach this peer "
+                          "from the pool and reset its uuid.");
+                gf_log (this->name, GF_LOG_WARNING, msg_str);
+                goto out;
+        }
+
+        uuid_copy (uuid, priv->uuid);
+        ret = glusterd_uuid_generate_save ();
+
+        if (!uuid_compare (uuid, MY_UUID)) {
+                snprintf (msg_str, sizeof (msg_str), "old uuid and the new uuid"
+                          " are same. Try gluster peer reset again");
+                gf_log (this->name, GF_LOG_ERROR, msg_str);
+                ret = -1;
+                goto out;
+        }
+
+out:
+        if (ret) {
+                rsp.op_ret = -1;
+                if (msg_str[0] == '\0')
+                        snprintf (msg_str, sizeof (msg_str), "Operation "
+                                  "failed");
+                rsp.op_errstr = msg_str;
+                ret = 0;
+        } else {
+                rsp.op_errstr = "";
+        }
+
+        glusterd_to_cli (req, &rsp, NULL, 0, NULL,
+                         (xdrproc_t)xdr_gf_cli_rsp, dict);
+
+        if (dict)
+                dict_unref (dict);
+
+        return ret;
+}
+
+int
 glusterd_handle_cli_list_volume (rpcsvc_request_t *req)
 {
         int                     ret = -1;
@@ -3035,6 +3134,7 @@ rpcsvc_actor_t gd_svc_cli_actors[] = {
         [GLUSTER_CLI_DEFRAG_VOLUME] = { "CLI_DEFRAG_VOLUME", GLUSTER_CLI_DEFRAG_VOLUME, glusterd_handle_defrag_volume, NULL, 0},
         [GLUSTER_CLI_DEPROBE]       = { "FRIEND_REMOVE", GLUSTER_CLI_DEPROBE, glusterd_handle_cli_deprobe, NULL, 0},
         [GLUSTER_CLI_LIST_FRIENDS]  = { "LIST_FRIENDS", GLUSTER_CLI_LIST_FRIENDS, glusterd_handle_cli_list_friends, NULL, 0},
+        [GLUSTER_CLI_UUID_RESET]    = { "UUID_RESET", GLUSTER_CLI_UUID_RESET, glusterd_handle_cli_uuid_reset, NULL, 0},
         [GLUSTER_CLI_START_VOLUME]  = { "START_VOLUME", GLUSTER_CLI_START_VOLUME, glusterd_handle_cli_start_volume, NULL, 0},
         [GLUSTER_CLI_STOP_VOLUME]   = { "STOP_VOLUME", GLUSTER_CLI_STOP_VOLUME, glusterd_handle_cli_stop_volume, NULL, 0},
         [GLUSTER_CLI_DELETE_VOLUME] = { "DELETE_VOLUME", GLUSTER_CLI_DELETE_VOLUME, glusterd_handle_cli_delete_volume, NULL, 0},

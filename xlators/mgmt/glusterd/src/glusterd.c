@@ -43,7 +43,6 @@
 
 #include "glusterd-mountbroker.h"
 
-static uuid_t glusterd_uuid;
 extern struct rpcsvc_program gluster_handshake_prog;
 extern struct rpcsvc_program gluster_pmap_prog;
 extern glusterd_op_info_t opinfo;
@@ -93,28 +92,47 @@ glusterd_uuid_init ()
 
 	ret = glusterd_retrieve_uuid ();
 	if (ret == 0) {
-		uuid_copy (glusterd_uuid, priv->uuid);
 		gf_log (this->name, GF_LOG_INFO,
 			"retrieved UUID: %s", uuid_utoa (priv->uuid));
 		return 0;
 	}
 
-        uuid_generate (glusterd_uuid);
-
-        gf_log (this->name, GF_LOG_INFO, "generated UUID: %s",
-                uuid_utoa (glusterd_uuid));
-
-        uuid_copy (priv->uuid, glusterd_uuid);
-
-        ret = glusterd_store_global_info (this);
+        ret = glusterd_uuid_generate_save ();
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Unable to store generated UUID");
+                gf_log ("glusterd", GF_LOG_ERROR,
+                          "Unable to generate and save new UUID");
                 return ret;
         }
 
         return 0;
+}
+
+int
+glusterd_uuid_generate_save ()
+{
+        int               ret = -1;
+        glusterd_conf_t   *priv = NULL;
+        xlator_t          *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        uuid_generate (priv->uuid);
+
+        gf_log (this->name, GF_LOG_INFO, "generated UUID: %s",
+                uuid_utoa (priv->uuid));
+
+        ret = glusterd_store_global_info (this);
+
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to store the generated uuid %s",
+                        uuid_utoa (priv->uuid));
+
+        return ret;
 }
 
 int

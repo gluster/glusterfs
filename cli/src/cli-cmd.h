@@ -20,6 +20,19 @@
 #include "cli.h"
 #include "list.h"
 
+#define CLI_LOCAL_INIT(local, words, frame, dictionary) \
+        do {                                                 \
+                local = cli_local_get ();                    \
+                                                             \
+                if (local) {                                 \
+                        local->words = words;                \
+                        if (dictionary)                      \
+                                local->dict = dictionary;    \
+                        if (frame)                           \
+                                frame->local = local;        \
+                }                                            \
+        } while (0)
+
 #define CLI_STACK_DESTROY(_frame)                                       \
         do {                                                            \
                 if (_frame) {                                           \
