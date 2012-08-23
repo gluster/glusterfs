@@ -892,6 +892,60 @@ out:
 }
 
 int
+gf_cli3_1_uuid_reset_cbk (struct rpc_req *req, struct iovec *iov,
+                             int count, void *myframe)
+{
+        gf_cli_rsp              rsp   = {0,};
+        int                     ret   = -1;
+        cli_local_t             *local = NULL;
+        call_frame_t            *frame = NULL;
+        dict_t                  *dict = NULL;
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                goto out;
+        }
+
+        frame = myframe;
+        local = frame->local;
+        frame->local = NULL;
+
+        gf_log ("cli", GF_LOG_INFO, "Received resp to uuid reset");
+
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_dict ("uuidReset", dict, rsp.op_ret,
+                                           rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+
+        if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
+                cli_err ("%s", rsp.op_errstr);
+        else
+                cli_out ("resetting the peer uuid has been %s",
+                         (rsp.op_ret) ? "unsuccessful": "successful");
+        ret = rsp.op_ret;
+
+out:
+        cli_cmd_broadcast_response (ret);
+        cli_local_wipe (local);
+        if (rsp.dict.dict_val)
+                free (rsp.dict.dict_val);
+        if (dict)
+                dict_unref (dict);
+
+        gf_log ("", GF_LOG_INFO, "Returning with %d", ret);
+        return ret;
+}
+
+int
 gf_cli_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
@@ -2509,6 +2563,28 @@ out:
         return ret;
 }
 
+int32_t
+gf_cli3_1_uuid_reset (call_frame_t *frame, xlator_t *this,
+                      void *data)
+{
+        gf_cli_req                      req = {{0,}};
+        int                             ret = 0;
+        dict_t                          *dict = NULL;
+
+        if (!frame || !this || !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+        ret = cli_to_glusterd (&req, frame, gf_cli3_1_uuid_reset_cbk,
+                               (xdrproc_t)xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_UUID_RESET, this, cli_rpc_prog,
+                               NULL);
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
 
 int32_t
 gf_cli_create_volume (call_frame_t *frame, xlator_t *this,
@@ -6104,6 +6180,7 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_PROBE]            = {"PROBE_QUERY", gf_cli_probe},
         [GLUSTER_CLI_DEPROBE]          = {"DEPROBE_QUERY", gf_cli_deprobe},
         [GLUSTER_CLI_LIST_FRIENDS]     = {"LIST_FRIENDS", gf_cli_list_friends},
+        [GLUSTER_CLI_UUID_RESET]       = {"UUID_RESET", gf_cli3_1_uuid_reset},
         [GLUSTER_CLI_CREATE_VOLUME]    = {"CREATE_VOLUME", gf_cli_create_volume},
         [GLUSTER_CLI_DELETE_VOLUME]    = {"DELETE_VOLUME", gf_cli_delete_volume},
         [GLUSTER_CLI_START_VOLUME]     = {"START_VOLUME", gf_cli_start_volume},

@@ -153,6 +153,7 @@ enum gluster_cli_procnum {
         GLUSTER_CLI_STATEDUMP_VOLUME,
         GLUSTER_CLI_LIST_VOLUME,
         GLUSTER_CLI_CLRLOCKS_VOLUME,
+        GLUSTER_CLI_UUID_RESET,
         GLUSTER_CLI_MAXVALUE,
 };
 

@@ -389,6 +389,8 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
 
 int glusterd_uuid_init();
 
+int glusterd_uuid_generate_save ();
+
 #define MY_UUID (__glusterd_uuid())
 
 static inline unsigned char *
