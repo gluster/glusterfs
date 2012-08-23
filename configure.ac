@@ -517,6 +517,15 @@ if test "x$RLLIBS" != "x"; then
    BUILD_READLINE=yes
 fi
 
+BUILD_LIBAIO=no
+AC_CHECK_LIB([aio],[io_setup],[LIBAIO="-laio"])
+
+if test "x$LIBAIO" != "x"; then
+   AC_DEFINE(HAVE_LIBAIO, 1, [libaio based POSIX enabled])
+   BUILD_LIBAIO=yes
+fi
+
+
 AC_SUBST(GF_HOST_OS)
 AC_SUBST(GF_GLUSTERFS_LDFLAGS)
 AC_SUBST(GF_GLUSTERFS_CFLAGS)
@@ -526,6 +535,7 @@ AC_SUBST(GF_LDADD)
 AC_SUBST(GF_FUSE_LDADD)
 AC_SUBST(GF_FUSE_CFLAGS)
 AC_SUBST(RLLIBS)
+AC_SUBST(LIBAIO)
 AC_SUBST(AM_MAKEFLAGS)
 AC_SUBST(AM_LIBTOOLFLAGS)
 
@@ -551,4 +561,5 @@ echo "argp-standalone    : $BUILD_ARGP_STANDALONE"
 echo "fusermount         : $BUILD_FUSERMOUNT"
 echo "readline           : $BUILD_READLINE"
 echo "georeplication     : $BUILD_SYNCDAEMON"
+echo "Linux-AIO          : $BUILD_LIBAIO"
 echo

@@ -59,6 +59,7 @@
 #include "timer.h"
 #include "glusterfs3-xdr.h"
 #include "hashfn.h"
+#include "posix-aio.h"
 
 extern char *marker_xattrs[];
 
@@ -3960,6 +3961,29 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
+
+int
+reconfigure (xlator_t *this, dict_t *options)
+{
+	int                   ret = -1;
+	struct posix_private *priv = NULL;
+
+	priv = this->private;
+
+	GF_OPTION_RECONF ("linux-aio", priv->aio_configured,
+			  options, bool, out);
+
+	if (priv->aio_configured)
+		posix_aio_on (this);
+	else
+		posix_aio_off (this);
+
+	ret = 0;
+out:
+	return ret;
+}
+
+
 /**
  * init -
  */
@@ -4300,7 +4324,23 @@ init (xlator_t *this)
                         "Posix handle setup failed");
                 ret = -1;
                 goto out;
-        }
+	}
+
+	_private->aio_init_done = _gf_false;
+	_private->aio_capable = _gf_false;
+
+	GF_OPTION_INIT ("linux-aio", _private->aio_configured, bool, out);
+
+	if (_private->aio_configured) {
+		op_ret = posix_aio_on (this);
+
+		if (op_ret == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"Posix AIO init failed");
+			ret = -1;
+			goto out;
+		}
+	}
 
         pthread_mutex_init (&_private->janitor_lock, NULL);
         pthread_cond_init (&_private->janitor_cond, NULL);
@@ -4399,5 +4439,11 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_ANY },
         { .key  = {"glusterd-uuid"},
           .type = GF_OPTION_TYPE_STR },
+	{
+		.key  = {"linux-aio"},
+		.type = GF_OPTION_TYPE_BOOL,
+		.default_value = "off",
+		.description = "Support for native Linux AIO"
+	},
         { .key  = {NULL} }
 };

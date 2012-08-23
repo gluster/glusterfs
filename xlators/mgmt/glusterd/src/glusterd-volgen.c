@@ -231,6 +231,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"feature.read-only",                    "features/read-only",        "!read-only", "off", DOC, 0},
         {GLUSTERD_QUORUM_TYPE_KEY,               "mgmt/glusterd",             NULL,         "off", DOC, 0},
         {GLUSTERD_QUORUM_RATIO_KEY,              "mgmt/glusterd",             NULL,         "0", DOC, 0},
+        {"storage.linux-aio",                    "storage/posix",             NULL, NULL, DOC, 0},
         {NULL,                                                                }
 };
 

@@ -54,6 +54,11 @@
 #include "posix-mem-types.h"
 #include "posix-handle.h"
 
+#ifdef HAVE_LIBAIO
+#include <libaio.h>
+#include "posix-aio.h"
+#endif
+
 /**
  * posix_fd - internal structure common to file and directory fd's
  */
@@ -64,7 +69,6 @@ struct posix_fd {
 	DIR *   dir;     /* handle returned by the kernel */
         int     flushwrites;
         int     odirect;
-        int     op_performed;
         struct list_head list; /* to add to the janitor list */
 };
 
@@ -124,6 +128,13 @@ struct posix_private {
 /* uuid of glusterd that swapned the brick process */
         uuid_t glusterd_uuid;
 
+	gf_boolean_t    aio_configured;
+	gf_boolean_t    aio_init_done;
+	gf_boolean_t    aio_capable;
+#ifdef HAVE_LIBAIO
+        io_context_t    ctxp;
+        pthread_t       aiothread;
+#endif
 };
 
 #define POSIX_BASE_PATH(this) (((struct posix_private *)this->private)->base_path)
