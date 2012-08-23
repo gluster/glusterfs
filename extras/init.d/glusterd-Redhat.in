@@ -57,20 +57,24 @@ stop()
 case $1 in
     start)
         start
+        RETVAL=$?
         ;;
     stop)
         stop
+        RETVAL=$?
         ;;
     status)
         status $BASE
+        RETVAL=$?
         ;;
     restart)
         $0 stop
         $0 start
+        RETVAL=$?
         ;;
     *)
         echo $"Usage: $0 {start|stop|status|restart}."
         exit 1
 esac
 
-exit 0
+exit $RETVAL
