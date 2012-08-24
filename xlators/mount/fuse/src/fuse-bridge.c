@@ -426,7 +426,7 @@ fuse_lookup_resume (fuse_state_t *state)
         /* parent was resolved, entry could not, may be a missing gfid?
          * Hence try to do a regular lookup
          */
-        if ((state->resolve.op_ret == -2)
+        if ((state->resolve.op_ret == -1)
             && (state->resolve.op_errno == ENODATA)) {
                 state->resolve.op_ret = 0;
         }
