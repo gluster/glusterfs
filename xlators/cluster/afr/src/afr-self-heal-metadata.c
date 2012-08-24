@@ -50,20 +50,12 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
         sh = &local->self_heal;
 
         afr_sh_reset (frame, this);
-        if (sh->mdata_spb) {
+        if (IA_ISDIR (sh->type)) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "split-brain detected, aborting selfheal of %s",
+                        "proceeding to entry check on %s",
                         local->loc.path);
-                sh->op_failed = 1;
-                sh->completion_cbk (frame, this);
+                afr_self_heal_entry (frame, this);
         } else {
-                if (IA_ISDIR (sh->type)) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "proceeding to entry check on %s",
-                                local->loc.path);
-                        afr_self_heal_entry (frame, this);
-                        return 0;
-                }
                 gf_log (this->name, GF_LOG_DEBUG,
                         "proceeding to data check on %s",
                         local->loc.path);
