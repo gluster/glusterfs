@@ -400,10 +400,10 @@ typedef struct {
         int32_t        fd_no;
 } fuse_state_t;
 
-typedef struct fuse_fd_ctx {
+typedef struct {
         uint32_t  open_flags;
         char      migration_failed;
-        fd_t     *fd;
+        fd_t     *activefd;
 } fuse_fd_ctx_t;
 
 typedef void (*fuse_resume_fn_t) (fuse_state_t *state);

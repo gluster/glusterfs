@@ -708,7 +708,7 @@ fuse_fd_inherit_directio (xlator_t *this, fd_t *fd, struct fuse_open_out *foo)
         GF_VALIDATE_OR_GOTO_WITH_ERROR ("glusterfs-fuse", foo, out, ret,
                                         -EINVAL);
 
-        fdctx = fuse_fd_ctx_check_n_create (this, fd);
+        fdctx = fuse_fd_ctx_get (this, fd);
         if (!fdctx) {
                 ret = -ENOMEM;
                 goto out;
@@ -792,8 +792,9 @@ fuse_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (ret < 0) {
                         op_errno = -ret;
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                                "cannot inherit direct-io values from fds "
-                                "already opened");
+                                "cannot inherit direct-io values for fd "
+                                "(ptr:%p inode-gfid:%s) from fds already "
+                                "opened", fd, uuid_utoa (fd->inode->gfid));
                         goto err;
                 }
 
@@ -1819,6 +1820,7 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 #endif
                 iov_out[2].iov_base = &foo;
                 iov_out[2].iov_len = sizeof (foo);
+
                 if (send_fuse_iov (this, finh, iov_out, 3) == ENOENT) {
                         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                                 "create(%s) got EINTR", state->loc.path);
@@ -1846,8 +1848,9 @@ out:
 void
 fuse_create_resume (fuse_state_t *state)
 {
-        fd_t           *fd   = NULL;
-        fuse_private_t *priv = NULL;
+        fd_t           *fd    = NULL;
+        fuse_private_t *priv  = NULL;
+        fuse_fd_ctx_t  *fdctx = NULL;
 
         if (!state->loc.parent) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
@@ -1873,6 +1876,25 @@ fuse_create_resume (fuse_state_t *state)
         state->loc.inode = inode_new (state->loc.parent->table);
 
         fd = fd_create (state->loc.inode, state->finh->pid);
+        if (fd == NULL) {
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                        "%"PRIu64" CREATE cannot create a new fd",
+                        state->finh->unique);
+                send_fuse_err (state->this, state->finh, ENOMEM);
+                free_fuse_state (state);
+                return;
+        }
+
+        fdctx = fuse_fd_ctx_check_n_create (state->this, fd);
+        if (fdctx == NULL) {
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                        "%"PRIu64" CREATE creation of fdctx failed",
+                        state->finh->unique);
+                fd_unref (fd);
+                send_fuse_err (state->this, state->finh, ENOMEM);
+                free_fuse_state (state);
+                return;
+        }
 
         priv = state->this->private;
 
@@ -1969,8 +1991,9 @@ fuse_create (xlator_t *this, fuse_in_header_t *finh, void *msg)
 void
 fuse_open_resume (fuse_state_t *state)
 {
-        fd_t           *fd   = NULL;
-        fuse_private_t *priv = NULL;
+        fd_t           *fd    = NULL;
+        fuse_private_t *priv  = NULL;
+        fuse_fd_ctx_t  *fdctx = NULL;
 
         if (!state->loc.inode) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
@@ -1987,6 +2010,17 @@ fuse_open_resume (fuse_state_t *state)
                 gf_log ("fuse", GF_LOG_ERROR,
                         "fd is NULL");
                 send_fuse_err (state->this, state->finh, ENOENT);
+                free_fuse_state (state);
+                return;
+        }
+
+        fdctx = fuse_fd_ctx_check_n_create (state->this, fd);
+        if (fdctx == NULL) {
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                        "%"PRIu64": OPEN creation of fdctx failed",
+                        state->finh->unique);
+                fd_unref (fd);
+                send_fuse_err (state->this, state->finh, ENOMEM);
                 free_fuse_state (state);
                 return;
         }
@@ -2259,14 +2293,14 @@ fuse_flush (xlator_t *this, fuse_in_header_t *finh, void *msg)
 static void
 fuse_release (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
-        struct fuse_release_in *fri    = msg;
-        fd_t                   *new_fd = NULL;
-        fd_t                   *fd     = NULL;
-        uint64_t                val    = 0;
-        int                     ret    = 0;
-        fuse_state_t           *state  = NULL;
-        fuse_fd_ctx_t          *fdctx  = NULL;
-        fuse_private_t         *priv   = NULL;
+        struct fuse_release_in *fri       = msg;
+        fd_t                   *activefd = NULL;
+        fd_t                   *fd        = NULL;
+        uint64_t                val       = 0;
+        int                     ret       = 0;
+        fuse_state_t           *state     = NULL;
+        fuse_fd_ctx_t          *fdctx     = NULL;
+        fuse_private_t         *priv      = NULL;
 
         GET_STATE (this, finh, state);
         fd = FH_TO_FD (fri->fh);
@@ -2281,9 +2315,9 @@ fuse_release (xlator_t *this, fuse_in_header_t *finh, void *msg)
         if (!ret) {
                 fdctx = (fuse_fd_ctx_t *)(unsigned long)val;
                 if (fdctx) {
-                        new_fd = fdctx->fd;
-                        if (new_fd) {
-                                fd_unref (new_fd);
+                        activefd = fdctx->activefd;
+                        if (activefd) {
+                                fd_unref (activefd);
                         }
 
                         GF_FREE (fdctx);
@@ -2338,8 +2372,9 @@ fuse_fsync (xlator_t *this, fuse_in_header_t *finh, void *msg)
 void
 fuse_opendir_resume (fuse_state_t *state)
 {
-        fd_t           *fd   = NULL;
-        fuse_private_t *priv = NULL;
+        fd_t           *fd    = NULL;
+        fuse_private_t *priv  = NULL;
+        fuse_fd_ctx_t  *fdctx = NULL;
 
         priv = state->this->private;
 
@@ -2353,6 +2388,25 @@ fuse_opendir_resume (fuse_state_t *state)
         }
 
         fd = fd_create (state->loc.inode, state->finh->pid);
+        if (fd == NULL) {
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                        "%"PRIu64": OPENDIR fd creation failed",
+                        state->finh->unique);
+                send_fuse_err (state->this, state->finh, ENOMEM);
+                free_fuse_state (state);
+        }
+
+        fdctx = fuse_fd_ctx_check_n_create (state->this, fd);
+        if (fdctx == NULL) {
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                        "%"PRIu64": OPENDIR creation of fdctx failed",
+                        state->finh->unique);
+                fd_unref (fd);
+                send_fuse_err (state->this, state->finh, ENOMEM);
+                free_fuse_state (state);
+                return;
+        }
+
         state->fd = fd_ref (fd);
         state->fd_no = gf_fd_unused_get (priv->fdtable, fd);
 
@@ -2516,13 +2570,13 @@ fuse_readdir (xlator_t *this, fuse_in_header_t *finh, void *msg)
 static void
 fuse_releasedir (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
-        struct fuse_release_in *fri    = msg;
-        fd_t                   *new_fd = NULL;
-        uint64_t                val    = 0;
-        int                     ret    = 0;
-        fuse_state_t           *state  = NULL;
-        fuse_fd_ctx_t          *fdctx  = NULL;
-        fuse_private_t         *priv   = NULL;
+        struct fuse_release_in *fri       = msg;
+        fd_t                   *activefd = NULL;
+        uint64_t                val       = 0;
+        int                     ret       = 0;
+        fuse_state_t           *state     = NULL;
+        fuse_fd_ctx_t          *fdctx     = NULL;
+        fuse_private_t         *priv      = NULL;
 
         GET_STATE (this, finh, state);
         state->fd = FH_TO_FD (fri->fh);
@@ -2537,9 +2591,9 @@ fuse_releasedir (xlator_t *this, fuse_in_header_t *finh, void *msg)
         if (!ret) {
                 fdctx = (fuse_fd_ctx_t *)(unsigned long)val;
                 if (fdctx) {
-                        new_fd = fdctx->fd;
-                        if (new_fd) {
-                                fd_unref (new_fd);
+                        activefd = fdctx->activefd;
+                        if (activefd) {
+                                fd_unref (activefd);
                         }
 
                         GF_FREE (fdctx);
@@ -3705,106 +3759,194 @@ out:
 
 
 int
-fuse_migrate_fd (xlator_t *this, fd_t *fd, xlator_t *old_subvol,
-                 xlator_t *new_subvol)
+fuse_migrate_fd_open (xlator_t *this, fd_t *basefd, fd_t *oldfd,
+                      xlator_t *old_subvol, xlator_t *new_subvol)
 {
-        int            ret                = -1;
-        loc_t          loc                = {0, };
-        char           create_in_progress = 0;
-        inode_t       *old_inode          = NULL;
-        int            flags              = 0;
+        loc_t          loc       = {0, };
+        fd_t          *newfd     = NULL, *old_activefd = NULL;
+        fuse_fd_ctx_t *basefd_ctx = NULL;
+        fuse_fd_ctx_t *newfd_ctx = NULL;
+        int            ret       = 0, flags = 0;
 
-        /* could've used pthread_cond_wait, but that requires a cond variable to
-         * be mainted for each fd and that is a bit too much overhead.
-         */
-        do {
-                LOCK (&fd->inode->lock);
-                {
-                        if (uuid_is_null (fd->inode->gfid)) {
-                                create_in_progress = 1;
-                        } else {
-                                create_in_progress = 0;
-                        }
-                }
-                UNLOCK (&fd->inode->lock);
-
-                if (create_in_progress) {
-                        gf_log ("glusterfs-fuse", GF_LOG_INFO,
-                                "create call on fd (%p) is in progress, "
-                                "hence waiting", fd);
-                        sleep (1);
-                }
-
-        } while (create_in_progress);
-
-        if (fd->inode->table->xl == old_subvol) {
-                ret = syncop_fsync (old_subvol, fd, 0);
-                if (ret < 0) {
-                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                                "syncop_fsync failed (%s)", strerror (errno));
-                }
-        } else {
-                gf_log ("glusterfs-fuse", GF_LOG_DEBUG, "fd (%p) was not "
-                        "migrated during previous graph switch", fd);
+        ret = inode_path (basefd->inode, NULL, (char **)&loc.path);
+        if (ret < 0) {
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                        "cannot construct path of gfid (%s) failed"
+                        "(old-subvolume:%s-%d new-subvolume:%s-%d)",
+                        uuid_utoa (basefd->inode->gfid),
+                        old_subvol->name, old_subvol->graph->id,
+                        new_subvol->name, new_subvol->graph->id);
+                goto out;
         }
 
-        loc.path = "";
-        loc.name = NULL;
+        uuid_copy (loc.gfid, basefd->inode->gfid);
 
-        loc.inode = inode_find (new_subvol->itable, fd->inode->gfid);
+        loc.inode = inode_find (new_subvol->itable, basefd->inode->gfid);
 
         if (loc.inode == NULL) {
-                ret = fuse_nameless_lookup (new_subvol, fd->inode->gfid, &loc);
+                ret = fuse_nameless_lookup (new_subvol, basefd->inode->gfid,
+                                            &loc);
                 if (ret < 0) {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                                "name-less lookup of gfid (%s) failed (%s)",
-                                uuid_utoa (fd->inode->gfid), strerror (errno));
+                                "name-less lookup of gfid (%s) failed (%s)"
+                                "(old-subvolume:%s-%d new-subvolume:%s-%d)",
+                                uuid_utoa (basefd->inode->gfid),
+                                strerror (errno),
+                                old_subvol->name, old_subvol->graph->id,
+                                new_subvol->name, new_subvol->graph->id);
                         goto out;
                 }
 
         }
 
-        old_inode = fd->inode;
+        basefd_ctx = fuse_fd_ctx_get (this, basefd);
+        GF_VALIDATE_OR_GOTO ("glusterfs-fuse", basefd_ctx, out);
 
-        inode_ref (loc.inode);
-
-        LOCK (&fd->inode->lock);
-        {
-                list_del_init (&fd->inode_list);
+        newfd = fd_create (loc.inode, basefd->pid);
+        if (newfd == NULL) {
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                        "cannot create new fd, hence not migrating basefd "
+                        "(ptr:%p inode-gfid:%s) "
+                        "(old-subvolume:%s-%d new-subvolume:%s-%d)", basefd,
+                        uuid_utoa (loc.inode->gfid),
+                        old_subvol->name, old_subvol->graph->id,
+                        new_subvol->name, new_subvol->graph->id);
+                goto out;
         }
-        UNLOCK (&fd->inode->lock);
 
-        LOCK (&fd->lock);
-        {
-                fd->inode = loc.inode;
-        }
-        UNLOCK (&fd->lock);
+        newfd->lk_ctx = fd_lk_ctx_ref (oldfd->lk_ctx);
 
-        if (IA_ISDIR (fd->inode->ia_type)) {
-                ret = syncop_opendir (new_subvol, &loc, fd);
+        newfd_ctx = fuse_fd_ctx_check_n_create (this, newfd);
+        GF_VALIDATE_OR_GOTO ("glusterfs-fuse", newfd_ctx, out);
+
+        if (IA_ISDIR (basefd->inode->ia_type)) {
+                ret = syncop_opendir (new_subvol, &loc, newfd);
         } else {
-                flags = fd->flags & ~(O_CREAT | O_EXCL);
-                ret = syncop_open (new_subvol, &loc, flags, fd);
+                flags = basefd->flags & ~(O_CREAT | O_EXCL | O_TRUNC);
+                ret = syncop_open (new_subvol, &loc, flags, newfd);
         }
 
         if (ret < 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                        "open on gfid (%s) failed (%s)",
-                        uuid_utoa (fd->inode->gfid), strerror (errno));
+                        "open on basefd (ptr:%p inode-gfid:%s) failed (%s)"
+                        "(old-subvolume:%s-%d new-subvolume:%s-%d)", basefd,
+                        uuid_utoa (basefd->inode->gfid), strerror (errno),
+                        old_subvol->name, old_subvol->graph->id,
+                        new_subvol->name, new_subvol->graph->id);
                 goto out;
         }
 
-        fd_bind (fd);
+        fd_bind (newfd);
 
+        LOCK (&basefd->lock);
+        {
+                if (basefd_ctx->activefd != NULL) {
+                        old_activefd = basefd_ctx->activefd;
+                }
+
+                basefd_ctx->activefd = newfd;
+        }
+        UNLOCK (&basefd->lock);
+
+        if (old_activefd != NULL) {
+                fd_unref (old_activefd);
+        }
+
+        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                "migrated basefd (%p) to newfd (%p) "
+                "(old-subvolume:%s-%d new-subvolume:%s-%d)", basefd, newfd,
+                old_subvol->name, old_subvol->graph->id,
+                new_subvol->name, new_subvol->graph->id);
+
+        newfd = NULL;
         ret = 0;
 out:
-        if (loc.inode != NULL) {
-                inode_unref (loc.inode);
+        loc_wipe (&loc);
+
+        return ret;
+}
+
+
+int
+fuse_migrate_fd (xlator_t *this, fd_t *basefd, xlator_t *old_subvol,
+                 xlator_t *new_subvol)
+{
+        int            ret                = -1;
+        char           create_in_progress = 0;
+        fuse_fd_ctx_t *basefd_ctx          = NULL;
+        fd_t          *oldfd              = NULL;
+
+        basefd_ctx = fuse_fd_ctx_get (this, basefd);
+        GF_VALIDATE_OR_GOTO ("glusterfs-fuse", basefd_ctx, out);
+
+        LOCK (&basefd->lock);
+        {
+                oldfd = basefd_ctx->activefd ? basefd_ctx->activefd
+                        : basefd;
+                fd_ref (oldfd);
+        }
+        UNLOCK (&basefd->lock);
+
+        LOCK (&oldfd->inode->lock);
+        {
+                if (uuid_is_null (oldfd->inode->gfid)) {
+                        create_in_progress = 1;
+                } else {
+                        create_in_progress = 0;
+                }
+        }
+        UNLOCK (&oldfd->inode->lock);
+
+        if (create_in_progress) {
+                gf_log ("glusterfs-fuse", GF_LOG_INFO,
+                        "create call on fd (%p) is in progress "
+                        "(basefd-ptr:%p basefd-inode.gfid:%s), "
+                        "hence deferring migration till application does an "
+                        "fd based operation on this fd"
+                        "(old-subvolume:%s-%d, new-subvolume:%s-%d)",
+                        oldfd, basefd, uuid_utoa (basefd->inode->gfid),
+                        old_subvol->name, old_subvol->graph->id,
+                        new_subvol->name, new_subvol->graph->id);
+
+                ret = 0;
+                goto out;
         }
 
-        if (old_inode != NULL) {
-                inode_unref (old_inode);
+        if (oldfd->inode->table->xl == old_subvol) {
+                ret = syncop_fsync (old_subvol, oldfd, 0);
+                if (ret < 0) {
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                "syncop_fsync failed (%s) on fd (%p)"
+                                "(basefd:%p basefd-inode.gfid:%s) "
+                                "(old-subvolume:%s-%d new-subvolume:%s-%d)",
+                                strerror (errno), oldfd, basefd,
+                                uuid_utoa (basefd->inode->gfid),
+                                old_subvol->name, old_subvol->graph->id,
+                                new_subvol->name, new_subvol->graph->id);
+                }
+        } else {
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                        "basefd (ptr:%p inode-gfid:%s) was not "
+                        "migrated during previous graph switch"
+                        "(old-subvolume:%s-%d new-subvolume: %s-%d)", basefd,
+                        basefd->inode->gfid,
+                        old_subvol->name, old_subvol->graph->id,
+                        new_subvol->name, new_subvol->graph->id);
         }
+
+        ret = fuse_migrate_fd_open (this, basefd, oldfd, old_subvol,
+                                    new_subvol);
+out:
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING, "migration of basefd "
+                        "(ptr:%p inode-gfid:%s) failed"
+                        "(old-subvolume:%s-%d new-subvolume:%s-%d)", basefd,
+                        oldfd ? uuid_utoa (oldfd->inode->gfid) : NULL,
+                        old_subvol->name, old_subvol->graph->id,
+                        new_subvol->name, new_subvol->graph->id);
+        }
+
+        fd_unref (oldfd);
 
         return ret;
 }
@@ -3837,13 +3979,17 @@ fuse_handle_opened_fds (xlator_t *this, xlator_t *old_subvol,
                         ret = fuse_migrate_fd (this, fd, old_subvol,
                                                new_subvol);
 
-                        fdctx = fuse_fd_ctx_check_n_create (this, fd);
+                        fdctx = fuse_fd_ctx_get (this, fd);
                         if (fdctx) {
-                                if (ret < 0) {
-                                        fdctx->migration_failed = 1;
-                                } else {
-                                        fdctx->migration_failed = 0;
+                                LOCK (&fd->lock);
+                                {
+                                        if (ret < 0) {
+                                                fdctx->migration_failed = 1;
+                                        } else {
+                                                fdctx->migration_failed = 0;
+                                        }
                                 }
+                                UNLOCK (&fd->lock);
                         }
                 }
 
