@@ -19,6 +19,17 @@
 #include <string.h>
 #include <sys/param.h> /* for PATH_MAX */
 
+/* NOTE (USE_LIBGLUSTERFS):
+ * ------------------------
+ * When USE_LIBGLUSTERFS debugging sumbol is passed; perform
+ * glusterfs translator like initialization so that glusterfs
+ * globals, contexts are valid when glustefs api's are invoked.
+ * We unconditionally pass then while building gsyncd binary.
+ */
+#ifdef USE_LIBGLUSTERFS
+#include "glusterfs.h"
+#include "globals.h"
+#endif
 
 #include "common-utils.h"
 #include "run.h"
@@ -289,6 +300,19 @@ main (int argc, char **argv)
         struct invocable *i = NULL;
         char *b             = NULL;
         char *sargv         = NULL;
+
+#ifdef USE_LIBGLUSTERFS
+        glusterfs_ctx_t *ctx = NULL;
+
+        ctx = glusterfs_ctx_new ();
+        if (!ctx)
+                return ENOMEM;
+
+        if (glusterfs_globals_init (ctx))
+                return 1;
+
+        THIS->ctx = ctx;
+#endif
 
         evas = getenv (_GLUSTERD_CALLED_);
         if (evas && strcmp (evas, "1") == 0)
