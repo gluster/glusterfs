@@ -350,31 +350,49 @@ fuse_resolve_inode (fuse_state_t *state)
 int
 fuse_migrate_fd_task (void *data)
 {
-        int                     ret   = -1;
-        fuse_fd_ctx_t          *fdctx = NULL;
-        fuse_state_t           *state = NULL;
+        int            ret        = -1;
+        fuse_state_t  *state      = NULL;
+        fd_t          *basefd     = NULL, *oldfd = NULL;
+        fuse_fd_ctx_t *basefd_ctx = NULL;
+        xlator_t      *old_subvol = NULL;
 
         state = data;
         if (state == NULL) {
                 goto out;
         }
 
-        ret = fuse_migrate_fd (state->this, state->fd,
-                               state->fd->inode->table->xl,
+        basefd = state->fd;
+
+        basefd_ctx = fuse_fd_ctx_get (state->this, basefd);
+
+        LOCK (&basefd->lock);
+        {
+                oldfd = basefd_ctx->activefd ? basefd_ctx->activefd : basefd;
+                fd_ref (oldfd);
+        }
+        UNLOCK (&basefd->lock);
+
+        old_subvol = oldfd->inode->table->xl;
+
+        ret = fuse_migrate_fd (state->this, basefd, old_subvol,
                                state->active_subvol);
 
-        fdctx = fuse_fd_ctx_check_n_create (state->this, state->fd);
-        if (fdctx != NULL) {
+        LOCK (&basefd->lock);
+        {
                 if (ret < 0) {
-                        fdctx->migration_failed = 1;
+                        basefd_ctx->migration_failed = 1;
                 } else {
-                        fdctx->migration_failed = 0;
+                        basefd_ctx->migration_failed = 0;
                 }
         }
+        UNLOCK (&basefd->lock);
 
         ret = 0;
 
 out:
+        if (oldfd)
+                fd_unref (oldfd);
+
         return ret;
 }
 
@@ -395,22 +413,55 @@ fuse_migrate_fd_error (xlator_t *this, fd_t *fd)
         return error;
 }
 
+#define FUSE_FD_GET_ACTIVE_FD(activefd, basefd)                 \
+        do {                                                    \
+                LOCK (&basefd->lock);                           \
+                {                                               \
+                        activefd = basefd_ctx->activefd ?       \
+                                basefd_ctx->activefd : basefd;  \
+                        if (activefd != basefd) {               \
+                                fd_ref (activefd);              \
+                        }                                       \
+                }                                               \
+                UNLOCK (&basefd->lock);                         \
+                                                                \
+                if (activefd == basefd) {                       \
+                        fd_ref (activefd);                      \
+                }                                               \
+        } while (0);
+
 
 static int
 fuse_resolve_fd (fuse_state_t *state)
 {
-        fuse_resolve_t         *resolve            = NULL;
-	fd_t                   *fd                 = NULL;
-	xlator_t               *active_subvol      = NULL;
-        int                     ret                = 0;
-        char                    fd_migration_error = 0;
+        fuse_resolve_t *resolve            = NULL;
+	fd_t           *basefd             = NULL, *activefd = NULL;
+	xlator_t       *active_subvol      = NULL, *this = NULL;
+        int             ret                = 0;
+        char            fd_migration_error = 0;
+        fuse_fd_ctx_t  *basefd_ctx         = NULL;
 
         resolve = state->resolve_now;
 
-        fd = resolve->fd;
-	active_subvol = fd->inode->table->xl;
+        this = state->this;
 
-        fd_migration_error = fuse_migrate_fd_error (state->this, fd);
+        basefd = resolve->fd;
+        basefd_ctx = fuse_fd_ctx_get (this, basefd);
+        if (basefd_ctx == NULL) {
+                gf_log (state->this->name, GF_LOG_WARNING,
+                        "fdctx is NULL for basefd (ptr:%p inode-gfid:%s), "
+                        "resolver erroring out with errno EINVAL",
+                        basefd, uuid_utoa (basefd->inode->gfid));
+                resolve->op_ret = -1;
+                resolve->op_errno = EINVAL;
+                goto resolve_continue;
+        }
+
+        FUSE_FD_GET_ACTIVE_FD (activefd, basefd);
+
+        active_subvol = activefd->inode->table->xl;
+
+        fd_migration_error = fuse_migrate_fd_error (state->this, basefd);
         if (fd_migration_error) {
                 resolve->op_ret = -1;
                 resolve->op_errno = EBADF;
@@ -418,34 +469,77 @@ fuse_resolve_fd (fuse_state_t *state)
                 ret = synctask_new (state->this->ctx->env, fuse_migrate_fd_task,
                                     NULL, NULL, state);
 
-                fd_migration_error = fuse_migrate_fd_error (state->this, fd);
+                fd_migration_error = fuse_migrate_fd_error (state->this,
+                                                            basefd);
+                fd_unref (activefd);
+
+                FUSE_FD_GET_ACTIVE_FD (activefd, basefd);
+                active_subvol = activefd->inode->table->xl;
 
                 if ((ret == -1) || fd_migration_error
-                    || (state->active_subvol != fd->inode->table->xl)) {
+                    || (state->active_subvol != active_subvol)) {
                         if (ret == -1) {
                                 gf_log (state->this->name, GF_LOG_WARNING,
-                                        "starting sync-task to migrate fd (%p)"
-                                        " failed", fd);
+                                        "starting sync-task to migrate "
+                                        "basefd (ptr:%p inode-gfid:%s) failed "
+                                        "(old-subvolume:%s-%d "
+                                        "new-subvolume:%s-%d)",
+                                        basefd,
+                                        uuid_utoa (basefd->inode->gfid),
+                                        active_subvol->name,
+                                        active_subvol->graph->id,
+                                        state->active_subvol->name,
+                                        state->active_subvol->graph->id);
                         } else {
                                 gf_log (state->this->name, GF_LOG_WARNING,
-                                        "fd migration of fd (%p) failed", fd);
+                                        "fd migration of basefd "
+                                        "(ptr:%p inode-gfid:%s) failed "
+                                        "(old-subvolume:%s-%d "
+                                        "new-subvolume:%s-%d)",
+                                        basefd,
+                                        uuid_utoa (basefd->inode->gfid),
+                                        active_subvol->name,
+                                        active_subvol->graph->id,
+                                        state->active_subvol->name,
+                                        state->active_subvol->graph->id);
                         }
 
                         resolve->op_ret = -1;
                         resolve->op_errno = EBADF;
                 } else {
                         gf_log (state->this->name, GF_LOG_DEBUG,
-                                "fd (%p) migrated successfully in resolver",
-                                fd);
+                                "basefd (ptr:%p inode-gfid:%s) migrated "
+                                "successfully in resolver "
+                                "(old-subvolume:%s-%d new-subvolume:%s-%d)",
+                                basefd, uuid_utoa (basefd->inode->gfid),
+                                active_subvol->name, active_subvol->graph->id,
+                                state->active_subvol->name,
+                                state->active_subvol->graph->id);
                 }
         }
 
         if ((resolve->op_ret == -1) && (resolve->op_errno == EBADF)) {
-                gf_log ("fuse-resolve", GF_LOG_WARNING, "migration of fd (%p) "
-                        "did not complete, failing fop with EBADF", fd);
+                gf_log ("fuse-resolve", GF_LOG_WARNING,
+                        "migration of basefd (ptr:%p inode-gfid:%s) "
+                        "did not complete, failing fop with EBADF "
+                        "(old-subvolume:%s-%d new-subvolume:%s-%d)", basefd,
+                        uuid_utoa (basefd->inode->gfid),
+                        active_subvol->name, active_subvol->graph->id,
+                        state->active_subvol->name,
+                        state->active_subvol->graph->id);
+        }
+
+        if (activefd != basefd) {
+                state->fd = fd_ref (activefd);
+                fd_unref (basefd);
         }
 
 	/* state->active_subvol = active_subvol; */
+
+resolve_continue:
+        if (activefd != NULL) {
+                fd_unref (activefd);
+        }
 
         fuse_resolve_continue (state);
 
