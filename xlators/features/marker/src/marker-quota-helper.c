@@ -168,8 +168,16 @@ __mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *l
         int32_t ret = 0;
         inode_contribution_t *contribution = NULL;
 
-        if (!loc->parent)
-                goto out;
+        if (!loc->parent) {
+                if (!uuid_is_null (loc->pargfid))
+                        loc->parent = inode_find (loc->inode->table,
+                                                  loc->pargfid);
+                if (!loc->parent)
+                        loc->parent = inode_parent (loc->inode, loc->pargfid,
+                                                    loc->name);
+                if (!loc->parent)
+                        goto out;
+        }
 
         list_for_each_entry (contribution, &ctx->contribution_head, contri_list) {
                 if (loc->parent &&

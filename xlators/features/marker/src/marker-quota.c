@@ -2043,8 +2043,9 @@ mq_inspect_directory_xattr (xlator_t *this,
         if (strcmp (loc->path, "/") != 0) {
                 contribution = mq_add_new_contribution_node (this, ctx, loc);
                 if (contribution == NULL) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "cannot add a new contribution node");
+                        if (!uuid_is_null (loc->inode->gfid))
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "cannot add a new contribution node");
                         ret = -1;
                         goto err;
                 }
