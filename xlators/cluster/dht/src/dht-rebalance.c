@@ -300,6 +300,14 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
                 goto out;
         }
 
+        ret = syncop_fsetattr (to, fd, stbuf,
+                               (GF_SET_ATTR_UID | GF_SET_ATTR_GID),
+                                NULL, NULL);
+        if (ret < 0)
+                gf_log (this->name, GF_LOG_ERROR,
+                        "chown failed for %s on %s (%s)",
+                        loc->path, to->name, strerror (errno));
+
         if (dst_fd)
                 *dst_fd = fd;
 
