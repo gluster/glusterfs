@@ -97,9 +97,11 @@ cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
                 }
 
                 if (!(strcmp (host_name, "localhost") &&
-                      strcmp (host_name, "127.0.0.1"))) {
+                      strcmp (host_name, "127.0.0.1") &&
+                      strncmp (host_name, "0.", 2))) {
                         cli_err ("Please provide a valid hostname/ip other "
-                                 "than localhost or 127.0.0.1");
+                                 "than localhost, 127.0.0.1 or loopback "
+                                 "address (0.0.0.0 to 0.255.255.255).");
                         ret = -1;
                         GF_FREE (tmp_host);
                         goto out;
