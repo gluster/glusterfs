@@ -230,8 +230,9 @@ glusterfs_translator_info_response_send (rpcsvc_request_t *req, int ret,
         if (!ret)
                 free_ptr = _gf_true;
 
-        ret = glusterfs_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
+        glusterfs_submit_reply (req, &rsp, NULL, 0, NULL,
+                                (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
+        ret = 0;
         if (free_ptr)
                 GF_FREE (rsp.output.output_val);
         return ret;
@@ -910,8 +911,9 @@ glusterfs_handle_brick_status (rpcsvc_request_t *req)
                 goto out;
         }
 
-        ret = glusterfs_submit_reply (req, &rsp, NULL, 0, NULL,
-                                      (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
+        glusterfs_submit_reply (req, &rsp, NULL, 0, NULL,
+                                (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
+        ret = 0;
 
 out:
         if (dict)
@@ -1094,8 +1096,9 @@ glusterfs_handle_node_status (rpcsvc_request_t *req)
                 goto out;
         }
 
-        ret = glusterfs_submit_reply (req, &rsp, NULL, 0, NULL,
-                                      (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
+        glusterfs_submit_reply (req, &rsp, NULL, 0, NULL,
+                                (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
+        ret = 0;
 
 out:
         if (dict)
@@ -1192,8 +1195,9 @@ glusterfs_handle_nfs_profile (rpcsvc_request_t *req)
                 goto out;
         }
 
-        ret = glusterfs_submit_reply (req, &rsp, NULL, 0, NULL,
-                                      (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
+        glusterfs_submit_reply (req, &rsp, NULL, 0, NULL,
+                                (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
+        ret = 0;
 
 out:
         if (nfs_req.input.input_val)
