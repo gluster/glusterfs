@@ -173,8 +173,9 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         cli_rsp = &rsp;
         xdrproc = (xdrproc_t) xdr_gf_cli_rsp;
 
-        ret = glusterd_submit_reply (req, cli_rsp, NULL, 0, NULL,
-                                     xdrproc);
+        glusterd_submit_reply (req, cli_rsp, NULL, 0, NULL,
+                               xdrproc);
+        ret = 0;
 
         GF_FREE (free_ptr);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
