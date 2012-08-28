@@ -644,10 +644,11 @@ glusterd_handle_commit_op (rpcsvc_request_t *req)
         if (ret)
                 goto out;
 
-        ret = glusterd_op_sm_inject_event (GD_OP_EVENT_COMMIT_OP, req_ctx);
+        ret = glusterd_op_init_ctx (op_req.op);
         if (ret)
                 goto out;
-        ret = glusterd_op_init_ctx (op_req.op);
+
+        ret = glusterd_op_sm_inject_event (GD_OP_EVENT_COMMIT_OP, req_ctx);
 
 out:
         if (op_req.buf.buf_val)
@@ -941,8 +942,9 @@ out:
         else
                 rsp.op_errstr = "";
 
-        ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+        glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gf_cli_rsp);
+        ret = 0;
 
         if (dict)
                 dict_unref (dict);
@@ -1785,8 +1787,9 @@ glusterd_handle_probe_query (rpcsvc_request_t *req)
          */
         rsp.op_errstr = "";
 
-        ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     (xdrproc_t)xdr_gd1_mgmt_probe_rsp);
+        glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+                               (xdrproc_t)xdr_gd1_mgmt_probe_rsp);
+        ret = 0;
 
         gf_log ("glusterd", GF_LOG_INFO, "Responded to %s, op_ret: %d, "
                 "op_errno: %d, ret: %d", remote_hostname,
@@ -1880,8 +1883,9 @@ glusterd_handle_getwd (rpcsvc_request_t *req)
 
         rsp.wd = priv->workdir;
 
-        ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     (xdrproc_t)xdr_gf1_cli_getwd_rsp);
+        glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+                               (xdrproc_t)xdr_gf1_cli_getwd_rsp);
+        ret = 0;
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
@@ -1936,8 +1940,9 @@ glusterd_handle_mount (rpcsvc_request_t *req)
         if (!rsp.path)
                 rsp.path = "";
 
-        ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     (xdrproc_t)xdr_gf1_cli_mount_rsp);
+        glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+                               (xdrproc_t)xdr_gf1_cli_mount_rsp);
+        ret = 0;
 
         if (dict)
                 dict_unref (dict);
@@ -2025,8 +2030,9 @@ glusterd_handle_umount (rpcsvc_request_t *req)
         if (rsp.op_errno)
                 rsp.op_ret = -1;
 
-        ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     (xdrproc_t)xdr_gf1_cli_umount_rsp);
+        glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+                               (xdrproc_t)xdr_gf1_cli_umount_rsp);
+        ret = 0;
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
@@ -2496,10 +2502,10 @@ out:
 
         rsp.op_ret = ret;
 
-        ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     (xdrproc_t)xdr_gf1_cli_peer_list_rsp);
-        if (rsp.friends.friends_val)
-                GF_FREE (rsp.friends.friends_val);
+        glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+                               (xdrproc_t)xdr_gf1_cli_peer_list_rsp);
+        ret = 0;
+        GF_FREE (rsp.friends.friends_val);
 
         return ret;
 }
@@ -2600,8 +2606,9 @@ out:
         rsp.op_ret = ret;
 
         rsp.op_errstr = "";
-        ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     (xdrproc_t)xdr_gf_cli_rsp);
+        glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+                               (xdrproc_t)xdr_gf_cli_rsp);
+        ret = 0;
 
         if (volumes)
                 dict_unref (volumes);
