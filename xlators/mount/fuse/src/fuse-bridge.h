@@ -107,6 +107,7 @@ struct fuse_private {
         gf_boolean_t         enable_ino32;
         fdtable_t           *fdtable;
 	gid_cache_t	     gid_cache;
+        char                *fuse_mountopts;
 
         /* For fuse-reverse-validation */
         int                  revchan_in;

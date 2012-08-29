@@ -4655,6 +4655,8 @@ init (xlator_t *this_xl)
 	GF_OPTION_INIT("gid-timeout", priv->gid_cache_timeout, int32,
 		cleanup_exit);
 
+	GF_OPTION_INIT ("fuse-mountopts", priv->fuse_mountopts, str, cleanup_exit);
+
 	if (gid_cache_init(&priv->gid_cache, priv->gid_cache_timeout) < 0) {
 		gf_log("glusterfs-fuse", GF_LOG_ERROR, "Failed to initialize "
 			"group cache.");
@@ -4716,9 +4718,11 @@ init (xlator_t *this_xl)
                 goto cleanup_exit;
         }
 
-        gf_asprintf (&mnt_args, "%s%sallow_other,max_read=131072",
+        gf_asprintf (&mnt_args, "%s%s%s%sallow_other,max_read=131072",
                      priv->read_only ? "ro," : "",
-                     priv->acl ? "" : "default_permissions,");
+                     priv->acl ? "" : "default_permissions,",
+                     priv->fuse_mountopts ? priv->fuse_mountopts : "",
+                     priv->fuse_mountopts ? "," : "");
         if (!mnt_args)
                 goto cleanup_exit;
 
@@ -4885,6 +4889,9 @@ struct volume_options options[] = {
           .default_value = "48",
           .min = 12,
           .max = (64 * GF_UNIT_KB),
+        },
+        { .key = {"fuse-mountopts"},
+          .type = GF_OPTION_TYPE_STR
         },
         { .key = {NULL} },
 };

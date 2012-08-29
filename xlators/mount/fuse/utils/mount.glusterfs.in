@@ -156,6 +156,10 @@ start_glusterfs ()
 	cmd_line=$(echo "$cmd_line --congestion-threshold=$cong_threshold");
     fi
 
+    if [ -n "$fuse_mountopts" ]; then
+	cmd_line=$(echo "$cmd_line --fuse-mountopts=$fuse_mountopts");
+    fi
+
     # for rdma volume, we have to fetch volfile with '.rdma' added
     # to volume name, so that it fetches the right client vol file
     volume_id_rdma="";
@@ -188,6 +192,10 @@ start_glusterfs ()
         fi
     else
         cmd_line=$(echo "$cmd_line --volfile=$volfile_loc");
+    fi
+
+    if [ -n "$fuse_mountopts" ]; then
+	cmd_line=$(echo "$cmd_line --fuse-mountopts=$fuse_mountopts");
     fi
 
     cmd_line=$(echo "$cmd_line $mount_point");
@@ -353,7 +361,12 @@ main ()
 			    "gid-timeout")	gid_timeout=$value ;;
 			    "background-qlen")	bg_qlen=$value ;;
 			    "congestion-threshold")	cong_threshold=$value ;;
-                            *) echo "unknown option $key (ignored)" ;;
+			    "fuse-mountopts")	fuse_mountopts=$value ;;
+                            *)
+                                # Passthru
+                                [ -z "$fuse_mountopts" ] || fuse_mountopts="$fuse_mountopts,"
+                                fuse_mountopts="$fuse_mountopts$pair"
+                                ;;
                         esac
                 esac
             done
@@ -422,4 +435,3 @@ main ()
 }
 
 _init "$@" && main "$@";
-
