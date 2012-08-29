@@ -335,6 +335,10 @@ int
 cli_xml_output_vol_quota_limit_list (char *volname, char *limit_list,
                                       int op_ret, int op_errno,
                                       char *op_errstr);
+
+int
+cli_xml_output_peer_status (dict_t *dict, int op_ret, int op_errno,
+                            char *op_errstr);
 #endif
 
 #endif /* __CLI_H__ */

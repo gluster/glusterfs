@@ -260,6 +260,11 @@ glusterd_add_peer_detail_to_dict (glusterd_peerinfo_t   *peerinfo,
         if (ret)
                 goto out;
 
+        snprintf (key, 256, "friend%d.stateId", count);
+        ret = dict_set_int32 (friends, key, peerinfo->state.state);
+        if (ret)
+                goto out;
+
         snprintf (key, 256, "friend%d.state", count);
         ret = dict_set_str (friends, key,
                     glusterd_friend_sm_state_name_get(peerinfo->state.state));
