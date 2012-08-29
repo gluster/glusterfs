@@ -196,6 +196,8 @@ static struct argp_option gf_options[] = {
          "Enable strict volume file checking"},
         {"mem-accounting", ARGP_MEM_ACCOUNTING_KEY, 0, OPTION_HIDDEN,
          "Enable internal memory accounting"},
+        {"fuse-mountopts", ARGP_FUSE_MOUNTOPTS_KEY, "OPTIONS", OPTION_HIDDEN,
+         "Extra mount options to pass to FUSE"},
         {0, 0, 0, 0, "Miscellaneous Options:"},
         {0, }
 };
@@ -488,6 +490,17 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
         ret = set_fuse_mount_options (ctx, master->options);
         if (ret)
                 goto err;
+
+        if (cmd_args->fuse_mountopts) {
+                ret = dict_set_static_ptr (master->options, ZR_FUSE_MOUNTOPTS,
+                                           cmd_args->fuse_mountopts);
+                if (ret < 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "failed to set dict value for key %s",
+                                ZR_FUSE_MOUNTOPTS);
+                        goto err;
+                }
+        }
 
         ret = xlator_init (master);
         if (ret) {
@@ -931,6 +944,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
                 argp_failure (state, -1, 0,
                               "unknown congestion threshold option %s", arg);
+                break;
+
+        case ARGP_FUSE_MOUNTOPTS_KEY:
+                cmd_args->fuse_mountopts = gf_strdup (arg);
                 break;
 	}
 
