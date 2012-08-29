@@ -108,7 +108,7 @@ glfs_lstat (struct glfs *fs, const char *path, struct stat *stat)
 		goto out;
 	}
 
-	ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
 
 	if (ret == 0 && stat)
 		iatt_to_stat (&iatt, stat);

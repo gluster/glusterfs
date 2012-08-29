@@ -80,6 +80,35 @@ out:
 }
 
 
+int
+glfs_resolve_symlink (struct glfs *fs, xlator_t *subvol, inode_t *inode,
+		      char **lpath)
+{
+	loc_t  loc = {0, };
+	char  *path = NULL;
+	char  *rpath = NULL;
+	int    ret = -1;
+
+	loc.inode = inode_ref (inode);
+	uuid_copy (loc.gfid, inode->gfid);
+	ret = inode_path (inode, NULL, &rpath);
+	if (ret < 0)
+		goto out;
+	loc.path = rpath;
+
+	ret = syncop_readlink (subvol, &loc, &path, 4096);
+
+	if (ret)
+		goto out;
+
+	if (lpath)
+		*lpath = path;
+out:
+	loc_wipe (&loc);
+	return ret;
+}
+
+
 inode_t *
 glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 			const char *component, struct iatt *iatt)
@@ -159,8 +188,9 @@ out:
 
 
 int
-glfs_resolve (struct glfs *fs, xlator_t *subvol, const char *origpath,
-	      loc_t *loc, struct iatt *iatt)
+glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
+		 const char *origpath, loc_t *loc, struct iatt *iatt,
+		 int follow)
 {
 	inode_t    *inode = NULL;
 	inode_t    *parent = NULL;
@@ -178,7 +208,13 @@ glfs_resolve (struct glfs *fs, xlator_t *subvol, const char *origpath,
 	}
 
 	parent = NULL;
-	inode = inode_ref (subvol->itable->root);
+	if (at && path[0] != '/')
+		/* A relative resolution of a path which starts with '/'
+		   is equal to an absolute path resolution.
+		*/
+		inode = inode_ref (at);
+	else
+		inode = inode_ref (subvol->itable->root);
 
 	for (component = strtok_r (path, "/", &saveptr);
 	     component; component = next_component) {
@@ -194,6 +230,36 @@ glfs_resolve (struct glfs *fs, xlator_t *subvol, const char *origpath,
 						component, &ciatt);
 		if (!inode)
 			break;
+
+		if (!IA_ISLNK (ciatt.ia_type) && (next_component || follow)) {
+			/* If the component is not the last piece,
+			   then following it is necessary even if
+			   not requested by the caller
+			*/
+			char *lpath = NULL;
+			loc_t sym_loc = {0,};
+
+			ret = glfs_resolve_symlink (fs, subvol, inode, &lpath);
+			inode_unref (inode);
+			inode = NULL;
+			if (ret < 0)
+				break;
+
+			ret = glfs_resolve_at (fs, subvol, parent, lpath,
+					       &sym_loc,
+					       /* followed iatt becomes the
+						  component iatt
+					       */
+					       &ciatt,
+					       /* always recurisvely follow while
+						  following symlink
+					       */
+					       1);
+			if (ret == 0)
+				inode = inode_ref (sym_loc.inode);
+			loc_wipe (&sym_loc);
+			GF_FREE (lpath);
+		}
 
 		if (!next_component)
 			break;
@@ -238,6 +304,30 @@ out:
 	GF_FREE (path);
 
 	/* do NOT loc_wipe here as only last component might be missing */
+
+	return ret;
+}
+
+
+int
+glfs_resolve (struct glfs *fs, xlator_t *subvol, const char *origpath,
+	      loc_t *loc, struct iatt *iatt)
+{
+	int ret = -1;
+
+	ret = glfs_resolve_at (fs, subvol, NULL, origpath, loc, iatt, 1);
+
+	return ret;
+}
+
+
+int
+glfs_lresolve (struct glfs *fs, xlator_t *subvol, const char *origpath,
+	       loc_t *loc, struct iatt *iatt)
+{
+	int ret = -1;
+
+	ret = glfs_resolve_at (fs, subvol, NULL, origpath, loc, iatt, 0);
 
 	return ret;
 }
