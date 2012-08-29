@@ -320,6 +320,9 @@ main ()
 		    "fopen-keep-cache")	fopen_keep_cache=1 ;;
                     # "mount -t glusterfs" sends this, but it's useless.
                     "rw")       ;;
+                    # these ones are interpreted during system initialization
+                    "noauto")   ;;
+                    "_netdev")  ;;
                     *)
                         key=$(echo "$pair" | cut -f1 -d'=');
                         value=$(echo "$pair" | cut -f2- -d'=');
