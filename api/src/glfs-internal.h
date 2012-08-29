@@ -53,6 +53,8 @@ void glfs_init_done (struct glfs *fs, int ret);
 int glfs_process_volfp (struct glfs *fs, FILE *fp);
 int glfs_resolve (struct glfs *fs, xlator_t *subvol, const char *path, loc_t *loc,
 		  struct iatt *iatt);
+int glfs_lresolve (struct glfs *fs, xlator_t *subvol, const char *path, loc_t *loc,
+		   struct iatt *iatt);
 void glfs_first_lookup (xlator_t *subvol);
 
 static inline void
