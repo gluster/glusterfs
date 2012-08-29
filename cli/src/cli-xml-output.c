@@ -2500,7 +2500,8 @@ cli_xml_output_peer_status (dict_t *dict, int op_ret, int op_errno,
         char                    *uuid = NULL;
         char                    *hostname = NULL;
         int                     connected = 0;
-        char                    *state = NULL;
+        int                     state_id = 0;
+        char                    *state_str = NULL;
         int                     port = 0;
         int                     i = 1;
         char                    key[1024] = {0,};
@@ -2563,14 +2564,25 @@ cli_xml_output_peer_status (dict_t *dict, int op_ret, int op_errno,
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "friend%d.state", i);
-                ret = dict_get_str (dict, key, &state);
+                snprintf (key, sizeof (key), "friend%d.stateId", i);
+                ret = dict_get_int32 (dict, key, &state_id);
                 if (ret)
                         goto out;
 
                 ret = xmlTextWriterWriteFormatElement (writer,
                                                        (xmlChar *)"state",
-                                                       "%s", state);
+                                                       "%d", state_id);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "friend%d.state", i);
+                ret = dict_get_str (dict, key, &state_str);
+                if (ret)
+                        goto out;
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"stateStr",
+                                                       "%s", state_str);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 memset (key, 0, sizeof (key));
