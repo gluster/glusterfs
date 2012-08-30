@@ -1,7 +1,10 @@
+#ifdef THREAD_UNSAFE_BASENAME
 /*
  * borrowed from glibc-2.12.1/string/basename.c 
  * Modified to return "." for NULL or "", as required for SUSv2.
  */
+#include <string.h>
+#include <stdlib.h>
 
 /* Return the name-within-directory of a file name.
    Copyright (C) 1996,97,98,2002 Free Software Foundation, Inc.
@@ -34,3 +37,4 @@ basename_r (filename)
   p = strrchr (filename, '/');
   return p ? p + 1 : (char *) filename;
 }
+#endif /* THREAD_UNSAFE_BASENAME */
