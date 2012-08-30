@@ -543,10 +543,3 @@ strnlen(const char *string, size_t maxlen)
         return len;
 }
 #endif /* STRNLEN */
-
-#ifdef THREAD_UNSAFE_BASENAME
-#include "../../contrib/libgen/basename_r.c"
-#endif
-#ifdef THREAD_UNSAFE_DIRNAME
-#include "../../contrib/libgen/dirname_r.c"
-#endif

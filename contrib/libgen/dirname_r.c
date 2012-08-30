@@ -1,9 +1,12 @@
+#ifdef THREAD_UNSAFE_DIRNAME
 /*
  * Borrowed from glibc-2.12.1/string/memrchr.c
  * Based on strlen implementation by Torbjorn Granlund (tege@sics.se),
  * Removed code for long bigger than 32 bytes, renamed __ptr_t as void *
  * changed reg_char type to char.
  */
+#include <string.h>
+#include <stdlib.h>
 
 /* memrchr -- find the last occurrence of a byte in a memory block
    Copyright (C) 1991, 93, 96, 97, 99, 2000 Free Software Foundation, Inc.
@@ -237,3 +240,4 @@ dirname_r (char *path)
 
   return path;
 }
+#endif /* THREAD_UNSAFE_DIRNAME */

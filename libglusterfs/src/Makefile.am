@@ -22,7 +22,8 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	$(CONTRIBDIR)/uuid/uuid_time.c $(CONTRIBDIR)/uuid/compare.c \
 	$(CONTRIBDIR)/uuid/isnull.c $(CONTRIBDIR)/uuid/unpack.c syncop.c \
 	graph-print.c trie.c run.c options.c fd-lk.c circ-buff.c \
-	event-history.c gidcache.c ctx.c
+	event-history.c gidcache.c ctx.c \
+	$(CONTRIBDIR)/libgen/basename_r.c $(CONTRIBDIR)/libgen/dirname_r.c
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c
 
