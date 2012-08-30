@@ -28,41 +28,24 @@
                         layout->list[i].xlator->name, path);            \
         } while (0)
 
-static inline uint32_t
-dht_find_overlap (int idx, int cnk_idx, uint32_t start, uint32_t stop,
-                  uint32_t chunk_size)
+
+static uint32_t
+dht_overlap_calc (dht_layout_t *old, int o, dht_layout_t *new, int n)
 {
-        uint32_t overlap = 0;
-        uint32_t chunk_begin = 0;
+	if (o >= old->cnt || n >= new->cnt)
+		return 0;
 
-        chunk_begin = cnk_idx * chunk_size;
+	if (old->list[o].err > 0 || new->list[n].err > 0)
+		return 0;
 
-        /* There is no chance of overlap */
-        if ((chunk_begin > stop) ||
-            ((chunk_begin + chunk_size) < start))
-                goto out;
+	if ((old->list[o].start > new->list[n].stop) ||
+	    (old->list[o].stop < new->list[n].start))
+		return 0;
 
-        if ((chunk_begin <= start) &&
-            ((chunk_begin + chunk_size) <= stop)) {
-                overlap = ((chunk_begin + chunk_size) - start);
-                goto out;
-        }
-
-        if ((chunk_begin <= start) &&
-            ((chunk_begin + chunk_size) >= stop)) {
-                overlap = (stop - start);
-                goto out;
-        }
-
-        if ((chunk_begin < stop) &&
-            ((chunk_begin + chunk_size) >= stop)) {
-                overlap = (stop - chunk_begin);
-                goto out;
-        }
-
-out:
-        return overlap;
+	return max (old->list[o].start, new->list[n].start) -
+		min (old->list[o].stop, new->list[n].stop);
 }
+
 
 int
 dht_selfheal_dir_finish (call_frame_t *frame, xlator_t *this, int ret)
@@ -516,7 +499,7 @@ dht_get_layout_count (xlator_t *this, dht_layout_t *layout, int new_layout)
                 for (j = 0; j < conf->subvolume_cnt; j++) {
                         if (conf->decommissioned_bricks[j] &&
                             conf->decommissioned_bricks[j] == layout->list[i].xlator) {
-                                layout->list[i].err = -EINVAL;
+                                layout->list[i].err = EINVAL;
                                 break;
                         }
                 }
@@ -548,24 +531,64 @@ dht_get_layout_count (xlator_t *this, dht_layout_t *layout, int new_layout)
 }
 
 
+void dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
+					dht_layout_t *new_layout);
+
+void dht_layout_entry_swap (dht_layout_t *layout, int i, int j);
+
+void
+dht_selfheal_layout_maximize_overlap (call_frame_t *frame, loc_t *loc,
+				      dht_layout_t *new, dht_layout_t *old)
+{
+	int           i            = 0;
+	int           k            = 0;
+	uint32_t      curr_overlap = 0;
+	uint32_t      max_overlap  = 0;
+	int           max_overlap_idx = -1;
+	uint32_t      overlap      = 0;
+
+
+	dht_layout_sort_volname (old);
+	/* Now both old_layout->list[] and new_layout->list[]
+	   are match the same xlators/subvolumes. i.e,
+	   old_layout->[i] and new_layout->[i] are referring
+	   to the same subvolumes
+	*/
+
+	for (i = 0; i < new->cnt; i++) {
+		if (new->list[i].err > 0)
+			/* Subvol might be marked for decommission
+			   with EINVAL, or some other serious error
+			   marked with positive errno.
+			*/
+			continue;
+
+		curr_overlap = dht_overlap_calc (old, i, new, i);
+		max_overlap = curr_overlap;
+		max_overlap_idx = i;
+
+		/* Subvols up to `i' have already found their best
+		   matches. Search only from the rest.
+		*/
+		for (k = (i + 1); k < new->cnt; k++) {
+			overlap = dht_overlap_calc (old, i, new, k);
+			if (overlap > max_overlap) {
+				max_overlap_idx = k;
+				max_overlap = overlap;
+			}
+		}
+
+		if (max_overlap > curr_overlap)
+			dht_layout_entry_swap (new, i, max_overlap_idx);
+	}
+}
+
+
 dht_layout_t *
 dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
                              dht_layout_t *layout)
 {
-        uint32_t      chunk        = 0;
-        uint32_t      start        = 0;
-        uint32_t      stop         = 0;
-        uint32_t      overlap      = 0;
-        uint32_t      max_overlap  = 0;
-        uint32_t      chunk_begin  = 0;
-        int           count        = 0;
-        int           cnt          = 0;
         int           i            = 0;
-        int           j            = 0;
-        int           k            = 0;
-        int           loop_cnt     = 0;
-        int           start_subvol = 0;
-        int          *fix_array    = NULL;
         xlator_t     *this         = NULL;
         dht_layout_t *new_layout   = NULL;
         dht_conf_t   *priv         = NULL;
@@ -581,114 +604,26 @@ dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
                 goto done;
         }
 
-        count = cnt = dht_get_layout_count (this, layout, 0);
-
-        chunk = ((unsigned long) 0xffffffff) / ((cnt) ? cnt : 1);
-
-        start_subvol = dht_selfheal_layout_alloc_start (this, loc, layout);
-
-        fix_array = GF_CALLOC (sizeof (int), layout->cnt, gf_common_mt_char);
-        if (!fix_array) {
-                /* No fix, use the existing layout itself */
-                goto done;
-        }
-
         new_layout = dht_layout_new (this, priv->subvolume_cnt);
         if (!new_layout)
                 goto done;
 
         for (i = 0; i < new_layout->cnt; i++) {
-                /* TODO: fix this in layout_alloc() itself */
-                new_layout->list[i].err = -ENOENT;
-                if (i < layout->cnt)
-                        new_layout->list[i].xlator = layout->list[i].xlator;
+		if (layout->list[i].err != ENOSPC)
+			new_layout->list[i].err = layout->list[i].err;
+		else
+			new_layout->list[i].err = -1;
+
+		new_layout->list[i].xlator = layout->list[i].xlator;
         }
 
-        /* Check if there are any overlap in layout, and give the proper fix */
-        for (i = 0; i < layout->cnt; i++) {
-                /* No need to fix if 'err' is not '-1' */
-                if (layout->list[i].err != -1)
-                        continue;
+	/* First give it a layout as though it is a new directory. This
+	   ensures rotation to kick in */
+        dht_layout_sort_volname (new_layout);
+	dht_selfheal_layout_new_directory (frame, loc, new_layout);
 
-                /* If already existing layout is having no range, skip it */
-                start = layout->list[i].start;
-                stop  = layout->list[i].stop;
-                if ((stop - start) == 0)
-                        continue;
-
-                max_overlap = 0;
-
-                /* 'j' is used as starting point of each chunk */
-                for (j = 1; j <= count; j++) {
-                        /* if chunk is already used, don't use it again */
-                        for (k = 0; k < i; k++)
-                                if (j == fix_array[k])
-                                        break;
-                        if (k < i)
-                                continue;
-
-                        overlap = dht_find_overlap (i, (j-1), start, stop, chunk);
-                        if (max_overlap < overlap) {
-                                max_overlap = overlap;
-                                fix_array[i] = j;
-                        }
-                }
-
-                /* If we have any overlap, then use that itself as new
-                   layout for the subvolume */
-                if (fix_array[i]) {
-                        chunk_begin = chunk * (fix_array[i] - 1);
-                        new_layout->list[i].err = -1;
-                        DHT_SET_LAYOUT_RANGE (new_layout, i, chunk_begin,
-                                              chunk, cnt, loc->path);
-                        /* make sure to give (max - 1) as 'stop' range,
-                           if it is last chunk */
-                        if (fix_array[i] == count)
-                                new_layout->list[i].stop = 0xffffffff;
-                        if (--cnt == 0)
-                                goto done;
-
-                }
-        }
-
-        /* Now, look for layouts which are not having any overlaps
-           and give it a fix */
-        for (loop_cnt = 0, i = start_subvol; loop_cnt < new_layout->cnt;
-             i++, loop_cnt++) {
-                if (i == new_layout->cnt)
-                        i = 0;
-
-                /* If 'fix_array[i]' is set, the layout is already fixed. */
-                if (fix_array[i])
-                        continue;
-
-                if (layout->list[i].err != -1) {
-                        new_layout->list[i].err = layout->list[i].err;
-                        continue;
-                }
-
-                for (k = 1; k <= count; k++) {
-                        for (j = 0; j < new_layout->cnt; j++) {
-                                if (k == fix_array[j])
-                                        break;
-                        }
-                        /* Didn't find any of the list begining with 'k' */
-                        if (j == new_layout->cnt)
-                                break;
-                }
-
-                fix_array[i] = k;
-                chunk_begin = (k - 1) * chunk;
-                new_layout->list[i].err = -1;
-                DHT_SET_LAYOUT_RANGE (new_layout, i, chunk_begin, chunk, cnt,
-                                      loc->path);
-                /* make sure to give (max - 1) as 'stop' range,
-                   if it is last chunk */
-                if (k == count)
-                        new_layout->list[i].stop = 0xffffffff;
-                if (--cnt == 0)
-                        goto done;
-        }
+	/* Now selectively re-assign ranges only when it helps */
+	dht_selfheal_layout_maximize_overlap (frame, loc, new_layout, layout);
 
 done:
         if (new_layout) {
@@ -701,8 +636,6 @@ done:
 
                 local->layout = new_layout;
         }
-
-        GF_FREE (fix_array);
 
         return local->layout;
 }
