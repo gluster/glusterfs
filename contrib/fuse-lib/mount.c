@@ -294,7 +294,8 @@ gf_fuse_mount (const char *mountpoint, char *fsname,
                 }
 
                 if (ret == -1)
-                        GFFUSE_LOGERR ("mount failed");
+                        GFFUSE_LOGERR ("mount of %s to %s (%s) failed",
+                                       fsname, mountpoint, mnt_param);
 
                 if (status_fd >= 0)
                         (void)write (status_fd, &ret, sizeof (ret));
