@@ -1364,7 +1364,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         (void) snprintf (glusterd_uuid, 1024, "*-posix.glusterd-uuid=%s",
                          uuid_utoa (MY_UUID));
 	runner_add_args (&runner, SBIN_DIR"/glusterfsd",
-                         "-s", "localhost", "--volfile-id", volfile,
+                         "-s", brickinfo->hostname, "--volfile-id", volfile,
                          "-p", pidfile, "-S", socketpath,
                          "--brick-name", brickinfo->path,
                          "-l", brickinfo->logfile,
