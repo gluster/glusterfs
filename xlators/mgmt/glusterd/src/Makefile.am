@@ -35,7 +35,8 @@ CLEANFILES =
 install-data-hook:
 
 if GF_INSTALL_VAR_LIB_GLUSTERD
-	$(mkdir_p) /var/lib/
-	(stat /etc/glusterd && mv /etc/glusterd /var/lib/) || true;
-	(ln -sf /var/lib/glusterd /etc/glusterd) || true;
+	$(mkdir_p) $(localstatedir)/lib/
+	(stat $(sysconfdir)/glusterd && \
+	    mv $(sysconfdir)/glusterd $(localstatedir)/lib/) || true;
+	(ln -sf $(localstatedir)/lib/glusterd $(sysconfdir)/glusterd) || true;
 endif
