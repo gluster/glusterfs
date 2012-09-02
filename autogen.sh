@@ -1,6 +1,6 @@
 #!/bin/sh
 
-aclocal
+aclocal -I ./contrib/aclocal
 autoheader
 (libtoolize --automake --copy --force || glibtoolize --automake --copy --force)
 autoconf
