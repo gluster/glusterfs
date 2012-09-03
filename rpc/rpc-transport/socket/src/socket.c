@@ -2010,6 +2010,8 @@ socket_connect_finish (rpc_transport_t *this)
                 if (priv->connected != 0)
                         goto unlock;
 
+                get_transport_identifiers (this);
+
                 ret = __socket_connect_finish (priv->sock);
 
                 if (ret == -1 && errno == EINPROGRESS)
@@ -2050,7 +2052,6 @@ socket_connect_finish (rpc_transport_t *this)
                         priv->connected = 1;
                         priv->connect_finish_log = 0;
                         event = RPC_TRANSPORT_CONNECT;
-                        get_transport_identifiers (this);
                 }
         }
 unlock:
