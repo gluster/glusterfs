@@ -5958,6 +5958,9 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         cli_err ("%s on volume %s has been unsuccessful",
                                  operation, volname);
                 }
+
+                ret = rsp.op_ret;
+                goto out;
         } else {
                 cli_out ("%s on volume %s has been successful%s", operation,
                          volname, substr);
