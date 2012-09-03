@@ -173,7 +173,8 @@
         <para>ro (for readonly mounts)</para>
         <para>acl (for enabling posix-ACLs)</para>
         <para>worm (making the mount WORM - Write Once, Read Many type)</para>
-        <para>selinux (enable selinux on GlusterFS mount</para>
+        <para>selinux (enable selinux on GlusterFS mount)</para>
+        <para>enable-ino32 (enable to use 32-bit inodes)</para>
         <para></para>
         <para>For example: </para>
         <para><code># mount -t glusterfs -o backupvolfile-server=volfile_server2,fetch-attempts=2,log-level=WARNING,log-file=/var/log/gluster.log server1:/test-volume /mnt/glusterfs</code></para>
