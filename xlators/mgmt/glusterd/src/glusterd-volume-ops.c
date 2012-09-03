@@ -897,8 +897,8 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
                         "for the volume %s ", volname);
                 snprintf (msg, sizeof(msg), GEOREP" sessions are active "
                           "for the volume '%s'.\nUse 'volume "GEOREP" "
-                          "status' command for more info. Use 'force'"
-                          "option to ignore and stop stop the volume",
+                          "status' command for more info. Use 'force' "
+                          "option to ignore and stop the volume.",
                           volname);
                 *op_errstr = gf_strdup (msg);
                 ret = -1;
