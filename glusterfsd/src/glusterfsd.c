@@ -154,6 +154,9 @@ static struct argp_option gf_options[] = {
          "Mount the filesystem with POSIX ACL support"},
         {"selinux", ARGP_SELINUX_KEY, 0, 0,
          "Enable SELinux label (extened attributes) support on inodes"},
+        {"enable-ino32", ARGP_INODE32_KEY, "BOOL", OPTION_ARG_OPTIONAL,
+         "Use 32-bit inodes when mounting to workaround broken applications"
+         "that don't support 64-bit inodes"},
         {"worm", ARGP_WORM_KEY, 0, 0,
          "Mount the filesystem in 'worm' mode"},
         {"mac-compat", ARGP_MAC_COMPAT_KEY, "BOOL", OPTION_ARG_OPTIONAL,
@@ -355,6 +358,17 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
                 if (ret < 0) {
                         gf_log ("glusterfsd", GF_LOG_ERROR,
                                 "failed to set dict value for key selinux");
+                        goto err;
+                }
+        }
+
+        if (cmd_args->enable_ino32) {
+                ret = dict_set_static_ptr (master->options, "enable-ino32",
+                                           "on");
+                if (ret < 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "failed to set dict value for key %s",
+                                "enable-ino32");
                         goto err;
                 }
         }
@@ -577,6 +591,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
         case ARGP_SELINUX_KEY:
                 cmd_args->selinux = 1;
+                break;
+
+        case ARGP_INODE32_KEY:
+                cmd_args->enable_ino32 = 1;
                 break;
 
         case ARGP_WORM_KEY:

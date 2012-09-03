@@ -109,6 +109,7 @@ struct fuse_private {
         gf_boolean_t         acl;
         gf_boolean_t         selinux;
         gf_boolean_t         read_only;
+        gf_boolean_t         enable_ino32;
         fdtable_t           *fdtable;
 
         /* For fuse-reverse-validation */
@@ -342,7 +343,8 @@ fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
 call_frame_t *get_call_frame_for_req (fuse_state_t *state);
 fuse_state_t *get_fuse_state (xlator_t *this, fuse_in_header_t *finh);
 void free_fuse_state (fuse_state_t *state);
-void gf_fuse_stat2attr (struct iatt *st, struct fuse_attr *fa);
+void gf_fuse_stat2attr (struct iatt *st, struct fuse_attr *fa,
+                        gf_boolean_t enable_ino32);
 uint64_t inode_to_fuse_nodeid (inode_t *inode);
 xlator_t *fuse_active_subvol (xlator_t *fuse);
 inode_t *fuse_ino_to_inode (uint64_t ino, xlator_t *fuse);

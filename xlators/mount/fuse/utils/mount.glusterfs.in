@@ -81,6 +81,10 @@ start_glusterfs ()
 	cmd_line=$(echo "$cmd_line --selinux");
     fi
 
+    if [ -n "$enable_ino32" ]; then
+        cmd_line=$(echo "$cmd_line --enable-ino32");
+    fi
+
     if [ -n "$worm" ]; then
         cmd_line=$(echo "$cmd_line --worm");
     fi
@@ -252,10 +256,11 @@ main ()
             for pair in $(echo "$opt" | tr "," " "); do
                 # Handle options without values.
                 case "$pair" in
-                    "ro")       read_only=1 ;;
-                    "acl")      acl=1 ;;
-                    "selinux")  selinux=1 ;;
-                    "worm")     worm=1 ;;
+                    "ro")               read_only=1 ;;
+                    "acl")              acl=1 ;;
+                    "selinux")          selinux=1 ;;
+                    "worm")             worm=1 ;;
+                    "enable-ino32")     enable_ino32=1 ;;
                     # "mount -t glusterfs" sends this, but it's useless.
                     "rw")       ;;
                     *)
