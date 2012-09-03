@@ -564,6 +564,8 @@ struct volume_options options[] = {
                     "0", "off", "no", "false", "disable",
                     "open"},
           .default_value = "on",
+          .description   = "\"open\" means data self-heal action will"
+                           "only be triggered by file open operations."
         },
         { .key  = {"data-self-heal-algorithm"},
           .type = GF_OPTION_TYPE_STR,
