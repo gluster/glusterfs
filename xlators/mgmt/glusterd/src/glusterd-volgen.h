@@ -24,7 +24,6 @@
 #define VKEY_FEATURES_LIMIT_USAGE "features.limit-usage"
 #define VKEY_MARKER_XTIME         GEOREP".indexing"
 #define VKEY_FEATURES_QUOTA       "features.quota"
-#define VKEY_PERF_STAT_PREFETCH   "performance.stat-prefetch"
 
 typedef enum {
         GF_CLIENT_TRUSTED,
@@ -56,6 +55,17 @@ typedef enum gd_volopt_flags_ {
         OPT_FLAG_FORCE = 1,
 } gd_volopt_flags_t;
 
+typedef enum  { DOC, NO_DOC, GLOBAL_DOC, GLOBAL_NO_DOC } option_type_t;
+
+struct volopt_map_entry {
+        char *key;
+        char *voltype;
+        char *option;
+        char *value;
+        option_type_t type;
+        uint32_t flags;
+        uint32_t op_version;
+};
 int glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
                                  glusterd_brickinfo_t *brickinfo);
 
@@ -88,4 +98,7 @@ char*
 glusterd_get_trans_type_rb (gf_transport_type ttype);
 int
 glusterd_check_nfs_volfile_identical (gf_boolean_t *identical);
+
+uint32_t
+glusterd_get_op_version_for_key (char *key);
 #endif

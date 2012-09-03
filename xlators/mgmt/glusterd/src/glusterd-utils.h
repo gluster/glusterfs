@@ -457,4 +457,10 @@ int
 glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
 int
 glusterd_volume_heal_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
+
+/* Should be used only when an operation is in progress, as that is the only
+ * time a lock_owner is set
+ */
+gf_boolean_t
+is_origin_glusterd ();
 #endif
