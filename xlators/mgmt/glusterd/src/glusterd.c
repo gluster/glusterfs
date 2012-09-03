@@ -51,6 +51,7 @@ extern struct rpcsvc_program gd_svc_mgmt_prog;
 extern struct rpcsvc_program gd_svc_peer_prog;
 extern struct rpcsvc_program gd_svc_cli_prog;
 extern struct rpc_clnt_program gd_brick_prog;
+extern struct rpcsvc_program glusterd_mgmt_hndsk_prog;
 
 rpcsvc_cbk_program_t glusterd_cbk_prog = {
         .progname  = "Gluster Callback",
@@ -58,6 +59,15 @@ rpcsvc_cbk_program_t glusterd_cbk_prog = {
         .progver   = GLUSTER_CBK_VERSION,
 };
 
+struct rpcsvc_program *all_programs[] = {
+        &gd_svc_peer_prog,
+        &gd_svc_cli_prog,
+        &gd_svc_mgmt_prog,
+        &gluster_pmap_prog,
+        &gluster_handshake_prog,
+        &glusterd_mgmt_hndsk_prog,
+};
+int rpcsvc_programs_count = (sizeof (all_programs) / sizeof (all_programs[0]));
 
 static int
 glusterd_opinfo_init ()
@@ -69,33 +79,38 @@ glusterd_opinfo_init ()
         return ret;
 }
 
+
 int
 glusterd_uuid_init ()
 {
         int             ret = -1;
+        xlator_t        *this = NULL;
         glusterd_conf_t *priv = NULL;
 
-        priv = THIS->private;
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
 
 	ret = glusterd_retrieve_uuid ();
 	if (ret == 0) {
 		uuid_copy (glusterd_uuid, priv->uuid);
-		gf_log ("glusterd", GF_LOG_INFO,
+		gf_log (this->name, GF_LOG_INFO,
 			"retrieved UUID: %s", uuid_utoa (priv->uuid));
 		return 0;
 	}
 
         uuid_generate (glusterd_uuid);
 
-        gf_log ("glusterd", GF_LOG_INFO,
-                        "generated UUID: %s", uuid_utoa (glusterd_uuid));
+        gf_log (this->name, GF_LOG_INFO, "generated UUID: %s",
+                uuid_utoa (glusterd_uuid));
+
         uuid_copy (priv->uuid, glusterd_uuid);
 
-        ret = glusterd_store_uuid ();
+        ret = glusterd_store_global_info (this);
 
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR,
-                          "Unable to store generated UUID");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to store generated UUID");
                 return ret;
         }
 
@@ -778,6 +793,7 @@ init (xlator_t *this)
         char               cmd_log_filename [PATH_MAX] = {0,};
         int                first_time        = 0;
         char              *mountbroker_root  = NULL;
+        int                i                 = 0;
 
 #ifdef DEBUG
         char              *valgrind_str      = NULL;
@@ -920,39 +936,16 @@ init (xlator_t *this)
                 goto out;
         }
 
-        ret = glusterd_program_register (this, rpc, &gd_svc_peer_prog);
-        if (ret) {
-                goto out;
-        }
+        for (i = 0; i < rpcsvc_programs_count; i++) {
+                ret = glusterd_program_register (this, rpc, all_programs[i]);
+                if (ret) {
+                        i--;
+                        for (; i >= 0; i--)
+                                rpcsvc_program_unregister (rpc,
+                                                           all_programs[i]);
 
-        ret = glusterd_program_register (this, rpc, &gd_svc_cli_prog);
-        if (ret) {
-                rpcsvc_program_unregister (rpc, &gd_svc_peer_prog);
-                goto out;
-        }
-
-        ret = glusterd_program_register (this, rpc, &gd_svc_mgmt_prog);
-        if (ret) {
-                rpcsvc_program_unregister (rpc, &gd_svc_peer_prog);
-                rpcsvc_program_unregister (rpc, &gd_svc_cli_prog);
-                goto out;
-        }
-
-        ret = glusterd_program_register (this, rpc, &gluster_pmap_prog);
-        if (ret) {
-                rpcsvc_program_unregister (rpc, &gd_svc_peer_prog);
-                rpcsvc_program_unregister (rpc, &gd_svc_cli_prog);
-                rpcsvc_program_unregister (rpc, &gd_svc_mgmt_prog);
-                goto out;
-        }
-
-        ret = glusterd_program_register (this, rpc, &gluster_handshake_prog);
-        if (ret) {
-                rpcsvc_program_unregister (rpc, &gd_svc_peer_prog);
-                rpcsvc_program_unregister (rpc, &gluster_pmap_prog);
-                rpcsvc_program_unregister (rpc, &gd_svc_cli_prog);
-                rpcsvc_program_unregister (rpc, &gd_svc_mgmt_prog);
-                goto out;
+                        goto out;
+                }
         }
 
         conf = GF_CALLOC (1, sizeof (glusterd_conf_t),

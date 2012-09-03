@@ -91,6 +91,23 @@ typedef struct {
         gf_boolean_t            running;
 } nodesrv_t;
 
+#define GD_OP_VERSION_KEY     "operating-version"
+#define GD_MIN_OP_VERSION_KEY "minimum-operating-version"
+#define GD_MAX_OP_VERSION_KEY "maxium-operating-version"
+
+/* Gluster versions - OP-VERSION mapping
+ *
+ * 3.3.0                - 1
+ * 3.3.Next/3.Next      - 2
+ *
+ * (TODO: Change above comment once gluster version is finalised)
+ */
+#define GD_OP_VERSION_MIN  1 /* MIN is the fresh start op-version, mostly
+                                should not change */
+#define GD_OP_VERSION_MAX  2 /* MAX VERSION is the maximum count in VME table,
+                                should keep changing with introduction of newer
+                                versions */
+
 typedef struct {
         struct _volfile_ctx *volfile;
 	pthread_mutex_t   mutex;
@@ -110,14 +127,20 @@ typedef struct {
         gf_timer_t *timer;
         glusterd_sm_tr_log_t op_sm_log;
         struct rpc_clnt_program *gfs_mgmt;
+
         struct list_head mount_specs;
 #ifdef DEBUG
         gf_boolean_t      valgrind;
 #endif
         pthread_t       brick_thread;
         void           *hooks_priv;
-        xlator_t       *xl;  /* Should be set to 'THIS' before creating thread */
+        xlator_t       *xl; /* Should be set to 'THIS' before creating thread */
+
+        /* need for proper handshake_t */
+        int             op_version; /* Starts with 1 for 3.3.0 */
+
 } glusterd_conf_t;
+
 
 typedef enum gf_brick_status {
         GF_BRICK_STOPPED,
@@ -556,8 +579,8 @@ glusterd_volume_txn (rpcsvc_request_t *req, char *volname, int flags,
                      glusterd_op_t op);
 
 int
-glusterd_peer_handshake (xlator_t *this, struct rpc_clnt *rpc,
-                         glusterd_peerctx_t *peerctx);
+glusterd_peer_dump_version (xlator_t *this, struct rpc_clnt *rpc,
+                            glusterd_peerctx_t *peerctx);
 
 int
 glusterd_validate_reconfopts (glusterd_volinfo_t *volinfo, dict_t *val_dict, char **op_errstr);

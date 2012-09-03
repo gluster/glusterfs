@@ -1505,36 +1505,37 @@ out:
         return ret;
 }
 
-int32_t
-glusterd_store_uuid ()
+int
+glusterd_store_global_info (xlator_t *this)
 {
-        glusterd_conf_t *priv = NULL;
-        char            path[PATH_MAX] = {0,};
-        int32_t         ret = -1;
-        glusterd_store_handle_t *handle = NULL;
-        xlator_t       *this    = NULL;
+        int                     ret                     = -1;
+        glusterd_conf_t         *conf                   = NULL;
+        char                    op_version_str[15]      = {0,};
+        char                    path[PATH_MAX]          = {0,};
+        glusterd_store_handle_t *handle                 = NULL;
+        char                    *uuid_str               = NULL;
 
-        this = THIS;
-        priv = this->private;
+        conf = this->private;
 
-        snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
-                  GLUSTERD_INFO_FILE);
+        uuid_str = gf_strdup (uuid_utoa (MY_UUID));
+        if (!uuid_str)
+                goto out;
 
-        if (!priv->handle) {
+        if (!conf->handle) {
+                snprintf (path, PATH_MAX, "%s/%s", conf->workdir,
+                          GLUSTERD_INFO_FILE);
                 ret = glusterd_store_handle_new (path, &handle);
-
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "Unable to get store handle!");
+                                "Unable to get store handle");
                         goto out;
                 }
 
-                priv->handle = handle;
-        } else {
-                handle = priv->handle;
-        }
+                conf->handle = handle;
+        } else
+                handle = conf->handle;
 
-        /* make glusterd's uuid available for users */
+        /* These options need to be available for all users */
         ret = chmod (handle->path, 0644);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "chmod error for %s: %s",
@@ -1542,27 +1543,132 @@ glusterd_store_uuid ()
                 goto out;
         }
 
-        handle->fd = open (handle->path, O_RDWR | O_CREAT | O_TRUNC, 0644);
+        handle->fd = glusterd_store_mkstemp (handle);
         if (handle->fd <= 0) {
                 ret = -1;
                 goto out;
         }
-        ret = glusterd_store_save_value (handle->fd, GLUSTERD_STORE_UUID_KEY,
-                                         uuid_utoa (MY_UUID));
 
+        ret = glusterd_store_save_value (handle->fd, GLUSTERD_STORE_UUID_KEY,
+                                         uuid_str);
         if (ret) {
                 gf_log (this->name, GF_LOG_CRITICAL,
                         "Storing uuid failed ret = %d", ret);
                 goto out;
         }
 
+        snprintf (op_version_str, 15, "%d", conf->op_version);
+        ret = glusterd_store_save_value (handle->fd, GD_OP_VERSION_KEY,
+                                         op_version_str);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Storing op-version failed ret = %d", ret);
+                goto out;
+        }
 
+        ret = glusterd_store_rename_tmppath (handle);
 out:
+        if (ret && (handle->fd > 0))
+                glusterd_store_unlink_tmppath (handle);
+
         if (handle->fd > 0) {
                 close (handle->fd);
                 handle->fd = 0;
         }
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+
+        if (uuid_str)
+                GF_FREE (uuid_str);
+
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to store glusterd global-info");
+
+        return ret;
+}
+
+int
+glusterd_retrieve_op_version (xlator_t *this, int *op_version)
+{
+        char                    *op_version_str = NULL;
+        glusterd_conf_t         *priv           = NULL;
+        int                     ret             = -1;
+        int                     tmp_version     = 0;
+        char                    *tmp            = NULL;
+        char                    path[PATH_MAX]  = {0,};
+        glusterd_store_handle_t *handle         = NULL;
+
+        priv = this->private;
+
+        if (!priv->handle) {
+                snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
+                          GLUSTERD_INFO_FILE);
+                ret = glusterd_store_handle_retrieve (path, &handle);
+
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to get store "
+                                "handle!");
+                        goto out;
+                }
+
+                priv->handle = handle;
+        }
+
+        ret = glusterd_store_retrieve_value (priv->handle,
+                                             GD_OP_VERSION_KEY,
+                                             &op_version_str);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "No previous op_version present");
+                goto out;
+        }
+
+        tmp_version = strtol (op_version_str, &tmp, 10);
+        if ((tmp_version <= 0) || (tmp && strlen (tmp) > 1)) {
+                gf_log (this->name, GF_LOG_WARNING, "invalid version number");
+                goto out;
+        }
+
+        *op_version = tmp_version;
+
+        ret = 0;
+out:
+        if (op_version_str)
+                GF_FREE (op_version_str);
+
+        return ret;
+}
+
+static int
+glusterd_restore_op_version (xlator_t *this)
+{
+        glusterd_conf_t *conf = NULL;
+        int ret = 0;
+        int op_version = 0;
+
+        conf = this->private;
+
+        ret = glusterd_retrieve_op_version (this, &op_version);
+        if (!ret) {
+                if ((op_version < GD_OP_VERSION_MIN) ||
+                    (op_version > GD_OP_VERSION_MAX)) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "wrong op-version (%d) retreived", op_version);
+                        ret = -1;
+                        goto out;
+                }
+                conf->op_version = op_version;
+                gf_log ("glusterd", GF_LOG_INFO,
+                        "retrieved op-version: %d", conf->op_version);
+                goto out;
+        }
+
+        gf_log (this->name, GF_LOG_INFO, "op-version not found in store, "
+                "setting it to minimum op-version : %d", GD_OP_VERSION_MIN);
+
+        /* If op-version is missing, set it to  GD_OP_VERSION_MIN */
+        conf->op_version = GD_OP_VERSION_MIN;
+        ret = 0;
+out:
         return ret;
 }
 
@@ -1576,7 +1682,6 @@ glusterd_retrieve_uuid ()
         char            path[PATH_MAX] = {0,};
 
         priv = THIS->private;
-
 
         if (!priv->handle) {
                 snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
@@ -2793,8 +2898,15 @@ glusterd_restore ()
 
         this = THIS;
 
-        ret = glusterd_store_retrieve_volumes (this);
+        ret = glusterd_restore_op_version (this);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to restore op_version");
+                goto out;
+        }
 
+
+        ret = glusterd_store_retrieve_volumes (this);
         if (ret)
                 goto out;
 

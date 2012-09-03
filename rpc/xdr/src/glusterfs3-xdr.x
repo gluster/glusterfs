@@ -460,15 +460,6 @@ struct   gfs3_finodelk_req {
 }  ;
 
 
- struct gf_setvolume_req {
-        opaque dict<>;
-}  ;
- struct  gf_setvolume_rsp {
-        int    op_ret;
-        int    op_errno;
-        opaque dict<>;
-} ;
-
 struct gfs3_access_req  {
         opaque gfid[16];
 	unsigned int mask;
@@ -590,6 +581,16 @@ struct gfs3_fstat_req {
 }  ;
 
 
+ struct gf_setvolume_req {
+        opaque dict<>;
+}  ;
+ struct  gf_setvolume_rsp {
+        int    op_ret;
+        int    op_errno;
+        opaque dict<>;
+} ;
+
+
  struct gf_getspec_req {
 	unsigned int flags;
 	string     key<>;
@@ -602,10 +603,19 @@ struct gfs3_fstat_req {
         opaque   xdata<>; /* Extra data */
 } ;
 
+ struct gf_mgmt_hndsk_req {
+        opaque   hndsk<>;
+}  ;
+
+ struct  gf_mgmt_hndsk_rsp {
+        int    op_ret;
+        int    op_errno;
+        opaque   hndsk<>;
+} ;
 
  struct   gf_log_req {
-	opaque     msg<>;
-};
+        opaque    msg<>;
+} ;
 
  struct gf_notify_req {
 	unsigned int  flags;

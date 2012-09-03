@@ -185,6 +185,13 @@ enum glusterd_brick_procnum {
         GLUSTERD_BRICK_MAXVALUE,
 };
 
+enum glusterd_mgmt_hndsk_procnum {
+        GD_MGMT_HNDSK_NULL,
+        GD_MGMT_HNDSK_VERSIONS,
+        GD_MGMT_HNDSK_VERSIONS_ACK,
+        GD_MGMT_HNDSK_MAXVALUE,
+};
+
 typedef enum {
         GF_AFR_OP_INVALID,
         GF_AFR_OP_HEAL_INDEX,
@@ -196,7 +203,7 @@ typedef enum {
 } gf_xl_afr_op_t ;
 
 #define GLUSTER_HNDSK_PROGRAM    14398633 /* Completely random */
-#define GLUSTER_HNDSK_VERSION    2   /* 0.0.1 */
+#define GLUSTER_HNDSK_VERSION    2   /* 0.0.2 */
 
 #define GLUSTER_PMAP_PROGRAM     34123456
 #define GLUSTER_PMAP_VERSION     1
@@ -220,5 +227,9 @@ typedef enum {
 
 #define GD_BRICK_PROGRAM         4867634 /*Completely random*/
 #define GD_BRICK_VERSION         2
+
+/* OP-VERSION handshake */
+#define GD_MGMT_HNDSK_PROGRAM    1239873 /* Completely random */
+#define GD_MGMT_HNDSK_VERSION    1
 
 #endif /* !_PROTOCOL_COMMON_H */
