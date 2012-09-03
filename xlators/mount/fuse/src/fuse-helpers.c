@@ -403,32 +403,39 @@ fail:
 }
 
 
+/* Use the same logic as the Linux NFS-client */
+#define GF_FUSE_SQUASH_INO(ino) ((uint32_t) ino) ^ (ino >> 32)
+
 /* courtesy of folly */
 void
-gf_fuse_stat2attr (struct iatt *st, struct fuse_attr *fa)
+gf_fuse_stat2attr (struct iatt *st, struct fuse_attr *fa, gf_boolean_t enable_ino32)
 {
-        fa->ino        = st->ia_ino;
-        fa->size       = st->ia_size;
-        fa->blocks     = st->ia_blocks;
-        fa->atime      = st->ia_atime;
-        fa->mtime      = st->ia_mtime;
-        fa->ctime      = st->ia_ctime;
-        fa->atimensec  = st->ia_atime_nsec;
-        fa->mtimensec  = st->ia_mtime_nsec;
-        fa->ctimensec  = st->ia_ctime_nsec;
-        fa->mode       = st_mode_from_ia (st->ia_prot, st->ia_type);
-        fa->nlink      = st->ia_nlink;
-        fa->uid        = st->ia_uid;
-        fa->gid        = st->ia_gid;
-        fa->rdev       = makedev (ia_major (st->ia_rdev),
-                                  ia_minor (st->ia_rdev));
+        if (enable_ino32)
+                fa->ino = GF_FUSE_SQUASH_INO(st->ia_ino);
+        else
+                fa->ino = st->ia_ino;
+
+        fa->size        = st->ia_size;
+        fa->blocks      = st->ia_blocks;
+        fa->atime       = st->ia_atime;
+        fa->mtime       = st->ia_mtime;
+        fa->ctime       = st->ia_ctime;
+        fa->atimensec   = st->ia_atime_nsec;
+        fa->mtimensec   = st->ia_mtime_nsec;
+        fa->ctimensec   = st->ia_ctime_nsec;
+        fa->mode        = st_mode_from_ia (st->ia_prot, st->ia_type);
+        fa->nlink       = st->ia_nlink;
+        fa->uid         = st->ia_uid;
+        fa->gid         = st->ia_gid;
+        fa->rdev        = makedev (ia_major (st->ia_rdev),
+                                   ia_minor (st->ia_rdev));
 #if FUSE_KERNEL_MINOR_VERSION >= 9
-        fa->blksize    = st->ia_blksize;
+        fa->blksize     = st->ia_blksize;
 #endif
 #ifdef GF_DARWIN_HOST_OS
-        fa->crtime     = (uint64_t)-1;
-        fa->crtimensec = (uint32_t)-1;
-        fa->flags      = 0;
+        fa->crtime      = (uint64_t)-1;
+        fa->crtimensec  = (uint32_t)-1;
+        fa->flags       = 0;
 #endif
 }
 

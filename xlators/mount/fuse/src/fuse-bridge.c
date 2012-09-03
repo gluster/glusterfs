@@ -246,7 +246,7 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         state->loc.path, buf->ia_ino);
 
                 buf->ia_blksize = this->ctx->page_size;
-                gf_fuse_stat2attr (buf, &feo.attr);
+                gf_fuse_stat2attr (buf, &feo.attr, priv->enable_ino32);
 
                 if (!buf->ia_ino) {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING,
@@ -437,7 +437,7 @@ fuse_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         prebuf->ia_ino);
 
                 postbuf->ia_blksize = this->ctx->page_size;
-                gf_fuse_stat2attr (postbuf, &fao.attr);
+                gf_fuse_stat2attr (postbuf, &fao.attr, priv->enable_ino32);
 
                 fao.attr_valid = calc_timeout_sec (priv->attribute_timeout);
                 fao.attr_valid_nsec =
@@ -489,7 +489,7 @@ fuse_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         buf->ia_ino);
 
                 buf->ia_blksize = this->ctx->page_size;
-                gf_fuse_stat2attr (buf, &fao.attr);
+                gf_fuse_stat2attr (buf, &fao.attr, priv->enable_ino32);
 
                 fao.attr_valid = calc_timeout_sec (priv->attribute_timeout);
                 fao.attr_valid_nsec =
@@ -761,7 +761,7 @@ fuse_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         statpost->ia_ino);
 
                 statpost->ia_blksize = this->ctx->page_size;
-                gf_fuse_stat2attr (statpost, &fao.attr);
+                gf_fuse_stat2attr (statpost, &fao.attr, priv->enable_ino32);
 
                 fao.attr_valid = calc_timeout_sec (priv->attribute_timeout);
                 fao.attr_valid_nsec =
@@ -1673,7 +1673,7 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         state->loc.path, fd, buf->ia_ino);
 
                 buf->ia_blksize = this->ctx->page_size;
-                gf_fuse_stat2attr (buf, &feo.attr);
+                gf_fuse_stat2attr (buf, &feo.attr, priv->enable_ino32);
 
                 linked_inode = inode_link (inode, state->loc.parent,
                                            state->loc.name, buf);
@@ -4512,6 +4512,13 @@ init (xlator_t *this_xl)
         ret = dict_get_str (options, "read-only", &value_string);
         if (ret == 0) {
                 ret = gf_string2boolean (value_string, &priv->read_only);
+                GF_ASSERT (ret == 0);
+        }
+
+        priv->enable_ino32 = 0;
+        ret = dict_get_str (options, "enable-ino32", &value_string);
+        if (ret == 0) {
+                ret = gf_string2boolean (value_string, &priv->enable_ino32);
                 GF_ASSERT (ret == 0);
         }
 

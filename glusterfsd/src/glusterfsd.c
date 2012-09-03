@@ -154,6 +154,9 @@ static struct argp_option gf_options[] = {
          "Mount the filesystem with POSIX ACL support"},
         {"selinux", ARGP_SELINUX_KEY, 0, 0,
          "Enable SELinux label (extened attributes) support on inodes"},
+        {"enable-ino32", ARGP_INODE32_KEY, "BOOL", OPTION_ARG_OPTIONAL,
+          "Use 32-bit inodes when mounting to workaround broken applications"
+          "that don't support 64-bit inodes"},
         {"worm", ARGP_WORM_KEY, 0, 0,
          "Mount the filesystem in 'worm' mode"},
         {"mac-compat", ARGP_MAC_COMPAT_KEY, "BOOL", OPTION_ARG_OPTIONAL,
@@ -358,6 +361,15 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
                         goto err;
                 }
         }
+
+        if (cmd_args->enable_ino32) {
+		ret = dict_set_static_ptr (master->options, "enable-ino32", "on");
+		if (ret < 0) {
+			gf_log ("glusterfsd", GF_LOG_ERROR,
+				"failed to set 'on' for key enable-ino32");
+			goto err;
+		}
+	}
 
         if (cmd_args->read_only) {
                 ret = dict_set_static_ptr (master->options, "read-only", "on");
@@ -577,6 +589,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
         case ARGP_SELINUX_KEY:
                 cmd_args->selinux = 1;
+                break;
+
+        case ARGP_INODE32_KEY:
+                cmd_args->enable_ino32 = 1;
                 break;
 
         case ARGP_WORM_KEY:
@@ -1106,6 +1122,7 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         cmd_args->log_level = DEFAULT_LOG_LEVEL;
 
         cmd_args->mac_compat = GF_OPTION_DISABLE;
+        cmd_args->enable_ino32 = GF_OPTION_DISABLE;
 #ifdef GF_DARWIN_HOST_OS
         /* On Darwin machines, O_APPEND is not handled,
          * which may corrupt the data

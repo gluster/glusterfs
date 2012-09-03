@@ -87,6 +87,7 @@ enum argp_option_keys {
         ARGP_USER_MAP_ROOT_KEY            = 156,
         ARGP_MEM_ACCOUNTING_KEY           = 157,
         ARGP_SELINUX_KEY                  = 158,
+        ARGP_INODE32_KEY                  = 159,
 };
 
 struct _gfd_vol_top_priv_t {
