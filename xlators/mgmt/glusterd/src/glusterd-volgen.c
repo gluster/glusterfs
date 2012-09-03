@@ -649,9 +649,6 @@ struct opthandler_data {
         void *param;
 };
 
-#define pattern_match_options 0
-
-
 static void
 process_option (dict_t *dict, char *key, data_t *value, void *param)
 {
@@ -660,10 +657,6 @@ process_option (dict_t *dict, char *key, data_t *value, void *param)
 
         if (odt->rv)
                 return;
-#if pattern_match_options
-        if (fnmatch (odt->vme->key, key, 0) != 0)
-                return;
-#endif
         odt->found = _gf_true;
 
         vme.key = key;
@@ -702,14 +695,10 @@ volgen_graph_set_options_generic (volgen_graph_t *graph, dict_t *dict,
                 odt.found = _gf_false;
                 odt.data_t_fake = _gf_false;
 
-#if pattern_match_options
-                dict_foreach (dict, process_option, &odt);
-#else
                 data = dict_get (dict, vme->key);
 
                 if (data)
                         process_option (dict, vme->key, data, &odt);
-#endif
                 if (odt.rv)
                         return odt.rv;
 
@@ -988,14 +977,12 @@ glusterd_check_voloption (char *key)
 int
 glusterd_check_option_exists (char *key, char **completion)
 {
-        dict_t *dict = NULL;
         struct volopt_map_entry vme = {0,};
         struct volopt_map_entry *vmep = NULL;
         int ret = 0;
 
         (void)vme;
         (void)vmep;
-        (void)dict;
 
         if (!strchr (key, '.')) {
                 if (completion) {
@@ -1014,42 +1001,12 @@ glusterd_check_option_exists (char *key, char **completion)
                         return 0;
         }
 
-#if !pattern_match_options
         for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
                 if (strcmp (vmep->key, key) == 0) {
                         ret = 1;
                         break;
                 }
         }
-#else
-        vme.key = key;
-
-        /* We are getting a bit anal here to avoid typing
-         * fnmatch one more time. Orthogonality foremost!
-         * The internal logic of looking up in the volopt_map table
-         * should be coded exactly once.
-         *
-         * [[Ha-ha-ha, so now if I ever change the internals then I'll
-         * have to update the fnmatch in this comment also :P ]]
-         */
-        dict = get_new_dict ();
-        if (!dict || dict_set_str (dict, key, "")) {
-                gf_log ("", GF_LOG_ERROR, "Out of memory");
-
-                return -1;
-        }
-
-        ret = volgen_graph_set_options_generic (NULL, dict, &vme,
-                                                &optget_option_handler);
-        dict_destroy (dict);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Out of memory");
-
-                return -1;
-        }
-
-        ret = !!vme.value;
-#endif
 
         if (ret || !completion)
                 return ret;
