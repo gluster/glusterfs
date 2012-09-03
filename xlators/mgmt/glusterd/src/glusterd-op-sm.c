@@ -293,22 +293,28 @@ out:
 static int
 glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
 {
-        int                                      ret           = 0;
-        char                                    *volname       = NULL;
-        int                                      exists        = 0;
-        char                                    *key           = NULL;
-        char                                    *key_fixed     = NULL;
-        char                                    *value         = NULL;
-        char                                     str[100]      = {0, };
-        int                                      count         = 0;
-        int                                      dict_count    = 0;
-        char                                     errstr[2048]  = {0, };
-        glusterd_volinfo_t                      *volinfo       = NULL;
-        dict_t                                  *val_dict      = NULL;
-        gf_boolean_t                             global_opt    = _gf_false;
-        glusterd_volinfo_t                      *voliter       = NULL;
-        glusterd_conf_t                         *priv          = NULL;
-        xlator_t                                *this          = NULL;
+        int                             ret                     = -1;
+        char                            *volname                = NULL;
+        int                             exists                  = 0;
+        char                            *key                    = NULL;
+        char                            *key_fixed              = NULL;
+        char                            *value                  = NULL;
+        char                            str[100]                = {0, };
+        int                             count                   = 0;
+        int                             dict_count              = 0;
+        char                            errstr[2048]            = {0, };
+        glusterd_volinfo_t              *volinfo                = NULL;
+        dict_t                          *val_dict               = NULL;
+        gf_boolean_t                    global_opt              = _gf_false;
+        glusterd_volinfo_t              *voliter                = NULL;
+        glusterd_conf_t                 *priv                   = NULL;
+        xlator_t                        *this                   = NULL;
+        uint32_t                        new_op_version          = 0;
+        uint32_t                        local_new_op_version    = 0;
+        uint32_t                        key_op_version          = 0;
+        uint32_t                        local_key_op_version    = 0;
+        gf_boolean_t                    origin_glusterd         = _gf_true;
+        gf_boolean_t                    check_op_version        = _gf_true;
 
         GF_ASSERT (dict);
         this = THIS;
@@ -320,8 +326,41 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
         if (!val_dict)
                 goto out;
 
-        ret = dict_get_int32 (dict, "count", &dict_count);
+        /* Check if we can support the required op-version
+         * This check is not done on the originator glusterd. The originator
+         * glusterd sets this value.
+         */
+        origin_glusterd = is_origin_glusterd ();
 
+        if (!origin_glusterd) {
+                /* Check for v3.3.x origin glusterd */
+                check_op_version = dict_get_str_boolean (dict,
+                                                         "check-op-version",
+                                                         _gf_false);
+
+                if (check_op_version) {
+                        ret = dict_get_uint32 (dict, "new-op-version",
+                                               &new_op_version);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to get new_op_version");
+                                goto out;
+                        }
+
+                        if ((new_op_version > GD_OP_VERSION_MAX) ||
+                            (new_op_version < GD_OP_VERSION_MIN)) {
+                                ret = -1;
+                                snprintf (errstr, sizeof (errstr),
+                                          "Required op_version (%d) is not "
+                                          "supported", new_op_version);
+                                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                                *op_errstr = gf_strdup (errstr);
+                                goto out;
+                        }
+                }
+        }
+
+        ret = dict_get_int32 (dict, "count", &dict_count);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Count(dict),not set in Volume-Set");
@@ -380,6 +419,8 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
         ret = glusterd_validate_volume_id (dict, volinfo);
         if (ret)
                 goto out;
+
+        local_new_op_version = priv->op_version;
 
         for ( count = 1; ret != 1 ; count++ ) {
                 global_opt = _gf_false;
@@ -450,6 +491,41 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 if (key_fixed)
                         key = key_fixed;
 
+                local_key_op_version = glusterd_get_op_version_for_key (key);
+                if (local_key_op_version > local_new_op_version)
+                        local_new_op_version = local_key_op_version;
+
+                sprintf (str, "op-version%d", count);
+                if (origin_glusterd) {
+                        ret = dict_set_uint32 (dict, str, local_key_op_version);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to set key-op-version in dict");
+                                goto out;
+                        }
+                } else if (check_op_version) {
+                        ret = dict_get_uint32 (dict, str, &key_op_version);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to get key-op-version from"
+                                        " dict");
+                                goto out;
+                        }
+                        if (local_key_op_version != key_op_version) {
+                                ret = -1;
+                                snprintf (errstr, 2048,
+                                          "option: %s op-version mismatch",
+                                          key);
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "%s, required op-version = %"PRIu32", "
+                                        "available op-version = %"PRIu32,
+                                        errstr, key_op_version,
+                                        local_key_op_version);
+                                *op_errstr = gf_strdup (errstr);
+                                goto out;
+                        }
+                }
+
                 if (glusterd_check_globaloption (key))
                         global_opt = _gf_true;
 
@@ -487,6 +563,28 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 }
         }
 
+        if (origin_glusterd) {
+                ret = dict_set_uint32 (dict, "new-op-version",
+                                       local_new_op_version);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set new-op-version in dict");
+                        goto out;
+                }
+                /* Set this value in dict so other peers know to check for
+                 * op-version. This is a hack for 3.3.x compatibility
+                 *
+                 * TODO: Remove this and the other places this is referred once
+                 * 3.3.x compatibility is not required
+                 */
+                ret = dict_set_uint32 (dict, "check-op-version",
+                                       _gf_true);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set check-op-version in dict");
+                        goto out;
+                }
+        }
 
         ret = 0;
 
@@ -1046,6 +1144,9 @@ glusterd_op_set_volume (dict_t *dict)
         gf_boolean_t                             global_opt    = _gf_false;
         glusterd_volinfo_t                      *voliter = NULL;
         int32_t                                  dict_count = 0;
+        gf_boolean_t                             check_op_version = _gf_false;
+        uint32_t                                 new_op_version = 0;
+
 
         this = THIS;
         GF_ASSERT (this);
@@ -1079,6 +1180,18 @@ glusterd_op_set_volume (dict_t *dict)
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Unable to allocate memory");
                 goto out;
+        }
+
+        check_op_version = dict_get_str_boolean (dict, "check-op-version",
+                                                 _gf_false);
+
+        if (check_op_version) {
+                ret = dict_get_uint32 (dict, "new-op-version", &new_op_version);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to get new op-version from dict");
+                        goto out;
+                }
         }
 
         for (count = 1; ret != -1 ; count++) {
@@ -1224,7 +1337,16 @@ glusterd_op_set_volume (dict_t *dict)
                 }
         }
 
-        ret = 0;
+        if (new_op_version > priv->op_version) {
+                priv->op_version = new_op_version;
+                ret = glusterd_store_global_info (this);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to store op-version");
+                        goto out;
+                }
+        }
+
  out:
         GF_FREE (key_fixed);
         gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
@@ -1926,7 +2048,7 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                                         if (ret)
                                                 goto out;
                                 }
-                                dict_copy (dict, req_dict);
+                                req_dict = dict_ref (dict);
                         }
                         break;
 

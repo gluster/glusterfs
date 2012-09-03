@@ -6319,3 +6319,18 @@ glusterd_volume_heal_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 out:
         return ret;
 }
+
+/* Should be used only when an operation is in progress, as that is the only
+ * time a lock_owner is set
+ */
+gf_boolean_t
+is_origin_glusterd () {
+        int     ret = 0;
+        uuid_t  lock_owner = {0,};
+
+        ret = glusterd_get_lock_owner (&lock_owner);
+        if (ret)
+                return _gf_false;
+
+        return (uuid_compare (MY_UUID, lock_owner) == 0);
+}
