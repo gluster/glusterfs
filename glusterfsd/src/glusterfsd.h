@@ -83,6 +83,7 @@ enum argp_option_keys {
 	ARGP_GID_TIMEOUT_KEY		  = 160,
 	ARGP_FUSE_BACKGROUND_QLEN_KEY     = 161,
 	ARGP_FUSE_CONGESTION_THRESHOLD_KEY = 162,
+        ARGP_INODE32_KEY                  = 163,
 };
 
 struct _gfd_vol_top_priv_t {
