@@ -2881,7 +2881,7 @@ glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_CONNECT");
                 peerinfo->connected = 1;
 
-                ret = glusterd_peer_handshake (this, rpc, peerctx);
+                ret = glusterd_peer_dump_version (this, rpc, peerctx);
                 if (ret)
                         gf_log ("", GF_LOG_ERROR, "glusterd handshake failed");
                 break;

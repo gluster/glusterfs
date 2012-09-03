@@ -731,24 +731,6 @@ struct gfs3_readdirp_req {
 };
 typedef struct gfs3_readdirp_req gfs3_readdirp_req;
 
-struct gf_setvolume_req {
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
-};
-typedef struct gf_setvolume_req gf_setvolume_req;
-
-struct gf_setvolume_rsp {
-	int op_ret;
-	int op_errno;
-	struct {
-		u_int dict_len;
-		char *dict_val;
-	} dict;
-};
-typedef struct gf_setvolume_rsp gf_setvolume_rsp;
-
 struct gfs3_access_req {
 	char gfid[16];
 	u_int mask;
@@ -931,6 +913,24 @@ struct gfs3_rchecksum_rsp {
 };
 typedef struct gfs3_rchecksum_rsp gfs3_rchecksum_rsp;
 
+struct gf_setvolume_req {
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gf_setvolume_req gf_setvolume_req;
+
+struct gf_setvolume_rsp {
+	int op_ret;
+	int op_errno;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gf_setvolume_rsp gf_setvolume_rsp;
+
 struct gf_getspec_req {
 	u_int flags;
 	char *key;
@@ -951,6 +951,24 @@ struct gf_getspec_rsp {
 	} xdata;
 };
 typedef struct gf_getspec_rsp gf_getspec_rsp;
+
+struct gf_mgmt_hndsk_req {
+	struct {
+		u_int hndsk_len;
+		char *hndsk_val;
+	} hndsk;
+};
+typedef struct gf_mgmt_hndsk_req gf_mgmt_hndsk_req;
+
+struct gf_mgmt_hndsk_rsp {
+	int op_ret;
+	int op_errno;
+	struct {
+		u_int hndsk_len;
+		char *hndsk_val;
+	} hndsk;
+};
+typedef struct gf_mgmt_hndsk_rsp gf_mgmt_hndsk_rsp;
 
 struct gf_log_req {
 	struct {
@@ -1151,8 +1169,6 @@ extern  bool_t xdr_gfs3_opendir_rsp (XDR *, gfs3_opendir_rsp*);
 extern  bool_t xdr_gfs3_fsyncdir_req (XDR *, gfs3_fsyncdir_req*);
 extern  bool_t xdr_gfs3_readdir_req (XDR *, gfs3_readdir_req*);
 extern  bool_t xdr_gfs3_readdirp_req (XDR *, gfs3_readdirp_req*);
-extern  bool_t xdr_gf_setvolume_req (XDR *, gf_setvolume_req*);
-extern  bool_t xdr_gf_setvolume_rsp (XDR *, gf_setvolume_rsp*);
 extern  bool_t xdr_gfs3_access_req (XDR *, gfs3_access_req*);
 extern  bool_t xdr_gfs3_create_req (XDR *, gfs3_create_req*);
 extern  bool_t xdr_gfs3_create_rsp (XDR *, gfs3_create_rsp*);
@@ -1168,8 +1184,12 @@ extern  bool_t xdr_gfs3_fsetattr_req (XDR *, gfs3_fsetattr_req*);
 extern  bool_t xdr_gfs3_fsetattr_rsp (XDR *, gfs3_fsetattr_rsp*);
 extern  bool_t xdr_gfs3_rchecksum_req (XDR *, gfs3_rchecksum_req*);
 extern  bool_t xdr_gfs3_rchecksum_rsp (XDR *, gfs3_rchecksum_rsp*);
+extern  bool_t xdr_gf_setvolume_req (XDR *, gf_setvolume_req*);
+extern  bool_t xdr_gf_setvolume_rsp (XDR *, gf_setvolume_rsp*);
 extern  bool_t xdr_gf_getspec_req (XDR *, gf_getspec_req*);
 extern  bool_t xdr_gf_getspec_rsp (XDR *, gf_getspec_rsp*);
+extern  bool_t xdr_gf_mgmt_hndsk_req (XDR *, gf_mgmt_hndsk_req*);
+extern  bool_t xdr_gf_mgmt_hndsk_rsp (XDR *, gf_mgmt_hndsk_rsp*);
 extern  bool_t xdr_gf_log_req (XDR *, gf_log_req*);
 extern  bool_t xdr_gf_notify_req (XDR *, gf_notify_req*);
 extern  bool_t xdr_gf_notify_rsp (XDR *, gf_notify_rsp*);
@@ -1243,8 +1263,6 @@ extern bool_t xdr_gfs3_opendir_rsp ();
 extern bool_t xdr_gfs3_fsyncdir_req ();
 extern bool_t xdr_gfs3_readdir_req ();
 extern bool_t xdr_gfs3_readdirp_req ();
-extern bool_t xdr_gf_setvolume_req ();
-extern bool_t xdr_gf_setvolume_rsp ();
 extern bool_t xdr_gfs3_access_req ();
 extern bool_t xdr_gfs3_create_req ();
 extern bool_t xdr_gfs3_create_rsp ();
@@ -1260,8 +1278,12 @@ extern bool_t xdr_gfs3_fsetattr_req ();
 extern bool_t xdr_gfs3_fsetattr_rsp ();
 extern bool_t xdr_gfs3_rchecksum_req ();
 extern bool_t xdr_gfs3_rchecksum_rsp ();
+extern bool_t xdr_gf_setvolume_req ();
+extern bool_t xdr_gf_setvolume_rsp ();
 extern bool_t xdr_gf_getspec_req ();
 extern bool_t xdr_gf_getspec_rsp ();
+extern bool_t xdr_gf_mgmt_hndsk_req ();
+extern bool_t xdr_gf_mgmt_hndsk_rsp ();
 extern bool_t xdr_gf_log_req ();
 extern bool_t xdr_gf_notify_req ();
 extern bool_t xdr_gf_notify_rsp ();

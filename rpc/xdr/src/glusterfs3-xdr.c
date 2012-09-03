@@ -1213,32 +1213,6 @@ xdr_gfs3_readdirp_req (XDR *xdrs, gfs3_readdirp_req *objp)
 }
 
 bool_t
-xdr_gf_setvolume_req (XDR *xdrs, gf_setvolume_req *objp)
-{
-	register int32_t *buf;
-        buf = NULL;
-
-	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
-		 return FALSE;
-	return TRUE;
-}
-
-bool_t
-xdr_gf_setvolume_rsp (XDR *xdrs, gf_setvolume_rsp *objp)
-{
-	register int32_t *buf;
-        buf = NULL;
-
-	 if (!xdr_int (xdrs, &objp->op_ret))
-		 return FALSE;
-	 if (!xdr_int (xdrs, &objp->op_errno))
-		 return FALSE;
-	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
-		 return FALSE;
-	return TRUE;
-}
-
-bool_t
 xdr_gfs3_access_req (XDR *xdrs, gfs3_access_req *objp)
 {
 	register int32_t *buf;
@@ -1612,6 +1586,32 @@ xdr_gfs3_rchecksum_rsp (XDR *xdrs, gfs3_rchecksum_rsp *objp)
 }
 
 bool_t
+xdr_gf_setvolume_req (XDR *xdrs, gf_setvolume_req *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf_setvolume_rsp (XDR *xdrs, gf_setvolume_rsp *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
 xdr_gf_getspec_req (XDR *xdrs, gf_getspec_req *objp)
 {
 	register int32_t *buf;
@@ -1639,6 +1639,32 @@ xdr_gf_getspec_rsp (XDR *xdrs, gf_getspec_rsp *objp)
 	 if (!xdr_string (xdrs, &objp->spec, ~0))
 		 return FALSE;
 	 if (!xdr_bytes (xdrs, (char **)&objp->xdata.xdata_val, (u_int *) &objp->xdata.xdata_len, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf_mgmt_hndsk_req (XDR *xdrs, gf_mgmt_hndsk_req *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_bytes (xdrs, (char **)&objp->hndsk.hndsk_val, (u_int *) &objp->hndsk.hndsk_len, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf_mgmt_hndsk_rsp (XDR *xdrs, gf_mgmt_hndsk_rsp *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->hndsk.hndsk_val, (u_int *) &objp->hndsk.hndsk_len, ~0))
 		 return FALSE;
 	return TRUE;
 }
