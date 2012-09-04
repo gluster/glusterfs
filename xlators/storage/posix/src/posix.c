@@ -2984,7 +2984,6 @@ posix_fremovexattr (call_frame_t *frame, xlator_t *this,
         int32_t           op_errno = 0;
         struct posix_fd * pfd      = NULL;
         int               _fd      = -1;
-        uint64_t          tmp_pfd  = 0;
         int               ret      = -1;
 
         DECLARE_OLD_FS_ID_VAR;
@@ -2995,15 +2994,13 @@ posix_fremovexattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_WARNING,
                         "pfd is NULL from fd=%p", fd);
                 goto out;
         }
-        pfd = (struct posix_fd *)(long)tmp_pfd;
-
         _fd = pfd->fd;
 
 
