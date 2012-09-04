@@ -109,6 +109,14 @@ start_glusterfs ()
 	cmd_line=$(echo "$cmd_line --gid-timeout=$gid_timeout");
     fi
 
+    if [ -n "$bg_qlen" ]; then
+	cmd_line=$(echo "$cmd_line --background-qlen=$bg_qlen");
+    fi
+
+    if [ -n "$cong_threshold" ]; then
+	cmd_line=$(echo "$cmd_line --congestion-threshold=$cong_threshold");
+    fi
+
     if [ -z "$volfile_loc" ]; then
         if  [ -n "$server_ip" ]; then
             if [ -n "$server_port" ]; then
@@ -136,7 +144,6 @@ start_glusterfs ()
     cmd_line=$(echo "$cmd_line $mount_point");
     err=0;
     $cmd_line;
-
 
     inode=$(stat -c %i $mount_point 2>/dev/null);
 
@@ -284,6 +291,8 @@ main ()
                             "backupvolfile-server")
                                 backupvolfile_server=$value ;;
 			    "gid-timeout")	gid_timeout=$value ;;
+			    "background-qlen")	bg_qlen=$value ;;
+			    "congestion-threshold")	cong_threshold=$value ;;
                             *) echo "unknown option $key (ignored)" ;;
                         esac
                 esac

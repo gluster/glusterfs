@@ -3389,8 +3389,8 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
         if (fini->minor >= 13) {
                 /* these values seemed to work fine during testing */
-                fino.max_background = 64;
-                fino.congestion_threshold = 48;
+                fino.max_background = priv->background_qlen;
+                fino.congestion_threshold = priv->congestion_threshold;
         }
         if (fini->minor < 9)
                 *priv->msg0_len_p = sizeof(*finh) + FUSE_COMPAT_WRITE_IN_SIZE;
@@ -4574,6 +4574,32 @@ init (xlator_t *this_xl)
 		goto cleanup_exit;
 	}
 
+        /* default values seemed to work fine during testing */
+	GF_OPTION_INIT ("background-qlen", priv->background_qlen, int32,
+                        cleanup_exit);
+	GF_OPTION_INIT ("congestion-threshold", priv->congestion_threshold,
+                        int32, cleanup_exit);
+
+        if (dict_get (this_xl->options, "background-qlen") &&
+            !dict_get (this_xl->options, "congestion-threshold")) {
+                /* user has set only background-qlen, not congestion-threshold,
+                   use the fuse kernel driver formula to set congestion,
+                   ie, 75% */
+                priv->congestion_threshold = (priv->background_qlen * 3) / 4;
+                gf_log (this_xl->name, GF_LOG_INFO,
+                        "setting congestion control as 75%% of "
+                        "background-queue length (ie, (.75 * %d) = %d",
+                        priv->background_qlen, priv->congestion_threshold);
+        }
+        /* congestion should not be higher than background queue length */
+        if (priv->congestion_threshold > priv->background_qlen) {
+                gf_log (this_xl->name, GF_LOG_INFO,
+                        "setting congestion control same as "
+                        "background-queue length (%d)",
+                        priv->background_qlen);
+                priv->congestion_threshold = priv->background_qlen;
+        }
+
         cmd_args = &this_xl->ctx->cmd_args;
         fsname = cmd_args->volfile;
         if (!fsname && cmd_args->volfile_server) {
@@ -4742,5 +4768,17 @@ struct volume_options options[] = {
 	  .type = GF_OPTION_TYPE_INT,
 	  .default_value = "0"
 	},
+        { .key  = {"background-qlen"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "64",
+          .min = 16,
+          .max = (64 * GF_UNIT_KB),
+        },
+        { .key  = {"congestion-threshold"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "48",
+          .min = 12,
+          .max = (64 * GF_UNIT_KB),
+        },
         { .key = {NULL} },
 };

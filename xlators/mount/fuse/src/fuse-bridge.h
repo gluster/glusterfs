@@ -122,6 +122,10 @@ struct fuse_private {
 
         /* For communicating with separate mount thread. */
         int                  status_pipe[2];
+
+        /* for fuse queue length and congestion threshold */
+        int background_qlen;
+        int congestion_threshold;
 };
 typedef struct fuse_private fuse_private_t;
 

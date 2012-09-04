@@ -314,7 +314,8 @@ struct _cmd_args {
         pid_t            client_pid;
         int              client_pid_set;
         unsigned         uid_map_root;
-
+        int              background_qlen;
+        int              congestion_threshold;
 
 	/* key args */
 	char            *mount_point;
