@@ -899,13 +899,15 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
                         ret = -1;
                         goto out;
                 }
-                value = dict_get (volinfo->dict, key_fixed);
+                if (key_fixed)
+                        key = key_fixed;
+                value = dict_get (volinfo->dict, key);
                 if (!value) {
                         gf_log ("glusterd", GF_LOG_DEBUG,
-                                "no value set for option %s", key_fixed);
+                                "no value set for option %s", key);
                         goto out;
                 }
-                _delete_reconfig_opt (volinfo->dict, key_fixed, value, is_force);
+                _delete_reconfig_opt (volinfo->dict, key, value, is_force);
         }
 
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
