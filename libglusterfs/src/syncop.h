@@ -257,4 +257,5 @@ int syncop_readlink (xlator_t *subvol, loc_t *loc, char **buffer, size_t size);
 int syncop_mknod (xlator_t *subvol, loc_t *loc, mode_t mode, dev_t rdev,
                   dict_t *dict);
 int syncop_link (xlator_t *subvol, loc_t *oldloc, loc_t *newloc);
+int syncop_fsyncdir (xlator_t *subvol, fd_t *fd, int datasync);
 #endif /* _SYNCOP_H */
