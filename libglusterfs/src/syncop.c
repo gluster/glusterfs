@@ -665,6 +665,34 @@ syncop_opendir (xlator_t *subvol,
 }
 
 int
+syncop_fsyncdir_cbk (call_frame_t *frame, void* cookie, xlator_t *this,
+                     int op_ret, int op_errno, dict_t *xdata)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        __wake (args);
+
+        return 0;
+}
+
+int
+syncop_fsyncdir (xlator_t *subvol, fd_t *fd, int datasync)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_fsyncdir_cbk, subvol->fops->fsyncdir,
+                fd, datasync, NULL);
+
+        errno = args.op_errno;
+        return args.op_ret;
+}
+
+int
 syncop_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int op_ret, int op_errno, dict_t *xdata)
 {
