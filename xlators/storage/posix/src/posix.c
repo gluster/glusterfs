@@ -3081,9 +3081,31 @@ posix_print_xattr (dict_t *this,
 static void
 __add_array (int32_t *dest, int32_t *src, int count)
 {
+        int     i = 0;
+        int32_t destval = 0;
+        for (i = 0; i < count; i++) {
+                destval = ntoh32 (dest[i]);
+                if (destval == 0xffffffff)
+                        continue;
+                dest[i] = hton32 (destval + ntoh32 (src[i]));
+        }
+}
+
+static void
+__or_array (int32_t *dest, int32_t *src, int count)
+{
         int i = 0;
         for (i = 0; i < count; i++) {
-                dest[i] = hton32 (ntoh32 (dest[i]) + ntoh32 (src[i]));
+                dest[i] = hton32 (ntoh32 (dest[i]) | ntoh32 (src[i]));
+        }
+}
+
+static void
+__and_array (int32_t *dest, int32_t *src, int count)
+{
+        int i = 0;
+        for (i = 0; i < count; i++) {
+                dest[i] = hton32 (ntoh32 (dest[i]) & ntoh32 (src[i]));
         }
 }
 
@@ -3203,6 +3225,18 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                         case GF_XATTROP_ADD_ARRAY64:
                                 __add_long_array ((int64_t *) array, (int64_t *) v->data,
                                                   v->len / 8);
+                                break;
+
+                        case GF_XATTROP_OR_ARRAY:
+                                __or_array ((int32_t *) array,
+                                            (int32_t *) trav->value->data,
+                                            trav->value->len / 4);
+                                break;
+
+                        case GF_XATTROP_AND_ARRAY:
+                                __and_array ((int32_t *) array,
+                                             (int32_t *) trav->value->data,
+                                             trav->value->len / 4);
                                 break;
 
                         default:
