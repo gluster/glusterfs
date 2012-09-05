@@ -249,7 +249,9 @@ typedef enum {
 
 typedef enum {
 	GF_XATTROP_ADD_ARRAY,
-        GF_XATTROP_ADD_ARRAY64
+        GF_XATTROP_ADD_ARRAY64,
+        GF_XATTROP_OR_ARRAY,
+        GF_XATTROP_AND_ARRAY
 } gf_xattrop_flags_t;
 
 
