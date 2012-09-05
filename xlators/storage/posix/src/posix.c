@@ -209,7 +209,8 @@ posix_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
         if (op_ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_log (this->name, (op_errno == ENOENT)?
+                        GF_LOG_DEBUG:GF_LOG_ERROR,
                         "lstat on %s failed: %s", real_path,
                         strerror (op_errno));
                 goto out;
