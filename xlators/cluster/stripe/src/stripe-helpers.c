@@ -40,7 +40,7 @@ out:
 
 
 
-void
+int
 stripe_aggregate (dict_t *this, char *key, data_t *value, void *data)
 {
         dict_t  *dst  = NULL;
@@ -83,7 +83,7 @@ stripe_aggregate (dict_t *this, char *key, data_t *value, void *data)
         }
 
 out:
-        return;
+        return 0;
 }
 
 

@@ -649,14 +649,14 @@ struct opthandler_data {
         void *param;
 };
 
-static void
+static int
 process_option (dict_t *dict, char *key, data_t *value, void *param)
 {
         struct opthandler_data *odt = param;
         struct volopt_map_entry vme = {0,};
 
         if (odt->rv)
-                return;
+                return 0;
         odt->found = _gf_true;
 
         vme.key = key;
@@ -675,6 +675,7 @@ process_option (dict_t *dict, char *key, data_t *value, void *param)
                 vme.value = value->data;
 
         odt->rv = odt->handler (odt->graph, &vme, odt->param);
+        return 0;
 }
 
 static int
@@ -3637,16 +3638,18 @@ out:
         return ret;
 }
 
-static void
+static int
 _check_globalopt (dict_t *this, char *key, data_t *value, void *ret_val)
 {
         int *ret = NULL;
 
         ret = ret_val;
         if (*ret)
-                return;
+                return 0;
         if (!glusterd_check_globaloption (key))
                 *ret = 1;
+
+        return 0;
 }
 
 int
@@ -3692,16 +3695,18 @@ out:
         return ret;
 }
 
-static void
+static int
 _check_localopt (dict_t *this, char *key, data_t *value, void *ret_val)
 {
         int *ret = NULL;
 
         ret = ret_val;
         if (*ret)
-                return;
+                return 0;
         if (!glusterd_check_localoption (key))
                 *ret = 1;
+
+        return 0;
 }
 
 int

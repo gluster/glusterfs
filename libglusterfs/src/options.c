@@ -777,7 +777,7 @@ xlator_volume_option_get (xlator_t *xl, const char *key)
 }
 
 
-static void
+static int
 xl_opt_validate (dict_t *dict, char *key, data_t *value, void *data)
 {
         xlator_t          *xl = NULL;
@@ -798,7 +798,7 @@ xl_opt_validate (dict_t *dict, char *key, data_t *value, void *data)
 
         opt = xlator_volume_option_get_list (vol_opt, key);
         if (!opt)
-                return;
+                return 0;
 
         ret = xlator_option_validate (xl, key, value->data, opt, &errstr);
         if (ret)
@@ -816,7 +816,7 @@ xl_opt_validate (dict_t *dict, char *key, data_t *value, void *data)
                 dict_set (dict, opt->key[0], value);
                 dict_del (dict, key);
         }
-        return;
+        return 0;
 }
 
 

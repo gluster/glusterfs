@@ -122,7 +122,7 @@ dict_t *dict_ref (dict_t *dict);
 data_t *data_ref (data_t *data);
 void data_unref (data_t *data);
 
-int32_t dict_lookup  (dict_t *this, char *key, data_pair_t **data);
+int32_t dict_lookup  (dict_t *this, char *key, data_t **data);
 /*
    TODO: provide converts for differnt byte sizes, signedness, and void *
  */
@@ -165,12 +165,19 @@ data_t * data_copy (data_t *old);
 dict_t *get_new_dict_full (int size_hint);
 dict_t *get_new_dict ();
 
-void dict_foreach (dict_t *this,
-		   void (*fn)(dict_t *this,
-			      char *key,
-			      data_t *value,
-			      void *data),
-		   void *data);
+int dict_foreach (dict_t *this,
+                  int (*fn)(dict_t *this,
+                            char *key,
+                            data_t *value,
+                            void *data),
+                  void *data);
+
+int dict_foreach_fnmatch (dict_t *dict, char *pattern,
+                          int (*fn)(dict_t *this,
+                                    char *key,
+                                    data_t *value,
+                                    void *data),
+                          void *data);
 
 dict_t *dict_copy (dict_t *this, dict_t *new);
 

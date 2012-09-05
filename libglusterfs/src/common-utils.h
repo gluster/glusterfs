@@ -171,24 +171,26 @@ void gf_print_trace (int32_t signal, glusterfs_ctx_t *ctx);
         } while (0)
 
 
-#define GF_IF_INTERNAL_XATTR_GOTO(pattern, dict, trav, op_errno, label) \
+#define GF_IF_INTERNAL_XATTR_GOTO(pattern, dict, op_errno, label)       \
         do {                                                            \
                 if (!dict) {                                            \
                         gf_log (this->name, GF_LOG_ERROR,               \
                                 "setxattr dict is null");               \
                         goto label;                                     \
                 }                                                       \
-                trav = dict->members_list;                              \
-                while (trav) {                                          \
-                        if (!fnmatch (pattern, trav->key, 0)) {         \
-                                op_errno = EPERM;                       \
-                                gf_log (this->name, GF_LOG_ERROR,       \
-                                        "attempt to set internal"       \
-                                        " xattr: %s: %s", trav->key,    \
-                                        strerror (op_errno));           \
-                                goto label;                             \
-                        }                                               \
-                        trav = trav->next;                              \
+                int _handle_keyvalue_pair (dict_t *d, char *k,          \
+                                           data_t *v, void *tmp)        \
+                {                                                       \
+                        return 0;                                       \
+                }                                                       \
+                if (dict_foreach_fnmatch (dict, pattern,                  \
+                                          _handle_keyvalue_pair, NULL) > 0) { \
+                        op_errno = EPERM;                               \
+                        gf_log (this->name, GF_LOG_ERROR,               \
+                                "attempt to set internal"               \
+                                " xattr: %s: %s", pattern,              \
+                                strerror (op_errno));                   \
+                        goto label;                                     \
                 }                                                       \
         } while (0)
 

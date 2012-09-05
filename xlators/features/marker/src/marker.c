@@ -275,8 +275,10 @@ marker_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Filtering the quota extended attributes");
 
-                dict_foreach (dict, marker_filter_quota_xattr, NULL);
+                dict_foreach_fnmatch (dict, "trusted.glusterfs.quota*",
+                                      marker_filter_quota_xattr, NULL);
         }
+
         STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict, xdata);
         return 0;
 }

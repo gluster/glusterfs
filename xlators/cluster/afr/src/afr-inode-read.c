@@ -521,7 +521,7 @@ struct _xattr_key {
 };
 
 
-void
+int
 __gather_xattr_keys (dict_t *dict, char *key, data_t *value,
                      void *data)
 {
@@ -533,13 +533,14 @@ __gather_xattr_keys (dict_t *dict, char *key, data_t *value,
 
                 xkey = GF_CALLOC (1, sizeof (*xkey), gf_afr_mt_xattr_key);
                 if (!xkey)
-                        return;
+                        return -1;
 
                 xkey->key = key;
                 INIT_LIST_HEAD (&xkey->list);
 
                 list_add_tail (&xkey->list, list);
         }
+        return 0;
 }
 
 

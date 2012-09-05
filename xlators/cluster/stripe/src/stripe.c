@@ -3927,7 +3927,6 @@ int
 stripe_setxattr (call_frame_t *frame, xlator_t *this,
                  loc_t *loc, dict_t *dict, int flags, dict_t *xdata)
 {
-        data_pair_t      *pair     = NULL;
         int32_t           op_errno = EINVAL;
         xlator_list_t    *trav     = NULL;
         stripe_private_t *priv     = NULL;
@@ -3940,7 +3939,7 @@ stripe_setxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
 
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.*stripe*", dict,
-                                   pair, op_errno, err);
+                                   op_errno, err);
 
         priv = this->private;
         trav = this->children;
@@ -3992,7 +3991,6 @@ int
 stripe_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                   dict_t *dict, int flags, dict_t *xdata)
 {
-        data_pair_t    *trav     = NULL;
         int32_t         op_ret   = -1;
         int32_t         op_errno = EINVAL;
 
@@ -4001,7 +3999,7 @@ stripe_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         VALIDATE_OR_GOTO (fd, err);
 
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.*stripe*", dict,
-                                   trav, op_errno, err);
+                                   op_errno, err);
 
         STACK_WIND (frame, stripe_fsetxattr_cbk,
                     FIRST_CHILD(this),

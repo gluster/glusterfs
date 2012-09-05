@@ -1276,7 +1276,7 @@ struct _xattr_key {
         struct list_head list;
 };
 
-static void
+static int
 __gather_xattr_keys (dict_t *dict, char *key, data_t *value,
                      void *data)
 {
@@ -1288,13 +1288,14 @@ __gather_xattr_keys (dict_t *dict, char *key, data_t *value,
 
                 xkey = GF_CALLOC (1, sizeof (*xkey), gf_afr_mt_xattr_key);
                 if (!xkey)
-                        return;
+                        return -1;
 
                 xkey->key = key;
                 INIT_LIST_HEAD (&xkey->list);
 
                 list_add_tail (&xkey->list, list);
         }
+        return 0;
 }
 
 static void
@@ -1646,7 +1647,6 @@ pump_setxattr (call_frame_t *frame, xlator_t *this,
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
 	call_frame_t   *transaction_frame = NULL;
-        data_pair_t   * trav  = NULL;
 	int ret = -1;
 	int op_errno = 0;
 
@@ -1655,7 +1655,7 @@ pump_setxattr (call_frame_t *frame, xlator_t *this,
 	VALIDATE_OR_GOTO (this->private, out);
 
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.pump*", dict,
-                                   trav, op_errno, out);
+                                   op_errno, out);
 
 	priv = this->private;
         if (!priv->use_afr_in_pump) {

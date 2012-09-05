@@ -942,7 +942,7 @@ out:
 
 }
 
-void
+int
 _profile_volume_add_friend_rsp (dict_t *this, char *key, data_t *value,
                                void *data)
 {
@@ -953,7 +953,7 @@ _profile_volume_add_friend_rsp (dict_t *this, char *key, data_t *value,
         char    brick_key[256];
 
         if (strcmp (key, "count") == 0)
-                return;
+                return 0;
         sscanf (key, "%d%s", &brick_count, brick_key);
         rsp_ctx = data;
         new_value = data_copy (value);
@@ -961,6 +961,7 @@ _profile_volume_add_friend_rsp (dict_t *this, char *key, data_t *value,
         snprintf (new_key, sizeof (new_key), "%d%s",
                   rsp_ctx->count + brick_count, brick_key);
         dict_set (rsp_ctx->dict, new_key, new_value);
+        return 0;
 }
 
 int
@@ -995,7 +996,7 @@ out:
         return ret;
 }
 
-void
+int
 glusterd_volume_status_add_peer_rsp (dict_t *this, char *key, data_t *value,
                                      void *data)
 {
@@ -1008,7 +1009,7 @@ glusterd_volume_status_add_peer_rsp (dict_t *this, char *key, data_t *value,
 
         if (!strcmp (key, "count") || !strcmp (key, "cmd") ||
             !strcmp (key, "brick-index-max") || !strcmp (key, "other-count"))
-                return;
+                return -1;
 
         rsp_ctx = data;
         new_value = data_copy (value);
@@ -1029,7 +1030,7 @@ glusterd_volume_status_add_peer_rsp (dict_t *this, char *key, data_t *value,
                 gf_log ("", GF_LOG_ERROR, "Unable to set key: %s in dict",
                         key);
 
-        return;
+        return 0;
 }
 
 int

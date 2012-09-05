@@ -541,7 +541,7 @@ out:
         return ret;
 }
 
-static void
+static int
 _storeslaves (dict_t *this, char *key, data_t *value, void *data)
 {
         int32_t                      ret = 0;
@@ -556,12 +556,12 @@ _storeslaves (dict_t *this, char *key, data_t *value, void *data)
         GF_ASSERT (value && value->data);
 
         if ((!shandle) || (shandle->fd <= 0) || (!shandle->path))
-                return;
+                return -1;
 
         if (!key)
-                return;
+                return -1;
         if (!value || !value->data)
-                return;
+                return -1;
 
         gf_log ("", GF_LOG_DEBUG, "Storing in volinfo:key= %s, val=%s",
                 key, value->data);
@@ -570,12 +570,13 @@ _storeslaves (dict_t *this, char *key, data_t *value, void *data)
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to write into store"
                                 " handle for path: %s", shandle->path);
-                return;
+                return -1;
         }
+        return 0;
 }
 
 
-void _storeopts (dict_t *this, char *key, data_t *value, void *data)
+int _storeopts (dict_t *this, char *key, data_t *value, void *data)
 {
         int32_t                      ret = 0;
         int32_t                      exists = 0;
@@ -590,12 +591,12 @@ void _storeopts (dict_t *this, char *key, data_t *value, void *data)
         GF_ASSERT (value && value->data);
 
         if ((!shandle) || (shandle->fd <= 0) || (!shandle->path))
-                return;
+                return -1;
 
         if (!key)
-                return;
+                return -1;
         if (!value || !value->data)
-                return;
+                return -1;
 
         if (is_key_glusterd_hooks_friendly (key)) {
                 exists = 1;
@@ -611,15 +612,16 @@ void _storeopts (dict_t *this, char *key, data_t *value, void *data)
         } else {
                 gf_log ("", GF_LOG_DEBUG, "Discarding:key= %s, val=%s",
                         key, value->data);
-                return;
+                return 0;
         }
 
         ret = glusterd_store_save_value (shandle->fd, key, (char*)value->data);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to write into store"
                                 " handle for path: %s", shandle->path);
-                return;
+                return -1;
         }
+        return 0;
 }
 
 int32_t

@@ -455,7 +455,7 @@ struct updatedict {
 	int ret;
 };
 
-static void
+static int
 updatefn(dict_t *dict, char *key, data_t *value, void *data)
 {
 	struct updatedict *u = data;
@@ -472,17 +472,18 @@ updatefn(dict_t *dict, char *key, data_t *value, void *data)
 			u->dict = dict_new();
 			if (!u->dict) {
 				u->ret = -1;
-				return;
+				return -1;
 			}
 		}
 
 		if (dict_set(u->dict, key, value) < 0) {
 			u->ret = -1;
-			return;
+			return -1;
 		}
 
 		break;
 	}
+        return 0;
 }
 
 static int
@@ -651,13 +652,15 @@ is_mdc_key_satisfied (const char *key)
 }
 
 
-static void
+static int
 checkfn (dict_t *this, char *key, data_t *value, void *data)
 {
         struct checkpair *pair = data;
 
 	if (!is_mdc_key_satisfied (key))
 		pair->ret = 0;
+
+        return 0;
 }
 
 

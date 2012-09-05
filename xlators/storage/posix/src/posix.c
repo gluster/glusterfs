@@ -2375,7 +2375,6 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
         int32_t       op_ret                  = -1;
         int32_t       op_errno                = 0;
         char *        real_path               = NULL;
-        data_pair_t * trav                    = NULL;
         int           ret                     = -1;
 
         DECLARE_OLD_FS_ID_VAR;
@@ -2391,18 +2390,17 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
         op_ret = -1;
         dict_del (dict, GFID_XATTR_KEY);
 
-        trav = dict->members_list;
 
-        while (trav) {
-                ret = posix_handle_pair (this, real_path, trav, flags);
+        int _handle_every_keyvalue_pair (dict_t *d, char *k, data_t *v,
+                                         void *tmp)
+        {
+                ret = posix_handle_pair (this, real_path, k, v, flags);
                 if (ret < 0) {
                         op_errno = -ret;
-                        goto out;
                 }
-                trav = trav->next;
+                return ret;
         }
-
-        op_ret = 0;
+        op_ret = dict_foreach (dict, _handle_every_keyvalue_pair, NULL);
 
 out:
         SET_TO_OLD_FS_ID ();
@@ -2895,7 +2893,6 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
         int32_t            op_errno     = 0;
         struct posix_fd *  pfd          = NULL;
         int                _fd          = -1;
-        data_pair_t * trav              = NULL;
         int           ret               = -1;
 
         DECLARE_OLD_FS_ID_VAR;
@@ -2917,18 +2914,17 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
 
         dict_del (dict, GFID_XATTR_KEY);
 
-        trav = dict->members_list;
-
-        while (trav) {
-                ret = posix_fhandle_pair (this, _fd, trav, flags);
+        int _handle_every_keyvalue_pair (dict_t *d, char *k, data_t *v,
+                                         void *tmp)
+        {
+                ret = posix_fhandle_pair (this, _fd, k, v, flags);
                 if (ret < 0) {
                         op_errno = -ret;
-                        goto out;
                 }
-                trav = trav->next;
+                return ret;
         }
 
-        op_ret = 0;
+        op_ret = dict_foreach (dict, _handle_every_keyvalue_pair, NULL);
 
 out:
         SET_TO_OLD_FS_ID ();
@@ -3123,16 +3119,12 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         int              _fd = -1;
         struct posix_fd *pfd = NULL;
 
-        data_pair_t     *trav = NULL;
-
         char *    path  = NULL;
         inode_t * inode = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (xattr, out);
         VALIDATE_OR_GOTO (this, out);
-
-        trav = xattr->members_list;
 
         if (fd) {
                 ret = posix_fd_ctx_get (fd, this, &pfd);
@@ -3157,19 +3149,21 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                 inode = fd->inode;
         }
 
-        while (trav && inode) {
-                count = trav->value->len;
-                array = GF_CALLOC (count, sizeof (char),
-                                   gf_posix_mt_char);
+        int _handle_every_keyvalue_pair (dict_t *d, char *k, data_t *v,
+                                         void *tmp)
+        {
+
+                count = v->len;
+                array = GF_CALLOC (count, sizeof (char), gf_posix_mt_char);
 
                 LOCK (&inode->lock);
                 {
                         if (loc) {
-                                size = sys_lgetxattr (real_path, trav->key, (char *)array,
-                                                      trav->value->len);
+                                size = sys_lgetxattr (real_path, k,
+                                                      (char *)array, v->len);
                         } else {
-                                size = sys_fgetxattr (_fd, trav->key, (char *)array,
-                                                      trav->value->len);
+                                size = sys_fgetxattr (_fd, k, (char *)array,
+                                                      v->len);
                         }
 
                         op_errno = errno;
@@ -3182,17 +3176,17 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                                                             "supported by filesystem");
                                 } else if (op_errno != ENOENT ||
                                            !posix_special_xattr (marker_xattrs,
-                                                                 trav->key)) {
+                                                                 k)) {
                                         if (loc)
                                                 gf_log (this->name, GF_LOG_ERROR,
                                                         "getxattr failed on %s while doing "
                                                         "xattrop: Key:%s (%s)", path,
-                                                        trav->key, strerror (op_errno));
+                                                        k, strerror (op_errno));
                                         else
                                                 gf_log (this->name, GF_LOG_ERROR,
                                                         "fgetxattr failed on fd=%d while doing "
                                                         "xattrop: Key:%s (%s)", _fd,
-                                                        trav->key, strerror (op_errno));
+                                                        k, strerror (op_errno));
                                 }
 
                                 op_ret = -1;
@@ -3202,13 +3196,13 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                         switch (optype) {
 
                         case GF_XATTROP_ADD_ARRAY:
-                                __add_array ((int32_t *) array, (int32_t *) trav->value->data,
-                                             trav->value->len / 4);
+                                __add_array ((int32_t *) array, (int32_t *) v->data,
+                                             v->len / 4);
                                 break;
 
                         case GF_XATTROP_ADD_ARRAY64:
-                                __add_long_array ((int64_t *) array, (int64_t *) trav->value->data,
-                                                  trav->value->len / 8);
+                                __add_long_array ((int64_t *) array, (int64_t *) v->data,
+                                                  v->len / 8);
                                 break;
 
                         default:
@@ -3222,11 +3216,11 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                         }
 
                         if (loc) {
-                                size = sys_lsetxattr (real_path, trav->key, array,
-                                                      trav->value->len, 0);
+                                size = sys_lsetxattr (real_path, k, array,
+                                                      v->len, 0);
                         } else {
-                                size = sys_fsetxattr (_fd, trav->key, (char *)array,
-                                                      trav->value->len, 0);
+                                size = sys_fsetxattr (_fd, k, (char *)array,
+                                                      v->len, 0);
                         }
                 }
         unlock:
@@ -3241,30 +3235,29 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "setxattr failed on %s while doing xattrop: "
                                         "key=%s (%s)", path,
-                                        trav->key, strerror (op_errno));
+                                        k, strerror (op_errno));
                         else
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "fsetxattr failed on fd=%d while doing xattrop: "
                                         "key=%s (%s)", _fd,
-                                        trav->key, strerror (op_errno));
+                                        k, strerror (op_errno));
 
                         op_ret = -1;
                         goto out;
                 } else {
-                        size = dict_set_bin (xattr, trav->key, array,
-                                             trav->value->len);
+                        size = dict_set_bin (xattr, k, array, v->len);
 
                         if (size != 0) {
                                 if (loc)
                                         gf_log (this->name, GF_LOG_DEBUG,
                                                 "dict_set_bin failed (path=%s): "
                                                 "key=%s (%s)", path,
-                                                trav->key, strerror (-size));
+                                                k, strerror (-size));
                                 else
                                         gf_log (this->name, GF_LOG_DEBUG,
                                                 "dict_set_bin failed (fd=%d): "
                                                 "key=%s (%s)", _fd,
-                                                trav->key, strerror (-size));
+                                                k, strerror (-size));
 
                                 op_ret = -1;
                                 op_errno = EINVAL;
@@ -3274,8 +3267,11 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                 }
 
                 array = NULL;
-                trav = trav->next;
+
+        out:
+                return op_ret;
         }
+        op_ret = dict_foreach (xattr, _handle_every_keyvalue_pair, NULL);
 
 out:
         GF_FREE (array);

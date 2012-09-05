@@ -31,7 +31,7 @@
 #include <errno.h>
 #include "authenticate.h"
 
-static void
+static int
 init (dict_t *this, char *key, data_t *value, void *data)
 {
         void          *handle       = NULL;
@@ -59,7 +59,7 @@ init (dict_t *this, char *key, data_t *value, void *data)
         if (-1 == ret) {
                 dict_set (this, key, data_from_dynptr (NULL, 0));
                 *error = -1;
-                return;
+                return -1;
         }
 
         handle = dlopen (auth_file, RTLD_LAZY);
@@ -69,7 +69,7 @@ init (dict_t *this, char *key, data_t *value, void *data)
                 dict_set (this, key, data_from_dynptr (NULL, 0));
                 GF_FREE (auth_file);
                 *error = -1;
-                return;
+                return -1;
         }
         GF_FREE (auth_file);
 
@@ -80,7 +80,7 @@ init (dict_t *this, char *key, data_t *value, void *data)
                 dict_set (this, key, data_from_dynptr (NULL, 0));
                 dlclose (handle);
                 *error = -1;
-                return;
+                return -1;
         }
 
         auth_handle = GF_CALLOC (1, sizeof (*auth_handle),
@@ -89,7 +89,7 @@ init (dict_t *this, char *key, data_t *value, void *data)
                 dict_set (this, key, data_from_dynptr (NULL, 0));
                 *error = -1;
                 dlclose (handle);
-                return;
+                return -1;
         }
         auth_handle->vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
                                           gf_common_mt_volume_opt_list_t);
@@ -98,7 +98,7 @@ init (dict_t *this, char *key, data_t *value, void *data)
                 *error = -1;
                 GF_FREE (auth_handle);
                 dlclose (handle);
-                return;
+                return -1;
         }
         auth_handle->vol_opt->given_opt = dlsym (handle, "options");
         if (auth_handle->vol_opt->given_opt == NULL) {
@@ -111,15 +111,17 @@ init (dict_t *this, char *key, data_t *value, void *data)
 
         dict_set (this, key,
                   data_from_dynptr (auth_handle, sizeof (*auth_handle)));
+        return 0;
 }
 
-static void
+static int
 fini (dict_t *this, char *key, data_t *value, void *data)
 {
         auth_handle_t *handle = data_to_ptr (value);
         if (handle) {
                 dlclose (handle->handle);
         }
+        return 0;
 }
 
 int32_t
@@ -127,31 +129,29 @@ gf_auth_init (xlator_t *xl, dict_t *auth_modules)
 {
         int ret = 0;
         auth_handle_t *handle = NULL;
-        data_pair_t *pair = NULL;
 
         dict_foreach (auth_modules, init, &ret);
         if (ret)
                 goto out;
 
-        pair = auth_modules->members_list;
-        while (pair) {
-                handle = data_to_ptr (pair->value);
-                if (!handle) {
-                        pair = pair->next;
-                        continue;
-                }
+        int _auth_option_validate (dict_t *d, char *k, data_t *v, void *tmp)
+        {
+                handle = data_to_ptr (v);
+                if (!handle)
+                        return 0;
 
                 list_add_tail (&(handle->vol_opt->list),
                                &(xl->volume_options));
                 ret = xlator_options_validate_list (xl, xl->options,
                                                     handle->vol_opt, NULL);
-
-                if (ret)
+                if (ret) {
                         gf_log ("authenticate", GF_LOG_ERROR,
                                 "volume option validation failed");
-
-                pair = pair->next;
+                        return -1;
+                }
+                return 0;
         }
+        ret = dict_foreach (auth_modules, _auth_option_validate, NULL);
 
 out:
         if (ret) {
@@ -165,7 +165,7 @@ out:
 static dict_t *__input_params;
 static dict_t *__config_params;
 
-void
+int
 map (dict_t *this, char *key, data_t *value, void *data)
 {
         dict_t *res = data;
@@ -180,15 +180,16 @@ map (dict_t *this, char *key, data_t *value, void *data)
         } else {
                 dict_set (res, key, int_to_data (AUTH_DONT_CARE));
         }
+        return 0;
 }
 
-void
+int
 reduce (dict_t *this, char *key, data_t *value, void *data)
 {
         int64_t val = 0;
         int64_t *res = data;
         if (!data)
-                return;
+                return 0;
 
         val = data_to_int64 (value);
         switch (val)
@@ -205,6 +206,7 @@ reduce (dict_t *this, char *key, data_t *value, void *data)
         case AUTH_DONT_CARE:
                 break;
         }
+        return 0;
 }
 
 

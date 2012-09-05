@@ -2694,7 +2694,6 @@ int
 quota_setxattr (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, dict_t *dict, int flags, dict_t *xdata)
 {
-        data_pair_t    *trav     = NULL;
         int             op_errno = EINVAL;
         int             op_ret   = -1;
 
@@ -2703,7 +2702,7 @@ quota_setxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc, err);
 
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.quota*", dict,
-                                   trav, op_errno, err);
+                                   op_errno, err);
 
         STACK_WIND (frame, quota_setxattr_cbk,
                     FIRST_CHILD(this),
@@ -2727,7 +2726,6 @@ int
 quota_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                  dict_t *dict, int flags, dict_t *xdata)
 {
-        data_pair_t    *trav     = NULL;
         int32_t         op_ret   = -1;
         int32_t         op_errno = EINVAL;
 
@@ -2736,7 +2734,7 @@ quota_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         VALIDATE_OR_GOTO (fd, err);
 
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.quota*", dict,
-                                   trav, op_errno, err);
+                                   op_errno, err);
 
         STACK_WIND (frame, quota_fsetxattr_cbk,
                     FIRST_CHILD(this),

@@ -92,7 +92,6 @@ glusterfs_graph_print (struct gf_printer *gp, glusterfs_graph_t *graph)
         } while (0)
 
         xlator_t      *trav = NULL;
-        data_pair_t   *pair = NULL;
         xlator_list_t *xch = NULL;
         int            ret = 0;
         ssize_t        len = 0;
@@ -105,11 +104,18 @@ glusterfs_graph_print (struct gf_printer *gp, glusterfs_graph_t *graph)
                 GPPRINTF (gp, "volume %s\n    type %s\n", trav->name,
                           trav->type);
 
-                for (pair =  trav->options->members_list; pair && pair->next;
-                     pair = pair->next);
-                for (; pair; pair = pair->prev)
-                        GPPRINTF (gp, "    option %s %s\n", pair->key,
-                                  pair->value->data);
+                int _print_volume_options (dict_t *d, char *k, data_t *v,
+                                           void *tmp)
+                {
+                        GPPRINTF (gp, "    option %s %s\n", k, v->data);
+                        return 0;
+                out:
+                        /* means, it is a failure */
+                        return -1;
+                }
+                ret = dict_foreach (trav->options, _print_volume_options, NULL);
+                if (ret)
+                        goto out;
 
                 if (trav->children) {
                         GPPRINTF (gp, "    subvolumes");

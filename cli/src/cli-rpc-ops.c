@@ -478,7 +478,6 @@ gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
 {
         int                        ret                  = -1;
         int                        opt_count            = 0;
-        int                        k                    = 0;
         int32_t                    i                    = 0;
         int32_t                    j                    = 1;
         int32_t                    status               = 0;
@@ -494,7 +493,6 @@ gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         char                      *brick                = NULL;
         char                      *volname              = NULL;
         dict_t                    *dict                 = NULL;
-        data_pair_t               *pairs                = NULL;
         data_t                    *value                = NULL;
         cli_local_t               *local                = NULL;
         char                       key[1024]            = {0};
@@ -709,12 +707,6 @@ xml_output:
                         j++;
                 }
 
-                pairs = dict->members_list;
-                if (!pairs) {
-                        ret = -1;
-                        goto out;
-                }
-
                 snprintf (key, 256, "volume%d.opt_count",i);
                 ret = dict_get_int32 (dict, key, &opt_count);
                 if (ret)
@@ -724,26 +716,26 @@ xml_output:
                         goto out;
 
                 cli_out ("Options Reconfigured:");
-                k = 0;
 
-                while (k < opt_count) {
-
-                        snprintf (key, 256, "volume%d.option.",i);
-                        while (pairs) {
-                                ptr = strstr (pairs->key, "option.");
-                                if (ptr) {
-                                        value = pairs->value;
-                                        if (!value) {
-                                                ret = -1;
-                                                goto out;
-                                        }
-                                        cli_out_options (key, pairs->key,
-                                                         value->data);
+                snprintf (key, 256, "volume%d.option.",i);
+                int _output_volinfo_opts (dict_t *d, char *k,
+                                          data_t *v, void *tmp)
+                {
+                        ptr = strstr (k, "option.");
+                        if (ptr) {
+                                value = v;
+                                if (!value) {
+                                        ret = -1;
+                                        goto internal_out;
                                 }
-                                pairs = pairs->next;
+                                cli_out_options (key, k, v->data);
                         }
-                        k++;
+                internal_out:
+                        return ret;
                 }
+                ret = dict_foreach (dict, _output_volinfo_opts, NULL);
+                if (ret)
+                        goto out;
 
                 i++;
         }

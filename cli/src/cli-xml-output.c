@@ -136,7 +136,7 @@ out:
         return ret;
 }
 
-void
+int
 cli_xml_output_data_pair (dict_t *this, char *key, data_t *value,
                           void *data)
 {
@@ -148,7 +148,7 @@ cli_xml_output_data_pair (dict_t *this, char *key, data_t *value,
         ret = xmlTextWriterWriteFormatElement (*writer, (xmlChar *)key,
                                                "%s", value->data);
 
-        return;
+        return ret;
 }
 
 int
@@ -2077,17 +2077,9 @@ cli_xml_output_vol_info_options (xmlTextWriterPtr writer, dict_t *dict,
 {
         int             ret = -1;
         int             opt_count = 0;
-        data_pair_t     *pairs = 0;
         data_t          *value = 0;
         char            *ptr = NULL;
         char            key[1024] = {0,};
-        int             i = 0;
-
-        pairs = dict->members_list;
-        if (!pairs) {
-                ret = -1;
-                goto out;
-        }
 
         snprintf (key, sizeof (key), "%s.opt_count", prefix);
         ret = dict_get_int32 (dict, key, &opt_count);
@@ -2100,25 +2092,31 @@ cli_xml_output_vol_info_options (xmlTextWriterPtr writer, dict_t *dict,
         /* <options> */
         ret = xmlTextWriterStartElement (writer, (xmlChar *)"options");
         XML_RET_CHECK_AND_GOTO (ret, out);
-        while (i < opt_count) {
-                snprintf (key, sizeof (key), "%s.option.", prefix);
-                while (pairs) {
-                        ptr = strstr (pairs->key, "option.");
-                        if (ptr) {
-                                value = pairs->value;
-                                if (!value) {
-                                        ret = -1;
-                                        goto out;
-                                }
-                                ret = cli_xml_output_vol_info_option
-                                        (writer, key, pairs->key, value->data);
-                                if (ret)
-                                        goto out;
-                        }
-                        pairs = pairs->next;
+        snprintf (key, sizeof (key), "%s.option.", prefix);
+
+        int _output_vol_info_option (dict_t *d, char *k, data_t *v,
+                                     void *data)
+        {
+                int ret = 0;
+                ptr = strstr (k, "option.");
+                if (!ptr)
+                        goto internal_out;
+
+                value = v;
+                if (!value) {
+                        ret = -1;
+                        goto internal_out;
                 }
-                i++;
+                ret = cli_xml_output_vol_info_option (writer, key, k,
+                                                      v->data);
+
+        internal_out:
+                return ret;
         }
+        ret = dict_foreach (dict, _output_vol_info_option, NULL);
+        if (ret)
+                goto out;
+
         /* </options> */
         ret = xmlTextWriterEndElement (writer);
         XML_RET_CHECK_AND_GOTO (ret, out);

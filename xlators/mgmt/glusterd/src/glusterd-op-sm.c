@@ -851,7 +851,7 @@ out:
 }
 
 
-static void
+static int
 _delete_reconfig_opt (dict_t *this, char *key, data_t *value, void *data)
 {
         int32_t        *is_force = 0;
@@ -873,7 +873,7 @@ _delete_reconfig_opt (dict_t *this, char *key, data_t *value, void *data)
                 key, value->data);
         dict_del (this, key);
 out:
-        return;
+        return 0;
 }
 
 static int
@@ -3045,7 +3045,7 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
         return ret;
 }
 
-void
+int
 _profile_volume_add_brick_rsp (dict_t *this, char *key, data_t *value,
                              void *data)
 {
@@ -3058,6 +3058,7 @@ _profile_volume_add_brick_rsp (dict_t *this, char *key, data_t *value,
         GF_ASSERT (new_value);
         snprintf (new_key, sizeof (new_key), "%d-%s", rsp_ctx->count, key);
         dict_set (rsp_ctx->dict, new_key, new_value);
+        return 0;
 }
 
 int
@@ -3113,7 +3114,7 @@ glusterd_profile_volume_brick_rsp (void *pending_entry,
 
 //input-key: <replica-id>:<child-id>-*
 //output-key: <brick-id>-*
-void
+int
 _heal_volume_add_shd_rsp (dict_t *this, char *key, data_t *value, void *data)
 {
         char                            new_key[256] = {0,};
@@ -3170,7 +3171,7 @@ _heal_volume_add_shd_rsp (dict_t *this, char *key, data_t *value, void *data)
         dict_set (rsp_ctx->dict, new_key, new_value);
 
 out:
-        return;
+        return 0;
 }
 
 int
@@ -3206,7 +3207,7 @@ out:
         return ret;
 }
 
-void
+int
 _status_volume_add_brick_rsp (dict_t *this, char *key, data_t *value,
                               void *data)
 {
@@ -3219,7 +3220,7 @@ _status_volume_add_brick_rsp (dict_t *this, char *key, data_t *value,
         snprintf (new_key, sizeof (new_key), "brick%d.%s", rsp_ctx->count, key);
         dict_set (rsp_ctx->dict, new_key, new_value);
 
-        return;
+        return 0;
 }
 
 int
