@@ -51,9 +51,10 @@ BuildRequires: bison flex
 BuildRequires: gcc make automake libtool
 BuildRequires: ncurses-devel readline-devel openssl-devel
 BuildRequires: libxml2-devel
-BuildRequires: python-ctypes
 %if 0%{?suse_version}
 BuildRequires: python-devel
+%else
+BuildRequires: python-ctypes
 %endif
 BuildRequires: openssl-devel >= 1.0
 
@@ -425,6 +426,9 @@ fi
 %{_libdir}/*.so
 
 %changelog
+* Wed Sep 05 2012 Niels de Vos <ndevos@redhat.com>
+- Don't use python-ctypes on SLES (from Jörg Petersen)
+
 * Tue Jul 10 2012 Niels de Vos <ndevos@redhat.com>
 - Include extras/clear_xattrs.sh in the glusterfs-server sub-package
 
