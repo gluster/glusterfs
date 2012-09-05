@@ -99,7 +99,11 @@ struct _dict {
 int32_t is_data_equal (data_t *one, data_t *two);
 void data_destroy (data_t *data);
 
+/* function to set a key/value pair (overwrite existing if matches the key */
 int32_t dict_set (dict_t *this, char *key, data_t *value);
+/* function to set a new key/value pair (without checking for duplicate) */
+int32_t dict_add (dict_t *this, char *key, data_t *value);
+
 data_t *dict_get (dict_t *this, char *key);
 void dict_del (dict_t *this, char *key);
 int dict_reset (dict_t *dict);
