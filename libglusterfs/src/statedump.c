@@ -80,6 +80,45 @@ gf_proc_dump_close (void)
         gf_dump_fd = -1;
 }
 
+static int
+gf_proc_dump_set_path (char *dump_options_file)
+{
+        int     ret = -1;
+        FILE    *fp = NULL;
+        char    buf[256];
+        char    *key = NULL, *value = NULL;
+        char    *saveptr = NULL;
+
+        fp = fopen (dump_options_file, "r");
+        if (!fp)
+                goto out;
+
+        ret = fscanf (fp, "%s", buf);
+
+        while (ret != EOF) {
+                key = strtok_r (buf, "=", &saveptr);
+                if (!key) {
+                        ret = fscanf (fp, "%s", buf);
+                        continue;
+                }
+
+                value = strtok_r (NULL, "=", &saveptr);
+
+                if (!value) {
+                        ret = fscanf (fp, "%s", buf);
+                        continue;
+                }
+                if (!strcmp (key, "path")) {
+                        dump_options.dump_path = gf_strdup (value);
+                        break;
+                }
+        }
+
+out:
+        if (fp)
+                fclose (fp);
+        return ret;
+}
 
 int
 gf_proc_dump_add_section (char *key, ...)
@@ -489,6 +528,44 @@ gf_proc_dump_enable_all_options ()
         return 0;
 }
 
+gf_boolean_t
+is_gf_proc_dump_all_disabled ()
+{
+        gf_boolean_t all_disabled = _gf_true;
+
+        GF_CHECK_DUMP_OPTION_ENABLED (dump_options.dump_mem, all_disabled, out);
+        GF_CHECK_DUMP_OPTION_ENABLED (dump_options.dump_iobuf, all_disabled, out);
+        GF_CHECK_DUMP_OPTION_ENABLED (dump_options.dump_callpool, all_disabled,
+                                   out);
+        GF_CHECK_DUMP_OPTION_ENABLED (dump_options.xl_options.dump_priv,
+                                   all_disabled, out);
+        GF_CHECK_DUMP_OPTION_ENABLED (dump_options.xl_options.dump_inode,
+                                   all_disabled, out);
+        GF_CHECK_DUMP_OPTION_ENABLED (dump_options.xl_options.dump_fd,
+                                   all_disabled, out);
+        GF_CHECK_DUMP_OPTION_ENABLED (dump_options.xl_options.dump_inodectx,
+                                   all_disabled, out);
+        GF_CHECK_DUMP_OPTION_ENABLED (dump_options.xl_options.dump_fdctx,
+                                   all_disabled, out);
+        GF_CHECK_DUMP_OPTION_ENABLED (dump_options.xl_options.dump_history,
+                                   all_disabled, out);
+
+out:
+        return all_disabled;
+}
+
+/* These options are dumped by default if /tmp/glusterdump.options
+   file exists and it is emtpty
+*/
+static int
+gf_proc_dump_enable_default_options ()
+{
+        GF_PROC_DUMP_SET_OPTION (dump_options.dump_mem, _gf_true);
+        GF_PROC_DUMP_SET_OPTION (dump_options.dump_callpool, _gf_true);
+
+        return 0;
+}
+
 static int
 gf_proc_dump_disable_all_options ()
 {
@@ -567,28 +644,43 @@ gf_proc_dump_options_init ()
         int     ret = -1;
         FILE    *fp = NULL;
         char    buf[256];
-        char    dumpbuf[GF_DUMP_MAX_BUF_LEN];
         char    *key = NULL, *value = NULL;
         char    *saveptr = NULL;
         char    dump_option_file[PATH_MAX];
 
+        /* glusterd will create a file /tmp/glusterdump.<pid>.options and
+           sets the statedump options for the process and the file is removed
+           after the statedump is taken. Direct issue of SIGUSR1 does not have
+           mechanism for considering the statedump options. So to have a way
+           of configuring the statedump of all the glusterfs processes through
+           both cli command and SIGUSR1, /tmp/glusterdump.options file
+           is searched and the options mentioned in it are given the higher
+           priority.
+        */
         snprintf (dump_option_file, sizeof (dump_option_file),
-                  "/tmp/glusterdump.%d.options", getpid ());
-
+                  "/tmp/glusterdump.options");
         fp = fopen (dump_option_file, "r");
-
         if (!fp) {
-                //ENOENT, return success
-                (void) gf_proc_dump_enable_all_options ();
-                return 0;
+                snprintf (dump_option_file, sizeof (dump_option_file),
+                          "/tmp/glusterdump.%d.options", getpid ());
+
+                fp = fopen (dump_option_file, "r");
+
+                if (!fp) {
+                        //ENOENT, return success
+                        (void) gf_proc_dump_enable_all_options ();
+                        return 0;
+                }
         }
 
         (void) gf_proc_dump_disable_all_options ();
 
+        // swallow the errors if setting statedump file path is failed.
+        ret = gf_proc_dump_set_path (dump_option_file);
+
         ret = fscanf (fp, "%s", buf);
 
         while (ret != EOF) {
-
                 key = strtok_r (buf, "=", &saveptr);
                 if (!key) {
                         ret = fscanf (fp, "%s", buf);
@@ -602,19 +694,17 @@ gf_proc_dump_options_init ()
                         continue;
                 }
 
-                snprintf (dumpbuf, sizeof (dumpbuf), "[Debug]:key=%s, value=%s\n",key,value);
-                ret = write (gf_dump_fd, dumpbuf, strlen (dumpbuf));
-
                 gf_proc_dump_parse_set_option (key, value);
-
         }
+
+        if (is_gf_proc_dump_all_disabled ())
+                (void) gf_proc_dump_enable_default_options ();
 
         if (fp)
                 fclose (fp);
 
         return 0;
 }
-
 
 void
 gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
@@ -637,11 +727,14 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
         } else
                 strncpy (brick_name, "glusterdump", sizeof (brick_name));
 
-        ret = gf_proc_dump_open (ctx->statedump_path, brick_name);
+        ret = gf_proc_dump_options_init ();
         if (ret < 0)
                 goto out;
 
-        ret = gf_proc_dump_options_init ();
+        if (dump_options.dump_path)
+                ret = gf_proc_dump_open (dump_options.dump_path, brick_name);
+        else
+                ret = gf_proc_dump_open (ctx->statedump_path, brick_name);
         if (ret < 0)
                 goto out;
 
@@ -710,6 +803,8 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
 out:
         if (gf_dump_fd != -1)
                 gf_proc_dump_close ();
+        GF_FREE (dump_options.dump_path);
+        dump_options.dump_path = NULL;
         gf_proc_dump_unlock ();
 
         return;
