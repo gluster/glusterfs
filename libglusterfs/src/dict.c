@@ -232,9 +232,7 @@ dict_lookup (dict_t *this, char *key, data_t **data)
 }
 
 static int32_t
-_dict_set (dict_t *this,
-           char *key,
-           data_t *value)
+_dict_set (dict_t *this, char *key, data_t *value, gf_boolean_t replace)
 {
         int hashval;
         data_pair_t *pair;
@@ -253,17 +251,22 @@ _dict_set (dict_t *this,
 
         tmp = SuperFastHash (key, strlen (key));
         hashval = (tmp % this->hash_size);
-        pair = _dict_lookup (this, key);
 
-        if (pair) {
-                data_t *unref_data = pair->value;
-                pair->value = data_ref (value);
-                data_unref (unref_data);
-                if (key_free)
-                        GF_FREE (key);
-                /* Indicates duplicate key */
-                return 0;
+        /* Search for a existing key if 'replace' is asked for */
+        if (replace) {
+                pair = _dict_lookup (this, key);
+
+                if (pair) {
+                        data_t *unref_data = pair->value;
+                        pair->value = data_ref (value);
+                        data_unref (unref_data);
+                        if (key_free)
+                                GF_FREE (key);
+                        /* Indicates duplicate key */
+                        return 0;
+                }
         }
+
         if (this->free_pair_in_use) {
                 pair = mem_get0 (THIS->ctx->dict_pair_pool);
                 if (!pair) {
@@ -328,7 +331,28 @@ dict_set (dict_t *this,
 
         LOCK (&this->lock);
 
-        ret = _dict_set (this, key, value);
+        ret = _dict_set (this, key, value, 1);
+
+        UNLOCK (&this->lock);
+
+        return ret;
+}
+
+
+int32_t
+dict_add (dict_t *this, char *key, data_t *value)
+{
+        int32_t ret;
+
+        if (!this || !value) {
+                gf_log_callingfn ("dict", GF_LOG_WARNING,
+                                  "!this || !value for key=%s", key);
+                return -1;
+        }
+
+        LOCK (&this->lock);
+
+        ret = _dict_set (this, key, value, 0);
 
         UNLOCK (&this->lock);
 
@@ -2511,7 +2535,7 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
                 value->is_static = 0;
                 buf += vallen;
 
-                dict_set (*fill, key, value);
+                dict_add (*fill, key, value);
         }
 
         ret = 0;
