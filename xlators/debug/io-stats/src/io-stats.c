@@ -2139,7 +2139,7 @@ io_stats_fsync (call_frame_t *frame, xlator_t *this,
 }
 
 
-void
+int
 conditional_dump (dict_t *dict, char *key, data_t *value, void *data)
 {
         struct {
@@ -2163,20 +2163,21 @@ conditional_dump (dict_t *dict, char *key, data_t *value, void *data)
 
                 if (!strncmp (filename, "", 1)) {
                         gf_log (this->name, GF_LOG_ERROR, "No filename given");
-                        return;
+                        return -1;
                 }
                 logfp = fopen (filename, "w+");
                 GF_ASSERT (logfp);
                 if (!logfp) {
                         gf_log (this->name, GF_LOG_ERROR, "failed to open %s "
                                 "for writing", filename);
-                        return;
+                        return -1;
                 }
                 (void) ios_dump_args_init (&args, IOS_DUMP_TYPE_FILE,
                                            logfp);
                 io_stats_dump (this, &args);
                 fclose (logfp);
         }
+        return 0;
 }
 
 

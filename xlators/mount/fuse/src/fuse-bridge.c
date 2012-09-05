@@ -2871,7 +2871,6 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         data_t         *value_data = NULL;
         int             ret = -1;
         int32_t         len = 0;
-        data_pair_t    *trav = NULL;
 
         state = frame->root->state;
         finh  = state->finh;
@@ -2900,25 +2899,33 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         /* we need to invoke fuse_filter_xattr() twice. Once
                          * while counting size and then while filling buffer
                          */
-                        trav = dict->members_list;
-                        while (trav) {
-                                if (!fuse_filter_xattr (this, trav->key))
-                                        len += strlen (trav->key) + 1;
-                                trav = trav->next;
-                        } /* while(trav) */
+                        int _get_total_len (dict_t *d, char *k, data_t *v,
+                                            void *tmp)
+                        {
+                                if (!fuse_filter_xattr (this, k))
+                                        len += strlen (k) + 1;
+                                return 0;
+                        }
+                        dict_foreach (dict, _get_total_len, NULL);
+
                         value = alloca (len + 1);
                         if (!value)
                                 goto out;
+
                         len = 0;
-                        trav = dict->members_list;
-                        while (trav) {
-                                if (!fuse_filter_xattr (this, trav->key)) {
-                                        strcpy (value + len, trav->key);
-                                        value[len + strlen (trav->key)] = '\0';
-                                        len += strlen (trav->key) + 1;
+
+                        int _set_listxattr_keys (dict_t *d, char *k, data_t *v,
+                                                 void *tmp)
+                        {
+                                if (!fuse_filter_xattr (this, k)) {
+                                        strcpy (value + len, k);
+                                        value[len + strlen (k)] = '\0';
+                                        len += strlen (k) + 1;
                                 }
-                                trav = trav->next;
-                        } /* while(trav) */
+                                return 0;
+                        }
+                        dict_foreach (dict, _set_listxattr_keys, NULL);
+
                         send_fuse_xattr (this, finh, value, len, state->size);
                 } /* if(state->name)...else */
         } else {

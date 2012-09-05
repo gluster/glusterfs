@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <limits.h>
+#include <fnmatch.h>
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -208,7 +209,7 @@ _dict_lookup (dict_t *this, char *key)
 }
 
 int32_t
-dict_lookup (dict_t *this, char *key, data_pair_t **data)
+dict_lookup (dict_t *this, char *key, data_t **data)
 {
         if (!this || !key || !data) {
                 gf_log_callingfn ("dict", GF_LOG_WARNING,
@@ -216,16 +217,18 @@ dict_lookup (dict_t *this, char *key, data_pair_t **data)
                 return -1;
         }
 
+        data_pair_t *tmp = NULL;
         LOCK (&this->lock);
         {
-                *data = _dict_lookup (this, key);
+                tmp = _dict_lookup (this, key);
         }
         UNLOCK (&this->lock);
-        if (*data)
-                return 0;
-        else
+
+        if (!tmp)
                 return -1;
 
+        *data = tmp->value;
+        return 0;
 }
 
 static int32_t
@@ -1051,47 +1054,93 @@ data_to_bin (data_t *data)
         return data->data;
 }
 
-void
+int
 dict_foreach (dict_t *dict,
-              void (*fn)(dict_t *this,
-                         char *key,
-                         data_t *value,
-                         void *data),
+              int (*fn)(dict_t *this,
+                        char *key,
+                        data_t *value,
+                        void *data),
               void *data)
 {
         if (!dict) {
                 gf_log_callingfn ("dict", GF_LOG_WARNING,
                                   "dict is NULL");
-                return;
+                return -1;
         }
 
-        data_pair_t *pairs = dict->members_list;
-        data_pair_t *next = NULL;
+        int          ret   = -1;
+        data_pair_t *pairs = NULL;
+        data_pair_t *next  = NULL;
 
+        pairs = dict->members_list;
         while (pairs) {
                 next = pairs->next;
-                fn (dict, pairs->key, pairs->value, data);
+                ret = fn (dict, pairs->key, pairs->value, data);
+                if (ret == -1)
+                        return -1;
                 pairs = next;
         }
+
+        return 0;
+}
+
+/* return values:
+   -1 = failure,
+    0 = no matches found,
+   +n = n number of matches
+*/
+int
+dict_foreach_fnmatch (dict_t *dict, char *pattern,
+                      int (*fn)(dict_t *this,
+                                char *key,
+                                data_t *value,
+                                void *data),
+                      void *data)
+{
+        if (!dict) {
+                gf_log_callingfn ("dict", GF_LOG_WARNING,
+                                  "dict is NULL");
+                return 0;
+        }
+
+        int          ret = -1;
+        int          count = 0;
+        data_pair_t *pairs = NULL;
+        data_pair_t *next  = NULL;
+
+        pairs = dict->members_list;
+        while (pairs) {
+                next = pairs->next;
+                if (!fnmatch (pattern, pairs->key, 0)) {
+                        ret = fn (dict, pairs->key, pairs->value, data);
+                        if (ret == -1)
+                                return -1;
+                        count++;
+                }
+                pairs = next;
+        }
+
+        return count;
 }
 
 
-static void
+static int
 _copy (dict_t *unused,
        char *key,
        data_t *value,
        void *newdict)
 {
-        dict_set ((dict_t *)newdict, key, (value));
+        return dict_set ((dict_t *)newdict, key, (value));
 }
 
-static void
+static int
 _remove (dict_t *dict,
          char *key,
          data_t *value,
          void *unused)
 {
         dict_del ((dict_t *)dict, key);
+        return 0;
 }
 
 

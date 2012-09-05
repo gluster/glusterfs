@@ -1615,7 +1615,7 @@ out:
         return ret;
 }
 
-void
+int
 _add_volinfo_dict_to_prdict (dict_t *this, char *key, data_t *value, void *data)
 {
         glusterd_voldict_ctx_t   *ctx = NULL;
@@ -1637,7 +1637,7 @@ _add_volinfo_dict_to_prdict (dict_t *this, char *key, data_t *value, void *data)
                         ctx->val_name, ctx->count, value->data);
         ctx->opt_count++;
 
-        return;
+        return ret;
 }
 
 int32_t
@@ -3495,7 +3495,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
         return ret;
 }
 
-void
+int
 _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
 {
         char                        *slave = NULL;
@@ -3509,11 +3509,13 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         if (slave)
                 slave ++;
         else
-                return;
+                return 0;
         uuid_len = (slave - value->data - 1);
 
         strncpy (uuid_str, (char*)value->data, uuid_len);
         glusterd_start_gsync (volinfo, slave, uuid_str, NULL);
+
+        return 0;
 }
 
 int

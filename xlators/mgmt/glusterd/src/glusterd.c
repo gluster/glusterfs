@@ -655,7 +655,7 @@ check_prepare_mountbroker_root (char *mountbroker_root)
         return ret;
 }
 
-static void
+static int
 _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
 {
         glusterd_conf_t *priv           = THIS->private;
@@ -671,7 +671,7 @@ _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
         char            *volfile_server = NULL;
 
         if (*ret == -1)
-                return;
+                return -1;
 
         label = strtail (key, "mountbroker.");
 
@@ -688,7 +688,7 @@ _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
         }
 
         if (!label)
-                return;
+                return -1;
 
         mspec = GF_CALLOC (1, sizeof (*mspec), gf_gld_mt_mount_spec);
         if (!mspec)
@@ -727,7 +727,7 @@ _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
 
         list_add_tail (&mspec->speclist, &priv->mount_specs);
 
-        return;
+        return 0;
  err:
 
         gf_log ("", GF_LOG_ERROR,
@@ -735,6 +735,7 @@ _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
                 georep ? GEOREP" " : "", label, pdesc);
 
         *ret = -1;
+        return -1;
 }
 
 /*

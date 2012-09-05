@@ -509,7 +509,7 @@ out:
 }
 
 
-static void
+static int
 get_auth_types (dict_t *this, char *key, data_t *value, void *data)
 {
         dict_t   *auth_dict = NULL;
@@ -546,7 +546,7 @@ get_auth_types (dict_t *this, char *key, data_t *value, void *data)
 
         GF_FREE (key_cpy);
 out:
-        return;
+        return 0;
 }
 
 
@@ -555,7 +555,6 @@ validate_auth_options (xlator_t *this, dict_t *dict)
 {
         int            error = -1;
         xlator_list_t *trav = NULL;
-        data_pair_t   *pair = NULL;
         char          *tail = NULL;
         char          *tmp_addr_list = NULL;
         char          *addr = NULL;
@@ -566,51 +565,52 @@ validate_auth_options (xlator_t *this, dict_t *dict)
 
         trav = this->children;
         while (trav) {
-                error = -1;
-                for (pair = dict->members_list; pair; pair = pair->next) {
-                        tail = strtail (pair->key, "auth.");
+                int _check_for_auth_option (dict_t *d, char *k, data_t *v,
+                                            void *tmp)
+                {
+                        int ret = 0;
+                        tail = strtail (k, "auth.");
                         if (!tail)
-                                continue;
+                                goto internal_out;
+
                         /* fast fwd thru module type */
                         tail = strchr (tail, '.');
                         if (!tail)
-                                continue;
+                                goto internal_out;
                         tail++;
 
                         tail = strtail (tail, trav->xlator->name);
                         if (!tail)
-                                continue;
+                                goto internal_out;
 
                         if (*tail == '.') {
-                                error = 0;
 
                                 /* when we are here, the key is checked for
                                  * valid auth.allow.<xlator>
                                  * Now we verify the ip address
                                  */
-                                if (!strcmp (pair->value->data, "*")) {
-                                     error = 0;
-                                     goto out;
+                                if (!strcmp (v->data, "*")) {
+                                        ret = 0;
+                                        goto internal_out;
                                 }
 
-                                tmp_addr_list = gf_strdup (pair->value->data);
-                                addr = strtok_r (tmp_addr_list, ",",
-                                                &tmp_str);
+                                tmp_addr_list = gf_strdup (v->data);
+                                addr = strtok_r (tmp_addr_list, ",", &tmp_str);
                                 if (!addr)
-                                        addr = pair->value->data;
+                                        addr = v->data;
 
                                 while (addr) {
 
-                                        if (valid_internet_address
-                                                        (addr, _gf_true)) {
-                                                error = 0;
+                                        if (valid_internet_address (addr,
+                                                                    _gf_true)) {
+                                                ret = 0;
                                         } else {
-                                                error = -1;
+                                                ret = -1;
                                                 gf_log (this->name, GF_LOG_ERROR,
                                                         "internet address '%s'"
                                                         " does not conform to"
                                                         " standards.", addr);
-                                                goto out;
+                                                goto internal_out;
 
                                         }
                                         if (tmp_str)
@@ -623,8 +623,10 @@ validate_auth_options (xlator_t *this, dict_t *dict)
                                 GF_FREE (tmp_addr_list);
                                 tmp_addr_list = NULL;
                         }
-
+                internal_out:
+                        return ret;
                 }
+                error = dict_foreach (dict, _check_for_auth_option, NULL);
 
                 if (-1 == error) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -766,31 +768,24 @@ out:
 }
 
 
-static void
-_delete_auth_opt (dict_t *this,
-                char *key,
-                data_t *value,
-                void *data)
+static int
+_delete_auth_opt (dict_t *this, char *key, data_t *value, void *data)
 {
         char *auth_option_pattern[] = { "auth.addr.*.allow",
                                         "auth.addr.*.reject"};
-        if (fnmatch ( auth_option_pattern[0], key, 0) != 0) {
-                dict_del (this, key);
-                return;
-        }
 
-        if (fnmatch ( auth_option_pattern[1], key, 0) != 0) {
+        if (fnmatch ( auth_option_pattern[0], key, 0) != 0)
                 dict_del (this, key);
-                return;
-        }
+
+        if (fnmatch ( auth_option_pattern[1], key, 0) != 0)
+                dict_del (this, key);
+
+        return 0;
 }
 
 
-static void
-_copy_auth_opt (dict_t *unused,
-                char *key,
-                data_t *value,
-                void *xl_dict)
+static int
+_copy_auth_opt (dict_t *unused, char *key, data_t *value, void *xl_dict)
 {
         char *auth_option_pattern[] = { "auth.addr.*.allow",
                                         "auth.addr.*.reject"};
@@ -799,6 +794,8 @@ _copy_auth_opt (dict_t *unused,
 
         if (fnmatch ( auth_option_pattern[1], key, 0) != 0)
                 dict_set ((dict_t *)xl_dict, key, (value));
+
+        return 0;
 }
 
 

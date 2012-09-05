@@ -435,20 +435,22 @@ out:
 void
 _xattrop_index_action (xlator_t *this, inode_t *inode,  dict_t *xattr)
 {
-        data_pair_t       *trav = NULL;
         gf_boolean_t      zero_xattr = _gf_true;
         index_inode_ctx_t *ctx = NULL;
         int               ret = 0;
 
-        trav = xattr->members_list;
-        while (trav && inode) {
-                if (mem_0filled ((const char*)trav->value->data,
-                                 trav->value->len)) {
+        int _check_key_is_zero_filled (dict_t *d, char *k, data_t *v,
+                                       void *tmp)
+        {
+                if (mem_0filled ((const char*)v->data, v->len)) {
                         zero_xattr = _gf_false;
-                        break;
+                        /* -1 means, no more iterations, treat as 'break' */
+                        return -1;
                 }
-                trav = trav->next;
+                return 0;
         }
+        dict_foreach (xattr, _check_key_is_zero_filled, NULL);
+
         ret = index_inode_ctx_get (inode, this, &ctx);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Not able to %s %s -> index",

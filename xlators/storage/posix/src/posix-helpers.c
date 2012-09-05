@@ -108,7 +108,7 @@ out:
         return ignore;
 }
 
-static void
+static int
 _posix_xattr_get_set (dict_t *xattr_req,
                       char *key,
                       data_t *data,
@@ -202,7 +202,7 @@ _posix_xattr_get_set (dict_t *xattr_req,
                         value = GF_CALLOC (1, xattr_size + 1,
                                            gf_posix_mt_char);
                         if (!value)
-                                return;
+                                return -1;
 
                         xattr_size = sys_lgetxattr (filler->real_path, key, value,
                                                     xattr_size);
@@ -211,7 +211,7 @@ _posix_xattr_get_set (dict_t *xattr_req,
                                         "getxattr failed. path: %s, key: %s",
                                         filler->real_path, key);
                                 GF_FREE (value);
-                                return;
+                                return -1;
                         }
 
                         value[xattr_size] = '\0';
@@ -226,7 +226,7 @@ _posix_xattr_get_set (dict_t *xattr_req,
                 }
         }
 out:
-        return;
+        return 0;
 }
 
 
@@ -493,8 +493,8 @@ out:
 
 
 int
-posix_set_file_contents (xlator_t *this, const char *path, data_pair_t *trav,
-                         int flags)
+posix_set_file_contents (xlator_t *this, const char *path, char *keyp,
+                         data_t *value, int flags)
 {
         char *      key                        = NULL;
         char        real_path[PATH_MAX];
@@ -506,7 +506,7 @@ posix_set_file_contents (xlator_t *this, const char *path, data_pair_t *trav,
         /* XXX: does not handle assigning GFID to created files */
         return -1;
 
-        key = &(trav->key[15]);
+        key = &(keyp[15]);
         sprintf (real_path, "%s/%s", path, key);
 
         if (flags & XATTR_REPLACE) {
@@ -518,9 +518,8 @@ posix_set_file_contents (xlator_t *this, const char *path, data_pair_t *trav,
                         goto create;
                 }
 
-                if (trav->value->len) {
-                        ret = write (file_fd, trav->value->data,
-                                     trav->value->len);
+                if (value->len) {
+                        ret = write (file_fd, value->data, value->len);
                         if (ret == -1) {
                                 op_ret = -errno;
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -552,7 +551,7 @@ posix_set_file_contents (xlator_t *this, const char *path, data_pair_t *trav,
                         goto out;
                 }
 
-                ret = write (file_fd, trav->value->data, trav->value->len);
+                ret = write (file_fd, value->data, value->len);
                 if (ret == -1) {
                         op_ret = -errno;
                         gf_log (this->name, GF_LOG_ERROR,
@@ -648,17 +647,17 @@ static int gf_xattr_enotsup_log;
 
 int
 posix_handle_pair (xlator_t *this, const char *real_path,
-                   data_pair_t *trav, int flags)
+                   char *key, data_t *value, int flags)
 {
         int sys_ret = -1;
         int ret     = 0;
 
-        if (ZR_FILE_CONTENT_REQUEST(trav->key)) {
-                ret = posix_set_file_contents (this, real_path, trav, flags);
+        if (ZR_FILE_CONTENT_REQUEST(key)) {
+                ret = posix_set_file_contents (this, real_path, key, value,
+                                               flags);
         } else {
-                sys_ret = sys_lsetxattr (real_path, trav->key,
-                                         trav->value->data,
-                                         trav->value->len, flags);
+                sys_ret = sys_lsetxattr (real_path, key, value->data,
+                                         value->len, flags);
 
                 if (sys_ret < 0) {
                         if (errno == ENOTSUP) {
@@ -670,7 +669,7 @@ posix_handle_pair (xlator_t *this, const char *real_path,
                                                     "flag)");
                         } else if (errno == ENOENT) {
                                 if (!posix_special_xattr (marker_xattrs,
-                                                          trav->key)) {
+                                                          key)) {
                                         gf_log (this->name, GF_LOG_ERROR,
                                                 "setxattr on %s failed: %s",
                                                 real_path, strerror (errno));
@@ -682,12 +681,12 @@ posix_handle_pair (xlator_t *this, const char *real_path,
                                         ((errno == EINVAL) ?
                                          GF_LOG_DEBUG : GF_LOG_ERROR),
                                         "%s: key:%s error:%s",
-                                        real_path, trav->key,
+                                        real_path, key,
                                         strerror (errno));
 #else /* ! DARWIN */
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "%s: key:%s error:%s",
-                                        real_path, trav->key,
+                                        real_path, key,
                                         strerror (errno));
 #endif /* DARWIN */
                         }
@@ -702,13 +701,13 @@ out:
 
 int
 posix_fhandle_pair (xlator_t *this, int fd,
-                    data_pair_t *trav, int flags)
+                    char *key, data_t *value, int flags)
 {
         int sys_ret = -1;
         int ret     = 0;
 
-        sys_ret = sys_fsetxattr (fd, trav->key, trav->value->data,
-                                 trav->value->len, flags);
+        sys_ret = sys_fsetxattr (fd, key, value->data,
+                                 value->len, flags);
 
         if (sys_ret < 0) {
                 if (errno == ENOTSUP) {
@@ -729,13 +728,11 @@ posix_fhandle_pair (xlator_t *this, int fd,
                                 ((errno == EINVAL) ?
                                  GF_LOG_DEBUG : GF_LOG_ERROR),
                                 "fd=%d: key:%s error:%s",
-                                fd, trav->key,
-                                strerror (errno));
+                                fd, key, strerror (errno));
 #else /* ! DARWIN */
                         gf_log (this->name, GF_LOG_ERROR,
                                 "fd=%d: key:%s error:%s",
-                                fd, trav->key,
-                                strerror (errno));
+                                fd, key, strerror (errno));
 #endif /* DARWIN */
                 }
 
@@ -934,33 +931,31 @@ int
 posix_entry_create_xattr_set (xlator_t *this, const char *path,
                              dict_t *dict)
 {
-        data_pair_t *trav = NULL;
         int ret = -1;
 
         if (!dict)
                 goto out;
 
-        trav = dict->members_list;
-        while (trav) {
-                if (!strcmp (GFID_XATTR_KEY, trav->key) ||
-                    !strcmp ("gfid-req", trav->key) ||
-                    !strcmp ("system.posix_acl_default", trav->key) ||
-                    !strcmp ("system.posix_acl_access", trav->key) ||
-                    ZR_FILE_CONTENT_REQUEST(trav->key)) {
-                        trav = trav->next;
-                        continue;
+        int _handle_keyvalue_pair (dict_t *d, char *k, data_t *v,
+                                   void *tmp)
+        {
+                if (!strcmp (GFID_XATTR_KEY, k) ||
+                    !strcmp ("gfid-req", k) ||
+                    !strcmp ("system.posix_acl_default", k) ||
+                    !strcmp ("system.posix_acl_access", k) ||
+                    ZR_FILE_CONTENT_REQUEST(k)) {
+                        return 0;
                 }
 
-                ret = posix_handle_pair (this, path, trav, XATTR_CREATE);
+                ret = posix_handle_pair (this, path, k, v, XATTR_CREATE);
                 if (ret < 0) {
                         errno = -ret;
-                        ret = -1;
-                        goto out;
+                        return -1;
                 }
-                trav = trav->next;
+                return 0;
         }
 
-        ret = 0;
+        ret = dict_foreach (dict, _handle_keyvalue_pair, NULL);
 
 out:
         return ret;

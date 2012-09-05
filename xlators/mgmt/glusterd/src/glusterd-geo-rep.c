@@ -172,7 +172,7 @@ glusterd_urltransform_add (runner_t *runner, const char *url)
         runner_add_arg (runner, url);
 }
 
-static void
+static int
 _glusterd_urltransform_add_iter (dict_t *dict, char *key, data_t *value, void *data)
 {
         runner_t *runner = (runner_t *)data;
@@ -182,6 +182,8 @@ _glusterd_urltransform_add_iter (dict_t *dict, char *key, data_t *value, void *d
         GF_ASSERT (slave);
         slave++;
         runner_add_arg (runner, slave);
+
+        return 0;
 }
 
 static void
@@ -296,7 +298,7 @@ struct dictidxmark {
         char *ikey;
 };
 
-static void
+static int
 _dict_mark_atindex (dict_t *dict, char *key, data_t *value, void *data)
 {
         struct dictidxmark *dim = data;
@@ -305,6 +307,7 @@ _dict_mark_atindex (dict_t *dict, char *key, data_t *value, void *data)
                 dim->ikey = key;
 
         dim->ithis++;
+        return 0;
 }
 
 static char *
@@ -734,7 +737,7 @@ static int
 glusterd_get_gsync_status_mst_slv (glusterd_volinfo_t *volinfo,
                                    char *slave, dict_t *rsp_dict);
 
-static void
+static int
 _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
 {
         glusterd_gsync_status_temp_t  *param = NULL;
@@ -750,15 +753,15 @@ _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
         if (slave)
                 slave ++;
         else
-                return;
+                return 0;
 
         ret = glusterd_get_gsync_status_mst_slv(param->volinfo,
                                                 slave, param->rsp_dict);
-
+        return 0;
 }
 
 
-static void
+static int
 _get_max_gsync_slave_num (dict_t *this, char *key, data_t *value, void *data)
 {
         int  tmp_slvnum = 0;
@@ -767,6 +770,8 @@ _get_max_gsync_slave_num (dict_t *this, char *key, data_t *value, void *data)
         sscanf (key, "slave%d", &tmp_slvnum);
         if (tmp_slvnum > *slvnum)
                 *slvnum = tmp_slvnum;
+
+        return 0;
 }
 
 static int
@@ -1987,7 +1992,7 @@ glusterd_do_gsync_log_rotation_mst_slv (glusterd_volinfo_t *volinfo, char *slave
         return ret;
 }
 
-static void
+static int
 _iterate_log_rotate_mst_slv (dict_t *this, char *key, data_t *value, void *data)
 {
         glusterd_gsync_status_temp_t  *param = NULL;
@@ -2004,10 +2009,11 @@ _iterate_log_rotate_mst_slv (dict_t *this, char *key, data_t *value, void *data)
         else {
                 gf_log ("", GF_LOG_ERROR, "geo-replication log-rotate: slave (%s) "
                         "not conforming to format", slave);
-                return;
+                return -1;
         }
 
         (void) glusterd_do_gsync_log_rotation_mst_slv (param->volinfo, slave, NULL);
+        return 0;
 }
 
 static int

@@ -298,7 +298,7 @@ glusterfs_graph_init (glusterfs_graph_t *graph)
 }
 
 
-static void
+static int
 _log_if_unknown_option (dict_t *dict, char *key, data_t *value, void *data)
 {
         volume_option_t   *found = NULL;
@@ -313,7 +313,7 @@ _log_if_unknown_option (dict_t *dict, char *key, data_t *value, void *data)
                         "option '%s' is not recognized", key);
         }
 
-        return;
+        return 0;
 }
 
 

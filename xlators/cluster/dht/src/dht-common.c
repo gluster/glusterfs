@@ -26,13 +26,13 @@
 #include <sys/time.h>
 #include <libgen.h>
 
-void
+int
 dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
 {
         dict_t  *dst  = NULL;
         int64_t *ptr  = 0, *size = NULL;
         int32_t  ret  = -1;
-        data_pair_t  *data_pair = NULL;
+        data_t  *dict_data = NULL;
 
         dst = data;
 
@@ -44,30 +44,30 @@ dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
                         if (size == NULL) {
                                 gf_log ("dht", GF_LOG_WARNING,
                                         "memory allocation failed");
-                                return;
+                                return -1;
                         }
                         ret = dict_set_bin (dst, key, size, sizeof (int64_t));
                         if (ret < 0) {
                                 gf_log ("dht", GF_LOG_WARNING,
                                         "dht aggregate dict set failed");
                                 GF_FREE (size);
-                                return;
+                                return -1;
                         }
                 }
 
                 ptr = data_to_bin (value);
                 if (ptr == NULL) {
                         gf_log ("dht", GF_LOG_WARNING, "data to bin failed");
-                        return;
+                        return -1;
                 }
 
                 *size = hton64 (ntoh64 (*size) + ntoh64 (*ptr));
         } else {
                 /* compare user xattrs only */
                 if (!strncmp (key, "user.", strlen ("user."))) {
-                        ret = dict_lookup (dst, key, &data_pair); 
-                        if (!ret && data_pair && value) {
-                                ret = is_data_equal (data_pair->value, value);
+                        ret = dict_lookup (dst, key, &dict_data);
+                        if (!ret && dict_data && value) {
+                                ret = is_data_equal (dict_data, value);
                                 if (!ret)
                                         gf_log ("dht", GF_LOG_DEBUG,
                                                 "xattr mismatch for %s", key);
@@ -78,7 +78,7 @@ dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
                         gf_log ("dht", GF_LOG_WARNING, "xattr dict set failed");
         }
 
-        return;
+        return 0;
 }
 
 
@@ -2100,7 +2100,6 @@ dht_fsetxattr (call_frame_t *frame, xlator_t *this,
         xlator_t     *subvol   = NULL;
         dht_local_t  *local    = NULL;
         int           op_errno = EINVAL;
-        data_pair_t  *trav     = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -2108,7 +2107,7 @@ dht_fsetxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (fd->inode, err);
 
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.dht*", xattr,
-                                   trav, op_errno, err);
+                                   op_errno, err);
 
         local = dht_local_init (frame, NULL, fd, GF_FOP_FSETXATTR);
         if (!local) {
@@ -2206,8 +2205,6 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         char          value[4096] = {0,};
         gf_dht_migrate_data_type_t forced_rebalance = GF_DHT_MIGRATE_DATA;
         int           call_cnt = 0;
-        data_pair_t  *trav     = NULL;
-
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -2216,7 +2213,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->path, err);
 
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.dht*", xattr,
-                                   trav, op_errno, err);
+                                   op_errno, err);
 
         conf   = this->private;
         local = dht_local_init (frame, loc, NULL, GF_FOP_SETXATTR);

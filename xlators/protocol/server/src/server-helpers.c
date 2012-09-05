@@ -1388,7 +1388,6 @@ int
 gf_server_check_setxattr_cmd (call_frame_t *frame, dict_t *dict)
 {
 
-        data_pair_t      *pair = NULL;
         server_conf_t    *conf = NULL;
         rpc_transport_t  *xprt = NULL;
         uint64_t          total_read = 0;
@@ -1398,19 +1397,23 @@ gf_server_check_setxattr_cmd (call_frame_t *frame, dict_t *dict)
         if (!conf || !dict)
                 return 0;
 
-        for (pair = dict->members_list; pair; pair = pair->next) {
-                /* this exact key is used in 'io-stats' too.
-                 * But this is better place for this information dump.
-                 */
-                if (fnmatch ("*io*stat*dump", pair->key, 0) == 0) {
-                        list_for_each_entry (xprt, &conf->xprt_list, list) {
-                                total_read  += xprt->total_bytes_read;
-                                total_write += xprt->total_bytes_write;
-                        }
-                        gf_log ("stats", GF_LOG_INFO,
-                                "total-read %"PRIu64", total-write %"PRIu64,
-                                total_read, total_write);
+        /* this exact key is used in 'io-stats' too.
+         * But this is better place for this information dump.
+         */
+        int _handle_keyvalue_pair (dict_t *d, char *k,
+                                   data_t *v, void *tmp)
+        {
+                return 0;
+        }
+        if (dict_foreach_fnmatch (dict, "*io*stat*dump",
+                                  _handle_keyvalue_pair, NULL ) > 0) {
+                list_for_each_entry (xprt, &conf->xprt_list, list) {
+                        total_read  += xprt->total_bytes_read;
+                        total_write += xprt->total_bytes_write;
                 }
+                gf_log ("stats", GF_LOG_INFO,
+                        "total-read %"PRIu64", total-write %"PRIu64,
+                        total_read, total_write);
         }
 
         return 0;

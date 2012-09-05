@@ -1478,17 +1478,16 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
         afr_private_t  *priv              = NULL;
         afr_local_t    *local             = NULL;
         call_frame_t   *transaction_frame = NULL;
-        data_pair_t    *trav              = NULL;
         int             ret               = -1;
         int             op_errno          = EINVAL;
 
         VALIDATE_OR_GOTO (this, out);
 
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.afr.*", dict,
-                                   trav, op_errno, out);
+                                   op_errno, out);
 
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.afr.*", dict,
-                                   trav, op_errno, out);
+                                   op_errno, out);
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this->private, out);
@@ -1667,17 +1666,16 @@ afr_fsetxattr (call_frame_t *frame, xlator_t *this,
         call_frame_t     *transaction_frame = NULL;
         int               ret               = -1;
         int               op_errno          = EINVAL;
-        data_pair_t      *trav              = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (this->private, out);
 
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.afr.*", dict,
-                                   trav, op_errno, out);
+                                   op_errno, out);
 
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.afr.*", dict,
-                                   trav, op_errno, out);
+                                   op_errno, out);
 
         if (ret)
                 goto out;

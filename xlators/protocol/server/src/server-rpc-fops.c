@@ -904,15 +904,19 @@ server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret == -1) {
-                gf_log (this->name, ((op_errno == ENOTSUP) ?
-                                     GF_LOG_DEBUG : GF_LOG_INFO),
-                        "%"PRId64": SETXATTR %s (%s) ==> %s (%s)",
-                        frame->root->unique, state->loc.path,
-                        uuid_utoa (state->resolve.gfid),
-                        ((state->dict) ? ((state->dict->members_list) ?
-                                          state->dict->members_list->key :
-                                          "(null)") : ("null")),
-                        strerror (op_errno));
+                /* print every key */
+                int _log_setxattr_failure (dict_t *d, char *k, data_t *v,
+                                           void *tmp)
+                {
+                        gf_log (this->name, ((op_errno == ENOTSUP) ?
+                                             GF_LOG_DEBUG : GF_LOG_INFO),
+                                "%"PRId64": SETXATTR %s (%s) ==> %s (%s)",
+                                frame->root->unique, state->loc.path,
+                                uuid_utoa (state->resolve.gfid), k,
+                                strerror (op_errno));
+                        return 0;
+                }
+                dict_foreach (state->dict, _log_setxattr_failure, NULL);
                 goto out;
         }
 
@@ -944,15 +948,19 @@ server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret == -1) {
-                gf_log (this->name, ((op_errno == ENOTSUP) ?
-                                     GF_LOG_DEBUG : GF_LOG_INFO),
-                        "%"PRId64": FSETXATTR %"PRId64" (%s) ==> %s (%s)",
-                        frame->root->unique, state->resolve.fd_no,
-                        uuid_utoa (state->resolve.gfid),
-                        ((state->dict) ? ((state->dict->members_list) ?
-                                          state->dict->members_list->key :
-                                          "(null)") : "null"),
-                        strerror (op_errno));
+                /* print every key here */
+                int _log_setxattr_failure (dict_t *d, char *k, data_t *v,
+                                           void *tmp)
+                {
+                        gf_log (this->name, ((op_errno == ENOTSUP) ?
+                                             GF_LOG_DEBUG : GF_LOG_INFO),
+                                "%"PRId64": FSETXATTR %"PRId64" (%s) ==> %s (%s)",
+                                frame->root->unique, state->resolve.fd_no,
+                                uuid_utoa (state->resolve.gfid), k,
+                                strerror (op_errno));
+                        return 0;
+                }
+                dict_foreach (state->dict, _log_setxattr_failure, NULL);
                 goto out;
         }
 
