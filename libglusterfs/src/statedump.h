@@ -31,6 +31,7 @@ typedef struct gf_dump_options_ {
         gf_boolean_t            dump_iobuf;
         gf_boolean_t            dump_callpool;
         gf_dump_xl_options_t    xl_options; //options for all xlators
+        char                    *dump_path;
 } gf_dump_options_t;
 
 extern gf_dump_options_t dump_options;
@@ -54,6 +55,14 @@ void _gf_proc_dump_build_key (char *key, const char *prefix, char *fmt,...)
         }
 
 #define GF_PROC_DUMP_SET_OPTION(opt,val) opt = val
+
+#define GF_CHECK_DUMP_OPTION_ENABLED(option_dump, var, label)      \
+        do {                                                    \
+                if (option_dump == _gf_true) {                  \
+                        var = _gf_false;                        \
+                        goto label;                             \
+                }                                               \
+        } while (0);
 
 void gf_proc_dump_init();
 
