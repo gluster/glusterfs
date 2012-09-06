@@ -664,14 +664,10 @@ _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
         gf_boolean_t     ghadoop        = _gf_false;
         char            *pdesc          = value->data;
         char            *volname        = NULL;
-        int             *ret            = data;
         int              rv             = 0;
         gf_mount_spec_t *mspec          = NULL;
         char            *user           = NULL;
         char            *volfile_server = NULL;
-
-        if (*ret == -1)
-                return -1;
 
         label = strtail (key, "mountbroker.");
 
@@ -688,7 +684,7 @@ _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
         }
 
         if (!label)
-                return -1;
+                return 0;
 
         mspec = GF_CALLOC (1, sizeof (*mspec), gf_gld_mt_mount_spec);
         if (!mspec)
@@ -734,7 +730,6 @@ _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
                 "adding %smount spec failed: label: %s desc: %s",
                 georep ? GEOREP" " : "", label, pdesc);
 
-        *ret = -1;
         return -1;
 }
 
@@ -987,8 +982,7 @@ init (xlator_t *this)
 
         INIT_LIST_HEAD (&conf->mount_specs);
 
-        ret = 0;
-        dict_foreach (this->options, _install_mount_spec, &ret);
+        ret = dict_foreach (this->options, _install_mount_spec, NULL);
         if (ret)
                 goto out;
         ret = dict_get_str (this->options, "mountbroker-root",
