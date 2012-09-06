@@ -294,7 +294,11 @@ cli_opt_parse (char *opt, struct cli_state *state)
         }
 
         if (strcmp (opt, "xml") == 0) {
+#if (HAVE_LIB_XML)
                 state->mode |= GLUSTER_MODE_XML;
+#else
+                cli_err ("XML output not supported. Ignoring '--xml' option");
+#endif
                 return 0;
         }
 

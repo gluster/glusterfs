@@ -942,6 +942,7 @@ pump_execute_status (call_frame_t *frame, xlator_t *this)
         uint64_t number_files = 0;
 
         char filename[PATH_MAX];
+        char summary[PATH_MAX+256];
         char *dict_str = NULL;
 
         int32_t op_ret = 0;
@@ -970,12 +971,15 @@ pump_execute_status (call_frame_t *frame, xlator_t *this)
         }
 
         if (pump_priv->pump_finished) {
-        snprintf (dict_str, PATH_MAX + 256, "Number of files migrated = %"PRIu64"        Migration complete ",
-                  number_files);
+                snprintf (summary, PATH_MAX+256,
+                          "no_of_files=%"PRIu64, number_files);
         } else {
-        snprintf (dict_str, PATH_MAX + 256, "Number of files migrated = %"PRIu64"       Current file= %s ",
-                  number_files, filename);
+                snprintf (summary, PATH_MAX+256,
+                          "no_of_files=%"PRIu64":current_file=%s",
+                          number_files, filename);
         }
+        snprintf (dict_str, PATH_MAX+256, "status=%d:%s",
+                  (pump_priv->pump_finished)?1:0, summary);
 
         dict = dict_new ();
 
