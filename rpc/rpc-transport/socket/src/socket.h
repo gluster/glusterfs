@@ -158,6 +158,8 @@ struct gf_sock_incoming_frag {
         sp_rpcfrag_state_t state;
 };
 
+#define GF_SOCKET_RA_MAX 1024
+
 struct gf_sock_incoming {
         sp_rpcrecord_state_t  record_state;
         struct gf_sock_incoming_frag frag;
@@ -175,6 +177,11 @@ struct gf_sock_incoming {
         char                 complete_record;
         msg_type_t           msg_type;
         size_t               total_bytes_read;
+
+	size_t               ra_read;
+	size_t               ra_max;
+	size_t               ra_served;
+	char                *ra_buf;
 };
 
 typedef struct {
