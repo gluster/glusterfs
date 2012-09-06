@@ -19,6 +19,8 @@
 #include "glusterfs.h"
 #include "protocol-common.h"
 
+#include "cli1-xdr.h"
+
 #if (HAVE_LIB_XML)
 #include <libxml/encoding.h>
 #include <libxml/xmlwriter.h>
@@ -47,6 +49,9 @@ struct cli_state;
 struct cli_cmd_word;
 struct cli_cmd_tree;
 struct cli_cmd;
+
+extern char *cli_vol_type_str[];
+extern char *cli_vol_status_str[];
 
 typedef int (cli_cmd_cbk_t)(struct cli_state *state,
                             struct cli_cmd_word *word,
@@ -288,7 +293,6 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status);
 void
 cli_print_line (int len);
 
-#if (HAVE_LIB_XML)
 int
 cli_xml_output_str (char *op, char *str, int op_ret, int op_errno,
                     char *op_errstr);
@@ -306,8 +310,14 @@ cli_xml_output_vol_profile (dict_t *dict, int op_ret, int op_errno,
                             char *op_errstr);
 
 int
-cli_xml_output_vol_status (dict_t *dict, int op_ret, int op_errno,
-                           char *op_errstr);
+cli_xml_output_vol_status_begin (cli_local_t *local, int op_ret, int op_errno,
+                                 char *op_errstr);
+
+int
+cli_xml_output_vol_status_end (cli_local_t *local);
+
+int
+cli_xml_output_vol_status (cli_local_t *local, dict_t *dict);
 
 int
 cli_xml_output_vol_list (dict_t *dict, int op_ret, int op_errno,
@@ -331,6 +341,24 @@ cli_xml_output_vol_quota_limit_list (char *volname, char *limit_list,
 int
 cli_xml_output_peer_status (dict_t *dict, int op_ret, int op_errno,
                             char *op_errstr);
-#endif
 
+int
+cli_xml_output_vol_rebalance (gf_cli_defrag_type op, dict_t *dict, int op_ret,
+                              int op_errno, char *op_errstr);
+
+int
+cli_xml_output_vol_remove_brick (gf_boolean_t status_op, dict_t *dict,
+                                 int op_ret, int op_errno, char *op_errstr);
+
+int
+cli_xml_output_vol_replace_brick (gf1_cli_replace_op op, dict_t *dict,
+                                  int op_ret, int op_errno, char *op_errstr);
+
+int
+cli_xml_output_vol_create (dict_t *dict, int op_ret, int op_errno,
+                           char *op_errstr);
+
+int
+cli_xml_output_generic_volume (char *op, dict_t *dict, int op_ret, int op_errno,
+                               char *op_errstr);
 #endif /* __CLI_H__ */

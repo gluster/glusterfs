@@ -1113,11 +1113,17 @@ rb_send_cmd (glusterd_volinfo_t *volinfo,
              glusterd_brickinfo_t *dst,
              gf1_cli_replace_op op)
 {
-        char         start_value[8192] = {0,};
-        char         status[8192]      = {0,};
-        char        *status_reply      = NULL;
-        dict_t      *ctx               = NULL;
-        int          ret               = 0;
+        char         start_value[8192]          = {0,};
+        char         status_str[8192]           = {0,};
+        char        *status_reply               = NULL;
+        char        *tmp                        = NULL;
+        char        *save_ptr                   = NULL;
+        char         filename[PATH_MAX]         = {0,};
+        char        *current_file               = NULL;
+        uint64_t     files                      = 0;
+        int          status                     = 0;
+        dict_t      *ctx                        = NULL;
+        int          ret                        = 0;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (src);
@@ -1161,7 +1167,7 @@ rb_send_cmd (glusterd_volinfo_t *volinfo,
                 {
                         ret = rb_get_xattr_command (volinfo, src, dst,
                                                     RB_PUMP_CMD_STATUS,
-                                                    status);
+                                                    status_str);
                         if (ret)
                                 goto out;
 
@@ -1174,7 +1180,76 @@ rb_send_cmd (glusterd_volinfo_t *volinfo,
                                 goto out;
                         }
 
-                        status_reply = gf_strdup (status);
+                        /* Split status reply into different parts */
+                        tmp = strtok_r (status_str, ":", &save_ptr);
+                        if (!tmp) {
+                                ret = -1;
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "Couldn't tokenize status string");
+                                goto out;
+                        }
+                        sscanf (tmp, "status=%d", &status);
+                        ret = dict_set_int32 (ctx, "status", status);
+                        if (ret) {
+                                gf_log (THIS->name, GF_LOG_ERROR, "Couldn't "
+                                        "set rb status in context");
+                                goto out;
+                        }
+
+                        tmp = NULL;
+                        tmp = strtok_r (NULL, ":", &save_ptr);
+                        if (!tmp) {
+                                ret = -1;
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "Couldn't tokenize status string");
+                                goto out;
+                        }
+                        sscanf (tmp, "no_of_files=%"SCNu64, &files);
+                        ret = dict_set_uint64 (ctx, "files", files);
+                        if (ret) {
+                                gf_log (THIS->name, GF_LOG_ERROR, "Couldn't "
+                                        "set rb files in context");
+                                goto out;
+                        }
+
+                        if (status == 0) {
+                                tmp = NULL;
+                                tmp = strtok_r (NULL, ":", &save_ptr);
+                                if (!tmp) {
+                                        ret = -1;
+                                        gf_log (THIS->name, GF_LOG_ERROR,
+                                                "Couldn't tokenize status "
+                                                "string");
+                                        goto out;
+                                }
+                                sscanf (tmp, "current_file=%s", filename);
+                                current_file = gf_strdup (filename);
+                                ret = dict_set_dynstr (ctx, "current_file",
+                                                       current_file);
+                                if (ret) {
+                                        GF_FREE (current_file);
+                                        gf_log (THIS->name, GF_LOG_ERROR,
+                                                "Couldn't set rb current file "
+                                                "in context");
+                                        goto out;
+                                }
+                        }
+                        if (status) {
+                                ret = gf_asprintf (&status_reply,
+                                                  "Number of files migrated = %"
+                                                  PRIu64"\tMigration complete",
+                                                  files);
+                        } else {
+                                ret = gf_asprintf (&status_reply,
+                                                  "Number of files migrated = %"
+                                                  PRIu64"\tCurrent file = %s",
+                                                  files, filename);
+                        }
+                        if (ret == -1) {
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "Failed to create status_reply string");
+                                goto out;
+                        }
                         ret = dict_set_dynstr (ctx, "status-reply",
                                                status_reply);
                         if (ret) {
