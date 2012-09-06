@@ -35,7 +35,7 @@ cli_batch (void *d)
         ret = cli_cmd_process (state, state->argc, state->argv);
 
         gf_log ("", GF_LOG_INFO, "Exiting with: %d", ret);
-        exit (ret);
+        exit (-ret);
 
         return NULL;
 }
