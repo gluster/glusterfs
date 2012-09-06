@@ -349,6 +349,28 @@ iov_unload (char *buf, const struct iovec *vector, int count)
 
 
 static inline size_t
+iov_load (const struct iovec *vector, int count, char *buf, int size)
+{
+	size_t left = size;
+	size_t cp = 0;
+	int    ret = 0;
+	int    i = 0;
+
+	while (left && i < count) {
+		cp = min (vector[i].iov_len, left);
+		if (vector[i].iov_base != buf + (size - left))
+			memcpy (vector[i].iov_base, buf + (size - left), cp);
+		ret += cp;
+		left -= cp;
+		if (left)
+			i++;
+	}
+
+	return ret;
+}
+
+
+static inline size_t
 iov_copy (const struct iovec *dst, int dcnt,
 	  const struct iovec *src, int scnt)
 {
