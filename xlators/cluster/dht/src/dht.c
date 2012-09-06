@@ -87,10 +87,7 @@ dht_priv_dump (xlator_t *this)
                 return -1;
 
         ret = TRY_LOCK(&conf->subvolume_lock);
-
         if (ret != 0) {
-                gf_log("", GF_LOG_WARNING, "Unable to lock dht subvolume %s",
-                       this->name);
                 return ret;
         }
 
