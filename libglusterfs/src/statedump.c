@@ -553,6 +553,7 @@ gf_proc_dump_enable_default_options ()
         return 0;
 }
 
+
 static int
 gf_proc_dump_disable_all_options ()
 {
