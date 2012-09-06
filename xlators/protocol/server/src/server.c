@@ -297,6 +297,81 @@ out:
         return ret;
 }
 
+void
+ltable_dump (server_connection_t *trav)
+{
+        char key[GF_DUMP_MAX_BUF_LEN] = {0,};
+        struct _locker *locker = NULL;
+        char    locker_data[GF_MAX_LOCK_OWNER_LEN] = {0,};
+        int     count = 0;
+
+        gf_proc_dump_build_key(key,
+                               "conn","bound_xl.ltable.inodelk.%s",
+                               trav->bound_xl->name);
+        gf_proc_dump_add_section(key);
+
+        list_for_each_entry (locker, &trav->ltable->inodelk_lockers, lockers) {
+                count++;
+                gf_proc_dump_write("volume", "%s", locker->volume);
+                if (locker->fd) {
+                        gf_proc_dump_write("fd", "%p", locker->fd);
+                        gf_proc_dump_write("gfid", "%s",
+                                           uuid_utoa (locker->fd->inode->gfid));
+                } else {
+                        gf_proc_dump_write("fd", "%s", locker->loc.path);
+                        gf_proc_dump_write("gfid", "%s",
+                                           uuid_utoa (locker->loc.inode->gfid));
+                }
+                gf_proc_dump_write("pid", "%d", locker->pid);
+                gf_proc_dump_write("lock length", "%d", locker->owner.len);
+                lkowner_unparse (&locker->owner, locker_data,
+                                 locker->owner.len);
+                gf_proc_dump_write("lock owner", "%s", locker_data);
+                memset (locker_data, 0, sizeof (locker_data));
+
+                gf_proc_dump_build_key (key, "inode", "%d", count);
+                gf_proc_dump_add_section (key);
+                if (locker->fd)
+                        inode_dump (locker->fd->inode, key);
+                else
+                        inode_dump (locker->loc.inode, key);
+        }
+
+        count = 0;
+        locker = NULL;
+        gf_proc_dump_build_key(key,
+                               "conn","bound_xl.ltable.entrylk.%s",
+                               trav->bound_xl->name);
+        gf_proc_dump_add_section(key);
+
+        list_for_each_entry (locker, &trav->ltable->entrylk_lockers,
+                             lockers) {
+                count++;
+                gf_proc_dump_write("volume", "%s", locker->volume);
+                if (locker->fd) {
+                        gf_proc_dump_write("fd", "%p", locker->fd);
+                        gf_proc_dump_write("gfid", "%s",
+                                           uuid_utoa (locker->fd->inode->gfid));
+                } else {
+                        gf_proc_dump_write("fd", "%s", locker->loc.path);
+                        gf_proc_dump_write("gfid", "%s",
+                                           uuid_utoa (locker->loc.inode->gfid));
+                }
+                gf_proc_dump_write("pid", "%d", locker->pid);
+                gf_proc_dump_write("lock length", "%d", locker->owner.len);
+                lkowner_unparse (&locker->owner, locker_data, locker->owner.len);
+                gf_proc_dump_write("lock data", "%s", locker_data);
+                memset (locker_data, 0, sizeof (locker_data));
+
+                gf_proc_dump_build_key (key, "inode", "%d", count);
+                gf_proc_dump_add_section (key);
+                if (locker->fd)
+                        inode_dump (locker->fd->inode, key);
+                else
+                        inode_dump (locker->loc.inode, key);
+        }
+}
+
 int
 server_priv_to_dict (xlator_t *this, dict_t *dict)
 {
@@ -461,7 +536,6 @@ server_inode (xlator_t *this)
         char                 key[GF_DUMP_MAX_BUF_LEN];
         int                  i = 1;
         int                  ret = -1;
-        xlator_t             *prev_bound_xl = NULL;
 
         GF_VALIDATE_OR_GOTO ("server", this, out);
 
@@ -477,31 +551,24 @@ server_inode (xlator_t *this)
                 goto out;
 
         list_for_each_entry (trav, &conf->conns, list) {
-                if (trav->bound_xl && trav->bound_xl->itable) {
-                        /* Presently every brick contains only one
-                         * bound_xl for all connections. This will lead
-                         * to duplicating of the inode lists, if listing
-                         * is done for every connection. This simple check
-                         * prevents duplication in the present case. If
-                         * need arises the check can be improved.
-                         */
-                        if (trav->bound_xl == prev_bound_xl)
-                                continue;
-                        prev_bound_xl = trav->bound_xl;
-
+                ret = pthread_mutex_trylock (&trav->lock);
+                if (!ret)
+                {
                         gf_proc_dump_build_key(key,
-                                               "conn","%d.bound_xl.%s",
-                                               i, trav->bound_xl->name);
-                        inode_table_dump(trav->bound_xl->itable,key);
+                                               "conn","%d.ltable", i);
+                        gf_proc_dump_add_section(key);
+                        ltable_dump (trav);
                         i++;
-                }
+                        pthread_mutex_unlock (&trav->lock);
+                }else
+                        continue;
         }
         pthread_mutex_unlock (&conf->mutex);
 
         ret = 0;
 out:
         if (ret)
-                gf_proc_dump_write ("Unable to dump the inode table",
+                gf_proc_dump_write ("Unable to dump the lock table",
                                     "(Lock acquisition failed) %s",
                                     this?this->name:"server");
 
