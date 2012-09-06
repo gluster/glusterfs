@@ -3229,14 +3229,14 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
 
                         case GF_XATTROP_OR_ARRAY:
                                 __or_array ((int32_t *) array,
-                                            (int32_t *) trav->value->data,
-                                            trav->value->len / 4);
+                                            (int32_t *) v->data,
+                                            v->len / 4);
                                 break;
 
                         case GF_XATTROP_AND_ARRAY:
                                 __and_array ((int32_t *) array,
-                                             (int32_t *) trav->value->data,
-                                             trav->value->len / 4);
+                                             (int32_t *) v->data,
+                                             v->len / 4);
                                 break;
 
                         default:
