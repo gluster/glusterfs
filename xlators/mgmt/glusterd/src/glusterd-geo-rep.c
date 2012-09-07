@@ -1433,6 +1433,11 @@ glusterd_gsync_fetch_status_extra (char *path, char *buf, size_t blen)
         s = socket(AF_UNIX, SOCK_STREAM, 0);
         if (s == -1)
                 return -1;
+        ret = fcntl (s, F_GETFL);
+        if (ret != -1)
+                ret = fcntl (s, F_SETFL, ret | O_NONBLOCK);
+        if (ret == -1)
+                goto out;
 
         ret = connect (s, (struct sockaddr *)&sa, sizeof (sa));
         if (ret == -1)
