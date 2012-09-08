@@ -3814,6 +3814,11 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
                 goto out;
 
         mtab = setmntent (_PATH_MOUNTED, "r");
+        if (!mtab) {
+                ret = -1;
+                goto out;
+        }
+
         entry = getmntent (mtab);
 
         while (1) {
@@ -3854,6 +3859,9 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
 
  out:
         GF_FREE (mnt_pt);
+        if (mtab)
+                endmntent (mtab);
+
         return ret;
 }
 #endif
