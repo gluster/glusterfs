@@ -449,10 +449,10 @@ gf_time_fmt (char *dst, size_t sz_dst, time_t utime, unsigned int fmt)
         if (timefmt_last == -1)
                 _gf_timestuff (&timefmt_last, &fmts, &zeros);
         if (timefmt_last < fmt) fmt = gf_timefmt_default;
-        if (gmtime_r (&utime, &tm) != NULL) {
+        if (utime && gmtime_r (&utime, &tm) != NULL) {
                 strftime (dst, sz_dst, fmts[fmt], &tm);
         } else {
-                strncpy (dst, zeros[fmt], sz_dst);
+                strncpy (dst, "N/A", sz_dst);
         }
 }
 
