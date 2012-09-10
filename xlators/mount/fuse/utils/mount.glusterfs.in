@@ -156,7 +156,15 @@ start_glusterfs ()
             $cmd_line1;
             err=0;
 
-            inode=$(stat -c %i $mount_point 2>/dev/null);
+            case `uname -s` in
+            NetBSD)
+                inode=$(stat -f %i ${mount_point}/ 2>/dev/null);
+                ;;
+            Linux)
+                inode=$(stat -c %i $mount_point 2>/dev/null);
+                ;;
+            esac
+
             # this is required if the stat returns error
             if [ -z "$inode" ]; then
                 inode="0";
