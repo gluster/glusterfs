@@ -1087,9 +1087,10 @@ io_stats_dump_stats_to_dict (xlator_t *this, dict_t *resp,
                                 gf_time_fmt (timestr, sizeof timestr,
                                              conf->cumulative.max_openfd_time.tv_sec,
                                              gf_timefmt_FT);
-                                snprintf (timestr + strlen (timestr), sizeof timestr - strlen (timestr),
-                                          ".%"GF_PRI_SUSECONDS,
-                                          conf->cumulative.max_openfd_time.tv_usec);
+                                if (conf->cumulative.max_openfd_time.tv_sec)
+                                        snprintf (timestr + strlen (timestr), sizeof timestr - strlen (timestr),
+                                                  ".%"GF_PRI_SUSECONDS,
+                                                  conf->cumulative.max_openfd_time.tv_usec);
 
                                 dict_timestr = gf_strdup (timestr);
                                 if (!dict_timestr)
