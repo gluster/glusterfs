@@ -1,13 +1,17 @@
 #!/usr/bin/env python
 
-# texttable - module for creating simple ASCII tables
-#  Copyright (c) 2008-2012 Red Hat, Inc. <http://www.redhat.com>
+#  Copyright (c) 2006-2012 Red Hat, Inc. <http://www.redhat.com>
 #  This file is part of GlusterFS.
 #
 #  This file is licensed to you under your choice of the GNU Lesser
 #  General Public License, version 3 or any later version (LGPLv3 or
 #  later), or the GNU General Public License, version 2 (GPLv2), in all
 #  cases as published by the Free Software Foundation.
+
+
+# texttable - module for creating simple ASCII tables
+# Incorporated from texttable.py downloaded from
+# http://jefke.free.fr/stuff/python/texttable/texttable-0.7.0.tar.gz
 
 import sys
 import string

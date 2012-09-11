@@ -1,4 +1,4 @@
-dnl  Copyright (c) 2008-2012 Red Hat, Inc. <http://www.redhat.com>
+dnl  Copyright (c) 2006-2012 Red Hat, Inc. <http://www.redhat.com>
 dnl  This file is part of GlusterFS.
 dnl
 dnl  This file is licensed to you under your choice of the GNU Lesser

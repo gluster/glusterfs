@@ -1,13 +1,12 @@
 /*
-  Copyright (c) 2008-2012 Red Hat, Inc. <http://www.redhat.com>
-  This file is part of GlusterFS.
+   Copyright (c) 2008-2012 Red Hat, Inc. <http://www.redhat.com>
+   This file is part of GlusterFS.
 
-  This file is licensed to you under your choice of the GNU Lesser
-  General Public License, version 3 or any later version (LGPLv3 or
-  later), or the GNU General Public License, version 2 (GPLv2), in all
-  cases as published by the Free Software Foundation.
+   This file is licensed to you under your choice of the GNU Lesser
+   General Public License, version 3 or any later version (LGPLv3 or
+   later), or the GNU General Public License, version 2 (GPLv2), in all
+   cases as published by the Free Software Foundation.
 */
-
 #include <Python.h>
 
 #ifndef _CONFIG_H
@@ -36,7 +35,7 @@ python_writev (call_frame_t *frame,
               xlator_t *this,
               fd_t *fd,
               struct iovec *vector,
-              int32_t count, 
+              int32_t count,
               off_t offset)
 {
   python_private_t *priv = (python_private_t *)this->private;
@@ -139,7 +138,7 @@ init (xlator_t *this)
   Py_InitializeEx(0);
 
   if (!this->children) {
-    gf_log ("python", GF_LOG_ERROR, 
+    gf_log ("python", GF_LOG_ERROR,
             "FATAL: python should have exactly one child");
     return -1;
   }
@@ -157,7 +156,7 @@ init (xlator_t *this)
   }
 
   priv->pInterp = Py_NewInterpreter();
-    
+
   // Adjust python's path
   PyObject *syspath = PySys_GetObject("path");
   PyObject *path = PyString_FromString(GLUSTER_PYTHON_PATH);
@@ -179,7 +178,7 @@ init (xlator_t *this)
   priv->pVectorType = PyObject_GetAttrString(priv->pGlusterModule, "iovec");
 
   gf_log("python", GF_LOG_DEBUG, "Loading script...%s", priv->scriptname);
-  
+
   priv->pScriptModule = AnonModule_FromFile(priv->scriptname);
   if (!priv->pScriptModule || PyErr_Occurred())
   {
@@ -208,7 +207,7 @@ init (xlator_t *this)
   return 0;
 }
 
-void 
+void
 fini (xlator_t *this)
 {
   python_private_t *priv = (python_private_t*)(this->private);
