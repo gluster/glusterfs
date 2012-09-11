@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2008-2012 Red Hat, Inc. <http://www.redhat.com>
+  Copyright (c) 2006-2012 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser

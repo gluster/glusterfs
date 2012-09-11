@@ -1,6 +1,7 @@
 #!/bin/bash
 
-#  Copyright (c) 2008-2012 Red Hat, Inc. <http://www.redhat.com>
+
+#  Copyright (c) 2006-2012 Red Hat, Inc. <http://www.redhat.com>
 #  This file is part of GlusterFS.
 #
 #  This file is licensed to you under your choice of the GNU Lesser
@@ -45,13 +46,13 @@ gluster volume start vol
 gluster volume info
 sleep 1
 mount -t glusterfs `hostname`:vol /mnt/client
-sleep 1 
+sleep 1
 df -h
 
 echo "adding-brick......."
 gluster volume add-brick vol `hostname`:/exports/exp2
 gluster volume info
-sleep 1 
+sleep 1
 umount /mnt/client
 mount -t glusterfs `hostname`:vol /mnt/client
 df -h
@@ -93,7 +94,7 @@ sleep 1
 echo "removing brick......."
 gluster --mode=script volume remove-brick vol `hostname`:/exports/exp2
 gluster volume info
-sleep 1 
+sleep 1
 df -h
 sleep 1
 
@@ -118,7 +119,7 @@ sleep 1
 echo "starting replicate volume......"
 gluster volume start mirror
 gluster volume info
-sleep 1 
+sleep 1
 mount -t glusterfs `hostname`:mirror /mnt/client
 sleep 1
 df -h
@@ -127,7 +128,7 @@ sleep 1
 echo "adding-brick......."
 gluster volume add-brick mirror `hostname`:/exports/exp3 `hostname`:/exports/exp4
 gluster volume info
-sleep 1 
+sleep 1
 df -h
 sleep 1
 
@@ -169,14 +170,14 @@ sleep 1
 echo "removeing-brick....."
 gluster --mode=script volume remove-brick mirror `hostname`:/exports/exp3 `hostname`:/exports/exp4
 gluster volume info
-sleep 1 
+sleep 1
 df -h
 sleep 1
 
 echo "stopping replicate volume....."
 gluster --mode=script volume stop mirror
 gluster volume info
-sleep 1 
+sleep 1
 umount /mnt/client
 df -h
 
@@ -197,14 +198,14 @@ gluster volume start str
 gluster volume info
 sleep 1
 mount -t glusterfs `hostname`:str /mnt/client
-sleep 1 
+sleep 1
 df -h
 sleep 1
 
 echo "adding brick...."
 gluster volume add-brick str `hostname`:/exports/exp3 `hostname`:/exports/exp4
 gluster volume info
-sleep 1 
+sleep 1
 df -h
 sleep 1
 
