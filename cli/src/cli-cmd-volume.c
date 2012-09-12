@@ -29,6 +29,17 @@
 #include "cli1-xdr.h"
 #include "run.h"
 
+#define SAVE_WORDS_IN_LOCAL(local, words, frame)            \
+        do {                                                \
+                local = cli_local_get ();                   \
+                                                            \
+                if (local) {                                \
+                        local->words = words;               \
+                        if (frame)                          \
+                                frame->local = local;       \
+                }                                           \
+        } while (0)
+
 extern struct rpc_clnt *global_rpc;
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
@@ -111,6 +122,7 @@ cli_cmd_sync_volume_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     sent = 0;
         int                     parse_error = 0;
         dict_t                  *dict = NULL;
+        cli_local_t             *local = NULL;
 
         if ((wordcount < 3) || (wordcount > 4)) {
                 cli_usage_out (word->pattern);
@@ -150,6 +162,8 @@ cli_cmd_sync_volume_cbk (struct cli_state *state, struct cli_cmd_word *word,
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, dict);
@@ -332,6 +346,7 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int32_t                 brick_count = 0;
         int32_t                 sub_count = 0;
         int32_t                 type = GF_CLUSTER_TYPE_NONE;
+        cli_local_t             *local = NULL;
 
 
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_CREATE_VOLUME];
@@ -339,6 +354,8 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         ret = cli_cmd_volume_create_parse (words, wordcount, &options);
 
@@ -409,6 +426,7 @@ cli_cmd_volume_delete_cbk (struct cli_state *state, struct cli_cmd_word *word,
         const char              *question = NULL;
         int                     sent = 0;
         int                     parse_error = 0;
+        cli_local_t             *local = NULL;
 
         question = "Deleting volume will erase all information about the volume. "
                    "Do you want to continue?";
@@ -417,6 +435,8 @@ cli_cmd_volume_delete_cbk (struct cli_state *state, struct cli_cmd_word *word,
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         if (wordcount != 3) {
                 cli_usage_out (word->pattern);
@@ -460,6 +480,7 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     parse_error = 0;
         dict_t                  *dict = NULL;
         int                     flags = 0;
+        cli_local_t             *local = NULL;
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
@@ -470,6 +491,8 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 parse_error = 1;
                goto out;
         }
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         dict = dict_new ();
         if (!dict) {
@@ -583,6 +606,7 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     parse_error = 0;
         dict_t                  *dict = NULL;
         char                    *volname = NULL;
+        cli_local_t             *local = NULL;
 
         const char *question = "Stopping volume will make its data inaccessible. "
                                "Do you want to continue?";
@@ -590,6 +614,8 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         if (wordcount < 3 || wordcount > 4) {
                 cli_usage_out (word->pattern);
@@ -718,6 +744,7 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
         dict_t               *dict = NULL;
         int                     sent = 0;
         int                     parse_error = 0;
+        cli_local_t          *local = NULL;
 #ifdef GF_SOLARIS_HOST_OS
         cli_out ("Command not supported on Solaris");
         goto out;
@@ -726,6 +753,8 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         dict = dict_new ();
         if (!dict)
@@ -813,12 +842,15 @@ cli_cmd_volume_reset_cbk (struct cli_state *state, struct cli_cmd_word *word,
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
         dict_t                  *options = NULL;
+        cli_local_t             *local = NULL;
 
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_RESET_VOLUME];
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         ret = cli_cmd_volume_reset_parse (words, wordcount, &options);
 
@@ -859,6 +891,7 @@ cli_cmd_volume_profile_cbk (struct cli_state *state, struct cli_cmd_word *word,
         rpc_clnt_procedure_t    *proc    = NULL;
         call_frame_t            *frame   = NULL;
         dict_t                  *options = NULL;
+        cli_local_t             *local = NULL;
 
         ret = cli_cmd_volume_profile_parse (words, wordcount, &options);
 
@@ -873,6 +906,8 @@ cli_cmd_volume_profile_cbk (struct cli_state *state, struct cli_cmd_word *word,
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, options);
@@ -905,12 +940,15 @@ cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
         dict_t                  *options = NULL;
+        cli_local_t             *local = NULL;
 
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_SET_VOLUME];
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         ret = cli_cmd_volume_set_parse (words, wordcount, &options);
 
@@ -952,6 +990,7 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
         int                     sent = 0;
         int                     parse_error = 0;
         gf_answer_t             answer = GF_ANSWER_NO;
+        cli_local_t             *local = NULL;
 
         const char *question = "Changing the 'stripe count' of the volume is "
                 "not a supported feature. In some cases it may result in data "
@@ -962,6 +1001,8 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         ret = cli_cmd_volume_add_brick_parse (words, wordcount, &options);
 
@@ -1015,6 +1056,7 @@ cli_cmd_quota_cbk (struct cli_state *state, struct cli_cmd_word *word,
         call_frame_t            *frame     = NULL;
         dict_t                  *options   = NULL;
         gf_answer_t              answer    = GF_ANSWER_NO;
+        cli_local_t             *local     = NULL;
         const char *question = "Disabling quota will delete all the quota "
                                "configuration. Do you want to continue?";
 
@@ -1029,6 +1071,8 @@ cli_cmd_quota_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 ret = -1;
                 goto out;
         }
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         ret = cli_cmd_quota_parse (words, wordcount, &options);
         if (ret < 0) {
@@ -1071,6 +1115,7 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
         int                     sent = 0;
         int                     parse_error = 0;
         int                     need_question = 0;
+        cli_local_t             *local = NULL;
 
         const char *question = "Removing brick(s) can result in data loss. "
                                "Do you want to Continue?";
@@ -1078,6 +1123,8 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         ret = cli_cmd_volume_remove_brick_parse (words, wordcount, &options,
                                                  &need_question);
@@ -1131,6 +1178,7 @@ cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
         dict_t                  *options = NULL;
         int                     sent = 0;
         int                     parse_error = 0;
+        cli_local_t             *local = NULL;
 
 #ifdef GF_SOLARIS_HOST_OS
         cli_out ("Command not supported on Solaris");
@@ -1141,6 +1189,8 @@ cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         ret = cli_cmd_volume_replace_brick_parse (words, wordcount, &options);
 
@@ -1190,6 +1240,7 @@ cli_cmd_volume_top_cbk (struct cli_state *state, struct cli_cmd_word *word,
         dict_t                  *options = NULL;
         int                     sent     = 0;
         int                     parse_error = 0;
+        cli_local_t             *local = NULL;
 
         ret = cli_cmd_volume_top_parse (words, wordcount, &options);
 
@@ -1204,6 +1255,8 @@ cli_cmd_volume_top_cbk (struct cli_state *state, struct cli_cmd_word *word,
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, options);
@@ -1236,6 +1289,7 @@ cli_cmd_log_rotate_cbk (struct cli_state *state, struct cli_cmd_word *word,
         dict_t                  *options = NULL;
         int                     sent = 0;
         int                     parse_error = 0;
+        cli_local_t             *local = NULL;
 
         if (!((wordcount == 4) || (wordcount == 5))) {
                 cli_usage_out (word->pattern);
@@ -1249,6 +1303,8 @@ cli_cmd_log_rotate_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (!frame)
                 goto out;
 
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
+
         ret = cli_cmd_log_rotate_parse (words, wordcount, &options);
         if (ret)
                 goto out;
@@ -1259,14 +1315,13 @@ cli_cmd_log_rotate_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
 out:
         if (options)
-                dict_destroy (options);
+                dict_unref (options);
 
         if (ret) {
                 cli_cmd_sent_status_get (&sent);
                 if ((sent == 0) && (parse_error == 0))
                         cli_out ("Volume log rotate failed");
         }
-
         CLI_STACK_DESTROY (frame);
 
         return ret;
@@ -1341,6 +1396,7 @@ cli_cmd_volume_gsync_set_cbk (struct cli_state *state, struct cli_cmd_word *word
         dict_t                  *options = NULL;
         rpc_clnt_procedure_t    *proc    = NULL;
         call_frame_t            *frame   = NULL;
+        cli_local_t             *local   = NULL;
 
         proc = &cli_rpc_prog->proctable [GLUSTER_CLI_GSYNC_SET];
         if (proc == NULL) {
@@ -1353,6 +1409,8 @@ cli_cmd_volume_gsync_set_cbk (struct cli_state *state, struct cli_cmd_word *word
                 ret = -1;
                 goto out;
         }
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         ret = cli_cmd_gsync_set_parse (words, wordcount, &options);
         if (ret) {
@@ -1386,6 +1444,7 @@ cli_cmd_volume_status_cbk (struct cli_state *state,
         call_frame_t         *frame       = NULL;
         dict_t               *dict        = NULL;
         uint32_t              cmd         = 0;
+        cli_local_t          *local       = NULL;
 
         ret = cli_cmd_volume_status_parse (words, wordcount, &dict);
 
@@ -1412,6 +1471,8 @@ cli_cmd_volume_status_cbk (struct cli_state *state,
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         ret = proc->fn (frame, THIS, dict);
 
@@ -1612,11 +1673,14 @@ cli_cmd_volume_heal_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     parse_error = 0;
         dict_t                  *options = NULL;
         xlator_t                *this = NULL;
+        cli_local_t             *local = NULL;
 
         this = THIS;
         frame = create_frame (this, this->ctx->pool);
         if (!frame)
                 goto out;
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         if (wordcount < 3) {
                cli_usage_out (word->pattern);
@@ -1662,10 +1726,13 @@ cli_cmd_volume_statedump_cbk (struct cli_state *state, struct cli_cmd_word *word
         dict_t                          *options = NULL;
         int                             sent = 0;
         int                             parse_error = 0;
+        cli_local_t                     *local = NULL;
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         if (wordcount < 3) {
                 cli_usage_out (word->pattern);
@@ -1747,10 +1814,13 @@ cli_cmd_volume_clearlocks_cbk (struct cli_state *state,
         dict_t                          *options = NULL;
         int                             sent = 0;
         int                             parse_error = 0;
+        cli_local_t                     *local = NULL;
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
+
+        SAVE_WORDS_IN_LOCAL (local, words, frame);
 
         if (wordcount < 7 || wordcount > 8) {
                 cli_usage_out (word->pattern);

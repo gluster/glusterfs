@@ -40,51 +40,6 @@
 int32_t
 glusterd_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe);
-
-void
-glusterd_rebalance_cmd_attempted_log (int cmd, char *volname)
-{
-        switch (cmd) {
-                case GF_DEFRAG_CMD_START_LAYOUT_FIX:
-                        gf_cmd_log ("Volume rebalance"," on volname: %s "
-                                    "cmd: start fix layout , attempted",
-                                    volname);
-                        gf_log ("glusterd", GF_LOG_INFO, "Received rebalance "
-                                "volume start layout fix on %s", volname);
-                        break;
-                case GF_DEFRAG_CMD_START_FORCE:
-                        gf_cmd_log ("Volume rebalance"," on volname: %s "
-                                    "cmd: start data force attempted",
-                                    volname);
-                        gf_log ("glusterd", GF_LOG_INFO, "Received rebalance "
-                                "volume start migrate data on %s", volname);
-                        break;
-                case GF_DEFRAG_CMD_START:
-                        gf_cmd_log ("Volume rebalance"," on volname: %s "
-                                    "cmd: start, attempted", volname);
-                        gf_log ("glusterd", GF_LOG_INFO, "Received rebalance "
-                                "volume start on %s", volname);
-                        break;
-                case GF_DEFRAG_CMD_STOP:
-                        gf_cmd_log ("Volume rebalance"," on volname: %s "
-                                    "cmd: stop, attempted", volname);
-                        gf_log ("glusterd", GF_LOG_INFO, "Received rebalance "
-                                "volume stop on %s", volname);
-                        break;
-                default:
-                        break;
-        }
-}
-
-void
-glusterd_rebalance_cmd_log (int cmd, char *volname, int status)
-{
-        if (cmd != GF_DEFRAG_CMD_STATUS) {
-                gf_cmd_log ("volume rebalance"," on volname: %s %d %s",
-                            volname, cmd, ((status)?"FAILED":"SUCCESS"));
-        }
-}
-
 int
 glusterd_defrag_start_validate (glusterd_volinfo_t *volinfo, char *op_errstr,
                                 size_t len)
@@ -463,8 +418,6 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        glusterd_rebalance_cmd_attempted_log (cmd, volname);
-
         ret = dict_set_static_bin (dict, "node-uuid", MY_UUID, 16);
         if (ret)
                 goto out;
@@ -482,10 +435,10 @@ out:
         glusterd_op_sm ();
 
         if (ret) {
+                ret = glusterd_op_send_cli_response (GD_OP_REBALANCE, ret, 0, req,
+                                                     dict, "operation failed");
                 if (dict)
                         dict_unref (dict);
-                ret = glusterd_op_send_cli_response (GD_OP_REBALANCE, ret, 0, req,
-                                                     NULL, "operation failed");
         }
 
         free (cli_req.dict.dict_val);//malloced by xdr
@@ -627,8 +580,6 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         default:
                 break;
         }
-
-        glusterd_rebalance_cmd_log (cmd, volname, ret);
 
 out:
         if (ret && op_errstr && msg[0])

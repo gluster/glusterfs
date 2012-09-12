@@ -67,6 +67,10 @@ int32_t
 gf_cli_get_volume (call_frame_t *frame, xlator_t *this,
                       void *data);
 
+int
+cli_to_glusterd (gf_cli_req *req, call_frame_t *frame, fop_cbk_fn_t cbkfn,
+                 xdrproc_t xdrproc, dict_t *dict, int procnum, xlator_t *this,
+                 rpc_clnt_prog_t *prog, struct iobref *iobref);
 
 rpc_clnt_prog_t cli_handshake_prog = {
         .progname  = "cli handshake",
@@ -2533,7 +2537,6 @@ gf_cli_create_volume (call_frame_t *frame, xlator_t *this,
         gf_cli_req              req = {{0,}};
         int                     ret = 0;
         dict_t                  *dict = NULL;
-        cli_local_t             *local = NULL;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
@@ -2542,33 +2545,13 @@ gf_cli_create_volume (call_frame_t *frame, xlator_t *this,
 
         dict = dict_ref ((dict_t *)data);
 
-        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failed to get serialized length of dict");
-                goto out;
-        }
-
-        local = cli_local_get ();
-
-        if (local) {
-                local->dict = dict_ref (dict);
-                frame->local = local;
-        }
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_CREATE_VOLUME, NULL,
-                              this, gf_cli_create_volume_cbk,
-                              (xdrproc_t) xdr_gf_cli_req);
-
-
+        ret = cli_to_glusterd (&req, frame, gf_cli_create_volume_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_CREATE_VOLUME, this, cli_rpc_prog,
+                               NULL);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
-
-        if (dict)
-                dict_unref (dict);
 
         GF_FREE (req.dict.dict_val);
 
@@ -2581,7 +2564,6 @@ gf_cli_delete_volume (call_frame_t *frame, xlator_t *this,
 {
         gf_cli_req              req = {{0,}};
         int                     ret = 0;
-        cli_local_t             *local = NULL;
         dict_t                  *dict = NULL;
 
         if (!frame || !this ||  !data) {
@@ -2589,35 +2571,19 @@ gf_cli_delete_volume (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        local = cli_local_get ();
-
         dict = dict_new ();
         ret = dict_set_str (dict, "volname", data);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_WARNING, "dict set failed");
                 goto out;
         }
-        if (local) {
-                local->dict = dict_ref (dict);
-                frame->local = local;
-        }
 
-        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "failed to get serialize dict");
-                goto out;
-        }
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_DELETE_VOLUME, NULL,
-                              this, gf_cli_delete_volume_cbk,
-                              (xdrproc_t)xdr_gf_cli_req);
+        ret = cli_to_glusterd (&req, frame, gf_cli_delete_volume_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_DELETE_VOLUME, this, cli_rpc_prog,
+                               NULL);
 
 out:
-        if (dict)
-                dict_unref (dict);
         GF_FREE (req.dict.dict_val);
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
@@ -2630,7 +2596,6 @@ gf_cli_start_volume (call_frame_t *frame, xlator_t *this,
 {
         gf_cli_req              req = {{0,}};
         int                     ret = 0;
-        cli_local_t             *local = NULL;
         dict_t                  *dict = NULL;
 
         if (!frame || !this ||  !data) {
@@ -2639,26 +2604,11 @@ gf_cli_start_volume (call_frame_t *frame, xlator_t *this,
         }
 
         dict = data;
-        local = cli_local_get ();
 
-        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "failed to serialize dict");
-                goto out;
-        }
-
-
-        if (local) {
-                local->dict = dict_ref (dict);
-                frame->local = local;
-        }
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_START_VOLUME, NULL,
-                              this, gf_cli_start_volume_cbk,
-                              (xdrproc_t) xdr_gf_cli_req);
+        ret = cli_to_glusterd (&req, frame, gf_cli_start_volume_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_START_VOLUME, this, cli_rpc_prog,
+                               NULL);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2672,7 +2622,6 @@ gf_cli_stop_volume (call_frame_t *frame, xlator_t *this,
 {
         gf_cli_req             req = {{0,}};
         int                    ret = 0;
-        cli_local_t            *local = NULL;
         dict_t                 *dict = data;
 
         if (!frame || !this ||  !data) {
@@ -2680,27 +2629,12 @@ gf_cli_stop_volume (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        local = cli_local_get ();
         dict = data;
 
-        if (local) {
-                local->dict = dict_ref (dict);
-                frame->local = local;
-        }
-
-        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "failed to serialize the data");
-
-                goto out;
-        }
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_STOP_VOLUME, NULL,
-                              this, gf_cli_stop_volume_cbk,
-                              (xdrproc_t) xdr_gf_cli_req);
+        ret = cli_to_glusterd (&req, frame, gf_cli_stop_volume_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_STOP_VOLUME, this, cli_rpc_prog,
+                               NULL);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2714,7 +2648,6 @@ gf_cli_defrag_volume (call_frame_t *frame, xlator_t *this,
 {
         gf_cli_req              req     =  {{0,}};
         int                     ret     = 0;
-        cli_local_t            *local   = NULL;
         char                   *volname = NULL;
         char                   *cmd_str = NULL;
         dict_t                 *dict    = NULL;
@@ -2762,7 +2695,6 @@ gf_cli_defrag_volume (call_frame_t *frame, xlator_t *this,
         }
 
 done:
-        local = cli_local_get ();
 
         req_dict = dict_new ();
         if (!req_dict) {
@@ -2784,30 +2716,12 @@ done:
                 goto out;
         }
 
-        if (local) {
-                local->dict = dict_ref (req_dict);
-                frame->local = local;
-                local = NULL;
-        }
-
-        ret = dict_allocate_and_serialize (req_dict, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "failed to serialize the data");
-
-                goto out;
-        }
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_DEFRAG_VOLUME, NULL,
-                              this, gf_cli_defrag_volume_cbk,
-                              (xdrproc_t) xdr_gf_cli_req);
+        ret = cli_to_glusterd (&req, frame, gf_cli_defrag_volume_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, req_dict,
+                               GLUSTER_CLI_DEFRAG_VOLUME, this, cli_rpc_prog,
+                               NULL);
 
 out:
-        if (local)
-                cli_local_wipe (local);
-
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
@@ -2864,22 +2778,13 @@ gf_cli_reset_volume (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "failed to get serialized length of dict");
-                goto out;
-        }
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                               GLUSTER_CLI_RESET_VOLUME, NULL,
-                               this, gf_cli_reset_volume_cbk,
-                               (xdrproc_t) xdr_gf_cli_req);
+        ret = cli_to_glusterd (&req, frame, gf_cli_reset_volume_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_RESET_VOLUME, this, cli_rpc_prog,
+                               NULL);
 
 out:
-                gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
-
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -2898,18 +2803,10 @@ gf_cli_set_volume (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failed to get serialized length of dict");
-                goto out;
-        }
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_SET_VOLUME, NULL,
-                              this, gf_cli_set_volume_cbk,
-                              (xdrproc_t) xdr_gf_cli_req);
+        ret = cli_to_glusterd (&req, frame, gf_cli_set_volume_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_SET_VOLUME, this, cli_rpc_prog,
+                               NULL);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2944,18 +2841,9 @@ gf_cli_add_brick (call_frame_t *frame, xlator_t *this,
                 goto out;
 
 
-        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failed to get serialized length of dict");
-                goto out;
-        }
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_ADD_BRICK, NULL,
-                              this, gf_cli_add_brick_cbk,
-                              (xdrproc_t) xdr_gf_cli_req);
+        ret = cli_to_glusterd (&req, frame, gf_cli_add_brick_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_ADD_BRICK, this, cli_rpc_prog, NULL);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2977,26 +2865,13 @@ gf_cli_remove_brick (call_frame_t *frame, xlator_t *this,
         char                     *volname = NULL;
         dict_t                   *req_dict = NULL;
         int32_t                   cmd = 0;
-        cli_local_t              *local = NULL;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
                 goto out;
         }
 
-        local = cli_local_get ();
-        if (!local) {
-                ret = -1;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
-                goto out;
-        }
-
-        frame->local = local;
-
         dict = data;
-
-        local->dict = dict_ref (dict);
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret)
@@ -3009,18 +2884,11 @@ gf_cli_remove_brick (call_frame_t *frame, xlator_t *this,
         if ((command != GF_OP_CMD_STATUS) &&
             (command != GF_OP_CMD_STOP)) {
 
-                ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                                   &req.dict.dict_len);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "failed to get serialized length of dict");
-                        goto out;
-                }
 
-                ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                                      GLUSTER_CLI_REMOVE_BRICK, NULL,
-                                      this, gf_cli_remove_brick_cbk,
-                                      (xdrproc_t) xdr_gf_cli_req);
+                ret = cli_to_glusterd (&req, frame, gf_cli_remove_brick_cbk,
+                                       (xdrproc_t) xdr_gf_cli_req, dict,
+                                       GLUSTER_CLI_REMOVE_BRICK, this,
+                                       cli_rpc_prog, NULL);
         } else {
                 /* Need rebalance status to e sent :-) */
                 req_dict = dict_new ();
@@ -3048,21 +2916,13 @@ gf_cli_remove_brick (call_frame_t *frame, xlator_t *this,
                         goto out;
                 }
 
-                ret = dict_allocate_and_serialize (req_dict, &status_req.dict.dict_val,
-                                                   &status_req.dict.dict_len);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "failed to serialize the data");
+                ret = cli_to_glusterd (&status_req, frame,
+                                       gf_cli3_remove_brick_status_cbk,
+                                       (xdrproc_t) xdr_gf_cli_req, req_dict,
+                                       GLUSTER_CLI_DEFRAG_VOLUME, this,
+                                       cli_rpc_prog, NULL);
 
-                        goto out;
                 }
-
-                ret = cli_cmd_submit (&status_req, frame, cli_rpc_prog,
-                                      GLUSTER_CLI_DEFRAG_VOLUME, NULL,
-                                      this, gf_cli3_remove_brick_status_cbk,
-                                      (xdrproc_t) xdr_gf_cli_req);
-
-        }
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -3070,9 +2930,6 @@ out:
         GF_FREE (req.dict.dict_val);
 
         GF_FREE (status_req.dict.dict_val);
-
-        if (req_dict)
-                dict_unref (req_dict);
 
         return ret;
 }
@@ -3083,7 +2940,6 @@ gf_cli_replace_brick (call_frame_t *frame, xlator_t *this,
 {
         gf_cli_req                  req        =  {{0,}};
         int                         ret        = 0;
-        cli_local_t                *local      = NULL;
         dict_t                     *dict       = NULL;
         char                       *src_brick  = NULL;
         char                       *dst_brick  = NULL;
@@ -3096,17 +2952,6 @@ gf_cli_replace_brick (call_frame_t *frame, xlator_t *this,
         }
 
         dict = data;
-
-        local = cli_local_get ();
-        if (!local) {
-                ret = -1;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
-                goto out;
-        }
-
-        local->dict  = dict_ref (dict);
-        frame->local = local;
 
         ret = dict_get_int32 (dict, "operation", &op);
         if (ret) {
@@ -3140,19 +2985,10 @@ gf_cli_replace_brick (call_frame_t *frame, xlator_t *this,
                 "%s with operation=%d", src_brick,
                 dst_brick, op);
 
-
-        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failed to get serialized length of dict");
-                goto out;
-        }
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_REPLACE_BRICK, NULL,
-                              this, gf_cli_replace_brick_cbk,
-                              (xdrproc_t) xdr_gf_cli_req);
+        ret = cli_to_glusterd (&req, frame, gf_cli_replace_brick_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_REPLACE_BRICK, this, cli_rpc_prog,
+                               NULL);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -3178,18 +3014,10 @@ gf_cli_log_rotate (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-
-        if (ret < 0) {
-                gf_log (THIS->name, GF_LOG_ERROR, "failed to serialize dict");
-                goto out;
-        }
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_LOG_ROTATE, NULL,
-                              this, gf_cli_log_rotate_cbk,
-                              (xdrproc_t) xdr_gf_cli_req);
+        ret = cli_to_glusterd (&req, frame, gf_cli_log_rotate_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_LOG_ROTATE, this, cli_rpc_prog,
+                               NULL);
 
 
 out:
@@ -3213,18 +3041,11 @@ gf_cli_sync_volume (call_frame_t *frame, xlator_t *this,
         }
 
         dict = data;
-        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                           &req.dict.dict_len);
 
-        if (ret < 0) {
-                gf_log (THIS->name, GF_LOG_ERROR, "failed to serialize dict");
-                goto out;
-        }
-
-        ret = cli_cmd_submit (&req, frame,
-                              cli_rpc_prog, GLUSTER_CLI_SYNC_VOLUME,
-                              NULL, this, gf_cli_sync_volume_cbk,
-                              (xdrproc_t) xdr_gf_cli_req);
+        ret = cli_to_glusterd (&req, frame, gf_cli_sync_volume_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_SYNC_VOLUME, this, cli_rpc_prog,
+                               NULL);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -3278,21 +3099,13 @@ gf_cli_quota (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "failed to get serialized length of dict");
-                goto out;
-        }
+        ret = cli_to_glusterd (&req, frame, gf_cli_quota_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_QUOTA, this, cli_rpc_prog, NULL);
 
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_QUOTA, NULL,
-                              this, gf_cli_quota_cbk,
-                              (xdrproc_t) xdr_gf_cli_req);
-
-        GF_FREE (req.dict.dict_val);
 out:
+        GF_FREE (req.dict.dict_val);
+
         return ret;
 }
 
@@ -3652,19 +3465,10 @@ gf_cli_gsync_set (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "failed to serialize the data");
-
-                goto out;
-        }
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_GSYNC_SET, NULL,
-                              this, gf_cli_gsync_set_cbk,
-                              (xdrproc_t) xdr_gf_cli_req);
+        ret = cli_to_glusterd (&req, frame, gf_cli_gsync_set_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_GSYNC_SET, this, cli_rpc_prog,
+                               NULL);
 
 out:
         GF_FREE (req.dict.dict_val);
@@ -4021,21 +3825,10 @@ gf_cli_profile_volume (call_frame_t *frame, xlator_t *this, void *data)
                 goto out;
         dict = data;
 
-        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "failed to serialize the data");
-
-                goto out;
-        }
-
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_PROFILE_VOLUME, NULL,
-                              this, gf_cli_profile_volume_cbk,
-                              (xdrproc_t) xdr_gf_cli_req);
+        ret = cli_to_glusterd (&req, frame, gf_cli_profile_volume_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_PROFILE_VOLUME, this, cli_rpc_prog,
+                               NULL);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -4295,20 +4088,10 @@ gf_cli_top_volume (call_frame_t *frame, xlator_t *this, void *data)
                 goto out;
         dict = data;
 
-        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "failed to serialize the data");
-
-                goto out;
-        }
-
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_PROFILE_VOLUME, NULL,
-                              this, gf_cli_top_volume_cbk,
-                              (xdrproc_t) xdr_gf_cli_req);
+        ret = cli_to_glusterd (&req, frame, gf_cli_top_volume_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_PROFILE_VOLUME, this, cli_rpc_prog,
+                               NULL);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -5588,19 +5371,10 @@ gf_cli_status_volume (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-        if (ret < 0) {
-                gf_log ("cli", GF_LOG_ERROR,
-                        "failed to serialize the data");
-
-                goto out;
-        }
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_STATUS_VOLUME, NULL,
-                              this, gf_cli_status_cbk,
-                              (xdrproc_t)xdr_gf_cli_req);
-
+        ret = cli_to_glusterd (&req, frame, gf_cli_status_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_STATUS_VOLUME, this, cli_rpc_prog,
+                               NULL);
  out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning: %d", ret);
         return ret;
@@ -5624,14 +5398,10 @@ gf_cli_status_volume_all (call_frame_t *frame, xlator_t *this, void *data)
         if (ret)
                 goto out;
 
-        local = cli_local_get ();
-        if (!local) {
-                ret = -1;
-                gf_log ("cli", GF_LOG_ERROR, "Failed to allocate local");
-                goto out;
+        if (frame->local) {
+                local = frame->local;
+                local->all = _gf_true;
         }
-        frame->local = local;
-        local->all = _gf_true;
 
         ret = gf_cli_status_volume (frame, this, data);
         if (ret)
@@ -6008,7 +5778,6 @@ gf_cli_heal_volume (call_frame_t *frame, xlator_t *this,
 {
         gf_cli_req              req = {{0,}};
         int                     ret = 0;
-        cli_local_t             *local = NULL;
         dict_t                  *dict = NULL;
 
         if (!frame || !this ||  !data) {
@@ -6017,26 +5786,11 @@ gf_cli_heal_volume (call_frame_t *frame, xlator_t *this,
         }
 
         dict = data;
-        local = cli_local_get ();
 
-        if (local) {
-                local->dict = dict_ref (dict);
-                frame->local = local;
-        }
-
-        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "failed to serialize the data");
-
-                goto out;
-        }
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_HEAL_VOLUME, NULL,
-                              this, gf_cli_heal_volume_cbk,
-                              (xdrproc_t) xdr_gf_cli_req);
+        ret = cli_to_glusterd (&req, frame, gf_cli_heal_volume_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_HEAL_VOLUME, this, cli_rpc_prog,
+                               NULL);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -6103,23 +5857,12 @@ gf_cli_statedump_volume (call_frame_t *frame, xlator_t *this,
 
         options = data;
 
-        ret = dict_allocate_and_serialize (options, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "failed to serialize the data");
-
-                goto out;
-        }
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_STATEDUMP_VOLUME, NULL,
-                              this, gf_cli_statedump_volume_cbk,
-                              (xdrproc_t)xdr_gf_cli_req);
+        ret = cli_to_glusterd (&req, frame, gf_cli_statedump_volume_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, options,
+                               GLUSTER_CLI_STATEDUMP_VOLUME, this, cli_rpc_prog,
+                               NULL);
 
 out:
-        if (options)
-                dict_destroy (options);
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
         GF_FREE (req.dict.dict_val);
@@ -6303,27 +6046,88 @@ gf_cli_clearlocks_volume (call_frame_t *frame, xlator_t *this,
 
         options = data;
 
-        ret = dict_allocate_and_serialize (options, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-        if (ret < 0) {
-                gf_log ("cli", GF_LOG_ERROR,
-                        "failed to serialize the data");
-
-                goto out;
-        }
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_CLRLOCKS_VOLUME, NULL,
-                              this, gf_cli_clearlocks_volume_cbk,
-                              (xdrproc_t)xdr_gf_cli_req);
-
+        ret = cli_to_glusterd (&req, frame, gf_cli_clearlocks_volume_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, options,
+                               GLUSTER_CLI_CLRLOCKS_VOLUME, this, cli_rpc_prog,
+                               NULL);
 out:
-        if (options)
-                dict_destroy (options);
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
         GF_FREE (req.dict.dict_val);
         return ret;
+}
+
+int
+cli_to_glusterd (gf_cli_req *req, call_frame_t *frame,
+                 fop_cbk_fn_t cbkfn, xdrproc_t xdrproc, dict_t *dict,
+                 int procnum, xlator_t *this, rpc_clnt_prog_t *prog,
+                 struct iobref *iobref)
+{
+        int                ret = 0;
+        size_t             len = 0;
+        char               *cmd = NULL;
+        int                i = 0;
+        const char         **words = NULL;
+        cli_local_t        *local = NULL;
+
+        if (!this || !frame || !dict) {
+                ret = -1;
+                goto out;
+        }
+
+        if (!frame->local) {
+                ret = -1;
+                goto out;
+        }
+
+        local = frame->local;
+
+        if (!local->words) {
+                ret = -1;
+                goto out;
+        }
+
+        words = local->words;
+        local->dict = dict_ref (dict);
+
+        while (words[i])
+                len += strlen (words[i++]) + 1;
+
+        cmd = GF_CALLOC (1, len, gf_common_mt_char);
+
+        if (!cmd) {
+                ret = -1;
+                goto out;
+        }
+
+        for (i = 0; words[i]; i++) {
+                strncat (cmd, words[i], strlen (words[i]));
+                strncat (cmd, " ", strlen (" "));
+        }
+
+        cmd [len - 1] = '\0';
+
+        ret = dict_set_dynstr (dict, "cmd-str", cmd);
+        if (ret)
+                goto out;
+
+        ret = dict_allocate_and_serialize (dict, &(req->dict).dict_val,
+                                           &(req->dict).dict_len);
+
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "failed to get serialized length of dict");
+                goto out;
+        }
+
+        ret = cli_cmd_submit (req, frame, prog, procnum, iobref, this,
+                              cbkfn, (xdrproc_t) xdrproc);
+
+out:
+        if (dict)
+                dict_unref (dict);
+        return ret;
+
 }
 
 struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {

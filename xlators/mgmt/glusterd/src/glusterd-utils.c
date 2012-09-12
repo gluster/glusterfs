@@ -37,7 +37,6 @@
 #include "glusterd-pmap.h"
 
 #include "xdr-generic.h"
-
 #include <sys/resource.h>
 #include <inttypes.h>
 #include <signal.h>
@@ -5710,5 +5709,39 @@ glusterd_volset_help (dict_t *dict, char **op_errstr)
  out:
 
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_to_cli (rpcsvc_request_t *req, gf_cli_rsp *arg, struct iovec *payload,
+                 int payloadcount, struct iobref *iobref, xdrproc_t xdrproc,
+                 dict_t *dict)
+{
+        int                ret = -1;
+        char               *cmd = NULL;
+        int                op_ret = 0;
+        char               *op_errstr = NULL;
+        int                op_errno = 0;
+
+        op_ret = arg->op_ret;
+        op_errstr = arg->op_errstr;
+        op_errno = arg->op_errno;
+
+        ret = dict_get_str (dict, "cmd-str", &cmd);
+        if (ret)
+                gf_log ("glusterd", GF_LOG_ERROR, "Failed to get command string");
+
+        if (cmd) {
+                if (op_ret)
+                        gf_cmd_log ("", "%s : FAILED %s %s", cmd,
+                                       (op_errstr)? ":":" ",
+                                       (op_errstr)? op_errstr: " ");
+                else
+                        gf_cmd_log ("", "%s : SUCCESS", cmd);
+        }
+
+        glusterd_submit_reply (req, arg, payload, payloadcount, iobref,
+                               (xdrproc_t) xdrproc);
+
         return ret;
 }

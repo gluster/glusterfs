@@ -140,25 +140,21 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
         gf_log ("", GF_LOG_DEBUG, "dst brick=%s", dst_brick);
         gf_log ("glusterd", GF_LOG_INFO, "Received replace brick %s request",
                 operation);
-        gf_cmd_log ("Volume replace-brick","volname: %s src_brick:%s"
-                    " dst_brick:%s op:%s", volname, src_brick, dst_brick,
-                    operation);
 
         ret = glusterd_op_begin (req, GD_OP_REPLACE_BRICK, dict);
-        gf_cmd_log ("Volume replace-brick","on volname: %s %s", volname,
-                   (ret) ? "FAILED" : "SUCCESS");
 
 out:
-        if (ret && dict)
-                dict_unref (dict);
         free (cli_req.dict.dict_val);//malloced by xdr
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
-        if (ret)
+        if (ret) {
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
-                                                     NULL, "operation failed");
+                                                     dict, "operation failed");
+                if (dict)
+                        dict_unref (dict);
+        }
 
         return ret;
 }

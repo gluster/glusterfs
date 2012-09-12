@@ -67,6 +67,11 @@ glusterd_submit_reply (rpcsvc_request_t *req, void *arg,
                        struct iobref *iobref, xdrproc_t xdrproc);
 
 int
+glusterd_to_cli (rpcsvc_request_t *req, gf_cli_rsp *arg, struct iovec *payload,
+                 int payloadcount, struct iobref *iobref, xdrproc_t xdrproc,
+                 dict_t *dict);
+
+int
 glusterd_submit_request (struct rpc_clnt *rpc, void *req,
                          call_frame_t *frame, rpc_clnt_prog_t *prog,
                          int procnum, struct iobref *iobref,

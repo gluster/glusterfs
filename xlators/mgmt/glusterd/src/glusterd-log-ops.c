@@ -72,15 +72,15 @@ glusterd_handle_log_rotate (rpcsvc_request_t *req)
         ret = glusterd_op_begin (req, GD_OP_LOG_ROTATE, dict);
 
 out:
-        if (ret && dict)
-                dict_unref (dict);
-
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
-        if (ret)
+        if (ret) {
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
-                                                     NULL, "operation failed");
+                                                     dict, "operation failed");
+                if (dict)
+                        dict_unref (dict);
+        }
 
         free (cli_req.dict.dict_val);
         return ret;

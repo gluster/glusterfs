@@ -98,7 +98,6 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                           "name");
                 goto out;
         }
-        gf_cmd_log ("Volume create", "on volname: %s attempted", volname);
 
         if ((ret = glusterd_check_volume_exists (volname))) {
                 snprintf(err_str, 2048, "Volume %s already exists", volname);
@@ -153,11 +152,6 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                 free_ptr = brick_list;
         }
 
-        gf_cmd_log ("Volume create", "on volname: %s type:%s count:%d bricks:%s",
-                    volname, ((type == 0)? "DEFAULT":
-                    ((type == 1)? "STRIPE":"REPLICATE")), brick_count, bricks);
-
-
         while ( i < brick_count) {
                 i++;
                 brick= strtok_r (brick_list, " \n", &tmpptr);
@@ -193,21 +187,19 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                 goto out;
 
         ret = glusterd_op_begin (req, GD_OP_CREATE_VOLUME, dict);
-        gf_cmd_log ("Volume create", "on volname: %s %s", volname,
-                    (ret != 0) ? "FAILED": "SUCCESS");
 
 out:
         if (ret) {
-                if (dict)
-                        dict_unref (dict);
                 rsp.op_ret = -1;
                 rsp.op_errno = 0;
                 if (err_str[0] == '\0')
                         snprintf (err_str, sizeof (err_str), "Operation failed");
                 rsp.op_errstr = err_str;
                 cli_rsp = &rsp;
-                glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
-                                      (xdrproc_t)xdr_gf_cli_rsp);
+                glusterd_to_cli (req, cli_rsp, NULL, 0, NULL,
+                                 (xdrproc_t)xdr_gf_cli_rsp, dict);
+                if (dict)
+                        dict_unref (dict);
 
                 ret = 0; //Client response sent, prevent second response
         }
@@ -270,12 +262,7 @@ glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
 
         ret = glusterd_op_begin (req, GD_OP_START_VOLUME, dict);
 
-        gf_cmd_log ("volume start","on volname: %s %s", volname,
-                    ((ret == 0) ? "SUCCESS": "FAILED"));
-
 out:
-        if (ret && dict)
-                dict_unref (dict);
         free (cli_req.dict.dict_val); //its malloced by xdr
 
         glusterd_friend_sm ();
@@ -283,7 +270,9 @@ out:
 
         if (ret)
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
-                                                     NULL, "operation failed");
+                                                     dict, "operation failed");
+        if (dict)
+                dict_unref (dict);
 
         return ret;
 }
@@ -334,8 +323,6 @@ glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
                 "for volume %s", dup_volname);
 
         ret = glusterd_op_begin (req, GD_OP_STOP_VOLUME, dict);
-        gf_cmd_log ("Volume stop","on volname: %s %s", dup_volname,
-                    ((ret)?"FAILED":"SUCCESS"));
 
 out:
         free (cli_req.dict.dict_val); //its malloced by xdr
@@ -344,10 +331,10 @@ out:
         glusterd_op_sm ();
 
         if (ret) {
+                ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
+                                                     dict, "operation failed");
                 if (dict)
                         dict_unref (dict);
-                ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
-                                                     NULL, "operation failed");
         }
 
         return ret;
@@ -394,26 +381,22 @@ glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_cmd_log ("Volume delete","on volname: %s attempted", volname);
-
         gf_log ("glusterd", GF_LOG_INFO, "Received delete vol req"
                 "for volume %s", volname);
 
         ret = glusterd_op_begin (req, GD_OP_DELETE_VOLUME, dict);
-        gf_cmd_log ("Volume delete", "on volname: %s %s", volname,
-                   ((ret) ? "FAILED" : "SUCCESS"));
 
 out:
         free (cli_req.dict.dict_val); //its malloced by xdr
-        if (ret && dict)
-                dict_unref (dict);
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
         if (ret) {
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
-                                                     NULL, "operation failed");
+                                                     dict, "operation failed");
+                if (dict)
+                        dict_unref (dict);
         }
 
         return ret;
@@ -485,13 +468,7 @@ glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
 
         ret = glusterd_op_begin (req, GD_OP_HEAL_VOLUME, dict);
 
-        gf_cmd_log ("volume heal","on volname: %s %s", volname,
-                    ((ret == 0) ? "SUCCESS": "FAILED"));
-
 out:
-        if (ret && dict)
-                dict_unref (dict);
-
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
@@ -499,7 +476,9 @@ out:
                 if (!op_errstr)
                         op_errstr = gf_strdup ("operation failed");
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
-                                                     NULL, op_errstr);
+                                                     dict, op_errstr);
+                if (dict)
+                        dict_unref (dict);
                 GF_FREE (op_errstr);
         }
 
@@ -515,6 +494,7 @@ glusterd_handle_cli_statedump_volume (rpcsvc_request_t *req)
         char                            *options = NULL;
         dict_t                          *dict = NULL;
         int32_t                         option_cnt = 0;
+        glusterd_op_t                   cli_op = GD_OP_STATEDUMP_VOLUME;
 
         GF_ASSERT (req);
 
@@ -562,12 +542,13 @@ glusterd_handle_cli_statedump_volume (rpcsvc_request_t *req)
 
         ret = glusterd_op_begin (req, GD_OP_STATEDUMP_VOLUME, dict);
 
-        gf_cmd_log ("statedump", "on volume %s %s", volname,
-                    ((0 == ret) ? "SUCCEEDED" : "FAILED"));
-
 out:
-        if (ret && dict)
-                dict_unref (dict);
+        if (ret) {
+                ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
+                                                     dict, "Operation failed");
+                if (dict)
+                        dict_unref (dict);
+        }
         free (cli_req.dict.dict_val);
         glusterd_friend_sm ();
         glusterd_op_sm();
