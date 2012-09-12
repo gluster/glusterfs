@@ -35,7 +35,8 @@
 #include "xdr-nfs3.h"
 #include "mem-pool.h"
 #include "nlm4.h"
-
+#include "acl3-xdr.h"
+#include "acl3.h"
 #include <sys/statvfs.h>
 
 #define GF_NFS3                 GF_NFS"-nfsv3"
@@ -155,6 +156,10 @@ typedef union args_ {
         nlm4_shareargs nlm4_shareargs;
         nlm4_shareres nlm4_shareres;
         nlm4_freeallargs nlm4_freeallargs;
+        getaclargs getaclargs;
+        setaclargs setaclargs;
+        getaclreply getaclreply;
+        setaclreply setaclreply;
 } args;
 
 
@@ -234,6 +239,14 @@ struct nfs3_local {
         int                     monitor;
         rpc_transport_t         *trans;
         call_frame_t            *frame;
+
+        /* ACL */
+        aclentry                aclentry[NFS_ACL_MAX_ENTRIES];
+        aclentry                daclentry[NFS_ACL_MAX_ENTRIES];
+        int                     aclcount;
+        char                    aclxattr[NFS_ACL_MAX_ENTRIES*8 + 4];
+        int                     daclcount;
+        char                    daclxattr[NFS_ACL_MAX_ENTRIES*8 + 4];
 };
 
 #define nfs3_is_revalidate_lookup(cst) ((cst)->lookuptype == GF_NFS3_REVALIDATE)

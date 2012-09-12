@@ -14,7 +14,7 @@ libgfxdr_la_SOURCES =  xdr-generic.c rpc-common-xdr.c \
 			glusterd1-xdr.c \
 			portmap-xdr.c \
 			nlm4-xdr.c xdr-nfs3.c msg-nfs3.c nsm-xdr.c \
-			nlmcbk-xdr.c
+			nlmcbk-xdr.c acl3-xdr.c
 
 noinst_HEADERS = xdr-generic.h rpc-common-xdr.h \
 		glusterfs3-xdr.h glusterfs3.h \
@@ -22,4 +22,4 @@ noinst_HEADERS = xdr-generic.h rpc-common-xdr.h \
 		glusterd1-xdr.h \
 		portmap-xdr.h \
 		nlm4-xdr.h xdr-nfs3.h msg-nfs3.h nsm-xdr.h \
-		nlmcbk-xdr.h
+		nlmcbk-xdr.h acl3-xdr.h

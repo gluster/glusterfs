@@ -166,6 +166,22 @@ nfs_lk (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
 }
 
 int
+nfs_getxattr (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
+              char *name, dict_t *xdata, fop_getxattr_cbk_t cbk, void *local)
+{
+        return nfs_fop_getxattr (nfsx, xl, nfu, loc, name, xdata, cbk, local);
+}
+
+int
+nfs_setxattr (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu,
+              loc_t *loc, dict_t *dict, int32_t flags, dict_t *xdata,
+              fop_setxattr_cbk_t cbk, void *local)
+{
+        return nfs_fop_setxattr (nfsx, xl, nfu, loc, dict, flags, xdata, cbk,
+                                local);
+}
+
+int
 nfs_fsync (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
            int32_t datasync, fop_fsync_cbk_t cbk, void *local)
 {

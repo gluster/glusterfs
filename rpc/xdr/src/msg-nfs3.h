@@ -18,6 +18,7 @@
 
 #include "xdr-nfs3.h"
 #include "nlm4-xdr.h"
+#include "acl3-xdr.h"
 #include <sys/types.h>
 #include <sys/uio.h>
 
@@ -207,5 +208,17 @@ xdr_to_nlm4_res (struct iovec inmsg, nlm4_res *args);
 
 extern ssize_t
 xdr_to_nlm4_freeallargs (struct iovec inmsg, nlm4_freeallargs *args);
+
+extern ssize_t
+xdr_to_getaclargs (struct iovec inmsg, getaclargs *args);
+
+extern ssize_t
+xdr_to_setaclargs (struct iovec inmsg, setaclargs *args);
+
+extern ssize_t
+xdr_serialize_getaclreply (struct iovec inmsg, getaclreply *res);
+
+extern ssize_t
+xdr_serialize_setaclreply (struct iovec inmsg, setaclreply *res);
 
 #endif

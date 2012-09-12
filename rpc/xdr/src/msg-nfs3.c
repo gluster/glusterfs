@@ -541,3 +541,32 @@ xdr_to_nlm4_freeallargs (struct iovec inmsg, nlm4_freeallargs *args)
         return xdr_to_generic (inmsg, (void*)args,
                                (xdrproc_t)xdr_nlm4_freeallargs);
 }
+
+ssize_t
+xdr_to_getaclargs (struct iovec inmsg, getaclargs *args)
+{
+        return xdr_to_generic (inmsg, (void *) args,
+                               (xdrproc_t)xdr_getaclargs);
+}
+
+ssize_t
+xdr_to_setaclargs (struct iovec inmsg, setaclargs *args)
+{
+        return xdr_to_generic (inmsg, (void *) args,
+                               (xdrproc_t)xdr_setaclargs);
+}
+
+ssize_t
+xdr_serialize_getaclreply (struct iovec inmsg, getaclreply *res)
+{
+        return xdr_serialize_generic (inmsg, (void *) res,
+                                      (xdrproc_t)xdr_getaclreply);
+}
+
+ssize_t
+xdr_serialize_setaclreply (struct iovec inmsg, setaclreply *res)
+{
+        return xdr_serialize_generic (inmsg, (void *) res,
+                                      (xdrproc_t)xdr_setaclreply);
+}
+
