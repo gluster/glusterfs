@@ -343,7 +343,6 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
         char                            *bricks = NULL;
         char                            *volname = NULL;
         int                             brick_count = 0;
-        char                            *brick_list = NULL;
         void                            *cli_rsp = NULL;
         char                            err_str[2048] = {0,};
         gf_cli_rsp                      rsp = {0,};
@@ -388,8 +387,6 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
 
         ret = dict_get_str (dict, "volname", &volname);
 
-        gf_cmd_log ("Volume add-brick", "on volname: %s attempted",
-                    volname);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
                 snprintf (err_str, sizeof (err_str), "Unable to get volume "
@@ -510,9 +507,6 @@ brick_val:
                 goto out;
         }
 
-        gf_cmd_log ("Volume add-brick", "volname: %s type %d count:%d bricks:%s"
-                    ,volname, volinfo->type, brick_count, brick_list);
-
         if (type != volinfo->type) {
                 ret = dict_set_int32 (dict, "type", type);
                 if (ret)
@@ -523,19 +517,17 @@ brick_val:
         ret = glusterd_op_begin (req, GD_OP_ADD_BRICK, dict);
 
 out:
-        gf_cmd_log ("Volume add-brick","on volname: %s %s", volname,
-                   (ret != 0)? "FAILED" : "SUCCESS");
         if (ret) {
-                if (dict)
-                        dict_unref (dict);
                 rsp.op_ret = -1;
                 rsp.op_errno = 0;
                 if (err_str[0] == '\0')
                         snprintf (err_str, sizeof (err_str), "Operation failed");
                 rsp.op_errstr = err_str;
                 cli_rsp = &rsp;
-                glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
-                                      (xdrproc_t)xdr_gf_cli_rsp);
+                glusterd_to_cli (req, cli_rsp, NULL, 0, NULL,
+                                 (xdrproc_t)xdr_gf_cli_rsp, dict);
+                if (dict)
+                        dict_unref (dict);
                 ret = 0; //sent error to cli, prevent second reply
         }
 
@@ -610,7 +602,6 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_cmd_log ("Volume remove-brick","on volname: %s attempted", volname);
         ret = dict_get_int32 (dict, "count", &count);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to get count");
@@ -814,17 +805,11 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                         break;
                 }
         }
-        gf_cmd_log ("Volume remove-brick","volname: %s count:%d bricks:%s",
-                    volname, count, brick_list);
 
         ret = glusterd_op_begin (req, GD_OP_REMOVE_BRICK, dict);
-        gf_cmd_log ("Volume remove-brick","on volname: %s %s", volname,
-                    (ret) ? "FAILED" : "SUCCESS");
 
 out:
         if (ret) {
-                if (dict)
-                        dict_unref (dict);
                 rsp.op_ret = -1;
                 rsp.op_errno = 0;
                 if (err_str[0] == '\0')
@@ -832,8 +817,10 @@ out:
                 gf_log ("", GF_LOG_ERROR, "%s", err_str);
                 rsp.op_errstr = err_str;
                 cli_rsp = &rsp;
-                glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
-                                      (xdrproc_t)xdr_gf_cli_rsp);
+                glusterd_to_cli (req, cli_rsp, NULL, 0, NULL,
+                                 (xdrproc_t)xdr_gf_cli_rsp, dict);
+                if (dict)
+                        dict_unref (dict);
 
                 ret = 0; //sent error to cli, prevent second reply
 

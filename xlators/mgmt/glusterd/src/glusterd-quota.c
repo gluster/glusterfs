@@ -91,20 +91,17 @@ glusterd_handle_quota (rpcsvc_request_t *req)
                 strncpy (operation, "remove", sizeof (operation));
                 break;
         }
-        gf_cmd_log ("volume quota", " %s command on %s", operation, volname);
         ret = glusterd_op_begin (req, GD_OP_QUOTA, dict);
-        gf_cmd_log ("volume quota", " %s command on %s %s", operation,volname,
-                    (ret != 0)? "FAILED" : "SUCCEEDED");
 
 out:
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
         if (ret) {
+                ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
+                                                     dict, "operation failed");
                 if (dict)
                         dict_unref (dict);
-                ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
-                                                     NULL, "operation failed");
         }
 
         return ret;

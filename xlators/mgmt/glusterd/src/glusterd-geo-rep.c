@@ -131,21 +131,17 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
                 break;
         }
 
-        gf_cmd_log ("volume "GEOREP, " %s command on %s,%s", operation, master,
-                    slave);
         ret = glusterd_op_begin (req, GD_OP_GSYNC_SET, dict);
-        gf_cmd_log ("volume "GEOREP, " %s command on %s,%s %s  ", operation,
-                    master, slave, (ret != 0)? "FAILED" : "SUCCEEDED");
 
 out:
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
         if (ret) {
+                ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
+                                                     dict, "operation failed");
                 if (dict)
                         dict_unref (dict);
-                ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
-                                                     NULL, "operation failed");
         }
         return ret;
 }
