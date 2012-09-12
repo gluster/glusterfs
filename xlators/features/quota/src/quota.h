@@ -26,16 +26,6 @@
 #define VAL_LENGTH              8
 #define READDIR_BUF             4096
 
-#define QUOTA_STACK_DESTROY(_frame, _this)              \
-        do {                                            \
-                quota_local_t *_local = NULL;           \
-                _local = _frame->local;                 \
-                _frame->local = NULL;                   \
-                STACK_DESTROY (_frame->root);           \
-                quota_local_cleanup (_this, _local);    \
-                GF_FREE (_local);                       \
-        } while (0)
-
 #define QUOTA_SAFE_INCREMENT(lock, var)         \
         do {                                    \
                 LOCK (lock);                    \
@@ -73,7 +63,6 @@
                 }                                                       \
                 STACK_UNWIND_STRICT (fop, frame, params);               \
                 quota_local_cleanup (_this, _local);                    \
-                mem_put (_local);                                       \
         } while (0)
 
 #define QUOTA_FREE_CONTRIBUTION_NODE(_contribution)     \

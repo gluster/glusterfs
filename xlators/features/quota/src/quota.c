@@ -126,6 +126,7 @@ quota_local_cleanup (xlator_t *this, quota_local_t *local)
         inode_unref (local->inode);
         LOCK_DESTROY (&local->lock);
 
+        mem_put (local);
 out:
         return 0;
 }
