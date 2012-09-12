@@ -42,6 +42,7 @@
 #include "nfs3-helpers.h"
 #include "nlm4.h"
 #include "options.h"
+#include "acl3.h"
 
 #define OPT_SERVER_AUX_GIDS             "nfs.server-aux-gids"
 #define OPT_SERVER_GID_CACHE_TIMEOUT    "nfs.server.aux-gid-timeout"
@@ -184,6 +185,13 @@ nfs_add_all_initiators (struct nfs_state *nfs)
                                 " initializer");
                         goto ret;
                 }
+        }
+
+        ret = nfs_add_initer (&nfs->versions, acl3svc_init);
+        if (ret == -1) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add protocol"
+                        " initializer");
+                goto ret;
         }
 
         ret = 0;

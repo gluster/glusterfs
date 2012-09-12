@@ -245,4 +245,13 @@ extern int
 nfs_fop_lk (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
             int cmd, struct gf_flock *flock, fop_lk_cbk_t cbk, void *local);
 
+extern int
+nfs_fop_getxattr (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
+                  char *name, dict_t *xdata, fop_getxattr_cbk_t cbk, void *local);
+
+extern int
+nfs_fop_setxattr (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu,
+                  loc_t *loc, dict_t *dict, int32_t flags, dict_t *xdata,
+                  fop_setxattr_cbk_t cbk, void *local);
+
 #endif
