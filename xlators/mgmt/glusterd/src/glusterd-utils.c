@@ -777,17 +777,33 @@ _is_prefix (char *str1, char *str2)
         GF_ASSERT (str2);
 
         int             i = 0;
+        int             len1 = 0;
+        int             len2 = 0;
         int             small_len = 0;
+        char            *bigger = NULL;
         gf_boolean_t    prefix = _gf_true;
 
-        small_len = min (strlen (str1), strlen (str2));
+        len1 = strlen (str1);
+        len2 = strlen (str2);
+        small_len = min (len1, len2);
         for (i = 0; i < small_len; i++) {
                 if (str1[i] != str2[i]) {
                         prefix = _gf_false;
                         break;
                 }
-
         }
+
+        if (len1 < len2)
+            bigger = str2;
+
+        else if (len1 > len2)
+            bigger = str1;
+
+        else
+            return prefix;
+
+        if (bigger[small_len] != '/')
+            prefix = _gf_false;
 
         return prefix;
 }
@@ -817,8 +833,13 @@ glusterd_is_brickpath_available (uuid_t uuid, char *path)
                         if (uuid_compare (uuid, brickinfo->uuid))
                                 continue;
 
-                        if (!realpath (brickinfo->path, tmp_brickpath))
+                        if (!realpath (brickinfo->path, tmp_brickpath)) {
+                            if (errno == ENOENT)
+                                strncpy (tmp_brickpath, brickinfo->path,
+                                         PATH_MAX);
+                            else
                                 goto out;
+                        }
 
                         if (_is_prefix (tmp_brickpath, tmp_path))
                                 goto out;
@@ -4440,7 +4461,7 @@ glusterd_is_uuid_present (char *path, char *xattr, gf_boolean_t *present)
                 ret = 0;
                 goto out;
         }
-                
+
         switch (errno) {
 #if defined(ENODATA)
                 case ENODATA: /* FALLTHROUGH */
