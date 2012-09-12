@@ -1006,9 +1006,10 @@ glusterd_volume_status_add_peer_rsp (dict_t *this, char *key, data_t *value,
         int32_t                         index = 0;
         int32_t                         ret = 0;
 
+        /* Skip the following keys, they are already present in the ctx_dict */
         if (!strcmp (key, "count") || !strcmp (key, "cmd") ||
             !strcmp (key, "brick-index-max") || !strcmp (key, "other-count"))
-                return -1;
+                return 0;
 
         rsp_ctx = data;
         new_value = data_copy (value);
@@ -1033,7 +1034,7 @@ glusterd_volume_status_add_peer_rsp (dict_t *this, char *key, data_t *value,
 }
 
 int
-glusterd_volume_status_use_rsp_dict (dict_t *rsp_dict)
+glusterd_volume_status_copy_to_op_ctx_dict (dict_t *rsp_dict)
 {
         int                             ret = 0;
         glusterd_status_rsp_conv_t      rsp_ctx = {0};
@@ -1374,7 +1375,7 @@ glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 break;
 
                 case GD_OP_STATUS_VOLUME:
-                        ret = glusterd_volume_status_use_rsp_dict (dict);
+                        ret = glusterd_volume_status_copy_to_op_ctx_dict (dict);
                         if (ret)
                                 goto out;
                 break;
