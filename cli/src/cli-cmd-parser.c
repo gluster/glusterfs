@@ -696,12 +696,14 @@ cli_add_key_group (dict_t *dict, char *key, char *value)
                 ret = dict_set_dynstr (dict, iter_key, dkey);
                 if (ret)
                         goto out;
+                dkey = NULL;
 
                 snprintf (iter_val, sizeof (iter_val), "value%d", opt_count);
                 dval = gf_strdup (tok_val);
                 ret = dict_set_dynstr (dict, iter_val, dval);
                 if (ret)
                         goto out;
+                dval = NULL;
 
         }
 
