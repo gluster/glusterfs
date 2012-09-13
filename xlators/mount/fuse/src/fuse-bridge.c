@@ -4063,13 +4063,11 @@ fuse_thread_proc (void *data)
                     finh->uid == priv->uid_map_root)
                         finh->uid = 0;
 
-#ifdef GF_DARWIN_HOST_OS
                 if (finh->opcode >= FUSE_OP_HIGH)
                         /* turn down MacFUSE specific messages */
                         fuse_enosys (this, finh, msg);
                 else
-#endif
-                fuse_ops[finh->opcode] (this, finh, msg);
+                        fuse_ops[finh->opcode] (this, finh, msg);
 
                 iobuf_unref (iobuf);
                 continue;
@@ -4288,40 +4286,47 @@ mem_acct_init (xlator_t *this)
 
 
 static fuse_handler_t *fuse_std_ops[FUSE_OP_HIGH] = {
-        [FUSE_INIT]        = fuse_init,
-        [FUSE_DESTROY]     = fuse_destroy,
         [FUSE_LOOKUP]      = fuse_lookup,
         [FUSE_FORGET]      = fuse_forget,
         [FUSE_GETATTR]     = fuse_getattr,
         [FUSE_SETATTR]     = fuse_setattr,
-        [FUSE_OPENDIR]     = fuse_opendir,
-        [FUSE_READDIR]     = fuse_readdir,
-        [FUSE_RELEASEDIR]  = fuse_releasedir,
-        [FUSE_ACCESS]      = fuse_access,
         [FUSE_READLINK]    = fuse_readlink,
+        [FUSE_SYMLINK]     = fuse_symlink,
         [FUSE_MKNOD]       = fuse_mknod,
         [FUSE_MKDIR]       = fuse_mkdir,
         [FUSE_UNLINK]      = fuse_unlink,
         [FUSE_RMDIR]       = fuse_rmdir,
-        [FUSE_SYMLINK]     = fuse_symlink,
         [FUSE_RENAME]      = fuse_rename,
         [FUSE_LINK]        = fuse_link,
-        [FUSE_CREATE]      = fuse_create,
         [FUSE_OPEN]        = fuse_open,
         [FUSE_READ]        = fuse_readv,
         [FUSE_WRITE]       = fuse_write,
-        [FUSE_FLUSH]       = fuse_flush,
+        [FUSE_STATFS]      = fuse_statfs,
         [FUSE_RELEASE]     = fuse_release,
         [FUSE_FSYNC]       = fuse_fsync,
-        [FUSE_FSYNCDIR]    = fuse_fsyncdir,
-        [FUSE_STATFS]      = fuse_statfs,
         [FUSE_SETXATTR]    = fuse_setxattr,
         [FUSE_GETXATTR]    = fuse_getxattr,
         [FUSE_LISTXATTR]   = fuse_listxattr,
         [FUSE_REMOVEXATTR] = fuse_removexattr,
+        [FUSE_FLUSH]       = fuse_flush,
+        [FUSE_INIT]        = fuse_init,
+        [FUSE_OPENDIR]     = fuse_opendir,
+        [FUSE_READDIR]     = fuse_readdir,
+        [FUSE_RELEASEDIR]  = fuse_releasedir,
+        [FUSE_FSYNCDIR]    = fuse_fsyncdir,
         [FUSE_GETLK]       = fuse_getlk,
         [FUSE_SETLK]       = fuse_setlk,
         [FUSE_SETLKW]      = fuse_setlk,
+        [FUSE_ACCESS]      = fuse_access,
+        [FUSE_CREATE]      = fuse_create,
+     /* [FUSE_INTERRUPT] */
+     /* [FUSE_BMAP] */
+        [FUSE_DESTROY]     = fuse_destroy,
+     /* [FUSE_IOCTL] */
+     /* [FUSE_POLL] */
+     /* [FUSE_NOTIFY_REPLY] */
+     /* [FUSE_BATCH_FORGET] */
+     /* [FUSE_FALLOCATE] */ 
 };
 
 
