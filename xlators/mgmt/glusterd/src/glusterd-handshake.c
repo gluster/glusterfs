@@ -434,6 +434,8 @@ out:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (xdrproc_t)xdr_gf_mgmt_hndsk_rsp);
 
+        ret = 0;
+
         if (clnt_dict)
                 dict_unref (clnt_dict);
 
