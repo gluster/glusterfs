@@ -891,29 +891,33 @@ glusterd_store_rbstate_write (int fd, glusterd_volinfo_t *volinfo)
         GF_ASSERT (fd > 0);
         GF_ASSERT (volinfo);
 
-        snprintf (buf, sizeof (buf), "%d", volinfo->rb_status);
+        snprintf (buf, sizeof (buf), "%d", volinfo->rep_brick.rb_status);
         ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_RB_STATUS,
                                          buf);
         if (ret)
                 goto out;
 
-        if (volinfo->rb_status > GF_RB_STATUS_NONE) {
+        if (volinfo->rep_brick.rb_status > GF_RB_STATUS_NONE) {
 
                 snprintf (buf, sizeof (buf), "%s:%s",
-                          volinfo->src_brick->hostname,
-                          volinfo->src_brick->path);
+                          volinfo->rep_brick.src_brick->hostname,
+                          volinfo->rep_brick.src_brick->path);
                 ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_RB_SRC_BRICK,
                                                  buf);
                 if (ret)
                         goto out;
 
                 snprintf (buf, sizeof (buf), "%s:%s",
-                          volinfo->dst_brick->hostname,
-                          volinfo->dst_brick->path);
+                          volinfo->rep_brick.dst_brick->hostname,
+                          volinfo->rep_brick.dst_brick->path);
                 ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_RB_DST_BRICK,
                                                  buf);
                 if (ret)
                         goto out;
+
+                uuid_unparse (volinfo->rep_brick.rb_id, buf);
+                ret = glusterd_store_save_value (fd, GF_REPLACE_BRICK_TID_KEY,
+                                                 buf);
         }
 
 out:
@@ -960,17 +964,29 @@ glusterd_store_node_state_write (int fd, glusterd_volinfo_t *volinfo)
         GF_ASSERT (fd > 0);
         GF_ASSERT (volinfo);
 
-        if (volinfo->defrag_cmd == GF_DEFRAG_CMD_STATUS) {
+        if (volinfo->rebal.defrag_cmd == GF_DEFRAG_CMD_STATUS) {
                 ret = 0;
                 goto out;
         }
 
-        snprintf (buf, sizeof (buf), "%d", volinfo->defrag_cmd);
+        snprintf (buf, sizeof (buf), "%d", volinfo->rebal.defrag_cmd);
         ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_DEFRAG,
                                          buf);
         if (ret)
                 goto out;
 
+        snprintf (buf, sizeof (buf), "%d", volinfo->rebal.op);
+        ret = glusterd_store_save_value (fd, GLUSTERD_STORE_KEY_DEFRAG_OP,
+                                         buf);
+        if (ret)
+                goto out;
+
+        if (volinfo->rebal.defrag_cmd) {
+                uuid_unparse (volinfo->rebal.rebalance_id, buf);
+                ret = glusterd_store_save_value (fd,
+                                                 GF_REBALANCE_TID_KEY,
+                                                 buf);
+        }
 out:
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -2145,22 +2161,26 @@ glusterd_store_retrieve_rbstate (char   *volname)
         while (!ret) {
                 if (!strncmp (key, GLUSTERD_STORE_KEY_RB_STATUS,
                               strlen (GLUSTERD_STORE_KEY_RB_STATUS))) {
-                        volinfo->rb_status = atoi (value);
+                        volinfo->rep_brick.rb_status = atoi (value);
                 }
 
-                if (volinfo->rb_status > GF_RB_STATUS_NONE) {
+                if (volinfo->rep_brick.rb_status > GF_RB_STATUS_NONE) {
                         if (!strncmp (key, GLUSTERD_STORE_KEY_RB_SRC_BRICK,
                                       strlen (GLUSTERD_STORE_KEY_RB_SRC_BRICK))) {
                                 ret = glusterd_brickinfo_new_from_brick (value,
-                                                                     &volinfo->src_brick);
+                                                &volinfo->rep_brick.src_brick);
                                 if (ret)
                                         goto out;
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_RB_DST_BRICK,
                                              strlen (GLUSTERD_STORE_KEY_RB_DST_BRICK))) {
                                 ret = glusterd_brickinfo_new_from_brick (value,
-                                                                     &volinfo->dst_brick);
+                                                &volinfo->rep_brick.dst_brick);
                                 if (ret)
                                         goto out;
+                        } else if (!strncmp (key, GF_REPLACE_BRICK_TID_KEY,
+                                             strlen (GF_REPLACE_BRICK_TID_KEY))) {
+                                        uuid_parse (value,
+                                                    volinfo->rep_brick.rb_id);
                         }
                 }
 
@@ -2227,13 +2247,30 @@ glusterd_store_retrieve_node_state (char   *volname)
         if (ret)
                 goto out;
 
-        if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG,
-                       strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG))) {
-                 volinfo->defrag_cmd = atoi (value);
-        }
+        while (ret == 0) {
+                if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG,
+                              strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG))) {
+                        volinfo->rebal.defrag_cmd = atoi (value);
+                }
 
-        GF_FREE (key);
-        GF_FREE (value);
+                if (volinfo->rebal.defrag_cmd) {
+                        if (!strncmp (key, GF_REBALANCE_TID_KEY,
+                                       strlen (GF_REBALANCE_TID_KEY)))
+                                uuid_parse (value, volinfo->rebal.rebalance_id);
+
+                        if (!strncmp (key, GLUSTERD_STORE_KEY_DEFRAG_OP,
+                                      strlen (GLUSTERD_STORE_KEY_DEFRAG_OP)))
+                                volinfo->rebal.op = atoi (value);
+                }
+
+                GF_FREE (key);
+                GF_FREE (value);
+                key = NULL;
+                value = NULL;
+
+                ret = glusterd_store_iter_get_next (iter, &key, &value,
+                                                    &op_errno);
+        }
 
         if (op_errno != GD_STORE_EOF)
                 goto out;

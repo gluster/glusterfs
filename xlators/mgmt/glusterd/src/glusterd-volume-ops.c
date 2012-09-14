@@ -1007,7 +1007,7 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
                 ret = -1;
                 goto out;
         }
-        if (volinfo->rb_status != GF_RB_STATUS_NONE) {
+        if (volinfo->rep_brick.rb_status != GF_RB_STATUS_NONE) {
                 snprintf (msg, sizeof(msg), "replace-brick session is "
                           "in progress for the volume '%s'", volname);
                 gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
@@ -1601,7 +1601,7 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        volinfo->defrag_status = 0;
+        volinfo->rebal.defrag_status = 0;
         list_add_tail (&volinfo->vol_list, &priv->volumes);
         vol_added = _gf_true;
 out:
