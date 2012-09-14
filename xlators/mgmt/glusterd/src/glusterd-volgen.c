@@ -164,6 +164,8 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.disk-usage-limit",         "performance/quota",         NULL, NULL, NO_DOC, 0},
         {"performance.min-free-disk-limit",      "performance/quota",         NULL, NULL, NO_DOC, 0},
         {"performance.write-behind-window-size", "performance/write-behind",  "cache-size", NULL, DOC},
+        {"performance.strict-o-direct",          "performance/write-behind",  "strict-O_DIRECT", NULL, DOC},
+        {"performance.strict-write-ordering",    "performance/write-behind",  "strict-write-ordering", NULL, DOC},
         {"performance.read-ahead-page-count",    "performance/read-ahead",    "page-count", NULL, DOC},
 
         {"network.frame-timeout",                "protocol/client",           NULL, NULL, NO_DOC, 0},
