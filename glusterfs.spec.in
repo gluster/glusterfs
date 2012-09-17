@@ -326,6 +326,11 @@ if [ -d /var/lib/glusterd/vols ]; then
     done
 fi
 
+# Need to copy the file.
+
+mkdir -p /var/lib/glusterd/groups
+cp %{_docdir}/%{name}-%{version}/group-virt.example /var/lib/glusterd/groups/virt
+
 pidof -c -o %PPID -x glusterd &> /dev/null
 if [ $? -eq 0 ]; then
     kill -9 `pgrep -f gsyncd.py` &> /dev/null
