@@ -295,8 +295,20 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         state = frame->root->state;
         finh = state->finh;
 
-        if (!op_ret && __is_root_gfid (state->loc.inode->gfid)) {
-                buf->ia_ino = 1;
+        if (op_ret == 0) {
+		if (__is_root_gfid (state->loc.inode->gfid))
+			buf->ia_ino = 1;
+		if (uuid_is_null (buf->ia_gfid)) {
+			/* With a NULL gfid inode linking is
+			   not possible. Let's not pretend this
+			   call was a "success".
+			*/
+			gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+				"Received NULL gfid for %s. Forcing EIO",
+				state->loc.path);
+			op_ret = -1;
+			op_errno = EIO;
+		}
         }
 
         if (op_ret == 0) {
