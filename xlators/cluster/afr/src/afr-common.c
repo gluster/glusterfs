@@ -570,6 +570,7 @@ afr_hash_child (int32_t *success_children, int32_t child_count,
                 unsigned int hmode, uuid_t gfid)
 {
         uuid_t  gfid_copy = {0,};
+        pid_t pid;
 
         if (!hmode) {
                 return -1;
@@ -588,7 +589,8 @@ afr_hash_child (int32_t *success_children, int32_t child_count,
                  * perfection here.  All we need is a low probability that
                  * multiple clients won't converge on the same subvolume.
                  */
-                *((pid_t *)gfid_copy) = getpid();
+                pid = getpid();
+                memcpy (gfid_copy, &pid, sizeof(pid));
         }
 
         return SuperFastHash((char *)gfid_copy,
