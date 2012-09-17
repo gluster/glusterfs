@@ -20,8 +20,6 @@
 #include "defaults.h"
 
 
-
-
 #if 0
 static void
 _gf_dump_details (int argc, char **argv)
@@ -119,7 +117,8 @@ glusterfs_graph_set_first (glusterfs_graph_t *graph, xlator_t *xl)
 
 int
 glusterfs_graph_insert (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
-                        const char *type, const char *name)
+                        const char *type, const char *name,
+                        gf_boolean_t autoload)
 {
         xlator_t        *ixl = NULL;
 
@@ -144,6 +143,8 @@ glusterfs_graph_insert (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
         ixl->name  = gf_strdup (name);
         if (!ixl->name)
                 goto err;
+
+        ixl->is_autoloaded = autoload;
 
         if (xlator_set_type (ixl, type) == -1) {
                 gf_log ("glusterfs", GF_LOG_ERROR,
@@ -175,7 +176,7 @@ glusterfs_graph_acl (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
                 return 0;
 
         ret = glusterfs_graph_insert (graph, ctx, "system/posix-acl",
-                                      "posix-acl-autoload");
+                                      "posix-acl-autoload", 1);
         return ret;
 }
 
@@ -191,7 +192,7 @@ glusterfs_graph_worm (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
                 return 0;
 
         ret = glusterfs_graph_insert (graph, ctx, "features/worm",
-                                      "worm-autoload");
+                                      "worm-autoload", 1);
         return ret;
 }
 
@@ -207,7 +208,7 @@ glusterfs_graph_mac_compat (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
                 return 0;
 
         ret = glusterfs_graph_insert (graph, ctx, "features/mac-compat",
-                                      "mac-compat-autoload");
+                                      "mac-compat-autoload", 1);
 
         return ret;
 }
@@ -508,18 +509,26 @@ glusterfs_graph_activate (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
         return 0;
 }
 
+
 int
 glusterfs_graph_reconfigure (glusterfs_graph_t *oldgraph,
                              glusterfs_graph_t *newgraph)
 {
-        xlator_t *old_xl = NULL;
-        xlator_t *new_xl = NULL;
+        xlator_t   *old_xl   = NULL;
+        xlator_t   *new_xl   = NULL;
 
         GF_ASSERT (oldgraph);
         GF_ASSERT (newgraph);
 
         old_xl   = oldgraph->first;
+        while (old_xl->is_autoloaded) {
+                old_xl = old_xl->children->xlator;
+        }
+
         new_xl   = newgraph->first;
+        while (new_xl->is_autoloaded) {
+                new_xl = new_xl->children->xlator;
+        }
 
         return xlator_tree_reconfigure (old_xl, new_xl);
 }
