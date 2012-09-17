@@ -824,6 +824,7 @@ struct _xlator {
 
         /* for the memory pool of 'frame->local' */
         struct mem_pool    *local_pool;
+        gf_boolean_t        is_autoloaded;
 };
 
 #define xlator_has_parent(xl) (xl->parents != NULL)
