@@ -2173,14 +2173,14 @@ rpcsvc_transport_peer_check_addr (dict_t *options, char *volname,
         int     rjret = RPCSVC_AUTH_REJECT;
         char    clstr[RPCSVC_PEER_STRLEN];
         char   *tmp   = NULL;
-        struct sockaddr_storage sastorage = {0,};
-        struct sockaddr        *sockaddr  = NULL;
+        union gf_sock_union sock_union;
 
         if (!trans)
                 return ret;
 
         ret = rpcsvc_transport_peeraddr (trans, clstr, RPCSVC_PEER_STRLEN,
-                                         &sastorage, sizeof (sastorage));
+                                         &sock_union.storage,
+                                         sizeof (sock_union.storage));
         if (ret != 0) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to get remote addr: "
                         "%s", gai_strerror (ret));
@@ -2188,8 +2188,7 @@ rpcsvc_transport_peer_check_addr (dict_t *options, char *volname,
                 goto err;
         }
 
-        sockaddr = (struct sockaddr *) &sastorage;
-        switch (sockaddr->sa_family) {
+        switch (sock_union.sa.sa_family) {
 
         case AF_INET:
         case AF_INET6:
@@ -2307,10 +2306,9 @@ int
 rpcsvc_transport_privport_check (rpcsvc_t *svc, char *volname,
                                  rpc_transport_t *trans)
 {
-        struct sockaddr_storage sastorage = {0,};
-        struct sockaddr_in     *sa = NULL;
+        union gf_sock_union     sock_union;
         int                     ret = RPCSVC_AUTH_REJECT;
-        socklen_t               sasize = sizeof (sa);
+        socklen_t               sinsize = sizeof (&sock_union.sin);
         char                    *srchstr = NULL;
         char                    *valstr = NULL;
         int                     globalinsecure = RPCSVC_AUTH_REJECT;
@@ -2318,12 +2316,13 @@ rpcsvc_transport_privport_check (rpcsvc_t *svc, char *volname,
         uint16_t                port = 0;
         gf_boolean_t            insecure = _gf_false;
 
+        memset (&sock_union, 0, sizeof (sock_union));
+
         if ((!svc) || (!volname) || (!trans))
                 return ret;
 
-        sa = (struct sockaddr_in*) &sastorage;
-        ret = rpcsvc_transport_peeraddr (trans, NULL, 0, &sastorage,
-                                         sasize);
+        ret = rpcsvc_transport_peeraddr (trans, NULL, 0, &sock_union.storage,
+                                         sinsize);
         if (ret != 0) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to get peer addr: %s",
                         gai_strerror (ret));
@@ -2331,7 +2330,7 @@ rpcsvc_transport_privport_check (rpcsvc_t *svc, char *volname,
                 goto err;
         }
 
-        port = ntohs (sa->sin_port);
+        port = ntohs (sock_union.sin.sin_port);
         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Client port: %d", (int)port);
         /* If the port is already a privileged one, dont bother with checking
          * options.

@@ -909,8 +909,7 @@ void *
 nlm4_establish_callback (void *csarg)
 {
         nfs3_call_state_t *cs = NULL;
-        struct sockaddr_storage sa;
-        struct sockaddr *sockaddr = NULL;
+        union gf_sock_union sock_union;
         dict_t *options = NULL;
         char peerip[INET6_ADDRSTRLEN+1], *portstr = NULL;
         rpc_clnt_t *rpc_clnt = NULL;
@@ -923,9 +922,9 @@ nlm4_establish_callback (void *csarg)
 
         caller_name = cs->args.nlm4_lockargs.alock.caller_name;
 
-        rpc_transport_get_peeraddr (cs->trans, NULL, 0, &sa, sizeof (sa));
-        sockaddr = (struct sockaddr*) &sa;
-        switch (sockaddr->sa_family) {
+        rpc_transport_get_peeraddr (cs->trans, NULL, 0, &sock_union.storage,
+                                    sizeof (sock_union.storage));
+        switch (sock_union.sa.sa_family) {
         case AF_INET6:
         /* can not come here as NLM listens on IPv4 */
                 gf_log (GF_NLM, GF_LOG_ERROR, "NLM is not supported on IPv6 in"
@@ -938,9 +937,8 @@ nlm4_establish_callback (void *csarg)
                 break;
 */
         case AF_INET:
-                inet_ntop (AF_INET,
-                           &((struct sockaddr_in *)sockaddr)->sin_addr,
-                           peerip, INET6_ADDRSTRLEN+1);
+                inet_ntop (AF_INET, &sock_union.sin.sin_addr, peerip,
+                           INET6_ADDRSTRLEN+1);
                 break;
         default:
                 break;
@@ -948,7 +946,7 @@ nlm4_establish_callback (void *csarg)
         }
 
         /* looks like libc rpc supports only ipv4 */
-        port = pmap_getport ((struct sockaddr_in*)sockaddr, NLM_PROGRAM,
+        port = pmap_getport (&sock_union.sin, NLM_PROGRAM,
                              NLM_V4, IPPROTO_TCP);
 
         if (port == 0) {
@@ -1031,22 +1029,19 @@ nlm4svc_send_granted (nfs3_call_state_t *cs)
         struct iobref *iobref = NULL;
         char peerip[INET6_ADDRSTRLEN+1];
         pthread_t thr;
-        struct sockaddr_storage sa;
-        struct sockaddr *sockaddr = NULL;
+        union gf_sock_union sock_union;
 
 
-        rpc_transport_get_peeraddr (cs->trans, NULL, 0, &sa, sizeof (sa));
-        sockaddr = (struct sockaddr*) &sa;
-        switch (sockaddr->sa_family) {
+        rpc_transport_get_peeraddr (cs->trans, NULL, 0, &sock_union.storage,
+                                    sizeof (sock_union.storage));
+        switch (sock_union.sa.sa_family) {
         case AF_INET6:
-                inet_ntop (AF_INET6,
-                           &((struct sockaddr_in6 *)sockaddr)->sin6_addr,
-                           peerip, INET6_ADDRSTRLEN+1);
+                inet_ntop (AF_INET6, &sock_union.sin6.sin6_addr, peerip,
+                           INET6_ADDRSTRLEN+1);
                 break;
         case AF_INET:
-                inet_ntop (AF_INET,
-                           &((struct sockaddr_in *)sockaddr)->sin_addr,
-                           peerip, INET6_ADDRSTRLEN+1);
+                inet_ntop (AF_INET, &sock_union.sin.sin_addr, peerip,
+                           INET6_ADDRSTRLEN+1);
         default:
                 break;
                 /* FIXME: handle the error */
