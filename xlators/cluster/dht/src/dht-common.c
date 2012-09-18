@@ -1761,115 +1761,219 @@ dht_fill_pathinfo_xattr (xlator_t *this, dht_local_t *local,
 }
 
 int
+dht_vgetxattr_alloc_and_fill (dht_local_t *local, dict_t *xattr, xlator_t *this,
+                              int op_errno)
+{
+        int      ret       = -1;
+        char    *value     = NULL;
+        int32_t  plen      = 0;
+
+        ret = dict_get_str (xattr, local->xsel, &value);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Subvolume %s returned -1 (%s)", this->name,
+                        strerror (op_errno));
+                local->op_ret = -1;
+                local->op_errno = op_errno;
+                goto out;
+        }
+
+        local->alloc_len += strlen(value);
+
+        if (!local->xattr_val) {
+                local->alloc_len += (strlen (DHT_PATHINFO_HEADER) + 10);
+                local->xattr_val = GF_CALLOC (local->alloc_len, sizeof (char),
+                                              gf_common_mt_char);
+                if (!local->xattr_val) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        if (local->xattr_val) {
+                plen = strlen (local->xattr_val);
+                if (plen) {
+                        /* extra byte(s) for \0 to be safe */
+                        local->alloc_len += (plen + 2);
+                        local->xattr_val = GF_REALLOC (local->xattr_val,
+                                                       local->alloc_len);
+                        if (!local->xattr_val) {
+                                ret = -1;
+                                goto out;
+                        }
+                }
+
+                (void) strcat (local->xattr_val, value);
+                local->op_ret = 0;
+        }
+
+        ret = 0;
+
+ out:
+        return ret;
+}
+
+int
+dht_vgetxattr_fill_and_set (dht_local_t *local, dict_t **dict, xlator_t *this,
+                            gf_boolean_t flag)
+{
+        int   ret             = -1;
+        char *xattr_buf       = NULL;
+        char layout_buf[8192] = {0,};
+
+        if (flag)
+                fill_layout_info (local->layout, layout_buf);
+
+        *dict = dict_new ();
+        if (!*dict)
+                goto out;
+
+        /* we would need max this many bytes to create xattr string
+         * extra 40 bytes is just an estimated amount of additional
+         * space required as we include translator name and some
+         * spaces, brackets etc. when forming the pathinfo string.
+         *
+         * For node-uuid we just don't have all the pretty formatting,
+         * but since this is a generic routine for pathinfo & node-uuid
+         * we dont have conditional space allocation and try to be
+         * generic
+         */
+        local->alloc_len += (2 * strlen (this->name))
+                + strlen (layout_buf)
+                + 40;
+        xattr_buf = GF_CALLOC (local->alloc_len, sizeof (char),
+                               gf_common_mt_char);
+        if (!xattr_buf)
+                goto out;
+
+        if (XATTR_IS_PATHINFO (local->xsel)) {
+                (void) dht_fill_pathinfo_xattr (this, local, xattr_buf,
+                                                local->alloc_len, flag,
+                                                layout_buf);
+        } else if (XATTR_IS_NODE_UUID (local->xsel)) {
+                (void) snprintf (xattr_buf, local->alloc_len, "%s",
+                                 local->xattr_val);
+        } else {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Unknown local->xsel (%s)", local->xsel);
+                goto out;
+        }
+
+        ret = dict_set_dynstr (*dict, local->xsel, xattr_buf);
+        GF_FREE (local->xattr_val);
+
+ out:
+        return ret;
+}
+
+int
+dht_vgetxattr_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
+{
+        int          ret           = 0;
+        dht_local_t *local         = NULL;
+        int          this_call_cnt = 0;
+        dict_t      *dict          = NULL;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (frame->local, out);
+
+        local = frame->local;
+
+        LOCK (&frame->lock);
+        {
+                this_call_cnt = --local->call_cnt;
+                if (op_ret < 0) {
+                        if (op_errno != ENOTCONN) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "getxattr err (%s) for dir",
+                                        strerror (op_errno));
+				local->op_ret = -1;
+				local->op_errno = op_errno;
+                        }
+
+                        goto unlock;
+                }
+
+                ret = dht_vgetxattr_alloc_and_fill (local, xattr, this,
+                                                    op_errno);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "alloc or fill failure");
+        }
+ unlock:
+        UNLOCK (&frame->lock);
+
+        if (!is_last_call (this_call_cnt))
+                goto out;
+
+        /* -- last call: do patch ups -- */
+
+        if (local->op_ret == -1) {
+                goto unwind;
+        }
+
+        ret = dht_vgetxattr_fill_and_set (local, &dict, this, _gf_true);
+        if (ret)
+                goto unwind;
+
+        DHT_STACK_UNWIND (getxattr, frame, 0, 0, dict, xdata);
+        goto cleanup;
+
+ unwind:
+        DHT_STACK_UNWIND (getxattr, frame, -1, local->op_errno, NULL, NULL);
+ cleanup:
+        if (dict)
+                dict_unref (dict);
+ out:
+        return 0;
+}
+
+int
 dht_vgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
 {
-        dht_local_t *local         = NULL;
-        int          ret           = 0;
-        int          flag          = 0;
-        int          this_call_cnt = 0;
-        char        *value_got     = NULL;
-        char  layout_buf[8192]     = {0,};
-        char        *xattr_buf     = NULL;
-        dict_t      *dict          = NULL;
-        int32_t      alloc_len     = 0;
-        int32_t      plen          = 0;
-        call_frame_t *prev         = NULL;
+        dht_local_t  *local         = NULL;
+        int           ret           = 0;
+        dict_t       *dict          = NULL;
+        call_frame_t *prev          = NULL;
+        gf_boolean_t  flag          = _gf_true;
 
         local = frame->local;
         prev = cookie;
 
-        if (op_ret >= 0) {
-                ret = dict_get_str (xattr, local->xsel, &value_got);
-                if (!ret) {
-                        alloc_len = strlen (value_got);
-
-                        /**
-                         * allocate the buffer:- we allocate 10 bytes extra in
-                         * case we need to append ' Link: ' in the buffer for
-                         * another STACK_WIND
-                         */
-                        if (!local->xattr_val) {
-                                alloc_len += (strlen (DHT_PATHINFO_HEADER) + 10);
-                                local->xattr_val =
-                                        GF_CALLOC (alloc_len,
-                                                   sizeof (char),
-                                                   gf_common_mt_char);
-                        }
-
-                        if (local->xattr_val) {
-                                plen = strlen (local->xattr_val);
-                                if (plen) {
-                                        void *p;
-                                        /* extra byte(s) for \0 to be safe */
-                                        alloc_len += (plen + 2);
-                                        p = GF_REALLOC (local->xattr_val,
-                                                        alloc_len);
-                                        if (!p)
-                                                goto out;
-                                        local->xattr_val = p;
-                                }
-
-                                strcat (local->xattr_val, value_got);
-                        }
-                        local->op_ret = 0;
-                }
-        } else {
+        if (op_ret < 0) {
                 local->op_ret = -1;
                 local->op_errno = op_errno;
                 gf_log (this->name, GF_LOG_ERROR, "Subvolume %s returned -1 "
                         "(%s)", prev->this->name, strerror (op_errno));
+                goto unwind;
         }
 
- out:
-        this_call_cnt = dht_frame_return (frame);
-        if (is_last_call (this_call_cnt)) {
-
-                if (local->op_ret == -1) {
-                        goto unwind;
-                }
-
-                if (local->layout->cnt > 1) {
-                        /* Set it for directory */
-                        fill_layout_info (local->layout, layout_buf);
-                        flag = 1;
-                }
-
-                dict = dict_new ();
-
-                /* we would need max this many bytes to create xattr string */
-                alloc_len += (2 * strlen (this->name))
-                          + strlen (layout_buf)
-                          + 40;
-                xattr_buf = GF_CALLOC (alloc_len,
-                                       sizeof (char), gf_common_mt_char);
-
-                if (XATTR_IS_PATHINFO (local->xsel)) {
-                        (void) dht_fill_pathinfo_xattr (this, local, xattr_buf,
-                                                        alloc_len, flag,
-                                                        layout_buf);
-                } else if (XATTR_IS_NODE_UUID (local->xsel)) {
-                        (void) snprintf (xattr_buf, alloc_len, "%s",
-                                         local->xattr_val);
-                } else
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "Unknown local->xsel (%s)", local->xsel);
-
-                ret = dict_set_dynstr (dict, local->xsel, xattr_buf);
-
-                GF_FREE (local->xattr_val);
-
-                DHT_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict,
-                                  xdata);
-
-                if (dict)
-                        dict_unref (dict);
-
-                return 0;
+        ret = dht_vgetxattr_alloc_and_fill (local, xattr, this,
+                                            op_errno);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "alloc or fill failure");
+                goto unwind;
         }
 
-unwind:
-        DHT_STACK_UNWIND (getxattr, frame, -1, local->op_errno, NULL, NULL);
+        flag = (local->layout->cnt > 1) ? _gf_true : _gf_false;
+
+        ret = dht_vgetxattr_fill_and_set (local, &dict, this, flag);
+        if (ret)
+                goto unwind;
+
+        DHT_STACK_UNWIND (getxattr, frame, 0, 0, dict, xdata);
+        goto cleanup;
+
+ unwind:
+        DHT_STACK_UNWIND (getxattr, frame, -1, local->op_errno,
+                          NULL, NULL);
+ cleanup:
+        if (dict)
+                dict_unref (dict);
+
         return 0;
 }
 
@@ -1949,7 +2053,9 @@ dht_getxattr_unwind (call_frame_t *frame,
 int
 dht_getxattr (call_frame_t *frame, xlator_t *this,
               loc_t *loc, const char *key, dict_t *xdata)
+#define DHT_IS_DIR(layout)  (layout->cnt > 1)
 {
+
         xlator_t     *subvol        = NULL;
         xlator_t     *hashed_subvol = NULL;
         xlator_t     *cached_subvol = NULL;
@@ -1993,8 +2099,31 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        if (key && ((strcmp (key, GF_XATTR_PATHINFO_KEY) == 0)
-                    || strcmp (key, GF_XATTR_NODE_UUID_KEY) == 0)) {
+        /* for file use cached subvolume (obviously!): see if {}
+         * below
+         * for directory:
+         *  wind to all subvolumes and exclude subvolumes which
+         *  return ENOTCONN (in callback)
+         *
+         * NOTE: Don't trust inode here, as that may not be valid
+         *       (until inode_link() happens)
+         */
+        if (key && (strcmp (key, GF_XATTR_PATHINFO_KEY) == 0)
+            && DHT_IS_DIR(layout)) {
+                (void) strncpy (local->xsel, key, 256);
+                cnt = local->call_cnt = layout->cnt;
+                for (i = 0; i < cnt; i++) {
+                        subvol = layout->list[i].xlator;
+                        STACK_WIND (frame, dht_vgetxattr_dir_cbk,
+                                    subvol, subvol->fops->getxattr,
+                                    loc, key, NULL);
+                }
+                return 0;
+        }
+
+        /* node-uuid or pathinfo for files */
+        if (key && ((strcmp (key, GF_XATTR_NODE_UUID_KEY) == 0)
+                    || (strcmp (key, GF_XATTR_PATHINFO_KEY) == 0))) {
                 cached_subvol = local->cached_subvol;
                 (void) strncpy (local->xsel, key, 256);
 
@@ -2004,6 +2133,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
 
                 return 0;
         }
+
         if (key && (strcmp (key, GF_XATTR_LINKINFO_KEY) == 0)) {
                 hashed_subvol = dht_subvol_get_hashed (this, loc);
                 if (!hashed_subvol) {
@@ -2037,12 +2167,12 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
 
         if (key && (!strcmp (GF_XATTR_MARKER_KEY, key))
             && (-1 == frame->root->pid)) {
-
-                if (loc->inode-> ia_type == IA_IFDIR) {
+                if (DHT_IS_DIR(layout)) {
                         cnt = layout->cnt;
                 } else {
                         cnt = 1;
                 }
+
                 sub_volumes = alloca ( cnt * sizeof (xlator_t *));
                 for (i = 0; i < cnt; i++)
                         *(sub_volumes + i) = layout->list[i].xlator;
@@ -2061,7 +2191,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         if (key && *conf->vol_uuid) {
                 if ((match_uuid_local (key, conf->vol_uuid) == 0) &&
                     (-1 == frame->root->pid)) {
-                        if (loc->inode-> ia_type == IA_IFDIR) {
+                        if (DHT_IS_DIR(layout)) {
                                 cnt = layout->cnt;
                         } else {
                                 cnt = 1;
@@ -2083,7 +2213,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        if (loc->inode-> ia_type == IA_IFDIR) {
+        if (DHT_IS_DIR(layout)) {
                 cnt = local->call_cnt = layout->cnt;
         } else {
                 cnt = local->call_cnt  = 1;
@@ -2103,6 +2233,7 @@ err:
 
         return 0;
 }
+#undef DHT_IS_DIR
 
 int
 dht_fgetxattr (call_frame_t *frame, xlator_t *this,
