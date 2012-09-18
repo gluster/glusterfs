@@ -245,6 +245,11 @@ static void get_groups(fuse_private_t *priv, call_frame_t *frame)
 	const gid_list_t *gl;
 	gid_list_t agl;
 
+        if (-1 == priv->gid_cache_timeout) {
+                frame->root->ngrps = 0;
+                return;
+        }
+
 	if (!priv->gid_cache_timeout) {
 		frame_fill_groups(frame);
 		return;
