@@ -160,6 +160,7 @@ struct dht_local {
 
         /* which xattr request? */
         char xsel[256];
+        int32_t alloc_len;
 
         char   *newpath;
 
