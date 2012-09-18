@@ -20,6 +20,8 @@
 #include "server-helpers.h"
 #include "glusterfs3-xdr.h"
 #include "glusterfs3.h"
+#include "client_t.h"
+#include "lock-table.h"
 #include "compat-errno.h"
 
 #include "xdr-nfs3.h"
@@ -31,20 +33,16 @@ server_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct statvfs *buf,
                    dict_t *xdata)
 {
-        gfs3_statfs_rsp      rsp  = {0,};
-        rpcsvc_request_t    *req  = NULL;
-        server_connection_t *conn = NULL;
+        gfs3_statfs_rsp      rsp    = {0,};
+        rpcsvc_request_t    *req    = NULL;
 
         req = frame->local;
-
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "(conn:%s) %"PRId64": STATFS (%s)", conn->id,
+                gf_log (this->name, GF_LOG_WARNING, "%"PRId64": STATFS (%s)",
                         frame->root->unique, strerror (op_errno));
                 goto out;
         }
@@ -77,11 +75,9 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         loc_t                fresh_loc  = {0,};
         gfs3_lookup_rsp      rsp        = {0,};
         uuid_t               rootgfid   = {0,};
-        server_connection_t *conn       = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         if (state->is_revalidate == 1 && op_ret == -1) {
                 state->is_revalidate = 2;
@@ -142,8 +138,8 @@ out:
                 if (state->resolve.bname) {
                         gf_log (this->name, ((op_errno == ENOENT) ?
                                              GF_LOG_TRACE : GF_LOG_INFO),
-                                "(conn:%s) %"PRId64": LOOKUP %s (%s/%s) ==> "
-                                "(%s)",conn->id, frame->root->unique,
+                                "%"PRId64": LOOKUP %s (%s/%s) ==> "
+                                "(%s)", frame->root->unique,
                                 state->loc.path,
                                 uuid_utoa (state->resolve.pargfid),
                                 state->resolve.bname,
@@ -151,8 +147,8 @@ out:
                 } else {
                         gf_log (this->name, ((op_errno == ENOENT) ?
                                              GF_LOG_TRACE : GF_LOG_INFO),
-                                "(conn:%s) %"PRId64": LOOKUP %s (%s) ==> (%s)",
-                                conn->id, frame->root->unique, state->loc.path,
+                                "%"PRId64": LOOKUP %s (%s) ==> (%s)",
+                                frame->root->unique, state->loc.path,
                                 uuid_utoa (state->resolve.gfid),
                                 strerror (op_errno));
                 }
@@ -175,12 +171,9 @@ server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_lk_rsp          rsp   = {0,};
         rpcsvc_request_t    *req   = NULL;
         server_state_t      *state = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -188,8 +181,8 @@ server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret) {
                 if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                         gf_log (this->name, GF_LOG_INFO,
-                                "(conn: %s) %"PRId64": LK %"PRId64" (%s) ==> "
-                                "(%s)", conn->id, frame->root->unique,
+                                "%"PRId64": LK %"PRId64" (%s) ==> "
+                                "(%s)", frame->root->unique,
                                 state->resolve.fd_no,
                                 uuid_utoa (state->resolve.gfid),
                                 strerror (op_errno));
@@ -233,12 +226,9 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         gf_common_rsp        rsp   = {0,};
-        server_connection_t *conn  = NULL;
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
-
         req = frame->local;
-        conn = SERVER_CONNECTION(frame);
         state = CALL_STATE(frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
@@ -247,8 +237,8 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret < 0) {
                 if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                         gf_log (this->name, GF_LOG_INFO,
-                                "(conn:%s) %"PRId64": INODELK %s (%s) ==> (%s)",
-                                conn->id, frame->root->unique, state->loc.path,
+                                "%"PRId64": INODELK %s (%s) ==> (%s)",
+                                frame->root->unique, state->loc.path,
                                 uuid_utoa (state->resolve.gfid),
                                 strerror (op_errno));
                 }
@@ -256,13 +246,14 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (state->flock.l_type == F_UNLCK)
-                gf_del_locker (conn, state->volume,
-                               &state->loc, NULL, &frame->root->lk_owner,
+                gf_del_locker (state->client->locks_ctx.ltable,
+                               state->volume, &state->loc, NULL,
+                               &frame->root->lk_owner,
                                GF_FOP_INODELK);
         else
-                gf_add_locker (conn, state->volume,
-                               &state->loc, NULL, frame->root->pid,
-                               &frame->root->lk_owner,
+                gf_add_locker (state->client->locks_ctx.ltable,
+                               state->volume, &state->loc, NULL,
+                               frame->root->pid, &frame->root->lk_owner,
                                GF_FOP_INODELK);
 
 out:
@@ -284,11 +275,9 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         gf_common_rsp        rsp   = {0,};
         server_state_t      *state = NULL;
-        server_connection_t *conn  = NULL;
         rpcsvc_request_t    *req   = NULL;
 
         req = frame->local;
-        conn = SERVER_CONNECTION(frame);
         state = CALL_STATE(frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
@@ -297,8 +286,8 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret < 0) {
                 if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                         gf_log (this->name, GF_LOG_INFO,
-                                "(conn:%s) %"PRId64": FINODELK %"PRId64" (%s) "
-                                "==> (%s)", conn->id, frame->root->unique,
+                                "%"PRId64": FINODELK %"PRId64" (%s) "
+                                "==> (%s)", frame->root->unique,
                                 state->resolve.fd_no,
                                 uuid_utoa (state->resolve.gfid),
                                 strerror (op_errno));
@@ -307,14 +296,15 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (state->flock.l_type == F_UNLCK)
-                gf_del_locker (conn, state->volume,
-                               NULL, state->fd,
-                               &frame->root->lk_owner,  GF_FOP_INODELK);
+                gf_del_locker (state->client->locks_ctx.ltable,
+                               state->volume, NULL, state->fd,
+                               &frame->root->lk_owner,
+                               GF_FOP_INODELK);
         else
-                gf_add_locker (conn, state->volume,
-                               NULL, state->fd,
-                               frame->root->pid,
-                               &frame->root->lk_owner, GF_FOP_INODELK);
+                gf_add_locker (state->client->locks_ctx.ltable,
+                               state->volume, NULL, state->fd,
+                               frame->root->pid, &frame->root->lk_owner,
+                               GF_FOP_INODELK);
 
 out:
         rsp.op_ret    = op_ret;
@@ -332,13 +322,11 @@ int
 server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
-        server_connection_t *conn  = NULL;
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
         gf_common_rsp        rsp   = {0,};
 
         req = frame->local;
-        conn = SERVER_CONNECTION(frame);
         state = CALL_STATE(frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
@@ -347,8 +335,8 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret < 0) {
                 if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                         gf_log (this->name, GF_LOG_INFO,
-                                "(conn:%s) %"PRId64": ENTRYLK %s (%s) ==> (%s)",
-                                conn->id, frame->root->unique, state->loc.path,
+                                "%"PRId64": ENTRYLK %s (%s) ==> (%s)",
+                                frame->root->unique, state->loc.path,
                                 uuid_utoa (state->resolve.gfid),
                                 strerror (op_errno));
                 }
@@ -356,13 +344,14 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (state->cmd == ENTRYLK_UNLOCK)
-                gf_del_locker (conn, state->volume,
-                               &state->loc, NULL, &frame->root->lk_owner,
+                gf_del_locker (state->client->locks_ctx.ltable,
+                               state->volume, &state->loc, NULL,
+                               &frame->root->lk_owner,
                                GF_FOP_ENTRYLK);
         else
-                gf_add_locker (conn, state->volume,
-                               &state->loc, NULL, frame->root->pid,
-                               &frame->root->lk_owner,
+                gf_add_locker (state->client->locks_ctx.ltable,
+                               state->volume, &state->loc, NULL,
+                               frame->root->pid, &frame->root->lk_owner,
                                GF_FOP_ENTRYLK);
 
 out:
@@ -383,12 +372,10 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         gf_common_rsp        rsp   = {0,};
-        server_connection_t *conn  = NULL;
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
 
         req   = frame->local;
-        conn  = SERVER_CONNECTION(frame);
         state = CALL_STATE(frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
@@ -397,8 +384,7 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret < 0) {
                 if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
                         gf_log (this->name, GF_LOG_INFO,
-                                "(conn:%s) %"PRId64": FENTRYLK %"PRId64" (%s) "
-                                "==>(%s)", conn->id,
+                                "%"PRId64": FENTRYLK %"PRId64" (%s) ==>(%s)",
                                 frame->root->unique, state->resolve.fd_no,
                                 uuid_utoa (state->resolve.gfid),
                                 strerror (op_errno));
@@ -407,13 +393,15 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (state->cmd == ENTRYLK_UNLOCK)
-                gf_del_locker (conn, state->volume,
-                               NULL, state->fd, &frame->root->lk_owner,
+                gf_del_locker (state->client->locks_ctx.ltable,
+                               state->volume, NULL, state->fd,
+                               &frame->root->lk_owner,
                                GF_FOP_ENTRYLK);
         else
-                gf_add_locker (conn, state->volume,
-                               NULL, state->fd, frame->root->pid,
-                               &frame->root->lk_owner, GF_FOP_ENTRYLK);
+                gf_add_locker (state->client->locks_ctx.ltable,
+                               state->volume, NULL, state->fd,
+                               frame->root->pid, &frame->root->lk_owner,
+                               GF_FOP_ENTRYLK);
 
 out:
         rsp.op_ret    = op_ret;
@@ -435,19 +423,17 @@ server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_common_rsp        rsp   = {0,};
         rpcsvc_request_t    *req   = NULL;
         server_state_t      *state = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": ACCESS %s (%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->loc.path,
+                        "%"PRId64": ACCESS %s (%s) ==> (%s)",
+                        frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.gfid),
                         strerror (op_errno));
                 goto out;
@@ -474,19 +460,17 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t      *state  = NULL;
         inode_t             *parent = NULL;
         rpcsvc_request_t    *req    = NULL;
-        server_connection_t *conn   = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": RMDIR %s (%s/%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->loc.path,
+                        "%"PRId64": RMDIR %s (%s/%s) ==> (%s)",
+                        frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.pargfid),
                         state->resolve.bname, strerror (op_errno));
                 goto out;
@@ -529,19 +513,17 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t      *state      = NULL;
         inode_t             *link_inode = NULL;
         rpcsvc_request_t    *req        = NULL;
-        server_connection_t *conn       = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": MKDIR %s (%s/%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->loc.path,
+                        "%"PRId64": MKDIR %s (%s/%s) ==> (%s)",
+                        frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.pargfid),
                         state->resolve.bname, strerror (op_errno));
                 goto out;
@@ -578,19 +560,17 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t      *state      = NULL;
         inode_t             *link_inode = NULL;
         rpcsvc_request_t    *req        = NULL;
-        server_connection_t *conn       = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": MKNOD %s (%s/%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->loc.path,
+                        "%"PRId64": MKNOD %s (%s/%s) ==> (%s)",
+                        frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.pargfid),
                         state->resolve.bname, strerror (op_errno));
                 goto out;
@@ -624,19 +604,17 @@ server_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_common_rsp        rsp   = {0,};
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": FSYNCDIR %"PRId64" (%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->resolve.fd_no,
+                        "%"PRId64": FSYNCDIR %"PRId64" (%s) ==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid),
                         strerror (op_errno));
                 goto out;
@@ -663,19 +641,17 @@ server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
         int                  ret   = 0;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": READDIR %"PRId64" (%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->resolve.fd_no,
+                        "%"PRId64": READDIR %"PRId64" (%s) ==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid),
                         strerror (op_errno));
                 goto out;
@@ -709,14 +685,12 @@ int
 server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
-        server_connection_t *conn  = NULL;
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
         gfs3_opendir_rsp     rsp   = {0,};
         uint64_t             fd_no = 0;
 
         req = frame->local;
-        conn = SERVER_CONNECTION (frame);
         state = CALL_STATE (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
@@ -724,14 +698,14 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": OPENDIR %s (%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->loc.path,
+                        "%"PRId64": OPENDIR %s (%s) ==> (%s)",
+                        frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.gfid), strerror (op_errno));
                 goto out;
         }
 
         fd_bind (fd);
-        fd_no = gf_fd_unused_get (conn->fdtable, fd);
+        fd_no = gf_fd_unused_get (state->client->server_ctx.fdtable, fd);
         fd_ref (fd); // on behalf of the client
 
 out:
@@ -754,19 +728,16 @@ server_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_common_rsp        rsp   = {0,};
         rpcsvc_request_t    *req   = NULL;
         server_state_t      *state = NULL;
-        server_connection_t *conn  = NULL;
 
         req   = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": REMOVEXATTR %s (%s) of key %s "
-                        "==> (%s)", conn->id,
+                        "%"PRId64": REMOVEXATTR %s (%s) of key %s ==> (%s)",
                         frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.gfid),
                         state->name, strerror (op_errno));
@@ -792,19 +763,16 @@ server_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_common_rsp        rsp   = {0,};
         rpcsvc_request_t    *req   = NULL;
         server_state_t      *state = NULL;
-        server_connection_t *conn  = NULL;
 
         req   = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": FREMOVEXATTR %"PRId64" (%s) (%s) "
-                        "==> (%s)", conn->id,
+                        "%"PRId64": FREMOVEXATTR %"PRId64" (%s) (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid), state->name,
                         strerror (op_errno));
@@ -831,11 +799,9 @@ server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_getxattr_rsp    rsp   = {0,};
         rpcsvc_request_t    *req   = NULL;
         server_state_t      *state = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE (frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -845,8 +811,8 @@ server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                       (op_errno == ENODATA) ||
                                       (op_errno == ENOENT)) ?
                                      GF_LOG_DEBUG : GF_LOG_INFO),
-                        "(conn:%s) %"PRId64": GETXATTR %s (%s) (%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->loc.path,
+                        "%"PRId64": GETXATTR %s (%s) (%s) ==> (%s)",
+                        frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.gfid),
                         state->name, strerror (op_errno));
                 goto out;
@@ -878,11 +844,9 @@ server_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_fgetxattr_rsp   rsp   = {0,};
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE (frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -890,8 +854,7 @@ server_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1) {
                 gf_log (this->name, ((op_errno == ENOTSUP) ?
                                      GF_LOG_DEBUG : GF_LOG_INFO),
-                        "(conn:%s) %"PRId64": FGETXATTR %"PRId64" (%s) (%s) "
-                        "==> (%s)", conn->id,
+                        "%"PRId64": FGETXATTR %"PRId64" (%s) (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid),
                         state->name, strerror (op_errno));
@@ -923,15 +886,13 @@ _gf_server_log_setxattr_failure (dict_t *d, char *k, data_t *v,
 {
         server_state_t      *state = NULL;
         call_frame_t        *frame = NULL;
-        server_connection_t *conn  = NULL;
 
         frame = tmp;
-        conn = SERVER_CONNECTION (frame);
         state = CALL_STATE(frame);
 
         gf_log (THIS->name, GF_LOG_INFO,
-                "(conn:%s) %"PRId64": SETXATTR %s (%s) ==> %s",
-                conn->id, frame->root->unique, state->loc.path,
+                "%"PRId64": SETXATTR %s (%s) ==> %s",
+                frame->root->unique, state->loc.path,
                 uuid_utoa (state->resolve.gfid), k);
         return 0;
 }
@@ -981,15 +942,13 @@ _gf_server_log_fsetxattr_failure (dict_t *d, char *k, data_t *v,
 {
         call_frame_t        *frame = NULL;
         server_state_t      *state = NULL;
-        server_connection_t *conn  = NULL;
 
         frame = tmp;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         gf_log (THIS->name, GF_LOG_INFO,
-                "(conn:%s) %"PRId64": FSETXATTR %"PRId64" (%s) ==> %s",
-                conn->id, frame->root->unique, state->resolve.fd_no,
+                "%"PRId64": FSETXATTR %"PRId64" (%s) ==> %s",
+                frame->root->unique, state->resolve.fd_no,
                 uuid_utoa (state->resolve.gfid), k);
 
         return 0;
@@ -1047,11 +1006,9 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         inode_t             *tmp_parent = NULL;
         char         oldpar_str[50]     = {0,};
         char         newpar_str[50]     = {0,};
-        server_connection_t *conn       = NULL;
 
         req   = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -1060,8 +1017,7 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 uuid_utoa_r (state->resolve.gfid, oldpar_str);
                 uuid_utoa_r (state->resolve2.gfid, newpar_str);
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": RENAME %s (%s/%s) -> %s (%s/%s) "
-                        "==> (%s)", conn->id,
+                        "%"PRId64": RENAME %s (%s/%s) -> %s (%s/%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
                         oldpar_str, state->resolve.bname, state->loc2.path,
                         newpar_str, state->resolve2.bname, strerror (op_errno));
@@ -1071,8 +1027,8 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         stbuf->ia_type = state->loc.inode->ia_type;
 
         /* TODO: log gfid of the inodes */
-        gf_log (state->conn->bound_xl->name, GF_LOG_TRACE,
-                "(conn:%s) %"PRId64": RENAME_CBK  %s ==> %s", conn->id,
+        gf_log (state->client->bound_xl->name, GF_LOG_TRACE,
+                "%"PRId64": RENAME_CBK  %s ==> %s",
                 frame->root->unique, state->loc.name, state->loc2.name);
 
         /* Before renaming the inode, we have to get the inode for the
@@ -1130,11 +1086,9 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t      *state  = NULL;
         inode_t             *parent = NULL;
         rpcsvc_request_t    *req    = NULL;
-        server_connection_t *conn   = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -1142,16 +1096,16 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret) {
                 gf_log (this->name, (op_errno == ENOENT)?
                         GF_LOG_DEBUG:GF_LOG_ERROR,
-                        "(conn:%s) %"PRId64": UNLINK %s (%s/%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->loc.path,
+                        "%"PRId64": UNLINK %s (%s/%s) ==> (%s)",
+                        frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.pargfid),
                         state->resolve.bname, strerror (op_errno));
                 goto out;
         }
 
         /* TODO: log gfid of the inodes */
-        gf_log (state->conn->bound_xl->name, GF_LOG_TRACE,
-                "(conn:%s) %"PRId64": UNLINK_CBK %s", conn->id,
+        gf_log (state->client->bound_xl->name, GF_LOG_TRACE,
+                "%"PRId64": UNLINK_CBK %s",
                 frame->root->unique, state->loc.name);
 
         inode_unlink (state->loc.inode, state->loc.parent,
@@ -1188,19 +1142,17 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t      *state      = NULL;
         inode_t             *link_inode = NULL;
         rpcsvc_request_t    *req        = NULL;
-        server_connection_t *conn       = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": SYMLINK %s (%s/%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->loc.path,
+                        "%"PRId64": SYMLINK %s (%s/%s) ==> (%s)",
+                        frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.pargfid),
                         state->resolve.bname, strerror (op_errno));
                 goto out;
@@ -1240,11 +1192,9 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t    *req         = NULL;
         char              gfid_str[50]   = {0,};
         char              newpar_str[50] = {0,};
-        server_connection_t *conn        = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -1254,8 +1204,8 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 uuid_utoa_r (state->resolve2.pargfid, newpar_str);
 
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": LINK %s (%s) -> %s/%s ==> (%s)",
-                        conn->id, frame->root->unique, state->loc.path,
+                        "%"PRId64": LINK %s (%s) -> %s/%s ==> (%s)",
+                        frame->root->unique, state->loc.path,
                         gfid_str, newpar_str, state->resolve2.bname,
                         strerror (op_errno));
                 goto out;
@@ -1289,19 +1239,17 @@ server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_truncate_rsp    rsp   = {0,};
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE (frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": TRUNCATE %s (%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->loc.path,
+                        "%"PRId64": TRUNCATE %s (%s) ==> (%s)",
+                        frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.gfid), strerror (op_errno));
                 goto out;
         }
@@ -1329,19 +1277,17 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_fstat_rsp       rsp   = {0,};
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": FSTAT %"PRId64" (%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->resolve.fd_no,
+                        "%"PRId64": FSTAT %"PRId64" (%s) ==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid), strerror (op_errno));
                 goto out;
         }
@@ -1368,19 +1314,17 @@ server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_ftruncate_rsp   rsp   = {0};
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE (frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": FTRUNCATE %"PRId64" (%s)==> (%s)",
-                        conn->id, frame->root->unique, state->resolve.fd_no,
+                        "%"PRId64": FTRUNCATE %"PRId64" (%s)==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid), strerror (op_errno));
                 goto out;
         }
@@ -1407,19 +1351,17 @@ server_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_common_rsp        rsp   = {0,};
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": FLUSH %"PRId64" (%s) ==>  (%s)",
-                        conn->id, frame->root->unique, state->resolve.fd_no,
+                        "%"PRId64": FLUSH %"PRId64" (%s) ==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
                          uuid_utoa (state->resolve.gfid), strerror (op_errno));
                 goto out;
         }
@@ -1444,19 +1386,17 @@ server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_fsync_rsp       rsp   = {0,};
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": FSYNC %"PRId64" (%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->resolve.fd_no,
+                        "%"PRId64": FSYNC %"PRId64" (%s) ==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid), strerror (op_errno));
                 goto out;
         }
@@ -1484,19 +1424,17 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_write_rsp       rsp   = {0,};
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": WRITEV %"PRId64" (%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->resolve.fd_no,
+                        "%"PRId64": WRITEV %"PRId64" (%s) ==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
                          uuid_utoa (state->resolve.gfid), strerror (op_errno));
                 goto out;
         }
@@ -1526,11 +1464,9 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_read_rsp        rsp   = {0,};
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
 #ifdef GF_TESTING_IO_XDATA
         {
@@ -1547,8 +1483,8 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": READV %"PRId64" (%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->resolve.fd_no,
+                        "%"PRId64": READV %"PRId64" (%s) ==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid), strerror (op_errno));
                 goto out;
         }
@@ -1577,19 +1513,17 @@ server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_rchecksum_rsp   rsp   = {0,};
         rpcsvc_request_t    *req   = NULL;
         server_state_t      *state = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": RCHECKSUM %"PRId64" (%s)==> (%s)",
-                        conn->id, frame->root->unique, state->resolve.fd_no,
+                        "%"PRId64": RCHECKSUM %"PRId64" (%s)==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid), strerror (op_errno));
                 goto out;
         }
@@ -1616,14 +1550,12 @@ int
 server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
-        server_connection_t *conn  = NULL;
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
         uint64_t             fd_no = 0;
         gfs3_open_rsp        rsp   = {0,};
 
         req = frame->local;
-        conn = SERVER_CONNECTION (frame);
         state = CALL_STATE (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
@@ -1631,15 +1563,15 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": OPEN %s (%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->loc.path,
+                        "%"PRId64": OPEN %s (%s) ==> (%s)",
+                        frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.gfid),
                         strerror (op_errno));
                 goto out;
         }
 
         fd_bind (fd);
-        fd_no = gf_fd_unused_get (conn->fdtable, fd);
+        fd_no = gf_fd_unused_get (state->client->server_ctx.fdtable, fd);
         fd_ref (fd);
         rsp.fd = fd_no;
 
@@ -1661,7 +1593,6 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    struct iatt *stbuf, struct iatt *preparent,
                    struct iatt *postparent, dict_t *xdata)
 {
-        server_connection_t *conn       = NULL;
         server_state_t      *state      = NULL;
         inode_t             *link_inode = NULL;
         rpcsvc_request_t    *req        = NULL;
@@ -1669,7 +1600,6 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_create_rsp      rsp        = {0,};
 
         req = frame->local;
-        conn = SERVER_CONNECTION (frame);
         state = CALL_STATE (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
@@ -1677,17 +1607,17 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": CREATE %s (%s/%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->loc.path,
+                        "%"PRId64": CREATE %s (%s/%s) ==> (%s)",
+                        frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.pargfid),
                         state->resolve.bname, strerror (op_errno));
                 goto out;
         }
 
         /* TODO: log gfid too */
-        gf_log (state->conn->bound_xl->name, GF_LOG_TRACE,
-                "(conn:%s) %"PRId64": CREATE %s (%s)",
-                conn->id, frame->root->unique, state->loc.name,
+        gf_log (state->client->bound_xl->name, GF_LOG_TRACE,
+                "%"PRId64": CREATE %s (%s)",
+                frame->root->unique, state->loc.name,
                 uuid_utoa (stbuf->ia_gfid));
 
         link_inode = inode_link (inode, state->loc.parent,
@@ -1714,7 +1644,7 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         fd_bind (fd);
 
-        fd_no = gf_fd_unused_get (conn->fdtable, fd);
+        fd_no = gf_fd_unused_get (state->client->server_ctx.fdtable, fd);
         fd_ref (fd);
 
         if ((fd_no < 0) || (fd == 0)) {
@@ -1747,19 +1677,17 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_readlink_rsp    rsp   = {0,};
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": READLINK %s (%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->loc.path,
+                        "%"PRId64": READLINK %s (%s) ==> (%s)",
+                        frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.gfid),
                         strerror (op_errno));
                 goto out;
@@ -1791,19 +1719,17 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_stat_rsp        rsp   = {0,};
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state  = CALL_STATE (frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": STAT %s (%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->loc.path,
+                        "%"PRId64": STAT %s (%s) ==> (%s)",
+                        frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.gfid),
                         strerror (op_errno));
                 goto out;
@@ -1832,19 +1758,17 @@ server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_setattr_rsp     rsp   = {0,};
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE (frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": SETATTR %s (%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->loc.path,
+                        "%"PRId64": SETATTR %s (%s) ==> (%s)",
+                        frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.gfid),
                         strerror (op_errno));
                 goto out;
@@ -1873,19 +1797,17 @@ server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_fsetattr_rsp    rsp   = {0,};
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state  = CALL_STATE (frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": FSETATTR %"PRId64" (%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->resolve.fd_no,
+                        "%"PRId64": FSETATTR %"PRId64" (%s) ==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid),
                         strerror (op_errno));
                 goto out;
@@ -1915,19 +1837,17 @@ server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_xattrop_rsp     rsp   = {0,};
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE (frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": XATTROP %s (%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->loc.path,
+                        "%"PRId64": XATTROP %s (%s) ==> (%s)",
+                        frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.gfid),
                         strerror (op_errno));
                 goto out;
@@ -1959,19 +1879,17 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_xattrop_rsp     rsp   = {0,};
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": FXATTROP %"PRId64" (%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->resolve.fd_no,
+                        "%"PRId64": FXATTROP %"PRId64" (%s) ==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid),
                         strerror (op_errno));
                 goto out;
@@ -2004,19 +1922,17 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t      *state = NULL;
         rpcsvc_request_t    *req   = NULL;
         int                  ret   = 0;
-        server_connection_t *conn  = NULL;
 
         req = frame->local;
         state = CALL_STATE(frame);
-        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "(conn:%s) %"PRId64": READDIRP %"PRId64" (%s) ==> (%s)",
-                        conn->id, frame->root->unique, state->resolve.fd_no,
+                        "%"PRId64": READDIRP %"PRId64" (%s) ==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid),
                         strerror (op_errno));
                 goto out;
@@ -2093,7 +2009,7 @@ server_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno,
                    struct iatt *statpre, struct iatt *statpost, dict_t *xdata)
 {
-        gfs3_discard_rsp rsp	 = {0,};
+        gfs3_discard_rsp rsp     = {0,};
         server_state_t    *state = NULL;
         rpcsvc_request_t  *req   = NULL;
 
@@ -3085,11 +3001,11 @@ server_fallocate_resume (call_frame_t *frame, xlator_t *bound_xl)
         STACK_WIND (frame, server_fallocate_cbk,
                     bound_xl, bound_xl->fops->fallocate,
                     state->fd, state->flags, state->offset, state->size,
-		    state->xdata);
+                    state->xdata);
         return 0;
 err:
         server_fallocate_cbk(frame, NULL, frame->this, state->resolve.op_ret,
-			     state->resolve.op_errno, NULL, NULL, NULL);
+                             state->resolve.op_errno, NULL, NULL, NULL);
 
         return 0;
 }
@@ -3110,7 +3026,7 @@ server_discard_resume (call_frame_t *frame, xlator_t *bound_xl)
         return 0;
 err:
         server_discard_cbk(frame, NULL, frame->this, state->resolve.op_ret,
-			   state->resolve.op_errno, NULL, NULL, NULL);
+                           state->resolve.op_errno, NULL, NULL, NULL);
 
         return 0;
 }
@@ -3148,7 +3064,7 @@ server3_3_stat (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_STAT;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3157,7 +3073,8 @@ server3_3_stat (rpcsvc_request_t *req)
         state->resolve.type  = RESOLVE_MUST;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -3205,7 +3122,7 @@ server3_3_setattr (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_SETATTR;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3217,7 +3134,8 @@ server3_3_setattr (rpcsvc_request_t *req)
         gf_stat_to_iatt (&args.stbuf, &state->stbuf);
         state->valid = args.valid;
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -3264,7 +3182,7 @@ server3_3_fsetattr (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_FSETATTR;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3276,7 +3194,8 @@ server3_3_fsetattr (rpcsvc_request_t *req)
         gf_stat_to_iatt (&args.stbuf, &state->stbuf);
         state->valid = args.valid;
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -3322,7 +3241,7 @@ server3_3_fallocate(rpcsvc_request_t *req)
         frame->root->op = GF_FOP_FALLOCATE;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3331,12 +3250,12 @@ server3_3_fallocate(rpcsvc_request_t *req)
         state->resolve.type   = RESOLVE_MUST;
         state->resolve.fd_no  = args.fd;
 
-	state->flags = args.flags;
-	state->offset = args.offset;
-	state->size = args.size;
-	memcpy(state->resolve.gfid, args.gfid, 16);
+        state->flags = args.flags;
+        state->offset = args.offset;
+        state->size = args.size;
+        memcpy(state->resolve.gfid, args.gfid, 16);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl, state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -3359,7 +3278,7 @@ server3_3_discard(rpcsvc_request_t *req)
 {
         server_state_t    *state = NULL;
         call_frame_t      *frame = NULL;
-        gfs3_discard_req args	 = {{0},};
+        gfs3_discard_req args    = {{0},};
         int                ret   = -1;
         int                op_errno = 0;
 
@@ -3383,7 +3302,7 @@ server3_3_discard(rpcsvc_request_t *req)
         frame->root->op = GF_FOP_DISCARD;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3392,11 +3311,11 @@ server3_3_discard(rpcsvc_request_t *req)
         state->resolve.type   = RESOLVE_MUST;
         state->resolve.fd_no  = args.fd;
 
-	state->offset = args.offset;
-	state->size = args.size;
-	memcpy(state->resolve.gfid, args.gfid, 16);
+        state->offset = args.offset;
+        state->size = args.size;
+        memcpy(state->resolve.gfid, args.gfid, 16);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl, state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -3443,7 +3362,7 @@ server3_3_readlink (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_READLINK;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3454,7 +3373,8 @@ server3_3_readlink (rpcsvc_request_t *req)
 
         state->size  = args.size;
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -3503,7 +3423,7 @@ server3_3_create (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_CREATE;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3523,7 +3443,8 @@ server3_3_create (rpcsvc_request_t *req)
         }
 
         /* TODO: can do alloca for xdata field instead of stdalloc */
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -3570,7 +3491,7 @@ server3_3_open (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_OPEN;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3581,7 +3502,8 @@ server3_3_open (rpcsvc_request_t *req)
 
         state->flags = gf_flags_to_flags (args.flags);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -3626,7 +3548,7 @@ server3_3_readv (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_READ;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3640,7 +3562,8 @@ server3_3_readv (rpcsvc_request_t *req)
 
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -3689,7 +3612,7 @@ server3_3_writev (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_WRITE;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3719,7 +3642,8 @@ server3_3_writev (rpcsvc_request_t *req)
                 state->size += state->payload_vector[i].iov_len;
         }
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -3800,7 +3724,7 @@ server3_3_writev_vecsizer (int state, ssize_t *readsize, char *base_addr,
 int
 server3_3_release (rpcsvc_request_t *req)
 {
-        server_connection_t *conn = NULL;
+        client_t            *client;
         gfs3_release_req     args = {{0,},};
         gf_common_rsp        rsp  = {0,};
         int                  ret  = -1;
@@ -3813,13 +3737,13 @@ server3_3_release (rpcsvc_request_t *req)
                 goto out;
         }
 
-        conn = req->trans->xl_private;
-        if (!conn) {
+        client = req->trans->xl_private;
+        if (!client) {
                 /* Handshake is not complete yet. */
                 req->rpc_err = SYSTEM_ERR;
                 goto out;
         }
-        gf_fd_put (conn->fdtable, args.fd);
+        gf_fd_put (client->server_ctx.fdtable, args.fd);
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_common_rsp);
@@ -3832,7 +3756,7 @@ out:
 int
 server3_3_releasedir (rpcsvc_request_t *req)
 {
-        server_connection_t *conn = NULL;
+        client_t            *client = NULL;
         gfs3_releasedir_req  args = {{0,},};
         gf_common_rsp        rsp  = {0,};
         int                  ret  = -1;
@@ -3845,13 +3769,13 @@ server3_3_releasedir (rpcsvc_request_t *req)
                 goto out;
         }
 
-        conn = req->trans->xl_private;
-        if (!conn) {
+        client = req->trans->xl_private;
+        if (!client) {
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
 
-        gf_fd_put (conn->fdtable, args.fd);
+        gf_fd_put (client->server_ctx.fdtable, args.fd);
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_common_rsp);
@@ -3891,7 +3815,7 @@ server3_3_fsync (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_FSYNC;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3902,7 +3826,8 @@ server3_3_fsync (rpcsvc_request_t *req)
         state->flags         = args.data;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -3949,7 +3874,7 @@ server3_3_flush (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_FLUSH;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3959,7 +3884,8 @@ server3_3_flush (rpcsvc_request_t *req)
         state->resolve.fd_no = args.fd;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -4006,7 +3932,7 @@ server3_3_ftruncate (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_FTRUNCATE;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4017,7 +3943,8 @@ server3_3_ftruncate (rpcsvc_request_t *req)
         state->offset         = args.offset;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -4063,7 +3990,7 @@ server3_3_fstat (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_FSTAT;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4073,7 +4000,8 @@ server3_3_fstat (rpcsvc_request_t *req)
         state->resolve.fd_no   = args.fd;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -4119,7 +4047,7 @@ server3_3_truncate (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_TRUNCATE;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4129,7 +4057,8 @@ server3_3_truncate (rpcsvc_request_t *req)
         memcpy (state->resolve.gfid, args.gfid, 16);
         state->offset        = args.offset;
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -4178,7 +4107,7 @@ server3_3_unlink (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_UNLINK;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4190,7 +4119,8 @@ server3_3_unlink (rpcsvc_request_t *req)
 
         state->flags = args.xflags;
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -4239,7 +4169,7 @@ server3_3_setxattr (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_SETXATTR;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4249,7 +4179,8 @@ server3_3_setxattr (rpcsvc_request_t *req)
         state->flags            = args.flags;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, dict,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      dict,
                                       (args.dict.dict_val),
                                       (args.dict.dict_len), ret,
                                       op_errno, out);
@@ -4259,7 +4190,8 @@ server3_3_setxattr (rpcsvc_request_t *req)
         /* There can be some commands hidden in key, check and proceed */
         gf_server_check_setxattr_cmd (frame, dict);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -4313,7 +4245,7 @@ server3_3_fsetxattr (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_FSETXATTR;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4324,14 +4256,16 @@ server3_3_fsetxattr (rpcsvc_request_t *req)
         state->flags             = args.flags;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, dict,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      dict,
                                       (args.dict.dict_val),
                                       (args.dict.dict_len), ret,
                                       op_errno, out);
 
         state->dict = dict;
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -4385,7 +4319,7 @@ server3_3_fxattrop (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_FXATTROP;
 
         state = CALL_STATE(frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4396,14 +4330,16 @@ server3_3_fxattrop (rpcsvc_request_t *req)
         state->flags           = args.flags;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, dict,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      dict,
                                       (args.dict.dict_val),
                                       (args.dict.dict_len), ret,
                                       op_errno, out);
 
         state->dict = dict;
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -4459,7 +4395,7 @@ server3_3_xattrop (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_XATTROP;
 
         state = CALL_STATE(frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4469,14 +4405,16 @@ server3_3_xattrop (rpcsvc_request_t *req)
         state->flags           = args.flags;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, dict,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      dict,
                                       (args.dict.dict_val),
                                       (args.dict.dict_len), ret,
                                       op_errno, out);
 
         state->dict = dict;
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -4529,7 +4467,7 @@ server3_3_getxattr (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_GETXATTR;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4544,7 +4482,8 @@ server3_3_getxattr (rpcsvc_request_t *req)
                 gf_server_check_getxattr_cmd (frame, state->name);
         }
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -4591,7 +4530,7 @@ server3_3_fgetxattr (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_FGETXATTR;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4604,7 +4543,8 @@ server3_3_fgetxattr (rpcsvc_request_t *req)
         if (args.namelen)
                 state->name = gf_strdup (args.name);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -4653,7 +4593,7 @@ server3_3_removexattr (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_REMOVEXATTR;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4663,7 +4603,8 @@ server3_3_removexattr (rpcsvc_request_t *req)
         memcpy (state->resolve.gfid, args.gfid, 16);
         state->name           = gf_strdup (args.name);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -4710,7 +4651,7 @@ server3_3_fremovexattr (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_FREMOVEXATTR;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4721,7 +4662,8 @@ server3_3_fremovexattr (rpcsvc_request_t *req)
         memcpy (state->resolve.gfid, args.gfid, 16);
         state->name           = gf_strdup (args.name);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -4769,7 +4711,7 @@ server3_3_opendir (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_OPENDIR;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4778,7 +4720,8 @@ server3_3_opendir (rpcsvc_request_t *req)
         state->resolve.type   = RESOLVE_MUST;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -4825,7 +4768,7 @@ server3_3_readdirp (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_READDIRP;
 
         state = CALL_STATE(frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4848,7 +4791,8 @@ server3_3_readdirp (rpcsvc_request_t *req)
         memcpy (state->resolve.gfid, args.gfid, 16);
 
         /* here, dict itself works as xdata */
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->dict,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->dict,
                                       (args.dict.dict_val),
                                       (args.dict.dict_len), ret,
                                       op_errno, out);
@@ -4895,7 +4839,7 @@ server3_3_readdir (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_READDIR;
 
         state = CALL_STATE(frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4917,7 +4861,8 @@ server3_3_readdir (rpcsvc_request_t *req)
         state->offset = args.offset;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -4962,7 +4907,7 @@ server3_3_fsyncdir (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_FSYNCDIR;
 
         state = CALL_STATE(frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -4973,7 +4918,8 @@ server3_3_fsyncdir (rpcsvc_request_t *req)
         state->flags = args.data;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -5022,7 +4968,7 @@ server3_3_mknod (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_MKNOD;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -5036,7 +4982,8 @@ server3_3_mknod (rpcsvc_request_t *req)
         state->dev   = args.dev;
         state->umask = args.umask;
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -5087,7 +5034,7 @@ server3_3_mkdir (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_MKDIR;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -5101,7 +5048,8 @@ server3_3_mkdir (rpcsvc_request_t *req)
         state->umask = args.umask;
 
         /* TODO: can do alloca for xdata field instead of stdalloc */
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -5150,7 +5098,7 @@ server3_3_rmdir (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_RMDIR;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -5162,7 +5110,8 @@ server3_3_rmdir (rpcsvc_request_t *req)
 
         state->flags = args.xflags;
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -5212,7 +5161,7 @@ server3_3_inodelk (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_INODELK;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -5251,7 +5200,8 @@ server3_3_inodelk (rpcsvc_request_t *req)
                 break;
         }
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -5299,7 +5249,7 @@ server3_3_finodelk (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_FINODELK;
 
         state = CALL_STATE(frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -5339,7 +5289,8 @@ server3_3_finodelk (rpcsvc_request_t *req)
                 break;
         }
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -5390,7 +5341,7 @@ server3_3_entrylk (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_ENTRYLK;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -5406,7 +5357,8 @@ server3_3_entrylk (rpcsvc_request_t *req)
         state->cmd            = args.cmd;
         state->type           = args.type;
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -5454,7 +5406,7 @@ server3_3_fentrylk (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_FENTRYLK;
 
         state = CALL_STATE(frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -5470,7 +5422,8 @@ server3_3_fentrylk (rpcsvc_request_t *req)
                 state->name = gf_strdup (args.name);
         state->volume = gf_strdup (args.volume);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -5515,7 +5468,7 @@ server3_3_access (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_ACCESS;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -5525,7 +5478,8 @@ server3_3_access (rpcsvc_request_t *req)
         memcpy (state->resolve.gfid, args.gfid, 16);
         state->mask          = args.mask;
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -5575,7 +5529,7 @@ server3_3_symlink (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_SYMLINK;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -5587,7 +5541,8 @@ server3_3_symlink (rpcsvc_request_t *req)
         state->name           = gf_strdup (args.linkname);
         state->umask          = args.umask;
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -5637,7 +5592,7 @@ server3_3_link (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_LINK;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -5650,7 +5605,8 @@ server3_3_link (rpcsvc_request_t *req)
         state->resolve2.bname  = gf_strdup (args.newbname);
         memcpy (state->resolve2.pargfid, args.newgfid, 16);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -5699,7 +5655,7 @@ server3_3_rename (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_RENAME;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -5713,7 +5669,8 @@ server3_3_rename (rpcsvc_request_t *req)
         state->resolve2.bname = gf_strdup (args.newbname);
         memcpy (state->resolve2.pargfid, args.newgfid, 16);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -5757,7 +5714,7 @@ server3_3_lk (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_LK;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -5807,7 +5764,7 @@ server3_3_lk (rpcsvc_request_t *req)
                 state->flock.l_type = F_UNLCK;
                 break;
         default:
-                gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
+                gf_log (state->client->bound_xl->name, GF_LOG_ERROR,
                         "fd - %"PRId64" (%s): Unknown lock type: %"PRId32"!",
                         state->resolve.fd_no,
                         uuid_utoa (state->fd->inode->gfid), state->type);
@@ -5815,7 +5772,8 @@ server3_3_lk (rpcsvc_request_t *req)
         }
 
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -5863,7 +5821,7 @@ server3_3_rchecksum (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_RCHECKSUM;
 
         state = CALL_STATE(frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -5874,7 +5832,8 @@ server3_3_rchecksum (rpcsvc_request_t *req)
         state->offset        = args.offset;
         state->size          = args.len;
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -5939,7 +5898,7 @@ server3_3_lookup (rpcsvc_request_t *req)
          */
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -5954,7 +5913,8 @@ server3_3_lookup (rpcsvc_request_t *req)
                 memcpy (state->resolve.gfid, args.gfid, 16);
         }
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -6001,7 +5961,7 @@ server3_3_statfs (rpcsvc_request_t *req)
         frame->root->op = GF_FOP_STATFS;
 
         state = CALL_STATE (frame);
-        if (!state->conn->bound_xl) {
+        if (!state->client->bound_xl) {
                 /* auth failure, request on subvolume without setvolume */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -6010,7 +5970,8 @@ server3_3_statfs (rpcsvc_request_t *req)
         state->resolve.type   = RESOLVE_MUST;
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (state->conn->bound_xl, state->xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (state->client->bound_xl,
+                                      state->xdata,
                                       (args.xdata.xdata_val),
                                       (args.xdata.xdata_len), ret,
                                       op_errno, out);
@@ -6070,8 +6031,8 @@ rpcsvc_actor_t glusterfs3_3_fop_actors[] = {
         [GFS3_OP_RELEASE]      = {"RELEASE",      GFS3_OP_RELEASE,      server3_3_release,      NULL, 0, DRC_NA},
         [GFS3_OP_RELEASEDIR]   = {"RELEASEDIR",   GFS3_OP_RELEASEDIR,   server3_3_releasedir,   NULL, 0, DRC_NA},
         [GFS3_OP_FREMOVEXATTR] = {"FREMOVEXATTR", GFS3_OP_FREMOVEXATTR, server3_3_fremovexattr, NULL, 0, DRC_NA},
-	[GFS3_OP_FALLOCATE]    = {"FALLOCATE",	  GFS3_OP_FALLOCATE,    server3_3_fallocate,    NULL, 0, DRC_NA},
-	[GFS3_OP_DISCARD]      = {"DISCARD",	  GFS3_OP_DISCARD,      server3_3_discard,      NULL, 0, DRC_NA},
+        [GFS3_OP_FALLOCATE]    = {"FALLOCATE",    GFS3_OP_FALLOCATE,    server3_3_fallocate,    NULL, 0, DRC_NA},
+        [GFS3_OP_DISCARD]      = {"DISCARD",      GFS3_OP_DISCARD,      server3_3_discard,      NULL, 0, DRC_NA},
 };
 
 

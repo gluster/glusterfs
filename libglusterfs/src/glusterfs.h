@@ -140,7 +140,7 @@
 #define GLUSTERFS_RPC_REPLY_SIZE               24
 
 #define ZR_FILE_CONTENT_REQUEST(key) (!strncmp(key, ZR_FILE_CONTENT_STR, \
-					       ZR_FILE_CONTENT_STRLEN))
+                                               ZR_FILE_CONTENT_STRLEN))
 
 #define DEFAULT_VAR_RUN_DIRECTORY    DATADIR "/run/gluster"
 #define GF_REPLICATE_TRASH_DIR          ".landfill"
@@ -192,8 +192,8 @@ typedef enum {
         GF_FOP_READDIR,
         GF_FOP_INODELK,
         GF_FOP_FINODELK,
-	GF_FOP_ENTRYLK,
-	GF_FOP_FENTRYLK,
+        GF_FOP_ENTRYLK,
+        GF_FOP_FENTRYLK,
         GF_FOP_XATTROP,
         GF_FOP_FXATTROP,
         GF_FOP_FGETXATTR,
@@ -258,20 +258,20 @@ typedef enum {
 
 
 typedef enum {
-	ENTRYLK_LOCK,
-	ENTRYLK_UNLOCK,
-	ENTRYLK_LOCK_NB
+        ENTRYLK_LOCK,
+        ENTRYLK_UNLOCK,
+        ENTRYLK_LOCK_NB
 } entrylk_cmd;
 
 
 typedef enum {
-	ENTRYLK_RDLCK,
-	ENTRYLK_WRLCK
+        ENTRYLK_RDLCK,
+        ENTRYLK_WRLCK
 } entrylk_type;
 
 
 typedef enum {
-	GF_XATTROP_ADD_ARRAY,
+        GF_XATTROP_ADD_ARRAY,
         GF_XATTROP_ADD_ARRAY64,
         GF_XATTROP_OR_ARRAY,
         GF_XATTROP_AND_ARRAY
@@ -287,10 +287,10 @@ typedef enum {
 #define GF_CONTENT_KEY "glusterfs.content"
 
 struct _xlator_cmdline_option {
-	struct list_head    cmd_args;
-	char               *volume;
-	char               *key;
-	char               *value;
+        struct list_head    cmd_args;
+        char               *volume;
+        char               *key;
+        char               *value;
 };
 typedef struct _xlator_cmdline_option xlator_cmdline_option_t;
 
@@ -300,22 +300,22 @@ typedef struct _xlator_cmdline_option xlator_cmdline_option_t;
 #define GF_OPTION_DEFERRED 2
 
 struct _cmd_args {
-	/* basic options */
-	char            *volfile_server;
-	char            *volfile;
+        /* basic options */
+        char            *volfile_server;
+        char            *volfile;
         char            *log_server;
-	gf_loglevel_t    log_level;
-	char            *log_file;
+        gf_loglevel_t    log_level;
+        char            *log_file;
         int32_t          max_connect_attempts;
-	/* advanced options */
-	uint32_t         volfile_server_port;
-	char            *volfile_server_transport;
+        /* advanced options */
+        uint32_t         volfile_server_port;
+        char            *volfile_server_transport;
         uint32_t         log_server_port;
-	char            *pid_file;
+        char            *pid_file;
         char            *sock_file;
-	int              no_daemon_mode;
-	char            *run_id;
-	int              debug_mode;
+        int              no_daemon_mode;
+        char            *run_id;
+        int              debug_mode;
         int              read_only;
         int              acl;
         int              selinux;
@@ -331,13 +331,13 @@ struct _cmd_args {
 	int              fuse_direct_io_mode;
 	char             *use_readdirp;
         int              volfile_check;
-	double           fuse_entry_timeout;
-	double           fuse_negative_timeout;
-	double           fuse_attribute_timeout;
-	char            *volume_name;
-	int              fuse_nodev;
-	int              fuse_nosuid;
-	char            *dump_fuse;
+        double           fuse_entry_timeout;
+        double           fuse_negative_timeout;
+        double           fuse_attribute_timeout;
+        char            *volume_name;
+        int              fuse_nodev;
+        int              fuse_nosuid;
+        char            *dump_fuse;
         pid_t            client_pid;
         int              client_pid_set;
         unsigned         uid_map_root;
@@ -345,9 +345,9 @@ struct _cmd_args {
         int              congestion_threshold;
         char            *fuse_mountopts;
 
-	/* key args */
-	char            *mount_point;
-	char            *volfile_id;
+        /* key args */
+        char            *mount_point;
+        char            *volfile_id;
 
         /* required for portmap */
         int             brick_port;
@@ -376,16 +376,16 @@ typedef struct _glusterfs_graph glusterfs_graph_t;
 typedef int32_t (*glusterfsd_mgmt_event_notify_fn_t) (int32_t event, void *data,
                                                       ...);
 struct _glusterfs_ctx {
-	cmd_args_t          cmd_args;
-	char               *process_uuid;
-	FILE               *pidfp;
-	char                fin;
-	void               *timer;
-	void               *ib;
-	void               *pool;
-	void               *event_pool;
+        cmd_args_t          cmd_args;
+        char               *process_uuid;
+        FILE               *pidfp;
+        char                fin;
+        void               *timer;
+        void               *ib;
+        void               *pool;
+        void               *event_pool;
         void               *iobuf_pool;
-	pthread_mutex_t     lock;
+        pthread_mutex_t     lock;
         size_t              page_size;
         struct list_head    graphs; /* double linked list of graphs - one per volfile parse */
         glusterfs_graph_t  *active; /* the latest graph in use */
@@ -401,12 +401,12 @@ struct _glusterfs_ctx {
                                          got changed */
         pid_t               mnt_pid; /* pid of the mount agent */
         int                 process_mode; /*mode in which process is runninng*/
-	struct syncenv      *env;         /* The env pointer to the synctasks */
+        struct syncenv     *env;          /* The env pointer to the synctasks */
 
         struct list_head    mempool_list; /* used to keep a global list of
                                              mempools, used to log details of
                                              mempool in statedump */
-        char                *statedump_path;
+        char               *statedump_path;
 
         struct mem_pool    *dict_pool;
         struct mem_pool    *dict_pair_pool;
@@ -416,9 +416,11 @@ struct _glusterfs_ctx {
                                                      call to fsd-mgmt */
         gf_log_handle_t     log; /* all logging related variables */
 
-        int           mem_acct_enable;
+        int                 mem_acct_enable;
 
         int                 daemon_pipe[2];
+
+        struct _clienttable *clienttable;
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 

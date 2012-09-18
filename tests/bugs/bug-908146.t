@@ -34,6 +34,6 @@ exec 4>&-
 EXPECT "1" get_fd_count $V0 $H0 $B0/${V0}0 a
 
 exec 5>&-
-EXPECT "" get_fd_count $V0 $H0 $B0/${V0}0 a
+EXPECT "0" get_fd_count $V0 $H0 $B0/${V0}0 a
 
 cleanup

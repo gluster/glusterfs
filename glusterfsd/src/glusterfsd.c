@@ -67,6 +67,7 @@
 #include <fnmatch.h>
 #include "rpc-clnt.h"
 #include "syncop.h"
+#include "client_t.h"
 
 #include "daemon.h"
 
@@ -1278,6 +1279,8 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         ctx->pool = pool;
 
         pthread_mutex_init (&(ctx->lock), NULL);
+
+        ctx->clienttable = gf_clienttable_alloc();
 
         cmd_args = &ctx->cmd_args;
 
