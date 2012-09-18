@@ -345,6 +345,8 @@ fuse_state_t *get_fuse_state (xlator_t *this, fuse_in_header_t *finh);
 void free_fuse_state (fuse_state_t *state);
 void gf_fuse_stat2attr (struct iatt *st, struct fuse_attr *fa,
                         gf_boolean_t enable_ino32);
+void gf_fuse_fill_dirent (gf_dirent_t *entry, struct fuse_dirent *fde,
+                          gf_boolean_t enable_ino32);
 uint64_t inode_to_fuse_nodeid (inode_t *inode);
 xlator_t *fuse_active_subvol (xlator_t *fuse);
 inode_t *fuse_ino_to_inode (uint64_t ino, xlator_t *fuse);

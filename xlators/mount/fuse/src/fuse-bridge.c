@@ -2315,9 +2315,11 @@ fuse_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         char         *buf = NULL;
         gf_dirent_t  *entry = NULL;
         struct fuse_dirent *fde = NULL;
+        fuse_private_t *priv = NULL;
 
         state = frame->root->state;
         finh  = state->finh;
+        priv = state->this->private;
 
         if (op_ret < 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
@@ -2349,10 +2351,7 @@ fuse_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         size = 0;
         list_for_each_entry (entry, &entries->list, list) {
                 fde = (struct fuse_dirent *)(buf + size);
-                fde->ino = entry->d_ino;
-                fde->off = entry->d_off;
-                fde->namelen = strlen (entry->d_name);
-                strncpy (fde->name, entry->d_name, fde->namelen);
+                gf_fuse_fill_dirent (entry, fde, priv->enable_ino32);
                 size += FUSE_DIRENT_SIZE (fde);
         }
 

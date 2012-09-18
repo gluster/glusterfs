@@ -438,6 +438,22 @@ gf_fuse_stat2attr (struct iatt *st, struct fuse_attr *fa, gf_boolean_t enable_in
 #endif
 }
 
+void
+gf_fuse_fill_dirent (gf_dirent_t *entry, struct fuse_dirent *fde, gf_boolean_t enable_ino32)
+{
+        if (enable_ino32)
+                fde->ino = GF_FUSE_SQUASH_INO(entry->d_ino);
+        else
+                fde->ino = entry->d_ino;
+
+        fde->off         = entry->d_off;
+        /* fde->type was added with upstream commit bde1f0b8, not including *
+         * now to prevent a change in behaviour.                            *
+         * fde->type        = entry->d_type;                                */
+        fde->namelen     = strlen (entry->d_name);
+        strncpy (fde->name, entry->d_name, fde->namelen);
+}
+
 static int
 fuse_do_flip_xattr_ns (char *okey, const char *nns, char **nkey)
 {
