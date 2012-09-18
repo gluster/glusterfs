@@ -33,58 +33,6 @@ typedef enum {
 
 typedef struct _server_state server_state_t;
 
-struct _locker {
-        struct list_head  lockers;
-        char             *volume;
-        loc_t             loc;
-        fd_t             *fd;
-        gf_lkowner_t      owner;
-        pid_t             pid;
-};
-
-struct _lock_table {
-        struct list_head  inodelk_lockers;
-        struct list_head  entrylk_lockers;
-};
-
-/* private structure per connection (transport object)
- * used as transport_t->xl_private
- */
-struct _server_connection {
-        struct list_head    list;
-        char               *id;
-        uint64_t            ref;
-        int                 bind_ref;
-        pthread_mutex_t     lock;
-        fdtable_t          *fdtable;
-        struct _lock_table *ltable;
-        gf_timer_t         *timer;
-        xlator_t           *bound_xl;
-        xlator_t           *this;
-        uint32_t           lk_version;
-        uint64_t           rsp_failure_fops[GF_FOP_MAXVALUE];
-};
-
-typedef struct _server_connection server_connection_t;
-
-
-server_connection_t *
-server_connection_get (xlator_t *this, const char *id);
-
-server_connection_t *
-server_connection_put (xlator_t *this, server_connection_t *conn,
-                       gf_boolean_t *detached);
-
-server_connection_t*
-server_conn_unref (server_connection_t *conn);
-
-server_connection_t*
-server_conn_ref (server_connection_t *conn);
-
-int
-server_connection_cleanup (xlator_t *this, server_connection_t *conn,
-                           int32_t flags);
-
 int server_null (rpcsvc_request_t *req);
 
 struct _volfile_ctx {
@@ -106,7 +54,6 @@ struct server_conf {
         struct timeval          grace_tv;
         dict_t                 *auth_modules;
         pthread_mutex_t         mutex;
-        struct list_head        conns;
         struct list_head        xprt_list;
 };
 typedef struct server_conf server_conf_t;
@@ -145,7 +92,7 @@ int
 resolve_and_resume (call_frame_t *frame, server_resume_fn_t fn);
 
 struct _server_state {
-        server_connection_t  *conn;
+        struct _client_t     *client;
         rpc_transport_t      *xprt;
         inode_table_t        *itable;
 
@@ -204,7 +151,5 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
 
 int gf_server_check_setxattr_cmd (call_frame_t *frame, dict_t *dict);
 int gf_server_check_getxattr_cmd (call_frame_t *frame, const char *name);
-
-void ltable_dump (server_connection_t *conn);
 
 #endif /* !_SERVER_H */

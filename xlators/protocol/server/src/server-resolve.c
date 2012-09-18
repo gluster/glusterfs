@@ -15,6 +15,7 @@
 
 #include "server.h"
 #include "server-helpers.h"
+#include "client_t.h"
 
 
 int
@@ -451,12 +452,10 @@ server_resolve_fd (call_frame_t *frame)
 {
         server_state_t       *state = NULL;
         server_resolve_t     *resolve = NULL;
-        server_connection_t  *conn = NULL;
         uint64_t              fd_no = -1;
 
         state = CALL_STATE (frame);
         resolve = state->resolve_now;
-        conn  = SERVER_CONNECTION (frame);
 
         fd_no = resolve->fd_no;
 
@@ -465,7 +464,7 @@ server_resolve_fd (call_frame_t *frame)
                 return 0;
         }
 
-        state->fd = gf_fd_fdptr_get (conn->fdtable, fd_no);
+        state->fd = gf_fd_fdptr_get (state->client->server_ctx.fdtable, fd_no);
 
         if (!state->fd) {
                 gf_log ("", GF_LOG_INFO, "fd not found in context");

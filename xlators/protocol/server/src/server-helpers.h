@@ -15,12 +15,9 @@
 
 #define CALL_STATE(frame)   ((server_state_t *)frame->root->state)
 
-#define BOUND_XL(frame)     ((xlator_t *) CALL_STATE(frame)->conn->bound_xl)
+#define BOUND_XL(frame)     ((xlator_t *) CALL_STATE(frame)->client->bound_xl)
 
 #define XPRT_FROM_FRAME(frame) ((rpc_transport_t *) CALL_STATE(frame)->xprt)
-
-#define SERVER_CONNECTION(frame)                                \
-        ((server_connection_t *) CALL_STATE(frame)->conn)
 
 #define SERVER_CONF(frame)                                              \
         ((server_conf_t *)XPRT_FROM_FRAME(frame)->this->private)
@@ -38,41 +35,18 @@ void free_state (server_state_t *state);
 
 void server_loc_wipe (loc_t *loc);
 
-int32_t
-gf_add_locker (server_connection_t *conn, const char *volume,
-               loc_t *loc,
-               fd_t *fd,
-               pid_t pid,
-               gf_lkowner_t *owner,
-               glusterfs_fop_t type);
-
-int32_t
-gf_del_locker (server_connection_t *conn, const char *volume,
-               loc_t *loc,
-               fd_t *fd,
-               gf_lkowner_t *owner,
-               glusterfs_fop_t type);
-
 void
 server_print_request (call_frame_t *frame);
 
 call_frame_t *
 get_frame_from_request (rpcsvc_request_t *req);
 
+int
+server_connection_cleanup (xlator_t *this, struct _client_t *client,
+                           int32_t flags);
+
 gf_boolean_t
-server_cancel_conn_timer (xlator_t *this, server_connection_t *conn);
-
-void
-put_server_conn_state (xlator_t *this, rpc_transport_t *xprt);
-
-server_connection_t *
-get_server_conn_state (xlator_t *this, rpc_transport_t *xptr);
-
-server_connection_t *
-create_server_conn_state (xlator_t *this, rpc_transport_t *xptr);
-
-void
-destroy_server_conn_state (server_connection_t *conn);
+server_cancel_grace_timer (xlator_t *this, struct _client_t *client);
 
 int
 server_build_config (xlator_t *this, server_conf_t *conf);

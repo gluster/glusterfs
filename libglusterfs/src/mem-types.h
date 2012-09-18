@@ -109,6 +109,12 @@ enum gf_common_mem_types_ {
         gf_common_mt_drc_rbtree_node_t    = 93,
         gf_common_mt_iov_base_t           = 94,
         gf_common_mt_groups_t             = 95,
-        gf_common_mt_end                  = 96
+        gf_common_mt_cliententry_t        = 96,
+        gf_common_mt_clienttable_t        = 97,
+        gf_common_mt_client_t             = 98,
+        gf_common_mt_client_ctx           = 99,
+        gf_common_mt_lock_table           = 100,
+        gf_common_mt_locker               = 101,
+        gf_common_mt_end                  = 102 
 };
 #endif

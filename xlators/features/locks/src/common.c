@@ -135,10 +135,10 @@ __pl_inode_is_empty (pl_inode_t *pl_inode)
 void
 pl_print_locker (char *str, int size, xlator_t *this, call_frame_t *frame)
 {
-        snprintf (str, size, "Pid=%llu, lk-owner=%s, Transport=%p, Frame=%llu",
+        snprintf (str, size, "Pid=%llu, lk-owner=%s, Client=%p, Frame=%llu",
                   (unsigned long long) frame->root->pid,
                   lkowner_utoa (&frame->root->lk_owner),
-                  (void *)frame->root->trans,
+                  frame->root->trans,
                   (unsigned long long) frame->root->unique);
 }
 
