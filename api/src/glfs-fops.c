@@ -120,6 +120,34 @@ out:
 
 
 int
+glfs_stat (struct glfs *fs, const char *path, struct stat *stat)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	loc_t            loc = {0, };
+	struct iatt      iatt = {0, };
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+
+	if (ret == 0 && stat)
+		iatt_to_stat (&iatt, stat);
+out:
+	loc_wipe (&loc);
+
+	return ret;
+}
+
+
+int
 glfs_fstat (struct glfs_fd *glfd, struct stat *stat)
 {
 	int              ret = -1;
@@ -183,6 +211,11 @@ glfs_creat (struct glfs *fs, const char *path, int flags, mode_t mode)
 	if (!glfd)
 		goto out;
 
+	/* This must be glfs_resolve() and NOT glfs_lresolve().
+	   That is because open("name", O_CREAT) where "name"
+	   is a danging symlink must create the dangling
+	   destinataion.
+	*/
 	ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
 	if (ret == -1 && errno != ENOENT)
 		/* Any other type of error is fatal */
@@ -825,3 +858,1301 @@ glfs_ftruncate_async (struct glfs_fd *glfd, off_t offset,
 	return ret;
 }
 
+
+int
+glfs_access (struct glfs *fs, const char *path, int mode)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	loc_t            loc = {0, };
+	struct iatt      iatt = {0, };
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+	if (ret)
+		goto out;
+
+	ret = syncop_access (subvol, &loc, mode);
+out:
+	loc_wipe (&loc);
+
+	return ret;
+}
+
+
+int
+glfs_symlink (struct glfs *fs, const char *data, const char *path)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	loc_t            loc = {0, };
+	struct iatt      iatt = {0, };
+	uuid_t           gfid;
+	dict_t          *xattr_req = NULL;
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	xattr_req = dict_new ();
+	if (!xattr_req) {
+		ret = -1;
+		errno = ENOMEM;
+		goto out;
+	}
+
+	uuid_generate (gfid);
+	ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
+	if (ret) {
+		ret = -1;
+		errno = ENOMEM;
+		goto out;
+	}
+
+	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+
+	if (loc.inode) {
+		errno = EEXIST;
+		ret = -1;
+		goto out;
+	}
+
+	if (ret == -1 && errno != ENOENT)
+		/* Any other type of error is fatal */
+		goto out;
+
+	if (ret == -1 && errno == ENOENT && !loc.parent)
+		/* The parent directory or an ancestor even
+		   higher does not exist
+		*/
+		goto out;
+
+	/* ret == -1 && errno == ENOENT */
+	loc.inode = inode_new (loc.parent->table);
+	if (!loc.inode) {
+		ret = -1;
+		errno = ENOMEM;
+		goto out;
+	}
+
+	ret = syncop_symlink (subvol, &loc, data, xattr_req);
+out:
+	loc_wipe (&loc);
+
+	if (xattr_req)
+		dict_destroy (xattr_req);
+
+	return ret;
+}
+
+
+int
+glfs_readlink (struct glfs *fs, const char *path, char *buf, size_t bufsiz)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	loc_t            loc = {0, };
+	struct iatt      iatt = {0, };
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+	if (ret)
+		goto out;
+
+	if (iatt.ia_type != IA_IFLNK) {
+		ret = -1;
+		errno = EINVAL;
+		goto out;
+	}
+
+	ret = syncop_readlink (subvol, &loc, &buf, bufsiz);
+out:
+	loc_wipe (&loc);
+
+	return ret;
+}
+
+
+int
+glfs_mknod (struct glfs *fs, const char *path, mode_t mode, dev_t dev)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	loc_t            loc = {0, };
+	struct iatt      iatt = {0, };
+	uuid_t           gfid;
+	dict_t          *xattr_req = NULL;
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	xattr_req = dict_new ();
+	if (!xattr_req) {
+		ret = -1;
+		errno = ENOMEM;
+		goto out;
+	}
+
+	uuid_generate (gfid);
+	ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
+	if (ret) {
+		ret = -1;
+		errno = ENOMEM;
+		goto out;
+	}
+
+	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+
+	if (loc.inode) {
+		errno = EEXIST;
+		ret = -1;
+		goto out;
+	}
+
+	if (ret == -1 && errno != ENOENT)
+		/* Any other type of error is fatal */
+		goto out;
+
+	if (ret == -1 && errno == ENOENT && !loc.parent)
+		/* The parent directory or an ancestor even
+		   higher does not exist
+		*/
+		goto out;
+
+	/* ret == -1 && errno == ENOENT */
+	loc.inode = inode_new (loc.parent->table);
+	if (!loc.inode) {
+		ret = -1;
+		errno = ENOMEM;
+		goto out;
+	}
+
+	ret = syncop_mknod (subvol, &loc, mode, dev, xattr_req);
+out:
+	loc_wipe (&loc);
+
+	if (xattr_req)
+		dict_destroy (xattr_req);
+
+	return ret;
+}
+
+
+int
+glfs_mkdir (struct glfs *fs, const char *path, mode_t mode)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	loc_t            loc = {0, };
+	struct iatt      iatt = {0, };
+	uuid_t           gfid;
+	dict_t          *xattr_req = NULL;
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	xattr_req = dict_new ();
+	if (!xattr_req) {
+		ret = -1;
+		errno = ENOMEM;
+		goto out;
+	}
+
+	uuid_generate (gfid);
+	ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
+	if (ret) {
+		ret = -1;
+		errno = ENOMEM;
+		goto out;
+	}
+
+	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+
+	if (loc.inode) {
+		errno = EEXIST;
+		ret = -1;
+		goto out;
+	}
+
+	if (ret == -1 && errno != ENOENT)
+		/* Any other type of error is fatal */
+		goto out;
+
+	if (ret == -1 && errno == ENOENT && !loc.parent)
+		/* The parent directory or an ancestor even
+		   higher does not exist
+		*/
+		goto out;
+
+	/* ret == -1 && errno == ENOENT */
+	loc.inode = inode_new (loc.parent->table);
+	if (!loc.inode) {
+		ret = -1;
+		errno = ENOMEM;
+		goto out;
+	}
+
+	ret = syncop_mkdir (subvol, &loc, mode, xattr_req);
+out:
+	loc_wipe (&loc);
+
+	if (xattr_req)
+		dict_destroy (xattr_req);
+
+	return ret;
+}
+
+
+int
+glfs_unlink (struct glfs *fs, const char *path)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	loc_t            loc = {0, };
+	struct iatt      iatt = {0, };
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+	if (ret)
+		goto out;
+
+	if (iatt.ia_type == IA_IFDIR) {
+		ret = -1;
+		errno = EISDIR;
+		goto out;
+	}
+
+	ret = syncop_unlink (subvol, &loc);
+out:
+	loc_wipe (&loc);
+
+	return ret;
+}
+
+
+int
+glfs_rmdir (struct glfs *fs, const char *path)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	loc_t            loc = {0, };
+	struct iatt      iatt = {0, };
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+	if (ret)
+		goto out;
+
+	if (iatt.ia_type != IA_IFDIR) {
+		ret = -1;
+		errno = ENOTDIR;
+		goto out;
+	}
+
+	ret = syncop_rmdir (subvol, &loc);
+out:
+	loc_wipe (&loc);
+
+	return ret;
+}
+
+
+int
+glfs_rename (struct glfs *fs, const char *oldpath, const char *newpath)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	loc_t            oldloc = {0, };
+	loc_t            newloc = {0, };
+	struct iatt      oldiatt = {0, };
+	struct iatt      newiatt = {0, };
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	ret = glfs_lresolve (fs, subvol, oldpath, &oldloc, &oldiatt);
+	if (ret)
+		goto out;
+
+	ret = glfs_lresolve (fs, subvol, newpath, &newloc, &newiatt);
+	if (ret && errno != ENOENT && newloc.parent)
+		goto out;
+
+	if ((oldiatt.ia_type == IA_IFDIR) != (newiatt.ia_type == IA_IFDIR)) {
+		/* Either both old and new must be dirs, or both must be
+		   non-dirs. Else, fail.
+		*/
+		ret = -1;
+		errno = EISDIR;
+		goto out;
+	}
+
+	/* TODO: check if new or old is a prefix of the other, and fail EINVAL */
+
+	ret = syncop_rename (subvol, &oldloc, &newloc);
+out:
+	loc_wipe (&oldloc);
+	loc_wipe (&newloc);
+
+	return ret;
+}
+
+
+int
+glfs_link (struct glfs *fs, const char *oldpath, const char *newpath)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	loc_t            oldloc = {0, };
+	loc_t            newloc = {0, };
+	struct iatt      oldiatt = {0, };
+	struct iatt      newiatt = {0, };
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	ret = glfs_lresolve (fs, subvol, oldpath, &oldloc, &oldiatt);
+	if (ret)
+		goto out;
+
+	ret = glfs_lresolve (fs, subvol, newpath, &newloc, &newiatt);
+	if (ret == 0) {
+		ret = -1;
+		errno = EEXIST;
+		goto out;
+	}
+
+	if (oldiatt.ia_type == IA_IFDIR) {
+		ret = -1;
+		errno = EISDIR;
+		goto out;
+	}
+
+	ret = syncop_link (subvol, &oldloc, &newloc);
+out:
+	loc_wipe (&oldloc);
+	loc_wipe (&newloc);
+
+	return ret;
+}
+
+
+struct glfs_fd *
+glfs_opendir (struct glfs *fs, const char *path)
+{
+	int              ret = -1;
+	struct glfs_fd  *glfd = NULL;
+	xlator_t        *subvol = NULL;
+	loc_t            loc = {0, };
+	struct iatt      iatt = {0, };
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	glfd = GF_CALLOC (1, sizeof (*glfd), glfs_mt_glfs_fd_t);
+	if (!glfd)
+		goto out;
+	INIT_LIST_HEAD (&glfd->entries);
+
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+	if (ret)
+		goto out;
+
+	if (!IA_ISDIR (iatt.ia_type)) {
+		ret = -1;
+		errno = ENOTDIR;
+		goto out;
+	}
+
+	glfd->fd = fd_create (loc.inode, getpid());
+	if (!glfd->fd) {
+		ret = -1;
+		errno = ENOMEM;
+		goto out;
+	}
+
+	ret = syncop_opendir (subvol, &loc, glfd->fd);
+out:
+	loc_wipe (&loc);
+
+	if (ret && glfd) {
+		glfs_fd_destroy (glfd);
+		glfd = NULL;
+	}
+
+	return glfd;
+}
+
+
+int
+glfs_closedir (struct glfs_fd *glfd)
+{
+	__glfs_entry_fd (glfd);
+
+	gf_dirent_free (list_entry (&glfd->entries, gf_dirent_t, list));
+
+	glfs_fd_destroy (glfd);
+
+	return 0;
+}
+
+
+long
+glfs_telldir (struct glfs_fd *fd)
+{
+	return fd->offset;
+}
+
+
+void
+glfs_seekdir (struct glfs_fd *fd, long offset)
+{
+	gf_dirent_t *entry = NULL;
+	gf_dirent_t *tmp = NULL;
+
+	if (fd->offset == offset)
+		return;
+
+	fd->offset = offset;
+	fd->next = NULL;
+
+	list_for_each_entry_safe (entry, tmp, &fd->entries, list) {
+		if (entry->d_off != offset)
+			continue;
+
+		if (&tmp->list != &fd->entries) {
+			/* found! */
+			fd->next = tmp;
+			return;
+		}
+	}
+	/* could not find entry at requested offset in the cache.
+	   next readdir_r() will result in glfd_entry_refresh()
+	*/
+}
+
+
+void
+gf_dirent_to_dirent (gf_dirent_t *gf_dirent, struct dirent *dirent)
+{
+	dirent->d_ino = gf_dirent->d_ino;
+
+#ifdef _DIRENT_HAVE_D_OFF
+	dirent->d_off = gf_dirent->d_off;
+#endif
+
+#ifdef _DIRENT_HAVE_D_TYPE
+	dirent->d_type = gf_dirent->d_type;
+#endif
+
+#ifdef _DIRENT_HAVE_D_NAMLEN
+	dirent->d_namlen = strlen (gf_dirent->d_name);
+#endif
+
+	strncpy (dirent->d_name, gf_dirent->d_name, 256);
+}
+
+
+int
+glfd_entry_refresh (struct glfs_fd *glfd)
+{
+	xlator_t        *subvol = NULL;
+	gf_dirent_t      entries;
+	gf_dirent_t      old;
+	int              ret = -1;
+
+	subvol = glfs_fd_subvol (glfd);
+	if (!subvol) {
+		errno = EIO;
+		return -1;
+	}
+
+	INIT_LIST_HEAD (&entries.list);
+	INIT_LIST_HEAD (&old.list);
+
+	ret = syncop_readdir (subvol, glfd->fd, 131072, glfd->offset,
+			      &entries);
+	if (ret >= 0) {
+		/* spurious errno is dangerous for glfd_entry_next() */
+		errno = 0;
+
+		list_splice_init (&glfd->entries, &old.list);
+		list_splice_init (&entries.list, &glfd->entries);
+	}
+
+	if (ret > 0)
+		glfd->next = list_entry (glfd->entries.next, gf_dirent_t, list);
+
+	gf_dirent_free (&old);
+
+	return ret;
+}
+
+
+gf_dirent_t *
+glfd_entry_next (struct glfs_fd *glfd)
+{
+	gf_dirent_t     *entry = NULL;
+	int              ret = -1;
+
+	if (!glfd->offset || !glfd->next) {
+		ret = glfd_entry_refresh (glfd);
+		if (ret < 0)
+			return NULL;
+	}
+
+	entry = glfd->next;
+	if (!entry)
+		return NULL;
+
+	if (&entry->next->list == &glfd->entries)
+		glfd->next = NULL;
+	else
+		glfd->next = entry->next;
+
+	glfd->offset = entry->d_off;
+
+	return entry;
+}
+
+
+int
+glfs_readdir_r (struct glfs_fd *glfd, struct dirent *buf, struct dirent **res)
+{
+	int              ret = 0;
+	gf_dirent_t     *entry = NULL;
+
+	__glfs_entry_fd (glfd);
+
+	if (glfd->fd->inode->ia_type != IA_IFDIR) {
+		ret = -1;
+		errno = EBADF;
+		goto out;
+	}
+
+	errno = 0;
+	entry = glfd_entry_next (glfd);
+	if (errno)
+		ret = -1;
+
+	if (res) {
+		if (entry)
+			*res = buf;
+		else
+			*res = NULL;
+	}
+
+	if (entry)
+		gf_dirent_to_dirent (entry, buf);
+out:
+	return ret;
+}
+
+
+int
+glfs_statvfs (struct glfs *fs, const char *path, struct statvfs *buf)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	loc_t            loc = {0, };
+	struct iatt      iatt = {0, };
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+	if (ret)
+		goto out;
+
+	ret = syncop_statfs (subvol, &loc, buf);
+out:
+	loc_wipe (&loc);
+
+	return ret;
+}
+
+
+int
+glfs_setattr (struct glfs *fs, const char *path, struct iatt *iatt,
+	      int valid, int follow)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	loc_t            loc = {0, };
+	struct iatt      riatt = {0, };
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	if (follow)
+		ret = glfs_resolve (fs, subvol, path, &loc, &riatt);
+	else
+		ret = glfs_lresolve (fs, subvol, path, &loc, &riatt);
+
+	if (ret)
+		goto out;
+
+	ret = syncop_setattr (subvol, &loc, iatt, valid, 0, 0);
+out:
+	loc_wipe (&loc);
+
+	return ret;
+}
+
+
+int
+glfs_fsetattr (struct glfs_fd *glfd, struct iatt *iatt, int valid)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+
+	__glfs_entry_fd (glfd);
+
+	subvol = glfs_fd_subvol (glfd);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	ret = syncop_fsetattr (subvol, glfd->fd, iatt, valid, 0, 0);
+out:
+	return ret;
+}
+
+
+int
+glfs_chmod (struct glfs *fs, const char *path, mode_t mode)
+{
+	int              ret = -1;
+	struct iatt      iatt = {0, };
+	int              valid = 0;
+
+	iatt.ia_prot = ia_prot_from_st_mode (mode);
+	valid = GF_SET_ATTR_MODE;
+
+	ret = glfs_setattr (fs, path, &iatt, valid, 1);
+
+	return ret;
+}
+
+
+int
+glfs_fchmod (struct glfs_fd *glfd, mode_t mode)
+{
+	int              ret = -1;
+	struct iatt      iatt = {0, };
+	int              valid = 0;
+
+	iatt.ia_prot = ia_prot_from_st_mode (mode);
+	valid = GF_SET_ATTR_MODE;
+
+	ret = glfs_fsetattr (glfd, &iatt, valid);
+
+	return ret;
+}
+
+
+int
+glfs_chown (struct glfs *fs, const char *path, uid_t uid, gid_t gid)
+{
+	int              ret = -1;
+	int              valid = 0;
+	struct iatt      iatt = {0, };
+
+	iatt.ia_uid = uid;
+	iatt.ia_gid = gid;
+	valid = GF_SET_ATTR_UID|GF_SET_ATTR_GID;
+
+	ret = glfs_setattr (fs, path, &iatt, valid, 1);
+
+	return ret;
+}
+
+
+int
+glfs_lchown (struct glfs *fs, const char *path, uid_t uid, gid_t gid)
+{
+	int              ret = -1;
+	int              valid = 0;
+	struct iatt      iatt = {0, };
+
+	iatt.ia_uid = uid;
+	iatt.ia_gid = gid;
+	valid = GF_SET_ATTR_UID|GF_SET_ATTR_GID;
+
+	ret = glfs_setattr (fs, path, &iatt, valid, 0);
+
+	return ret;
+}
+
+
+int
+glfs_fchown (struct glfs_fd *glfd, uid_t uid, gid_t gid)
+{
+	int              ret = -1;
+	int              valid = 0;
+	struct iatt      iatt = {0, };
+
+	iatt.ia_uid = uid;
+	iatt.ia_gid = gid;
+	valid = GF_SET_ATTR_UID|GF_SET_ATTR_GID;
+
+	ret = glfs_fsetattr (glfd, &iatt, valid);
+
+	return ret;
+}
+
+
+int
+glfs_utimens (struct glfs *fs, const char *path, struct timespec times[2])
+{
+	int              ret = -1;
+	int              valid = 0;
+	struct iatt      iatt = {0, };
+
+	iatt.ia_atime = times[0].tv_sec;
+	iatt.ia_atime_nsec = times[0].tv_nsec;
+	iatt.ia_mtime = times[1].tv_sec;
+	iatt.ia_mtime_nsec = times[1].tv_nsec;
+
+	valid = GF_SET_ATTR_ATIME|GF_SET_ATTR_MTIME;
+
+	ret = glfs_setattr (fs, path, &iatt, valid, 1);
+
+	return ret;
+}
+
+
+int
+glfs_lutimens (struct glfs *fs, const char *path, struct timespec times[2])
+{
+	int              ret = -1;
+	int              valid = 0;
+	struct iatt      iatt = {0, };
+
+	iatt.ia_atime = times[0].tv_sec;
+	iatt.ia_atime_nsec = times[0].tv_nsec;
+	iatt.ia_mtime = times[1].tv_sec;
+	iatt.ia_mtime_nsec = times[1].tv_nsec;
+
+	valid = GF_SET_ATTR_ATIME|GF_SET_ATTR_MTIME;
+
+	ret = glfs_setattr (fs, path, &iatt, valid, 0);
+
+	return ret;
+}
+
+
+int
+glfs_futimens (struct glfs_fd *glfd, struct timespec times[2])
+{
+	int              ret = -1;
+	int              valid = 0;
+	struct iatt      iatt = {0, };
+
+	iatt.ia_atime = times[0].tv_sec;
+	iatt.ia_atime_nsec = times[0].tv_nsec;
+	iatt.ia_mtime = times[1].tv_sec;
+	iatt.ia_mtime_nsec = times[1].tv_nsec;
+
+	valid = GF_SET_ATTR_ATIME|GF_SET_ATTR_MTIME;
+
+	ret = glfs_fsetattr (glfd, &iatt, valid);
+
+	return ret;
+}
+
+
+int
+glfs_getxattr_process (void *value, size_t size, dict_t *xattr,
+		       const char *name)
+{
+	data_t *data = NULL;
+	int     ret = -1;
+
+	data = dict_get (xattr, (char *)name);
+	if (!data) {
+		errno = ENODATA;
+		ret = -1;
+		goto out;
+	}
+
+	ret = data->len;
+	if (!value || !size)
+		goto out;
+
+	if (size < ret) {
+		ret = -1;
+		errno = ERANGE;
+		goto out;
+	}
+
+	memcpy (value, data->data, ret);
+out:
+	if (xattr)
+		dict_unref (xattr);
+	return ret;
+}
+
+
+ssize_t
+glfs_getxattr_common (struct glfs *fs, const char *path, const char *name,
+		      void *value, size_t size, int follow)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	loc_t            loc = {0, };
+	struct iatt      iatt = {0, };
+	dict_t          *xattr = NULL;
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	if (follow)
+		ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+	else
+		ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+	if (ret)
+		goto out;
+
+	ret = syncop_getxattr (subvol, &loc, &xattr, name);
+	if (ret)
+		goto out;
+
+	ret = glfs_getxattr_process (value, size, xattr, name);
+out:
+	loc_wipe (&loc);
+
+	return ret;
+}
+
+
+ssize_t
+glfs_getxattr (struct glfs *fs, const char *path, const char *name,
+	       void *value, size_t size)
+{
+	return glfs_getxattr_common (fs, path, name, value, size, 1);
+}
+
+
+ssize_t
+glfs_lgetxattr (struct glfs *fs, const char *path, const char *name,
+		void *value, size_t size)
+{
+	return glfs_getxattr_common (fs, path, name, value, size, 0);
+}
+
+
+ssize_t
+glfs_fgetxattr (struct glfs_fd *glfd, const char *name, void *value,
+		size_t size)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	dict_t          *xattr = NULL;
+
+	__glfs_entry_fd (glfd);
+
+	subvol = glfs_fd_subvol (glfd);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	ret = syncop_fgetxattr (subvol, glfd->fd, &xattr, name);
+	if (ret)
+		goto out;
+
+	ret = glfs_getxattr_process (value, size, xattr, name);
+out:
+	return ret;
+}
+
+
+static int
+dict_keys_join (void *value, int size, dict_t *dict)
+{
+	int len = 0;
+
+	int add_key_len (dict_t *d, char *k, data_t *v, void *o)
+	{
+		if (value && size > len)
+			strncpy (value + len, k, size - len);
+
+		len += (strlen (k) + 1);
+
+		return 0;
+	}
+
+	dict_foreach (dict, add_key_len, 0);
+
+	return len;
+}
+
+int
+glfs_listxattr_process (void *value, size_t size, dict_t *xattr)
+{
+	int     ret = -1;
+
+	ret = dict_keys_join (NULL, 0, xattr);
+
+	if (!value || !size)
+		goto out;
+
+	if (size < ret) {
+		ret = -1;
+		errno = ERANGE;
+		goto out;
+	}
+
+	dict_keys_join (value, size, xattr);
+out:
+	if (xattr)
+		dict_unref (xattr);
+	return ret;
+}
+
+
+ssize_t
+glfs_listxattr_common (struct glfs *fs, const char *path, void *value,
+		       size_t size, int follow)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	loc_t            loc = {0, };
+	struct iatt      iatt = {0, };
+	dict_t          *xattr = NULL;
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	if (follow)
+		ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+	else
+		ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+	if (ret)
+		goto out;
+
+	ret = syncop_getxattr (subvol, &loc, &xattr, NULL);
+	if (ret)
+		goto out;
+
+	ret = glfs_listxattr_process (value, size, xattr);
+out:
+	loc_wipe (&loc);
+
+	return ret;
+}
+
+
+ssize_t
+glfs_listxattr (struct glfs *fs, const char *path, void *value, size_t size)
+{
+	return glfs_listxattr_common (fs, path, value, size, 1);
+}
+
+
+ssize_t
+glfs_llistxattr (struct glfs *fs, const char *path, void *value, size_t size)
+{
+	return glfs_listxattr_common (fs, path, value, size, 0);
+}
+
+
+ssize_t
+glfs_flistxattr (struct glfs_fd *glfd, void *value, size_t size)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	dict_t          *xattr = NULL;
+
+	__glfs_entry_fd (glfd);
+
+	subvol = glfs_fd_subvol (glfd);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	ret = syncop_fgetxattr (subvol, glfd->fd, &xattr, NULL);
+	if (ret)
+		goto out;
+
+	ret = glfs_listxattr_process (value, size, xattr);
+out:
+	return ret;
+}
+
+
+dict_t *
+dict_for_key_value (const char *name, const char *value, size_t size)
+{
+	dict_t *xattr = NULL;
+	int     ret = 0;
+
+	xattr = dict_new ();
+	if (!xattr)
+		return NULL;
+
+	ret = dict_set_static_bin (xattr, (char *)name, (void *)value, size);
+	if (ret) {
+		dict_destroy (xattr);
+		xattr = NULL;
+	}
+
+	return xattr;
+}
+
+
+int
+glfs_setxattr_common (struct glfs *fs, const char *path, const char *name,
+		      const void *value, size_t size, int flags, int follow)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	loc_t            loc = {0, };
+	struct iatt      iatt = {0, };
+	dict_t          *xattr = NULL;
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	if (follow)
+		ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+	else
+		ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+	if (ret)
+		goto out;
+
+	xattr = dict_for_key_value (name, value, size);
+	if (!xattr) {
+		ret = -1;
+		errno = ENOMEM;
+		goto out;
+	}
+
+	ret = syncop_setxattr (subvol, &loc, xattr, flags);
+out:
+	loc_wipe (&loc);
+	if (xattr)
+		dict_unref (xattr);
+
+	return ret;
+}
+
+
+int
+glfs_setxattr (struct glfs *fs, const char *path, const char *name,
+	       const void *value, size_t size, int flags)
+{
+	return glfs_setxattr_common (fs, path, name, value, size, flags, 1);
+}
+
+
+int
+glfs_lsetxattr (struct glfs *fs, const char *path, const char *name,
+		const void *value, size_t size, int flags)
+{
+	return glfs_setxattr_common (fs, path, name, value, size, flags, 0);
+}
+
+
+int
+glfs_fsetxattr (struct glfs_fd *glfd, const char *name, const void *value,
+		size_t size, int flags)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	dict_t          *xattr = NULL;
+
+	__glfs_entry_fd (glfd);
+
+	subvol = glfs_fd_subvol (glfd);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	xattr = dict_for_key_value (name, value, size);
+	if (!xattr) {
+		ret = -1;
+		errno = ENOMEM;
+		goto out;
+	}
+
+	ret = syncop_fsetxattr (subvol, glfd->fd, xattr, flags);
+out:
+	if (xattr)
+		dict_unref (xattr);
+
+	return ret;
+}
+
+
+int
+glfs_removexattr_common (struct glfs *fs, const char *path, const char *name,
+			 int follow)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	loc_t            loc = {0, };
+	struct iatt      iatt = {0, };
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	if (follow)
+		ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+	else
+		ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+	if (ret)
+		goto out;
+
+	ret = syncop_removexattr (subvol, &loc, name);
+out:
+	loc_wipe (&loc);
+
+	return ret;
+}
+
+
+int
+glfs_removexattr (struct glfs *fs, const char *path, const char *name)
+{
+	return glfs_removexattr_common (fs, path, name, 1);
+}
+
+
+int
+glfs_lremovexattr (struct glfs *fs, const char *path, const char *name)
+{
+	return glfs_removexattr_common (fs, path, name, 0);
+}
+
+
+int
+glfs_fremovexattr (struct glfs_fd *glfd, const char *name)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+
+	__glfs_entry_fd (glfd);
+
+	subvol = glfs_fd_subvol (glfd);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	ret = syncop_fremovexattr (subvol, glfd->fd, name);
+out:
+	return ret;
+}

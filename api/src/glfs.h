@@ -39,6 +39,8 @@
 #include <sys/uio.h>
 #include <unistd.h>
 #include <sys/cdefs.h>
+#include <dirent.h>
+#include <sys/statvfs.h>
 
 __BEGIN_DECLS
 
@@ -353,6 +355,7 @@ int glfs_ftruncate_async (glfs_fd_t *fd, off_t length, glfs_io_cbk fn,
 			  void *data);
 
 int glfs_lstat (glfs_t *fs, const char *path, struct stat *buf);
+int glfs_stat (glfs_t *fs, const char *path, struct stat *buf);
 int glfs_fstat (glfs_fd_t *fd, struct stat *buf);
 
 int glfs_fsync (glfs_fd_t *fd);
@@ -360,6 +363,84 @@ int glfs_fsync_async (glfs_fd_t *fd, glfs_io_cbk fn, void *data);
 
 int glfs_fdatasync (glfs_fd_t *fd);
 int glfs_fdatasync_async (glfs_fd_t *fd, glfs_io_cbk fn, void *data);
+
+int glfs_access (glfs_t *fs, const char *path, int mode);
+
+int glfs_symlink (glfs_t *fs, const char *oldpath, const char *newpath);
+
+int glfs_readlink (glfs_t *fs, const char *path, char *buf, size_t bufsiz);
+
+int glfs_mknod (glfs_t *fs, const char *path, mode_t mode, dev_t dev);
+
+int glfs_mkdir (glfs_t *fs, const char *path, mode_t mode);
+
+int glfs_unlink (glfs_t *fs, const char *path);
+
+int glfs_rmdir (glfs_t *fs, const char *path);
+
+int glfs_rename (glfs_t *fs, const char *oldpath, const char *newpath);
+
+int glfs_link (glfs_t *fs, const char *oldpath, const char *newpath);
+
+glfs_fd_t *glfs_opendir (glfs_t *fs, const char *path);
+
+int glfs_readdir_r (glfs_fd_t *fd, struct dirent *dirent,
+		    struct dirent **result);
+
+long glfs_telldir (glfs_fd_t *fd);
+
+void glfs_seekdir (glfs_fd_t *fd, long offset);
+
+int glfs_closedir (glfs_fd_t *fd);
+
+int glfs_statvfs (glfs_t *fs, const char *path, struct statvfs *buf);
+
+int glfs_chmod (glfs_t *fs, const char *path, mode_t mode);
+
+int glfs_fchmod (glfs_fd_t *fd, mode_t mode);
+
+int glfs_chown (glfs_t *fs, const char *path, uid_t uid, gid_t gid);
+
+int glfs_lchown (glfs_t *fs, const char *path, uid_t uid, gid_t gid);
+
+int glfs_fchown (glfs_fd_t *fd, uid_t uid, gid_t gid);
+
+int glfs_utimens (glfs_t *fs, const char *path, struct timespec times[2]);
+
+int glfs_lutimens (glfs_t *fs, const char *path, struct timespec times[2]);
+
+int glfs_futimens (glfs_fd_t *fd, struct timespec times[2]);
+
+ssize_t glfs_getxattr (glfs_t *fs, const char *path, const char *name,
+		       void *value, size_t size);
+
+ssize_t glfs_lgetxattr (glfs_t *fs, const char *path, const char *name,
+			void *value, size_t size);
+
+ssize_t glfs_fgetxattr (glfs_fd_t *fd, const char *name,
+			void *value, size_t size);
+
+ssize_t glfs_listxattr (glfs_t *fs, const char *path, void *value, size_t size);
+
+ssize_t glfs_llistxattr (glfs_t *fs, const char *path, void *value,
+			 size_t size);
+
+ssize_t glfs_flistxattr (glfs_fd_t *fd, void *value, size_t size);
+
+int glfs_setxattr (glfs_t *fs, const char *path, const char *name,
+		   const void *value, size_t size, int flags);
+
+int glfs_lsetxattr (glfs_t *fs, const char *path, const char *name,
+		    const void *value, size_t size, int flags);
+
+int glfs_fsetxattr (glfs_fd_t *fd, const char *name,
+		    const void *value, size_t size, int flags);
+
+int glfs_removexattr (glfs_t *fs, const char *path, const char *name);
+
+int glfs_lremovexattr (glfs_t *fs, const char *path, const char *name);
+
+int glfs_fremovexattr (glfs_fd_t *fd, const char *name);
 
 __END_DECLS
 
