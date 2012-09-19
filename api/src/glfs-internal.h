@@ -39,8 +39,10 @@ struct glfs {
 };
 
 struct glfs_fd {
-	off_t     offset;
-	fd_t     *fd;
+	off_t              offset;
+	fd_t              *fd;
+	struct list_head   entries;
+	gf_dirent_t       *next;
 };
 
 #define DEFAULT_EVENT_POOL_SIZE           16384
