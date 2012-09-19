@@ -1474,3 +1474,30 @@ syncop_mknod (xlator_t *subvol, loc_t *loc, mode_t mode, dev_t rdev,
         return args.op_ret;
 
 }
+
+int
+syncop_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+        __wake (args);
+
+        return 0;
+}
+
+int
+syncop_access (xlator_t *subvol, loc_t *loc, int32_t mask)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_access_cbk, subvol->fops->access,
+                loc, mask, NULL);
+
+        errno = args.op_errno;
+        return args.op_ret;
+}
