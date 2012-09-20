@@ -58,7 +58,9 @@ __fuse_fd_ctx_check_n_create (xlator_t *this, fd_t *fd)
         if (fd_ctx == NULL) {
                 fd_ctx = GF_CALLOC (1, sizeof (*fd_ctx),
                                     gf_fuse_mt_fd_ctx_t);
-
+                if (!fd_ctx) {
+                    goto out;
+                }
                 ret = __fd_ctx_set (fd, this,
                                     (uint64_t)(unsigned long)fd_ctx);
                 if (ret < 0) {
@@ -68,7 +70,7 @@ __fuse_fd_ctx_check_n_create (xlator_t *this, fd_t *fd)
                         fd_ctx = NULL;
                 }
         }
-
+out:
         return fd_ctx;
 }
 
