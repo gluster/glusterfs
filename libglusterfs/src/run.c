@@ -392,6 +392,25 @@ runner_run (runner_t *runner)
         return runner_run_generic (runner, runner_end);
 }
 
+
+int
+runner_run_nowait (runner_t *runner)
+{
+	int pid;
+
+	pid = fork ();
+
+	if (!pid) {
+		setsid ();
+		_exit (runner_start (runner));
+	}
+
+	if (pid > 0)
+		runner->chpid = pid;
+	return runner_end (runner);
+}
+
+
 int
 runner_run_reuse (runner_t *runner)
 {
