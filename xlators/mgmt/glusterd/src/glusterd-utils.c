@@ -1306,7 +1306,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 runner_add_arg (&runner, "--mem-accounting");
 
         runner_log (&runner, "", GF_LOG_DEBUG, "Starting GlusterFS");
-        ret = runner_run (&runner);
+        ret = runner_run_nowait (&runner);
         if (ret)
                 goto out;
 
@@ -2966,7 +2966,7 @@ glusterd_nodesvc_start (char *server)
         runner_log (&runner, "", GF_LOG_DEBUG,
                     "Starting the nfs/glustershd services");
 
-        ret = runner_run (&runner);
+        ret = runner_run_nowait (&runner);
         if (ret == 0) {
                 glusterd_nodesvc_connect (server, sockfpath);
         }
