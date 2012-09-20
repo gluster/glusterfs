@@ -166,6 +166,12 @@ int runner_end_reuse (runner_t *runner);
 int runner_run (runner_t *runner);
 
 /**
+ * variant for runner_run() which does not wait for acknowledgement
+ * from child, and always assumes it succeeds.
+ */
+int runner_run_nowait (runner_t *runner);
+
+/**
  * variant of runner_run() which does not free internal data
  * so that the runner instance can be run again.
  *
