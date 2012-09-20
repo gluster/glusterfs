@@ -144,6 +144,7 @@ Group:            System Environment/Daemons
 Requires:         %{name} = %{version}-%{release}
 Requires:         %{name}-fuse = %{version}-%{release}
 Requires:         openssl
+BuildRequires:    libaio-devel
 
 %description server
 GlusterFS is a clustered file-system capable of scaling to several
