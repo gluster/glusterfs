@@ -776,7 +776,6 @@ gf_cli_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         local = ((call_frame_t *) (myframe))->local;
-        ((call_frame_t *) (myframe))->local = NULL;
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
@@ -814,10 +813,6 @@ gf_cli_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 out:
         cli_cmd_broadcast_response (ret);
-        if (dict)
-                dict_unref (dict);
-        if (local)
-                cli_local_wipe (local);
         free (rsp.dict.dict_val);
         free (rsp.op_errstr);
         return ret;
@@ -846,7 +841,6 @@ gf_cli_delete_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         frame = myframe;
         local = frame->local;
-        frame->local = NULL;
 
         if (local)
                 dict = local->dict;
@@ -882,10 +876,7 @@ gf_cli_delete_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 out:
         cli_cmd_broadcast_response (ret);
-        cli_local_wipe (local);
         free (rsp.dict.dict_val);
-        if (dict)
-                dict_unref (dict);
 
         gf_log ("", GF_LOG_INFO, "Returning with %d", ret);
         return ret;
@@ -914,10 +905,8 @@ gf_cli_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         frame = myframe;
 
-        if (frame) {
+        if (frame)
                 local = frame->local;
-                frame->local = NULL;
-        }
 
         if (local)
                 dict = local->dict;
@@ -953,12 +942,8 @@ gf_cli_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 out:
         cli_cmd_broadcast_response (ret);
-        if (local)
-                cli_local_wipe (local);
         free (rsp.dict.dict_val);
         free (rsp.op_errstr);
-        if (dict)
-                dict_unref (dict);
         return ret;
 }
 
@@ -985,10 +970,8 @@ gf_cli_stop_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         frame = myframe;
 
-        if (frame) {
+        if (frame)
                 local = frame->local;
-                frame->local = NULL;
-        }
 
         if (local) {
                 dict = local->dict;
@@ -1026,8 +1009,6 @@ out:
         cli_cmd_broadcast_response (ret);
         free (rsp.op_errstr);
         free (rsp.dict.dict_val);
-        if (local)
-                cli_local_wipe (local);
 
         return ret;
 }
@@ -1071,14 +1052,11 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         frame = myframe;
 
-        if (frame) {
+        if (frame)
                 local = frame->local;
-                frame->local = NULL;
-        }
 
-        if (local) {
+        if (local)
                 local_dict = local->dict;
-        }
 
         ret = dict_get_str (local_dict, "volname", &volname);
         if (ret) {
@@ -1260,10 +1238,6 @@ out:
         free (rsp.dict.dict_val); //malloced by xdr
         if (dict)
                 dict_unref (dict);
-        if (local_dict)
-                dict_unref (local_dict);
-        if (local)
-                cli_local_wipe (local);
         cli_cmd_broadcast_response (ret);
         return ret;
 }
@@ -1424,6 +1398,8 @@ gf_cli_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
+        if (dict)
+                dict_unref (dict);
         cli_cmd_broadcast_response (ret);
         return ret;
 }
@@ -1722,14 +1698,6 @@ gf_cli_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
-        if (frame)
-                frame->local = NULL;
-
-        if (local) {
-                dict_unref (local->dict);
-                cli_local_wipe (local);
-        }
-
         cli_cmd_broadcast_response (ret);
         free (rsp.dict.dict_val);
         free (rsp.op_errstr);
@@ -1889,14 +1857,6 @@ gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
-        if (frame)
-                frame->local = NULL;
-
-        if (local) {
-                dict_unref (local->dict);
-                cli_local_wipe (local);
-        }
-
         cli_cmd_broadcast_response (ret);
         free (rsp.dict.dict_val);
         if (rsp_dict)
@@ -2237,6 +2197,8 @@ xml_output:
         ret = rsp.op_ret;
 out:
         cli_cmd_broadcast_response (ret);
+        if (dict)
+                dict_unref (dict);
 
         free (rsp.dict.dict_val);
 
@@ -2543,7 +2505,7 @@ gf_cli_create_volume (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        dict = dict_ref ((dict_t *)data);
+        dict = data;
 
         ret = cli_to_glusterd (&req, frame, gf_cli_create_volume_cbk,
                                (xdrproc_t) xdr_gf_cli_req, dict,
@@ -2571,12 +2533,7 @@ gf_cli_delete_volume (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        dict = dict_new ();
-        ret = dict_set_str (dict, "volname", data);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_WARNING, "dict set failed");
-                goto out;
-        }
+        dict = data;
 
         ret = cli_to_glusterd (&req, frame, gf_cli_delete_volume_cbk,
                                (xdrproc_t) xdr_gf_cli_req, dict,
@@ -2648,11 +2605,7 @@ gf_cli_defrag_volume (call_frame_t *frame, xlator_t *this,
 {
         gf_cli_req              req     =  {{0,}};
         int                     ret     = 0;
-        char                   *volname = NULL;
-        char                   *cmd_str = NULL;
         dict_t                 *dict    = NULL;
-        gf_cli_defrag_type      cmd     = 0;
-        dict_t                  *req_dict = NULL;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
@@ -2661,63 +2614,8 @@ gf_cli_defrag_volume (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret)
-                gf_log ("", GF_LOG_DEBUG, "error");
-
-        ret = dict_get_str (dict, "command", &cmd_str);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG, "error");
-                goto out;
-        }
-
-        if (strcmp (cmd_str, "start") == 0) {
-                cmd = GF_DEFRAG_CMD_START;
-                ret = dict_get_str (dict, "option", &cmd_str);
-                if (!ret) {
-                        if (strcmp (cmd_str, "force") == 0) {
-                                cmd = GF_DEFRAG_CMD_START_FORCE;
-                        }
-                }
-                goto done;
-        }
-
-        if (strcmp (cmd_str, "fix-layout") == 0) {
-                cmd = GF_DEFRAG_CMD_START_LAYOUT_FIX;
-                goto done;
-        }
-        if (strcmp (cmd_str, "stop") == 0) {
-                cmd = GF_DEFRAG_CMD_STOP;
-                goto done;
-        }
-        if (strcmp (cmd_str, "status") == 0) {
-                cmd = GF_DEFRAG_CMD_STATUS;
-        }
-
-done:
-
-        req_dict = dict_new ();
-        if (!req_dict) {
-                ret = -1;
-                goto out;
-        }
-
-        ret = dict_set_str (req_dict, "volname", volname);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "Failed to set dict");
-                goto out;
-        }
-
-        ret = dict_set_int32 (req_dict, "rebalance-command", (int32_t) cmd);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "Failed to set dict");
-                goto out;
-        }
-
         ret = cli_to_glusterd (&req, frame, gf_cli_defrag_volume_cbk,
-                               (xdrproc_t) xdr_gf_cli_req, req_dict,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
                                GLUSTER_CLI_DEFRAG_VOLUME, this, cli_rpc_prog,
                                NULL);
 
@@ -2840,7 +2738,6 @@ gf_cli_add_brick (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
-
         ret = cli_to_glusterd (&req, frame, gf_cli_add_brick_cbk,
                                (xdrproc_t) xdr_gf_cli_req, dict,
                                GLUSTER_CLI_ADD_BRICK, this, cli_rpc_prog, NULL);
@@ -2925,6 +2822,8 @@ gf_cli_remove_brick (call_frame_t *frame, xlator_t *this,
                 }
 
 out:
+        if (req_dict)
+                dict_unref (req_dict);
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
         GF_FREE (req.dict.dict_val);
@@ -3018,7 +2917,6 @@ gf_cli_log_rotate (call_frame_t *frame, xlator_t *this,
                                (xdrproc_t) xdr_gf_cli_req, dict,
                                GLUSTER_CLI_LOG_ROTATE, this, cli_rpc_prog,
                                NULL);
-
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -3442,7 +3340,8 @@ gf_cli_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
 out:
-
+        if (dict)
+                dict_unref (dict);
         cli_cmd_broadcast_response (ret);
 
         free (rsp.dict.dict_val);
@@ -5204,8 +5103,9 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
 
         if ((cmd & GF_CLI_STATUS_ALL)) {
-                if (local) {
-                        local->dict = dict;
+                if (local && local->dict) {
+                        dict_ref (dict);
+                        ret = dict_set_static_ptr (local->dict, "rsp-dict", dict);
                         ret = 0;
                 } else {
                         gf_log ("cli", GF_LOG_ERROR, "local not found");
@@ -5352,6 +5252,8 @@ cont:
         ret = rsp.op_ret;
 
 out:
+        if (dict)
+                dict_unref (dict);
         GF_FREE (status.brick);
 
         cli_cmd_broadcast_response (ret);
@@ -5389,27 +5291,29 @@ gf_cli_status_volume_all (call_frame_t *frame, xlator_t *this, void *data)
         uint32_t         cmd          = 0;
         char             key[1024]    = {0};
         char            *volname      = NULL;
-        dict_t          *vol_dict     = NULL;
+        void            *vol_dict     = NULL;
         dict_t          *dict         = NULL;
         cli_local_t     *local        = NULL;
-
-        dict = (dict_t *)data;
-        ret = dict_get_uint32 (dict, "cmd", &cmd);
-        if (ret)
-                goto out;
 
         if (frame->local) {
                 local = frame->local;
                 local->all = _gf_true;
         }
 
+        ret = dict_get_uint32 (local->dict, "cmd", &cmd);
+        if (ret)
+                goto out;
+
+
         ret = gf_cli_status_volume (frame, this, data);
         if (ret)
                 goto out;
 
-        vol_dict =  local->dict;
+        ret = dict_get_ptr (local->dict, "rsp-dict", &vol_dict);
+        if (ret)
+                goto out;
 
-        ret = dict_get_int32 (vol_dict, "vol_count", &vol_count);
+        ret = dict_get_int32 ((dict_t *)vol_dict, "vol_count", &vol_count);
         if (ret) {
                 cli_err ("Failed to get names of volumes");
                 goto out;
@@ -5437,7 +5341,7 @@ gf_cli_status_volume_all (call_frame_t *frame, xlator_t *this, void *data)
                 if (ret)
                         goto out;
 
-                ret = dict_set_dynstr (dict, "volname", volname);
+                ret = dict_set_str (dict, "volname", volname);
                 if (ret)
                         goto out;
 
@@ -5455,10 +5359,12 @@ gf_cli_status_volume_all (call_frame_t *frame, xlator_t *this, void *data)
  out:
         if (ret)
                 gf_log ("cli", GF_LOG_ERROR, "status all failed");
+
+        if (vol_dict)
+                dict_unref (vol_dict);
+
         if (ret && dict)
                 dict_unref (dict);
-        if (frame)
-                frame->local = NULL;
         return ret;
 }
 
@@ -5673,10 +5579,8 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         frame = myframe;
 
-        if (frame) {
+        if (frame)
                 local = frame->local;
-                frame->local = NULL;
-        }
 
         if (local) {
                 input_dict = local->dict;
@@ -5764,8 +5668,6 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 out:
         cli_cmd_broadcast_response (ret);
-        if (local)
-                cli_local_wipe (local);
         free (rsp.op_errstr);
         if (dict)
                 dict_unref (dict);
@@ -6029,6 +5931,8 @@ gf_cli_clearlocks_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
+        if (dict)
+                dict_unref (dict);
         cli_cmd_broadcast_response (ret);
         return ret;
 }
@@ -6088,7 +5992,6 @@ cli_to_glusterd (gf_cli_req *req, call_frame_t *frame,
         }
 
         words = local->words;
-        local->dict = dict_ref (dict);
 
         while (words[i])
                 len += strlen (words[i++]) + 1;
@@ -6124,8 +6027,6 @@ cli_to_glusterd (gf_cli_req *req, call_frame_t *frame,
                               cbkfn, (xdrproc_t) xdrproc);
 
 out:
-        if (dict)
-                dict_unref (dict);
         return ret;
 
 }
