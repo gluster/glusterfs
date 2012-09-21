@@ -273,6 +273,10 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
                                    dict_t **options);
 
 int
+cli_cmd_volume_defrag_parse (const char **words, int wordcount,
+                             dict_t **options);
+
+int
 cli_print_brick_status (cli_volume_status_t *status);
 
 void

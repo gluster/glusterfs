@@ -2339,3 +2339,95 @@ out:
 
         return ret;
 }
+
+int
+cli_cmd_volume_defrag_parse (const char **words, int wordcount,
+                             dict_t **options)
+{
+        dict_t                 *dict = NULL;
+        int                      ret = -1;
+        char                *option  = NULL;
+        char                *volname = NULL;
+        char                *command = NULL;
+        gf_cli_defrag_type       cmd = 0;
+
+        GF_ASSERT (words);
+        GF_ASSERT (options);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        if (!((wordcount == 4) || (wordcount == 5)))
+                goto out;
+
+        if (wordcount == 4) {
+                if (strcmp (words[3], "start") && strcmp (words[3], "stop") &&
+                    strcmp (words[3], "status"))
+                            goto out;
+        } else {
+                if (strcmp (words[3], "fix-layout") &&
+                    strcmp (words[3], "start"))
+                        goto out;
+        }
+
+        volname = (char *) words[2];
+
+        if (wordcount == 4) {
+                command = (char *) words[3];
+        }
+        if (wordcount == 5) {
+               if ((strcmp (words[3], "fix-layout") ||
+                    strcmp (words[4], "start")) &&
+                    (strcmp (words[3], "start") ||
+                    strcmp (words[4], "force"))) {
+                        ret = -1;
+                        goto out;
+                }
+                command = (char *) words[3];
+                option = (char *) words[4];
+        }
+
+        if (strcmp (command, "start") == 0) {
+                cmd = GF_DEFRAG_CMD_START;
+                if (option && strcmp (option, "force") == 0) {
+                                cmd = GF_DEFRAG_CMD_START_FORCE;
+                        }
+                goto done;
+        }
+
+        if (strcmp (command, "fix-layout") == 0) {
+                cmd = GF_DEFRAG_CMD_START_LAYOUT_FIX;
+                goto done;
+        }
+        if (strcmp (command, "stop") == 0) {
+                cmd = GF_DEFRAG_CMD_STOP;
+                goto done;
+        }
+        if (strcmp (command, "status") == 0) {
+                cmd = GF_DEFRAG_CMD_STATUS;
+        }
+
+done:
+        ret = dict_set_str (dict, "volname", volname);
+
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to set dict");
+                goto out;
+        }
+
+        ret = dict_set_int32 (dict, "rebalance-command", (int32_t) cmd);
+
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to set dict");
+                goto out;
+        }
+
+        *options = dict;
+
+out:
+        if (ret && dict)
+                dict_destroy (dict);
+
+        return ret;
+}
