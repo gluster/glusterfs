@@ -112,6 +112,7 @@ void gf_print_trace (int32_t signal, glusterfs_ctx_t *ctx);
 #define VECTORSIZE(count) (count * (sizeof (struct iovec)))
 
 #define STRLEN_0(str) (strlen(str) + 1)
+
 #define VALIDATE_OR_GOTO(arg,label)   do {				\
 		if (!arg) {						\
 			errno = EINVAL;					\
@@ -463,14 +464,14 @@ mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks);
  * nr
  */
 
-int32_t gf_roundup_power_of_two (uint32_t nr);
+int32_t gf_roundup_power_of_two (int32_t nr);
 
 /*
  * rounds up nr to next power of two. If nr is already a power of two, next
  * power of two is returned.
  */
 
-int32_t gf_roundup_next_power_of_two (uint32_t nr);
+int32_t gf_roundup_next_power_of_two (int32_t nr);
 
 char *gf_trim (char *string);
 int gf_strsplit (const char *str, const char *delim,

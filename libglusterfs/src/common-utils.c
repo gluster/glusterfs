@@ -1925,9 +1925,9 @@ out:
  */
 
 inline int32_t
-gf_roundup_power_of_two (uint32_t nr)
+gf_roundup_power_of_two (int32_t nr)
 {
-        uint32_t result = 1;
+        int32_t result = 1;
 
         if (nr < 0) {
                 gf_log ("common-utils", GF_LOG_WARNING,
@@ -1949,7 +1949,7 @@ out:
  */
 
 inline int32_t
-gf_roundup_next_power_of_two (uint32_t nr)
+gf_roundup_next_power_of_two (int32_t nr)
 {
         int32_t result = 1;
 
