@@ -1,7 +1,5 @@
 
-docdir = $(datadir)/doc/$(PACKAGE_NAME)/benchmarking
-
-benchmarkingdir = $(docdir)
+benchmarkingdir = $(docdir)/benchmarking
 
 benchmarking_DATA = rdd.c glfs-bm.c README launch-script.sh local-script.sh
 

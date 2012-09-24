@@ -1,6 +1,5 @@
 
-docdir = $(datadir)/doc/glusterfs/
-EditorModedir = $(docdir)/
+EditorModedir = $(docdir)
 EditorMode_DATA = glusterfs-mode.el glusterfs.vim
 
 SUBDIRS = init.d benchmarking hook-scripts $(OCF_SUBDIR)
