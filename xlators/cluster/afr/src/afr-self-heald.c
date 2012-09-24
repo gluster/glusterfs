@@ -443,11 +443,13 @@ _do_crawl_op_on_local_subvols (xlator_t *this, afr_crawl_type_t crawl,
         if (op == HEAL)
                 crawl_flags |= STOP_CRAWL_ON_SINGLE_SUBVOL;
 
-        ret = dict_get_int32 (output, this->name, &xl_id);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Invalid input, "
-                        "translator-id is not available");
-                goto out;
+        if (output) {
+                ret = dict_get_int32 (output, this->name, &xl_id);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Invalid input, "
+                                "translator-id is not available");
+                        goto out;
+                }
         }
         pos_data.this = this;
         subkey = "status";
@@ -467,7 +469,7 @@ _do_crawl_op_on_local_subvols (xlator_t *this, afr_crawl_type_t crawl,
                                         status = "Started self-heal";
                                         _do_self_heal_on_subvol (this, i,
                                                                  crawl);
-                                } else {
+                                } else if (output) {
                                         status = "";
                                         afr_start_crawl (this, i, INDEX,
                                                          _add_summary_to_dict,
@@ -475,14 +477,19 @@ _do_crawl_op_on_local_subvols (xlator_t *this, afr_crawl_type_t crawl,
                                                          NULL);
                                 }
                         }
-                        snprintf (key, sizeof (key), "%d-%d-%s", xl_id,
-                                  i, subkey);
-                        ret = dict_set_str (output, key, status);
+                        if (output) {
+                                snprintf (key, sizeof (key), "%d-%d-%s", xl_id,
+                                          i, subkey);
+                                ret = dict_set_str (output, key, status);
+                        }
                         if (!op_ret && (crawl == FULL))
                                 break;
                 }
-                snprintf (key, sizeof (key), "%d-%d-%s", xl_id, i, subkey);
-                ret = dict_set_str (output, key, status);
+                if (output) {
+                        snprintf (key, sizeof (key), "%d-%d-%s", xl_id, i,
+                                  subkey);
+                        ret = dict_set_str (output, key, status);
+                }
         }
 out:
         return op_ret;
@@ -626,7 +633,7 @@ unlock:
 }
 
 static int
-afr_local_child_poll_self_heal  (int ret, call_frame_t *sync_frame, void *data)
+afr_handle_child_up  (int ret, call_frame_t *sync_frame, void *data)
 {
         afr_self_heald_t *shd = NULL;
         shd_pos_t        *pos_data = data;
@@ -640,6 +647,7 @@ afr_local_child_poll_self_heal  (int ret, call_frame_t *sync_frame, void *data)
         shd->pos[pos_data->child] = pos_data->pos;
         if (pos_data->pos != AFR_POS_REMOTE)
                 afr_poll_self_heal ((void*)(long)pos_data->child);
+        _do_self_heal_on_local_subvols (THIS, INDEX, NULL);
 out:
         GF_FREE (data);
         return 0;
@@ -663,7 +671,7 @@ afr_proactive_self_heal (void *data)
         pos_data->this = this;
         pos_data->child = child;
         ret = synctask_new (this->ctx->env, afr_syncop_find_child_position,
-                            afr_local_child_poll_self_heal, NULL, pos_data);
+                            afr_handle_child_up, NULL, pos_data);
         if (ret)
                 goto out;
 out:
