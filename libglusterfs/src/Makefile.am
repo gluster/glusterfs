@@ -46,6 +46,7 @@ EXTRA_DIST = graph.l graph.y
 graph.lex.c: graph.l y.tab.h
 	$(LEX) -t $(srcdir)/graph.l > $@
 
+y.tab.c: y.tab.h
 y.tab.h: graph.y
 	$(YACC) -d $(srcdir)/graph.y
 

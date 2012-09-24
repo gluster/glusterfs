@@ -25,6 +25,7 @@ uninstall-local:
 install-data-local:
 	$(INSTALL) -d -m 755 $(DESTDIR)$(localstatedir)/run
 	$(INSTALL) -d -m 755 $(DESTDIR)$(localstatedir)/log/glusterfs
+	$(INSTALL) -d -m 755 $(DESTDIR)$(sbindir)
 	rm -f $(DESTDIR)$(sbindir)/glusterfs
 	rm -f $(DESTDIR)$(sbindir)/glusterd
 	ln -s glusterfsd $(DESTDIR)$(sbindir)/glusterfs
