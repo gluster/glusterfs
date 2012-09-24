@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = quick-read.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 
-quick_read_la_LDFLAGS = -module -avoidversion 
+quick_read_la_LDFLAGS = -module -avoid-version -shared 
 
 quick_read_la_SOURCES = quick-read.c
 quick_read_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la

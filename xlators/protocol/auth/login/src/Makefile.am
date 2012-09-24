@@ -1,7 +1,7 @@
 auth_LTLIBRARIES = login.la
 authdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/auth
 
-login_la_LDFLAGS = -module -avoidversion
+login_la_LDFLAGS = -module -avoid-version -shared
 
 login_la_SOURCES = login.c
 login_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la

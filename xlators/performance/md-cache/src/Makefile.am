@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = md-cache.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 
-md_cache_la_LDFLAGS = -module -avoidversion
+md_cache_la_LDFLAGS = -module -avoid-version -shared
 
 md_cache_la_SOURCES = md-cache.c
 md_cache_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
