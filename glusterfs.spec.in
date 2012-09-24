@@ -264,7 +264,7 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/geo-replication/gsyncd.conf
 
 # Copy the 'glusterfs-logrotate' file at the right place
 if [ -d /etc/logrotate.d ]; then
-   cp %{_docdir}/%{name}-%{version}/glusterfs-logrotate /etc/logrotate.d/glusterfs
+   cp %{_sysconfdir}/glusterfs/glusterfs-logrotate /etc/logrotate.d/glusterfs
 fi
 
 %postun
@@ -273,7 +273,7 @@ fi
 %files
 %defattr(-,root,root)
 %doc AUTHORS ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL NEWS README THANKS
-%doc extras/glusterfs-logrotate
+%config %{_sysconfdir}/glusterfs/glusterfs-logrotate
 %{_libdir}/glusterfs
 %{_libdir}/*.so.*
 %{_sbindir}/glusterfs*
