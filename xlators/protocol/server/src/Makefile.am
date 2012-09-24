@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = server.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/protocol
 
-server_la_LDFLAGS = -module -avoidversion
+server_la_LDFLAGS = -module -avoid-version -shared
 
 server_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \

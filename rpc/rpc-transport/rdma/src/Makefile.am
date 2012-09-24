@@ -3,7 +3,7 @@
 transport_LTLIBRARIES = rdma.la
 transportdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/rpc-transport
 
-rdma_la_LDFLAGS = -module -avoidversion
+rdma_la_LDFLAGS = -module -avoid-version -shared
 
 rdma_la_SOURCES = rdma.c name.c
 rdma_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la     \

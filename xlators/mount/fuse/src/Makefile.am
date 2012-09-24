@@ -24,7 +24,7 @@ endif
 fuse_la_SOURCES = fuse-helpers.c fuse-resolve.c fuse-bridge.c \
 	$(CONTRIBDIR)/fuse-lib/misc.c $(mount_source)
 
-fuse_la_LDFLAGS = -module -avoidversion -shared -nostartfiles
+fuse_la_LDFLAGS = -module -avoid-version -shared -nostartfiles
 fuse_la_LIBADD = @GF_FUSE_LDADD@
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS) -Wall \

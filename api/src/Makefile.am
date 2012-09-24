@@ -23,7 +23,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/mount
 
 api_la_SOURCES = glfs-master.c
 
-api_la_LDFLAGS = -module -avoidversion
+api_la_LDFLAGS = -module -avoid-version -shared
 api_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS) -Wall \

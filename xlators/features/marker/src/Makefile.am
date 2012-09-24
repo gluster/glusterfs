@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = marker.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
-marker_la_LDFLAGS = -module -avoidversion
+marker_la_LDFLAGS = -module -avoid-version -shared
 
 marker_la_SOURCES = marker.c marker-quota.c marker-quota-helper.c marker-common.c
 marker_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
