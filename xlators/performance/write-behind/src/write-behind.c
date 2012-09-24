@@ -239,13 +239,13 @@ wb_requests_overlap (wb_request_t *req1, wb_request_t *req2)
 
         r1_start = req1->ordering.off;
 	if (req1->ordering.size)
-		r1_end = r1_start + req1->ordering.size;
+		r1_end = r1_start + req1->ordering.size - 1;
 	else
 		r1_end = ULLONG_MAX;
 
         r2_start = req2->ordering.off;
 	if (req2->ordering.size)
-		r2_end = r2_start + req2->ordering.size;
+		r2_end = r2_start + req2->ordering.size - 1;
 	else
 		r2_end = ULLONG_MAX;
 
@@ -926,11 +926,6 @@ __wb_preprocess_winds (wb_inode_t *wb_inode)
 	conf = wb_inode->this->private;
 
         list_for_each_entry_safe (req, tmp, &wb_inode->todo, todo) {
-		if (!holder) {
-			holder = req;
-			continue;
-		}
-
 		if (!req->ordering.tempted) {
 			if (holder) {
 				if (wb_requests_conflict (holder, req))
@@ -939,6 +934,10 @@ __wb_preprocess_winds (wb_inode_t *wb_inode)
 					holder->ordering.go = 1;
 			}
 			/* collapse only non-sync writes */
+			continue;
+		} else if (!holder) {
+			/* holder is always a non-sync write */
+			holder = req;
 			continue;
 		}
 
