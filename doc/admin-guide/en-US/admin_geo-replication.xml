@@ -221,14 +221,14 @@
       <orderedlist>
         <listitem>
           <para>On the node where geo-replication sessions are to be set up, run the following command:</para>
-          <para><command># ssh-keygen -f /etc/glusterd/geo-replication/secret.pem</command>
+          <para><command># ssh-keygen -f /var/lib/glusterd/geo-replication/secret.pem</command>
 </para>
           <para>Press Enter twice to avoid passphrase.
 </para>
         </listitem>
         <listitem>
           <para>Run the following command on master for all the slave hosts: </para>
-          <para><command># ssh-copy-id -i /etc/glusterd/geo-replication/secret.pem.pub <varname>user</varname>@<varname>slavehost</varname></command></para>
+          <para><command># ssh-copy-id -i /var/lib/glusterd/geo-replication/secret.pem.pub <varname>user</varname>@<varname>slavehost</varname></command></para>
         </listitem>
       </orderedlist>
     </section>
@@ -341,7 +341,7 @@ level access to the particular volume.</para>
             <para>A sample glusterd volfile along with default options:</para>
             <para><screen>volume management
     type mgmt/glusterd
-    option working-directory /etc/glusterd
+    option working-directory /var/lib/glusterd
     option transport-type socket,rdma
     option transport.socket.keepalive-time 10
     option transport.socket.keepalive-interval 2

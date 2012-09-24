@@ -113,7 +113,7 @@
     <glossentry>
       <glossterm>Volfile</glossterm>
       <glossdef>
-        <para>Volfile is a configuration file used by glusterfs process. Volfile will be usually located at <filename>/etc/glusterd/vols/VOLNAME</filename>.</para>
+        <para>Volfile is a configuration file used by glusterfs process. Volfile will be usually located at <filename>/var/lib/glusterd/vols/VOLNAME</filename>.</para>
       </glossdef>
     </glossentry>
     <glossentry>

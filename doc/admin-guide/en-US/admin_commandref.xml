@@ -251,7 +251,7 @@ needing to schedule server downtime.
     <para><emphasis role="bold">FILES</emphasis>
 
 </para>
-    <para>/etc/glusterd/*
+    <para>/var/lib/glusterd/*
 </para>
     <para><emphasis role="bold">SEE ALSO </emphasis></para>
     <para>fusermount(1), mount.glusterfs(8), glusterfs-volgen(8), glusterfs(8), glusterd(8)</para>
@@ -326,7 +326,7 @@ needing to schedule server downtime.
     <para><emphasis role="bold">FILES</emphasis>
 
 </para>
-    <para>/etc/glusterd/*
+    <para>/var/lib/glusterd/*
 </para>
     <para><emphasis role="bold">SEE ALSO </emphasis></para>
     <para>fusermount(1), mount.glusterfs(8), glusterfs-volgen(8), glusterfs(8), gluster(8)</para>
