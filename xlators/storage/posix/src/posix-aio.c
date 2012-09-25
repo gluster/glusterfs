@@ -421,7 +421,7 @@ posix_aio_init (xlator_t *this)
         ret = io_setup (POSIX_AIO_MAX_NR_EVENTS, &priv->ctxp);
         if ((ret == -1 && errno == ENOSYS) || ret == -ENOSYS) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "Linux AIO not availble at run-time."
+                        "Linux AIO not available at run-time."
 			" Continuing with synchronous IO");
                 ret = 0;
                 goto out;
@@ -490,7 +490,7 @@ int
 posix_aio_on (xlator_t *this)
 {
         gf_log (this->name, GF_LOG_INFO,
-                "Linux AIO not availble at build-time."
+                "Linux AIO not available at build-time."
 		" Continuing with synchronous IO");
         return 0;
 }
@@ -499,7 +499,7 @@ int
 posix_aio_off (xlator_t *this)
 {
         gf_log (this->name, GF_LOG_INFO,
-                "Linux AIO not availble at build-time."
+                "Linux AIO not available at build-time."
 		" Continuing with synchronous IO");
         return 0;
 }
