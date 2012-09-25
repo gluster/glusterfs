@@ -36,12 +36,15 @@ To specify a command directly:
 The Gluster Console Manager is a command line utility for elastic volume management. You can run the gluster command on any export server. The command enables administrators to perform cloud operations, such as creating, expanding, shrinking, rebalancing, and migrating volumes without needing to schedule server downtime.
 .SH COMMANDS
 
-.SS "Volume Commands"
+.SS "Basic Volume Commands"
 .PP
 .TP
 
 \fB\ volume info [all|<VOLNAME>] \fR
 Display information about all volumes, or the specified volume.
+.TP
+\fB\ volume list \fR
+List the available volumes.
 .TP
 \fB\ volume create <NEW-VOLNAME> [stripe <COUNT>] [replica <COUNT>] [transport <tcp|rdma|tcp,rdma>] <NEW-BRICK> ... \fR
 Create a new volume of the specified type using the specified bricks and transport type (the default transport type is tcp).
@@ -56,46 +59,82 @@ Start the specified volume.
 \fB\ volume stop <VOLNAME> [force] \fR
 Stop the specified volume.
 .TP
-\fB\ volume rename <VOLNAME> <NEW-VOLNAME> \fR
-Rename the specified volume.
-.TP
 \fB\ volume set <VOLNAME> <OPTION> <PARAMETER> [<OPTION> <PARAMETER>] ... \fR
-Set the volume options.
+Set the given volume options.
+.TP
+\fB\ volume reset [<OPTION>] [force] \fR
+Reset all or the given volume options.
 .TP
 \fB\ volume help \fR
 Display help for the volume command.
+
 .SS "Brick Commands"
 .PP
 .TP
-\fB\ volume add-brick <VOLNAME> <NEW-BRICK> ... \fR
-Add the specified brick to the specified volume.
+\fB\ volume add-brick <VOLNAME> [<stripe|replica> <COUNT>] <NEW-BRICK> ... \fR
+Add the specified bricks to the specified volume.
 .TP
-\fB\ volume remove-brick <VOLNAME> <BRICK> ... \fR
-Remove the specified brick from the specified volume.
-.IP
-.B Note:
-If you remove the brick, the data stored in that brick will not be available. You can migrate data from one brick to another using
-.B replace-brick
-option.
+\fB\ volume remove-brick <VOLNAME> [replica <COUNT>] <BRICK> ... {start|stop|status|commit|force} \fR
+Remove the specified bricks from the specified volume.
 .TP
-\fB\ volume rebalance-brick <VOLNAME>(<BRICK> <NEW-BRICK>) start \fR
-Start rebalancing the specified volume.
-.TP
-\fB\ volume rebalance <VOLNAME> stop \fR
-Stop rebalancing the specified volume.
-.TP
-\fB\ volume rebalance <VOLNAME> status \fR
-Display the rebalance status of the specified volume.
+\fB\ volume rebalance <VOLNAME> [fix-layout] {start|stop|status} [force] \fR
+Performs rebalance operation on the volume.
 .TP
 \fB\ volume replace-brick <VOLNAME> (<BRICK> <NEW-BRICK>) start|pause|abort|status|commit \fR
 Replace the specified brick.
+
+.SS "Quota Commands"
+.PP
+.TP
+\fB\ volume quota <VOLNAME> {enable|disable} \fR
+Enable or disable quota on a volume
+.TP
+\fB\ volume quota <VOLNAME> limit-usage <PATH> <VALUE> \fR
+Set quoata on PATH to VALUE
+.TP
+\fB\ volume quota <VOLNAME> remove <PATH> \fR
+Remove quota on path
+.TP
+\fB\ volume quota <VOLNAME> list \fR
+List the set quotas
+
+.SS "Volume Monitoring Commands"
+.PP
+.TP
+\fB\ volume profile <VOLNAME> {start|stop} \fR
+Start or stop profiling a volume.
+.TP
+\fB\ volume profile <VOLNAME> info [nfs] \fR
+Show the gathered profiling information for the volume.
+.TP
+\fB\ volume top <VOLNAME> {open|read|write|opendir|readdir} [nfs] [brick <BRICK>] [list-cnt <COUNT>] \fR
+Display the counts of specified operation in the volume.
+.TP
+\fB\ volume top <VOLNAME> {read-perf|write-perf} [nfs | {bs <SIZE} count <COUNT>] [brick <BRICK>] [list-cnt <COUNT>]\fR
+Display the throughput of the volume.
+.TP
+\fB\ volume status [all| {<VOLNAME> [nfs|shd|<BRICK>]] [detail|clients|mem|inode|fd|callpool] \fR
+Display the present status of the processes of specified volume.
+
+.SS "Other Volume Commands"
+.PP
+.TP
+\fB\ volume geo-replication [<VOLNAME>] [<SLAVE-URL>] {start|stop|config|status|log-rotate} [options...] \fR
+Geo-replication operations
+.TP
+\fB\ volume heal <VOLNAME> [{full | info {healed|heal-failed|split-brain}}] \fR
+Self-heal commands
+.TP
+\fB\ volume clear-locks <VOLNAME> <PATH> kind {blocked|granted|all} {inode <RANGE>|entry <BASENAME>|posix <RANGE>} \fR
+Clear locks held on path in the volume
+.TP
+\fB\ volume statedump <VOLNAME> [nfs] [all|mem|iobuf|callpool|priv|fd|inode|history]
+Perform a statedump of the brick or nfs-server processos of the volume
+.TP
+\fB\ volume sync <HOSTNAME> [all|<VOLNAME>] \fR
+Sync volume information from specified peer
+
 .SS "Log Commands"
-.TP
-\fB\ volume log filename <VOLNAME> [BRICK] <DIRECTORY> \fB
-Set the log directory for the corresponding volume/brick.
-.TP
-\fB\ volume log locate <VOLNAME> [BRICK] \fB
-Locate the log file for corresponding volume/brick.
 .TP
 \fB\ volume log rotate <VOLNAME> [BRICK] \fB
 Rotate the log file for corresponding volume/brick.
