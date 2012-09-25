@@ -2979,7 +2979,7 @@ gf_rdma_decode_header (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
 
         case GF_RDMA_ERROR:
                 gf_log (GF_RDMA_LOG_NAME, GF_LOG_WARNING,
-                        "recieved a msg of type RDMA_ERROR");
+                        "received a msg of type RDMA_ERROR");
                 ret = gf_rdma_decode_error_msg (peer, post, bytes_in_post);
                 break;
 
