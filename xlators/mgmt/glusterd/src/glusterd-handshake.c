@@ -252,14 +252,14 @@ server_event_notify (rpcsvc_request_t *req)
         switch (args.op) {
         case GF_EN_DEFRAG_STATUS:
                 gf_log ("", GF_LOG_INFO,
-                        "recieved defrag status updated");
+                        "received defrag status updated");
                 if (dict) {
                         glusterd_defrag_event_notify_handle (dict);
                         need_rsp = _gf_false;
                 }
                 break;
         default:
-                gf_log ("", GF_LOG_ERROR, "Unkown op recieved in in event "
+                gf_log ("", GF_LOG_ERROR, "Unknown op received in event "
                         "notify");
                 ret = -1;
                 break;

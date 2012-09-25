@@ -1645,7 +1645,7 @@ gf_defrag_stop (gf_defrag_info_t *defrag, dict_t *output)
                 goto out;
         }
 
-        gf_log ("", GF_LOG_INFO, "Recieved stop command on rebalance");
+        gf_log ("", GF_LOG_INFO, "Received stop command on rebalance");
         defrag->defrag_status = GF_DEFRAG_STATUS_STOPPED;
 
         if (output)

@@ -1717,7 +1717,7 @@ glusterfs_rebalance_event_notify_cbk (struct rpc_req *req, struct iovec *iov,
 
         if (-1 == rsp.op_ret) {
                 gf_log (frame->this->name, GF_LOG_ERROR,
-                        "Recieved error (%s) from server",
+                        "Received error (%s) from server",
                         strerror (rsp.op_errno));
                 ret = -1;
                 goto out;
