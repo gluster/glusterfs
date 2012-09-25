@@ -231,7 +231,7 @@ glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 		if (!inode)
 			break;
 
-		if (!IA_ISLNK (ciatt.ia_type) && (next_component || follow)) {
+		if (IA_ISLNK (ciatt.ia_type) && (next_component || follow)) {
 			/* If the component is not the last piece,
 			   then following it is necessary even if
 			   not requested by the caller
