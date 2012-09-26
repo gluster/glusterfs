@@ -593,6 +593,8 @@ dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
         dht_layout_t *new_layout   = NULL;
         dht_conf_t   *priv         = NULL;
         dht_local_t  *local        = NULL;
+        uint32_t      subvol_down  = 0;
+        int           ret          = 0;
 
         this  = frame->this;
         priv  = this->private;
@@ -607,6 +609,17 @@ dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
         new_layout = dht_layout_new (this, priv->subvolume_cnt);
         if (!new_layout)
                 goto done;
+
+        /* If a subvolume is down, do not re-write the layout. */
+        ret = dht_layout_anomalies (this, loc, layout, NULL, NULL, NULL,
+                                    &subvol_down, NULL, NULL);
+
+        if (subvol_down || (ret == -1)) {
+                gf_log (this->name, GF_LOG_WARNING, "%u subvolume(s) are down"
+                        ". Skipping fix layout.", subvol_down);
+                GF_FREE (new_layout);
+                return NULL;
+        }
 
         for (i = 0; i < new_layout->cnt; i++) {
 		if (layout->list[i].err != ENOSPC)
@@ -695,34 +708,16 @@ int
 dht_selfheal_dir_getafix (call_frame_t *frame, loc_t *loc,
                           dht_layout_t *layout)
 {
-        dht_conf_t  *conf = NULL;
-        xlator_t    *this = NULL;
         dht_local_t *local = NULL;
-        int          missing = -1;
-        int          down = -1;
-        int          holes = -1;
+        uint32_t     holes = 0;
         int          ret = -1;
         int          i = -1;
-        int          overlaps = -1;
+        uint32_t     overlaps = 0;
 
-        this = frame->this;
-        conf = this->private;
         local = frame->local;
 
-        missing = local->selfheal.missing;
-        down = local->selfheal.down;
         holes = local->selfheal.hole_cnt;
         overlaps = local->selfheal.overlaps_cnt;
-
-        if ((missing + down) == conf->subvolume_cnt) {
-                dht_selfheal_layout_new_directory (frame, loc, layout);
-                ret = 0;
-        }
-
-        if (holes <= down) {
-                /* the down subvol might fill up the holes */
-                ret = 0;
-        }
 
         if (holes || overlaps) {
                 dht_selfheal_layout_new_directory (frame, loc, layout);
@@ -775,6 +770,9 @@ dht_fix_directory_layout (call_frame_t *frame,
 
         /* No layout sorting required here */
         tmp_layout = dht_fix_layout_of_directory (frame, &local->loc, layout);
+        if (!tmp_layout) {
+                return -1;
+        }
         dht_fix_dir_xattr (frame, &local->loc, tmp_layout);
 
         return 0;
@@ -797,9 +795,8 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
         dht_layout_anomalies (this, loc, layout,
                               &local->selfheal.hole_cnt,
                               &local->selfheal.overlaps_cnt,
-                              &local->selfheal.missing,
-                              &local->selfheal.down,
-                              &local->selfheal.misc);
+                              NULL, &local->selfheal.down,
+                              &local->selfheal.misc, NULL);
 
         down     = local->selfheal.down;
         misc     = local->selfheal.misc;

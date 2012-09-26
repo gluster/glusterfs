@@ -140,7 +140,6 @@ struct dht_local {
         struct {
                 uint32_t         hole_cnt;
                 uint32_t         overlaps_cnt;
-                uint32_t         missing;
                 uint32_t         down;
                 uint32_t         misc;
                 dht_selfheal_dir_cbk_t   dir_cbk;
@@ -380,7 +379,7 @@ int                                      dht_layout_normalize (xlator_t *this, l
 int dht_layout_anomalies (xlator_t      *this, loc_t *loc, dht_layout_t *layout,
                           uint32_t      *holes_p, uint32_t *overlaps_p,
                           uint32_t      *missing_p, uint32_t *down_p,
-                          uint32_t      *misc_p);
+                          uint32_t      *misc_p, uint32_t *no_space_p);
 int dht_layout_dir_mismatch (xlator_t   *this, dht_layout_t *layout,
                              xlator_t   *subvol, loc_t *loc, dict_t *xattr);
 
