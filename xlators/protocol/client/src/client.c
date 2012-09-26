@@ -2110,6 +2110,11 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 conf->connected = 0;
                 conf->skip_notify = 0;
 
+		if (conf->quick_reconnect) {
+			conf->quick_reconnect = 0;
+			rpc_clnt_start (conf->rpc);
+		}
+
                 break;
 
         default:
