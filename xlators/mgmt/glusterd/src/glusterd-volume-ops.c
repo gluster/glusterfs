@@ -268,11 +268,12 @@ out:
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
-        if (ret)
+        if (ret) {
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      dict, "operation failed");
-        if (dict)
-                dict_unref (dict);
+                if (dict)
+                        dict_unref (dict);
+        }
 
         return ret;
 }
