@@ -2398,9 +2398,13 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_INFO,
                         "fixing the layout of %s", loc->path);
 
-                dht_fix_directory_layout (frame, dht_common_setxattr_cbk,
-                                          layout);
-                return 0;
+                ret = dht_fix_directory_layout (frame, dht_common_setxattr_cbk,
+                                                layout);
+                if (ret) {
+                        op_errno = ENOTCONN;
+                        goto err;
+                }
+                return ret;
         }
 
         tmp = dict_get (xattr, "distribute.directory-spread-count");
@@ -2412,10 +2416,14 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                              (dir_spread > 0))) {
                         layout->spread_cnt = dir_spread;
 
-                        dht_fix_directory_layout (frame,
-                                                  dht_common_setxattr_cbk,
-                                                  layout);
-                        return 0;
+                        ret = dht_fix_directory_layout (frame,
+                                                        dht_common_setxattr_cbk,
+                                                        layout);
+                        if (ret) {
+                                op_errno = ENOTCONN;
+                                goto err;
+                        }
+                        return ret;
                 }
                 gf_log (this->name, GF_LOG_ERROR,
                         "wrong 'directory-spread-count' value (%s)", value);
