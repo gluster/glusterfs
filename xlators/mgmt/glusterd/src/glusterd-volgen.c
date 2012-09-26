@@ -132,6 +132,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"cluster.quorum-type",                  "cluster/replicate",  "quorum-type", NULL, NO_DOC, 0},
         {"cluster.quorum-count",                 "cluster/replicate",  "quorum-count", NULL, NO_DOC, 0},
         {"cluster.choose-local",                 "cluster/replicate",  NULL, NULL, DOC, 0},
+        {"cluster.self-heal-readdir-size",       "cluster/replicate",  NULL, NULL, NO_DOC, 0},
 
         {"cluster.stripe-block-size",            "cluster/stripe",     "block-size", NULL, DOC, 0},
 	{"cluster.stripe-coalesce",		 "cluster/stripe",     "coalesce", NULL, DOC, 0},
@@ -2558,13 +2559,13 @@ shd_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
         struct volopt_map_entry new_vme = {0};
         char                    *shd_option = NULL;
 
-        if (vme->option[0] != '!')
-                goto out;
         shd_option = gd_get_matching_option (gd_shd_options, vme->option);
-        if (!shd_option)
+        if ((vme->option[0] == '!') && !shd_option)
                 goto out;
         new_vme = *vme;
-        new_vme.option = shd_option + 1;//option with out '!'
+        if (shd_option) {
+                new_vme.option = shd_option + 1;//option with out '!'
+        }
 
         ret = no_filter_option_handler (graph, &new_vme, param);
 out:

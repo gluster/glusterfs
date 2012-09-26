@@ -27,6 +27,7 @@
 
 #define AFR_XATTR_PREFIX "trusted.afr"
 #define AFR_PATHINFO_HEADER "REPLICATE:"
+#define AFR_SH_READDIR_SIZE_KEY "self-heal-readdir-size"
 
 struct _pump_private;
 
@@ -159,6 +160,7 @@ typedef struct _afr_private {
         afr_self_heald_t       shd;
         gf_boolean_t           choose_local;
         gf_boolean_t           did_discovery;
+        uint64_t               sh_readdir_size;
 } afr_private_t;
 
 typedef struct {

@@ -2139,7 +2139,7 @@ afr_sh_entry_open (call_frame_t *frame, xlator_t *this)
         source  = local->self_heal.source;
         sources = local->self_heal.sources;
 
-        sh->block_size = 65536; //131072
+        sh->block_size = priv->sh_readdir_size;
         sh->offset = 0;
 
         call_count = sh->active_sinks;
