@@ -49,13 +49,13 @@ struct glusterd_lock_ {
         time_t  timestamp;
 };
 
-typedef struct glusterd_voldict_ctx_ {
+typedef struct glusterd_dict_ctx_ {
         dict_t  *dict;
-        int     count;
         int     opt_count;
         char    *key_name;
         char    *val_name;
-} glusterd_voldict_ctx_t;
+        char    *prefix;
+} glusterd_dict_ctx_t;
 
 /* Moved the definition from gluster-utils.c avoiding
  * extern'ing in multiple places.
@@ -339,8 +339,8 @@ glusterd_sm_tr_log_transition_add (glusterd_sm_tr_log_t *log,
                                            int event);
 int
 glusterd_peerinfo_new (glusterd_peerinfo_t **peerinfo,
-                       glusterd_friend_sm_state_t state,
-                       uuid_t *uuid, const char *hostname);
+                       glusterd_friend_sm_state_t state, uuid_t *uuid,
+                       const char *hostname, int port);
 int
 glusterd_sm_tr_log_init (glusterd_sm_tr_log_t *log,
                          char * (*state_name_get) (int),
@@ -454,4 +454,25 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
 int
 glusterd_check_files_identical (char *filename1, char *filename2,
                                 gf_boolean_t *identical);
+
+gf_boolean_t
+glusterd_is_quorum_changed (dict_t *options, char *option, char *value);
+
+int
+glusterd_do_quorum_action ();
+
+int
+glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
+                                    int *quorum_count);
+
+int
+glusterd_get_next_global_opt_version_str (dict_t *opts, char **version_str);
+gf_boolean_t
+glusterd_is_quorum_option (char *option);
+gf_boolean_t
+glusterd_is_volume_in_server_quorum (glusterd_volinfo_t *volinfo);
+gf_boolean_t
+glusterd_is_any_volume_in_server_quorum (xlator_t *this);
+gf_boolean_t
+does_gd_meet_server_quorum (xlator_t *this);
 #endif

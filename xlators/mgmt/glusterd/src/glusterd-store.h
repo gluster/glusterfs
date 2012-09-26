@@ -143,4 +143,10 @@ glusterd_store_is_valid_brickpath (char *volname, char *brick);
 
 int32_t
 glusterd_store_perform_node_state_store (glusterd_volinfo_t *volinfo);
+
+int32_t
+glusterd_store_retrieve_options (xlator_t *this);
+
+int32_t
+glusterd_store_options (xlator_t *this, dict_t *opts);
 #endif

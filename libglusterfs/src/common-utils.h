@@ -442,7 +442,7 @@ int gf_string2percent_or_bytesize (const char *str, uint64_t *n,
 				   gf_boolean_t *is_percent);
 
 int gf_string2boolean (const char *str, gf_boolean_t *b);
-int gf_string2percent (const char *str, uint32_t *n);
+int gf_string2percent (const char *str, double *n);
 int gf_string2time (const char *str, uint32_t *n);
 
 int gf_lockfd (int fd);

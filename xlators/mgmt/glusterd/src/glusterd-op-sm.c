@@ -56,6 +56,24 @@
 #include <signal.h>
 #include <sys/wait.h>
 
+#define ALL_VOLUME_OPTION_CHECK(volname, key, ret, op_errstr, label)           \
+        do {                                                                   \
+                gf_boolean_t    _all = !strcmp ("all", volname);               \
+                gf_boolean_t    _ratio = !strcmp (key,                         \
+                                                  GLUSTERD_QUORUM_RATIO_KEY);  \
+                if (_all && !_ratio) {                                         \
+                        ret = -1;                                              \
+                        *op_errstr = gf_strdup ("Not a valid option for all "  \
+                                                "volumes");                    \
+                        goto label;                                            \
+                } else if (!_all && _ratio) {                                  \
+                        ret = -1;                                              \
+                        *op_errstr = gf_strdup ("Not a valid option for "      \
+                                                "single volume");              \
+                        goto label;                                            \
+                }                                                              \
+         } while (0)
+
 static struct list_head gd_op_sm_queue;
 pthread_mutex_t       gd_op_sm_lock;
 glusterd_op_info_t    opinfo = {{0},};
@@ -301,6 +319,24 @@ out:
 }
 
 static int
+glusterd_validate_quorum_options (xlator_t *this, char *fullkey, char *value,
+                                  char **op_errstr)
+{
+        int             ret = 0;
+        char            *key = NULL;
+        volume_option_t *opt = NULL;
+
+        if (!glusterd_is_quorum_option (fullkey))
+                goto out;
+        key = strchr (fullkey, '.');
+        key++;
+        opt = xlator_volume_option_get (this, key);
+        ret = xlator_option_validate (this, key, value, opt, op_errstr);
+out:
+        return ret;
+}
+
+static int
 glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
 {
         int                                      ret           = 0;
@@ -319,6 +355,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
         glusterd_volinfo_t                      *voliter       = NULL;
         glusterd_conf_t                         *priv          = NULL;
         xlator_t                                *this          = NULL;
+        gf_boolean_t                            all_vol        = _gf_false;
 
         GF_ASSERT (dict);
         this = THIS;
@@ -371,26 +408,30 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        exists = glusterd_check_volume_exists (volname);
-        if (!exists) {
-                snprintf (errstr, sizeof (errstr), "Volume %s does not exist",
-                          volname);
-                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
-                *op_errstr = gf_strdup (errstr);
-                ret = -1;
-                goto out;
-        }
+        if (strcasecmp (volname, "all") != 0) {
+                exists = glusterd_check_volume_exists (volname);
+                if (!exists) {
+                        snprintf (errstr, sizeof (errstr), "Volume %s does "
+                                  "not exist", volname);
+                        gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                        *op_errstr = gf_strdup (errstr);
+                        ret = -1;
+                        goto out;
+                }
 
-        ret = glusterd_volinfo_find (volname, &volinfo);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Unable to allocate memory");
-                goto out;
-        }
+                ret = glusterd_volinfo_find (volname, &volinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to allocate memory");
+                        goto out;
+                }
 
-        ret = glusterd_validate_volume_id (dict, volinfo);
-        if (ret)
-                goto out;
+                ret = glusterd_validate_volume_id (dict, volinfo);
+                if (ret)
+                        goto out;
+        } else {
+                all_vol = _gf_true;
+        }
 
         for ( count = 1; ret != 1 ; count++ ) {
                 global_opt = _gf_false;
@@ -420,6 +461,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                         ret = -1;
                         goto out;
                 }
+
                 if (!exists) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Option with name: %s "
@@ -438,6 +480,12 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 if (key_fixed)
                         key = key_fixed;
 
+                ALL_VOLUME_OPTION_CHECK (volname, key, ret, op_errstr, out);
+                ret = glusterd_validate_quorum_options (this, key, value,
+                                                        op_errstr);
+                if (ret)
+                        goto out;
+
                 ret = glusterd_check_globaloption (key);
                 if (ret)
                         global_opt = _gf_true;
@@ -452,9 +500,9 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 }
 
                 *op_errstr = NULL;
-                if (!global_opt)
+                if (!global_opt && !all_vol)
                         ret = glusterd_validate_reconfopts (volinfo, val_dict, op_errstr);
-                else {
+                else if (!all_vol) {
                         voliter = NULL;
                         list_for_each_entry (voliter, &priv->volumes, vol_list) {
                                 ret = glusterd_validate_globalopts (voliter, val_dict, op_errstr);
@@ -475,7 +523,6 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                         key_fixed = NULL;
                 }
         }
-
 
         ret = 0;
 
@@ -518,23 +565,24 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        exists = glusterd_check_volume_exists (volname);
+        if (strcasecmp (volname, "all") != 0) {
+                exists = glusterd_check_volume_exists (volname);
+                if (!exists) {
+                        snprintf (msg, sizeof (msg), "Volume %s does not "
+                                  "exist", volname);
+                        gf_log ("", GF_LOG_ERROR, "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+                        ret = -1;
+                        goto out;
+                }
+                ret = glusterd_volinfo_find (volname, &volinfo);
+                if (ret)
+                        goto out;
 
-        if (!exists) {
-                snprintf (msg, sizeof (msg), "Volume %s does not "
-                          "exist", volname);
-                gf_log ("", GF_LOG_ERROR, "%s", msg);
-                *op_errstr = gf_strdup (msg);
-                ret = -1;
-                goto out;
+                ret = glusterd_validate_volume_id (dict, volinfo);
+                if (ret)
+                        goto out;
         }
-        ret = glusterd_volinfo_find (volname, &volinfo);
-        if (ret)
-                goto out;
-
-        ret = glusterd_validate_volume_id (dict, volinfo);
-        if (ret)
-                goto out;
 
         ret = dict_get_str (dict, "key", &key);
         if (ret) {
@@ -558,6 +606,11 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
                         *op_errstr = gf_strdup (msg);
                         ret = -1;
                         goto out;
+                } else if (exists > 0) {
+                        if (key_fixed)
+                                key = key_fixed;
+                        ALL_VOLUME_OPTION_CHECK (volname, key, ret,
+                                                 op_errstr, out);
                 }
         }
 
@@ -899,6 +952,22 @@ out:
         return;
 }
 
+void
+_delete_reconfig_global_opt (dict_t *this, char *key, data_t *value, void *data)
+{
+        int32_t        *is_force = 0;
+
+        GF_ASSERT (data);
+        is_force = (int32_t*)data;
+
+        if (strcmp (GLUSTERD_GLOBAL_OPT_VERSION, key) == 0)
+                goto out;
+
+        _delete_reconfig_opt (this, key, value, data);
+out:
+        return;
+}
+
 int
 glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
                         int32_t is_force)
@@ -949,6 +1018,91 @@ out:
         return ret;
 }
 
+static int
+glusterd_op_reset_all_volume_options (xlator_t *this, dict_t *dict)
+{
+        char            *key            = NULL;
+        char            *key_fixed      = NULL;
+        int             ret             = -1;
+        int32_t         is_force        = 0;
+        glusterd_conf_t *conf           = NULL;
+        dict_t          *dup_opt        = NULL;
+        gf_boolean_t    all             = _gf_false;
+        char            *next_version   = NULL;
+        gf_boolean_t    quorum_action   = _gf_false;
+
+        conf = this->private;
+        ret = dict_get_str (dict, "key", &key);
+        if (ret)
+                goto out;
+
+        ret = dict_get_int32 (dict, "force", &is_force);
+        if (ret)
+                is_force = 0;
+
+        if (strcmp (key, "all")) {
+                ret = glusterd_check_option_exists (key, &key_fixed);
+                if (ret <= 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "Invalid key %s",
+                                key);
+                        ret = -1;
+                        goto out;
+                }
+        } else {
+                all = _gf_true;
+        }
+
+        if (key_fixed)
+                key = key_fixed;
+
+        ret = -1;
+        dup_opt = dict_new ();
+        if (!dup_opt)
+                goto out;
+        if (!all) {
+                dict_copy (conf->opts, dup_opt);
+                dict_del (dup_opt, key);
+        }
+        ret = glusterd_get_next_global_opt_version_str (conf->opts,
+                                                        &next_version);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dup_opt, GLUSTERD_GLOBAL_OPT_VERSION, next_version);
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_options (this, dup_opt);
+        if (ret)
+                goto out;
+
+        if (glusterd_is_quorum_changed (conf->opts, key, NULL))
+                quorum_action = _gf_true;
+
+        ret = dict_set_dynstr (conf->opts, GLUSTERD_GLOBAL_OPT_VERSION,
+                               next_version);
+        if (ret)
+                goto out;
+        else
+                next_version = NULL;
+
+        if (!all) {
+                dict_del (conf->opts, key);
+        } else {
+                dict_foreach (conf->opts, _delete_reconfig_global_opt,
+                              &is_force);
+        }
+out:
+        GF_FREE (key_fixed);
+        if (dup_opt)
+                dict_unref (dup_opt);
+
+        gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
+        if (quorum_action)
+                glusterd_do_quorum_action ();
+        GF_FREE (next_version);
+        return ret;
+}
 
 static int
 glusterd_op_reset_volume (dict_t *dict)
@@ -957,11 +1111,20 @@ glusterd_op_reset_volume (dict_t *dict)
         int                     ret         = -1;
         char                    *volname    = NULL;
         char                    *key        = NULL;
+        char                    *key_fixed  = NULL;
         int32_t                 is_force    = 0;
+        gf_boolean_t            quorum_action = _gf_false;
+        xlator_t                *this         = NULL;
 
+        this = THIS;
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to get volume name " );
+                goto out;
+        }
+
+        if (strcasecmp (volname, "all") == 0) {
+                ret = glusterd_op_reset_all_volume_options (this, dict);
                 goto out;
         }
 
@@ -981,9 +1144,26 @@ glusterd_op_reset_volume (dict_t *dict)
                 goto out;
         }
 
+        if (strcmp (key, "all") &&
+            glusterd_check_option_exists (key, &key_fixed) != 1) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "volinfo dict inconsistency: option %s not found",
+                        key);
+                ret = -1;
+                goto out;
+        }
+        if (key_fixed)
+                key = key_fixed;
+
+        if (glusterd_is_quorum_changed (volinfo->dict, key, NULL))
+                quorum_action = _gf_true;
+
         ret = glusterd_options_reset (volinfo, key, is_force);
 
 out:
+        GF_FREE (key_fixed);
+        if (quorum_action)
+                glusterd_do_quorum_action ();
         gf_log ("", GF_LOG_DEBUG, "'volume reset' returning %d", ret);
         return ret;
 
@@ -1036,6 +1216,91 @@ glusterd_volset_help (dict_t *dict)
 }
 
 static int
+glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict)
+{
+        char            *key            = NULL;
+        char            *key_fixed      = NULL;
+        char            *value          = NULL;
+        char            *dup_value      = NULL;
+        int             ret             = -1;
+        glusterd_conf_t *conf           = NULL;
+        dict_t          *dup_opt        = NULL;
+        char            *next_version   = NULL;
+        gf_boolean_t    quorum_action   = _gf_false;
+
+        conf = this->private;
+        ret = dict_get_str (dict, "key1", &key);
+        if (ret)
+                goto out;
+
+        ret = dict_get_str (dict, "value1", &value);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "invalid key,value pair in 'volume set'");
+                goto out;
+        }
+        ret = glusterd_check_option_exists (key, &key_fixed);
+        if (ret <= 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Invalid key %s", key);
+                ret = -1;
+                goto out;
+        }
+
+        if (key_fixed)
+                key = key_fixed;
+
+        ret = -1;
+        dup_opt = dict_new ();
+        if (!dup_opt)
+                goto out;
+        dict_copy (conf->opts, dup_opt);
+        ret = dict_set_str (dup_opt, key, value);
+        if (ret)
+                goto out;
+
+        ret = glusterd_get_next_global_opt_version_str (conf->opts,
+                                                        &next_version);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dup_opt, GLUSTERD_GLOBAL_OPT_VERSION, next_version);
+        if (ret)
+                goto out;
+
+        dup_value = gf_strdup (value);
+        if (!dup_value)
+                goto out;
+
+        ret = glusterd_store_options (this, dup_opt);
+        if (ret)
+                goto out;
+
+        if (glusterd_is_quorum_changed (conf->opts, key, value))
+                quorum_action = _gf_true;
+
+        ret = dict_set_dynstr (conf->opts, GLUSTERD_GLOBAL_OPT_VERSION,
+                               next_version);
+        if (ret)
+                goto out;
+        else
+                next_version = NULL;
+
+        ret = dict_set_dynstr (conf->opts, key, dup_value);
+        if (ret)
+                goto out;
+out:
+        GF_FREE (key_fixed);
+        if (dup_opt)
+                dict_unref (dup_opt);
+
+        gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
+        if (quorum_action)
+                glusterd_do_quorum_action ();
+        GF_FREE (next_version);
+        return ret;
+}
+
+static int
 glusterd_op_set_volume (dict_t *dict)
 {
         int                                      ret = 0;
@@ -1051,6 +1316,7 @@ glusterd_op_set_volume (dict_t *dict)
         gf_boolean_t                             global_opt    = _gf_false;
         glusterd_volinfo_t                      *voliter = NULL;
         int32_t                                  dict_count = 0;
+        gf_boolean_t                            quorum_action  = _gf_false;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1075,6 +1341,11 @@ glusterd_op_set_volume (dict_t *dict)
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        if (strcasecmp (volname, "all") == 0) {
+                ret = glusterd_op_set_all_volume_options (this, dict);
                 goto out;
         }
 
@@ -1129,6 +1400,9 @@ glusterd_op_set_volume (dict_t *dict)
 
                 if (key_fixed)
                         key = key_fixed;
+
+                if (glusterd_is_quorum_changed (volinfo->dict, key, value))
+                        quorum_action = _gf_true;
 
                 if (global_opt) {
                        list_for_each_entry (voliter, &priv->volumes, vol_list) {
@@ -1211,6 +1485,8 @@ glusterd_op_set_volume (dict_t *dict)
         if (key_fixed)
                 GF_FREE (key_fixed);
         gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
+        if (quorum_action)
+                glusterd_do_quorum_action ();
         return ret;
 }
 
@@ -1737,20 +2013,26 @@ glusterd_op_ac_lock (glusterd_op_sm_event_t *event, void *ctx)
 static int
 glusterd_op_ac_unlock (glusterd_op_sm_event_t *event, void *ctx)
 {
-        int ret = 0;
+        int                      ret = 0;
         glusterd_op_lock_ctx_t   *lock_ctx = NULL;
+        xlator_t                 *this = NULL;
+        glusterd_conf_t          *priv = NULL;
 
         GF_ASSERT (event);
         GF_ASSERT (ctx);
 
+        this = THIS;
+        priv = this->private;
         lock_ctx = (glusterd_op_lock_ctx_t *)ctx;
 
         ret = glusterd_unlock (lock_ctx->uuid);
 
-        gf_log ("", GF_LOG_DEBUG, "Unlock Returned %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Unlock Returned %d", ret);
 
         glusterd_op_unlock_send_resp (lock_ctx->req, ret);
 
+        if (priv->pending_quorum_action)
+                glusterd_do_quorum_action ();
         return ret;
 }
 
@@ -1894,7 +2176,8 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr)
                                         goto out;
                                 }
                                 if (strcmp (volname, "help") &&
-                                    strcmp (volname, "help-xml")) {
+                                    strcmp (volname, "help-xml") &&
+                                    strcasecmp (volname, "all")) {
                                         ret = glusterd_dict_set_volid
                                                 (dict, volname, op_errstr);
                                         if (ret)
@@ -1947,10 +2230,13 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr)
                                         goto out;
                                 }
 
-                                ret = glusterd_dict_set_volid (dict, volname,
-                                                               op_errstr);
-                                if (ret)
-                                        goto out;
+                                if (strcasecmp (volname, "all")) {
+                                        ret = glusterd_dict_set_volid (dict,
+                                                                       volname,
+                                                                     op_errstr);
+                                        if (ret)
+                                                goto out;
+                                }
                                 dict_copy (dict, req_dict);
                         }
                         break;
@@ -1962,6 +2248,78 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr)
         *req = req_dict;
         ret = 0;
 
+out:
+        return ret;
+}
+
+gf_boolean_t
+glusterd_is_op_quorum_validation_required (xlator_t *this, glusterd_op_t op,
+                                           dict_t *dict)
+{
+        gf_boolean_t    required = _gf_true;
+        char            *key = NULL;
+        char            *key_fixed = NULL;
+        int             ret = -1;
+
+        if (op == GD_OP_STATUS_VOLUME) {
+                required = _gf_false;
+                goto out;
+        }
+        if ((op != GD_OP_SET_VOLUME) && (op != GD_OP_RESET_VOLUME))
+                goto out;
+        if (op == GD_OP_SET_VOLUME)
+                ret = dict_get_str (dict, "key1", &key);
+        else if (op == GD_OP_RESET_VOLUME)
+                ret = dict_get_str (dict, "key", &key);
+        ret = glusterd_check_option_exists (key, &key_fixed);
+        if (ret <= 0)
+                goto out;
+        if (key_fixed)
+                key = key_fixed;
+        if (glusterd_is_quorum_option (key))
+                required = _gf_false;
+out:
+        GF_FREE (key_fixed);
+        return required;
+}
+
+static int
+glusterd_op_validate_quorum (xlator_t *this, glusterd_op_t op,
+                             dict_t *dict, char **op_errstr)
+{
+        int                     ret = 0;
+        char                    *volname = NULL;
+        glusterd_volinfo_t      *volinfo = NULL;
+        char                    *errstr = NULL;
+
+
+        errstr = "Quorum not met. Volume operation not allowed.";
+        if (!glusterd_is_op_quorum_validation_required (this, op, dict))
+                goto out;
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                ret = 0;
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                ret = 0;
+                goto out;
+        }
+
+        if (does_gd_meet_server_quorum (this)) {
+                ret = 0;
+                goto out;
+        }
+
+        if (glusterd_is_volume_in_server_quorum (volinfo)) {
+                ret = -1;
+                *op_errstr = gf_strdup (errstr);
+                goto out;
+        }
+        ret = 0;
 out:
         return ret;
 }
@@ -1989,6 +2347,13 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         ret = glusterd_op_build_payload (&dict, &op_errstr);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Building payload failed");
+                opinfo.op_errstr = op_errstr;
+                goto out;
+        }
+
+        ret = glusterd_op_validate_quorum (this, op, dict, &op_errstr);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, op_errstr);
                 opinfo.op_errstr = op_errstr;
                 goto out;
         }
@@ -2668,6 +3033,8 @@ glusterd_op_txn_complete ()
                 GF_FREE (op_errstr);
 
 
+        if (priv->pending_quorum_action)
+                glusterd_do_quorum_action ();
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }

@@ -504,7 +504,8 @@ init (xlator_t *this)
         int            ret = -1;
         int            i = 0;
         char           my_hostname[256];
-        uint32_t       temp_free_disk = 0;
+        double         temp_free_disk = 0;
+        uint64_t       size = 0;
 
         if (!this->children) {
                 gf_log (this->name, GF_LOG_CRITICAL,
@@ -589,16 +590,16 @@ init (xlator_t *this)
                 if (gf_string2percent (temp_str,
                                        &temp_free_disk) == 0) {
                         if (temp_free_disk > 100) {
-                                gf_string2bytesize (temp_str,
-                                                    &conf->min_free_disk);
+                                gf_string2bytesize (temp_str, &size);
+                                conf->min_free_disk = size;
                                 conf->disk_unit = 'b';
                         } else {
-                                conf->min_free_disk = (uint64_t)temp_free_disk;
+                                conf->min_free_disk = temp_free_disk;
                                 conf->disk_unit = 'p';
                         }
                 } else {
-                        gf_string2bytesize (temp_str,
-                                            &conf->min_free_disk);
+                        gf_string2bytesize (temp_str, &size);
+                        conf->min_free_disk = size;
                         conf->disk_unit = 'b';
                 }
         }

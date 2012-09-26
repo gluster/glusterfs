@@ -974,6 +974,27 @@ glusterd_destroy_friend_event_context (glusterd_friend_sm_event_t *event)
         }
 }
 
+gf_boolean_t
+gd_does_peer_affect_quorum (glusterd_friend_sm_state_t old_state,
+                            glusterd_friend_sm_event_type_t event_type,
+                            glusterd_peerinfo_t *peerinfo)
+{
+        gf_boolean_t    affects = _gf_false;
+
+        //When glusterd comes up with friends in BEFRIENDED state in store,
+        //wait until compare-data happens.
+        if ((old_state == GD_FRIEND_STATE_BEFRIENDED) &&
+            (event_type != GD_FRIEND_EVENT_RCVD_ACC) &&
+            (event_type != GD_FRIEND_EVENT_LOCAL_ACC))
+                goto out;
+        if ((peerinfo->state.state == GD_FRIEND_STATE_BEFRIENDED)
+            && peerinfo->connected) {
+                affects = _gf_true;
+        }
+out:
+        return affects;
+}
+
 int
 glusterd_friend_sm ()
 {
@@ -985,6 +1006,8 @@ glusterd_friend_sm ()
         glusterd_peerinfo_t             *peerinfo   = NULL;
         glusterd_friend_sm_event_type_t  event_type = 0;
         gf_boolean_t                     is_await_conn = _gf_false;
+        gf_boolean_t                     quorum_action = _gf_false;
+        glusterd_friend_sm_state_t       old_state = GD_FRIEND_STATE_DEFAULT;
 
         while (!list_empty (&gd_friend_sm_queue)) {
                 list_for_each_entry_safe (event, tmp, &gd_friend_sm_queue, list) {
@@ -1004,6 +1027,7 @@ glusterd_friend_sm ()
                                 glusterd_friend_sm_event_name_get (event_type));
 
 
+                        old_state = peerinfo->state.state;
                         state = glusterd_friend_state_table[peerinfo->state.state];
 
                         GF_ASSERT (state);
@@ -1044,6 +1068,15 @@ glusterd_friend_sm ()
                                 goto out;
                         }
 
+                        if (gd_does_peer_affect_quorum (old_state, event_type,
+                                                        peerinfo)) {
+                                peerinfo->quorum_contrib = QUORUM_UP;
+                                if (peerinfo->quorum_action) {
+                                        peerinfo->quorum_action = _gf_false;
+                                        quorum_action = _gf_true;
+                                }
+                        }
+
                         ret = glusterd_store_peerinfo (peerinfo);
 
                         glusterd_destroy_friend_event_context (event);
@@ -1057,6 +1090,8 @@ glusterd_friend_sm ()
 
         ret = 0;
 out:
+        if (quorum_action)
+                glusterd_do_quorum_action ();
         return ret;
 }
 

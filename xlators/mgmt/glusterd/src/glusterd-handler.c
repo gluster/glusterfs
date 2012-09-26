@@ -286,19 +286,19 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         glusterd_brickinfo_t    *brickinfo = NULL;
         char                    *buf = NULL;
         int                     i = 1;
-        data_pair_t             *pairs = NULL;
         char                    reconfig_key[256] = {0, };
         dict_t                  *dict = NULL;
-        data_t                  *value = NULL;
         int                     opt_count = 0;
         glusterd_conf_t         *priv = NULL;
         char                    *volume_id_str  = NULL;
+        xlator_t                *this = NULL;
 
 
         GF_ASSERT (volinfo);
         GF_ASSERT (volumes);
 
-        priv = THIS->private;
+        this = THIS;
+        priv = this->private;
 
         GF_ASSERT (priv);
 
@@ -374,22 +374,16 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        pairs = dict->members_list;
-
-        while (pairs) {
-                if (1 == glusterd_check_option_exists (pairs->key, NULL)) {
-                        value = pairs->value;
-                        if (!value)
-                                continue;
-
-                        snprintf (reconfig_key, 256, "volume%d.option.%s", count,
-                                  pairs->key);
-                        ret = dict_set_str  (volumes, reconfig_key, value->data);
-                        if (!ret)
-                            opt_count++;
-                }
-                pairs = pairs->next;
+        void _build_option_key (dict_t *d, char *k, data_t *v, void *tmp)
+        {
+                snprintf (reconfig_key, 256, "volume%d.option.%s", count, k);
+                ret = dict_set_str (volumes, reconfig_key, v->data);
+                if (0 == ret)
+                        opt_count++;
+                return;
         }
+        dict_foreach (dict, _build_option_key, NULL);
+        dict_foreach (priv->opts, _build_option_key, NULL);
 
         snprintf (key, 256, "volume%d.opt_count", count);
         ret = dict_set_int32 (volumes, key, opt_count);
@@ -665,12 +659,25 @@ glusterd_handle_cli_probe (rpcsvc_request_t *req)
         gf1_cli_probe_req               cli_req = {0,};
         glusterd_peerinfo_t             *peerinfo = NULL;
         gf_boolean_t                    run_fsm = _gf_true;
+        xlator_t                        *this = NULL;
+
         GF_ASSERT (req);
+        this = THIS;
 
         if (!xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf1_cli_probe_req)) {
                 //failed to decode msg;
                 gf_log ("", GF_LOG_ERROR, "xdr decoding error");
                 req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        if (glusterd_is_any_volume_in_server_quorum (this) &&
+            !does_gd_meet_server_quorum (this)) {
+                glusterd_xfer_cli_probe_resp (req, -1, GF_PROBE_QUORUM_NOT_MET,
+                                              cli_req.hostname, cli_req.port);
+                gf_log (this->name, GF_LOG_ERROR, "Quorum does not meet, "
+                        "rejecting operation");
+                ret = 0;
                 goto out;
         }
 
@@ -722,7 +729,7 @@ int
 glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
-        gf1_cli_deprobe_req               cli_req = {0,};
+        gf1_cli_deprobe_req             cli_req = {0,};
         uuid_t                          uuid = {0};
         int                             op_errno = 0;
         xlator_t                        *this = NULL;
@@ -755,18 +762,29 @@ glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
                 goto out;
         }
 
-        if (!uuid_is_null (uuid) && !(cli_req.flags & GF_CLI_FLAG_OP_FORCE)) {
-                /* Check if peers are connected, except peer being detached*/
-                if (!glusterd_chk_peers_connected_befriended (uuid)) {
-                        ret = -1;
-                        op_errno = GF_DEPROBE_FRIEND_DOWN;
-                        goto out;
+        if (!(cli_req.flags & GF_CLI_FLAG_OP_FORCE)) {
+                if (!uuid_is_null (uuid)) {
+                        /* Check if peers are connected, except peer being detached*/
+                        if (!glusterd_chk_peers_connected_befriended (uuid)) {
+                                ret = -1;
+                                op_errno = GF_DEPROBE_FRIEND_DOWN;
+                                goto out;
+                        }
+                        ret = glusterd_all_volume_cond_check (
+                                                 glusterd_friend_brick_belongs,
+                                                 -1, &uuid);
+                        if (ret) {
+                                op_errno = GF_DEPROBE_BRICK_EXIST;
+                                goto out;
+                        }
                 }
-                ret = glusterd_all_volume_cond_check (
-                                                glusterd_friend_brick_belongs,
-                                                -1, &uuid);
-                if (ret) {
-                        op_errno = GF_DEPROBE_BRICK_EXIST;
+
+                if (glusterd_is_any_volume_in_server_quorum (this) &&
+                    !does_gd_meet_server_quorum (this)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Quorum does not "
+                                "meet, rejecting operation");
+                        ret = -1;
+                        op_errno = GF_DEPROBE_QUORUM_NOT_MET;
                         goto out;
                 }
         }
@@ -2157,6 +2175,43 @@ out:
 }
 
 int
+glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
+                            glusterd_peerctx_args_t *args)
+{
+        dict_t                 *options = NULL;
+        int                    ret = -1;
+        glusterd_peerctx_t     *peerctx = NULL;
+
+        peerctx = GF_CALLOC (1, sizeof (*peerctx), gf_gld_mt_peerctx_t);
+        if (!peerctx)
+                goto out;
+
+        if (args)
+                peerctx->args = *args;
+
+        peerctx->peerinfo = peerinfo;
+
+        ret = glusterd_transport_inet_options_build (&options,
+                                                     peerinfo->hostname,
+                                                     peerinfo->port);
+        if (ret)
+                goto out;
+
+        ret = glusterd_rpc_create (&peerinfo->rpc, options,
+                                   glusterd_peer_rpc_notify, peerctx);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to create rpc for"
+                        " peer %s", peerinfo->hostname);
+                goto out;
+        }
+        peerctx = NULL;
+        ret = 0;
+out:
+        GF_FREE (peerctx);
+        return ret;
+}
+
+int
 glusterd_friend_add (const char *hoststr, int port,
                      glusterd_friend_sm_state_t state,
                      uuid_t *uuid,
@@ -2167,8 +2222,6 @@ glusterd_friend_add (const char *hoststr, int port,
         int                     ret = 0;
         xlator_t               *this = NULL;
         glusterd_conf_t        *conf = NULL;
-        glusterd_peerctx_t     *peerctx = NULL;
-        dict_t                 *options = NULL;
         gf_boolean_t            handover = _gf_false;
 
         this = THIS;
@@ -2176,49 +2229,35 @@ glusterd_friend_add (const char *hoststr, int port,
         GF_ASSERT (conf);
         GF_ASSERT (hoststr);
 
-        peerctx = GF_CALLOC (1, sizeof (*peerctx), gf_gld_mt_peerctx_t);
-        if (!peerctx) {
-                ret = -1;
-                goto out;
-        }
-
-        if (args)
-                peerctx->args = *args;
-
-        ret = glusterd_peerinfo_new (friend, state, uuid, hoststr);
+        ret = glusterd_peerinfo_new (friend, state, uuid, hoststr, port);
         if (ret)
                 goto out;
 
-        peerctx->peerinfo = *friend;
+        //restore needs to first create the list of peers, then create rpcs
+        //to keep track of quorum in race-free manner. In restore for each peer
+        //rpc-create calls rpc_notify when the friend-list is partially
+        //constructed, leading to wrong quorum calculations.
+        if (restore)
+                goto done;
 
-        ret = glusterd_transport_inet_options_build (&options, hoststr, port);
-        if (ret)
-                goto out;
-
-        if (!restore) {
-                ret = glusterd_store_peerinfo (*friend);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to store "
-                                "peerinfo");
-
-                        goto out;
-                }
-        }
-        list_add_tail (&(*friend)->uuid_list, &conf->peers);
-        ret = glusterd_rpc_create (&(*friend)->rpc, options,
-                                   glusterd_peer_rpc_notify,
-                                   peerctx);
+        ret = glusterd_store_peerinfo (*friend);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to create rpc for"
-                        " peer %s", (char*)hoststr);
+                gf_log (this->name, GF_LOG_ERROR, "Failed to store "
+                        "peerinfo");
+
                 goto out;
         }
+        ret = glusterd_friend_rpc_create (this, *friend, args);
+        if (ret)
+                goto out;
+done:
+        list_add_tail (&(*friend)->uuid_list, &conf->peers);
         handover = _gf_true;
 
 out:
         if (ret && !handover) {
-                        (void) glusterd_friend_cleanup (*friend);
-                        *friend = NULL;
+                (void) glusterd_friend_cleanup (*friend);
+                *friend = NULL;
         }
 
         gf_log (this->name, GF_LOG_INFO, "connect returned %d", ret);
@@ -2880,6 +2919,7 @@ glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         glusterd_peerctx_t   *peerctx     = NULL;
         uuid_t                owner       = {0,};
         uuid_t               *peer_uuid   = NULL;
+        gf_boolean_t         quorum_action = _gf_false;
 
         peerctx = mydata;
         if (!peerctx)
@@ -2894,6 +2934,7 @@ glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         {
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_CONNECT");
                 peerinfo->connected = 1;
+                peerinfo->quorum_action = _gf_true;
 
                 ret = glusterd_peer_handshake (this, rpc, peerctx);
                 if (ret)
@@ -2906,6 +2947,12 @@ glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_DISCONNECT %d",
                         peerinfo->state.state);
 
+                if ((peerinfo->quorum_contrib != QUORUM_DOWN) &&
+                    (peerinfo->state.state == GD_FRIEND_STATE_BEFRIENDED)) {
+                        peerinfo->quorum_contrib = QUORUM_DOWN;
+                        quorum_action = _gf_true;
+                        peerinfo->quorum_action = _gf_false;
+                }
                 peerinfo->connected = 0;
 
                 /*
@@ -2954,6 +3001,8 @@ glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
+        if (quorum_action)
+                glusterd_do_quorum_action ();
         return ret;
 }
 

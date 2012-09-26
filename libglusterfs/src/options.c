@@ -53,7 +53,6 @@ out:
         return ret;
 }
 
-
 static int
 xlator_option_validate_int (xlator_t *xl, const char *key, const char *value,
                             volume_option_t *opt, char **op_errstr)
@@ -282,10 +281,9 @@ static int
 xlator_option_validate_percent (xlator_t *xl, const char *key, const char *value,
                                 volume_option_t *opt, char **op_errstr)
 {
-        int          ret = -1;
-        char         errstr[256];
-        uint32_t     percent = 0;
-
+        double    percent = 0;
+        int       ret = -1;
+        char      errstr[256];
 
         /* Check if the value is valid percentage */
         if (gf_string2percent (value, &percent) != 0) {
@@ -296,9 +294,9 @@ xlator_option_validate_percent (xlator_t *xl, const char *key, const char *value
                 goto out;
         }
 
-        if ((percent < 0) || (percent > 100)) {
+        if ((percent < 0.0) || (percent > 100.0)) {
                 snprintf (errstr, 256,
-                          "'%d' in 'option %s %s' is out of range [0 - 100]",
+                          "'%lf' in 'option %s %s' is out of range [0 - 100]",
                           percent, key, value);
                 gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
                 goto out;
@@ -1013,19 +1011,24 @@ xl_by_name (char *in, xlator_t **out)
 
 
 static int
-pc_or_size (char *in, uint64_t *out)
+pc_or_size (char *in, double *out)
 {
-        uint32_t  pc = 0;
+        double  pc = 0;
         int       ret = 0;
+        uint64_t  size = 0;
 
         if (gf_string2percent (in, &pc) == 0) {
-                if (pc > 100) {
-                        ret = gf_string2bytesize (in, out);
+                if (pc > 100.0) {
+                        ret = gf_string2bytesize (in, &size);
+                        if (!ret)
+                                *out = size;
                 } else {
                         *out = pc;
                 }
         } else {
-                ret = gf_string2bytesize (in, out);
+                ret = gf_string2bytesize (in, &size);
+                if (!ret)
+                        *out = size;
         }
         return ret;
 }
@@ -1037,8 +1040,8 @@ DEFINE_INIT_OPT(int64_t, int64, gf_string2int64);
 DEFINE_INIT_OPT(uint32_t, uint32, gf_string2uint32);
 DEFINE_INIT_OPT(int32_t, int32, gf_string2int32);
 DEFINE_INIT_OPT(uint64_t, size, gf_string2bytesize);
-DEFINE_INIT_OPT(uint32_t, percent, gf_string2percent);
-DEFINE_INIT_OPT(uint64_t, percent_or_size, pc_or_size);
+DEFINE_INIT_OPT(double, percent, gf_string2percent);
+DEFINE_INIT_OPT(double, percent_or_size, pc_or_size);
 DEFINE_INIT_OPT(gf_boolean_t, bool, gf_string2boolean);
 DEFINE_INIT_OPT(xlator_t *, xlator, xl_by_name);
 DEFINE_INIT_OPT(char *, path, not_null);
@@ -1051,8 +1054,8 @@ DEFINE_RECONF_OPT(int64_t, int64, gf_string2int64);
 DEFINE_RECONF_OPT(uint32_t, uint32, gf_string2uint32);
 DEFINE_RECONF_OPT(int32_t, int32, gf_string2int32);
 DEFINE_RECONF_OPT(uint64_t, size, gf_string2bytesize);
-DEFINE_RECONF_OPT(uint32_t, percent, gf_string2percent);
-DEFINE_RECONF_OPT(uint64_t, percent_or_size, pc_or_size);
+DEFINE_RECONF_OPT(double, percent, gf_string2percent);
+DEFINE_RECONF_OPT(double, percent_or_size, pc_or_size);
 DEFINE_RECONF_OPT(gf_boolean_t, bool, gf_string2boolean);
 DEFINE_RECONF_OPT(xlator_t *, xlator, xl_by_name);
 DEFINE_RECONF_OPT(char *, path, not_null);

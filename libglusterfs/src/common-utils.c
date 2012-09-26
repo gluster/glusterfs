@@ -624,11 +624,10 @@ gf_string2time (const char *str, uint32_t *n)
         return 0;
 }
 
-
 int
-gf_string2percent (const char *str, uint32_t *n)
+gf_string2percent (const char *str, double *n)
 {
-        unsigned long value = 0;
+        double value = 0;
         char *tail = NULL;
         int old_errno = 0;
         const char *s = NULL;
@@ -649,7 +648,7 @@ gf_string2percent (const char *str, uint32_t *n)
 
         old_errno = errno;
         errno = 0;
-        value = strtol (str, &tail, 0);
+        value = strtod (str, &tail);
 
         if (errno == ERANGE || errno == EINVAL)
                 return -1;
