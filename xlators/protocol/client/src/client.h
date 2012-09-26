@@ -109,6 +109,11 @@ typedef struct clnt_conf {
                                                       means dont register, true
                                                       means register */
         char                   parent_down;
+	gf_boolean_t           quick_reconnect; /* When reconnecting after
+						   portmap query, do not let
+						   the reconnection happen after
+						   the usual 3-second wait
+						*/
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {
