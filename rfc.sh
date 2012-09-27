@@ -1,7 +1,7 @@
 #!/bin/sh -e
 
 
-branch="release-3.3";
+branch="master";
 
 
 set_hooks_commit_msg()
