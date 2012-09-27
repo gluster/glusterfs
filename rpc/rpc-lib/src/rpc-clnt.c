@@ -339,11 +339,9 @@ out:
 void
 saved_frames_unwind (struct saved_frames *saved_frames)
 {
-        struct rpc_clnt      *clnt = NULL;
 	struct saved_frame   *trav = NULL;
 	struct saved_frame   *tmp = NULL;
         char                  timestr[1024] = {0,};
-
         struct iovec          iov = {0,};
 
         list_splice_init (&saved_frames->lk_sf.list, &saved_frames->sf.list);
@@ -370,14 +368,12 @@ saved_frames_unwind (struct saved_frames *saved_frames)
                                   trav->rpcreq->xid);
 		saved_frames->count--;
 
-                clnt = rpc_clnt_ref (trav->rpcreq->conn->rpc_clnt);
                 trav->rpcreq->rpc_status = -1;
                 trav->rpcreq->cbkfn (trav->rpcreq, &iov, 1, trav->frame);
 
                 rpc_clnt_reply_deinit (trav->rpcreq,
                                        trav->rpcreq->conn->rpc_clnt->reqpool);
 
-                clnt = rpc_clnt_unref (clnt);
 		list_del_init (&trav->list);
                 mem_put (trav);
 	}
