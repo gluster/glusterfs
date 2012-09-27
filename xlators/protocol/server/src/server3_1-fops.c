@@ -1078,7 +1078,8 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_iatt (&rsp.postparent, postparent);
 
         } else {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, (op_errno == ENOENT)?
+                        GF_LOG_DEBUG:GF_LOG_ERROR,
                         "%"PRId64": UNLINK %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
                         state->loc.inode ? uuid_utoa (state->loc.inode->gfid) :
