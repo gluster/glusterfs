@@ -376,6 +376,8 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
 
         void _build_option_key (dict_t *d, char *k, data_t *v, void *tmp)
         {
+                if (strcmp (k, GLUSTERD_GLOBAL_OPT_VERSION) == 0)
+                        return;
                 snprintf (reconfig_key, 256, "volume%d.option.%s", count, k);
                 ret = dict_set_str (volumes, reconfig_key, v->data);
                 if (0 == ret)
