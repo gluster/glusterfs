@@ -2253,6 +2253,31 @@ out:
 }
 
 gf_boolean_t
+glusterd_is_get_op (xlator_t *this, glusterd_op_t op, dict_t *dict)
+{
+        char            *key = NULL;
+        char            *volname = NULL;
+        int             ret = 0;
+
+        if (op == GD_OP_STATUS_VOLUME)
+                return _gf_true;
+
+        if ((op == GD_OP_SET_VOLUME)) {
+                //check for set volume help
+                ret = dict_get_str (dict, "volname", &volname);
+                if (volname &&
+                    ((strcmp (volname, "help") == 0) ||
+                     (strcmp (volname, "help-xml") == 0))) {
+                        ret = dict_get_str (dict, "key1", &key);
+                        if (ret < 0)
+                                return _gf_true;
+                }
+        }
+
+        return _gf_false;
+}
+
+gf_boolean_t
 glusterd_is_op_quorum_validation_required (xlator_t *this, glusterd_op_t op,
                                            dict_t *dict)
 {
@@ -2261,7 +2286,7 @@ glusterd_is_op_quorum_validation_required (xlator_t *this, glusterd_op_t op,
         char            *key_fixed = NULL;
         int             ret = -1;
 
-        if (op == GD_OP_STATUS_VOLUME) {
+        if (glusterd_is_get_op (this, op, dict)) {
                 required = _gf_false;
                 goto out;
         }
@@ -2271,6 +2296,8 @@ glusterd_is_op_quorum_validation_required (xlator_t *this, glusterd_op_t op,
                 ret = dict_get_str (dict, "key1", &key);
         else if (op == GD_OP_RESET_VOLUME)
                 ret = dict_get_str (dict, "key", &key);
+        if (ret)
+                goto out;
         ret = glusterd_check_option_exists (key, &key_fixed);
         if (ret <= 0)
                 goto out;
