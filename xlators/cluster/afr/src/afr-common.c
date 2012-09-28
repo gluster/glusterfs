@@ -2618,8 +2618,11 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
                 op_errno = -ret;
                 goto out;
         }
-        afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
-
+        ret = afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
+        if (ret < 0) {
+            op_errno = -ret;
+            goto out;
+        }
 
         ret = 0;
 out:

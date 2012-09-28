@@ -217,11 +217,15 @@ afr_do_writev (call_frame_t *frame, xlator_t *this)
                                                          local->cont.writev.count);
         }
 
-        afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
+        op_ret = afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
+        if (op_ret < 0) {
+            op_errno = -op_ret;
+            goto out;
+        }
 
         op_ret = 0;
 out:
-        if (op_ret == -1) {
+        if (op_ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
                 AFR_STACK_UNWIND (writev, frame, op_ret, op_errno, NULL, NULL, NULL);
@@ -676,7 +680,11 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
         local->transaction.start   = offset;
         local->transaction.len     = 0;
 
-        afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
+        ret = afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
+        if (ret < 0) {
+            op_errno = -ret;
+            goto out;
+        }
 
         ret = 0;
 out:
@@ -868,11 +876,15 @@ afr_do_ftruncate (call_frame_t *frame, xlator_t *this)
         local->transaction.start   = local->cont.ftruncate.offset;
         local->transaction.len     = 0;
 
-        afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
+        op_ret = afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
+        if (op_ret < 0) {
+            op_errno = -op_ret;
+            goto out;
+        }
 
         op_ret = 0;
 out:
-        if (op_ret == -1) {
+        if (op_ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
                 AFR_STACK_UNWIND (ftruncate, frame, op_ret, op_errno, NULL,
@@ -1124,7 +1136,11 @@ afr_setattr (call_frame_t *frame, xlator_t *this,
         local->transaction.start   = LLONG_MAX - 1;
         local->transaction.len     = 0;
 
-        afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
+        ret = afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
+        if (ret < 0) {
+            op_errno = -ret;
+            goto out;
+        }
 
         ret = 0;
 out:
@@ -1334,7 +1350,11 @@ afr_fsetattr (call_frame_t *frame, xlator_t *this,
         local->transaction.start   = LLONG_MAX - 1;
         local->transaction.len     = 0;
 
-        afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
+        ret = afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
+        if (ret < 0) {
+            op_errno = -ret;
+            goto out;
+        }
 
         ret = 0;
 out:
@@ -1521,7 +1541,11 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
         local->transaction.start   = LLONG_MAX - 1;
         local->transaction.len     = 0;
 
-        afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
+        ret = afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
+        if (ret < 0) {
+            op_errno = -ret;
+            goto out;
+        }
 
         ret = 0;
 out:
@@ -1712,7 +1736,11 @@ afr_fsetxattr (call_frame_t *frame, xlator_t *this,
         local->transaction.start  = LLONG_MAX - 1;
         local->transaction.len    = 0;
 
-        afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
+        ret = afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
+        if (ret < 0) {
+            op_errno = -ret;
+            goto out;
+        }
 
         ret = 0;
 out:
@@ -1902,7 +1930,11 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
         local->transaction.start   = LLONG_MAX - 1;
         local->transaction.len     = 0;
 
-        afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
+        ret = afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
+        if (ret < 0) {
+            op_errno = -ret;
+            goto out;
+        }
 
         ret = 0;
 out:
@@ -2091,11 +2123,15 @@ afr_fremovexattr (call_frame_t *frame, xlator_t *this,
         local->transaction.start   = LLONG_MAX - 1;
         local->transaction.len     = 0;
 
-        afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
+        op_ret = afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
+        if (op_ret < 0) {
+            op_errno = -op_ret;
+            goto out;
+        }
 
         op_ret = 0;
 out:
-        if (op_ret == -1) {
+        if (op_ret < 0) {
                 if (transaction_frame)
                         AFR_STACK_DESTROY (transaction_frame);
                 AFR_STACK_UNWIND (fremovexattr, frame, op_ret, op_errno, NULL);
