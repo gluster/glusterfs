@@ -79,6 +79,8 @@
 #define NLMV4_VERSION       4
 #define NLMV1_VERSION       1
 
+#define CEILING_POS(X) (((X)-(int)(X)) > 0 ? (int)((X)+1) : (int)(X))
+
 char    *glusterd_sock_dir = "/tmp";
 static glusterd_lock_t lock;
 
@@ -2096,6 +2098,7 @@ glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
         char                *val           = NULL;
         double              quorum_percentage = 0.0;
         gf_boolean_t        ratio          = _gf_false;
+        int                 count          = 0;
 
         conf = this->private;
         //Start with counting self
@@ -2119,10 +2122,12 @@ glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
                 (void)gf_string2double(val, &quorum_percentage);
         }
         if (ratio)
-                *quorum_count = (inquorum_count * quorum_percentage / 100.0);
+                count = CEILING_POS (inquorum_count *
+                                     quorum_percentage / 100.0);
         else
-                *quorum_count = (inquorum_count * 50 / 100) + 1;
+                count = (inquorum_count * 50 / 100) + 1;
 
+        *quorum_count = count;
         ret = 0;
 out:
         return ret;
