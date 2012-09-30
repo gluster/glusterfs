@@ -21,6 +21,47 @@
 #include <libaio.h>
 
 
+void
+__posix_fd_set_odirect (fd_t *fd, struct posix_fd *pfd, int opflags,
+			off_t offset, size_t size)
+{
+	int odirect = 0;
+	int flags = 0;
+	int ret = 0;
+
+	odirect = pfd->odirect;
+
+	if ((fd->flags|opflags) & O_DIRECT) {
+		/* if instructed, use O_DIRECT always */
+		odirect = 1;
+	} else {
+		/* else use O_DIRECT when feasible */
+		if ((offset|size) & 0xfff)
+			odirect = 0;
+		else
+			odirect = 1;
+	}
+
+	if (!odirect && pfd->odirect) {
+		flags = fcntl (pfd->fd, F_GETFL);
+		ret = fcntl (pfd->fd, F_SETFL, (flags & (~O_DIRECT)));
+		pfd->odirect = 0;
+	}
+
+	if (odirect && !pfd->odirect) {
+		flags = fcntl (pfd->fd, F_GETFL);
+		ret = fcntl (pfd->fd, F_SETFL, (flags | O_DIRECT));
+		pfd->odirect = 1;
+	}
+
+	if (ret) {
+		gf_log (THIS->name, GF_LOG_WARNING,
+			"fcntl() failed (%s). fd=%d flags=%d pfd->odirect=%d",
+			strerror (errno), pfd->fd, flags, pfd->odirect);
+	}
+}
+
+
 struct posix_aio_cb {
         struct iocb     iocb;
         call_frame_t   *frame;
@@ -142,7 +183,7 @@ posix_aio_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         priv = this->private;
 
-        ret = posix_fd_ctx_get_off (fd, this, &pfd, offset);
+        ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_WARNING,
@@ -186,7 +227,14 @@ posix_aio_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         iocb = &paiocb->iocb;
 
-        ret = io_submit (priv->ctxp, 1, &iocb);
+	LOCK (&fd->lock);
+	{
+		__posix_fd_set_odirect (fd, pfd, flags, offset, size);
+
+		ret = io_submit (priv->ctxp, 1, &iocb);
+	}
+	UNLOCK (&fd->lock);
+
         if (ret != 1) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "io_submit() returned %d", ret);
@@ -292,7 +340,7 @@ posix_aio_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         priv = this->private;
 
-        ret = posix_fd_ctx_get_off (fd, this, &pfd, offset);
+        ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
                 op_errno = -ret;
                 gf_log (this->name, GF_LOG_WARNING,
@@ -334,7 +382,15 @@ posix_aio_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	}
 
 
-        ret = io_submit (priv->ctxp, 1, &iocb);
+	LOCK (&fd->lock);
+	{
+		__posix_fd_set_odirect (fd, pfd, flags, offset,
+					iov_length (iov, count));
+
+		ret = io_submit (priv->ctxp, 1, &iocb);
+	}
+	UNLOCK (&fd->lock);
+
         if (ret != 1) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "io_submit() returned %d", ret);
