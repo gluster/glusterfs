@@ -262,6 +262,7 @@ fi
 %defattr(-,root,root)
 %doc AUTHORS ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL NEWS README THANKS
 %config %{_sysconfdir}/glusterfs/glusterfs-logrotate
+%config %{_sysconfdir}/glusterfs/group-virt.example
 %{_libdir}/glusterfs
 %{_libdir}/*.so.*
 %{_sbindir}/glusterfs*
@@ -330,7 +331,7 @@ fi
 # Need to copy the file.
 
 mkdir -p /var/lib/glusterd/groups
-cp %{_docdir}/%{name}-%{version}/group-virt.example /var/lib/glusterd/groups/virt
+cp %{_sysconfdir}/glusterfs/group-virt.example /var/lib/glusterd/groups/virt
 
 pidof -c -o %PPID -x glusterd &> /dev/null
 if [ $? -eq 0 ]; then
