@@ -2202,7 +2202,7 @@ glusterd_do_volume_quorum_action (xlator_t *this, glusterd_volinfo_t *volinfo,
                 goto out;
 
         if (!glusterd_is_volume_in_server_quorum (volinfo))
-                goto out;
+                meets_quorum = _gf_true;
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (!glusterd_is_local_brick (this, volinfo, brickinfo))
