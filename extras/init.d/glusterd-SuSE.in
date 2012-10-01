@@ -2,8 +2,8 @@
 #
 ### BEGIN INIT INFO
 # Provides:       glusterd
-# Required-Start: $local_fs $network
-# Required-Stop:
+# Required-Start: $remote_fs $network
+# Required-Stop: $remote_fs $network
 # Default-Start:  3 5
 # Default-Stop:
 # Short-Description: Gluster File System service for volume management
