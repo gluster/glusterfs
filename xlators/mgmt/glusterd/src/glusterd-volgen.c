@@ -238,6 +238,8 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"storage.linux-aio",                    "storage/posix",             NULL, NULL, DOC, 0},
         {"storage.owner-uid",                    "storage/posix",             "brick-uid", NULL, DOC, 0},
         {"storage.owner-gid",                    "storage/posix",             "brick-gid", NULL, DOC, 0},
+        {"config.memory-accounting",             "configuration",             "!config", NULL, DOC, 0},
+        {"config.transport",                     "configuration",             "!config", NULL, DOC, 0},
         {NULL,                                                                }
 };
 
@@ -2002,7 +2004,7 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
 
         char                    *xlator_type = NULL;
         void                    *dl_handle = NULL;
-        volume_opt_list_t          vol_opt_handle = {{0},};
+        volume_opt_list_t        vol_opt_handle = {{0},};
         char                    *key = NULL;
         struct volopt_map_entry *vme = NULL;
         int                      ret = -1;
@@ -2034,10 +2036,12 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
 
                 if (!xlator_type || strcmp (vme->voltype, xlator_type)){
                         ret = xlator_volopt_dynload (vme->voltype,
-                                                        &dl_handle,
-                                                        &vol_opt_handle);
-                        if (ret)
+                                                     &dl_handle,
+                                                     &vol_opt_handle);
+                        if (ret) {
+                                dl_handle = NULL;
                                 continue;
+                        }
                 }
 
                 ret = xlator_option_info_list (&vol_opt_handle, key,

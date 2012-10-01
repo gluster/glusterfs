@@ -397,12 +397,31 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
-                if (strcmp (key, "memory-accounting") == 0) {
+                if (strcmp (key, "config.memory-accounting") == 0) {
                         gf_log (this->name, GF_LOG_INFO,
                                 "enabling memory accounting for volume %s",
                                 volname);
                         ret = 0;
-                        goto out;
+                }
+
+                if (strcmp (key, "config.transport") == 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "changing transport-type for volume %s",
+                                volname);
+                        ret = 0;
+                        /* if value is none of 'tcp/rdma/tcp,rdma' error out */
+                        if (!((strcasecmp (value, "rdma") == 0) ||
+                              (strcasecmp (value, "tcp") == 0) ||
+                              (strcasecmp (value, "tcp,rdma") == 0) ||
+                              (strcasecmp (value, "rdma,tcp") == 0))) {
+                                ret = snprintf (errstr, 2048,
+                                                "transport-type %s does "
+                                                "not exists", key);
+                                *op_errstr = gf_strdup (errstr);
+                                /* lets not bother about above return value,
+                                   its a failure anyways */
+                                ret = -1;
+                        }
                 }
 
                 if (is_key_glusterd_hooks_friendly (key))
@@ -1077,10 +1096,28 @@ glusterd_op_set_volume (dict_t *dict)
                         goto out;
                 }
 
-                if (strcmp (key, "memory-accounting") == 0) {
+                if (strcmp (key, "config.memory-accounting") == 0) {
                         ret = gf_string2boolean (value,
                                                  &volinfo->memory_accounting);
-                        goto out;
+                }
+
+                if (strcmp (key, "config.transport") == 0) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "changing transport-type for volume %s to %s",
+                                volname, value);
+                        ret = 0;
+                        if (strcasecmp (value, "rdma") == 0) {
+                                volinfo->transport_type = GF_TRANSPORT_RDMA;
+                        } else if (strcasecmp (value, "tcp") == 0) {
+                                volinfo->transport_type = GF_TRANSPORT_TCP;
+                        } else if ((strcasecmp (value, "tcp,rdma") == 0) ||
+                                   (strcasecmp (value, "rdma,tcp") == 0)) {
+                                volinfo->transport_type =
+                                        GF_TRANSPORT_BOTH_TCP_RDMA;
+                        } else {
+                                ret = -1;
+                                goto out;
+                        }
                 }
 
                 if (!is_key_glusterd_hooks_friendly (key)) {
