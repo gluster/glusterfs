@@ -283,10 +283,19 @@ cli_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         return ret;
 }
 
+
+/*
+ * ret: 0: option successfully processed
+ *      1: signalling end of option list
+ *     -1: unknown option or other issue
+ */
 int
 cli_opt_parse (char *opt, struct cli_state *state)
 {
         char *oarg;
+
+        if (strcmp (opt, "") == 0)
+                return 1;
 
         if (strcmp (opt, "version") == 0) {
                 puts (argp_program_version);
@@ -360,6 +369,11 @@ parse_cmdline (int argc, char *argv[], struct cli_state *state)
                         state->argc--;
                         /* argv shifted, next check should be at i again */
                         i--;
+                        if (ret == 1) {
+                                /* end of cli options */
+                                ret = 0;
+                                break;
+                        }
                 }
         }
 
