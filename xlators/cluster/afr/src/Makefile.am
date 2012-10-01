@@ -21,7 +21,7 @@ noinst_HEADERS = afr.h afr-transaction.h afr-inode-write.h afr-inode-read.h \
 	afr-self-heald.h $(top_builddir)/xlators/lib/src/libxlator.h \
 	$(top_builddir)/glusterfsd/src/glusterfsd.h
 
-AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS) \
+AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
 	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/xlators/lib/src \
 	-I$(top_srcdir)/rpc/rpc-lib/src -shared -nostartfiles $(GF_CFLAGS)
 

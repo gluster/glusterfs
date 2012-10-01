@@ -9,8 +9,7 @@ libgfapi_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 	$(top_builddir)/rpc/xdr/src/libgfxdr.la \
 	$(GF_LDADD)
 
-libgfapi_la_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -D__USE_FILE_OFFSET64 -D_GNU_SOURCE \
-	-D$(GF_HOST_OS) $(GF_CFLAGS) \
+libgfapi_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 $(GF_CFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/rpc/rpc-lib/src \
 	-I$(top_srcdir)/rpc/xdr/src
@@ -25,5 +24,5 @@ api_la_SOURCES = glfs-master.c
 api_la_LDFLAGS = -module -avoidversion
 api_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS) -Wall \
+AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
 	-I$(top_srcdir)/libglusterfs/src $(GF_CFLAGS)

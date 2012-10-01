@@ -10,7 +10,7 @@ server_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 noinst_HEADERS = nfs.h nfs-common.h nfs-fops.h nfs-inodes.h nfs-generics.h \
 	mount3.h nfs3-fh.h nfs3.h nfs3-helpers.h nfs-mem-types.h nlm4.h
 
-AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS)\
+AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
 	-DLIBDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/auth\" \
 	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles $(GF_CFLAGS)\
 	-I$(nfsrpclibdir) -L$(xlatordir)/ -I$(CONTRIBDIR)/rbtree\

@@ -8,7 +8,7 @@ index_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = index.h index-mem-types.h
 
-AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS) \
+AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
 	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/rpc/xdr/src \
 	-I$(top_srcdir)/rpc/rpc-lib/src -shared -nostartfiles $(GF_CFLAGS)
 

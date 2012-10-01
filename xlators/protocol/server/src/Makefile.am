@@ -12,9 +12,9 @@ server_la_SOURCES = server.c server-resolve.c server-helpers.c  \
 
 noinst_HEADERS = server.h server-helpers.h server-mem-types.h authenticate.h
 
-AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall    \
+AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
 	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles  \
-	-DCONFDIR=\"$(sysconfdir)/glusterfs\" -D$(GF_HOST_OS)   \
+	-DCONFDIR=\"$(sysconfdir)/glusterfs\" \
 	-DLIBDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/auth\" \
 	$(GF_CFLAGS) -I$(top_srcdir)/xlators/protocol/lib/src   \
 	-I$(top_srcdir)/rpc/rpc-lib/src/       \

@@ -27,7 +27,7 @@ fuse_la_SOURCES = fuse-helpers.c fuse-resolve.c fuse-bridge.c \
 fuse_la_LDFLAGS = -module -avoidversion -shared -nostartfiles
 fuse_la_LIBADD = @GF_FUSE_LDADD@
 
-AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS) -Wall \
+AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
 	-I$(top_srcdir)/libglusterfs/src -I$(CONTRIBDIR)/fuse-include \
 	-I$(CONTRIBDIR)/fuse-lib $(GF_CFLAGS) $(GF_FUSE_CFLAGS)
 
