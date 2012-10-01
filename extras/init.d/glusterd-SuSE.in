@@ -61,13 +61,17 @@ case $1 in
 	fi
 	rc_status -v
        ;;
+ reload)
+       rc_failed 3
+       rc_status -v
+       ;;
  restart)
        $0 stop
        $0 start
        rc_status
        ;;
  *)
-       echo $"Usage: $0 {start|stop|status|restart}."
+       echo $"Usage: $0 {start|stop|status|reload|restart}."
        exit 1
 esac
 
