@@ -9,8 +9,8 @@ locks_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = locks.h common.h locks-mem-types.h clear.h
 
-AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall \
-	-fno-strict-aliasing -D$(GF_HOST_OS) \
+AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
+	-fno-strict-aliasing \
 	-I$(top_srcdir)/libglusterfs/src $(GF_CFLAGS) -shared -nostartfiles
 
 CLEANFILES = 
