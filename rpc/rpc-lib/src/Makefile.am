@@ -9,7 +9,7 @@ noinst_HEADERS = rpcsvc.h rpc-transport.h xdr-common.h xdr-rpc.h xdr-rpcclnt.h \
 	rpc-clnt.h rpcsvc-common.h protocol-common.h
 
 AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
-	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles $(GF_CFLAGS) \
+	-I$(top_srcdir)/libglusterfs/src -shared $(GF_CFLAGS) \
 	-I$(top_srcdir)/rpc/xdr/src \
 	-DRPC_TRANSPORTDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/rpc-transport\"
 

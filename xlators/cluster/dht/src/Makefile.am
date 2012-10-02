@@ -25,7 +25,7 @@ noinst_HEADERS = dht-common.h dht-mem-types.h \
 	$(top_builddir)/xlators/lib/src/libxlator.h
 
 AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
-	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles $(GF_CFLAGS) \
+	-I$(top_srcdir)/libglusterfs/src -shared $(GF_CFLAGS) \
 	-I$(top_srcdir)/xlators/lib/src
 
 CLEANFILES =

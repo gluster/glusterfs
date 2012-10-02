@@ -5,6 +5,6 @@ meta_so_SOURCES = meta.c tree.c misc.c view.c
 noinst_HEADERS = meta.h tree.h misc.h view.h
 
 AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
-	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles
+	-I$(top_srcdir)/libglusterfs/src -shared
 
 CLEANFILES = 

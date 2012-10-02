@@ -11,7 +11,7 @@ noinst_HEADERS = locks.h common.h locks-mem-types.h clear.h
 
 AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
 	-fno-strict-aliasing \
-	-I$(top_srcdir)/libglusterfs/src $(GF_CFLAGS) -shared -nostartfiles
+	-I$(top_srcdir)/libglusterfs/src $(GF_CFLAGS) -shared
 
 CLEANFILES = 
 

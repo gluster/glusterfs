@@ -10,6 +10,6 @@ io_stats_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 noinst_HEADERS = io-stats-mem-types.h
 
 AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
-	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles $(GF_CFLAGS)
+	-I$(top_srcdir)/libglusterfs/src -shared $(GF_CFLAGS)
 
 CLEANFILES =

@@ -15,7 +15,7 @@ worm_la_SOURCES = read-only-common.c worm.c
 worm_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
-	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles $(GF_CFLAGS)
+	-I$(top_srcdir)/libglusterfs/src -shared $(GF_CFLAGS)
 
 CLEANFILES = 
 

@@ -13,7 +13,7 @@ libgfapi_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 $(GF_CFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/rpc/rpc-lib/src \
 	-I$(top_srcdir)/rpc/xdr/src
-libgfapi_la_LDFLAGS = -shared -nostartfiles
+libgfapi_la_LDFLAGS = -shared
 
 
 xlator_LTLIBRARIES = api.la
