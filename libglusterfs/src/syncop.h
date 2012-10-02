@@ -253,7 +253,8 @@ int syncop_flush (xlator_t *subvol, fd_t *fd);
 int syncop_fstat (xlator_t *subvol, fd_t *fd, struct iatt *stbuf);
 int syncop_stat (xlator_t *subvol, loc_t *loc, struct iatt *stbuf);
 
-int syncop_symlink (xlator_t *subvol, loc_t *loc, char *newpath, dict_t *dict);
+int syncop_symlink (xlator_t *subvol, loc_t *loc, const char *newpath,
+		    dict_t *dict);
 int syncop_readlink (xlator_t *subvol, loc_t *loc, char **buffer, size_t size);
 int syncop_mknod (xlator_t *subvol, loc_t *loc, mode_t mode, dev_t rdev,
                   dict_t *dict);
