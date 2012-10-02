@@ -1465,7 +1465,7 @@ syncop_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
-syncop_symlink (xlator_t *subvol, loc_t *loc, char *newpath, dict_t *dict)
+syncop_symlink (xlator_t *subvol, loc_t *loc, const char *newpath, dict_t *dict)
 {
         struct syncargs args = {0, };
 
