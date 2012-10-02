@@ -51,7 +51,7 @@ function sighup_samba () {
         then
                 kill -HUP $pid;
         else
-                /etc/init.d/smb start
+                /etc/init.d/smb condrestart
         fi
 }
 
