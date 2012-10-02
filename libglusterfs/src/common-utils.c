@@ -1625,11 +1625,9 @@ get_nth_word (const char *str, int n)
         return word;
 }
 
-/* RFC 1123 & 952 */
-/* Syntax formed combining RFC 1123 & 952                                     *
-   <hname> ::= <first-name>*["."<gen-name>]                                   *
-   <first-name> ::= <let-or-digit> <[*[<let-or-digit-or-hyphen>]<let-or-digit>]
-   <gen-name> ::= <let>[*[<let-or-digit-or-hyphen>]<let-or-digit>]            */
+/* Syntax formed according to RFC 1912 (RFC 1123 & 952 are more restrictive)  *
+   <hname> ::= <gen-name>*["."<gen-name>]                                     *
+   <gen-name> ::= <let-or-digit> <[*[<let-or-digit-or-hyphen>]<let-or-digit>] */
 char
 valid_host_name (char *address, int length)
 {
@@ -1650,27 +1648,13 @@ valid_host_name (char *address, int length)
                 ret = 0;
                 goto out;
         }
-        temp_str = strtok_r (dup_addr,".", &save_ptr);
-
-        /* first-name */
-        if (!temp_str ||
-            !isalnum(temp_str[0]) ||
-            !isalnum (temp_str[strlen(temp_str)-1])) {
-                ret = 0;
-                goto out;
-        }
-        for (i = 1; i < (strlen (temp_str) - 1); i++) {
-                if (!isalnum (temp_str[i]) && (temp_str[i] != '-')) {
-                        ret = 0;
-                        goto out;
-                }
-        }
 
         /* gen-name */
-        while ((temp_str = strtok_r (NULL, ".", &save_ptr))) {
+        temp_str = strtok_r (dup_addr, ".", &save_ptr);
+        do {
                 str_len = strlen (temp_str);
 
-                if (!isalpha (temp_str[0]) ||
+                if (!isalnum (temp_str[0]) ||
                     !isalnum (temp_str[str_len-1])) {
                         ret = 0;
                         goto out;
@@ -1681,7 +1665,7 @@ valid_host_name (char *address, int length)
                                 goto out;
                         }
                 }
-        }
+        } while ((temp_str = strtok_r (NULL, ".", &save_ptr)));
 
 out:
         GF_FREE (dup_addr);
