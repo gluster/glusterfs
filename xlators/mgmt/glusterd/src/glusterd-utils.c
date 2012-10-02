@@ -905,7 +905,10 @@ glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
 {
         GF_ASSERT (peerinfo);
         glusterd_peerctx_t      *peerctx = NULL;
+        gf_boolean_t            quorum_action = _gf_false;
 
+        if (peerinfo->quorum_contrib != QUORUM_NONE)
+                quorum_action = _gf_true;
         if (peerinfo->rpc) {
                 /* cleanup the saved-frames before last unref */
                 rpc_clnt_connection_cleanup (&peerinfo->rpc->conn);
@@ -919,6 +922,8 @@ glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
         }
         glusterd_peer_destroy (peerinfo);
 
+        if (quorum_action)
+                glusterd_do_quorum_action ();
         return 0;
 }
 
