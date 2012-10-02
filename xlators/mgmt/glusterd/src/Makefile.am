@@ -20,7 +20,7 @@ noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h \
 	glusterd-syncop.h glusterd-hooks.h
 
 AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
-	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles $(GF_CFLAGS)\
+	-I$(top_srcdir)/libglusterfs/src -shared $(GF_CFLAGS)\
 	-I$(rpclibdir) -L$(xlatordir)/ -I$(CONTRIBDIR)/rbtree \
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_srcdir)/rpc/rpc-lib/src \
 	-I$(CONTRIBDIR)/uuid \

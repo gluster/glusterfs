@@ -10,6 +10,6 @@ noinst_HEADERS = index.h index-mem-types.h
 
 AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
 	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/rpc/xdr/src \
-	-I$(top_srcdir)/rpc/rpc-lib/src -shared -nostartfiles $(GF_CFLAGS)
+	-I$(top_srcdir)/rpc/rpc-lib/src -shared $(GF_CFLAGS)
 
 CLEANFILES =

@@ -23,7 +23,7 @@ noinst_HEADERS = afr.h afr-transaction.h afr-inode-write.h afr-inode-read.h \
 
 AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
 	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/xlators/lib/src \
-	-I$(top_srcdir)/rpc/rpc-lib/src -shared -nostartfiles $(GF_CFLAGS)
+	-I$(top_srcdir)/rpc/rpc-lib/src -shared $(GF_CFLAGS)
 
 CLEANFILES =
 

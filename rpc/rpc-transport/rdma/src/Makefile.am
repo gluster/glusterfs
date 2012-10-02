@@ -15,6 +15,6 @@ noinst_HEADERS = rdma.h name.h
 
 AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
 	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/rpc/rpc-lib/src/ \
-	-I$(top_srcdir)/rpc/xdr/src -shared -nostartfiles $(GF_CFLAGS)
+	-I$(top_srcdir)/rpc/xdr/src -shared $(GF_CFLAGS)
 
 CLEANFILES = *~

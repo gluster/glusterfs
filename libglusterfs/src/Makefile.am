@@ -1,4 +1,4 @@
-libglusterfs_la_CFLAGS = -fPIC  -Wall -shared -nostartfiles $(GF_CFLAGS) \
+libglusterfs_la_CFLAGS = -fPIC  -Wall -shared $(GF_CFLAGS) \
 	$(GF_DARWIN_LIBGLUSTERFS_CFLAGS)
 
 libglusterfs_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \

@@ -14,5 +14,5 @@ client_la_SOURCES = client.c client-helpers.c client-rpc-fops.c  \
 noinst_HEADERS = client.h client-mem-types.h
 
 AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
-	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles $(GF_CFLAGS)  \
+	-I$(top_srcdir)/libglusterfs/src -shared $(GF_CFLAGS)  \
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_srcdir)/rpc/rpc-lib/src/
