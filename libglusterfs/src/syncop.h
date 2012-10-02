@@ -246,6 +246,7 @@ int syncop_ftruncate (xlator_t *subvol, fd_t *fd, off_t offset);
 int syncop_truncate (xlator_t *subvol, loc_t *loc, off_t offset);
 
 int syncop_unlink (xlator_t *subvol, loc_t *loc);
+int syncop_rmdir (xlator_t *subvol, loc_t *loc);
 
 int syncop_fsync (xlator_t *subvol, fd_t *fd, int dataonly);
 int syncop_flush (xlator_t *subvol, fd_t *fd);
@@ -256,7 +257,11 @@ int syncop_symlink (xlator_t *subvol, loc_t *loc, char *newpath, dict_t *dict);
 int syncop_readlink (xlator_t *subvol, loc_t *loc, char **buffer, size_t size);
 int syncop_mknod (xlator_t *subvol, loc_t *loc, mode_t mode, dev_t rdev,
                   dict_t *dict);
+int syncop_mkdir (xlator_t *subvol, loc_t *loc, mode_t mode, dict_t *dict);
 int syncop_link (xlator_t *subvol, loc_t *oldloc, loc_t *newloc);
 int syncop_fsyncdir (xlator_t *subvol, fd_t *fd, int datasync);
 int syncop_access (xlator_t *subvol, loc_t *loc, int32_t mask);
+
+int syncop_rename (xlator_t *subvol, loc_t *oldloc, loc_t *newloc);
+
 #endif /* _SYNCOP_H */

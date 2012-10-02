@@ -1196,9 +1196,39 @@ syncop_unlink (xlator_t *subvol, loc_t *loc)
 }
 
 int
+syncop_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int op_ret, int op_errno, struct iatt *preparent,
+                   struct iatt *postparent, dict_t *xdata)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        __wake (args);
+
+        return 0;
+}
+
+int
+syncop_rmdir (xlator_t *subvol, loc_t *loc)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_rmdir_cbk, subvol->fops->rmdir, loc,
+                0, NULL);
+
+        errno = args.op_errno;
+        return args.op_ret;
+}
+
+
+int
 syncop_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, inode_t *inode,
-                  struct iatt *buf, struct iatt *preparent,
+		 int32_t op_ret, int32_t op_errno, inode_t *inode,
+		 struct iatt *buf, struct iatt *preparent,
                  struct iatt *postparent, dict_t *xdata)
 {
         struct syncargs *args = NULL;
@@ -1226,6 +1256,41 @@ syncop_link (xlator_t *subvol, loc_t *oldloc, loc_t *newloc)
 
         return args.op_ret;
 }
+
+
+int
+syncop_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		   int32_t op_ret, int32_t op_errno, struct iatt *buf,
+		   struct iatt *preoldparent, struct iatt *postoldparent,
+		   struct iatt *prenewparent, struct iatt *postnewparent,
+		   dict_t *xdata)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret = op_ret;
+        args->op_errno = op_errno;
+
+        __wake (args);
+
+        return 0;
+}
+
+
+int
+syncop_rename (xlator_t *subvol, loc_t *oldloc, loc_t *newloc)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_rename_cbk, subvol->fops->rename,
+                oldloc, newloc, NULL);
+
+        errno = args.op_errno;
+
+        return args.op_ret;
+}
+
 
 int
 syncop_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -1474,6 +1539,39 @@ syncop_mknod (xlator_t *subvol, loc_t *loc, mode_t mode, dev_t rdev,
 
         SYNCOP (subvol, (&args), syncop_mknod_cbk, subvol->fops->mknod,
                 loc, mode, rdev, 0, dict);
+
+        errno = args.op_errno;
+        return args.op_ret;
+
+}
+
+
+int
+syncop_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, inode_t *inode,
+                  struct iatt *buf, struct iatt *preparent,
+                  struct iatt *postparent, dict_t *xdata)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        __wake (args);
+
+        return 0;
+}
+
+
+int
+syncop_mkdir (xlator_t *subvol, loc_t *loc, mode_t mode, dict_t *dict)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_mkdir_cbk, subvol->fops->mkdir,
+                loc, mode, 0, dict);
 
         errno = args.op_errno;
         return args.op_ret;
