@@ -11,8 +11,8 @@ stripe_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = stripe.h stripe-mem-types.h $(top_builddir)/xlators/lib/src/libxlator.h
 
-AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
-	-I$(top_srcdir)/libglusterfs/src -shared $(GF_CFLAGS) \
+AM_CFLAGS = $(GF_CPPFLAGS) -Wall \
+	-I$(top_srcdir)/libglusterfs/src $(GF_CFLAGS) \
 	-I$(top_srcdir)/xlators/lib/src
 
 CLEANFILES = 

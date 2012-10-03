@@ -12,8 +12,8 @@ server_la_SOURCES = server.c server-resolve.c server-helpers.c  \
 
 noinst_HEADERS = server.h server-helpers.h server-mem-types.h authenticate.h
 
-AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
-	-I$(top_srcdir)/libglusterfs/src -shared \
+AM_CFLAGS = $(GF_CPPFLAGS) -Wall \
+	-I$(top_srcdir)/libglusterfs/src \
 	-DCONFDIR=\"$(sysconfdir)/glusterfs\" \
 	-DLIBDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/auth\" \
 	$(GF_CFLAGS) -I$(top_srcdir)/xlators/protocol/lib/src   \
