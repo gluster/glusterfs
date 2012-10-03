@@ -109,6 +109,28 @@ out:
 }
 
 
+void
+glfs_resolve_base (struct glfs *fs, xlator_t *subvol, inode_t *inode,
+		   struct iatt *iatt)
+{
+	loc_t       loc = {0, };
+	int         ret = -1;
+	char       *path = NULL;
+
+	loc.inode = inode_ref (inode);
+	uuid_copy (loc.gfid, inode->gfid);
+
+	ret = inode_path (loc.inode, NULL, &path);
+	loc.path = path;
+	if (ret < 0)
+		goto out;
+
+	ret = syncop_lookup (subvol, &loc, NULL, iatt, NULL, NULL);
+out:
+	loc_wipe (&loc);
+}
+
+
 inode_t *
 glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 			const char *component, struct iatt *iatt)
@@ -208,13 +230,16 @@ glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 	}
 
 	parent = NULL;
-	if (at && path[0] != '/')
+	if (at && path[0] != '/') {
 		/* A relative resolution of a path which starts with '/'
 		   is equal to an absolute path resolution.
 		*/
 		inode = inode_ref (at);
-	else
+	} else {
 		inode = inode_ref (subvol->itable->root);
+
+		glfs_resolve_base (fs, subvol, inode, &ciatt);
+	}
 
 	for (component = strtok_r (path, "/", &saveptr);
 	     component; component = next_component) {
