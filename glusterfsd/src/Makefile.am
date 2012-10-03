@@ -8,10 +8,12 @@ glusterfsd_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 glusterfsd_LDFLAGS = $(GF_LDFLAGS) $(GF_GLUSTERFS_LDFLAGS)
 noinst_HEADERS = glusterfsd.h glusterfsd-mem-types.h
 
-AM_CFLAGS = -Wall $(GF_CPPFLAGS) \
+AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src -DDATADIR=\"$(localstatedir)\" \
-	-DCONFDIR=\"$(sysconfdir)/glusterfs\" $(GF_GLUSTERFS_CFLAGS) \
+	-DCONFDIR=\"$(sysconfdir)/glusterfs\" \
 	-I$(top_srcdir)/rpc/rpc-lib/src -I$(top_srcdir)/rpc/xdr/src
+
+AM_CFLAGS = -Wall $(GF_GLUSTERFS_CFLAGS)
 
 CLEANFILES = 
 

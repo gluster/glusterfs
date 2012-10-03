@@ -8,8 +8,10 @@ socket_la_LDFLAGS = -module -avoidversion -lssl
 socket_la_SOURCES = socket.c name.c
 socket_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-AM_CFLAGS = $(GF_CPPFLAGS) -Wall \
+AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/rpc/rpc-lib/src/ \
-	-I$(top_srcdir)/rpc/xdr/src/ $(GF_CFLAGS)
+	-I$(top_srcdir)/rpc/xdr/src/
+
+AM_CFLAGS = -Wall $(GF_CFLAGS)
 
 CLEANFILES = *~

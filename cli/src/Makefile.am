@@ -11,14 +11,16 @@ gluster_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(GF_LDADD)\
 gluster_LDFLAGS = $(GF_LDFLAGS) $(GF_GLUSTERFS_LDFLAGS) $(LIBXML2_LIBS)
 noinst_HEADERS = cli.h cli-mem-types.h cli-cmd.h
 
-AM_CFLAGS = -Wall $(GF_CPPFLAGS) \
+AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/rpc/rpc-lib/src\
 	-I$(top_srcdir)/rpc/xdr/src\
 	-DDATADIR=\"$(localstatedir)\" \
-	-DCONFDIR=\"$(sysconfdir)/glusterfs\" $(GF_GLUSTERFS_CFLAGS)\
+	-DCONFDIR=\"$(sysconfdir)/glusterfs\" \
 	-DGSYNCD_PREFIX=\"$(libexecdir)/glusterfs\"\
 	-DSYNCDAEMON_COMPILE=$(SYNCDAEMON_COMPILE) -DSBIN_DIR=\"$(sbindir)\"\
 	$(LIBXML2_CFLAGS)
+
+AM_CFLAGS = -Wall $(GF_GLUSTERFS_CFLAGS)
 
 CLEANFILES =
 
