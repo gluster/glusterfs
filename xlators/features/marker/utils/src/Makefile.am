@@ -4,9 +4,10 @@ gsyncd_PROGRAMS = gsyncd
 
 gsyncd_SOURCES = gsyncd.c procdiggy.c
 
-gsyncd_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+gsyncd_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
+	$(GF_GLUSTERFS_LIBS)
 
-gsyncd_LDFLAGS = $(GF_LDFLAGS) $(GF_GLUSTERFS_LDFLAGS)
+gsyncd_LDFLAGS = $(GF_LDFLAGS)
 
 noinst_HEADERS = procdiggy.h
 
