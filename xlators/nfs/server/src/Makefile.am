@@ -13,7 +13,9 @@ noinst_HEADERS = nfs.h nfs-common.h nfs-fops.h nfs-inodes.h nfs-generics.h \
 AM_CFLAGS = $(GF_CPPFLAGS) -Wall \
 	-DLIBDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/auth\" \
 	-I$(top_srcdir)/libglusterfs/src $(GF_CFLAGS)\
-	-I$(nfsrpclibdir) -L$(xlatordir)/ -I$(CONTRIBDIR)/rbtree\
+	-I$(nfsrpclibdir) -I$(CONTRIBDIR)/rbtree\
 	-I$(top_srcdir)/rpc/xdr/src/
+
+AM_LDFLAGS = -L$(xlatordir)
 
 CLEANFILES =
