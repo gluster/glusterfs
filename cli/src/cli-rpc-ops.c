@@ -6005,7 +6005,8 @@ cli_to_glusterd (gf_cli_req *req, call_frame_t *frame,
 
         for (i = 0; words[i]; i++) {
                 strncat (cmd, words[i], strlen (words[i]));
-                strncat (cmd, " ", strlen (" "));
+                if (words[i+1] != NULL)
+                        strncat (cmd, " ", strlen (" "));
         }
 
         cmd [len - 1] = '\0';
