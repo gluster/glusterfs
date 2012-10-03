@@ -27,9 +27,10 @@ fuse_la_SOURCES = fuse-helpers.c fuse-resolve.c fuse-bridge.c \
 fuse_la_LDFLAGS = -module -avoidversion
 fuse_la_LIBADD = @GF_FUSE_LDADD@
 
-AM_CFLAGS = $(GF_CPPFLAGS) -Wall \
+AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src -I$(CONTRIBDIR)/fuse-include \
-	-I$(CONTRIBDIR)/fuse-lib $(GF_CFLAGS) $(GF_FUSE_CFLAGS)
+	-I$(CONTRIBDIR)/fuse-lib $(GF_FUSE_CFLAGS)
 
+AM_CFLAGS = -Wall $(GF_CFLAGS)
 
 CLEANFILES =

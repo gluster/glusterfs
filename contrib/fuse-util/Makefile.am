@@ -3,7 +3,9 @@ bin_PROGRAMS = fusermount-glusterfs
 fusermount_glusterfs_SOURCES = fusermount.c mount_util.c $(CONTRIBDIR)/fuse-lib/mount-common.c
 noinst_HEADERS = $(CONTRIBDIR)/fuse-include/mount_util.h
 
-AM_CFLAGS = -Wall $(GF_CPPFLAGS) -DFUSE_UTIL $(GF_CFLAGS) -I$(CONTRIBDIR)/fuse-include
+AM_CPPFLAGS = $(GF_CPPFLAGS) -DFUSE_UTIL -I$(CONTRIBDIR)/fuse-include
+
+AM_CFLAGS = -Wall $(GF_CFLAGS)
 
 install-exec-hook:
 	-chown root $(DESTDIR)$(bindir)/fusermount-glusterfs
