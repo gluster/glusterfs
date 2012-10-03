@@ -21,14 +21,14 @@ noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h \
 
 AM_CFLAGS = $(GF_CPPFLAGS) -Wall \
 	-I$(top_srcdir)/libglusterfs/src $(GF_CFLAGS)\
-	-I$(rpclibdir) -L$(xlatordir)/ -I$(CONTRIBDIR)/rbtree \
+	-I$(rpclibdir) -I$(CONTRIBDIR)/rbtree \
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_srcdir)/rpc/rpc-lib/src \
 	-I$(CONTRIBDIR)/uuid \
 	-DSBIN_DIR=\"$(sbindir)\" -DDATADIR=\"$(localstatedir)\" \
 	-DGSYNCD_PREFIX=\"$(libexecdir)/glusterfs\"\
         -DSYNCDAEMON_COMPILE=$(SYNCDAEMON_COMPILE) $(LIBXML2_CFLAGS)
 
->>>>>>> glusterd: prefix added to gluster commands
+AM_LDFLAGS = -L$(xlatordir)
 
 CLEANFILES =
 
