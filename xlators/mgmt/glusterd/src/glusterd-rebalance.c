@@ -250,10 +250,9 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         if (volinfo->memory_accounting)
                 runner_add_arg (&runner, "--mem-accounting");
 
-        ret = runner_run_reuse (&runner);
+        ret = runner_run_nowait (&runner);
         if (ret) {
-                runner_log (&runner, "glusterd", GF_LOG_DEBUG, "command failed");
-                runner_end (&runner);
+                gf_log ("glusterd", GF_LOG_DEBUG, "rebalance command failed");
                 goto out;
         }
 
