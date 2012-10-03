@@ -6,9 +6,10 @@ gluster_SOURCES = cli.c registry.c input.c cli-cmd.c cli-rl.c \
 
 gluster_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(GF_LDADD)\
 		$(RLLIBS) $(top_builddir)/rpc/xdr/src/libgfxdr.la \
-		$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la
+		$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
+		$(GF_GLUSTERFS_LIBS) $(LIBXML2_LIBS)
 
-gluster_LDFLAGS = $(GF_LDFLAGS) $(GF_GLUSTERFS_LDFLAGS) $(LIBXML2_LIBS)
+gluster_LDFLAGS = $(GF_LDFLAGS)
 noinst_HEADERS = cli.h cli-mem-types.h cli-cmd.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) \

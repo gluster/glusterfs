@@ -469,7 +469,7 @@ case $host_os in
 	GF_LDFLAGS=""
 	GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
-	GF_GLUSTERFS_LDFLAGS="-lnsl -lresolv -lsocket"
+	GF_GLUSTERFS_LIBS="-lnsl -lresolv -lsocket"
         BUILD_FUSE_CLIENT=no
         FUSE_CLIENT_SUBDIR=""
 	;;
@@ -481,7 +481,7 @@ case $host_os in
 	GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
 	if test "x$ac_cv_header_execinfo_h" = "xyes"; then
-	   GF_GLUSTERFS_LDFLAGS="-lexecinfo"
+	   GF_GLUSTERFS_LIBS="-lexecinfo"
 	fi
 	GF_FUSE_LDADD="-lperfuse"
 	BUILD_FUSE_CLIENT=yes
@@ -495,7 +495,7 @@ case $host_os in
 	GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
 	if test "x$ac_cv_header_execinfo_h" = "xyes"; then
-	   GF_GLUSTERFS_LDFLAGS="-lexecinfo"
+	   GF_GLUSTERFS_LIBS="-lexecinfo"
 	fi
 	BUILD_FUSE_CLIENT=no
 	;;
@@ -547,7 +547,7 @@ fi
 
 
 AC_SUBST(GF_HOST_OS)
-AC_SUBST(GF_GLUSTERFS_LDFLAGS)
+AC_SUBST([GF_GLUSTERFS_LIBS])
 AC_SUBST(GF_GLUSTERFS_CFLAGS)
 AC_SUBST(GF_CFLAGS)
 AC_SUBST(GF_LDFLAGS)
