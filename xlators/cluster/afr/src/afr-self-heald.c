@@ -57,6 +57,11 @@ afr_start_crawl (xlator_t *this, int idx, afr_crawl_type_t crawl,
 static int
 _crawl_directory (fd_t *fd, loc_t *loc, afr_crawl_data_t *crawl_data);
 
+/* For calling straight through (e.g. already in a synctask). */
+int
+afr_find_child_position (xlator_t *this, int child, afr_child_pos_t *pos);
+
+/* For deferring through a new synctask. */
 int
 afr_syncop_find_child_position (void *data);
 
@@ -456,9 +461,15 @@ _do_crawl_op_on_local_subvols (xlator_t *this, afr_crawl_type_t crawl,
         for (i = 0; i < priv->child_count; i++) {
                 if (_crawl_proceed (this, i, crawl_flags, &status)) {
                         pos_data.child = i;
-                        ret = synctask_new (this->ctx->env,
-                                            afr_syncop_find_child_position,
-                                            NULL, NULL, &pos_data);
+                        /*
+                         * We're already in a synctask in this case, so we
+                         * don't need to defer through a second (and in fact
+                         * that can cause deadlock).  Just call straight
+                         * through instead.
+                         */
+                        ret = afr_find_child_position(pos_data.this,
+                                                      pos_data.child,
+                                                      &pos_data.pos);
                         if (ret) {
                                 status = "Not able to find brick location";
                         } else if (pos_data.pos == AFR_POS_REMOTE) {
