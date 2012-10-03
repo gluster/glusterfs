@@ -11,7 +11,7 @@ gluster_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(GF_LDADD)\
 gluster_LDFLAGS = $(GF_LDFLAGS) $(GF_GLUSTERFS_LDFLAGS) $(LIBXML2_LIBS)
 noinst_HEADERS = cli.h cli-mem-types.h cli-cmd.h
 
-AM_CFLAGS = -fPIC -Wall $(GF_CPPFLAGS) \
+AM_CFLAGS = -Wall $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/rpc/rpc-lib/src\
 	-I$(top_srcdir)/rpc/xdr/src\
 	-DDATADIR=\"$(localstatedir)\" \

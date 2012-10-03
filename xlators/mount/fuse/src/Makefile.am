@@ -24,10 +24,10 @@ endif
 fuse_la_SOURCES = fuse-helpers.c fuse-resolve.c fuse-bridge.c \
 	$(CONTRIBDIR)/fuse-lib/misc.c $(mount_source)
 
-fuse_la_LDFLAGS = -module -avoidversion -shared
+fuse_la_LDFLAGS = -module -avoidversion
 fuse_la_LIBADD = @GF_FUSE_LDADD@
 
-AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
+AM_CFLAGS = $(GF_CPPFLAGS) -Wall \
 	-I$(top_srcdir)/libglusterfs/src -I$(CONTRIBDIR)/fuse-include \
 	-I$(CONTRIBDIR)/fuse-lib $(GF_CFLAGS) $(GF_FUSE_CFLAGS)
 

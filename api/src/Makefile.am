@@ -13,8 +13,6 @@ libgfapi_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 $(GF_CFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/rpc/rpc-lib/src \
 	-I$(top_srcdir)/rpc/xdr/src
-libgfapi_la_LDFLAGS = -shared
-
 
 xlator_LTLIBRARIES = api.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/mount
@@ -24,5 +22,5 @@ api_la_SOURCES = glfs-master.c
 api_la_LDFLAGS = -module -avoidversion
 api_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-AM_CFLAGS = -fPIC $(GF_CPPFLAGS) -Wall \
+AM_CFLAGS = $(GF_CPPFLAGS) -Wall \
 	-I$(top_srcdir)/libglusterfs/src $(GF_CFLAGS)
