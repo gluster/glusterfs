@@ -229,6 +229,11 @@ synctask_new (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
 	}
 
         synctask_wake (newtask);
+        /*
+         * Make sure someone's there to execute anything we just put on the
+         * run queue.
+         */
+        syncenv_scale(env);
 
 	if (!cbk) {
 		pthread_mutex_lock (&newtask->mutex);
