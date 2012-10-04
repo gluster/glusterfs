@@ -4,6 +4,61 @@
 #include <string.h>
 #include <time.h>
 
+
+int
+test_dirops (glfs_t *fs)
+{
+	glfs_fd_t *fd = NULL;
+	char buf[512];
+	struct dirent *entry = NULL;
+
+	fd = glfs_opendir (fs, "/");
+	if (!fd) {
+		fprintf (stderr, "/: %s\n", strerror (errno));
+		return -1;
+	}
+
+	fprintf (stderr, "Entries:\n");
+	while (glfs_readdir_r (fd, (struct dirent *)buf, &entry), entry) {
+		fprintf (stderr, "%s: %lu\n", entry->d_name, glfs_telldir (fd));
+	}
+
+	glfs_closedir (fd);
+	return 0;
+}
+
+
+int
+test_xattr (glfs_t *fs)
+{
+	char *filename = "/filename2";
+	char buf[512];
+	char *ptr;
+	int ret;
+
+	ret = glfs_setxattr (fs, filename, "user.testkey", "testval", 8, 0);
+	fprintf (stderr, "setxattr(%s): %d (%s)\n", filename, ret,
+		 strerror (errno));
+
+	ret = glfs_setxattr (fs, filename, "user.testkey2", "testval", 8, 0);
+	fprintf (stderr, "setxattr(%s): %d (%s)\n", filename, ret,
+		 strerror (errno));
+
+	ret = glfs_listxattr (fs, filename, buf, 512);
+	fprintf (stderr, "listxattr(%s): %d (%s)\n", filename, ret,
+		 strerror (errno));
+	if (ret < 0)
+		return -1;
+
+	for (ptr = buf; ptr < buf + ret; ptr++) {
+		printf ("key=%s\n", ptr);
+		ptr += strlen (ptr);
+	}
+
+	return 0;
+}
+
+
 int
 main (int argc, char *argv[])
 {
@@ -75,6 +130,38 @@ main (int argc, char *argv[])
 
 	glfs_close (fd);
 	glfs_close (fd2);
+
+	filename = "/filename3";
+	ret = glfs_mknod (fs, filename, S_IFIFO, 0);
+	fprintf (stderr, "%s: (%d) %s\n", filename, ret, strerror (errno));
+
+	ret = glfs_lstat (fs, filename, &sb);
+	fprintf (stderr, "%s: (%d) %s\n", filename, ret, strerror (errno));
+
+
+	ret = glfs_rename (fs, filename, "/filename4");
+	fprintf (stderr, "rename(%s): (%d) %s\n", filename, ret,
+		 strerror (errno));
+
+	ret = glfs_unlink (fs, "/filename4");
+	fprintf (stderr, "unlink(%s): (%d) %s\n", "/filename4", ret,
+		 strerror (errno));
+
+	filename = "/dirname2";
+	ret = glfs_mkdir (fs, filename, 0);
+	fprintf (stderr, "%s: (%d) %s\n", filename, ret, strerror (errno));
+
+	ret = glfs_lstat (fs, filename, &sb);
+	fprintf (stderr, "lstat(%s): (%d) %s\n", filename, ret, strerror (errno));
+
+	ret = glfs_rmdir (fs, filename);
+	fprintf (stderr, "rmdir(%s): (%d) %s\n", filename, ret, strerror (errno));
+
+	test_dirops (fs);
+
+	test_xattr (fs);
+
+	// done
 
 	glfs_fini (fs);
 	glfs_fini (fs2);
