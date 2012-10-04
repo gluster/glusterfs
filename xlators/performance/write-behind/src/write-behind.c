@@ -1734,6 +1734,7 @@ wb_inode_dump (xlator_t *this, inode_t *inode)
         int32_t     ret                            = -1;
         char       *path                           = NULL;
         char       key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
+        char       uuid_str[64] = {0,};
 
         if ((inode == NULL) || (this == NULL)) {
                 ret = 0;
@@ -1769,14 +1770,20 @@ wb_inode_dump (xlator_t *this, inode_t *inode)
 
         gf_proc_dump_write ("op_errno", "%d", wb_inode->op_errno);
 
-        LOCK (&wb_inode->lock);
+        ret = TRY_LOCK (&wb_inode->lock);
+        if (!ret)
         {
                 if (!list_empty (&wb_inode->all)) {
                         __wb_dump_requests (&wb_inode->all, key_prefix);
                 }
+                UNLOCK (&wb_inode->lock);
         }
-        UNLOCK (&wb_inode->lock);
 
+        if (ret && wb_inode)
+                gf_proc_dump_write ("Unable to dump the inode information",
+                                    "(Lock acquisition failed) %p (gfid: %s)",
+                                    wb_inode,
+                                    uuid_utoa_r (inode->gfid, uuid_str));
         ret = 0;
 out:
         return ret;
