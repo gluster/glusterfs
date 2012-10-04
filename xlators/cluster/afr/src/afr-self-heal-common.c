@@ -833,14 +833,46 @@ afr_sh_pending_to_delta (afr_private_t *priv, dict_t **xattr,
                          int32_t *delta_matrix[], unsigned char success[],
                          int child_count, afr_transaction_type type)
 {
-        int i = 0;
-        int j = 0;
+        int     tgt     = 0;
+        int     src     = 0;
+        int     value   = 0;
 
         afr_build_pending_matrix (priv->pending_key, delta_matrix, NULL,
                                   xattr, type, priv->child_count);
-        for (i = 0; i < priv->child_count; i++)
-                for (j = 0; j < priv->child_count; j++)
-                        delta_matrix[i][j] = -delta_matrix[i][j];
+
+        /*
+         * The algorithm here has two parts.  First, for each subvol indexed
+         * as tgt, we try to figure out what count everyone should have for it.
+         * If the self-heal succeeded, that's easy; the value is zero.
+         * Otherwise, the value is the maximum of the succeeding nodes' counts.
+         * Once we know the value, we loop through (possibly for a second time)
+         * setting each count to the difference so that when we're done all
+         * succeeding nodes will have the same count for tgt.
+         */
+        for (tgt = 0; tgt < priv->child_count; ++tgt) {
+                value = 0;
+                if (!success[tgt]) {
+                        /* Find the maximum. */
+                        for (src = 0; src < priv->child_count; ++src) {
+                                if (!success[src]) {
+                                        continue;
+                                }
+                                if (delta_matrix[src][tgt] > value) {
+                                        value = delta_matrix[src][tgt];
+                                }
+                        }
+                }
+                /* Force everyone who succeeded to the chosen value. */
+                for (src = 0; src < priv->child_count; ++src) {
+                        if (success[src]) {
+                                delta_matrix[src][tgt] = value
+                                                       - delta_matrix[src][tgt];
+                        }
+                        else {
+                                delta_matrix[src][tgt] = 0;
+                        }
+                }
+        }
 }
 
 
@@ -867,8 +899,14 @@ afr_sh_delta_to_xattr (xlator_t *this,
                         pending = GF_CALLOC (sizeof (int32_t), 3,
                                              gf_afr_mt_int32_t);
 
-                        if (!pending)
+                        if (!pending) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "failed to allocate pending entry "
+                                        "for %s[%d] on %s",
+                                        priv->pending_key[j], type,
+                                        priv->children[i]->name);
                                 continue;
+                        }
                         /* 3 = data+metadata+entry */
 
                         k = afr_index_for_transaction_type (type);
