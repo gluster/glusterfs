@@ -1417,12 +1417,25 @@ afr_transaction_fop_failed (call_frame_t *frame, xlator_t *this, int child_index
                            child_index, local->transaction.type);
 }
 
+gf_boolean_t
+_does_transaction_conflict_with_delayed_post_op (call_frame_t *frame)
+{
+        afr_local_t     *local = frame->local;
+        //check if it is going to compete with inode lock from the fd
+        if (local->fd)
+                return _gf_false;
+        if ((local->transaction.type == AFR_DATA_TRANSACTION) ||
+            (local->transaction.type == AFR_METADATA_TRANSACTION))
+                return _gf_true;
+        return _gf_false;
+}
 
 int
 afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
+        fd_t            *fd   = NULL;
 
         local = frame->local;
         priv  = this->private;
@@ -1437,6 +1450,15 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
 
         local->transaction.resume = afr_transaction_resume;
         local->transaction.type   = type;
+
+        if (_does_transaction_conflict_with_delayed_post_op (frame) &&
+            local->loc.inode) {
+                fd = fd_lookup (local->loc.inode, frame->root->pid);
+                if (fd) {
+                        afr_delayed_changelog_wake_up (this, fd);
+                        fd_unref (fd);
+                }
+        }
 
         if (afr_lock_server_count (priv, local->transaction.type) == 0) {
                 afr_internal_lock_finish (frame, this);
