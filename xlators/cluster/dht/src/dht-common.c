@@ -1391,16 +1391,8 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        if (!hashed_subvol) {
+        if (!hashed_subvol)
                 hashed_subvol = dht_subvol_get_hashed (this, loc);
-                if (!hashed_subvol) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to get hashed subvol for %s",
-                                loc->path);
-                        op_errno = EINVAL;
-                        goto err;
-                }
-        }
         local->hashed_subvol = hashed_subvol;
 
         if (is_revalidate (loc)) {
