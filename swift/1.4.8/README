@@ -8,7 +8,7 @@ Install
 * Create a directory named "plugins" under swift.git/swift directory.
 * Copy the contents of glusterfs.git/swift/1.4.8/plugins/ under swift.git/swift/
   except the conf directory.
-* Copy the contents of glusterfs.git/swift/1.4.5/plugins/conf under /etc/swift/.
+* Copy the contents of glusterfs.git/swift/1.4.8/plugins/conf under /etc/swift/.
 * Run python setup.py install
 
 Once this is done, you can access the GlusterFS volumes as Swift accounts.
