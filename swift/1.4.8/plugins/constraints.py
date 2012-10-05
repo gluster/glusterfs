@@ -64,7 +64,8 @@ def check_object_creation(req, object_name):
     """
     if req.content_length and req.content_length > MAX_FILE_SIZE:
         return HTTPRequestEntityTooLarge(body='Your request is too large.',
-                request=req, content_type='text/plain')
+                                         request=req,
+                                         content_type='text/plain')
     if req.content_length is None and \
             req.headers.get('transfer-encoding') != 'chunked':
         return HTTPLengthRequired(request=req)
@@ -78,10 +79,10 @@ def check_object_creation(req, object_name):
                     content_type='text/plain')
     if 'Content-Type' not in req.headers:
         return HTTPBadRequest(request=req, content_type='text/plain',
-                    body='No content type')
+                              body='No content type')
     if not check_utf8(req.headers['Content-Type']):
         return HTTPBadRequest(request=req, body='Invalid Content-Type',
-                    content_type='text/plain')
+                              content_type='text/plain')
     if 'x-object-manifest' in req.headers:
         value = req.headers['x-object-manifest']
         container = prefix = None
@@ -91,7 +92,8 @@ def check_object_creation(req, object_name):
             pass
         if not container or not prefix or '?' in value or '&' in value or \
                 prefix[0] == '/':
-            return HTTPBadRequest(request=req,
+            return HTTPBadRequest(
+                request=req,
                 body='X-Object-Manifest must in the format container/prefix')
     return check_metadata(req, 'object')
 
