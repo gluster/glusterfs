@@ -68,7 +68,7 @@
 #define NLMV4_VERSION       4
 #define NLMV1_VERSION       1
 
-char    *glusterd_sock_dir = "/tmp";
+char    *glusterd_sock_dir = "/var/run";
 static glusterd_lock_t lock;
 
 static void

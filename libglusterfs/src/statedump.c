@@ -53,25 +53,18 @@ gf_proc_dump_unlock (void)
         pthread_mutex_unlock (&gf_proc_dump_mutex);
 }
 
-
 static int
-gf_proc_dump_open (char *dump_dir, char *brickname)
+gf_proc_dump_open (char *tmpname)
 {
-        char path[PATH_MAX] = {0,};
         int  dump_fd = -1;
 
-        snprintf (path, sizeof (path), "%s/%s.%d.dump.%"PRIu64,
-                  (dump_dir ? dump_dir : "/tmp"), brickname, getpid(),
-                  (uint64_t) time (NULL));
-
-        dump_fd = open (path, O_CREAT|O_RDWR|O_TRUNC|O_APPEND, 0600);
+        dump_fd = mkostemp (tmpname, O_CREAT|O_EXCL|O_RDWR|O_TRUNC|O_APPEND);
         if (dump_fd < 0)
                 return -1;
 
         gf_dump_fd = dump_fd;
         return 0;
 }
-
 
 static void
 gf_proc_dump_close (void)
@@ -710,6 +703,8 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
         struct timeval     tv   = {0,};
         char timestr[256]       = {0,};
         char sign_string[512]   = {0,};
+        char tmp_dump_name[]    = "/tmp/dumpXXXXXX";
+        char path[PATH_MAX]     = {0,};
 
         gf_proc_dump_lock ();
 
@@ -725,10 +720,12 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
         if (ret < 0)
                 goto out;
 
-        if (dump_options.dump_path)
-                ret = gf_proc_dump_open (dump_options.dump_path, brick_name);
-        else
-                ret = gf_proc_dump_open (ctx->statedump_path, brick_name);
+        snprintf (path, sizeof (path), "%s/%s.%d.dump.%"PRIu64,
+                  ((dump_options.dump_path != NULL)?dump_options.dump_path:
+                   ((ctx->statedump_path != NULL)?ctx->statedump_path:"/tmp")),
+                  brick_name, getpid(), (uint64_t) time (NULL));
+
+        ret = gf_proc_dump_open (tmp_dump_name);
         if (ret < 0)
                 goto out;
 
@@ -797,6 +794,7 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
 out:
         if (gf_dump_fd != -1)
                 gf_proc_dump_close ();
+        rename (tmp_dump_name, path);
         GF_FREE (dump_options.dump_path);
         dump_options.dump_path = NULL;
         gf_proc_dump_unlock ();
