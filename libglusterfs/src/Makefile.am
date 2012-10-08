@@ -24,6 +24,7 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	graph-print.c trie.c run.c options.c fd-lk.c circ-buff.c \
 	event-history.c gidcache.c ctx.c \
 	$(CONTRIBDIR)/libgen/basename_r.c $(CONTRIBDIR)/libgen/dirname_r.c \
+	$(CONTRIBDIR)/stdlib/gf_mkostemp.c \
 	event-poll.c event-epoll.c
 
 
