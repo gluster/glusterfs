@@ -426,15 +426,6 @@ rpc_clnt_reconnect (void *trans_ptr)
                                 "attempting reconnect");
                         ret = rpc_transport_connect (trans,
                                                      conn->config.remote_port);
-                        /* Every time there is a disconnection, processes
-                           should try to connect to 'glusterd' (ie, default
-                           port) or whichever port given as 'option remote-port'
-                           in volume file. */
-                        /* Below code makes sure the (re-)configured port lasts
-                           for just one successful attempt */
-                        if (!ret)
-                                conn->config.remote_port = 0;
-
                         conn->reconnect =
                                 gf_timer_call_after (clnt->ctx, tv,
                                                      rpc_clnt_reconnect,
@@ -923,6 +914,14 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
 
         case RPC_TRANSPORT_CONNECT:
         {
+                /* Every time there is a disconnection, processes
+                   should try to connect to 'glusterd' (ie, default
+                   port) or whichever port given as 'option remote-port'
+                   in volume file. */
+                /* Below code makes sure the (re-)configured port lasts
+                   for just one successful attempt */
+                conn->config.remote_port = 0;
+
                 if (clnt->notifyfn)
                         ret = clnt->notifyfn (clnt, clnt->mydata,
                                               RPC_CLNT_CONNECT, NULL);
@@ -1479,10 +1478,6 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                 if (conn->connected == 0) {
                         ret = rpc_transport_connect (conn->trans,
                                                      conn->config.remote_port);
-                        /* Below code makes sure the (re-)configured port lasts
-                           for just one successful connect attempt */
-                        if (!ret)
-                                conn->config.remote_port = 0;
                 }
 
                 ret = rpc_transport_submit_request (rpc->conn.trans,
