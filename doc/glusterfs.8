@@ -23,7 +23,8 @@ be made of any commodity hardware, such as x86-64 server with SATA-II RAID and
 Infiniband HBA.
 
 GlusterFS is fully POSIX compliant file system. On client side, it has dependency
-on FUSE package, on server side, it works seemlessly on different operating systems. Currently supported on GNU/Linux and Solaris.
+on FUSE package, on server side, it works seemlessly on different operating systems.
+Currently supported on GNU/Linux and Solaris.
 
 .SH OPTIONS
 
@@ -31,32 +32,54 @@ on FUSE package, on server side, it works seemlessly on different operating syst
 .PP
 .TP
 \fB\-f, \fB\-\-volfile=VOLUME-FILE\fR
-File to use as VOLUME-FILE (the default is /etc/glusterfs/glusterfs.vol).
+File to use as VOLUME-FILE.
 .TP
 \fB\-l, \fB\-\-log\-file=LOGFILE\fR
-File to use for logging.
+File to use for logging (the default is <INSTALL-DIR>/var/log/glusterfs/<MOUNT-POINT>.log).
 .TP
 \fB\-L, \fB\-\-log\-level=LOGLEVEL\fR
-Logging severity.  Valid options are TRACE, DEBUG, INFO, WARNING, ERROR and CRITICAL (the default is WARNING).
+Logging severity.  Valid options are TRACE, DEBUG, INFO, WARNING, ERROR and CRITICAL (the default is INFO).
 .TP
 \fB\-s, \fB\-\-volfile\-server=SERVER\fR
 Server to get the volume from.  This option overrides \fB\-\-volfile \fR option.
+.TP
+\fB\-\-volfile\-max\-fetch\-attempts=MAX\-ATTEMPTS\fR
+Maximum number of connect attempts to server. This option should be provided with
+\fB\-\-volfile\-server\fR option (the default is 1).
 
 .SS "Advanced options"
 .PP
+.TP
+\fB\-\-acl\fR
+Mount the filesystem with POSIX ACL support.
 .TP
 \fB\-\-debug\fR
 Run in debug mode.  This option sets \fB\-\-no\-daemon\fR, \fB\-\-log\-level\fR to DEBUG,
 and \fB\-\-log\-file\fR to console.
 .TP
+\fB\-\-enable\-ino32=BOOL\fR
+Use 32-bit inodes when mounting to workaround application that doesn't support 64-bit inodes.
+.TP
+\fB\-\-fopen\-keep\-cache\fR
+Do not purge the cache on file open.
+.TP
+\fB\-\-mac\-compat=BOOL\fR
+Provide stubs for attributes needed for seamless operation on Macs (the default is off).
+.TP
 \fB\-N, \fB\-\-no\-daemon\fR
 Run in the foreground.
 .TP
-\fB\-\-read\-only\fR
-Make the file system read-only.
-.TP
 \fB\-p, \fB\-\-pid\-file=PIDFILE\fR
 File to use as PID file.
+.TP
+\fB\-\-read\-only\fR
+Mount the file system in 'read-only' mode.
+.TP
+\fB\-\-selinux\fR
+Enable SELinux label (extended attributes) support on inodes.
+.TP
+\fB\-S, \fB\-\-socket\-file=SOCKFILE\fR
+File to use as unix-socket.
 .TP
 \fB\-\-volfile\-id=KEY\fR
 Key of the volume file to be fetched from the server.
@@ -70,6 +93,9 @@ Transport type to get volume file from server (the default is socket).
 \fB\-\-volume\-name=VOLUME\-NAME\fR
 Volume name to be used for MOUNT-POINT (the default is top most volume in VOLUME-FILE).
 .TP
+\fB\-\-worm\fR
+Mount the filesystem in 'worm' mode.
+.TP
 \fB\-\-xlator\-option=VOLUME\-NAME.OPTION=VALUE\fR
 Add/Override a translator option for a volume with the specified value.
 
@@ -80,11 +106,29 @@ Add/Override a translator option for a volume with the specified value.
 \fB\-\-attribute\-timeout=SECONDS\fR
 Set attribute timeout to SECONDS for inodes in fuse kernel module (the default is 1).
 .TP
-\fB\-\-entry\-timeout=SECONDS\fR
-Set entry timeout to SECONDS in fuse kernel module (the default is 1).
+\fB\-\-background\-qlen=N\fR
+Set fuse module's background queue length to N (the default is 64).
+.TP
+\fB\-\-congestion\-threshold=N\fR
+Set fuse module's congestion threshold to N (the default is 48).
 .TP
 \fB\-\-direct\-io\-mode=BOOL\fR
 Enable/Disable the direct-I/O mode in fuse module (the default is enable).
+.TP
+\fB\-\-dump-fuse=PATH\f\R
+Dump fuse traffic to PATH
+.TP
+\fB\-\-entry\-timeout=SECONDS\fR
+Set entry timeout to SECONDS in fuse kernel module (the default is 1).
+.TP
+\fB\-\-gid\-timeout=SECONDS\fR
+Set auxilary group list timeout to SECONDS for fuse translator (the default is 0).
+.TP
+\fB\-\-negative\-timeout=SECONDS\fR
+Set negative timeout to SECONDS in fuse kernel module (the default is 0).
+.TP
+\fB\-\-volfile-check\fR
+Enable strict volume file checking.
 
 .SS "Miscellaneous Options"
 .PP
@@ -101,7 +145,7 @@ Print the program version.
 
 .PP
 .SH FILES
-/etc/glusterfs/*.vol, /var/lib/glusterd/vols/*/*.vol
+/var/lib/glusterd/vols/*/*.vol
 .SH EXAMPLES
 mount a volume named foo on server bar with log level DEBUG on mount point
 /mnt/foo
@@ -115,6 +159,6 @@ mount a volume named foo on server bar with log level DEBUG on mount point
 .fi
 .SH COPYRIGHT
 .nf
-Copyright(c) 2006-2011  Gluster, Inc.  <http://www.gluster.com>
+Copyright(c) 2006-2011  Red Hat, Inc.  <http://www.redhat.com>
 \fR
 .fi
