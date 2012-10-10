@@ -91,6 +91,12 @@ struct nfs_state {
         gf_boolean_t            server_aux_gids;
 	uint32_t		server_aux_gids_max_age;
 	gid_cache_t		gid_cache;
+        uint32_t                generation;
+};
+
+struct nfs_inode_ctx {
+        struct list_head        shares;
+        uint32_t                generation;
 };
 
 #define gf_nfs_dvm_on(nfsstt)   (((struct nfs_state *)nfsstt)->dynamicvolumes == GF_NFS_DVM_ON)

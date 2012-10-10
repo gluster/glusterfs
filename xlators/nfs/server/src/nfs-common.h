@@ -84,4 +84,7 @@ nfs_hash_gfid (uuid_t gfid);
 
 extern int
 nfs_gfid_loc_fill (inode_table_t *itable, uuid_t gfid, loc_t *loc, int how);
+
+void
+nfs_fix_generation (xlator_t *this, inode_t *inode);
 #endif

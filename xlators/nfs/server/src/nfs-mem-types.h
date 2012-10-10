@@ -53,6 +53,7 @@ enum gf_nfs_mem_types_ {
         gf_nfs_mt_nlm4_nlmclnt,
         gf_nfs_mt_nlm4_share,
         gf_nfs_mt_aux_gids,
+        gf_nfs_mt_inode_ctx,
         gf_nfs_mt_end
 };
 #endif
