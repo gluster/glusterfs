@@ -1376,7 +1376,8 @@ glusterd_brick_disconnect (glusterd_brickinfo_t *brickinfo)
 
 int32_t
 glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
-                                glusterd_brickinfo_t   *brickinfo)
+                                glusterd_brickinfo_t   *brickinfo,
+                                gf_boolean_t del_brick)
 {
         xlator_t                *this = NULL;
         glusterd_conf_t         *priv = NULL;
@@ -1391,6 +1392,9 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
         GF_ASSERT (this);
 
         priv = this->private;
+        if (del_brick)
+                list_del_init (&brickinfo->brick_list);
+
         (void) glusterd_brick_disconnect (brickinfo);
 
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
@@ -1402,6 +1406,9 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
                 glusterd_set_brick_status (brickinfo, GF_BRICK_STOPPED);
                 (void) glusterd_brick_unlink_socket_file (volinfo, brickinfo);
         }
+
+        if (del_brick)
+                glusterd_delete_brick (volinfo, brickinfo);
         return ret;
 }
 
@@ -2456,7 +2463,11 @@ glusterd_volinfo_stop_stale_bricks (glusterd_volinfo_t *new_volinfo,
                                                      old_brickinfo->path,
                                                      new_volinfo, &new_brickinfo);
                 if (ret) {
-                        ret = glusterd_brick_stop (old_volinfo, old_brickinfo);
+                        /*TODO: may need to switch to 'atomic' flavour of
+                         * brick_stop, once we make peer rpc program also
+                         * synctask enabled*/
+                        ret = glusterd_brick_stop (old_volinfo, old_brickinfo,
+                                                   _gf_false);
                         if (ret)
                                 gf_log ("glusterd", GF_LOG_ERROR, "Failed to "
                                         "stop brick %s:%s", old_brickinfo->hostname,
@@ -4255,7 +4266,8 @@ out:
 
 int
 glusterd_brick_stop (glusterd_volinfo_t *volinfo,
-                     glusterd_brickinfo_t *brickinfo)
+                     glusterd_brickinfo_t *brickinfo,
+                     gf_boolean_t del_brick)
 {
         int                                     ret   = -1;
         xlator_t                                *this = NULL;
@@ -4287,7 +4299,7 @@ glusterd_brick_stop (glusterd_volinfo_t *volinfo,
         gf_log ("", GF_LOG_INFO, "About to stop glusterfs"
                 " for brick %s:%s", brickinfo->hostname,
                 brickinfo->path);
-        ret = glusterd_volume_stop_glusterfs (volinfo, brickinfo);
+        ret = glusterd_volume_stop_glusterfs (volinfo, brickinfo, del_brick);
         if (ret) {
                 gf_log ("", GF_LOG_CRITICAL, "Unable to remove"
                         " brick: %s:%s", brickinfo->hostname,
@@ -4905,13 +4917,6 @@ glusterd_delete_brick (glusterd_volinfo_t* volinfo,
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
 
-#ifdef DEBUG
-        ret = glusterd_volume_brickinfo_get (brickinfo->uuid,
-                                             brickinfo->hostname,
-                                             brickinfo->path, volinfo,
-                                             NULL);
-        GF_ASSERT (0 == ret);
-#endif
         glusterd_delete_volfile (volinfo, brickinfo);
         glusterd_store_delete_brick (volinfo, brickinfo);
         glusterd_brickinfo_delete (brickinfo);

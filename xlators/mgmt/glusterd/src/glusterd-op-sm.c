@@ -1007,7 +1007,9 @@ glusterd_stop_bricks (glusterd_volinfo_t *volinfo)
         glusterd_brickinfo_t                    *brickinfo = NULL;
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (glusterd_brick_stop (volinfo, brickinfo))
+            /*TODO: Need to change @del_brick in brick_stop to _gf_true
+             * once we enable synctask in peer rpc prog */
+                if (glusterd_brick_stop (volinfo, brickinfo, _gf_false))
                         return -1;
         }
 
