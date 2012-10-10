@@ -432,3 +432,38 @@ nfs_hash_gfid (uuid_t gfid)
 }
 
 
+void
+nfs_fix_generation (xlator_t *this, inode_t *inode)
+{
+        uint64_t                 raw_ctx        = 0;
+        struct nfs_inode_ctx    *ictx           = NULL;
+        struct nfs_state        *priv           = NULL;
+        int                      ret            = -1;
+
+        if (!inode) {
+                return;
+        }
+        priv = this->private;
+
+        if (inode_ctx_get(inode,this,&raw_ctx) == 0) {
+                ictx = (struct nfs_inode_ctx *)raw_ctx;
+                ictx->generation = priv->generation;
+        }
+        else {
+                ictx = GF_CALLOC (1, sizeof (struct nfs_inode_ctx),
+                                  gf_nfs_mt_inode_ctx);
+                if (!ictx) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "could not allocate nfs inode ctx");
+                        return;
+                }
+                INIT_LIST_HEAD(&ictx->shares);
+                ictx->generation = priv->generation;
+                ret = inode_ctx_put (inode, this, (uint64_t)ictx);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "could not store nfs inode ctx");
+                        return;
+                }
+        }
+}
