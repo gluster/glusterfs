@@ -916,6 +916,14 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
         volinfo->sub_count = ((volinfo->dist_leaf_count == 1) ? 0:
                               volinfo->dist_leaf_count);
 
+        ret = glusterd_create_volfiles_and_notify_services (volinfo);
+        if (ret)
+                goto out;
+
+        ret = 0;
+        if (GLUSTERD_STATUS_STARTED != volinfo->status)
+                goto out;
+
         brick_list = gf_strdup (bricks);
         free_ptr2 = brick_list;
         i = 1;
@@ -923,17 +931,16 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
         if (count)
                 brick = strtok_r (brick_list+1, " \n", &saveptr);
 
-        ret = glusterd_create_volfiles_and_notify_services (volinfo);
-        if (ret)
-                goto out;
-
         while (i <= count) {
 
-                if (GLUSTERD_STATUS_STARTED == volinfo->status) {
-                        ret = glusterd_brick_start (volinfo, brickinfo);
-                        if (ret)
-                                goto out;
-                }
+                ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
+                                                              &brickinfo);
+                if (ret)
+                        goto out;
+
+                ret = glusterd_brick_start (volinfo, brickinfo);
+                if (ret)
+                        goto out;
                 i++;
                 brick = strtok_r (NULL, " \n", &saveptr);
         }
