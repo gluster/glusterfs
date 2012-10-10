@@ -336,11 +336,21 @@ posix_istat (xlator_t *this, uuid_t gfid, const char *basename,
 
         ret = lstat (real_path, &lstatbuf);
 
-        if (ret == -1) {
-                if (errno != ENOENT && errno != ELOOP)
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "lstat failed on %s (%s)",
-                                real_path, strerror (errno));
+        if (ret != 0) {
+                if (ret == -1) {
+                        if (errno != ENOENT && errno != ELOOP)
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "lstat failed on %s (%s)",
+                                        real_path, strerror (errno));
+                } else {
+                        // may be some backend filesystem issue
+                        gf_log (this->name, GF_LOG_ERROR, "lstat failed on "
+                                "%s and return value is %d instead of -1. "
+                                "Please see dmesg output to check whether the "
+                                "failure is due to backend filesystem issue",
+                                real_path, ret);
+                        ret = -1;
+                }
                 goto out;
         }
 
@@ -384,11 +394,21 @@ posix_pstat (xlator_t *this, uuid_t gfid, const char *path,
 
         ret = lstat (path, &lstatbuf);
 
-        if (ret == -1) {
-                if (errno != ENOENT)
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "lstat failed on %s (%s)",
-                                path, strerror (errno));
+        if (ret != 0) {
+                if (ret == -1) {
+                        if (errno != ENOENT)
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "lstat failed on %s (%s)",
+                                        path, strerror (errno));
+                } else {
+                        // may be some backend filesytem issue
+                        gf_log (this->name, GF_LOG_ERROR, "lstat failed on "
+                                "%s and return value is %d instead of -1. "
+                                "Please see dmesg output to check whether the "
+                                "failure is due to backend filesystem issue",
+                                path, ret);
+                        ret = -1;
+                }
                 goto out;
         }
 
