@@ -578,7 +578,8 @@ rb_src_brick_restart (glusterd_volinfo_t *volinfo,
                         ret);
         }
 
-        ret = glusterd_volume_stop_glusterfs (volinfo, src_brickinfo);
+        ret = glusterd_volume_stop_glusterfs (volinfo, src_brickinfo,
+                                              _gf_false);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to stop "
                         "glusterfs, ret: %d", ret);

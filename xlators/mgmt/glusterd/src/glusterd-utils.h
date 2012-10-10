@@ -128,7 +128,8 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
 
 int32_t
 glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
-                                glusterd_brickinfo_t   *brickinfo);
+                                glusterd_brickinfo_t   *brickinfo,
+                                gf_boolean_t del_brick);
 
 int32_t
 glusterd_volinfo_delete (glusterd_volinfo_t *volinfo);
@@ -269,7 +270,8 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                       glusterd_brickinfo_t *brickinfo);
 int
 glusterd_brick_stop (glusterd_volinfo_t *volinfo,
-                      glusterd_brickinfo_t *brickinfo);
+                     glusterd_brickinfo_t *brickinfo,
+                     gf_boolean_t del_brick);
 
 int
 glusterd_is_defrag_on (glusterd_volinfo_t *volinfo);

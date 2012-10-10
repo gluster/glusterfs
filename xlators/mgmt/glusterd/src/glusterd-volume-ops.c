@@ -1453,7 +1453,7 @@ glusterd_op_stop_volume (dict_t *dict)
                 goto out;
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                ret = glusterd_brick_stop (volinfo, brickinfo);
+                ret = glusterd_brick_stop (volinfo, brickinfo, _gf_false);
                 if (ret)
                         goto out;
         }
