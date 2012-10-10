@@ -232,10 +232,10 @@ out:
 gf_boolean_t
 wb_requests_overlap (wb_request_t *req1, wb_request_t *req2)
 {
-        off_t            r1_start = 0;
-	off_t            r1_end = 0;
-	off_t            r2_start = 0;
-	off_t            r2_end = 0;
+        uint64_t         r1_start = 0;
+	uint64_t         r1_end = 0;
+	uint64_t         r2_start = 0;
+	uint64_t         r2_end = 0;
         enum _gf_boolean do_overlap = 0;
 
         r1_start = req1->ordering.off;
