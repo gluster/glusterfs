@@ -24,6 +24,7 @@
 struct gf_printer {
         ssize_t (*write) (struct gf_printer *gp, char *buf, size_t len);
         void *priv;
+        int  len;
 };
 
 static ssize_t
@@ -80,17 +81,30 @@ gpprintf (struct gf_printer *gp, const char *format, ...)
         return ret;
 }
 
-static int
-glusterfs_graph_print (struct gf_printer *gp, glusterfs_graph_t *graph)
-{
 #define GPPRINTF(gp, fmt, ...) do {                             \
                 ret = gpprintf (gp, fmt, ## __VA_ARGS__);       \
                 if (ret == -1)                                  \
                         goto out;                               \
                 else                                            \
-                        len += ret;                             \
+                        gp->len += ret;                             \
         } while (0)
 
+static int
+_print_volume_options (dict_t *d, char *k, data_t *v,
+                           void *tmp)
+{
+        struct gf_printer *gp  = tmp;
+        int                ret = 0;
+        GPPRINTF (gp, "    option %s %s\n", k, v->data);
+        return 0;
+out:
+        /* means, it is a failure */
+        return -1;
+}
+
+static int
+glusterfs_graph_print (struct gf_printer *gp, glusterfs_graph_t *graph)
+{
         xlator_t      *trav = NULL;
         xlator_list_t *xch = NULL;
         int            ret = 0;
@@ -104,16 +118,7 @@ glusterfs_graph_print (struct gf_printer *gp, glusterfs_graph_t *graph)
                 GPPRINTF (gp, "volume %s\n    type %s\n", trav->name,
                           trav->type);
 
-                int _print_volume_options (dict_t *d, char *k, data_t *v,
-                                           void *tmp)
-                {
-                        GPPRINTF (gp, "    option %s %s\n", k, v->data);
-                        return 0;
-                out:
-                        /* means, it is a failure */
-                        return -1;
-                }
-                ret = dict_foreach (trav->options, _print_volume_options, NULL);
+                ret = dict_foreach (trav->options, _print_volume_options, gp);
                 if (ret)
                         goto out;
 
@@ -132,6 +137,7 @@ glusterfs_graph_print (struct gf_printer *gp, glusterfs_graph_t *graph)
         }
 
 out:
+        len = gp->len;
         if (ret == -1) {
                 gf_log ("graph-print", GF_LOG_ERROR, "printing failed");
 
