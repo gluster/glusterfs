@@ -5750,3 +5750,560 @@ glusterd_to_cli (rpcsvc_request_t *req, gf_cli_rsp *arg, struct iovec *payload,
 
         return ret;
 }
+
+static int32_t
+glusterd_append_gsync_status (dict_t *dst, dict_t *src)
+{
+        int                ret = 0;
+        char               *stop_msg = NULL;
+
+        ret = dict_get_str (src, "gsync-status", &stop_msg);
+        if (ret) {
+                ret = 0;
+                goto out;
+        }
+
+        ret = dict_set_dynstr (dst, "gsync-status", gf_strdup (stop_msg));
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_WARNING, "Unable to set the stop"
+                        "message in the ctx dictionary");
+                goto out;
+        }
+
+        ret = 0;
+ out:
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+
+}
+
+static int32_t
+glusterd_append_status_dicts (dict_t *dst, dict_t *src)
+{
+        int              dst_count = 0;
+        int              src_count = 0;
+        int              i = 0;
+        int              ret = 0;
+        char             mst[PATH_MAX] = {0,};
+        char             slv[PATH_MAX] = {0, };
+        char             sts[PATH_MAX] = {0, };
+        char             *mst_val = NULL;
+        char             *slv_val = NULL;
+        char             *sts_val = NULL;
+
+        GF_ASSERT (dst);
+
+        if (src == NULL)
+                goto out;
+
+        ret = dict_get_int32 (dst, "gsync-count", &dst_count);
+        if (ret)
+                dst_count = 0;
+
+        ret = dict_get_int32 (src, "gsync-count", &src_count);
+        if (ret || !src_count) {
+                gf_log ("", GF_LOG_DEBUG, "Source brick empty");
+                ret = 0;
+                goto out;
+        }
+
+        for (i = 1; i <= src_count; i++) {
+                snprintf (mst, sizeof(mst), "master%d", i);
+                snprintf (slv, sizeof(slv), "slave%d", i);
+                snprintf (sts, sizeof(sts), "status%d", i);
+
+                ret = dict_get_str (src, mst, &mst_val);
+                if (ret)
+                        goto out;
+
+                ret = dict_get_str (src, slv, &slv_val);
+                if (ret)
+                        goto out;
+
+                ret = dict_get_str (src, sts, &sts_val);
+                if (ret)
+                        goto out;
+
+                snprintf (mst, sizeof(mst), "master%d", i+dst_count);
+                snprintf (slv, sizeof(slv), "slave%d", i+dst_count);
+                snprintf (sts, sizeof(sts), "status%d", i+dst_count);
+
+                ret = dict_set_dynstr (dst, mst, gf_strdup (mst_val));
+                if (ret)
+                        goto out;
+
+                ret = dict_set_dynstr (dst, slv, gf_strdup (slv_val));
+                if (ret)
+                        goto out;
+
+                ret = dict_set_dynstr (dst, sts, gf_strdup (sts_val));
+                if (ret)
+                        goto out;
+
+        }
+
+        ret = dict_set_int32 (dst, "gsync-count", dst_count+src_count);
+
+ out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+
+}
+
+int32_t
+glusterd_gsync_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict, char *op_errstr)
+{
+        dict_t             *ctx = NULL;
+        int                ret = 0;
+
+        if (aggr) {
+                ctx = aggr;
+
+        } else {
+                ctx = glusterd_op_get_ctx ();
+                if (!ctx) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Operation Context is not present");
+                        GF_ASSERT (0);
+                }
+        }
+
+        if (rsp_dict) {
+                ret = glusterd_append_status_dicts (ctx, rsp_dict);
+                if (ret)
+                        goto out;
+
+                ret = glusterd_append_gsync_status (ctx, rsp_dict);
+                if (ret)
+                        goto out;
+        }
+        if (strcmp ("", op_errstr)) {
+                ret = dict_set_dynstr (ctx, "errstr", gf_strdup(op_errstr));
+                if (ret)
+                        goto out;
+        }
+
+        ret = 0;
+ out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d ", ret);
+        return ret;
+}
+
+int32_t
+glusterd_rb_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
+{
+        int32_t  src_port = 0;
+        int32_t  dst_port = 0;
+        int      ret      = 0;
+        dict_t  *ctx      = NULL;
+
+
+        if (aggr) {
+                ctx = aggr;
+
+        } else {
+                ctx = glusterd_op_get_ctx ();
+                if (!ctx) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Operation Context is not present");
+                        GF_ASSERT (0);
+                }
+        }
+
+        if (rsp_dict) {
+                ret = dict_get_int32 (rsp_dict, "src-brick-port", &src_port);
+                if (ret == 0) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "src-brick-port=%d found", src_port);
+                }
+
+                ret = dict_get_int32 (rsp_dict, "dst-brick-port", &dst_port);
+                if (ret == 0) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "dst-brick-port=%d found", dst_port);
+                }
+
+        }
+
+        if (src_port) {
+                ret = dict_set_int32 (ctx, "src-brick-port",
+                                      src_port);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Could not set src-brick");
+                        goto out;
+                }
+        }
+
+        if (dst_port) {
+                ret = dict_set_int32 (ctx, "dst-brick-port",
+                                      dst_port);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Could not set dst-brick");
+                        goto out;
+                }
+
+        }
+
+out:
+        return ret;
+
+}
+
+int32_t
+glusterd_sync_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
+{
+        int      ret      = 0;
+
+        GF_ASSERT (rsp_dict);
+
+        if (!rsp_dict) {
+                goto out;
+        }
+
+        ret = glusterd_import_friend_volumes (rsp_dict);
+out:
+        return ret;
+
+}
+
+static int
+_profile_volume_add_friend_rsp (dict_t *this, char *key, data_t *value,
+                               void *data)
+{
+        char    new_key[256] = {0};
+        glusterd_pr_brick_rsp_conv_t *rsp_ctx = NULL;
+        data_t  *new_value = NULL;
+        int     brick_count = 0;
+        char    brick_key[256];
+
+        if (strcmp (key, "count") == 0)
+                return 0;
+        sscanf (key, "%d%s", &brick_count, brick_key);
+        rsp_ctx = data;
+        new_value = data_copy (value);
+        GF_ASSERT (new_value);
+        snprintf (new_key, sizeof (new_key), "%d%s",
+                  rsp_ctx->count + brick_count, brick_key);
+        dict_set (rsp_ctx->dict, new_key, new_value);
+        return 0;
+}
+
+int
+glusterd_profile_volume_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
+{
+        int     ret = 0;
+        glusterd_pr_brick_rsp_conv_t rsp_ctx = {0};
+        int32_t brick_count = 0;
+        int32_t count = 0;
+        dict_t  *ctx_dict = NULL;
+        glusterd_op_t   op = GD_OP_NONE;
+
+        GF_ASSERT (rsp_dict);
+
+        ret = dict_get_int32 (rsp_dict, "count", &brick_count);
+        if (ret) {
+                ret = 0; //no bricks in the rsp
+                goto out;
+        }
+
+        op = glusterd_op_get_op ();
+        GF_ASSERT (GD_OP_PROFILE_VOLUME == op);
+        if (aggr) {
+                ctx_dict = aggr;
+
+        } else {
+                ctx_dict = glusterd_op_get_ctx ();
+        }
+
+        ret = dict_get_int32 (ctx_dict, "count", &count);
+        rsp_ctx.count = count;
+        rsp_ctx.dict = ctx_dict;
+        dict_foreach (rsp_dict, _profile_volume_add_friend_rsp, &rsp_ctx);
+        dict_del (ctx_dict, "count");
+        ret = dict_set_int32 (ctx_dict, "count", count + brick_count);
+out:
+        return ret;
+}
+
+static int
+glusterd_volume_status_add_peer_rsp (dict_t *this, char *key, data_t *value,
+                                     void *data)
+{
+        glusterd_status_rsp_conv_t      *rsp_ctx = NULL;
+        data_t                          *new_value = NULL;
+        char                            brick_key[1024] = {0,};
+        char                            new_key[1024] = {0,};
+        int32_t                         index = 0;
+        int32_t                         ret = 0;
+
+        /* Skip the following keys, they are already present in the ctx_dict */
+        if (!strcmp (key, "count") || !strcmp (key, "cmd") ||
+            !strcmp (key, "brick-index-max") || !strcmp (key, "other-count"))
+                return 0;
+
+        rsp_ctx = data;
+        new_value = data_copy (value);
+        GF_ASSERT (new_value);
+
+        sscanf (key, "brick%d.%s", &index, brick_key);
+
+        if (index > rsp_ctx->brick_index_max) {
+                snprintf (new_key, sizeof (new_key), "brick%d.%s",
+                          index + rsp_ctx->other_count, brick_key);
+        } else {
+                strncpy (new_key, key, sizeof (new_key));
+                new_key[sizeof (new_key) - 1] = 0;
+        }
+
+        ret = dict_set (rsp_ctx->dict, new_key, new_value);
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, "Unable to set key: %s in dict",
+                        key);
+
+        return 0;
+}
+
+int
+glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
+{
+        int                             ret = 0;
+        glusterd_status_rsp_conv_t      rsp_ctx = {0};
+        int32_t                         node_count = 0;
+        int32_t                         rsp_node_count = 0;
+        int32_t                         brick_index_max = -1;
+        int32_t                         other_count = 0;
+        int32_t                         rsp_other_count = 0;
+        dict_t                          *ctx_dict = NULL;
+        glusterd_op_t                   op = GD_OP_NONE;
+
+        GF_ASSERT (rsp_dict);
+
+        ret = dict_get_int32 (rsp_dict, "count", &rsp_node_count);
+        if (ret) {
+                ret = 0; //no bricks in the rsp
+                goto out;
+        }
+
+        ret = dict_get_int32 (rsp_dict, "other-count", &rsp_other_count);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to get other count from rsp_dict");
+                goto out;
+        }
+
+        op = glusterd_op_get_op ();
+        GF_ASSERT (GD_OP_STATUS_VOLUME == op);
+        if (aggr) {
+            ctx_dict = aggr;
+
+        } else {
+                ctx_dict = glusterd_op_get_ctx (op);
+
+        }
+
+        ret = dict_get_int32 (ctx_dict, "count", &node_count);
+        ret = dict_get_int32 (ctx_dict, "brick-index-max", &brick_index_max);
+        ret = dict_get_int32 (ctx_dict, "other-count", &other_count);
+
+        rsp_ctx.count = node_count;
+        rsp_ctx.brick_index_max = brick_index_max;
+        rsp_ctx.other_count = other_count;
+        rsp_ctx.dict = ctx_dict;
+
+        dict_foreach (rsp_dict, glusterd_volume_status_add_peer_rsp, &rsp_ctx);
+
+        ret = dict_set_int32 (ctx_dict, "count", node_count + rsp_node_count);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to update node count");
+                goto out;
+        }
+
+        ret = dict_set_int32 (ctx_dict, "other-count",
+                              (other_count + rsp_other_count));
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to update other-count");
+out:
+        return ret;
+}
+
+int
+glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
+{
+        int            ret      = 0;
+        dict_t        *ctx_dict = NULL;
+        glusterd_op_t  op       = GD_OP_NONE;
+        uint64_t       value    = 0;
+        int32_t        value32  = 0;
+        char          *volname  = NULL;
+        glusterd_volinfo_t *volinfo = NULL;
+        char           key[256] = {0,};
+        int32_t        index    = 0;
+        int32_t        i        = 0;
+        char          *node_uuid = NULL;
+        char          *node_uuid_str = NULL;
+        double         elapsed_time = 0;
+
+        GF_ASSERT (rsp_dict);
+
+        op = glusterd_op_get_op ();
+        GF_ASSERT ((GD_OP_REBALANCE == op) ||
+                   (GD_OP_DEFRAG_BRICK_VOLUME == op));
+
+        if (aggr) {
+                ctx_dict = aggr;
+
+        } else {
+                ctx_dict = glusterd_op_get_ctx (op);
+
+        }
+
+        if (!ctx_dict)
+                goto out;
+
+        ret = dict_get_int32 (ctx_dict, "count", &i);
+        i++;
+        ret = dict_set_int32 (ctx_dict, "count", i);
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, "Failed to set index");
+
+        ret = dict_get_str (ctx_dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+
+        if (ret)
+                goto out;
+
+        ret = dict_get_int32 (rsp_dict, "count", &index);
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, "failed to get index");
+
+        snprintf (key, 256, "files-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "files-%d", i);
+                ret = dict_set_uint64 (ctx_dict, key, value);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set the file count");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "size-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "size-%d", i);
+                ret = dict_set_uint64 (ctx_dict, key, value);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set the size of migration");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "lookups-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "lookups-%d", i);
+                ret = dict_set_uint64 (ctx_dict, key, value);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set lookuped file count");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "status-%d", index);
+        ret = dict_get_int32 (rsp_dict, key, &value32);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "status-%d", i);
+                ret = dict_set_int32 (ctx_dict, key, value32);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set status");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "node-uuid-%d", index);
+        ret = dict_get_str (rsp_dict, key, &node_uuid);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "node-uuid-%d", i);
+                node_uuid_str = gf_strdup (node_uuid);
+                ret = dict_set_dynstr (ctx_dict, key, node_uuid_str);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set node-uuid");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "failures-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "failures-%d", i);
+                ret = dict_set_uint64 (ctx_dict, key, value);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set failure count");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "run-time-%d", index);
+        ret = dict_get_double (rsp_dict, key, &elapsed_time);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "run-time-%d", i);
+                ret = dict_set_double (ctx_dict, key, elapsed_time);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set run-time");
+                }
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+int
+glusterd_volume_heal_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
+{
+        int            ret      = 0;
+        dict_t        *ctx_dict = NULL;
+        glusterd_op_t  op       = GD_OP_NONE;
+
+        GF_ASSERT (rsp_dict);
+
+        op = glusterd_op_get_op ();
+        GF_ASSERT (GD_OP_HEAL_VOLUME == op);
+
+        if (aggr) {
+                ctx_dict = aggr;
+
+        } else {
+                ctx_dict = glusterd_op_get_ctx (op);
+        }
+
+        if (!ctx_dict)
+                goto out;
+        dict_copy (rsp_dict, ctx_dict);
+out:
+        return ret;
+}

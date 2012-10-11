@@ -266,10 +266,32 @@ out:
         return ret;
 }
 
+struct args_pack {
+    dict_t *dict;
+    int vol_count;
+    int opt_count;
+};
+
+static int
+_build_option_key (dict_t *d, char *k, data_t *v, void *tmp)
+{
+        char                    reconfig_key[256] = {0, };
+        struct args_pack        *pack             = NULL;
+        int                     ret               = -1;
+
+        pack = tmp;
+        snprintf (reconfig_key, 256, "volume%d.option.%s",
+                  pack->vol_count, k);
+        ret = dict_set_str (pack->dict, reconfig_key, v->data);
+        if (0 == ret)
+                pack->opt_count++;
+
+        return 0;
+}
 
 int
 glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
-                                    dict_t  *volumes, int   count)
+                                    dict_t  *volumes, int count)
 {
 
         int                     ret = -1;
@@ -277,11 +299,10 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         glusterd_brickinfo_t    *brickinfo = NULL;
         char                    *buf = NULL;
         int                     i = 1;
-        char                    reconfig_key[256] = {0, };
         dict_t                  *dict = NULL;
-        int                     opt_count = 0;
         glusterd_conf_t         *priv = NULL;
         char                    *volume_id_str  = NULL;
+        struct args_pack        pack = {0,};
 
 
         GF_ASSERT (volinfo);
@@ -363,18 +384,13 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        int _build_option_key (dict_t *d, char *k, data_t *v, void *tmp)
-        {
-                snprintf (reconfig_key, 256, "volume%d.option.%s", count, k);
-                ret = dict_set_str  (volumes, reconfig_key, v->data);
-                if (0 == ret)
-                        opt_count++;
-                return 0;
-        }
-        dict_foreach (dict, _build_option_key, NULL);
+        pack.dict = volumes;
+        pack.vol_count = count;
+        pack.opt_count = 0;
+        dict_foreach (dict, _build_option_key, (void *) &pack);
 
-        snprintf (key, 256, "volume%d.opt_count", count);
-        ret = dict_set_int32 (volumes, key, opt_count);
+        snprintf (key, 256, "volume%d.opt_count", pack.vol_count);
+        ret = dict_set_int32 (volumes, key, pack.opt_count);
 out:
         return ret;
 }

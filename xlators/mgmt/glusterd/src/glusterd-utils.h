@@ -440,4 +440,19 @@ void
 glusterd_volinfo_reset_defrag_stats (glusterd_volinfo_t *volinfo);
 int
 glusterd_volset_help (dict_t *dict, char **op_errstr);
+
+int32_t
+glusterd_sync_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
+int32_t
+glusterd_gsync_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict, char *op_errstr);
+int32_t
+glusterd_rb_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
+int
+glusterd_profile_volume_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
+int
+glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict);
+int
+glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
+int
+glusterd_volume_heal_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
 #endif
