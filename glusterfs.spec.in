@@ -257,7 +257,7 @@ fi
 %{_libdir}/glusterfs
 %{_libdir}/*.so.*
 %{_sbindir}/glusterfs*
-#%{_mandir}/man8/*gluster*.8*
+%{_mandir}/man8/*gluster*.8*
 %dir %{_localstatedir}/log/glusterfs
 %if 0%{!?_without_rdma:1}
 %exclude %{_libdir}/glusterfs/%{version}/rpc-transport/rdma*
