@@ -124,7 +124,8 @@ glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo);
 
 int32_t
 glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
-                                 glusterd_brickinfo_t   *brickinfo);
+                                 glusterd_brickinfo_t   *brickinfo,
+                                 gf_boolean_t wait);
 
 int32_t
 glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
@@ -242,8 +243,8 @@ int32_t
 glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                              dict_t  *dict, int32_t count);
 int
-glusterd_get_brickinfo (xlator_t *this, const char *brickname, 
-                        int port, gf_boolean_t localhost, 
+glusterd_get_brickinfo (xlator_t *this, const char *brickname,
+                        int port, gf_boolean_t localhost,
                         glusterd_brickinfo_t **brickinfo);
 
 void
@@ -267,7 +268,8 @@ glusterd_all_volume_cond_check (glusterd_condition_func func, int status,
                                 void *ctx);
 int
 glusterd_brick_start (glusterd_volinfo_t *volinfo,
-                      glusterd_brickinfo_t *brickinfo);
+                      glusterd_brickinfo_t *brickinfo,
+                      gf_boolean_t wait);
 int
 glusterd_brick_stop (glusterd_volinfo_t *volinfo,
                      glusterd_brickinfo_t *brickinfo,

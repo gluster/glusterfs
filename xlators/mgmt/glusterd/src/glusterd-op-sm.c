@@ -1022,7 +1022,7 @@ glusterd_start_bricks (glusterd_volinfo_t *volinfo)
         glusterd_brickinfo_t                    *brickinfo = NULL;
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (glusterd_brick_start (volinfo, brickinfo))
+                if (glusterd_brick_start (volinfo, brickinfo, _gf_false))
                         return -1;
         }
 
@@ -1844,7 +1844,7 @@ out:
 }
 
 int
-glusterd_op_build_payload (dict_t **req, char **op_errstr)
+glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
 {
         int                     ret = -1;
         void                    *ctx = NULL;
@@ -1860,14 +1860,24 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr)
         if (!req_dict)
                 goto out;
 
-        op  = glusterd_op_get_op ();
-        ctx = (void*)glusterd_op_get_ctx ();
-        if (!ctx) {
-                gf_log ("", GF_LOG_ERROR, "Null Context for "
-                        "op %d", op);
-                ret = -1;
-                goto out;
+        if (!op_ctx) {
+                op  = glusterd_op_get_op ();
+                ctx = (void*)glusterd_op_get_ctx ();
+                if (!ctx) {
+                        gf_log ("", GF_LOG_ERROR, "Null Context for "
+                                "op %d", op);
+                        ret = -1;
+                        goto out;
+                }
+
+        } else {
+#define GD_SYNC_OPCODE_KEY "sync-mgmt-operation"
+                ret = dict_get_int32 (op_ctx, GD_SYNC_OPCODE_KEY, (int32_t*)&op);
+                if (ret)
+                        goto out;
+                ctx = op_ctx;
         }
+#undef GD_SYNC_OPCODE_KEY
 
         switch (op) {
                 case GD_OP_CREATE_VOLUME:
@@ -2002,7 +2012,7 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 
         op = glusterd_op_get_op ();
 
-        ret = glusterd_op_build_payload (&dict, &op_errstr);
+        ret = glusterd_op_build_payload (&dict, &op_errstr, NULL);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Building payload failed");
                 opinfo.op_errstr = op_errstr;
@@ -2280,7 +2290,8 @@ out:
 }
 
 static int
-glusterd_op_commit_hook (glusterd_op_t op, dict_t *op_ctx,  glusterd_commit_hook_type_t type)
+glusterd_op_commit_hook (glusterd_op_t op, dict_t *op_ctx,
+                         glusterd_commit_hook_type_t type)
 {
         glusterd_conf_t *priv                   = NULL;
         char            hookdir[PATH_MAX]       = {0, };
@@ -2353,7 +2364,7 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         op      = glusterd_op_get_op ();
         op_dict = glusterd_op_get_ctx ();
 
-        ret = glusterd_op_build_payload (&dict, &op_errstr);
+        ret = glusterd_op_build_payload (&dict, &op_errstr, NULL);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Building payload failed");
                 opinfo.op_errstr = op_errstr;
@@ -2767,7 +2778,7 @@ glusterd_need_brick_op (glusterd_op_t op)
         return ret;
 }
 
-static dict_t*
+dict_t*
 glusterd_op_init_commit_rsp_dict (glusterd_op_t op)
 {
         dict_t                  *rsp_dict = NULL;
@@ -4106,7 +4117,8 @@ glusterd_op_ac_send_brick_op (glusterd_op_sm_event_t *event, void *ctx)
                 op = glusterd_op_get_op ();
                 req_ctx->op = op;
                 uuid_copy (req_ctx->uuid, MY_UUID);
-                ret = glusterd_op_build_payload (&req_ctx->dict, &op_errstr);
+                ret = glusterd_op_build_payload (&req_ctx->dict, &op_errstr,
+                                                 NULL);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Building payload failed");

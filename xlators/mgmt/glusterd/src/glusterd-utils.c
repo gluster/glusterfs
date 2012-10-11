@@ -1155,7 +1155,8 @@ out:
 
 int32_t
 glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
-                                 glusterd_brickinfo_t  *brickinfo)
+                                 glusterd_brickinfo_t  *brickinfo,
+                                 gf_boolean_t wait)
 {
         int32_t                 ret = -1;
         xlator_t                *this = NULL;
@@ -1306,7 +1307,11 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 runner_add_arg (&runner, "--mem-accounting");
 
         runner_log (&runner, "", GF_LOG_DEBUG, "Starting GlusterFS");
-        ret = runner_run_nowait (&runner);
+        if (wait)
+                ret = runner_run (&runner);
+        else
+                ret = runner_run_nowait (&runner);
+
         if (ret)
                 goto out;
 
@@ -3460,7 +3465,8 @@ out:
 
 int
 glusterd_brick_start (glusterd_volinfo_t *volinfo,
-                      glusterd_brickinfo_t *brickinfo)
+                      glusterd_brickinfo_t *brickinfo,
+                      gf_boolean_t wait)
 {
         int                                     ret   = -1;
         xlator_t                                *this = NULL;
@@ -3488,7 +3494,7 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                 ret = 0;
                 goto out;
         }
-        ret = glusterd_volume_start_glusterfs (volinfo, brickinfo);
+        ret = glusterd_volume_start_glusterfs (volinfo, brickinfo, wait);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to start "
                         "glusterfs, ret: %d", ret);
@@ -3513,7 +3519,8 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                 if (volinfo->status == GLUSTERD_STATUS_STARTED) {
                         list_for_each_entry (brickinfo, &volinfo->bricks,
                                              brick_list) {
-                                glusterd_brick_start (volinfo, brickinfo);
+                                glusterd_brick_start (volinfo, brickinfo,
+                                                     _gf_true);
                         }
                         start_nodesvcs = _gf_true;
                 }

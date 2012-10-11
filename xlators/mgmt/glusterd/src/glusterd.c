@@ -735,6 +735,29 @@ _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
         return -1;
 }
 
+static int
+glusterd_default_synctask_cbk (int ret, call_frame_t *frame, void *opaque)
+{
+    return ret;
+}
+
+static int
+glusterd_launch_synctask (xlator_t *this, synctask_fn_t fn)
+{
+    glusterd_conf_t *priv = NULL;
+    int              ret  = -1;
+
+    priv = this->private;
+
+    ret = synctask_new (this->ctx->env, fn,
+                        glusterd_default_synctask_cbk, NULL, priv);
+
+    if (ret)
+            gf_log (this->name, GF_LOG_CRITICAL, "Failed to create synctask"
+                    "for starting process");
+    return ret;
+}
+
 /*
  * init - called during glusterd initialization
  *
@@ -1016,16 +1039,17 @@ init (xlator_t *this)
         if (ret)
                 goto out;
 
-        glusterd_restart_bricks (conf);
-        ret = glusterd_restart_gsyncds (conf);
-        if (ret)
-                goto out;
+        glusterd_launch_synctask (this,
+                                  (synctask_fn_t) glusterd_restart_bricks);
+        glusterd_launch_synctask (this,
+                                  (synctask_fn_t) glusterd_restart_gsyncds);
+        glusterd_launch_synctask (this,
+                                  (synctask_fn_t) glusterd_restart_rebalance);
 
         ret = glusterd_hooks_spawn_worker (this);
         if (ret)
                 goto out;
 
-        glusterd_restart_rebalance (conf);
         ret = 0;
 out:
         if (ret < 0) {

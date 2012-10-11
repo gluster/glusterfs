@@ -2963,7 +2963,7 @@ struct rpcsvc_program gd_svc_mgmt_prog = {
         .progver   = GD_MGMT_VERSION,
         .numactors = GLUSTERD_MGMT_MAXVALUE,
         .actors    = gd_svc_mgmt_actors,
-	.synctask  = _gf_false,
+	.synctask  = _gf_true,
 };
 
 rpcsvc_actor_t gd_svc_peer_actors[] = {
@@ -3022,5 +3022,5 @@ struct rpcsvc_program gd_svc_cli_prog = {
         .progver   = GLUSTER_CLI_VERSION,
         .numactors = GLUSTER_CLI_MAXVALUE,
         .actors    = gd_svc_cli_actors,
-	.synctask  = _gf_false,
+	.synctask  = _gf_true,
 };

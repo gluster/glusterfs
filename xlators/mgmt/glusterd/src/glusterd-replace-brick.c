@@ -606,7 +606,8 @@ rb_src_brick_restart (glusterd_volinfo_t *volinfo,
         }
 
         sleep (2);
-        ret = glusterd_volume_start_glusterfs (volinfo, src_brickinfo);
+        ret = glusterd_volume_start_glusterfs (volinfo, src_brickinfo,
+                                              _gf_false);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to start "
                         "glusterfs, ret: %d", ret);
@@ -1379,7 +1380,7 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
                 goto out;
 
         if (GLUSTERD_STATUS_STARTED == volinfo->status) {
-                ret = glusterd_brick_start (volinfo, new_brickinfo);
+                ret = glusterd_brick_start (volinfo, new_brickinfo, _gf_false);
                 if (ret)
                         goto out;
         }

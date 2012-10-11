@@ -181,7 +181,7 @@ int32_t
 glusterd_op_set_op (glusterd_op_t op);
 
 int
-glusterd_op_build_payload (dict_t **req, char **op_errstr);
+glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx);
 
 int32_t
 glusterd_op_stage_validate (glusterd_op_t op, dict_t *req, char **op_errstr,
@@ -242,6 +242,10 @@ int32_t
 glusterd_handle_brick_rsp (void *pending_entry, glusterd_op_t op,
                            dict_t *rsp_dict, dict_t *ctx_dict, char **op_errstr,
                            gd_node_type type);
+
+dict_t*
+glusterd_op_init_commit_rsp_dict (glusterd_op_t op);
+
 int32_t
 glusterd_op_init_ctx (glusterd_op_t op);
 int32_t
