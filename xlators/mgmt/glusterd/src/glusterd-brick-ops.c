@@ -514,7 +514,7 @@ brick_val:
                                 "failed to set the new type in dict");
         }
 
-        ret = glusterd_op_begin (req, GD_OP_ADD_BRICK, dict);
+        ret = glusterd_op_begin_synctask (req, GD_OP_ADD_BRICK, dict);
 
 out:
         if (ret) {
@@ -530,9 +530,6 @@ out:
                         dict_unref (dict);
                 ret = 0; //sent error to cli, prevent second reply
         }
-
-        glusterd_friend_sm ();
-        glusterd_op_sm ();
 
         free (cli_req.dict.dict_val); //its malloced by xdr
 
@@ -806,7 +803,7 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 }
         }
 
-        ret = glusterd_op_begin (req, GD_OP_REMOVE_BRICK, dict);
+        ret = glusterd_op_begin_synctask (req, GD_OP_REMOVE_BRICK, dict);
 
 out:
         if (ret) {
@@ -827,9 +824,6 @@ out:
         }
         GF_FREE (brick_list);
         free (cli_req.dict.dict_val); //its malloced by xdr
-
-        glusterd_friend_sm ();
-        glusterd_op_sm ();
 
         return ret;
 }
@@ -938,7 +932,8 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                 if (ret)
                         goto out;
 
-                ret = glusterd_brick_start (volinfo, brickinfo);
+                ret = glusterd_brick_start (volinfo, brickinfo,
+                                            _gf_true);
                 if (ret)
                         goto out;
                 i++;

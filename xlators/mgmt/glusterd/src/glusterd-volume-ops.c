@@ -260,13 +260,10 @@ glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
         gf_log (this->name, GF_LOG_INFO, "Received start vol req"
                 " for volume %s", volname);
 
-        ret = glusterd_op_begin (req, GD_OP_START_VOLUME, dict);
+        ret = glusterd_op_begin_synctask (req, GD_OP_START_VOLUME, dict);
 
 out:
         free (cli_req.dict.dict_val); //its malloced by xdr
-
-        glusterd_friend_sm ();
-        glusterd_op_sm ();
 
         if (ret) {
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
@@ -1415,7 +1412,7 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
         if (ret)
                 goto out;
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                ret = glusterd_brick_start (volinfo, brickinfo);
+                ret = glusterd_brick_start (volinfo, brickinfo, _gf_true);
                 if (ret)
                         goto out;
         }
