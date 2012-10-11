@@ -299,8 +299,9 @@ fi
 %if 0%{?_can_georeplicate}
 %if 0%{!?_without_georeplication:1}
 %post geo-replication
-#restart glusterd.
-%{_sysconfdir}/init.d/glusterd restart &> /dev/null
+if [ $1 -ge 1 ]; then
+    /sbin/service glusterd condrestart &>/dev/null || :
+fi
 %endif
 
 %if 0%{!?_without_georeplication:1}
