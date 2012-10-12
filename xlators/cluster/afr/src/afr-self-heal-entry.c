@@ -580,7 +580,8 @@ afr_sh_entry_expunge_entry_cbk (call_frame_t *expunge_frame, void *cookie,
 
         if (need_expunge) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "missing entry %s on %s",
+                        "Entry %s is missing on %s and deleting from "
+                        "replica's other bricks",
                         expunge_local->loc.path,
                         priv->children[source]->name);
 
