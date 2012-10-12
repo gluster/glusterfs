@@ -16,9 +16,9 @@
 import logging
 import os
 import errno
+import xattr
 from hashlib import md5
 from swift.common.utils import normalize_timestamp
-from xattr import setxattr, removexattr, getxattr, removexattr
 import cPickle as pickle
 
 X_CONTENT_TYPE = 'Content-Type'
@@ -182,9 +182,9 @@ def do_setxattr(path, key, value):
         fd = path
     if fd or os.path.isdir(path):
         try:
-            setxattr(fd, key, value)
+            xattr.set(fd, key, value)
         except Exception, err:
-            logging.exception("setxattr failed on %s key %s err: %s", path, key, str(err))
+            logging.exception("xattr.set failed on %s key %s err: %s", path, key, str(err))
             raise
         finally:
             if fd and not os.path.isdir(path):
@@ -204,10 +204,10 @@ def do_getxattr(path, key, log = True):
         fd = path
     if fd or os.path.isdir(path):
         try:
-            value = getxattr(fd, key)
+            value = xattr.get(fd, key)
         except Exception, err:
             if log:
-                logging.exception("getxattr failed on %s key %s err: %s", path, key, str(err))
+                logging.exception("xattr.get failed on %s key %s err: %s", path, key, str(err))
             raise
         finally:
             if fd and not os.path.isdir(path):
@@ -225,9 +225,9 @@ def do_removexattr(path, key):
         fd = path
     if fd or os.path.isdir(path):
         try:
-            removexattr(fd, key)
+            xattr.remove(fd, key)
         except Exception, err:
-            logging.exception("removexattr failed on %s key %s err: %s", path, key, str(err))
+            logging.exception("xattr.remove failed on %s key %s err: %s", path, key, str(err))
             raise
         finally:
             if fd and not os.path.isdir(path):
@@ -313,9 +313,9 @@ def check_user_xattr(path):
         return False
     do_setxattr(path, 'user.test.key1', 'value1')
     try:
-        removexattr(path, 'user.test.key1')
+        xattr.remove(path, 'user.test.key1')
     except Exception, err:
-        logging.exception("removexattr failed on %s err: %s", path, str(err))
+        logging.exception("xattr.remove failed on %s err: %s", path, str(err))
         #Remove xattr may fail in case of concurrent remove.
     return True
 
