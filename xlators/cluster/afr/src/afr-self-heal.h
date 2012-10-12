@@ -21,13 +21,6 @@
 #define SIZE_GREATER(buf1,buf2) ((buf1)->ia_size > (buf2)->ia_size)
 
 int
-afr_sh_has_metadata_pending (dict_t *xattr, xlator_t *this);
-int
-afr_sh_has_entry_pending (dict_t *xattr, xlator_t *this);
-int
-afr_sh_has_data_pending (dict_t *xattr, xlator_t *this);
-
-int
 afr_self_heal_entry (call_frame_t *frame, xlator_t *this);
 
 int

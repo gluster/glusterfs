@@ -1157,31 +1157,57 @@ afr_lookup_update_lk_counts (afr_local_t *local, xlator_t *this,
                 local->cont.lookup.parent_entrylk += parent_entrylk;
 }
 
+/*
+ * It's important to maintain a commutative property on do_*_self_heal and
+ * found*; once set, they must not be cleared by a subsequent iteration or
+ * call, so that they represent a logical OR of all iterations and calls
+ * regardless of child/key order.  That allows the caller to call us multiple
+ * times without having to use a separate variable as a "reduce" accumulator.
+ */
 static void
 afr_lookup_set_self_heal_params_by_xattr (afr_local_t *local, xlator_t *this,
                                           dict_t *xattr)
 {
+        afr_private_t *priv        = NULL;
+        int            i           = 0;
+        int            ret         = -1;
+        void          *pending_raw = NULL;
+        int32_t       *pending     = NULL;
+
         GF_ASSERT (local);
         GF_ASSERT (this);
         GF_ASSERT (xattr);
 
-        if (afr_sh_has_metadata_pending (xattr, this)) {
-                local->self_heal.do_metadata_self_heal = _gf_true;
-                gf_log(this->name, GF_LOG_DEBUG,
-                       "metadata self-heal is pending for %s.",
-                       local->loc.path);
-        }
+        priv = this->private;
 
-        if (afr_sh_has_entry_pending (xattr, this)) {
-                local->self_heal.do_entry_self_heal = _gf_true;
-                gf_log(this->name, GF_LOG_DEBUG,
-                       "entry self-heal is pending for %s.", local->loc.path);
-        }
+        for (i = 0; i < priv->child_count; i++) {
+                ret = dict_get_ptr (xattr, priv->pending_key[i],
+                                    &pending_raw);
+                if (ret != 0) {
+                        continue;
+                }
+                pending = pending_raw;
 
-        if (afr_sh_has_data_pending (xattr, this)) {
-                local->self_heal.do_data_self_heal = _gf_true;
-                gf_log(this->name, GF_LOG_DEBUG,
-                       "data self-heal is pending for %s.", local->loc.path);
+                if (pending[AFR_METADATA_TRANSACTION]) {
+                        gf_log(this->name, GF_LOG_DEBUG,
+                               "metadata self-heal is pending for %s.",
+                               local->loc.path);
+                        local->self_heal.do_metadata_self_heal = _gf_true;
+                }
+
+                if (pending[AFR_ENTRY_TRANSACTION]) {
+                        gf_log(this->name, GF_LOG_DEBUG,
+                               "entry self-heal is pending for %s.",
+                               local->loc.path);
+                        local->self_heal.do_entry_self_heal = _gf_true;
+                }
+
+                if (pending[AFR_DATA_TRANSACTION]) {
+                        gf_log(this->name, GF_LOG_DEBUG,
+                               "data self-heal is pending for %s.",
+                               local->loc.path);
+                        local->self_heal.do_data_self_heal = _gf_true;
+                }
         }
 }
 
