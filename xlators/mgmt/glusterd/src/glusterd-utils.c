@@ -3490,7 +3490,7 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                 }
         }
 
-        if (uuid_compare (brickinfo->uuid, conf->uuid)) {
+        if (uuid_compare (brickinfo->uuid, MY_UUID)) {
                 ret = 0;
                 goto out;
         }
@@ -4298,7 +4298,7 @@ glusterd_brick_stop (glusterd_volinfo_t *volinfo,
                 }
         }
 
-        if (uuid_compare (brickinfo->uuid, conf->uuid)) {
+        if (uuid_compare (brickinfo->uuid, MY_UUID)) {
                 ret = 0;
                 goto out;
         }
@@ -5180,7 +5180,7 @@ glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
                 }
         }
 
-        if (uuid_compare (brickinfo->uuid, conf->uuid)) {
+        if (uuid_compare (brickinfo->uuid, MY_UUID)) {
                 ret = 0;
                 goto out;
         }
@@ -5527,7 +5527,7 @@ glusterd_is_local_brick (xlator_t *this, glusterd_volinfo_t *volinfo,
                         goto out;
         }
         conf = this->private;
-        local = !uuid_compare (brickinfo->uuid, conf->uuid);
+        local = !uuid_compare (brickinfo->uuid, MY_UUID);
 out:
         return local;
 }

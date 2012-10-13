@@ -497,7 +497,7 @@ gd_sync_task_begin (dict_t *op_ctx, char **op_errstr)
                 goto out;
 
         /*  Lock everything */
-        ret = glusterd_lock (conf->uuid);
+        ret = glusterd_lock (MY_UUID);
         if (ret)
                 goto out;
         /* successful lock in local node */
@@ -505,7 +505,7 @@ gd_sync_task_begin (dict_t *op_ctx, char **op_errstr)
 
         list_for_each_entry (peerinfo, &conf->peers, uuid_list) {
                 ret = gd_syncop_mgmt_lock (peerinfo->rpc,
-                                           conf->uuid, tmp_uuid);
+                                           MY_UUID, tmp_uuid);
                 if (ret)
                         goto out;
                 /* TODO: Only on lock successful nodes it should unlock */
@@ -522,7 +522,7 @@ gd_sync_task_begin (dict_t *op_ctx, char **op_errstr)
 
         list_for_each_entry (peerinfo, &conf->peers, uuid_list) {
                 ret = gd_syncop_mgmt_stage_op (peerinfo->rpc,
-                                               conf->uuid, tmp_uuid,
+                                               MY_UUID, tmp_uuid,
                                                op, req_dict, &rsp_dict,
                                                op_errstr);
                 if (ret) {
@@ -550,7 +550,7 @@ gd_sync_task_begin (dict_t *op_ctx, char **op_errstr)
 
         list_for_each_entry (peerinfo, &conf->peers, uuid_list) {
                 ret = gd_syncop_mgmt_commit_op (peerinfo->rpc,
-                                                conf->uuid, tmp_uuid,
+                                                MY_UUID, tmp_uuid,
                                                 op, req_dict, &rsp_dict,
                                                 op_errstr);
                 if (ret) {
@@ -577,12 +577,12 @@ out:
                            here, and unlock would fail on nodes where lock
                            never was sent */
                         gd_syncop_mgmt_unlock (peerinfo->rpc,
-                                               conf->uuid, tmp_uuid);
+                                               MY_UUID, tmp_uuid);
                 }
 
                 /* Local node should be the one to be locked first,
                    unlocked last to prevent races */
-                glusterd_unlock (conf->uuid);
+                glusterd_unlock (MY_UUID);
         }
 
         if (req_dict)

@@ -1777,7 +1777,7 @@ glusterd_handle_probe_query (rpcsvc_request_t *req)
         }
 
 respond:
-        uuid_copy (rsp.uuid, conf->uuid);
+        uuid_copy (rsp.uuid, MY_UUID);
 
         rsp.hostname = probe_req.hostname;
 
@@ -2341,7 +2341,7 @@ glusterd_xfer_friend_remove_resp (rpcsvc_request_t *req, char *hostname, int por
 
         conf = this->private;
 
-        uuid_copy (rsp.uuid, conf->uuid);
+        uuid_copy (rsp.uuid, MY_UUID);
         rsp.hostname = hostname;
         rsp.port = port;
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
@@ -2369,7 +2369,7 @@ glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname, int port,
 
         conf = this->private;
 
-        uuid_copy (rsp.uuid, conf->uuid);
+        uuid_copy (rsp.uuid, MY_UUID);
         rsp.op_ret = op_ret;
         rsp.op_errno = op_errno;
         rsp.hostname = gf_strdup (hostname);
@@ -2900,7 +2900,7 @@ glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 
                 if (peerinfo->connected) {
                         glusterd_get_lock_owner (&owner);
-                        if (!uuid_compare (conf->uuid, owner)) {
+                        if (!uuid_compare (MY_UUID, owner)) {
                                 ret = glusterd_op_sm_inject_event
                                       (GD_OP_EVENT_START_UNLOCK, NULL);
                                 if (ret)
