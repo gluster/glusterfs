@@ -342,14 +342,14 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                 char defrag_path[PATH_MAX];                             \
                 GLUSTERD_GET_DEFRAG_DIR(defrag_path, volinfo, priv);    \
                 snprintf (path, PATH_MAX, "%s/%s.sock", defrag_path,    \
-                           uuid_utoa(priv->uuid));                      \
+                           uuid_utoa(MY_UUID));                         \
         } while (0)
 
 #define GLUSTERD_GET_DEFRAG_PID_FILE(path, volinfo, priv) do {          \
                 char defrag_path[PATH_MAX];                             \
                 GLUSTERD_GET_DEFRAG_DIR(defrag_path, volinfo, priv);    \
                 snprintf (path, PATH_MAX, "%s/%s.pid", defrag_path,     \
-                           uuid_utoa(priv->uuid));                      \
+                           uuid_utoa(MY_UUID));                         \
         } while (0)
 
 
