@@ -82,6 +82,8 @@ __wait (struct synctask *task)
 void
 synctask_yield (struct synctask *task)
 {
+	xlator_t *oldTHIS = THIS;
+
 #if defined(__NetBSD__) && defined(_UC_TLSBASE)
 	/* Preserve pthread private pointer through swapcontex() */
 	task->proc->sched.uc_flags &= ~_UC_TLSBASE;
@@ -91,6 +93,8 @@ synctask_yield (struct synctask *task)
                 gf_log ("syncop", GF_LOG_ERROR,
                         "swapcontext failed (%s)", strerror (errno));
         }
+
+	THIS = oldTHIS;
 }
 
 
