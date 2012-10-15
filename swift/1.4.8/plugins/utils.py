@@ -290,7 +290,7 @@ def check_valid_account(account, fs_object):
 
 def validate_container(metadata):
     if not metadata:
-        logging.error('No metadata')
+        logging.warn('validate_container: No metadata')
         return False
 
     if X_TYPE not in metadata.keys() or \
@@ -298,18 +298,18 @@ def validate_container(metadata):
        X_PUT_TIMESTAMP not in metadata.keys() or \
        X_OBJECTS_COUNT not in metadata.keys() or \
        X_BYTES_USED not in metadata.keys():
-        #logging.error('Container error %s' % metadata)
+        #logging.warn('validate_container: Metadata missing entries: %s' % metadata)
         return False
 
     if metadata[X_TYPE] == CONTAINER:
         return True
 
-    logging.error('Container error %s' % metadata)
+    logging.warn('validate_container: metadata type is not CONTAINER (%r)' % (value,))
     return False
 
 def validate_account(metadata):
     if not metadata:
-        logging.error('No metadata')
+        logging.warn('validate_account: No metadata')
         return False
 
     if X_TYPE not in metadata.keys() or \
@@ -318,18 +318,18 @@ def validate_account(metadata):
        X_OBJECTS_COUNT not in metadata.keys() or \
        X_BYTES_USED not in metadata.keys() or \
        X_CONTAINER_COUNT not in metadata.keys():
-        #logging.error('Account error %s' % metadata)
+        #logging.warn('validate_account: Metadata missing entries: %s' % metadata)
         return False
 
     if metadata[X_TYPE] == ACCOUNT:
         return True
 
-    logging.error('Account error %s' % metadata)
+    logging.warn('validate_account: metadata type is not ACCOUNT (%r)' % (value,))
     return False
 
 def validate_object(metadata):
     if not metadata:
-        logging.error('No metadata')
+        logging.warn('validate_object: No metadata')
         return False
 
     if X_TIMESTAMP not in metadata.keys() or \
@@ -338,22 +338,22 @@ def validate_object(metadata):
        X_CONTENT_LENGTH not in metadata.keys() or \
        X_TYPE not in metadata.keys() or \
        X_OBJECT_TYPE not in metadata.keys():
-        #logging.error('Object error %s' % metadata)
+        #logging.warn('validate_object: Metadata missing entries: %s' % metadata)
         return False
 
     if metadata[X_TYPE] == OBJECT:
         return True
 
-    logging.error('Object error %s' % metadata)
+    logging.warn('validate_object: metadata type is not OBJECT (%r)' % (metadata[X_TYPE],))
     return False
 
 def is_marker(metadata):
     if not metadata:
-        logging.error('No metadata')
+        logging.warn('is_marker: No metadata')
         return False
 
     if X_OBJECT_TYPE not in metadata.keys():
-        logging.error('X_OBJECT_TYPE missing %s' % metadata)
+        logging.warn('is_marker: X_OBJECT_TYPE missing from metadata: %s' % metadata)
         return False
 
     if metadata[X_OBJECT_TYPE] == MARKER_DIR:
@@ -608,7 +608,7 @@ def create_account_metadata(acc_path, memcache=None):
 
 def check_account_exists(account, fs_object):
     if account not in get_account_list(fs_object):
-        logging.error('Account not exists %s' % account)
+        logging.warn('Account %s does not exist' % account)
         return False
     else:
         return True
