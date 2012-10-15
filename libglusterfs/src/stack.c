@@ -26,6 +26,44 @@ int call_frames_count (call_frame_t *call_frame)
         return count;
 }
 
+call_frame_t *
+create_frame (xlator_t *xl, call_pool_t *pool)
+{
+        call_stack_t    *stack = NULL;
+
+        if (!xl || !pool) {
+                return NULL;
+        }
+
+        stack = mem_get0 (pool->stack_mem_pool);
+        if (!stack)
+                return NULL;
+
+        stack->pool = pool;
+        stack->frames.root = stack;
+        stack->frames.this = xl;
+        stack->ctx = xl->ctx;
+
+        if (stack->ctx->measure_latency) {
+                if (gettimeofday (&stack->tv, NULL) == -1)
+                        gf_log ("stack", GF_LOG_ERROR, "gettimeofday () failed."
+                                " (%s)", strerror (errno));
+                memcpy (&stack->frames.begin, &stack->tv, sizeof (stack->tv));
+        }
+
+        LOCK (&pool->lock);
+        {
+                list_add (&stack->all_frames, &pool->all_frames);
+                pool->cnt++;
+        }
+        UNLOCK (&pool->lock);
+
+        LOCK_INIT (&stack->frames.lock);
+        LOCK_INIT (&stack->stack_lock);
+
+        return &stack->frames;
+}
+
 void
 gf_proc_dump_call_frame (call_frame_t *call_frame, const char *key_buf,...)
 {
@@ -34,6 +72,7 @@ gf_proc_dump_call_frame (call_frame_t *call_frame, const char *key_buf,...)
         va_list ap;
         call_frame_t my_frame;
         int  ret = -1;
+        char timestr[256] = {0,};
 
         if (!call_frame)
                 return;
@@ -47,14 +86,20 @@ gf_proc_dump_call_frame (call_frame_t *call_frame, const char *key_buf,...)
         va_end(ap);
 
         ret = TRY_LOCK(&call_frame->lock);
-        if (ret) {
-                gf_log("", GF_LOG_WARNING, "Unable to dump call frame"
-                       " errno: %s", strerror (errno));
-                return;
-        }
+        if (ret)
+                goto out;
 
         memcpy(&my_frame, call_frame, sizeof(my_frame));
         UNLOCK(&call_frame->lock);
+
+        if (my_frame.this->ctx->measure_latency) {
+                gf_time_fmt (timestr, sizeof timestr, my_frame.begin.tv_sec,
+                             gf_timefmt_FT);
+                snprintf (timestr + strlen (timestr),
+                          sizeof timestr - strlen (timestr),
+                          ".%"GF_PRI_SUSECONDS, my_frame.begin.tv_usec);
+                gf_proc_dump_write("frame-creation-time", "%s", timestr);
+        }
 
         gf_proc_dump_write("ref_count", "%d", my_frame.ref_count);
         gf_proc_dump_write("translator", "%s", my_frame.this->name);
@@ -73,6 +118,14 @@ gf_proc_dump_call_frame (call_frame_t *call_frame, const char *key_buf,...)
 
         if (my_frame.unwind_to)
                 gf_proc_dump_write("unwind_to", "%s", my_frame.unwind_to);
+
+        ret = 0;
+out:
+        if (ret) {
+                gf_proc_dump_write("Unable to dump the frame information",
+                                   "(Lock acquisition failed) %p", my_frame);
+                return;
+        }
 }
 
 
@@ -83,6 +136,7 @@ gf_proc_dump_call_stack (call_stack_t *call_stack, const char *key_buf,...)
         va_list ap;
         call_frame_t *trav;
         int32_t cnt, i;
+        char timestr[256] = {0,};
 
         if (!call_stack)
                 return;
@@ -95,6 +149,15 @@ gf_proc_dump_call_stack (call_stack_t *call_stack, const char *key_buf,...)
         va_start(ap, key_buf);
         vsnprintf(prefix, GF_DUMP_MAX_BUF_LEN, key_buf, ap);
         va_end(ap);
+
+        if (call_stack->ctx->measure_latency) {
+                gf_time_fmt (timestr, sizeof timestr, call_stack->tv.tv_sec,
+                             gf_timefmt_FT);
+                snprintf (timestr + strlen (timestr),
+                          sizeof timestr - strlen (timestr),
+                          ".%"GF_PRI_SUSECONDS, call_stack->tv.tv_usec);
+        gf_proc_dump_write("callstack-creation-time", "%s", timestr);
+        }
 
         gf_proc_dump_write("uid", "%d", call_stack->uid);
         gf_proc_dump_write("gid", "%d", call_stack->gid);
@@ -129,19 +192,18 @@ gf_proc_dump_pending_frames (call_pool_t *call_pool)
         call_stack_t     *trav = NULL;
         int              i = 1;
         int              ret = -1;
+        gf_boolean_t     section_added = _gf_true;
 
         if (!call_pool)
                 return;
 
         ret = TRY_LOCK (&(call_pool->lock));
-        if (ret) {
-                gf_log("", GF_LOG_WARNING, "Unable to dump call pool"
-                       " errno: %d", errno);
-                return;
-        }
+        if (ret)
+                goto out;
 
 
         gf_proc_dump_add_section("global.callpool");
+        section_added = _gf_true;
         gf_proc_dump_write("callpool_address","%p", call_pool);
         gf_proc_dump_write("callpool.cnt","%d", call_pool->cnt);
 
@@ -152,6 +214,17 @@ gf_proc_dump_pending_frames (call_pool_t *call_pool)
                 i++;
         }
         UNLOCK (&(call_pool->lock));
+
+        ret = 0;
+out:
+        if (ret) {
+                if (_gf_false == section_added)
+                        gf_proc_dump_add_section("global.callpool");
+                gf_proc_dump_write("Unable to dump the callpool",
+                                   "(Lock acquisition failed) %p",
+                                   call_pool);
+        }
+        return;
 }
 
 void

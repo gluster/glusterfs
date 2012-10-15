@@ -101,11 +101,13 @@ struct _call_stack_t {
         uint16_t                      ngrps;
         uint32_t                      groups[GF_MAX_AUX_GROUPS];
         gf_lkowner_t                  lk_owner;
+        glusterfs_ctx_t              *ctx;
 
         call_frame_t                  frames;
 
         int32_t                       op;
         int8_t                        type;
+        struct timeval                tv;
 };
 
 
@@ -122,11 +124,10 @@ struct _call_stack_t {
 struct xlator_fops;
 
 void
-gf_set_fop_from_fn_pointer (call_frame_t *frame, struct xlator_fops *fops,
-                            void *fn);
+gf_latency_begin (call_frame_t *frame, void *fn);
 
 void
-gf_update_latency (call_frame_t *frame);
+gf_latency_end (call_frame_t *frame);
 
 static inline void
 FRAME_DESTROY (call_frame_t *frame)
@@ -236,6 +237,7 @@ STACK_RESET (call_stack_t *stack)
                 _new->wind_from = __FUNCTION__;                         \
                 _new->wind_to = #fn;                                    \
                 _new->unwind_to = #rfn;                                 \
+                                                                        \
                 LOCK_INIT (&_new->lock);                                \
                 LOCK(&frame->root->stack_lock);                         \
                 {                                                       \
@@ -249,6 +251,8 @@ STACK_RESET (call_stack_t *stack)
                 UNLOCK(&frame->root->stack_lock);                       \
                 old_THIS = THIS;                                        \
                 THIS = obj;                                             \
+                if (frame->this->ctx->measure_latency)                  \
+                        gf_latency_begin (_new, fn);                    \
                 fn (_new, obj, params);                                 \
                 THIS = old_THIS;                                        \
         } while (0)
@@ -302,6 +306,8 @@ STACK_RESET (call_stack_t *stack)
                 fn##_cbk = rfn;                                         \
                 old_THIS = THIS;                                        \
                 THIS = obj;                                             \
+                if (obj->ctx->measure_latency)                          \
+                        gf_latency_begin (_new, fn);                    \
                 fn (_new, obj, params);                                 \
                 THIS = old_THIS;                                        \
         } while (0)
@@ -328,6 +334,8 @@ STACK_RESET (call_stack_t *stack)
                 THIS = _parent->this;                                   \
                 frame->complete = _gf_true;                             \
                 frame->unwind_from = __FUNCTION__;                      \
+                if (frame->this->ctx->measure_latency)                  \
+                        gf_latency_end (frame);                         \
                 fn (_parent, frame->cookie, _parent->this, params);     \
                 THIS = old_THIS;                                        \
         } while (0)
@@ -355,6 +363,8 @@ STACK_RESET (call_stack_t *stack)
                 THIS = _parent->this;                                   \
                 frame->complete = _gf_true;                             \
                 frame->unwind_from = __FUNCTION__;                      \
+                if (frame->this->ctx->measure_latency)                  \
+                        gf_latency_end (frame);                         \
                 fn (_parent, frame->cookie, _parent->this, params);     \
                 THIS = old_THIS;                                        \
         } while (0)
@@ -391,6 +401,15 @@ copy_frame (call_frame_t *frame)
         newstack->frames.root = newstack;
         newstack->pool = oldstack->pool;
         newstack->lk_owner = oldstack->lk_owner;
+        newstack->ctx = oldstack->ctx;
+
+        if (newstack->ctx->measure_latency) {
+                if (gettimeofday (&newstack->tv, NULL) == -1)
+                        gf_log ("stack", GF_LOG_ERROR, "gettimeofday () failed."
+                                " (%s)", strerror (errno));
+                memcpy (&newstack->frames.begin, &newstack->tv,
+                        sizeof (newstack->tv));
+        }
 
         LOCK_INIT (&newstack->frames.lock);
         LOCK_INIT (&newstack->stack_lock);
@@ -405,39 +424,9 @@ copy_frame (call_frame_t *frame)
         return &newstack->frames;
 }
 
-
-static inline call_frame_t *
-create_frame (xlator_t *xl, call_pool_t *pool)
-{
-        call_stack_t    *stack = NULL;
-
-        if (!xl || !pool) {
-                return NULL;
-        }
-
-        stack = mem_get0 (pool->stack_mem_pool);
-        if (!stack)
-                return NULL;
-
-        stack->pool = pool;
-        stack->frames.root = stack;
-        stack->frames.this = xl;
-
-        LOCK (&pool->lock);
-        {
-                list_add (&stack->all_frames, &pool->all_frames);
-                pool->cnt++;
-        }
-        UNLOCK (&pool->lock);
-
-        LOCK_INIT (&stack->frames.lock);
-        LOCK_INIT (&stack->stack_lock);
-
-        return &stack->frames;
-}
-
 void gf_proc_dump_pending_frames(call_pool_t *call_pool);
 void gf_proc_dump_pending_frames_to_dict (call_pool_t *call_pool,
                                           dict_t *dict);
+call_frame_t *create_frame (xlator_t *xl, call_pool_t *pool);
 gf_boolean_t __is_fuse_call (call_frame_t *frame);
 #endif /* _STACK_H */
