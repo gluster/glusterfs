@@ -477,6 +477,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         dict_t              *req_dict     = NULL;
         dict_t              *rsp_dict = NULL;
         glusterd_peerinfo_t *peerinfo = NULL;
+        glusterd_peerinfo_t *tmp = NULL;
         glusterd_conf_t     *conf     = NULL;
         uuid_t               tmp_uuid = {0,};
         glusterd_op_t        op       = 0;
@@ -504,12 +505,16 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         /* successful lock in local node */
         local_locked = _gf_true;
 
+        INIT_LIST_HEAD (&conf->xaction_peers);
         list_for_each_entry (peerinfo, &conf->peers, uuid_list) {
+                if (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+                        continue;
+
                 ret = gd_syncop_mgmt_lock (peerinfo->rpc,
                                            MY_UUID, tmp_uuid);
-                if (ret)
-                        goto out;
-                /* TODO: Only on lock successful nodes it should unlock */
+                if (ret == 0)
+                        list_add_tail (&peerinfo->op_peers_list,
+                                       &conf->xaction_peers);
         }
 
         ret = glusterd_op_build_payload (&req_dict, &op_errstr, op_ctx);
@@ -521,7 +526,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         if (ret)
                 goto out;
 
-        list_for_each_entry (peerinfo, &conf->peers, uuid_list) {
+        list_for_each_entry (peerinfo, &conf->xaction_peers, op_peers_list) {
                 ret = gd_syncop_mgmt_stage_op (peerinfo->rpc,
                                                MY_UUID, tmp_uuid,
                                                op, req_dict, &rsp_dict,
@@ -543,7 +548,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         if (ret)
                 goto out;
 
-        list_for_each_entry (peerinfo, &conf->peers, uuid_list) {
+        list_for_each_entry (peerinfo, &conf->xaction_peers, op_peers_list) {
                 ret = gd_syncop_mgmt_commit_op (peerinfo->rpc,
                                                 MY_UUID, tmp_uuid,
                                                 op, req_dict, &rsp_dict,
@@ -559,14 +564,11 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         ret = 0;
 out:
         if (local_locked) {
-                /* unlock everything as we help successful local lock */
-                list_for_each_entry (peerinfo, &conf->peers, uuid_list) {
-                        /* No need to check the error code, as it is possible
-                           that if 'lock' on few nodes failed, it would come
-                           here, and unlock would fail on nodes where lock
-                           never was sent */
+                list_for_each_entry_safe (peerinfo, tmp, &conf->xaction_peers,
+                                          op_peers_list) {
                         gd_syncop_mgmt_unlock (peerinfo->rpc,
                                                MY_UUID, tmp_uuid);
+                        list_del_init (&peerinfo->op_peers_list);
                 }
 
                 /* Local node should be the one to be locked first,
