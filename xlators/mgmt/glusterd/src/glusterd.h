@@ -112,7 +112,7 @@ typedef struct {
         struct _volfile_ctx *volfile;
 	pthread_mutex_t   mutex;
 	struct list_head  peers;
-//	struct list_head  pending_peers;
+	struct list_head  xaction_peers;
         gf_boolean_t      verify_volfile_checksum;
         gf_boolean_t      trace;
         uuid_t            uuid;
