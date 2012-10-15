@@ -470,8 +470,8 @@ out:
         return ret;
 }
 
-int
-gd_sync_task_begin (dict_t *op_ctx, char **op_errstr)
+void
+gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
 {
         int                  ret      = -1;
         dict_t              *req_dict     = NULL;
@@ -482,6 +482,7 @@ gd_sync_task_begin (dict_t *op_ctx, char **op_errstr)
         glusterd_op_t        op       = 0;
         int32_t              tmp_op   = 0;
         gf_boolean_t         local_locked = _gf_false;
+        char                 *op_errstr = NULL;
 
         conf = THIS->private;
 
@@ -511,12 +512,12 @@ gd_sync_task_begin (dict_t *op_ctx, char **op_errstr)
                 /* TODO: Only on lock successful nodes it should unlock */
         }
 
-        ret = glusterd_op_build_payload (&req_dict, op_errstr, op_ctx);
+        ret = glusterd_op_build_payload (&req_dict, &op_errstr, op_ctx);
         if (ret)
                 goto out;
 
         /* stage op */
-        ret = glusterd_op_stage_validate (op, req_dict, op_errstr, rsp_dict);
+        ret = glusterd_op_stage_validate (op, req_dict, &op_errstr, rsp_dict);
         if (ret)
                 goto out;
 
@@ -524,27 +525,21 @@ gd_sync_task_begin (dict_t *op_ctx, char **op_errstr)
                 ret = gd_syncop_mgmt_stage_op (peerinfo->rpc,
                                                MY_UUID, tmp_uuid,
                                                op, req_dict, &rsp_dict,
-                                               op_errstr);
-                if (ret) {
-                        if (*op_errstr)
-                                ret = dict_set_dynstr (req_dict, "error",
-                                                       *op_errstr);
-
-                        ret = -1;
+                                               &op_errstr);
+                if (ret)
                         goto out;
-                }
 
                 if (op == GD_OP_REPLACE_BRICK)
                         (void) glusterd_syncop_aggr_rsp_dict (op, op_ctx,
                                                               rsp_dict,
-                                                              *op_errstr);
+                                                              op_errstr);
 
                 if (rsp_dict)
                         dict_unref (rsp_dict);
         }
 
         /* commit op */
-        ret = glusterd_op_commit_perform (op, req_dict, op_errstr, rsp_dict);
+        ret = glusterd_op_commit_perform (op, req_dict, &op_errstr, rsp_dict);
         if (ret)
                 goto out;
 
@@ -552,17 +547,11 @@ gd_sync_task_begin (dict_t *op_ctx, char **op_errstr)
                 ret = gd_syncop_mgmt_commit_op (peerinfo->rpc,
                                                 MY_UUID, tmp_uuid,
                                                 op, req_dict, &rsp_dict,
-                                                op_errstr);
-                if (ret) {
-                        if (*op_errstr)
-                                ret = dict_set_dynstr (req_dict, "error",
-                                                       *op_errstr);
-
-                        ret = -1;
+                                                &op_errstr);
+                if (ret)
                         goto out;
-                }
                 (void) glusterd_syncop_aggr_rsp_dict (op, op_ctx, rsp_dict,
-                                                      *op_errstr);
+                                                      op_errstr);
                 if (rsp_dict)
                         dict_unref (rsp_dict);
         }
@@ -585,13 +574,18 @@ out:
                 glusterd_unlock (MY_UUID);
         }
 
+        glusterd_op_send_cli_response (op, ret, 0, req, op_ctx, op_errstr);
+
         if (req_dict)
                 dict_unref (req_dict);
 
         if (rsp_dict)
                 dict_unref (rsp_dict);
 
-        return ret;
+        if (op_errstr)
+                GF_FREE (op_errstr);
+
+        return;
 }
 
 int32_t
@@ -599,8 +593,6 @@ glusterd_op_begin_synctask (rpcsvc_request_t *req, glusterd_op_t op,
                             void *dict)
 {
         int              ret = 0;
-        int              op_ret = 0;
-        char             *op_errstr = NULL;
 
         ret = dict_set_int32 (dict, GD_SYNC_OPCODE_KEY, op);
         if (ret) {
@@ -609,15 +601,10 @@ glusterd_op_begin_synctask (rpcsvc_request_t *req, glusterd_op_t op,
                 goto out;
         }
 
-        op_ret = gd_sync_task_begin (dict, &op_errstr);
-        glusterd_op_send_cli_response (op, op_ret, 0, req, NULL,
-                                       op_errstr);
-        ret = 0;
+        gd_sync_task_begin (dict, req);
 out:
         if (dict)
-            dict_unref (dict);
-        if (op_errstr)
-                GF_FREE (op_errstr);
+                dict_unref (dict);
 
         return ret;
 }
