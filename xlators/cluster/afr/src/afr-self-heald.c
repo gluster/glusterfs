@@ -373,6 +373,25 @@ out:
 }
 
 int
+_link_inode_update_loc (xlator_t *this, loc_t *loc, struct iatt *iattr)
+{
+        inode_t       *link_inode = NULL;
+        int           ret = -1;
+
+        link_inode = inode_link (loc->inode, NULL, NULL, iattr);
+        if (link_inode == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "inode link failed "
+                        "on the inode (%s)", uuid_utoa (iattr->ia_gfid));
+                goto out;
+        }
+        inode_unref (loc->inode);
+        loc->inode = link_inode;
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 _self_heal_entry (xlator_t *this, afr_crawl_data_t *crawl_data, gf_dirent_t *entry,
                   loc_t *child, loc_t *parent, struct iatt *iattr)
 {
@@ -388,6 +407,9 @@ _self_heal_entry (xlator_t *this, afr_crawl_data_t *crawl_data, gf_dirent_t *ent
                                crawl_data);
         if (xattr_rsp)
                 dict_unref (xattr_rsp);
+        if (ret == 0)
+                ret = _link_inode_update_loc (this, child, iattr);
+
         return ret;
 }
 
@@ -733,25 +755,6 @@ out:
 }
 
 int
-_link_inode_update_loc (xlator_t *this, loc_t *loc, struct iatt *iattr)
-{
-        inode_t       *link_inode = NULL;
-        int           ret = -1;
-
-        link_inode = inode_link (loc->inode, NULL, NULL, iattr);
-        if (link_inode == NULL) {
-                gf_log (this->name, GF_LOG_ERROR, "inode link failed "
-                        "on the inode (%s)", uuid_utoa (iattr->ia_gfid));
-                goto out;
-        }
-        inode_unref (loc->inode);
-        loc->inode = link_inode;
-        ret = 0;
-out:
-        return ret;
-}
-
-int
 afr_local_pathinfo (char *pathinfo, gf_boolean_t *local)
 {
         int             ret   = 0;
@@ -946,9 +949,6 @@ _process_entries (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
                 if (ret)
                         continue;
 
-                ret = _link_inode_update_loc (this, &entry_loc, &iattr);
-                if (ret)
-                        goto out;
                 if (crawl_data->crawl == INDEX)
                         continue;
 
