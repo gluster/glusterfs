@@ -868,8 +868,8 @@ int32_t
 default_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                    const char *name, dict_t *xdata)
 {
-        STACK_WIND (frame, default_fgetxattr_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fgetxattr, fd, name, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->fgetxattr, fd, name, xdata);
         return 0;
 }
 
@@ -877,8 +877,9 @@ int32_t
 default_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
                    int32_t flags, dict_t *xdata)
 {
-        STACK_WIND (frame, default_fsetxattr_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fsetxattr, fd, dict, flags, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->fsetxattr, fd, dict, flags,
+                         xdata);
         return 0;
 }
 
@@ -886,56 +887,57 @@ int32_t
 default_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                   int32_t flags, dict_t *xdata)
 {
-        STACK_WIND (frame, default_setxattr_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->setxattr, loc, dict, flags, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->setxattr, loc, dict, flags,
+                         xdata);
         return 0;
 }
 
 int32_t
 default_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-        STACK_WIND (frame, default_statfs_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->statfs, loc, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->statfs, loc, xdata);
         return 0;
 }
 
 int32_t
 default_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags, dict_t *xdata)
 {
-        STACK_WIND (frame, default_fsyncdir_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fsyncdir, fd, flags, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->fsyncdir, fd, flags, xdata);
         return 0;
 }
 
 int32_t
 default_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd, dict_t *xdata)
 {
-        STACK_WIND (frame, default_opendir_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
         return 0;
 }
 
 int32_t
 default_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
-        STACK_WIND (frame, default_fstat_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fstat, fd, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->fstat, fd, xdata);
         return 0;
 }
 
 int32_t
 default_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags, dict_t *xdata)
 {
-        STACK_WIND (frame, default_fsync_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fsync, fd, flags, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->fsync, fd, flags, xdata);
         return 0;
 }
 
 int32_t
 default_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
-        STACK_WIND (frame, default_flush_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->flush, fd, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->flush, fd, xdata);
         return 0;
 }
 
@@ -944,9 +946,9 @@ default_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 struct iovec *vector, int32_t count, off_t off, uint32_t flags,
                 struct iobref *iobref, dict_t *xdata)
 {
-        STACK_WIND (frame, default_writev_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->writev, fd, vector, count, off,
-                    flags, iobref, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->writev, fd, vector, count,
+                         off, flags, iobref, xdata);
         return 0;
 }
 
@@ -954,8 +956,9 @@ int32_t
 default_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                off_t offset, uint32_t flags, dict_t *xdata)
 {
-        STACK_WIND (frame, default_readv_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->readv, fd, size, offset, flags, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->readv, fd, size, offset,
+                         flags, xdata);
         return 0;
 }
 
@@ -964,8 +967,8 @@ int32_t
 default_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
               fd_t *fd, dict_t *xdata)
 {
-        STACK_WIND (frame, default_open_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->open, loc, flags, fd, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->open, loc, flags, fd, xdata);
         return 0;
 }
 
@@ -973,9 +976,9 @@ int32_t
 default_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
 {
-        STACK_WIND (frame, default_create_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->create, loc, flags, mode, umask,
-                    fd, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->create, loc, flags, mode,
+                         umask, fd, xdata);
         return 0;
 }
 
@@ -983,8 +986,8 @@ int32_t
 default_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
               dict_t *xdata)
 {
-        STACK_WIND (frame, default_link_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->link, oldloc, newloc, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->link, oldloc, newloc, xdata);
         return 0;
 }
 
@@ -992,8 +995,9 @@ int32_t
 default_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                 loc_t *newloc, dict_t *xdata)
 {
-        STACK_WIND (frame, default_rename_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->rename, oldloc, newloc, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->rename, oldloc, newloc,
+                         xdata);
         return 0;
 }
 
@@ -1002,9 +1006,9 @@ int
 default_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
                  loc_t *loc, mode_t umask, dict_t *xdata)
 {
-        STACK_WIND (frame, default_symlink_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->symlink, linkpath, loc, umask,
-                    xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->symlink, linkpath, loc,
+                         umask, xdata);
         return 0;
 }
 
@@ -1012,8 +1016,8 @@ int32_t
 default_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
                dict_t *xdata)
 {
-        STACK_WIND (frame, default_rmdir_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->rmdir, loc, flags, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->rmdir, loc, flags, xdata);
         return 0;
 }
 
@@ -1021,8 +1025,8 @@ int32_t
 default_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
                 dict_t *xdata)
 {
-        STACK_WIND (frame, default_unlink_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
         return 0;
 }
 
@@ -1030,8 +1034,9 @@ int
 default_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                mode_t umask, dict_t *xdata)
 {
-        STACK_WIND (frame, default_mkdir_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->mkdir, loc, mode, umask, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->mkdir, loc, mode, umask,
+                         xdata);
         return 0;
 }
 
@@ -1040,17 +1045,17 @@ int
 default_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                dev_t rdev, mode_t umask, dict_t *xdata)
 {
-        STACK_WIND (frame, default_mknod_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->mknod, loc, mode, rdev, umask,
-                    xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->mknod, loc, mode, rdev,
+                         umask, xdata);
         return 0;
 }
 
 int32_t
 default_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size, dict_t *xdata)
 {
-        STACK_WIND (frame, default_readlink_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->readlink, loc, size, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->readlink, loc, size, xdata);
         return 0;
 }
 
@@ -1058,16 +1063,16 @@ default_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size, 
 int32_t
 default_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask, dict_t *xdata)
 {
-        STACK_WIND (frame, default_access_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->access, loc, mask, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->access, loc, mask, xdata);
         return 0;
 }
 
 int32_t
 default_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset, dict_t *xdata)
 {
-        STACK_WIND (frame, default_ftruncate_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->ftruncate, fd, offset, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->ftruncate, fd, offset, xdata);
         return 0;
 }
 
@@ -1075,8 +1080,8 @@ int32_t
 default_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                   const char *name, dict_t *xdata)
 {
-        STACK_WIND (frame, default_getxattr_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->getxattr, loc, name, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->getxattr, loc, name, xdata);
         return 0;
 }
 
@@ -1085,8 +1090,9 @@ int32_t
 default_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
                  gf_xattrop_flags_t flags, dict_t *dict, dict_t *xdata)
 {
-        STACK_WIND (frame, default_xattrop_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->xattrop, loc, flags, dict, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->xattrop, loc, flags, dict,
+                         xdata);
         return 0;
 }
 
@@ -1094,8 +1100,9 @@ int32_t
 default_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
                   gf_xattrop_flags_t flags, dict_t *dict, dict_t *xdata)
 {
-        STACK_WIND (frame, default_fxattrop_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fxattrop, fd, flags, dict, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->fxattrop, fd, flags, dict,
+                         xdata);
         return 0;
 }
 
@@ -1103,8 +1110,9 @@ int32_t
 default_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                      const char *name, dict_t *xdata)
 {
-        STACK_WIND (frame, default_removexattr_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->removexattr, loc, name, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->removexattr, loc, name,
+                         xdata);
         return 0;
 }
 
@@ -1112,8 +1120,9 @@ int32_t
 default_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                       const char *name, dict_t *xdata)
 {
-        STACK_WIND (frame, default_fremovexattr_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fremovexattr, fd, name, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->fremovexattr, fd, name,
+                         xdata);
         return 0;
 }
 
@@ -1121,8 +1130,8 @@ int32_t
 default_lk (call_frame_t *frame, xlator_t *this, fd_t *fd,
             int32_t cmd, struct gf_flock *lock, dict_t *xdata)
 {
-        STACK_WIND (frame, default_lk_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->lk, fd, cmd, lock, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->lk, fd, cmd, lock, xdata);
         return 0;
 }
 
@@ -1133,9 +1142,9 @@ default_inodelk (call_frame_t *frame, xlator_t *this,
                  struct gf_flock *lock,
                  dict_t *xdata)
 {
-        STACK_WIND (frame, default_inodelk_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->inodelk,
-                    volume, loc, cmd, lock, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->inodelk, volume, loc, cmd,
+                         lock, xdata);
         return 0;
 }
 
@@ -1144,9 +1153,9 @@ default_finodelk (call_frame_t *frame, xlator_t *this,
                   const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *lock,
                   dict_t *xdata)
 {
-        STACK_WIND (frame, default_finodelk_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->finodelk,
-                    volume, fd, cmd, lock, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->finodelk, volume, fd, cmd,
+                         lock, xdata);
         return 0;
 }
 
@@ -1156,9 +1165,9 @@ default_entrylk (call_frame_t *frame, xlator_t *this,
                  entrylk_cmd cmd, entrylk_type type,
                  dict_t *xdata)
 {
-        STACK_WIND (frame, default_entrylk_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->entrylk,
-                    volume, loc, basename, cmd, type, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->entrylk, volume, loc,
+                         basename, cmd, type, xdata);
         return 0;
 }
 
@@ -1168,9 +1177,9 @@ default_fentrylk (call_frame_t *frame, xlator_t *this,
                   entrylk_cmd cmd, entrylk_type type,
                   dict_t *xdata)
 {
-        STACK_WIND (frame, default_fentrylk_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fentrylk,
-                    volume, fd, basename, cmd, type, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->fentrylk, volume, fd,
+                         basename, cmd, type, xdata);
         return 0;
 }
 
@@ -1179,8 +1188,9 @@ default_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                    int32_t len,
                    dict_t *xdata)
 {
-        STACK_WIND (frame, default_rchecksum_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->rchecksum, fd, offset, len, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->rchecksum, fd, offset, len,
+                         xdata);
         return 0;
 }
 
@@ -1190,8 +1200,9 @@ default_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
                  size_t size, off_t off,
                  dict_t *xdata)
 {
-        STACK_WIND (frame, default_readdir_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->readdir, fd, size, off, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->readdir, fd, size, off,
+                         xdata);
         return 0;
 }
 
@@ -1200,8 +1211,9 @@ int32_t
 default_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
                   size_t size, off_t off, dict_t *xdata)
 {
-        STACK_WIND (frame, default_readdirp_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->readdirp, fd, size, off, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->readdirp, fd, size, off,
+                         xdata);
         return 0;
 }
 
@@ -1210,8 +1222,9 @@ default_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                  struct iatt *stbuf, int32_t valid,
                  dict_t *xdata)
 {
-        STACK_WIND (frame, default_setattr_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->setattr, loc, stbuf, valid, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                         FIRST_CHILD (this)->fops->setattr, loc, stbuf, valid,
+                         xdata);
         return 0;
 }
 
@@ -1219,8 +1232,8 @@ int32_t
 default_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                   dict_t *xdata)
 {
-        STACK_WIND (frame, default_truncate_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
         return 0;
 }
 
@@ -1228,8 +1241,8 @@ int32_t
 default_stat (call_frame_t *frame, xlator_t *this, loc_t *loc,
               dict_t *xdata)
 {
-        STACK_WIND (frame, default_stat_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->stat, loc, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->stat, loc, xdata);
         return 0;
 }
 
@@ -1237,8 +1250,8 @@ int32_t
 default_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 dict_t *xdata)
 {
-        STACK_WIND (frame, default_lookup_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->lookup, loc, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->lookup, loc, xdata);
         return 0;
 }
 
@@ -1247,8 +1260,9 @@ default_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                   struct iatt *stbuf, int32_t valid,
                   dict_t *xdata)
 {
-        STACK_WIND (frame, default_fsetattr_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->fsetattr, fd, stbuf, valid, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                         FIRST_CHILD (this)->fops->fsetattr, fd, stbuf, valid,
+                         xdata);
         return 0;
 }
 
@@ -1287,8 +1301,8 @@ int32_t
 default_getspec (call_frame_t *frame, xlator_t *this, const char *key,
                  int32_t flags)
 {
-        STACK_WIND (frame, default_getspec_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->getspec, key, flags);
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->getspec, key, flags);
         return 0;
 }
 

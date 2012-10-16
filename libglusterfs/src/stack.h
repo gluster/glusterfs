@@ -254,6 +254,20 @@ STACK_RESET (call_stack_t *stack)
         } while (0)
 
 
+/* make a call without switching frames */
+#define STACK_WIND_TAIL(frame, obj, fn, params ...)                     \
+        do {                                                            \
+                xlator_t     *old_THIS = NULL;                          \
+                                                                        \
+                frame->this = obj;                                      \
+                frame->wind_to = #fn;                                   \
+                old_THIS = THIS;                                        \
+                THIS = obj;                                             \
+                fn (frame, obj, params);                                \
+                THIS = old_THIS;                                        \
+        } while (0)
+
+
 /* make a call with a cookie */
 #define STACK_WIND_COOKIE(frame, rfn, cky, obj, fn, params ...)         \
         do {                                                            \
