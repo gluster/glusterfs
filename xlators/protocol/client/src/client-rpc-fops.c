@@ -1093,7 +1093,9 @@ client3_3_getxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         if (rsp.op_ret == -1) {
-                gf_log (this->name, (((op_errno == ENOTSUP) || (op_errno == ENODATA)) ?
+                gf_log (this->name, (((op_errno == ENOTSUP) ||
+                                      (op_errno == ENODATA) ||
+                                      (op_errno == ENOENT)) ?
                                      GF_LOG_DEBUG : GF_LOG_WARNING),
                         "remote operation failed: %s. Path: %s (%s). Key: %s",
                         strerror (op_errno),
