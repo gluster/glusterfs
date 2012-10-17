@@ -1,51 +1,44 @@
 diff --git a/setup.py b/setup.py
-index d195d34..b5b5ca2 100644
+index d195d34..ab236ee 100644
 --- a/setup.py
 +++ b/setup.py
 @@ -1,5 +1,6 @@
  #!/usr/bin/python
  # Copyright (c) 2010-2012 OpenStack, LLC.
-+# Copyright (c) 2011 Red Hat, Inc.
++# Copyright (c) 2012 Red Hat, Inc.
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
-@@ -94,6 +95,7 @@ setup(
+@@ -94,6 +95,8 @@ setup(
              'tempurl=swift.common.middleware.tempurl:filter_factory',
              'formpost=swift.common.middleware.formpost:filter_factory',
              'name_check=swift.common.middleware.name_check:filter_factory',
-+            'gluster=swift.common.middleware.gluster:filter_factory',
++            'gluster=swift.plugins.middleware.gluster:filter_factory',
++            'glusterfs=swift.plugins.middleware.glusterfs:filter_factory',
              ],
          },
      )
 diff --git a/swift/account/server.py b/swift/account/server.py
-index 800b3c0..cb17970 100644
+index 800b3c0..77f9879 100644
 --- a/swift/account/server.py
 +++ b/swift/account/server.py
 @@ -1,4 +1,5 @@
  # Copyright (c) 2010-2012 OpenStack, LLC.
-+# Copyright (c) 2011 Red Hat, Inc.
++# Copyright (c) 2012 Red Hat, Inc.
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
-@@ -31,7 +32,7 @@ import simplejson
- 
- from swift.common.db import AccountBroker
- from swift.common.utils import get_logger, get_param, hash_path, \
--    normalize_timestamp, split_path, storage_directory
-+    normalize_timestamp, split_path, storage_directory, plugin_enabled
+@@ -35,6 +36,9 @@ from swift.common.utils import get_logger, get_param, hash_path, \
  from swift.common.constraints import ACCOUNT_LISTING_LIMIT, \
      check_mount, check_float, check_utf8
  from swift.common.db_replicator import ReplicatorRpc
-@@ -39,6 +40,8 @@ from swift.common.db_replicator import ReplicatorRpc
- 
- DATADIR = 'accounts'
- 
++from swift.plugins.utils import plugin_enabled
 +if plugin_enabled():
 +    from swift.plugins.DiskDir import DiskAccount
  
- class AccountController(object):
-     """WSGI controller for the account server."""
-@@ -52,8 +55,12 @@ class AccountController(object):
+ 
+ DATADIR = 'accounts'
+@@ -52,8 +56,12 @@ class AccountController(object):
              self.mount_check, logger=self.logger)
          self.auto_create_account_prefix = \
              conf.get('auto_create_account_prefix') or '.'
@@ -58,26 +51,7 @@ index 800b3c0..cb17970 100644
          hsh = hash_path(account)
          db_dir = storage_directory(DATADIR, part, hsh)
          db_path = os.path.join(self.root, drive, db_dir, hsh + '.db')
-@@ -121,9 +128,15 @@ class AccountController(object):
-                 if broker.is_deleted():
-                     return HTTPConflict(request=req)
-             metadata = {}
--            metadata.update((key, (value, timestamp))
--                for key, value in req.headers.iteritems()
--                if key.lower().startswith('x-account-meta-'))
-+            if not self.fs_object:
-+                metadata.update((key, (value, timestamp))
-+                    for key, value in req.headers.iteritems()
-+                    if key.lower().startswith('x-account-meta-'))
-+            else:
-+                metadata.update((key, value)
-+                    for key, value in req.headers.iteritems()
-+                    if key.lower().startswith('x-account-meta-'))
-+
-             if metadata:
-                 broker.update_metadata(metadata)
-             if created:
-@@ -153,6 +166,9 @@ class AccountController(object):
+@@ -153,6 +161,9 @@ class AccountController(object):
              broker.stale_reads_ok = True
          if broker.is_deleted():
              return HTTPNotFound(request=req)
@@ -87,69 +61,7 @@ index 800b3c0..cb17970 100644
          info = broker.get_info()
          headers = {
              'X-Account-Container-Count': info['container_count'],
-@@ -164,9 +180,16 @@ class AccountController(object):
-             container_ts = broker.get_container_timestamp(container)
-             if container_ts is not None:
-                 headers['X-Container-Timestamp'] = container_ts
--        headers.update((key, value)
--            for key, (value, timestamp) in broker.metadata.iteritems()
--            if value != '')
-+        if not self.fs_object:
-+            headers.update((key, value)
-+                for key, (value, timestamp) in broker.metadata.iteritems()
-+                if value != '')
-+        else:
-+            headers.update((key, value)
-+                for key, value in broker.metadata.iteritems()
-+                if value != '')
-+
-+
-         return HTTPNoContent(request=req, headers=headers)
- 
-     def GET(self, req):
-@@ -190,9 +213,15 @@ class AccountController(object):
-             'X-Account-Bytes-Used': info['bytes_used'],
-             'X-Timestamp': info['created_at'],
-             'X-PUT-Timestamp': info['put_timestamp']}
--        resp_headers.update((key, value)
--            for key, (value, timestamp) in broker.metadata.iteritems()
--            if value != '')
-+        if not self.fs_object:
-+            resp_headers.update((key, value)
-+                for key, (value, timestamp) in broker.metadata.iteritems()
-+                if value != '')
-+        else:
-+            resp_headers.update((key, value)
-+                for key, value in broker.metadata.iteritems()
-+                if value != '')
-+
-         try:
-             prefix = get_param(req, 'prefix')
-             delimiter = get_param(req, 'delimiter')
-@@ -224,6 +253,7 @@ class AccountController(object):
-                                   content_type='text/plain', request=req)
-         account_list = broker.list_containers_iter(limit, marker, end_marker,
-                                                    prefix, delimiter)
-+
-         if out_content_type == 'application/json':
-             json_pattern = ['"name":%s', '"count":%s', '"bytes":%s']
-             json_pattern = '{' + ','.join(json_pattern) + '}'
-@@ -298,15 +328,29 @@ class AccountController(object):
-             return HTTPNotFound(request=req)
-         timestamp = normalize_timestamp(req.headers['x-timestamp'])
-         metadata = {}
--        metadata.update((key, (value, timestamp))
--            for key, value in req.headers.iteritems()
--            if key.lower().startswith('x-account-meta-'))
-+        if not self.fs_object:
-+            metadata.update((key, (value, timestamp))
-+                for key, value in req.headers.iteritems()
-+                if key.lower().startswith('x-account-meta-'))
-+        else:
-+            metadata.update((key, value)
-+                for key, value in req.headers.iteritems()
-+                if key.lower().startswith('x-account-meta-'))
-         if metadata:
+@@ -305,8 +316,17 @@ class AccountController(object):
              broker.update_metadata(metadata)
          return HTTPNoContent(request=req)
  
@@ -167,120 +79,27 @@ index 800b3c0..cb17970 100644
          req = Request(env)
          self.logger.txn_id = req.headers.get('x-trans-id', None)
          if not check_utf8(req.path_info):
-diff --git a/swift/common/middleware/gluster.py b/swift/common/middleware/gluster.py
-new file mode 100644
-index 0000000..341285d
---- /dev/null
-+++ b/swift/common/middleware/gluster.py
-@@ -0,0 +1,55 @@
-+# Copyright (c) 2011 Red Hat, Inc.
-+#
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+# You may obtain a copy of the License at
-+#
-+#    http://www.apache.org/licenses/LICENSE-2.0
-+#
-+# Unless required by applicable law or agreed to in writing, software
-+# distributed under the License is distributed on an "AS IS" BASIS,
-+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-+# implied.
-+# See the License for the specific language governing permissions and
-+# limitations under the License.
-+
-+from swift.common.utils import get_logger, plugin_enabled
-+from swift import plugins
-+from ConfigParser import ConfigParser
-+
-+class Gluster_plugin(object):
-+    """
-+    Update the environment with keys that reflect Gluster_plugin enabled
-+    """
-+
-+    def __init__(self, app, conf):
-+        self.app = app
-+        self.conf = conf
-+        self.fs_name = 'Glusterfs'
-+        self.logger = get_logger(conf, log_route='gluster')
-+
-+    def __call__(self, env, start_response):
-+        if not plugin_enabled():
-+            return self.app(env, start_response)
-+        env['Gluster_enabled'] =True
-+        fs_object = getattr(plugins, self.fs_name, False)
-+        if not fs_object:
-+            raise Exception('%s plugin not found', self.fs_name)
-+
-+        env['fs_object'] = fs_object()
-+        fs_conf = ConfigParser()
-+        if fs_conf.read('/etc/swift/fs.conf'):
-+            try:
-+                env['root'] = fs_conf.get ('DEFAULT', 'mount_path')
-+            except NoSectionError, NoOptionError:
-+                self.logger.exception(_('ERROR mount_path not present'))
-+        return self.app(env, start_response)
-+
-+def filter_factory(global_conf, **local_conf):
-+    """Returns a WSGI filter app for use with paste.deploy."""
-+    conf = global_conf.copy()
-+    conf.update(local_conf)
-+
-+    def gluster_filter(app):
-+        return Gluster_plugin(app, conf)
-+    return gluster_filter
-diff --git a/swift/common/utils.py b/swift/common/utils.py
-index 47edce8..03701ce 100644
---- a/swift/common/utils.py
-+++ b/swift/common/utils.py
-@@ -1,4 +1,5 @@
- # Copyright (c) 2010-2012 OpenStack, LLC.
-+# Copyright (c) 2011 Red Hat, Inc.
- #
- # Licensed under the Apache License, Version 2.0 (the "License");
- # you may not use this file except in compliance with the License.
-@@ -1138,3 +1139,11 @@ def streq_const_time(s1, s2):
-     for (a, b) in zip(s1, s2):
-         result |= ord(a) ^ ord(b)
-     return result == 0
-+
-+def plugin_enabled():
-+    swift_conf = ConfigParser()
-+    swift_conf.read(os.path.join('/etc/swift', 'swift.conf'))
-+    try:
-+        return swift_conf.get('DEFAULT', 'Enable_plugin', 'no') in TRUE_VALUES
-+    except NoOptionError, NoSectionError:
-+        return False
 diff --git a/swift/container/server.py b/swift/container/server.py
-index 8a18cfd..93943a3 100644
+index 8a18cfd..952b8cd 100644
 --- a/swift/container/server.py
 +++ b/swift/container/server.py
 @@ -1,4 +1,5 @@
  # Copyright (c) 2010-2012 OpenStack, LLC.
-+# Copyright (c) 2011 Red Hat, Inc.
++# Copyright (c) 2012 Red Hat, Inc.
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
-@@ -31,7 +32,8 @@ from webob.exc import HTTPAccepted, HTTPBadRequest, HTTPConflict, \
- 
- from swift.common.db import ContainerBroker
- from swift.common.utils import get_logger, get_param, hash_path, \
--    normalize_timestamp, storage_directory, split_path, validate_sync_to
-+    normalize_timestamp, storage_directory, split_path, validate_sync_to, \
-+    plugin_enabled
- from swift.common.constraints import CONTAINER_LISTING_LIMIT, \
-     check_mount, check_float, check_utf8
+@@ -37,6 +38,9 @@ from swift.common.constraints import CONTAINER_LISTING_LIMIT, \
  from swift.common.bufferedhttp import http_connect
-@@ -40,6 +42,9 @@ from swift.common.db_replicator import ReplicatorRpc
+ from swift.common.exceptions import ConnectionTimeout
+ from swift.common.db_replicator import ReplicatorRpc
++from swift.plugins.utils import plugin_enabled
++if plugin_enabled():
++    from swift.plugins.DiskDir import DiskDir
  
  DATADIR = 'containers'
  
-+if plugin_enabled():
-+    from swift.plugins.DiskDir import DiskDir
-+
- 
- class ContainerController(object):
-     """WSGI Controller for the container server."""
-@@ -62,6 +67,7 @@ class ContainerController(object):
+@@ -62,6 +66,7 @@ class ContainerController(object):
              ContainerBroker, self.mount_check, logger=self.logger)
          self.auto_create_account_prefix = \
              conf.get('auto_create_account_prefix') or '.'
@@ -288,7 +107,7 @@ index 8a18cfd..93943a3 100644
  
      def _get_container_broker(self, drive, part, account, container):
          """
-@@ -73,6 +79,11 @@ class ContainerController(object):
+@@ -73,6 +78,10 @@ class ContainerController(object):
          :param container: container name
          :returns: ContainerBroker object
          """
@@ -296,128 +115,20 @@ index 8a18cfd..93943a3 100644
 +            return DiskDir(self.root, drive, part, account,
 +                           container, self.logger,
 +                           fs_object = self.fs_object)
-+
          hsh = hash_path(account, container)
          db_dir = storage_directory(DATADIR, part, hsh)
          db_path = os.path.join(self.root, drive, db_dir, hsh + '.db')
-@@ -211,10 +222,18 @@ class ContainerController(object):
-                 if broker.is_deleted():
-                     return HTTPConflict(request=req)
-             metadata = {}
--            metadata.update((key, (value, timestamp))
--                for key, value in req.headers.iteritems()
--                if key.lower() in self.save_headers or
--                   key.lower().startswith('x-container-meta-'))
-+            #Note: check the structure of req.headers
-+            if not self.fs_object:
-+                metadata.update((key, (value, timestamp))
-+                    for key, value in req.headers.iteritems()
-+                    if key.lower() in self.save_headers or
-+                       key.lower().startswith('x-container-meta-'))
-+            else:
-+                metadata.update((key, value)
-+                   for key, value in req.headers.iteritems()
-+                   if key.lower() in self.save_headers or
-+                      key.lower().startswith('x-container-meta-'))
-+
-             if metadata:
-                 if 'X-Container-Sync-To' in metadata:
-                     if 'X-Container-Sync-To' not in broker.metadata or \
-@@ -222,6 +241,7 @@ class ContainerController(object):
-                             broker.metadata['X-Container-Sync-To'][0]:
-                         broker.set_x_container_sync_points(-1, -1)
-                 broker.update_metadata(metadata)
-+
-             resp = self.account_update(req, account, container, broker)
-             if resp:
-                 return resp
-@@ -245,6 +265,11 @@ class ContainerController(object):
+@@ -245,6 +254,9 @@ class ContainerController(object):
          broker.stale_reads_ok = True
          if broker.is_deleted():
              return HTTPNotFound(request=req)
-+
 +        if self.fs_object and not self.fs_object.object_only:
 +            broker.list_objects_iter(None, None, None, None,
 +                                     None, None)
-+
          info = broker.get_info()
          headers = {
              'X-Container-Object-Count': info['object_count'],
-@@ -252,10 +277,17 @@ class ContainerController(object):
-             'X-Timestamp': info['created_at'],
-             'X-PUT-Timestamp': info['put_timestamp'],
-         }
--        headers.update((key, value)
--            for key, (value, timestamp) in broker.metadata.iteritems()
--            if value != '' and (key.lower() in self.save_headers or
--                                key.lower().startswith('x-container-meta-')))
-+        if not self.fs_object:
-+            headers.update((key, value)
-+                for key, (value, timestamp) in broker.metadata.iteritems()
-+                if value != '' and (key.lower() in self.save_headers or
-+                                    key.lower().startswith('x-container-meta-')))
-+        else:
-+            headers.update((key, value)
-+                for key, value in broker.metadata.iteritems()
-+                if value != '' and (key.lower() in self.save_headers or
-+                                    key.lower().startswith('x-container-meta-')))
-+
-         return HTTPNoContent(request=req, headers=headers)
- 
-     def GET(self, req):
-@@ -268,6 +300,7 @@ class ContainerController(object):
-                                 request=req)
-         if self.mount_check and not check_mount(self.root, drive):
-             return Response(status='507 %s is not mounted' % drive)
-+
-         broker = self._get_container_broker(drive, part, account, container)
-         broker.pending_timeout = 0.1
-         broker.stale_reads_ok = True
-@@ -280,10 +313,17 @@ class ContainerController(object):
-             'X-Timestamp': info['created_at'],
-             'X-PUT-Timestamp': info['put_timestamp'],
-         }
--        resp_headers.update((key, value)
--            for key, (value, timestamp) in broker.metadata.iteritems()
--            if value != '' and (key.lower() in self.save_headers or
--                                key.lower().startswith('x-container-meta-')))
-+        if not self.fs_object:
-+            resp_headers.update((key, value)
-+                for key, (value, timestamp) in broker.metadata.iteritems()
-+                if value != '' and (key.lower() in self.save_headers or
-+                               key.lower().startswith('x-container-meta-')))
-+        else:
-+            resp_headers.update((key, value)
-+                for key, value in broker.metadata.iteritems()
-+                if value != '' and (key.lower() in self.save_headers or
-+                               key.lower().startswith('x-container-meta-')))
-+
-         try:
-             path = get_param(req, 'path')
-             prefix = get_param(req, 'prefix')
-@@ -414,10 +454,17 @@ class ContainerController(object):
-             return HTTPNotFound(request=req)
-         timestamp = normalize_timestamp(req.headers['x-timestamp'])
-         metadata = {}
--        metadata.update((key, (value, timestamp))
--            for key, value in req.headers.iteritems()
--            if key.lower() in self.save_headers or
--               key.lower().startswith('x-container-meta-'))
-+        if not self.fs_object:
-+            metadata.update((key, (value, timestamp))
-+                for key, value in req.headers.iteritems()
-+                if key.lower() in self.save_headers or
-+                   key.lower().startswith('x-container-meta-'))
-+        else:
-+             metadata.update((key, value)
-+                for key, value in req.headers.iteritems()
-+                if key.lower() in self.save_headers or
-+                   key.lower().startswith('x-container-meta-'))
-+
-         if metadata:
-             if 'X-Container-Sync-To' in metadata:
-                 if 'X-Container-Sync-To' not in broker.metadata or \
-@@ -427,8 +474,19 @@ class ContainerController(object):
+@@ -427,8 +439,19 @@ class ContainerController(object):
              broker.update_metadata(metadata)
          return HTTPNoContent(request=req)
  
@@ -438,62 +149,37 @@ index 8a18cfd..93943a3 100644
          self.logger.txn_id = req.headers.get('x-trans-id', None)
          if not check_utf8(req.path_info):
 diff --git a/swift/obj/server.py b/swift/obj/server.py
-index 9cca16b..a45daff 100644
+index 9cca16b..82eaa40 100644
 --- a/swift/obj/server.py
 +++ b/swift/obj/server.py
 @@ -1,4 +1,5 @@
  # Copyright (c) 2010-2012 OpenStack, LLC.
-+# Copyright (c) 2011 Red Hat, Inc.
++# Copyright (c) 2012 Red Hat, Inc.
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
-@@ -26,6 +27,7 @@ from hashlib import md5
- from tempfile import mkstemp
- from urllib import unquote
- from contextlib import contextmanager
-+from ConfigParser import ConfigParser
- 
- from webob import Request, Response, UTC
- from webob.exc import HTTPAccepted, HTTPBadRequest, HTTPCreated, \
-@@ -37,16 +39,23 @@ from eventlet import sleep, Timeout, tpool
- 
- from swift.common.utils import mkdirs, normalize_timestamp, \
-     storage_directory, hash_path, renamer, fallocate, \
--    split_path, drop_buffer_cache, get_logger, write_pickle
-+    split_path, drop_buffer_cache, get_logger, write_pickle, \
-+    plugin_enabled
- from swift.common.bufferedhttp import http_connect
--from swift.common.constraints import check_object_creation, check_mount, \
--    check_float, check_utf8
-+if plugin_enabled():
-+    from swift.plugins.constraints import check_object_creation
-+    from swift.plugins.utils import X_TYPE, X_OBJECT_TYPE, FILE, DIR, MARKER_DIR, \
-+         OBJECT, DIR_TYPE, FILE_TYPE
-+else:
-+    from swift.common.constraints import check_object_creation
-+
-+from swift.common.constraints import  check_mount, check_float, check_utf8
-+
- from swift.common.exceptions import ConnectionTimeout, DiskFileError, \
+@@ -45,6 +46,10 @@ from swift.common.exceptions import ConnectionTimeout, DiskFileError, \
      DiskFileNotExist
  from swift.obj.replicator import tpooled_get_hashes, invalidate_hash, \
      quarantine_renamer
++from swift.plugins.utils import plugin_enabled
++if plugin_enabled():
++    from swift.plugins.utils import X_TYPE, X_OBJECT_TYPE, FILE, DIR, MARKER_DIR, \
++         OBJECT, DIR_TYPE, FILE_TYPE
  
--
+ 
  DATADIR = 'objects'
- ASYNCDIR = 'async_pending'
- PICKLE_PROTOCOL = 2
-@@ -339,6 +348,9 @@ class DiskFile(object):
-                 raise
+@@ -340,6 +345,9 @@ class DiskFile(object):
          raise DiskFileNotExist('Data File does not exist.')
+ 
  
 +if plugin_enabled():
 +    from swift.plugins.DiskFile import Gluster_DiskFile
 +
- 
  class ObjectController(object):
      """Implements the WSGI application for the Swift Object Server."""
-@@ -377,6 +389,17 @@ class ObjectController(object):
+ 
+@@ -377,6 +385,17 @@ class ObjectController(object):
              'expiring_objects'
          self.expiring_objects_container_divisor = \
              int(conf.get('expiring_objects_container_divisor') or 86400)
@@ -511,7 +197,7 @@ index 9cca16b..a45daff 100644
  
      def async_update(self, op, account, container, obj, host, partition,
                       contdevice, headers_out, objdevice):
-@@ -493,7 +516,7 @@ class ObjectController(object):
+@@ -493,7 +512,7 @@ class ObjectController(object):
                                    content_type='text/plain')
          if self.mount_check and not check_mount(self.devices, device):
              return Response(status='507 %s is not mounted' % device)
@@ -520,7 +206,7 @@ index 9cca16b..a45daff 100644
                          obj, self.logger, disk_chunk_size=self.disk_chunk_size)
  
          if 'X-Delete-At' in file.metadata and \
-@@ -548,7 +571,7 @@ class ObjectController(object):
+@@ -548,7 +567,7 @@ class ObjectController(object):
          if new_delete_at and new_delete_at < time.time():
              return HTTPBadRequest(body='X-Delete-At in past', request=request,
                                    content_type='text/plain')
@@ -529,7 +215,7 @@ index 9cca16b..a45daff 100644
                          obj, self.logger, disk_chunk_size=self.disk_chunk_size)
          orig_timestamp = file.metadata.get('X-Timestamp')
          upload_expiration = time.time() + self.max_upload_time
-@@ -580,12 +603,29 @@ class ObjectController(object):
+@@ -580,12 +599,26 @@ class ObjectController(object):
              if 'etag' in request.headers and \
                              request.headers['etag'].lower() != etag:
                  return HTTPUnprocessableEntity(request=request)
@@ -545,27 +231,24 @@ index 9cca16b..a45daff 100644
 +            if not self.fs_object:
 +                metadata = {
 +                    'X-Timestamp': request.headers['x-timestamp'],
-+                    'Content-Type': request.headers['content-type'],
++                    'Content-Type': content_type,
 +                    'ETag': etag,
 +                    'Content-Length': str(os.fstat(fd).st_size),
 +                }
 +            else:
++                x_object_type = MARKER_DIR if content_type.lower() == DIR_TYPE else FILE
 +                metadata = {
 +                    'X-Timestamp': request.headers['x-timestamp'],
-+                    'Content-Type': request.headers['content-type'],
++                    'Content-Type': content_type,
 +                    'ETag': etag,
 +                    'Content-Length': str(os.fstat(fd).st_size),
 +                    X_TYPE: OBJECT,
-+                    X_OBJECT_TYPE: FILE,
++                    X_OBJECT_TYPE: x_object_type,
 +                }
-+
-+            if self.fs_object and \
-+                request.headers['content-type'].lower() == DIR_TYPE:
-+                metadata.update({X_OBJECT_TYPE: MARKER_DIR})
              metadata.update(val for val in request.headers.iteritems()
                      if val[0].lower().startswith('x-object-meta-') and
                      len(val[0]) > 14)
-@@ -612,7 +652,7 @@ class ObjectController(object):
+@@ -612,7 +645,7 @@ class ObjectController(object):
                   'x-timestamp': file.metadata['X-Timestamp'],
                   'x-etag': file.metadata['ETag'],
                   'x-trans-id': request.headers.get('x-trans-id', '-')},
@@ -574,7 +257,7 @@ index 9cca16b..a45daff 100644
          resp = HTTPCreated(request=request, etag=etag)
          return resp
  
-@@ -626,9 +666,9 @@ class ObjectController(object):
+@@ -626,9 +659,9 @@ class ObjectController(object):
                          content_type='text/plain')
          if self.mount_check and not check_mount(self.devices, device):
              return Response(status='507 %s is not mounted' % device)
@@ -587,7 +270,7 @@ index 9cca16b..a45daff 100644
          if file.is_deleted() or ('X-Delete-At' in file.metadata and
                  int(file.metadata['X-Delete-At']) <= time.time()):
              if request.headers.get('if-match') == '*':
-@@ -702,7 +742,7 @@ class ObjectController(object):
+@@ -702,7 +735,7 @@ class ObjectController(object):
              return resp
          if self.mount_check and not check_mount(self.devices, device):
              return Response(status='507 %s is not mounted' % device)
@@ -596,7 +279,7 @@ index 9cca16b..a45daff 100644
                          obj, self.logger, disk_chunk_size=self.disk_chunk_size)
          if file.is_deleted() or ('X-Delete-At' in file.metadata and
                  int(file.metadata['X-Delete-At']) <= time.time()):
-@@ -744,7 +784,7 @@ class ObjectController(object):
+@@ -744,7 +777,7 @@ class ObjectController(object):
          if self.mount_check and not check_mount(self.devices, device):
              return Response(status='507 %s is not mounted' % device)
          response_class = HTTPNoContent
@@ -605,7 +288,7 @@ index 9cca16b..a45daff 100644
                          obj, self.logger, disk_chunk_size=self.disk_chunk_size)
          if 'x-if-delete-at' in request.headers and \
                  int(request.headers['x-if-delete-at']) != \
-@@ -797,9 +837,18 @@ class ObjectController(object):
+@@ -797,9 +830,18 @@ class ObjectController(object):
              raise hashes
          return Response(body=pickle.dumps(hashes))
  
@@ -624,38 +307,3 @@ index 9cca16b..a45daff 100644
          req = Request(env)
          self.logger.txn_id = req.headers.get('x-trans-id', None)
          if not check_utf8(req.path_info):
-diff --git a/swift/proxy/server.py b/swift/proxy/server.py
-index 17613b8..d277d28 100644
---- a/swift/proxy/server.py
-+++ b/swift/proxy/server.py
-@@ -1,4 +1,5 @@
- # Copyright (c) 2010-2012 OpenStack, LLC.
-+# Copyright (c) 2011 Red Hat, Inc.
- #
- # Licensed under the Apache License, Version 2.0 (the "License");
- # you may not use this file except in compliance with the License.
-@@ -53,11 +54,20 @@ from webob import Request, Response
- 
- from swift.common.ring import Ring
- from swift.common.utils import cache_from_env, ContextPool, get_logger, \
--    get_remote_client, normalize_timestamp, split_path, TRUE_VALUES
-+    get_remote_client, normalize_timestamp, split_path, TRUE_VALUES, \
-+    plugin_enabled
- from swift.common.bufferedhttp import http_connect
--from swift.common.constraints import check_metadata, check_object_creation, \
--    check_utf8, CONTAINER_LISTING_LIMIT, MAX_ACCOUNT_NAME_LENGTH, \
--    MAX_CONTAINER_NAME_LENGTH, MAX_FILE_SIZE
-+
-+if plugin_enabled():
-+    from swift.plugins.constraints import check_object_creation, \
-+        MAX_ACCOUNT_NAME_LENGTH, MAX_CONTAINER_NAME_LENGTH, MAX_FILE_SIZE
-+else:
-+    from swift.common.constraints import check_object_creation, \
-+        MAX_ACCOUNT_NAME_LENGTH, MAX_CONTAINER_NAME_LENGTH, MAX_FILE_SIZE
-+
-+from swift.common.constraints import check_metadata, check_utf8, \
-+    CONTAINER_LISTING_LIMIT
-+
- from swift.common.exceptions import ChunkReadTimeout, \
-     ChunkWriteTimeout, ConnectionTimeout
- 

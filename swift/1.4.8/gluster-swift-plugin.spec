@@ -13,7 +13,7 @@
 %define _confdir     /etc/swift
 %define _swiftdir    /usr/lib/python2.6/site-packages/swift
 %define _ufo_version 1.0
-%define _ufo_release 3
+%define _ufo_release 5
 
 Summary  : GlusterFS Unified File and Object Storage.
 Name     : gluster-swift-plugin
@@ -42,7 +42,7 @@ storage costs.
 %install
 rm -rf %{buildroot}
 
-mkdir -p %{buildroot}/%{_swiftdir}/plugins
+mkdir -p %{buildroot}/%{_swiftdir}/plugins/middleware
 mkdir -p %{buildroot}/%{_confdir}/
 
 cp constraints.py  %{buildroot}/%{_swiftdir}/plugins
@@ -52,9 +52,14 @@ cp Glusterfs.py    %{buildroot}/%{_swiftdir}/plugins
 cp __init__.py     %{buildroot}/%{_swiftdir}/plugins
 cp utils.py        %{buildroot}/%{_swiftdir}/plugins
 
+cp middleware/__init__.py       %{buildroot}/%{_swiftdir}/plugins/middleware
+cp middleware/gluster.py        %{buildroot}/%{_swiftdir}/plugins/middleware
+cp middleware/glusterfs.py      %{buildroot}/%{_swiftdir}/plugins/middleware
+
 cp -r conf/*       %{buildroot}/%{_confdir}/
 
 %files
 %defattr(-,root,root)
+%{_swiftdir}/plugins/middleware
 %{_swiftdir}/plugins
 %{_confdir}/
