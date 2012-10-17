@@ -18,7 +18,7 @@ import os
 from swift.plugins.utils import clean_metadata, dir_empty, rmdirs, mkdirs, \
      validate_account, validate_container, check_valid_account, is_marker, \
      get_container_details, get_account_details, create_container_metadata, \
-     create_account_metadata, DEFAULT_GID, DEFAULT_UID, get_account_details, \
+     create_account_metadata, DEFAULT_GID, DEFAULT_UID, \
      validate_object, create_object_metadata, read_metadata, write_metadata
 
 from swift.common.constraints import CONTAINER_LISTING_LIMIT, \
@@ -36,6 +36,26 @@ def strip_obj_storage_path(path, string='/mnt/gluster-object'):
     return path.replace(string, '').strip('/')
 
 DATADIR = 'containers'
+
+
+def _read_metadata(dd):
+    """ Filter read metadata so that it always returns a tuple that includes
+        some kind of timestamp. With 1.4.8 of the Swift integration the
+        timestamps were not stored. Here we fabricate timestamps for volumes
+        where the existing data has no timestamp (that is, stored data is not
+        a tuple), allowing us a measure of backward compatibility.
+
+        FIXME: At this time it does not appear that the timestamps on each
+        metadata are used for much, so this should not hurt anything.
+    """
+    metadata_i = read_metadata(dd)
+    metadata = {}
+    timestamp = 0
+    for key, value in metadata_i.iteritems():
+        if not isinstance(value, tuple):
+            value = (value, timestamp)
+        metadata[key] = value
+    return metadata
 
 
 class DiskCommon(object):
@@ -112,6 +132,7 @@ class DiskCommon(object):
         write_metadata(acc_path, metadata)
         self.metadata = metadata
 
+
 class DiskDir(DiskCommon):
     """
     Manage object files on disk.
@@ -153,7 +174,7 @@ class DiskDir(DiskCommon):
         self.dir_exists = os.path.exists(self.datadir)
         if self.dir_exists:
             try:
-                self.metadata = read_metadata(self.datadir)
+                self.metadata = _read_metadata(self.datadir)
             except EOFError:
                 create_container_metadata(self.datadir)
         else:
@@ -161,19 +182,19 @@ class DiskDir(DiskCommon):
         if container:
             if not self.metadata:
                 create_container_metadata(self.datadir)
-                self.metadata = read_metadata(self.datadir)
+                self.metadata = _read_metadata(self.datadir)
             else:
                 if not validate_container(self.metadata):
                     create_container_metadata(self.datadir)
-                    self.metadata = read_metadata(self.datadir)
+                    self.metadata = _read_metadata(self.datadir)
         else:
             if not self.metadata:
                 create_account_metadata(self.datadir)
-                self.metadata = read_metadata(self.datadir)
+                self.metadata = _read_metadata(self.datadir)
             else:
                 if not validate_account(self.metadata):
                     create_account_metadata(self.datadir)
-                    self.metadata = read_metadata(self.datadir)
+                    self.metadata = _read_metadata(self.datadir)
 
     def empty(self):
         return dir_empty(self.datadir)
@@ -186,7 +207,6 @@ class DiskDir(DiskCommon):
             else:
                 rmdirs(self.datadir)
             self.dir_exists = False
-
 
     def put_metadata(self, metadata):
         """
@@ -209,34 +229,40 @@ class DiskDir(DiskCommon):
         self.dir_exists = True
 
     def put_obj(self, content_length, timestamp):
-        self.metadata[X_OBJECTS_COUNT] = int(self.metadata[X_OBJECTS_COUNT]) + 1
+        ocnt = self.metadata[X_OBJECTS_COUNT][0]
+        self.metadata[X_OBJECTS_COUNT] = (int(ocnt) + 1, timestamp)
         self.metadata[X_PUT_TIMESTAMP] = timestamp
-        self.metadata[X_BYTES_USED] = int(self.metadata[X_BYTES_USED]) + int(content_length)
+        bused = self.metadata[X_BYTES_USED][0]
+        self.metadata[X_BYTES_USED] = (int(bused) + int(content_length), timestamp)
         #TODO: define update_metadata instad of writing whole metadata again.
         self.put_metadata(self.metadata)
 
     def delete_obj(self, content_length):
-        self.metadata[X_OBJECTS_COUNT] = int(self.metadata[X_OBJECTS_COUNT]) - 1
-        self.metadata[X_BYTES_USED] = int(self.metadata[X_BYTES_USED]) - int(content_length)
+        ocnt, timestamp = self.metadata[X_OBJECTS_COUNT][0]
+        self.metadata[X_OBJECTS_COUNT] = (int(ocnt) - 1, timestamp)
+        bused, timestamp = self.metadata[X_BYTES_USED]
+        self.metadata[X_BYTES_USED] = (int(bused) - int(content_length), timestamp)
         self.put_metadata(self.metadata)
 
     def put_container(self, container, put_timestamp, del_timestamp, object_count, bytes_used):
         """
         For account server.
         """
-        self.metadata[X_OBJECTS_COUNT] = 0
-        self.metadata[X_BYTES_USED] = 0
-        self.metadata[X_CONTAINER_COUNT] = int(self.metadata[X_CONTAINER_COUNT]) + 1
-        self.metadata[X_PUT_TIMESTAMP] = 1
+        self.metadata[X_OBJECTS_COUNT] = (0, put_timestamp)
+        self.metadata[X_BYTES_USED] = (0, put_timestamp)
+        ccnt = self.metadata[X_CONTAINER_COUNT][0]
+        self.metadata[X_CONTAINER_COUNT] = (int(ccnt) + 1, put_timestamp)
+        self.metadata[X_PUT_TIMESTAMP] = (1, put_timestamp)
         self.put_metadata(self.metadata)
 
     def delete_container(self, object_count, bytes_used):
         """
         For account server.
         """
-        self.metadata[X_OBJECTS_COUNT] = 0
-        self.metadata[X_BYTES_USED] = 0
-        self.metadata[X_CONTAINER_COUNT] = int(self.metadata[X_CONTAINER_COUNT]) - 1
+        self.metadata[X_OBJECTS_COUNT] = (0, 0)
+        self.metadata[X_BYTES_USED] = (0, 0)
+        ccnt, timestamp = self.metadata[X_CONTAINER_COUNT]
+        self.metadata[X_CONTAINER_COUNT] = (int(ccnt) - 1, timestamp)
         self.put_metadata(self.metadata)
 
     def unlink(self):
@@ -264,10 +290,10 @@ class DiskDir(DiskCommon):
 
         objects, object_count, bytes_used = get_container_details(self.datadir)
 
-        if int(self.metadata[X_OBJECTS_COUNT]) != object_count or \
-           int(self.metadata[X_BYTES_USED]) != bytes_used:
-            self.metadata[X_OBJECTS_COUNT] = object_count
-            self.metadata[X_BYTES_USED] = bytes_used
+        if int(self.metadata[X_OBJECTS_COUNT][0]) != object_count or \
+           int(self.metadata[X_BYTES_USED][0]) != bytes_used:
+            self.metadata[X_OBJECTS_COUNT] = (object_count, 0)
+            self.metadata[X_BYTES_USED] = (bytes_used, 0)
             self.update_container(self.metadata)
 
         if objects:
@@ -316,11 +342,10 @@ class DiskDir(DiskCommon):
         bytes_used = 0
         objects, object_count, bytes_used = get_container_details(self.datadir)
 
-
-        if int(self.metadata[X_OBJECTS_COUNT]) != object_count or \
-           int(self.metadata[X_BYTES_USED]) != bytes_used:
-            self.metadata[X_OBJECTS_COUNT] = object_count
-            self.metadata[X_BYTES_USED] = bytes_used
+        if int(self.metadata[X_OBJECTS_COUNT][0]) != object_count or \
+           int(self.metadata[X_BYTES_USED][0]) != bytes_used:
+            self.metadata[X_OBJECTS_COUNT] = (object_count, 0)
+            self.metadata[X_BYTES_USED] = (bytes_used, 0)
             self.update_container(self.metadata)
 
     def update_container_count(self):
@@ -329,8 +354,8 @@ class DiskDir(DiskCommon):
 
         containers, container_count = get_account_details(self.datadir)
 
-        if int(self.metadata[X_CONTAINER_COUNT]) != container_count:
-            self.metadata[X_CONTAINER_COUNT] = container_count
+        if int(self.metadata[X_CONTAINER_COUNT][0]) != container_count:
+            self.metadata[X_CONTAINER_COUNT] = (container_count, 0)
             self.update_account(self.metadata)
 
     def get_info(self, include_metadata=False):
@@ -350,13 +375,13 @@ class DiskDir(DiskCommon):
 
         metadata = {}
         if os.path.exists(self.datadir):
-            metadata = read_metadata(self.datadir)
+            metadata = _read_metadata(self.datadir)
 
         data = {'account' : self.account, 'container' : self.name,
-                'object_count' : metadata.get(X_OBJECTS_COUNT, '0'),
-                'bytes_used' : metadata.get(X_BYTES_USED, '0'),
+                'object_count' : metadata.get(X_OBJECTS_COUNT, ('0', 0))[0],
+                'bytes_used' : metadata.get(X_BYTES_USED, ('0',0))[0],
                 'hash': '', 'id' : '', 'created_at' : '1',
-                'put_timestamp' : metadata.get(X_PUT_TIMESTAMP, '0'),
+                'put_timestamp' : metadata.get(X_PUT_TIMESTAMP, ('0',0))[0],
                 'delete_timestamp' : '1',
                 'reported_put_timestamp' : '1', 'reported_delete_timestamp' : '1',
                 'reported_object_count' : '1', 'reported_bytes_used' : '1'}
@@ -401,7 +426,7 @@ class DiskAccount(DiskDir):
         self.datadir = os.path.join(self.root, self.account)
         if not check_mount(root, account):
             check_valid_account(account, fs_object)
-        self.metadata = read_metadata(self.datadir)
+        self.metadata = _read_metadata(self.datadir)
         if not self.metadata or not validate_account(self.metadata):
             self.metadata = create_account_metadata(self.datadir)
 
@@ -419,8 +444,8 @@ class DiskAccount(DiskDir):
 
         containers, container_count = get_account_details(self.datadir)
 
-        if int(self.metadata[X_CONTAINER_COUNT]) != container_count:
-            self.metadata[X_CONTAINER_COUNT] = container_count
+        if int(self.metadata[X_CONTAINER_COUNT][0]) != container_count:
+            self.metadata[X_CONTAINER_COUNT] = (container_count, 0)
             self.update_account(self.metadata)
 
         if containers:
@@ -447,13 +472,13 @@ class DiskAccount(DiskDir):
                 list_item = []
                 metadata = None
                 list_item.append(cont)
-                metadata = read_metadata(self.datadir + '/' + cont)
+                metadata = _read_metadata(self.datadir + '/' + cont)
                 if not metadata or not validate_container(metadata):
                     metadata = create_container_metadata(self.datadir + '/' + cont)
 
                 if metadata:
-                    list_item.append(metadata[X_OBJECTS_COUNT])
-                    list_item.append(metadata[X_BYTES_USED])
+                    list_item.append(metadata[X_OBJECTS_COUNT][0])
+                    list_item.append(metadata[X_BYTES_USED][0])
                     list_item.append(0)
                 account_list.append(list_item)
 
@@ -468,15 +493,15 @@ class DiskAccount(DiskDir):
         """
         metadata = {}
         if (os.path.exists(self.datadir)):
-            metadata = read_metadata(self.datadir)
+            metadata = _read_metadata(self.datadir)
             if not metadata:
                 metadata = create_account_metadata(self.datadir)
 
         data = {'account' : self.account, 'created_at' : '1',
                 'put_timestamp' : '1', 'delete_timestamp' : '1',
-                'container_count' : metadata.get(X_CONTAINER_COUNT, 0),
-                'object_count' : metadata.get(X_OBJECTS_COUNT, 0),
-                'bytes_used' : metadata.get(X_BYTES_USED, 0),
+                'container_count' : metadata.get(X_CONTAINER_COUNT, (0,0))[0],
+                'object_count' : metadata.get(X_OBJECTS_COUNT, (0,0))[0],
+                'bytes_used' : metadata.get(X_BYTES_USED, (0,0))[0],
                 'hash' : '', 'id' : ''}
 
         if include_metadata:

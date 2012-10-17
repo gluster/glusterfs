@@ -18,8 +18,9 @@ import os
 import errno
 import xattr
 from hashlib import md5
-from swift.common.utils import normalize_timestamp
+from swift.common.utils import normalize_timestamp, TRUE_VALUES
 import cPickle as pickle
+from ConfigParser import ConfigParser, NoSectionError, NoOptionError
 
 X_CONTENT_TYPE = 'Content-Type'
 X_CONTENT_LENGTH = 'Content-Length'
@@ -174,6 +175,18 @@ def do_rename(old_path, new_path):
         raise
     return True
 
+def _add_timestamp(metadata_i):
+    # At this point we have a simple key/value dictionary, turn it into
+    # key/(value,timestamp) pairs.
+    timestamp = 0
+    metadata = {}
+    for key, value_i in metadata_i.iteritems():
+        if not isinstance(value_i, tuple):
+            metadata[key] = (value_i, timestamp)
+        else:
+            metadata[key] = value_i
+    return metadata
+
 def read_metadata(path):
     """
     Helper function to read the pickled metadata from a File/Directory .
@@ -301,7 +314,8 @@ def validate_container(metadata):
         #logging.warn('validate_container: Metadata missing entries: %s' % metadata)
         return False
 
-    if metadata[X_TYPE] == CONTAINER:
+    (value, timestamp) = metadata[X_TYPE]
+    if value == CONTAINER:
         return True
 
     logging.warn('validate_container: metadata type is not CONTAINER (%r)' % (value,))
@@ -321,7 +335,8 @@ def validate_account(metadata):
         #logging.warn('validate_account: Metadata missing entries: %s' % metadata)
         return False
 
-    if metadata[X_TYPE] == ACCOUNT:
+    (value, timestamp) = metadata[X_TYPE]
+    if value == ACCOUNT:
         return True
 
     logging.warn('validate_account: metadata type is not ACCOUNT (%r)' % (value,))
@@ -552,7 +567,7 @@ def get_container_metadata(cont_path, memcache=None):
                 X_PUT_TIMESTAMP: normalize_timestamp(os.path.getmtime(cont_path)),
                 X_OBJECTS_COUNT: object_count,
                 X_BYTES_USED: bytes_used}
-    return metadata
+    return _add_timestamp(metadata)
 
 def get_account_metadata(acc_path, memcache=None):
     containers = []
@@ -564,7 +579,7 @@ def get_account_metadata(acc_path, memcache=None):
                 X_OBJECTS_COUNT: 0,
                 X_BYTES_USED: 0,
                 X_CONTAINER_COUNT: container_count}
-    return metadata
+    return _add_timestamp(metadata)
 
 def restore_object(obj_path, metadata):
     meta = read_metadata(obj_path)
@@ -623,3 +638,14 @@ def get_account_list(fs_object):
 def get_account_id(account):
     return RESELLER_PREFIX + md5(account + HASH_PATH_SUFFIX).hexdigest()
 
+
+__swift_conf = ConfigParser()
+__swift_conf.read(os.path.join('/etc/swift', 'swift.conf'))
+try:
+    _plugin_enabled = __swift_conf.get('DEFAULT', 'Enable_plugin', 'no') in TRUE_VALUES
+except NoOptionError, NoSectionError:
+    _plugin_enabled = False
+del __swift_conf
+
+def plugin_enabled():
+    return _plugin_enabled
