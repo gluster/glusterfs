@@ -417,11 +417,11 @@ _crawl_proceed (xlator_t *this, int child, int crawl_flags, char **reason)
         shd  = &priv->shd;
         if (!shd->enabled) {
                 msg = "Self-heal daemon is not enabled";
-                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                gf_log (this->name, GF_LOG_DEBUG, "%s", msg);
                 goto out;
         }
         if (!priv->child_up[child]) {
-                gf_log (this->name, GF_LOG_ERROR, "Stopping crawl for %s , "
+                gf_log (this->name, GF_LOG_DEBUG, "Stopping crawl for %s , "
                         "subvol went down", priv->children[child]->name);
                 msg = "Brick is Not connected";
                 goto out;
@@ -430,7 +430,7 @@ _crawl_proceed (xlator_t *this, int child, int crawl_flags, char **reason)
         if (crawl_flags & STOP_CRAWL_ON_SINGLE_SUBVOL) {
                 if (afr_up_children_count (priv->child_up,
                                            priv->child_count) < 2) {
-                        gf_log (this->name, GF_LOG_ERROR, "Stopping crawl as "
+                        gf_log (this->name, GF_LOG_DEBUG, "Stopping crawl as "
                                 "< 2 children are up");
                         msg = "< 2 bricks in replica are running";
                         goto out;
