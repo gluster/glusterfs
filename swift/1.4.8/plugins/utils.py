@@ -274,8 +274,8 @@ def check_user_xattr(path):
         raise
     try:
         xattr.remove(path, 'user.test.key1')
-    except Exception, err:
-        logging.exception("xattr.remove failed on %s err: %s", path, str(err))
+    except IOError as err:
+        logging.exception("check_user_xattr: remove failed on %s err: %s", path, str(err))
         #Remove xattr may fail in case of concurrent remove.
     return True
 
