@@ -182,16 +182,18 @@ out:
 
 int
 _get_path_from_gfid_loc (xlator_t *this, xlator_t *readdir_xl, loc_t *child,
-                         char **fpath)
+                         char **fpath, gf_boolean_t *missing)
 {
         dict_t          *xattr = NULL;
         char            *path = NULL;
         int             ret = -1;
 
-        ret = syncop_getxattr (readdir_xl, child, &xattr,
-                               GFID_TO_PATH_KEY);
-        if (ret)
+        ret = syncop_getxattr (readdir_xl, child, &xattr, GFID_TO_PATH_KEY);
+        if (ret < 0) {
+                if ((errno == ENOENT) && missing)
+                        *missing = _gf_true;
                 goto out;
+        }
         ret = dict_get_str (xattr, GFID_TO_PATH_KEY, &path);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to get path for "
@@ -242,34 +244,6 @@ _add_eh_to_dict (xlator_t *this, eh_t *eh, dict_t *dict, int child)
         return 0;
 }
 
-int
-_add_summary_to_dict (xlator_t *this, afr_crawl_data_t *crawl_data,
-                      gf_dirent_t *entry,
-                      loc_t *childloc, loc_t *parentloc, struct iatt *iattr)
-{
-        dict_t          *output = NULL;
-        xlator_t        *readdir_xl = NULL;
-        int             ret = -1;
-        char            *path = NULL;
-
-        if (uuid_is_null (childloc->gfid))
-                goto out;
-
-        output = crawl_data->op_data;
-        readdir_xl = crawl_data->readdir_xl;
-
-        ret = _get_path_from_gfid_loc (this, readdir_xl, childloc, &path);
-        if (ret)
-                goto out;
-
-        ret = _add_path_to_dict (this, output, crawl_data->child, path, NULL,
-                                 _gf_true);
-out:
-        if (ret && path)
-                GF_FREE (path);
-        return ret;
-}
-
 void
 _remove_stale_index (xlator_t *this, xlator_t *readdir_xl,
                      loc_t *parent, char *fname)
@@ -294,6 +268,40 @@ out:
         return;
 }
 
+int
+_add_summary_to_dict (xlator_t *this, afr_crawl_data_t *crawl_data,
+                      gf_dirent_t *entry,
+                      loc_t *childloc, loc_t *parentloc, struct iatt *iattr)
+{
+        dict_t          *output = NULL;
+        xlator_t        *readdir_xl = NULL;
+        int             ret = -1;
+        char            *path = NULL;
+        gf_boolean_t    missing = _gf_false;
+        char            gfid_str[64] = {0};
+
+        if (uuid_is_null (childloc->gfid))
+                goto out;
+
+        output = crawl_data->op_data;
+        readdir_xl = crawl_data->readdir_xl;
+
+        ret = _get_path_from_gfid_loc (this, readdir_xl, childloc, &path,
+                                       &missing);
+        if (ret == 0) {
+                ret = _add_path_to_dict (this, output, crawl_data->child, path,
+                                         NULL, _gf_true);
+        } else if (missing) {
+                _remove_stale_index (this, readdir_xl, parentloc,
+                                     uuid_utoa_r (childloc->gfid, gfid_str));
+        }
+
+out:
+        if (ret && path)
+                GF_FREE (path);
+        return ret;
+}
+
 void
 _crawl_post_sh_action (xlator_t *this, loc_t *parent, loc_t *child,
                        int32_t op_ret, int32_t op_errno, dict_t *xattr_rsp,
@@ -304,6 +312,7 @@ _crawl_post_sh_action (xlator_t *this, loc_t *parent, loc_t *child,
         afr_self_heald_t *shd = NULL;
         eh_t             *eh = NULL;
         char             *path = NULL;
+        char             gfid_str[64] = {0};
         shd_event_t      *event = NULL;
         int32_t          sh_failed = 0;
         gf_boolean_t     split_brain = 0;
@@ -313,11 +322,12 @@ _crawl_post_sh_action (xlator_t *this, loc_t *parent, loc_t *child,
         if (crawl_data->crawl == INDEX) {
                 if ((op_ret < 0) && (op_errno == ENOENT)) {
                         _remove_stale_index (this, crawl_data->readdir_xl,
-                                             parent, uuid_utoa (child->gfid));
+                                             parent, uuid_utoa_r (child->gfid,
+                                                                  gfid_str));
                         goto out;
                 }
                 ret = _get_path_from_gfid_loc (this, crawl_data->readdir_xl,
-                                               child, &path);
+                                               child, &path, NULL);
                 if (ret)
                         goto out;
         } else {
@@ -1052,7 +1062,7 @@ afr_find_child_position (xlator_t *this, int child, afr_child_pos_t *pos)
 
         ret = syncop_getxattr (priv->children[child], &loc, &xattr_rsp,
                                GF_XATTR_NODE_UUID_KEY);
-        if (ret) {
+        if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR, "getxattr failed on %s - "
                         "(%s)", priv->children[child]->name, strerror (errno));
                 goto out;
