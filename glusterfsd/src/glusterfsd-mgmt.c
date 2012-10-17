@@ -1293,6 +1293,7 @@ struct rpcsvc_program glusterfs_mop_prog = {
         .progver   = GD_BRICK_VERSION,
         .actors    = glusterfs_actors,
         .numactors = GLUSTERD_BRICK_MAXVALUE,
+	.synctask  = _gf_true,
 };
 
 int
