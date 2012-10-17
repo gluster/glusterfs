@@ -250,7 +250,7 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 	handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
 	if (handle == NULL) {
 		gf_log ("rpc-transport", GF_LOG_ERROR, "%s", dlerror ());
-		gf_log ("rpc-transport", GF_LOG_ERROR,
+		gf_log ("rpc-transport", GF_LOG_WARNING,
 			"volume '%s': transport-type '%s' is not valid or "
 			"not found on this machine",
 			trans_name, type);
