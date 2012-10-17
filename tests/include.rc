@@ -1,0 +1,93 @@
+M0=${M0:=/mnt/glusterfs/0};   # 0th mount point for FUSE
+M1=${M1:=/mnt/glusterfs/1};   # 1st mount point for FUSE
+N0=${N0:=/mnt/nfs/0};         # 0th mount point for NFS
+N1=${N1:=/mnt/nfs/1};         # 1st mount point for NFS
+V0=${V0:=patchy};             # volume name to use in tests
+B0=${B0:=/d/backends};        # top level of brick directories
+H0=${H0:=`hostname --fqdn`};  # hostname
+DEBUG=${DEBUG:=0}             # turn on debugging?
+
+CLI="gluster --mode=script";
+
+mkdir -p $B0;
+mkdir -p $M0 $M1;
+mkdir -p $N0 $N1;
+
+testcnt=`egrep '^[ \t]*(EXPECT|TEST)' $0 | wc -l`;
+echo 1..$testcnt
+
+t=1
+
+function dbg()
+{
+	[ "x$DEBUG" = "x0" ] || echo "$*" >&2;
+}
+
+
+function test_header()
+{
+	dbg "=========================";
+	dbg "TEST $t (line $TESTLINE): $*";
+}
+
+
+function test_footer()
+{
+	RET=$?
+
+	if [ $RET -eq 0 ]; then
+	     	echo "ok $t";
+	else
+		echo "not ok $t";
+	fi
+
+	dbg "RESULT $t: $RET";
+
+	t=`expr $t + 1`;
+}
+
+
+function _EXPECT()
+{
+	TESTLINE=$1;
+	shift;
+
+	test_header "$@";
+
+	e="$1";
+	shift;
+	"$@" | tail -1 | egrep '^'${e}'$' >/dev/null 2>&1;
+
+	test_footer;
+}
+
+
+function _TEST()
+{
+	TESTLINE=$1;
+	shift;
+
+	test_header "$@";
+
+	eval "$@" >/dev/null 2>&1
+
+	test_footer;
+}
+
+
+function cleanup()
+{
+	killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;
+	killall -9 glusterfs glusterfsd glusterd 2>/dev/null || true;
+	rm -rf /var/lib/glusterd/* $B0/* /etc/glusterd/*;
+
+	umount -l $M0 2>/dev/null || true;
+	umount -l $M1 2>/dev/null || true;
+	umount -l $N0 2>/dev/null || true;
+	umount -l $N1 2>/dev/null || true;
+}
+
+
+alias EXPECT='_EXPECT $LINENO'
+alias TEST='_TEST $LINENO'
+shopt -s expand_aliases

@@ -1,0 +1,62 @@
+#!/bin/bash
+
+. $(dirname $0)/../include.rc
+
+cleanup;
+
+
+## Start and create a volume
+TEST glusterd
+TEST pidof glusterd
+TEST $CLI volume info;
+
+TEST $CLI volume create $V0 replica 2 stripe 2 $H0:$B0/${V0}{1,2,3,4,5,6,7,8};
+
+function volinfo_field()
+{
+    local vol=$1;
+    local field=$2;
+
+    $CLI volume info $vol | grep "^$field: " | sed 's/.*: //';
+}
+
+
+## Verify volume is is created
+EXPECT "$V0" volinfo_field $V0 'Volume Name';
+EXPECT 'Created' volinfo_field $V0 'Status';
+
+
+## Start volume and verify
+TEST $CLI volume start $V0;
+EXPECT 'Started' volinfo_field $V0 'Status';
+
+
+## Make volume tightly consistent for metdata
+TEST $CLI volume set $V0 performance.stat-prefetch off;
+
+## Mount FUSE with caching disabled
+TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
+
+## Wait for volume to register with rpc.mountd
+sleep 5;
+
+## Mount NFS
+TEST mount -t nfs -o vers=3,nolock,soft,intr $H0:/$V0 $N0;
+
+
+## Test for consistent views between NFS and FUSE mounts
+TEST ! stat $M0/newfile;
+TEST touch $M0/newfile;
+TEST stat $N0/newfile;
+TEST rm $N0/newfile;
+TEST ! stat $M0/newfile;
+
+
+## Finish up
+TEST $CLI volume stop $V0;
+EXPECT 'Stopped' volinfo_field $V0 'Status';
+
+TEST $CLI volume delete $V0;
+TEST ! $CLI volume info $V0;
+
+cleanup;
