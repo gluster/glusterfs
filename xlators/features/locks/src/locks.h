@@ -149,6 +149,7 @@ typedef struct __pl_fd pl_fd_t;
 typedef struct {
         gf_boolean_t    mandatory;      /* if mandatory locking is enabled */
         gf_boolean_t    trace;          /* trace lock requests in and out */
+        char           *brickname;
 } posix_locks_private_t;
 
 typedef struct {

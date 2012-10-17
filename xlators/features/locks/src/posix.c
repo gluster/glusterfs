@@ -28,6 +28,8 @@
 #include "common.h"
 #include "statedump.h"
 #include "clear.h"
+#include "defaults.h"
+#include "syncop.h"
 
 #ifndef LLONG_MAX
 #define LLONG_MAX LONG_LONG_MAX /* compat with old gcc */
@@ -476,6 +478,343 @@ out:
 usual:
         STACK_WIND (frame, pl_getxattr_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->getxattr, loc, name, xdata);
+        return 0;
+}
+
+int
+pl_lockinfo_get_brickname (xlator_t *this, inode_t *inode, int32_t *op_errno)
+{
+        int                    ret       = -1;
+        loc_t                  loc       = {0, };
+        dict_t                *dict      = NULL;
+        posix_locks_private_t *priv      = NULL;
+        char                  *brickname = NULL, *end = NULL;
+
+        priv = this->private;
+
+        uuid_copy (loc.gfid, inode->gfid);
+        loc.inode = inode_ref (inode);
+
+        ret = syncop_getxattr (FIRST_CHILD(this), &loc, &dict,
+                               GF_XATTR_PATHINFO_KEY);
+        if (ret < 0) {
+                *op_errno = errno;
+                goto out;
+        }
+
+        ret = dict_get_str (dict, GF_XATTR_PATHINFO_KEY, &brickname);
+        if (brickname == NULL) {
+                goto out;
+        }
+
+        end = strrchr (brickname, ':');
+        if (!end) {
+                goto out;
+        }
+
+        brickname = gf_strndup (brickname, (end - brickname));
+        if (brickname == NULL) {
+                goto out;
+        }
+
+        priv->brickname = brickname;
+        ret = 0;
+out:
+        if (dict != NULL) {
+                dict_unref (dict);
+        }
+
+        inode_unref (loc.inode);
+
+        return ret;
+}
+
+char *
+pl_lockinfo_key (xlator_t *this, inode_t *inode, int32_t *op_errno)
+{
+        posix_locks_private_t *priv = NULL;
+        char                  *key  = NULL;
+        int                    ret = 0;
+
+        priv = this->private;
+
+        if (priv->brickname == NULL) {
+                ret = pl_lockinfo_get_brickname (this, inode, op_errno);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "cannot get brickname");
+                        goto out;
+                }
+        }
+
+        key = priv->brickname;
+out:
+        return key;
+}
+
+int32_t
+pl_fgetxattr_handle_lockinfo (xlator_t *this, fd_t *fd,
+                              dict_t *dict, int32_t *op_errno)
+{
+        pl_inode_t    *pl_inode = NULL;
+        char          *key      = NULL, *buf = NULL;
+        int32_t        op_ret   = 0;
+        unsigned long  fdnum    = 0, len = 0;
+        dict_t        *tmp      = NULL;
+
+        pl_inode = pl_inode_get (this, fd->inode);
+
+        if (!pl_inode) {
+                gf_log (this->name, GF_LOG_DEBUG, "Could not get inode.");
+                *op_errno = EBADFD;
+                op_ret = -1;
+                goto out;
+        }
+
+        if (!pl_locks_by_fd (pl_inode, fd)) {
+                op_ret = 0;
+                goto out;
+        }
+
+        fdnum = fd_to_fdnum (fd);
+
+        key = pl_lockinfo_key (this, fd->inode, op_errno);
+        if (key == NULL) {
+                op_ret = -1;
+                goto out;
+        }
+
+        tmp = dict_new ();
+        if (tmp == NULL) {
+                op_ret = -1;
+                *op_errno = ENOMEM;
+                goto out;
+        }
+
+        op_ret = dict_set_uint64 (tmp, key, fdnum);
+        if (op_ret < 0) {
+                *op_errno = -op_ret;
+                op_ret = -1;
+                gf_log (this->name, GF_LOG_WARNING, "setting lockinfo value "
+                        "(%lu) for fd (ptr:%p inode-gfid:%s) failed (%s)",
+                        fdnum, fd, uuid_utoa (fd->inode->gfid),
+                        strerror (*op_errno));
+                goto out;
+        }
+
+        len = dict_serialized_length (tmp);
+        if (len < 0) {
+                *op_errno = -op_ret;
+                op_ret = -1;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "dict_serialized_length failed (%s) while handling "
+                        "lockinfo for fd (ptr:%p inode-gfid:%s)",
+                        strerror (*op_errno), fd, uuid_utoa (fd->inode->gfid));
+                goto out;
+        }
+
+        buf = GF_CALLOC (1, len, gf_common_mt_char);
+        if (buf == NULL) {
+                op_ret = -1;
+                *op_errno = ENOMEM;
+                goto out;
+        }
+
+        op_ret = dict_serialize (tmp, buf);
+        if (op_ret < 0) {
+                *op_errno = -op_ret;
+                op_ret = -1;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "dict_serialize failed (%s) while handling lockinfo "
+                        "for fd (ptr: %p inode-gfid:%s)", strerror (*op_errno),
+                        fd, uuid_utoa (fd->inode->gfid));
+                goto out;
+        }
+
+        op_ret = dict_set_dynptr (dict, GF_XATTR_LOCKINFO_KEY, buf, len);
+        if (op_ret < 0) {
+                *op_errno = -op_ret;
+                op_ret = -1;
+                gf_log (this->name, GF_LOG_WARNING, "setting lockinfo value "
+                        "(%lu) for fd (ptr:%p inode-gfid:%s) failed (%s)",
+                        fdnum, fd, uuid_utoa (fd->inode->gfid),
+                        strerror (*op_errno));
+                goto out;
+        }
+
+        buf = NULL;
+out:
+        if (tmp != NULL) {
+                dict_unref (tmp);
+        }
+
+        if (buf != NULL) {
+                GF_FREE (buf);
+        }
+
+        return op_ret;
+}
+
+
+int32_t
+pl_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+              const char *name, dict_t *xdata)
+{
+        int32_t  op_ret = 0, op_errno = 0;
+        dict_t  *dict   = NULL;
+
+        if (!name) {
+                goto usual;
+        }
+
+        if (strcmp (name, GF_XATTR_LOCKINFO_KEY) == 0) {
+                dict = dict_new ();
+                if (dict == NULL) {
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        goto unwind;
+                }
+
+                op_ret = pl_fgetxattr_handle_lockinfo (this, fd, dict,
+                                                       &op_errno);
+                if (op_ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "getting lockinfo on fd (ptr:%p inode-gfid:%s) "
+                                "failed (%s)", fd, uuid_utoa (fd->inode->gfid),
+                                strerror (op_errno));
+                }
+
+                goto unwind;
+        } else {
+                goto usual;
+        }
+
+unwind:
+        STACK_UNWIND_STRICT (fgetxattr, frame, op_ret, op_errno, dict, NULL);
+        if (dict != NULL) {
+                dict_unref (dict);
+        }
+
+        return 0;
+
+usual:
+        STACK_WIND (frame, default_fgetxattr_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fgetxattr, fd, name, xdata);
+        return 0;
+}
+
+int32_t
+pl_migrate_locks (call_frame_t *frame, fd_t *newfd, uint64_t oldfd_num,
+                  int32_t *op_errno)
+{
+        pl_inode_t   *pl_inode  = NULL;
+        uint64_t      newfd_num = 0;
+        posix_lock_t *l         = NULL;
+        int32_t       op_ret    = 0;
+
+        newfd_num = fd_to_fdnum (newfd);
+
+        pl_inode = pl_inode_get (frame->this, newfd->inode);
+        if (pl_inode == NULL) {
+                op_ret = -1;
+                *op_errno = EBADFD;
+                goto out;
+        }
+
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                list_for_each_entry (l, &pl_inode->ext_list, list) {
+                        if (l->fd_num == oldfd_num) {
+                                l->fd_num = newfd_num;
+                                l->transport = frame->root->trans;
+                        }
+                }
+        }
+        pthread_mutex_unlock (&pl_inode->mutex);
+
+        op_ret = 0;
+out:
+        return op_ret;
+}
+
+int32_t
+pl_fsetxattr_handle_lockinfo (call_frame_t *frame, fd_t *fd, char *lockinfo_buf,
+                              int len, int32_t *op_errno)
+{
+        int32_t   op_ret    = -1;
+        dict_t   *lockinfo  = NULL;
+        uint64_t  oldfd_num = 0;
+        char     *key       = NULL;
+
+        lockinfo = dict_new ();
+        if (lockinfo == NULL) {
+                op_ret = -1;
+                *op_errno = ENOMEM;
+                goto out;
+        }
+
+        op_ret = dict_unserialize (lockinfo_buf, len, &lockinfo);
+        if (op_ret < 0) {
+                *op_errno = -op_ret;
+                op_ret = -1;
+                goto out;
+        }
+
+        key = pl_lockinfo_key (frame->this, fd->inode, op_errno);
+        if (key == NULL) {
+                op_ret = -1;
+                goto out;
+        }
+
+        op_ret = dict_get_uint64 (lockinfo, key, &oldfd_num);
+
+        if (oldfd_num == 0) {
+                op_ret = 0;
+                goto out;
+        }
+
+        op_ret = pl_migrate_locks (frame, fd, oldfd_num, op_errno);
+        if (op_ret < 0) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        "migration of locks from oldfd (ptr:%p) to newfd "
+                        "(ptr:%p) (inode-gfid:%s)", (void *)oldfd_num, fd,
+                        uuid_utoa (fd->inode->gfid));
+                goto out;
+        }
+
+out:
+        dict_unref (lockinfo);
+
+        return op_ret;
+}
+
+int32_t
+pl_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
+              int32_t flags, dict_t *xdata)
+{
+        int32_t  op_ret       = 0, op_errno = 0;
+        void    *lockinfo_buf = NULL;
+        int      len          = 0;
+
+        op_ret = dict_get_ptr_and_len (dict, GF_XATTR_LOCKINFO_KEY,
+                                       &lockinfo_buf, &len);
+        if (lockinfo_buf == NULL) {
+                goto usual;
+        }
+
+        op_ret = pl_fsetxattr_handle_lockinfo (frame, fd, lockinfo_buf, len,
+                                               &op_errno);
+        if (op_ret < 0) {
+                goto unwind;
+        }
+
+usual:
+        STACK_WIND (frame, default_fsetxattr_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fsetxattr, fd, dict, flags, xdata);
+        return 0;
+
+unwind:
+        STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno, NULL);
         return 0;
 }
 
@@ -2177,6 +2516,8 @@ struct xlator_fops fops = {
         .opendir     = pl_opendir,
         .readdirp    = pl_readdirp,
         .getxattr    = pl_getxattr,
+        .fgetxattr   = pl_fgetxattr,
+        .fsetxattr   = pl_fsetxattr,
 };
 
 struct xlator_dumpops dumpops = {
