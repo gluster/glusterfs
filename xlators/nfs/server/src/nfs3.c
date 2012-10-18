@@ -32,6 +32,7 @@
 #include "nfs3.h"
 #include "mem-pool.h"
 #include "logging.h"
+#include "nfs-common.h"
 #include "nfs-fops.h"
 #include "nfs-inodes.h"
 #include "nfs-generics.h"
@@ -694,11 +695,20 @@ nfs3svc_getattr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
 
+        /*
+         * Somewhat counter-intuitively, we don't need to look for sh-failed
+         * here. Failing this getattr will generate a new lookup from the
+         * client, and nfs_fop_lookup_cbk will detect any self-heal failures.
+         */
+
         if (op_ret == -1) {
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
                 status = nfs3_errno_to_nfsstat3 (op_errno);
+        }
+        else {
+                nfs_fix_generation(this,inode);
         }
 
         nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_GETATTR,
@@ -745,6 +755,9 @@ nfs3_getattr_resume (void *carg)
         int                             ret = -EFAULT;
         nfs_user_t                      nfu = {0, };
         nfs3_call_state_t               *cs = NULL;
+        uint64_t                         raw_ctx = 0;
+        struct nfs_inode_ctx            *ictx = NULL;
+        struct nfs_state                *priv = NULL;
 
         if (!carg)
                 return ret;
@@ -771,9 +784,28 @@ nfs3_getattr_resume (void *carg)
 		goto nfs3err;
 	}
 
+        /*
+         * If brick state changed, we need to force a proper lookup cycle (as
+         * would happen in native protocol) to do self-heal checks. We detect
+         * this by comparing the generation number for the last successful
+         * creation/lookup on the inode to the current number, so inodes that
+         * haven't been validated since the state change are affected.
+         */
+        if (inode_ctx_get(cs->resolvedloc.inode,cs->nfsx,&raw_ctx) == 0) {
+                ictx = (struct nfs_inode_ctx *)raw_ctx;
+                priv = cs->nfsx->private;
+                if (ictx->generation != priv->generation) {
+                        ret = nfs_lookup (cs->nfsx, cs->vol, &nfu,
+                                          &cs->resolvedloc,
+                                          nfs3svc_getattr_lookup_cbk, cs);
+                        goto check_err;
+                }
+        }
+
         ret = nfs_stat (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                         nfs3svc_getattr_stat_cbk, cs);
 
+check_err:
         if (ret < 0) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "Stat fop failed: %s: %s",
                         cs->oploc.path, strerror (-ret));

@@ -745,6 +745,7 @@ nfs_init_state (xlator_t *this)
 
         this->private = (void *)nfs;
         INIT_LIST_HEAD (&nfs->versions);
+        nfs->generation = 1965;
 
         ret = 0;
 
@@ -829,24 +830,26 @@ int
 notify (xlator_t *this, int32_t event, void *data, ...)
 {
         xlator_t                *subvol = NULL;
+        struct nfs_state        *priv   = NULL;
 
         subvol = (xlator_t *)data;
 
         gf_log (GF_NFS, GF_LOG_TRACE, "Notification received: %d",
                 event);
-        switch (event)
-        {
-                case GF_EVENT_CHILD_UP:
-                {
-                        nfs_startup_subvolume (this, subvol);
-                        break;
-                }
 
-                case GF_EVENT_PARENT_UP:
-                {
-                        default_notify (this, GF_EVENT_PARENT_UP, data);
-                        break;
-                }
+        switch (event) {
+        case GF_EVENT_CHILD_UP:
+                nfs_startup_subvolume (this, subvol);
+                break;
+
+        case GF_EVENT_CHILD_MODIFIED:
+                priv = this->private;
+                ++(priv->generation);
+                break;
+
+        case GF_EVENT_PARENT_UP:
+                default_notify (this, GF_EVENT_PARENT_UP, data);
+                break;
         }
 
         return 0;
@@ -868,14 +871,14 @@ fini (xlator_t *this)
 int32_t
 nfs_forget (xlator_t *this, inode_t *inode)
 {
-        uint64_t           ctx        = 0;
-        struct list_head  *head       = NULL;
+        uint64_t                 ctx    = 0;
+        struct nfs_inode_ctx    *ictx   = NULL;
 
         if (inode_ctx_del (inode, this, &ctx))
                 return -1;
 
-        head = (struct list_head *)ctx;
-        GF_FREE (head);
+        ictx = (struct nfs_inode_ctx *)ctx;
+        GF_FREE (ictx);
 
         return 0;
 }

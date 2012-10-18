@@ -1802,25 +1802,38 @@ nlm4_add_share_to_inode (nlm_share_t *share)
         struct list_head      *head    = NULL;
         xlator_t              *this    = NULL;
         inode_t               *inode   = NULL;
+        struct nfs_inode_ctx  *ictx    = NULL;
+        struct nfs_state      *priv    = NULL;
 
         this = THIS;
+        priv = this->private;
         inode = share->inode;
         ret = inode_ctx_get (inode, this, &ctx);
 
-        head = (struct list_head *)ctx;
-
         if (ret || !head) {
-                head = GF_CALLOC (1, sizeof (struct list_head),
-                                  gf_common_mt_list_head);
-                if (!head ) {
+                ictx = GF_CALLOC (1, sizeof (struct nfs_inode_ctx),
+                                  gf_nfs_mt_inode_ctx);
+                if (!ictx ) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "could not allocate nfs inode ctx");
                         ret = -1;
                         goto out;
                 }
+                ictx->generation = priv->generation;
 
+                head = &ictx->shares;
                 INIT_LIST_HEAD (head);
-                ret = inode_ctx_put (inode, this, (uint64_t)head);
-                if (ret)
+
+                ret = inode_ctx_put (inode, this, (uint64_t)ictx);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "could not store share list");
                         goto out;
+                }
+        }
+        else {
+                ictx = (struct nfs_inode_ctx *)ctx;
+                head = &ictx->shares;
         }
 
         list_add (&share->inode_list, head);
@@ -1842,6 +1855,7 @@ nlm4_approve_share_reservation (nfs3_call_state_t *cs)
         inode_t                  *inode             = NULL;
         nlm_share_t              *share             = NULL;
         struct list_head         *head              = NULL;
+        struct nfs_inode_ctx     *ictx              = NULL;
 
         if (!cs)
                 goto out;
@@ -1853,8 +1867,9 @@ nlm4_approve_share_reservation (nfs3_call_state_t *cs)
                 ret = 0;
                 goto out;
         }
+        ictx = (struct nfs_inode_ctx *)ctx;
 
-        head = (struct list_head *)ctx;
+        head = &ictx->shares;
         if (!head || list_empty (head))
                 goto out;
 
@@ -2028,18 +2043,19 @@ nlm4svc_share (rpcsvc_request_t *req)
 int
 nlm4_remove_share_reservation (nfs3_call_state_t *cs)
 {
-        int                ret        = -1;
-        uint64_t           ctx        = 0;
-        fsh_mode           req_mode   = 0;
-        fsh_access         req_access = 0;
-        nlm_share_t       *share      = NULL;
-        nlm_share_t       *tmp        = NULL;
-        nlm_client_t      *client     = NULL;
-        char              *caller     = NULL;
-        inode_t           *inode      = NULL;
-        xlator_t          *this       = NULL;
-        struct list_head  *head       = NULL;
-        nlm4_shareargs    *args       = NULL;
+        int                      ret        = -1;
+        uint64_t                 ctx        = 0;
+        fsh_mode                 req_mode   = 0;
+        fsh_access               req_access = 0;
+        nlm_share_t             *share      = NULL;
+        nlm_share_t             *tmp        = NULL;
+        nlm_client_t            *client     = NULL;
+        char                    *caller     = NULL;
+        inode_t                 *inode      = NULL;
+        xlator_t                *this       = NULL;
+        struct list_head        *head       = NULL;
+        nlm4_shareargs          *args       = NULL;
+        struct nfs_inode_ctx    *ictx       = NULL;
 
         LOCK (&nlm_client_list_lk);
 
@@ -2069,8 +2085,9 @@ nlm4_remove_share_reservation (nfs3_call_state_t *cs)
                         inode->gfid, caller);
                 goto out;
         }
+        ictx = (struct nfs_inode_ctx *)ctx;
 
-        head = (struct list_head *)ctx;
+        head = &ictx->shares;
         if (list_empty (head)) {
                 ret = -1;
                 goto out;

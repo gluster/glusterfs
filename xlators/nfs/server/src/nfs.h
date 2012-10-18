@@ -88,6 +88,12 @@ struct nfs_state {
         int                     enable_nlm;
         int                     mount_udp;
         struct rpc_clnt         *rpc_clnt;
+        uint32_t                generation;
+};
+
+struct nfs_inode_ctx {
+        struct list_head        shares;
+        uint32_t                generation;
 };
 
 #define gf_nfs_dvm_on(nfsstt)   (((struct nfs_state *)nfsstt)->dynamicvolumes == GF_NFS_DVM_ON)

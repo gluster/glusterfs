@@ -274,9 +274,6 @@ out:
                 }                                                       \
         } while (0)                                                     \
 
-
-
-
 /* Fops Layer Explained
  * The fops layer has three types of functions. They can all be identified by
  * their names. Here are the three patterns:
@@ -309,6 +306,23 @@ nfs_fop_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         struct nfs_fop_local    *local = NULL;
         fop_lookup_cbk_t        progcbk;
+        char                    *sh_fail_val = NULL;
+
+        /*
+         * With native protocol, self-heal failures would be detected during
+         * open.  NFS doesn't issue that open when revalidating cache, so we
+         * have to check for failures here instead.
+         */
+        if (dict_get_str(xattr,"sh-failed",&sh_fail_val) == 0) {
+                if (strcmp(sh_fail_val,"1") == 0) {
+                        op_ret = -1;
+                        op_errno = EIO;
+                }
+        }
+
+        if (op_ret == 0) {
+                nfs_fix_generation(this,inode);
+        }
 
         nfl_to_prog_data (local, progcbk, frame);
         nfs_fop_restore_root_ino (local, op_ret, buf, NULL, NULL, postparent);
@@ -680,6 +694,10 @@ nfs_fop_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         struct nfs_fop_local    *nfl = NULL;
         fop_create_cbk_t        progcbk = NULL;
 
+        if (op_ret == 0) {
+                nfs_fix_generation(this,inode);
+        }
+
         nfl_to_prog_data (nfl, progcbk, frame);
         nfs_fop_restore_root_ino (nfl, op_ret, buf, NULL, preparent,
                                   postparent);
@@ -782,6 +800,10 @@ nfs_fop_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         struct nfs_fop_local    *nfl = NULL;
         fop_mkdir_cbk_t         progcbk = NULL;
 
+        if (op_ret == 0) {
+                nfs_fix_generation(this,inode);
+        }
+
         nfl_to_prog_data (nfl, progcbk, frame);
         nfs_fop_restore_root_ino (nfl, op_ret, buf, NULL,preparent, postparent);
         if (progcbk)
@@ -830,6 +852,10 @@ nfs_fop_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         struct nfs_fop_local    *nfl = NULL;
         fop_symlink_cbk_t       progcbk = NULL;
+
+        if (op_ret == 0) {
+                nfs_fix_generation(this,inode);
+        }
 
         nfl_to_prog_data (nfl, progcbk, frame);
         nfs_fop_restore_root_ino (nfl, op_ret,buf, NULL, preparent, postparent);
@@ -926,6 +952,10 @@ nfs_fop_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         struct nfs_fop_local    *nfl = NULL;
         fop_mknod_cbk_t         progcbk = NULL;
+
+        if (op_ret == 0) {
+                nfs_fix_generation(this,inode);
+        }
 
         nfl_to_prog_data (nfl, progcbk, frame);
         nfs_fop_restore_root_ino (nfl, op_ret,buf, NULL, preparent, postparent);
@@ -1073,6 +1103,10 @@ nfs_fop_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         struct nfs_fop_local    *nfl = NULL;
         fop_link_cbk_t          progcbk = NULL;
+
+        if (op_ret == 0) {
+                nfs_fix_generation(this,inode);
+        }
 
         nfl_to_prog_data (nfl, progcbk, frame);
         nfs_fop_restore_root_ino (nfl, op_ret, buf, NULL, preparent,
