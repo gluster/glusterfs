@@ -370,6 +370,7 @@ typedef enum {
                 UNLOCK (&inode->lock);                                  \
         } while (0)
 
+#define is_greater_time(a, an, b, bn) (((a) < (b)) || (((a) == (b)) && ((an) < (bn))))
 dht_layout_t                            *dht_layout_new (xlator_t *this, int cnt);
 dht_layout_t                            *dht_layout_get (xlator_t *this, inode_t *inode);
 dht_layout_t                            *dht_layout_for_subvol (xlator_t *this, xlator_t *subvol);
@@ -715,4 +716,10 @@ dht_inode_ctx_time_update (inode_t *inode, xlator_t *this, struct iatt *stat,
 
 int dht_inode_ctx_get (inode_t *inode, xlator_t *this, dht_inode_ctx_t **ctx);
 int dht_inode_ctx_set (inode_t *inode, xlator_t *this, dht_inode_ctx_t *ctx);
+int
+dht_dir_attr_heal (void *data);
+int
+dht_dir_attr_heal_done (int ret, call_frame_t *sync_frame, void *data);
+int
+dht_dir_has_layout (dict_t *xattr);
 #endif/* _DHT_H */

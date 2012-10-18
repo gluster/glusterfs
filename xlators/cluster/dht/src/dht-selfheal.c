@@ -858,3 +858,50 @@ dht_selfheal_restore (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 
         return ret;
 }
+
+int
+dht_dir_attr_heal (void *data)
+{
+        call_frame_t    *frame = NULL;
+        dht_local_t     *local = NULL;
+        xlator_t        *subvol = NULL;
+        xlator_t        *this  = NULL;
+        dht_conf_t      *conf  = NULL;
+        int              call_cnt = 0;
+        int              ret   = -1;
+        int              i     = 0;
+
+        GF_VALIDATE_OR_GOTO ("dht", data, out);
+
+        frame = data;
+        local = frame->local;
+        this = frame->this;
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO ("dht", local, out);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO ("dht", conf, out);
+
+        call_cnt = conf->subvolume_cnt;
+
+        for (i = 0; i < call_cnt; i++) {
+                subvol = conf->subvolumes[i];
+                if (!subvol || (subvol == dht_first_up_subvol (this)))
+                        continue;
+                ret = syncop_setattr (subvol, &local->loc, &local->stbuf,
+                                      (GF_SET_ATTR_UID | GF_SET_ATTR_GID),
+                                      NULL, NULL);
+                if (ret)
+                        gf_log ("dht", GF_LOG_ERROR, "Failed to set uid/gid on"
+                                " %s on %s subvol (%s)", local->loc.path,
+                                subvol->name, strerror (errno));
+        }
+out:
+        return 0;
+}
+
+int
+dht_dir_attr_heal_done (int ret, call_frame_t *sync_frame, void *data)
+{
+        DHT_STACK_DESTROY (sync_frame);
+        return 0;
+}
