@@ -36,6 +36,7 @@ DIR_TYPE = 'application/directory'
 ACCOUNT = 'Account'
 MOUNT_PATH = '/mnt/gluster-object'
 METADATA_KEY = 'user.swift.metadata'
+MAX_XATTR_SIZE = 65536
 CONTAINER = 'container'
 DIR = 'dir'
 MARKER_DIR = 'marker_dir'
@@ -221,11 +222,11 @@ def write_metadata(path, metadata):
     key = 0
     while metastr:
         try:
-            xattr.set(path, '%s%s' % (METADATA_KEY, key or ''), metastr[:254])
+            xattr.set(path, '%s%s' % (METADATA_KEY, key or ''), metastr[:MAX_XATTR_SIZE])
         except IOError as err:
             logging.exception("xattr.set failed on %s key %s err: %s", path, key, str(err))
             raise
-        metastr = metastr[254:]
+        metastr = metastr[MAX_XATTR_SIZE:]
         key += 1
 
 def clean_metadata(path):
