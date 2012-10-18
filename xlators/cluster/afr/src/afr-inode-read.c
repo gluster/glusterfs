@@ -629,6 +629,96 @@ afr_getxattr_unwind (call_frame_t *frame, int op_ret, int op_errno,
 }
 
 int32_t
+afr_fgetxattr_clrlk_cbk (call_frame_t *frame, void *cookie,
+                         xlator_t *this, int32_t op_ret, int32_t op_errno,
+                         dict_t *dict, dict_t *xdata)
+{
+        afr_local_t     *local                  = NULL;
+        afr_private_t   *priv                   = NULL;
+        xlator_t        **children              = NULL;
+        dict_t          *xattr                  = NULL;
+        char            *tmp_report             = NULL;
+        char            lk_summary[1024]        = {0,};
+        int             serz_len                = 0;
+        int32_t         callcnt                 = 0;
+        long int        cky                     = 0;
+        int             ret                     = 0;
+
+        priv     = this->private;
+        children = priv->children;
+
+        local = frame->local;
+        cky = (long) cookie;
+
+        LOCK (&frame->lock);
+        {
+                callcnt = --local->call_count;
+                if (op_ret == -1)
+                        local->child_errno[cky] = op_errno;
+
+                if (!local->dict)
+                        local->dict = dict_new ();
+                if (local->dict) {
+                        ret = dict_get_str (dict, local->cont.getxattr.name,
+                                            &tmp_report);
+                        if (ret)
+                                goto unlock;
+                        ret = dict_set_dynstr (local->dict,
+                                               children[cky]->name,
+                                               gf_strdup (tmp_report));
+                        if (ret)
+                                goto unlock;
+                }
+        }
+unlock:
+        UNLOCK (&frame->lock);
+
+        if (!callcnt) {
+                xattr = dict_new ();
+                if (!xattr) {
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        goto unwind;
+                }
+                ret = dict_serialize_value_with_delim (local->dict,
+                                                       lk_summary,
+                                                       &serz_len, '\n');
+                if (ret) {
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Error serializing dictionary");
+                        goto unwind;
+                }
+                if (serz_len == -1)
+                        snprintf (lk_summary, sizeof (lk_summary),
+                                  "No locks cleared.");
+                ret = dict_set_dynstr (xattr, local->cont.getxattr.name,
+                                       gf_strdup (lk_summary));
+                if (ret) {
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Error setting dictionary");
+                        goto unwind;
+                }
+
+        unwind:
+                // Updating child_errno with more recent 'events'
+                local->child_errno[cky] = op_errno;
+                op_errno = afr_resultant_errno_get (NULL, local->child_errno,
+                                                    priv->child_count);
+                AFR_STACK_UNWIND (fgetxattr, frame, op_ret, op_errno, xattr,
+                                  xdata);
+
+                if (xattr)
+                        dict_unref (xattr);
+        }
+
+        return ret;
+}
+
+int32_t
 afr_getxattr_clrlk_cbk (call_frame_t *frame, void *cookie,
                         xlator_t *this, int32_t op_ret, int32_t op_errno,
                         dict_t *dict, dict_t *xdata)
@@ -762,9 +852,361 @@ afr_getxattr_node_uuid_cbk (call_frame_t *frame, void *cookie,
 
  unwind:
         if (unwind)
-                AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict, NULL);
+                AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict,
+                                  NULL);
 
         return 0;
+}
+
+int32_t
+afr_getxattr_lockinfo_cbk (call_frame_t *frame, void *cookie,
+                           xlator_t *this, int32_t op_ret, int32_t op_errno,
+                           dict_t *dict, dict_t *xdata)
+{
+        int          call_cnt     = 0, len = 0;
+        char        *lockinfo_buf = NULL;
+        dict_t      *lockinfo     = NULL, *newdict = NULL;
+        afr_local_t *local        = NULL;
+
+        LOCK (&frame->lock);
+        {
+                local = frame->local;
+
+                call_cnt = --local->call_count;
+
+                if ((op_ret < 0) || (!dict && !xdata)) {
+                        goto unlock;
+                }
+
+                if (xdata) {
+                        if (!local->xdata_rsp) {
+                                local->xdata_rsp = dict_new ();
+                                if (!local->xdata_rsp) {
+                                        local->op_ret = -1;
+                                        local->op_errno = ENOMEM;
+                                        goto unlock;
+                                }
+                        }
+                }
+
+                if (!dict) {
+                        goto unlock;
+                }
+
+                op_ret = dict_get_ptr_and_len (dict, GF_XATTR_LOCKINFO_KEY,
+                                               (void **)&lockinfo_buf, &len);
+
+                if (!lockinfo_buf) {
+                        goto unlock;
+                }
+
+                if (!local->dict) {
+                        local->dict = dict_new ();
+                        if (!local->dict) {
+                                local->op_ret = -1;
+                                local->op_errno = ENOMEM;
+                                goto unlock;
+                        }
+                }
+        }
+unlock:
+        UNLOCK (&frame->lock);
+
+        if (lockinfo_buf != NULL) {
+                lockinfo = dict_new ();
+                if (lockinfo == NULL) {
+                        local->op_ret = -1;
+                        local->op_errno = ENOMEM;
+                } else {
+                        op_ret = dict_unserialize (lockinfo_buf, len,
+                                                   &lockinfo);
+
+                        if (lockinfo && local->dict) {
+                                dict_copy (lockinfo, local->dict);
+                        }
+                }
+        }
+
+        if (xdata && local->xdata_rsp) {
+                dict_copy (xdata, local->xdata_rsp);
+        }
+
+        if (!call_cnt) {
+                newdict = dict_new ();
+                if (!newdict) {
+                        local->op_ret = -1;
+                        local->op_errno = ENOMEM;
+                        goto unwind;
+                }
+
+                len = dict_serialized_length (local->dict);
+                if (len == 0) {
+                        goto unwind;
+                }
+
+                lockinfo_buf = GF_CALLOC (1, len, gf_common_mt_char);
+                if (!lockinfo_buf) {
+                        local->op_ret = -1;
+                        local->op_errno = ENOMEM;
+                        goto unwind;
+                }
+
+                op_ret = dict_serialize (local->dict, lockinfo_buf);
+                if (op_ret < 0) {
+                        local->op_ret = -1;
+                        local->op_errno = -op_ret;
+                }
+
+                op_ret = dict_set_dynptr (newdict, GF_XATTR_LOCKINFO_KEY,
+                                          (void *)lockinfo_buf, len);
+                if (op_ret < 0) {
+                        local->op_ret = -1;
+                        local->op_errno = -op_ret;
+                        goto unwind;
+                }
+
+        unwind:
+                AFR_STACK_UNWIND (getxattr, frame, op_ret,
+                                  op_errno, newdict,
+                                  local->xdata_rsp);
+        }
+
+        dict_unref (lockinfo);
+
+        return 0;
+}
+
+int32_t
+afr_fgetxattr_lockinfo_cbk (call_frame_t *frame, void *cookie,
+                            xlator_t *this, int32_t op_ret, int32_t op_errno,
+                            dict_t *dict, dict_t *xdata)
+{
+        int          call_cnt     = 0, len = 0;
+        char        *lockinfo_buf = NULL;
+        dict_t      *lockinfo     = NULL, *newdict = NULL;
+        afr_local_t *local        = NULL;
+
+        LOCK (&frame->lock);
+        {
+                local = frame->local;
+
+                call_cnt = --local->call_count;
+
+                if ((op_ret < 0) || (!dict && !xdata)) {
+                        goto unlock;
+                }
+
+                if (xdata) {
+                        if (!local->xdata_rsp) {
+                                local->xdata_rsp = dict_new ();
+                                if (!local->xdata_rsp) {
+                                        local->op_ret = -1;
+                                        local->op_errno = ENOMEM;
+                                        goto unlock;
+                                }
+                        }
+                }
+
+                if (!dict) {
+                        goto unlock;
+                }
+
+                op_ret = dict_get_ptr_and_len (dict, GF_XATTR_LOCKINFO_KEY,
+                                               (void **)&lockinfo_buf, &len);
+
+                if (!lockinfo_buf) {
+                        goto unlock;
+                }
+
+                if (!local->dict) {
+                        local->dict = dict_new ();
+                        if (!local->dict) {
+                                local->op_ret = -1;
+                                local->op_errno = ENOMEM;
+                                goto unlock;
+                        }
+                }
+        }
+unlock:
+        UNLOCK (&frame->lock);
+
+        if (lockinfo_buf != NULL) {
+                lockinfo = dict_new ();
+                if (lockinfo == NULL) {
+                        local->op_ret = -1;
+                        local->op_errno = ENOMEM;
+                } else {
+                        op_ret = dict_unserialize (lockinfo_buf, len,
+                                                   &lockinfo);
+
+                        if (lockinfo && local->dict) {
+                                dict_copy (lockinfo, local->dict);
+                        }
+                }
+        }
+
+        if (xdata && local->xdata_rsp) {
+                dict_copy (xdata, local->xdata_rsp);
+        }
+
+        if (!call_cnt) {
+                newdict = dict_new ();
+                if (!newdict) {
+                        local->op_ret = -1;
+                        local->op_errno = ENOMEM;
+                        goto unwind;
+                }
+
+                len = dict_serialized_length (local->dict);
+                if (len == 0) {
+                        goto unwind;
+                }
+
+                lockinfo_buf = GF_CALLOC (1, len, gf_common_mt_char);
+                if (!lockinfo_buf) {
+                        local->op_ret = -1;
+                        local->op_errno = ENOMEM;
+                        goto unwind;
+                }
+
+                op_ret = dict_serialize (local->dict, lockinfo_buf);
+                if (op_ret < 0) {
+                        local->op_ret = -1;
+                        local->op_errno = -op_ret;
+                }
+
+                op_ret = dict_set_dynptr (newdict, GF_XATTR_LOCKINFO_KEY,
+                                          (void *)lockinfo_buf, len);
+                if (op_ret < 0) {
+                        local->op_ret = -1;
+                        local->op_errno = -op_ret;
+                        goto unwind;
+                }
+
+        unwind:
+                AFR_STACK_UNWIND (fgetxattr, frame, op_ret,
+                                  op_errno, newdict,
+                                  local->xdata_rsp);
+        }
+
+        dict_unref (lockinfo);
+
+        return 0;
+}
+
+int32_t
+afr_fgetxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
+                            xlator_t *this, int32_t op_ret, int32_t op_errno,
+                            dict_t *dict, dict_t *xdata)
+{
+        afr_local_t *local          = NULL;
+        int32_t      callcnt        = 0;
+        int          ret            = 0;
+        char        *xattr          = NULL;
+        char        *xattr_serz     = NULL;
+        char        xattr_cky[1024] = {0,};
+        dict_t      *nxattr         = NULL;
+        long         cky            = 0;
+        int32_t      padding        = 0;
+        int32_t      tlen           = 0;
+
+        if (!frame || !frame->local || !this) {
+                gf_log ("", GF_LOG_ERROR, "possible NULL deref");
+                goto out;
+        }
+
+        local = frame->local;
+        cky = (long) cookie;
+
+        LOCK (&frame->lock);
+        {
+                callcnt = --local->call_count;
+
+                if (!dict || (op_ret < 0))
+                        goto out;
+
+                if (!local->dict)
+                        local->dict = dict_new ();
+
+                if (local->dict) {
+                        ret = dict_get_str (dict,
+                                            local->cont.getxattr.name,
+                                            &xattr);
+                        if (ret)
+                                goto out;
+
+                        xattr = gf_strdup (xattr);
+
+                        (void)snprintf (xattr_cky, 1024, "%s-%ld",
+                                        local->cont.getxattr.name, cky);
+                        ret = dict_set_dynstr (local->dict,
+                                               xattr_cky, xattr);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Cannot set xattr cookie key");
+                                goto out;
+                        }
+
+                        local->cont.getxattr.xattr_len
+                                += strlen (xattr) + 1;
+                }
+        }
+out:
+        UNLOCK (&frame->lock);
+
+        if (!callcnt) {
+                if (!local->cont.getxattr.xattr_len)
+                        goto unwind;
+
+                nxattr = dict_new ();
+                if (!nxattr)
+                        goto unwind;
+
+                /* extra bytes for decorations (brackets and <>'s) */
+                padding += strlen (this->name)
+                        + strlen (AFR_PATHINFO_HEADER) + 4;
+                local->cont.getxattr.xattr_len += (padding + 2);
+
+                xattr_serz = GF_CALLOC (local->cont.getxattr.xattr_len,
+                                        sizeof (char), gf_common_mt_char);
+
+                if (!xattr_serz)
+                        goto unwind;
+
+                /* the xlator info */
+                (void) sprintf (xattr_serz, "(<"AFR_PATHINFO_HEADER"%s> ",
+                                this->name);
+
+                /* actual series of pathinfo */
+                ret = dict_serialize_value_with_delim (local->dict,
+                                                       xattr_serz
+                                                       + strlen (xattr_serz),
+                                                       &tlen, ' ');
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Error serializing"
+                                " dictionary");
+                        goto unwind;
+                }
+
+                /* closing part */
+                *(xattr_serz + padding + tlen) = ')';
+                *(xattr_serz + padding + tlen + 1) = '\0';
+
+                ret = dict_set_dynstr (nxattr, local->cont.getxattr.name,
+                                       xattr_serz);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR, "Cannot set pathinfo"
+                                " key in dict");
+
+        unwind:
+                AFR_STACK_UNWIND (fgetxattr, frame, op_ret, op_errno, nxattr,
+                                  xdata);
+
+                if (nxattr)
+                        dict_unref (nxattr);
+        }
+
+        return ret;
 }
 
 int32_t
@@ -880,7 +1322,8 @@ afr_getxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
 }
 
 static gf_boolean_t
-afr_is_special_xattr (const char *name, fop_getxattr_cbk_t *cbk)
+afr_is_special_xattr (const char *name, fop_getxattr_cbk_t *cbk,
+                      gf_boolean_t is_fgetxattr)
 {
         gf_boolean_t    is_spl = _gf_true;
 
@@ -890,14 +1333,29 @@ afr_is_special_xattr (const char *name, fop_getxattr_cbk_t *cbk)
                 goto out;
         }
 
-        if (!strcmp (name, GF_XATTR_PATHINFO_KEY))
-                *cbk = afr_getxattr_pathinfo_cbk;
-
-        else if (!strncmp (name, GF_XATTR_CLRLK_CMD,
-                           strlen (GF_XATTR_CLRLK_CMD)))
-                *cbk = afr_getxattr_clrlk_cbk;
-        else
+        if (!strcmp (name, GF_XATTR_PATHINFO_KEY)) {
+                if (is_fgetxattr) {
+                        *cbk = afr_fgetxattr_pathinfo_cbk;
+                } else {
+                        *cbk = afr_getxattr_pathinfo_cbk;
+                }
+        } else if (!strncmp (name, GF_XATTR_CLRLK_CMD,
+                             strlen (GF_XATTR_CLRLK_CMD))) {
+                if (is_fgetxattr) {
+                        *cbk = afr_fgetxattr_clrlk_cbk;
+                } else {
+                        *cbk = afr_getxattr_clrlk_cbk;
+                }
+        } else if (!strncmp (name, GF_XATTR_LOCKINFO_KEY,
+                             strlen (GF_XATTR_LOCKINFO_KEY))) {
+                if (is_fgetxattr) {
+                        *cbk = afr_fgetxattr_lockinfo_cbk;
+                } else {
+                        *cbk = afr_getxattr_lockinfo_cbk;
+                }
+        } else {
                 is_spl = _gf_false;
+        }
 
 out:
         return is_spl;
@@ -1008,7 +1466,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
          * if we are doing getxattr with pathinfo as the key then we
          * collect information from all childs
          */
-        if (afr_is_special_xattr (name, &cbk)) {
+        if (afr_is_special_xattr (name, &cbk, 0)) {
                 afr_getxattr_frm_all_children (this, frame, name,
                                                loc, cbk);
                 return 0;
@@ -1029,7 +1487,8 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                     && (-1 == frame->root->pid)) {
                         local->marker.call_count = priv->child_count;
 
-                        sub_volumes = alloca ( priv->child_count * sizeof (xlator_t *));
+                        sub_volumes = alloca ( priv->child_count
+                                               * sizeof (xlator_t *));
                         for (i = 0, trav = this->children; trav ;
                              trav = trav->next, i++) {
 
@@ -1062,7 +1521,8 @@ no_name:
                 goto out;
         }
 
-        read_child = afr_inode_get_read_ctx (this, loc->inode, local->fresh_children);
+        read_child = afr_inode_get_read_ctx (this, loc->inode,
+                                             local->fresh_children);
         ret = afr_get_call_child (this, local->child_up, read_child,
                                      local->fresh_children,
                                      &call_child,
@@ -1150,18 +1610,44 @@ afr_fgetxattr_unwind (call_frame_t *frame,
         return 0;
 }
 
+static void
+afr_fgetxattr_frm_all_children (xlator_t *this, call_frame_t *frame,
+                                const char *name, fd_t *fd,
+                                fop_fgetxattr_cbk_t cbk)
+{
+        afr_private_t   *priv           = NULL;
+        afr_local_t     *local          = NULL;
+        xlator_t        **children      = NULL;
+        int             i               = 0;
+
+        priv     = this->private;
+        children = priv->children;
+
+        local = frame->local;
+        local->call_count = priv->child_count;
+
+        for (i = 0; i < priv->child_count; i++) {
+                STACK_WIND_COOKIE (frame, cbk,
+                                   (void *) (long) i,
+                                   children[i], children[i]->fops->fgetxattr,
+                                   fd, name, NULL);
+        }
+
+        return;
+}
+
 int32_t
 afr_fgetxattr (call_frame_t *frame, xlator_t *this,
                fd_t *fd, const char *name, dict_t *xdata)
 {
-        afr_private_t   *priv         = NULL;
-        xlator_t        **children    = NULL;
-        int             call_child    = 0;
-        afr_local_t     *local        = NULL;
-        int32_t         op_ret        = -1;
-        int32_t         op_errno      = 0;
-        int32_t         read_child    = -1;
-
+        afr_private_t        *priv       = NULL;
+        xlator_t            **children   = NULL;
+        int                   call_child = 0;
+        afr_local_t          *local      = NULL;
+        int32_t               op_ret     = -1;
+        int32_t               op_errno   = 0;
+        int32_t               read_child = -1;
+        fop_fgetxattr_cbk_t   cbk        = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -1185,7 +1671,17 @@ afr_fgetxattr (call_frame_t *frame, xlator_t *this,
         if (name)
                 local->cont.getxattr.name = gf_strdup (name);
 
-        /* pathinfo gets handled only in getxattr() */
+        /* pathinfo gets handled only in getxattr(), but we need to handle
+         * lockinfo.
+         * If we are doing fgetxattr with lockinfo as the key then we
+         * collect information from all children.
+         */
+        if (afr_is_special_xattr (name, &cbk, 1)) {
+                afr_fgetxattr_frm_all_children (this, frame, name,
+                                                fd, cbk);
+                return 0;
+        }
+
 
         local->fresh_children = afr_children_create (priv->child_count);
         if (!local->fresh_children) {
@@ -1193,7 +1689,8 @@ afr_fgetxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        read_child = afr_inode_get_read_ctx (this, fd->inode, local->fresh_children);
+        read_child = afr_inode_get_read_ctx (this, fd->inode,
+                                             local->fresh_children);
         op_ret = afr_get_call_child (this, local->child_up, read_child,
                                      local->fresh_children,
                                      &call_child,
@@ -1213,7 +1710,8 @@ afr_fgetxattr (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 out:
         if (op_ret == -1) {
-                AFR_STACK_UNWIND (fgetxattr, frame, op_ret, op_errno, NULL, NULL);
+                AFR_STACK_UNWIND (fgetxattr, frame, op_ret, op_errno, NULL,
+                                  NULL);
         }
         return 0;
 }

@@ -1701,9 +1701,6 @@ afr_fsetxattr (call_frame_t *frame, xlator_t *this,
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.afr.*", dict,
                                    op_errno, out);
 
-        if (ret)
-                goto out;
-
         priv = this->private;
 
         QUORUM_CHECK(fsetxattr,out);
