@@ -341,6 +341,8 @@ dirent_size (struct dirent *entry)
         return size;
 }
 
+int gf_mkostemp (char *tmpl, int suffixlen, int flags);
+#define mkostemp(tmpl, flags) gf_mkostemp(tmpl, 0, flags);
 
 #ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
 /* Linux, Solaris, Cygwin */
