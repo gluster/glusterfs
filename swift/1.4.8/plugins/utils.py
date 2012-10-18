@@ -176,17 +176,6 @@ def do_rename(old_path, new_path):
         raise
     return True
 
-def _add_timestamp(metadata_i):
-    # At this point we have a simple key/value dictionary, turn it into
-    # key/(value,timestamp) pairs.
-    timestamp = 0
-    metadata = {}
-    for key, value_i in metadata_i.iteritems():
-        if not isinstance(value_i, tuple):
-            metadata[key] = (value_i, timestamp)
-        else:
-            metadata[key] = value_i
-    return metadata
 
 def read_metadata(path):
     """
@@ -585,6 +574,18 @@ def get_object_metadata(obj_path):
                     X_OBJECT_TYPE: DIR,
                 }
 
+    return metadata
+
+def _add_timestamp(metadata_i):
+    # At this point we have a simple key/value dictionary, turn it into
+    # key/(value,timestamp) pairs.
+    timestamp = 0
+    metadata = {}
+    for key, value_i in metadata_i.iteritems():
+        if not isinstance(value_i, tuple):
+            metadata[key] = (value_i, timestamp)
+        else:
+            metadata[key] = value_i
     return metadata
 
 def get_container_metadata(cont_path, memcache=None):
