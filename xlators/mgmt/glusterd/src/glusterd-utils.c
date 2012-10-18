@@ -81,7 +81,7 @@
 
 #define CEILING_POS(X) (((X)-(int)(X)) > 0 ? (int)((X)+1) : (int)(X))
 
-char    *glusterd_sock_dir = "/tmp";
+char    *glusterd_sock_dir = "/var/run";
 static glusterd_lock_t lock;
 
 static void
