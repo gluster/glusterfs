@@ -615,6 +615,16 @@ out:
         return ret;
 }
 
+int
+dht_dir_has_layout (dict_t *xattr)
+{
+
+        void     *disk_layout_raw = NULL;
+
+        return dict_get_ptr (xattr, "trusted.glusterfs.dht",
+                             &disk_layout_raw);
+
+}
 
 int
 dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,

@@ -525,6 +525,8 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           ret  = -1;
         int           is_dir = 0;
         int           is_linkfile = 0;
+        call_frame_t *copy          = NULL;
+        dht_local_t  *copy_local    = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
         GF_VALIDATE_OR_GOTO ("dht", this, err);
@@ -595,6 +597,23 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 if (is_dir) {
+                        ret = dht_dir_has_layout (xattr);
+                        if (ret >= 0) {
+                                if (is_greater_time(local->stbuf.ia_ctime,
+                                                    local->stbuf.ia_ctime_nsec,
+                                                    stbuf->ia_ctime,
+                                                    stbuf->ia_ctime_nsec)) {
+                                        local->prebuf.ia_gid = stbuf->ia_gid;
+                                        local->prebuf.ia_uid = stbuf->ia_uid;
+                                }
+                        }
+                        if (local->stbuf.ia_type != IA_INVAL)
+                        {
+                                if ((local->stbuf.ia_gid != stbuf->ia_gid) ||
+                                    (local->stbuf.ia_uid != stbuf->ia_uid)) {
+                                        local->need_selfheal = 1;
+                                }
+                        }
                         ret = dht_layout_dir_mismatch (this, layout,
                                                        prev->this, &local->loc,
                                                        xattr);
@@ -633,7 +652,28 @@ out:
                     && (conf && conf->unhashed_sticky_bit)) {
                         local->stbuf.ia_prot.sticky = 1;
                 }
-                if (local->layout_mismatch) {
+                if (local->need_selfheal) {
+                        local->need_selfheal = 0;
+                        uuid_copy (local->gfid, local->stbuf.ia_gfid);
+                        local->stbuf.ia_gid = local->prebuf.ia_gid;
+                        local->stbuf.ia_uid = local->prebuf.ia_uid;
+                        copy = create_frame (this, this->ctx->pool);
+                        if (copy) {
+                                copy_local = dht_local_init (copy, &local->loc,
+                                                             NULL, 0);
+                                if (!copy_local)
+                                        goto cont;
+                                copy_local->stbuf = local->stbuf;
+                                copy->local = copy_local;
+                                FRAME_SU_DO (copy, dht_local_t);
+                                ret = synctask_new (this->ctx->env,
+                                                    dht_dir_attr_heal,
+                                                    dht_dir_attr_heal_done,
+                                                    copy, copy);
+                        }
+                }
+cont:
+		if (local->layout_mismatch) {
                         /* Found layout mismatch in the directory, need to
                            fix this in the inode context */
                         dht_layout_unref (this, local->layout);
