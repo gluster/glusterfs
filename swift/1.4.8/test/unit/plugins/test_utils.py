@@ -312,6 +312,15 @@ class TestUtils(unittest.TestCase):
         md = utils.get_object_metadata("/tmp/doesNotEx1st")
         assert md == {}
 
+    def test_get_object_metadata_err(self):
+        tf = tempfile.NamedTemporaryFile()
+        try:
+            md = utils.get_object_metadata(os.path.join(tf.name,"doesNotEx1st"))
+        except OSError as e:
+            assert e.errno != errno.ENOENT
+        else:
+            self.fail("Expected exception")
+
     obj_keys = (utils.X_TIMESTAMP, utils.X_CONTENT_TYPE, utils.X_ETAG,
                 utils.X_CONTENT_LENGTH, utils.X_TYPE, utils.X_OBJECT_TYPE)
 
