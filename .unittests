@@ -1,6 +1,5 @@
 #!/bin/bash
 
-cd swift/1.4.8/test/unit
-nosetests --exe --with-coverage --cover-package plugins --cover-erase $@
-rm -f .coverage
+cd swift/1.4.8/
+./.unittests
 cd -

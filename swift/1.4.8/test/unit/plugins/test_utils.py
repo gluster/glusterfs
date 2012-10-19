@@ -15,10 +15,14 @@
 
 """ Tests for plugins.utils """
 
+import os
 import unittest
 import errno
 import xattr
 import cPickle as pickle
+import tempfile
+import hashlib
+from swift.common.utils import normalize_timestamp
 from collections import defaultdict
 from plugins import utils
 
@@ -229,3 +233,257 @@ class TestUtils(unittest.TestCase):
         assert res_d == {}
         assert _xattr_op_cnt['get'] == 3, "%r" % _xattr_op_cnt
         assert len(_xattrs.keys()) == 0, "Expected 0 keys, found %d" % len(_xattrs.keys())
+
+    def test_restore_metadata_none(self):
+        # No initial metadata
+        path = "/tmp/foo/i"
+        res_d = utils.restore_metadata(path, { 'b': 'y' })
+        expected_d = { 'b': 'y' }
+        assert res_d == expected_d, "Expected %r, result %r" % (expected_d, res_d)
+        assert _xattr_op_cnt['get'] == 1, "%r" % _xattr_op_cnt
+        assert _xattr_op_cnt['set'] == 1, "%r" % _xattr_op_cnt
+
+    def test_restore_metadata(self):
+        # Initial metadata
+        path = "/tmp/foo/i"
+        initial_d = { 'a': 'z' }
+        xkey = _xkey(path, utils.METADATA_KEY)
+        _xattrs[xkey] = pickle.dumps(initial_d, utils.PICKLE_PROTOCOL)
+        res_d = utils.restore_metadata(path, { 'b': 'y' })
+        expected_d = { 'a': 'z', 'b': 'y' }
+        assert res_d == expected_d, "Expected %r, result %r" % (expected_d, res_d)
+        assert _xattr_op_cnt['get'] == 1, "%r" % _xattr_op_cnt
+        assert _xattr_op_cnt['set'] == 1, "%r" % _xattr_op_cnt
+
+    def test_restore_metadata_nochange(self):
+        # Initial metadata but no changes
+        path = "/tmp/foo/i"
+        initial_d = { 'a': 'z' }
+        xkey = _xkey(path, utils.METADATA_KEY)
+        _xattrs[xkey] = pickle.dumps(initial_d, utils.PICKLE_PROTOCOL)
+        res_d = utils.restore_metadata(path, {})
+        expected_d = { 'a': 'z' }
+        assert res_d == expected_d, "Expected %r, result %r" % (expected_d, res_d)
+        assert _xattr_op_cnt['get'] == 1, "%r" % _xattr_op_cnt
+        assert _xattr_op_cnt['set'] == 0, "%r" % _xattr_op_cnt
+
+    def test_add_timestamp_empty(self):
+        orig = {}
+        res = utils._add_timestamp(orig)
+        assert res == {}
+
+    def test_add_timestamp_none(self):
+        orig = { 'a': 1, 'b': 2, 'c': 3 }
+        exp = { 'a': (1, 0), 'b': (2, 0), 'c': (3, 0) }
+        res = utils._add_timestamp(orig)
+        assert res == exp
+
+    def test_add_timestamp_mixed(self):
+        orig = { 'a': 1, 'b': (2, 1), 'c': 3 }
+        exp = { 'a': (1, 0), 'b': (2, 1), 'c': (3, 0) }
+        res = utils._add_timestamp(orig)
+        assert res == exp
+
+    def test_add_timestamp_all(self):
+        orig = { 'a': (1, 0), 'b': (2, 1), 'c': (3, 0) }
+        res = utils._add_timestamp(orig)
+        assert res == orig
+
+    def test_get_etag_empty(self):
+        tf = tempfile.NamedTemporaryFile()
+        hd = utils.get_etag(tf.name)
+        assert hd == hashlib.md5().hexdigest()
+
+    def test_get_etag(self):
+        tf = tempfile.NamedTemporaryFile()
+        tf.file.write('123' * utils.CHUNK_SIZE)
+        tf.file.flush()
+        hd = utils.get_etag(tf.name)
+        tf.file.seek(0)
+        md5 = hashlib.md5()
+        while True:
+            chunk = tf.file.read(utils.CHUNK_SIZE)
+            if not chunk:
+                break
+            md5.update(chunk)
+        assert hd == md5.hexdigest()
+
+    def test_get_object_metadata_dne(self):
+        md = utils.get_object_metadata("/tmp/doesNotEx1st")
+        assert md == {}
+
+    obj_keys = (utils.X_TIMESTAMP, utils.X_CONTENT_TYPE, utils.X_ETAG,
+                utils.X_CONTENT_LENGTH, utils.X_TYPE, utils.X_OBJECT_TYPE)
+
+    def test_get_object_metadata_file(self):
+        tf = tempfile.NamedTemporaryFile()
+        tf.file.write('123'); tf.file.flush()
+        md = utils.get_object_metadata(tf.name)
+        for key in self.obj_keys:
+            assert key in md, "Expected key %s in %r" % (key, md)
+        assert md[utils.X_TYPE] == utils.OBJECT
+        assert md[utils.X_OBJECT_TYPE] == utils.FILE
+        assert md[utils.X_CONTENT_TYPE] == utils.FILE_TYPE
+        assert md[utils.X_CONTENT_LENGTH] == os.path.getsize(tf.name)
+        assert md[utils.X_TIMESTAMP] == normalize_timestamp(os.path.getctime(tf.name))
+        assert md[utils.X_ETAG] == utils.get_etag(tf.name)
+
+    def test_get_object_metadata_dir(self):
+        td = tempfile.mkdtemp()
+        try:
+            md = utils.get_object_metadata(td)
+            for key in self.obj_keys:
+                assert key in md, "Expected key %s in %r" % (key, md)
+            assert md[utils.X_TYPE] == utils.OBJECT
+            assert md[utils.X_OBJECT_TYPE] == utils.DIR
+            assert md[utils.X_CONTENT_TYPE] == utils.DIR_TYPE
+            assert md[utils.X_CONTENT_LENGTH] == 0
+            assert md[utils.X_TIMESTAMP] == normalize_timestamp(os.path.getctime(td))
+            assert md[utils.X_ETAG] == hashlib.md5().hexdigest()
+        finally:
+            os.rmdir(td)
+
+    def test_create_object_metadata_file(self):
+        tf = tempfile.NamedTemporaryFile()
+        tf.file.write('4567'); tf.file.flush()
+        r_md = utils.create_object_metadata(tf.name)
+
+        xkey = _xkey(tf.name, utils.METADATA_KEY)
+        assert len(_xattrs.keys()) == 1
+        assert xkey in _xattrs
+        assert _xattr_op_cnt['get'] == 1
+        assert _xattr_op_cnt['set'] == 1
+        md = pickle.loads(_xattrs[xkey])
+        assert r_md == md
+
+        for key in self.obj_keys:
+            assert key in md, "Expected key %s in %r" % (key, md)
+        assert md[utils.X_TYPE] == utils.OBJECT
+        assert md[utils.X_OBJECT_TYPE] == utils.FILE
+        assert md[utils.X_CONTENT_TYPE] == utils.FILE_TYPE
+        assert md[utils.X_CONTENT_LENGTH] == os.path.getsize(tf.name)
+        assert md[utils.X_TIMESTAMP] == normalize_timestamp(os.path.getctime(tf.name))
+        assert md[utils.X_ETAG] == utils.get_etag(tf.name)
+
+    def test_create_object_metadata_dir(self):
+        td = tempfile.mkdtemp()
+        try:
+            r_md = utils.create_object_metadata(td)
+
+            xkey = _xkey(td, utils.METADATA_KEY)
+            assert len(_xattrs.keys()) == 1
+            assert xkey in _xattrs
+            assert _xattr_op_cnt['get'] == 1
+            assert _xattr_op_cnt['set'] == 1
+            md = pickle.loads(_xattrs[xkey])
+            assert r_md == md
+
+            for key in self.obj_keys:
+                assert key in md, "Expected key %s in %r" % (key, md)
+            assert md[utils.X_TYPE] == utils.OBJECT
+            assert md[utils.X_OBJECT_TYPE] == utils.DIR
+            assert md[utils.X_CONTENT_TYPE] == utils.DIR_TYPE
+            assert md[utils.X_CONTENT_LENGTH] == 0
+            assert md[utils.X_TIMESTAMP] == normalize_timestamp(os.path.getctime(td))
+            assert md[utils.X_ETAG] == hashlib.md5().hexdigest()
+        finally:
+            os.rmdir(td)
+
+    def test_get_container_metadata(self):
+        def _mock_get_container_details(path, memcache=None):
+            o_list = [ 'a', 'b', 'c' ]
+            o_count = 3
+            b_used = 47
+            return o_list, o_count, b_used
+        td = tempfile.mkdtemp()
+        orig_gcd = utils.get_container_details
+        utils.get_container_details = _mock_get_container_details
+        try:
+            exp_md = {
+                utils.X_TYPE: (utils.CONTAINER, 0),
+                utils.X_TIMESTAMP: (normalize_timestamp(os.path.getctime(td)), 0),
+                utils.X_PUT_TIMESTAMP: (normalize_timestamp(os.path.getmtime(td)), 0),
+                utils.X_OBJECTS_COUNT: (3, 0),
+                utils.X_BYTES_USED: (47, 0),
+                }
+            md = utils.get_container_metadata(td)
+            assert md == exp_md
+        finally:
+            utils.get_container_details = orig_gcd
+            os.rmdir(td)
+
+    def test_get_account_metadata(self):
+        def _mock_get_account_details(path, memcache=None):
+            c_list = [ '123', 'abc' ]
+            c_count = 2
+            return c_list, c_count
+        td = tempfile.mkdtemp()
+        orig_gad = utils.get_account_details
+        utils.get_account_details = _mock_get_account_details
+        try:
+            exp_md = {
+                utils.X_TYPE: (utils.ACCOUNT, 0),
+                utils.X_TIMESTAMP: (normalize_timestamp(os.path.getctime(td)), 0),
+                utils.X_PUT_TIMESTAMP: (normalize_timestamp(os.path.getmtime(td)), 0),
+                utils.X_OBJECTS_COUNT: (0, 0),
+                utils.X_BYTES_USED: (0, 0),
+                utils.X_CONTAINER_COUNT: (2, 0),
+                }
+            md = utils.get_account_metadata(td)
+            assert md == exp_md
+        finally:
+            utils.get_account_details = orig_gad
+            os.rmdir(td)
+
+    cont_keys = [utils.X_TYPE, utils.X_TIMESTAMP, utils.X_PUT_TIMESTAMP,
+                 utils.X_OBJECTS_COUNT, utils.X_BYTES_USED]
+
+    def test_create_container_metadata(self):
+        td = tempfile.mkdtemp()
+        try:
+            r_md = utils.create_container_metadata(td)
+
+            xkey = _xkey(td, utils.METADATA_KEY)
+            assert len(_xattrs.keys()) == 1
+            assert xkey in _xattrs
+            assert _xattr_op_cnt['get'] == 1
+            assert _xattr_op_cnt['set'] == 1
+            md = pickle.loads(_xattrs[xkey])
+            assert r_md == md
+
+            for key in self.cont_keys:
+                assert key in md, "Expected key %s in %r" % (key, md)
+            assert md[utils.X_TYPE] == (utils.CONTAINER, 0)
+            assert md[utils.X_TIMESTAMP] == (normalize_timestamp(os.path.getctime(td)), 0)
+            assert md[utils.X_PUT_TIMESTAMP] == (normalize_timestamp(os.path.getmtime(td)), 0)
+            assert md[utils.X_OBJECTS_COUNT] == (0, 0)
+            assert md[utils.X_BYTES_USED] == (0, 0)
+        finally:
+            os.rmdir(td)
+
+    acct_keys = [val for val in cont_keys]
+    acct_keys.append(utils.X_CONTAINER_COUNT)
+
+    def test_create_account_metadata(self):
+        td = tempfile.mkdtemp()
+        try:
+            r_md = utils.create_account_metadata(td)
+
+            xkey = _xkey(td, utils.METADATA_KEY)
+            assert len(_xattrs.keys()) == 1
+            assert xkey in _xattrs
+            assert _xattr_op_cnt['get'] == 1
+            assert _xattr_op_cnt['set'] == 1
+            md = pickle.loads(_xattrs[xkey])
+            assert r_md == md
+
+            for key in self.acct_keys:
+                assert key in md, "Expected key %s in %r" % (key, md)
+            assert md[utils.X_TYPE] == (utils.ACCOUNT, 0)
+            assert md[utils.X_TIMESTAMP] == (normalize_timestamp(os.path.getctime(td)), 0)
+            assert md[utils.X_PUT_TIMESTAMP] == (normalize_timestamp(os.path.getmtime(td)), 0)
+            assert md[utils.X_OBJECTS_COUNT] == (0, 0)
+            assert md[utils.X_BYTES_USED] == (0, 0)
+            assert md[utils.X_CONTAINER_COUNT] == (0, 0)
+        finally:
+            os.rmdir(td)
