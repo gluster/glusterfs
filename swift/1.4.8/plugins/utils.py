@@ -98,7 +98,6 @@ def do_makedirs(path):
             raise
     return True
 
-
 def do_listdir(path):
     try:
         buf = os.listdir(path)
@@ -277,7 +276,6 @@ def dir_empty(path):
     else:
         if not os.path.exists(path):
             return True
-
 
 def get_device_from_account(account):
     if account.startswith(RESELLER_PREFIX):
@@ -517,7 +515,6 @@ def get_account_details_from_memcache(acc_path, memcache=None):
         container_count = memcache.get(strip_obj_storage_path(acc_path)+'_container_count')
         return container_list, container_count
 
-
 def get_account_details(acc_path, memcache=None):
     """
     Return container_list and container_count.
@@ -526,8 +523,6 @@ def get_account_details(acc_path, memcache=None):
         return get_account_details_from_memcache(acc_path, memcache)
     else:
         return get_account_details_from_fs(acc_path, memcache)
-
-
 
 def get_etag(path):
     etag = None
@@ -613,45 +608,28 @@ def get_account_metadata(acc_path, memcache=None):
                 X_CONTAINER_COUNT: container_count}
     return _add_timestamp(metadata)
 
-def restore_object(obj_path, metadata):
-    meta = read_metadata(obj_path)
-    if meta:
-        meta.update(metadata)
-        write_metadata(obj_path, meta)
+def restore_metadata(path, metadata):
+    meta_orig = read_metadata(path)
+    if meta_orig:
+        meta_new = meta_orig.copy()
+        meta_new.update(metadata)
     else:
-        write_metadata(obj_path, metadata)
-
-def restore_container(cont_path, metadata):
-    meta = read_metadata(cont_path)
-    if meta:
-        meta.update(metadata)
-        write_metadata(cont_path, meta)
-    else:
-        write_metadata(cont_path, metadata)
-
-def restore_account(acc_path, metadata):
-    meta = read_metadata(acc_path)
-    if meta:
-        meta.update(metadata)
-        write_metadata(acc_path, meta)
-    else:
-        write_metadata(acc_path, metadata)
+        meta_new = metadata
+    if meta_orig != meta_new:
+        write_metadata(path, meta_new)
+    return meta_new
 
 def create_object_metadata(obj_path):
-    meta = get_object_metadata(obj_path)
-    restore_object(obj_path, meta)
-    return meta
+    metadata = get_object_metadata(obj_path)
+    return restore_metadata(obj_path, metadata)
 
 def create_container_metadata(cont_path, memcache=None):
-    meta = get_container_metadata(cont_path, memcache)
-    restore_container(cont_path, meta)
-    return meta
+    metadata = get_container_metadata(cont_path, memcache)
+    return restore_metadata(cont_path, metadata)
 
 def create_account_metadata(acc_path, memcache=None):
-    meta = get_account_metadata(acc_path, memcache)
-    restore_account(acc_path, meta)
-    return meta
-
+    metadata = get_account_metadata(acc_path, memcache)
+    return restore_metadata(acc_path, metadata)
 
 def check_account_exists(account, fs_object):
     if account not in get_account_list(fs_object):
@@ -665,7 +643,6 @@ def get_account_list(fs_object):
     if fs_object:
         account_list = fs_object.get_export_list()
     return account_list
-
 
 def get_account_id(account):
     return RESELLER_PREFIX + md5(account + HASH_PATH_SUFFIX).hexdigest()
