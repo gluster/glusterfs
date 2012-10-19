@@ -525,50 +525,36 @@ def get_account_details(acc_path, memcache=None):
         return get_account_details_from_fs(acc_path, memcache)
 
 def get_etag(path):
-    etag = None
-    if os.path.exists(path):
-        etag = md5()
-        if not os.path.isdir(path):
-            fp = open(path, 'rb')
-            if fp:
-                while True:
-                    chunk = fp.read(CHUNK_SIZE)
-                    if chunk:
-                        etag.update(chunk)
-                    else:
-                        break
-                fp.close()
-
-        etag = etag.hexdigest()
-
-    return etag
-
+    etag = md5()
+    with open(path, 'rb') as fp:
+        while True:
+            chunk = fp.read(CHUNK_SIZE)
+            if chunk:
+                etag.update(chunk)
+            else:
+                break
+    return etag.hexdigest()
 
 def get_object_metadata(obj_path):
     """
     Return metadata of object.
     """
-    metadata = {}
-    if os.path.exists(obj_path):
-        if not os.path.isdir(obj_path):
-            metadata = {
-                    X_TIMESTAMP: normalize_timestamp(os.path.getctime(obj_path)),
-                    X_CONTENT_TYPE: FILE_TYPE,
-                    X_ETAG: get_etag(obj_path),
-                    X_CONTENT_LENGTH: os.path.getsize(obj_path),
-                    X_TYPE: OBJECT,
-                    X_OBJECT_TYPE: FILE,
-                }
-        else:
-            metadata = {
-                    X_TIMESTAMP: normalize_timestamp(os.path.getctime(obj_path)),
-                    X_CONTENT_TYPE: DIR_TYPE,
-                    X_ETAG: get_etag(obj_path),
-                    X_CONTENT_LENGTH: 0,
-                    X_TYPE: OBJECT,
-                    X_OBJECT_TYPE: DIR,
-                }
-
+    try:
+        stats = os.stat(obj_path)
+    except OSError as e:
+        if e.errno != errno.ENOENT:
+            raise
+        metadata = {}
+    else:
+        is_dir = (stats.st_mode & 0040000) != 0
+        metadata = {
+            X_TYPE: OBJECT,
+            X_TIMESTAMP: normalize_timestamp(stats.st_ctime),
+            X_CONTENT_TYPE: DIR_TYPE if is_dir else FILE_TYPE,
+            X_OBJECT_TYPE: DIR if is_dir else FILE,
+            X_CONTENT_LENGTH: 0 if is_dir else stats.st_size,
+            X_ETAG: md5().hexdigest() if is_dir else get_etag(obj_path),
+            }
     return metadata
 
 def _add_timestamp(metadata_i):
