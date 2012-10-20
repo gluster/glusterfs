@@ -241,6 +241,7 @@ fuse_resolve_parent_simple (fuse_state_t *state)
 	if (parent->table == state->itable) {
 		/* no graph switches since */
 		loc->parent = inode_ref (parent);
+		uuid_copy (loc->pargfid, parent->gfid);
 		loc->inode = inode_grep (state->itable, parent, loc->name);
 
                 /* nodeid for root is 1 and we blindly take the latest graph's
