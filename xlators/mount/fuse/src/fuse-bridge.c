@@ -364,7 +364,7 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "%"PRIu64": %s() %s => -1 (%s)", frame->root->unique,
                         gf_fop_list[frame->root->op], state->loc.path,
                         strerror (op_errno));
-		if (op_errno == ENOENT) {
+		if ((op_errno == ENOENT) && (priv->negative_timeout != 0)) {
 			feo.entry_valid =
 				calc_timeout_sec (priv->negative_timeout);
 			feo.entry_valid_nsec =
