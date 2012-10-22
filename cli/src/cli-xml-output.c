@@ -230,15 +230,6 @@ cli_xml_output_vol_status_common (xmlTextWriterPtr writer, dict_t *dict,
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         memset (key, 0, sizeof (key));
-        snprintf (key, sizeof (key), "brick%d.port", brick_index);
-        ret = dict_get_int32 (dict, key, &port);
-        if (ret)
-                goto out;
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"port",
-                                               "%d", port);
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.status", brick_index);
         ret = dict_get_int32 (dict, key, &status);
         if (ret)
@@ -247,6 +238,27 @@ cli_xml_output_vol_status_common (xmlTextWriterPtr writer, dict_t *dict,
                                                "%d", status);
         XML_RET_CHECK_AND_GOTO (ret, out);
         *online = status;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.port", brick_index);
+        ret = dict_get_int32 (dict, key, &port);
+        if (ret)
+                goto out;
+
+        /* If the process is either offline or doesn't provide a port (shd)
+         * port = "N/A"
+         * else print the port number of the process.
+         */
+
+        if (*online == 1 && port != 0)
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"port",
+                                                       "%d", port);
+        else
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"port",
+                                                       "%s", "N/A");
+        XML_RET_CHECK_AND_GOTO (ret, out);
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.pid", brick_index);
