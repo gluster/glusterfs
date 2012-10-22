@@ -3408,7 +3408,6 @@ glusterd_op_txn_complete ()
                 ret = 0;
         }
 
-        glusterd_op_free_ctx (op, ctx);
         if (op_errstr && (strcmp (op_errstr, "")))
                 GF_FREE (op_errstr);
 

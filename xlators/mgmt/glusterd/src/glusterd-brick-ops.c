@@ -528,8 +528,6 @@ out:
                 cli_rsp = &rsp;
                 glusterd_to_cli (req, cli_rsp, NULL, 0, NULL,
                                  (xdrproc_t)xdr_gf_cli_rsp, dict);
-                if (dict)
-                        dict_unref (dict);
                 ret = 0; //sent error to cli, prevent second reply
         }
 
@@ -833,8 +831,6 @@ out:
                 cli_rsp = &rsp;
                 glusterd_to_cli (req, cli_rsp, NULL, 0, NULL,
                                  (xdrproc_t)xdr_gf_cli_rsp, dict);
-                if (dict)
-                        dict_unref (dict);
 
                 ret = 0; //sent error to cli, prevent second reply
 

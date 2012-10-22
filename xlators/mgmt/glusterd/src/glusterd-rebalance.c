@@ -453,8 +453,6 @@ out:
                         snprintf (msg, sizeof (msg), "Operation failed");
                 ret = glusterd_op_send_cli_response (GD_OP_REBALANCE, ret, 0,
                                                      req, dict, msg);
-                if (dict)
-                        dict_unref (dict);
 
         }
 

@@ -1130,9 +1130,6 @@ out:
         glusterd_to_cli (req, &rsp, NULL, 0, NULL,
                          (xdrproc_t)xdr_gf_cli_rsp, dict);
 
-        if (dict)
-                dict_unref (dict);
-
         return ret;
 }
 
@@ -1261,14 +1258,13 @@ glusterd_handle_reset_volume (rpcsvc_request_t *req)
 out:
         glusterd_friend_sm ();
         glusterd_op_sm ();
+
         if (ret) {
                 if (err_str[0] == '\0')
                         snprintf (err_str, sizeof (err_str),
                                   "Operation failed");
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      dict, err_str);
-                if (dict)
-                        dict_unref (dict);
         }
 
         return ret;
@@ -1460,9 +1456,6 @@ out:
                         snprintf (msg, sizeof (msg), "Operation failed");
                 glusterd_to_cli (req, &cli_rsp, NULL, 0, NULL,
                                  (xdrproc_t)xdr_gf_cli_rsp, dict);
-                if (dict)
-                        dict_unref (dict);
-
 
                 ret = 0; //sent error to cli, prevent second reply
         }
@@ -2134,14 +2127,13 @@ out:
         glusterd_op_sm ();
 
         free (cli_req.dict.dict_val);
+
         if (ret) {
                 if (err_str[0] == '\0')
                         snprintf (err_str, sizeof (err_str),
                                   "Operation failed");
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      dict, err_str);
-                if (dict)
-                        dict_unref (dict);
         }
 
         gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
@@ -2986,8 +2978,6 @@ out:
                                   "Operation failed");
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      dict, err_str);
-                if (dict)
-                        dict_unref (dict);
         }
         free (cli_req.dict.dict_val);
 
@@ -3060,8 +3050,6 @@ out:
                                   "Operation failed");
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      dict, err_str);
-                if (dict)
-                        dict_unref (dict);
         }
         free (cli_req.dict.dict_val);
 

@@ -857,7 +857,7 @@ out:
         if (req_dict)
                 dict_unref (req_dict);
 
-        if (rsp_dict)
+        if (ret && rsp_dict)
                 dict_unref (rsp_dict);
 
         if (op_errstr)
@@ -882,8 +882,6 @@ glusterd_op_begin_synctask (rpcsvc_request_t *req, glusterd_op_t op,
         gd_sync_task_begin (dict, req);
         ret = 0;
 out:
-        if (dict)
-                dict_unref (dict);
 
         return ret;
 }

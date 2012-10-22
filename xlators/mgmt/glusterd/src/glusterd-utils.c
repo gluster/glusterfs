@@ -6323,6 +6323,8 @@ glusterd_to_cli (rpcsvc_request_t *req, gf_cli_rsp *arg, struct iovec *payload,
 
         glusterd_submit_reply (req, arg, payload, payloadcount, iobref,
                                (xdrproc_t) xdrproc);
+        if (dict)
+                dict_unref (dict);
 
         return ret;
 }
