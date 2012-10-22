@@ -575,8 +575,9 @@ client3_3_readlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         if (rsp.op_ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
-                        strerror (gf_error_to_errno (rsp.op_errno)));
+                gf_log (this->name, (gf_error_to_errno(rsp.op_errno) == ENOENT)?
+                        GF_LOG_DEBUG:GF_LOG_WARNING, "remote operation failed:"
+                        " %s", strerror (gf_error_to_errno (rsp.op_errno)));
         }
 
         CLIENT_STACK_UNWIND (readlink, frame, rsp.op_ret,
