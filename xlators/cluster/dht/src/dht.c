@@ -324,6 +324,11 @@ reconfigure (xlator_t *this, dict_t *options)
 
 	GF_OPTION_RECONF ("min-free-disk", conf->min_free_disk, options,
                           percent_or_size, out);
+        /* option can be any one of percent or bytes */
+        conf->disk_unit = 0;
+        if (conf->min_free_disk < 100)
+                conf->disk_unit = 'p';
+
 	GF_OPTION_RECONF ("min-free-inodes", conf->min_free_inodes, options,
                           percent, out);
         GF_OPTION_RECONF ("directory-layout-spread", conf->dir_spread_cnt,
@@ -430,6 +435,11 @@ init (xlator_t *this)
         GF_OPTION_INIT ("assert-no-child-down", conf->assert_no_child_down,
                         bool, err);
         GF_OPTION_INIT ("readdir-optimize", conf->readdir_optimize, bool, err);
+
+        /* option can be any one of percent or bytes */
+        conf->disk_unit = 0;
+        if (conf->min_free_disk < 100)
+                conf->disk_unit = 'p';
 
         ret = dht_init_subvolumes (this, conf);
         if (ret == -1) {
