@@ -3716,7 +3716,8 @@ out:
 
 int
 fuse_migrate_fd_open (xlator_t *this, fd_t *basefd, fd_t *oldfd,
-                      xlator_t *old_subvol, xlator_t *new_subvol)
+                      xlator_t *old_subvol, xlator_t *new_subvol,
+                      fd_t **newfdptr)
 {
         loc_t          loc       = {0, };
         fd_t          *newfd     = NULL, *old_activefd = NULL;
@@ -3808,16 +3809,76 @@ fuse_migrate_fd_open (xlator_t *this, fd_t *basefd, fd_t *oldfd,
                 fd_unref (old_activefd);
         }
 
-        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                "migrated basefd (%p) to newfd (%p) "
+        gf_log ("glusterfs-fuse", GF_LOG_INFO,
+                "migrated basefd (%p) to newfd (%p) (inode-gfid:%s)"
                 "(old-subvolume:%s-%d new-subvolume:%s-%d)", basefd, newfd,
-                old_subvol->name, old_subvol->graph->id,
+                uuid_utoa (basefd->inode->gfid),
+		old_subvol->name, old_subvol->graph->id,
                 new_subvol->name, new_subvol->graph->id);
 
-        newfd = NULL;
+        if (newfdptr != NULL) {
+                *newfdptr = newfd;
+        }
+
         ret = 0;
+
 out:
         loc_wipe (&loc);
+
+       	fd_unref (newfd);
+        return ret;
+}
+
+int
+fuse_migrate_locks (xlator_t *this, fd_t *oldfd, fd_t *newfd,
+                    xlator_t *old_subvol, xlator_t *new_subvol)
+{
+        int	 ret      = -1;
+        dict_t	*lockinfo = NULL;
+        void    *ptr      = NULL;
+
+        ret = syncop_fgetxattr (old_subvol, oldfd, &lockinfo,
+                                GF_XATTR_LOCKINFO_KEY);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+			"getting lockinfo failed while migrating locks"
+			"(oldfd:%p newfd:%p inode-gfid:%s)"
+			"(old-subvol:%s-%d new-subvol:%s-%d)",
+			oldfd, newfd, uuid_utoa (newfd->inode->gfid),
+			old_subvol->name, old_subvol->graph->id,
+			new_subvol->name, new_subvol->graph->id);
+                goto out;
+        }
+
+        ret = dict_get_ptr (lockinfo, GF_XATTR_LOCKINFO_KEY, &ptr);
+        if (ptr == NULL) {
+                ret = 0;
+                gf_log (this->name, GF_LOG_INFO,
+                        "No lockinfo present on any of the bricks "
+			"(oldfd: %p newfd:%p inode-gfid:%s) "
+                        "(old-subvol:%s-%d new-subvol:%s-%d)",
+			oldfd, newfd, uuid_utoa (newfd->inode->gfid),
+			old_subvol->name, old_subvol->graph->id,
+			new_subvol->name, new_subvol->graph->id);
+
+                goto out;
+        }
+
+        ret = syncop_fsetxattr (new_subvol, newfd, lockinfo, 0);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+			"migrating locks failed (oldfd:%p newfd:%p "
+			"inode-gfid:%s) (old-subvol:%s-%d new-subvol:%s-%d)",
+			oldfd, newfd, uuid_utoa (newfd->inode->gfid),
+			old_subvol->name, old_subvol->graph->id,
+			new_subvol->name, new_subvol->graph->id);
+                goto out;
+        }
+
+out:
+        if (lockinfo != NULL) {
+                dict_unref (lockinfo);
+        }
 
         return ret;
 }
@@ -3829,8 +3890,8 @@ fuse_migrate_fd (xlator_t *this, fd_t *basefd, xlator_t *old_subvol,
 {
         int            ret                = -1;
         char           create_in_progress = 0;
-        fuse_fd_ctx_t *basefd_ctx          = NULL;
-        fd_t          *oldfd              = NULL;
+        fuse_fd_ctx_t *basefd_ctx         = NULL;
+        fd_t          *oldfd              = NULL, *newfdptr = NULL;
 
         basefd_ctx = fuse_fd_ctx_get (this, basefd);
         GF_VALIDATE_OR_GOTO ("glusterfs-fuse", basefd_ctx, out);
@@ -3891,7 +3952,28 @@ fuse_migrate_fd (xlator_t *this, fd_t *basefd, xlator_t *old_subvol,
         }
 
         ret = fuse_migrate_fd_open (this, basefd, oldfd, old_subvol,
-                                    new_subvol);
+                                    new_subvol, &newfdptr);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING, "open corresponding to "
+                        "basefd (ptr:%p inode-gfid:%s) in new graph failed "
+                        "(old-subvolume:%s-%d new-subvolume:%s-%d)", basefd,
+                        uuid_utoa (basefd->inode->gfid), old_subvol->name,
+                        old_subvol->graph->id, new_subvol->name,
+                        new_subvol->graph->id);
+                goto out;
+        }
+
+        ret = fuse_migrate_locks (this, oldfd, newfdptr, old_subvol,
+                                  new_subvol);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "migrating locks from old-subvolume (%s-%d) to "
+                        "new-subvolume (%s-%d) failed (inode-gfid:%s oldfd:%p "
+                        "newfd:%p)", old_subvol->name, old_subvol->graph->id,
+                        new_subvol->name, new_subvol->graph->id,
+                        uuid_utoa (basefd->inode->gfid), oldfd, newfdptr);
+
+        }
 out:
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING, "migration of basefd "
