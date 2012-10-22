@@ -481,7 +481,7 @@ def get_container_details(cont_path, memcache=None):
     """
     if memcache:
         object_list, object_count, bytes_used = get_container_details_from_memcache(cont_path, cont_path,
-                                                                                    memcache=memcache)
+                                                                                    memcache)
     else:
         object_list, object_count, bytes_used = get_container_details_from_fs(cont_path, cont_path)
 
@@ -524,7 +524,7 @@ def get_account_details(acc_path, memcache=None):
     else:
         return get_account_details_from_fs(acc_path, memcache)
 
-def get_etag(path):
+def _get_etag(path):
     etag = md5()
     with open(path, 'rb') as fp:
         while True:
@@ -553,7 +553,7 @@ def get_object_metadata(obj_path):
             X_CONTENT_TYPE: DIR_TYPE if is_dir else FILE_TYPE,
             X_OBJECT_TYPE: DIR if is_dir else FILE,
             X_CONTENT_LENGTH: 0 if is_dir else stats.st_size,
-            X_ETAG: md5().hexdigest() if is_dir else get_etag(obj_path),
+            X_ETAG: md5().hexdigest() if is_dir else _get_etag(obj_path),
             }
     return metadata
 
@@ -573,8 +573,7 @@ def get_container_metadata(cont_path, memcache=None):
     objects = []
     object_count = 0
     bytes_used = 0
-    objects, object_count, bytes_used = get_container_details(cont_path,
-                                                              memcache=memcache)
+    objects, object_count, bytes_used = get_container_details(cont_path, memcache)
     metadata = {X_TYPE: CONTAINER,
                 X_TIMESTAMP: normalize_timestamp(os.path.getctime(cont_path)),
                 X_PUT_TIMESTAMP: normalize_timestamp(os.path.getmtime(cont_path)),
