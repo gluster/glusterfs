@@ -158,6 +158,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.low-prio-threads",         "performance/io-threads",    NULL, NULL, DOC, 0, 1},
         {"performance.least-prio-threads",       "performance/io-threads",    NULL, NULL, DOC, 0, 1},
         {"performance.enable-least-priority",    "performance/io-threads",    NULL, NULL, DOC, 0, 2},
+	{"performance.least-rate-limit",	 "performance/io-threads",    NULL, NULL, DOC, 0, 1},
 
         /* Other perf xlators' options */
         {"performance.cache-size",               "performance/quick-read",    NULL, NULL, NO_DOC, 0, 1},
