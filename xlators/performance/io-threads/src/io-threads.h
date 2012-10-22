@@ -53,6 +53,14 @@ typedef enum {
         IOT_PRI_MAX,
 } iot_pri_t;
 
+#define IOT_LEAST_THROTTLE_DELAY 1	/* sample interval in seconds */
+struct iot_least_throttle {
+	struct timeval	sample_time;	/* timestamp of current sample */
+	uint32_t	sample_cnt;	/* sample count for active interval */
+	uint32_t	cached_rate;	/* the most recently measured rate */
+	int32_t		rate_limit;	/* user-specified rate limit */
+	pthread_mutex_t	lock;
+};
 
 struct iot_conf {
         pthread_mutex_t      mutex;
@@ -75,6 +83,8 @@ struct iot_conf {
 
         xlator_t            *this;
         size_t              stack_size;
+
+	struct iot_least_throttle throttle;
 };
 
 typedef struct iot_conf iot_conf_t;
