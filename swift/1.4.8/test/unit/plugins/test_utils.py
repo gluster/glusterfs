@@ -291,14 +291,14 @@ class TestUtils(unittest.TestCase):
 
     def test_get_etag_empty(self):
         tf = tempfile.NamedTemporaryFile()
-        hd = utils.get_etag(tf.name)
+        hd = utils._get_etag(tf.name)
         assert hd == hashlib.md5().hexdigest()
 
     def test_get_etag(self):
         tf = tempfile.NamedTemporaryFile()
         tf.file.write('123' * utils.CHUNK_SIZE)
         tf.file.flush()
-        hd = utils.get_etag(tf.name)
+        hd = utils._get_etag(tf.name)
         tf.file.seek(0)
         md5 = hashlib.md5()
         while True:
@@ -335,7 +335,7 @@ class TestUtils(unittest.TestCase):
         assert md[utils.X_CONTENT_TYPE] == utils.FILE_TYPE
         assert md[utils.X_CONTENT_LENGTH] == os.path.getsize(tf.name)
         assert md[utils.X_TIMESTAMP] == normalize_timestamp(os.path.getctime(tf.name))
-        assert md[utils.X_ETAG] == utils.get_etag(tf.name)
+        assert md[utils.X_ETAG] == utils._get_etag(tf.name)
 
     def test_get_object_metadata_dir(self):
         td = tempfile.mkdtemp()
@@ -372,7 +372,7 @@ class TestUtils(unittest.TestCase):
         assert md[utils.X_CONTENT_TYPE] == utils.FILE_TYPE
         assert md[utils.X_CONTENT_LENGTH] == os.path.getsize(tf.name)
         assert md[utils.X_TIMESTAMP] == normalize_timestamp(os.path.getctime(tf.name))
-        assert md[utils.X_ETAG] == utils.get_etag(tf.name)
+        assert md[utils.X_ETAG] == utils._get_etag(tf.name)
 
     def test_create_object_metadata_dir(self):
         td = tempfile.mkdtemp()
