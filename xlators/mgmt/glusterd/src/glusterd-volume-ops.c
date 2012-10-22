@@ -205,9 +205,6 @@ out:
                 cli_rsp = &rsp;
                 glusterd_to_cli (req, cli_rsp, NULL, 0, NULL,
                                  (xdrproc_t)xdr_gf_cli_rsp, dict);
-                if (dict)
-                        dict_unref (dict);
-
                 ret = 0; //Client response sent, prevent second response
         }
 
@@ -284,8 +281,6 @@ out:
                         snprintf (errstr, sizeof (errstr), "Operation failed");
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      dict, errstr);
-                if (dict)
-                        dict_unref (dict);
         }
 
         return ret;
@@ -359,8 +354,6 @@ out:
                                   "Operation failed");
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      dict, err_str);
-                if (dict)
-                        dict_unref (dict);
         }
 
         return ret;
@@ -433,8 +426,6 @@ out:
                                   "Operation failed");
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      dict, err_str);
-                if (dict)
-                        dict_unref (dict);
         }
 
         return ret;
@@ -523,8 +514,6 @@ out:
                                   "operation failed");
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      dict, op_errstr);
-                if (dict)
-                        dict_unref (dict);
         }
 
         return ret;
@@ -607,8 +596,6 @@ out:
                                   "Operation failed");
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      dict, err_str);
-                if (dict)
-                        dict_unref (dict);
         }
         free (cli_req.dict.dict_val);
         glusterd_friend_sm ();

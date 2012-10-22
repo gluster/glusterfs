@@ -88,8 +88,6 @@ out:
                         snprintf (msg, sizeof (msg), "Operation failed");
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      dict, msg);
-                if (dict)
-                        dict_unref (dict);
         }
 
         free (cli_req.dict.dict_val);

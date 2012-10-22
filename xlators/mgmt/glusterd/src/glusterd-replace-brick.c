@@ -166,8 +166,6 @@ out:
                         snprintf (msg, sizeof (msg), "Operation failed");
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      dict, msg);
-                if (dict)
-                        dict_unref (dict);
         }
 
         return ret;
@@ -2011,9 +2009,6 @@ out:
                 ret = glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT, NULL);
         else
                 ret = glusterd_op_sm_inject_event (GD_OP_EVENT_COMMIT_ACC, NULL);
-
-        if (dict)
-                dict_unref (dict);
 
         glusterd_op_sm ();
 }

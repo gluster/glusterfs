@@ -147,15 +147,12 @@ out:
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
-
         if (ret) {
                 if (err_str[0] == '\0')
                         snprintf (err_str, sizeof (err_str),
                                   "Operation failed");
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      dict, err_str);
-                if (dict)
-                        dict_unref (dict);
         }
         return ret;
 }
