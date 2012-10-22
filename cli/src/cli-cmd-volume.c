@@ -1490,7 +1490,10 @@ void
 cli_print_detailed_status (cli_volume_status_t *status)
 {
         cli_out ("%-20s : %-20s", "Brick", status->brick);
-        cli_out ("%-20s : %-20d", "Port", status->port);
+        if (status->online)
+                cli_out ("%-20s : %-20d", "Port", status->port);
+        else
+                cli_out ("%-20s : %-20s", "Port", "N/A");
         cli_out ("%-20s : %-20c", "Online", (status->online) ? 'Y' : 'N');
         cli_out ("%-20s : %-20s", "Pid", status->pid_str);
 
@@ -1565,10 +1568,18 @@ cli_print_brick_status (cli_volume_status_t *status)
                         printf ("%s", p);
                         while (num_tabs-- != 0)
                                 printf ("\t");
-                        if (status->port)
-                                cli_out ("%d\t%c\t%s",
-                                         status->port, status->online?'Y':'N',
-                                         status->pid_str);
+                        if (status->port) {
+                                if (status->online)
+                                        cli_out ("%d\t%c\t%s",
+                                                 status->port,
+                                                 status->online?'Y':'N',
+                                                 status->pid_str);
+                                else
+                                        cli_out ("%s\t%c\t%s",
+                                                 "N/A",
+                                                 status->online?'Y':'N',
+                                                 status->pid_str);
+                        }
                         else
                                 cli_out ("%s\t%c\t%s",
                                          "N/A", status->online?'Y':'N',
