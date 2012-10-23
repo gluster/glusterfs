@@ -517,6 +517,11 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         /* successful lock in local node */
         local_locked = _gf_true;
 
+        /* storing op globally to access in synctask code paths
+         * This is still acceptable, as we are performing this under
+         * the 'cluster' lock*/
+
+        glusterd_op_set_op  (op);
         INIT_LIST_HEAD (&conf->xaction_peers);
         list_for_each_entry (peerinfo, &conf->peers, uuid_list) {
                 if (!peerinfo->connected)
@@ -628,6 +633,7 @@ out:
 
                 /* Local node should be the one to be locked first,
                    unlocked last to prevent races */
+                glusterd_op_clear_op (op);
                 glusterd_unlock (MY_UUID);
         }
 
