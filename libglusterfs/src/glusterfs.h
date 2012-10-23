@@ -89,6 +89,8 @@
                                         strlen (GF_XATTR_PATHINFO_KEY)) == 0)
 #define XATTR_IS_NODE_UUID(x) (strncmp (x, GF_XATTR_NODE_UUID_KEY,      \
                                         strlen (GF_XATTR_NODE_UUID_KEY)) == 0)
+#define XATTR_IS_LOCKINFO(x) (strncmp (x, GF_XATTR_LOCKINFO_KEY,        \
+                                       strlen (GF_XATTR_LOCKINFO_KEY)) == 0)
 
 #define GF_XATTR_LINKINFO_KEY   "trusted.distribute.linkinfo"
 #define GFID_XATTR_KEY "trusted.gfid"

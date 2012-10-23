@@ -73,9 +73,9 @@
        } while (0)
 
 typedef struct stripe_xattr_sort {
-        int32_t  pos;
-        int32_t  xattr_len;
-        char    *xattr_value;
+        int   pos;
+        int   xattr_len;
+        char *xattr_value;
 } stripe_xattr_sort_t;
 
 /**
@@ -262,6 +262,9 @@ int32_t stripe_xattr_aggregate (char *buffer, stripe_local_t *local,
 off_t coalesced_offset(off_t offset, uint64_t stripe_size, int stripe_count);
 off_t uncoalesced_size(off_t size, uint64_t stripe_size, int stripe_count,
 			int stripe_index);
+int32_t
+stripe_fill_lockinfo_xattr (xlator_t *this, stripe_local_t *local,
+                            void **xattr_serz);
 
 /*
  * Adjust the size attribute for files if coalesce is enabled.

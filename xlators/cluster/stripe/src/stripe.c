@@ -3987,12 +3987,111 @@ stripe_fsetxattr_cbk (call_frame_t *frame, void *cookie,
         return 0;
 }
 
+
+int
+stripe_is_lockinfo (dict_t *this,
+                    char *key,
+                    data_t *value,
+                    void *data)
+{
+        gf_boolean_t *is_lockinfo = NULL;
+
+        if (data == NULL) {
+                goto out;
+        }
+
+        is_lockinfo = data;
+
+        if (XATTR_IS_LOCKINFO (key))
+                *is_lockinfo = _gf_true;
+
+out:
+        return 0;
+}
+
+int32_t
+stripe_fsetxattr_everyone_cbk (call_frame_t *frame, void *cookie,
+                               xlator_t *this, int32_t op_ret, int32_t op_errno,
+                               dict_t *xdata)
+{
+        int             call_count = 0;
+        stripe_local_t *local      = NULL;
+
+        local = frame->local;
+
+        LOCK (&frame->lock);
+        {
+                call_count = --local->wind_count;
+
+                if (op_ret < 0) {
+                        local->op_ret = op_ret;
+                        local->op_errno = op_errno;
+                }
+        }
+        UNLOCK (&frame->lock);
+
+        if (call_count == 0) {
+                STRIPE_STACK_UNWIND (fsetxattr, frame, local->op_ret,
+                                     local->op_errno, NULL);
+        }
+        return 0;
+}
+
+int
+stripe_fsetxattr_to_everyone (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                              dict_t *dict, int flags, dict_t *xdata)
+{
+        xlator_list_t    *trav  = NULL;
+        stripe_private_t *priv  = NULL;
+        int               ret   = -1;
+        stripe_local_t   *local = NULL;
+
+        priv = this->private;
+
+        local = mem_get0 (this->local_pool);
+        if (local == NULL) {
+                goto out;
+        }
+
+        frame->local = local;
+
+        local->wind_count = priv->child_count;
+
+        trav = this->children;
+
+        while (trav) {
+                STACK_WIND (frame, stripe_fsetxattr_everyone_cbk,
+                            trav->xlator, trav->xlator->fops->fsetxattr,
+                            fd, dict, flags, xdata);
+                trav = trav->next;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+inline gf_boolean_t
+stripe_fsetxattr_is_special (dict_t *dict)
+{
+        gf_boolean_t is_spl = _gf_false;
+
+        if (dict == NULL) {
+                goto out;
+        }
+
+        dict_foreach (dict, stripe_is_lockinfo, &is_spl);
+
+out:
+        return is_spl;
+}
+
 int
 stripe_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                   dict_t *dict, int flags, dict_t *xdata)
 {
-        int32_t         op_ret   = -1;
-        int32_t         op_errno = EINVAL;
+        int32_t      op_ret = -1, ret = -1, op_errno = EINVAL;
+        gf_boolean_t is_spl = _gf_false;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -4001,12 +4100,25 @@ stripe_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.*stripe*", dict,
                                    op_errno, err);
 
+        is_spl = stripe_fsetxattr_is_special (dict);
+        if (is_spl) {
+                ret = stripe_fsetxattr_to_everyone (frame, this, fd, dict,
+                                                    flags, xdata);
+                if (ret < 0) {
+                        op_errno = ENOMEM;
+                        goto err;
+                }
+
+                goto out;
+        }
+
         STACK_WIND (frame, stripe_fsetxattr_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fsetxattr,
                     fd, dict, flags, xdata);
+out:
         return 0;
- err:
+err:
         STRIPE_STACK_UNWIND (fsetxattr, frame, op_ret, op_errno, NULL);
         return 0;
 }
@@ -4687,8 +4799,8 @@ stripe_vgetxattr_cbk (call_frame_t *frame, void *cookie,
         int32_t              callcnt       = 0;
         int32_t              ret           = -1;
         long                 cky           = 0;
-        char                *xattr_val     = NULL;
-        char                *xattr_serz    = NULL;
+        void                *xattr_val     = NULL;
+        void                *xattr_serz    = NULL;
         stripe_xattr_sort_t *xattr         = NULL;
         dict_t              *stripe_xattr  = NULL;
 
@@ -4719,16 +4831,18 @@ stripe_vgetxattr_cbk (call_frame_t *frame, void *cookie,
                                            gf_stripe_mt_xattr_sort_t);
 
                 if (local->xattr_list) {
-                        ret = dict_get_str (dict, local->xsel, &xattr_val);
-                        if (ret)
-                                goto out;
-
                         xattr = local->xattr_list + (int32_t) cky;
 
-                        xattr_val = gf_strdup (xattr_val);
+                        ret = dict_get_ptr_and_len (dict, local->xsel,
+                                                    &xattr_val,
+                                                    &xattr->xattr_len);
+                        if (xattr->xattr_len == 0)
+                                goto out;
+
                         xattr->pos = cky;
-                        xattr->xattr_value = xattr_val;
-                        xattr->xattr_len = strlen (xattr_val);
+                        xattr->xattr_value = gf_memdup (xattr_val,
+                                                        xattr->xattr_value,
+                                                        xattr->xattr_len);
 
                         local->xattr_total_len += xattr->xattr_len + 1;
                 }
@@ -4747,19 +4861,24 @@ stripe_vgetxattr_cbk (call_frame_t *frame, void *cookie,
                 /* select filler based on ->xsel */
                 if (XATTR_IS_PATHINFO (local->xsel))
                         ret = stripe_fill_pathinfo_xattr (this, local,
+                                                          (char **)&xattr_serz);
+                else if (XATTR_IS_LOCKINFO (local->xsel)) {
+                        ret = stripe_fill_lockinfo_xattr (this, local,
                                                           &xattr_serz);
-                else {
+                } else {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "Unknown xattr in xattr request");
                         goto unwind;
                 }
 
                 if (!ret) {
-                        ret = dict_set_dynstr (stripe_xattr, local->xsel,
-                                               xattr_serz);
+                        ret = dict_set_dynptr (stripe_xattr, local->xsel,
+                                               xattr_serz,
+                                               local->xattr_total_len);
                         if (ret)
                                 gf_log (this->name, GF_LOG_ERROR,
-                                        "Can't set %s key in dict", local->xsel);
+                                        "Can't set %s key in dict",
+                                        local->xsel);
                 }
 
         unwind:
@@ -4924,6 +5043,79 @@ err:
         return 0;
 }
 
+inline gf_boolean_t
+stripe_is_special_xattr (const char *name)
+{
+        gf_boolean_t    is_spl = _gf_false;
+
+        if (!name) {
+                goto out;
+        }
+
+        if (!strncmp (name, GF_XATTR_LOCKINFO_KEY,
+                      strlen (GF_XATTR_LOCKINFO_KEY))
+            || !strncmp (name, GF_XATTR_PATHINFO_KEY,
+                         strlen (GF_XATTR_PATHINFO_KEY)))
+                is_spl = _gf_true;
+out:
+        return is_spl;
+}
+
+int32_t
+stripe_fgetxattr_from_everyone (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                                const char *name, dict_t *xdata)
+{
+        stripe_local_t   *local = NULL;
+        stripe_private_t *priv  = NULL;
+        int32_t           ret   = -1, op_errno = 0;
+        int               i     = 0;
+        xlator_list_t    *trav  = NULL;
+
+        priv = this->private;
+
+        local = mem_get0 (this->local_pool);
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+
+        local->op_ret = -1;
+        frame->local = local;
+
+        strncpy (local->xsel, name, strlen (name));
+        local->nallocs = local->wind_count = priv->child_count;
+
+        for (i = 0, trav = this->children; i < priv->child_count; i++,
+                     trav = trav->next) {
+                STACK_WIND_COOKIE (frame, stripe_vgetxattr_cbk,
+                                   (void *) (long) i, trav->xlator,
+                                   trav->xlator->fops->fgetxattr,
+                                   fd, name, xdata);
+        }
+
+        return 0;
+
+err:
+        STACK_UNWIND_STRICT (fgetxattr, frame, -1, op_errno, NULL, NULL);
+        return ret;
+}
+
+int32_t
+stripe_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                  const char *name, dict_t *xdata)
+{
+        if (stripe_is_special_xattr (name)) {
+                stripe_fgetxattr_from_everyone (frame, this, fd, name, xdata);
+                goto out;
+        }
+
+        STACK_WIND (frame, stripe_internal_getxattr_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fgetxattr, fd, name, xdata);
+
+out:
+        return 0;
+}
+
 
 
 int32_t
@@ -5000,6 +5192,7 @@ struct xlator_fops fops = {
         .setxattr       = stripe_setxattr,
         .fsetxattr      = stripe_fsetxattr,
         .getxattr       = stripe_getxattr,
+        .fgetxattr      = stripe_fgetxattr,
         .removexattr    = stripe_removexattr,
         .fremovexattr   = stripe_fremovexattr,
         .readdirp       = stripe_readdirp,
