@@ -1400,20 +1400,23 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
         if (del_brick)
                 list_del_init (&brickinfo->brick_list);
 
-        (void) glusterd_brick_disconnect (brickinfo);
+        if (GLUSTERD_STATUS_STARTED == volinfo->status) {
+                (void) glusterd_brick_disconnect (brickinfo);
 
-        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
-        GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
-                                    brickinfo->path);
+                GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
+                GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
+                                            brickinfo->path);
 
-        ret = glusterd_service_stop ("brick", pidfile, SIGTERM, _gf_false);
-        if (ret == 0) {
-                glusterd_set_brick_status (brickinfo, GF_BRICK_STOPPED);
-                (void) glusterd_brick_unlink_socket_file (volinfo, brickinfo);
+                ret = glusterd_service_stop ("brick", pidfile, SIGTERM, _gf_false);
+                if (ret == 0) {
+                        glusterd_set_brick_status (brickinfo, GF_BRICK_STOPPED);
+                        (void) glusterd_brick_unlink_socket_file (volinfo, brickinfo);
+                }
         }
 
         if (del_brick)
                 glusterd_delete_brick (volinfo, brickinfo);
+
         return ret;
 }
 

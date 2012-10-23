@@ -981,14 +981,11 @@ glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick,
         }
 
         if (force) {
-                if (GLUSTERD_STATUS_STARTED == volinfo->status) {
-                        ret = glusterd_brick_stop (volinfo, brickinfo,
-                                                   _gf_true);
-                        if (ret) {
-                                gf_log (THIS->name, GF_LOG_ERROR, "Unable to stop "
-                                        "glusterfs, ret: %d", ret);
-                                goto out;
-                        }
+                ret = glusterd_brick_stop (volinfo, brickinfo,
+                                           _gf_true);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_ERROR, "Unable to stop "
+                                "glusterfs, ret: %d", ret);
                 }
                 goto out;
         }
