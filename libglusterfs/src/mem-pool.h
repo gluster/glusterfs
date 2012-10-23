@@ -147,6 +147,21 @@ char * gf_strdup (const char *src)
         return dup_str;
 }
 
+static inline void *
+gf_memdup (const void *src, void *dst, size_t size)
+{
+        void *dup_mem = NULL;
+
+        dup_mem = GF_CALLOC(1, size, gf_common_mt_strdup);
+        if (!dup_mem)
+                goto out;
+
+        memcpy (dup_mem, src, size);
+
+out:
+        return dup_mem;
+}
+
 struct mem_pool {
         struct list_head  list;
         int               hot_count;
