@@ -49,6 +49,9 @@ DEFAULT_UID = -1
 DEFAULT_GID = -1
 PICKLE_PROTOCOL = 2
 CHUNK_SIZE = 65536
+MEMCACHE_KEY_PREFIX = 'gluster.swift.'
+MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX = MEMCACHE_KEY_PREFIX + 'account.details.'
+MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX = MEMCACHE_KEY_PREFIX + 'container.details.'
 
 
 def mkdirs(path):
@@ -421,108 +424,114 @@ def update_list(path, const_path, dirs=[], files=[], object_count=0,
                                              obj_list)
     return object_count, bytes_used
 
-def get_container_details_from_fs(cont_path, const_path,
-                                  memcache=None):
+
+class ContainerDetails(object):
+    def __init__(self, bytes_used, object_count, obj_list, dir_list):
+        self.bytes_used = bytes_used
+        self.object_count = object_count
+        self.obj_list = obj_list
+        self.dir_list = dir_list
+
+
+def _get_container_details_from_fs(cont_path):
     """
     get container details by traversing the filesystem
     """
     bytes_used = 0
     object_count = 0
-    obj_list=[]
+    obj_list = []
     dir_list = []
 
     if os.path.isdir(cont_path):
         for (path, dirs, files) in os.walk(cont_path):
-            object_count, bytes_used = update_list(path, const_path, dirs, files,
+            object_count, bytes_used = update_list(path, cont_path, dirs, files,
                                                    object_count, bytes_used,
                                                    obj_list)
 
-            dir_list.append(path + ':' + str(do_stat(path).st_mtime))
+            dir_list.append((path, do_stat(path).st_mtime))
 
-    if memcache:
-        memcache.set(strip_obj_storage_path(cont_path), obj_list)
-        memcache.set(strip_obj_storage_path(cont_path) + '-dir_list',
-                     ','.join(dir_list))
-        memcache.set(strip_obj_storage_path(cont_path) + '-cont_meta',
-                     [object_count, bytes_used])
-
-    return obj_list, object_count, bytes_used
-
-def get_container_details_from_memcache(cont_path, const_path,
-                                        memcache):
-    """
-    get container details stored in memcache
-    """
-
-    bytes_used = 0
-    object_count = 0
-    obj_list=[]
-
-    dir_contents = memcache.get(strip_obj_storage_path(cont_path) + '-dir_list')
-    if not dir_contents:
-        return get_container_details_from_fs(cont_path, const_path,
-                                             memcache=memcache)
-
-    for i in dir_contents.split(','):
-        path, mtime = i.split(':')
-        if mtime != str(do_stat(path).st_mtime):
-            return get_container_details_from_fs(cont_path, const_path,
-                                                 memcache=memcache)
-
-    obj_list = memcache.get(strip_obj_storage_path(cont_path))
-
-    object_count, bytes_used = memcache.get(strip_obj_storage_path(cont_path) + '-cont_meta')
-
-    return obj_list, object_count, bytes_used
+    return ContainerDetails(bytes_used, object_count, obj_list, dir_list)
 
 def get_container_details(cont_path, memcache=None):
     """
     Return object_list, object_count and bytes_used.
     """
+    mkey = ''
     if memcache:
-        object_list, object_count, bytes_used = get_container_details_from_memcache(cont_path, cont_path,
-                                                                                    memcache)
+        mkey = MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + strip_obj_storage_path(cont_path)
+        cd = memcache.get(mkey)
+        if cd:
+            if not cd.dir_list:
+                cd = None
+            else:
+                for (path, mtime) in cd.dir_list:
+                    if mtime != do_stat(path).st_mtime:
+                        cd = None
     else:
-        object_list, object_count, bytes_used = get_container_details_from_fs(cont_path, cont_path)
+        cd = None
+    if not cd:
+        cd = _get_container_details_from_fs(cont_path)
+        if memcache:
+            memcache.set(mkey, cd)
+    return cd.obj_list, cd.object_count, cd.bytes_used
+                
 
-    return object_list, object_count, bytes_used
+class AccountDetails(object):
+    """ A simple class to store the three pieces of information associated
+        with an account:
 
-def get_account_details_from_fs(acc_path, memcache=None):
+        1. The last known modification time
+        2. The count of containers in the following list
+        3. The list of containers
+    """
+    def __init__(self, mtime, container_count, container_list):
+        self.mtime = mtime
+        self.container_count = container_count
+        self.container_list = container_list
+
+
+def _get_account_details_from_fs(acc_path, acc_stats):
     container_list = []
     container_count = 0
 
-    if os.path.isdir(acc_path):
+    if not acc_stats:
+        acc_stats = do_stat(acc_path)
+    is_dir = (acc_stats.st_mode & 0040000) != 0
+    if is_dir:
         for name in do_listdir(acc_path):
-            if not os.path.isdir(acc_path + '/' + name) or \
-               name.lower() == 'tmp' or name.lower() == 'async_pending':
+            if name.lower() == 'tmp' \
+                    or name.lower() == 'async_pending' \
+                    or not os.path.isdir(os.path.join(acc_path, name)):
                 continue
             container_count += 1
             container_list.append(name)
 
-    if memcache:
-        memcache.set(strip_obj_storage_path(acc_path) + '_container_list', container_list)
-        memcache.set(strip_obj_storage_path(acc_path)+'_mtime', str(do_stat(acc_path).st_mtime))
-        memcache.set(strip_obj_storage_path(acc_path)+'_container_count', container_count)
-
-    return container_list, container_count
-
-def get_account_details_from_memcache(acc_path, memcache=None):
-    if memcache:
-        mtime = memcache.get(strip_obj_storage_path(acc_path)+'_mtime')
-        if not mtime or mtime != str(do_stat(acc_path).st_mtime):
-            return get_account_details_from_fs(acc_path, memcache)
-        container_list = memcache.get(strip_obj_storage_path(acc_path) + '_container_list')
-        container_count = memcache.get(strip_obj_storage_path(acc_path)+'_container_count')
-        return container_list, container_count
+    return AccountDetails(acc_stats.st_mtime, container_count, container_list)
 
 def get_account_details(acc_path, memcache=None):
     """
     Return container_list and container_count.
     """
+    acc_stats = None
+    mkey = ''
     if memcache:
-        return get_account_details_from_memcache(acc_path, memcache)
+        mkey = MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX + strip_obj_storage_path(acc_path)
+        ad = memcache.get(mkey)
+        if ad:
+            # FIXME: Do we really need to stat the file? If we are object
+            # only, then we can track the other Swift HTTP APIs that would
+            # modify the account and invalidate the cached entry there. If we
+            # are not object only, are we even called on this path?
+            acc_stats = do_stat(acc_path)
+            if ad.mtime != acc_stats.st_mtime:
+                ad = None
     else:
-        return get_account_details_from_fs(acc_path, memcache)
+        ad = None
+    if not ad:
+        ad = _get_account_details_from_fs(acc_path, acc_stats)
+        if memcache:
+            memcache.set(mkey, ad)
+    return ad.container_list, ad.container_count
 
 def _get_etag(path):
     etag = md5()
