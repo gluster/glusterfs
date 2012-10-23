@@ -12,6 +12,7 @@
 
 #include "stripe.h"
 #include "byte-order.h"
+#include "mem-types.h"
 
 void
 stripe_local_wipe (stripe_local_t *local)
@@ -153,6 +154,92 @@ stripe_free_xattr_str (stripe_local_t *local)
 
         ret = 0;
  out:
+        return ret;
+}
+
+
+int32_t
+stripe_fill_lockinfo_xattr (xlator_t *this, stripe_local_t *local,
+                            void **xattr_serz)
+{
+        int32_t              ret   = -1, i = 0, len = 0;
+        dict_t              *tmp1  = NULL, *tmp2 = NULL;
+        char                *buf   = NULL;
+        stripe_xattr_sort_t *xattr = NULL;
+
+        if (xattr_serz == NULL) {
+                goto out;
+        }
+
+        tmp2 = dict_new ();
+
+        if (tmp2 == NULL) {
+                goto out;
+        }
+
+        for (i = 0; i < local->nallocs; i++) {
+                xattr = local->xattr_list + i;
+                len = xattr->xattr_len;
+
+                if (len && xattr && xattr->xattr_value) {
+                        ret = dict_reset (tmp2);
+                        if (ret < 0) {
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "dict_reset failed (%s)",
+                                        strerror (-ret));
+                        }
+
+                        ret = dict_unserialize (xattr->xattr_value,
+                                                xattr->xattr_len,
+                                                &tmp2);
+                        if (ret < 0) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "dict_unserialize failed (%s)",
+                                        strerror (-ret));
+                                ret = -1;
+                                goto out;
+                        }
+
+                        tmp1 = dict_copy (tmp2, tmp1);
+                        if (tmp1 == NULL) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "dict_copy failed (%s)",
+                                        strerror (-ret));
+                                ret = -1;
+                                goto out;
+                        }
+                }
+        }
+
+        len = dict_serialized_length (tmp1);
+        if (len > 0) {
+                buf = GF_CALLOC (1, len, gf_common_mt_dict_t);
+                if (buf == NULL) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_serialize (tmp1, buf);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "dict_serialize failed (%s)", strerror (-ret));
+                        ret = -1;
+                        goto out;
+                }
+
+                *xattr_serz = buf;
+        }
+
+        ret = 0;
+out:
+        if (tmp1 != NULL) {
+                dict_unref (tmp1);
+        }
+
+        if (tmp2 != NULL) {
+                dict_unref (tmp2);
+        }
+
         return ret;
 }
 
