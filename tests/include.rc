@@ -56,7 +56,7 @@ function _EXPECT()
 
 	e="$1";
 	shift;
-	"$@" | tail -1 | egrep '^'${e}'$' >/dev/null 2>&1;
+	"$@" | tail -1 | egrep -q "^${e}\$"
 
 	test_footer;
 }
