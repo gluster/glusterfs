@@ -4303,6 +4303,8 @@ glusterd_brick_stop (glusterd_volinfo_t *volinfo,
 
         if (uuid_compare (brickinfo->uuid, MY_UUID)) {
                 ret = 0;
+                if (del_brick)
+                        glusterd_delete_brick (volinfo, brickinfo);
                 goto out;
         }
 
