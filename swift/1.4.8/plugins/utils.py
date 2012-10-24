@@ -19,6 +19,7 @@ import errno
 import xattr
 from hashlib import md5
 from swift.common.utils import normalize_timestamp, TRUE_VALUES
+from swift.obj.server import ASYNCDIR
 import cPickle as pickle
 from ConfigParser import ConfigParser, NoSectionError, NoOptionError
 
@@ -40,6 +41,7 @@ MAX_XATTR_SIZE = 65536
 CONTAINER = 'container'
 DIR = 'dir'
 MARKER_DIR = 'marker_dir'
+TEMP_DIR = 'tmp'
 FILE = 'file'
 DIR_TYPE = 'application/directory'
 FILE_TYPE = 'application/octet-stream'
@@ -499,8 +501,8 @@ def _get_account_details_from_fs(acc_path, acc_stats):
     is_dir = (acc_stats.st_mode & 0040000) != 0
     if is_dir:
         for name in do_listdir(acc_path):
-            if name.lower() == 'tmp' \
-                    or name.lower() == 'async_pending' \
+            if name.lower() == TEMP_DIR \
+                    or name.lower() == ASYNCDIR \
                     or not os.path.isdir(os.path.join(acc_path, name)):
                 continue
             container_count += 1
