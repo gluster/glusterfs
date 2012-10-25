@@ -76,6 +76,7 @@ void trap (void);
  * nfs port in volume status.
  */
 #define GF_NFS3_PORT    38467
+#define GF_CLIENT_PORT_CEILING 1024
 
 enum _gf_boolean
 {
@@ -553,5 +554,8 @@ uint64_t get_mem_size ();
 int gf_strip_whitespace (char *str, int len);
 int gf_canonicalize_path (char *path);
 char *generate_glusterfs_ctx_id (void);
+char *gf_get_reserved_ports();
+int gf_process_reserved_ports (gf_boolean_t ports[]);
+gf_boolean_t gf_ports_reserved (char *blocked_port, gf_boolean_t *ports);
 
 #endif /* _COMMON_UTILS_H */
