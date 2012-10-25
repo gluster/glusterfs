@@ -15,12 +15,6 @@
 #include <netdb.h>
 #include <string.h>
 
-#ifdef CLIENT_PORT_CEILING
-#undef CLIENT_PORT_CEILING
-#endif
-
-#define CLIENT_PORT_CEILING 1024
-
 #ifndef AF_INET_SDP
 #define AF_INET_SDP 27
 #endif
@@ -40,9 +34,17 @@ static int32_t
 af_inet_bind_to_port_lt_ceiling (int fd, struct sockaddr *sockaddr,
                                  socklen_t sockaddr_len, int ceiling)
 {
-        int32_t ret = -1;
-        /*  struct sockaddr_in sin = {0, }; */
-        uint16_t port = ceiling - 1;
+        int32_t        ret        = -1;
+        uint16_t      port        = ceiling - 1;
+        // by default assume none of the ports are blocked and all are available
+        gf_boolean_t  ports[1024] = {_gf_false,};
+        int           i           = 0;
+
+        ret = gf_process_reserved_ports (ports);
+        if (ret != 0) {
+                for (i = 0; i < 1024; i++)
+                        ports[i] = _gf_false;
+        }
 
         while (port)
         {
@@ -57,7 +59,11 @@ af_inet_bind_to_port_lt_ceiling (int fd, struct sockaddr *sockaddr,
                         ((struct sockaddr_in *)sockaddr)->sin_port = htons (port);
                         break;
                 }
-
+                // ignore the reserved ports
+                if (ports[port] == _gf_true) {
+                        port--;
+                        continue;
+                }
                 ret = bind (fd, sockaddr, sockaddr_len);
 
                 if (ret == 0)
@@ -440,12 +446,12 @@ client_bind (rpc_transport_t *this,
         case AF_INET6:
                 if (!this->bind_insecure) {
                         ret = af_inet_bind_to_port_lt_ceiling (sock, sockaddr,
-                                                       *sockaddr_len, CLIENT_PORT_CEILING);
+                                                       *sockaddr_len, GF_CLIENT_PORT_CEILING);
                 }
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "cannot bind inet socket (%d) to port less than %d (%s)",
-                                sock, CLIENT_PORT_CEILING, strerror (errno));
+                                sock, GF_CLIENT_PORT_CEILING, strerror (errno));
                         ret = 0;
                 }
                 break;

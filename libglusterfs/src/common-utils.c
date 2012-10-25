@@ -2166,3 +2166,143 @@ generate_glusterfs_ctx_id (void)
         return gf_strdup (tmp_str);
 }
 
+char *
+gf_get_reserved_ports ()
+{
+        int     proc_fd      = -1;
+        char    *proc_file   = "/proc/sys/net/ipv4/ip_local_reserved_ports";
+        char    buffer[4096] = {0,};
+        char    *ports_info  = NULL;
+        int32_t ret          = -1;
+
+        proc_fd = open (proc_file, O_RDONLY);
+        if (proc_fd == -1) {
+                /* What should be done in this case? error out from here
+                 * and thus stop the glusterfs process from starting or
+                 * continue with older method of using any of the available
+                 * port? For now 2nd option is considered.
+                 */
+                gf_log ("glusterfs", GF_LOG_WARNING, "could not open "
+                        "the file /proc/sys/net/ipv4/ip_local_reserved_ports "
+                        "for getting reserved ports info (%s)",
+                        strerror (errno));
+                goto out;
+        }
+
+        ret = read (proc_fd, buffer, sizeof (buffer));
+        if (ret < 0) {
+                gf_log ("glusterfs", GF_LOG_WARNING, "could not "
+                        "read the file %s for getting reserved ports "
+                        "info (%s)", proc_file, strerror (errno));
+                goto out;
+        }
+        ports_info = gf_strdup (buffer);
+
+out:
+        if (proc_fd != -1)
+                close (proc_fd);
+        return ports_info;
+}
+
+int
+gf_process_reserved_ports (gf_boolean_t *ports)
+{
+        int      ret         = -1;
+        char    *ports_info  = NULL;
+        char    *tmp         = NULL;
+        char    *blocked_port = NULL;
+        gf_boolean_t  result = _gf_false;
+
+        ports_info = gf_get_reserved_ports ();
+        if (!ports_info) {
+                gf_log ("glusterfs", GF_LOG_WARNING, "Not able to get reserved "
+                        "ports, hence there is a possibility that glusterfs "
+                        "may consume reserved port");
+                goto out;
+        }
+
+        blocked_port = strtok_r (ports_info, ",",&tmp);
+        if (!blocked_port || !strcmp (blocked_port, ports_info)) {
+                if (!blocked_port)
+                        blocked_port = ports_info;
+                result = gf_ports_reserved (blocked_port, ports);
+                blocked_port = strtok_r (NULL, ",", &tmp);
+        }
+
+        while (blocked_port) {
+                result = gf_ports_reserved (blocked_port, ports);
+                blocked_port = strtok_r (NULL, ",", &tmp);
+        }
+
+        ret = 0;
+
+out:
+        GF_FREE (ports_info);
+        return ret;
+}
+
+gf_boolean_t
+gf_ports_reserved (char *blocked_port, gf_boolean_t *ports)
+{
+        gf_boolean_t    result   = _gf_false;
+        char            *range_port = NULL;
+        int16_t         tmp_port1, tmp_port2 = -1;
+
+        if (strstr (blocked_port, "-") == NULL) {
+                /* get rid of the new line character*/
+                if (blocked_port[strlen(blocked_port) -1] == '\n')
+                        blocked_port[strlen(blocked_port) -1] = '\0';
+                if (gf_string2int16 (blocked_port, &tmp_port1) == 0) {
+                        if (tmp_port1 > (GF_CLIENT_PORT_CEILING - 1)
+                            || tmp_port1 < 0) {
+                                gf_log ("glusterfs-socket", GF_LOG_WARNING,
+                                        "invalid port %d", tmp_port1);
+                                result = _gf_true;
+                                goto out;
+                        } else {
+                                gf_log ("glusterfs", GF_LOG_DEBUG,
+                                        "blocking port %d", tmp_port1);
+                                ports[tmp_port1] = _gf_true;
+                        }
+                } else {
+                        gf_log ("glusterfs-socket", GF_LOG_WARNING, "%s is "
+                                "not a valid port identifier", blocked_port);
+                        result = _gf_true;
+                        goto out;
+                }
+        } else {
+                range_port = strtok (blocked_port, "-");
+                if (!range_port){
+                        result = _gf_true;
+                        goto out;
+                }
+                if (gf_string2int16 (range_port, &tmp_port1) == 0) {
+                        if (tmp_port1 > (GF_CLIENT_PORT_CEILING - 1))
+                                tmp_port1 = GF_CLIENT_PORT_CEILING - 1;
+                        if (tmp_port1 < 0)
+                                tmp_port1 = 0;
+                }
+                range_port = strtok (NULL, "-");
+                if (!range_port) {
+                        result = _gf_true;
+                        goto out;
+                }
+                /* get rid of the new line character*/
+                if (range_port[strlen(range_port) -1] == '\n')
+                        range_port[strlen(range_port) - 1] = '\0';
+                if (gf_string2int16 (range_port, &tmp_port2) == 0) {
+                        if (tmp_port2 >
+                            (GF_CLIENT_PORT_CEILING - 1))
+                                tmp_port2 = GF_CLIENT_PORT_CEILING - 1;
+                        if (tmp_port2 < 0)
+                                tmp_port2 = 0;
+                }
+                gf_log ("glusterfs", GF_LOG_DEBUG, "lower: %d, higher: %d",
+                        tmp_port1, tmp_port2);
+                for (; tmp_port1 <= tmp_port2; tmp_port1++)
+                        ports[tmp_port1] = _gf_true;
+        }
+
+out:
+        return result;
+}
