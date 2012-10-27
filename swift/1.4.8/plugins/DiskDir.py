@@ -28,14 +28,12 @@ from swift.plugins.utils import X_CONTENT_TYPE, X_CONTENT_LENGTH, X_TIMESTAMP,\
      X_PUT_TIMESTAMP, X_TYPE, X_ETAG, X_OBJECTS_COUNT, X_BYTES_USED, \
      X_CONTAINER_COUNT, CONTAINER
 
-from swift import plugins
-def strip_obj_storage_path(path, string='/mnt/gluster-object'):
-    """
-    strip /mnt/gluster-object
-    """
-    return path.replace(string, '').strip('/')
-
 DATADIR = 'containers'
+
+# Create a dummy db_file in /etc/swift
+_db_file = '/etc/swift/db_file.db'
+if not os.path.exists(_db_file):
+    file(_db_file, 'w+')
 
 
 def _read_metadata(dd):
@@ -148,7 +146,7 @@ class DiskDir(DiskCommon):
     """
 
     def __init__(self, path, device, partition, account, container, logger,
-                 uid=DEFAULT_UID, gid=DEFAULT_GID, fs_object=None):
+                 uid=DEFAULT_UID, gid=DEFAULT_GID):
         self.root = path
         device = account
         if container:
@@ -162,15 +160,12 @@ class DiskDir(DiskCommon):
         self.account = account
         self.device_path = os.path.join(path, device)
         if not check_mount(path, device):
-            check_valid_account(account, fs_object)
+            check_valid_account(account)
         self.logger = logger
         self.metadata = {}
         self.uid = int(uid)
         self.gid = int(gid)
-        # Create a dummy db_file in /etc/swift
-        self.db_file = '/etc/swift/db_file.db'
-        if not os.path.exists(self.db_file):
-            file(self.db_file, 'w+')
+        self.db_file = _db_file
         self.dir_exists = os.path.exists(self.datadir)
         if self.dir_exists:
             try:
@@ -319,9 +314,10 @@ class DiskDir(DiskCommon):
             for obj in objects:
                 list_item = []
                 list_item.append(obj)
-                metadata = read_metadata(self.datadir + '/' + obj)
+                obj_path = os.path.join(self.datadir, obj)
+                metadata = read_metadata(obj_path)
                 if not metadata or not validate_object(metadata):
-                    metadata = create_object_metadata(self.datadir + '/' + obj)
+                    metadata = create_object_metadata(obj_path)
                 if metadata:
                     list_item.append(metadata[X_TIMESTAMP])
                     list_item.append(int(metadata[X_CONTENT_LENGTH]))
@@ -420,12 +416,12 @@ class DiskDir(DiskCommon):
 
 
 class DiskAccount(DiskDir):
-    def __init__(self, root, account, fs_object = None):
+    def __init__(self, root, account):
         self.root = root
         self.account = account
         self.datadir = os.path.join(self.root, self.account)
         if not check_mount(root, account):
-            check_valid_account(account, fs_object)
+            check_valid_account(account)
         self.metadata = _read_metadata(self.datadir)
         if not self.metadata or not validate_account(self.metadata):
             self.metadata = create_account_metadata(self.datadir)
@@ -472,9 +468,10 @@ class DiskAccount(DiskDir):
                 list_item = []
                 metadata = None
                 list_item.append(cont)
-                metadata = _read_metadata(self.datadir + '/' + cont)
+                cont_path = os.path.join(self.datadir, cont)
+                metadata = _read_metadata(cont_path)
                 if not metadata or not validate_container(metadata):
-                    metadata = create_container_metadata(self.datadir + '/' + cont)
+                    metadata = create_container_metadata(cont_path)
 
                 if metadata:
                     list_item.append(metadata[X_OBJECTS_COUNT][0])

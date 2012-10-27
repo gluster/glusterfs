@@ -6,13 +6,10 @@ user = root
 log_facility = LOG_LOCAL2
 
 [pipeline:main]
-pipeline = glusterfs container-server
+pipeline = container-server
 
 [app:container-server]
 use = egg:swift#container
-
-[filter:glusterfs]
-use = egg:swift#glusterfs
 
 [container-replicator]
 vm_test_mode = yes

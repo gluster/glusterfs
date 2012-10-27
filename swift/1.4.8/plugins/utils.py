@@ -18,10 +18,11 @@ import os
 import errno
 import xattr
 from hashlib import md5
-from swift.common.utils import normalize_timestamp, TRUE_VALUES
-from swift.obj.server import ASYNCDIR
 import cPickle as pickle
 from ConfigParser import ConfigParser, NoSectionError, NoOptionError
+from swift.common.utils import normalize_timestamp, TRUE_VALUES
+from swift.plugins.fs_utils import *
+from swift.plugins import Glusterfs
 
 X_CONTENT_TYPE = 'Content-Type'
 X_CONTENT_LENGTH = 'Content-Length'
@@ -35,15 +36,14 @@ X_CONTAINER_COUNT = 'X-Container-Count'
 X_OBJECT_TYPE = 'X-Object-Type'
 DIR_TYPE = 'application/directory'
 ACCOUNT = 'Account'
-MOUNT_PATH = '/mnt/gluster-object'
 METADATA_KEY = 'user.swift.metadata'
 MAX_XATTR_SIZE = 65536
 CONTAINER = 'container'
 DIR = 'dir'
 MARKER_DIR = 'marker_dir'
 TEMP_DIR = 'tmp'
+ASYNCDIR = 'async_pending'  # Keep in sync with swift.obj.server.ASYNCDIR
 FILE = 'file'
-DIR_TYPE = 'application/directory'
 FILE_TYPE = 'application/octet-stream'
 OBJECT = 'Object'
 OBJECT_TYPE = 'application/octet-stream'
@@ -54,131 +54,6 @@ CHUNK_SIZE = 65536
 MEMCACHE_KEY_PREFIX = 'gluster.swift.'
 MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX = MEMCACHE_KEY_PREFIX + 'account.details.'
 MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX = MEMCACHE_KEY_PREFIX + 'container.details.'
-
-
-def mkdirs(path):
-    """
-    Ensures the path is a directory or makes it if not. Errors if the path
-    exists but is a file or on permissions failure.
-
-    :param path: path to create
-    """
-    if not os.path.isdir(path):
-        try:
-            do_makedirs(path)
-        except OSError, err:
-            #TODO: check, isdir will fail if mounted and volume stopped.
-            #if err.errno != errno.EEXIST or not os.path.isdir(path)
-            if err.errno != errno.EEXIST:
-                raise
-
-def rmdirs(path):
-    if os.path.isdir(path) and dir_empty(path):
-        do_rmdir(path)
-    else:
-        logging.error("rmdirs failed dir may not be empty or not valid dir")
-        return False
-
-def strip_obj_storage_path(path, string='/mnt/gluster-object'):
-    """
-    strip /mnt/gluster-object
-    """
-    return path.replace(string, '').strip('/')
-
-def do_mkdir(path):
-    try:
-        os.mkdir(path)
-    except Exception, err:
-        logging.exception("Mkdir failed on %s err: %s", path, str(err))
-        if err.errno != errno.EEXIST:
-            raise
-    return True
-
-def do_makedirs(path):
-    try:
-        os.makedirs(path)
-    except Exception, err:
-        logging.exception("Makedirs failed on %s err: %s", path, str(err))
-        if err.errno != errno.EEXIST:
-            raise
-    return True
-
-def do_listdir(path):
-    try:
-        buf = os.listdir(path)
-    except Exception, err:
-        logging.exception("Listdir failed on %s err: %s", path, str(err))
-        raise
-    return buf
-
-def do_chown(path, uid, gid):
-    try:
-        os.chown(path, uid, gid)
-    except Exception, err:
-        logging.exception("Chown failed on %s err: %s", path, str(err))
-        raise
-    return True
-
-def do_stat(path):
-    try:
-        #Check for fd.
-        if isinstance(path, int):
-            buf = os.fstat(path)
-        else:
-            buf = os.stat(path)
-    except Exception, err:
-        logging.exception("Stat failed on %s err: %s", path, str(err))
-        raise
-
-    return buf
-
-def do_open(path, mode):
-    try:
-        fd = open(path, mode)
-    except Exception, err:
-        logging.exception("Open failed on %s err: %s", path, str(err))
-        raise
-    return fd
-
-def do_close(fd):
-    #fd could be file or int type.
-    try:
-        if isinstance(fd, int):
-            os.close(fd)
-        else:
-            fd.close()
-    except Exception, err:
-        logging.exception("Close failed on %s err: %s", fd, str(err))
-        raise
-    return True
-
-def do_unlink(path, log = True):
-    try:
-        os.unlink(path)
-    except Exception, err:
-        if log:
-            logging.exception("Unlink failed on %s err: %s", path, str(err))
-        if err.errno != errno.ENOENT:
-            raise
-    return True
-
-def do_rmdir(path):
-    try:
-        os.rmdir(path)
-    except Exception, err:
-        logging.exception("Rmdir failed on %s err: %s", path, str(err))
-        if err.errno != errno.ENOENT:
-            raise
-    return True
-
-def do_rename(old_path, new_path):
-    try:
-        os.rename(old_path, new_path)
-    except Exception, err:
-        logging.exception("Rename failed on %s to %s  err: %s", old_path, new_path, \
-                          str(err))
-        raise
-    return True
 
 
 def read_metadata(path):
@@ -262,26 +137,6 @@ def clean_metadata(path):
             raise
         key += 1
 
-def dir_empty(path):
-    """
-    Return true if directory/container is empty.
-    :param path: Directory path.
-    :returns: True/False.
-    """
-    if os.path.isdir(path):
-        try:
-            files = do_listdir(path)
-        except Exception, err:
-            logging.exception("listdir failed on %s err: %s", path, str(err))
-            raise
-        if not files:
-            return True
-        else:
-            return False
-    else:
-        if not os.path.exists(path):
-            return True
-
 def get_device_from_account(account):
     if account.startswith(RESELLER_PREFIX):
         device = account.replace(RESELLER_PREFIX, '', 1)
@@ -302,27 +157,26 @@ def check_user_xattr(path):
         #Remove xattr may fail in case of concurrent remove.
     return True
 
-def _check_valid_account(account, fs_object):
-    mount_path = getattr(fs_object, 'mount_path', MOUNT_PATH)
+def _check_valid_account(account):
+    full_mount_path = os.path.join(Glusterfs.MOUNT_PATH, account)
 
-    if os.path.ismount(os.path.join(mount_path, account)):
+    if os.path.ismount(full_mount_path):
         return True
 
-    if not check_account_exists(fs_object.get_export_from_account_id(account), fs_object):
+    if not Glusterfs.check_account_exists(Glusterfs.get_export_from_account_id(account)):
         logging.error('Account not present %s', account)
         return False
 
-    if not os.path.isdir(os.path.join(mount_path, account)):
-        mkdirs(os.path.join(mount_path, account))
+    if not os.path.isdir(full_mount_path):
+        mkdirs(full_mount_path)
 
-    if fs_object:
-        if not fs_object.mount(account):
-            return False
+    if not Glusterfs.mount(account):
+        return False
 
     return True
 
-def check_valid_account(account, fs_object):
-    return _check_valid_account(account, fs_object)
+def check_valid_account(account):
+    return _check_valid_account(account)
 
 def validate_container(metadata):
     if not metadata:
@@ -401,7 +255,7 @@ def is_marker(metadata):
 
 def _update_list(path, const_path, src_list, reg_file=True, object_count=0,
                  bytes_used=0, obj_list=[]):
-    obj_path = strip_obj_storage_path(path, const_path)
+    obj_path = Glusterfs.strip_obj_storage_path(path, const_path)
 
     for i in src_list:
         if obj_path:
@@ -460,7 +314,7 @@ def get_container_details(cont_path, memcache=None):
     """
     mkey = ''
     if memcache:
-        mkey = MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + strip_obj_storage_path(cont_path)
+        mkey = MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + Glusterfs.strip_obj_storage_path(cont_path)
         cd = memcache.get(mkey)
         if cd:
             if not cd.dir_list:
@@ -517,7 +371,7 @@ def get_account_details(acc_path, memcache=None):
     acc_stats = None
     mkey = ''
     if memcache:
-        mkey = MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX + strip_obj_storage_path(acc_path)
+        mkey = MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX + Glusterfs.strip_obj_storage_path(acc_path)
         ad = memcache.get(mkey)
         if ad:
             # FIXME: Do we really need to stat the file? If we are object
@@ -627,18 +481,15 @@ def create_account_metadata(acc_path, memcache=None):
     metadata = get_account_metadata(acc_path, memcache)
     return restore_metadata(acc_path, metadata)
 
-def check_account_exists(account, fs_object):
-    if account not in get_account_list(fs_object):
+def check_account_exists(account):
+    if account not in get_account_list():
         logging.warn('Account %s does not exist' % account)
         return False
     else:
         return True
 
-def get_account_list(fs_object):
-    account_list = []
-    if fs_object:
-        account_list = fs_object.get_export_list()
-    return account_list
+def get_account_list():
+    return Glusterfs.get_export_list()
 
 def get_account_id(account):
     return RESELLER_PREFIX + md5(account + HASH_PATH_SUFFIX).hexdigest()
@@ -647,10 +498,10 @@ def get_account_id(account):
 __swift_conf = ConfigParser()
 __swift_conf.read(os.path.join('/etc/swift', 'swift.conf'))
 try:
-    _plugin_enabled = __swift_conf.get('DEFAULT', 'Enable_plugin', 'no') in TRUE_VALUES
+    _gluster_enabled = __swift_conf.get('DEFAULT', 'Enable_plugin', 'no') in TRUE_VALUES
 except NoOptionError, NoSectionError:
-    _plugin_enabled = False
+    _gluster_enabled = False
 del __swift_conf
 
-def plugin_enabled():
-    return _plugin_enabled
+def Gluster_enabled():
+    return _gluster_enabled

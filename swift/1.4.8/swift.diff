@@ -1,5 +1,5 @@
 diff --git a/setup.py b/setup.py
-index d195d34..ab236ee 100644
+index d195d34..ef625ff 100644
 --- a/setup.py
 +++ b/setup.py
 @@ -1,5 +1,6 @@
@@ -9,17 +9,16 @@ index d195d34..ab236ee 100644
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
-@@ -94,6 +95,8 @@ setup(
+@@ -94,6 +95,7 @@ setup(
              'tempurl=swift.common.middleware.tempurl:filter_factory',
              'formpost=swift.common.middleware.formpost:filter_factory',
              'name_check=swift.common.middleware.name_check:filter_factory',
 +            'gluster=swift.plugins.middleware.gluster:filter_factory',
-+            'glusterfs=swift.plugins.middleware.glusterfs:filter_factory',
              ],
          },
      )
 diff --git a/swift/account/server.py b/swift/account/server.py
-index 800b3c0..77f9879 100644
+index 800b3c0..ba13786 100644
 --- a/swift/account/server.py
 +++ b/swift/account/server.py
 @@ -1,4 +1,5 @@
@@ -28,59 +27,54 @@ index 800b3c0..77f9879 100644
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
-@@ -35,6 +36,9 @@ from swift.common.utils import get_logger, get_param, hash_path, \
+@@ -35,6 +36,10 @@ from swift.common.utils import get_logger, get_param, hash_path, \
  from swift.common.constraints import ACCOUNT_LISTING_LIMIT, \
      check_mount, check_float, check_utf8
  from swift.common.db_replicator import ReplicatorRpc
-+from swift.plugins.utils import plugin_enabled
-+if plugin_enabled():
++from swift.plugins.utils import Gluster_enabled
++if Gluster_enabled():
 +    from swift.plugins.DiskDir import DiskAccount
++    from swift.plugins import Glusterfs
  
  
  DATADIR = 'accounts'
-@@ -52,8 +56,12 @@ class AccountController(object):
+@@ -45,15 +50,21 @@ class AccountController(object):
+ 
+     def __init__(self, conf):
+         self.logger = get_logger(conf, log_route='account-server')
+-        self.root = conf.get('devices', '/srv/node')
+-        self.mount_check = conf.get('mount_check', 'true').lower() in \
+-                              ('true', 't', '1', 'on', 'yes', 'y')
++        if Gluster_enabled():
++            self.root = Glusterfs.MOUNT_PATH
++            self.mount_check = False
++        else:
++            self.root = conf.get('devices', '/srv/node')
++            self.mount_check = conf.get('mount_check', 'true').lower() in \
++                ('true', 't', '1', 'on', 'yes', 'y')
+         self.replicator_rpc = ReplicatorRpc(self.root, DATADIR, AccountBroker,
              self.mount_check, logger=self.logger)
          self.auto_create_account_prefix = \
              conf.get('auto_create_account_prefix') or '.'
-+        self.fs_object = None
  
      def _get_account_broker(self, drive, part, account):
-+        if self.fs_object:
-+            return DiskAccount(self.root, account, self.fs_object);
-+
++        if Gluster_enabled():
++            return DiskAccount(self.root, account)
          hsh = hash_path(account)
          db_dir = storage_directory(DATADIR, part, hsh)
          db_path = os.path.join(self.root, drive, db_dir, hsh + '.db')
-@@ -153,6 +161,9 @@ class AccountController(object):
+@@ -153,6 +164,9 @@ class AccountController(object):
              broker.stale_reads_ok = True
          if broker.is_deleted():
              return HTTPNotFound(request=req)
-+        if self.fs_object and not self.fs_object.object_only:
++        if Gluster_enabled() and not Glusterfs.OBJECT_ONLY:
 +            broker.list_containers_iter(None, None,None,
 +                                        None, None)
          info = broker.get_info()
          headers = {
              'X-Account-Container-Count': info['container_count'],
-@@ -305,8 +316,17 @@ class AccountController(object):
-             broker.update_metadata(metadata)
-         return HTTPNoContent(request=req)
- 
-+    def plugin(self, env):
-+        if env.get('Gluster_enabled', False):
-+            self.fs_object = env.get('fs_object')
-+            self.root = env.get('root')
-+            self.mount_check = False
-+        else:
-+            self.fs_object = None
-+
-     def __call__(self, env, start_response):
-         start_time = time.time()
-+        self.plugin(env)
-         req = Request(env)
-         self.logger.txn_id = req.headers.get('x-trans-id', None)
-         if not check_utf8(req.path_info):
 diff --git a/swift/container/server.py b/swift/container/server.py
-index 8a18cfd..952b8cd 100644
+index 8a18cfd..c4982f1 100644
 --- a/swift/container/server.py
 +++ b/swift/container/server.py
 @@ -1,4 +1,5 @@
@@ -89,67 +83,57 @@ index 8a18cfd..952b8cd 100644
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
-@@ -37,6 +38,9 @@ from swift.common.constraints import CONTAINER_LISTING_LIMIT, \
+@@ -37,6 +38,11 @@ from swift.common.constraints import CONTAINER_LISTING_LIMIT, \
  from swift.common.bufferedhttp import http_connect
  from swift.common.exceptions import ConnectionTimeout
  from swift.common.db_replicator import ReplicatorRpc
-+from swift.plugins.utils import plugin_enabled
-+if plugin_enabled():
++from swift.plugins.utils import Gluster_enabled
++if Gluster_enabled():
 +    from swift.plugins.DiskDir import DiskDir
++    from swift.plugins import Glusterfs
++
  
  DATADIR = 'containers'
  
-@@ -62,6 +66,7 @@ class ContainerController(object):
-             ContainerBroker, self.mount_check, logger=self.logger)
-         self.auto_create_account_prefix = \
-             conf.get('auto_create_account_prefix') or '.'
-+        self.fs_object = None
+@@ -50,9 +56,13 @@ class ContainerController(object):
  
-     def _get_container_broker(self, drive, part, account, container):
-         """
-@@ -73,6 +78,10 @@ class ContainerController(object):
+     def __init__(self, conf):
+         self.logger = get_logger(conf, log_route='container-server')
+-        self.root = conf.get('devices', '/srv/node/')
+-        self.mount_check = conf.get('mount_check', 'true').lower() in \
+-                              ('true', 't', '1', 'on', 'yes', 'y')
++        if Gluster_enabled():
++            self.root = Glusterfs.MOUNT_PATH
++            self.mount_check = False
++        else:
++            self.root = conf.get('devices', '/srv/node/')
++            self.mount_check = conf.get('mount_check', 'true').lower() in \
++                ('true', 't', '1', 'on', 'yes', 'y')
+         self.node_timeout = int(conf.get('node_timeout', 3))
+         self.conn_timeout = float(conf.get('conn_timeout', 0.5))
+         self.allowed_sync_hosts = [h.strip()
+@@ -73,6 +83,9 @@ class ContainerController(object):
          :param container: container name
          :returns: ContainerBroker object
          """
-+        if self.fs_object:
++        if Gluster_enabled():
 +            return DiskDir(self.root, drive, part, account,
-+                           container, self.logger,
-+                           fs_object = self.fs_object)
++                           container, self.logger)
          hsh = hash_path(account, container)
          db_dir = storage_directory(DATADIR, part, hsh)
          db_path = os.path.join(self.root, drive, db_dir, hsh + '.db')
-@@ -245,6 +254,9 @@ class ContainerController(object):
+@@ -245,6 +258,9 @@ class ContainerController(object):
          broker.stale_reads_ok = True
          if broker.is_deleted():
              return HTTPNotFound(request=req)
-+        if self.fs_object and not self.fs_object.object_only:
++        if Gluster_enabled() and not Glusterfs.OBJECT_ONLY:
 +            broker.list_objects_iter(None, None, None, None,
 +                                     None, None)
          info = broker.get_info()
          headers = {
              'X-Container-Object-Count': info['object_count'],
-@@ -427,8 +439,19 @@ class ContainerController(object):
-             broker.update_metadata(metadata)
-         return HTTPNoContent(request=req)
- 
-+    def plugin(self, env):
-+        if env.get('Gluster_enabled', False):
-+            self.fs_object = env.get('fs_object')
-+            if not self.fs_object:
-+                raise NoneTypeError
-+            self.root = env.get('root')
-+            self.mount_check = False
-+        else:
-+            self.fs_object = None
-+
-     def __call__(self, env, start_response):
-         start_time = time.time()
-+        self.plugin(env)
-         req = Request(env)
-         self.logger.txn_id = req.headers.get('x-trans-id', None)
-         if not check_utf8(req.path_info):
 diff --git a/swift/obj/server.py b/swift/obj/server.py
-index 9cca16b..82eaa40 100644
+index 9cca16b..7a671c2 100644
 --- a/swift/obj/server.py
 +++ b/swift/obj/server.py
 @@ -1,4 +1,5 @@
@@ -158,46 +142,63 @@ index 9cca16b..82eaa40 100644
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
-@@ -45,6 +46,10 @@ from swift.common.exceptions import ConnectionTimeout, DiskFileError, \
+@@ -45,6 +46,11 @@ from swift.common.exceptions import ConnectionTimeout, DiskFileError, \
      DiskFileNotExist
  from swift.obj.replicator import tpooled_get_hashes, invalidate_hash, \
      quarantine_renamer
-+from swift.plugins.utils import plugin_enabled
-+if plugin_enabled():
++from swift.plugins.utils import Gluster_enabled
++if Gluster_enabled():
 +    from swift.plugins.utils import X_TYPE, X_OBJECT_TYPE, FILE, DIR, MARKER_DIR, \
 +         OBJECT, DIR_TYPE, FILE_TYPE
++    from swift.plugins import Glusterfs
  
  
  DATADIR = 'objects'
-@@ -340,6 +345,9 @@ class DiskFile(object):
+@@ -340,6 +346,10 @@ class DiskFile(object):
          raise DiskFileNotExist('Data File does not exist.')
  
  
-+if plugin_enabled():
++if Gluster_enabled():
 +    from swift.plugins.DiskFile import Gluster_DiskFile
++
 +
  class ObjectController(object):
      """Implements the WSGI application for the Swift Object Server."""
  
-@@ -377,6 +385,17 @@ class ObjectController(object):
-             'expiring_objects'
+@@ -351,9 +361,13 @@ class ObjectController(object):
+         /etc/swift/object-server.conf-sample.
+         """
+         self.logger = get_logger(conf, log_route='object-server')
+-        self.devices = conf.get('devices', '/srv/node/')
+-        self.mount_check = conf.get('mount_check', 'true').lower() in \
+-                              ('true', 't', '1', 'on', 'yes', 'y')
++        if Gluster_enabled():
++            self.devices = Glusterfs.MOUNT_PATH
++            self.mount_check = False
++        else:
++            self.devices = conf.get('devices', '/srv/node/')
++            self.mount_check = conf.get('mount_check', 'true').lower() in \
++                ('true', 't', '1', 'on', 'yes', 'y')
+         self.node_timeout = int(conf.get('node_timeout', 3))
+         self.conn_timeout = float(conf.get('conn_timeout', 0.5))
+         self.disk_chunk_size = int(conf.get('disk_chunk_size', 65536))
+@@ -378,6 +392,15 @@ class ObjectController(object):
          self.expiring_objects_container_divisor = \
              int(conf.get('expiring_objects_container_divisor') or 86400)
-+        self.fs_object = None
-+
+ 
 +    def get_DiskFile_obj(self, path, device, partition, account, container, obj,
 +                         logger, keep_data_fp=False, disk_chunk_size=65536):
-+        if self.fs_object:
++        if Gluster_enabled():
 +            return Gluster_DiskFile(path, device, partition, account, container,
-+                            obj, logger, keep_data_fp,
-+                            disk_chunk_size, fs_object = self.fs_object);
++                            obj, logger, keep_data_fp, disk_chunk_size)
 +        else:
 +            return DiskFile(path, device, partition, account, container,
 +                            obj, logger, keep_data_fp, disk_chunk_size)
- 
++
      def async_update(self, op, account, container, obj, host, partition,
                       contdevice, headers_out, objdevice):
-@@ -493,7 +512,7 @@ class ObjectController(object):
+         """
+@@ -493,7 +516,7 @@ class ObjectController(object):
                                    content_type='text/plain')
          if self.mount_check and not check_mount(self.devices, device):
              return Response(status='507 %s is not mounted' % device)
@@ -206,7 +207,7 @@ index 9cca16b..82eaa40 100644
                          obj, self.logger, disk_chunk_size=self.disk_chunk_size)
  
          if 'X-Delete-At' in file.metadata and \
-@@ -548,7 +567,7 @@ class ObjectController(object):
+@@ -548,7 +571,7 @@ class ObjectController(object):
          if new_delete_at and new_delete_at < time.time():
              return HTTPBadRequest(body='X-Delete-At in past', request=request,
                                    content_type='text/plain')
@@ -215,7 +216,7 @@ index 9cca16b..82eaa40 100644
                          obj, self.logger, disk_chunk_size=self.disk_chunk_size)
          orig_timestamp = file.metadata.get('X-Timestamp')
          upload_expiration = time.time() + self.max_upload_time
-@@ -580,12 +599,26 @@ class ObjectController(object):
+@@ -580,12 +603,28 @@ class ObjectController(object):
              if 'etag' in request.headers and \
                              request.headers['etag'].lower() != etag:
                  return HTTPUnprocessableEntity(request=request)
@@ -226,9 +227,7 @@ index 9cca16b..82eaa40 100644
 -                'Content-Length': str(os.fstat(fd).st_size),
 -            }
 +            content_type = request.headers['content-type']
-+            if self.fs_object and not content_type:
-+                content_type = FILE_TYPE
-+            if not self.fs_object:
++            if not Gluster_enabled():
 +                metadata = {
 +                    'X-Timestamp': request.headers['x-timestamp'],
 +                    'Content-Type': content_type,
@@ -236,7 +235,11 @@ index 9cca16b..82eaa40 100644
 +                    'Content-Length': str(os.fstat(fd).st_size),
 +                }
 +            else:
-+                x_object_type = MARKER_DIR if content_type.lower() == DIR_TYPE else FILE
++                if not content_type:
++                    content_type = FILE_TYPE
++                    x_object_type = FILE
++                else:
++                    x_object_type = MARKER_DIR if content_type.lower() == DIR_TYPE else FILE
 +                metadata = {
 +                    'X-Timestamp': request.headers['x-timestamp'],
 +                    'Content-Type': content_type,
@@ -248,16 +251,16 @@ index 9cca16b..82eaa40 100644
              metadata.update(val for val in request.headers.iteritems()
                      if val[0].lower().startswith('x-object-meta-') and
                      len(val[0]) > 14)
-@@ -612,7 +645,7 @@ class ObjectController(object):
+@@ -612,7 +651,7 @@ class ObjectController(object):
                   'x-timestamp': file.metadata['X-Timestamp'],
                   'x-etag': file.metadata['ETag'],
                   'x-trans-id': request.headers.get('x-trans-id', '-')},
 -                device)
-+                (self.fs_object and account) or device)
++                (Gluster_enabled() and account) or device)
          resp = HTTPCreated(request=request, etag=etag)
          return resp
  
-@@ -626,9 +659,9 @@ class ObjectController(object):
+@@ -626,9 +665,9 @@ class ObjectController(object):
                          content_type='text/plain')
          if self.mount_check and not check_mount(self.devices, device):
              return Response(status='507 %s is not mounted' % device)
@@ -270,7 +273,7 @@ index 9cca16b..82eaa40 100644
          if file.is_deleted() or ('X-Delete-At' in file.metadata and
                  int(file.metadata['X-Delete-At']) <= time.time()):
              if request.headers.get('if-match') == '*':
-@@ -702,7 +735,7 @@ class ObjectController(object):
+@@ -702,7 +741,7 @@ class ObjectController(object):
              return resp
          if self.mount_check and not check_mount(self.devices, device):
              return Response(status='507 %s is not mounted' % device)
@@ -279,7 +282,7 @@ index 9cca16b..82eaa40 100644
                          obj, self.logger, disk_chunk_size=self.disk_chunk_size)
          if file.is_deleted() or ('X-Delete-At' in file.metadata and
                  int(file.metadata['X-Delete-At']) <= time.time()):
-@@ -744,7 +777,7 @@ class ObjectController(object):
+@@ -744,7 +783,7 @@ class ObjectController(object):
          if self.mount_check and not check_mount(self.devices, device):
              return Response(status='507 %s is not mounted' % device)
          response_class = HTTPNoContent
@@ -288,22 +291,3 @@ index 9cca16b..82eaa40 100644
                          obj, self.logger, disk_chunk_size=self.disk_chunk_size)
          if 'x-if-delete-at' in request.headers and \
                  int(request.headers['x-if-delete-at']) != \
-@@ -797,9 +830,18 @@ class ObjectController(object):
-             raise hashes
-         return Response(body=pickle.dumps(hashes))
- 
-+    def plugin(self, env):
-+        if env.get('Gluster_enabled', False):
-+            self.fs_object = env.get('fs_object')
-+            self.devices = env.get('root')
-+            self.mount_check = False
-+        else:
-+            self.fs_object = None
-+
-     def __call__(self, env, start_response):
-         """WSGI Application entry point for the Swift Object Server."""
-         start_time = time.time()
-+        self.plugin(env)
-         req = Request(env)
-         self.logger.txn_id = req.headers.get('x-trans-id', None)
-         if not check_utf8(req.path_info):

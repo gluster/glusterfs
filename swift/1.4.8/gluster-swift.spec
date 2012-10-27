@@ -4,7 +4,7 @@
 
 Name:             gluster-swift
 Version:          1.4.8
-Release:          3%{?dist}
+Release:          6%{?dist}
 Summary:          OpenStack Object Storage (swift)
 
 Group:            Development/Languages
