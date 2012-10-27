@@ -24,9 +24,9 @@ import tempfile
 import hashlib
 import tarfile
 import shutil
-from swift.common.utils import normalize_timestamp
 from collections import defaultdict
-from plugins import utils
+from swift.common.utils import normalize_timestamp
+from swift.plugins import utils, Glusterfs
 
 #
 # Somewhat hacky way of emulating the operation of xattr calls. They are made
@@ -542,7 +542,7 @@ class TestUtils(unittest.TestCase):
                     self.st_mtime = mtime
             return MockStat(100)
         cd = mock_get_container_details_from_fs(the_path, bu_p=6)
-        mc.set(utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + utils.strip_obj_storage_path(the_path), cd)
+        mc.set(utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + Glusterfs.strip_obj_storage_path(the_path), cd)
         orig_gcdff = utils._get_container_details_from_fs
         utils._get_container_details_from_fs = mock_get_container_details_from_fs
         orig_ds = utils.do_stat
@@ -571,7 +571,7 @@ class TestUtils(unittest.TestCase):
             # Be sure we don't miss due to mtimes not matching
             self.fail("do_stat should not have been called")
         cd = mock_get_container_details_from_fs(the_path + "u", bu_p=6)
-        mc.set(utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + utils.strip_obj_storage_path(the_path + "u"), cd)
+        mc.set(utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + Glusterfs.strip_obj_storage_path(the_path + "u"), cd)
         orig_gcdff = utils._get_container_details_from_fs
         utils._get_container_details_from_fs = mock_get_container_details_from_fs
         orig_ds = utils.do_stat
@@ -580,7 +580,7 @@ class TestUtils(unittest.TestCase):
             retval = utils.get_container_details(the_path, memcache=mc)
             cd = mock_get_container_details_from_fs(the_path)
             assert retval == (cd.obj_list, cd.object_count, cd.bytes_used)
-            mkey = utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + utils.strip_obj_storage_path(the_path)
+            mkey = utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + Glusterfs.strip_obj_storage_path(the_path)
             assert mkey in mc._d
         finally:
             utils._get_container_details_from_fs = orig_gcdff
@@ -599,7 +599,7 @@ class TestUtils(unittest.TestCase):
             # Be sure we don't miss due to mtimes not matching
             self.fail("do_stat should not have been called")
         cd = mock_get_container_details_from_fs(the_path, bu_p=6)
-        mc.set(utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + utils.strip_obj_storage_path(the_path), cd)
+        mc.set(utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + Glusterfs.strip_obj_storage_path(the_path), cd)
         orig_gcdff = utils._get_container_details_from_fs
         utils._get_container_details_from_fs = mock_get_container_details_from_fs
         orig_ds = utils.do_stat
@@ -608,7 +608,7 @@ class TestUtils(unittest.TestCase):
             retval = utils.get_container_details(the_path, memcache=mc)
             cd = mock_get_container_details_from_fs(the_path)
             assert retval == (cd.obj_list, cd.object_count, cd.bytes_used)
-            mkey = utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + utils.strip_obj_storage_path(the_path)
+            mkey = utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + Glusterfs.strip_obj_storage_path(the_path)
             assert mkey in mc._d
             assert 5 == mc._d[mkey].bytes_used
         finally:
@@ -631,7 +631,7 @@ class TestUtils(unittest.TestCase):
                     self.st_mtime = mtime
             return MockStat(200)
         cd = mock_get_container_details_from_fs(the_path, bu_p=6)
-        mc.set(utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + utils.strip_obj_storage_path(the_path), cd)
+        mc.set(utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + Glusterfs.strip_obj_storage_path(the_path), cd)
         orig_gcdff = utils._get_container_details_from_fs
         utils._get_container_details_from_fs = mock_get_container_details_from_fs
         orig_ds = utils.do_stat
@@ -640,7 +640,7 @@ class TestUtils(unittest.TestCase):
             retval = utils.get_container_details(the_path, memcache=mc)
             cd = mock_get_container_details_from_fs(the_path)
             assert retval == (cd.obj_list, cd.object_count, cd.bytes_used)
-            mkey = utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + utils.strip_obj_storage_path(the_path)
+            mkey = utils.MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + Glusterfs.strip_obj_storage_path(the_path)
             assert mkey in mc._d
             assert 5 == mc._d[mkey].bytes_used
         finally:
@@ -678,7 +678,7 @@ class TestUtils(unittest.TestCase):
             return MockStat(100)
         ad = mock_get_account_details_from_fs(the_path, None)
         ad.container_list = ['x', 'y']
-        mc.set(utils.MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX + utils.strip_obj_storage_path(the_path), ad)
+        mc.set(utils.MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX + Glusterfs.strip_obj_storage_path(the_path), ad)
         orig_gcdff = utils._get_account_details_from_fs
         orig_ds = utils.do_stat
         utils._get_account_details_from_fs = mock_get_account_details_from_fs
@@ -707,7 +707,7 @@ class TestUtils(unittest.TestCase):
             return MockStat(100)
         ad = mock_get_account_details_from_fs(the_path, None)
         ad.container_list = ['x', 'y']
-        mc.set(utils.MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX + utils.strip_obj_storage_path(the_path + 'u'), ad)
+        mc.set(utils.MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX + Glusterfs.strip_obj_storage_path(the_path + 'u'), ad)
         orig_gcdff = utils._get_account_details_from_fs
         orig_ds = utils.do_stat
         utils._get_account_details_from_fs = mock_get_account_details_from_fs
@@ -737,7 +737,7 @@ class TestUtils(unittest.TestCase):
         ad = mock_get_account_details_from_fs(the_path, None)
         ad.container_list = ['x', 'y']
         ad.mtime = 200
-        mc.set(utils.MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX + utils.strip_obj_storage_path(the_path), ad)
+        mc.set(utils.MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX + Glusterfs.strip_obj_storage_path(the_path), ad)
         orig_gcdff = utils._get_account_details_from_fs
         orig_ds = utils.do_stat
         utils._get_account_details_from_fs = mock_get_account_details_from_fs

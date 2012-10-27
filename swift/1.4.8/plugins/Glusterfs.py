@@ -17,115 +17,124 @@ import os, fcntl, time
 from ConfigParser import ConfigParser
 from swift.common.utils import TRUE_VALUES
 from hashlib import md5
-from swift.plugins.utils import mkdirs
+from swift.plugins.fs_utils import mkdirs
 
-class Glusterfs(object):
-    def __init__(self):
-        self.name = 'glusterfs'
-        self.fs_conf = ConfigParser()
-        self.fs_conf.read(os.path.join('/etc/swift', 'fs.conf'))
-        self.mount_path = self.fs_conf.get('DEFAULT', 'mount_path', '/mnt/gluster-object')
-        self.auth_account = self.fs_conf.get('DEFAULT', 'auth_account', 'auth')
-        self.mount_ip = self.fs_conf.get('DEFAULT', 'mount_ip', 'localhost')
-        self.remote_cluster = self.fs_conf.get('DEFAULT', 'remote_cluster', False) in TRUE_VALUES
-        self.object_only = self.fs_conf.get('DEFAULT', 'object_only', "no") in TRUE_VALUES
 
-    def busy_wait(self, mount_path):
-        # Iterate for definite number of time over a given
-        # interval for successful mount
-        for i in range(0, 5):
-            if os.path.ismount(os.path.join(mount_path)):
-                return True
-            time.sleep(2)
-        return False
+#
+# Read the fs.conf file once at startup (module load)
+#
+_fs_conf = ConfigParser()
+MOUNT_PATH = '/mnt/gluster-object'
+AUTH_ACCOUNT = 'auth'
+MOUNT_IP = 'localhost'
+REMOTE_CLUSTER = False
+OBJECT_ONLY = False
+if _fs_conf.read(os.path.join('/etc/swift', 'fs.conf')):
+    try:
+        MOUNT_PATH = _fs_conf.get('DEFAULT', 'mount_path', '/mnt/gluster-object')
+    except (NoSectionError, NoOptionError):
+        pass
+    try:
+        AUTH_ACCOUNT = _fs_conf.get('DEFAULT', 'auth_account', 'auth')
+    except (NoSectionError, NoOptionError):
+        pass
+    try:
+        MOUNT_IP = _fs_conf.get('DEFAULT', 'mount_ip', 'localhost')
+    except (NoSectionError, NoOptionError):
+        pass
+    try:
+        REMOTE_CLUSTER = _fs_conf.get('DEFAULT', 'remote_cluster', False) in TRUE_VALUES
+    except (NoSectionError, NoOptionError):
+        pass
+    try:
+        OBJECT_ONLY = _fs_conf.get('DEFAULT', 'object_only', "no") in TRUE_VALUES
+    except (NoSectionError, NoOptionError):
+        pass
+NAME = 'glusterfs'
 
-    def mount(self, account):
-        mount_path = os.path.join(self.mount_path, account)
-        export = self.get_export_from_account_id(account)
 
-        pid_dir  = "/var/lib/glusterd/vols/%s/run/" %export
-        pid_file = os.path.join(pid_dir, 'swift.pid');
+def strip_obj_storage_path(path, mp=MOUNT_PATH):
+    """
+    strip the mount path off, also stripping the leading and trailing slashes
+    """
+    return path.replace(mp, '').strip(os.path.sep)
 
-        if not os.path.exists(pid_dir):
-            mkdirs(pid_dir)
+def _busy_wait(full_mount_path):
+    # Iterate for definite number of time over a given
+    # interval for successful mount
+    for i in range(0, 5):
+        if os.path.ismount(os.path.join(full_mount_path)):
+            return True
+        time.sleep(2)
+    return False
 
-        fd = os.open(pid_file, os.O_CREAT|os.O_RDWR)
-        with os.fdopen(fd, 'r+b') as f:
-            try:
-                fcntl.lockf(f, fcntl.LOCK_EX|fcntl.LOCK_NB)
-            except:
-                ex = sys.exc_info()[1]
-                if isinstance(ex, IOError) and ex.errno in (EACCES, EAGAIN):
-                # This means that some other process is mounting the
-                # filesystem, so wait for the mount process to complete
-                    return self.busy_wait(mount_path)
+def mount(account):
+    global mount_path, mount_ip
 
-            mnt_cmd = 'mount -t glusterfs %s:%s %s' % (self.mount_ip, export, \
-                                                       mount_path)
-            if os.system(mnt_cmd) or not self.busy_wait(mount_path):
-                raise Exception('Mount failed %s: %s' % (self.name, mnt_cmd))
-                return False
-        return True
+    full_mount_path = os.path.join(mount_path, account)
+    export = get_export_from_account_id(account)
 
-    def unmount(self, mount_path):
-        umnt_cmd = 'umount %s 2>> /dev/null' % mount_path
-        if os.system(umnt_cmd):
-            logging.error('Unable to unmount %s %s' % (mount_path, self.name))
+    pid_dir  = "/var/lib/glusterd/vols/%s/run/" % export
+    pid_file = os.path.join(pid_dir, 'swift.pid');
 
-    def get_export_list_local(self):
-        export_list = []
+    if not os.path.exists(pid_dir):
+        mkdirs(pid_dir)
+
+    fd = os.open(pid_file, os.O_CREAT|os.O_RDWR)
+    with os.fdopen(fd, 'r+b') as f:
+        try:
+            fcntl.lockf(f, fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except:
+            ex = sys.exc_info()[1]
+            if isinstance(ex, IOError) and ex.errno in (EACCES, EAGAIN):
+            # This means that some other process is mounting the
+            # filesystem, so wait for the mount process to complete
+                return _busy_wait(full_mount_path)
+
+        mnt_cmd = 'mount -t glusterfs %s:%s %s' % (mount_ip, export, \
+                                                   full_mount_path)
+        if os.system(mnt_cmd) or not _busy_wait(full_mount_path):
+            raise Exception('Mount failed %s: %s' % (NAME, mnt_cmd))
+    return True
+
+def unmount(full_mount_path):
+    umnt_cmd = 'umount %s 2>> /dev/null' % full_mount_path
+    if os.system(umnt_cmd):
+        logging.error('Unable to unmount %s %s' % (full_mount_path, NAME))
+
+def get_export_list():
+    global mount_ip
+
+    if remote_cluster:
+        cmnd = 'ssh %s gluster volume info' % mount_ip
+    else:
         cmnd = 'gluster volume info'
 
-        if os.system(cmnd + ' >> /dev/null'):
-            raise Exception('Getting volume failed %s', self.name)
-            return export_list
-
-        fp = os.popen(cmnd)
-        while True:
-            item = fp.readline()
-            if not item:
-                break
-            item = item.strip('\n').strip(' ')
-            if item.lower().startswith('volume name:'):
-                export_list.append(item.split(':')[1].strip(' '))
-
-        return export_list
-
-
-    def get_export_list_remote(self):
-        export_list = []
-        cmnd = 'ssh %s gluster volume info' % self.mount_ip
-
-        if os.system(cmnd + ' >> /dev/null'):
+    if os.system(cmnd + ' >> /dev/null'):
+        if remove_cluster:
             raise Exception('Getting volume info failed %s, make sure to have \
-                            passwordless ssh on %s', self.name, self.mount_ip)
-            return export_list
-
-        fp = os.popen(cmnd)
-        while True:
-            item = fp.readline()
-            if not item:
-                break
-            item = item.strip('\n').strip(' ')
-            if item.lower().startswith('volume name:'):
-                export_list.append(item.split(':')[1].strip(' '))
-
-        return export_list
-
-    def get_export_list(self):
-        if self.remote_cluster:
-            return self.get_export_list_remote()
+                            passwordless ssh on %s', NAME, mount_ip)
         else:
-            return self.get_export_list_local()
+            raise Exception('Getting volume failed %s', NAME)
 
-    def get_export_from_account_id(self, account):
-        if not account:
-            print 'account is none, returning'
-            raise AttributeError
+    export_list = []
+    fp = os.popen(cmnd)
+    while True:
+        item = fp.readline()
+        if not item:
+            break
+        item = item.strip('\n').strip(' ')
+        if item.lower().startswith('volume name:'):
+            export_list.append(item.split(':')[1].strip(' '))
 
-        for export in self.get_export_list():
-            if account == 'AUTH_' + export:
-                return export
+    return export_list
 
-        raise Exception('No export found %s %s' % (account, self.name))
-        return None
+def get_export_from_account_id(account):
+    if not account:
+        raise ValueError('No account given')
+
+    for export in get_export_list():
+        if account == 'AUTH_' + export:
+            return export
+
+    raise Exception('No export found %s %s' % (account, NAME))

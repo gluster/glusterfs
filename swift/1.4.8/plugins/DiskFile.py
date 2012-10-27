@@ -55,7 +55,7 @@ class Gluster_DiskFile(DiskFile):
 
     def __init__(self, path, device, partition, account, container, obj,
                  logger, keep_data_fp=False, disk_chunk_size=65536,
-                 uid=DEFAULT_UID, gid=DEFAULT_GID, fs_object = None):
+                 uid=DEFAULT_UID, gid=DEFAULT_GID):
         self.disk_chunk_size = disk_chunk_size
         device = account
         #Don't support obj_name ending/begining with '/', like /a, a/, /a/b/ etc
@@ -75,7 +75,7 @@ class Gluster_DiskFile(DiskFile):
 
         self.device_path = os.path.join(path, device)
         if not check_mount(path, device):
-            check_valid_account(account, fs_object)
+            check_valid_account(account)
 
         self.container_path = os.path.join(path, device, container)
         self.tmpdir = os.path.join(path, device, 'tmp')
