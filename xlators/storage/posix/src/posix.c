@@ -52,6 +52,7 @@
 #include "posix-aio.h"
 
 extern char *marker_xattrs[];
+#define ALIGN_SIZE 4096
 
 #undef HAVE_SET_FSID
 #ifdef HAVE_SET_FSID
@@ -2013,6 +2014,21 @@ err:
         return op_ret;
 }
 
+char*
+_page_aligned_alloc (size_t size, char **aligned_buf)
+{
+        char            *alloc_buf = NULL;
+        char            *buf = NULL;
+
+        alloc_buf = GF_CALLOC (1, (size + ALIGN_SIZE), gf_posix_mt_char);
+        if (!alloc_buf)
+                goto out;
+        /* page aligned buffer */
+        buf = GF_ALIGN_BUF (alloc_buf, ALIGN_SIZE);
+        *aligned_buf = buf;
+out:
+        return alloc_buf;
+}
 
 int32_t
 __posix_writev (int fd, struct iovec *vector, int count, off_t startoff,
@@ -2020,7 +2036,6 @@ __posix_writev (int fd, struct iovec *vector, int count, off_t startoff,
 {
         int32_t         op_ret = 0;
         int             idx = 0;
-        int             align = 4096;
         int             max_buf_size = 0;
         int             retval = 0;
         char            *buf = NULL;
@@ -2036,7 +2051,7 @@ __posix_writev (int fd, struct iovec *vector, int count, off_t startoff,
                         max_buf_size = vector[idx].iov_len;
         }
 
-        alloc_buf = GF_MALLOC (1 * (max_buf_size + align), gf_posix_mt_char);
+        alloc_buf = _page_aligned_alloc (max_buf_size, &buf);
         if (!alloc_buf) {
                 op_ret = -errno;
                 goto err;
@@ -2044,9 +2059,6 @@ __posix_writev (int fd, struct iovec *vector, int count, off_t startoff,
 
         internal_off = startoff;
         for (idx = 0; idx < count; idx++) {
-                /* page aligned buffer */
-                buf = GF_ALIGN_BUF (alloc_buf, align);
-
                 memcpy (buf, vector[idx].iov_base, vector[idx].iov_len);
 
                 /* not sure whether writev works on O_DIRECT'd fd */
@@ -3875,23 +3887,26 @@ int32_t
 posix_rchecksum (call_frame_t *frame, xlator_t *this,
                  fd_t *fd, off_t offset, int32_t len, dict_t *xdata)
 {
-        char            *buf           = NULL;
-        int              _fd           = -1;
-        struct posix_fd *pfd           = NULL;
-        int              op_ret        = -1;
-        int              op_errno      = 0;
-        int              ret           = 0;
-        int32_t          weak_checksum = 0;
-        unsigned char    strong_checksum[MD5_DIGEST_LENGTH];
+        char                    *alloc_buf      = NULL;
+        char                    *buf            = NULL;
+        int                     _fd             = -1;
+        struct posix_fd         *pfd            = NULL;
+        int                     op_ret          = -1;
+        int                     op_errno        = 0;
+        int                     ret             = 0;
+        int32_t                 weak_checksum   = 0;
+        unsigned char           strong_checksum[MD5_DIGEST_LENGTH] = {0};
+        struct posix_private    *priv           = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
 
+        priv = this->private;
         memset (strong_checksum, 0, MD5_DIGEST_LENGTH);
 
-        buf = GF_CALLOC (1, len, gf_posix_mt_char);
-        if (!buf) {
+        alloc_buf = _page_aligned_alloc (len, &buf);
+        if (!alloc_buf) {
                 op_errno = ENOMEM;
                 goto out;
         }
@@ -3906,15 +3921,25 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
 
         _fd = pfd->fd;
 
-        ret = pread (_fd, buf, len, offset);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "pread of %d bytes returned %d (%s)",
-                        len, ret, strerror (errno));
+        LOCK (&fd->lock);
+        {
+                if (priv->aio_capable && priv->aio_init_done)
+                        __posix_fd_set_odirect (fd, pfd, 0, offset, len);
 
-                op_errno = errno;
-                goto out;
+                ret = pread (_fd, buf, len, offset);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "pread of %d bytes returned %d (%s)",
+                                len, ret, strerror (errno));
+
+                        op_errno = errno;
+                }
+
         }
+        UNLOCK (&fd->lock);
+
+        if (ret < 0)
+                goto out;
 
         weak_checksum = gf_rsync_weak_checksum ((unsigned char *) buf, (size_t) len);
         gf_rsync_strong_checksum ((unsigned char *) buf, (size_t) len, (unsigned char *) strong_checksum);
@@ -3924,7 +3949,7 @@ out:
         STACK_UNWIND_STRICT (rchecksum, frame, op_ret, op_errno,
                              weak_checksum, strong_checksum, NULL);
 
-        GF_FREE (buf);
+        GF_FREE (alloc_buf);
 
         return 0;
 }
