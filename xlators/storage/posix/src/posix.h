@@ -159,4 +159,8 @@ int posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd);
 void posix_fill_ino_from_gfid (xlator_t *this, struct iatt *buf);
 
 gf_boolean_t posix_special_xattr (char **pattern, char *key);
+
+void
+__posix_fd_set_odirect (fd_t *fd, struct posix_fd *pfd, int opflags,
+			off_t offset, size_t size);
 #endif /* _POSIX_H */
