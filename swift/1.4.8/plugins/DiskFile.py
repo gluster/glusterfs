@@ -51,6 +51,8 @@ class Gluster_DiskFile(DiskFile):
     :param obj: object name for the object
     :param keep_data_fp: if True, don't close the fp, otherwise close it
     :param disk_chunk_Size: size of chunks on file reads
+    :param uid: user ID disk object should assume (file or directory)
+    :param gid: group ID disk object should assume (file or directory)
     """
 
     def __init__(self, path, device, partition, account, container, obj,
@@ -81,7 +83,6 @@ class Gluster_DiskFile(DiskFile):
         self.tmpdir = os.path.join(path, device, 'tmp')
         self.logger = logger
         self.metadata = {}
-        self.meta_file = None
         self.data_file = None
         self.fp = None
         self.iter_etag = None
@@ -150,13 +151,10 @@ class Gluster_DiskFile(DiskFile):
         create_object_metadata(dir_path)
         return True
 
-
-
     def put_metadata(self, metadata):
         obj_path = self.datadir + '/' + self.obj
         write_metadata(obj_path, metadata)
         self.metadata = metadata
-
 
     def put(self, fd, tmppath, metadata, extension=''):
         """
@@ -216,7 +214,6 @@ class Gluster_DiskFile(DiskFile):
         #self.logger.error("Meta %s", self.metadata)
         self.data_file = self.datadir + '/' + self.obj + extension
         return True
-
 
     def unlinkold(self, timestamp):
         """
