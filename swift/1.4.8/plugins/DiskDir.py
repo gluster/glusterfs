@@ -136,8 +136,8 @@ class DiskDir(DiskCommon):
     Manage object files on disk.
 
     :param path: path to devices on the node
-    :param device: device name
-    :param partition: partition on the device the object lives in
+    :param device: device name (unused, ignored)
+    :param partition: partition on the device the object lives in (unused, ignored)
     :param account: account name for the object
     :param container: container name for the object
     :param logger: account or container server logging object
@@ -148,7 +148,6 @@ class DiskDir(DiskCommon):
     def __init__(self, path, device, partition, account, container, logger,
                  uid=DEFAULT_UID, gid=DEFAULT_GID):
         self.root = path
-        device = account
         if container:
             self.name = container
         else:
@@ -156,11 +155,11 @@ class DiskDir(DiskCommon):
         if self.name:
             self.datadir = os.path.join(path, account, self.name)
         else:
-            self.datadir = os.path.join(path, device)
+            self.datadir = os.path.join(path, account)
         self.account = account
-        self.device_path = os.path.join(path, device)
-        if not check_mount(path, device):
+        if not check_mount(path, account):
             check_valid_account(account)
+        assert logger is not None
         self.logger = logger
         self.metadata = {}
         self.uid = int(uid)
