@@ -1998,7 +1998,7 @@ gf_cli_print_limit_list (char *volname, char *limit_list,
 {
         int64_t  size            = 0;
         int64_t  limit_value     = 0;
-        int32_t  i, j, k;
+        int32_t  i, j;
         int32_t  len = 0, ret    = -1;
         char     *size_str       = NULL;
         char     path [PATH_MAX] = {0, };
@@ -2006,6 +2006,7 @@ gf_cli_print_limit_list (char *volname, char *limit_list,
         char     value [1024]    = {0, };
         char     mountdir []     = "/tmp/mntXXXXXX";
         char     abspath [PATH_MAX] = {0, };
+        char     *colon_ptr      = NULL;
         runner_t runner          = {0,};
 
         GF_VALIDATE_OR_GOTO ("cli", volname, out);
@@ -2053,19 +2054,16 @@ gf_cli_print_limit_list (char *volname, char *limit_list,
                  "-----------------------");
         while (i < len) {
                 j = 0;
-                k = 0;
-
-                while (limit_list [i] != ':') {
-                        path [k++] = limit_list [i++];
-                }
-                path [k] = '\0';
-
-                i++;  //skip ':'
 
                 while (limit_list [i] != ',' && limit_list [i] != '\0') {
-                        value [j++] = limit_list[i++];
+                        path [j++] = limit_list[i++];
                 }
-                value [j] = '\0';
+                path [j] = '\0';
+                //here path[] contains both path and limit value
+
+                colon_ptr = strrchr (path, ':');
+                *colon_ptr = '\0';
+                strcpy (value, ++colon_ptr);
 
                 snprintf (abspath, sizeof (abspath), "%s/%s", mountdir, path);
 

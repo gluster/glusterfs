@@ -3025,14 +3025,17 @@ quota_parse_limits (quota_priv_t *priv, xlator_t *this, dict_t *xl_options,
         char         *path      = NULL, *saveptr = NULL;
         uint64_t      value     = 0;
         limits_t     *quota_lim = NULL, *old = NULL;
+        char         *last_colon= NULL;
 
         ret = dict_get_str (xl_options, "limit-set", &str);
 
         if (str) {
-                path = strtok_r (str, ":", &saveptr);
+                path = strtok_r (str, ",", &saveptr);
 
                 while (path) {
-                        str_val = strtok_r (NULL, ",", &saveptr);
+                        last_colon = strrchr (path, ':');
+                        *last_colon = '\0';
+                        str_val = last_colon + 1;
 
                         ret = gf_string2bytesize (str_val, &value);
                         if (ret != 0)
@@ -3066,7 +3069,7 @@ quota_parse_limits (quota_priv_t *priv, xlator_t *this, dict_t *xl_options,
                         }
                         UNLOCK (&priv->lock);
 
-                        path = strtok_r (NULL, ":", &saveptr);
+                        path = strtok_r (NULL, ",", &saveptr);
                 }
         } else {
                 gf_log (this->name, GF_LOG_INFO,
