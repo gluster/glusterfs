@@ -105,13 +105,13 @@ def unmount(full_mount_path):
 def get_export_list():
     global mount_ip
 
-    if remote_cluster:
+    if REMOTE_CLUSTER:
         cmnd = 'ssh %s gluster volume info' % mount_ip
     else:
         cmnd = 'gluster volume info'
 
     if os.system(cmnd + ' >> /dev/null'):
-        if remove_cluster:
+        if REMOTE_CLUSTER:
             raise Exception('Getting volume info failed %s, make sure to have \
                             passwordless ssh on %s', NAME, mount_ip)
         else:
