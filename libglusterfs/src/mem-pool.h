@@ -110,6 +110,25 @@ void* __gf_default_realloc (void *oldptr, size_t size)
 #define GF_FREE(free_ptr) __gf_free (free_ptr)
 
 static inline
+char *gf_strndup (const char *src, size_t len)
+{
+        char *dup_str = NULL;
+
+        if (!src) {
+                goto out;
+        }
+
+        dup_str = GF_CALLOC (1, len + 1, gf_common_mt_strdup);
+        if (!dup_str) {
+                goto out;
+        }
+
+        memcpy (dup_str, src, len);
+out:
+        return dup_str;
+}
+
+static inline
 char * gf_strdup (const char *src)
 {
 
