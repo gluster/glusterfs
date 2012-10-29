@@ -140,9 +140,9 @@ class DiskDir(DiskCommon):
     :param partition: partition on the device the object lives in
     :param account: account name for the object
     :param container: container name for the object
-    :param obj: object name for the object
-    :param keep_data_fp: if True, don't close the fp, otherwise close it
-    :param disk_chunk_Size: size of chunks on file reads
+    :param logger: account or container server logging object
+    :param uid: user ID container object should assume
+    :param gid: group ID container object should assume
     """
 
     def __init__(self, path, device, partition, account, container, logger,
