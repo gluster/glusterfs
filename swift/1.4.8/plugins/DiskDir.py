@@ -149,13 +149,15 @@ class DiskDir(DiskCommon):
                  uid=DEFAULT_UID, gid=DEFAULT_GID):
         self.root = path
         if container:
-            self.name = container
+            self.container = container
         else:
-            self.name = None
-        if self.name:
-            self.datadir = os.path.join(path, account, self.name)
+            self.container = None
+        if self.container:
+            self.datadir = os.path.join(path, account, self.container)
         else:
             self.datadir = os.path.join(path, account)
+        # Note that the account name has a one-to-one mapping to the gluster
+        # mount point, or volume name.
         self.account = account
         if not check_mount(path, account):
             check_valid_account(account)
@@ -173,7 +175,7 @@ class DiskDir(DiskCommon):
                 create_container_metadata(self.datadir)
         else:
             return
-        if container:
+        if self.container:
             if not self.metadata:
                 create_container_metadata(self.datadir)
                 self.metadata = _read_metadata(self.datadir)
@@ -356,11 +358,10 @@ class DiskDir(DiskCommon):
     def get_info(self, include_metadata=False):
         """
         Get global data for the container.
-        :returns: dict with keys: account, container, created_at,
-                  put_timestamp, delete_timestamp, object_count, bytes_used,
-                  reported_put_timestamp, reported_delete_timestamp,
-                  reported_object_count, reported_bytes_used, hash, id,
-                  x_container_sync_point1, and x_container_sync_point2.
+        :returns: dict with keys: account, container, object_count, bytes_used,
+                      hash, id, created_at, put_timestamp, delete_timestamp, 
+                      reported_put_timestamp, reported_delete_timestamp,
+                      reported_object_count, and reported_bytes_used.
                   If include_metadata is set, metadata is included as a key
                   pointing to a dict of tuples of the metadata
         """
@@ -372,7 +373,7 @@ class DiskDir(DiskCommon):
         if os.path.exists(self.datadir):
             metadata = _read_metadata(self.datadir)
 
-        data = {'account' : self.account, 'container' : self.name,
+        data = {'account' : self.account, 'container' : self.container,
                 'object_count' : metadata.get(X_OBJECTS_COUNT, ('0', 0))[0],
                 'bytes_used' : metadata.get(X_BYTES_USED, ('0',0))[0],
                 'hash': '', 'id' : '', 'created_at' : '1',
