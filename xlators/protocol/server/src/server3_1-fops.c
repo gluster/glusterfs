@@ -816,7 +816,9 @@ out:
         rsp.op_errno      = gf_errno_to_error (op_errno);
 
         if (op_ret == -1)
-                gf_log (this->name, (((op_errno == ENOTSUP) || (op_errno == ENODATA)) ?
+                gf_log (this->name, (((op_errno == ENOTSUP) ||
+                                      (op_errno == ENODATA) ||
+                                      (op_errno == ENOENT)) ?
                                      GF_LOG_DEBUG : GF_LOG_INFO),
                         "%"PRId64": GETXATTR %s (%s) ==> %"PRId32" (%s)",
                         frame->root->unique, state->loc.path,
