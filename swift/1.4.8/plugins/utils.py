@@ -163,7 +163,7 @@ def _check_valid_account(account):
     if os.path.ismount(full_mount_path):
         return True
 
-    if not Glusterfs.check_account_exists(Glusterfs.get_export_from_account_id(account)):
+    if not _check_account_exists(Glusterfs.get_export_from_account_id(account)):
         logging.error('Account not present %s', account)
         return False
 
@@ -481,7 +481,7 @@ def create_account_metadata(acc_path, memcache=None):
     metadata = get_account_metadata(acc_path, memcache)
     return restore_metadata(acc_path, metadata)
 
-def check_account_exists(account):
+def _check_account_exists(account):
     if account not in get_account_list():
         logging.warn('Account %s does not exist' % account)
         return False
@@ -495,13 +495,15 @@ def get_account_id(account):
     return RESELLER_PREFIX + md5(account + HASH_PATH_SUFFIX).hexdigest()
 
 
+_DEFAULT_GLUSTER_ENABLED = os.getenv('GLUSTER_UNIT_TEST_ENABLED', 'no')
 __swift_conf = ConfigParser()
 __swift_conf.read(os.path.join('/etc/swift', 'swift.conf'))
 try:
-    _gluster_enabled = __swift_conf.get('DEFAULT', 'Enable_plugin', 'no') in TRUE_VALUES
+    _gluster_enabled_val = __swift_conf.get('DEFAULT', 'Enable_plugin', _DEFAULT_GLUSTER_ENABLED)
 except NoOptionError, NoSectionError:
-    _gluster_enabled = False
+    _gluster_enabled_val = _DEFAULT_GLUSTER_ENABLED
 del __swift_conf
+_gluster_enabled = _gluster_enabled_val in TRUE_VALUES
 
 def Gluster_enabled():
     return _gluster_enabled
