@@ -28,6 +28,8 @@
 #include "rpc-clnt.h"
 #include "protocol-common.h"
 
+#define GLUSTERD_SOCK_DIR "/var/run"
+
 struct glusterd_lock_ {
         uuid_t  owner;
         time_t  timestamp;

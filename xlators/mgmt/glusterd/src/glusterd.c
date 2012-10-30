@@ -567,6 +567,11 @@ configure_syncdaemon (glusterd_conf_t *conf)
         runner_add_args (&runner, ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
+        /* socketdir */
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_args (&runner, "socketdir", GLUSTERD_SOCK_DIR, ".", ".", NULL);
+        RUN_GSYNCD_CMD;
+
         /* log-file */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_args (&runner,
