@@ -977,6 +977,7 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
 {
         int                      ret = 0;
         data_t                  *value = NULL;
+        char                    *key_fixed = NULL;
 
         gf_log ("", GF_LOG_DEBUG, "Received volume set reset command");
 
@@ -986,6 +987,15 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
         if (!strncmp(key, "all", 3))
                 dict_foreach (volinfo->dict, _delete_reconfig_opt, &is_force);
         else {
+                if (glusterd_check_option_exists (key, &key_fixed) != 1) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "volinfo dict inconsistency: option %s not found",
+                                key);
+                        ret = -1;
+                        goto out;
+                }
+                if (key_fixed)
+                        key = key_fixed;
                 value = dict_get (volinfo->dict, key);
                 if (!value) {
                         gf_log ("glusterd", GF_LOG_ERROR,
@@ -1017,6 +1027,7 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
         ret = 0;
 
 out:
+        GF_FREE (key_fixed);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
