@@ -38,6 +38,8 @@
 #include "rpc-clnt.h"
 #include "protocol-common.h"
 
+#define GLUSTERD_SOCK_DIR "/var/run"
+
 /* For brick search using path: partial or complete */
 typedef enum {
         GF_PATH_COMPLETE = 0,

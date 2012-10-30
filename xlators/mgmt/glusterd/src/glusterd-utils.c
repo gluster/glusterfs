@@ -81,7 +81,6 @@
 
 #define CEILING_POS(X) (((X)-(int)(X)) > 0 ? (int)((X)+1) : (int)(X))
 
-char    *glusterd_sock_dir = "/var/run";
 static glusterd_lock_t lock;
 
 static void
@@ -1049,7 +1048,7 @@ glusterd_set_socket_filepath (char *sock_filepath, char *sockpath, size_t len)
         char md5_sum[MD5_DIGEST_LENGTH*2+1] = {0,};
 
         md5_wrapper ((unsigned char *) sock_filepath, strlen(sock_filepath), md5_sum);
-        snprintf (sockpath, len, "%s/%s.socket", glusterd_sock_dir, md5_sum);
+        snprintf (sockpath, len, "%s/%s.socket", GLUSTERD_SOCK_DIR, md5_sum);
 }
 
 void
@@ -1064,7 +1063,7 @@ glusterd_set_brick_socket_filepath (glusterd_volinfo_t *volinfo,
         glusterd_conf_t         *priv = NULL;
         int                     expected_file_len = 0;
 
-        expected_file_len = strlen (glusterd_sock_dir) + strlen ("/") +
+        expected_file_len = strlen (GLUSTERD_SOCK_DIR) + strlen ("/") +
                             MD5_DIGEST_LENGTH*2 + strlen (".socket") + 1;
         GF_ASSERT (len >= expected_file_len);
         this = THIS;

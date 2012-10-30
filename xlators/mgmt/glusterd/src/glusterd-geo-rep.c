@@ -40,6 +40,8 @@ static char *gsync_reserved_opts[] = {
         "pid-file",
         "state-file",
         "session-owner",
+        "state-socket-unencoded",
+        "socketdir",
         NULL
 };
 
