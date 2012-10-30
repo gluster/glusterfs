@@ -785,9 +785,6 @@ glusterd_op_stage_sync_volume (dict_t *dict, char **op_errstr)
                         if (ret)
                                 goto out;
 
-                        ret = glusterd_validate_volume_id (dict, volinfo);
-                        if (ret)
-                                goto out;
                 } else {
                         ret = 0;
                 }
@@ -2240,6 +2237,7 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
 {
         int                     ret = -1;
         void                    *ctx = NULL;
+        dict_t                  *dict = NULL;
         dict_t                  *req_dict = NULL;
         glusterd_op_t           op = GD_OP_NONE;
         char                    *volname = NULL;
@@ -2271,10 +2269,10 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
         }
 #undef GD_SYNC_OPCODE_KEY
 
+        dict = ctx;
         switch (op) {
                 case GD_OP_CREATE_VOLUME:
                         {
-                                dict_t  *dict = ctx;
                                 ++glusterfs_port;
                                 ret = dict_set_int32 (dict, "port",
                                                       glusterfs_port);
@@ -2286,7 +2284,6 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
 
                 case GD_OP_GSYNC_SET:
                         {
-                                dict_t *dict = ctx;
                                 ret = glusterd_op_gsync_args_get (dict,
                                                                   &errstr,
                                                                   &volname,
@@ -2303,7 +2300,6 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
 
                 case GD_OP_SET_VOLUME:
                         {
-                                dict_t *dict = ctx;
                                 ret = dict_get_str (dict, "volname", &volname);
                                 if (ret) {
                                         gf_log (THIS->name, GF_LOG_CRITICAL,
@@ -2323,9 +2319,14 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                         }
                         break;
 
+                case GD_OP_SYNC_VOLUME:
+                        {
+                                dict_copy (dict, req_dict);
+                                break;
+                        }
+
                 case GD_OP_STATUS_VOLUME:
                         {
-                                dict_t *dict = ctx;
                                 ret = dict_get_uint32 (dict, "cmd",
                                                        &status_cmd);
                                 if (ret) {
@@ -2339,7 +2340,7 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                                         break;
                                 }
                         }
-
+                        /*fall-through*/
                 case GD_OP_DELETE_VOLUME:
                 case GD_OP_START_VOLUME:
                 case GD_OP_STOP_VOLUME:
@@ -2348,7 +2349,6 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                 case GD_OP_RESET_VOLUME:
                 case GD_OP_REMOVE_BRICK:
                 case GD_OP_LOG_ROTATE:
-                case GD_OP_SYNC_VOLUME:
                 case GD_OP_QUOTA:
                 case GD_OP_PROFILE_VOLUME:
                 case GD_OP_REBALANCE:
@@ -2357,7 +2357,6 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                 case GD_OP_CLEARLOCKS_VOLUME:
                 case GD_OP_DEFRAG_BRICK_VOLUME:
                         {
-                                dict_t *dict = ctx;
                                 ret = dict_get_str (dict, "volname", &volname);
                                 if (ret) {
                                         gf_log (THIS->name, GF_LOG_CRITICAL,

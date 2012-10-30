@@ -1137,7 +1137,6 @@ glusterd_handle_sync_volume (rpcsvc_request_t *req)
         dict_t                           *dict = NULL;
         gf_cli_rsp                       cli_rsp = {0.};
         char                             msg[2048] = {0,};
-        glusterd_volinfo_t               *volinfo = NULL;
         char                             *volname = NULL;
         gf1_cli_sync_volume              flags = 0;
         char                             *hostname = NULL;
@@ -1192,30 +1191,6 @@ glusterd_handle_sync_volume (rpcsvc_request_t *req)
                 snprintf (msg, sizeof (msg), "sync from localhost"
                           " not allowed");
                 goto out;
-        }
-
-        if (!flags) {
-                ret = glusterd_volinfo_find (volname, &volinfo);
-                if (!ret) {
-                        snprintf (msg, sizeof (msg), "please delete the "
-                                 "volume: %s before sync", volname);
-                        ret = -1;
-                        goto out;
-                }
-
-                ret = dict_set_dynmstr (dict, "volname", volname);
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "volume name set failed");
-                        snprintf (msg, sizeof (msg), "volume name set failed");
-                        goto out;
-                }
-        } else {
-                if (glusterd_volume_count_get ()) {
-                        snprintf (msg, sizeof (msg), "please delete all the "
-                                 "volumes before full sync");
-                        ret = -1;
-                        goto out;
-                }
         }
 
         ret = glusterd_op_begin (req, GD_OP_SYNC_VOLUME, dict);

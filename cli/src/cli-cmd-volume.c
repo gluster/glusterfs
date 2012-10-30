@@ -125,6 +125,11 @@ cli_cmd_sync_volume_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     parse_error = 0;
         dict_t                  *dict = NULL;
         cli_local_t             *local = NULL;
+        gf_answer_t             answer = GF_ANSWER_NO;
+        const char              *question = "Sync volume may make data "
+                                            "inaccessible while the sync "
+                                            "is in progress. Do you want "
+                                            "to continue?";
 
         if ((wordcount < 3) || (wordcount > 4)) {
                 cli_usage_out (word->pattern);
@@ -157,6 +162,14 @@ cli_cmd_sync_volume_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "failed to set hostname");
                 goto out;
+        }
+
+        if (!(state->mode & GLUSTER_MODE_SCRIPT)) {
+                answer = cli_cmd_get_confirmation (state, question);
+                if (GF_ANSWER_NO == answer) {
+                        ret = 0;
+                        goto out;
+                }
         }
 
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_SYNC_VOLUME];
