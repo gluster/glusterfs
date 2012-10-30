@@ -74,7 +74,7 @@ index 800b3c0..78fbf07 100644
          headers = {
              'X-Account-Container-Count': info['container_count'],
 diff --git a/swift/container/server.py b/swift/container/server.py
-index 8a18cfd..c4982f1 100644
+index 8a18cfd..e39f5ef 100644
 --- a/swift/container/server.py
 +++ b/swift/container/server.py
 @@ -1,4 +1,5 @@
@@ -112,17 +112,16 @@ index 8a18cfd..c4982f1 100644
          self.node_timeout = int(conf.get('node_timeout', 3))
          self.conn_timeout = float(conf.get('conn_timeout', 0.5))
          self.allowed_sync_hosts = [h.strip()
-@@ -73,6 +83,9 @@ class ContainerController(object):
+@@ -73,6 +83,8 @@ class ContainerController(object):
          :param container: container name
          :returns: ContainerBroker object
          """
 +        if Gluster_enabled():
-+            return DiskDir(self.root, drive, part, account,
-+                           container, self.logger)
++            return DiskDir(self.root, account, container, self.logger)
          hsh = hash_path(account, container)
          db_dir = storage_directory(DATADIR, part, hsh)
          db_path = os.path.join(self.root, drive, db_dir, hsh + '.db')
-@@ -245,6 +258,9 @@ class ContainerController(object):
+@@ -245,6 +257,9 @@ class ContainerController(object):
          broker.stale_reads_ok = True
          if broker.is_deleted():
              return HTTPNotFound(request=req)
