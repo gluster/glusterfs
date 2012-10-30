@@ -411,8 +411,13 @@ class DiskDir(DiskCommon):
         self.unlink()
 
     def update_metadata(self, metadata):
-        self.metadata.update(metadata)
-        write_metadata(self.datadir, self.metadata)
+        assert self.metadata, "Valid container/account metadata should have been created by now"
+        if metadata:
+            new_metadata = self.metadata.copy()
+            new_metadata.update(metadata)
+            if new_metadata != self.metadata:
+                write_metadata(self.datadir, new_metadata)
+                self.metadata = new_metadata
 
 
 class DiskAccount(DiskDir):
