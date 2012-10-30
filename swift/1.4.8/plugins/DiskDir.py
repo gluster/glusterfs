@@ -140,8 +140,6 @@ class DiskDir(DiskCommon):
     Manage object files on disk.
 
     :param path: path to devices on the node
-    :param device: device name (unused, ignored)
-    :param partition: partition on the device the object lives in (unused, ignored)
     :param account: account name for the object
     :param container: container name for the object
     :param logger: account or container server logging object
@@ -149,7 +147,7 @@ class DiskDir(DiskCommon):
     :param gid: group ID container object should assume
     """
 
-    def __init__(self, path, device, partition, account, container, logger,
+    def __init__(self, path, account, container, logger,
                  uid=DEFAULT_UID, gid=DEFAULT_GID):
         self.root = path
         if container:
@@ -422,7 +420,7 @@ class DiskDir(DiskCommon):
 
 class DiskAccount(DiskDir):
     def __init__(self, root, account, logger):
-        super(DiskAccount, self).__init__(root, None, None, account, None, logger)
+        super(DiskAccount, self).__init__(root, account, None, logger)
         assert self.dir_exists
 
     def list_containers_iter(self, limit, marker, end_marker,
