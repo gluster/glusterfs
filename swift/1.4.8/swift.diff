@@ -18,7 +18,7 @@ index d195d34..ef625ff 100644
          },
      )
 diff --git a/swift/account/server.py b/swift/account/server.py
-index 800b3c0..ba13786 100644
+index 800b3c0..78fbf07 100644
 --- a/swift/account/server.py
 +++ b/swift/account/server.py
 @@ -1,4 +1,5 @@
@@ -59,7 +59,7 @@ index 800b3c0..ba13786 100644
  
      def _get_account_broker(self, drive, part, account):
 +        if Gluster_enabled():
-+            return DiskAccount(self.root, account)
++            return DiskAccount(self.root, account, self.logger)
          hsh = hash_path(account)
          db_dir = storage_directory(DATADIR, part, hsh)
          db_path = os.path.join(self.root, drive, db_dir, hsh + '.db')
