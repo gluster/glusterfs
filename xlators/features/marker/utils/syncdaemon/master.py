@@ -496,10 +496,12 @@ class GMasterBase(object):
 
     def start_checkpoint_thread(self):
         """prepare and start checkpoint service"""
-        if self.checkpoint_thread or not getattr(gconf, 'state_socket_unencoded', None):
+        if self.checkpoint_thread or not (
+          getattr(gconf, 'state_socket_unencoded', None) and getattr(gconf, 'socketdir', None)
+        ):
             return
         chan = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        state_socket = "/tmp/%s.socket" % md5(gconf.state_socket_unencoded).hexdigest()
+        state_socket = os.path.join(gconf.socketdir, md5(gconf.state_socket_unencoded).hexdigest() + ".socket")
         try:
             os.unlink(state_socket)
         except:

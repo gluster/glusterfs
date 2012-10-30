@@ -173,6 +173,7 @@ def main_i():
     op.add_option('--sync-jobs',           metavar='N',     type=int, default=3)
     op.add_option('--turns',               metavar='N',     type=int, default=0, help=SUPPRESS_HELP)
     op.add_option('--allow-network',       metavar='IPS',   default='')
+    op.add_option('--socketdir',           metavar='DIR')
     op.add_option('--state-socket-unencoded', metavar='SOCKF', type=str, action='callback', callback=store_abs)
     op.add_option('--checkpoint',          metavar='LABEL', default='')
     # tunables for failover/failback mechanism:
