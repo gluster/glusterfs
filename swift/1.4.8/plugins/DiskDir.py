@@ -13,25 +13,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
+import os, errno
 
 from swift.plugins.utils import clean_metadata, dir_empty, rmdirs, mkdirs, \
      validate_account, validate_container, check_valid_account, is_marker, \
      get_container_details, get_account_details, create_container_metadata, \
-     create_account_metadata, DEFAULT_GID, DEFAULT_UID, \
-     validate_object, create_object_metadata, read_metadata, write_metadata
+     create_account_metadata, DEFAULT_GID, DEFAULT_UID, validate_object, \
+     create_object_metadata, read_metadata, write_metadata, X_CONTENT_TYPE, \
+     X_CONTENT_LENGTH, X_TIMESTAMP, X_PUT_TIMESTAMP, X_TYPE, X_ETAG, \
+     X_OBJECTS_COUNT, X_BYTES_USED, X_CONTAINER_COUNT, CONTAINER
 
-from swift.common.constraints import CONTAINER_LISTING_LIMIT, \
-    check_mount
+from swift.common.constraints import CONTAINER_LISTING_LIMIT, check_mount
+from swift.common.utils import normalize_timestamp, TRUE_VALUES
 
-from swift.plugins.utils import X_CONTENT_TYPE, X_CONTENT_LENGTH, X_TIMESTAMP,\
-     X_PUT_TIMESTAMP, X_TYPE, X_ETAG, X_OBJECTS_COUNT, X_BYTES_USED, \
-     X_CONTAINER_COUNT, CONTAINER
 
 DATADIR = 'containers'
 
 # Create a dummy db_file in /etc/swift
-_db_file = '/etc/swift/db_file.db'
+_unittests_enabled = os.getenv('GLUSTER_UNIT_TEST_ENABLED', 'no')
+if _unittests_enabled in TRUE_VALUES:
+    _tmp_dir = '/tmp/gluster_unit_tests'
+    try:
+        os.mkdir(_tmp_dir)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+    _db_file = os.path.join(_tmp_dir, 'db_file.db')
+else:
+    _db_file = '/etc/swift/db_file.db'
 if not os.path.exists(_db_file):
     file(_db_file, 'w+')
 
@@ -124,11 +133,6 @@ class DiskCommon(object):
             filtered_objs.append(objects[i])
 
         return filtered_objs
-
-    def update_account(self, metadata):
-        acc_path = self.datadir
-        write_metadata(acc_path, metadata)
-        self.metadata = metadata
 
 
 class DiskDir(DiskCommon):
@@ -279,11 +283,6 @@ class DiskDir(DiskCommon):
         if delimiter and not prefix:
             prefix = ''
 
-        objects = []
-        object_count = 0
-        bytes_used = 0
-        container_list = []
-
         objects, object_count, bytes_used = get_container_details(self.datadir)
 
         if int(self.metadata[X_OBJECTS_COUNT][0]) != object_count or \
@@ -311,6 +310,7 @@ class DiskDir(DiskCommon):
             if len(objects) > limit:
                 objects = self.filter_limit(objects, limit)
 
+        container_list = []
         if objects:
             for obj in objects:
                 list_item = []
@@ -353,7 +353,7 @@ class DiskDir(DiskCommon):
 
         if int(self.metadata[X_CONTAINER_COUNT][0]) != container_count:
             self.metadata[X_CONTAINER_COUNT] = (container_count, 0)
-            self.update_account(self.metadata)
+            self.update_container(self.metadata)
 
     def get_info(self, include_metadata=False):
         """
@@ -416,15 +416,9 @@ class DiskDir(DiskCommon):
 
 
 class DiskAccount(DiskDir):
-    def __init__(self, root, account):
-        self.root = root
-        self.account = account
-        self.datadir = os.path.join(self.root, self.account)
-        if not check_mount(root, account):
-            check_valid_account(account)
-        self.metadata = _read_metadata(self.datadir)
-        if not self.metadata or not validate_account(self.metadata):
-            self.metadata = create_account_metadata(self.datadir)
+    def __init__(self, root, account, logger):
+        super(DiskAccount, self).__init__(root, None, None, account, None, logger)
+        assert self.dir_exists
 
     def list_containers_iter(self, limit, marker, end_marker,
                              prefix, delimiter):
@@ -434,15 +428,12 @@ class DiskAccount(DiskDir):
         """
         if delimiter and not prefix:
             prefix = ''
-        containers = []
-        container_count = 0
-        account_list = []
 
         containers, container_count = get_account_details(self.datadir)
 
         if int(self.metadata[X_CONTAINER_COUNT][0]) != container_count:
             self.metadata[X_CONTAINER_COUNT] = (container_count, 0)
-            self.update_account(self.metadata)
+            self.update_container(self.metadata)
 
         if containers:
             containers.sort()
@@ -463,6 +454,7 @@ class DiskAccount(DiskDir):
             if len(containers) > limit:
                 containers = self.filter_limit(containers, limit)
 
+        account_list = []
         if containers:
             for cont in containers:
                 list_item = []
