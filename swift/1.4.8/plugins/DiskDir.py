@@ -17,11 +17,13 @@ import os, errno
 
 from swift.plugins.utils import clean_metadata, dir_empty, rmdirs, mkdirs, \
      validate_account, validate_container, check_valid_account, is_marker, \
-     get_container_details, get_account_details, create_container_metadata, \
+     get_container_details, get_account_details, get_container_metadata, \
+     create_container_metadata, \
      create_account_metadata, DEFAULT_GID, DEFAULT_UID, validate_object, \
      create_object_metadata, read_metadata, write_metadata, X_CONTENT_TYPE, \
      X_CONTENT_LENGTH, X_TIMESTAMP, X_PUT_TIMESTAMP, X_TYPE, X_ETAG, \
      X_OBJECTS_COUNT, X_BYTES_USED, X_CONTAINER_COUNT, CONTAINER
+from swift.plugins import Glusterfs
 
 from swift.common.constraints import CONTAINER_LISTING_LIMIT, check_mount
 from swift.common.utils import normalize_timestamp, TRUE_VALUES
@@ -166,6 +168,8 @@ class DiskDir(DiskCommon):
         assert logger is not None
         self.logger = logger
         self.metadata = {}
+        self.container_info = None
+        self.object_info = None
         self.uid = int(uid)
         self.gid = int(gid)
         self.db_file = _db_file
@@ -281,13 +285,9 @@ class DiskDir(DiskCommon):
         if delimiter and not prefix:
             prefix = ''
 
-        objects, object_count, bytes_used = get_container_details(self.datadir)
+        self.update_object_count()
 
-        if int(self.metadata[X_OBJECTS_COUNT][0]) != object_count or \
-           int(self.metadata[X_BYTES_USED][0]) != bytes_used:
-            self.metadata[X_OBJECTS_COUNT] = (object_count, 0)
-            self.metadata[X_BYTES_USED] = (bytes_used, 0)
-            self.update_container(self.metadata)
+        objects, object_count, bytes_used = self.object_info
 
         if objects:
             objects.sort()
@@ -326,32 +326,30 @@ class DiskDir(DiskCommon):
 
         return container_list
 
-    def update_container(self, metadata):
-        cont_path = self.datadir
-        write_metadata(cont_path, metadata)
-        self.metadata = metadata
-
     def update_object_count(self):
-        objects = []
-        object_count = 0
-        bytes_used = 0
-        objects, object_count, bytes_used = get_container_details(self.datadir)
+        if not self.object_info:
+            self.object_info = get_container_details(self.datadir)
 
-        if int(self.metadata[X_OBJECTS_COUNT][0]) != object_count or \
-           int(self.metadata[X_BYTES_USED][0]) != bytes_used:
+        objects, object_count, bytes_used = self.object_info
+
+        if X_OBJECTS_COUNT not in self.metadata \
+                or int(self.metadata[X_OBJECTS_COUNT][0]) != object_count \
+                or X_BYTES_USED not in self.metadata \
+                or int(self.metadata[X_BYTES_USED][0]) != bytes_used:
             self.metadata[X_OBJECTS_COUNT] = (object_count, 0)
             self.metadata[X_BYTES_USED] = (bytes_used, 0)
-            self.update_container(self.metadata)
+            write_metadata(self.datadir, self.metadata)
 
     def update_container_count(self):
-        containers = []
-        container_count = 0
+        if not self.container_info:
+            self.container_info = get_account_details(self.datadir)
 
-        containers, container_count = get_account_details(self.datadir)
+        containers, container_count = self.container_info
 
-        if int(self.metadata[X_CONTAINER_COUNT][0]) != container_count:
+        if X_CONTAINER_COUNT not in self.metadata \
+                or int(self.metadata[X_CONTAINER_COUNT][0]) != container_count:
             self.metadata[X_CONTAINER_COUNT] = (container_count, 0)
-            self.update_container(self.metadata)
+            write_metadata(self.datadir, self.metadata)
 
     def get_info(self, include_metadata=False):
         """
@@ -366,21 +364,21 @@ class DiskDir(DiskCommon):
         # TODO: delete_timestamp, reported_put_timestamp
         #       reported_delete_timestamp, reported_object_count,
         #       reported_bytes_used, created_at
-
-        metadata = {}
-        if os.path.exists(self.datadir):
-            metadata = _read_metadata(self.datadir)
+        if not Glusterfs.OBJECT_ONLY:
+            # If we are not configured for object only environments, we should
+            # update the object counts in case they changed behind our back.
+            self.update_object_count()
 
         data = {'account' : self.account, 'container' : self.container,
-                'object_count' : metadata.get(X_OBJECTS_COUNT, ('0', 0))[0],
-                'bytes_used' : metadata.get(X_BYTES_USED, ('0',0))[0],
+                'object_count' : self.metadata.get(X_OBJECTS_COUNT, ('0', 0))[0],
+                'bytes_used' : self.metadata.get(X_BYTES_USED, ('0',0))[0],
                 'hash': '', 'id' : '', 'created_at' : '1',
-                'put_timestamp' : metadata.get(X_PUT_TIMESTAMP, ('0',0))[0],
+                'put_timestamp' : self.metadata.get(X_PUT_TIMESTAMP, ('0',0))[0],
                 'delete_timestamp' : '1',
                 'reported_put_timestamp' : '1', 'reported_delete_timestamp' : '1',
                 'reported_object_count' : '1', 'reported_bytes_used' : '1'}
         if include_metadata:
-            data['metadata'] = metadata
+            data['metadata'] = self.metadata
         return data
 
     def put_object(self, name, timestamp, size, content_type,
@@ -432,11 +430,9 @@ class DiskAccount(DiskDir):
         if delimiter and not prefix:
             prefix = ''
 
-        containers, container_count = get_account_details(self.datadir)
+        self.update_container_count()
 
-        if int(self.metadata[X_CONTAINER_COUNT][0]) != container_count:
-            self.metadata[X_CONTAINER_COUNT] = (container_count, 0)
-            self.update_container(self.metadata)
+        containers, container_count = self.container_info
 
         if containers:
             containers.sort()
@@ -483,19 +479,18 @@ class DiskAccount(DiskDir):
                   delete_timestamp, container_count, object_count,
                   bytes_used, hash, id
         """
-        metadata = {}
-        if (os.path.exists(self.datadir)):
-            metadata = _read_metadata(self.datadir)
-            if not metadata:
-                metadata = create_account_metadata(self.datadir)
+        if not Glusterfs.OBJECT_ONLY:
+            # If we are not configured for object only environments, we should
+            # update the container counts in case they changed behind our back.
+            self.update_container_count()
 
         data = {'account' : self.account, 'created_at' : '1',
                 'put_timestamp' : '1', 'delete_timestamp' : '1',
-                'container_count' : metadata.get(X_CONTAINER_COUNT, (0,0))[0],
-                'object_count' : metadata.get(X_OBJECTS_COUNT, (0,0))[0],
-                'bytes_used' : metadata.get(X_BYTES_USED, (0,0))[0],
+                'container_count' : self.metadata.get(X_CONTAINER_COUNT, (0,0))[0],
+                'object_count' : self.metadata.get(X_OBJECTS_COUNT, (0,0))[0],
+                'bytes_used' : self.metadata.get(X_BYTES_USED, (0,0))[0],
                 'hash' : '', 'id' : ''}
 
         if include_metadata:
-            data['metadata'] = metadata
+            data['metadata'] = self.metadata
         return data
