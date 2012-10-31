@@ -1820,6 +1820,7 @@ main (int argc, char *argv[])
 {
         glusterfs_ctx_t  *ctx = NULL;
         int               ret = -1;
+        char              cmdlinestr[PATH_MAX] = {0,};
 
 	ctx = glusterfs_ctx_new ();
         if (!ctx) {
@@ -1854,10 +1855,19 @@ main (int argc, char *argv[])
         if (ret)
                 goto out;
 
-        /* log the version of glusterfs running here */
-        gf_log (argv[0], GF_LOG_INFO,
-                "Started running %s version %s",
-                argv[0], PACKAGE_VERSION);
+        /* log the version of glusterfs running here along with the actual
+           command line options. */
+        {
+                int i = 0;
+                strcpy (cmdlinestr, argv[0]);
+                for (i = 1; i < argc; i++) {
+                        strcat (cmdlinestr, " ");
+                        strcat (cmdlinestr, argv[i]);
+                }
+                gf_log (argv[0], GF_LOG_INFO,
+                        "Started running %s version %s (%s)",
+                        argv[0], PACKAGE_VERSION, cmdlinestr);
+        }
 
         gf_proc_dump_init();
 
