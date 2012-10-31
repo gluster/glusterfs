@@ -570,4 +570,14 @@ posix_aio_off (xlator_t *this)
         return 0;
 }
 
+void
+__posix_fd_set_odirect (fd_t *fd, struct posix_fd *pfd, int opflags,
+                        off_t offset, size_t size)
+{
+        xlator_t        *this = THIS;
+        gf_log (this->name, GF_LOG_INFO,
+                "Linux AIO not availble at build-time."
+                " Continuing with synchronous IO");
+        return;
+}
 #endif
