@@ -154,4 +154,3 @@ def rmdirs(path):
     else:
         logging.error("rmdirs failed dir may not be empty or not valid dir")
         return False
-
