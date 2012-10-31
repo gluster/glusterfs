@@ -357,7 +357,7 @@ class DiskDir(DiskCommon):
         """
         Get global data for the container.
         :returns: dict with keys: account, container, object_count, bytes_used,
-                      hash, id, created_at, put_timestamp, delete_timestamp, 
+                      hash, id, created_at, put_timestamp, delete_timestamp,
                       reported_put_timestamp, reported_delete_timestamp,
                       reported_object_count, and reported_bytes_used.
                   If include_metadata is set, metadata is included as a key
