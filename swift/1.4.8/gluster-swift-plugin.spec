@@ -13,7 +13,7 @@
 %define _confdir     /etc/swift
 %define _swiftdir    /usr/lib/python2.6/site-packages/swift
 %define _ufo_version 1.0
-%define _ufo_release 6
+%define _ufo_release 7
 
 Summary  : GlusterFS Unified File and Object Storage.
 Name     : gluster-swift-plugin

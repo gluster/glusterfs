@@ -4,7 +4,7 @@
 
 Name:             gluster-swift
 Version:          1.4.8
-Release:          6%{?dist}
+Release:          7%{?dist}
 Summary:          OpenStack Object Storage (swift)
 
 Group:            Development/Languages
@@ -152,7 +152,7 @@ mkdir -p doc/build
 #SPHINX_DEBUG=1 sphinx-1.0-build -b html doc/source doc/build/html
 #SPHINX_DEBUG=1 sphinx-1.0-build -b man doc/source doc/build/man
 #%endif
-# Fix hidden-file-or-dir warning 
+# Fix hidden-file-or-dir warning
 #rm doc/build/html/.buildinfo
 
 %install
@@ -324,7 +324,7 @@ fi
 
 %files doc
 %defattr(-,root,root,-)
-%doc LICENSE 
+%doc LICENSE
 #%doc doc/build/html
 
 %changelog
@@ -369,7 +369,7 @@ fi
 - Update to 1.4.0
 
 * Fri May 20 2011 David Nalley <david@gnsa.us> - 1.3.0-1
-- Update to 1.3.0 
+- Update to 1.3.0
 
 * Tue Feb 08 2011 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.1.0-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_15_Mass_Rebuild

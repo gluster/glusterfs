@@ -18,7 +18,7 @@ index d195d34..ef625ff 100644
          },
      )
 diff --git a/swift/account/server.py b/swift/account/server.py
-index 800b3c0..78fbf07 100644
+index 800b3c0..c34d967 100644
 --- a/swift/account/server.py
 +++ b/swift/account/server.py
 @@ -1,4 +1,5 @@
@@ -63,18 +63,8 @@ index 800b3c0..78fbf07 100644
          hsh = hash_path(account)
          db_dir = storage_directory(DATADIR, part, hsh)
          db_path = os.path.join(self.root, drive, db_dir, hsh + '.db')
-@@ -153,6 +164,9 @@ class AccountController(object):
-             broker.stale_reads_ok = True
-         if broker.is_deleted():
-             return HTTPNotFound(request=req)
-+        if Gluster_enabled() and not Glusterfs.OBJECT_ONLY:
-+            broker.list_containers_iter(None, None,None,
-+                                        None, None)
-         info = broker.get_info()
-         headers = {
-             'X-Account-Container-Count': info['container_count'],
 diff --git a/swift/container/server.py b/swift/container/server.py
-index 8a18cfd..e39f5ef 100644
+index 8a18cfd..f5346ce 100644
 --- a/swift/container/server.py
 +++ b/swift/container/server.py
 @@ -1,4 +1,5 @@
@@ -121,16 +111,6 @@ index 8a18cfd..e39f5ef 100644
          hsh = hash_path(account, container)
          db_dir = storage_directory(DATADIR, part, hsh)
          db_path = os.path.join(self.root, drive, db_dir, hsh + '.db')
-@@ -245,6 +257,9 @@ class ContainerController(object):
-         broker.stale_reads_ok = True
-         if broker.is_deleted():
-             return HTTPNotFound(request=req)
-+        if Gluster_enabled() and not Glusterfs.OBJECT_ONLY:
-+            broker.list_objects_iter(None, None, None, None,
-+                                     None, None)
-         info = broker.get_info()
-         headers = {
-             'X-Container-Object-Count': info['object_count'],
 diff --git a/swift/obj/server.py b/swift/obj/server.py
 index 9cca16b..7a671c2 100644
 --- a/swift/obj/server.py
