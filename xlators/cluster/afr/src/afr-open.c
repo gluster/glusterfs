@@ -429,7 +429,8 @@ afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
                                            (void *)(long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->open,
-                                           &open_local->loc, fd_ctx->flags,
+                                           &open_local->loc,
+                                           fd_ctx->flags & (~O_TRUNC),
                                            open_local->fd, NULL);
                 }
 
