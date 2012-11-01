@@ -167,25 +167,42 @@ class Gluster_DiskFile(DiskFile):
         :param metadata: dictionary of metadata to be written
         :param extention: extension to be used when making the file
         """
-        #Marker dir.
         if extension == '.ts':
+            # TombStone marker (deleted)
             return True
+
+        # Fix up the metadata to ensure it has a proper value for the
+        # Content-Type metadata, as well as an X_TYPE and X_OBJECT_TYPE
+        # metadata values.
+
+        content_type = metadata['Content-Type']
+        if not content_type:
+            metadata['Content-Type'] = FILE_TYPE
+            x_object_type = FILE
+        else:
+            x_object_type = MARKER_DIR if content_type.lower() == DIR_TYPE else FILE
+        metadata[X_TYPE] = OBJECT
+        metadata[X_OBJECT_TYPE] = x_object_type
+
         if extension == '.meta':
+            # Metadata recorded separately from the file
             self.put_metadata(metadata)
             return True
-        else:
-            extension = ''
+
+        extension = ''
+
         if metadata[X_OBJECT_TYPE] == MARKER_DIR:
             self.create_dir_object(os.path.join(self.datadir, self.obj))
             self.put_metadata(metadata)
             self.data_file = self.datadir + '/' + self.obj
             return True
-        #Check if directory already exists.
+
+        # Check if directory already exists.
         if self.is_dir:
             self.logger.error('Directory already exists %s/%s' % \
                           (self.datadir , self.obj))
             return False
-        #metadata['name'] = self.name
+
         timestamp = normalize_timestamp(metadata[X_TIMESTAMP])
         write_metadata(tmppath, metadata)
         if X_CONTENT_LENGTH in metadata:
@@ -211,7 +228,6 @@ class Gluster_DiskFile(DiskFile):
         do_chown(os.path.join(self.datadir, self.obj + extension), \
               self.uid, self.gid)
         self.metadata = metadata
-        #self.logger.error("Meta %s", self.metadata)
         self.data_file = self.datadir + '/' + self.obj + extension
         return True
 

@@ -112,7 +112,7 @@ index 8a18cfd..f5346ce 100644
          db_dir = storage_directory(DATADIR, part, hsh)
          db_path = os.path.join(self.root, drive, db_dir, hsh + '.db')
 diff --git a/swift/obj/server.py b/swift/obj/server.py
-index 9cca16b..7a671c2 100644
+index 9cca16b..1861f33 100644
 --- a/swift/obj/server.py
 +++ b/swift/obj/server.py
 @@ -1,4 +1,5 @@
@@ -195,42 +195,7 @@ index 9cca16b..7a671c2 100644
                          obj, self.logger, disk_chunk_size=self.disk_chunk_size)
          orig_timestamp = file.metadata.get('X-Timestamp')
          upload_expiration = time.time() + self.max_upload_time
-@@ -580,12 +603,28 @@ class ObjectController(object):
-             if 'etag' in request.headers and \
-                             request.headers['etag'].lower() != etag:
-                 return HTTPUnprocessableEntity(request=request)
--            metadata = {
--                'X-Timestamp': request.headers['x-timestamp'],
--                'Content-Type': request.headers['content-type'],
--                'ETag': etag,
--                'Content-Length': str(os.fstat(fd).st_size),
--            }
-+            content_type = request.headers['content-type']
-+            if not Gluster_enabled():
-+                metadata = {
-+                    'X-Timestamp': request.headers['x-timestamp'],
-+                    'Content-Type': content_type,
-+                    'ETag': etag,
-+                    'Content-Length': str(os.fstat(fd).st_size),
-+                }
-+            else:
-+                if not content_type:
-+                    content_type = FILE_TYPE
-+                    x_object_type = FILE
-+                else:
-+                    x_object_type = MARKER_DIR if content_type.lower() == DIR_TYPE else FILE
-+                metadata = {
-+                    'X-Timestamp': request.headers['x-timestamp'],
-+                    'Content-Type': content_type,
-+                    'ETag': etag,
-+                    'Content-Length': str(os.fstat(fd).st_size),
-+                    X_TYPE: OBJECT,
-+                    X_OBJECT_TYPE: x_object_type,
-+                }
-             metadata.update(val for val in request.headers.iteritems()
-                     if val[0].lower().startswith('x-object-meta-') and
-                     len(val[0]) > 14)
-@@ -612,7 +651,7 @@ class ObjectController(object):
+@@ -612,7 +635,7 @@ class ObjectController(object):
                   'x-timestamp': file.metadata['X-Timestamp'],
                   'x-etag': file.metadata['ETag'],
                   'x-trans-id': request.headers.get('x-trans-id', '-')},
@@ -239,7 +204,7 @@ index 9cca16b..7a671c2 100644
          resp = HTTPCreated(request=request, etag=etag)
          return resp
  
-@@ -626,9 +665,9 @@ class ObjectController(object):
+@@ -626,9 +649,9 @@ class ObjectController(object):
                          content_type='text/plain')
          if self.mount_check and not check_mount(self.devices, device):
              return Response(status='507 %s is not mounted' % device)
@@ -252,7 +217,7 @@ index 9cca16b..7a671c2 100644
          if file.is_deleted() or ('X-Delete-At' in file.metadata and
                  int(file.metadata['X-Delete-At']) <= time.time()):
              if request.headers.get('if-match') == '*':
-@@ -702,7 +741,7 @@ class ObjectController(object):
+@@ -702,7 +725,7 @@ class ObjectController(object):
              return resp
          if self.mount_check and not check_mount(self.devices, device):
              return Response(status='507 %s is not mounted' % device)
@@ -261,7 +226,7 @@ index 9cca16b..7a671c2 100644
                          obj, self.logger, disk_chunk_size=self.disk_chunk_size)
          if file.is_deleted() or ('X-Delete-At' in file.metadata and
                  int(file.metadata['X-Delete-At']) <= time.time()):
-@@ -744,7 +783,7 @@ class ObjectController(object):
+@@ -744,7 +767,7 @@ class ObjectController(object):
          if self.mount_check and not check_mount(self.devices, device):
              return Response(status='507 %s is not mounted' % device)
          response_class = HTTPNoContent
