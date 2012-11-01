@@ -81,9 +81,10 @@ sys_error_t error_no_list[] = {
         [GF_FOP_READ]              = { .error_no_count = 5,
                                     .error_no = {EINVAL,EBADF,EFAULT,EISDIR,
                                                  ENAMETOOLONG}},
-        [GF_FOP_WRITE]             = { .error_no_count = 5,
+        [GF_FOP_WRITE]             = { .error_no_count = 7,
                                     .error_no = {EINVAL,EBADF,EFAULT,EISDIR,
-                                                 ENAMETOOLONG}},
+                                                 ENAMETOOLONG,ENOSPC,
+						 GF_ERROR_SHORT_WRITE}},
         [GF_FOP_STATFS]            = {.error_no_count = 10,
                                    .error_no = {EACCES,EBADF,EFAULT,EINTR,
                                                 EIO,ENAMETOOLONG,ENOENT,
@@ -236,6 +237,8 @@ conv_errno_to_int (char **error_no)
                 return EINTR;
         else if (!strcmp ((*error_no), "EFBIG"))
                 return EFBIG;
+	else if (!strcmp((*error_no), "GF_ERROR_SHORT_WRITE"))
+		return GF_ERROR_SHORT_WRITE;
         else
                 return EAGAIN;
 }
@@ -1104,10 +1107,26 @@ error_gen_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (enable)
                 op_errno = error_gen (this, GF_FOP_WRITE);
 
-	if (op_errno) {
+	if (op_errno == GF_ERROR_SHORT_WRITE) {
+		struct iovec *shortvec;
+
+		/*
+		 * A short write error returns some value less than what was
+		 * requested from a write. To simulate this, replace the vector
+		 * with one half the size;
+		 */
+		shortvec = iov_dup(vector, 1);
+		shortvec->iov_len /= 2;
+
+		STACK_WIND(frame, error_gen_writev_cbk, FIRST_CHILD(this),
+			   FIRST_CHILD(this)->fops->writev, fd, shortvec, count,
+			   off, flags, iobref, xdata);
+		GF_FREE(shortvec);
+		return 0;
+	} else if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
 		STACK_UNWIND_STRICT (writev, frame, -1, op_errno, NULL, NULL, xdata);
-        return 0;
+        	return 0;
 	}
 
 	STACK_WIND (frame, error_gen_writev_cbk,
@@ -2130,7 +2149,7 @@ struct volume_options options[] = {
                     "EFAULT","ENOMEM","EINVAL","EIO","EEXIST","ENOSPC",
                     "EPERM","EROFS","EBUSY","EISDIR","ENOTEMPTY","EMLINK"
                     "ENODEV","EXDEV","EMFILE","ENFILE","ENOSYS","EINTR",
-                    "EFBIG","EAGAIN"},
+                    "EFBIG","EAGAIN","GF_ERROR_SHORT_WRITE"},
           .type = GF_OPTION_TYPE_STR },
         { .key = {"random-failure"},
           .type = GF_OPTION_TYPE_BOOL},
