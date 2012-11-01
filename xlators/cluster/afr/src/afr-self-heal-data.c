@@ -987,11 +987,12 @@ afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this)
         afr_self_heal_t *sh    = NULL;
         afr_local_t     *local = NULL;
         afr_private_t   *priv  = NULL;
-        dict_t          *xattr_req = NULL;
+        dict_t          **xattr_req;
         int32_t         *zero_pending = NULL;
         int call_count = 0;
         int i = 0;
         int ret = 0;
+	int j;
 
         priv  = this->private;
         local = frame->local;
@@ -1002,30 +1003,39 @@ afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this)
 
         local->call_count = call_count;
 
-        xattr_req = dict_new();
-        if (!xattr_req) {
-                ret = -1;
-                goto out;
-        }
+	xattr_req = GF_CALLOC(priv->child_count, sizeof(struct dict_t *),
+			      gf_afr_mt_dict_t);
+	if (!xattr_req)
+		goto out;
 
-        for (i = 0; i < priv->child_count; i++) {
-                zero_pending = GF_CALLOC (3, sizeof (*zero_pending),
-                                          gf_afr_mt_int32_t);
-                if (!zero_pending) {
-                        ret = -1;
-                        goto out;
-                }
-                ret = dict_set_dynptr (xattr_req, priv->pending_key[i],
-                                       zero_pending,
-                                       3 * sizeof (*zero_pending));
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "Unable to set dict value");
-                        goto out;
-                } else {
-                        zero_pending = NULL;
-                }
-        }
+	for (i = 0; i < priv->child_count; i++) {
+		xattr_req[i] = dict_new();
+		if (!xattr_req[i]) {
+			ret = -1;
+			goto out;
+		}
+	}
+
+	for (i = 0; i < priv->child_count; i++) {
+		for (j = 0; j < priv->child_count; j++) {
+			zero_pending = GF_CALLOC (3, sizeof (*zero_pending),
+						  gf_afr_mt_int32_t);
+			if (!zero_pending) {
+				ret = -1;
+				goto out;
+			}
+			ret = dict_set_dynptr (xattr_req[i], priv->pending_key[j],
+					       zero_pending,
+					       3 * sizeof (*zero_pending));
+			if (ret < 0) {
+				gf_log (this->name, GF_LOG_WARNING,
+					"Unable to set dict value");
+				goto out;
+			} else {
+				zero_pending = NULL;
+			}
+		}
+	}
 
         afr_reset_xattr (sh->xattr, priv->child_count);
         afr_reset_children (sh->success_children, priv->child_count);
@@ -1039,7 +1049,7 @@ afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this)
                                            priv->children[i],
                                            priv->children[i]->fops->fxattrop,
                                            sh->healing_fd, GF_XATTROP_ADD_ARRAY,
-                                           xattr_req, NULL);
+                                           xattr_req[i], NULL);
 
                         if (!--call_count)
                                 break;
@@ -1047,8 +1057,12 @@ afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this)
         }
 
 out:
-        if (xattr_req)
-                dict_unref (xattr_req);
+	if (xattr_req) {
+		for (i = 0; i < priv->child_count; i++)
+			if (xattr_req[i])
+				dict_unref(xattr_req[i]);
+		GF_FREE(xattr_req);
+	}
 
         if (ret) {
                 GF_FREE (zero_pending);
