@@ -434,11 +434,20 @@ sh_loop_write_cbk (call_frame_t *loop_frame, void *cookie, xlator_t *this,
 
                 sh->op_failed = 1;
                 afr_sh_set_error (loop_sh, op_errno);
-        }
+        } else if (op_ret < loop_local->cont.writev.vector->iov_len) {
+		gf_log(this->name, GF_LOG_ERROR,
+		       "incomplete write to %s on subvolume %s "
+		       "(expected %lu, returned %d)", sh_local->loc.path,
+		       priv->children[child_index]->name,
+		       loop_local->cont.writev.vector->iov_len, op_ret);
+		sh->op_failed = 1;
+	}
 
         call_count = afr_frame_return (loop_frame);
 
         if (call_count == 0) {
+		iobref_unref(loop_local->cont.writev.iobref);
+
                 sh_loop_return (sh_frame, this, loop_frame,
                                 loop_sh->op_ret, loop_sh->op_errno);
         }
@@ -527,7 +536,16 @@ sh_loop_read_cbk (call_frame_t *loop_frame, void *cookie,
                 sh_loop_return (sh_frame, this, loop_frame, 0, 0);
                 goto out;
         }
+
         loop_local->call_count = call_count;
+
+	/*
+	 * We only really need the request size at the moment, but the buffer
+	 * is required if we want to issue a retry in the event of a short write.
+	 * Therefore, we duplicate the vector and ref the iobref here...
+	 */
+	loop_local->cont.writev.vector = iov_dup(vector, count);
+	loop_local->cont.writev.iobref = iobref_ref(iobref);
 
         for (i = 0; i < priv->child_count; i++) {
                 if (!loop_sh->write_needed[i])

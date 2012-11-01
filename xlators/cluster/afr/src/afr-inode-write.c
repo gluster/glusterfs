@@ -77,8 +77,11 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int child_index = (long) cookie;
         int call_count  = -1;
         int read_child  = 0;
+	afr_private_t *priv = NULL;
+	int i = 0;
 
         local = frame->local;
+	priv = this->private;
 
         read_child = afr_inode_get_read_ctx (this, local->fd->inode, NULL);
 
@@ -88,31 +91,50 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->read_child_returned = _gf_true;
                 }
 
+		local->replies[child_index].valid = 1;
+		local->replies[child_index].op_ret = op_ret;
+		local->replies[child_index].op_errno = op_errno;
+
                 if (afr_fop_failed (op_ret, op_errno))
                         afr_transaction_fop_failed (frame, this, child_index);
 
-                if (op_ret != -1) {
-                        if (local->success_count == 0) {
-                                local->op_ret              = op_ret;
-                                local->cont.writev.prebuf  = *prebuf;
-                                local->cont.writev.postbuf = *postbuf;
-                        }
+		/* stage the best case return value for unwind */
+                if ((local->success_count == 0) || (op_ret > local->op_ret)) {
+                        local->op_ret              = op_ret;
+			local->op_errno		   = op_errno;
+		}
 
-                        if (child_index == read_child) {
-                                local->cont.writev.prebuf  = *prebuf;
-                                local->cont.writev.postbuf = *postbuf;
-                        }
-                }
-
-                local->op_errno = op_errno;
+		if (op_ret != -1) {
+			if ((local->success_count == 0) ||
+			    (child_index == read_child)) {
+				local->cont.writev.prebuf  = *prebuf;
+				local->cont.writev.postbuf = *postbuf;
+			}
+			local->success_count++;
+		}
         }
         UNLOCK (&frame->lock);
 
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
-                local->transaction.unwind (frame, this);
+		/*
+		 * We already have the best case result of the writev calls staged
+		 * as the return value. Any writev that returns some value less
+		 * than the best case is now out of sync, so mark the fop as
+		 * failed. Note that fops that have returned with errors have
+		 * already been marked as failed.
+		 */
+		for (i = 0; i < priv->child_count; i++) {
+			if ((!local->replies[i].valid) ||
+			    (local->replies[i].op_ret == -1))
+				continue;
 
+			if (local->replies[i].op_ret < local->op_ret)
+				afr_transaction_fop_failed(frame, this, i);
+		}
+
+                local->transaction.unwind (frame, this);
                 local->transaction.resume (frame, this);
         }
         return 0;
@@ -138,6 +160,15 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
         }
 
         local->call_count = call_count;
+	local->replies = GF_CALLOC(priv->child_count, sizeof(*local->replies),
+				   gf_afr_mt_reply_t);
+	if (!local->replies) {
+		local->op_ret = -1;
+		local->op_errno = ENOMEM;
+		local->transaction.unwind(frame, this);
+		local->transaction.resume(frame, this);
+		return 0;
+	}
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->transaction.pre_op[i]) {

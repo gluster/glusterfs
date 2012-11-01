@@ -41,6 +41,7 @@ enum gf_afr_mem_types_ {
         gf_afr_mt_shd_event_t,
         gf_afr_mt_time_t,
         gf_afr_mt_pos_data_t,
+	gf_afr_mt_reply_t,
         gf_afr_mt_end
 };
 #endif
