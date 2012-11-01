@@ -879,6 +879,8 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
         if (local->dict)
                 dict_unref (local->dict);
 
+	GF_FREE(local->replies);
+
         GF_FREE (local->child_up);
 
         GF_FREE (local->child_errno);

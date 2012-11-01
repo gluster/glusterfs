@@ -373,6 +373,12 @@ typedef struct _afr_locked_fd {
         struct list_head list;
 } afr_locked_fd_t;
 
+struct afr_reply {
+	int	valid;
+	int32_t	op_ret;
+	int32_t	op_errno;
+};
+
 typedef struct _afr_local {
         int     uid;
         int     gid;
@@ -665,6 +671,7 @@ typedef struct _afr_local {
         mode_t          umask;
         int             xflag;
         gf_boolean_t    do_discovery;
+	struct afr_reply *replies;
 } afr_local_t;
 
 typedef enum {
