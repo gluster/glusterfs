@@ -379,7 +379,7 @@ AC_ARG_ENABLE([systemtap],
               [Enable inclusion of systemtap trace support])],
               [ENABLE_SYSTEMTAP="${enableval}"], [ENABLE_SYSTEMTAP="def"])
 
-AM_CONDITIONAL([ENABLE_SYSTEMTAP], [test "x${ENABLE_SYSTEMTAP}" == "xyes"])
+AM_CONDITIONAL([ENABLE_SYSTEMTAP], [test "x${ENABLE_SYSTEMTAP}" = "xyes"])
 AC_MSG_RESULT(${ENABLE_SYSTEMTAP})
 
 if test "x${ENABLE_SYSTEMTAP}" != "xno"; then
@@ -388,15 +388,15 @@ if test "x${ENABLE_SYSTEMTAP}" != "xno"; then
                     [SDT_H_FOUND="no"])
 fi
 
-if test "x${ENABLE_SYSTEMTAP}" == "xyes"; then
-    if test "x${DTRACE}" == "xno"; then
+if test "x${ENABLE_SYSTEMTAP}" = "xyes"; then
+    if test "x${DTRACE}" = "xno"; then
         AC_MSG_ERROR([dtrace not found])
-    elif test "$x{SDT_H_FOUND}" == "xno"; then
+    elif test "$x{SDT_H_FOUND}" = "xno"; then
         AC_MSG_ERROR([systemtap support needs sys/sdt.h header])
     fi
 fi
 
-if test "x${DTRACE}" == "xyes" -a "x${SDT_H_FOUND}" == "xyes"; then
+if test "x${DTRACE}" = "xyes" -a "x${SDT_H_FOUND}" = "xyes"; then
     AC_MSG_CHECKING([x"${DTRACE}"xy"${SDT_H_FOUND}"y])
     AC_DEFINE([HAVE_SYSTEMTAP], [1], [Define to 1 if using  probes.])
     BUILD_SYSTEMTAP=yes
