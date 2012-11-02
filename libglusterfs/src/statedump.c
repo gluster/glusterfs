@@ -58,7 +58,7 @@ gf_proc_dump_open (char *tmpname)
 {
         int  dump_fd = -1;
 
-        dump_fd = mkostemp (tmpname, O_CREAT|O_EXCL|O_RDWR|O_TRUNC|O_APPEND);
+        dump_fd = mkstemp (tmpname);
         if (dump_fd < 0)
                 return -1;
 
