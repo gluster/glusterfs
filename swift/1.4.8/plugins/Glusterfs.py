@@ -69,9 +69,7 @@ def _busy_wait(full_mount_path):
     return False
 
 def mount(account):
-    global mount_path, mount_ip
-
-    full_mount_path = os.path.join(mount_path, account)
+    full_mount_path = os.path.join(MOUNT_PATH, account)
     export = get_export_from_account_id(account)
 
     pid_dir  = "/var/lib/glusterd/vols/%s/run/" % export
@@ -91,7 +89,7 @@ def mount(account):
             # filesystem, so wait for the mount process to complete
                 return _busy_wait(full_mount_path)
 
-        mnt_cmd = 'mount -t glusterfs %s:%s %s' % (mount_ip, export, \
+        mnt_cmd = 'mount -t glusterfs %s:%s %s' % (MOUNT_IP, export, \
                                                    full_mount_path)
         if os.system(mnt_cmd) or not _busy_wait(full_mount_path):
             raise Exception('Mount failed %s: %s' % (NAME, mnt_cmd))
@@ -103,17 +101,15 @@ def unmount(full_mount_path):
         logging.error('Unable to unmount %s %s' % (full_mount_path, NAME))
 
 def get_export_list():
-    global mount_ip
-
     if REMOTE_CLUSTER:
-        cmnd = 'ssh %s gluster volume info' % mount_ip
+        cmnd = 'ssh %s gluster volume info' % MOUNT_IP
     else:
         cmnd = 'gluster volume info'
 
     if os.system(cmnd + ' >> /dev/null'):
         if REMOTE_CLUSTER:
             raise Exception('Getting volume info failed %s, make sure to have \
-                            passwordless ssh on %s', NAME, mount_ip)
+                            passwordless ssh on %s', NAME, MOUNT_IP)
         else:
             raise Exception('Getting volume failed %s', NAME)
 
