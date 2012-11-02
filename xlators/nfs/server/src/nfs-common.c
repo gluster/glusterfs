@@ -417,6 +417,9 @@ nfs_hash_gfid (uuid_t gfid)
         uint32_t                b1 = 0;
         uint32_t                b2 = 0;
 
+        if (__is_root_gfid (gfid))
+                return 0x1;
+
         memcpy (&msb64, &gfid[8], 8);
         memcpy (&lsb64, &gfid[0], 8);
 
