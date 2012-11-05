@@ -221,6 +221,8 @@ nfs_inode_loc_fill (inode_t *inode, loc_t *loc, int how)
                 snprintf (tmp_path, sizeof (tmp_path), "<gfid:%s>",
                           uuid_utoa (loc->gfid));
                 resolvedpath = gf_strdup (tmp_path);
+        } else {
+                parent = inode_parent (inode, loc->pargfid, NULL);
         }
 
         ret = nfs_loc_fill (loc, inode, parent, resolvedpath);
