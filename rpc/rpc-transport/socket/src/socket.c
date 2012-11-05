@@ -2148,12 +2148,13 @@ socket_poller (void *ctx)
                         gf_log (this->name, GF_LOG_WARNING,
                                 "asynchronous socket_connect_finish failed");
                 }
-                ret = rpc_transport_notify (this->listener,
-                                            RPC_TRANSPORT_ACCEPT, this);
-                if (ret != 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "asynchronous rpc_transport_notify failed");
-                }
+        }
+
+        ret = rpc_transport_notify (this->listener,
+                                    RPC_TRANSPORT_ACCEPT, this);
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "asynchronous rpc_transport_notify failed");
         }
 
 	for (;;) {
@@ -2232,7 +2233,7 @@ socket_poller (void *ctx)
 err:
 	/* All (and only) I/O errors should come here. */
 	__socket_disconnect (this);
-        rpc_transport_notify (this, RPC_TRANSPORT_DISCONNECT, this);
+        rpc_transport_notify (this->listener, RPC_TRANSPORT_DISCONNECT, this);
 	rpc_transport_unref (this);
 	return NULL;
 }
@@ -2632,6 +2633,7 @@ socket_connect (rpc_transport_t *this, int port)
 				       "could not create pipe");
 			}
 
+                        this->listener = this;
 			if (pthread_create(&priv->thread,NULL,
 					socket_poller, this) != 0) {
 				gf_log(this->name,GF_LOG_ERROR,
