@@ -129,6 +129,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"cluster.quorum-type",                  "cluster/replicate",  "quorum-type", NULL, NO_DOC, 0, 1},
         {"cluster.quorum-count",                 "cluster/replicate",  "quorum-count", NULL, NO_DOC, 0, 1},
         {"cluster.choose-local",                 "cluster/replicate",  NULL, NULL, DOC, 0, 2},
+        {"cluster.self-heal-readdir-size",       "cluster/replicate",  NULL, NULL, DOC, 0, 2},
 
         /* Stripe xlator options */
         {"cluster.stripe-block-size",            "cluster/stripe",     "block-size", NULL, DOC, 0, 1},
@@ -160,8 +161,11 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
 
         /* Other perf xlators' options */
         {"performance.cache-size",               "performance/quick-read",    NULL, NULL, NO_DOC, 0, 1},
+
         {"performance.flush-behind",             "performance/write-behind",  "flush-behind", NULL, DOC, 0, 1},
         {"performance.write-behind-window-size", "performance/write-behind",  "cache-size", NULL, DOC, 1},
+        {"performance.strict-o-direct",          "performance/write-behind",  "strict-O_DIRECT", NULL, DOC, 2},
+        {"performance.strict-write-ordering",    "performance/write-behind",  "strict-write-ordering", NULL, DOC, 2},
 
         {"performance.read-ahead-page-count",    "performance/read-ahead",    "page-count", NULL, DOC, 1},
         {"performance.md-cache-timeout",         "performance/md-cache",      "md-cache-timeout", NULL, DOC, 0, 2},
