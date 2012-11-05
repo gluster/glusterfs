@@ -189,6 +189,8 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF (AFR_SH_READDIR_SIZE_KEY, priv->sh_readdir_size,
                           options, size, out);
         /* Reset this so we re-discover in case the topology changed.  */
+        GF_OPTION_RECONF ("readdir-failover", priv->readdir_failover, options,
+                          bool, out);
         priv->did_discovery = _gf_false;
 
         ret = 0;
@@ -332,6 +334,7 @@ init (xlator_t *this)
         fix_quorum_options(this,priv,qtype);
 
 	GF_OPTION_INIT ("post-op-delay-secs", priv->post_op_delay_secs, uint32, out);
+        GF_OPTION_INIT ("readdir-failover", priv->readdir_failover, bool, out);
 
         priv->wait_count = 1;
 
@@ -757,6 +760,11 @@ struct volume_options options[] = {
           .min = 1024,
           .max = 131072,
           .default_value = "1KB",
+        },
+        { .key = {"readdir-failover"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .description = "readdir(p) will not failover if this option is off",
+          .default_value = "on",
         },
         { .key  = {NULL} },
 };

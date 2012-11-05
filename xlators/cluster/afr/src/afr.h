@@ -160,6 +160,7 @@ typedef struct _afr_private {
         afr_self_heald_t       shd;
         gf_boolean_t           choose_local;
         gf_boolean_t           did_discovery;
+        gf_boolean_t           readdir_failover;
         uint64_t               sh_readdir_size;
 } afr_private_t;
 
@@ -710,6 +711,7 @@ typedef struct {
 	pthread_mutex_t    delay_lock;
 	gf_timer_t        *delay_timer;
 	call_frame_t      *delay_frame;
+        int               call_child;
 } afr_fd_ctx_t;
 
 
