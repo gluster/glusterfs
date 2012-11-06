@@ -96,7 +96,8 @@ enum gf_probe_resp {
         GF_PROBE_VOLUME_CONFLICT,
         GF_PROBE_SAME_UUID,
         GF_PROBE_UNKNOWN_PEER,
-        GF_PROBE_ADD_FAILED
+        GF_PROBE_ADD_FAILED,
+        GF_PROBE_QUORUM_NOT_MET
 };
 
 enum gf_deprobe_resp {
@@ -104,7 +105,8 @@ enum gf_deprobe_resp {
         GF_DEPROBE_LOCALHOST,
         GF_DEPROBE_NOT_FRIEND,
         GF_DEPROBE_BRICK_EXIST,
-        GF_DEPROBE_FRIEND_DOWN
+        GF_DEPROBE_FRIEND_DOWN,
+        GF_DEPROBE_QUORUM_NOT_MET,
 };
 
 enum gf_cbk_procnum {

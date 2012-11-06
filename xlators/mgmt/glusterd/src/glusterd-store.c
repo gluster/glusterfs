@@ -1908,10 +1908,13 @@ glusterd_store_iter_destroy (glusterd_store_iter_t *iter)
 {
         int32_t         ret = -1;
 
-        GF_ASSERT (iter);
-        GF_ASSERT (iter->fd > 0);
+        if (!iter)
+                return 0;
 
-        ret = fclose (iter->file);
+        if (iter->file)
+                ret = fclose (iter->file);
+        else
+                ret = 0;
 
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to close fd: %d, ret: %d, "
@@ -2203,7 +2206,6 @@ glusterd_store_retrieve_node_state (char   *volname)
 
         ret = glusterd_store_handle_retrieve (path,
                                               &volinfo->node_state_shandle);
-
         if (ret)
                 goto out;
 
@@ -2215,6 +2217,7 @@ glusterd_store_retrieve_node_state (char   *volname)
         ret = glusterd_store_iter_get_next (iter, &key, &value, &op_errno);
         if (ret)
                 goto out;
+
         if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG,
                        strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG))) {
                  volinfo->defrag_cmd = atoi (value);
@@ -2440,6 +2443,102 @@ out:
         return ret;
 }
 
+inline void
+glusterd_store_set_options_path (glusterd_conf_t *conf, char *path, size_t len)
+{
+        snprintf (path, len, "%s/options", conf->workdir);
+}
+
+int
+_store_global_opts (dict_t *this, char *key, data_t *value, void *data)
+{
+        glusterd_store_handle_t *shandle = data;
+
+        glusterd_store_save_value (shandle->fd, key, (char*)value->data);
+        return 0;
+}
+
+int32_t
+glusterd_store_options (xlator_t *this, dict_t *opts)
+{
+        glusterd_store_handle_t         *shandle = NULL;
+        glusterd_conf_t                 *conf = NULL;
+        char                            path[PATH_MAX] = {0};
+        int                             fd = -1;
+        int32_t                         ret = -1;
+
+        conf = this->private;
+        glusterd_store_set_options_path (conf, path, sizeof (path));
+
+        ret = glusterd_store_handle_new (path, &shandle);
+        if (ret)
+                goto out;
+
+        fd = glusterd_store_mkstemp (shandle);
+        if (fd <= 0) {
+                ret = -1;
+                goto out;
+        }
+
+        shandle->fd = fd;
+        dict_foreach (opts, _store_global_opts, shandle);
+        shandle->fd = 0;
+        ret = glusterd_store_rename_tmppath (shandle);
+        if (ret)
+                goto out;
+out:
+        glusterd_store_handle_destroy (shandle);
+        if (fd >=0 )
+                close (fd);
+        return ret;
+}
+
+int32_t
+glusterd_store_retrieve_options (xlator_t *this)
+{
+        char                            path[PATH_MAX] = {0};
+        glusterd_conf_t                 *conf = NULL;
+        glusterd_store_handle_t         *shandle = NULL;
+        glusterd_store_iter_t           *iter = NULL;
+        char                            *key = NULL;
+        char                            *value = NULL;
+        glusterd_store_op_errno_t       op_errno = 0;
+        int                             ret = -1;
+
+        conf = this->private;
+        glusterd_store_set_options_path (conf, path, sizeof (path));
+
+        ret = glusterd_store_handle_retrieve (path, &shandle);
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_iter_new (shandle, &iter);
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_iter_get_next (iter, &key, &value, &op_errno);
+        while (!ret) {
+                ret = dict_set_dynstr (conf->opts, key, value);
+                if (ret) {
+                        GF_FREE (key);
+                        GF_FREE (value);
+                        goto out;
+                }
+                GF_FREE (key);
+                key = NULL;
+                value = NULL;
+
+                ret = glusterd_store_iter_get_next (iter, &key, &value,
+                                                    &op_errno);
+        }
+        if (op_errno != GD_STORE_EOF)
+                goto out;
+        ret = 0;
+out:
+        glusterd_store_iter_destroy (iter);
+        glusterd_store_handle_destroy (shandle);
+        return ret;
+}
 
 int32_t
 glusterd_store_retrieve_volumes (xlator_t  *this)
@@ -2840,9 +2939,8 @@ glusterd_store_retrieve_peers (xlator_t *this)
 
                 (void) glusterd_store_iter_destroy (iter);
 
-                args.mode = GD_MODE_SWITCH_ON;
                 ret = glusterd_friend_add (hostname, 0, state, &uuid,
-                                           &peerinfo, 1, &args);
+                                           &peerinfo, 1, NULL);
 
                 GF_FREE (hostname);
                 if (ret)
@@ -2850,6 +2948,13 @@ glusterd_store_retrieve_peers (xlator_t *this)
 
                 peerinfo->shandle = shandle;
                 glusterd_for_each_entry (entry, dir);
+        }
+
+        args.mode = GD_MODE_ON;
+        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+                ret = glusterd_friend_rpc_create (this, peerinfo, &args);
+                if (ret)
+                        goto out;
         }
 
 out:
@@ -2904,7 +3009,6 @@ glusterd_restore ()
                         "Failed to restore op_version");
                 goto out;
         }
-
 
         ret = glusterd_store_retrieve_volumes (this);
         if (ret)

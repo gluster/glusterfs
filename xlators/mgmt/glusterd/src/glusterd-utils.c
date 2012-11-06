@@ -68,6 +68,8 @@
 #define NLMV4_VERSION       4
 #define NLMV1_VERSION       1
 
+#define CEILING_POS(X) (((X)-(int)(X)) > 0 ? (int)((X)+1) : (int)(X))
+
 char    *glusterd_sock_dir = "/var/run";
 static glusterd_lock_t lock;
 
@@ -939,7 +941,10 @@ glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
 {
         GF_ASSERT (peerinfo);
         glusterd_peerctx_t      *peerctx = NULL;
+        gf_boolean_t            quorum_action = _gf_false;
 
+        if (peerinfo->quorum_contrib != QUORUM_NONE)
+                quorum_action = _gf_true;
         if (peerinfo->rpc) {
                 /* cleanup the saved-frames before last unref */
                 rpc_clnt_connection_cleanup (&peerinfo->rpc->conn);
@@ -955,6 +960,8 @@ glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
         }
         glusterd_peer_destroy (peerinfo);
 
+        if (quorum_action)
+                glusterd_do_quorum_action ();
         return 0;
 }
 
@@ -982,11 +989,9 @@ glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo)
                 }
         }
 
-
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
-
 
 int32_t
 glusterd_service_stop (const char *service, char *pidfile, int sig,
@@ -1655,25 +1660,25 @@ out:
 }
 
 int
-_add_volinfo_dict_to_prdict (dict_t *this, char *key, data_t *value, void *data)
+_add_dict_to_prdict (dict_t *this, char *key, data_t *value, void *data)
 {
-        glusterd_voldict_ctx_t   *ctx = NULL;
+        glusterd_dict_ctx_t     *ctx = NULL;
         char                    optkey[512] = {0,};
         int                     ret = -1;
 
         ctx = data;
-        snprintf (optkey, sizeof (optkey), "volume%d.%s%d", ctx->count,
+        snprintf (optkey, sizeof (optkey), "%s.%s%d", ctx->prefix,
                   ctx->key_name, ctx->opt_count);
         ret = dict_set_str (ctx->dict, optkey, key);
         if (ret)
                 gf_log ("", GF_LOG_ERROR, "option add for %s%d %s",
-                        ctx->key_name, ctx->count, key);
-        snprintf (optkey, sizeof (optkey), "volume%d.%s%d", ctx->count,
+                        ctx->key_name, ctx->opt_count, key);
+        snprintf (optkey, sizeof (optkey), "%s.%s%d", ctx->prefix,
                   ctx->val_name, ctx->opt_count);
         ret = dict_set_str (ctx->dict, optkey, value->data);
         if (ret)
                 gf_log ("", GF_LOG_ERROR, "option add for %s%d %s",
-                        ctx->val_name, ctx->count, value->data);
+                        ctx->val_name, ctx->opt_count, value->data);
         ctx->opt_count++;
 
         return ret;
@@ -1711,6 +1716,7 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                              dict_t  *dict, int32_t count)
 {
         int32_t                 ret             = -1;
+        char                    prefix[512]     = {0,};
         char                    key[512]        = {0,};
         glusterd_brickinfo_t    *brickinfo      = NULL;
         int32_t                 i               = 1;
@@ -1718,7 +1724,7 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         char                    *src_brick      = NULL;
         char                    *dst_brick      = NULL;
         char                    *str            = NULL;
-        glusterd_voldict_ctx_t   ctx            = {0};
+        glusterd_dict_ctx_t     ctx            = {0};
 
         GF_ASSERT (dict);
         GF_ASSERT (volinfo);
@@ -1850,14 +1856,15 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                         goto out;
         }
 
+        snprintf (prefix, sizeof (prefix), "volume%d", count);
         ctx.dict = dict;
-        ctx.count = count;
+        ctx.prefix = prefix;
         ctx.opt_count = 1;
         ctx.key_name = "key";
         ctx.val_name = "value";
         GF_ASSERT (volinfo->dict);
 
-        dict_foreach (volinfo->dict, _add_volinfo_dict_to_prdict, &ctx);
+        dict_foreach (volinfo->dict, _add_dict_to_prdict, &ctx);
         ctx.opt_count--;
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.opt-count", count);
@@ -1866,13 +1873,13 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                 goto out;
 
         ctx.dict = dict;
-        ctx.count = count;
+        ctx.prefix = prefix;
         ctx.opt_count = 1;
         ctx.key_name = "slave-num";
         ctx.val_name = "slave-val";
         GF_ASSERT (volinfo->gsync_slaves);
 
-        dict_foreach (volinfo->gsync_slaves, _add_volinfo_dict_to_prdict, &ctx);
+        dict_foreach (volinfo->gsync_slaves, _add_dict_to_prdict, &ctx);
         ctx.opt_count--;
 
         memset (key, 0, sizeof (key));
@@ -1914,6 +1921,7 @@ glusterd_build_volume_dict (dict_t **vols)
         glusterd_conf_t         *priv = NULL;
         glusterd_volinfo_t      *volinfo = NULL;
         int32_t                 count = 0;
+        glusterd_dict_ctx_t     ctx            = {0};
 
         priv = THIS->private;
 
@@ -1931,6 +1939,17 @@ glusterd_build_volume_dict (dict_t **vols)
 
 
         ret = dict_set_int32 (dict, "count", count);
+        if (ret)
+                goto out;
+
+        ctx.dict = dict;
+        ctx.prefix = "global";
+        ctx.opt_count = 1;
+        ctx.key_name = "key";
+        ctx.val_name = "val";
+        dict_foreach (priv->opts, _add_dict_to_prdict, &ctx);
+        ctx.opt_count--;
+        ret = dict_set_int32 (dict, "global-opt-count", ctx.opt_count);
         if (ret)
                 goto out;
 
@@ -2015,8 +2034,8 @@ out:
 }
 
 static int32_t
-import_prdict_volinfo_dict (dict_t *vols, dict_t  *dst_dict, char *key_prefix,
-                            char *value_prefix, int opt_count, int count)
+import_prdict_dict (dict_t *vols, dict_t  *dst_dict, char *key_prefix,
+                    char *value_prefix, int opt_count, char *prefix)
 {
         char                    key[512] = {0,};
         int32_t                 ret = 0;
@@ -2028,8 +2047,8 @@ import_prdict_volinfo_dict (dict_t *vols, dict_t  *dst_dict, char *key_prefix,
 
         while (i <= opt_count) {
                 memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "volume%d.%s%d",
-                          count, key_prefix, i);
+                snprintf (key, sizeof (key), "%s.%s%d",
+                          prefix, key_prefix, i);
                 ret = dict_get_str (vols, key, &opt_key);
                 if (ret) {
                         snprintf (msg, sizeof (msg), "Volume dict key not "
@@ -2038,8 +2057,8 @@ import_prdict_volinfo_dict (dict_t *vols, dict_t  *dst_dict, char *key_prefix,
                 }
 
                 memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "volume%d.%s%d",
-                          count, value_prefix, i);
+                snprintf (key, sizeof (key), "%s.%s%d",
+                          prefix, value_prefix, i);
                 ret = dict_get_str (vols, key, &opt_val);
                 if (ret) {
                         snprintf (msg, sizeof (msg), "Volume dict value not "
@@ -2068,6 +2087,250 @@ out:
 
 }
 
+gf_boolean_t
+glusterd_is_quorum_option (char *option)
+{
+        gf_boolean_t    res = _gf_false;
+        int             i = 0;
+        char            *keys[] = {GLUSTERD_QUORUM_TYPE_KEY,
+                                   GLUSTERD_QUORUM_RATIO_KEY, NULL};
+
+        for (i = 0; keys[i]; i++) {
+                if (strcmp (option, keys[i]) == 0) {
+                        res = _gf_true;
+                        break;
+                }
+        }
+        return res;
+}
+
+gf_boolean_t
+glusterd_is_quorum_changed (dict_t *options, char *option, char *value)
+{
+        int             ret = 0;
+        gf_boolean_t    reconfigured = _gf_false;
+        gf_boolean_t    all = _gf_false;
+        char            *oldquorum = NULL;
+        char            *newquorum = NULL;
+        char            *oldratio = NULL;
+        char            *newratio = NULL;
+
+        if ((strcmp ("all", option) != 0) &&
+            !glusterd_is_quorum_option (option))
+                goto out;
+
+        if (strcmp ("all", option) == 0)
+                all = _gf_true;
+
+        if (all || (strcmp (GLUSTERD_QUORUM_TYPE_KEY, option) == 0)) {
+                newquorum = value;
+                ret = dict_get_str (options, GLUSTERD_QUORUM_TYPE_KEY,
+                                    &oldquorum);
+        }
+
+        if (all || (strcmp (GLUSTERD_QUORUM_RATIO_KEY, option) == 0)) {
+                newratio = value;
+                ret = dict_get_str (options, GLUSTERD_QUORUM_RATIO_KEY,
+                                    &oldratio);
+        }
+
+        reconfigured = _gf_true;
+
+        if (oldquorum && newquorum && (strcmp (oldquorum, newquorum) == 0))
+                reconfigured = _gf_false;
+        if (oldratio && newratio && (strcmp (oldratio, newratio) == 0))
+                reconfigured = _gf_false;
+
+        if ((oldratio == NULL) && (newratio == NULL) && (oldquorum == NULL) &&
+            (newquorum == NULL))
+                reconfigured = _gf_false;
+out:
+        return reconfigured;
+}
+
+static inline gf_boolean_t
+_is_contributing_to_quorum (gd_quorum_contrib_t contrib)
+{
+        if ((contrib == QUORUM_UP) || (contrib == QUORUM_DOWN))
+                return _gf_true;
+        return _gf_false;
+}
+
+static inline gf_boolean_t
+_does_quorum_meet (int active_count, int quorum_count)
+{
+        return (active_count >= quorum_count);
+}
+
+int
+glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
+                                    int *quorum_count)
+{
+        glusterd_peerinfo_t *peerinfo      = NULL;
+        glusterd_conf_t     *conf          = NULL;
+        int                 ret            = -1;
+        int                 inquorum_count = 0;
+        char                *val           = NULL;
+        double              quorum_percentage = 0.0;
+        gf_boolean_t        ratio          = _gf_false;
+        int                 count          = 0;
+
+        conf = this->private;
+        //Start with counting self
+        inquorum_count = 1;
+        if (active_count)
+                *active_count = 1;
+        list_for_each_entry (peerinfo, &conf->peers, uuid_list) {
+                if (peerinfo->quorum_contrib == QUORUM_WAITING)
+                        goto out;
+
+                if (_is_contributing_to_quorum (peerinfo->quorum_contrib))
+                        inquorum_count = inquorum_count + 1;
+
+                if (active_count && (peerinfo->quorum_contrib == QUORUM_UP))
+                        *active_count = *active_count + 1;
+        }
+
+        ret = dict_get_str (conf->opts, GLUSTERD_QUORUM_RATIO_KEY, &val);
+        if (ret == 0) {
+                ratio = _gf_true;
+                ret = gf_string2percent (val, &quorum_percentage);
+                if (!ret)
+                        ratio = _gf_true;
+        }
+        if (ratio)
+                count = CEILING_POS (inquorum_count *
+                                     quorum_percentage / 100.0);
+        else
+                count = (inquorum_count * 50 / 100) + 1;
+
+        *quorum_count = count;
+        ret = 0;
+out:
+        return ret;
+}
+
+gf_boolean_t
+glusterd_is_volume_in_server_quorum (glusterd_volinfo_t *volinfo)
+{
+        gf_boolean_t    res = _gf_false;
+        char            *quorum_type = NULL;
+        int             ret = 0;
+
+        ret = dict_get_str (volinfo->dict, GLUSTERD_QUORUM_TYPE_KEY,
+                            &quorum_type);
+        if (ret)
+                goto out;
+
+        if (strcmp (quorum_type, GLUSTERD_SERVER_QUORUM) == 0)
+                res = _gf_true;
+out:
+        return res;
+}
+
+gf_boolean_t
+glusterd_is_any_volume_in_server_quorum (xlator_t *this)
+{
+        glusterd_conf_t         *conf = NULL;
+        glusterd_volinfo_t      *volinfo = NULL;
+
+        conf = this->private;
+        list_for_each_entry (volinfo, &conf->volumes, vol_list) {
+                if (glusterd_is_volume_in_server_quorum (volinfo)) {
+                        return _gf_true;
+                }
+        }
+        return _gf_false;
+}
+
+gf_boolean_t
+does_gd_meet_server_quorum (xlator_t *this)
+{
+        int                     quorum_count = 0;
+        int                     active_count   = 0;
+        gf_boolean_t            in = _gf_false;
+        glusterd_conf_t         *conf = NULL;
+        int                     ret = -1;
+
+        conf = this->private;
+        ret = glusterd_get_quorum_cluster_counts (this, &active_count,
+                                                  &quorum_count);
+        if (ret)
+                goto out;
+
+        if (!_does_quorum_meet (active_count, quorum_count)) {
+                goto out;
+        }
+
+        in = _gf_true;
+out:
+        return in;
+}
+
+void
+glusterd_do_volume_quorum_action (xlator_t *this, glusterd_volinfo_t *volinfo,
+                                  gf_boolean_t meets_quorum)
+{
+        glusterd_brickinfo_t    *brickinfo = NULL;
+        glusterd_conf_t         *conf = NULL;
+
+        conf = this->private;
+        if (volinfo->status != GLUSTERD_STATUS_STARTED)
+                goto out;
+
+        if (!glusterd_is_volume_in_server_quorum (volinfo))
+                meets_quorum = _gf_true;
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (!glusterd_is_local_brick (this, volinfo, brickinfo))
+                        continue;
+                if (meets_quorum)
+                        glusterd_brick_start (volinfo, brickinfo, _gf_false);
+                else
+                        glusterd_brick_stop (volinfo, brickinfo, _gf_false);
+        }
+out:
+        return;
+}
+
+int
+glusterd_do_quorum_action ()
+{
+        xlator_t            *this          = NULL;
+        glusterd_conf_t     *conf          = NULL;
+        glusterd_volinfo_t  *volinfo       = NULL;
+        int                 ret            = 0;
+        int                 active_count   = 0;
+        int                 quorum_count   = 0;
+        gf_boolean_t        meets          = _gf_false;
+
+        this = THIS;
+        conf = this->private;
+
+        conf->pending_quorum_action = _gf_true;
+        ret = glusterd_lock (conf->uuid);
+        if (ret)
+                goto out;
+
+        {
+                ret = glusterd_get_quorum_cluster_counts (this, &active_count,
+                                                          &quorum_count);
+                if (ret)
+                        goto unlock;
+
+                if (_does_quorum_meet (active_count, quorum_count))
+                        meets = _gf_true;
+                list_for_each_entry (volinfo, &conf->volumes, vol_list) {
+                        glusterd_do_volume_quorum_action (this, volinfo, meets);
+                }
+        }
+unlock:
+        (void)glusterd_unlock (conf->uuid);
+        conf->pending_quorum_action = _gf_false;
+out:
+        return ret;
+}
+
 int32_t
 glusterd_import_friend_volume_opts (dict_t *vols, int count,
                                     glusterd_volinfo_t *volinfo)
@@ -2076,6 +2339,7 @@ glusterd_import_friend_volume_opts (dict_t *vols, int count,
         int32_t                 ret = -1;
         int                     opt_count = 0;
         char                    msg[2048] = {0};
+        char                    volume_prefix[1024] = {0};
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.opt-count", count);
@@ -2086,8 +2350,9 @@ glusterd_import_friend_volume_opts (dict_t *vols, int count,
                 goto out;
         }
 
-        ret = import_prdict_volinfo_dict (vols, volinfo->dict, "key",
-                                          "value", opt_count, count);
+        snprintf (volume_prefix, sizeof (volume_prefix), "volume%d", count);
+        ret = import_prdict_dict (vols, volinfo->dict, "key", "value",
+                                  opt_count, volume_prefix);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Unable to import options dict "
                           "specified for %s", volinfo->volname);
@@ -2103,9 +2368,8 @@ glusterd_import_friend_volume_opts (dict_t *vols, int count,
                 goto out;
         }
 
-        ret = import_prdict_volinfo_dict (vols, volinfo->gsync_slaves,
-                                          "slave-num", "slave-val", opt_count,
-                                          count);
+        ret = import_prdict_dict (vols, volinfo->gsync_slaves, "slave-num",
+                                  "slave-val", opt_count, volume_prefix);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Unable to import gsync sessions "
                           "specified for %s", volinfo->volname);
@@ -2602,6 +2866,95 @@ out:
         return ret;
 }
 
+int
+glusterd_get_global_opt_version (dict_t *opts, uint32_t *version)
+{
+        int     ret = -1;
+        char    *version_str = NULL;
+
+        ret = dict_get_str (opts, GLUSTERD_GLOBAL_OPT_VERSION, &version_str);
+        if (ret)
+                goto out;
+
+        ret = gf_string2uint (version_str, version);
+        if (ret)
+                goto out;
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+glusterd_get_next_global_opt_version_str (dict_t *opts, char **version_str)
+{
+        int             ret = -1;
+        char            version_string[64] = {0};
+        uint32_t        version = 0;
+
+        ret = glusterd_get_global_opt_version (opts, &version);
+        if (ret)
+                goto out;
+        version++;
+        snprintf (version_string, sizeof (version_string), "%"PRIu32, version);
+        *version_str = gf_strdup (version_string);
+        if (*version_str)
+                ret = 0;
+out:
+        return ret;
+}
+
+int32_t
+glusterd_import_global_opts (dict_t *friend_data)
+{
+        xlator_t        *this = NULL;
+        glusterd_conf_t *conf = NULL;
+        int             ret = -1;
+        dict_t          *import_options = NULL;
+        int             count = 0;
+        uint32_t        local_version = 0;
+        uint32_t        remote_version = 0;
+
+        this = THIS;
+        conf = this->private;
+
+        ret = dict_get_int32 (friend_data, "global-opt-count", &count);
+        if (ret) {
+                //old version peer
+                ret = 0;
+                goto out;
+        }
+
+        import_options = dict_new ();
+        if (!import_options)
+                goto out;
+        ret = import_prdict_dict (friend_data, import_options, "key", "val",
+                                  count, "global");
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to import"
+                        " global options");
+                goto out;
+        }
+
+        ret = glusterd_get_global_opt_version (conf->opts, &local_version);
+        if (ret)
+                goto out;
+        ret = glusterd_get_global_opt_version (import_options, &remote_version);
+        if (ret)
+                goto out;
+        if (remote_version > local_version) {
+                ret = glusterd_store_options (this, import_options);
+                if (ret)
+                        goto out;
+                dict_unref (conf->opts);
+                conf->opts = dict_ref (import_options);
+        }
+        ret = 0;
+out:
+        if (import_options)
+                dict_unref (import_options);
+        return ret;
+}
+
 int32_t
 glusterd_compare_friend_data (dict_t  *vols, int32_t *status)
 {
@@ -2639,6 +2992,9 @@ glusterd_compare_friend_data (dict_t  *vols, int32_t *status)
                         stale_nfs = _gf_true;
                 if (glusterd_is_nodesvc_running ("glustershd"))
                         stale_shd = _gf_true;
+                ret = glusterd_import_global_opts (vols);
+                if (ret)
+                        goto out;
                 ret = glusterd_import_friend_volumes (vols);
                 if (ret)
                         goto out;
@@ -3523,14 +3879,16 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
         int                   ret            = 0;
 
         list_for_each_entry (volinfo, &conf->volumes, vol_list) {
-                /* If volume status is not started, do not proceed */
-                if (volinfo->status == GLUSTERD_STATUS_STARTED) {
-                        list_for_each_entry (brickinfo, &volinfo->bricks,
-                                             brick_list) {
-                                glusterd_brick_start (volinfo, brickinfo,
-                                                     _gf_true);
-                        }
-                        start_nodesvcs = _gf_true;
+                if (volinfo->status != GLUSTERD_STATUS_STARTED)
+                        continue;
+                start_nodesvcs = _gf_true;
+                if (glusterd_is_volume_in_server_quorum (volinfo)) {
+                        //these bricks will be restarted once the quorum is met
+                        continue;
+                }
+
+                list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                        glusterd_brick_start (volinfo, brickinfo, _gf_true);
                 }
         }
 
@@ -4811,8 +5169,8 @@ out:
 
 int
 glusterd_peerinfo_new (glusterd_peerinfo_t **peerinfo,
-                       glusterd_friend_sm_state_t state,
-                       uuid_t *uuid, const char *hostname)
+                       glusterd_friend_sm_state_t state, uuid_t *uuid,
+                       const char *hostname, int port)
 {
         glusterd_peerinfo_t      *new_peer = NULL;
         int                      ret = -1;
@@ -4842,6 +5200,9 @@ glusterd_peerinfo_new (glusterd_peerinfo_t **peerinfo,
         if (ret)
                 goto out;
 
+        if (new_peer->state.state == GD_FRIEND_STATE_BEFRIENDED)
+                new_peer->quorum_contrib = QUORUM_WAITING;
+        new_peer->port = port;
         *peerinfo = new_peer;
 out:
         if (ret && new_peer)

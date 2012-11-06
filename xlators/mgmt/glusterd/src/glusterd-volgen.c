@@ -184,6 +184,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"network.inode-lru-limit",              "protocol/server",           NULL, NULL, NO_DOC, 0, 1},
         {AUTH_ALLOW_MAP_KEY,                     "protocol/server",           "!server-auth", "*", DOC, 0, 1},
         {AUTH_REJECT_MAP_KEY,                    "protocol/server",           "!server-auth", NULL, DOC, 0},
+
         {"transport.keepalive",                  "protocol/server",           "transport.socket.keepalive", NULL, NO_DOC, 0, 1},
         {"server.allow-insecure",                "protocol/server",           "rpc-auth-allow-insecure", NULL, NO_DOC, 0, 1},
         {"server.statedump-path",                "protocol/server",           "statedump-path", NULL, DOC, 0, 1},
@@ -252,6 +253,8 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"storage.owner-gid",                    "storage/posix",             "brick-gid", NULL, DOC, 0, 2},
         {"config.memory-accounting",             "configuration",             "!config", NULL, DOC, 0, 2},
         {"config.transport",                     "configuration",             "!config", NULL, DOC, 0, 2},
+        {GLUSTERD_QUORUM_TYPE_KEY,               "mgmt/glusterd",             NULL,         "off", DOC, 0},
+        {GLUSTERD_QUORUM_RATIO_KEY,              "mgmt/glusterd",             NULL,         "0", DOC, 0},
         {NULL,                                                                }
 };
 
