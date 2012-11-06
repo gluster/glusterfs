@@ -125,8 +125,8 @@ dht_priv_dump (xlator_t *this)
 
         gf_proc_dump_write("search_unhashed", "%d", conf->search_unhashed);
         gf_proc_dump_write("gen", "%d", conf->gen);
-        gf_proc_dump_write("min_free_disk", "%lu", conf->min_free_disk);
-	gf_proc_dump_write("min_free_inodes", "%lu", conf->min_free_inodes);
+        gf_proc_dump_write("min_free_disk", "%lf", conf->min_free_disk);
+	gf_proc_dump_write("min_free_inodes", "%lf", conf->min_free_inodes);
         gf_proc_dump_write("disk_unit", "%c", conf->disk_unit);
         gf_proc_dump_write("refresh_interval", "%d", conf->refresh_interval);
         gf_proc_dump_write("unhashed_sticky_bit", "%d", conf->unhashed_sticky_bit);
@@ -326,7 +326,7 @@ reconfigure (xlator_t *this, dict_t *options)
                           percent_or_size, out);
         /* option can be any one of percent or bytes */
         conf->disk_unit = 0;
-        if (conf->min_free_disk < 100)
+        if (conf->min_free_disk < 100.0)
                 conf->disk_unit = 'p';
 
 	GF_OPTION_RECONF ("min-free-inodes", conf->min_free_inodes, options,
