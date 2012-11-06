@@ -13,7 +13,7 @@ mkdir -p $B0;
 mkdir -p $M0 $M1;
 mkdir -p $N0 $N1;
 
-testcnt=`egrep '^[ \t]*(EXPECT|TEST|EXPECT_WITHIN|EXPECT_KEYWORD)' $0 | wc -l`;
+testcnt=`egrep '^[[:space:]]*(EXPECT|TEST|EXPECT_WITHIN|EXPECT_KEYWORD)' $0 | wc -l`;
 echo 1..$testcnt
 
 t=1
