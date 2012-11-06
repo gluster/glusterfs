@@ -174,10 +174,11 @@ AC_ARG_WITH(launchddir,
 AC_SUBST(launchddir)
 
 AC_ARG_WITH([ocf],
-            [AS_HELP_STRING([--with-ocf], [build OCF-compliant cluster resource agents])],
+            [AS_HELP_STRING([--without-ocf], [build OCF-compliant cluster resource agents])],
             ,
-            [with_ocf=no])
-AM_CONDITIONAL(WITH_OCF, [ test "$with_ocf" = "yes" ])
+            [OCF_SUBDIR='ocf'],
+            )
+AC_SUBST(OCF_SUBDIR)
 
 # LEX needs a check
 AC_PROG_LEX

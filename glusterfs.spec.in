@@ -31,6 +31,10 @@
 %{?_without_georeplication:%global _without_georeplication --disable-geo-replication}
 %endif
 
+# if you wish to compile an rpm without the OCF resource agents...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without ocf
+%{?_without_ocf:%global _without_ocf --without-ocf}
+
 Summary: Cluster File System
 Name: @PACKAGE_NAME@
 Version: %{version}
@@ -42,7 +46,7 @@ Packager: @PACKAGE_BUGREPORT@
 URL: http://www.gluster.org/docs/index.php/GlusterFS
 Source0: @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
-Requires: openssl >= 1.0
+Requires: openssl
 Requires(post): /sbin/chkconfig
 Requires(preun): /sbin/service, /sbin/chkconfig
 Requires(postun): /sbin/service
@@ -56,7 +60,6 @@ BuildRequires: python-devel
 %else
 BuildRequires: python-ctypes
 %endif
-BuildRequires: openssl-devel >= 1.0
 
 Obsoletes:        %{name}-libs <= 2.0.0
 Obsoletes:        %{name}-common < %{version}-%{release}
@@ -159,6 +162,35 @@ is in user space and easily manageable.
 This package provides the glusterfs server daemon and translators that
 are loaded on the server.
 
+%if 0%{!?_without_ocf:1}
+%package resource-agents
+Summary:          OCF Resource Agents for GlusterFS
+License:          GPLv3+
+# this Group handling comes from the Fedora resource-agents package
+%if 0%{?fedora} || 0%{?centos_version} || 0%{?rhel}
+Group:            System Environment/Base
+%else
+Group:            Productivity/Clustering/HA
+%endif
+# for glusterd
+Requires:         glusterfs-server
+# depending on the distribution, we need pacemaker or resource-agents
+Requires:         %{_prefix}/lib/ocf/resource.d
+
+%description resource-agents
+GlusterFS is a clustered file-system capable of scaling to several
+petabytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file systems in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in user space and easily manageable.
+
+This package provides the resource agents which plug glusterd into
+Open Cluster Framework (OCF) compliant cluster resource managers,
+like Pacemaker.
+%endif
+
 %package devel
 Summary:        Development Libraries
 License:        GPLv2 or LGPLv3+
@@ -180,8 +212,7 @@ This package provides the development libraries.
 %setup -q -n %{name}-%{version}
 
 %build
-./autogen.sh
-%configure %{?_without_rdma} %{?_without_epoll} %{?_with_fusermount} %{?_without_georeplication}
+%configure %{?_without_rdma} %{?_without_epoll} %{?_with_fusermount} %{?_without_georeplication} %{?_without_ocf}
 
 # Remove rpath
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
@@ -427,6 +458,13 @@ fi
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/peers
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/groups
 
+%if 0%{!?_without_ocf:1}
+%files resource-agents
+%defattr(-,root,root)
+# /usr/lib is the standard for OCF, also on x86_64
+%{_prefix}/lib/ocf/resource.d/glusterfs
+%endif
+
 %files devel
 %defattr(-,root,root,-)
 %{_includedir}/glusterfs
@@ -437,6 +475,9 @@ fi
 %changelog
 * Tue Dec 11 2012 Filip Pytloun <filip.pytloun@gooddata.com>
 - add sysconfig file
+
+* Thu Oct 25 2012 Niels de Vos <ndevos@redhat.com>
+- Add a sub-package for the OCF resource agents
 
 * Wed Sep 05 2012 Niels de Vos <ndevos@redhat.com>
 - Don't use python-ctypes on SLES (from Jörg Petersen)
