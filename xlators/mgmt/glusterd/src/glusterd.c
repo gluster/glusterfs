@@ -118,6 +118,36 @@ glusterd_uuid_init ()
 }
 
 int
+glusterd_options_init (xlator_t *this)
+{
+        int             ret = -1;
+        glusterd_conf_t *priv = NULL;
+        char            *initial_version = "0";
+
+        priv = this->private;
+
+        priv->opts = dict_new ();
+        if (!priv->opts)
+                goto out;
+
+        ret = glusterd_store_retrieve_options (this);
+        if (ret == 0)
+                goto out;
+
+        ret = dict_set_str (priv->opts, GLUSTERD_GLOBAL_OPT_VERSION,
+                            initial_version);
+        if (ret)
+                goto out;
+        ret = glusterd_store_options (this, priv->opts);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to store version");
+                return ret;
+        }
+out:
+
+        return 0;
+}
+int
 glusterd_fetchspec_notify (xlator_t *this)
 {
         int              ret   = -1;
@@ -1028,6 +1058,10 @@ init (xlator_t *this)
         if (ret < 0)
                 goto out;
 
+        ret = glusterd_options_init (this);
+        if (ret < 0)
+                goto out;
+
         ret = glusterd_handle_upgrade_downgrade (this->options, conf);
         if (ret)
                 goto out;
@@ -1172,5 +1206,12 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL,
         },
 #endif
+        { .key = {"server-quorum-type"},
+          .type = GF_OPTION_TYPE_STR,
+          .value = { "none", "server"},
+        },
+        { .key = {"server-quorum-ratio"},
+          .type = GF_OPTION_TYPE_PERCENT,
+        },
         { .key   = {NULL} },
 };

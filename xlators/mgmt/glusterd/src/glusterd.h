@@ -43,7 +43,14 @@
 #define GLUSTERD_TR_LOG_SIZE            50
 #define GLUSTERD_NAME                   "glusterd"
 #define GLUSTERD_SOCKET_LISTEN_BACKLOG  128
+#define GLUSTERD_QUORUM_TYPE_KEY        "cluster.server-quorum-type"
+#define GLUSTERD_QUORUM_RATIO_KEY       "cluster.server-quorum-ratio"
+#define GLUSTERD_GLOBAL_OPT_VERSION     "global-option-version"
 
+#define GLUSTERD_SERVER_QUORUM "server"
+
+struct glusterd_volinfo_;
+typedef struct glusterd_volinfo_ glusterd_volinfo_t;
 
 typedef enum glusterd_op_ {
         GD_OP_NONE = 0,
@@ -74,7 +81,6 @@ typedef enum glusterd_op_ {
         GD_OP_MAX,
 } glusterd_op_t;
 
-
 struct glusterd_store_iter_ {
         int     fd;
         FILE    *file;
@@ -86,6 +92,7 @@ typedef struct glusterd_store_iter_     glusterd_store_iter_t;
 struct glusterd_volgen {
         dict_t *dict;
 };
+
 typedef struct {
         struct rpc_clnt         *rpc;
         gf_boolean_t            running;
@@ -107,6 +114,12 @@ typedef struct {
 #define GD_OP_VERSION_MAX  2 /* MAX VERSION is the maximum count in VME table,
                                 should keep changing with introduction of newer
                                 versions */
+
+typedef struct {
+        gf_boolean_t    quorum;
+        double          quorum_ratio;
+        uint64_t        gl_opt_version;
+} gd_global_opts_t;
 
 typedef struct {
         struct _volfile_ctx *volfile;
@@ -134,11 +147,11 @@ typedef struct {
 #endif
         pthread_t       brick_thread;
         void           *hooks_priv;
-        xlator_t       *xl; /* Should be set to 'THIS' before creating thread */
-
         /* need for proper handshake_t */
         int             op_version; /* Starts with 1 for 3.3.0 */
-
+        xlator_t       *xl;  /* Should be set to 'THIS' before creating thread */
+        gf_boolean_t   pending_quorum_action;
+        dict_t             *opts;
 } glusterd_conf_t;
 
 
@@ -169,9 +182,6 @@ struct gf_defrag_brickinfo_ {
         int   files;
         int   size;
 };
-
-struct glusterd_volinfo_;
-typedef struct glusterd_volinfo_ glusterd_volinfo_t;
 
 typedef int (*defrag_cbk_fn_t) (glusterd_volinfo_t *volinfo,
                                 gf_defrag_status_t status);
@@ -410,6 +420,9 @@ glusterd_friend_add (const char *hoststr, int port,
                      uuid_t *uuid, glusterd_peerinfo_t **friend,
                      gf_boolean_t restore, glusterd_peerctx_args_t *args);
 
+int
+glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
+                            glusterd_peerctx_args_t *args);
 int
 glusterd_friend_remove (uuid_t uuid, char *hostname);
 

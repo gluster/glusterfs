@@ -138,4 +138,9 @@ glusterd_retrieve_op_version (xlator_t *this, int *op_version);
 int
 glusterd_store_global_info (xlator_t *this);
 
+int32_t
+glusterd_store_retrieve_options (xlator_t *this);
+
+int32_t
+glusterd_store_options (xlator_t *this, dict_t *opts);
 #endif

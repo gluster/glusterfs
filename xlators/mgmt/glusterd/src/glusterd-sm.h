@@ -36,6 +36,20 @@ struct glusterd_store_handle_ {
 
 typedef struct glusterd_store_handle_  glusterd_store_handle_t;
 
+typedef enum gd_quorum_contribution_ {
+        QUORUM_NONE,
+        QUORUM_WAITING,
+        QUORUM_DOWN,
+        QUORUM_UP
+} gd_quorum_contrib_t;
+
+typedef enum gd_quorum_status_ {
+        QUORUM_UNKNOWN,
+        QUORUM_NOT_APPLICABLE,
+        QUORUM_MEETS,
+        QUORUM_DOES_NOT_MEET
+} gd_quorum_status_t;
+
 typedef enum glusterd_friend_sm_state_ {
         GD_FRIEND_STATE_DEFAULT = 0,
         GD_FRIEND_STATE_REQ_SENT,
@@ -91,6 +105,8 @@ struct glusterd_peerinfo_ {
         int                             connected;
         glusterd_store_handle_t         *shandle;
         glusterd_sm_tr_log_t            sm_log;
+        gf_boolean_t                    quorum_action;
+        gd_quorum_contrib_t             quorum_contrib;
 };
 
 typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;

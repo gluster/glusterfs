@@ -83,6 +83,42 @@ rpc_clnt_prog_t cli_pmap_prog = {
         .progver    = GLUSTER_PMAP_VERSION,
 };
 
+void
+gf_cli_probe_strerror (gf1_cli_probe_rsp *rsp, char *msg, size_t len)
+{
+        switch (rsp->op_errno) {
+        case GF_PROBE_ANOTHER_CLUSTER:
+                snprintf (msg, len, "%s is already part of another cluster",
+                          rsp->hostname);
+                break;
+        case GF_PROBE_VOLUME_CONFLICT:
+                snprintf (msg, len, "Atleast one volume on %s conflicts with "
+                          "existing volumes in the cluster", rsp->hostname);
+                break;
+        case GF_PROBE_UNKNOWN_PEER:
+                snprintf (msg, len, "%s responded with 'unknown peer' error, "
+                          "this could happen if %s doesn't have localhost in "
+                          "its peer database", rsp->hostname, rsp->hostname);
+                break;
+        case GF_PROBE_ADD_FAILED:
+                snprintf (msg, len, "Failed to add peer information on %s" ,
+                          rsp->hostname);
+                break;
+        case GF_PROBE_SAME_UUID:
+                snprintf (msg, len, "Peer uuid (host %s) is same as local uuid",
+                          rsp->hostname);
+                break;
+        case GF_PROBE_QUORUM_NOT_MET:
+                snprintf (msg, len, "Cluster quorum is not met. Changing "
+                          "peers is not allowed in this state");
+                break;
+        default:
+                snprintf (msg, len, "Probe returned with unknown "
+                          "errno %d", rsp->op_errno);
+                break;
+        }
+}
+
 int
 gf_cli_probe_cbk (struct rpc_req *req, struct iovec *iov,
                         int count, void *myframe)
@@ -133,47 +169,7 @@ gf_cli_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 if (rsp.op_errstr && (strlen (rsp.op_errstr) > 0)) {
                         snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
                 } else {
-                        switch (rsp.op_errno) {
-                                case GF_PROBE_ANOTHER_CLUSTER:
-                                        snprintf (msg, sizeof (msg),
-                                                  "%s is already part of "
-                                                  "another cluster",
-                                                  rsp.hostname);
-                                        break;
-                                case GF_PROBE_VOLUME_CONFLICT:
-                                        snprintf (msg, sizeof (msg),
-                                                  "Atleast one volume on %s "
-                                                  "conflicts with existing "
-                                                  "volumes in the cluster",
-                                                  rsp.hostname);
-                                        break;
-                                case GF_PROBE_UNKNOWN_PEER:
-                                        snprintf (msg, sizeof (msg),
-                                                  "%s responded with 'unknown "
-                                                  "peer' error, this could "
-                                                  "happen if %s doesn't have "
-                                                  "localhost in its peer "
-                                                  "database", rsp.hostname,
-                                                  rsp.hostname);
-                                        break;
-                                case GF_PROBE_ADD_FAILED:
-                                        snprintf (msg, sizeof (msg),
-                                                  "Failed to add peer "
-                                                  "information on %s" ,
-                                                  rsp.hostname);
-                                        break;
-                                case GF_PROBE_SAME_UUID:
-                                        snprintf (msg, sizeof (msg),
-                                                  "Peer uuid (host %s) is"
-                                                  "same as local uuid",
-                                                  rsp.hostname);
-                                break;
-                                default:
-                                        snprintf (msg, sizeof (msg),
-                                                  "Probe returned with unknown "
-                                                  "errno %d", rsp.op_errno);
-                                        break;
-                        }
+                        gf_cli_probe_strerror (&rsp, msg, sizeof (msg));
                 }
                 gf_log ("cli", GF_LOG_ERROR, "%s", msg);
         }
@@ -247,6 +243,12 @@ gf_cli_deprobe_cbk (struct rpc_req *req, struct iovec *iov,
                                                   "One of the peers is probably"
                                                   " down. Check with 'peer "
                                                   "status'.");
+                                        break;
+                                case GF_DEPROBE_QUORUM_NOT_MET:
+                                        snprintf (msg, sizeof (msg), "Cluster "
+                                                  "quorum is not met. Changing "
+                                                  "peers is not allowed in this"
+                                                  " state");
                                         break;
                                 default:
                                         snprintf (msg, sizeof (msg),
