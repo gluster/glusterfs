@@ -13,6 +13,18 @@ account_autocreate = true
 
 [filter:tempauth]
 use = egg:swift#tempauth
+# Here you need to add users explicitly. See the OpenStack Swift Deployment
+# Guide for more information. The user and user64 directives take the
+# following form:
+#     user_<account>_<username> = <key> [group] [group] [...] [storage_url]
+#     user64_<account_b64>_<username_b64> = <key> [group] [group] [...] [storage_url]
+# Where you use user64 for accounts and/or usernames that include underscores.
+#
+# NOTE (and WARNING): The account name must match the device name specified
+# when generating the account, container, and object build rings.
+#
+# E.g.
+#     user_ufo0_admin = abc123 .admin
 
 [filter:healthcheck]
 use = egg:swift#healthcheck

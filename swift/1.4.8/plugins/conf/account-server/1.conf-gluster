@@ -1,7 +1,7 @@
 [DEFAULT]
-devices = /srv/1/node
-mount_check = false
-bind_port = 6012
+devices = /mnt/gluster-object
+mount_check = true
+bind_port = 6012    # Be sure to keep in sync with /usr/bin/gluster-swift-gen-builders
 user = root
 log_facility = LOG_LOCAL2
 

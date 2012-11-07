@@ -1,4 +1,4 @@
-# Copyright (c) 2011 Red Hat, Inc.
+# Copyright (c) 2012 Red Hat, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,16 +16,15 @@
 import os, errno
 
 from swift.plugins.utils import clean_metadata, dir_empty, rmdirs, mkdirs, \
-     validate_account, validate_container, check_valid_account, is_marker, \
-     get_container_details, get_account_details, get_container_metadata, \
-     create_container_metadata, \
+     validate_account, validate_container, is_marker, get_container_details, \
+     get_account_details, get_container_metadata, create_container_metadata, \
      create_account_metadata, DEFAULT_GID, DEFAULT_UID, validate_object, \
      create_object_metadata, read_metadata, write_metadata, X_CONTENT_TYPE, \
      X_CONTENT_LENGTH, X_TIMESTAMP, X_PUT_TIMESTAMP, X_TYPE, X_ETAG, \
      X_OBJECTS_COUNT, X_BYTES_USED, X_CONTAINER_COUNT, CONTAINER
 from swift.plugins import Glusterfs
 
-from swift.common.constraints import CONTAINER_LISTING_LIMIT, check_mount
+from swift.common.constraints import CONTAINER_LISTING_LIMIT
 from swift.common.utils import normalize_timestamp, TRUE_VALUES
 
 
@@ -163,8 +162,6 @@ class DiskDir(DiskCommon):
         # Note that the account name has a one-to-one mapping to the gluster
         # mount point, or volume name.
         self.account = account
-        if not check_mount(path, account):
-            check_valid_account(account)
         assert logger is not None
         self.logger = logger
         self.metadata = {}
@@ -494,3 +491,9 @@ class DiskAccount(DiskDir):
         if include_metadata:
             data['metadata'] = self.metadata
         return data
+
+    def get_container_timestamp(self, container):
+        cont_path = os.path.join(self.datadir, container)
+        metadata = read_metadata(cont_path)
+
+        return int(metadata.get(X_PUT_TIMESTAMP, ('0',0))[0]) or None

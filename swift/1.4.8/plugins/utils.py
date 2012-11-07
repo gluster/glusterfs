@@ -1,4 +1,4 @@
-# Copyright (c) 2011 Red Hat, Inc.
+# Copyright (c) 2012 Red Hat, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -137,11 +137,6 @@ def clean_metadata(path):
             raise
         key += 1
 
-def get_device_from_account(account):
-    if account.startswith(RESELLER_PREFIX):
-        device = account.replace(RESELLER_PREFIX, '', 1)
-        return device
-
 def check_user_xattr(path):
     if not os.path.exists(path):
         return False
@@ -156,27 +151,6 @@ def check_user_xattr(path):
         logging.exception("check_user_xattr: remove failed on %s err: %s", path, str(err))
         #Remove xattr may fail in case of concurrent remove.
     return True
-
-def _check_valid_account(account):
-    full_mount_path = os.path.join(Glusterfs.MOUNT_PATH, account)
-
-    if os.path.ismount(full_mount_path):
-        return True
-
-    if not _check_account_exists(Glusterfs.get_export_from_account_id(account)):
-        logging.error('Account not present %s', account)
-        return False
-
-    if not os.path.isdir(full_mount_path):
-        mkdirs(full_mount_path)
-
-    if not Glusterfs.mount(account):
-        return False
-
-    return True
-
-def check_valid_account(account):
-    return _check_valid_account(account)
 
 def validate_container(metadata):
     if not metadata:
@@ -253,9 +227,10 @@ def is_marker(metadata):
     else:
         return False
 
-def _update_list(path, const_path, src_list, reg_file=True, object_count=0,
+def _update_list(path, cont_path, src_list, reg_file=True, object_count=0,
                  bytes_used=0, obj_list=[]):
-    obj_path = Glusterfs.strip_obj_storage_path(path, const_path)
+    # strip the prefix off, also stripping the leading and trailing slashes
+    obj_path = path.replace(cont_path, '').strip(os.path.sep)
 
     for i in src_list:
         if obj_path:
@@ -270,14 +245,14 @@ def _update_list(path, const_path, src_list, reg_file=True, object_count=0,
 
     return object_count, bytes_used
 
-def update_list(path, const_path, dirs=[], files=[], object_count=0,
+def update_list(path, cont_path, dirs=[], files=[], object_count=0,
                 bytes_used=0, obj_list=[]):
-    object_count, bytes_used = _update_list (path, const_path, files, True,
-                                             object_count, bytes_used,
-                                             obj_list)
-    object_count, bytes_used = _update_list (path, const_path, dirs, False,
-                                             object_count, bytes_used,
-                                             obj_list)
+    object_count, bytes_used = _update_list(path, cont_path, files, True,
+                                            object_count, bytes_used,
+                                            obj_list)
+    object_count, bytes_used = _update_list(path, cont_path, dirs, False,
+                                            object_count, bytes_used,
+                                            obj_list)
     return object_count, bytes_used
 
 
@@ -314,7 +289,7 @@ def get_container_details(cont_path, memcache=None):
     """
     mkey = ''
     if memcache:
-        mkey = MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + Glusterfs.strip_obj_storage_path(cont_path)
+        mkey = MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX + cont_path
         cd = memcache.get(mkey)
         if cd:
             if not cd.dir_list:
@@ -330,7 +305,7 @@ def get_container_details(cont_path, memcache=None):
         if memcache:
             memcache.set(mkey, cd)
     return cd.obj_list, cd.object_count, cd.bytes_used
-                
+
 
 class AccountDetails(object):
     """ A simple class to store the three pieces of information associated
@@ -371,7 +346,7 @@ def get_account_details(acc_path, memcache=None):
     acc_stats = None
     mkey = ''
     if memcache:
-        mkey = MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX + Glusterfs.strip_obj_storage_path(acc_path)
+        mkey = MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX + acc_path
         ad = memcache.get(mkey)
         if ad:
             # FIXME: Do we really need to stat the file? If we are object
@@ -481,19 +456,6 @@ def create_account_metadata(acc_path, memcache=None):
     metadata = get_account_metadata(acc_path, memcache)
     return restore_metadata(acc_path, metadata)
 
-def _check_account_exists(account):
-    if account not in get_account_list():
-        logging.warn('Account %s does not exist' % account)
-        return False
-    else:
-        return True
-
-def get_account_list():
-    return Glusterfs.get_export_list()
-
-def get_account_id(account):
-    return RESELLER_PREFIX + md5(account + HASH_PATH_SUFFIX).hexdigest()
-
 
 _DEFAULT_GLUSTER_ENABLED = os.getenv('GLUSTER_UNIT_TEST_ENABLED', 'no')
 __swift_conf = ConfigParser()
@@ -507,3 +469,7 @@ _gluster_enabled = _gluster_enabled_val in TRUE_VALUES
 
 def Gluster_enabled():
     return _gluster_enabled
+
+if _gluster_enabled:
+    # Monkey patch only when Gluster enabled
+    import swift.plugins.constraints

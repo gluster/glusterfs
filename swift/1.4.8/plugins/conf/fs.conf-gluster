@@ -1,5 +1,4 @@
 [DEFAULT]
-mount_path = /mnt/gluster-object
 auth_account = auth
 #ip of the fs server.
 mount_ip = localhost
