@@ -1,4 +1,4 @@
-# Copyright (c) 2011 Red Hat, Inc.
+# Copyright (c) 2012 Red Hat, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ import logging
 import os, fcntl, time
 from ConfigParser import ConfigParser
 from swift.common.utils import TRUE_VALUES
-from hashlib import md5
 from swift.plugins.fs_utils import mkdirs
 
 
@@ -24,16 +23,11 @@ from swift.plugins.fs_utils import mkdirs
 # Read the fs.conf file once at startup (module load)
 #
 _fs_conf = ConfigParser()
-MOUNT_PATH = '/mnt/gluster-object'
 AUTH_ACCOUNT = 'auth'
 MOUNT_IP = 'localhost'
 REMOTE_CLUSTER = False
 OBJECT_ONLY = False
 if _fs_conf.read(os.path.join('/etc/swift', 'fs.conf')):
-    try:
-        MOUNT_PATH = _fs_conf.get('DEFAULT', 'mount_path', '/mnt/gluster-object')
-    except (NoSectionError, NoOptionError):
-        pass
     try:
         AUTH_ACCOUNT = _fs_conf.get('DEFAULT', 'auth_account', 'auth')
     except (NoSectionError, NoOptionError):
@@ -53,12 +47,6 @@ if _fs_conf.read(os.path.join('/etc/swift', 'fs.conf')):
 NAME = 'glusterfs'
 
 
-def strip_obj_storage_path(path, mp=MOUNT_PATH):
-    """
-    strip the mount path off, also stripping the leading and trailing slashes
-    """
-    return path.replace(mp, '').strip(os.path.sep)
-
 def _busy_wait(full_mount_path):
     # Iterate for definite number of time over a given
     # interval for successful mount
@@ -66,13 +54,26 @@ def _busy_wait(full_mount_path):
         if os.path.ismount(os.path.join(full_mount_path)):
             return True
         time.sleep(2)
+    logging.error('Busy wait for mount timed out for mount %s', full_mount_path)
     return False
 
-def mount(account):
-    full_mount_path = os.path.join(MOUNT_PATH, account)
-    export = get_export_from_account_id(account)
+def mount(root, drive):
+    # FIXME: Possible thundering herd problem here
 
-    pid_dir  = "/var/lib/glusterd/vols/%s/run/" % export
+    el = _get_export_list()
+    for export in el:
+        if drive == export:
+            break
+    else:
+        logging.error('No export found in %r matching drive %s', el, drive)
+        return False
+
+    # NOTE: root is typically the default value of /mnt/gluster-object
+    full_mount_path = os.path.join(root, drive)
+    if not os.path.isdir(full_mount_path):
+        mkdirs(full_mount_path)
+
+    pid_dir  = "/var/lib/glusterd/vols/%s/run/" % drive
     pid_file = os.path.join(pid_dir, 'swift.pid');
 
     if not os.path.exists(pid_dir):
@@ -85,52 +86,46 @@ def mount(account):
         except:
             ex = sys.exc_info()[1]
             if isinstance(ex, IOError) and ex.errno in (EACCES, EAGAIN):
-            # This means that some other process is mounting the
-            # filesystem, so wait for the mount process to complete
+                # This means that some other process is mounting the
+                # filesystem, so wait for the mount process to complete
                 return _busy_wait(full_mount_path)
 
         mnt_cmd = 'mount -t glusterfs %s:%s %s' % (MOUNT_IP, export, \
                                                    full_mount_path)
         if os.system(mnt_cmd) or not _busy_wait(full_mount_path):
-            raise Exception('Mount failed %s: %s' % (NAME, mnt_cmd))
+            logging.error('Mount failed %s: %s', NAME, mnt_cmd)
+            return False
     return True
 
 def unmount(full_mount_path):
+    # FIXME: Possible thundering herd problem here
+
     umnt_cmd = 'umount %s 2>> /dev/null' % full_mount_path
     if os.system(umnt_cmd):
         logging.error('Unable to unmount %s %s' % (full_mount_path, NAME))
 
-def get_export_list():
+def _get_export_list():
     if REMOTE_CLUSTER:
         cmnd = 'ssh %s gluster volume info' % MOUNT_IP
     else:
         cmnd = 'gluster volume info'
 
+    export_list = []
+
     if os.system(cmnd + ' >> /dev/null'):
         if REMOTE_CLUSTER:
-            raise Exception('Getting volume info failed %s, make sure to have \
-                            passwordless ssh on %s', NAME, MOUNT_IP)
+            logging.error('Getting volume info failed %s, make sure to have '\
+                          'passwordless ssh on %s', NAME, MOUNT_IP)
         else:
-            raise Exception('Getting volume failed %s', NAME)
-
-    export_list = []
-    fp = os.popen(cmnd)
-    while True:
-        item = fp.readline()
-        if not item:
-            break
-        item = item.strip('\n').strip(' ')
-        if item.lower().startswith('volume name:'):
-            export_list.append(item.split(':')[1].strip(' '))
+            logging.error('Getting volume failed %s', NAME)
+    else:
+        fp = os.popen(cmnd)
+        while True:
+            item = fp.readline()
+            if not item:
+                break
+            item = item.strip('\n').strip(' ')
+            if item.lower().startswith('volume name:'):
+                export_list.append(item.split(':')[1].strip(' '))
 
     return export_list
-
-def get_export_from_account_id(account):
-    if not account:
-        raise ValueError('No account given')
-
-    for export in get_export_list():
-        if account == 'AUTH_' + export:
-            return export
-
-    raise Exception('No export found %s %s' % (account, NAME))

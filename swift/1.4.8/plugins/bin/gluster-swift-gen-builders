@@ -1,0 +1,19 @@
+#!/bin/bash
+
+function create {
+    swift-ring-builder $1 create 0 1 1
+    swift-ring-builder $1 add z1-127.0.0.1:$2/$3_ 100.0
+    swift-ring-builder $1 rebalance
+    swift-ring-builder $1
+}
+
+if [ "$1x" = "x" ]; then
+    echo "Please specify the gluster volume name to use."
+    exit 1
+fi
+
+# Note that these port numbers must match the configured values for the
+# various servers in their configuration files.
+create account.builder 6012 $1
+create container.builder 6011 $1
+create object.builder 6010 $1

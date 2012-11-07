@@ -1,4 +1,4 @@
-# Copyright (c) 2011 Red Hat, Inc.
+# Copyright (c) 2012 Red Hat, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,14 +19,12 @@ from tempfile import mkstemp
 from contextlib import contextmanager
 from swift.common.utils import normalize_timestamp, renamer
 from swift.plugins.utils import mkdirs, rmdirs, validate_object, \
-    check_valid_account, create_object_metadata,  do_open, \
-    do_close, do_unlink, do_chown, do_stat, do_listdir, read_metadata,\
-    write_metadata
-from swift.common.constraints import  check_mount
-from swift.plugins.utils import X_CONTENT_TYPE, X_CONTENT_LENGTH, X_TIMESTAMP,\
+     create_object_metadata,  do_open, do_close, do_unlink, do_chown, \
+     do_stat, do_listdir, read_metadata, write_metadata
+from swift.plugins.utils import X_CONTENT_TYPE, X_CONTENT_LENGTH, X_TIMESTAMP, \
      X_PUT_TIMESTAMP, X_TYPE, X_ETAG, X_OBJECTS_COUNT, X_BYTES_USED, \
-     X_OBJECT_TYPE, FILE, DIR, MARKER_DIR, OBJECT, \
-     DIR_TYPE, FILE_TYPE, DEFAULT_UID, DEFAULT_GID
+     X_OBJECT_TYPE, FILE, DIR, MARKER_DIR, OBJECT, DIR_TYPE, FILE_TYPE, \
+     DEFAULT_UID, DEFAULT_GID
 
 import logging
 from swift.obj.server import DiskFile
@@ -74,11 +72,7 @@ class Gluster_DiskFile(DiskFile):
             self.name = container
         #Absolute path for obj directory.
         self.datadir = os.path.join(path, device, self.name)
-
         self.device_path = os.path.join(path, device)
-        if not check_mount(path, device):
-            check_valid_account(account)
-
         self.container_path = os.path.join(path, device, container)
         self.tmpdir = os.path.join(path, device, 'tmp')
         self.logger = logger
