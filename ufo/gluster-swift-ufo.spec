@@ -14,9 +14,9 @@
 %{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
 %endif
 
-%define _confdir     /etc/swift
+%define _confdir     %{_sysconfdir}/swift
 %define _ufo_version 1.1
-%define _ufo_release 1
+%define _ufo_release 2
 
 Summary  : GlusterFS Unified File and Object Storage.
 Name     : gluster-swift-ufo
@@ -31,14 +31,13 @@ BuildArch: noarch
 Requires : memcached
 Requires : openssl
 Requires : python
-#Requires : openstack-swift >= 1.4.8
-#Requires : openstack-swift-account >= 1.4.8
-#Requires : openstack-swift-auth >= 1.4.8
-#Requires : openstack-swift-container >= 1.4.8
-#Requires : openstack-swift-object >= 1.4.8
-#Requires : openstack-swift-proxy >= 1.4.8
-#Obsoletes: gluster-swift
-#Obsoletes: gluster-swift-plugin
+Requires : openstack-swift >= 1.4.8
+Requires : openstack-swift-account >= 1.4.8
+Requires : openstack-swift-container >= 1.4.8
+Requires : openstack-swift-object >= 1.4.8
+Requires : openstack-swift-proxy >= 1.4.8
+Obsoletes: gluster-swift
+Obsoletes: gluster-swift-plugin
 
 %description
 Gluster Unified File and Object Storage unifies NAS and object storage
@@ -69,16 +68,9 @@ rm -rf %{buildroot}
 %files
 %defattr(-,root,root)
 %{python_sitelib}/gluster
-#%{python_sitelib}/gluster/swift/*.py*
-#%{python_sitelib}/gluster/swift/common/*.py*
-#%{python_sitelib}/gluster/swift/common/middleware
-#%{python_sitelib}/gluster/swift/proxy
-#%{python_sitelib}/gluster/swift/obj
-#%{python_sitelib}/gluster/swift/container
-#%{python_sitelib}/gluster/swift/account
 %{python_sitelib}/gluster_swift_ufo-%{version}-*.egg-info
 %{_bindir}/gluster-swift-gen-builders
-%dir %{_sysconfdir}/swift
+%dir %{_confdir}
 %config %{_confdir}/account-server/1.conf-gluster
 %config %{_confdir}/container-server/1.conf-gluster
 %config %{_confdir}/object-server/1.conf-gluster
