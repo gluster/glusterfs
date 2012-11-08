@@ -21,8 +21,8 @@ from hashlib import md5
 import cPickle as pickle
 from ConfigParser import ConfigParser, NoSectionError, NoOptionError
 from swift.common.utils import normalize_timestamp, TRUE_VALUES
-from swift.plugins.fs_utils import *
-from swift.plugins import Glusterfs
+from gluster.swift.common.fs_utils import *
+from gluster.swift.common import Glusterfs
 
 X_CONTENT_TYPE = 'Content-Type'
 X_CONTENT_LENGTH = 'Content-Length'
@@ -455,21 +455,3 @@ def create_container_metadata(cont_path, memcache=None):
 def create_account_metadata(acc_path, memcache=None):
     metadata = get_account_metadata(acc_path, memcache)
     return restore_metadata(acc_path, metadata)
-
-
-_DEFAULT_GLUSTER_ENABLED = os.getenv('GLUSTER_UNIT_TEST_ENABLED', 'no')
-__swift_conf = ConfigParser()
-__swift_conf.read(os.path.join('/etc/swift', 'swift.conf'))
-try:
-    _gluster_enabled_val = __swift_conf.get('DEFAULT', 'Enable_plugin', _DEFAULT_GLUSTER_ENABLED)
-except NoOptionError, NoSectionError:
-    _gluster_enabled_val = _DEFAULT_GLUSTER_ENABLED
-del __swift_conf
-_gluster_enabled = _gluster_enabled_val in TRUE_VALUES
-
-def Gluster_enabled():
-    return _gluster_enabled
-
-if _gluster_enabled:
-    # Monkey patch only when Gluster enabled
-    import swift.plugins.constraints

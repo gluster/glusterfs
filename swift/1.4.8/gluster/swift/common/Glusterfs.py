@@ -16,22 +16,17 @@ import logging
 import os, fcntl, time
 from ConfigParser import ConfigParser
 from swift.common.utils import TRUE_VALUES
-from swift.plugins.fs_utils import mkdirs
+from gluster.swift.common.fs_utils import mkdirs
 
 
 #
 # Read the fs.conf file once at startup (module load)
 #
 _fs_conf = ConfigParser()
-AUTH_ACCOUNT = 'auth'
 MOUNT_IP = 'localhost'
 REMOTE_CLUSTER = False
 OBJECT_ONLY = False
 if _fs_conf.read(os.path.join('/etc/swift', 'fs.conf')):
-    try:
-        AUTH_ACCOUNT = _fs_conf.get('DEFAULT', 'auth_account', 'auth')
-    except (NoSectionError, NoOptionError):
-        pass
     try:
         MOUNT_IP = _fs_conf.get('DEFAULT', 'mount_ip', 'localhost')
     except (NoSectionError, NoOptionError):

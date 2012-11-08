@@ -3,20 +3,14 @@ via gluster-native/nfs mount to be accessed as containers and objects. It is
 a plugin for OpenStack Swift project.
 
 Install
-* Clone the swift repo from git://github.com/openstack/swift.git
-* Apply the swift.diff present in glusterfs.git/swift/1.4.8 to the swift repo.
-* Create a directory named "plugins" under swift.git/swift directory.
-* Copy the contents of glusterfs.git/swift/1.4.8/plugins/ under swift.git/swift/
-  except the conf directory.
-* Copy the contents of glusterfs.git/swift/1.4.8/plugins/conf under /etc/swift/.
-* Run python setup.py install
+  * TBD
 
 Once this is done, you can access the GlusterFS volumes as Swift accounts.
 Add the Volume names with the user-name and its corresponding password to the
 /etc/swift/proxy-server.conf (follow the syntax used in the sample conf file).
 
-Command to start the servers
+Command to start the servers (TBD)
   swift-init main start
 
-Command to stop the servers
+Command to stop the servers (TBD)
   swift-init main stop

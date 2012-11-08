@@ -1,7 +1,7 @@
 [DEFAULT]
 devices = /mnt/gluster-object
 mount_check = true
-bind_port = 6010    # Be sure to keep in sync with /usr/bin/gluster-swift-gen-builders
+bind_port = 6010
 user = root
 log_facility = LOG_LOCAL2
 
@@ -9,7 +9,7 @@ log_facility = LOG_LOCAL2
 pipeline = object-server
 
 [app:object-server]
-use = egg:swift#object
+use = egg:gluster_swift_ufo#object
 
 [object-replicator]
 vm_test_mode = yes

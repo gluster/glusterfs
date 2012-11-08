@@ -16,7 +16,7 @@
 from webob.exc import HTTPBadRequest
 
 import swift.common.constraints
-from swift.plugins import Glusterfs
+from gluster.swift.common import Glusterfs
 
 
 MAX_OBJECT_NAME_COMPONENT_LENGTH = swift.common.constraints.constraints_conf_int(

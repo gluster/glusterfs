@@ -4,19 +4,22 @@
 ############################################################################################################
 # Setting up the environment. #
 #  * Create a directory %{name}-%{version} under $HOME/rpmbuild/SOURCES #
-#  * Copy the contents of plugins directory into $HOME/rpmbuild/SOURCES/%{name}-%{version} #
+#  * Copy the contents of gluster directory into $HOME/rpmbuild/SOURCES/%{name}-%{version} #
 #  * tar zcvf %{name}-%{version}-%{release}.tar.gz $HOME/rpmbuild/SOURCES/%{name}-%{version} %{name}.spec #
 # For more information refer #
 # http://fedoraproject.org/wiki/How_to_create_an_RPM_package #
 ############################################################################################################
 
+%if ! (0%{?fedora} > 12 || 0%{?rhel} > 5)
+%{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
+%endif
+
 %define _confdir     /etc/swift
-%define _swiftdir    /usr/lib/python2.6/site-packages/swift
-%define _ufo_version 1.0
-%define _ufo_release 12
+%define _ufo_version 1.1
+%define _ufo_release 1
 
 Summary  : GlusterFS Unified File and Object Storage.
-Name     : gluster-swift-plugin
+Name     : gluster-swift-ufo
 Version  : %{_ufo_version}
 Release  : %{_ufo_release}
 Group    : Application/File
@@ -28,7 +31,14 @@ BuildArch: noarch
 Requires : memcached
 Requires : openssl
 Requires : python
-Requires : gluster-swift
+#Requires : openstack-swift >= 1.4.8
+#Requires : openstack-swift-account >= 1.4.8
+#Requires : openstack-swift-auth >= 1.4.8
+#Requires : openstack-swift-container >= 1.4.8
+#Requires : openstack-swift-object >= 1.4.8
+#Requires : openstack-swift-proxy >= 1.4.8
+#Obsoletes: gluster-swift
+#Obsoletes: gluster-swift-plugin
 
 %description
 Gluster Unified File and Object Storage unifies NAS and object storage
@@ -39,33 +49,36 @@ storage costs.
 %prep
 %setup -q
 
+%build
+%{__python} setup.py build
+
 %install
 rm -rf %{buildroot}
 
-mkdir -p %{buildroot}/%{_swiftdir}/plugins/middleware
-mkdir -p %{buildroot}/%{_confdir}/
-mkdir -p %{buildroot}/%{_bindir}/
+%{__python} setup.py install -O1 --skip-build --root %{buildroot}
 
-cp constraints.py  %{buildroot}/%{_swiftdir}/plugins
-cp DiskDir.py      %{buildroot}/%{_swiftdir}/plugins
-cp DiskFile.py     %{buildroot}/%{_swiftdir}/plugins
-cp Glusterfs.py    %{buildroot}/%{_swiftdir}/plugins
-cp __init__.py     %{buildroot}/%{_swiftdir}/plugins
-cp utils.py        %{buildroot}/%{_swiftdir}/plugins
-cp fs_utils.py     %{buildroot}/%{_swiftdir}/plugins
+mkdir -p      %{buildroot}/%{_confdir}/
+cp -r etc/*   %{buildroot}/%{_confdir}/
 
-cp middleware/__init__.py       %{buildroot}/%{_swiftdir}/plugins/middleware
-cp middleware/gluster.py        %{buildroot}/%{_swiftdir}/plugins/middleware
+mkdir -p                             %{buildroot}/%{_bindir}/
+cp bin/gluster-swift-gen-builders    %{buildroot}/%{_bindir}/
 
-cp -r conf/*       %{buildroot}/%{_confdir}/
-
-cp bin/gluster-swift-gen-builders   %{buildroot}/%{_bindir}/
+%clean
+rm -rf %{buildroot}
 
 %files
 %defattr(-,root,root)
-%docdir conf
-%{_swiftdir}/plugins
+%{python_sitelib}/gluster
+#%{python_sitelib}/gluster/swift/*.py*
+#%{python_sitelib}/gluster/swift/common/*.py*
+#%{python_sitelib}/gluster/swift/common/middleware
+#%{python_sitelib}/gluster/swift/proxy
+#%{python_sitelib}/gluster/swift/obj
+#%{python_sitelib}/gluster/swift/container
+#%{python_sitelib}/gluster/swift/account
+%{python_sitelib}/gluster_swift_ufo-%{version}-*.egg-info
 %{_bindir}/gluster-swift-gen-builders
+%dir %{_sysconfdir}/swift
 %config %{_confdir}/account-server/1.conf-gluster
 %config %{_confdir}/container-server/1.conf-gluster
 %config %{_confdir}/object-server/1.conf-gluster
