@@ -14,7 +14,7 @@
 # limitations under the License.
 
 # Noop Middleware that simply allows us to monkey patch the constraints
-import swift.plugins.constraints
+import gluster.swift.common.constraints
 
 class Gluster(object):
     """

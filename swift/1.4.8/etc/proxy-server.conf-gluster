@@ -4,10 +4,10 @@ user = root
 log_facility = LOG_LOCAL1
 
 [pipeline:main]
-pipeline = healthcheck cache tempauth gluster proxy-server
+pipeline = healthcheck cache tempauth proxy-server
 
 [app:proxy-server]
-use = egg:swift#proxy
+use = egg:gluster_swift_ufo#proxy
 allow_account_management = true
 account_autocreate = true
 
@@ -31,6 +31,3 @@ use = egg:swift#healthcheck
 
 [filter:cache]
 use = egg:swift#memcache
-
-[filter:gluster]
-use = egg:swift#gluster

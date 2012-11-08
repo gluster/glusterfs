@@ -1,6 +1,6 @@
 #!/bin/bash
 
 cd test/unit
-nosetests --exe --with-coverage --cover-package plugins --cover-erase $@
+nosetests --exe --with-coverage --cover-package gluster --cover-erase $@
 rm -f .coverage
 cd -

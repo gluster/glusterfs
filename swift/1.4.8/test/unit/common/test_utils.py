@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" Tests for plugins.utils """
+""" Tests for common.utils """
 
 import os
 import unittest
@@ -26,7 +26,7 @@ import tarfile
 import shutil
 from collections import defaultdict
 from swift.common.utils import normalize_timestamp
-from swift.plugins import utils
+from gluster.swift.common import utils
 
 #
 # Somewhat hacky way of emulating the operation of xattr calls. They are made
@@ -119,7 +119,7 @@ class SimMemcache(object):
 
 
 class TestUtils(unittest.TestCase):
-    """ Tests for plugins.utils """
+    """ Tests for common.utils """
 
     def setUp(self):
         _initxattr()
@@ -753,7 +753,7 @@ class TestUtils(unittest.TestCase):
 
     def test_get_container_details_from_fs(self):
         td = tempfile.mkdtemp()
-        tf = tarfile.open("plugins/data/account_tree.tar.bz2", "r:bz2")
+        tf = tarfile.open("common/data/account_tree.tar.bz2", "r:bz2")
         orig_cwd = os.getcwd()
         os.chdir(td)
         tf.extractall()
@@ -776,7 +776,7 @@ class TestUtils(unittest.TestCase):
 
     def test_get_account_details_from_fs(self):
         td = tempfile.mkdtemp()
-        tf = tarfile.open("plugins/data/container_tree.tar.bz2", "r:bz2")
+        tf = tarfile.open("common/data/container_tree.tar.bz2", "r:bz2")
         orig_cwd = os.getcwd()
         os.chdir(td)
         tf.extractall()

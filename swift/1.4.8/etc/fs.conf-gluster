@@ -1,0 +1,13 @@
+[DEFAULT]
+# IP address of a GlusterFS volume server member. By default, we assume the
+# local host.
+mount_ip = localhost
+
+# The GlusterFS server need not be local, a remote server can also be used
+# by setting "remote_cluster = yes".
+remote_cluster = no
+
+# By default it is assumed the Gluster volumes can be accessed using other
+# methods besides UFO (not object only), which disables a caching
+# optimizations in order to keep in sync with file system changes.
+object_only = no

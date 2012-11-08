@@ -15,14 +15,15 @@
 
 import os, errno
 
-from swift.plugins.utils import clean_metadata, dir_empty, rmdirs, mkdirs, \
-     validate_account, validate_container, is_marker, get_container_details, \
-     get_account_details, get_container_metadata, create_container_metadata, \
-     create_account_metadata, DEFAULT_GID, DEFAULT_UID, validate_object, \
-     create_object_metadata, read_metadata, write_metadata, X_CONTENT_TYPE, \
-     X_CONTENT_LENGTH, X_TIMESTAMP, X_PUT_TIMESTAMP, X_TYPE, X_ETAG, \
-     X_OBJECTS_COUNT, X_BYTES_USED, X_CONTAINER_COUNT, CONTAINER
-from swift.plugins import Glusterfs
+from gluster.swift.common.utils import clean_metadata, dir_empty, rmdirs, \
+     mkdirs, validate_account, validate_container, is_marker, \
+     get_container_details, get_account_details, get_container_metadata, \
+     create_container_metadata, create_account_metadata, DEFAULT_GID, \
+     DEFAULT_UID, validate_object, create_object_metadata, read_metadata, \
+     write_metadata, X_CONTENT_TYPE, X_CONTENT_LENGTH, X_TIMESTAMP, \
+     X_PUT_TIMESTAMP, X_TYPE, X_ETAG, X_OBJECTS_COUNT, X_BYTES_USED, \
+     X_CONTAINER_COUNT, CONTAINER
+from gluster.swift.common import Glusterfs
 
 from swift.common.constraints import CONTAINER_LISTING_LIMIT
 from swift.common.utils import normalize_timestamp, TRUE_VALUES

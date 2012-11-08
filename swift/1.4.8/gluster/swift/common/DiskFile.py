@@ -18,13 +18,13 @@ from eventlet import tpool
 from tempfile import mkstemp
 from contextlib import contextmanager
 from swift.common.utils import normalize_timestamp, renamer
-from swift.plugins.utils import mkdirs, rmdirs, validate_object, \
+from gluster.swift.common.utils import mkdirs, rmdirs, validate_object, \
      create_object_metadata,  do_open, do_close, do_unlink, do_chown, \
      do_stat, do_listdir, read_metadata, write_metadata
-from swift.plugins.utils import X_CONTENT_TYPE, X_CONTENT_LENGTH, X_TIMESTAMP, \
-     X_PUT_TIMESTAMP, X_TYPE, X_ETAG, X_OBJECTS_COUNT, X_BYTES_USED, \
-     X_OBJECT_TYPE, FILE, DIR, MARKER_DIR, OBJECT, DIR_TYPE, FILE_TYPE, \
-     DEFAULT_UID, DEFAULT_GID
+from gluster.swift.common.utils import X_CONTENT_TYPE, X_CONTENT_LENGTH, \
+     X_TIMESTAMP, X_PUT_TIMESTAMP, X_TYPE, X_ETAG, X_OBJECTS_COUNT, \
+     X_BYTES_USED, X_OBJECT_TYPE, FILE, DIR, MARKER_DIR, OBJECT, DIR_TYPE, \
+     FILE_TYPE, DEFAULT_UID, DEFAULT_GID
 
 import logging
 from swift.obj.server import DiskFile
