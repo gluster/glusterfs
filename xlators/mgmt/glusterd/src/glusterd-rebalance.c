@@ -371,16 +371,19 @@ out:
 int
 glusterd_handle_defrag_volume (rpcsvc_request_t *req)
 {
-        int32_t                 ret     = -1;
-        gf_cli_req              cli_req = {{0,}};
-        glusterd_conf_t        *priv    = NULL;
-        dict_t                 *dict    = NULL;
-        char                   *volname = NULL;
-        gf_cli_defrag_type      cmd     = 0;
+        int32_t                 ret       = -1;
+        gf_cli_req              cli_req   = {{0,}};
+        glusterd_conf_t        *priv      = NULL;
+        dict_t                 *dict      = NULL;
+        char                   *volname   = NULL;
+        gf_cli_defrag_type      cmd       = 0;
+        char                    msg[2048] = {0,};
+        xlator_t               *this      = NULL;
 
         GF_ASSERT (req);
+        this = THIS;
 
-        priv = THIS->private;
+        priv = this->private;
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
@@ -396,24 +399,26 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
                                         cli_req.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "failed to "
                                 "unserialize req-buffer to dictionary");
+                        snprintf (msg, sizeof (msg), "Unable to decode the "
+                                  "command");
                         goto out;
                 }
         }
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "Failed to get volname");
+                snprintf (msg, sizeof (msg), "Failed to get volume name");
+                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
                 goto out;
         }
 
         ret = dict_get_int32 (dict, "rebalance-command", (int32_t*)&cmd);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "Failed to get command");
+                snprintf (msg, sizeof (msg), "Failed to get command");
+                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
                 goto out;
         }
 
@@ -424,9 +429,10 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
         if ((cmd == GF_DEFRAG_CMD_STATUS) ||
               (cmd == GF_DEFRAG_CMD_STOP)) {
                 ret = glusterd_op_begin (req, GD_OP_DEFRAG_BRICK_VOLUME,
-                                                  dict);
+                                         dict, msg, sizeof (msg));
         } else
-                ret = glusterd_op_begin (req, GD_OP_REBALANCE, dict);
+                ret = glusterd_op_begin (req, GD_OP_REBALANCE, dict,
+                                         msg, sizeof (msg));
 
 out:
 
@@ -434,8 +440,10 @@ out:
         glusterd_op_sm ();
 
         if (ret) {
-                ret = glusterd_op_send_cli_response (GD_OP_REBALANCE, ret, 0, req,
-                                                     dict, "operation failed");
+                if (msg[0] == '\0')
+                        snprintf (msg, sizeof (msg), "Operation failed");
+                ret = glusterd_op_send_cli_response (GD_OP_REBALANCE, ret, 0,
+                                                     req, dict, msg);
                 if (dict)
                         dict_unref (dict);
         }

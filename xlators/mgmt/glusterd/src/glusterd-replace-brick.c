@@ -80,8 +80,11 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
         char                            operation[256];
         glusterd_op_t                   cli_op = GD_OP_REPLACE_BRICK;
         char                            *volname = NULL;
+        char                            msg[2048] = {0,};
+        xlator_t                        *this = NULL;
 
         GF_ASSERT (req);
+        this = THIS;
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
@@ -90,7 +93,7 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_INFO, "Received replace brick req");
+        gf_log (this->name, GF_LOG_INFO, "Received replace brick req");
 
         if (cli_req.dict.dict_len) {
                 /* Unserialize the dictionary */
@@ -100,48 +103,55 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
                                         cli_req.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "failed to "
                                 "unserialize req-buffer to dictionary");
+                        snprintf (msg, sizeof (msg), "Unable to decode the "
+                                  "command");
                         goto out;
                 }
         }
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "could not get volname");
+                snprintf (msg, sizeof (msg), "Could not get volume name");
+                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
                 goto out;
         }
 
         ret = dict_get_int32 (dict, "operation", &op);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "dict_get on operation failed");
+                snprintf (msg, sizeof (msg), "Could not get operation");
                 goto out;
         }
 
         ret = dict_get_str (dict, "src-brick", &src_brick);
 
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get src brick");
+                snprintf (msg, sizeof (msg), "Failed to get src brick");
+                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
                 goto out;
         }
-        gf_log ("", GF_LOG_DEBUG,
+        gf_log (this->name, GF_LOG_DEBUG,
                 "src brick=%s", src_brick);
 
         ret = dict_get_str (dict, "dst-brick", &dst_brick);
 
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get dest brick");
+                snprintf (msg, sizeof (msg), "Failed to get dest brick");
+                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
                 goto out;
         }
 
         (void) glusterd_get_replace_op_str (op, operation);
-        gf_log ("", GF_LOG_DEBUG, "dst brick=%s", dst_brick);
-        gf_log ("glusterd", GF_LOG_INFO, "Received replace brick %s request",
+        gf_log (this->name, GF_LOG_DEBUG, "dst brick=%s", dst_brick);
+        gf_log (this->name, GF_LOG_INFO, "Received replace brick %s request",
                 operation);
 
-        ret = glusterd_op_begin (req, GD_OP_REPLACE_BRICK, dict);
+        ret = glusterd_op_begin (req, GD_OP_REPLACE_BRICK, dict,
+                                 msg, sizeof (msg));
 
 out:
         free (cli_req.dict.dict_val);//malloced by xdr
@@ -150,8 +160,10 @@ out:
         glusterd_op_sm ();
 
         if (ret) {
+                if (msg[0] == '\0')
+                        snprintf (msg, sizeof (msg), "Operation failed");
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
-                                                     dict, "operation failed");
+                                                     dict, msg);
                 if (dict)
                         dict_unref (dict);
         }

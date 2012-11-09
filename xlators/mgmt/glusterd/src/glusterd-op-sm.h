@@ -193,7 +193,8 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *req, char **op_errstr,
                             dict_t* dict);
 
 int32_t
-glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx);
+glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
+                       char *err_str, size_t err_len);
 
 int32_t
 glusterd_op_txn_complete ();
