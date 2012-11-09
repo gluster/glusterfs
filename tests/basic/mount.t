@@ -34,8 +34,19 @@ EXPECT 'Started' volinfo_field $V0 'Status';
 ## Make volume tightly consistent for metdata
 TEST $CLI volume set $V0 performance.stat-prefetch off;
 
-## Mount FUSE with caching disabled
+## Mount FUSE with caching disabled (read-write)
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
+
+## Check consistent "rw" option
+TEST 'mount -t fuse.glusterfs | grep -E "^$H0:$V0 .+ \(rw,"';
+TEST 'grep -E "^$H0:$V0 .+ ,?rw," /proc/mounts';
+
+## Mount FUSE with caching disabled (read-only)
+TEST glusterfs --entry-timeout=0 --attribute-timeout=0 --read-only -s $H0 --volfile-id $V0 $M1;
+
+## Check consistent "ro" option
+TEST 'mount -t fuse.glusterfs | grep -E "^$H0:$V0 .+ \(ro,"';
+TEST 'grep -E "^$H0:$V0 .+ ,?ro,.+" /proc/mounts';
 
 ## Wait for volume to register with rpc.mountd
 sleep 5;
@@ -45,11 +56,16 @@ TEST mount -t nfs -o vers=3,nolock,soft,intr $H0:/$V0 $N0;
 
 
 ## Test for consistent views between NFS and FUSE mounts
+## write access to $M1 should fail
 TEST ! stat $M0/newfile;
+TEST ! touch $M1/newfile;
 TEST touch $M0/newfile;
+TEST stat $M1/newfile;
 TEST stat $N0/newfile;
+TEST ! rm $M1/newfile;
 TEST rm $N0/newfile;
 TEST ! stat $M0/newfile;
+TEST ! stat $M1/newfile;
 
 
 ## Finish up
