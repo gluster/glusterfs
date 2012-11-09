@@ -500,8 +500,12 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
 
         /*  Lock everything */
         ret = glusterd_lock (MY_UUID);
-        if (ret)
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Unable to acquire lock");
+                gf_asprintf (&op_errstr, "Another transaction is in progress. "
+                             "Please try again after sometime.");
                 goto out;
+        }
         /* successful lock in local node */
         local_locked = _gf_true;
 

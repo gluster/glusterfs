@@ -34,8 +34,11 @@ glusterd_handle_quota (rpcsvc_request_t *req)
         char                            operation[256] = {0, };
         char                           *volname = NULL;
         int32_t                         type = 0;
+        char                            msg[2048] = {0,};
+        xlator_t                       *this = NULL;
 
         GF_ASSERT (req);
+        this = THIS;
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
@@ -52,8 +55,10 @@ glusterd_handle_quota (rpcsvc_request_t *req)
                                         cli_req.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
-                        gf_log ("glusterd", GF_LOG_ERROR, "failed to "
+                        gf_log (this->name, GF_LOG_ERROR, "failed to "
                                     "unserialize req-buffer to dictionary");
+                        snprintf (msg, sizeof (msg), "Unable to decode the "
+                                  "command");
                         goto out;
                 } else {
                         dict->extra_stdfree = cli_req.dict.dict_val;
@@ -62,16 +67,18 @@ glusterd_handle_quota (rpcsvc_request_t *req)
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log ("", GF_LOG_WARNING, "Unable to get volume name, while"
-                        "handling quota command");
+                snprintf (msg, sizeof (msg), "Unable to get volume name");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name, "
+                        "while handling quota command");
                 goto out;
         }
 
         ret = dict_get_int32 (dict, "type", &type);
         if (ret) {
-                gf_log ("", GF_LOG_WARNING, "Unable to get type of cmd. , while"
-                        "handling quota command");
-                goto out;
+                snprintf (msg, sizeof (msg), "Unable to get type of command");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get type of cmd, "
+                        "while handling quota command");
+               goto out;
         }
 
         switch (type) {
@@ -91,15 +98,17 @@ glusterd_handle_quota (rpcsvc_request_t *req)
                 strncpy (operation, "remove", sizeof (operation));
                 break;
         }
-        ret = glusterd_op_begin (req, GD_OP_QUOTA, dict);
+        ret = glusterd_op_begin (req, GD_OP_QUOTA, dict, msg, sizeof (msg));
 
 out:
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
         if (ret) {
+                if (msg[0] == '\0')
+                        snprintf (msg, sizeof (msg), "Operation failed");
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
-                                                     dict, "operation failed");
+                                                     dict, msg);
                 if (dict)
                         dict_unref (dict);
         }

@@ -634,7 +634,8 @@ glusterd_rpc_create (struct rpc_clnt **rpc, dict_t *options,
 
 
 /* handler functions */
-int32_t glusterd_op_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx);
+int32_t glusterd_op_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
+                           char *err_str, size_t size);
 
 /* removed other definitions as they have been defined elsewhere in this file*/
 

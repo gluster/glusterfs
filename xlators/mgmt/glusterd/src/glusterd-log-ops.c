@@ -31,8 +31,11 @@ glusterd_handle_log_rotate (rpcsvc_request_t *req)
         dict_t                 *dict    = NULL;
         glusterd_op_t           cli_op = GD_OP_LOG_ROTATE;
         char                   *volname = NULL;
+        char                   msg[2048] = {0,};
+        xlator_t               *this = NULL;
 
         GF_ASSERT (req);
+        this = THIS;
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
@@ -49,35 +52,41 @@ glusterd_handle_log_rotate (rpcsvc_request_t *req)
                                         cli_req.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "failed to "
                                 "unserialize req-buffer to dictionary");
+                        snprintf (msg, sizeof (msg), "Unable to decode the "
+                                  "command");
                         goto out;
                 }
         }
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "failed to get volname");
+                snprintf (msg, sizeof (msg), "Failed to get volume name");
+                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_INFO, "Received log rotate req "
+        gf_log (this->name, GF_LOG_INFO, "Received log rotate req "
                 "for volume %s", volname);
 
         ret = dict_set_uint64 (dict, "rotate-key", (uint64_t)time (NULL));
         if (ret)
                 goto out;
 
-        ret = glusterd_op_begin (req, GD_OP_LOG_ROTATE, dict);
+        ret = glusterd_op_begin (req, GD_OP_LOG_ROTATE, dict,
+                                 msg, sizeof (msg));
 
 out:
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
         if (ret) {
+                if (msg[0] == '\0')
+                        snprintf (msg, sizeof (msg), "Operation failed");
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
-                                                     dict, "operation failed");
+                                                     dict, msg);
                 if (dict)
                         dict_unref (dict);
         }

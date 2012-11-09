@@ -48,12 +48,15 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
         int                     type = 0;
         glusterd_conf_t         *priv   = NULL;
         char                    *host_uuid = NULL;
+        char                    err_str[2048] = {0,};
+        xlator_t                *this = NULL;
 
         GF_ASSERT (req);
         GF_ASSERT (THIS);
         GF_ASSERT (THIS->private);
 
-        priv = THIS->private;
+       this = THIS;
+       priv = this->private;
 
         ret = xdr_to_generic (req->msg[0], &cli_req,
                               (xdrproc_t)xdr_gf_cli_req);
@@ -71,8 +74,10 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
                                         cli_req.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
-                        gf_log ("glusterd", GF_LOG_ERROR, "failed to "
+                        gf_log (this->name, GF_LOG_ERROR, "failed to "
                                 "unserialize req-buffer to dictionary");
+                        snprintf (err_str, sizeof (err_str), "Unable to decode "
+                                  "the command");
                         goto out;
                 } else {
                         dict->extra_stdfree = cli_req.dict.dict_val;
@@ -80,8 +85,8 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
 
                 host_uuid = gf_strdup (uuid_utoa(MY_UUID));
                 if (host_uuid == NULL) {
-                        gf_log ("glusterd", GF_LOG_ERROR, "failed to get"
-                                "the uuid of the host machine");
+                        snprintf (err_str, sizeof (err_str), "Failed to get "
+                                  "the uuid of local glusterd");
                         ret = -1;
                         goto out;
                 }
@@ -93,22 +98,23 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
 
         ret = dict_get_str (dict, "master", &master);
         if (ret < 0) {
-                gf_log ("", GF_LOG_INFO, "master not found, while handling"
-                         GEOREP" options");
+                gf_log (this->name, GF_LOG_INFO, "master not found, while "
+                        "handling"GEOREP" options");
                 master = "(No Master)";
         }
 
         ret = dict_get_str (dict, "slave", &slave);
         if (ret < 0) {
-                gf_log ("", GF_LOG_INFO, "slave not not found, while"
+                gf_log (this->name, GF_LOG_INFO, "slave not not found, while"
                         "handling "GEOREP" options");
                 slave = "(No Slave)";
         }
 
         ret = dict_get_int32 (dict, "type", &type);
         if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "command type not found, while"
-                        "handling "GEOREP" options");
+                snprintf (err_str, sizeof (err_str), "Command type not found "
+                          "while handling "GEOREP" options");
+                gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
                 goto out;
         }
 
@@ -134,15 +140,20 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
                 break;
         }
 
-        ret = glusterd_op_begin (req, GD_OP_GSYNC_SET, dict);
+        ret = glusterd_op_begin (req, GD_OP_GSYNC_SET, dict,
+                                 err_str, sizeof (err_str));
 
 out:
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
+
         if (ret) {
+                if (err_str[0] == '\0')
+                        snprintf (err_str, sizeof (err_str),
+                                  "Operation failed");
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
-                                                     dict, "operation failed");
+                                                     dict, err_str);
                 if (dict)
                         dict_unref (dict);
         }
