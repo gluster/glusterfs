@@ -100,7 +100,8 @@ escape (char *s)
 }
 
 static int
-fuse_mount_fusermount (const char *mountpoint, char *fsname, char *mnt_param,
+fuse_mount_fusermount (const char *mountpoint, char *fsname,
+                       unsigned long mountflags, char *mnt_param,
                        int fd)
 {
         int  pid = -1;
@@ -124,7 +125,8 @@ fuse_mount_fusermount (const char *mountpoint, char *fsname, char *mnt_param,
                 return -1;
         }
         ret = asprintf (&fm_mnt_params,
-                        "%s,fsname=%s,nonempty,subtype=glusterfs",
+                        "%s%s,fsname=%s,nonempty,subtype=glusterfs",
+                        (mountflags & MS_RDONLY) ? "ro," : "",
                         mnt_param, efsname);
         FREE (efsname);
         if (ret == -1) {
@@ -169,7 +171,8 @@ fuse_mount_fusermount (const char *mountpoint, char *fsname, char *mnt_param,
 }
 
 static int
-fuse_mount_sys (const char *mountpoint, char *fsname, char *mnt_param, int fd)
+fuse_mount_sys (const char *mountpoint, char *fsname,
+                unsigned long mountflags, char *mnt_param, int fd)
 {
         int ret = -1;
         unsigned mounted = 0;
@@ -185,7 +188,7 @@ fuse_mount_sys (const char *mountpoint, char *fsname, char *mnt_param, int fd)
 
                 goto out;
         }
-        ret = mount (source, mountpoint, fstype, 0,
+        ret = mount (source, mountpoint, fstype, mountflags,
                      mnt_param_mnt);
         if (ret == -1 && errno == ENODEV) {
                 /* fs subtype support was added by 79c0b2df aka
@@ -209,6 +212,7 @@ fuse_mount_sys (const char *mountpoint, char *fsname, char *mnt_param, int fd)
 #ifndef __NetBSD__
         if (geteuid () == 0) {
                 char *newmnt = fuse_mnt_resolve_path ("fuse", mountpoint);
+                char *mnt_param_mtab = NULL;
 
                 if (!newmnt) {
                         ret = -1;
@@ -216,8 +220,17 @@ fuse_mount_sys (const char *mountpoint, char *fsname, char *mnt_param, int fd)
                         goto out;
                 }
 
-                ret = fuse_mnt_add_mount ("fuse", source, newmnt, fstype,
-                                          mnt_param);
+                ret = asprintf (&mnt_param_mtab, "%s%s",
+                                mountflags & MS_RDONLY ? "ro," : "",
+                                mnt_param);
+                if (ret == -1)
+                        GFFUSE_LOGERR ("Out of memory");
+                else {
+                        ret = fuse_mnt_add_mount ("fuse", source, newmnt,
+                                                  fstype, mnt_param_mtab);
+                        FREE (mnt_param_mtab);
+                }
+
                 FREE (newmnt);
                 if (ret == -1) {
                         GFFUSE_LOGERR ("failed to add mtab entry");
@@ -240,7 +253,8 @@ out:
 }
 
 int
-gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param,
+gf_fuse_mount (const char *mountpoint, char *fsname,
+               unsigned long mountflags, char *mnt_param,
                pid_t *mnt_pid, int status_fd)
 {
         int   fd  = -1;
@@ -268,14 +282,14 @@ gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param,
                                 exit (pid == -1 ? 1 : 0);
                 }
 
-                ret = fuse_mount_sys (mountpoint, fsname, mnt_param, fd);
+                ret = fuse_mount_sys (mountpoint, fsname, mountflags, mnt_param, fd);
                 if (ret == -1) {
                         gf_log ("glusterfs-fuse", GF_LOG_INFO,
                                 "direct mount failed (%s), "
                                 "retry to mount via fusermount",
                                 strerror (errno));
 
-                        ret = fuse_mount_fusermount (mountpoint, fsname,
+                        ret = fuse_mount_fusermount (mountpoint, fsname, mountflags,
                                                      mnt_param, fd);
                 }
 
