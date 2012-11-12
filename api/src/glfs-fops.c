@@ -1856,32 +1856,12 @@ out:
 }
 
 
-static int
-dict_keys_join (void *value, int size, dict_t *dict)
-{
-	int len = 0;
-
-	int add_key_len (dict_t *d, char *k, data_t *v, void *o)
-	{
-		if (value && size > len)
-			strncpy (value + len, k, size - len);
-
-		len += (strlen (k) + 1);
-
-		return 0;
-	}
-
-	dict_foreach (dict, add_key_len, 0);
-
-	return len;
-}
-
 int
 glfs_listxattr_process (void *value, size_t size, dict_t *xattr)
 {
 	int     ret = -1;
 
-	ret = dict_keys_join (NULL, 0, xattr);
+	ret = dict_keys_join (NULL, 0, xattr, NULL);
 
 	if (!value || !size)
 		goto out;
@@ -1892,7 +1872,7 @@ glfs_listxattr_process (void *value, size_t size, dict_t *xattr)
 		goto out;
 	}
 
-	dict_keys_join (value, size, xattr);
+	dict_keys_join (value, size, xattr, NULL);
 out:
 	if (xattr)
 		dict_unref (xattr);

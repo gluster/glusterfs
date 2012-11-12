@@ -172,7 +172,6 @@ void gf_print_trace (int32_t signal, glusterfs_ctx_t *ctx);
                 }                                                       \
         } while (0)
 
-
 #define GF_IF_INTERNAL_XATTR_GOTO(pattern, dict, op_errno, label)       \
         do {                                                            \
                 if (!dict) {                                            \
@@ -180,13 +179,9 @@ void gf_print_trace (int32_t signal, glusterfs_ctx_t *ctx);
                                 "setxattr dict is null");               \
                         goto label;                                     \
                 }                                                       \
-                int _handle_keyvalue_pair (dict_t *d, char *k,          \
-                                           data_t *v, void *tmp)        \
-                {                                                       \
-                        return 0;                                       \
-                }                                                       \
-                if (dict_foreach_fnmatch (dict, pattern,                  \
-                                          _handle_keyvalue_pair, NULL) > 0) { \
+                if (dict_foreach_fnmatch (dict, pattern,                \
+                                          dict_null_foreach_fn,         \
+                                          NULL) > 0) {                  \
                         op_errno = EPERM;                               \
                         gf_log (this->name, GF_LOG_ERROR,               \
                                 "attempt to set internal"               \

@@ -2868,10 +2868,10 @@ send_fuse_xattr (xlator_t *this, fuse_in_header_t *finh, const char *value,
  * when it tries to setxattr() for selinux xattrs
  */
 static int
-fuse_filter_xattr(xlator_t *this, char *key)
+fuse_filter_xattr(char *key)
 {
         int need_filter = 0;
-        struct fuse_private *priv = this->private;
+        struct fuse_private *priv = THIS->private;
 
         if ((priv->client_pid == GF_CLIENT_PID_GSYNCD)
             && fnmatch ("*.selinux*", key, FNM_PERIOD) == 0)
@@ -2892,6 +2892,7 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         data_t         *value_data = NULL;
         int             ret = -1;
         int32_t         len = 0;
+        int32_t         len_next = 0;
 
         state = frame->root->state;
         finh  = state->finh;
@@ -2922,32 +2923,20 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         /* we need to invoke fuse_filter_xattr() twice. Once
                          * while counting size and then while filling buffer
                          */
-                        int _get_total_len (dict_t *d, char *k, data_t *v,
-                                            void *tmp)
-                        {
-                                if (!fuse_filter_xattr (this, k))
-                                        len += strlen (k) + 1;
-                                return 0;
-                        }
-                        dict_foreach (dict, _get_total_len, NULL);
+                        len = dict_keys_join (NULL, 0, dict, fuse_filter_xattr);
+                        if (len < 0)
+                                goto out;
 
                         value = alloca (len + 1);
                         if (!value)
                                 goto out;
 
-                        len = 0;
-
-                        int _set_listxattr_keys (dict_t *d, char *k, data_t *v,
-                                                 void *tmp)
-                        {
-                                if (!fuse_filter_xattr (this, k)) {
-                                        strcpy (value + len, k);
-                                        value[len + strlen (k)] = '\0';
-                                        len += strlen (k) + 1;
-                                }
-                                return 0;
-                        }
-                        dict_foreach (dict, _set_listxattr_keys, NULL);
+                        len_next = dict_keys_join (value, len, dict,
+                                                   fuse_filter_xattr);
+                        if (len_next != len)
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "sizes not equal %d != %d",
+                                        len, len_next);
 
                         send_fuse_xattr (this, finh, value, len, state->size);
                 } /* if(state->name)...else */

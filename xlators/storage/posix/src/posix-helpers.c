@@ -46,14 +46,6 @@
 #include "hashfn.h"
 #include <fnmatch.h>
 
-typedef struct {
-        xlator_t    *this;
-        const char  *real_path;
-        dict_t      *xattr;
-        struct iatt *stbuf;
-        loc_t       *loc;
-} posix_xattr_filler_t;
-
 char *marker_xattrs[] = {"trusted.glusterfs.quota.*",
                          "trusted.glusterfs.*.xtime",
                          NULL};
@@ -946,35 +938,47 @@ out:
         return ret;
 }
 
+static int
+_handle_entry_create_keyvalue_pair (dict_t *d, char *k, data_t *v,
+                                    void *tmp)
+{
+        int                   ret = -1;
+        posix_xattr_filler_t *filler = NULL;
+
+        filler = tmp;
+
+        if (!strcmp (GFID_XATTR_KEY, k) ||
+            !strcmp ("gfid-req", k) ||
+            !strcmp ("system.posix_acl_default", k) ||
+            !strcmp ("system.posix_acl_access", k) ||
+            ZR_FILE_CONTENT_REQUEST(k)) {
+                return 0;
+        }
+
+        ret = posix_handle_pair (filler->this, filler->real_path, k, v,
+                                 XATTR_CREATE);
+        if (ret < 0) {
+                errno = -ret;
+                return -1;
+        }
+        return 0;
+}
+
 int
 posix_entry_create_xattr_set (xlator_t *this, const char *path,
                              dict_t *dict)
 {
         int ret = -1;
 
+        posix_xattr_filler_t filler = {0,};
+
         if (!dict)
                 goto out;
 
-        int _handle_keyvalue_pair (dict_t *d, char *k, data_t *v,
-                                   void *tmp)
-        {
-                if (!strcmp (GFID_XATTR_KEY, k) ||
-                    !strcmp ("gfid-req", k) ||
-                    !strcmp ("system.posix_acl_default", k) ||
-                    !strcmp ("system.posix_acl_access", k) ||
-                    ZR_FILE_CONTENT_REQUEST(k)) {
-                        return 0;
-                }
+        filler.this = this;
+        filler.real_path = path;
 
-                ret = posix_handle_pair (this, path, k, v, XATTR_CREATE);
-                if (ret < 0) {
-                        errno = -ret;
-                        return -1;
-                }
-                return 0;
-        }
-
-        ret = dict_foreach (dict, _handle_keyvalue_pair, NULL);
+        ret = dict_foreach (dict, _handle_entry_create_keyvalue_pair, &filler);
 
 out:
         return ret;

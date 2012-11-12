@@ -127,6 +127,18 @@ struct posix_private {
 #endif
 };
 
+typedef struct {
+        xlator_t    *this;
+        const char  *real_path;
+        dict_t      *xattr;
+        struct iatt *stbuf;
+        loc_t       *loc;
+        inode_t     *inode; /* for all do_xattrop() key handling */
+        int          fd;
+        int          flags;
+} posix_xattr_filler_t;
+
+
 #define POSIX_BASE_PATH(this) (((struct posix_private *)this->private)->base_path)
 
 #define POSIX_BASE_PATH_LEN(this) (((struct posix_private *)this->private)->base_path_length)

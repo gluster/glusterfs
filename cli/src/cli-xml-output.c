@@ -2265,15 +2265,44 @@ out:
         return ret;
 }
 
+struct tmp_xml_option_logger {
+        char *key;
+        xmlTextWriterPtr writer;
+};
+
+static int
+_output_vol_info_option (dict_t *d, char *k, data_t *v,
+                         void *data)
+{
+        int                           ret   = 0;
+        char                         *ptr   = NULL;
+        struct tmp_xml_option_logger *tmp   = NULL;
+
+        tmp = data;
+
+        ptr = strstr (k, "option.");
+        if (!ptr)
+                goto out;
+
+        if (!v) {
+                ret = -1;
+                goto out;
+        }
+        ret = cli_xml_output_vol_info_option (tmp->writer, tmp->key, k,
+                                              v->data);
+
+out:
+        return ret;
+}
+
 int
 cli_xml_output_vol_info_options (xmlTextWriterPtr writer, dict_t *dict,
                                  char *prefix)
 {
         int             ret = -1;
         int             opt_count = 0;
-        data_t          *value = 0;
-        char            *ptr = NULL;
         char            key[1024] = {0,};
+        struct tmp_xml_option_logger tmp = {0,};
 
         snprintf (key, sizeof (key), "%s.opt_count", prefix);
         ret = dict_get_int32 (dict, key, &opt_count);
@@ -2288,26 +2317,9 @@ cli_xml_output_vol_info_options (xmlTextWriterPtr writer, dict_t *dict,
         XML_RET_CHECK_AND_GOTO (ret, out);
         snprintf (key, sizeof (key), "%s.option.", prefix);
 
-        int _output_vol_info_option (dict_t *d, char *k, data_t *v,
-                                     void *data)
-        {
-                int ret = 0;
-                ptr = strstr (k, "option.");
-                if (!ptr)
-                        goto internal_out;
-
-                value = v;
-                if (!value) {
-                        ret = -1;
-                        goto internal_out;
-                }
-                ret = cli_xml_output_vol_info_option (writer, key, k,
-                                                      v->data);
-
-        internal_out:
-                return ret;
-        }
-        ret = dict_foreach (dict, _output_vol_info_option, NULL);
+        tmp.key = key;
+        tmp.writer = writer;
+        ret = dict_foreach (dict, _output_vol_info_option, &tmp);
         if (ret)
                 goto out;
 

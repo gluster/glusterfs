@@ -474,6 +474,30 @@ cli_out_options ( char *substr, char *optstr, char *valstr)
         cli_out ("%s: %s",ptr2 , valstr);
 }
 
+static int
+_gf_cli_output_volinfo_opts (dict_t *d, char *k,
+                             data_t *v, void *tmp)
+{
+        int     ret   = 0;
+        char   *key   = NULL;
+        char   *ptr   = NULL;
+        data_t *value = NULL;
+
+        key = tmp;
+
+        ptr = strstr (k, "option.");
+        if (ptr) {
+                value = v;
+                if (!value) {
+                        ret = -1;
+                        goto out;
+                }
+                cli_out_options (key, k, v->data);
+        }
+out:
+        return ret;
+}
+
 
 int
 gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
@@ -491,12 +515,10 @@ gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                    replica_count        = 0;
         int32_t                    vol_type             = 0;
         int32_t                    transport            = 0;
-        char                      *ptr                  = NULL;
         char                      *volume_id_str        = NULL;
         char                      *brick                = NULL;
         char                      *volname              = NULL;
         dict_t                    *dict                 = NULL;
-        data_t                    *value                = NULL;
         cli_local_t               *local                = NULL;
         char                       key[1024]            = {0};
         char                       err_str[2048]        = {0};
@@ -724,22 +746,8 @@ next:
                 cli_out ("Options Reconfigured:");
 
                 snprintf (key, 256, "volume%d.option.",i);
-                int _output_volinfo_opts (dict_t *d, char *k,
-                                          data_t *v, void *tmp)
-                {
-                        ptr = strstr (k, "option.");
-                        if (ptr) {
-                                value = v;
-                                if (!value) {
-                                        ret = -1;
-                                        goto internal_out;
-                                }
-                                cli_out_options (key, k, v->data);
-                        }
-                internal_out:
-                        return ret;
-                }
-                ret = dict_foreach (dict, _output_volinfo_opts, NULL);
+
+                ret = dict_foreach (dict, _gf_cli_output_volinfo_opts, key);
                 if (ret)
                         goto out;
 

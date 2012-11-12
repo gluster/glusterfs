@@ -2382,6 +2382,17 @@ out:
 }
 
 static int gf_posix_xattr_enotsup_log;
+static int
+_handle_setxattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
+                                void *tmp)
+{
+        posix_xattr_filler_t *filler = NULL;
+
+        filler = tmp;
+
+        return posix_handle_pair (filler->this, filler->real_path, k, v,
+                                  filler->flags);
+}
 
 int32_t
 posix_setxattr (call_frame_t *frame, xlator_t *this,
@@ -2390,7 +2401,8 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
         int32_t       op_ret                  = -1;
         int32_t       op_errno                = 0;
         char *        real_path               = NULL;
-        int           ret                     = -1;
+
+        posix_xattr_filler_t filler = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
         SET_FS_ID (frame->root->uid, frame->root->gid);
@@ -2405,17 +2417,13 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
         op_ret = -1;
         dict_del (dict, GFID_XATTR_KEY);
 
-
-        int _handle_every_keyvalue_pair (dict_t *d, char *k, data_t *v,
-                                         void *tmp)
-        {
-                ret = posix_handle_pair (this, real_path, k, v, flags);
-                if (ret < 0) {
-                        op_errno = -ret;
-                }
-                return ret;
-        }
-        op_ret = dict_foreach (dict, _handle_every_keyvalue_pair, NULL);
+        filler.real_path = real_path;
+        filler.this = this;
+        filler.flags = flags;
+        op_ret = dict_foreach (dict, _handle_setxattr_keyvalue_pair,
+                               &filler);
+        if (op_ret < 0)
+                op_errno = -op_ret;
 
 out:
         SET_TO_OLD_FS_ID ();
@@ -2899,6 +2907,17 @@ out:
         return 0;
 }
 
+static int
+_handle_fsetxattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
+                                void *tmp)
+{
+        posix_xattr_filler_t *filler = NULL;
+
+        filler = tmp;
+
+        return posix_fhandle_pair (filler->this, filler->fd, k, v,
+                                   filler->flags);
+}
 
 int32_t
 posix_fsetxattr (call_frame_t *frame, xlator_t *this,
@@ -2908,7 +2927,9 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
         int32_t            op_errno     = 0;
         struct posix_fd *  pfd          = NULL;
         int                _fd          = -1;
-        int           ret               = -1;
+        int                ret          = -1;
+
+        posix_xattr_filler_t filler = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
         SET_FS_ID (frame->root->uid, frame->root->gid);
@@ -2929,17 +2950,13 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
 
         dict_del (dict, GFID_XATTR_KEY);
 
-        int _handle_every_keyvalue_pair (dict_t *d, char *k, data_t *v,
-                                         void *tmp)
-        {
-                ret = posix_fhandle_pair (this, _fd, k, v, flags);
-                if (ret < 0) {
-                        op_errno = -ret;
-                }
-                return ret;
-        }
-
-        op_ret = dict_foreach (dict, _handle_every_keyvalue_pair, NULL);
+        filler.fd = _fd;
+        filler.this = this;
+        filler.flags = flags;
+        op_ret = dict_foreach (dict, _handle_fsetxattr_keyvalue_pair,
+                               &filler);
+        if (op_ret < 0)
+                op_errno = -op_ret;
 
 out:
         SET_TO_OLD_FS_ID ();
@@ -3130,6 +3147,159 @@ __add_long_array (int64_t *dest, int64_t *src, int count)
         }
 }
 
+static int
+_posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
+                                   void *tmp)
+{
+        int                   size     = 0;
+        int                   count    = 0;
+        int                   op_ret   = 0;
+        int                   op_errno = 0;
+        gf_xattrop_flags_t    optype   = 0;
+        char                 *array    = NULL;
+        inode_t              *inode    = NULL;
+        xlator_t             *this     = NULL;
+        posix_xattr_filler_t *filler   = NULL;
+
+        filler = tmp;
+
+        optype = (gf_xattrop_flags_t)(filler->flags);
+        this = filler->this;
+        inode = filler->inode;
+
+        count = v->len;
+        array = GF_CALLOC (count, sizeof (char), gf_posix_mt_char);
+
+        LOCK (&inode->lock);
+        {
+                if (filler->real_path) {
+                        size = sys_lgetxattr (filler->real_path, k,
+                                              (char *)array, v->len);
+                } else {
+                        size = sys_fgetxattr (filler->fd, k, (char *)array,
+                                              v->len);
+                }
+
+                op_errno = errno;
+                if ((size == -1) && (op_errno != ENODATA) &&
+                    (op_errno != ENOATTR)) {
+                        if (op_errno == ENOTSUP) {
+                                GF_LOG_OCCASIONALLY(gf_posix_xattr_enotsup_log,
+                                                    this->name, GF_LOG_WARNING,
+                                                    "Extended attributes not "
+                                                    "supported by filesystem");
+                        } else if (op_errno != ENOENT ||
+                                   !posix_special_xattr (marker_xattrs,
+                                                         k)) {
+                                if (filler->real_path)
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "getxattr failed on %s while doing "
+                                                "xattrop: Key:%s (%s)",
+                                                filler->real_path,
+                                                k, strerror (op_errno));
+                                else
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "fgetxattr failed on fd=%d while doing "
+                                                "xattrop: Key:%s (%s)",
+                                                filler->fd,
+                                                k, strerror (op_errno));
+                        }
+
+                        op_ret = -1;
+                        goto unlock;
+                }
+
+                switch (optype) {
+
+                case GF_XATTROP_ADD_ARRAY:
+                        __add_array ((int32_t *) array, (int32_t *) v->data,
+                                     v->len / 4);
+                        break;
+
+                case GF_XATTROP_ADD_ARRAY64:
+                        __add_long_array ((int64_t *) array, (int64_t *) v->data,
+                                          v->len / 8);
+                        break;
+
+                case GF_XATTROP_OR_ARRAY:
+                        __or_array ((int32_t *) array,
+                                    (int32_t *) v->data,
+                                    v->len / 4);
+                        break;
+
+                case GF_XATTROP_AND_ARRAY:
+                        __and_array ((int32_t *) array,
+                                     (int32_t *) v->data,
+                                     v->len / 4);
+                        break;
+
+                default:
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unknown xattrop type (%d) on %s. Please send "
+                                "a bug report to gluster-devel@nongnu.org",
+                                optype, filler->real_path);
+                        op_ret = -1;
+                        op_errno = EINVAL;
+                        goto unlock;
+                }
+
+                if (filler->real_path) {
+                        size = sys_lsetxattr (filler->real_path, k, array,
+                                              v->len, 0);
+                } else {
+                        size = sys_fsetxattr (filler->fd, k, (char *)array,
+                                              v->len, 0);
+                }
+        }
+unlock:
+        UNLOCK (&inode->lock);
+
+        if (op_ret == -1)
+                goto out;
+
+        op_errno = errno;
+        if (size == -1) {
+                if (filler->real_path)
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "setxattr failed on %s while doing xattrop: "
+                                "key=%s (%s)", filler->real_path,
+                                k, strerror (op_errno));
+                else
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "fsetxattr failed on fd=%d while doing xattrop: "
+                                "key=%s (%s)", filler->fd,
+                                k, strerror (op_errno));
+
+                op_ret = -1;
+                goto out;
+        } else {
+                size = dict_set_bin (d, k, array, v->len);
+
+                if (size != 0) {
+                        if (filler->real_path)
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "dict_set_bin failed (path=%s): "
+                                        "key=%s (%s)", filler->real_path,
+                                        k, strerror (-size));
+                        else
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "dict_set_bin failed (fd=%d): "
+                                        "key=%s (%s)", filler->fd,
+                                        k, strerror (-size));
+
+                        op_ret = -1;
+                        op_errno = EINVAL;
+                        goto out;
+                }
+                array = NULL;
+        }
+
+        array = NULL;
+
+out:
+        return op_ret;
+}
+
 /**
  * xattrop - xattr operations - for internal use by GlusterFS
  * @optype: ADD_ARRAY:
@@ -3141,32 +3311,24 @@ int
 do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
             gf_xattrop_flags_t optype, dict_t *xattr)
 {
-        char            *real_path = NULL;
-        char            *array = NULL;
-        int              size = 0;
-        int              count = 0;
-
-        int              op_ret = 0;
-        int              op_errno = 0;
-
-        int              ret = 0;
-        int              _fd = -1;
-        struct posix_fd *pfd = NULL;
-
-        char *    path  = NULL;
-        inode_t * inode = NULL;
+        int                   op_ret    = 0;
+        int                   op_errno  = 0;
+        int                   _fd       = -1;
+        char                 *real_path = NULL;
+        struct posix_fd      *pfd       = NULL;
+        inode_t              *inode     = NULL;
+        posix_xattr_filler_t  filler    = {0,};
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (xattr, out);
         VALIDATE_OR_GOTO (this, out);
 
         if (fd) {
-                ret = posix_fd_ctx_get (fd, this, &pfd);
-                if (ret < 0) {
+                op_ret = posix_fd_ctx_get (fd, this, &pfd);
+                if (op_ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "failed to get pfd from fd=%p",
                                 fd);
-                        op_ret = -1;
                         op_errno = EBADFD;
                         goto out;
                 }
@@ -3177,152 +3339,21 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                 MAKE_INODE_HANDLE (real_path, this, loc, NULL);
 
         if (real_path) {
-                path  = gf_strdup (real_path);
                 inode = loc->inode;
         } else if (fd) {
                 inode = fd->inode;
         }
 
-        int _handle_every_keyvalue_pair (dict_t *d, char *k, data_t *v,
-                                         void *tmp)
-        {
+        filler.this = this;
+        filler.fd = _fd;
+        filler.real_path = real_path;
+        filler.flags = (int)optype;
+        filler.inode = inode;
 
-                count = v->len;
-                array = GF_CALLOC (count, sizeof (char), gf_posix_mt_char);
-
-                LOCK (&inode->lock);
-                {
-                        if (loc) {
-                                size = sys_lgetxattr (real_path, k,
-                                                      (char *)array, v->len);
-                        } else {
-                                size = sys_fgetxattr (_fd, k, (char *)array,
-                                                      v->len);
-                        }
-
-                        op_errno = errno;
-                        if ((size == -1) && (op_errno != ENODATA) &&
-                            (op_errno != ENOATTR)) {
-                                if (op_errno == ENOTSUP) {
-                                        GF_LOG_OCCASIONALLY(gf_posix_xattr_enotsup_log,
-                                                            this->name,GF_LOG_WARNING,
-                                                            "Extended attributes not "
-                                                            "supported by filesystem");
-                                } else if (op_errno != ENOENT ||
-                                           !posix_special_xattr (marker_xattrs,
-                                                                 k)) {
-                                        if (loc)
-                                                gf_log (this->name, GF_LOG_ERROR,
-                                                        "getxattr failed on %s while doing "
-                                                        "xattrop: Key:%s (%s)", path,
-                                                        k, strerror (op_errno));
-                                        else
-                                                gf_log (this->name, GF_LOG_ERROR,
-                                                        "fgetxattr failed on fd=%d while doing "
-                                                        "xattrop: Key:%s (%s)", _fd,
-                                                        k, strerror (op_errno));
-                                }
-
-                                op_ret = -1;
-                                goto unlock;
-                        }
-
-                        switch (optype) {
-
-                        case GF_XATTROP_ADD_ARRAY:
-                                __add_array ((int32_t *) array, (int32_t *) v->data,
-                                             v->len / 4);
-                                break;
-
-                        case GF_XATTROP_ADD_ARRAY64:
-                                __add_long_array ((int64_t *) array, (int64_t *) v->data,
-                                                  v->len / 8);
-                                break;
-
-                        case GF_XATTROP_OR_ARRAY:
-                                __or_array ((int32_t *) array,
-                                            (int32_t *) v->data,
-                                            v->len / 4);
-                                break;
-
-                        case GF_XATTROP_AND_ARRAY:
-                                __and_array ((int32_t *) array,
-                                             (int32_t *) v->data,
-                                             v->len / 4);
-                                break;
-
-                        default:
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Unknown xattrop type (%d) on %s. Please send "
-                                        "a bug report to gluster-devel@nongnu.org",
-                                        optype, path);
-                                op_ret = -1;
-                                op_errno = EINVAL;
-                                goto unlock;
-                        }
-
-                        if (loc) {
-                                size = sys_lsetxattr (real_path, k, array,
-                                                      v->len, 0);
-                        } else {
-                                size = sys_fsetxattr (_fd, k, (char *)array,
-                                                      v->len, 0);
-                        }
-                }
-        unlock:
-                UNLOCK (&inode->lock);
-
-                if (op_ret == -1)
-                        goto out;
-
-                op_errno = errno;
-                if (size == -1) {
-                        if (loc)
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "setxattr failed on %s while doing xattrop: "
-                                        "key=%s (%s)", path,
-                                        k, strerror (op_errno));
-                        else
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "fsetxattr failed on fd=%d while doing xattrop: "
-                                        "key=%s (%s)", _fd,
-                                        k, strerror (op_errno));
-
-                        op_ret = -1;
-                        goto out;
-                } else {
-                        size = dict_set_bin (xattr, k, array, v->len);
-
-                        if (size != 0) {
-                                if (loc)
-                                        gf_log (this->name, GF_LOG_DEBUG,
-                                                "dict_set_bin failed (path=%s): "
-                                                "key=%s (%s)", path,
-                                                k, strerror (-size));
-                                else
-                                        gf_log (this->name, GF_LOG_DEBUG,
-                                                "dict_set_bin failed (fd=%d): "
-                                                "key=%s (%s)", _fd,
-                                                k, strerror (-size));
-
-                                op_ret = -1;
-                                op_errno = EINVAL;
-                                goto out;
-                        }
-                        array = NULL;
-                }
-
-                array = NULL;
-
-        out:
-                return op_ret;
-        }
-        op_ret = dict_foreach (xattr, _handle_every_keyvalue_pair, NULL);
+        op_ret = dict_foreach (xattr, _posix_handle_xattr_keyvalue_pair,
+                               &filler);
 
 out:
-        GF_FREE (array);
-
-        GF_FREE (path);
 
         STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, xattr, NULL);
         return 0;

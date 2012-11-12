@@ -890,6 +890,24 @@ out:
         return 0;
 }
 
+/* print every key */
+static int
+_gf_server_log_setxattr_failure (dict_t *d, char *k, data_t *v,
+                                 void *tmp)
+{
+        server_state_t *state = NULL;
+        call_frame_t   *frame = NULL;
+
+        frame = tmp;
+        state = CALL_STATE(frame);
+
+        gf_log (THIS->name, GF_LOG_INFO,
+                "%"PRId64": SETXATTR %s (%s) ==> %s",
+                frame->root->unique, state->loc.path,
+                uuid_utoa (state->resolve.gfid), k);
+        return 0;
+}
+
 int
 server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
@@ -905,19 +923,14 @@ server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret == -1) {
-                /* print every key */
-                int _log_setxattr_failure (dict_t *d, char *k, data_t *v,
-                                           void *tmp)
-                {
-                        gf_log (this->name, ((op_errno == ENOTSUP) ?
-                                             GF_LOG_DEBUG : GF_LOG_INFO),
-                                "%"PRId64": SETXATTR %s (%s) ==> %s (%s)",
-                                frame->root->unique, state->loc.path,
-                                uuid_utoa (state->resolve.gfid), k,
-                                strerror (op_errno));
-                        return 0;
-                }
-                dict_foreach (state->dict, _log_setxattr_failure, NULL);
+                if (op_errno != ENOTSUP)
+                        dict_foreach (state->dict,
+                                      _gf_server_log_setxattr_failure,
+                                      frame);
+
+                gf_log (THIS->name, ((op_errno == ENOTSUP) ?
+                                     GF_LOG_DEBUG : GF_LOG_INFO),
+                        "%s", strerror (op_errno));
                 goto out;
         }
 
@@ -933,6 +946,24 @@ out:
         return 0;
 }
 
+/* print every key here */
+static int
+_gf_server_log_fsetxattr_failure (dict_t *d, char *k, data_t *v,
+                                 void *tmp)
+{
+        call_frame_t   *frame = NULL;
+        server_state_t *state = NULL;
+
+        frame = tmp;
+        state = CALL_STATE(frame);
+
+        gf_log (THIS->name, GF_LOG_INFO,
+                "%"PRId64": FSETXATTR %"PRId64" (%s) ==> %s",
+                frame->root->unique, state->resolve.fd_no,
+                uuid_utoa (state->resolve.gfid), k);
+
+        return 0;
+}
 
 int
 server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -949,19 +980,14 @@ server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret == -1) {
-                /* print every key here */
-                int _log_setxattr_failure (dict_t *d, char *k, data_t *v,
-                                           void *tmp)
-                {
-                        gf_log (this->name, ((op_errno == ENOTSUP) ?
-                                             GF_LOG_DEBUG : GF_LOG_INFO),
-                                "%"PRId64": FSETXATTR %"PRId64" (%s) ==> %s (%s)",
-                                frame->root->unique, state->resolve.fd_no,
-                                uuid_utoa (state->resolve.gfid), k,
-                                strerror (op_errno));
-                        return 0;
+                if (op_errno != ENOTSUP) {
+                        dict_foreach (state->dict,
+                                      _gf_server_log_fsetxattr_failure,
+                                      frame);
                 }
-                dict_foreach (state->dict, _log_setxattr_failure, NULL);
+                gf_log (THIS->name, ((op_errno == ENOTSUP) ?
+                                     GF_LOG_DEBUG : GF_LOG_INFO),
+                        "%s", strerror (op_errno));
                 goto out;
         }
 

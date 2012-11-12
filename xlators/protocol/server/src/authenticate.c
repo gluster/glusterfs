@@ -124,34 +124,41 @@ fini (dict_t *this, char *key, data_t *value, void *data)
         return 0;
 }
 
+static int
+_gf_auth_option_validate (dict_t *d, char *k, data_t *v, void *tmp)
+{
+        auth_handle_t *handle = NULL;
+        xlator_t      *xl = NULL;
+        int ret = 0;
+
+        xl = tmp;
+
+        handle = data_to_ptr (v);
+        if (!handle)
+                return 0;
+
+        list_add_tail (&(handle->vol_opt->list), &(xl->volume_options));
+
+        ret = xlator_options_validate_list (xl, xl->options,
+                                            handle->vol_opt, NULL);
+        if (ret) {
+                gf_log ("authenticate", GF_LOG_ERROR,
+                        "volume option validation failed");
+                return -1;
+        }
+        return 0;
+}
+
 int32_t
 gf_auth_init (xlator_t *xl, dict_t *auth_modules)
 {
         int ret = 0;
-        auth_handle_t *handle = NULL;
 
         dict_foreach (auth_modules, init, &ret);
         if (ret)
                 goto out;
 
-        int _auth_option_validate (dict_t *d, char *k, data_t *v, void *tmp)
-        {
-                handle = data_to_ptr (v);
-                if (!handle)
-                        return 0;
-
-                list_add_tail (&(handle->vol_opt->list),
-                               &(xl->volume_options));
-                ret = xlator_options_validate_list (xl, xl->options,
-                                                    handle->vol_opt, NULL);
-                if (ret) {
-                        gf_log ("authenticate", GF_LOG_ERROR,
-                                "volume option validation failed");
-                        return -1;
-                }
-                return 0;
-        }
-        ret = dict_foreach (auth_modules, _auth_option_validate, NULL);
+        ret = dict_foreach (auth_modules, _gf_auth_option_validate, xl);
 
 out:
         if (ret) {

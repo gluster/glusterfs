@@ -1079,6 +1079,13 @@ data_to_bin (data_t *data)
 }
 
 int
+dict_null_foreach_fn (dict_t *d, char *k,
+                      data_t *v, void *tmp)
+{
+        return 0;
+}
+
+int
 dict_foreach (dict_t *dict,
               int (*fn)(dict_t *this,
                         char *key,
@@ -1147,6 +1154,45 @@ dict_foreach_fnmatch (dict_t *dict, char *pattern,
         return count;
 }
 
+
+/**
+ * dict_keys_join - pack the keys of the dictionary in a buffer.
+ *
+ * @value     : buffer in which the keys will be packed (can be NULL)
+ * @size      : size of the buffer which is sent (can be 0, in which case buffer
+ *              is not packed but only length is returned)
+ * @dict      : dictionary of which all the keys will be packed
+ * @filter_fn : keys matched in filter_fn() is counted.
+ *
+ * @return : @length of string after joining keys.
+ *
+ */
+
+int
+dict_keys_join (void *value, int size, dict_t *dict,
+                int (*filter_fn)(char *k))
+{
+	int          len = 0;
+        data_pair_t *pairs = NULL;
+        data_pair_t *next  = NULL;
+
+        pairs = dict->members_list;
+        while (pairs) {
+                next = pairs->next;
+
+                if (filter_fn && filter_fn (pairs->key))
+                        continue;
+
+		if (value && (size > len))
+			strncpy (value + len, pairs->key, size - len);
+
+                len += (strlen (pairs->key) + 1);
+
+                pairs = next;
+        }
+
+	return len;
+}
 
 static int
 _copy (dict_t *unused,
