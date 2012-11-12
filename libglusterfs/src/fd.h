@@ -22,6 +22,7 @@
 #include "glusterfs.h"
 #include "locking.h"
 #include "fd-lk.h"
+#include "common-utils.h"
 
 struct _inode;
 struct _dict;
@@ -38,12 +39,8 @@ struct _fd_ctx {
         };
 };
 
-/* If this structure changes, please have mercy on the booster maintainer
- * and update the fd_t struct in booster/src/booster-fd.h.
- * See the comment there to know why.
- */
 struct _fd {
-        uint64_t             pid;
+        uint64_t          pid;
 	int32_t           flags;
         int32_t           refcount;
         struct list_head  inode_list;
@@ -53,6 +50,7 @@ struct _fd {
 	struct _fd_ctx   *_ctx;
         int               xl_count; /* Number of xl referred in this fd */
         struct fd_lk_ctx *lk_ctx;
+        gf_boolean_t      anonymous; /* geo-rep anonymous fd */
 };
 typedef struct _fd fd_t;
 
@@ -118,10 +116,6 @@ fd_t *
 fd_ref (fd_t *fd);
 
 
-fd_t *
-__fd_unref (fd_t *fd);
-
-
 void
 fd_unref (fd_t *fd);
 
@@ -153,8 +147,6 @@ fd_list_empty (struct _inode *inode);
 fd_t *
 fd_bind (fd_t *fd);
 
-fd_t *
-__fd_bind (fd_t *fd);
 
 int
 fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value);
@@ -167,7 +159,6 @@ fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value);
 int
 fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value);
 
-
 int
 __fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value);
 
@@ -176,20 +167,12 @@ int
 __fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value);
 
 
-int
-__fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value);
-
-fd_t *
-__fd_ref (fd_t *fd);
-
 void
 fd_ctx_dump (fd_t *fd, char *prefix);
 
 fdentry_t *
 gf_fd_fdtable_copy_all_fds (fdtable_t *fdtable, uint32_t *count);
 
-fdentry_t *
-__gf_fd_fdtable_copy_all_fds (fdtable_t *fdtable, uint32_t *count);
 
 void
 gf_fdptr_put (fdtable_t *fdtable, fd_t *fd);

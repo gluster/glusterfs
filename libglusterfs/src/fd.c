@@ -121,7 +121,7 @@ gf_fd_fdtable_alloc (void)
 }
 
 
-fdentry_t *
+static fdentry_t *
 __gf_fd_fdtable_get_all_fds (fdtable_t *fdtable, uint32_t *count)
 {
         fdentry_t       *fdentries = NULL;
@@ -159,7 +159,7 @@ gf_fd_fdtable_get_all_fds (fdtable_t *fdtable, uint32_t *count)
 }
 
 
-fdentry_t *
+static fdentry_t *
 __gf_fd_fdtable_copy_all_fds (fdtable_t *fdtable, uint32_t *count)
 {
         fdentry_t *fdentries = NULL;
@@ -707,23 +707,43 @@ fd_lookup_uint64 (inode_t *inode, uint64_t pid)
         return fd;
 }
 
+static fd_t *
+__fd_lookup_anonymous (inode_t *inode)
+{
+        fd_t *iter_fd = NULL;
+        fd_t *fd = NULL;
 
-fd_t *
+        if (list_empty (&inode->fd_list))
+                return NULL;
+
+        list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
+                if (iter_fd->anonymous) {
+                        fd = __fd_ref (iter_fd);
+                        break;
+                }
+        }
+
+        return fd;
+}
+
+static fd_t *
 __fd_anonymous (inode_t *inode)
 {
         fd_t *fd = NULL;
 
-        fd = __fd_lookup (inode, (uint64_t)-1);
+        fd = __fd_lookup_anonymous (inode);
 
         /* if (fd); then we already have increased the refcount in
-           __fd_lookup(), so no need of one more fd_ref().
+           __fd_lookup_anonymous(), so no need of one more fd_ref().
            if (!fd); then both create and bind wont bump up the ref
            count, so we have to call fd_ref() after bind. */
         if (!fd) {
-                fd = __fd_create (inode, (uint64_t)-1);
+                fd = __fd_create (inode, 0);
 
                 if (!fd)
                         return NULL;
+
+                fd->anonymous = _gf_true;
 
                 __fd_bind (fd);
 
@@ -752,7 +772,7 @@ fd_anonymous (inode_t *inode)
 gf_boolean_t
 fd_is_anonymous (fd_t *fd)
 {
-        return (fd && fd->pid == -1);
+        return (fd && fd->anonymous);
 }
 
 
@@ -900,7 +920,7 @@ fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value)
 }
 
 
-int
+static int
 __fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value)
 {
         int index = 0;
