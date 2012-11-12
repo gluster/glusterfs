@@ -430,7 +430,8 @@ index_del (xlator_t *this, uuid_t gfid, const char *subdir)
 out:
         return ret;
 }
-int
+
+static int
 _check_key_is_zero_filled (dict_t *d, char *k, data_t *v,
                            void *tmp)
 {
@@ -440,6 +441,7 @@ _check_key_is_zero_filled (dict_t *d, char *k, data_t *v,
         }
         return 0;
 }
+
 
 void
 _xattrop_index_action (xlator_t *this, inode_t *inode,  dict_t *xattr)

@@ -616,84 +616,85 @@ out:
         return 0;
 }
 
+int
+_check_for_auth_option (dict_t *d, char *k, data_t *v,
+                        void *tmp)
+{
+        int       ret           = 0;
+        xlator_t *xl            = NULL;
+        char     *tail          = NULL;
+        char     *tmp_addr_list = NULL;
+        char     *addr          = NULL;
+        char     *tmp_str       = NULL;
+
+        xl = tmp;
+
+        tail = strtail (k, "auth.");
+        if (!tail)
+                goto out;
+
+        /* fast fwd thru module type */
+        tail = strchr (tail, '.');
+        if (!tail)
+                goto out;
+        tail++;
+
+        tail = strtail (tail, xl->name);
+        if (!tail)
+                goto out;
+
+        if (*tail == '.') {
+                /* when we are here, the key is checked for
+                 * valid auth.allow.<xlator>
+                 * Now we verify the ip address
+                 */
+                if (!strcmp (v->data, "*")) {
+                        ret = 0;
+                        goto out;
+                }
+
+                tmp_addr_list = gf_strdup (v->data);
+                addr = strtok_r (tmp_addr_list, ",", &tmp_str);
+                if (!addr)
+                        addr = v->data;
+
+                while (addr) {
+                        if (valid_internet_address (addr, _gf_true)) {
+                                ret = 0;
+                        } else {
+                                ret = -1;
+                                gf_log (xl->name, GF_LOG_ERROR,
+                                        "internet address '%s'"
+                                        " does not conform to"
+                                        " standards.", addr);
+                                goto out;
+                        }
+                        if (tmp_str)
+                                addr = strtok_r (NULL, ",", &tmp_str);
+                        else
+                                addr = NULL;
+                }
+
+                GF_FREE (tmp_addr_list);
+                tmp_addr_list = NULL;
+        }
+out:
+        return ret;
+}
 
 int
 validate_auth_options (xlator_t *this, dict_t *dict)
 {
         int            error = -1;
         xlator_list_t *trav = NULL;
-        char          *tail = NULL;
-        char          *tmp_addr_list = NULL;
-        char          *addr = NULL;
-        char          *tmp_str = NULL;
 
         GF_VALIDATE_OR_GOTO ("server", this, out);
         GF_VALIDATE_OR_GOTO ("server", dict, out);
 
         trav = this->children;
         while (trav) {
-                int _check_for_auth_option (dict_t *d, char *k, data_t *v,
-                                            void *tmp)
-                {
-                        int ret = 0;
-                        tail = strtail (k, "auth.");
-                        if (!tail)
-                                goto internal_out;
-
-                        /* fast fwd thru module type */
-                        tail = strchr (tail, '.');
-                        if (!tail)
-                                goto internal_out;
-                        tail++;
-
-                        tail = strtail (tail, trav->xlator->name);
-                        if (!tail)
-                                goto internal_out;
-
-                        if (*tail == '.') {
-
-                                /* when we are here, the key is checked for
-                                 * valid auth.allow.<xlator>
-                                 * Now we verify the ip address
-                                 */
-                                if (!strcmp (v->data, "*")) {
-                                        ret = 0;
-                                        goto internal_out;
-                                }
-
-                                tmp_addr_list = gf_strdup (v->data);
-                                addr = strtok_r (tmp_addr_list, ",", &tmp_str);
-                                if (!addr)
-                                        addr = v->data;
-
-                                while (addr) {
-
-                                        if (valid_internet_address (addr,
-                                                                    _gf_true)) {
-                                                ret = 0;
-                                        } else {
-                                                ret = -1;
-                                                gf_log (this->name, GF_LOG_ERROR,
-                                                        "internet address '%s'"
-                                                        " does not conform to"
-                                                        " standards.", addr);
-                                                goto internal_out;
-
-                                        }
-                                        if (tmp_str)
-                                                addr = strtok_r (NULL, ",",
-                                                                 &tmp_str);
-                                        else
-                                                addr = NULL;
-                                }
-
-                                GF_FREE (tmp_addr_list);
-                                tmp_addr_list = NULL;
-                        }
-                internal_out:
-                        return ret;
-                }
-                error = dict_foreach (dict, _check_for_auth_option, NULL);
+                error = dict_foreach (dict, _check_for_auth_option,
+                                      trav->xlator);
 
                 if (-1 == error) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -706,7 +707,6 @@ validate_auth_options (xlator_t *this, dict_t *dict)
         }
 
 out:
-        GF_FREE (tmp_addr_list);
         return error;
 }
 
