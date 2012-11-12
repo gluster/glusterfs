@@ -998,7 +998,7 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
                 goto out;
         }
 
-        if (fd->pid != -1)
+        if (!fd_is_anonymous(fd))
                 /* anonymous fd */
                 goto out;
 
