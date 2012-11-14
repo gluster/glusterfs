@@ -329,6 +329,4 @@ ioc_prune (ioc_table_t *table);
 int32_t
 ioc_need_prune (ioc_table_t *table);
 
-inline uint32_t
-ioc_hashfn (void *data, int len);
 #endif /* __IO_CACHE_H */

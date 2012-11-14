@@ -223,7 +223,7 @@ err:
 /* this procedure can only pass 4 arguments to registered notifyfn. To send more
  * arguments call wrapper->notify directly.
  */
-inline void
+static inline void
 rpcsvc_program_notify (rpcsvc_listener_t *listener, rpcsvc_event_t event,
                        void *data)
 {
@@ -246,7 +246,7 @@ out:
 }
 
 
-inline int
+static inline int
 rpcsvc_accept (rpcsvc_t *svc, rpc_transport_t *listen_trans,
                rpc_transport_t *new_trans)
 {
@@ -719,7 +719,7 @@ err:
         return txrecord;
 }
 
-inline int
+static inline int
 rpcsvc_get_callid (rpcsvc_t *rpc)
 {
         return GF_UNIVERSAL_ANSWER;
@@ -905,7 +905,7 @@ out:
         return ret;
 }
 
-inline int
+static inline int
 rpcsvc_transport_submit (rpc_transport_t *trans, struct iovec *hdrvec,
                          int hdrcount, struct iovec *proghdr, int proghdrcount,
                          struct iovec *progpayload, int progpayloadcount,
@@ -1174,7 +1174,7 @@ out:
 }
 
 
-inline int
+static inline int
 rpcsvc_program_unregister_portmap (rpcsvc_program_t *prog)
 {
         int ret = 0;
