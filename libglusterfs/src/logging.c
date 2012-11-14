@@ -598,6 +598,10 @@ _gf_log_eh (const char *function, const char *fmt, ...)
         va_end (ap);
 
         msg = GF_MALLOC (strlen (str1) + strlen (str2) + 1, gf_common_mt_char);
+        if (!msg) {
+                ret = -1;
+                goto out;
+        }
 
         strcpy (msg, str1);
         strcat (msg, str2);
@@ -605,8 +609,7 @@ _gf_log_eh (const char *function, const char *fmt, ...)
         ret = eh_save_history (this->history, msg);
 
 out:
-        if (str1)
-                GF_FREE (str1);
+        GF_FREE (str1);
 
         /* Use FREE instead of GF_FREE since str2 was allocated by vasprintf */
         if (str2)
