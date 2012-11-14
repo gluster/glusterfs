@@ -664,6 +664,13 @@ fail:
         rsp.op_ret   = op_ret;
         rsp.op_errno = gf_errno_to_error (op_errno);
 
+        /* if bound_xl is NULL or something fails, then put the connection
+         * back. Otherwise the connection would have been added to the
+         * list of connections the server is maintaining and might segfault
+         * during statedump when bound_xl of the connection is accessed.
+         */
+        if (op_ret && conn)
+                server_connection_put (this, conn, NULL);
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_setvolume_rsp);
 

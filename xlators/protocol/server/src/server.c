@@ -307,7 +307,7 @@ ltable_dump (server_connection_t *trav)
 
         gf_proc_dump_build_key(key,
                                "conn","bound_xl.ltable.inodelk.%s",
-                               trav->bound_xl->name);
+                               trav->bound_xl?trav->bound_xl->name:"");
         gf_proc_dump_add_section(key);
 
         list_for_each_entry (locker, &trav->ltable->inodelk_lockers, lockers) {
@@ -341,7 +341,7 @@ ltable_dump (server_connection_t *trav)
         locker = NULL;
         gf_proc_dump_build_key(key,
                                "conn","bound_xl.ltable.entrylk.%s",
-                               trav->bound_xl->name);
+                               trav->bound_xl?trav->bound_xl->name:"");
         gf_proc_dump_add_section(key);
 
         list_for_each_entry (locker, &trav->ltable->entrylk_lockers,
