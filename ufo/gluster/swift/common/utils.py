@@ -17,6 +17,7 @@ import logging
 import os
 import errno
 import xattr
+import random
 from hashlib import md5
 import cPickle as pickle
 from ConfigParser import ConfigParser, NoSectionError, NoOptionError
@@ -455,3 +456,33 @@ def create_container_metadata(cont_path, memcache=None):
 def create_account_metadata(acc_path, memcache=None):
     metadata = get_account_metadata(acc_path, memcache)
     return restore_metadata(acc_path, metadata)
+
+def write_pickle(obj, dest, tmp=None, pickle_protocol=0):
+    """
+    Ensure that a pickle file gets written to disk.  The file is first written
+    to a tmp file location in the destination directory path, ensured it is
+    synced to disk, then moved to its final destination name.
+
+    This version takes advantage of Gluster's dot-prefix-dot-suffix naming
+    where the a file named ".thefile.name.9a7aasv" is hashed to the same
+    Gluster node as "thefile.name". This ensures the renaming of a temp file
+    once written does not move it to another Gluster node.
+
+    :param obj: python object to be pickled
+    :param dest: path of final destination file
+    :param tmp: path to tmp to use, defaults to None (ignored)
+    :param pickle_protocol: protocol to pickle the obj with, defaults to 0
+    """
+    dirname = os.path.dirname(dest)
+    basename = os.path.basename(dest)
+    tmpname = '.' + basename + '.' + md5(basename + str(random.random())).hexdigest()
+    tmppath = os.path.join(dirname, tmpname)
+    with open(tmppath, 'wb') as fo:
+        pickle.dump(obj, fo, pickle_protocol)
+        fo.flush()
+        os.fsync(fo)
+    os.rename(tmppath, dest)
+
+# Over-ride Swift's utils.write_pickle with ours
+import swift.common.utils
+swift.common.utils.write_pickle = write_pickle

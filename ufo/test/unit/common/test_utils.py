@@ -417,9 +417,9 @@ class TestUtils(unittest.TestCase):
             o_count = 3
             b_used = 47
             return o_list, o_count, b_used
-        td = tempfile.mkdtemp()
         orig_gcd = utils.get_container_details
         utils.get_container_details = _mock_get_container_details
+        td = tempfile.mkdtemp()
         try:
             exp_md = {
                 utils.X_TYPE: (utils.CONTAINER, 0),
@@ -439,9 +439,9 @@ class TestUtils(unittest.TestCase):
             c_list = [ '123', 'abc' ]
             c_count = 2
             return c_list, c_count
-        td = tempfile.mkdtemp()
         orig_gad = utils.get_account_details
         utils.get_account_details = _mock_get_account_details
+        td = tempfile.mkdtemp()
         try:
             exp_md = {
                 utils.X_TYPE: (utils.ACCOUNT, 0),
@@ -752,12 +752,13 @@ class TestUtils(unittest.TestCase):
             utils.do_stat = orig_ds
 
     def test_get_container_details_from_fs(self):
-        td = tempfile.mkdtemp()
-        tf = tarfile.open("common/data/account_tree.tar.bz2", "r:bz2")
         orig_cwd = os.getcwd()
-        os.chdir(td)
-        tf.extractall()
+        td = tempfile.mkdtemp()
         try:
+            tf = tarfile.open("common/data/account_tree.tar.bz2", "r:bz2")
+            os.chdir(td)
+            tf.extractall()
+
             ad = utils._get_account_details_from_fs(td, None)
             assert ad.mtime == os.path.getmtime(td)
             assert ad.container_count == 3
@@ -775,12 +776,13 @@ class TestUtils(unittest.TestCase):
         assert cd.dir_list == []
 
     def test_get_account_details_from_fs(self):
-        td = tempfile.mkdtemp()
-        tf = tarfile.open("common/data/container_tree.tar.bz2", "r:bz2")
         orig_cwd = os.getcwd()
-        os.chdir(td)
-        tf.extractall()
+        td = tempfile.mkdtemp()
         try:
+            tf = tarfile.open("common/data/container_tree.tar.bz2", "r:bz2")
+            os.chdir(td)
+            tf.extractall()
+
             cd = utils._get_container_details_from_fs(td)
             assert cd.bytes_used == 30, repr(cd.bytes_used)
             assert cd.object_count == 8, repr(cd.object_count)
@@ -816,3 +818,32 @@ class TestUtils(unittest.TestCase):
         assert ad.mtime == os.path.getmtime(tf.name)
         assert ad.container_count == 0
         assert ad.container_list == []
+
+    def test_write_pickle(self):
+        td = tempfile.mkdtemp()
+        try:
+            fpp = os.path.join(td, 'pp')
+            utils.write_pickle('pickled peppers', fpp)
+            with open(fpp, "rb") as f:
+                contents = f.read()
+            s = pickle.loads(contents)
+            assert s == 'pickled peppers', repr(s)
+        finally:
+            shutil.rmtree(td)
+
+    def test_write_pickle_ignore_tmp(self):
+        tf = tempfile.NamedTemporaryFile()
+        td = tempfile.mkdtemp()
+        try:
+            fpp = os.path.join(td, 'pp')
+            # Also test an explicity pickle protocol
+            utils.write_pickle('pickled peppers', fpp, tmp=tf.name, pickle_protocol=2)
+            with open(fpp, "rb") as f:
+                contents = f.read()
+            s = pickle.loads(contents)
+            assert s == 'pickled peppers', repr(s)
+            with open(tf.name, "rb") as f:
+                contents = f.read()
+            assert contents == ''
+        finally:
+            shutil.rmtree(td)
