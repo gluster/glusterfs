@@ -1454,6 +1454,51 @@ out:
         return ret;
 }
 
+char *
+is_server_debug_xlator (void *myframe)
+{
+        call_frame_t         *frame        = NULL;
+        cli_local_t          *local        = NULL;
+        char                 **words       = NULL;
+        char                 *key          = NULL;
+        char                 *value        = NULL;
+        char                 *debug_xlator = NULL;
+
+        frame = myframe;
+        local = frame->local;
+        words = (char **)local->words;
+
+        while (*words != NULL) {
+                if (strstr (*words, "trace") == NULL &&
+                    strstr (*words, "error-gen") == NULL) {
+                        words++;
+                        continue;
+                }
+
+                key = *words;
+                words++;
+                value = *words;
+                if (strstr (value, "client")) {
+                        words++;
+                        continue;
+                } else {
+                        if (!(strstr (value, "posix") || strstr (value, "acl")
+                              || strstr (value, "locks") ||
+                              strstr (value, "io-threads") ||
+                              strstr (value, "marker") ||
+                              strstr (value, "index"))) {
+                                words++;
+                                continue;
+                        } else {
+                                debug_xlator = gf_strdup (key);
+                                break;
+                        }
+                }
+        }
+
+        return debug_xlator;
+}
+
 int
 gf_cli_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
@@ -1463,6 +1508,8 @@ gf_cli_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
         dict_t               *dict = NULL;
         char                 *help_str = NULL;
         char                 msg[1024] = {0,};
+        char                 *debug_xlator = _gf_false;
+        char                 tmp_str[512] = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1485,9 +1532,21 @@ gf_cli_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len, &dict);
 
+        /* For brick processes graph change does not happen on the fly.
+         * The proces has to be restarted. So this is a check from the
+         * volume set option such that if debug xlators such as trace/errorgen
+         * are provided in the set command, warn the user.
+         */
+        debug_xlator = is_server_debug_xlator (myframe);
+
         if (dict_get_str (dict, "help-str", &help_str) && !msg[0])
                 snprintf (msg, sizeof (msg), "Set volume %s",
                           (rsp.op_ret) ? "unsuccessful": "successful");
+        if (rsp.op_ret == 0 && debug_xlator) {
+                snprintf (tmp_str, sizeof (tmp_str), "\n%s translator has been "
+                          "added to the server volume file. Please restart the"
+                          " volume for enabling the translator", debug_xlator);
+        }
 
         if ((global_state->mode & GLUSTER_MODE_XML) && (help_str == NULL)) {
                 ret = cli_xml_output_str ("volSet", msg, rsp.op_ret,
@@ -1502,10 +1561,14 @@ gf_cli_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 cli_err ("volume set: failed: %s", rsp.op_errstr);
 
         if (!rsp.op_ret) {
-                if (help_str == NULL)
-                        cli_out ("volume set: success");
-                else
+                if (help_str == NULL) {
+                        if (debug_xlator == NULL)
+                                cli_out ("volume set: success");
+                        else
+                                cli_out ("volume set: success%s", tmp_str);
+                }else {
                         cli_out ("%s", help_str);
+                }
         } else {
                 cli_err ("volume set: failed");
         }
@@ -1515,6 +1578,7 @@ gf_cli_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
 out:
         if (dict)
                 dict_unref (dict);
+        GF_FREE (debug_xlator);
         cli_cmd_broadcast_response (ret);
         return ret;
 }

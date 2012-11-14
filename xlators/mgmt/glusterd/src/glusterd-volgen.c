@@ -221,6 +221,10 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
 
         /* Debug xlators options */
         {"debug.trace",                          "debug/trace",               "!debug","off", NO_DOC, 0, 1},
+        {"debug.log-history",                    "debug/trace",               "log-history", NULL, NO_DOC, 0, 2},
+        {"debug.log-file",                       "debug/trace",               "log-file", NULL, NO_DOC, 0, 2},
+        {"debug.exclude-ops",                    "debug/trace",               "exclude-ops", NULL, NO_DOC, 0, 2},
+        {"debug.include-ops",                    "debug/trace",               "include-ops", NULL, NO_DOC, 0, 2},
         {"debug.error-gen",                      "debug/error-gen",           "!debug","off", NO_DOC, 0, 1},
 
         /* NFS xlator options */
@@ -798,33 +802,97 @@ optget_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
         return 0;
 }
 
+static glusterd_server_xlator_t
+get_server_xlator (char *xlator)
+{
+        glusterd_server_xlator_t subvol = GF_XLATOR_NONE;
+
+        if (strcmp (xlator, "posix") == 0)
+                subvol = GF_XLATOR_POSIX;
+        if (strcmp (xlator, "acl") == 0)
+                subvol = GF_XLATOR_ACL;
+        if (strcmp (xlator, "locks") == 0)
+                subvol = GF_XLATOR_LOCKS;
+        if (strcmp (xlator, "io-threads") == 0)
+                subvol = GF_XLATOR_IOT;
+        if (strcmp (xlator, "index") == 0)
+                subvol = GF_XLATOR_INDEX;
+        if (strcmp (xlator, "marker") == 0)
+                subvol = GF_XLATOR_MARKER;
+        if (strcmp (xlator, "io-stats") == 0)
+                subvol = GF_XLATOR_IO_STATS;
+
+        return subvol;
+}
+
+static glusterd_client_xlator_t
+get_client_xlator (char *xlator)
+{
+        glusterd_client_xlator_t subvol = GF_CLNT_XLATOR_NONE;
+
+        if (strcmp (xlator, "client") == 0)
+                subvol = GF_CLNT_XLATOR_FUSE;
+
+        return subvol;
+}
+
+static int
+debugxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
+                       void *param)
+{
+        char *volname = NULL;
+        gf_boolean_t enabled = _gf_false;
+
+        volname = param;
+
+        if (strcmp (vme->option, "!debug") != 0)
+                return 0;
+
+        if (!strcmp (vme->key , "debug.trace") ||
+            !strcmp (vme->key, "debug.error-gen")) {
+                if (get_server_xlator (vme->value) == GF_XLATOR_NONE &&
+                    get_client_xlator (vme->value) == GF_CLNT_XLATOR_NONE)
+                        return 0;
+                else
+                        goto add_graph;
+        }
+
+        if (gf_string2boolean (vme->value, &enabled) == -1)
+                return -1;
+        if (!enabled)
+                return 0;
+
+add_graph:
+        if (volgen_graph_add (graph, vme->voltype, volname))
+                return 0;
+        else
+                return -1;
+}
+
 int
 check_and_add_debug_xl (volgen_graph_t *graph, dict_t *set_dict, char *volname,
                         char *xlname)
 {
         int       ret       = 0;
-        xlator_t *xl        = NULL;
         char     *value_str = NULL;
 
         ret = dict_get_str (set_dict, "debug.trace", &value_str);
         if (!ret) {
                 if (strcmp (xlname, value_str) == 0) {
-                        xl = volgen_graph_add (graph, "debug/trace", volname);
-                        if (!xl) {
-                                ret = -1;
+                        ret = volgen_graph_set_options_generic (graph, set_dict, volname,
+                                                                &debugxl_option_handler);
+                        if (ret)
                                 goto out;
-                        }
                 }
         }
 
         ret = dict_get_str (set_dict, "debug.error-gen", &value_str);
         if (!ret) {
                 if (strcmp (xlname, value_str) == 0) {
-                        xl = volgen_graph_add (graph, "debug/error-gen", volname);
-                        if (!xl) {
-                                ret = -1;
+                        ret = volgen_graph_set_options_generic (graph, set_dict, volname,
+                                                                &debugxl_option_handler);
+                        if (ret)
                                 goto out;
-                        }
                 }
         }
 

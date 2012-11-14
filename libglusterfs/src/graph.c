@@ -492,11 +492,14 @@ glusterfs_graph_activate (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
         ctx->active = graph;
 
         /* XXX: attach to master and set active pointer */
-        if (ctx->master)
+        if (ctx->master) {
                 ret = xlator_notify (ctx->master, GF_EVENT_GRAPH_NEW, graph);
-        if (ret) {
-                gf_log ("graph", GF_LOG_ERROR, "graph new notification failed");
-                return ret;
+                if (ret) {
+                        gf_log ("graph", GF_LOG_ERROR,
+                                "graph new notification failed");
+                        return ret;
+                }
+                ((xlator_t *)ctx->master)->next = graph->top;
         }
 
         /* XXX: perform parent up */

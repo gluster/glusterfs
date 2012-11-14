@@ -55,6 +55,27 @@ typedef enum gd_volopt_flags_ {
         OPT_FLAG_FORCE = 1,
 } gd_volopt_flags_t;
 
+typedef enum {
+        GF_XLATOR_POSIX = 0,
+        GF_XLATOR_ACL,
+        GF_XLATOR_LOCKS,
+        GF_XLATOR_IOT,
+        GF_XLATOR_INDEX,
+        GF_XLATOR_MARKER,
+        GF_XLATOR_IO_STATS,
+        GF_XLATOR_NONE,
+} glusterd_server_xlator_t;
+
+/* As of now debug xlators can be loaded only below fuse in the client
+ * graph via cli. More xlators can be added below when the cli option
+ * for adding debug xlators anywhere in the client graph has to be made
+ * available.
+ */
+typedef enum {
+        GF_CLNT_XLATOR_FUSE = 0,
+        GF_CLNT_XLATOR_NONE,
+} glusterd_client_xlator_t;
+
 typedef enum  { DOC, NO_DOC, GLOBAL_DOC, GLOBAL_NO_DOC } option_type_t;
 
 struct volopt_map_entry {
