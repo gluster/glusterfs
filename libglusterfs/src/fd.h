@@ -84,7 +84,7 @@ typedef struct _fdtable fdtable_t;
 #include "xlator.h"
 
 
-inline void
+void
 gf_fd_put (fdtable_t *fdtable, int32_t fd);
 
 

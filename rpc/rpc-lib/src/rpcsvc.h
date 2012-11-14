@@ -451,7 +451,7 @@ rpcsvc_error_reply (rpcsvc_request_t *req);
 extern int
 rpcsvc_transport_peername (rpc_transport_t *trans, char *hostname, int hostlen);
 
-extern inline int
+extern int
 rpcsvc_transport_peeraddr (rpc_transport_t *trans, char *addrstr, int addrlen,
                            struct sockaddr_storage *returnsa, socklen_t sasize);
 

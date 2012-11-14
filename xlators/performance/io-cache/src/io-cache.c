@@ -31,7 +31,7 @@ ioc_get_priority (ioc_table_t *table, const char *path);
 struct volume_options options[];
 
 
-inline uint32_t
+static inline uint32_t
 ioc_hashfn (void *data, int len)
 {
         off_t offset;
@@ -41,7 +41,7 @@ ioc_hashfn (void *data, int len)
         return (offset >> ioc_log2_page_size);
 }
 
-inline ioc_inode_t *
+static inline ioc_inode_t *
 ioc_inode_reupdate (ioc_inode_t *ioc_inode)
 {
         ioc_table_t *table = NULL;
@@ -54,7 +54,7 @@ ioc_inode_reupdate (ioc_inode_t *ioc_inode)
         return ioc_inode;
 }
 
-inline ioc_inode_t *
+static inline ioc_inode_t *
 ioc_get_inode (dict_t *dict, char *name)
 {
         ioc_inode_t *ioc_inode      = NULL;
@@ -489,7 +489,7 @@ out:
         return ret;
 }
 
-inline uint32_t
+static inline uint32_t
 is_match (const char *path, const char *pattern)
 {
         int32_t ret = 0;
