@@ -836,6 +836,9 @@ afr_frame_return (call_frame_t *frame);
 gf_boolean_t
 afr_is_split_brain (xlator_t *this, inode_t *inode);
 
+gf_boolean_t
+afr_is_data_split_brain (xlator_t *this, inode_t *inode);
+
 void
 afr_set_split_brain (xlator_t *this, inode_t *inode, afr_spb_state_t mdata_spb,
                      afr_spb_state_t data_spb);
