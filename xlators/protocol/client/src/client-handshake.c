@@ -747,7 +747,7 @@ client_reacquire_lock_cbk (struct rpc_req *req, struct iovec *iov,
 
         gf_log (this->name, GF_LOG_DEBUG, "%s type lock reacquired on file "
                 "with gfid %s from %"PRIu64 " to %"PRIu64,
-                get_lk_type (lock.l_type), uuid_utoa (fdctx->inode->gfid),
+                get_lk_type (lock.l_type), uuid_utoa (fdctx->gfid),
                 lock.l_start, lock.l_start + lock.l_len);
 
         if (clnt_fd_lk_local_unref (this, local) == 0 &&
@@ -799,7 +799,7 @@ _client_reacquire_lock (xlator_t *this, clnt_fd_ctx_t *fdctx)
         if (!local) {
                 gf_log (this->name, GF_LOG_WARNING, "clnt_fd_lk_local_create "
                         "failed, aborting reacquring of locks on %s.",
-                        uuid_utoa (fdctx->inode->gfid));
+                        uuid_utoa (fdctx->gfid));
                 clnt_reacquire_lock_error (this, fdctx, conf);
                 goto out;
         }
@@ -825,7 +825,7 @@ _client_reacquire_lock (xlator_t *this, clnt_fd_ctx_t *fdctx)
                 (void) gf_proto_flock_from_flock (&req.flock,
                                                   &flock);
 
-                memcpy (req.gfid, fdctx->inode->gfid, 16);
+                memcpy (req.gfid, fdctx->gfid, 16);
 
                 frame = create_frame (this, this->ctx->pool);
                 if (!frame) {
@@ -844,7 +844,7 @@ _client_reacquire_lock (xlator_t *this, clnt_fd_ctx_t *fdctx)
                 if (ret) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "reacquiring locks failed on file with gfid %s",
-                                uuid_utoa (fdctx->inode->gfid));
+                                uuid_utoa (fdctx->gfid));
                         break;
                 }
 
@@ -1090,34 +1090,25 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
         int               ret   = -1;
         gfs3_opendir_req  req   = {{0,},};
         clnt_local_t     *local = NULL;
-        inode_t          *inode = NULL;
-        char             *path  = NULL;
         call_frame_t     *frame = NULL;
         clnt_conf_t      *conf  = NULL;
 
         if (!this || !fdctx)
                 goto out;
 
-        inode = fdctx->inode;
         conf = this->private;
-
-        ret = inode_path (inode, NULL, &path);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "couldn't build path from inode %s",
-                        uuid_utoa (inode->gfid));
-                goto out;
-        }
 
         local = mem_get0 (this->local_pool);
         if (!local) {
                 ret = -1;
                 goto out;
         }
-
         local->fdctx    = fdctx;
-        local->loc.path = path;
-        path            = NULL;
+
+        uuid_copy (local->loc.gfid, fdctx->gfid);
+        ret = loc_path (&local->loc, NULL);
+        if (ret < 0)
+                goto out;
 
         frame = create_frame (this, this->ctx->pool);
         if (!frame) {
@@ -1125,7 +1116,7 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
                 goto out;
         }
 
-        memcpy (req.gfid, inode->gfid, 16);
+        memcpy (req.gfid, fdctx->gfid, 16);
 
         gf_log (frame->this->name, GF_LOG_DEBUG,
                 "attempting reopen on %s", local->loc.path);
@@ -1153,8 +1144,6 @@ out:
         if (local)
                 client_local_wipe (local);
 
-        if (path)
-                GF_FREE (path);
         if ((ret < 0) && this && conf) {
                 decrement_reopen_fd_count (this, conf);
         }
@@ -1169,24 +1158,13 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
         int            ret   = -1;
         gfs3_open_req  req   = {{0,},};
         clnt_local_t  *local = NULL;
-        inode_t       *inode = NULL;
-        char          *path  = NULL;
         call_frame_t  *frame = NULL;
         clnt_conf_t   *conf  = NULL;
 
         if (!this || !fdctx)
                 goto out;
 
-        inode = fdctx->inode;
         conf  = this->private;
-
-        ret = inode_path (inode, NULL, &path);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "couldn't build path from inode %s",
-                        uuid_utoa (inode->gfid));
-                goto out;
-        }
 
         frame = create_frame (this, this->ctx->pool);
         if (!frame) {
@@ -1201,11 +1179,14 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
         }
 
         local->fdctx    = fdctx;
-        local->loc.path = path;
-        path            = NULL;
+        uuid_copy (local->loc.gfid, fdctx->gfid);
+        ret = loc_path (&local->loc, NULL);
+        if (ret < 0)
+                goto out;
+
         frame->local    = local;
 
-        memcpy (req.gfid, inode->gfid, 16);
+        memcpy (req.gfid, fdctx->gfid, 16);
         req.flags    = gf_flags_from_flags (fdctx->flags);
 
         gf_log (frame->this->name, GF_LOG_DEBUG,
@@ -1231,9 +1212,6 @@ out:
 
         if (local)
                 client_local_wipe (local);
-
-        if (path)
-                GF_FREE (path);
 
         if ((ret < 0) && this && conf) {
                 decrement_reopen_fd_count (this, conf);
