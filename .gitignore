@@ -10,9 +10,9 @@ Makefile.in
 missing
 *.sw?
 *~
-*lo
-*la
-*o
+*.lo
+*.la
+*.o
 .libs
 Makefile
 stamp-h1
