@@ -1813,6 +1813,11 @@ afr_readv (call_frame_t *frame, xlator_t *this,
         priv     = this->private;
         children = priv->children;
 
+        if (afr_is_data_split_brain (this, fd->inode)) {
+                op_errno = EIO;
+                goto out;
+        }
+
         AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
