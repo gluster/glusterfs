@@ -2455,7 +2455,8 @@ nlm_priv (xlator_t *this)
 
         gf_proc_dump_add_section("nfs.nlm");
 
-        LOCK (&nlm_client_list_lk);
+        if (TRY_LOCK (&nlm_client_list_lk))
+                goto out;
 
         list_for_each_entry (client, &nlm_client_list, nlm_clients) {
 
@@ -2478,7 +2479,15 @@ nlm_priv (xlator_t *this)
 
         gf_proc_dump_build_key (key, "nlm", "client-count");
         gf_proc_dump_write (key, "%d", client_count);
-
+        ret = 0;
         UNLOCK (&nlm_client_list_lk);
+
+ out:
+        if (ret) {
+                gf_proc_dump_build_key (key, "nlm", "statedump_error");
+                gf_proc_dump_write (key, "Unable to dump nlm state because "
+                                    "nlm_client_list_lk lock couldn't be acquired");
+        }
+
         return ret;
 }
