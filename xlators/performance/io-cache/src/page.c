@@ -804,7 +804,7 @@ ioc_frame_unwind (call_frame_t *frame)
         int32_t        copied = 0;
         struct iobref *iobref = NULL;
         struct iatt    stbuf  = {0,};
-        int32_t        op_ret = 0;
+        int32_t        op_ret = 0, op_errno = 0;
 
         GF_ASSERT (frame);
 
@@ -813,7 +813,13 @@ ioc_frame_unwind (call_frame_t *frame)
                 gf_log (frame->this->name, GF_LOG_WARNING,
                         "local is NULL");
                 op_ret = -1;
-                local->op_errno = ENOMEM;
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+
+        if (local->op_ret < 0) {
+                op_ret = local->op_ret;
+                op_errno = local->op_errno;
                 goto unwind;
         }
 
@@ -822,7 +828,7 @@ ioc_frame_unwind (call_frame_t *frame)
         iobref = iobref_new ();
         if (iobref == NULL) {
                 op_ret = -1;
-                local->op_errno = ENOMEM;
+                op_errno = ENOMEM;
         }
 
         if (list_empty (&local->fill_list)) {
@@ -839,7 +845,7 @@ ioc_frame_unwind (call_frame_t *frame)
         vector = GF_CALLOC (count, sizeof (*vector), gf_ioc_mt_iovec);
         if (vector == NULL) {
                 op_ret = -1;
-                local->op_errno = ENOMEM;
+                op_errno = ENOMEM;
         }
 
         list_for_each_entry_safe (fill, next, &local->fill_list, list) {
@@ -869,7 +875,7 @@ unwind:
 
         //  ioc_local_unlock (local);
 
-        STACK_UNWIND_STRICT (readv, frame, op_ret, local->op_errno, vector,
+        STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector,
                              count, &stbuf, iobref, NULL);
 
         if (iobref != NULL) {
