@@ -58,10 +58,8 @@ typedef enum {
         AFR_INODE_SET_READ_CTX = 1,
         AFR_INODE_RM_STALE_CHILDREN,
         AFR_INODE_SET_OPENDIR_DONE,
-        AFR_INODE_SET_SPLIT_BRAIN,
         AFR_INODE_GET_READ_CTX,
         AFR_INODE_GET_OPENDIR_DONE,
-        AFR_INODE_GET_SPLIT_BRAIN,
 } afr_inode_op_t;
 
 typedef struct afr_inode_params_ {
@@ -75,9 +73,17 @@ typedef struct afr_inode_params_ {
         } u;
 } afr_inode_params_t;
 
+typedef enum afr_spb_state {
+        DONT_KNOW,
+        SPB,
+        NO_SPB
+} afr_spb_state_t;
+
 typedef struct afr_inode_ctx_ {
         uint64_t masks;
         int32_t  *fresh_children;//increasing order of latency
+        afr_spb_state_t mdata_spb;
+        afr_spb_state_t data_spb;
 } afr_inode_ctx_t;
 
 typedef enum {
@@ -272,8 +278,6 @@ typedef struct {
         int (*algo_completion_cbk) (call_frame_t *frame, xlator_t *this);
         int (*algo_abort_cbk) (call_frame_t *frame, xlator_t *this);
         void (*gfid_sh_success_cbk) (call_frame_t *sh_frame, xlator_t *this);
-        gf_boolean_t    mdata_spb;
-        gf_boolean_t    data_spb;
 
         call_frame_t *sh_frame;
 } afr_self_heal_t;
@@ -833,7 +837,8 @@ gf_boolean_t
 afr_is_split_brain (xlator_t *this, inode_t *inode);
 
 void
-afr_set_split_brain (xlator_t *this, inode_t *inode, gf_boolean_t set);
+afr_set_split_brain (xlator_t *this, inode_t *inode, afr_spb_state_t mdata_spb,
+                     afr_spb_state_t data_spb);
 
 int
 afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,

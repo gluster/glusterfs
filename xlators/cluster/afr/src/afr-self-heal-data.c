@@ -716,12 +716,13 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
                         "split-brain). Please delete the file from all but "
                         "the preferred subvolume.", local->loc.path);
 
-                sh->data_spb = _gf_true;
+                afr_set_split_brain (this, sh->inode, DONT_KNOW, SPB);
+
                 afr_sh_data_fail (frame, this);
                 return 0;
         }
 
-        sh->data_spb = _gf_false;
+        afr_set_split_brain (this, sh->inode, DONT_KNOW, NO_SPB);
         ret = afr_sh_inode_set_read_ctx (sh, this);
         if (ret) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -1401,13 +1402,6 @@ afr_self_heal_data (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         sh = &local->self_heal;
 
-        /* Self-heal completion cbk changes inode split-brain status based on
-         * govinda_gOvinda, mdata_spb, data_spb value.
-         * Initialize data_spb with current split-brain status.
-         * If for some reason self-heal fails(locking phase etc), it makes sure
-         * we retain the split-brain status before this self-heal started.
-         */
-        sh->data_spb = afr_is_split_brain (this, sh->inode);
         if (afr_can_start_data_self_heal (sh, priv)) {
                 if (IA_ISREG (sh->type)) {
                         afr_sh_data_open (frame, this);

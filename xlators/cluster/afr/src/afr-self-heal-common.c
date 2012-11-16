@@ -2067,18 +2067,15 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
         afr_local_t *     orig_frame_local = NULL;
         afr_self_heal_t * orig_frame_sh = NULL;
         char              sh_type_str[256] = {0,};
-        gf_boolean_t      split_brain = _gf_false;
 
         priv  = this->private;
         local = bgsh_frame->local;
         sh    = &local->self_heal;
 
-        if (local->govinda_gOvinda || sh->mdata_spb || sh->data_spb) {
-                split_brain = _gf_true;
+        if (local->govinda_gOvinda) {
+                afr_set_split_brain (this, sh->inode, SPB, SPB);
                 sh->op_failed = 1;
         }
-
-        afr_set_split_brain (this, sh->inode, split_brain);
 
         afr_self_heal_type_str_get (sh, sh_type_str,
                                     sizeof(sh_type_str));
