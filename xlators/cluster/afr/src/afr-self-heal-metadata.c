@@ -88,6 +88,19 @@ afr_sh_metadata_finish (call_frame_t *frame, xlator_t *this)
         return 0;
 }
 
+int
+afr_sh_metadata_fail (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t         *local    = NULL;
+        afr_self_heal_t     *sh       = NULL;
+
+        local    = frame->local;
+        sh       = &local->self_heal;
+
+        sh->op_failed = 1;
+        afr_sh_metadata_finish (frame, this);
+        return 0;
+}
 
 int
 afr_sh_metadata_erase_pending_cbk (call_frame_t *frame, void *cookie,
@@ -397,13 +410,12 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this,
                         "(possible split-brain). Please fix the file on "
                         "all backend volumes", local->loc.path);
 
-                sh->mdata_spb = _gf_true;
-
-                afr_sh_metadata_finish (frame, this);
+                afr_set_split_brain (this, sh->inode, SPB, DONT_KNOW);
+                afr_sh_metadata_fail (frame, this);
                 goto out;
         }
 
-        sh->mdata_spb = _gf_false;
+        afr_set_split_brain (this, sh->inode, NO_SPB, DONT_KNOW);
         if (nsources == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "No self-heal needed for %s",
@@ -528,14 +540,6 @@ afr_self_heal_metadata (call_frame_t *frame, xlator_t *this)
 
         local = frame->local;
         sh = &local->self_heal;
-
-        /* Self-heal completion cbk changes inode split-brain status based on
-         * govinda_gOvinda, mdata_spb, data_spb value.
-         * Initialize mdata_spb with current split-brain status.
-         * If for some reason self-heal fails(locking phase etc), it makes sure
-         * we retain the split-brain status before this self-heal started.
-         */
-        sh->mdata_spb = afr_is_split_brain (this, sh->inode);
 
         if (afr_can_start_metadata_self_heal (sh, priv)) {
                 afr_sh_metadata_lock (frame, this);
