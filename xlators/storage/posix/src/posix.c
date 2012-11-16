@@ -4158,16 +4158,13 @@ init (xlator_t *this)
                                 goto out;
                         }
                 } else if ((size == -1) && (errno == ENODATA)) {
-                        /* Using the export for first time */
-                        size = sys_lsetxattr (dir_data->data,
-                                                "trusted.glusterfs.volume-id",
-                                                dict_uuid, 16, 0);
-                        if (size == -1) {
+
                                 gf_log (this->name, GF_LOG_ERROR,
-                                        "failed to set volume id on export");
+                                        "Extended attribute trusted.glusterfs."
+                                        "volume-id is absent");
                                 ret = -1;
                                 goto out;
-                        }
+
                 }  else if ((size == -1) && (errno != ENODATA)) {
                         /* Wrong 'volume-id' is set, it should be error */
                         gf_log (this->name, GF_LOG_WARNING,
