@@ -824,8 +824,13 @@ glusterd_is_brickpath_available (uuid_t uuid, char *path)
 
         strncpy (tmp_path, path, PATH_MAX);
         /* path may not yet exist */
-        if (!realpath (path, tmp_path) && (errno != ENOENT))
-                goto out;
+        if (!realpath (path, tmp_path)) {
+                if (errno != ENOENT) {
+                        goto out;
+                }
+                /* When realpath(3) fails, tmp_path is undefined. */
+                strncpy(tmp_path,path,PATH_MAX);
+        }
 
         list_for_each_entry (volinfo, &priv->volumes, vol_list) {
                 list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
