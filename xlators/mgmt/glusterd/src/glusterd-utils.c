@@ -4375,41 +4375,53 @@ glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
 
         ret = glusterd_resolve_brick (newbrickinfo);
         if (ret) {
-                snprintf (op_errstr, len, "Host %s not a friend",
-                          newbrickinfo->hostname);
-                gf_log (THIS->name, GF_LOG_ERROR, "%s", op_errstr);
+                snprintf(op_errstr, len, "Host %s is not in \'Peer "
+                         "in Cluster\' state", newbrickinfo->hostname);
+                gf_log (this->name, GF_LOG_ERROR, "%s", op_errstr);
                 goto out;
         }
 
-        if (!uuid_compare (MY_UUID, newbrickinfo->uuid))
-                goto brick_validation;
-        ret = glusterd_friend_find_by_uuid (newbrickinfo->uuid, &peerinfo);
-        if (ret)
-                goto out;
-        if ((!peerinfo->connected) ||
-            (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)) {
-                snprintf(op_errstr, len, "Host %s not connected",
-                         newbrickinfo->hostname);
-                gf_log (THIS->name, GF_LOG_ERROR, "%s", op_errstr);
-                ret = -1;
-                goto out;
-        }
-brick_validation:
-        if (!glusterd_is_brickpath_available (newbrickinfo->uuid,
-                                              newbrickinfo->path)) {
-                snprintf(op_errstr, len, "Brick: %s not available. Brick may "
-                         "be containing or be contained by an existing brick",
-                         brick);
-                gf_log (THIS->name, GF_LOG_ERROR, "%s", op_errstr);
-                ret = -1;
-                goto out;
+        if (!uuid_compare (MY_UUID, newbrickinfo->uuid)) {
+                /* brick is local */
+                if (!glusterd_is_brickpath_available (newbrickinfo->uuid,
+                                                      newbrickinfo->path)) {
+                        snprintf(op_errstr, len, "Brick: %s not available."
+                                 " Brick may be containing or be contained "
+                                 "by an existing brick", brick);
+                        gf_log (this->name, GF_LOG_ERROR, "%s", op_errstr);
+                        ret = -1;
+                        goto out;
+                }
+
         } else {
-                ret = 0;
+                ret = glusterd_friend_find_by_uuid (newbrickinfo->uuid,
+                                                    &peerinfo);
+                if (ret)
+                        goto out;
+
+                if ((!peerinfo->connected)) {
+                        snprintf(op_errstr, len, "Host %s not connected",
+                                 newbrickinfo->hostname);
+                        gf_log (this->name, GF_LOG_ERROR, "%s", op_errstr);
+                        ret = -1;
+                        goto out;
+                }
+
+                if (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) {
+                        snprintf(op_errstr, len, "Host %s is not in \'Peer "
+                                 "in Cluster\' state",
+                                 newbrickinfo->hostname);
+                        gf_log (this->name, GF_LOG_ERROR, "%s", op_errstr);
+                        ret = -1;
+                        goto out;
+                }
         }
+
+        ret = 0;
 out:
-        if (is_allocated && newbrickinfo)
+        if (is_allocated)
                 glusterd_brickinfo_delete (newbrickinfo);
-        gf_log (THIS->name, GF_LOG_DEBUG, "returning %d ", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "returning %d ", ret);
         return ret;
 }
 
