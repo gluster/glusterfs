@@ -114,6 +114,8 @@ typedef struct clnt_conf {
 						   the reconnection happen after
 						   the usual 3-second wait
 						*/
+        gf_boolean_t           filter_o_direct; /* if set, filter O_DIRECT from
+                                                   the flags list of open() */
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {

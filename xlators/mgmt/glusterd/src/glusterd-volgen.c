@@ -178,6 +178,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"features.lock-heal",                   "protocol/client",           "lk-heal", NULL, DOC, 0, 1},
         {"features.grace-timeout",               "protocol/client",           "grace-timeout", NULL, DOC, 0, 1},
         {"client.ssl",                           "protocol/client",           "transport.socket.ssl-enabled", NULL, NO_DOC, 0, 2},
+        {"network.remote-dio",                   "protocol/client",           "filter-O_DIRECT", NULL, DOC, 0, 1},
 
         /* Server xlator options */
         {"network.tcp-window-size",              "protocol/server",           NULL, NULL, NO_DOC, 0, 1},
