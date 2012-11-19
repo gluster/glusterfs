@@ -3575,7 +3575,8 @@ nfs3_fh_resolve_entry_lookup_cbk (call_frame_t *frame, void *cookie,
                                    cs->resolvedloc.name, buf);
         if (linked_inode) {
                 inode_lookup (linked_inode);
-                inode_unref (linked_inode);
+                inode_unref (cs->resolvedloc.inode);
+                cs->resolvedloc.inode = linked_inode;
         }
 err:
         nfs3_call_resume (cs);
