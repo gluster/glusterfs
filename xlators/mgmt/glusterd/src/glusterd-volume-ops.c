@@ -36,14 +36,9 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         int32_t                 ret         = -1;
         gf_cli_req              cli_req     = {{0,}};
         dict_t                 *dict        = NULL;
-        glusterd_brickinfo_t   *brickinfo   = NULL;
-        char                   *brick       = NULL;
         char                   *bricks      = NULL;
         char                   *volname     = NULL;
         int                    brick_count  = 0;
-        char                   *tmpptr      = NULL;
-        int                    i            = 0;
-        char                   *brick_list  = NULL;
         void                   *cli_rsp     = NULL;
         char                    err_str[2048] = {0,};
         gf_cli_rsp              rsp         = {0,};
@@ -52,14 +47,11 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         char                   *trans_type  = NULL;
         uuid_t                  volume_id   = {0,};
         uuid_t                  tmp_uuid    = {0};
-        glusterd_volinfo_t      tmpvolinfo  = {{0},};
         int32_t                 type        = 0;
         char                   *username    = NULL;
         char                   *password    = NULL;
 
         GF_ASSERT (req);
-
-        INIT_LIST_HEAD (&tmpvolinfo.bricks);
 
         this = THIS;
         GF_ASSERT(this);
@@ -153,31 +145,6 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         }
         free_ptr = NULL;
 
-        if (bricks) {
-                brick_list = gf_strdup (bricks);
-                free_ptr = brick_list;
-        }
-
-        while ( i < brick_count) {
-                i++;
-                brick= strtok_r (brick_list, " \n", &tmpptr);
-                brick_list = tmpptr;
-                ret = glusterd_brickinfo_new_from_brick (brick, &brickinfo);
-                if (ret) {
-                        snprintf (err_str, sizeof (err_str), "Failed to create "
-                                  "brickinfo for brick %s", brick);
-                        goto out;
-                }
-
-                ret = glusterd_new_brick_validate (brick, brickinfo, err_str,
-                                                   sizeof (err_str));
-                if (ret)
-                        goto out;
-
-                list_add_tail (&brickinfo->brick_list, &tmpvolinfo.bricks);
-                brickinfo = NULL;
-        }
-
         /* generate internal username and password */
 
         uuid_generate (tmp_uuid);
@@ -198,8 +165,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        ret = glusterd_op_begin (req, GD_OP_CREATE_VOLUME, dict, err_str,
-                                 sizeof (err_str));
+        ret = glusterd_op_begin_synctask (req, GD_OP_CREATE_VOLUME, dict);
 
 out:
         if (ret) {
@@ -216,13 +182,6 @@ out:
         }
 
         GF_FREE(free_ptr);
-
-        glusterd_volume_brickinfos_delete (&tmpvolinfo);
-        if (brickinfo)
-                glusterd_brickinfo_delete (brickinfo);
-
-        glusterd_friend_sm ();
-        glusterd_op_sm ();
 
         return ret;
 }
@@ -743,6 +702,11 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
                 }
 
                 ret = glusterd_brickinfo_new_from_brick (brick, &brick_info);
+                if (ret)
+                        goto out;
+
+                ret = glusterd_new_brick_validate (brick, brick_info, msg,
+                                                   sizeof (msg));
                 if (ret)
                         goto out;
 
