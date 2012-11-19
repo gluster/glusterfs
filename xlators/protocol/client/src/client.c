@@ -815,11 +815,15 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc,  int32_t flags,
                 goto out;
 
         args.loc = loc;
-        args.flags = flags;
         args.mode = mode;
         args.fd = fd;
         args.umask = umask;
         args.xdata = xdata;
+
+        if (!conf->filter_o_direct)
+                args.flags = flags;
+        else
+                args.flags = (flags & ~O_DIRECT);
 
         proc = &conf->fops->proctable[GF_FOP_CREATE];
         if (!proc) {
@@ -854,9 +858,13 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto out;
 
         args.loc = loc;
-        args.flags = flags;
         args.fd = fd;
         args.xdata = xdata;
+
+        if (!conf->filter_o_direct)
+                args.flags = flags;
+        else
+                args.flags = (flags & ~O_DIRECT);
 
         proc = &conf->fops->proctable[GF_FOP_OPEN];
         if (!proc) {
@@ -2198,6 +2206,9 @@ build_client_config (xlator_t *this, clnt_conf_t *conf)
                 gf_log (this->name, GF_LOG_WARNING,
                         "option 'remote-subvolume' not given");
 
+        GF_OPTION_INIT ("filter-O_DIRECT", conf->filter_o_direct,
+                        bool, out);
+
         ret = 0;
 out:
         return ret;
@@ -2381,6 +2392,9 @@ reconfigure (xlator_t *this, dict_t *options)
                         }
                 }
         }
+
+        GF_OPTION_RECONF ("filter-O_DIRECT", conf->filter_o_direct,
+                          options, bool, out);
 
         ret = client_init_grace_timer (this, options, conf);
         if (ret)
@@ -2716,6 +2730,14 @@ struct volume_options options[] = {
          .type = GF_OPTION_TYPE_SIZET,
          .min  = GF_MIN_SOCKET_WINDOW_SIZE,
          .max  = GF_MAX_SOCKET_WINDOW_SIZE
+        },
+        { .key   = {"filter-O_DIRECT"},
+          .type  = GF_OPTION_TYPE_BOOL,
+          .default_value = "disable",
+          .description = "If enabled, in open() and creat() calls, O_DIRECT "
+          "flag will be filtered at the client protocol level so server will "
+          "still continue to cache the file. This works similar to NFS's "
+          "behavior of O_DIRECT",
         },
         { .key   = {NULL} },
 };
