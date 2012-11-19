@@ -303,6 +303,7 @@ ssl_error:
 	ssl_dump_error_stack(this->name);
 free_ssl:
 	SSL_free(priv->ssl_ssl);
+        priv->ssl_ssl = NULL;
 done:
 	return ret;
 }
@@ -495,7 +496,7 @@ __socket_disconnect (rpc_transport_t *this)
                                 "shutdown() returned %d. %s",
                                 ret, strerror (errno));
                 }
-		if (priv->use_ssl) {
+		if (priv->ssl_ssl) {
 			SSL_shutdown(priv->ssl_ssl);
 			SSL_clear(priv->ssl_ssl);
 			SSL_free(priv->ssl_ssl);
