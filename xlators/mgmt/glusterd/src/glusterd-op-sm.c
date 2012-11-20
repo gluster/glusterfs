@@ -2889,7 +2889,6 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                 goto out;
         }
 
-        glusterd_op_commit_hook (op, op_dict, GD_COMMIT_HOOK_PRE);
         ret = glusterd_op_commit_perform (op, dict, &op_errstr, NULL); //rsp_dict invalid for source
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Commit failed");
@@ -2897,7 +2896,6 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                 goto out;
         }
 
-        glusterd_op_commit_hook (op, op_dict, GD_COMMIT_HOOK_POST);
 
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);
@@ -3337,7 +3335,6 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         if (NULL == rsp_dict)
                 return -1;
 
-        glusterd_op_commit_hook (req_ctx->op, dict, GD_COMMIT_HOOK_PRE);
 
         if (GD_OP_CLEARLOCKS_VOLUME == req_ctx->op) {
                 /*clear locks should be run only on
@@ -3349,13 +3346,8 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                                                      &op_errstr, rsp_dict);
         }
 
-        if (status) {
+        if (status)
                 gf_log (THIS->name, GF_LOG_ERROR, "Commit failed: %d", status);
-        } else {
-                /* On successful commit */
-                glusterd_op_commit_hook (req_ctx->op, dict,
-                                         GD_COMMIT_HOOK_POST);
-        }
 
         ret = glusterd_op_commit_send_resp (req_ctx->req, req_ctx->op,
                                             status, op_errstr, rsp_dict);
@@ -3528,6 +3520,7 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
 {
         int ret = -1;
 
+        glusterd_op_commit_hook (op, dict, GD_COMMIT_HOOK_PRE);
         switch (op) {
                 case GD_OP_CREATE_VOLUME:
                         ret = glusterd_op_create_volume (dict, op_errstr);
@@ -3617,6 +3610,8 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         break;
         }
 
+        if (ret == 0)
+            glusterd_op_commit_hook (op, dict, GD_COMMIT_HOOK_POST);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
