@@ -430,6 +430,16 @@ index_del (xlator_t *this, uuid_t gfid, const char *subdir)
 out:
         return ret;
 }
+int
+_check_key_is_zero_filled (dict_t *d, char *k, data_t *v,
+                           void *tmp)
+{
+        if (mem_0filled ((const char*)v->data, v->len)) {
+                /* -1 means, no more iterations, treat as 'break' */
+                return -1;
+        }
+        return 0;
+}
 
 void
 _xattrop_index_action (xlator_t *this, inode_t *inode,  dict_t *xattr)
@@ -438,17 +448,9 @@ _xattrop_index_action (xlator_t *this, inode_t *inode,  dict_t *xattr)
         index_inode_ctx_t *ctx = NULL;
         int               ret = 0;
 
-        int _check_key_is_zero_filled (dict_t *d, char *k, data_t *v,
-                                       void *tmp)
-        {
-                if (mem_0filled ((const char*)v->data, v->len)) {
-                        zero_xattr = _gf_false;
-                        /* -1 means, no more iterations, treat as 'break' */
-                        return -1;
-                }
-                return 0;
-        }
-        dict_foreach (xattr, _check_key_is_zero_filled, NULL);
+        ret = dict_foreach (xattr, _check_key_is_zero_filled, NULL);
+        if (ret == -1)
+                zero_xattr = _gf_false;
 
         ret = index_inode_ctx_get (inode, this, &ctx);
         if (ret) {
