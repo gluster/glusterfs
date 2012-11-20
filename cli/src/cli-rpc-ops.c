@@ -3307,8 +3307,8 @@ gf_cli_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
 
         if (global_state->mode & GLUSTER_MODE_XML) {
-                ret = cli_xml_output_dict ("volGeoRep", dict, rsp.op_ret,
-                                           rsp.op_errno, rsp.op_errstr);
+                ret = cli_xml_output_vol_gsync (dict, rsp.op_ret, rsp.op_errno,
+                                                rsp.op_errstr);
                 if (ret)
                         gf_log ("cli", GF_LOG_ERROR,
                                 "Error outputting to xml");

@@ -3168,3 +3168,81 @@ out:
         return 0;
 #endif
 }
+
+int
+cli_xml_output_vol_gsync (dict_t *dict, int op_ret, int op_errno,
+                          char *op_errstr)
+{
+#if (HAVE_LIB_XML)
+        int                     ret = -1;
+        xmlTextWriterPtr        writer = NULL;
+        xmlBufferPtr            buf = NULL;
+        char                    *master = NULL;
+        char                    *slave = NULL;
+
+        int             type = 0;
+
+        GF_ASSERT (dict);
+
+        ret = cli_begin_xml_output (&writer, &buf);
+        if (ret)
+                goto out;
+
+        ret = cli_xml_output_common (writer, op_ret, op_errno, op_errstr);
+        if (ret)
+                goto out;
+
+        /* <geoRep> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"geoRep");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_int32 (dict, "type", &type);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get type");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"type",
+                                               "%d", type);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        switch (type) {
+        case GF_GSYNC_OPTION_TYPE_START:
+        case GF_GSYNC_OPTION_TYPE_STOP:
+                if (dict_get_str (dict, "master", &master) != 0)
+                        master = "???";
+                if (dict_get_str (dict, "slave", &slave) != 0)
+                        slave = "???";
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"master",
+                                                       "%s", master);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"slave",
+                                                       "%s", slave);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                break;
+
+        case GF_GSYNC_OPTION_TYPE_CONFIG:
+        case GF_GSYNC_OPTION_TYPE_STATUS:
+                // TODO: XML output for these two types.
+        default:
+                ret = 0;
+                break;
+        }
+
+        /* </geoRep> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = cli_end_xml_output (writer, buf);
+out:
+        gf_log ("cli",GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+#else
+        return 0;
+#endif
+}

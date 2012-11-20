@@ -361,4 +361,8 @@ cli_xml_output_vol_create (dict_t *dict, int op_ret, int op_errno,
 int
 cli_xml_output_generic_volume (char *op, dict_t *dict, int op_ret, int op_errno,
                                char *op_errstr);
+
+int
+cli_xml_output_vol_gsync (dict_t *dict, int op_ret, int op_errno,
+                          char *op_errstr);
 #endif /* __CLI_H__ */
