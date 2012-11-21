@@ -186,8 +186,7 @@ struct xlator_fops fops = {
 	.writev       = rot13_writev
 };
 
-struct xlator_cbks cbks = {
-};
+struct xlator_cbks cbks;
 
 struct volume_options options[] = {
 	{ .key  = {"encrypt-write"},

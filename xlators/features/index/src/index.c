@@ -1183,8 +1183,7 @@ struct xlator_fops fops = {
         .unlink      = index_unlink
 };
 
-struct xlator_dumpops dumpops = {
-};
+struct xlator_dumpops dumpops;
 
 struct xlator_cbks cbks = {
         .forget         = index_forget,

@@ -218,19 +218,19 @@ xlator_dynload (xlator_t *xl)
                 goto out;
         }
 
-        if (!(xl->init = dlsym (handle, "init"))) {
+        if (!(*VOID(&xl->init) = dlsym (handle, "init"))) {
                 gf_log ("xlator", GF_LOG_WARNING, "dlsym(init) on %s",
                         dlerror ());
                 goto out;
         }
 
-        if (!(xl->fini = dlsym (handle, "fini"))) {
+        if (!(*VOID(&(xl->fini)) = dlsym (handle, "fini"))) {
                 gf_log ("xlator", GF_LOG_WARNING, "dlsym(fini) on %s",
                         dlerror ());
                 goto out;
         }
 
-        if (!(xl->notify = dlsym (handle, "notify"))) {
+        if (!(*VOID(&(xl->notify)) = dlsym (handle, "notify"))) {
                 gf_log ("xlator", GF_LOG_TRACE,
                         "dlsym(notify) on %s -- neglecting", dlerror ());
         }
@@ -240,13 +240,13 @@ xlator_dynload (xlator_t *xl)
                         "dlsym(dumpops) on %s -- neglecting", dlerror ());
         }
 
-        if (!(xl->mem_acct_init = dlsym (handle, "mem_acct_init"))) {
+        if (!(*VOID(&(xl->mem_acct_init)) = dlsym (handle, "mem_acct_init"))) {
                 gf_log (xl->name, GF_LOG_TRACE,
                         "dlsym(mem_acct_init) on %s -- neglecting",
                         dlerror ());
         }
 
-        if (!(xl->reconfigure = dlsym (handle, "reconfigure"))) {
+        if (!(*VOID(&(xl->reconfigure)) = dlsym (handle, "reconfigure"))) {
                 gf_log ("xlator", GF_LOG_TRACE,
                         "dlsym(reconfigure) on %s -- neglecting",
                         dlerror());

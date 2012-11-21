@@ -53,7 +53,7 @@ struct dht_layout {
                 uint32_t   start;
                 uint32_t   stop;
                 xlator_t  *xlator;
-        } list[0];
+        } list[];
 };
 typedef struct dht_layout  dht_layout_t;
 

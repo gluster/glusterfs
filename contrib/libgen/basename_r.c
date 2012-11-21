@@ -1,10 +1,10 @@
-#ifdef THREAD_UNSAFE_BASENAME
 /*
- * borrowed from glibc-2.12.1/string/basename.c 
+ * borrowed from glibc-2.12.1/string/basename.c
  * Modified to return "." for NULL or "", as required for SUSv2.
  */
 #include <string.h>
 #include <stdlib.h>
+#ifdef THREAD_UNSAFE_BASENAME
 
 /* Return the name-within-directory of a file name.
    Copyright (C) 1996,97,98,2002 Free Software Foundation, Inc.

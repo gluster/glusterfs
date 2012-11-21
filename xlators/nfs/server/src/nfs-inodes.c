@@ -36,7 +36,7 @@
         do {                                                            \
                 nflocal = fram->local;                                  \
                 fram->local = nflocal->proglocal;                       \
-                pcbk = nflocal->progcbk;                                \
+                *VOID(&pcbk) = nflocal->progcbk;                                \
                 nfs_fop_local_wipe (nflocal->nfsx, nflocal);            \
         } while (0)                                                     \
 

@@ -45,7 +45,7 @@ struct _gf_dirent_t {
         struct iatt                          d_stat;
         dict_t                              *dict;
         inode_t                             *inode;
-	char                                 d_name[0];
+	char                                 d_name[];
 };
 
 #define DT_ISDIR(mode) (mode == DT_DIR)

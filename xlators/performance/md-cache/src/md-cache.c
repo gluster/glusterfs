@@ -65,7 +65,11 @@ static struct mdc_key {
 		.load = 0,
 		.check = 1,
 	},
-	{},
+        {
+                .name = NULL,
+                .load = 0,
+                .check = 0,
+        }
 };
 
 

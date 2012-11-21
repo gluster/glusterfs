@@ -101,13 +101,10 @@ fini (xlator_t *this)
 }
 
 
-struct xlator_dumpops dumpops = {
-};
+struct xlator_dumpops dumpops;
 
 
-struct xlator_fops fops = {
-};
+struct xlator_fops fops;
 
 
-struct xlator_cbks cbks = {
-};
+struct xlator_cbks cbks;

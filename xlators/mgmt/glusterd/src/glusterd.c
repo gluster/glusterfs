@@ -1211,11 +1211,9 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 }
 
 
-struct xlator_fops fops = {
-};
+struct xlator_fops fops;
 
-struct xlator_cbks cbks = {
-};
+struct xlator_cbks cbks;
 
 struct xlator_dumpops dumpops = {
         .priv  = glusterd_priv,
