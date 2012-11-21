@@ -2131,8 +2131,7 @@ struct xlator_dumpops dumpops = {
         .priv = error_gen_priv_dump,
 };
 
-struct xlator_fops cbks = {
-};
+struct xlator_fops cbks;
 
 struct xlator_fops fops = {
 	.lookup      = error_gen_lookup,

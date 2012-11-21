@@ -27,7 +27,7 @@ struct posix_acl_xattr_entry {
 
 struct posix_acl_xattr_header {
         uint32_t                        version;
-        struct posix_acl_xattr_entry    entries[0];
+        struct posix_acl_xattr_entry    entries[];
 };
 
 struct posix_acl *posix_acl_from_xattr (xlator_t *this, const char *buf, int size);

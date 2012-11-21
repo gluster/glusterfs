@@ -1004,7 +1004,7 @@ struct xlator_cbks cbks = {
         .forget      = nfs_forget,
 };
 
-struct xlator_fops fops = { };
+struct xlator_fops fops;
 
 struct xlator_dumpops dumpops = {
         .priv           = nfs_priv,

@@ -26,87 +26,87 @@ gf_set_fop_from_fn_pointer (call_frame_t *frame, struct xlator_fops *fops, void 
 {
         glusterfs_fop_t fop = -1;
 
-        if (fops->stat == fn)
+        if (fops->stat == *(fop_stat_t *)fn)
                 fop = GF_FOP_STAT;
-        else if (fops->readlink == fn)
+        else if (fops->readlink == *(fop_readlink_t *)fn)
                 fop = GF_FOP_READLINK;
-        else if (fops->mknod == fn)
+        else if (fops->mknod == *(fop_mknod_t *)fn)
                 fop = GF_FOP_MKNOD;
-        else if (fops->mkdir == fn)
+        else if (fops->mkdir == *(fop_mkdir_t *)fn)
                 fop = GF_FOP_MKDIR;
-        else if (fops->unlink == fn)
+        else if (fops->unlink == *(fop_unlink_t *)fn)
                 fop = GF_FOP_UNLINK;
-        else if (fops->rmdir == fn)
+        else if (fops->rmdir == *(fop_rmdir_t *)fn)
                 fop = GF_FOP_RMDIR;
-        else if (fops->symlink == fn)
+        else if (fops->symlink == *(fop_symlink_t *)fn)
                 fop = GF_FOP_SYMLINK;
-        else if (fops->rename == fn)
+        else if (fops->rename == *(fop_rename_t *)fn)
                 fop = GF_FOP_RENAME;
-        else if (fops->link == fn)
+        else if (fops->link == *(fop_link_t *)fn)
                 fop = GF_FOP_LINK;
-        else if (fops->truncate == fn)
+        else if (fops->truncate == *(fop_truncate_t *)fn)
                 fop = GF_FOP_TRUNCATE;
-        else if (fops->open == fn)
+        else if (fops->open == *(fop_open_t *)fn)
                 fop = GF_FOP_OPEN;
-        else if (fops->readv == fn)
+        else if (fops->readv == *(fop_readv_t *)fn)
                 fop = GF_FOP_READ;
-        else if (fops->writev == fn)
+        else if (fops->writev == *(fop_writev_t *)fn)
                 fop = GF_FOP_WRITE;
-        else if (fops->statfs == fn)
+        else if (fops->statfs == *(fop_statfs_t *)fn)
                 fop = GF_FOP_STATFS;
-        else if (fops->flush == fn)
+        else if (fops->flush == *(fop_flush_t *)fn)
                 fop = GF_FOP_FLUSH;
-        else if (fops->fsync == fn)
+        else if (fops->fsync == *(fop_fsync_t *)fn)
                 fop = GF_FOP_FSYNC;
-        else if (fops->setxattr == fn)
+        else if (fops->setxattr == *(fop_setxattr_t *)fn)
                 fop = GF_FOP_SETXATTR;
-        else if (fops->getxattr == fn)
+        else if (fops->getxattr == *(fop_getxattr_t *)fn)
                 fop = GF_FOP_GETXATTR;
-        else if (fops->removexattr == fn)
+        else if (fops->removexattr == *(fop_removexattr_t *)fn)
                 fop = GF_FOP_REMOVEXATTR;
-        else if (fops->opendir == fn)
+        else if (fops->opendir == *(fop_opendir_t *)fn)
                 fop = GF_FOP_OPENDIR;
-        else if (fops->fsyncdir == fn)
+        else if (fops->fsyncdir == *(fop_fsyncdir_t *)fn)
                 fop = GF_FOP_FSYNCDIR;
-        else if (fops->access == fn)
+        else if (fops->access == *(fop_access_t *)fn)
                 fop = GF_FOP_ACCESS;
-        else if (fops->create == fn)
+        else if (fops->create == *(fop_create_t *)fn)
                 fop = GF_FOP_CREATE;
-        else if (fops->ftruncate == fn)
+        else if (fops->ftruncate == *(fop_ftruncate_t *)fn)
                 fop = GF_FOP_FTRUNCATE;
-        else if (fops->fstat == fn)
+        else if (fops->fstat == *(fop_fstat_t *)fn)
                 fop = GF_FOP_FSTAT;
-        else if (fops->lk == fn)
+        else if (fops->lk == *(fop_lk_t *)fn)
                 fop = GF_FOP_LK;
-        else if (fops->lookup == fn)
+        else if (fops->lookup == *(fop_lookup_t *)fn)
                 fop = GF_FOP_LOOKUP;
-        else if (fops->readdir == fn)
+        else if (fops->readdir == *(fop_readdir_t *)fn)
                 fop = GF_FOP_READDIR;
-        else if (fops->inodelk == fn)
+        else if (fops->inodelk == *(fop_inodelk_t *)fn)
                 fop = GF_FOP_INODELK;
-        else if (fops->finodelk == fn)
+        else if (fops->finodelk == *(fop_finodelk_t *)fn)
                 fop = GF_FOP_FINODELK;
-        else if (fops->entrylk == fn)
+        else if (fops->entrylk == *(fop_entrylk_t *)fn)
                 fop = GF_FOP_ENTRYLK;
-        else if (fops->fentrylk == fn)
+        else if (fops->fentrylk == *(fop_fentrylk_t *)fn)
                 fop = GF_FOP_FENTRYLK;
-        else if (fops->xattrop == fn)
+        else if (fops->xattrop == *(fop_xattrop_t *)fn)
                 fop = GF_FOP_XATTROP;
-        else if (fops->fxattrop == fn)
+        else if (fops->fxattrop == *(fop_fxattrop_t *)fn)
                 fop = GF_FOP_FXATTROP;
-        else if (fops->fgetxattr == fn)
+        else if (fops->fgetxattr == *(fop_fgetxattr_t *)fn)
                 fop = GF_FOP_FGETXATTR;
-        else if (fops->fsetxattr == fn)
+        else if (fops->fsetxattr == *(fop_fsetxattr_t *)fn)
                 fop = GF_FOP_FSETXATTR;
-        else if (fops->rchecksum == fn)
+        else if (fops->rchecksum == *(fop_rchecksum_t *)fn)
                 fop = GF_FOP_RCHECKSUM;
-        else if (fops->setattr == fn)
+        else if (fops->setattr == *(fop_setattr_t *)fn)
                 fop = GF_FOP_SETATTR;
-        else if (fops->fsetattr == fn)
+        else if (fops->fsetattr == *(fop_fsetattr_t *)fn)
                 fop = GF_FOP_FSETATTR;
-        else if (fops->readdirp == fn)
+        else if (fops->readdirp == *(fop_readdirp_t *)fn)
                 fop = GF_FOP_READDIRP;
-        else if (fops->getspec == fn)
+        else if (fops->getspec == *(fop_getspec_t *)fn)
                 fop = GF_FOP_GETSPEC;
         else
                 fop = -1;

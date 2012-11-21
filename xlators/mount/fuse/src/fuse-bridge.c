@@ -4706,8 +4706,7 @@ static fuse_handler_t *fuse_std_ops[FUSE_OP_HIGH] = {
 };
 
 
-static fuse_handler_t *fuse_dump_ops[FUSE_OP_HIGH] = {
-};
+static fuse_handler_t *fuse_dump_ops[FUSE_OP_HIGH];
 
 
 static void
@@ -4735,7 +4734,7 @@ fuse_dumper (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         "failed to dump fuse message (R): %s",
                         strerror (errno));
 
-        return priv->fuse_ops0[finh->opcode] (this, finh, msg);
+        priv->fuse_ops0[finh->opcode] (this, finh, msg);
 }
 
 
@@ -5065,8 +5064,7 @@ fini (xlator_t *this_xl)
         kill (getpid (), SIGTERM);
 }
 
-struct xlator_fops fops = {
-};
+struct xlator_fops fops;
 
 struct xlator_cbks cbks = {
         .invalidate = fuse_invalidate,

@@ -81,8 +81,7 @@ struct xlator_fops fops = {
         .lk          = ro_lk,
 };
 
-struct xlator_cbks cbks = {
-};
+struct xlator_cbks cbks;
 
 struct volume_options options[] = {
         { .key = {NULL} },

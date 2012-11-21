@@ -1,4 +1,3 @@
-#ifdef THREAD_UNSAFE_DIRNAME
 /*
  * Borrowed from glibc-2.12.1/string/memrchr.c
  * Based on strlen implementation by Torbjorn Granlund (tege@sics.se),
@@ -7,6 +6,7 @@
  */
 #include <string.h>
 #include <stdlib.h>
+#ifdef THREAD_UNSAFE_DIRNAME
 
 /* memrchr -- find the last occurrence of a byte in a memory block
    Copyright (C) 1991, 93, 96, 97, 99, 2000 Free Software Foundation, Inc.

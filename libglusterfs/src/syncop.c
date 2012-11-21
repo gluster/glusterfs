@@ -220,7 +220,7 @@ synctask_new (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
         newtask->ctx.uc_stack.ss_sp   = newtask->stack;
         newtask->ctx.uc_stack.ss_size = env->stacksize;
 
-        makecontext (&newtask->ctx, (void *) synctask_wrap, 2, newtask);
+        makecontext (&newtask->ctx, (void (*)(void)) synctask_wrap, 2, newtask);
 
 	newtask->state = SYNCTASK_INIT;
 

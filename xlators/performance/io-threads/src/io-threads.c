@@ -2738,8 +2738,7 @@ struct xlator_fops fops = {
         .rchecksum   = iot_rchecksum,
 };
 
-struct xlator_cbks cbks = {
-};
+struct xlator_cbks cbks;
 
 struct volume_options options[] = {
 	{ .key  = {"thread-count"},

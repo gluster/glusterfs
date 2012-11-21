@@ -120,7 +120,7 @@ nfs_fop_local_wipe (xlator_t *xl, struct nfs_fop_local *l);
                 nflocal = nfs_fop_local_init (nf);                      \
                 if (nflocal) {                                          \
                         nflocal->proglocal = plocal;                    \
-                        nflocal->progcbk = pcbk;                        \
+                        nflocal->progcbk = *VOID(&pcbk);                        \
                         nflocal->nfsx = nf;                             \
                         if (fram)                                       \
                                 ((call_frame_t *)fram)->local = nflocal;\

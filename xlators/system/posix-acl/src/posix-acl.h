@@ -43,7 +43,7 @@ struct posix_ace {
 struct posix_acl {
         int               refcnt;
         int               count;
-        struct posix_ace  entries[0];
+        struct posix_ace  entries[];
 };
 
 
