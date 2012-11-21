@@ -36,7 +36,7 @@ class ContainerController(server.ContainerController):
         :param container: container name
         :returns: DiskDir object
         """
-        return DiskDir(self.root, account, container, self.logger)
+        return DiskDir(self.root, drive, account, container, self.logger)
 
 
 def app_factory(global_conf, **local_conf):

@@ -35,7 +35,7 @@ class AccountController(server.AccountController):
         :param account: account name
         :returns: DiskDir object
         """
-        return DiskAccount(self.root, account, self.logger)
+        return DiskAccount(self.root, drive, account, self.logger)
 
 
 def app_factory(global_conf, **local_conf):

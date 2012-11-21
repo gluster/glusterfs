@@ -57,7 +57,6 @@ class Gluster_DiskFile(DiskFile):
                  logger, keep_data_fp=False, disk_chunk_size=65536,
                  uid=DEFAULT_UID, gid=DEFAULT_GID):
         self.disk_chunk_size = disk_chunk_size
-        device = account
         #Don't support obj_name ending/begining with '/', like /a, a/, /a/b/ etc
         obj = obj.strip('/')
         if '/' in obj:
