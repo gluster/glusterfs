@@ -3209,18 +3209,20 @@ gf_cli_gsync_config_command (dict_t *dict)
 int
 gf_cli_gsync_out_status (dict_t *dict)
 {
-        int              gsync_count = 0;
-        int              i = 0;
-        int              ret = 0;
+        int   gsync_count              = 0;
+        int   i                        = 0;
+        int   ret                      = 0;
         char             mst[PATH_MAX] = {0, };
-        char             slv[PATH_MAX]= {0, };
+        char             slv[PATH_MAX] = {0, };
         char             sts[PATH_MAX] = {0, };
-        char             hyphens[81] = {0, };
-        char             *mst_val = NULL;
-        char             *slv_val = NULL;
-        char             *sts_val = NULL;
+        char             nds[PATH_MAX] = {0, };
+        char             hyphens[100]  = {0, };
+        char *mst_val                  = NULL;
+        char *slv_val                  = NULL;
+        char *sts_val                  = NULL;
+        char *nds_val                  = NULL;
 
-        cli_out ("%-20s %-50s %-10s", "MASTER", "SLAVE", "STATUS");
+        cli_out ("%-20s %-20s %-50s %-10s", "NODE", "MASTER", "SLAVE", "STATUS");
 
         for (i=0; i<sizeof(hyphens)-1; i++)
                 hyphens[i] = '-';
@@ -3237,9 +3239,14 @@ gf_cli_gsync_out_status (dict_t *dict)
         }
 
         for (i = 1; i <= gsync_count; i++) {
+                snprintf (nds, sizeof(nds), "node%d", i);
                 snprintf (mst, sizeof(mst), "master%d", i);
                 snprintf (slv, sizeof(slv), "slave%d", i);
                 snprintf (sts, sizeof(sts), "status%d", i);
+
+                ret = dict_get_str (dict, nds, &nds_val);
+                if (ret)
+                        goto out;
 
                 ret = dict_get_str (dict, mst, &mst_val);
                 if (ret)
@@ -3253,7 +3260,7 @@ gf_cli_gsync_out_status (dict_t *dict)
                 if (ret)
                         goto out;
 
-                cli_out ("%-20s %-50s %-10s", mst_val,
+                cli_out ("%-20s %-20s %-50s %-10s", nds_val, mst_val,
                          slv_val, sts_val);
 
         }

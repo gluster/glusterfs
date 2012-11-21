@@ -730,7 +730,7 @@ gsync_verify_config_options (dict_t *dict, char **op_errstr)
 
 static int
 glusterd_get_gsync_status_mst_slv (glusterd_volinfo_t *volinfo,
-                                   char *slave, dict_t *rsp_dict);
+                                   char *slave, dict_t *rsp_dict, char *node);
 
 static int
 _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
@@ -751,7 +751,8 @@ _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
                 return 0;
 
         ret = glusterd_get_gsync_status_mst_slv(param->volinfo,
-                                                slave, param->rsp_dict);
+                                                slave, param->rsp_dict,
+                                                param->node);
         return 0;
 }
 
@@ -1463,12 +1464,13 @@ dict_get_param (dict_t *dict, char *key, char **param)
 
 static int
 glusterd_read_status_file (char *master, char *slave,
-                           dict_t *dict)
+                           dict_t *dict, char *node)
 {
         glusterd_conf_t *priv = NULL;
         int              ret = 0;
         char            *statefile = NULL;
         char             buf[1024] = {0, };
+        char             nds[1024] = {0, };
         char             mst[1024] = {0, };
         char             slv[1024] = {0, };
         char             sts[1024] = {0, };
@@ -1476,6 +1478,7 @@ glusterd_read_status_file (char *master, char *slave,
         dict_t          *confd = NULL;
         int              gsync_count = 0;
         int              status = 0;
+        char *dyn_node = NULL;
 
         GF_ASSERT (THIS);
         GF_ASSERT (THIS->private);
@@ -1543,6 +1546,16 @@ glusterd_read_status_file (char *master, char *slave,
                 gsync_count = 1;
         else
                 gsync_count++;
+
+        (void) snprintf (nds, sizeof (nds), "node%d", gsync_count);
+        dyn_node = gf_strdup (node);
+        if (!dyn_node)
+                goto out;
+        ret = dict_set_dynstr (dict, nds, dyn_node);
+        if (ret) {
+                GF_FREE (dyn_node);
+                goto out;
+        }
 
         snprintf (mst, sizeof (mst), "master%d", gsync_count);
         master = gf_strdup (master);
@@ -1691,7 +1704,8 @@ out:
 
 static int
 glusterd_get_gsync_status_mst_slv (glusterd_volinfo_t *volinfo,
-                                   char *slave, dict_t *rsp_dict)
+                                   char *slave, dict_t *rsp_dict,
+                                   char *node)
 {
         uuid_t             uuid = {0, };
         glusterd_conf_t    *priv = NULL;
@@ -1715,14 +1729,16 @@ glusterd_get_gsync_status_mst_slv (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        ret = glusterd_read_status_file (volinfo->volname, slave, rsp_dict);
+        ret = glusterd_read_status_file (volinfo->volname,
+                                         slave, rsp_dict, node);
  out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
 }
 
 static int
-glusterd_get_gsync_status_mst (glusterd_volinfo_t *volinfo, dict_t *rsp_dict)
+glusterd_get_gsync_status_mst (glusterd_volinfo_t *volinfo, dict_t *rsp_dict,
+                               char *node)
 {
         glusterd_gsync_status_temp_t  param = {0, };
 
@@ -1730,13 +1746,14 @@ glusterd_get_gsync_status_mst (glusterd_volinfo_t *volinfo, dict_t *rsp_dict)
 
         param.rsp_dict = rsp_dict;
         param.volinfo = volinfo;
+        param.node = node;
         dict_foreach (volinfo->gsync_slaves, _get_status_mst_slv, &param);
 
         return 0;
 }
 
 static int
-glusterd_get_gsync_status_all ( dict_t *rsp_dict)
+glusterd_get_gsync_status_all (dict_t *rsp_dict, char *node)
 {
 
         int32_t                 ret = 0;
@@ -1749,7 +1766,7 @@ glusterd_get_gsync_status_all ( dict_t *rsp_dict)
         GF_ASSERT (priv);
 
         list_for_each_entry (volinfo, &priv->volumes, vol_list) {
-                ret = glusterd_get_gsync_status_mst (volinfo, rsp_dict);
+                ret = glusterd_get_gsync_status_mst (volinfo, rsp_dict, node);
                 if (ret)
                         goto out;
         }
@@ -1769,11 +1786,17 @@ glusterd_get_gsync_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         gf_boolean_t       exists = _gf_false;
         glusterd_volinfo_t *volinfo = NULL;
         int                ret = 0;
+        char my_hostname[256] = {0,};
 
+        ret = gethostname(my_hostname, 256);
+        if (ret) {
+                /* stick to N/A */
+                (void) strcpy (my_hostname, "N/A");
+        }
 
         ret = dict_get_str (dict, "master", &volname);
         if (ret < 0){
-                ret = glusterd_get_gsync_status_all (rsp_dict);
+                ret = glusterd_get_gsync_status_all (rsp_dict, my_hostname);
                 goto out;
         }
 
@@ -1791,11 +1814,13 @@ glusterd_get_gsync_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         ret = dict_get_str (dict, "slave", &slave);
         if (ret < 0) {
-                ret = glusterd_get_gsync_status_mst (volinfo, rsp_dict);
+                ret = glusterd_get_gsync_status_mst (volinfo,
+                                                     rsp_dict, my_hostname);
                 goto out;
         }
 
-        ret = glusterd_get_gsync_status_mst_slv (volinfo, slave, rsp_dict);
+        ret = glusterd_get_gsync_status_mst_slv (volinfo, slave,
+                                                 rsp_dict, my_hostname);
 
  out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);

@@ -160,6 +160,7 @@ typedef struct glusterd_status_rsp_conv_ {
 typedef struct glusterd_gsync_status_temp {
         dict_t *rsp_dict;
         glusterd_volinfo_t *volinfo;
+        char *node;
 }glusterd_gsync_status_temp_t;
 int
 glusterd_op_sm_new_event (glusterd_op_sm_event_type_t event_type,
