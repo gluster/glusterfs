@@ -1457,12 +1457,6 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
         local = frame->local;
         priv  = this->private;
 
-	if (local->fd && priv->eager_lock &&
-	    local->transaction.type == AFR_DATA_TRANSACTION)
-		afr_set_lk_owner (frame, this, local->fd);
-	else
-		afr_set_lk_owner (frame, this, frame->root);
-
         ret = afr_transaction_local_init (local, this);
         if (ret < 0) {
             goto out;
@@ -1470,6 +1464,12 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
 
         local->transaction.resume = afr_transaction_resume;
         local->transaction.type   = type;
+
+        if (local->fd && priv->eager_lock &&
+            local->transaction.type == AFR_DATA_TRANSACTION)
+                afr_set_lk_owner (frame, this, local->fd);
+        else
+                afr_set_lk_owner (frame, this, frame->root);
 
         if (_does_transaction_conflict_with_delayed_post_op (frame) &&
             local->loc.inode) {
