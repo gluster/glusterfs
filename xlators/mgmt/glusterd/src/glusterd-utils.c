@@ -5799,9 +5799,11 @@ glusterd_append_status_dicts (dict_t *dst, dict_t *src)
         char             mst[PATH_MAX] = {0,};
         char             slv[PATH_MAX] = {0, };
         char             sts[PATH_MAX] = {0, };
+        char             nds[PATH_MAX] = {0, };
         char             *mst_val = NULL;
         char             *slv_val = NULL;
         char             *sts_val = NULL;
+        char             *nds_val = NULL;
 
         GF_ASSERT (dst);
 
@@ -5820,9 +5822,14 @@ glusterd_append_status_dicts (dict_t *dst, dict_t *src)
         }
 
         for (i = 1; i <= src_count; i++) {
+                snprintf (nds, sizeof(nds), "node%d", i);
                 snprintf (mst, sizeof(mst), "master%d", i);
                 snprintf (slv, sizeof(slv), "slave%d", i);
                 snprintf (sts, sizeof(sts), "status%d", i);
+
+                ret = dict_get_str (src, nds, &nds_val);
+                if (ret)
+                        goto out;
 
                 ret = dict_get_str (src, mst, &mst_val);
                 if (ret)
@@ -5836,9 +5843,14 @@ glusterd_append_status_dicts (dict_t *dst, dict_t *src)
                 if (ret)
                         goto out;
 
+                snprintf (nds, sizeof(nds), "node%d", i+dst_count);
                 snprintf (mst, sizeof(mst), "master%d", i+dst_count);
                 snprintf (slv, sizeof(slv), "slave%d", i+dst_count);
                 snprintf (sts, sizeof(sts), "status%d", i+dst_count);
+
+                ret = dict_set_dynstr (dst, nds, gf_strdup (nds_val));
+                if (ret)
+                        goto out;
 
                 ret = dict_set_dynstr (dst, mst, gf_strdup (mst_val));
                 if (ret)
