@@ -973,9 +973,17 @@ cleanup_and_exit (int signum)
 
         ctx->cleanup_started = 1;
         glusterfs_mgmt_pmap_signout (ctx);
-        if (ctx->listener) {
-                (void) glusterfs_listener_stop (ctx);
-        }
+
+        /* below part is a racy code where the rpcsvc object is freed.
+         * But in another thread (epoll thread), upon poll error in the
+         * socket the transports are cleaned up where again rpcsvc object
+         * is accessed (which is already freed by the below function).
+         * Since the process is about to be killed dont execute the function
+         * below.
+         */
+        /* if (ctx->listener) { */
+        /*         (void) glusterfs_listener_stop (ctx); */
+        /* } */
 
         /* Call fini() of FUSE xlator first:
          * so there are no more requests coming and
