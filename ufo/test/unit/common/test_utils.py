@@ -784,10 +784,10 @@ class TestUtils(unittest.TestCase):
             cd = utils._get_container_details_from_fs(td)
             assert cd.bytes_used == 30, repr(cd.bytes_used)
             assert cd.object_count == 8, repr(cd.object_count)
-            assert cd.obj_list == ['file1', 'file3', 'file2',
+            assert set(cd.obj_list) == set(['file1', 'file3', 'file2',
                                    'dir3', 'dir1', 'dir2',
                                    'dir1/file1', 'dir1/file2'
-                                   ], repr(cd.obj_list)
+                                   ]), repr(cd.obj_list)
             full_dir1 = os.path.join(td, 'dir1')
             full_dir2 = os.path.join(td, 'dir2')
             full_dir3 = os.path.join(td, 'dir3')
