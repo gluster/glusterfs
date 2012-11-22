@@ -3170,6 +3170,82 @@ out:
 }
 
 int
+cli_xml_output_vol_gsync_status (dict_t *dict, xmlTextWriterPtr writer)
+{
+        char                    master_key[PATH_MAX] = "";
+        char                    slave_key[PATH_MAX] = "";
+        char                    status_key[PATH_MAX] = "";
+        char                    node_key[PATH_MAX] = "";
+        char                    *master = NULL;
+        char                    *slave = NULL;
+        char                    *status = NULL;
+        char                    *node = NULL;
+        int                     ret = -1;
+        int                     gsync_count = 0;
+        int                     i = 1;
+
+        ret = dict_get_int32 (dict, "gsync-count", &gsync_count);
+        if (ret)
+                goto out;
+
+        for (i=1; i <= gsync_count; i++) {
+                snprintf (node_key, sizeof(node_key), "node%d", i);
+                snprintf (master_key, sizeof(master_key), "master%d", i);
+                snprintf (slave_key, sizeof(slave_key), "slave%d", i);
+                snprintf (status_key, sizeof(status_key), "status%d", i);
+
+                ret = dict_get_str (dict, node_key, &node);
+                if (ret)
+                        goto out;
+
+                ret = dict_get_str (dict, master_key, &master);
+                if (ret)
+                        goto out;
+
+                ret = dict_get_str (dict, slave_key, &slave);
+                if (ret)
+                        goto out;
+
+                ret = dict_get_str (dict, status_key, &status);
+                if (ret)
+                        goto out;
+
+                /* <pair> */
+                ret = xmlTextWriterStartElement (writer, (xmlChar *)"pair");
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"node",
+                                                       "%s", node);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"master",
+                                                       "%s", master);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"slave",
+                                                       "%s", slave);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"status",
+                                                       "%s", status);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                /* </pair> */
+                ret = xmlTextWriterEndElement (writer);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+        }
+
+out:
+        gf_log ("cli",GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
 cli_xml_output_vol_gsync (dict_t *dict, int op_ret, int op_errno,
                           char *op_errstr)
 {
@@ -3227,8 +3303,10 @@ cli_xml_output_vol_gsync (dict_t *dict, int op_ret, int op_errno,
                 break;
 
         case GF_GSYNC_OPTION_TYPE_CONFIG:
+                break;
         case GF_GSYNC_OPTION_TYPE_STATUS:
-                // TODO: XML output for these two types.
+                ret = cli_xml_output_vol_gsync_status(dict, writer);
+                break;
         default:
                 ret = 0;
                 break;
