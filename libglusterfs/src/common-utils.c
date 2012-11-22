@@ -407,6 +407,14 @@ gf_print_trace (int32_t signum, glusterfs_ctx_t *ctx)
 
         fd = fileno (ctx->log.gf_log_logfile);
 
+        /* Now every gf_log call will just write to a buffer and when the
+         * buffer becomes full, its written to the log-file. Suppose the process
+         * crashes and prints the backtrace in the log-file, then the previous
+         * log information will still be in the buffer itself. So flush the
+         * contents of the buffer to the log file before printing the backtrace
+         * which helps in debugging.
+         */
+        fflush (ctx->log.gf_log_logfile);
         /* Pending frames, (if any), list them in order */
         ret = write (fd, "pending frames:\n", 16);
         if (ret < 0)
