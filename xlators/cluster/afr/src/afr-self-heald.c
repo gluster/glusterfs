@@ -305,7 +305,7 @@ _crawl_post_sh_action (xlator_t *this, loc_t *parent, loc_t *child,
         shd_event_t      *event = NULL;
         int32_t          sh_failed = 0;
         gf_boolean_t     split_brain = 0;
-
+        int32_t          actual_sh_done = 0;
         priv = this->private;
         shd  = &priv->shd;
         if (crawl_data->crawl == INDEX) {
@@ -326,26 +326,42 @@ _crawl_post_sh_action (xlator_t *this, loc_t *parent, loc_t *child,
                 }
         }
 
-        if (xattr_rsp)
+        if (xattr_rsp) {
                 ret = dict_get_int32 (xattr_rsp, "sh-failed", &sh_failed);
+                ret = dict_get_int32 (xattr_rsp, "actual-sh-done", &actual_sh_done);
+        }
+
         split_brain = afr_is_split_brain (this, child->inode);
-        if ((op_ret < 0 && op_errno == EIO) || split_brain)
+
+        if ((op_ret < 0 && op_errno == EIO) || split_brain) {
                 eh = shd->split_brain;
-        else if ((op_ret < 0) || sh_failed)
+        } else if ((op_ret < 0) || sh_failed) {
                 eh = shd->heal_failed;
-        else
-                eh = shd->healed;
+        } else if (actual_sh_done == 1) {
+                      eh = shd->healed;
+        }
+
         ret = -1;
-        event = GF_CALLOC (1, sizeof (*event), gf_afr_mt_shd_event_t);
-        if (!event)
-                goto out;
-        event->child = crawl_data->child;
-        event->path = path;
-        ret = eh_save_history (eh, event);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "%s:Failed to save to "
-                        "event history, (%d, %s)", path, op_ret, strerror (op_errno));
-                goto out;
+
+        if (eh != NULL) {
+                event = GF_CALLOC (1, sizeof (*event), gf_afr_mt_shd_event_t);
+                if (!event)
+                        goto out;
+                event->child = crawl_data->child;
+                event->path = path;
+
+                ret = eh_save_history (eh, event);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "%s:Failed to save "
+                                "to event history, (%d, %s)", path, op_ret,
+                                strerror (op_errno));
+
+                        goto out;
+                }
+        } else {
+                gf_log (this->name, GF_LOG_DEBUG, "%s:Self heal already done ",
+                        path);
+
         }
         ret = 0;
 out:

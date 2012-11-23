@@ -233,7 +233,7 @@ typedef struct {
         gf_boolean_t entries_skipped;
 
         int   op_failed;
-
+        gf_boolean_t actual_sh_started;
         gf_boolean_t sync_done;
         gf_boolean_t data_lock_held;
         gf_boolean_t eof_reached;

@@ -2289,6 +2289,7 @@ afr_sh_entry_sync_prepare (call_frame_t *frame, xlator_t *this)
                         "merging all entries as a conservative decision",
                         local->loc.path);
 
+        sh->actual_sh_started = _gf_true;
         afr_sh_entry_open (frame, this);
 
         return 0;
