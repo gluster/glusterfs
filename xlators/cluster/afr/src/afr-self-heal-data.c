@@ -666,6 +666,8 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
                 "self-healing file %s from subvolume %s to %d other",
                 local->loc.path, priv->children[sh->source]->name,
                 sh->active_sinks);
+
+        sh->actual_sh_started = _gf_true;
         afr_sh_data_trim_sinks (frame, this);
 }
 

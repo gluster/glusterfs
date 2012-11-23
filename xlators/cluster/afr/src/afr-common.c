@@ -1624,6 +1624,17 @@ afr_self_heal_lookup_unwind (call_frame_t *frame, xlator_t *this,
                 if (ret)
                         gf_log (this->name, GF_LOG_ERROR, "%s: Failed to set "
                                 "sh-failed to %d", local->loc.path, sh_failed);
+
+                if (local->self_heal.actual_sh_started == _gf_true &&
+                    sh_failed == 0) {
+                        ret = dict_set_int32 (xattr, "actual-sh-done", 1);
+                        if (ret)
+                                gf_log(this->name, GF_LOG_ERROR, "%s: Failed to"
+                                       " set actual-sh-done to %d",
+                                       local->loc.path,
+                                       local->self_heal.actual_sh_started);
+                }
+
         }
 out:
         AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,

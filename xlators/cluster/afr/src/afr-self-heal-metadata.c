@@ -341,6 +341,7 @@ afr_sh_metadata_sync_prepare (call_frame_t *frame, xlator_t *this)
                 local->loc.path, priv->children[source]->name,
                 sh->active_sinks);
 
+        sh->actual_sh_started = _gf_true;
         STACK_WIND (frame, afr_sh_metadata_getxattr_cbk,
                     priv->children[source],
                     priv->children[source]->fops->getxattr,
