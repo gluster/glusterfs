@@ -2156,6 +2156,8 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
         afr_private_t *   priv  = NULL;
         afr_local_t *     local = NULL;
         afr_self_heal_t * sh    = NULL;
+        afr_local_t *     orig_frame_local = NULL;
+        afr_self_heal_t * orig_frame_sh = NULL;
         char              sh_type_str[256] = {0,};
         gf_boolean_t      split_brain = _gf_false;
 
@@ -2189,6 +2191,9 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
         FRAME_SU_UNDO (bgsh_frame, afr_local_t);
 
         if (!sh->unwound && sh->unwind) {
+                orig_frame_local = sh->orig_frame->local;
+                orig_frame_sh = &orig_frame_local->self_heal;
+                orig_frame_sh->actual_sh_started = _gf_true;
                 sh->unwind (sh->orig_frame, this, sh->op_ret, sh->op_errno,
                             sh->op_failed);
         }
