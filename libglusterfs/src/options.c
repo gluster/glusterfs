@@ -228,6 +228,46 @@ out:
         return ret;
 }
 
+void
+set_error_str (char *errstr, size_t len, volume_option_t *opt, const char *key,
+               const char *value)
+{
+        int i = 0;
+        char given_array[4096] = {0,};
+
+        for (i = 0; (i < ZR_OPTION_MAX_ARRAY_SIZE) && opt->value[i];) {
+                strcat (given_array, opt->value[i]);
+                if (((++i) < ZR_OPTION_MAX_ARRAY_SIZE) &&
+                    (opt->value[i]))
+                        strcat (given_array, ", ");
+                else
+                        strcat (given_array, ".");
+        }
+        snprintf (errstr, len, "option %s %s: '%s' is not valid "
+                  "(possible options are %s)", key, value, value, given_array);
+        return;
+}
+
+int
+is_all_whitespaces (const char *value)
+{
+        int i = 0;
+        size_t len = 0;
+
+        if (value == NULL)
+                return -1;
+
+        len = strlen (value);
+
+        for (i = 0; i < len; i++) {
+                if (value[i] == ' ')
+                        continue;
+                else
+                        return 0;
+        }
+
+        return 1;
+}
 
 static int
 xlator_option_validate_str (xlator_t *xl, const char *key, const char *value,
@@ -235,14 +275,16 @@ xlator_option_validate_str (xlator_t *xl, const char *key, const char *value,
 {
         int          ret = -1;
         int          i = 0;
-        char         errstr[256];
-        char         given_array[4096] = {0,};
+        char         errstr[4096] = {0,};
 
         /* Check if the '*str' is valid */
         if (GF_OPTION_LIST_EMPTY(opt)) {
                 ret = 0;
                 goto out;
         }
+
+        if (is_all_whitespaces (value) == 1)
+                goto out;
 
         for (i = 0; (i < ZR_OPTION_MAX_ARRAY_SIZE) && opt->value[i]; i++) {
  #ifdef  GF_DARWIN_HOST_OS
@@ -258,8 +300,8 @@ xlator_option_validate_str (xlator_t *xl, const char *key, const char *value,
  #endif
         }
 
-        if (((i < ZR_OPTION_MAX_ARRAY_SIZE) && (!opt->value[i])) ||
-            (i == ZR_OPTION_MAX_ARRAY_SIZE)) {
+        if ((i == ZR_OPTION_MAX_ARRAY_SIZE) || (!opt->value[i]))
+                goto out;
                 /* enter here only if
                  * 1. reached end of opt->value array and haven't
                  *    validated input
@@ -269,26 +311,15 @@ xlator_option_validate_str (xlator_t *xl, const char *key, const char *value,
                  *    matched all possible input values.
                  */
 
-                for (i = 0; (i < ZR_OPTION_MAX_ARRAY_SIZE) && opt->value[i];) {
-                        strcat (given_array, opt->value[i]);
-                        if (((++i) < ZR_OPTION_MAX_ARRAY_SIZE) &&
-                           (opt->value[i]))
-                                strcat (given_array, ", ");
-                        else
-                                strcat (given_array, ".");
-                }
-                snprintf (errstr, 256,
-                          "option %s %s: '%s' is not valid "
-                          "(possible options are %s)",
-                          key, value, value, given_array);
-                gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
-                goto out;
-        }
-
         ret = 0;
+
 out:
-        if (ret && op_errstr)
-                *op_errstr = gf_strdup (errstr);
+        if (ret) {
+                set_error_str (errstr, sizeof (errstr), opt, key, value);
+                gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
+                if (op_errstr)
+                        *op_errstr = gf_strdup (errstr);
+        }
         return ret;
 }
 
@@ -513,32 +544,31 @@ xlator_option_validate_addr_list (xlator_t *xl, const char *key,
         char         *dup_val = NULL;
         char         *addr_tok = NULL;
         char         *save_ptr = NULL;
-        char         errstr[256];
+        char         errstr[4096] = {0,};
 
         dup_val = gf_strdup (value);
-        if (!dup_val) {
-                ret = -1;
-                snprintf (errstr, 256, "internal error, out of memory.");
+        if (!dup_val)
                 goto out;
-        }
 
         addr_tok = strtok_r (dup_val, ",", &save_ptr);
+        if (addr_tok == NULL)
+                goto out;
         while (addr_tok) {
-                if (!valid_internet_address (addr_tok, _gf_true)) {
-                        snprintf (errstr, 256,
-                                  "option %s %s: '%s' is not a valid "
-                                  "internet-address-list",
-                                  key, value, value);
-                        gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
-                        ret = -1;
+                if (!valid_internet_address (addr_tok, _gf_true))
                         goto out;
-                }
+
                 addr_tok = strtok_r (NULL, ",", &save_ptr);
         }
         ret = 0;
- out:
-        if (op_errstr && ret)
-                *op_errstr = gf_strdup (errstr);
+
+out:
+        if (ret) {
+                snprintf (errstr, sizeof (errstr), "option %s %s: '%s' is not "
+                "a valid internet-address-list", key, value, value);
+                gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
+                if (op_errstr)
+                        *op_errstr = gf_strdup (errstr);
+        }
         GF_FREE (dup_val);
 
         return ret;
@@ -595,6 +625,10 @@ validate_list_elements (const char *string, volume_option_t *opt,
                 goto out;
 
         str_ptr = strtok_r (dup_string, ",", &str_sav);
+        if (str_ptr == NULL) {
+                ret = -1;
+                goto out;
+        }
         while (str_ptr) {
 
                 key = strtok_r (str_ptr, ":", &substr_sav);
@@ -620,6 +654,7 @@ validate_list_elements (const char *string, volume_option_t *opt,
                 str_ptr = strtok_r (NULL, ",", &str_sav);
                 substr_sav = NULL;
         }
+
  out:
         GF_FREE (dup_string);
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
