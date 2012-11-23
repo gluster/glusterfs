@@ -1,0 +1,22 @@
+function volinfo_field()
+{
+    local vol=$1;
+    local field=$2;
+
+    $CLI volume info $vol | grep "^$field: " | sed 's/.*: //';
+}
+
+
+function brick_count()
+{
+    local vol=$1;
+
+    $CLI volume info $vol | egrep "^Brick[0-9]+: " | wc -l;
+}
+
+function volume_option()
+{
+        local vol=$1
+        local key=$2
+        $CLI volume info $vol | egrep "^$key: " | cut -f2 -d' ';
+}

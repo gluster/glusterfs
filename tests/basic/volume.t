@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -9,23 +10,6 @@ TEST pidof glusterd
 TEST $CLI volume info;
 
 TEST $CLI volume create $V0 replica 2 stripe 2 $H0:$B0/${V0}{1,2,3,4,5,6,7,8};
-
-
-function volinfo_field()
-{
-    local vol=$1;
-    local field=$2;
-
-    $CLI volume info $vol | grep "^$field: " | sed 's/.*: //';
-}
-
-
-function brick_count()
-{
-    local vol=$1;
-
-    $CLI volume info $vol | egrep "^Brick[0-9]+: " | wc -l;
-}
 
 
 EXPECT "$V0" volinfo_field $V0 'Volume Name';
