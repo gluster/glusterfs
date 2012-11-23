@@ -666,6 +666,8 @@ gf_string2time (const char *str, uint32_t *n)
         old_errno = errno;
         errno = 0;
         value = strtol (str, &tail, 0);
+        if (str == tail)
+                errno = EINVAL;
 
         if (errno == ERANGE || errno == EINVAL)
                 return -1;
@@ -709,6 +711,8 @@ gf_string2percent (const char *str, double *n)
         old_errno = errno;
         errno = 0;
         value = strtod (str, &tail);
+        if (str == tail)
+                errno = EINVAL;
 
         if (errno == ERANGE || errno == EINVAL)
                 return -1;
@@ -742,6 +746,8 @@ _gf_string2long (const char *str, long *n, int base)
         old_errno = errno;
         errno = 0;
         value = strtol (str, &tail, base);
+        if (str == tail)
+                errno = EINVAL;
 
         if (errno == ERANGE || errno == EINVAL)
                 return -1;
@@ -782,6 +788,8 @@ _gf_string2ulong (const char *str, unsigned long *n, int base)
         old_errno = errno;
         errno = 0;
         value = strtoul (str, &tail, base);
+        if (str == tail)
+                errno = EINVAL;
 
         if (errno == ERANGE || errno == EINVAL)
                 return -1;
@@ -822,6 +830,8 @@ _gf_string2uint (const char *str, unsigned int *n, int base)
         old_errno = errno;
         errno = 0;
         value = strtoul (str, &tail, base);
+        if (str == tail)
+                errno = EINVAL;
 
         if (errno == ERANGE || errno == EINVAL)
                 return -1;
@@ -853,6 +863,8 @@ _gf_string2double (const char *str, double *n)
         old_errno = errno;
         errno = 0;
         value = strtod (str, &tail);
+        if (str == tail)
+                errno = EINVAL;
 
         if (errno == ERANGE || errno == EINVAL)
                 return -1;
@@ -884,6 +896,8 @@ _gf_string2longlong (const char *str, long long *n, int base)
         old_errno = errno;
         errno = 0;
         value = strtoll (str, &tail, base);
+        if (str == tail)
+                errno = EINVAL;
 
         if (errno == ERANGE || errno == EINVAL)
                 return -1;
@@ -924,6 +938,8 @@ _gf_string2ulonglong (const char *str, unsigned long long *n, int base)
         old_errno = errno;
         errno = 0;
         value = strtoull (str, &tail, base);
+        if (str == tail)
+                errno = EINVAL;
 
         if (errno == ERANGE || errno == EINVAL)
                 return -1;
@@ -1288,6 +1304,8 @@ gf_string2bytesize (const char *str, uint64_t *n)
         old_errno = errno;
         errno = 0;
         value = strtod (str, &tail);
+        if (str == tail)
+                errno = EINVAL;
 
         if (errno == ERANGE || errno == EINVAL)
                 return -1;
@@ -1344,6 +1362,8 @@ gf_string2percent_or_bytesize (const char *str,
         old_errno = errno;
         errno = 0;
         value = strtoull (str, &tail, 10);
+        if (str == tail)
+                errno = EINVAL;
 
         if (errno == ERANGE || errno == EINVAL)
                 return -1;
