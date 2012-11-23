@@ -81,7 +81,7 @@ main (int argc, char *argv[])
 
 //	ret = glfs_set_volfile (fs, "/tmp/posix.vol");
 
-	ret = glfs_set_volfile_server (fs, "socket", "localhost", 24007);
+	ret = glfs_set_volfile_server (fs, "tcp", "localhost", 24007);
 
 //	ret = glfs_set_volfile_server (fs, "unix", "/tmp/gluster.sock", 0);
 
@@ -102,7 +102,7 @@ main (int argc, char *argv[])
 
 //	ret = glfs_set_volfile (fs2, "/tmp/posix.vol");
 
-	ret = glfs_set_volfile_server (fs2, "socket", "localhost", 24007);
+	ret = glfs_set_volfile_server (fs2, "tcp", "localhost", 24007);
 
 	ret = glfs_set_logging (fs2, "/dev/stderr", 7);
 

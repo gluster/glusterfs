@@ -416,8 +416,8 @@ Advanced Options
 @item --volfile-server-port=<port-number>
       Listening port number of volfile server.
 
-@item --volfile-server-transport=[socket|ib-verbs]
-      Transport type to get volfile from server. [default: @command{socket}]
+@item --volfile-server-transport=[tcp|ib-verbs]
+      Transport type to get volfile from server. [default: @command{tcp}]
 
 @item --xlator-options=<volume-name.option=value>
       Add/override a translator option for a volume with specified value.
@@ -494,8 +494,8 @@ Advanced Options
 @item --volfile-server-port=<port-number>
       Listening port number of volfile server.
 
-@item --volfile-server-transport=[socket|ib-verbs]
-      Transport type to get volfile from server. [default: @command{socket}]
+@item --volfile-server-transport=[tcp|ib-verbs]
+      Transport type to get volfile from server. [default: @command{tcp}]
 
 @item --xlator-options=<volume-name.option=value>
       Add/override a translator option for a volume with specified value.
