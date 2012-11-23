@@ -10,7 +10,7 @@ api = ctypes.CDLL("api/libgfapi.so",ctypes.RTLD_GLOBAL)
 
 fs = api.glfs_new(sys.argv[1])
 api.glfs_set_logging(fs,"/dev/stderr",7)
-api.glfs_set_volfile_server(fs,"socket","localhost",24007)
+api.glfs_set_volfile_server(fs,"tcp","localhost",24007)
 api.glfs_init(fs)
 print "Initialized volume"
 

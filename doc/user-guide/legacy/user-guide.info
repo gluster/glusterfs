@@ -397,8 +397,8 @@ command-line options accepted by it.
 `--volfile-server-port=<port-number>'
      Listening port number of volfile server.
 
-`--volfile-server-transport=[socket|ib-verbs]'
-     Transport type to get volfile from server. [default: `socket']
+`--volfile-server-transport=[tcp|ib-verbs]'
+     Transport type to get volfile from server. [default: `tcp']
 
 `--xlator-options=<volume-name.option=value>'
      Add/override a translator option for a volume with specified value.
@@ -467,8 +467,8 @@ filesystem to appear. Example:
 `--volfile-server-port=<port-number>'
      Listening port number of volfile server.
 
-`--volfile-server-transport=[socket|ib-verbs]'
-     Transport type to get volfile from server. [default: `socket']
+`--volfile-server-transport=[tcp|ib-verbs]'
+     Transport type to get volfile from server. [default: `tcp']
 
 `--xlator-options=<volume-name.option=value>'
      Add/override a translator option for a volume with specified value.
