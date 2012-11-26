@@ -108,6 +108,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"cluster.rebalance-stats",              "cluster/distribute", NULL, NULL, NO_DOC, 0, 2},
         {"cluster.subvols-per-directory",        "cluster/distribute", "directory-layout-spread", NULL, NO_DOC, 0, 2},
         {"cluster.readdir-optimize",             "cluster/distribute", NULL, NULL, NO_DOC, 0, 2},
+        {"cluster.nufa",                         "cluster/distribute", "!nufa", NULL, NO_DOC, 0, 2},
 
         /* AFR xlator options */
         {"cluster.entry-change-log",             "cluster/replicate",  NULL, NULL, NO_DOC, 0, 1},
@@ -2399,9 +2400,19 @@ volgen_graph_build_dht_cluster (volgen_graph_t *graph,
         int                     ret                      = -1;
         char                    *decommissioned_children = NULL;
         xlator_t                *dht                     = NULL;
+        char                    *optstr                  = NULL;
+        gf_boolean_t             use_nufa                = _gf_false;
 
+        if (dict_get_str(volinfo->dict,"cluster.nufa",&optstr) == 0) {
+                /* Keep static analyzers quiet by "using" the value. */
+                ret = gf_string2boolean(optstr,&use_nufa);
+        }
+                        
         clusters = volgen_graph_build_clusters (graph,  volinfo,
-                                                "cluster/distribute", "%s-dht",
+                                                use_nufa
+                                                        ? "cluster/nufa"
+                                                        : "cluster/distribute",
+                                                "%s-dht",
                                                 child_count, child_count);
         if (clusters < 0)
                 goto out;

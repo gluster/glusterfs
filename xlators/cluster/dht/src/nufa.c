@@ -491,6 +491,26 @@ fini (xlator_t *this)
         return;
 }
 
+gf_boolean_t
+same_first_part (char *str1, char term1, char *str2, char term2)
+{
+        gf_boolean_t    ended1;
+        gf_boolean_t    ended2;
+
+        for (;;) {
+                ended1 = ((*str1 == '\0') || (*str1 == term1));
+                ended2 = ((*str2 == '\0') || (*str2 == term2));
+                if (ended1 && ended2) {
+                        return _gf_true;
+                }
+                if (ended1 || ended2 || (*str1 != *str2)) {
+                        return _gf_false;
+                }
+                ++str1;
+                ++str2;
+        }
+}
+
 int
 init (xlator_t *this)
 {
@@ -504,6 +524,9 @@ init (xlator_t *this)
         char           my_hostname[256];
         double         temp_free_disk = 0;
         uint64_t       size = 0;
+        xlator_t      *local_subvol = NULL;
+        char          *brick_host = NULL;
+        xlator_t      *kid = NULL;
 
         if (!this->children) {
                 gf_log (this->name, GF_LOG_CRITICAL,
@@ -562,23 +585,58 @@ init (xlator_t *this)
                 local_volname = data->data;
         }
 
-        trav = this->children;
-        while (trav) {
+        for (trav = this->children; trav; trav = trav->next) {
                 if (strcmp (trav->xlator->name, local_volname) == 0)
                         break;
-                trav = trav->next;
+                if (local_subvol) {
+                        continue;
+                }
+                kid = trav->xlator;
+                for (;;) {
+                        if (dict_get_str(trav->xlator->options,"remote-host",
+                                         &brick_host) == 0) {
+                                /* Found it. */
+                                break;
+                        }
+                        if (!kid->children) {
+                                /* Nowhere further to look. */
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "could not get remote-host");
+                                goto err;
+                        }
+                        if (kid->children->next) {
+                                /* Multiple choices, can't/shouldn't decide. */
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "NUFA found fan-out (type %s) volume",
+                                        kid->type);
+                                goto err;
+                        }
+                        /* One-to-one xlators are OK, try the next one. */
+                        kid = kid->children->xlator;
+                }
+                if (same_first_part(my_hostname,'.',brick_host,'.')) {
+                        local_subvol = trav->xlator;
+                }
         }
 
-        if (!trav) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Could not find subvolume named '%s'. "
-                        "Please define volume with the name as the hostname "
-                        "or override it with 'option local-volume-name'",
-                        local_volname);
-                goto err;
+        if (trav) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "Using specified subvol %s", local_volname);
+                conf->private = trav->xlator;
         }
+        else if (local_subvol) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "Using first local subvol %s", local_subvol->name);
+                conf->private = local_subvol;
+        }
+        else {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Could not find specified or local subvol");
+                goto err;
+                
+        }
+
         /* The volume specified exists */
-        conf->private = trav->xlator;
 
         conf->min_free_disk = 10;
         conf->disk_unit = 'p';
