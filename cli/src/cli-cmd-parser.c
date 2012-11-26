@@ -832,6 +832,11 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
                 if (ret == -1)
                         goto out;
 
+                if (strlen (value) == 0) {
+                        ret = -1;
+                        goto out;
+                }
+
                 ret = cli_add_key_group (dict, key, value);
                 if (ret == 0)
                         *options = dict;
@@ -853,6 +858,11 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
                 ret = gf_strip_whitespace (value, strlen (value));
                 if (ret == -1)
                         goto out;
+
+                if (strlen (value) == 0) {
+                        ret = -1;
+                        goto out;
+                }
 
                 if (cli_is_key_spl (key)) {
                         ret = -1;
