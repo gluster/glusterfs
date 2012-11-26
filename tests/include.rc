@@ -39,6 +39,9 @@ function test_footer()
 	     	echo "ok $t";
 	else
 		echo "not ok $t";
+		if [ "$EXIT_EARLY" = "1" ]; then
+			exit $RET
+		fi
 	fi
 
 	dbg "RESULT $t: $RET";
