@@ -101,7 +101,7 @@ def unmount(full_mount_path):
 
 def _get_export_list():
     if REMOTE_CLUSTER:
-        cmnd = 'ssh %s gluster volume info' % MOUNT_IP
+        cmnd = 'gluster --remote-host=%s volume info' % MOUNT_IP
     else:
         cmnd = 'gluster volume info'
 
@@ -109,10 +109,10 @@ def _get_export_list():
 
     if os.system(cmnd + ' >> /dev/null'):
         if REMOTE_CLUSTER:
-            logging.error('Getting volume info failed %s, make sure to have '\
-                          'passwordless ssh on %s', NAME, MOUNT_IP)
+            logging.error('Getting volume info failed for %s, make sure '\
+                          'gluster --remote-host=%s works', NAME, MOUNT_IP)
         else:
-            logging.error('Getting volume failed %s', NAME)
+            logging.error('Getting volume info failed for %s', NAME)
     else:
         fp = os.popen(cmnd)
         while True:
