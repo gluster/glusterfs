@@ -156,10 +156,15 @@ glusterd_fetchspec_notify (xlator_t *this)
 
         priv = this->private;
 
-        list_for_each_entry (trans, &priv->xprt_list, list) {
-                rpcsvc_callback_submit (priv->rpc, trans, &glusterd_cbk_prog,
-                                        GF_CBK_FETCHSPEC, NULL, 0);
+        pthread_mutex_lock (&priv->xprt_lock);
+        {
+                list_for_each_entry (trans, &priv->xprt_list, list) {
+                        rpcsvc_callback_submit (priv->rpc, trans,
+                                                &glusterd_cbk_prog,
+                                                GF_CBK_FETCHSPEC, NULL, 0);
+                }
         }
+        pthread_mutex_unlock (&priv->xprt_lock);
 
         ret = 0;
 
@@ -217,12 +222,16 @@ glusterd_rpcsvc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         {
                 INIT_LIST_HEAD (&xprt->list);
 
+                pthread_mutex_lock (&priv->xprt_lock);
                 list_add_tail (&xprt->list, &priv->xprt_list);
+                pthread_mutex_unlock (&priv->xprt_lock);
                 break;
         }
         case RPCSVC_EVENT_DISCONNECT:
         {
+                pthread_mutex_lock (&priv->xprt_lock);
                 list_del (&xprt->list);
+                pthread_mutex_unlock (&priv->xprt_lock);
                 pmap_registry_remove (this, 0, NULL, GF_PMAP_PORT_NONE, xprt);
                 break;
         }
@@ -995,6 +1004,7 @@ init (xlator_t *this)
         conf->gfs_mgmt = &gd_brick_prog;
         strncpy (conf->workdir, workdir, PATH_MAX);
 
+        pthread_mutex_init (&conf->xprt_lock, NULL);
         INIT_LIST_HEAD (&conf->xprt_list);
 
         glusterd_friend_sm_init ();

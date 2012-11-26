@@ -135,6 +135,7 @@ typedef struct {
         nodesrv_t         *nfs;
         struct pmap_registry *pmap;
         struct list_head  volumes;
+        pthread_mutex_t   xprt_lock;
         struct list_head  xprt_list;
         glusterd_store_handle_t *handle;
         gf_timer_t *timer;
