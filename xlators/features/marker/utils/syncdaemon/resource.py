@@ -12,7 +12,7 @@ import tempfile
 import threading
 import subprocess
 from errno import EEXIST, ENOENT, ENODATA, ENOTDIR, ELOOP, EISDIR
-from select import error as selecterror
+from select import error as SelectError
 
 from gconf import gconf
 import repce
@@ -121,7 +121,7 @@ class Popen(subprocess.Popen):
                 errstore = cls.errstore.copy()
                 try:
                     poe, _ ,_ = select([po.stderr for po in errstore], [], [], 1)
-                except ValueError, selecterror:
+                except (ValueError, SelectError):
                     continue
                 for po in errstore:
                     if po.stderr not in poe:
