@@ -208,10 +208,10 @@ int32_t
 glusterd_nodesvc_connect (char *server, char *socketpath);
 
 void
-glusterd_nodesvc_set_running (char *server, gf_boolean_t status);
+glusterd_nodesvc_set_online_status (char *server, gf_boolean_t status);
 
 gf_boolean_t
-glusterd_nodesvc_is_running (char *server);
+glusterd_is_nodesvc_online (char *server);
 
 int
 glusterd_remote_hostname_get (rpcsvc_request_t *req,

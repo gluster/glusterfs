@@ -4134,7 +4134,7 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
         case GF_CLI_STATS_INFO:
                 ret = dict_get_str_boolean (dict, "nfs", _gf_false);
                 if (ret) {
-                        if (!glusterd_nodesvc_is_running ("nfs")) {
+                        if (!glusterd_is_nodesvc_online ("nfs")) {
                                 ret = -1;
                                 gf_log (this->name, GF_LOG_ERROR, "NFS server"
                                         " is not running");
@@ -4177,7 +4177,7 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
         case GF_CLI_STATS_TOP:
                 ret = dict_get_str_boolean (dict, "nfs", _gf_false);
                 if (ret) {
-                        if (!glusterd_nodesvc_is_running ("nfs")) {
+                        if (!glusterd_is_nodesvc_online ("nfs")) {
                                 ret = -1;
                                 gf_log (this->name, GF_LOG_ERROR, "NFS server"
                                         " is not running");
@@ -4614,7 +4614,7 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr)
 
                 ret = 0;
         } else if ((cmd & GF_CLI_STATUS_NFS) != 0) {
-                if (!glusterd_nodesvc_is_running ("nfs")) {
+                if (!glusterd_is_nodesvc_online ("nfs")) {
                         ret = -1;
                         gf_log (this->name, GF_LOG_ERROR,
                                 "NFS server is not running");
@@ -4633,7 +4633,7 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr)
 
                 ret = 0;
         } else if ((cmd & GF_CLI_STATUS_SHD) != 0) {
-                if (!glusterd_nodesvc_is_running ("glustershd")) {
+                if (!glusterd_is_nodesvc_online ("glustershd")) {
                         ret = -1;
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Self-heal daemon is not running");
