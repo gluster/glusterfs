@@ -1057,7 +1057,7 @@ init (xlator_t *this)
 #endif
 
         this->private = conf;
-        (void) glusterd_nodesvc_set_running ("glustershd", _gf_false);
+        (void) glusterd_nodesvc_set_online_status ("glustershd", _gf_false);
 
         GLUSTERD_GET_HOOKS_DIR (hooks_dir, GLUSTERD_HOOK_VER, conf);
         if (stat (hooks_dir, &buf)) {

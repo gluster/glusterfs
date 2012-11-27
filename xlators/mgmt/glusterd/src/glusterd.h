@@ -96,7 +96,7 @@ struct glusterd_volgen {
 
 typedef struct {
         struct rpc_clnt         *rpc;
-        gf_boolean_t            running;
+        gf_boolean_t            online;
 } nodesrv_t;
 
 #define GD_OP_VERSION_KEY     "operating-version"

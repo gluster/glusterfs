@@ -2997,14 +2997,14 @@ glusterd_nodesvc_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         switch (event) {
         case RPC_CLNT_CONNECT:
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_CONNECT");
-                (void) glusterd_nodesvc_set_running (server, _gf_true);
+                (void) glusterd_nodesvc_set_online_status (server, _gf_true);
                 ret = default_notify (this, GF_EVENT_CHILD_UP, NULL);
 
                 break;
 
         case RPC_CLNT_DISCONNECT:
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_DISCONNECT");
-                (void) glusterd_nodesvc_set_running (server, _gf_false);
+                (void) glusterd_nodesvc_set_online_status (server, _gf_false);
                 break;
 
         default:

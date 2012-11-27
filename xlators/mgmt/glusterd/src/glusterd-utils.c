@@ -3090,7 +3090,7 @@ glusterd_get_nodesvc_volfile (char *server, char *workdir,
 }
 
 void
-glusterd_nodesvc_set_running (char *server, gf_boolean_t status)
+glusterd_nodesvc_set_online_status (char *server, gf_boolean_t status)
 {
         glusterd_conf_t *priv = NULL;
 
@@ -3101,16 +3101,16 @@ glusterd_nodesvc_set_running (char *server, gf_boolean_t status)
         GF_ASSERT (priv->nfs);
 
         if (!strcmp("glustershd", server))
-                priv->shd->running = status;
+                priv->shd->online = status;
         else if (!strcmp ("nfs", server))
-                priv->nfs->running = status;
+                priv->nfs->online = status;
 }
 
 gf_boolean_t
-glusterd_nodesvc_is_running (char *server)
+glusterd_is_nodesvc_online (char *server)
 {
         glusterd_conf_t *conf = NULL;
-        gf_boolean_t    running = _gf_false;
+        gf_boolean_t    online = _gf_false;
 
         GF_ASSERT (server);
         conf = THIS->private;
@@ -3119,11 +3119,11 @@ glusterd_nodesvc_is_running (char *server)
         GF_ASSERT (conf->nfs);
 
         if (!strcmp (server, "glustershd"))
-                running = conf->shd->running;
+                online = conf->shd->online;
         else if (!strcmp (server, "nfs"))
-                running = conf->nfs->running;
+                online = conf->nfs->online;
 
-        return running;
+        return online;
 }
 
 int32_t
@@ -3418,7 +3418,7 @@ glusterd_nodesvc_stop (char *server, int sig)
         ret = glusterd_service_stop (server, pidfile, sig, _gf_true);
 
         if (ret == 0) {
-                glusterd_nodesvc_set_running (server, _gf_false);
+                glusterd_nodesvc_set_online_status (server, _gf_false);
                 (void)glusterd_nodesvc_unlink_socket_file (server);
         }
 out:
@@ -3492,7 +3492,9 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
 
         glusterd_get_nodesvc_pidfile (server, priv->workdir, pidfile,
                                       sizeof (pidfile));
-        running = glusterd_is_service_running (pidfile, &pid);
+        //Consider service to be running only when glusterd sees it Online
+        if (glusterd_is_nodesvc_online (server))
+                running = glusterd_is_service_running (pidfile, &pid);
 
         /* For nfs-servers/self-heal-daemon setting
          * brick<n>.hostname = "NFS Server" / "Self-heal Daemon"
