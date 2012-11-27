@@ -31,7 +31,7 @@ TEST pidof glusterd
 TEST $CLI volume info;
 TEST $CLI volume create $V0 replica 2  $H0:$B0/brick1 $H0:$B0/brick2;
 TEST $CLI volume start $V0;
-mount -t glusterfs $H0:/$V0 $M0;
+TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0;
 B0_hiphenated=`echo $B0 | tr '/' '-'`
 kill -9 `cat /var/lib/glusterd/vols/$V0/run/$H0$B0_hiphenated-brick1.pid` ;
 
