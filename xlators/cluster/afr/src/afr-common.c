@@ -767,6 +767,13 @@ out:
 }
 
 void
+afr_xattr_array_destroy (dict_t **xattr, unsigned int child_count)
+{
+        afr_reset_xattr (xattr, child_count);
+        GF_FREE (xattr);
+}
+
+void
 afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
 {
         afr_self_heal_t *sh = NULL;
@@ -782,10 +789,7 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
         if (sh->inode)
                 inode_unref (sh->inode);
 
-        if (sh->xattr) {
-                afr_reset_xattr (sh->xattr, priv->child_count);
-                GF_FREE (sh->xattr);
-        }
+        afr_xattr_array_destroy (sh->xattr, priv->child_count);
 
         GF_FREE (sh->child_errno);
 
@@ -4232,4 +4236,43 @@ xlator_subvolume_count (xlator_t *this)
         for (list = this->children; list; list = list->next)
                 i++;
         return i;
+}
+
+inline gf_boolean_t
+afr_is_errno_set (int *child_errno, int child)
+{
+        return child_errno[child];
+}
+
+inline gf_boolean_t
+afr_is_errno_unset (int *child_errno, int child)
+{
+        return !afr_is_errno_set (child_errno, child);
+}
+
+void
+afr_prepare_new_entry_pending_matrix (int32_t **pending,
+                                      gf_boolean_t (*is_pending) (int *, int),
+                                      int *ctx, struct iatt *buf,
+                                      unsigned int child_count)
+{
+        int midx = 0;
+        int idx  = 0;
+        int i    = 0;
+
+        midx = afr_index_for_transaction_type (AFR_METADATA_TRANSACTION);
+        if (IA_ISDIR (buf->ia_type))
+                idx = afr_index_for_transaction_type (AFR_ENTRY_TRANSACTION);
+        else if (IA_ISREG (buf->ia_type))
+                idx = afr_index_for_transaction_type (AFR_DATA_TRANSACTION);
+        else
+                idx = -1;
+        for (i = 0; i < child_count; i++) {
+                if (is_pending (ctx, i)) {
+                        pending[i][midx] = hton32 (1);
+                        if (idx == -1)
+                                continue;
+                        pending[i][idx] = hton32 (1);
+                }
+        }
 }

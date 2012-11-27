@@ -106,9 +106,132 @@ __dir_entry_fop_common_cbk (call_frame_t *frame, int child_index,
 
                 local->fresh_children[local->success_count] = child_index;
                 local->success_count++;
+                local->child_errno[child_index] = 0;
+        } else {
+                local->child_errno[child_index] = op_errno;
         }
 
         local->op_errno = op_errno;
+}
+
+int
+afr_mark_new_entry_changelog_cbk (call_frame_t *frame, void *cookie,
+                                  xlator_t *this,
+                                  int32_t op_ret, int32_t op_errno,
+                                  dict_t *xattr, dict_t *xdata)
+{
+        int     call_count = 0;
+
+        call_count = afr_frame_return (frame);
+        if (call_count == 0) {
+                AFR_STACK_DESTROY (frame);
+        }
+        return 0;
+}
+
+void
+afr_mark_new_entry_changelog (call_frame_t *frame, xlator_t *this)
+{
+        call_frame_t  *new_frame  = NULL;
+        afr_local_t   *local      = NULL;
+        afr_local_t   *new_local  = NULL;
+        afr_private_t *priv       = NULL;
+        dict_t        **xattr     = NULL;
+        int32_t       **changelog = NULL;
+        int           i           = 0;
+        GF_UNUSED int op_errno    = 0;
+
+        local = frame->local;
+        priv = this->private;
+
+        new_frame = copy_frame (frame);
+        if (!new_frame) {
+                goto out;
+        }
+
+        AFR_LOCAL_ALLOC_OR_GOTO (new_frame->local, out);
+        new_local = new_frame->local;
+        changelog = afr_matrix_create (priv->child_count, AFR_NUM_CHANGE_LOGS);
+        if (!changelog)
+                goto out;
+
+        xattr = GF_CALLOC (priv->child_count, sizeof (*xattr),
+                           gf_afr_mt_dict_t);
+        if (!xattr)
+                goto out;
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->child_errno[i])
+                        continue;
+                xattr[i] = dict_new ();
+                if (!xattr[i])
+                        goto out;
+        }
+
+        afr_prepare_new_entry_pending_matrix (changelog,
+                                              afr_is_errno_set,
+                                              local->child_errno,
+                                              &local->cont.dir_fop.buf,
+                                              priv->child_count);
+
+        new_local->pending = changelog;
+        uuid_copy (new_local->loc.gfid, local->cont.dir_fop.buf.ia_gfid);
+        new_local->loc.inode = inode_ref (local->cont.dir_fop.inode);
+        new_local->call_count = local->success_count;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->child_errno[i])
+                        continue;
+
+                afr_set_pending_dict (priv, xattr[i], changelog, i, LOCAL_LAST);
+                STACK_WIND_COOKIE (new_frame, afr_mark_new_entry_changelog_cbk,
+                                   (void *) (long) i, priv->children[i],
+                                   priv->children[i]->fops->xattrop,
+                                   &new_local->loc, GF_XATTROP_ADD_ARRAY,
+                                   xattr[i], NULL);
+        }
+        new_frame = NULL;
+out:
+        if (new_frame)
+                AFR_STACK_DESTROY (new_frame);
+        afr_xattr_array_destroy (xattr, priv->child_count);
+        return;
+}
+
+gf_boolean_t
+afr_is_new_entry_changelog_needed (glusterfs_fop_t fop)
+{
+        glusterfs_fop_t fops[]   = {GF_FOP_CREATE, GF_FOP_MKNOD, GF_FOP_NULL};
+        int             i        = 0;
+
+        for (i = 0; fops[i] != GF_FOP_NULL; i++) {
+                if (fop == fops[i])
+                        return _gf_true;
+        }
+        return _gf_false;
+}
+
+void
+afr_dir_fop_mark_entry_pending_changelog (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t   *local      = NULL;
+        afr_private_t *priv       = NULL;
+
+        local = frame->local;
+        priv  = this->private;
+
+        if (local->op_ret < 0)
+                goto out;
+
+        if (local->success_count == priv->child_count)
+                goto out;
+
+        if (!afr_is_new_entry_changelog_needed (local->op))
+                goto out;
+
+        afr_mark_new_entry_changelog (frame, this);
+
+out:
+        local->transaction.resume (frame, this);
 }
 
 void
@@ -129,7 +252,7 @@ afr_dir_fop_done (call_frame_t *frame, xlator_t *this)
                                       local->cont.dir_fop.buf.ia_gfid);
 done:
         local->transaction.unwind (frame, this);
-        local->transaction.resume (frame, this);
+        afr_dir_fop_mark_entry_pending_changelog (frame, this);
 }
 
 /* {{{ create */
@@ -331,6 +454,7 @@ afr_create (call_frame_t *frame, xlator_t *this,
         }
         UNLOCK (&priv->read_child_lock);
 
+        local->op                = GF_FOP_CREATE;
         local->cont.create.flags = flags;
         local->cont.create.mode  = mode;
         local->cont.create.fd    = fd_ref (fd);
@@ -524,6 +648,7 @@ afr_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         }
         UNLOCK (&priv->read_child_lock);
 
+        local->op               = GF_FOP_MKNOD;
         local->cont.mknod.mode  = mode;
         local->cont.mknod.dev   = dev;
         local->umask = umask;
