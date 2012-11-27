@@ -19,3 +19,7 @@ gitclean: distclean
 	rm -f missing aclocal.m4 config.h.in config.guess config.sub ltmain.sh install-sh configure depcomp
 	rm -fr argp-standalone/autom4te.cache
 	rm -f argp-standalone/aclocal.m4 argp-standalone/config.h.in argp-standalone/configure argp-standalone/depcomp argp-standalone/install-sh argp-standalone/missing
+
+dist-hook:
+	sh -c "cd $(srcdir) && git diff && echo ===== git log ==== && git log" \
+	> $(distdir)/ChangeLog
