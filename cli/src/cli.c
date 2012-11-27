@@ -382,6 +382,8 @@ parse_cmdline (int argc, char *argv[], struct cli_state *state)
                 }
         }
 
+        state->argv[state->argc] = NULL;
+
         return ret;
 }
 
