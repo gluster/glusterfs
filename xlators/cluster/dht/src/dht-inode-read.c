@@ -498,12 +498,23 @@ dht_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         int          ret = -1;
         dht_local_t *local = NULL;
+        xlator_t    *subvol = NULL;
 
         local = frame->local;
 
         if (local->call_cnt != 1)
                 goto out;
+        if ((op_ret == -1) && (op_errno == ENOTCONN) &&
+            IA_ISDIR(local->loc.inode->ia_type)) {
 
+                subvol = dht_first_up_subvol (this);
+                if (!subvol)
+                        goto out;
+
+                STACK_WIND (frame, dht_access_cbk, subvol, subvol->fops->access,
+                            &local->loc, local->rebalance.flags, NULL);
+                return 0;
+        }
         if ((op_ret == -1) && (op_errno == ENOENT)) {
                 /* File would be migrated to other node */
                 local->rebalance.target_op_fn = dht_access2;
