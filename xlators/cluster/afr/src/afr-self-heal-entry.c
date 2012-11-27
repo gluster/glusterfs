@@ -1018,33 +1018,6 @@ out:
         return 0;
 }
 
-void
-afr_sh_prepare_new_entry_pending_matrix (int32_t **pending,
-                                         int *child_errno,
-                                         struct iatt *buf,
-                                         unsigned int child_count)
-{
-        int              midx             = 0;
-        int              idx              = 0;
-        int              i                = 0;
-
-        midx = afr_index_for_transaction_type (AFR_METADATA_TRANSACTION);
-        if (IA_ISDIR (buf->ia_type))
-                idx = afr_index_for_transaction_type (AFR_ENTRY_TRANSACTION);
-        else if (IA_ISREG (buf->ia_type))
-                idx = afr_index_for_transaction_type (AFR_DATA_TRANSACTION);
-        else
-                idx = -1;
-        for (i = 0; i < child_count; i++) {
-                if (child_errno[i])
-                        continue;
-                pending[i][midx] = hton32 (1);
-                if (idx == -1)
-                        continue;
-                pending[i][idx] = hton32 (1);
-        }
-}
-
 int
 afr_sh_entry_impunge_perform_xattrop (call_frame_t *impunge_frame,
                                       xlator_t *this)
@@ -1061,10 +1034,11 @@ afr_sh_entry_impunge_perform_xattrop (call_frame_t *impunge_frame,
         impunge_sh = &impunge_local->self_heal;
         active_src = impunge_sh->active_source;
 
-        afr_sh_prepare_new_entry_pending_matrix (impunge_local->pending,
-                                                 impunge_sh->child_errno,
-                                                 &impunge_sh->entrybuf,
-                                                 priv->child_count);
+        afr_prepare_new_entry_pending_matrix (impunge_local->pending,
+                                              afr_is_errno_unset,
+                                              impunge_sh->child_errno,
+                                              &impunge_sh->entrybuf,
+                                              priv->child_count);
         xattr = dict_new ();
         if (!xattr) {
                 op_errno = ENOMEM;

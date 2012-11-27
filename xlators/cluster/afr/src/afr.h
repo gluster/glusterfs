@@ -1023,6 +1023,20 @@ afr_matrix_cleanup (int32_t **pending, unsigned int m);
 
 int32_t**
 afr_matrix_create (unsigned int m, unsigned int n);
+
+gf_boolean_t
+afr_is_errno_set (int *child_errno, int child);
+
+gf_boolean_t
+afr_is_errno_unset (int *child_errno, int child);
+
+void
+afr_prepare_new_entry_pending_matrix (int32_t **pending,
+                                      gf_boolean_t (*is_pending) (int *, int),
+                                      int *ctx, struct iatt *buf,
+                                      unsigned int child_count);
+void
+afr_xattr_array_destroy (dict_t **xattr, unsigned int child_count);
 /*
  * Special value indicating we should use the "auto" quorum method instead of
  * a fixed value (including zero to turn off quorum enforcement).
