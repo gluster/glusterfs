@@ -28,6 +28,7 @@ EXPECT 'Created' volinfo_field $V0 'Status';
 ## Make sure io-cache and write-behind don't interfere.
 TEST $CLI volume set $V0 performance.io-cache off;
 TEST $CLI volume set $V0 performance.write-behind off;
+TEST $CLI volume set $V0 performance.stat-prefetch off
 
 ## Make sure automatic self-heal doesn't perturb our results.
 TEST $CLI volume set $V0 cluster.self-heal-daemon off
