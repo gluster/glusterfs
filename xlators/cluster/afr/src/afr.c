@@ -532,35 +532,53 @@ struct xlator_cbks cbks = {
 
 struct volume_options options[] = {
         { .key  = {"read-subvolume" },
-          .type = GF_OPTION_TYPE_XLATOR
+          .type = GF_OPTION_TYPE_XLATOR,
+          .description = "inode-read fops happen only on one of the bricks in "
+                         "replicate. Afr will prefer the one specified using "
+                         "this option if it is not stale. Option value must be "
+                         "one of the xlator names of the children. "
+                         "Ex: <volname>-client-0 till "
+                         "<volname>-client-<number-of-bricks - 1>"
         },
         { .key  = {"read-subvolume-index" },
           .type = GF_OPTION_TYPE_INT,
           .default_value = "-1",
+          .description = "inode-read fops happen only on one of the bricks in "
+                         "replicate. AFR will prefer the one specified using "
+                         "this option if it is not stale. allowed options"
+                         " include -1 till replica-count - 1"
         },
         { .key = {"read-hash-mode" },
           .type = GF_OPTION_TYPE_INT,
           .min = 0,
           .max = 2,
           .default_value = "0",
-          .description = "0 = first responder, "
-                         "1 = hash by GFID (all clients use same subvolume), "
-                         "2 = hash by GFID and client PID",
+          .description = "inode-read fops happen only on one of the bricks in "
+                         "replicate. AFR will prefer the one computed using "
+                         "the method specified using this option"
+                         "0 = first responder, "
+                         "1 = hash by GFID of file (all clients use "
+                                                    "same subvolume), "
+                         "2 = hash by GFID of file and client PID",
         },
         { .key  = {"choose-local" },
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "true",
-          .description = "Choose a local subvolume to read from if "
+          .description = "Choose a local subvolume(i.e. Brick) to read from if "
                          "read-subvolume is not explicitly set.",
         },
         { .key  = {"favorite-child"},
-          .type = GF_OPTION_TYPE_XLATOR
+          .type = GF_OPTION_TYPE_XLATOR,
+          .description = "If a split-brain happens choose subvol/brick set by "
+                         "this option as source."
         },
         { .key  = {"background-self-heal-count"},
           .type = GF_OPTION_TYPE_INT,
           .min  = 0,
           .default_value = "16",
           .validate = GF_OPT_VALIDATE_MIN,
+          .description = "This specifies the number of self-heals that can be "
+                         " performed in background without blocking the fop"
         },
         { .key  = {"data-self-heal"},
           .type = GF_OPTION_TYPE_STR,
@@ -568,8 +586,10 @@ struct volume_options options[] = {
                     "0", "off", "no", "false", "disable",
                     "open"},
           .default_value = "on",
-          .description   = "\"open\" means data self-heal action will"
-                           "only be triggered by file open operations."
+          .description   = "Using this option we can enable/disable data "
+                           "self-heal on the file. \"open\" means data "
+                           "self-heal action will only be triggered by file "
+                           "open operations."
         },
         { .key  = {"data-self-heal-algorithm"},
           .type = GF_OPTION_TYPE_STR,
@@ -578,7 +598,13 @@ struct volume_options options[] = {
                            "\"full\" algorithm copies the entire file from "
                            "source to sink. The \"diff\" algorithm copies to "
                            "sink only those blocks whose checksums don't match "
-                           "with those of source.",
+                           "with those of source. If no option is configured "
+                           "the option is chosen dynamically as follows: "
+                           "If the file does not exist on one of the sinks "
+                           "or empty file exists or if the source file size is "
+                           "about the same as page size the entire file will "
+                           "be read and written i.e \"full\" algo, "
+                           "otherwise \"diff\" algo is chosen.",
           .value = { "diff", "full", "" }
         },
         { .key  = {"data-self-heal-window-size"},
@@ -592,26 +618,43 @@ struct volume_options options[] = {
         { .key  = {"metadata-self-heal"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .description = "Using this option we can enable/disable metadata "
+                         "i.e. Permissions, ownerships, xattrs self-heal on "
+                         "the file/directory."
         },
         { .key  = {"entry-self-heal"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .description = "Using this option we can enable/disable entry "
+                         "self-heal on the directory."
         },
         { .key  = {"data-change-log"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .description = "Data fops like write/truncate will not perform "
+                         "pre/post fop changelog operations in afr transaction "
+                         "if this option is disabled"
         },
         { .key  = {"metadata-change-log"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .description = "Metadata fops like setattr/setxattr will not perform "
+                         "pre/post fop changelog operations in afr transaction "
+                         "if this option is disabled"
         },
         { .key  = {"entry-change-log"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .description = "Entry fops like create/unlink will not perform "
+                         "pre/post fop changelog operations in afr transaction "
+                         "if this option is disabled"
         },
         { .key  = {"optimistic-change-log"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .description = "Entry/Metadata fops will not perform "
+                         "pre fop changelog operations in afr transaction "
+                         "if this option is enabled."
         },
         { .key  = {"strict-readdir"},
           .type = GF_OPTION_TYPE_BOOL,
@@ -620,22 +663,51 @@ struct volume_options options[] = {
         { .key = {"inodelk-trace"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .description = "Enabling this option logs inode lock/unlocks"
         },
         { .key = {"entrylk-trace"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .description = "Enabling this option logs entry lock/unlocks"
         },
         { .key = {"eager-lock"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .description = "Lock phase of a transaction has two sub-phases. "
+                         "First is an attempt to acquire locks in parallel by "
+                         "broadcasting non-blocking lock requests. If lock "
+                         "aquistion fails on any server, then the held locks "
+                         "are unlocked and revert to a blocking locked mode "
+                         "sequentially on one server after another.  If this "
+                         "option is enabled the initial broadcasting lock "
+                         "request attempt to acquire lock on the entire file. "
+                         "If this fails, we revert back to the sequential "
+                         "\"regional\" blocking lock as before. In the case "
+                         "where such an \"eager\" lock is granted in the "
+                         "non-blocking phase, it gives rise to an opportunity "
+                         "for optimization. i.e, if the next write transaction "
+                         "on the same FD arrives before the unlock phase of "
+                         "the first transaction, it \"takes over\" the full "
+                         "file lock. Similarly if yet another data transaction "
+                         "arrives before the unlock phase of the \"optimized\" "
+                         "transaction, that in turn \"takes over\" the lock as "
+                         "well. The actual unlock now happens at the end of "
+                         "the last \"optimzed\" transaction."
+
         },
         { .key = {"self-heal-daemon"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .description = "This option applies to only self-heal-daemon. "
+                         "Index directory crawl and automatic healing of files"
+                         "will not be performed if this option is turned off."
         },
         { .key = {"iam-self-heal-daemon"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .description = "This option differentiates if the replicate "
+                         "translator is running as part of self-heal-daemon "
+                         "or not."
         },
         { .key = {"quorum-type"},
           .type = GF_OPTION_TYPE_STR,
@@ -658,14 +730,17 @@ struct volume_options options[] = {
         },
         { .key  = {"node-uuid"},
           .type = GF_OPTION_TYPE_STR,
-          .description = "Local glusterd uuid string",
+          .description = "Local glusterd uuid string, used in starting "
+                         "self-heal-daemon so that it can crawl only on "
+                         "local index directories.",
         },
         { .key  = {"heal-timeout"},
           .type = GF_OPTION_TYPE_INT,
           .min  = 60,
           .max  = INT_MAX,
           .default_value = "600",
-          .description = "Poll timeout for checking the need to self-heal"
+          .description = "time interval for checking the need to self-heal "
+                         "in self-heal-daemon"
         },
         { .key  = {"post-op-delay-secs"},
           .type = GF_OPTION_TYPE_INT,
