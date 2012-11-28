@@ -839,13 +839,16 @@ static int
 _delete_auth_opt (dict_t *this, char *key, data_t *value, void *data)
 {
         char *auth_option_pattern[] = { "auth.addr.*.allow",
-                                        "auth.addr.*.reject"};
+                                        "auth.addr.*.reject",
+                                        NULL};
+        int i = 0;
 
-        if (fnmatch ( auth_option_pattern[0], key, 0) != 0)
-                dict_del (this, key);
-
-        if (fnmatch ( auth_option_pattern[1], key, 0) != 0)
-                dict_del (this, key);
+        for (i = 0; auth_option_pattern[i]; i++) {
+                if (fnmatch (auth_option_pattern[i], key, 0) == 0) {
+                        dict_del (this, key);
+                        break;
+                }
+        }
 
         return 0;
 }
@@ -855,12 +858,16 @@ static int
 _copy_auth_opt (dict_t *unused, char *key, data_t *value, void *xl_dict)
 {
         char *auth_option_pattern[] = { "auth.addr.*.allow",
-                                        "auth.addr.*.reject"};
-        if (fnmatch ( auth_option_pattern[0], key, 0) != 0)
-                dict_set ((dict_t *)xl_dict, key, (value));
+                                        "auth.addr.*.reject",
+                                        NULL};
+        int i = 0;
 
-        if (fnmatch ( auth_option_pattern[1], key, 0) != 0)
-                dict_set ((dict_t *)xl_dict, key, (value));
+        for (i = 0; auth_option_pattern [i]; i++) {
+                if (fnmatch (auth_option_pattern[i], key, 0) == 0) {
+                        dict_set ((dict_t *)xl_dict, key, value);
+                        break;
+                }
+        }
 
         return 0;
 }
