@@ -13,6 +13,24 @@
 
 #define GF_DEFAULT_BASE_PORT 24007
 
+#define GD_OP_VERSION_KEY     "operating-version"
+#define GD_MIN_OP_VERSION_KEY "minimum-operating-version"
+#define GD_MAX_OP_VERSION_KEY "maximum-operating-version"
+
+/* Gluster versions - OP-VERSION mapping
+ *
+ * 3.3.0                - 1
+ * 3.3.Next/3.Next      - 2
+ *
+ * TODO: Change above comment once gluster version is finalised
+ * TODO: Finalize the op-version ranges
+ */
+#define GD_OP_VERSION_MIN  1 /* MIN is the fresh start op-version, mostly
+                                should not change */
+#define GD_OP_VERSION_MAX  2 /* MAX VERSION is the maximum count in VME table,
+                                should keep changing with introduction of newer
+                                versions */
+
 #include "xlator.h"
 
 /* THIS */

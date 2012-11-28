@@ -124,7 +124,17 @@ server_getspec (rpcsvc_request_t *req)
         gf_getspec_req        args                   = {0,};
         gf_getspec_rsp        rsp                    = {0,};
         char                  addrstr[RPCSVC_PEER_STRLEN] = {0};
+        dict_t               *dict                   = NULL;
+        xlator_t             *this                   = NULL;
+        glusterd_conf_t      *conf                   = NULL;
+        int                   client_min_op_version  = 0;
+        int                   client_max_op_version  = 0;
 
+        this = THIS;
+        GF_ASSERT (this);
+
+        conf = this->private;
+        GF_ASSERT (conf);
 
         ret = xdr_to_generic (req->msg[0], &args,
                               (xdrproc_t)xdr_gf_getspec_req);
@@ -132,6 +142,63 @@ server_getspec (rpcsvc_request_t *req)
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto fail;
+        }
+
+        if (!args.xdata.xdata_len) {
+                // For clients <= 3.3.0, only allow if op_version = 1
+                if (1 != conf->op_version) {
+                        ret = -1;
+                        op_errno = ENOTSUP;
+                        gf_log (this->name, GF_LOG_INFO,
+                                "Client %s doesn't support required op-version. "
+                                "Rejecting getspec request.",
+                                req->trans->peerinfo.identifier);
+                        goto fail;
+                }
+        } else {
+                // For clients > 3.3, only allow if they can support
+                // clusters' op_version
+                dict = dict_new ();
+                if (!dict) {
+                        ret = -1;
+                        goto fail;
+                }
+
+                ret = dict_unserialize (args.xdata.xdata_val,
+                                        args.xdata.xdata_len, &dict);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to unserialize request dictionary");
+                        goto fail;
+                }
+
+                ret = dict_get_int32 (dict, "min-op-version",
+                                      &client_min_op_version);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to get client-min-op-version");
+                        goto fail;
+                }
+
+                ret = dict_get_int32 (dict, "max-op-version",
+                                      &client_max_op_version);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to get client-max-op-version");
+                        goto fail;
+                }
+
+                if ((client_min_op_version > conf->op_version) ||
+                    (client_max_op_version < conf->op_version)) {
+                        ret = -1;
+                        op_errno = ENOTSUP;
+                        //TODO: Add client identifier
+                        gf_log (this->name, GF_LOG_INFO,
+                                "Client %s doesn't support required op-version. "
+                                "Rejecting getspec request.",
+                                req->trans->peerinfo.identifier);
+                        goto fail;
+                }
         }
 
         volume = args.key;
@@ -387,7 +454,7 @@ glusterd_mgmt_hndsk_versions_ack (rpcsvc_request_t *req)
         glusterd_conf_t   *conf            = NULL;
         int                ret             = -1;
         int                op_errno        = EINVAL;
-        int32_t            peer_op_version = 0;
+        int                peer_op_version = 0;
         gf_mgmt_hndsk_req  args            = {{0,},};
         gf_mgmt_hndsk_rsp  rsp             = {0,};
 
@@ -406,8 +473,7 @@ glusterd_mgmt_hndsk_versions_ack (rpcsvc_request_t *req)
                                       (args.hndsk.hndsk_len), ret, op_errno,
                                       out);
 
-        ret = dict_get_int32 (clnt_dict, GD_OP_VERSION_KEY,
-                              &peer_op_version);
+        ret = dict_get_int32 (clnt_dict, GD_OP_VERSION_KEY, &peer_op_version);
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "failed to get the op-version key peer=%s",

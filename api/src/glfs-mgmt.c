@@ -477,6 +477,13 @@ out:
 	if (rsp.spec)
 		free (rsp.spec);
 
+        // Stop if server is running at an unsupported op-version
+        if (ENOTSUP == ret) {
+                gf_log ("mgmt", GF_LOG_ERROR, "Server is operating at an "
+                        "op-version which is not supported");
+                glfs_init_done (fs, -1);
+        }
+
 	if (ret && ctx && !ctx->active) {
 		/* Do it only for the first time */
 		/* Failed to get the volume file, something wrong,
@@ -503,6 +510,7 @@ glfs_volfile_fetch (struct glfs *fs)
 	int		  ret = 0;
 	call_frame_t	 *frame = NULL;
 	glusterfs_ctx_t	 *ctx = NULL;
+        dict_t           *dict = NULL;
 
 	ctx = fs->ctx;
 	cmd_args = &ctx->cmd_args;
@@ -512,10 +520,41 @@ glfs_volfile_fetch (struct glfs *fs)
 	req.key = cmd_args->volfile_id;
 	req.flags = 0;
 
+        dict = dict_new ();
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        // Set the supported min and max op-versions, so glusterd can make a
+        // decision
+        ret = dict_set_int32 (dict, "min-op-version", GD_OP_VERSION_MIN);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to set min-op-version"
+                        " in request dict");
+                goto out;
+        }
+
+        ret = dict_set_int32 (dict, "max-op-version", GD_OP_VERSION_MAX);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to set max-op-version"
+                        " in request dict");
+                goto out;
+        }
+
+        ret = dict_allocate_and_serialize (dict, &req.xdata.xdata_val,
+                                           &req.xdata.xdata_len);
+        if (ret < 0) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to serialize dictionary");
+                goto out;
+        }
+
 	ret = mgmt_submit_request (&req, frame, ctx, &clnt_handshake_prog,
 				   GF_HNDSK_GETSPEC, mgmt_getspec_cbk,
 				   (xdrproc_t)xdr_gf_getspec_req);
-	return ret;
+out:
+        return ret;
 }
 
 
