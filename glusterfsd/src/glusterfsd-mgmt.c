@@ -1639,6 +1639,13 @@ out:
 
         emancipate (ctx, ret);
 
+        // Stop if server is running at an unsupported op-version
+        if (ENOTSUP == ret) {
+                gf_log ("mgmt", GF_LOG_ERROR, "Server is operating at an "
+                        "op-version which is not supported");
+                cleanup_and_exit (0);
+        }
+
         if (ret && ctx && !ctx->active) {
                 /* Do it only for the first time */
                 /* Failed to get the volume file, something wrong,
@@ -1648,6 +1655,7 @@ out:
                         ctx->cmd_args.volfile_id);
                 cleanup_and_exit (0);
         }
+
 
         if (tmpfp)
                 fclose (tmpfp);
@@ -1663,6 +1671,7 @@ glusterfs_volfile_fetch (glusterfs_ctx_t *ctx)
         gf_getspec_req    req = {0, };
         int               ret = 0;
         call_frame_t     *frame = NULL;
+        dict_t           *dict = NULL;
 
         cmd_args = &ctx->cmd_args;
 
@@ -1671,9 +1680,40 @@ glusterfs_volfile_fetch (glusterfs_ctx_t *ctx)
         req.key = cmd_args->volfile_id;
         req.flags = 0;
 
+        dict = dict_new ();
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        // Set the supported min and max op-versions, so glusterd can make a
+        // decision
+        ret = dict_set_int32 (dict, "min-op-version", GD_OP_VERSION_MIN);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to set min-op-version"
+                        " in request dict");
+                goto out;
+        }
+
+        ret = dict_set_int32 (dict, "max-op-version", GD_OP_VERSION_MAX);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to set max-op-version"
+                        " in request dict");
+                goto out;
+        }
+
+        ret = dict_allocate_and_serialize (dict, &req.xdata.xdata_val,
+                                           &req.xdata.xdata_len);
+        if (ret < 0) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to serialize dictionary");
+                goto out;
+        }
+
         ret = mgmt_submit_request (&req, frame, ctx, &clnt_handshake_prog,
                                    GF_HNDSK_GETSPEC, mgmt_getspec_cbk,
                                    (xdrproc_t)xdr_gf_getspec_req);
+out:
         return ret;
 }
 
