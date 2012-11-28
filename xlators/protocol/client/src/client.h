@@ -109,6 +109,9 @@ typedef struct clnt_conf {
                                                       means dont register, true
                                                       means register */
         char                   parent_down;
+
+        gf_boolean_t           filter_o_direct; /* if set, filter O_DIRECT from
+                                                   the flags list of open() */
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {
