@@ -370,6 +370,13 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
+#ifdef HAVE_BD_XLATOR
+        snprintf (key, 256, "volume%d.backend", count);
+        ret = dict_set_int32 (volumes, key, volinfo->backend);
+        if (ret)
+                goto out;
+#endif
+
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 char    brick[1024] = {0,};
                 snprintf (key, 256, "volume%d.brick%d", count, i);
