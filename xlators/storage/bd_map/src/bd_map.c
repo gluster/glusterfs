@@ -652,6 +652,87 @@ out:
         return 0;
 }
 
+#define LVM_RESIZE "/sbin/lvresize"
+
+int32_t
+bd_resize (bd_priv_t *priv, bd_entry_t *lventry, off_t *size)
+{
+        bd_entry_t      *vgentry  = NULL;
+        uint64_t        extent    = 0;
+        int32_t         op_ret    = -1;
+        vg_t            vg        = NULL;
+        uint32_t        nr_ex     = 0;
+        lv_t            lv        = NULL;
+        uint64_t        new_size  = 0;
+        runner_t        runner    = {0, };
+
+        BD_ENTRY (priv, vgentry, lventry->parent->name);
+        if (!vgentry) {
+                op_ret = ENOENT;
+                goto out;
+        }
+
+        BD_WR_LOCK (&priv->lock);
+        vg = lvm_vg_open (priv->handle, vgentry->name, "w", 0);
+        if (!vg) {
+                op_ret = lvm_errno (priv->handle);
+                BD_UNLOCK (&priv->lock);
+                goto out;
+        }
+
+        extent = lvm_vg_get_extent_size (vg);
+        lvm_vg_close (vg);
+        BD_UNLOCK (&priv->lock);
+
+        nr_ex = *size / extent;
+        if (*size % extent)
+                nr_ex++;
+        *size = extent * nr_ex;
+
+        runinit (&runner);
+
+        runner_add_args  (&runner, LVM_RESIZE, NULL);
+        runner_argprintf (&runner, "/dev/%s/%s", lventry->parent->name,
+                          lventry->name);
+        runner_argprintf (&runner, "-l%ld", nr_ex);
+        runner_add_args  (&runner, "-f", NULL);
+
+        runner_start (&runner);
+        runner_end (&runner);
+
+        BD_WR_LOCK (&priv->lock);
+        vg = lvm_vg_open (priv->handle, vgentry->name, "w", 0);
+        if (!vg) {
+                op_ret = lvm_errno (priv->handle);
+                BD_UNLOCK (&priv->lock);
+                goto out;
+        }
+
+        lv = lvm_lv_from_name (vg, lventry->name);
+        if (!lv) {
+                op_ret = lvm_errno (priv->handle);
+                lvm_vg_close (vg);
+                BD_UNLOCK (&priv->lock);
+                goto out;
+        }
+        new_size = lvm_lv_get_size (lv);
+        lvm_vg_close (vg);
+        if (new_size != *size) {
+                op_ret = EIO;
+                BD_UNLOCK (&priv->lock);
+                goto out;
+        }
+
+        BD_UNLOCK (&priv->lock);
+        op_ret = 0;
+
+out:
+        if (vgentry)
+                BD_PUT_ENTRY (priv, vgentry);
+
+        return op_ret;
+}
+
  int32_t
 bd_ftruncate (call_frame_t *frame, xlator_t *this,
                 fd_t *fd, off_t offset, dict_t *xdict)
@@ -663,12 +744,16 @@ bd_ftruncate (call_frame_t *frame, xlator_t *this,
         bd_fd_t        *bd_fd      = NULL;
         int            ret         = -1;
         uint64_t       tmp_bd_fd   = 0;
+        bd_priv_t      *priv       = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
 
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
         ret = fd_ctx_get (fd, this, &tmp_bd_fd);
+
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
                                 "bd_fd is NULL, fd=%p", fd);
@@ -678,9 +763,14 @@ bd_ftruncate (call_frame_t *frame, xlator_t *this,
         bd_fd = (bd_fd_t *)(long)tmp_bd_fd;
 
         memcpy (&preop, bd_fd->entry->attr, sizeof(preop));
-        if (offset >= bd_fd->entry->size) {
-                op_errno = EFBIG;
-                goto out;
+        if (offset > bd_fd->entry->size) {
+                op_errno = bd_resize (priv, bd_fd->entry, &offset);
+                if (op_errno)
+                        goto out;
+                if (offset > bd_fd->entry->size) {
+                        bd_fd->entry->attr->ia_size = offset;
+                        bd_fd->entry->size = offset;
+                }
         }
         /* If the requested size is less then current size
          * we will not update that in bd_fd->entry->attr
@@ -707,6 +797,7 @@ bd_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
         struct iatt     postbuf    = {0, };
         bd_entry_t      *lventry   = NULL;
         bd_priv_t       *priv      = NULL;
+        off_t           size       = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -722,15 +813,22 @@ bd_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto out;
         }
         memcpy (&prebuf, lventry->attr, sizeof(prebuf));
-        if (offset >= lventry->size) {
-                op_errno = EFBIG;
-                goto out;
+        if (offset > lventry->size) {
+                op_errno = bd_resize (priv, lventry, &size);
+                if (op_errno)
+                        goto out;
+                if (lventry->size < offset) {
+                        lventry->attr->ia_size = offset;
+                        lventry->size = size;
+                }
         }
         BD_ENTRY_UPDATE_MTIME (lventry);
         memcpy (&postbuf, lventry->attr, sizeof(postbuf));
         BD_PUT_ENTRY (priv, lventry);
         op_ret = 0;
 out:
+        if (lventry)
+                BD_PUT_ENTRY (priv, lventry);
         STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno,
                         &prebuf, &postbuf, NULL);
         return 0;
