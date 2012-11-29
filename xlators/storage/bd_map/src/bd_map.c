@@ -62,6 +62,101 @@ out:
 }
 
 int32_t
+bd_unlink (call_frame_t *frame, xlator_t *this,
+                loc_t *loc, int xflag, dict_t *xdata)
+{
+        int32_t           op_ret     = -1;
+        int32_t           op_errno   = ENOENT;
+        struct iatt       preparent  = {0, };
+        struct iatt       postparent = {0, };
+        bd_priv_t         *priv      = NULL;
+        vg_t              vg         = NULL;
+        lv_t              lv         = NULL;
+        bd_entry_t        *lventry   = NULL;
+        bd_entry_t        *p_entry   = NULL;
+        char              *vg_name   = NULL;
+        char              *volume    = NULL;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (this->private, out);
+        VALIDATE_OR_GOTO (loc, out);
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
+
+        volume = vg_name = gf_strdup (loc->path);
+        if (!volume)
+                goto out;
+        volume = strrchr (volume, '/');
+        if (!volume) {
+                op_errno = EINVAL;
+                goto out;
+        }
+        /* creating under non VG directory not permited */
+        if (vg_name == volume) {
+                op_errno = EOPNOTSUPP;
+                goto out;
+        }
+        *volume = '\0';
+
+        BD_ENTRY (priv, p_entry, vg_name);
+        BD_ENTRY (priv, lventry, loc->path);
+        if (!p_entry || !lventry)
+                goto out;
+
+        memcpy (&preparent, p_entry->attr, sizeof(preparent));
+
+        BD_WR_LOCK (&priv->lock);
+        vg = lvm_vg_open (priv->handle, p_entry->name, "w", 0);
+        if (!vg) {
+                op_errno = ENOENT;
+                BD_UNLOCK (&priv->lock);
+                goto out;
+        }
+
+        lv = lvm_lv_from_name (vg, lventry->name);
+        if (!lv) {
+                lvm_vg_close (vg);
+                op_errno = ENOENT;
+                BD_UNLOCK (&priv->lock);
+                goto out;
+        }
+        op_ret = lvm_vg_remove_lv (lv);
+        if (op_ret < 0) {
+                op_errno = errno;
+                lvm_vg_close (vg);
+                BD_UNLOCK (&priv->lock);
+                goto out;
+        }
+        lvm_vg_close (vg);
+        op_ret = bd_entry_rm (loc->path);
+        if (op_ret < 0) {
+                op_errno = EIO;
+                BD_UNLOCK (&priv->lock);
+                goto out;
+        }
+        BD_ENTRY_UPDATE_MTIME (p_entry);
+        memcpy (&postparent, p_entry->attr, sizeof(postparent));
+        op_ret = 0;
+        op_errno = 0;
+
+        BD_UNLOCK (&priv->lock);
+
+out:
+        if (p_entry)
+                BD_PUT_ENTRY (priv, p_entry);
+        if (lventry)
+                BD_PUT_ENTRY (priv, lventry);
+        if (vg_name)
+                GF_FREE (vg_name);
+        STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno,
+                        &preparent, &postparent, NULL);
+
+        return 0;
+}
+
+int32_t
 bd_open (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, int32_t flags, fd_t *fd, dict_t *xdata)
 {
@@ -1640,6 +1735,7 @@ struct xlator_fops fops = {
         .create      = bd_create,
         .setattr     = bd_setattr,
         .fsetattr    = bd_fsetattr,
+        .unlink      = bd_unlink,
 };
 
 struct xlator_cbks cbks = {
