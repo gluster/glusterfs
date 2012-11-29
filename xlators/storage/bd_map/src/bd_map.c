@@ -34,6 +34,183 @@
 
 /* Regular fops */
 
+int
+bd_access (call_frame_t *frame, xlator_t *this,
+                loc_t *loc, int32_t mask, dict_t *xdict)
+{
+        int32_t   op_ret         = -1;
+        int32_t   op_errno       = 0;
+        char      path[PATH_MAX] = {0, };
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (loc, out);
+
+        sprintf (path, "/dev/mapper/%s", loc->path);
+        op_ret = access (path, mask & 07);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR, "access failed on %s: %s",
+                                loc->path, strerror (op_errno));
+                goto out;
+        }
+        op_ret = 0;
+out:
+        STACK_UNWIND_STRICT (access, frame, op_ret, op_errno, NULL);
+
+        return 0;
+}
+
+int32_t
+bd_open (call_frame_t *frame, xlator_t *this,
+                loc_t *loc, int32_t flags, fd_t *fd, dict_t *xdata)
+{
+        int32_t         op_ret          = -1;
+        int32_t         op_errno        = 0;
+        int32_t         _fd             = -1;
+        bd_fd_t         *bd_fd          = NULL;
+        bd_entry_t      *lventry        = NULL;
+        bd_priv_t       *priv           = NULL;
+        char            *devpath        = NULL;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (this->private, out);
+        VALIDATE_OR_GOTO (loc, out);
+        VALIDATE_OR_GOTO (fd, out);
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
+
+        BD_ENTRY (priv, lventry, loc->path);
+        if (!lventry) {
+                op_errno = ENOENT;
+                goto out;
+        }
+
+        gf_asprintf (&devpath, "/dev/%s/%s", lventry->parent->name,
+                      lventry->name);
+        _fd = open (devpath, flags, 0);
+        if (_fd == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                                "open on %s: %s", devpath, strerror (op_errno));
+                goto out;
+        }
+
+        bd_fd = GF_CALLOC (1, sizeof(*bd_fd), gf_bd_fd);
+        if (!bd_fd) {
+                op_errno = errno;
+                goto out;
+        }
+        bd_fd->entry = lventry;
+        bd_fd->fd = _fd;
+
+        op_ret = fd_ctx_set (fd, this, (uint64_t)(long)bd_fd);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                                "failed to set the fd context path=%s fd=%p",
+                                loc->name, fd);
+                goto out;
+        }
+
+        op_ret = 0;
+out:
+        if (op_ret == -1) {
+                if (_fd != -1)
+                        close (_fd);
+                /* FIXME: Should we call fd_ctx_set with NULL? */
+                if (bd_fd)
+                        GF_FREE (bd_fd);
+                if (lventry)
+                        BD_PUT_ENTRY (priv, lventry);
+        }
+        if (devpath)
+                GF_FREE (devpath);
+
+        STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd, NULL);
+
+        return 0;
+}
+
+int
+bd_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+                off_t offset, uint32_t flags, dict_t *xdata)
+{
+        uint64_t        tmp_bd_fd  = 0;
+        int32_t         op_ret     = -1;
+        int32_t         op_errno   = 0;
+        int             _fd        = -1;
+        bd_priv_t       *priv      = NULL;
+        struct iobuf    *iobuf     = NULL;
+        struct iobref   *iobref    = NULL;
+        struct iovec    vec        = {0, };
+        bd_fd_t         *bd_fd     = NULL;
+        int             ret        = -1;
+        struct iatt     stbuf      = {0, };
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (fd, out);
+        VALIDATE_OR_GOTO (this->private, out);
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
+
+        ret = fd_ctx_get (fd, this, &tmp_bd_fd);
+        if (ret < 0) {
+                op_errno = -EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                                "bd_fd is NULL from fd=%p", fd);
+                goto out;
+        }
+        bd_fd = (bd_fd_t *)(long)tmp_bd_fd;
+        if (!size) {
+                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING, "size=%"GF_PRI_SIZET, size);
+                goto out;
+        }
+        iobuf = iobuf_get2 (this->ctx->iobuf_pool, size);
+        if (!iobuf) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+        _fd = bd_fd->fd;
+        op_ret = pread (_fd, iobuf->ptr, size, offset);
+        if (op_ret == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                                "read failed on fd=%p: %s", fd,
+                                strerror (op_errno));
+                goto out;
+        }
+
+        vec.iov_base = iobuf->ptr;
+        vec.iov_len = op_ret;
+
+        iobref = iobref_new ();
+        iobref_add (iobref, iobuf);
+        BD_ENTRY_UPDATE_ATIME (bd_fd->entry);
+
+        memcpy (&stbuf, bd_fd->entry->attr, sizeof(stbuf));
+
+        /* Hack to notify higher layers of EOF. */
+        if (bd_fd->entry->size == 0)
+                op_errno = ENOENT;
+        else if ((offset + vec.iov_len) >= bd_fd->entry->size)
+                op_errno = ENOENT;
+        op_ret = vec.iov_len;
+out:
+        STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno,
+                        &vec, 1, &stbuf, iobref, NULL);
+
+        if (iobref)
+                iobref_unref (iobref);
+        if (iobuf)
+                iobuf_unref (iobuf);
+        return 0;
+}
+
 int32_t
 bd_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 {
@@ -131,6 +308,39 @@ bd_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 out:
         STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, &buf, NULL);
 
+        return 0;
+}
+
+int32_t
+bd_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
+{
+        int            ret         = -1;
+        int32_t        op_ret      = -1;
+        int32_t        op_errno    = 0;
+        uint64_t       tmp_bd_fd   = 0;
+        struct iatt    buf         = {0, };
+        bd_fd_t        *bd_fd      = NULL;
+        int            _fd         = -1;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (fd, out);
+
+        ret = fd_ctx_get (fd, this, &tmp_bd_fd);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                                "bd_fd is NULL, fd=%p", fd);
+                op_errno = -EINVAL;
+                goto out;
+        }
+        bd_fd = (bd_fd_t *)(long)tmp_bd_fd;
+        _fd = bd_fd->fd;
+
+        memcpy (&buf, bd_fd->entry->attr, sizeof(buf));
+        op_ret = 0;
+
+out:
+        STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, &buf, NULL);
         return 0;
 }
 
@@ -287,6 +497,61 @@ bd_statfs (call_frame_t *frame, xlator_t *this,
         buf.f_bavail = fr_size / buf.f_frsize;
 out:
         STACK_UNWIND_STRICT (statfs, frame, op_ret, op_errno, &buf, NULL);
+        return 0;
+}
+
+int32_t
+bd_release (xlator_t *this, fd_t *fd)
+{
+        bd_fd_t      *bd_fd    = NULL;
+        int          ret       = -1;
+        uint64_t     tmp_bd_fd = 0;
+        bd_priv_t    *priv     = NULL;
+
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (fd, out);
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
+
+        ret = fd_ctx_get (fd, this, &tmp_bd_fd);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING, "bd_fd is NULL from fd=%p",
+                                fd);
+                goto out;
+        }
+        bd_fd = (bd_fd_t *) (long)tmp_bd_fd;
+        close (bd_fd->fd);
+        BD_PUT_ENTRY (priv, bd_fd->entry);
+
+        GF_FREE (bd_fd);
+out:
+        return 0;
+}
+
+int32_t
+bd_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdict)
+{
+        int32_t     op_ret    = -1;
+        int32_t     op_errno  = 0;
+        int         ret       = -1;
+        uint64_t    tmp_bd_fd = 0;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (fd, out);
+
+        ret = fd_ctx_get (fd, this, &tmp_bd_fd);
+        if (ret < 0) {
+                op_errno = -EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                                "bd_fd is NULL on fd=%p", fd);
+                goto out;
+        }
+        op_ret = 0;
+out:
+        STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno, NULL);
+
         return 0;
 }
 
@@ -881,10 +1146,16 @@ struct xlator_fops fops = {
         .readdirp    = bd_readdirp,
         .stat        = bd_stat,
         .statfs      = bd_statfs,
+        .open        = bd_open,
+        .access      = bd_access,
+        .flush       = bd_flush,
+        .readv       = bd_readv,
+        .fstat       = bd_fstat,
 };
 
 struct xlator_cbks cbks = {
         .releasedir  = bd_releasedir,
+        .release     = bd_release,
 };
 
 struct volume_options options[] = {

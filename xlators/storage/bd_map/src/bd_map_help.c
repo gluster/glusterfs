@@ -47,6 +47,25 @@ static void bd_entry_get_ino (uint64_t *inode)
         UNLOCK (&inode_lk);
 }
 
+void bd_update_time (bd_entry_t *entry, int type)
+{
+        struct timespec ts;
+
+        clock_gettime (CLOCK_REALTIME, &ts);
+        if (type == 0) {
+                entry->attr->ia_mtime = ts.tv_sec;
+                entry->attr->ia_mtime_nsec = ts.tv_nsec;
+                entry->attr->ia_atime = ts.tv_sec;
+                entry->attr->ia_atime_nsec = ts.tv_nsec;
+        } else if (type == 1) {
+                entry->attr->ia_mtime = ts.tv_sec;
+                entry->attr->ia_mtime_nsec = ts.tv_nsec;
+        } else {
+                entry->attr->ia_atime = ts.tv_sec;
+                entry->attr->ia_atime_nsec = ts.tv_nsec;
+        }
+}
+
 static bd_entry_t *bd_entry_init (const char *name)
 {
         bd_entry_t *bdentry;
