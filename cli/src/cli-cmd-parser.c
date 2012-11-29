@@ -369,7 +369,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 cli_err ("Block Device backend volume does not support multiple"
                          " bricks");
                 gf_log ("", GF_LOG_ERROR,
-                          "Block Device backend volumer does not support multiple"
+                         "Block Device backend volume does not support multiple"
                         " bricks");
                 ret = -1;
                 goto out;

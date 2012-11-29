@@ -2647,6 +2647,12 @@ gf_cli_bd_op_cbk (struct rpc_req *req, struct iovec *iov,
         case GF_BD_OP_DELETE_BD:
                 operation = gf_strdup ("delete");
                 break;
+        case GF_BD_OP_CLONE_BD:
+                operation = gf_strdup ("clone");
+                break;
+        case GF_BD_OP_SNAPSHOT_BD:
+                operation = gf_strdup ("snapshot");
+                break;
         default:
                 break;
         }

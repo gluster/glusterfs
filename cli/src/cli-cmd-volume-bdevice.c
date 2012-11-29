@@ -41,6 +41,8 @@ cli_cmd_bd_parse (dict_t *dict, const char **words)
         char          *size     = NULL;
         char          *eptr     = NULL;
         gf_xl_bd_op_t  bd_op    = GF_BD_OP_INVALID;
+        char          *dest_lv  = NULL;
+
 
         /* volname:/path */
         if (!strchr (words[2], ':') || !strchr (words[2], '/')) {
@@ -64,6 +66,10 @@ cli_cmd_bd_parse (dict_t *dict, const char **words)
                 bd_op = GF_BD_OP_NEW_BD;
         else if (!strcasecmp (words[1], "delete"))
                 bd_op = GF_BD_OP_DELETE_BD;
+        else if (!strcasecmp (words[1], "clone"))
+                bd_op = GF_BD_OP_CLONE_BD;
+        else if (!strcasecmp (words[1], "snapshot"))
+                bd_op = GF_BD_OP_SNAPSHOT_BD;
         else
                 return -1;
 
@@ -83,6 +89,30 @@ cli_cmd_bd_parse (dict_t *dict, const char **words)
                 ret = dict_set_dynstr (dict, "size", size);
                 if (ret)
                         goto out;
+        } else if (bd_op == GF_BD_OP_SNAPSHOT_BD ||
+                   bd_op == GF_BD_OP_CLONE_BD) {
+                /*
+                 * dest_lv should be just dest_lv, we don't support
+                 * cloning/snapshotting to a different volume or vg
+                 */
+                if (strchr (words[3], ':') || strchr (words[3], '/')) {
+                        cli_err ("invalid parameter %s, volname/vg not needed",
+                                 words[3]);
+                        ret = -1;
+                        goto out;
+                }
+                dest_lv = gf_strdup (words[3]);
+                ret = dict_set_dynstr (dict, "dest_lv", dest_lv);
+                if (ret)
+                        goto out;
+
+                /* clone needs size as parameter */
+                if (bd_op == GF_BD_OP_SNAPSHOT_BD) {
+                        ret = dict_set_dynstr (dict, "size",
+                                               gf_strdup (words[4]));
+                        if (ret)
+                                goto out;
+                }
         }
 
         ret = 0;
@@ -94,13 +124,15 @@ out:
 /*
  * bd create <volname>:/path <size>
  * bd delete <volname>:/path
+ * bd clone <volname>:/path <newbd>
+ * bd snapshot <volname>:/<path> <newbd> <size>
  */
 int32_t
 cli_cmd_bd_validate (const char **words, int wordcount, dict_t **options)
 {
         dict_t  *dict = NULL;
         int     ret   = -1;
-        char    *op[] = { "create", "delete", NULL };
+        char    *op[] = { "create", "delete", "clone", "snapshot", NULL };
         int     index = 0;
 
         for (index = 0; op[index]; index++)
@@ -119,6 +151,12 @@ cli_cmd_bd_validate (const char **words, int wordcount, dict_t **options)
                         goto out;
         } else if (!strcasecmp (words[1], "delete")) {
                 if (wordcount != 3)
+                        goto out;
+        } else if (!strcasecmp (words[1], "clone")) {
+                if (wordcount != 4)
+                        goto out;
+        } else if (!strcasecmp (words[1], "snapshot")) {
+                if (wordcount != 5)
                         goto out;
         } else {
                 ret = -1;
@@ -193,6 +231,13 @@ struct cli_cmd cli_bd_cmds[] = {
         { "bd delete <volname>:<bd>",
           cli_cmd_bd_cbk,
           "Delete a block device"},
+        { "bd clone <volname>:<bd> <newbd>",
+          cli_cmd_bd_cbk,
+          "clone device"},
+        { "bd snapshot <volname>:<bd> <newbd> <size>",
+          cli_cmd_bd_cbk,
+          "\n\tsnapshot device where size can be "
+          "suffixed with KB, MB etc. Default size is in MB"},
         { NULL, NULL, NULL }
 };
 
