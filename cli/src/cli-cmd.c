@@ -231,6 +231,11 @@ cli_cmds_register (struct cli_state *state)
         if (ret)
                 goto out;
 
+#ifdef HAVE_BD_XLATOR
+        ret = cli_cmd_bd_register (state);
+        if (ret)
+                goto out;
+#endif
 out:
         return ret;
 }

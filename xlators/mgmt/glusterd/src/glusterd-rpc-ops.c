@@ -139,6 +139,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         case GD_OP_LIST_VOLUME:
         case GD_OP_CLEARLOCKS_VOLUME:
         case GD_OP_HEAL_VOLUME:
+        case GD_OP_BD_OP:
         {
                 /*nothing specific to be done*/
                 break;

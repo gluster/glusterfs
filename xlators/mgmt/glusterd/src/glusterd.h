@@ -78,6 +78,7 @@ typedef enum glusterd_op_ {
         GD_OP_LIST_VOLUME,
         GD_OP_CLEARLOCKS_VOLUME,
         GD_OP_DEFRAG_BRICK_VOLUME,
+        GD_OP_BD_OP,
         GD_OP_MAX,
 } glusterd_op_t;
 
@@ -684,6 +685,7 @@ int glusterd_op_statedump_volume (dict_t *dict, char **op_errstr);
 
 int glusterd_op_stage_clearlocks_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_clearlocks_volume (dict_t *dict, char **op_errstr);
+int glusterd_op_stage_bd (dict_t *dict, char **op_errstr);
 
 /* misc */
 void glusterd_do_replace_brick (void *data);

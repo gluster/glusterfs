@@ -37,6 +37,19 @@
 #define CLI_TAB_LENGTH                         8
 #define CLI_BRICK_STATUS_LINE_LEN             78
 
+#define CLI_LOCAL_INIT(local, words, frame, dictionary) \
+        do {                                                 \
+                local = cli_local_get ();                    \
+                                                             \
+                if (local) {                                 \
+                        local->words = words;                \
+                        if (dictionary)                      \
+                                local->dict = dictionary;    \
+                        if (frame)                           \
+                                frame->local = local;        \
+                }                                            \
+        } while (0)
+
 enum argp_option_keys {
 	ARGP_DEBUG_KEY = 133,
 	ARGP_PORT_KEY = 'p',
