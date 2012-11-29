@@ -358,11 +358,22 @@ def main_i():
         gconf.log_level = lvl2
 
     if checkpoint_change:
-        GLogger._gsyncd_loginit(log_file=gconf.log_file, label='conf')
-        if confdata.op == 'set':
-            logging.info('checkpoint %s set' % confdata.val)
-        elif confdata.op == 'del':
-            logging.info('checkpoint info was reset')
+        try:
+            GLogger._gsyncd_loginit(log_file=gconf.log_file, label='conf')
+            if confdata.op == 'set':
+                logging.info('checkpoint %s set' % confdata.val)
+            elif confdata.op == 'del':
+                logging.info('checkpoint info was reset')
+        except IOError:
+            if sys.exc_info()[1].errno == ENOENT:
+                # directory of log path is not present,
+                # which happens if we get here from
+                # a peer-multiplexed "config-set checkpoint"
+                # (as that directory is created only on the
+                # original node)
+                pass
+            else:
+                raise
         return
 
     go_daemon = rconf['go_daemon']
