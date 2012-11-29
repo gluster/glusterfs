@@ -62,6 +62,99 @@ out:
         return 0;
 }
 
+#define LV_RENAME "/sbin/lvrename"
+
+int bd_rename (call_frame_t *frame, xlator_t *this,
+                loc_t *oldloc, loc_t *newloc, dict_t *xdict)
+{
+        int32_t         op_ret        = -1;
+        int32_t         op_errno      = 0;
+        char            *new_path     = NULL;
+        char            *np           = NULL;
+        struct iatt     stbuf         = {0, };
+        struct iatt     preoldparent  = {0, };
+        struct iatt     postoldparent = {0, };
+        struct iatt     prenewparent  = {0, };
+        struct iatt     postnewparent = {0, };
+        bd_priv_t       *priv         = NULL;
+        bd_entry_t      *lventry      = NULL;
+        bd_entry_t      *newp_entry   = NULL;
+        char            *path         = NULL;
+        struct stat     v_stat        = {0, };
+        runner_t        runner        = {0, };
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (oldloc, out);
+        VALIDATE_OR_GOTO (newloc, out);
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
+
+        BD_ENTRY (priv, lventry, oldloc->path);
+        if (lventry->refcnt > 1) {
+                op_errno = EBUSY;
+                goto out;
+        }
+
+        memcpy (&preoldparent, lventry->parent->attr, sizeof(preoldparent));
+
+        new_path = np = gf_strdup (newloc->path);
+        if (!new_path)
+                goto out;
+        new_path = strrchr (np, '/');
+        if (!new_path) {
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        *new_path = '\0';
+        BD_ENTRY (priv, newp_entry, np);
+
+        memcpy (&prenewparent, newp_entry->parent->attr, sizeof(preoldparent));
+
+        runinit (&runner);
+
+        runner_add_args (&runner, LV_RENAME, NULL);
+        runner_add_args (&runner, lventry->parent->name, NULL);
+        runner_add_args (&runner, oldloc->name, NULL);
+        runner_add_args (&runner, newloc->name, NULL);
+
+        runner_start (&runner);
+        runner_end (&runner);
+
+        /* verify */
+        gf_asprintf (&path, "/dev/%s", newloc->path);
+        if (stat (path, &v_stat) < 0) {
+                op_errno = EIO;
+                goto out;
+        }
+        BD_ENTRY_UPDATE_MTIME (lventry);
+        BD_ENTRY_UPDATE_MTIME (newp_entry);
+        memcpy (&postoldparent, lventry->parent->attr, sizeof(postoldparent));
+        memcpy (&postnewparent, newp_entry->parent->attr,
+                sizeof(postoldparent));
+        BD_WR_LOCK (&priv->lock);
+        strncpy (lventry->name, newloc->name, sizeof(lventry->name));
+        memcpy (&stbuf, lventry->attr, sizeof(stbuf));
+        BD_UNLOCK (&priv->lock);
+        op_ret = 0;
+out:
+        if (lventry)
+                BD_PUT_ENTRY (priv, lventry);
+        if (newp_entry)
+                BD_PUT_ENTRY (priv, newp_entry);
+        if (np)
+                GF_FREE (np);
+        if (path)
+                GF_FREE (path);
+
+        STACK_UNWIND_STRICT (rename, frame, op_ret, op_errno, &stbuf,
+                        &preoldparent, &postoldparent, &prenewparent,
+                        &postnewparent, NULL);
+        return 0;
+}
+
 int32_t
 bd_unlink (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, int xflag, dict_t *xdata)
@@ -2166,6 +2259,7 @@ struct xlator_fops fops = {
         .unlink      = bd_unlink,
         .link        = bd_link,
         .symlink     = bd_symlink,
+        .rename      = bd_rename,
 };
 
 struct xlator_cbks cbks = {
