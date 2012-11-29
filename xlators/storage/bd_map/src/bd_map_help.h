@@ -64,5 +64,6 @@ void bd_entry_put (bd_entry_t *entry);
 int bd_build_lv_list (bd_priv_t *priv, char *vg);
 int bd_entry_cleanup (void);
 void bd_update_time (bd_entry_t *entry, int type);
+int bd_entry_rm (const char *path);
 
 #endif

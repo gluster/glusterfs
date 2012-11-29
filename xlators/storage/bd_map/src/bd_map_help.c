@@ -352,6 +352,26 @@ out:
         return pentry;
 }
 
+int bd_entry_rm (const char *path)
+{
+        bd_entry_t      *bdentry  = NULL;
+        int             ret       = -1;
+
+        bdentry = bd_entry_get (path);
+        if (!bdentry)
+                goto out;
+
+        list_del_init (&bdentry->sibling);
+        list_del_init (&bdentry->child);
+        GF_FREE (bdentry);
+
+        ret = 0;
+out:
+        return ret;
+}
+
+
+
 /* Called with priv->bd_lock held */
 void bd_entry_put (bd_entry_t *entry)
 {
