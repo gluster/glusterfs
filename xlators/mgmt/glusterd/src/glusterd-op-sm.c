@@ -235,6 +235,20 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
                 brick_req->name = gf_strdup (name);
 
                 break;
+
+#ifdef HAVE_BD_XLATOR
+        case GD_OP_BD_OP:
+        {
+                brick_req = GF_CALLOC (1, sizeof (*brick_req),
+                                       gf_gld_mt_mop_brick_req_t);
+                if (!brick_req)
+                        goto out;
+
+                brick_req->op = GLUSTERD_BRICK_BD_OP;
+                brick_req->name = "";
+        }
+                break;
+#endif
         default:
                 goto out;
         break;
@@ -2356,6 +2370,9 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                 case GD_OP_STATEDUMP_VOLUME:
                 case GD_OP_CLEARLOCKS_VOLUME:
                 case GD_OP_DEFRAG_BRICK_VOLUME:
+#ifdef HAVE_BD_XLATOR
+                case GD_OP_BD_OP:
+#endif
                         {
                                 ret = dict_get_str (dict, "volname", &volname);
                                 if (ret) {
@@ -3489,7 +3506,11 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         ret = glusterd_op_stage_clearlocks_volume (dict,
                                                                    op_errstr);
                         break;
-
+#ifdef HAVE_BD_XLATOR
+                case GD_OP_BD_OP:
+                        ret = glusterd_op_stage_bd (dict, op_errstr);
+                        break;
+#endif
                 default:
                         gf_log ("", GF_LOG_ERROR, "Unknown op %d",
                                 op);
@@ -3585,7 +3606,11 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                 case GD_OP_CLEARLOCKS_VOLUME:
                         ret = glusterd_op_clearlocks_volume (dict, op_errstr);
                         break;
-
+#ifdef HAVE_BD_XLATOR
+                case GD_OP_BD_OP:
+                        ret = 0;
+                        break;
+#endif
                 default:
                         gf_log ("", GF_LOG_ERROR, "Unknown op %d",
                                 op);
@@ -4325,6 +4350,62 @@ _select_rxlators_for_full_self_heal (xlator_t *this,
         return rxlator_count;
 }
 
+#ifdef HAVE_BD_XLATOR
+static int
+glusterd_bricks_select_bd (dict_t *dict, char **op_errstr)
+{
+        int                        ret           = -1;
+        glusterd_conf_t            *priv         = NULL;
+        xlator_t                   *this         = NULL;
+        glusterd_pending_node_t    *pending_node = NULL;
+        glusterd_volinfo_t         *volinfo      = NULL;
+        char                       *volname      = NULL;
+        glusterd_brickinfo_t       *brickinfo    = NULL;
+        int                         brick_index  = -1;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get volname");
+                goto out;
+        }
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret)
+                goto out;
+
+        pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                  gf_gld_mt_pending_node_t);
+        if (!pending_node) {
+                ret = -1;
+                goto out;
+        }
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                brick_index++;
+                if (uuid_compare (brickinfo->uuid, MY_UUID) ||
+                    !glusterd_is_brick_started (brickinfo)) {
+                        continue;
+                }
+                pending_node->node = brickinfo;
+                pending_node->type = GD_NODE_BRICK;
+                pending_node->index = brick_index;
+                list_add_tail (&pending_node->list,
+                               &opinfo.pending_bricks);
+                pending_node = NULL;
+        }
+
+        ret = 0;
+
+out:
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning ret %d", ret);
+        return ret;
+}
+#endif
+
 static int
 glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr)
 {
@@ -4401,7 +4482,6 @@ out:
         return ret;
 
 }
-
 
 static int
 glusterd_bricks_select_rebalance_volume (dict_t *dict, char **op_errstr)
@@ -4735,6 +4815,11 @@ glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr)
         case GD_OP_DEFRAG_BRICK_VOLUME:
                 ret = glusterd_bricks_select_rebalance_volume (dict, op_errstr);
                 break;
+#ifdef HAVE_BD_XLATOR
+        case GD_OP_BD_OP:
+                ret = glusterd_bricks_select_bd (dict, op_errstr);
+                break;
+#endif
         default:
                 break;
          }
@@ -5298,6 +5383,9 @@ glusterd_op_free_ctx (glusterd_op_t op, void *ctx)
                 case GD_OP_STATEDUMP_VOLUME:
                 case GD_OP_CLEARLOCKS_VOLUME:
                 case GD_OP_DEFRAG_BRICK_VOLUME:
+#ifdef HAVE_BD_XLATOR
+                case GD_OP_BD_OP:
+#endif
                         dict_unref (ctx);
                         break;
                 default:

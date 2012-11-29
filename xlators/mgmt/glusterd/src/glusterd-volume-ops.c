@@ -1241,6 +1241,91 @@ out:
         return ret;
 }
 
+#ifdef HAVE_BD_XLATOR
+int
+glusterd_op_stage_bd (dict_t *dict, char **op_errstr)
+{
+        int                     ret       = -1;
+        char                    *volname  = NULL;
+        char                    *path     = NULL;
+        char                    *size     = NULL;
+        glusterd_volinfo_t      *volinfo  = NULL;
+        char                    msg[2048] = {0,};
+        gf_xl_bd_op_t           bd_op     = GF_BD_OP_INVALID;
+        uint64_t                bytes     = 0;
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                snprintf (msg, sizeof(msg), "Failed to get volume name");
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "bd-op", (int32_t *)&bd_op);
+        if (ret) {
+                snprintf (msg, sizeof(msg), "Failed to get bd-op");
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "path", &path);
+        if (ret) {
+                snprintf (msg, sizeof(msg), "Failed to get path");
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+
+        if (bd_op == GF_BD_OP_NEW_BD) {
+                ret = dict_get_str (dict, "size", &size);
+                if (ret) {
+                        snprintf (msg, sizeof(msg), "Failed to get size");
+                        gf_log ("", GF_LOG_ERROR, "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+                        goto out;
+                }
+                if (gf_string2bytesize (size, &bytes) < 0) {
+                        snprintf (msg, sizeof(msg),
+                                  "Invalid size %s, suffix with KB, MB etc",
+                                   size);
+                        gf_log ("", GF_LOG_ERROR, "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                snprintf (msg, sizeof(msg), "Volume %s does not exist",
+                          volname);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+
+        ret = glusterd_validate_volume_id (dict, volinfo);
+        if (ret)
+                goto out;
+
+        if (!glusterd_is_volume_started (volinfo)) {
+                snprintf (msg, sizeof(msg), "Volume %s is not started",
+                          volname);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+#endif
 
 int
 glusterd_op_create_volume (dict_t *dict, char **op_errstr)

@@ -344,6 +344,28 @@ out:
         return search;
 }
 
+xlator_t *
+xlator_search_by_xl_type (xlator_t *any, const char *type)
+{
+        xlator_t *search = NULL;
+
+        GF_VALIDATE_OR_GOTO ("xlator", any, out);
+        GF_VALIDATE_OR_GOTO ("xlator", type, out);
+
+        search = any;
+
+        while (search->prev)
+                search = search->prev;
+
+        while (search) {
+                if (!strcmp (search->type, type))
+                        break;
+                search = search->next;
+        }
+
+out:
+        return search;
+}
 
 static int
 __xlator_init(xlator_t *xl)

@@ -865,6 +865,7 @@ void xlator_foreach (xlator_t *this,
                      void *data);
 
 xlator_t *xlator_search_by_name (xlator_t *any, const char *name);
+xlator_t *xlator_search_by_xl_type (xlator_t *any, const char *type);
 
 void inode_destroy_notify (inode_t *inode, const char *xlname);
 

@@ -31,7 +31,7 @@
 #include "defaults.h"
 #include "glusterfs3-xdr.h"
 #include "run.h"
-
+#include "protocol-common.h"
 
 /* Regular fops */
 
@@ -156,6 +156,56 @@ out:
 }
 
 int32_t
+bd_delete_lv (bd_priv_t *priv, bd_entry_t *p_entry, bd_entry_t *lventry,
+              const char *path, int *op_errno)
+{
+        vg_t    vg       = NULL;
+        lv_t    lv       = NULL;
+        int     op_ret   = -1;
+
+        *op_errno = 0;
+        BD_WR_LOCK (&priv->lock);
+        vg = lvm_vg_open (priv->handle, p_entry->name, "w", 0);
+        if (!vg) {
+                *op_errno = ENOENT;
+                BD_UNLOCK (&priv->lock);
+                goto out;
+        }
+
+        lv = lvm_lv_from_name (vg, lventry->name);
+        if (!lv) {
+                lvm_vg_close (vg);
+                *op_errno = ENOENT;
+                BD_UNLOCK (&priv->lock);
+                goto out;
+        }
+        op_ret = lvm_vg_remove_lv (lv);
+        if (op_ret < 0) {
+                *op_errno = errno;
+                lvm_vg_close (vg);
+                BD_UNLOCK (&priv->lock);
+                goto out;
+        }
+        lvm_vg_close (vg);
+
+        op_ret = bd_entry_rm (path);
+        if (op_ret < 0) {
+                *op_errno = EIO;
+                BD_UNLOCK (&priv->lock);
+                goto out;
+        }
+        BD_ENTRY_UPDATE_MTIME (p_entry);
+
+        op_ret = 0;
+        op_errno = 0;
+
+        BD_UNLOCK (&priv->lock);
+        op_ret = 0;
+out:
+        return op_ret;
+}
+
+int32_t
 bd_unlink (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, int xflag, dict_t *xdata)
 {
@@ -164,8 +214,6 @@ bd_unlink (call_frame_t *frame, xlator_t *this,
         struct iatt       preparent  = {0, };
         struct iatt       postparent = {0, };
         bd_priv_t         *priv      = NULL;
-        vg_t              vg         = NULL;
-        lv_t              lv         = NULL;
         bd_entry_t        *lventry   = NULL;
         bd_entry_t        *p_entry   = NULL;
         char              *vg_name   = NULL;
@@ -200,43 +248,8 @@ bd_unlink (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         memcpy (&preparent, p_entry->attr, sizeof(preparent));
-
-        BD_WR_LOCK (&priv->lock);
-        vg = lvm_vg_open (priv->handle, p_entry->name, "w", 0);
-        if (!vg) {
-                op_errno = ENOENT;
-                BD_UNLOCK (&priv->lock);
-                goto out;
-        }
-
-        lv = lvm_lv_from_name (vg, lventry->name);
-        if (!lv) {
-                lvm_vg_close (vg);
-                op_errno = ENOENT;
-                BD_UNLOCK (&priv->lock);
-                goto out;
-        }
-        op_ret = lvm_vg_remove_lv (lv);
-        if (op_ret < 0) {
-                op_errno = errno;
-                lvm_vg_close (vg);
-                BD_UNLOCK (&priv->lock);
-                goto out;
-        }
-        lvm_vg_close (vg);
-        op_ret = bd_entry_rm (loc->path);
-        if (op_ret < 0) {
-                op_errno = EIO;
-                BD_UNLOCK (&priv->lock);
-                goto out;
-        }
-        BD_ENTRY_UPDATE_MTIME (p_entry);
+        op_ret = bd_delete_lv (priv, p_entry, lventry, loc->path, &op_errno);
         memcpy (&postparent, p_entry->attr, sizeof(postparent));
-        op_ret = 0;
-        op_errno = 0;
-
-        BD_UNLOCK (&priv->lock);
-
 out:
         if (p_entry)
                 BD_PUT_ENTRY (priv, p_entry);
@@ -970,6 +983,59 @@ err:
         return op_ret;
 }
 
+int bd_create_lv (bd_priv_t *priv, bd_entry_t *p_entry, const char *vg_name,
+                  const char *lv_name, char *size, mode_t mode)
+{
+        vg_t            vg       = NULL;
+        int             ret      = -1;
+        char            *path    = NULL;
+        struct iatt     iattr    = {0, };
+        bd_entry_t      *lventry = NULL;
+        uint64_t        extent   = 0;
+
+        BD_WR_LOCK (&priv->lock);
+        vg = lvm_vg_open (priv->handle, vg_name,  "w", 0);
+        if (!vg) {
+                ret = -1;
+                goto out;
+        }
+        extent = lvm_vg_get_extent_size (vg);
+        if (size)
+                gf_string2bytesize (size, &extent);
+
+        if (lvm_vg_create_lv_linear (vg, lv_name, extent) == NULL) {
+                ret = -EAGAIN;
+                lvm_vg_close (vg);
+                goto out;
+        }
+        lvm_vg_close (vg);
+
+        gf_asprintf (&path, "/dev/%s/%s", vg_name, lv_name);
+        if (!path) {
+                ret = -ENOMEM;
+                lvm_vg_close (vg);
+                goto out;
+        }
+        bd_entry_istat (path, &iattr, IA_IFREG);
+        iattr.ia_size = extent;
+        if (!mode)
+                mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
+
+        iattr.ia_type = ia_type_from_st_mode (mode);
+        iattr.ia_prot = ia_prot_from_st_mode (mode);
+        lventry = bd_entry_add (p_entry, lv_name, &iattr, IA_IFREG);
+        if (!lventry) {
+                ret = -EAGAIN;
+                goto out;
+        }
+        ret = 0;
+out:
+        BD_UNLOCK (&priv->lock);
+        if (path)
+                GF_FREE (path);
+        return ret;
+}
+
 int bd_create (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, int32_t flags, mode_t mode,
                 mode_t umask, fd_t *fd, dict_t *params)
@@ -977,20 +1043,16 @@ int bd_create (call_frame_t *frame, xlator_t *this,
         int32_t            op_ret            = -1;
         int32_t            op_errno          = 0;
         int32_t            _fd               = -1;
-        uint64_t           extent            = 0;
         bd_priv_t          *priv             = NULL;
         struct iatt        stbuf             = {0, };
         struct iatt        preparent         = {0, };
         struct iatt        postparent        = {0, };
         bd_entry_t         *p_entry          = NULL;
         bd_entry_t         *lventry          = NULL;
-        vg_t               vg                = NULL;
-        lv_t               lv                = NULL;
         bd_fd_t            *pfd              = NULL;
         char               *vg_name          = NULL;
         char               *volume           = NULL;
         char               *path             = NULL;
-        struct iatt        iattr             = {0, };
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -1024,39 +1086,10 @@ int bd_create (call_frame_t *frame, xlator_t *this,
 
         memcpy (&preparent, p_entry->attr, sizeof(preparent));
 
-        BD_WR_LOCK (&priv->lock);
-        vg = lvm_vg_open (priv->handle, p_entry->name, "w", 0);
-        if (!vg) {
-                op_errno = errno;
-                BD_UNLOCK (&priv->lock);
+        op_errno = bd_create_lv (priv, p_entry, p_entry->name, loc->name, 0,
+                                 mode);
+        if (op_errno)
                 goto out;
-        }
-        extent = lvm_vg_get_extent_size (vg);
-        /* Create the LV */
-        lv = lvm_vg_create_lv_linear (vg, loc->name, extent);
-        if (!lv) {
-                op_errno = errno;
-                lvm_vg_close (vg);
-                BD_UNLOCK (&priv->lock);
-                goto out;
-        }
-        lvm_vg_close (vg);
-
-        gf_asprintf (&path, "/dev/%s/%s", p_entry->name, loc->name);
-        if (!path) {
-                op_errno = ENOMEM;
-                goto out;
-        }
-        bd_entry_istat (path, &iattr, IA_IFREG);
-        iattr.ia_size = extent;
-        iattr.ia_type = ia_type_from_st_mode (mode);
-        iattr.ia_prot = ia_prot_from_st_mode (mode);
-        lventry = bd_entry_add (p_entry, loc->name, &iattr, IA_IFREG);
-        if (!lventry) {
-                op_errno = EAGAIN;
-                goto out;
-        }
-        BD_UNLOCK (&priv->lock);
 
         BD_ENTRY (priv, lventry, loc->path);
         if (!lventry) {
@@ -1069,6 +1102,11 @@ int bd_create (call_frame_t *frame, xlator_t *this,
         /* Mask O_CREATE since we created LV */
         flags &= ~(O_CREAT | O_EXCL);
 
+        gf_asprintf (&path, "/dev/%s/%s", p_entry->name, loc->name);
+        if (!path) {
+                op_errno = ENOMEM;
+                goto out;
+        }
         _fd = open (path, flags, 0);
         if (_fd == -1) {
                 op_errno = errno;
@@ -2070,6 +2108,166 @@ bd_fxattrop (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
+int bd_xl_op_create (bd_priv_t *priv, dict_t *input, dict_t *output)
+{
+        char            *vg      = NULL;
+        char            *lv      = NULL;
+        char            *path    = NULL;
+        bd_entry_t      *p_entry = NULL;
+        bd_entry_t      *lventry = NULL;
+        char            *size    = 0;
+        int             ret      = -1;
+        char            *error   = NULL;
+        int             retval   = -1;
+        char            *buff    = NULL;
+        char            *buffp   = NULL;
+        char            *save    = NULL;
+
+        ret = dict_get_str (input, "size", &size);
+        if (ret) {
+                gf_asprintf (&error, "no size specified");
+                goto out;
+        }
+        ret = dict_get_str (input, "path", &path);
+        if (ret) {
+                gf_asprintf (&error, "no path specified");
+                goto out;
+        }
+
+        buff = buffp = gf_strdup (path);
+
+        vg = strtok_r (buff, "/", &save);
+        lv = strtok_r (NULL, "/", &save);
+
+        if (!vg || !lv) {
+                gf_asprintf (&error, "invalid path %s", path);
+                ret = -1;
+                goto out;
+        }
+
+        BD_ENTRY (priv, p_entry, vg);
+        if (!p_entry) {
+                ret = -ENOENT;
+                goto out;
+        }
+        BD_ENTRY (priv, lventry, path);
+        if (lventry) {
+                ret = -EEXIST;
+                gf_asprintf (&error, "%s already exists", lv);
+                BD_PUT_ENTRY (priv, lventry);
+                goto out;
+        }
+
+        ret = bd_create_lv (priv, p_entry, vg, lv, size, 0);
+        if (ret < 0) {
+                gf_asprintf (&error, "bd_create_lv error %d", -ret);
+                goto out;
+        }
+        ret = 0;
+out:
+        if (p_entry)
+                BD_PUT_ENTRY (priv, p_entry);
+
+        if (buffp)
+                GF_FREE (buffp);
+
+        if (error)
+                retval = dict_set_dynstr (output, "error", error);
+        return ret;
+}
+
+int bd_xl_op_delete (bd_priv_t *priv, dict_t *input, dict_t *output)
+{
+        char            *vg      = NULL;
+        char            *path    = NULL;
+        bd_entry_t      *p_entry = NULL;
+        bd_entry_t      *lventry = NULL;
+        int             ret      = -1;
+        char            *error   = NULL;
+        int             retval   = -1;
+        char            *buff    = NULL;
+        char            *buffp   = NULL;
+        char            *save    = NULL;
+        int             op_errno = 0;
+
+        ret = dict_get_str (input, "path", &path);
+        if (ret) {
+                gf_asprintf (&error, "no path specified");
+                goto out;
+        }
+
+        buff = buffp = gf_strdup (path);
+
+        vg = strtok_r (buff, "/", &save);
+        if (!vg) {
+                gf_asprintf (&error, "invalid path %s", path);
+                op_errno = EINVAL;
+                ret = -1;
+                goto out;
+        }
+
+        BD_ENTRY (priv, p_entry, vg);
+        BD_ENTRY (priv, lventry, path);
+        if (!p_entry || !lventry) {
+                op_errno = -ENOENT;
+                gf_asprintf (&error, "%s not found", path);
+                ret = -1;
+                goto out;
+        }
+        ret = bd_delete_lv (priv, p_entry, lventry, path, &op_errno);
+        if (ret < 0) {
+                gf_asprintf (&error, "bd_delete_lv error, error:%d", op_errno);
+                goto out;
+        }
+        ret = 0;
+out:
+        if (p_entry)
+                BD_PUT_ENTRY (priv, p_entry);
+        if (lventry)
+                BD_PUT_ENTRY (priv, lventry);
+        if (buffp)
+                GF_FREE (buffp);
+        if (error)
+                retval = dict_set_dynstr (output, "error", error);
+        return ret;
+}
+
+int32_t
+bd_notify (xlator_t *this, dict_t *input, dict_t *output)
+{
+        int             ret      = -1;
+        int             retval   = -1;
+        int32_t         bdop     = -1;
+        bd_priv_t       *priv    = NULL;
+        char            *error   = NULL;
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
+
+        ret = dict_get_int32 (input, "bd-op", (int32_t *)&bdop);
+        if (ret) {
+                asprintf (&error, "no sub-op specified");
+                goto out;
+        }
+
+        switch (bdop)
+        {
+        case GF_BD_OP_NEW_BD:
+                ret = bd_xl_op_create (priv, input, output);
+                break;
+        case GF_BD_OP_DELETE_BD:
+                ret = bd_xl_op_delete (priv, input, output);
+                break;
+        default:
+                gf_asprintf (&error, "invalid bd-op %d specified", bdop);
+                retval = dict_set_dynstr (output, "error", error);
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
 /**
  * notify - when parent sends PARENT_UP, send CHILD_UP event from here
  */
@@ -2079,6 +2277,16 @@ notify (xlator_t *this,
         void *data,
         ...)
 {
+        va_list ap;
+        int     ret    = -1;
+        void    *data2 = NULL;
+        dict_t  *input = NULL;
+        dict_t  *output = NULL;
+
+        va_start (ap, data);
+        data2 = va_arg (ap, dict_t *);
+        va_end (ap);
+
         switch (event)
         {
         case GF_EVENT_PARENT_UP:
@@ -2087,10 +2295,18 @@ notify (xlator_t *this,
                 default_notify (this, GF_EVENT_CHILD_UP, data);
         }
         break;
+        case GF_EVENT_TRANSLATOR_OP:
+                input = data;
+                output = data2;
+                if (!output)
+                        output = dict_new ();
+                ret = bd_notify (this, input, output);
+                break;
+
         default:
                 break;
         }
-        return 0;
+        return ret;
 }
 
 int32_t

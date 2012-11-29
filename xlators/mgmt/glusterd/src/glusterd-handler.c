@@ -50,6 +50,10 @@
 #include "globals.h"
 #include "glusterd-syncop.h"
 
+#ifdef HAVE_BD_XLATOR
+#include <lvm2app.h>
+#endif
+
 static int
 glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid,
                             char *hostname, int port,
@@ -926,6 +930,73 @@ out:
 
         return ret;
 }
+
+#ifdef HAVE_BD_XLATOR
+int
+glusterd_handle_cli_bd_op (rpcsvc_request_t *req)
+{
+        int32_t          ret        = -1;
+        gf_cli_req       cli_req    = { {0,} };
+        dict_t           *dict      = NULL;
+        char             *volname   = NULL;
+        char             *op_errstr = NULL;
+        glusterd_op_t    cli_op     = GD_OP_BD_OP;
+
+        GF_ASSERT (req);
+
+        if (!xdr_to_generic (req->msg[0], &cli_req,
+                                (xdrproc_t)xdr_gf_cli_req)) {
+                /* failed to decode msg */
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        gf_log ("glusterd", GF_LOG_DEBUG, "Received bd op req");
+
+        if (cli_req.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        goto out;
+                } else {
+                        dict->extra_stdfree = cli_req.dict.dict_val;
+                }
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                                "failed to get volname");
+                goto out;
+        }
+
+        ret = glusterd_op_begin (req, GD_OP_BD_OP, dict);
+        gf_cmd_log ("bd op: %s", ((ret == 0) ? "SUCCESS": "FAILED"));
+out:
+        if (ret && dict)
+                dict_unref (dict);
+
+        glusterd_friend_sm ();
+        glusterd_op_sm ();
+
+        if (ret) {
+                if (!op_errstr)
+                        op_errstr = gf_strdup ("operation failed");
+                ret = glusterd_op_send_cli_response (cli_op, ret, 0,
+                                req, NULL, op_errstr);
+                GF_FREE (op_errstr);
+        }
+
+        return ret;
+}
+#endif
 
 int
 glusterd_handle_cli_uuid_reset (rpcsvc_request_t *req)
@@ -3165,6 +3236,9 @@ rpcsvc_actor_t gd_svc_cli_actors[] = {
         [GLUSTER_CLI_STATEDUMP_VOLUME] = {"STATEDUMP_VOLUME", GLUSTER_CLI_STATEDUMP_VOLUME, glusterd_handle_cli_statedump_volume, NULL, 0},
         [GLUSTER_CLI_LIST_VOLUME] = {"LIST_VOLUME", GLUSTER_CLI_LIST_VOLUME, glusterd_handle_cli_list_volume, NULL, 0},
         [GLUSTER_CLI_CLRLOCKS_VOLUME] = {"CLEARLOCKS_VOLUME", GLUSTER_CLI_CLRLOCKS_VOLUME, glusterd_handle_cli_clearlocks_volume, NULL, 0},
+#ifdef HAVE_BD_XLATOR
+        [GLUSTER_CLI_BD_OP]       = {"BD_OP", GLUSTER_CLI_BD_OP, glusterd_handle_cli_bd_op, NULL, 0},
+#endif
 };
 
 struct rpcsvc_program gd_svc_cli_prog = {
