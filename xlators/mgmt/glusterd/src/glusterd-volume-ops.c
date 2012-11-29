@@ -1295,6 +1295,24 @@ glusterd_op_stage_bd (dict_t *dict, char **op_errstr)
                         ret = -1;
                         goto out;
                 }
+        } else if (bd_op == GF_BD_OP_SNAPSHOT_BD) {
+                ret = dict_get_str (dict, "size", &size);
+                if (ret) {
+                        snprintf (msg, sizeof(msg), "Failed to get size");
+                        gf_log ("", GF_LOG_ERROR, "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+                        goto out;
+                }
+
+                if (gf_string2bytesize (size, &bytes) < 0) {
+                        ret = -1;
+                        snprintf (msg, sizeof(msg),
+                                "Invalid size %s, suffix with KB, MB etc",
+                                size);
+                        gf_log ("", GF_LOG_ERROR, "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+                        goto out;
+                }
         }
 
         ret = glusterd_volinfo_find (volname, &volinfo);
@@ -1324,7 +1342,6 @@ out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
-
 #endif
 
 int

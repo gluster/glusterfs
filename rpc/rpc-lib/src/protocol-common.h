@@ -211,6 +211,8 @@ typedef enum {
         GF_BD_OP_INVALID,
         GF_BD_OP_NEW_BD,
         GF_BD_OP_DELETE_BD,
+        GF_BD_OP_CLONE_BD,
+        GF_BD_OP_SNAPSHOT_BD,
 } gf_xl_bd_op_t ;
 
 #define GLUSTER_HNDSK_PROGRAM    14398633 /* Completely random */

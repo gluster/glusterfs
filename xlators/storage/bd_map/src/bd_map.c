@@ -371,10 +371,6 @@ int bd_clone_lv (bd_priv_t *priv, bd_entry_t *p_entry, dict_t *output,
         ret = 0;
         gf_log (THIS->name, GF_LOG_INFO, "Clone completed");
 out:
-        for (i = 0; i < IOV_NR; i++) {
-                if (vec[i].iov_base)
-                        GF_FREE (vec[i].iov_base);
-        }
         if (vg)
                 lvm_vg_close (vg);
         if (fd1 != -1)
@@ -387,7 +383,7 @@ out:
 }
 
 int bd_snapshot_lv (bd_priv_t *priv, bd_entry_t *p_entry, dict_t *output,
-                    const char *lv_name, const char *dest_lv, uint64_t size,
+                    const char *lv_name, const char *dest_lv, char *size,
                     struct iatt *stbuf)
 {
         int32_t         ret      = -1;
@@ -408,7 +404,7 @@ int bd_snapshot_lv (bd_priv_t *priv, bd_entry_t *p_entry, dict_t *output,
         runner_argprintf (&runner, "/dev/%s/%s", p_entry->name, lv_name);
         runner_add_args  (&runner, "--name", NULL);
         runner_argprintf (&runner, "%s", dest_lv);
-        runner_argprintf (&runner, "-L%ld", size);
+        runner_argprintf (&runner, "-L%s", size);
 
         runner_start (&runner);
         runner_end (&runner);
@@ -534,7 +530,7 @@ bd_symlink (call_frame_t *frame, xlator_t *this,
 
         memcpy (&preparent, lventry->parent->attr, sizeof(preparent));
         if (bd_snapshot_lv (priv, lventry->parent, NULL, lventry->name,
-                            name, 1, &stbuf) < 0) {
+                            name, "1", &stbuf) < 0) {
                 op_errno = EAGAIN;
                 goto out;
         }
@@ -2232,6 +2228,94 @@ out:
         return ret;
 }
 
+int bd_xl_op_clone(bd_priv_t *priv, int subop, dict_t *input, dict_t *output)
+{
+        bd_entry_t      *p_entry = NULL;
+        bd_entry_t      *lventry = NULL;
+        int             ret      = -1;
+        char            *error   = NULL;
+        int             retval   = -1;
+        char            *vg      = NULL;
+        char            *lv      = NULL;
+        char            *dest_lv = NULL;
+        char            *size    = NULL;
+        char            *buff    = NULL;
+        char            *buffp   = NULL;
+        char            *path    = NULL;
+        char            *save    = NULL;
+        char            *npath   = NULL;
+
+        ret = dict_get_str (input, "path", &path);
+        ret = dict_get_str (input, "dest_lv", &dest_lv);
+        ret = dict_get_str (input, "size", &size);
+
+        if (!path || !dest_lv) {
+                gf_asprintf (&error, "invalid arguments");
+                ret = -1;
+                goto out;
+        }
+
+        buff = buffp = gf_strdup (path);
+
+        vg = strtok_r (buff, "/", &save);
+        lv = strtok_r (NULL, "/", &save);
+        if (!lv) {
+                gf_asprintf (&error, "lv not given %s", path);
+                ret = -1;
+                goto out;
+        }
+
+        BD_ENTRY (priv, p_entry, vg);
+        if (!p_entry) {
+                gf_asprintf (&error, "%s does not exist", vg);
+                retval = dict_set_str (output, "error", error);
+                goto out;
+        }
+
+        BD_ENTRY (priv, lventry, path);
+        if (!lventry) {
+                gf_asprintf (&error, "%s does not exist", path);
+                ret = -1;
+                goto out;
+        }
+        BD_PUT_ENTRY (priv, lventry);
+        lventry = NULL;
+        gf_asprintf (&npath, "/%s/%s", vg, dest_lv);
+        BD_ENTRY (priv, lventry, npath);
+        if (lventry) {
+                gf_asprintf (&error, "%s already exists", dest_lv);
+                BD_PUT_ENTRY (priv, lventry);
+                ret = -1;
+                goto out;
+        }
+
+        if (subop == GF_BD_OP_SNAPSHOT_BD) {
+                if (!size) {
+                        gf_asprintf (&error, "size not given");
+                        ret = -1;
+                        goto out;
+                }
+                ret = bd_snapshot_lv (priv, p_entry, output, lv, dest_lv,
+                                  size, NULL);
+        } else
+                ret = bd_clone_lv (priv, p_entry, output, vg, lv, dest_lv,
+                                  NULL);
+
+        if (ret)
+                goto out;
+        ret = 0;
+out:
+        if (error)
+                retval = dict_set_dynstr (output, "error", error);
+        if (p_entry)
+                BD_PUT_ENTRY (priv, p_entry);
+        if (npath)
+                GF_FREE (npath);
+        if (buffp)
+                GF_FREE (buffp);
+        return ret;
+}
+
 int32_t
 bd_notify (xlator_t *this, dict_t *input, dict_t *output)
 {
@@ -2246,7 +2330,7 @@ bd_notify (xlator_t *this, dict_t *input, dict_t *output)
 
         ret = dict_get_int32 (input, "bd-op", (int32_t *)&bdop);
         if (ret) {
-                asprintf (&error, "no sub-op specified");
+                gf_asprintf (&error, "no sub-op specified");
                 goto out;
         }
 
@@ -2257,6 +2341,10 @@ bd_notify (xlator_t *this, dict_t *input, dict_t *output)
                 break;
         case GF_BD_OP_DELETE_BD:
                 ret = bd_xl_op_delete (priv, input, output);
+                break;
+        case GF_BD_OP_CLONE_BD:
+        case GF_BD_OP_SNAPSHOT_BD:
+                ret = bd_xl_op_clone (priv, bdop, input, output);
                 break;
         default:
                 gf_asprintf (&error, "invalid bd-op %d specified", bdop);
@@ -2278,7 +2366,7 @@ notify (xlator_t *this,
         ...)
 {
         va_list ap;
-        int     ret    = -1;
+        int     ret    = 0;
         void    *data2 = NULL;
         dict_t  *input = NULL;
         dict_t  *output = NULL;
