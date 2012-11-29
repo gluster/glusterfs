@@ -64,6 +64,7 @@ typedef struct bd_entry {
 typedef struct bd_fd {
         bd_entry_t      *entry;
         bd_entry_t      *p_entry; /* Parent entry */
+        int             fd;
 } bd_fd_t;
 
 typedef struct bd_priv {

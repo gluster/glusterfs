@@ -47,6 +47,10 @@
                 BD_UNLOCK (&priv->lock);        \
         } while (0)
 
+#define BD_ENTRY_UPDATE_TIME(bdentry)  bd_update_time (bdentry, 0)
+#define BD_ENTRY_UPDATE_ATIME(bdentry) bd_update_time (bdentry, 2)
+#define BD_ENTRY_UPDATE_MTIME(bdentry) bd_update_time (bdentry, 1)
+
 extern bd_entry_t *bd_rootp;
 extern gf_lock_t inode_lk;
 
@@ -59,5 +63,6 @@ bd_entry_t *bd_entry_get (const char *name);
 void bd_entry_put (bd_entry_t *entry);
 int bd_build_lv_list (bd_priv_t *priv, char *vg);
 int bd_entry_cleanup (void);
+void bd_update_time (bd_entry_t *entry, int type);
 
 #endif
