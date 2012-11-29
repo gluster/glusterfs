@@ -51,6 +51,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/storage/Makefile
 		xlators/storage/posix/Makefile
 		xlators/storage/posix/src/Makefile
+		xlators/storage/bd_map/Makefile
+		xlators/storage/bd_map/src/Makefile
 		xlators/cluster/Makefile
 		xlators/cluster/afr/Makefile
 		xlators/cluster/afr/src/Makefile
@@ -261,6 +263,31 @@ if test "x$enable_fuse_client" != "xno"; then
    FUSE_CLIENT_SUBDIR=fuse
    BUILD_FUSE_CLIENT="yes"
 fi
+
+AC_ARG_ENABLE([bd-xlator],
+                AC_HELP_STRING([--enable-bd-xlator],
+                        [Build BD xlator]))
+
+if test "x$enable_bd_xlator" != "xno"; then
+  AC_CHECK_LIB([lvm2app],
+                  [lvm_init],
+                  [HAVE_BD_LIB="yes"],
+                  [HAVE_BD_LIB="no"])
+fi
+
+if test "x$enable_bd_xlator" = "xyes" -a "x$HAVE_BD_LIB" = "xno"; then
+   echo "BD xlator requested but required lvm2 development library not found."
+   exit 1
+fi
+
+BUILD_BD_XLATOR=no
+if test "x${enable_bd_xlator}" != "xno" -a "x${HAVE_BD_LIB}" = "xyes"; then
+  BUILD_BD_XLATOR=yes
+  AC_DEFINE(HAVE_BD_XLATOR, 1, [define if lvm2app library found and bd
+                  xlator enabled])
+fi
+
+AM_CONDITIONAL([ENABLE_BD_XLATOR], [test x$BUILD_BD_XLATOR = xyes])
 
 AC_SUBST(FUSE_CLIENT_SUBDIR)
 # end FUSE section
@@ -617,14 +644,15 @@ AC_OUTPUT
 echo
 echo "GlusterFS configure summary"
 echo "==========================="
-echo "FUSE client        : $BUILD_FUSE_CLIENT"
-echo "Infiniband verbs   : $BUILD_IBVERBS"
-echo "epoll IO multiplex : $BUILD_EPOLL"
-echo "argp-standalone    : $BUILD_ARGP_STANDALONE"
-echo "fusermount         : $BUILD_FUSERMOUNT"
-echo "readline           : $BUILD_READLINE"
-echo "georeplication     : $BUILD_SYNCDAEMON"
-echo "Linux-AIO          : $BUILD_LIBAIO"
-echo "Enable Debug       : $DEBUG"
-echo "systemtap          : $BUILD_SYSTEMTAP"
+echo "FUSE client          : $BUILD_FUSE_CLIENT"
+echo "Infiniband verbs     : $BUILD_IBVERBS"
+echo "epoll IO multiplex   : $BUILD_EPOLL"
+echo "argp-standalone      : $BUILD_ARGP_STANDALONE"
+echo "fusermount           : $BUILD_FUSERMOUNT"
+echo "readline             : $BUILD_READLINE"
+echo "georeplication       : $BUILD_SYNCDAEMON"
+echo "Linux-AIO            : $BUILD_LIBAIO"
+echo "Enable Debug         : $DEBUG"
+echo "systemtap            : $BUILD_SYSTEMTAP"
+echo "Block Device backend : $BUILD_BD_XLATOR"
 echo
