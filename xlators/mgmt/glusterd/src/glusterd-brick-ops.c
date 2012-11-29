@@ -1035,6 +1035,15 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        if (volinfo->backend == GD_VOL_BK_BD) {
+                snprintf (msg, sizeof (msg), "Add brick is not supported for "
+                           "Block backend volume %s.", volname);
+                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
+
         ret = glusterd_validate_volume_id (dict, volinfo);
         if (ret)
                 goto out;

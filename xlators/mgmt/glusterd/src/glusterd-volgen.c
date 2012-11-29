@@ -1574,6 +1574,8 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char     *password                = NULL;
         char     index_basepath[PATH_MAX] = {0};
         char     key[1024]                = {0};
+        char     *vgname                  = NULL;
+        char     *vg                      = NULL;
 
         path = param;
         volname = volinfo->volname;
@@ -1591,23 +1593,47 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 }
         }
 
-        xl = volgen_graph_add (graph, "storage/posix", volname);
-        if (!xl)
-                return -1;
+        if (volinfo->backend == GD_VOL_BK_BD) {
+                xl = volgen_graph_add (graph, "storage/bd_map", volname);
+                if (!xl)
+                        return -1;
 
-        ret = xlator_set_option (xl, "directory", path);
-        if (ret)
-                return -1;
+                ret = xlator_set_option (xl, "device", "vg");
+                if (ret)
+                        return -1;
 
-        ret = xlator_set_option (xl, "volume-id",
+                vg = gf_strdup (path);
+                vgname = strrchr (vg, '/');
+                if (strchr(vg, '/') != vgname) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                  "invalid vg specified %s", path);
+                        GF_FREE (vg);
+                        goto out;
+                }
+                vgname++;
+                ret = xlator_set_option (xl, "export", vgname);
+                GF_FREE (vg);
+                if (ret)
+                        return -1;
+        } else {
+                xl = volgen_graph_add (graph, "storage/posix", volname);
+                if (!xl)
+                        return -1;
+
+                ret = xlator_set_option (xl, "directory", path);
+                if (ret)
+                        return -1;
+
+                ret = xlator_set_option (xl, "volume-id",
                                  uuid_utoa (volinfo->volume_id));
-        if (ret)
-                return -1;
+                if (ret)
+                        return -1;
 
-        ret = check_and_add_debug_xl (graph, set_dict, volname, "posix");
-        if (ret)
-                return -1;
-
+                ret = check_and_add_debug_xl (graph, set_dict, volname,
+                                                "posix");
+                if (ret)
+                        return -1;
+        }
         xl = volgen_graph_add (graph, "features/access-control", volname);
         if (!xl)
                 return -1;

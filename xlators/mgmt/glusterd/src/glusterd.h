@@ -229,6 +229,12 @@ struct _auth {
 
 typedef struct _auth auth_t;
 
+typedef enum glusterd_vol_backend_ {
+        GD_VOL_BK_DEFAULT = 0, /* POSIX */
+        GD_VOL_BK_BD = 1,
+} glusterd_vol_backend_t;
+
+
 struct glusterd_volinfo_ {
         char                    volname[GLUSTERD_MAX_VOLUME_NAME];
         int                     type;
@@ -278,6 +284,7 @@ struct glusterd_volinfo_ {
         xlator_t                *xl;
 
         gf_boolean_t             memory_accounting;
+        glusterd_vol_backend_t   backend;
 };
 
 typedef enum gd_node_type_ {

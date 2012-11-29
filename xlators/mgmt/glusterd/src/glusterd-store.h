@@ -64,6 +64,7 @@ typedef enum glusterd_store_ver_ac_{
 #define GLUSTERD_STORE_KEY_PEER_UUID      "uuid"
 #define GLUSTERD_STORE_KEY_PEER_HOSTNAME  "hostname"
 #define GLUSTERD_STORE_KEY_PEER_STATE     "state"
+#define GLUSTERD_STORE_KEY_VOL_BACKEND    "backend"
 
 #define glusterd_for_each_entry(entry, dir) \
         do {\

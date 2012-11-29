@@ -12,6 +12,10 @@
 #include "config.h"
 #endif
 
+#ifdef HAVE_BD_XLATOR
+#include <lvm2app.h>
+#endif
+
 #include "common-utils.h"
 #include "syscall.h"
 #include "cli1-xdr.h"
@@ -554,6 +558,36 @@ out:
         return ret;
 }
 
+#ifdef HAVE_BD_XLATOR
+int
+glusterd_is_valid_vg (const char *name)
+{
+        lvm_t           handle   = NULL;
+        vg_t            vg       = NULL;
+        char            *vg_name = NULL;
+        int             retval   = -1;
+
+        handle = lvm_init (NULL);
+        if (!handle) {
+                gf_log ("", GF_LOG_ERROR, "lvm_init failed");
+                return -1;
+        }
+        vg_name = gf_strdup (name);
+        vg = lvm_vg_open (handle, basename (vg_name), "r", 0);
+        if (!vg) {
+                gf_log ("", GF_LOG_ERROR, "no such vg: %s", vg_name);
+                goto out;
+        }
+        retval = 0;
+out:
+        if (vg)
+                lvm_vg_close (vg);
+        lvm_quit (handle);
+        GF_FREE (vg_name);
+        return retval;
+}
+#endif
+
 /* op-sm */
 int
 glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
@@ -575,7 +609,9 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
         char                                    msg[2048] = {0};
         uuid_t                                  volume_uuid;
         char                                    *volume_uuid_str;
-
+#ifdef HAVE_BD_XLATOR
+        char                                    *dev_type = NULL;
+#endif
         this = THIS;
         if (!this) {
                 gf_log ("glusterd", GF_LOG_ERROR,
@@ -625,6 +661,11 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+
+#ifdef HAVE_BD_XLATOR
+        ret = dict_get_str (dict, "device", &dev_type);
+#endif
+
         ret = dict_get_str (dict, "bricks", &bricks);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to get bricks");
@@ -670,6 +711,19 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
+#ifdef HAVE_BD_XLATOR
+                if (dev_type) {
+                        ret = glusterd_is_valid_vg (brick_info->path);
+                        if (ret) {
+                                snprintf (msg, sizeof(msg), "invalid vg %s",
+                                  brick_info->path);
+                                *op_errstr = gf_strdup (msg);
+                                goto out;
+                        }
+
+                        break;
+                } else
+#endif
                 if (!uuid_compare (brick_info->uuid, MY_UUID)) {
                         ret = glusterd_brick_create_path (brick_info->hostname,
                                                           brick_info->path,
@@ -1209,6 +1263,9 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
         char                 *str        = NULL;
         char                 *username   = NULL;
         char                 *password   = NULL;
+#ifdef HAVE_BD_XLATOR
+        char                 *device     = NULL;
+#endif
 
         this = THIS;
         GF_ASSERT (this);
@@ -1260,6 +1317,12 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 gf_log (this->name, GF_LOG_ERROR, "Unable to get bricks");
                 goto out;
         }
+
+#ifdef HAVE_BD_XLATOR
+        ret = dict_get_str (dict, "device", &device);
+        if (!ret)
+                volinfo->backend = GD_VOL_BK_BD;
+#endif
 
         /* replica-count 1 means, no replication, file is in one brick only */
         volinfo->replica_count = 1;

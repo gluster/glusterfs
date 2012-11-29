@@ -62,6 +62,10 @@ char *cli_vol_status_str[] = {"Created",
                               "Stopped",
                              };
 
+char *cli_volume_backend[] = {"",
+                           "Volume Group",
+};
+
 int32_t
 gf_cli_get_volume (call_frame_t *frame, xlator_t *this,
                       void *data);
@@ -493,6 +497,7 @@ gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         char                       key[1024]            = {0};
         char                       err_str[2048]        = {0};
         gf_cli_rsp                 rsp                  = {0};
+        int32_t                    backend              = 0;
 
         if (-1 == req->rpc_status)
                 goto out;
@@ -643,6 +648,9 @@ xml_output:
                 if (ret)
                         goto out;
 
+                snprintf (key, 256, "volume%d.backend", i);
+                ret = dict_get_int32 (dict, key, &backend);
+
                 vol_type = type;
 
                 // Distributed (stripe/replicate/stripe-replica) setups
@@ -654,16 +662,17 @@ xml_output:
                 cli_out ("Volume ID: %s", volume_id_str);
                 cli_out ("Status: %s", cli_vol_status_str[status]);
 
+                if (backend)
+                        goto next;
+
                 if (type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) {
                         cli_out ("Number of Bricks: %d x %d x %d = %d",
                                  (brick_count / dist_count),
                                  stripe_count,
                                  replica_count,
                                  brick_count);
-
                 } else if (type == GF_CLUSTER_TYPE_NONE) {
                         cli_out ("Number of Bricks: %d", brick_count);
-
                 } else {
                         /* For both replicate and stripe, dist_count is
                            good enough */
@@ -676,6 +685,12 @@ xml_output:
                          ((transport == 0)?"tcp":
                           (transport == 1)?"rdma":
                           "tcp,rdma"));
+
+next:
+                if (backend) {
+                        cli_out ("Backend Type: Block, %s",
+                                 cli_volume_backend[backend]);
+                }
                 j = 1;
 
                 GF_FREE (local->get_vol.volname);
