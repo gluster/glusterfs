@@ -14,6 +14,7 @@
 
 #include "xlator.h"
 #include "error-gen.h"
+#include "statedump.h"
 
 sys_error_t error_no_list[] = {
         [GF_FOP_LOOKUP]            = { .error_no_count = 4,
@@ -1954,6 +1955,39 @@ error_gen_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 }
 
 int32_t
+error_gen_priv_dump (xlator_t *this)
+{
+        char            key_prefix[GF_DUMP_MAX_BUF_LEN];
+        int             ret = -1;
+        eg_t            *conf = NULL;
+
+        if (!this)
+            goto out;
+
+        conf = this->private;
+        if (!conf)
+            goto out;
+
+        ret = TRY_LOCK(&conf->lock);
+        if (ret != 0) {
+                return ret;
+        }
+
+        gf_proc_dump_add_section("xlator.debug.error-gen.%s.priv", this->name);
+        gf_proc_dump_build_key(key_prefix,"xlator.debug.error-gen","%s.priv",
+                               this->name);
+
+        gf_proc_dump_write("op_count", "%d", conf->op_count);
+        gf_proc_dump_write("failure_iter_no", "%d", conf->failure_iter_no);
+        gf_proc_dump_write("error_no", "%s", conf->error_no);
+        gf_proc_dump_write("random_failure", "%d", conf->random_failure);
+
+        UNLOCK(&conf->lock);
+out:
+        return ret;
+}
+
+int32_t
 mem_acct_init (xlator_t *this)
 {
         int     ret = -1;
@@ -2092,6 +2126,10 @@ fini (xlator_t *this)
         }
         return;
 }
+
+struct xlator_dumpops dumpops = {
+        .priv = error_gen_priv_dump,
+};
 
 struct xlator_fops cbks = {
 };
