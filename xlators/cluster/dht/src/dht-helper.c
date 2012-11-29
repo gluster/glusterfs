@@ -948,6 +948,8 @@ dht_inode_ctx_time_update (inode_t *inode, xlator_t *this, struct iatt *stat,
         DHT_UPDATE_TIME(time->atime, time->atime_nsec,
                         stat->ia_atime, stat->ia_atime_nsec, inode, post);
 
+        ret = dht_inode_ctx_set (inode, this, ctx);
+
         return 0;
 }
 
