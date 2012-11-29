@@ -1650,6 +1650,8 @@ wb_forget (xlator_t *this, inode_t *inode)
 	}
 	UNLOCK (&wb_inode->lock);
 
+        GF_FREE (wb_inode);
+
         return 0;
 }
 
