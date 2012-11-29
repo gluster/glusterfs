@@ -30,6 +30,7 @@
 #include "bd_map_help.h"
 #include "defaults.h"
 #include "glusterfs3-xdr.h"
+#include "run.h"
 
 
 /* Regular fops */
@@ -153,6 +154,351 @@ out:
         STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno,
                         &preparent, &postparent, NULL);
 
+        return 0;
+}
+
+#define LVM_CREATE "/sbin/lvcreate"
+
+#define IOV_NR 4
+#define IOV_SIZE (4 * 1024)
+
+int bd_clone_lv (bd_priv_t *priv, bd_entry_t *p_entry, dict_t *output,
+                const char *vg_name, const char *lv_name,
+                 const char *dest_lv_name, struct iatt *stbuf)
+{
+        int32_t         ret           = -1;
+        vg_t            vg            = NULL;
+        lv_t            lv            = NULL;
+        ssize_t         size          = 0;
+        uint64_t        extent        = 0;
+        int             fd1           = -1;
+        int             fd2           = -1;
+        struct iatt     iattr         = {0, };
+        bd_entry_t      *lventry      = NULL;
+        char            path[512]     = {0, };
+        struct iovec    *vec          = NULL;
+        int             i             = 0;
+        ssize_t         bytes         = 0;
+        int             nr_iov        = 0;
+
+        vec = GF_CALLOC (IOV_NR, sizeof(struct iovec), gf_common_mt_iovec);
+        if (!vec)
+                goto out;
+
+        for (i = 0; i < IOV_NR; i++) {
+                vec[i].iov_base = GF_MALLOC (IOV_SIZE, gf_common_mt_char);
+                if (!vec[i].iov_base)
+                        goto out;
+                vec[i].iov_len = IOV_SIZE;
+        }
+
+        vg = lvm_vg_open (priv->handle, vg_name, "w", 0);
+        if (!vg) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "lvm_vg_open %s failed", vg_name);
+                ret = -1;
+                goto out;
+        }
+        lv = lvm_lv_from_name (vg, lv_name);
+        if (!lv) {
+                gf_log (THIS->name, GF_LOG_ERROR, "lvm_lv_from_name failed");
+                ret = -1;
+                goto out;
+        }
+
+        size = lvm_lv_get_size (lv);
+        extent = size / lvm_vg_get_extent_size (vg);
+
+        if (lvm_vg_create_lv_linear (vg, dest_lv_name, size) == NULL) {
+                gf_log (THIS->name, GF_LOG_ERROR, "lv_create:%s",
+                                lvm_errmsg(priv->handle));
+                ret = -1;
+                goto out;
+        }
+        sprintf (path, "/dev/%s/%s", vg_name, lv_name);
+        fd1 = open (path, O_RDONLY);
+        if (fd1 < 0) {
+                gf_log (THIS->name, GF_LOG_ERROR, "opening %s failed", path);
+                goto out;
+        }
+        sprintf (path, "/dev/%s/%s", vg_name, dest_lv_name);
+        fd2 = open (path, O_WRONLY);
+        if (fd2 < 0) {
+                gf_log (THIS->name, GF_LOG_ERROR, "opening %s failed", path);
+                goto out;
+        }
+
+        bd_entry_istat (path, &iattr, IA_IFREG);
+        iattr.ia_size = size;
+
+        bytes = size;
+        while (bytes) {
+                size = readv(fd1, vec, IOV_NR);
+                if (size < 0) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                        "read failed:%s", strerror(errno));
+                        goto out;
+                }
+                if (size < IOV_NR * IOV_SIZE) {
+                        vec[size / IOV_SIZE].iov_len = size % IOV_SIZE;
+                        nr_iov = (size / IOV_SIZE) + 1;
+                } else
+                        nr_iov = IOV_NR;
+                bytes -= size;
+                size = writev (fd2, vec, nr_iov);
+                if (size < 0) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                        "write failed:%s", strerror(errno));
+                        goto out;
+                }
+        }
+
+        lventry = bd_entry_add (p_entry, dest_lv_name, &iattr, IA_IFREG);
+        if (!lventry) {
+                ret = EAGAIN;
+                goto out;
+        }
+
+        if (stbuf)
+                memcpy (stbuf, &iattr, sizeof(iattr));
+
+        ret = 0;
+        gf_log (THIS->name, GF_LOG_INFO, "Clone completed");
+out:
+        for (i = 0; i < IOV_NR; i++) {
+                if (vec[i].iov_base)
+                        GF_FREE (vec[i].iov_base);
+        }
+        if (vg)
+                lvm_vg_close (vg);
+        if (fd1 != -1)
+                close (fd1);
+        if (fd2 != -1)
+                close (fd2);
+        if (vec)
+                iov_free (vec, IOV_NR);
+        return ret;
+}
+
+int bd_snapshot_lv (bd_priv_t *priv, bd_entry_t *p_entry, dict_t *output,
+                    const char *lv_name, const char *dest_lv, uint64_t size,
+                    struct iatt *stbuf)
+{
+        int32_t         ret      = -1;
+        struct iatt     iattr    = {0, };
+        struct stat     stat     = {0, };
+        bd_entry_t      *lventry = NULL;
+        char            *error   = NULL;
+        int             retval   = -1;
+        runner_t        runner   = {0, };
+        char            *path    = NULL;
+        vg_t            vg       = NULL;
+        lv_t            lv       = NULL;
+
+        runinit (&runner);
+
+        runner_add_args  (&runner, LVM_CREATE, NULL);
+        runner_add_args  (&runner, "--snapshot", NULL);
+        runner_argprintf (&runner, "/dev/%s/%s", p_entry->name, lv_name);
+        runner_add_args  (&runner, "--name", NULL);
+        runner_argprintf (&runner, "%s", dest_lv);
+        runner_argprintf (&runner, "-L%ld", size);
+
+        runner_start (&runner);
+        runner_end (&runner);
+
+        gf_asprintf (&path, "/dev/%s/%s", p_entry->name, dest_lv);
+        if (!path) {
+                ret = -ENOMEM;
+                goto out;
+        }
+        if (lstat (path, &stat) < 0) {
+                ret = -EAGAIN;
+                if (output)
+                        gf_asprintf (&error, "try again");
+                goto out;
+        }
+
+        vg = lvm_vg_open (priv->handle, p_entry->name, "r", 0);
+        if (!vg) {
+                ret = -EIO;
+                if (output)
+                        gf_asprintf (&error, "can't open vg %s", p_entry->name);
+                goto out;
+        }
+        lv = lvm_lv_from_name (vg, lv_name);
+        if (!lv) {
+                ret = -EIO;
+                if (output)
+                        gf_asprintf (&error, "can't open lv %s", lv_name);
+                goto out;
+        }
+        bd_entry_istat (path, &iattr, IA_IFREG);
+        iattr.ia_size = lvm_lv_get_size (lv);
+        lventry = bd_entry_add (p_entry, dest_lv, &iattr, IA_IFREG);
+        if (!lventry) {
+                if (output)
+                        gf_asprintf (&error, "try again");
+                ret = -EAGAIN;
+                goto out;
+        }
+        if (stbuf)
+                memcpy (stbuf, &iattr, sizeof(iattr));
+        ret = 0;
+out:
+        if (vg)
+                lvm_vg_close (vg);
+        if (error && output)
+                retval = dict_set_str (output, "error", error);
+        GF_FREE (path);
+        return ret;
+}
+
+/*
+ * Creates a snapshot of given LV
+ */
+int
+bd_symlink (call_frame_t *frame, xlator_t *this,
+                const char *linkname, loc_t *loc, mode_t umask, dict_t *xdata)
+{
+        int32_t         op_ret      = -1;
+        int32_t         op_errno    = 0;
+        bd_priv_t       *priv       = NULL;
+        struct iatt     stbuf       = {0, };
+        struct iatt     preparent   = {0, };
+        struct iatt     postparent  = {0, };
+        bd_entry_t      *lventry    = NULL;
+        char            *name       = NULL;
+        char            *np         = NULL;
+        char            *volume     = NULL;
+        char            *vg_name    = NULL;
+        char            *path       = NULL;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (this->private, out);
+        VALIDATE_OR_GOTO (loc, out);
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
+
+        if (strchr (loc->path, '/')) {
+                vg_name = gf_strdup (loc->path);
+                volume = strrchr (vg_name, '/');
+                if (!volume) {
+                        op_errno = EINVAL;
+                        goto out;
+                }
+                /* creating under non VG directory not permited */
+                if (vg_name == volume) {
+                        op_errno = EOPNOTSUPP;
+                        goto out;
+                }
+                GF_FREE (vg_name);
+                vg_name = NULL;
+        }
+
+        /*
+         * symlink creation for BD xlator is different
+         * source (LV) has to exist for creation of symbolic link (snapshot)
+         */
+        if (strchr (linkname, '/')) {
+                op_errno = EOPNOTSUPP;
+                goto out;
+        }
+        gf_asprintf (&path, "%s/%s", priv->vg, linkname);
+        if (!path) {
+                op_errno = -ENOMEM;
+                goto out;
+        }
+        BD_ENTRY (priv, lventry, path);
+        if (!lventry) {
+                op_errno = ENOENT;
+                goto out;
+        }
+
+        name = np = gf_strdup (loc->path);
+        if (!name)
+                goto out;
+
+        /* Get LV name from loc->path */
+        name = strrchr (loc->path, '/');
+        if (name != loc->path)
+                name++;
+
+        memcpy (&preparent, lventry->parent->attr, sizeof(preparent));
+        if (bd_snapshot_lv (priv, lventry->parent, NULL, lventry->name,
+                            name, 1, &stbuf) < 0) {
+                op_errno = EAGAIN;
+                goto out;
+        }
+        BD_ENTRY_UPDATE_MTIME (lventry->parent);
+        memcpy (&postparent, lventry->parent->attr, sizeof (postparent));
+        op_ret = 0;
+out:
+        if (lventry)
+                BD_PUT_ENTRY (priv, lventry);
+        if (np)
+                GF_FREE (np);
+        if (vg_name)
+                GF_FREE (vg_name);
+        if (path)
+                GF_FREE (path);
+
+        STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno,
+                        (loc)?loc->inode:NULL, &stbuf, &preparent,
+                        &postparent, NULL);
+        return 0;
+}
+
+/*
+ * bd_link: Does full clone of given logical volume
+ * A new logical volume with source logical volume's size created
+ * and entire content copied
+ */
+int
+bd_link (call_frame_t *frame, xlator_t *this,
+        loc_t *oldloc, loc_t *newloc, dict_t *xdata)
+{
+        int32_t         op_ret      = -1;
+        int32_t         op_errno    = 0;
+        bd_priv_t       *priv       = NULL;
+        struct iatt     stbuf       = {0, };
+        struct iatt     preparent   = {0, };
+        struct iatt     postparent  = {0, };
+        bd_entry_t      *lventry    = NULL;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (this->private, out);
+        VALIDATE_OR_GOTO (oldloc, out);
+        VALIDATE_OR_GOTO (newloc, out);
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
+
+        BD_ENTRY (priv, lventry, oldloc->path);
+        if (!lventry) {
+                op_errno = ENOENT;
+                goto out;
+        }
+        memcpy (&postparent, lventry->parent->attr, sizeof (postparent));
+        if (bd_clone_lv (priv, lventry->parent, NULL, lventry->parent->name,
+                         lventry->name, newloc->name, &stbuf) < 0) {
+                op_errno = EAGAIN;
+                goto out;
+        }
+        BD_ENTRY_UPDATE_MTIME (lventry->parent);
+        memcpy (&preparent, lventry->parent->attr, sizeof (preparent));
+        op_ret = 0;
+out:
+        if (lventry)
+                BD_PUT_ENTRY (priv, lventry);
+
+
+        STACK_UNWIND_STRICT (link, frame, op_ret, op_errno,
+                        (oldloc)?oldloc->inode:NULL, &stbuf, &preparent,
+                        &postparent, NULL);
         return 0;
 }
 
@@ -1372,21 +1718,6 @@ bd_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
         return 0;
 }
 
-int
-bd_link (call_frame_t *frame, xlator_t *this,
-            loc_t *oldloc, loc_t *newloc, dict_t *xdata)
-{
-        struct iatt           stbuf        = {0, };
-        struct iatt           preparent    = {0,};
-        struct iatt           postparent   = {0,};
-
-        STACK_UNWIND_STRICT (link, frame, -1, ENOSYS,
-                             (oldloc)?oldloc->inode:NULL, &stbuf, &preparent,
-                             &postparent, NULL);
-
-        return 0;
-}
-
 int32_t
 bd_setxattr (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, dict_t *dict, int flags, dict_t *xdata)
@@ -1699,7 +2030,6 @@ struct xlator_fops fops = {
         .mknod       = bd_mknod,
         .mkdir       = bd_mkdir,
         .rmdir       = bd_rmdir,
-        .link        = bd_link,
         .setxattr    = bd_setxattr,
         .fsetxattr   = bd_fsetxattr,
         .getxattr    = bd_getxattr,
@@ -1736,6 +2066,8 @@ struct xlator_fops fops = {
         .setattr     = bd_setattr,
         .fsetattr    = bd_fsetattr,
         .unlink      = bd_unlink,
+        .link        = bd_link,
+        .symlink     = bd_symlink,
 };
 
 struct xlator_cbks cbks = {
