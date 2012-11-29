@@ -57,7 +57,6 @@ typedef struct bd_entry {
         pthread_rwlock_t lock;
 } bd_entry_t;
 
-
 /**
  * bd_fd - internal structure common to file and directory fd's
  */
@@ -65,6 +64,7 @@ typedef struct bd_fd {
         bd_entry_t      *entry;
         bd_entry_t      *p_entry; /* Parent entry */
         int             fd;
+        int32_t         flag;
 } bd_fd_t;
 
 typedef struct bd_priv {
