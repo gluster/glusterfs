@@ -338,6 +338,256 @@ err:
         return op_ret;
 }
 
+int bd_create (call_frame_t *frame, xlator_t *this,
+                loc_t *loc, int32_t flags, mode_t mode,
+                mode_t umask, fd_t *fd, dict_t *params)
+{
+        int32_t            op_ret            = -1;
+        int32_t            op_errno          = 0;
+        int32_t            _fd               = -1;
+        uint64_t           extent            = 0;
+        bd_priv_t          *priv             = NULL;
+        struct iatt        stbuf             = {0, };
+        struct iatt        preparent         = {0, };
+        struct iatt        postparent        = {0, };
+        bd_entry_t         *p_entry          = NULL;
+        bd_entry_t         *lventry          = NULL;
+        vg_t               vg                = NULL;
+        lv_t               lv                = NULL;
+        bd_fd_t            *pfd              = NULL;
+        char               *vg_name          = NULL;
+        char               *volume           = NULL;
+        char               *path             = NULL;
+        struct iatt        iattr             = {0, };
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (this->private, out);
+        VALIDATE_OR_GOTO (loc, out);
+        VALIDATE_OR_GOTO (fd, out);
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
+
+        volume = vg_name = gf_strdup (loc->path);
+        if (!volume)
+                goto out;
+        volume = strrchr (volume, '/');
+        if (!volume) {
+                op_errno = EINVAL;
+                goto out;
+        }
+        /* creating under non VG directory not permited */
+        if (vg_name == volume) {
+                op_errno = EOPNOTSUPP;
+                goto out;
+        }
+        *volume = '\0';
+
+        BD_ENTRY (priv, p_entry, vg_name);
+        if (!p_entry) {
+                op_errno = ENOENT;
+                goto out;
+        }
+
+        memcpy (&preparent, p_entry->attr, sizeof(preparent));
+
+        BD_WR_LOCK (&priv->lock);
+        vg = lvm_vg_open (priv->handle, p_entry->name, "w", 0);
+        if (!vg) {
+                op_errno = errno;
+                BD_UNLOCK (&priv->lock);
+                goto out;
+        }
+        extent = lvm_vg_get_extent_size (vg);
+        /* Create the LV */
+        lv = lvm_vg_create_lv_linear (vg, loc->name, extent);
+        if (!lv) {
+                op_errno = errno;
+                lvm_vg_close (vg);
+                BD_UNLOCK (&priv->lock);
+                goto out;
+        }
+        lvm_vg_close (vg);
+
+        gf_asprintf (&path, "/dev/%s/%s", p_entry->name, loc->name);
+        if (!path) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+        bd_entry_istat (path, &iattr, IA_IFREG);
+        iattr.ia_size = extent;
+        iattr.ia_type = ia_type_from_st_mode (mode);
+        iattr.ia_prot = ia_prot_from_st_mode (mode);
+        lventry = bd_entry_add (p_entry, loc->name, &iattr, IA_IFREG);
+        if (!lventry) {
+                op_errno = EAGAIN;
+                goto out;
+        }
+        BD_UNLOCK (&priv->lock);
+
+        BD_ENTRY (priv, lventry, loc->path);
+        if (!lventry) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "newly created LV not available %s", loc->path);
+                op_errno = EAGAIN;
+                goto out;
+        }
+
+        /* Mask O_CREATE since we created LV */
+        flags &= ~(O_CREAT | O_EXCL);
+
+        _fd = open (path, flags, 0);
+        if (_fd == -1) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                                "open on %s: %s", path, strerror (op_errno));
+                goto out;
+        }
+
+        memcpy (&stbuf, lventry->attr, sizeof(stbuf));
+
+        pfd = GF_CALLOC (1, sizeof(*pfd), gf_bd_fd);
+        if (!pfd) {
+                op_errno = errno;
+                goto out;
+        }
+        pfd->flag = flags;
+        pfd->fd = _fd;
+        pfd->entry = lventry;
+
+        if (fd_ctx_set (fd, this, (uint64_t)(long)pfd)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                                "failed to set the fd context path=%s fd=%p",
+                                loc->name, fd);
+                goto out;
+        }
+
+        op_ret = 0;
+
+        memcpy (&postparent, p_entry->attr, sizeof(postparent));
+out:
+        if (p_entry)
+                BD_PUT_ENTRY (priv, p_entry);
+        if (path)
+                GF_FREE (path);
+        if (op_ret < 0 && lventry)
+                BD_PUT_ENTRY (priv, lventry);
+        if (vg_name)
+                GF_FREE (vg_name);
+
+        STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd,
+                        (loc)?loc->inode:NULL, &stbuf, &preparent,
+                        &postparent, NULL);
+        return 0;
+}
+
+/*
+ * We don't do actual setattr on devices on the host side, we just update
+ * the entries in server process & they are not persistent
+ */
+int bd_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                struct iatt *stbuf, int32_t valid, dict_t *xdata)
+{
+        struct iatt             statpre         = {0, };
+        struct iatt             statpost        = {0, };
+        int32_t                 op_ret          = -1;
+        int32_t                 op_errno        = 0;
+        bd_priv_t               *priv           = NULL;
+        bd_fd_t                 *pfd            = NULL;
+        int                     ret             = 0;
+        uint64_t                tmp_pfd         = 0;
+        int                     _fd             = -1;
+
+        priv = this->private;
+
+        ret = fd_ctx_get (fd, this, &tmp_pfd);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                                "pfd is NULL, fd=%p", fd);
+                op_errno = -ret;
+                goto out;
+        }
+        pfd = (bd_fd_t *)(long)tmp_pfd;
+
+        _fd = pfd->fd;
+        memcpy (&statpre, pfd->entry->attr, sizeof(statpre));
+        op_ret = 0;
+
+        if (valid & GF_SET_ATTR_MODE)
+                pfd->entry->attr->ia_prot = stbuf->ia_prot;
+        if (valid & (GF_SET_ATTR_UID | GF_SET_ATTR_GID)) {
+                if (valid & GF_SET_ATTR_UID)
+                        pfd->entry->attr->ia_uid = stbuf->ia_uid;
+                if (valid & GF_SET_ATTR_GID)
+                        pfd->entry->attr->ia_gid = stbuf->ia_gid;
+        }
+        if (valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME)) {
+                pfd->entry->attr->ia_atime = stbuf->ia_atime;
+                pfd->entry->attr->ia_atime_nsec = stbuf->ia_atime_nsec;
+                pfd->entry->attr->ia_mtime = stbuf->ia_mtime;
+                pfd->entry->attr->ia_mtime_nsec = stbuf->ia_mtime_nsec;
+        }
+        memcpy (&statpost, pfd->entry->attr, sizeof(statpost));
+        op_errno = 0;
+out:
+        STACK_UNWIND_STRICT (setattr, frame, 0, 0, &statpre, &statpost, NULL);
+        return 0;
+}
+
+int bd_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                struct iatt *stbuf, int32_t valid, dict_t *xdata)
+{
+        struct iatt             statpre         = {0, };
+        struct iatt             statpost        = {0, };
+        bd_entry_t              *lventry        = NULL;
+        int32_t                 op_ret          = -1;
+        int32_t                 op_errno        = 0;
+        bd_priv_t               *priv           = NULL;
+        char                    path[PATH_MAX]  = {0, };
+
+        priv = this->private;
+
+        /*
+         * We don't allow to do setattr on / on host side
+         * ie /dev
+         */
+        if (!strcmp (loc->path, "/")) {
+                op_ret = 0;
+                goto out;
+        }
+
+        BD_ENTRY (priv, lventry, loc->path);
+        if (!lventry) {
+                op_errno = ENOENT;
+                goto out;
+        }
+        sprintf (path, "/dev/%s/%s", lventry->parent->name, lventry->name);
+
+        memcpy (&statpre, lventry->attr, sizeof(statpre));
+        if (valid & GF_SET_ATTR_MODE)
+                lventry->attr->ia_prot = stbuf->ia_prot;
+        if (valid & (GF_SET_ATTR_UID | GF_SET_ATTR_GID)) {
+                if (valid & GF_SET_ATTR_UID)
+                        lventry->attr->ia_uid = stbuf->ia_uid;
+                if (valid & GF_SET_ATTR_GID)
+                        lventry->attr->ia_gid = stbuf->ia_gid;
+        }
+        if (valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME)) {
+                lventry->attr->ia_atime = stbuf->ia_atime;
+                lventry->attr->ia_atime_nsec = stbuf->ia_atime_nsec;
+                lventry->attr->ia_mtime = stbuf->ia_mtime;
+                lventry->attr->ia_mtime_nsec = stbuf->ia_mtime_nsec;
+        }
+        memcpy (&statpost, lventry->attr, sizeof(statpost));
+        op_errno = 0;
+out:
+        if (lventry)
+                BD_PUT_ENTRY (priv, lventry);
+        STACK_UNWIND_STRICT (setattr, frame, 0, 0, &statpre, &statpost, NULL);
+        return 0;
+}
+
 int
 bd_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 struct iovec *vector, int32_t count, off_t offset,
@@ -975,13 +1225,6 @@ bd_inode (xlator_t *this)
 }
 
 /* unsupported interfaces */
-int bd_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                struct iatt *stbuf, int32_t valid, dict_t *xdata)
-{
-        STACK_UNWIND_STRICT (setattr, frame, -1, ENOSYS, NULL, NULL, NULL);
-        return 0;
-}
-
 int32_t
 bd_readlink (call_frame_t *frame, xlator_t *this,
                                 loc_t *loc, size_t size, dict_t *xdata)
@@ -1376,7 +1619,6 @@ struct xlator_fops fops = {
         .fentrylk    = bd_fentrylk,
         .rchecksum   = bd_rchecksum,
         .xattrop     = bd_xattrop,
-        .setattr     = bd_setattr,
 
         /* Supported */
         .lookup      = bd_lookup,
@@ -1394,6 +1636,10 @@ struct xlator_fops fops = {
         .ftruncate   = bd_ftruncate,
         .fsync       = bd_fsync,
         .writev      = bd_writev,
+        .fstat       = bd_fstat,
+        .create      = bd_create,
+        .setattr     = bd_setattr,
+        .fsetattr    = bd_fsetattr,
 };
 
 struct xlator_cbks cbks = {
