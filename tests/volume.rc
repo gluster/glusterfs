@@ -60,3 +60,12 @@ function afr_child_up_status {
 function glustershd_up_status {
         gluster volume status | grep "Self-heal Daemon" | awk '{print $6}'
 }
+
+function kill_brick()
+{
+        vol=$1
+        host=$2
+        brick=$3
+        brick_hiphenated=$(echo $brick | tr '/' '-')
+        kill -9 `cat /var/lib/glusterd/vols/$vol/run/${host}${brick_hiphenated}.pid`
+}
