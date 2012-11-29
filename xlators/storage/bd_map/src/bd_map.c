@@ -211,6 +211,186 @@ out:
         return 0;
 }
 
+ int32_t
+bd_ftruncate (call_frame_t *frame, xlator_t *this,
+                fd_t *fd, off_t offset, dict_t *xdict)
+{
+        int32_t        op_ret      = -1;
+        int32_t        op_errno    = 0;
+        struct iatt    preop       = {0, };
+        struct iatt    postop      = {0, };
+        bd_fd_t        *bd_fd      = NULL;
+        int            ret         = -1;
+        uint64_t       tmp_bd_fd   = 0;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (fd, out);
+
+        ret = fd_ctx_get (fd, this, &tmp_bd_fd);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                                "bd_fd is NULL, fd=%p", fd);
+                op_errno = -ret;
+                goto out;
+        }
+        bd_fd = (bd_fd_t *)(long)tmp_bd_fd;
+
+        memcpy (&preop, bd_fd->entry->attr, sizeof(preop));
+        if (offset >= bd_fd->entry->size) {
+                op_errno = EFBIG;
+                goto out;
+        }
+        /* If the requested size is less then current size
+         * we will not update that in bd_fd->entry->attr
+         * because it will result in showing size of this file less
+         * instead we will return 0 for less size truncation
+         */
+        BD_ENTRY_UPDATE_MTIME (bd_fd->entry);
+        memcpy (&postop, bd_fd->entry->attr, sizeof(postop));
+
+        op_ret = 0;
+out:
+        STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, &preop,
+                        &postop, NULL);
+        return 0;
+}
+
+int32_t
+bd_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                off_t offset, dict_t *xdict)
+{
+        int32_t         op_ret     = -1;
+        int32_t         op_errno   = 0;
+        struct iatt     prebuf     = {0, };
+        struct iatt     postbuf    = {0, };
+        bd_entry_t      *lventry   = NULL;
+        bd_priv_t       *priv      = NULL;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (loc, out);
+
+        priv = this->private;
+        BD_ENTRY (priv, lventry, loc->path);
+        if (!lventry) {
+                op_errno = ENOENT;
+                gf_log (this->name, GF_LOG_ERROR,
+                                "pre-operation lstat on %s failed: %s",
+                                loc->path, strerror (op_errno));
+                goto out;
+        }
+        memcpy (&prebuf, lventry->attr, sizeof(prebuf));
+        if (offset >= lventry->size) {
+                op_errno = EFBIG;
+                goto out;
+        }
+        BD_ENTRY_UPDATE_MTIME (lventry);
+        memcpy (&postbuf, lventry->attr, sizeof(postbuf));
+        BD_PUT_ENTRY (priv, lventry);
+        op_ret = 0;
+out:
+        STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno,
+                        &prebuf, &postbuf, NULL);
+        return 0;
+}
+
+int32_t
+__bd_pwritev (int fd, struct iovec *vector, int count, off_t offset,
+                uint64_t bd_size)
+{
+        int32_t    op_ret          = 0;
+        int        index           = 0;
+        int        retval          = 0;
+        off_t      internal_offset = 0;
+        int        no_space        = 0;
+
+        if (!vector)
+                return -EFAULT;
+
+        internal_offset = offset;
+        for (index = 0; index < count; index++) {
+                if (internal_offset >= bd_size) {
+                        op_ret = -ENOSPC;
+                        goto err;
+                }
+                if (internal_offset + vector[index].iov_len >= bd_size) {
+                        vector[index].iov_len = bd_size - internal_offset;
+                        no_space = 1;
+                }
+
+                retval = pwrite (fd, vector[index].iov_base,
+                                vector[index].iov_len, internal_offset);
+                if (retval == -1) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "base %p, length %ld, offset %ld, message %s",
+                                vector[index].iov_base, vector[index].iov_len,
+                                internal_offset, strerror (errno));
+                        op_ret = -errno;
+                        goto err;
+                }
+                op_ret += retval;
+                internal_offset += retval;
+                if (no_space)
+                        break;
+        }
+err:
+        return op_ret;
+}
+
+int
+bd_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                struct iovec *vector, int32_t count, off_t offset,
+                uint32_t flags, struct iobref *iobref, dict_t *xdict)
+{
+        int32_t         op_ret    = -1;
+        int32_t         op_errno  = 0;
+        int             _fd       = -1;
+        bd_priv_t       *priv     = NULL;
+        bd_fd_t         *bd_fd    = NULL;
+        int             ret       = -1;
+        struct iatt     preop     = {0, };
+        struct iatt     postop    = {0, };
+        uint64_t        tmp_bd_fd = 0;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (fd, out);
+        VALIDATE_OR_GOTO (vector, out);
+        VALIDATE_OR_GOTO (this->private, out);
+
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
+
+        ret = fd_ctx_get (fd, this, &tmp_bd_fd);
+        if (ret < 0) {
+                op_errno = -ret;
+                gf_log (this->name, GF_LOG_WARNING,
+                                "bd_fd is NULL from fd=%p", fd);
+                goto out;
+        }
+        bd_fd = (bd_fd_t *)(long)tmp_bd_fd;
+        _fd = bd_fd->fd;
+
+        memcpy (&preop, bd_fd->entry->attr, sizeof(preop));
+        op_ret = __bd_pwritev (_fd, vector, count, offset, bd_fd->entry->size);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                op_ret = -1;
+                gf_log (this->name, GF_LOG_ERROR, "write failed: offset %"PRIu64
+                                ", %s", offset, strerror (op_errno));
+                goto out;
+        }
+        BD_ENTRY_UPDATE_MTIME (bd_fd->entry);
+        memcpy (&postop, bd_fd->entry->attr, sizeof(postop));
+
+out:
+        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, &preop,
+                        &postop, NULL);
+
+        return 0;
+}
+
 int32_t
 bd_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 {
@@ -526,6 +706,65 @@ bd_release (xlator_t *this, fd_t *fd)
 
         GF_FREE (bd_fd);
 out:
+        return 0;
+}
+
+int32_t
+bd_fsync (call_frame_t *frame, xlator_t *this,
+                fd_t *fd, int32_t datasync, dict_t *xdata)
+{
+        int             _fd             = -1;
+        int             ret             = -1;
+        int32_t         op_ret          = -1;
+        int32_t         op_errno        = 0;
+        uint64_t        tmp_bd_fd       = 0;
+        bd_fd_t         *bd_fd          = NULL;
+        struct iatt     preop           = {0, };
+        struct iatt     postop          = {0, };
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (fd, out);
+
+        ret = fd_ctx_get (fd, this, &tmp_bd_fd);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                                "bd_fd is NULL, fd=%p", fd);
+                op_errno = -ret;
+                goto out;
+        }
+        bd_fd = (bd_fd_t *)(long)tmp_bd_fd;
+
+        _fd = bd_fd->fd;
+        memcpy (&preop, &bd_fd->entry->attr, sizeof(preop));
+        if (datasync) {
+                ;
+#ifdef HAVE_FDATASYNC
+                op_ret = fdatasync (_fd);
+                if (op_ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "fdatasync on fd=%p failed: %s",
+                                fd, strerror (errno));
+                }
+#endif
+        } else {
+                op_ret = fsync (_fd);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "fsync on fd=%p failed: %s",
+                                 fd, strerror (op_errno));
+                        goto out;
+                }
+        }
+
+        memcpy (&postop, bd_fd->entry->attr, sizeof(postop));
+        op_ret = 0;
+
+out:
+        STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, &preop,
+                        &postop, NULL);
+
         return 0;
 }
 
@@ -1151,6 +1390,10 @@ struct xlator_fops fops = {
         .flush       = bd_flush,
         .readv       = bd_readv,
         .fstat       = bd_fstat,
+        .truncate    = bd_truncate,
+        .ftruncate   = bd_ftruncate,
+        .fsync       = bd_fsync,
+        .writev      = bd_writev,
 };
 
 struct xlator_cbks cbks = {
