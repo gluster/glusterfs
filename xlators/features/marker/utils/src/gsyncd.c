@@ -108,6 +108,7 @@ invoke_gsyncd (int argc, char **argv)
         int i                      = 0;
         int j                      = 0;
         char *nargv[argc + 4];
+        char *python = NULL;
 
         if (restricted) {
                 size_t len;
@@ -142,7 +143,10 @@ invoke_gsyncd (int argc, char **argv)
                 goto error;
 
         j = 0;
-        nargv[j++] = PYTHON;
+        python = getenv("PYTHON");
+        if(!python)
+                python = PYTHON;
+        nargv[j++] = python;
         nargv[j++] = GSYNCD_PREFIX"/python/syncdaemon/"GSYNCD_PY;
         for (i = 1; i < argc; i++)
                 nargv[j++] = argv[i];
@@ -152,9 +156,9 @@ invoke_gsyncd (int argc, char **argv)
         }
         nargv[j++] = NULL;
 
-        execvp (PYTHON, nargv);
+        execvp (python, nargv);
 
-        fprintf (stderr, "exec of "PYTHON" failed\n");
+        fprintf (stderr, "exec of '%s' failed\n", python);
         return 127;
 
  error:
