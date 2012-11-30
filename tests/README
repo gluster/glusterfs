@@ -1,8 +1,14 @@
-How to use use
-==============
+How to use test script framework.
+=================================
 
 - Build and install the version of glusterfs with your changes. Make
   sure the installed version is accessible from $PATH.
+
+- To mount glusterfs, NEVER use 'mount -t glusterfs', instead use
+  'glusterfs -s ' method. This is because with the patch build setup
+  doesnot install the /sbin/mount.glusterfs necessary, where as the
+  glusterfs binary will be accessible with $PATH, and will pick the
+  right version.
 
 - (optional) Set environment variables to specify location of
   export directories and mount points. Unless you have special
