@@ -22,13 +22,13 @@
 #include "rot-13.h"
 
 /*
- * This is a rot13 ``encryption'' xlator. It rot13's data when 
- * writing to disk and rot13's it back when reading it. 
+ * This is a rot13 ``encryption'' xlator. It rot13's data when
+ * writing to disk and rot13's it back when reading it.
  * This xlator is meant as an example, NOT FOR PRODUCTION
  * USE ;) (hence no error-checking)
  */
 
-void 
+void
 rot13 (char *buf, int len)
 {
 	int i;
@@ -61,7 +61,7 @@ rot13_readv_cbk (call_frame_t *frame,
                  struct iobref *iobref, dict_t *xdata)
 {
 	rot_13_private_t *priv = (rot_13_private_t *)this->private;
-  
+
 	if (priv->decrypt_read)
 		rot13_iovec (vector, count);
 
@@ -128,7 +128,7 @@ init (xlator_t *this)
 	rot_13_private_t *priv = NULL;
 
 	if (!this->children || this->children->next) {
-		gf_log ("rot13", GF_LOG_ERROR, 
+		gf_log ("rot13", GF_LOG_ERROR,
 			"FATAL: rot13 should have exactly one child");
 		return -1;
 	}
@@ -190,11 +190,11 @@ struct xlator_cbks cbks = {
 };
 
 struct volume_options options[] = {
-	{ .key  = {"encrypt-write"}, 
+	{ .key  = {"encrypt-write"},
 	  .type = GF_OPTION_TYPE_BOOL
 	},
-	{ .key  = {"decrypt-read"}, 
-	  .type = GF_OPTION_TYPE_BOOL 
+	{ .key  = {"decrypt-read"},
+	  .type = GF_OPTION_TYPE_BOOL
 	},
 	{ .key  = {NULL} },
 };
