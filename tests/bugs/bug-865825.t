@@ -26,6 +26,7 @@ EXPECT "$V0" volinfo_field $V0 'Volume Name';
 EXPECT 'Created' volinfo_field $V0 'Status';
 
 ## Make sure io-cache and write-behind don't interfere.
+TEST $CLI volume set $V0 cluster.background-self-heal-count 0
 TEST $CLI volume set $V0 performance.io-cache off;
 TEST $CLI volume set $V0 performance.write-behind off;
 TEST $CLI volume set $V0 performance.stat-prefetch off
