@@ -1285,9 +1285,6 @@ void
 afr_delayed_changelog_post_op (xlator_t *this, call_frame_t *frame, fd_t *fd);
 
 void
-afr_delayed_changelog_wake_up (xlator_t *this, fd_t *fd);
-
-void
 afr_delayed_changelog_wake_up_cbk (void *data)
 {
 	fd_t           *fd = NULL;
