@@ -14,6 +14,33 @@
 #include "compat.h"
 #include "syscall.h"
 
+/*
+ * IMPORTANT NOTE:
+ * All exported functions in this file which use libxml need use a
+ * #if (HAVE_LIB_XML), #else, #endif
+ * For eg,
+ *      int exported_func () {
+ *              #if (HAVE_LIB_XML)
+ *                      <Stuff using libxml>
+ *              #else
+ *                      return 0;
+ *              #endif
+ *      }
+ *
+ *  All other functions, which are called internally within this file need to be
+ *  within #if (HAVE_LIB_XML), #endif statements
+ *  For eg,
+ *      #if (HAVE_LIB_XML)
+ *      int internal_func ()
+ *      {
+ *      }
+ *      #endif
+ *
+ *  Following the above formate ensures that all xml related code is compliled
+ *  only when libxml2 is present, and also keeps the rest of the codebase free
+ *  of #if (HAVE_LIB_XML)
+ */
+
 
 #if (HAVE_LIB_XML)
 
@@ -3169,6 +3196,7 @@ out:
 #endif
 }
 
+#if (HAVE_LIB_XML)
 int
 cli_xml_output_vol_gsync_status (dict_t *dict, xmlTextWriterPtr writer)
 {
@@ -3244,6 +3272,7 @@ out:
         gf_log ("cli",GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
+#endif
 
 int
 cli_xml_output_vol_gsync (dict_t *dict, int op_ret, int op_errno,
