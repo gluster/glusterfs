@@ -33,4 +33,8 @@ afr_set_pending_dict (afr_private_t *priv, dict_t *xattr, int32_t **pending,
                       int child, afr_xattrop_type_t op);
 void
 afr_set_delayed_post_op (call_frame_t *frame, xlator_t *this);
+
+void
+afr_delayed_changelog_wake_up (xlator_t *this, fd_t *fd);
+
 #endif /* __TRANSACTION_H__ */
