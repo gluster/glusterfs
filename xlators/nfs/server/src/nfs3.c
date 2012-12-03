@@ -4270,12 +4270,30 @@ nfs3err:
 }
 
 
+int32_t
+nfs3svc_readdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                             int32_t op_ret, int32_t op_errno, fd_t *fd,
+                             dict_t *xdata)
+{
+        /*
+         * We don't really need this, it's just an artifact of forcing the
+         * opendir to happen.
+         */
+        if (fd) {
+                fd_unref(fd);
+        }
+
+        return 0;
+}
+
+
 int
 nfs3_readdir_open_resume (void *carg)
 {
         nfsstat3                stat = NFS3ERR_SERVERFAULT;
         int                     ret = -EFAULT;
         nfs3_call_state_t       *cs = NULL;
+        nfs_user_t               nfu = {0, };
 
         if (!carg)
                 return ret;
@@ -4286,6 +4304,22 @@ nfs3_readdir_open_resume (void *carg)
         if (!cs->fd) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "Faile to create anonymous fd");
                 goto nfs3err;
+        }
+
+        /*
+         * NFS client will usually send us a readdirp without an opendir,
+         * which would cause us to skip our usual self-heal checks which occur
+         * in opendir for native protocol. To make sure those checks do happen,
+         * our most reliable option is to do our own opendir for any readdirp
+         * at the beginning of the directory.
+         */
+        if (cs->cookie == 0) {
+                nfs_request_user_init (&nfu, cs->req);
+                ret = nfs_opendir (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                                   nfs3svc_readdir_opendir_cbk, cs);
+                if (ret < 0) {
+                        gf_log (GF_NFS3, GF_LOG_ERROR, "auto-opendir failed");
+                }
         }
 
         ret = nfs3_readdir_read_resume (cs);
