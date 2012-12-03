@@ -2373,6 +2373,7 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
 #ifdef HAVE_BD_XLATOR
                 case GD_OP_BD_OP:
 #endif
+                case GD_OP_LABEL_VOLUME:
                         {
                                 ret = dict_get_str (dict, "volname", &volname);
                                 if (ret) {
@@ -3502,15 +3503,23 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         ret = glusterd_op_stage_statedump_volume (dict,
                                                                   op_errstr);
                         break;
+
                 case GD_OP_CLEARLOCKS_VOLUME:
                         ret = glusterd_op_stage_clearlocks_volume (dict,
                                                                    op_errstr);
                         break;
+
 #ifdef HAVE_BD_XLATOR
                 case GD_OP_BD_OP:
                         ret = glusterd_op_stage_bd (dict, op_errstr);
                         break;
+
 #endif
+
+                case GD_OP_LABEL_VOLUME:
+                        ret = glusterd_op_stage_label_volume (dict, op_errstr);
+                        break;
+
                 default:
                         gf_log ("", GF_LOG_ERROR, "Unknown op %d",
                                 op);
@@ -3606,11 +3615,17 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                 case GD_OP_CLEARLOCKS_VOLUME:
                         ret = glusterd_op_clearlocks_volume (dict, op_errstr);
                         break;
+
 #ifdef HAVE_BD_XLATOR
                 case GD_OP_BD_OP:
                         ret = 0;
                         break;
 #endif
+
+                case GD_OP_LABEL_VOLUME:
+                        ret = glusterd_op_label_volume (dict, op_errstr);
+                        break;
+
                 default:
                         gf_log ("", GF_LOG_ERROR, "Unknown op %d",
                                 op);
@@ -5386,6 +5401,7 @@ glusterd_op_free_ctx (glusterd_op_t op, void *ctx)
 #ifdef HAVE_BD_XLATOR
                 case GD_OP_BD_OP:
 #endif
+                case GD_OP_LABEL_VOLUME:
                         dict_unref (ctx);
                         break;
                 default:
