@@ -27,7 +27,7 @@ TEST $CLI volume start $V0
 TEST glusterfs -s $H0 --volfile-id $V0 $M0;
 sleep 5;
 
-touch $M0/files{1..10000} >/dev/null;
+TEST touch $M0/files{1..10000};
 
 ORIG_FILE_COUNT=`ls -l $M0 | wc -l`;
 
@@ -38,7 +38,7 @@ TEST $CLI volume rebalance $V0 fix-layout start
 
 sleep 30;
 
-touch $M0/files{1..10000} >/dev/null;
+TEST ! touch $M0/files{1..10000};
 
 TEST $CLI volume start $V0 force
 
