@@ -1790,6 +1790,62 @@ out:
         return ret;
 }
 
+int
+cli_cmd_volume_label_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                          const char **words, int wordcount)
+{
+        int                             ret = -1;
+        rpc_clnt_procedure_t            *proc = NULL;
+        call_frame_t                    *frame = NULL;
+        dict_t                          *options = NULL;
+        int                             sent = 0;
+        int                             parse_error = 0;
+        cli_local_t                     *local = NULL;
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        if (wordcount != 4) {
+                cli_usage_out (word->pattern);
+                parse_error = 1;
+                goto out;
+        }
+
+        options = dict_new();
+        if (!options) {
+                cli_out ("Could not allocate dict for label_volume");
+                goto out;
+        }
+
+        ret = dict_set_str (options, "volname", (char *)words[2]);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (options, "brick", (char *)words[3]);
+        if (ret)
+                goto out;
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_LABEL_VOLUME];
+
+        CLI_LOCAL_INIT (local, words, frame, options);
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, options);
+        }
+
+out:
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error = 0))
+                        cli_out ("Volume label failed");
+        }
+
+        CLI_STACK_DESTROY (frame);
+
+        return ret;
+}
+
 struct cli_cmd volume_cmds[] = {
         { "volume info [all|<VOLNAME>]",
           cli_cmd_volume_info_cbk,
@@ -1898,6 +1954,11 @@ struct cli_cmd volume_cmds[] = {
           "{inode [range]|entry [basename]|posix [range]}",
           cli_cmd_volume_clearlocks_cbk,
           "Clear locks held on path"
+        },
+
+        {"volume label <VOLNAME> <BRICK>",
+         cli_cmd_volume_label_cbk,
+         "Add a volume label to an empty replacement brick"
         },
 
         { NULL, NULL, NULL }

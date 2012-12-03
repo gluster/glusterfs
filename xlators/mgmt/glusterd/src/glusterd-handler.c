@@ -2935,6 +2935,69 @@ out:
 }
 
 int
+glusterd_handle_cli_label_volume (rpcsvc_request_t *req)
+{
+        int32_t                         ret = -1;
+        gf_cli_req                      cli_req = {{0,}};
+        glusterd_op_t                   cli_op = GD_OP_LABEL_VOLUME;
+        char                            *volname = NULL;
+        dict_t                          *dict = NULL;
+
+        GF_ASSERT (req);
+
+        ret = -1;
+        if (!xdr_to_generic (req->msg[0], &cli_req,
+                             (xdrproc_t)xdr_gf_cli_req)) {
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        if (cli_req.dict.dict_len) {
+                dict  = dict_new ();
+
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "failed to unserialize req-buffer to"
+                                " dictionary");
+                        goto out;
+                }
+
+        } else {
+                ret = -1;
+                gf_log (THIS->name, GF_LOG_ERROR, "Empty cli request.");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to get volname");
+                goto out;
+        }
+
+        gf_log (THIS->name, GF_LOG_INFO, "Received label volume req "
+                "for volume %s", volname);
+
+        ret = glusterd_op_begin (req, cli_op, dict);
+
+out:
+        glusterd_friend_sm ();
+        glusterd_op_sm ();
+
+        if (ret) {
+                ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
+                                                     dict, "operation failed");
+                if (dict)
+                        dict_unref (dict);
+        }
+        free (cli_req.dict.dict_val);
+
+        return ret;
+}
+
+int
 glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                           rpc_clnt_event_t event,
                           void *data)
@@ -3239,6 +3302,9 @@ rpcsvc_actor_t gd_svc_cli_actors[] = {
 #ifdef HAVE_BD_XLATOR
         [GLUSTER_CLI_BD_OP]       = {"BD_OP", GLUSTER_CLI_BD_OP, glusterd_handle_cli_bd_op, NULL, 0},
 #endif
+        [GLUSTER_CLI_LABEL_VOLUME] = {"LABEL_VOLUME", GLUSTER_CLI_LABEL_VOLUME,
+                                      glusterd_handle_cli_label_volume, NULL,
+                                      0},
 };
 
 struct rpcsvc_program gd_svc_cli_prog = {
