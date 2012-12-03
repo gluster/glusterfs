@@ -274,7 +274,7 @@ sh_loop_start (call_frame_t *sh_frame, xlator_t *this, off_t offset,
         new_loop_sh->offset = offset;
         new_loop_sh->block_size = sh->block_size;
         afr_sh_data_lock (new_loop_frame, this, offset, new_loop_sh->block_size,
-                          sh_loop_lock_success, sh_loop_lock_failure);
+			  _gf_true, sh_loop_lock_success, sh_loop_lock_failure);
         return 0;
 out:
         sh->op_failed = 1;

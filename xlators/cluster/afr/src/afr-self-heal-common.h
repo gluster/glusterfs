@@ -100,7 +100,7 @@ afr_local_t *
 afr_local_copy (afr_local_t *l, xlator_t *this);
 int
 afr_sh_data_lock (call_frame_t *frame, xlator_t *this,
-                  off_t start, off_t len,
+                  off_t start, off_t len, gf_boolean_t block,
                   afr_lock_cbk_t success_handler,
                   afr_lock_cbk_t failure_handler);
 void
