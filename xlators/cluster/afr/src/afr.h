@@ -266,6 +266,7 @@ typedef struct {
         struct afr_sh_algorithm  *algo;
         afr_lock_cbk_t data_lock_success_handler;
         afr_lock_cbk_t data_lock_failure_handler;
+	gf_boolean_t data_lock_block;
         int (*completion_cbk) (call_frame_t *frame, xlator_t *this);
         int (*sh_data_algo_start) (call_frame_t *frame, xlator_t *this);
         int (*algo_completion_cbk) (call_frame_t *frame, xlator_t *this);
