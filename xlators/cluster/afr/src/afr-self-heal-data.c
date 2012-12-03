@@ -1296,6 +1296,7 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_private_t   *priv = NULL;
         int              call_count = 0;
         int              child_index = 0;
+	gf_boolean_t	 block = _gf_true;
 
         local = frame->local;
         sh = &local->self_heal;
@@ -1337,7 +1338,13 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "fd for %s opened, commencing sync",
                         local->loc.path);
 
-                afr_sh_data_lock (frame, this, 0, 0, _gf_true,
+		/*
+		 * The read and write self-heal trigger codepaths do not provide
+		 * an unwind callback. We run a trylock in these codepaths
+		 * because we are sensitive to locking latency.
+		 */
+		block = sh->unwind ? _gf_true : _gf_false;
+                afr_sh_data_lock (frame, this, 0, 0, block,
                                   afr_sh_data_big_lock_success,
                                   afr_sh_data_fail);
         }
