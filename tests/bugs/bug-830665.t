@@ -1,7 +1,8 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
-H0=$(hostname -s)
+
+cleanup;
 
 function recreate {
 	rm -rf $1 && mkdir -p $1
