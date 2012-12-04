@@ -486,10 +486,4 @@ gf_boolean_t
 glusterd_is_any_volume_in_server_quorum (xlator_t *this);
 gf_boolean_t
 does_gd_meet_server_quorum (xlator_t *this);
-
-int
-glusterd_generate_and_set_task_id (dict_t *dict, char *key);
-
-int
-glusterd_copy_uuid_to_dict (uuid_t uuid, dict_t *dict, char *key);
 #endif

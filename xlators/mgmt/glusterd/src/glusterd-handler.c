@@ -370,7 +370,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                 goto out;
 
         snprintf (key, 256, "volume%d.rebalance", count);
-        ret = dict_set_int32 (volumes, key, volinfo->rebal.defrag_cmd);
+        ret = dict_set_int32 (volumes, key, volinfo->defrag_cmd);
         if (ret)
                 goto out;
 
