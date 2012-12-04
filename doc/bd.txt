@@ -1,0 +1,130 @@
+Sections
+1. Introduction
+2. Advantages
+3. Creating BD backend volume
+4. BD volume file
+5. Using BD backend gluster volume
+6. Limitations
+7. TODO
+
+1. Introduction
+===============
+Block Device translator(BD xlator) represented as storage/bd_map in
+volume file adds a new backend 'block' to GlusterFS. It enables
+GlusterFS to export block devices as regular files to the client.
+Currently BD xlator supports exporting of 'Volume Group(VG)' as
+directory and Logical Volumes(LV) within that VG as regular files to the
+client.
+
+The eventual goal of this work is to support thin provisioning,
+snapshot, copy etc of VM images seamlessly in GlusterFS storage
+environment
+
+The immediate goal of this translator is to use LVs to store
+VM images and expose them as files to QEMU/KVM. Given VG is represented
+as directory and its logical volumes as files.
+
+BD xlator uses lvm2-devel APIs for getting the list of VGs and LVs in
+the system and lvm binaries (such as lvcreate, lvresize etc) to perform
+the required LV operations.
+
+2. Advantages
+=============
+By exporting LVs as regular files, it becomes possible to:
+* Associate each VM to a LV so that there is no file system overhead.
+* Use file system commands like cp to take copy of VM images
+* Create linked clones of VM  by doing LV snapshot at server
+side
+* Implement thin provisioning by developing a qcow2 translator
+
+3. Creating BD backend volume
+=============================
+New parameter "device vg" in volume create command is used to create BD
+backend gluster volumes.
+
+For example
+  $ gluster volume create my-volume device vg hostname:/my-vg
+
+creates gluster volume 'my-volume' with BD backend which uses the VG
+'my-vg' to store data. VG 'my-vg' should exist before creating this
+gluster volume.
+
+4. BD volume file
+=================
+BD backend volume file specifies which VG to export to the client. The
+section in the volume file that describes BD xlator looks like this.
+
+volume my-volume-bd_map
+type storage/bd_map
+option device vg
+option export volume-group
+end-volume
+
+option device=vg specifies that it should use VG as block backend. option
+export=volume-group specifies that it should export VG "volume-group"
+to the client.
+
+5. Using BD backend gluster volume
+==================================
+Mount
+-----
+  $ mount -t glusterfs hostname:/my-volume /media/bd
+  $ cd /media/bd
+
+From the mount point:
+--------------------
+* Creating a new file (ie LV) involves two steps
+  $ touch lv1
+  $ truncate -s <size> lv1
+        or
+  $ qemu-img create -f <format> gluster:/hostname/my-volume/path-to-image <size>
+
+* Cloning an LV
+  $ ln lv1 lv2
+
+* Snapshotting an LV
+  $ ln -s lv1 lv1-ss
+
+* Passing it to QEMU as one of the drives
+  $ qemu -drive file=<mount>/<file>,if=<if-type>
+
+* GlusterFS is one of the supported QEMU block drivers, the URI format
+  is
+  gluster[+transport]://[server[:port]]/my-volume/image[?socket=...]
+               ie
+  $ qemu -drive file=gluster:/hostname/my-volume/path-to-image,if=<if-type>
+
+Using Gluster CLI:
+-----------------
+* To create a new image of required size
+  $ gluster bd create my-volume:/path-to-image <size>
+
+* To delete an existing image
+  $ gluster bd delete my-volume:/path-to-image
+
+* To clone (full clone) an image
+  $ gluster bd clone my-volume:/path-to-image new-image
+
+* To take a snapshot of an image
+  $ gluster bd snapshot my-volume:/path-to-image snapshot-image <size>
+
+All gluster BD commands need size to specified in terms of KB, MB, etc.
+
+6. Limitations
+==============
+* No support to create multiple bricks
+* Image creation should be used with truncate to get proper size or use
+  qemu-img create
+* cp command can't be used to copy images, instead use ln command or
+  gluster bd clone command
+* ln -s command throws an error even if snapshot is successful
+* When ln command used on BD volumes, target file's inode is different
+  from target's
+* Creation/deletion of directories, xattr operations, mknod and readlink
+  operations are not supported.
+
+7. TODO
+=======
+Add support for exporting LUNs also as a regular files.
+Add support for xattr and multi brick support
+Include support for device mapper thin targets
