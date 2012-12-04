@@ -1727,6 +1727,9 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (was_present)
+                goto fill_stat;
+
         op_ret = posix_gfid_set (this, real_path, loc, xdata);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1757,6 +1760,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
                         strerror (errno));
         }
 
+fill_stat:
         op_ret = posix_fdstat (this, _fd, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
