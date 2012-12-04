@@ -2211,7 +2211,6 @@ gf_process_reserved_ports (gf_boolean_t *ports)
         char    *ports_info  = NULL;
         char    *tmp         = NULL;
         char    *blocked_port = NULL;
-        gf_boolean_t  result = _gf_false;
 
         ports_info = gf_get_reserved_ports ();
         if (!ports_info) {
@@ -2225,12 +2224,12 @@ gf_process_reserved_ports (gf_boolean_t *ports)
         if (!blocked_port || !strcmp (blocked_port, ports_info)) {
                 if (!blocked_port)
                         blocked_port = ports_info;
-                result = gf_ports_reserved (blocked_port, ports);
+                gf_ports_reserved (blocked_port, ports);
                 blocked_port = strtok_r (NULL, ",", &tmp);
         }
 
         while (blocked_port) {
-                result = gf_ports_reserved (blocked_port, ports);
+                gf_ports_reserved (blocked_port, ports);
                 blocked_port = strtok_r (NULL, ",", &tmp);
         }
 
