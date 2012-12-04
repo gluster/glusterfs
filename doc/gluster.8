@@ -8,7 +8,7 @@
 .\"  cases as published by the Free Software Foundation.
 .\"
 .\"
-.TH Gluster 8 "Gluster command line utility" "07 March 2011" "Gluster Inc."
+.TH Gluster 8 "Gluster command line utility" "22 November 2012" "Gluster Inc."
 .SH NAME
 gluster - Gluster Console Manager (command line utility)
 .SH SYNOPSIS
@@ -36,9 +36,11 @@ The Gluster Console Manager is a command line utility for elastic volume managem
 \fB\ volume info [all|<VOLNAME>] \fR
 Display information about all volumes, or the specified volume.
 .TP
-\fB\ volume create <NEW-VOLNAME> [stripe <COUNT>] [replica <COUNT>] [transport <tcp|rdma|tcp,rdma>] <NEW-BRICK> ... \fR
+\fB\ volume create <NEW-VOLNAME> [device vg] [stripe <COUNT>] [replica <COUNT>] [transport <tcp|rdma|tcp,rdma>] <NEW-BRICK> ... \fR
 Create a new volume of the specified type using the specified bricks and transport type (the default transport type is tcp).
 To create a volume with both transports (tcp and rdma), give 'transport tcp,rdma' as an option.
+device vg parameter specifies volume should use block backend instead of regular posix backend. In this case NEW-BRICK should specify an existing Volume Group and there can be only one brick for Block backend volumes.  \fR
+Refer Block backend section for more details
 .TP
 \fB\ volume delete <VOLNAME> \fR
 Delete the specified volume.
@@ -57,6 +59,9 @@ Set the volume options.
 .TP
 \fB\ volume help \fR
 Display help for the volume command.
+.SS "Block backend"
+.TP
+By specifying "device vg" in volume create, a volume capable of exporting block devices(ie Volume Groups (VG)) is created. As of now exporting only VG is supported. While creating block backend volume the "VG" (mentioned in NEW-BRICK) must exist (ie created with vgcreate). VG is exported as a directory and all LVs under that VG will be exported as files. Please refer BD commands section for Block backend related commands
 .SS "Brick Commands"
 .PP
 .TP
@@ -105,6 +110,20 @@ Display the status of peers.
 .TP
 \fB\ peer help \fR
 Display help for the peer command.
+.SS "BD commands"
+.TP
+\fB\ bd create <VOLNAME:/path-to-image> <size> \fR
+Creates a new image of given size in the volume. Size can be suffixed with MB, GB etc, if nothing specified MB is taken as default.
+.TP
+\fB\ bd delete <VOLNAME:/path-to-image> \fR
+Deletes a image in the volume
+.TP
+\fB\ bd clone <VOLNAME:/path-to-image> <new-image> \fR
+Clones an existing image (full clone)
+.TP
+\fB\ bd snapshot <VOLNAME:/path-to-image> <new-image> <size> \fR
+Creates a linked clone of an existing image with given size. Size can be suffixed with MB, GB etc, if nothing specified MB is taken as default.
+
 .SS "Other Commands"
 .TP
 \fB\ help \fR
