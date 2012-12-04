@@ -68,33 +68,6 @@ struct rpcsvc_program *all_programs[] = {
 };
 int rpcsvc_programs_count = (sizeof (all_programs) / sizeof (all_programs[0]));
 
-const char *gd_op_list[GD_OP_MAX + 1] = {
-        [GD_OP_NONE]                    = "Invalid op",
-        [GD_OP_CREATE_VOLUME]           = "Create",
-        [GD_OP_DELETE_VOLUME]           = "Delete",
-        [GD_OP_START_VOLUME]            = "Start",
-        [GD_OP_STOP_VOLUME]             = "Stop",
-        [GD_OP_DEFRAG_VOLUME]           = "Rebalance",
-        [GD_OP_ADD_BRICK]               = "Add brick",
-        [GD_OP_REMOVE_BRICK]            = "Remove brick",
-        [GD_OP_REPLACE_BRICK]           = "Replace brick",
-        [GD_OP_SET_VOLUME]              = "Set",
-        [GD_OP_RESET_VOLUME]            = "Reset",
-        [GD_OP_SYNC_VOLUME]             = "Sync",
-        [GD_OP_LOG_ROTATE]              = "Log rotate",
-        [GD_OP_GSYNC_SET]               = "Geo-replication",
-        [GD_OP_PROFILE_VOLUME]          = "Profile",
-        [GD_OP_QUOTA]                   = "Quota",
-        [GD_OP_STATUS_VOLUME]           = "Status",
-        [GD_OP_REBALANCE]               = "Rebalance",
-        [GD_OP_HEAL_VOLUME]             = "Heal",
-        [GD_OP_STATEDUMP_VOLUME]        = "Statedump",
-        [GD_OP_LIST_VOLUME]             = "Lists",
-        [GD_OP_CLEARLOCKS_VOLUME]       = "Clear locks",
-        [GD_OP_DEFRAG_BRICK_VOLUME]     = "Rebalance",
-        [GD_OP_MAX]                     = "Invalid op"
-};
-
 static int
 glusterd_opinfo_init ()
 {

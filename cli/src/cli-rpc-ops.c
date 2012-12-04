@@ -1140,7 +1140,6 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
         uint64_t                 failures = 0;
         double                   elapsed = 0;
         char                    *size_str = NULL;
-        char                    *task_id_str = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1190,24 +1189,15 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 }
         }
 
-        if (!((cmd == GF_DEFRAG_CMD_STOP) || (cmd == GF_DEFRAG_CMD_STATUS)) &&
-             !(global_state->mode & GLUSTER_MODE_XML)) {
-                /* All other possibilites are about starting a rebalance */
-                ret = dict_get_str (dict, GF_REBALANCE_TID_KEY, &task_id_str);
-                if (rsp.op_ret && strcmp (rsp.op_errstr, "")) {
+        if (!((cmd == GF_DEFRAG_CMD_STOP) || (cmd == GF_DEFRAG_CMD_STATUS))) {
+                /* All other possibility is about starting a volume */
+                if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
                         snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
-                } else {
-                        if (!rsp.op_ret) {
-                                snprintf (msg, sizeof (msg),
-                                          "Starting rebalance on volume %s has "
-                                          "been successful.\nID: %s", volname,
-                                          task_id_str);
-                        } else {
-                                snprintf (msg, sizeof (msg),
-                                          "Starting rebalance on volume %s has "
-                                          "been unsuccessful.", volname);
-                        }
-                }
+                else
+                        snprintf (msg, sizeof (msg),
+                                  "Starting rebalance on volume %s has been %s",
+                                  volname, (rsp.op_ret) ? "unsuccessful":
+                                  "successful");
                 goto done;
         }
 
@@ -1749,8 +1739,6 @@ gf_cli_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
         char                           *cmd_str = "unknown";
         cli_local_t                    *local = NULL;
         call_frame_t                   *frame = NULL;
-        char                           *task_id_str = NULL;
-        dict_t                         *rsp_dict = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1771,32 +1759,10 @@ gf_cli_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
                  goto out;
         }
 
-        if (rsp.dict.dict_len) {
-                rsp_dict = dict_new ();
-                if (!rsp_dict) {
-                        ret = -1;
-                        goto out;
-                }
-
-                ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len,
-                                        &rsp_dict);
-                if (ret) {
-                        gf_log ("cli", GF_LOG_ERROR,
-                                "Failed to unserialize rsp_dict");
-                        goto out;
-                }
-        }
-
         switch (cmd) {
+
         case GF_OP_CMD_START:
                 cmd_str = "start";
-
-                ret = dict_get_str (rsp_dict, GF_REMOVE_BRICK_TID_KEY, &task_id_str);
-                if (ret) {
-                        gf_log ("cli", GF_LOG_ERROR,
-                                "remove-brick-id is not present in dict");
-                        goto out;
-                }
                 break;
         case GF_OP_CMD_COMMIT:
                 cmd_str = "commit";
@@ -1818,7 +1784,7 @@ gf_cli_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
                           (rsp.op_ret) ? "unsuccessful": "successful");
 
         if (global_state->mode & GLUSTER_MODE_XML) {
-                ret = cli_xml_output_vol_remove_brick (_gf_false, rsp_dict,
+                ret = cli_xml_output_vol_remove_brick (_gf_false, NULL,
                                                        rsp.op_ret, rsp.op_errno,
                                                        rsp.op_errstr);
                 if (ret)
@@ -1827,14 +1793,10 @@ gf_cli_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        if (rsp.op_ret) {
-                cli_err ("volume remove-brick %s: failed: %s", cmd_str,
-                         rsp.op_errstr);
-        } else {
-                cli_out ("volume remove-brick %s: success", cmd_str);
-                if (GF_OP_CMD_START == cmd)
-                        cli_out ("ID: %s", task_id_str);
-        }
+        if (rsp.op_ret)
+                cli_err ("volume remove-brick: failed: %s", rsp.op_errstr);
+        else
+                cli_out ("volume remove-brick: success");
 
         ret = rsp.op_ret;
 
@@ -1863,8 +1825,7 @@ gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
         gf1_cli_replace_op               replace_op       = 0;
         char                            *rb_operation_str = NULL;
         dict_t                          *rsp_dict         = NULL;
-        char                             msg[1024]        = {0,};
-        char                            *task_id_str      = NULL;
+        char                             msg[1024]         = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1889,48 +1850,33 @@ gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        if (rsp.dict.dict_len) {
-                /* Unserialize the dictionary */
-                rsp_dict  = dict_new ();
-
-                ret = dict_unserialize (rsp.dict.dict_val,
-                                rsp.dict.dict_len,
-                                &rsp_dict);
-                if (ret < 0) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
-                                        "failed to "
-                                        "unserialize rsp buffer to dictionary");
-                        goto out;
-                }
-        }
-
         switch (replace_op) {
         case GF_REPLACE_OP_START:
-                if (rsp.op_ret) {
-                        rb_operation_str = gf_strdup ("replace-brick failed to"
-                                                      " start");
-                } else {
-                        ret = dict_get_str (rsp_dict, GF_REPLACE_BRICK_TID_KEY,
-                                            &task_id_str);
-                        if (ret) {
-                                gf_log ("cli", GF_LOG_ERROR, "Failed to get "
-                                        "\"replace-brick-id\" from dict");
-                                goto out;
-                        }
-                        ret = gf_asprintf (&rb_operation_str,
-                                           "replace-brick started successfully"
-                                           "\nID: %s", task_id_str);
-                        if (ret < 0)
-                                goto out;
-                }
+                if (rsp.op_ret)
+                        rb_operation_str = "replace-brick failed to start";
+                else
+                        rb_operation_str = "replace-brick started successfully";
                 break;
 
         case GF_REPLACE_OP_STATUS:
 
-                if (rsp.op_ret || ret) {
-                        rb_operation_str = gf_strdup ("replace-brick status "
-                                                      "unknown");
-                } else {
+                if (rsp.op_ret || ret)
+                        rb_operation_str = "replace-brick status unknown";
+                else {
+                        if (rsp.dict.dict_len) {
+                                /* Unserialize the dictionary */
+                                rsp_dict  = dict_new ();
+
+                                ret = dict_unserialize (rsp.dict.dict_val,
+                                                        rsp.dict.dict_len,
+                                                        &rsp_dict);
+                                if (ret < 0) {
+                                        gf_log ("glusterd", GF_LOG_ERROR,
+                                                "failed to "
+                                                "unserialize req-buffer to dictionary");
+                                        goto out;
+                                }
+                        }
                         ret = dict_get_str (rsp_dict, "status-reply",
                                             &status_reply);
                         if (ret) {
@@ -1939,27 +1885,23 @@ gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                                 goto out;
                         }
 
-                        rb_operation_str = gf_strdup (status_reply);
+                        rb_operation_str = status_reply;
                 }
 
                 break;
 
         case GF_REPLACE_OP_PAUSE:
                 if (rsp.op_ret)
-                        rb_operation_str = gf_strdup ("replace-brick pause "
-                                                      "failed");
+                        rb_operation_str = "replace-brick pause failed";
                 else
-                        rb_operation_str = gf_strdup ("replace-brick paused "
-                                                      "successfully");
+                        rb_operation_str = "replace-brick paused successfully";
                 break;
 
         case GF_REPLACE_OP_ABORT:
                 if (rsp.op_ret)
-                        rb_operation_str = gf_strdup ("replace-brick abort "
-                                                      "failed");
+                        rb_operation_str = "replace-brick abort failed";
                 else
-                        rb_operation_str = gf_strdup ("replace-brick aborted "
-                                                      "successfully");
+                        rb_operation_str = "replace-brick aborted successfully";
                 break;
 
         case GF_REPLACE_OP_COMMIT:
@@ -1980,11 +1922,9 @@ gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
 
 
                 if (rsp.op_ret || ret)
-                        rb_operation_str = gf_strdup ("replace-brick commit "
-                                                      "failed");
+                        rb_operation_str = "replace-brick commit failed";
                 else
-                        rb_operation_str = gf_strdup ("replace-brick commit "
-                                                      "successful");
+                        rb_operation_str = "replace-brick commit successful";
 
                 break;
 
@@ -1995,7 +1935,7 @@ gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         if (rsp.op_ret && (strcmp (rsp.op_errstr, ""))) {
-                rb_operation_str = gf_strdup (rsp.op_errstr);
+                rb_operation_str = rsp.op_errstr;
         }
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to replace brick");
@@ -2019,17 +1959,6 @@ gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
-        if (frame)
-                frame->local = NULL;
-
-        if (local) {
-                dict_unref (local->dict);
-                cli_local_wipe (local);
-        }
-
-        if (rb_operation_str)
-                GF_FREE (rb_operation_str);
-
         cli_cmd_broadcast_response (ret);
         free (rsp.dict.dict_val);
         if (rsp_dict)
@@ -3101,7 +3030,7 @@ gf_cli_remove_brick (call_frame_t *frame, xlator_t *this,
                                        GLUSTER_CLI_REMOVE_BRICK, this,
                                        cli_rpc_prog, NULL);
         } else {
-                /* Need rebalance status to be sent :-) */
+                /* Need rebalance status to e sent :-) */
                 req_dict = dict_new ();
                 if (!req_dict) {
                         ret = -1;
@@ -5343,55 +5272,6 @@ out:
         return;
 }
 
-
-static void
-cli_print_volume_tasks (dict_t *dict) {
-        int             ret = -1;
-        int             tasks = 0;
-        char            *op = 0;
-        char            *task_id_str = NULL;
-        int             status = 0;
-        char            key[1024] = {0,};
-        int             i = 0;
-
-        ret = dict_get_int32 (dict, "tasks", &tasks);
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR,
-                        "Failed to get tasks count");
-                return;
-        }
-
-        if (tasks == 0) {
-                cli_out ("There are no active volume tasks");
-                return;
-        }
-
-        cli_out ("%15s%40s%15s", "Task", "ID", "Status");
-        cli_out ("%15s%40s%15s", "----", "--", "------");
-        for (i = 0; i < tasks; i++) {
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "task%d.type", i);
-                ret = dict_get_str(dict, key, &op);
-                if (ret)
-                        return;
-
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "task%d.id", i);
-                ret = dict_get_str (dict, key, &task_id_str);
-                if (ret)
-                        return;
-
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "task%d.status", i);
-                ret = dict_get_int32 (dict, key, &status);
-                if (ret)
-                        return;
-
-                cli_out ("%15s%40s%15d", op, task_id_str, status);
-        }
-
-}
-
 static int
 gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
                       int count, void *myframe)
@@ -5638,9 +5518,6 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
                 }
         }
         cli_out (" ");
-
-        if ((cmd & GF_CLI_STATUS_MASK) == GF_CLI_STATUS_NONE)
-                cli_print_volume_tasks (dict);
 cont:
         ret = rsp.op_ret;
 

@@ -1381,74 +1381,6 @@ out:
 }
 
 int
-cli_xml_output_vol_status_tasks (cli_local_t *local, dict_t *dict) {
-        int                     ret = -1;
-        char                    *task_type = NULL;
-        char                    *task_id_str = NULL;
-        int                     status = 0;
-        int                     tasks = 0;
-        char                    key[1024] = {0,};
-        int                     i = 0;
-
-        /* <tasks> */
-        ret = xmlTextWriterStartElement (local->writer, (xmlChar *)"tasks");
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-        ret = dict_get_int32 (dict, "tasks", &tasks);
-        if (ret)
-                goto out;
-
-        for (i = 0; i < tasks; i++) {
-                /* <task> */
-                ret = xmlTextWriterStartElement (local->writer,
-                                                 (xmlChar *)"task");
-                XML_RET_CHECK_AND_GOTO (ret, out);
-
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "task%d.type", i);
-                ret = dict_get_str (dict, key, &task_type);
-                if (ret)
-                        goto out;
-                ret = xmlTextWriterWriteFormatElement (local->writer,
-                                                       (xmlChar *)"type",
-                                                       "%s", task_type);
-                XML_RET_CHECK_AND_GOTO (ret, out);
-
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "task%d.id", i);
-                ret = dict_get_str (dict, key, &task_id_str);
-                if (ret)
-                        goto out;
-                ret = xmlTextWriterWriteFormatElement (local->writer,
-                                                       (xmlChar *)"id",
-                                                       "%s", task_id_str);
-                XML_RET_CHECK_AND_GOTO (ret, out);
-
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "task%d.status", i);
-                ret = dict_get_int32 (dict, key, &status);
-                if (ret)
-                        goto out;
-                ret = xmlTextWriterWriteFormatElement (local->writer,
-                                                       (xmlChar *)"status",
-                                                       "%d", status);
-                XML_RET_CHECK_AND_GOTO (ret, out);
-
-                /* </task> */
-                ret = xmlTextWriterEndElement (local->writer);
-                XML_RET_CHECK_AND_GOTO (ret, out);
-        }
-
-        /* </tasks> */
-        ret = xmlTextWriterEndElement (local->writer);
-
-
-out:
-        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
-}
-
-int
 cli_xml_output_vol_status (cli_local_t *local, dict_t *dict)
 {
 #if (HAVE_LIB_XML)
@@ -1573,12 +1505,6 @@ cli_xml_output_vol_status (cli_local_t *local, dict_t *dict)
                 /* </node> */
                 ret = xmlTextWriterEndElement (local->writer);
                 XML_RET_CHECK_AND_GOTO (ret, out);
-        }
-
-        if ((cmd & GF_CLI_STATUS_MASK) == GF_CLI_STATUS_NONE) {
-                ret = cli_xml_output_vol_status_tasks (local, dict);
-                if (ret)
-                        goto out;
         }
 
         /* </volume> */
@@ -2987,7 +2913,6 @@ cli_xml_output_vol_rebalance (gf_cli_defrag_type op, dict_t *dict, int op_ret,
         int                     ret = -1;
         xmlTextWriterPtr        writer = NULL;
         xmlBufferPtr            buf = NULL;
-        char                    *task_id_str = NULL;
 
         ret = cli_begin_xml_output (&writer, &buf);
         if (ret)
@@ -3000,14 +2925,6 @@ cli_xml_output_vol_rebalance (gf_cli_defrag_type op, dict_t *dict, int op_ret,
         /* <volRebalance> */
         ret = xmlTextWriterStartElement (writer, (xmlChar *)"volRebalance");
         XML_RET_CHECK_AND_GOTO (ret, out);
-
-        ret = dict_get_str (dict, GF_REBALANCE_TID_KEY, &task_id_str);
-        if (ret == 0) {
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"task-id",
-                                                       "%s", task_id_str);
-                XML_RET_CHECK_AND_GOTO (ret, out);
-        }
 
         ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"op",
                                                "%d", op);
@@ -3042,7 +2959,6 @@ cli_xml_output_vol_remove_brick (gf_boolean_t status_op, dict_t *dict,
         int                     ret = -1;
         xmlTextWriterPtr        writer = NULL;
         xmlBufferPtr            buf = NULL;
-        char                    *task_id_str = NULL;
 
         ret = cli_begin_xml_output (&writer, &buf);
         if (ret)
@@ -3055,14 +2971,6 @@ cli_xml_output_vol_remove_brick (gf_boolean_t status_op, dict_t *dict,
         /* <volRemoveBrick> */
         ret = xmlTextWriterStartElement (writer, (xmlChar *)"volRemoveBrick");
         XML_RET_CHECK_AND_GOTO (ret, out);
-
-        ret = dict_get_str (dict, GF_REMOVE_BRICK_TID_KEY, &task_id_str);
-        if (ret == 0) {
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"task-id",
-                                                       "%s", task_id_str);
-                XML_RET_CHECK_AND_GOTO (ret, out);
-        }
 
         if (status_op) {
                 ret = cli_xml_output_vol_rebalance_status (writer, dict);
@@ -3094,7 +3002,6 @@ cli_xml_output_vol_replace_brick (gf1_cli_replace_op op, dict_t *dict,
         int                     status = 0;
         uint64_t                files = 0;
         char                    *current_file = 0;
-        char                    *task_id_str = NULL;
         xmlTextWriterPtr        writer = NULL;
         xmlBufferPtr            buf = NULL;
 
@@ -3109,14 +3016,6 @@ cli_xml_output_vol_replace_brick (gf1_cli_replace_op op, dict_t *dict,
         /* <volReplaceBrick> */
         ret = xmlTextWriterStartElement (writer, (xmlChar *)"volReplaceBrick");
         XML_RET_CHECK_AND_GOTO (ret, out);
-
-        ret = dict_get_str (dict, GF_REPLACE_BRICK_TID_KEY, &task_id_str);
-        if (ret == 0) {
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"task-id",
-                                                       "%s", task_id_str);
-                XML_RET_CHECK_AND_GOTO (ret, out);
-        }
 
         ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"op",
                                                "%d", op);

@@ -142,10 +142,6 @@
 
 #define GF_UUID_BUF_SIZE 50
 
-#define GF_REBALANCE_TID_KEY     "rebalance-id"
-#define GF_REMOVE_BRICK_TID_KEY  "remove-brick-id"
-#define GF_REPLACE_BRICK_TID_KEY "replace-brick-id"
-
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {
         GF_FOP_NULL = 0,

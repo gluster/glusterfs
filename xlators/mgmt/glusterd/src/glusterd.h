@@ -83,7 +83,6 @@ typedef enum glusterd_op_ {
         GD_OP_MAX,
 } glusterd_op_t;
 
-extern const char * gd_op_list[];
 struct glusterd_store_iter_ {
         int     fd;
         FILE    *file;
@@ -237,29 +236,6 @@ typedef enum glusterd_vol_backend_ {
         GD_VOL_BK_BD = 1,
 } glusterd_vol_backend_t;
 
-struct glusterd_rebalance_ {
-        gf_defrag_status_t      defrag_status;
-        uint64_t                rebalance_files;
-        uint64_t                rebalance_data;
-        uint64_t                lookedup_files;
-        glusterd_defrag_info_t  *defrag;
-        gf_cli_defrag_type      defrag_cmd;
-        uint64_t                rebalance_failures;
-        uuid_t                  rebalance_id;
-        double                  rebalance_time;
-        glusterd_op_t           op;
-};
-
-typedef struct glusterd_rebalance_ glusterd_rebalance_t;
-
-struct glusterd_replace_brick_ {
-        gf_rb_status_t          rb_status;
-        glusterd_brickinfo_t    *src_brick;
-        glusterd_brickinfo_t    *dst_brick;
-        uuid_t                  rb_id;
-};
-
-typedef struct glusterd_replace_brick_ glusterd_replace_brick_t;
 
 struct glusterd_volinfo_ {
         char                    volname[GLUSTERD_MAX_VOLUME_NAME];
@@ -279,10 +255,19 @@ struct glusterd_volinfo_ {
         glusterd_store_handle_t *node_state_shandle;
 
         /* Defrag/rebalance related */
-        glusterd_rebalance_t    rebal;
+        gf_defrag_status_t      defrag_status;
+        uint64_t                rebalance_files;
+        uint64_t                rebalance_data;
+        uint64_t                lookedup_files;
+        glusterd_defrag_info_t  *defrag;
+        gf_cli_defrag_type      defrag_cmd;
+        uint64_t                rebalance_failures;
+        double                  rebalance_time;
 
         /* Replace brick status */
-        glusterd_replace_brick_t rep_brick;
+        gf_rb_status_t          rb_status;
+        glusterd_brickinfo_t    *src_brick;
+        glusterd_brickinfo_t    *dst_brick;
 
         int                     version;
         uint32_t                cksum;
@@ -659,8 +644,7 @@ int glusterd_handle_cli_clearlocks_volume (rpcsvc_request_t *req);
 int glusterd_handle_cli_label_volume (rpcsvc_request_t *req);
 
 int glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
-                                  size_t len, int cmd, defrag_cbk_fn_t cbk,
-                                  glusterd_op_t op);
+                                  size_t len, int cmd, defrag_cbk_fn_t cbk);
 int
 glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
                                glusterd_conf_t *priv, int cmd);
