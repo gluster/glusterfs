@@ -13,7 +13,7 @@ mkdir -p $B0;
 mkdir -p $M0 $M1;
 mkdir -p $N0 $N1;
 
-testcnt=`egrep '^[ \t]*(EXPECT|TEST)' $0 | wc -l`;
+testcnt=`egrep '^[ \t]*(EXPECT|TEST|EXPECT_WITHIN)' $0 | wc -l`;
 echo 1..$testcnt
 
 t=1
@@ -74,6 +74,40 @@ function _TEST()
 	test_footer;
 }
 
+function _EXPECT_WITHIN()
+{
+        TESTLINE=$1
+        shift;
+
+        local timeout=$1
+        shift;
+
+        test_header "$@"
+
+        e=$1;
+        shift;
+
+        local endtime=$(( ${timeout}+`date +%s` ))
+
+        local success=0
+        while [ `date +%s` -lt $endtime ]; do
+                "$@" | tail -1 | egrep -q "^${e}\$"
+                if [ $? -eq 0 ]; then
+                        success=1;
+                        break;
+                fi
+                sleep 1;
+        done
+
+        if [ $success -eq 1 ]; then
+                true;
+        else
+                false;
+        fi
+
+        test_footer;
+}
+
 
 function cleanup()
 {
@@ -90,4 +124,5 @@ function cleanup()
 
 alias EXPECT='_EXPECT $LINENO'
 alias TEST='_TEST $LINENO'
+alias EXPECT_WITHIN='_EXPECT_WITHIN $LINENO'
 shopt -s expand_aliases
