@@ -20,3 +20,43 @@ function volume_option()
         local key=$2
         $CLI volume info $vol | egrep "^$key: " | cut -f2 -d' ';
 }
+
+function rebalance_status_completed_field {
+        $CLI volume rebalance $V0 status | awk '{print $6}' | sed -n 3p
+}
+
+function remove_brick_status_completed_field {
+        $CLI volume remove-brick $V0 $H0:$B0/r2d2_{4,5} status | awk '{print $6}' | sed -n 3p
+}
+
+function get_mount_process_pid {
+        local vol=$1
+        ps aux | grep glusterfs | grep -E "volfile-id[ =]/?$vol " | awk '{print $2}' | head -1
+}
+
+function generate_mount_statedump {
+        local vol=$1
+        local fpath=""
+        mount_pid=$(get_mount_process_pid $vol)
+        #remove old stale statedumps
+        rm -f /tmp/glusterdump.$mount_pid.dump.* 2>/dev/null
+        kill -USR1 $mount_pid
+        #Wait till the statedump is generated
+        sleep 1
+        fname=$(ls /tmp | grep -E "glusterdump.$mount_pid.dump.*")
+        echo /tmp/$fname
+}
+
+function afr_child_up_status {
+        local vol=$1
+        #brick_id is (brick-num in volume info - 1)
+        local brick_id=$2
+        local fpath=$(generate_mount_statedump $vol)
+        up=$(grep -B1 trusted.afr.$vol-client-$brick_id $fpath | head -1 | cut -f2 -d'=')
+        rm -f $fpath
+        echo "$up"
+}
+
+function glustershd_up_status {
+        gluster volume status | grep "Self-heal Daemon" | awk '{print $6}'
+}
