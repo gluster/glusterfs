@@ -1736,8 +1736,6 @@ cli_xml_output_vol_top (dict_t *dict, int op_ret, int op_errno,
                 case GF_CLI_TOP_WRITE:
                 case GF_CLI_TOP_OPENDIR:
                 case GF_CLI_TOP_READDIR:
-                        if (!members)
-                                continue;
 
                         break;
 
@@ -1762,9 +1760,6 @@ cli_xml_output_vol_top (dict_t *dict, int op_ret, int op_errno,
                                         (writer, (xmlChar *)"timeTaken",
                                          "%f", time_taken);
                         }
-
-                        if (!members)
-                                continue;
 
                         break;
 
