@@ -40,6 +40,9 @@
 
 void do_blocked_rw (pl_inode_t *);
 static int __rw_allowable (pl_inode_t *, posix_lock_t *, glusterfs_fop_t);
+static int format_brickname(char *);
+int pl_lockinfo_get_brickname (xlator_t *, inode_t *, int32_t *);
+static int fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
 
 static pl_fdctx_t *
 pl_new_fdctx ()
@@ -388,7 +391,7 @@ int32_t
 pl_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
              const char *name, dict_t *xdata)
 {
-        int                     op_errno        = EINVAL;
+        int32_t                 op_errno        = EINVAL;
         int                     op_ret          = -1;
         int32_t                 bcount          = 0;
         int32_t                 gcount          = 0;
@@ -396,7 +399,8 @@ pl_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         char                    *lk_summary     = NULL;
         pl_inode_t              *pl_inode       = NULL;
         dict_t                  *dict           = NULL;
-        clrlk_args              args           = {0,};
+        clrlk_args              args            = {0,};
+        char                    *brickname      = NULL;
 
         if (!name)
                 goto usual;
@@ -443,29 +447,48 @@ pl_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         goto out;
         }
 
+        op_ret = fetch_pathinfo (this, loc->inode, &op_errno, &brickname);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Couldn't get brickname");
+        } else {
+                op_ret = format_brickname(brickname);
+                if (op_ret) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Couldn't format brickname");
+                        GF_FREE(brickname);
+                        brickname = NULL;
+                }
+        }
+
         if (!gcount && !bcount) {
                 if (gf_asprintf (&lk_summary, "No locks cleared.") == -1) {
+                        op_ret = -1;
                         op_errno = ENOMEM;
                         goto out;
                 }
         } else if (gf_asprintf (&lk_summary, "%s: %s blocked locks=%d "
-                                "granted locks=%d", this->name,
+                                "granted locks=%d",
+                                (brickname == NULL)? this->name : brickname,
                                 (args.type == CLRLK_INODE)? "inode":
                                 (args.type == CLRLK_ENTRY)? "entry":
                                 (args.type == CLRLK_POSIX)? "posix": " ",
                                 bcount, gcount) == -1) {
+                op_ret = -1;
                 op_errno = ENOMEM;
                 goto out;
         }
 
         strncpy (key, name, strlen (name));
         if (dict_set_dynstr (dict, key, lk_summary)) {
+                op_ret = -1;
                 op_errno = ENOMEM;
                 goto out;
         }
 
         op_ret = 0;
 out:
+        GF_FREE(brickname);
         STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict, xdata);
 
         GF_FREE (args.opts);
@@ -481,16 +504,47 @@ usual:
         return 0;
 }
 
-int
-pl_lockinfo_get_brickname (xlator_t *this, inode_t *inode, int32_t *op_errno)
+static int
+format_brickname(char *brickname)
+{
+       int   ret             = -1;
+       char *hostname        = NULL;
+       char *volume          = NULL;
+       char *saveptr         = NULL;
+
+       if (!brickname)
+               goto out;
+
+       strtok_r(brickname, ":", &saveptr);
+       hostname = gf_strdup(strtok_r(NULL, ":", &saveptr));
+       if (hostname == NULL)
+               goto out;
+       volume = gf_strdup(strtok_r(NULL, ".", &saveptr));
+       if (volume == NULL)
+               goto out;
+
+       sprintf(brickname, "%s:%s", hostname, volume);
+
+       ret = 0;
+out:
+       GF_FREE(hostname);
+       GF_FREE(volume);
+       return ret;
+}
+
+static int
+fetch_pathinfo (xlator_t *this, inode_t *inode, int32_t *op_errno,
+                char **brickname)
 {
         int                    ret       = -1;
         loc_t                  loc       = {0, };
         dict_t                *dict      = NULL;
-        posix_locks_private_t *priv      = NULL;
-        char                  *brickname = NULL, *end = NULL;
 
-        priv = this->private;
+        if (!brickname)
+                goto out;
+
+        if (!op_errno)
+                goto out;
 
         uuid_copy (loc.gfid, inode->gfid);
         loc.inode = inode_ref (inode);
@@ -502,30 +556,60 @@ pl_lockinfo_get_brickname (xlator_t *this, inode_t *inode, int32_t *op_errno)
                 goto out;
         }
 
-        ret = dict_get_str (dict, GF_XATTR_PATHINFO_KEY, &brickname);
-        if (brickname == NULL) {
+        ret = dict_get_str (dict, GF_XATTR_PATHINFO_KEY, brickname);
+        if (ret)
+                goto out;
+
+        *brickname = gf_strdup(*brickname);
+        if (*brickname == NULL) {
+                ret = -1;
                 goto out;
         }
+
+        ret = 0;
+out:
+        if (dict != NULL) {
+                dict_unref (dict);
+        }
+        loc_wipe(&loc);
+
+        return ret;
+}
+
+
+int
+pl_lockinfo_get_brickname (xlator_t *this, inode_t *inode, int32_t *op_errno)
+{
+        int                    ret       = -1;
+        posix_locks_private_t *priv      = NULL;
+        char                  *brickname = NULL;
+        char                  *end       = NULL;
+        char                  *tmp       = NULL;
+
+        priv = this->private;
+
+        ret = fetch_pathinfo (this, inode, op_errno, &brickname);
+        if (ret)
+                goto out;
 
         end = strrchr (brickname, ':');
         if (!end) {
+                GF_FREE(brickname);
+                ret = -1;
                 goto out;
         }
 
+        tmp = brickname;
         brickname = gf_strndup (brickname, (end - brickname));
         if (brickname == NULL) {
+                ret = -1;
                 goto out;
         }
 
         priv->brickname = brickname;
         ret = 0;
 out:
-        if (dict != NULL) {
-                dict_unref (dict);
-        }
-
-        inode_unref (loc.inode);
-
+        GF_FREE(tmp);
         return ret;
 }
 
@@ -2473,6 +2557,7 @@ fini (xlator_t *this)
         if (!priv)
                 return 0;
         this->private = NULL;
+        GF_FREE (priv->brickname);
         GF_FREE (priv);
 
         return 0;
