@@ -1241,52 +1241,6 @@ out:
         return ret;
 }
 
-int
-glusterd_op_stage_label_volume (dict_t *dict, char **op_errstr)
-{
-        int                                     ret = -1;
-        char                                    *volname = NULL;
-        glusterd_volinfo_t                      *volinfo = NULL;
-        gf_boolean_t                            exists = _gf_false;
-        char                                    msg[2048] = {0};
-        char                                    *brick = NULL;
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
-                goto out;
-        }
-
-        exists = glusterd_check_volume_exists (volname);
-        ret = glusterd_volinfo_find (volname, &volinfo);
-        if (!exists) {
-                snprintf (msg, sizeof (msg), "Volume %s does not exist",
-                          volname);
-                gf_log ("", GF_LOG_ERROR, "%s", msg);
-                *op_errstr = gf_strdup (msg);
-                ret = -1;
-                goto out;
-        }
-
-        ret = dict_get_str (dict, "brick", &brick);
-        if (ret) {
-                goto out;
-        }
-
-        ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo, NULL);
-        if (ret) {
-                snprintf (msg, sizeof (msg), "Incorrect brick %s "
-                          "for volume %s", brick, volname);
-                gf_log ("", GF_LOG_ERROR, "%s", msg);
-                *op_errstr = gf_strdup (msg);
-                goto out;
-        }
-out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
-
-        return ret;
-}
-
 #ifdef HAVE_BD_XLATOR
 int
 glusterd_op_stage_bd (dict_t *dict, char **op_errstr)
@@ -2096,76 +2050,6 @@ out:
         GF_FREE (cmd_str);
 
         GF_FREE (mntpt);
-
-        return ret;
-}
-
-int
-glusterd_op_label_volume (dict_t *dict, char **op_errstr)
-{
-        int                   ret                = -1;
-        glusterd_conf_t      *priv               = NULL;
-        glusterd_volinfo_t   *volinfo            = NULL;
-        glusterd_brickinfo_t *brickinfo          = NULL;
-        xlator_t             *this               = NULL;
-        char                 *volname            = NULL;
-        char                 *brick              = NULL;
-        glusterd_brickinfo_t *tmpbrkinfo         = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-        priv = this->private;
-        GF_ASSERT (priv);
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "volname not found");
-                goto out;
-        }
-
-        ret = dict_get_str (dict, "brick", &brick);
-        /* If no brick is specified, do log-rotate for
-           all the bricks in the volume */
-        if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "no brick specified");
-                goto out;
-        }
-
-        ret = glusterd_brickinfo_new_from_brick (brick, &tmpbrkinfo);
-        if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR,
-                        "cannot get brickinfo from brick");
-                goto out;
-        }
-
-        ret = glusterd_volinfo_find (volname, &volinfo);
-        if (ret)
-                goto out;
-
-        ret = -1;
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (uuid_compare (brickinfo->uuid, MY_UUID))
-                        continue;
-
-                if ((strcmp (tmpbrkinfo->hostname, brickinfo->hostname) ||
-                     strcmp (tmpbrkinfo->path,brickinfo->path)))
-                        continue;
-
-                ret = sys_lsetxattr (brickinfo->path, GF_XATTR_VOL_ID_KEY,
-                                     volinfo->volume_id,
-                                     sizeof(volinfo->volume_id), XATTR_CREATE);
-                if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
-                                "failed to set %s on %s: %s",
-                                GF_XATTR_VOL_ID_KEY, brickinfo->path,
-                                strerror(errno));
-                }
-                break;
-        }
-
-out:
-        if (tmpbrkinfo)
-                glusterd_brickinfo_delete (tmpbrkinfo);
 
         return ret;
 }

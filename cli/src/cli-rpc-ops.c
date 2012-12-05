@@ -6253,66 +6253,6 @@ out:
         return ret;
 }
 
-int32_t
-gf_cli_label_volume_cbk (struct rpc_req *req, struct iovec *iov, int count,
-                         void *myframe)
-{
-        gf_cli_rsp                      rsp = {0,};
-        int                             ret = -1;
-        dict_t                          *dict = NULL;
-
-        if (-1 == req->rpc_status)
-                goto out;
-        ret = xdr_to_generic (*iov, &rsp,
-                              (xdrproc_t)xdr_gf_cli_rsp);
-        if (ret < 0) {
-
-                gf_log ("cli", GF_LOG_ERROR, "XDR decoding failed");
-                goto out;
-        }
-        gf_log ("cli", GF_LOG_DEBUG, "Received response to label");
-
-        if (rsp.op_ret) {
-                cli_err ("Volume label unsuccessful");
-                cli_err ("%s", rsp.op_errstr);
-
-        } else {
-                cli_out ("Volume label successful");
-
-        }
-
-        ret = rsp.op_ret;
-
-out:
-        if (dict)
-                dict_unref (dict);
-        cli_cmd_broadcast_response (ret);
-        return ret;
-}
-
-int32_t
-gf_cli_label_volume (call_frame_t *frame, xlator_t *this, void *data)
-{
-        gf_cli_req                      req = {{0,}};
-        dict_t                          *options = NULL;
-        int                             ret = -1;
-
-        if (!frame || !this || !data)
-                goto out;
-
-        options = data;
-
-        ret = cli_to_glusterd (&req, frame, gf_cli_label_volume_cbk,
-                               (xdrproc_t) xdr_gf_cli_req, options,
-                               GLUSTER_CLI_LABEL_VOLUME, this, cli_rpc_prog,
-                               NULL);
-out:
-        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
-
-        GF_FREE (req.dict.dict_val);
-        return ret;
-}
-
 int
 cli_to_glusterd (gf_cli_req *req, call_frame_t *frame,
                  fop_cbk_fn_t cbkfn, xdrproc_t xdrproc, dict_t *dict,
@@ -6424,7 +6364,6 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
 #ifdef HAVE_BD_XLATOR
         [GLUSTER_CLI_BD_OP]            = {"BD_OP", gf_cli_bd_op},
 #endif
-        [GLUSTER_CLI_LABEL_VOLUME]     = {"LABEL_VOLUME", gf_cli_label_volume},
 };
 
 struct rpc_clnt_program cli_prog = {

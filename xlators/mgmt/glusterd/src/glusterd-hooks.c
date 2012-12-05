@@ -59,7 +59,6 @@ char glusterd_hook_dirnames[GD_OP_MAX][256] =
         [GD_OP_LIST_VOLUME]             = EMPTY,
         [GD_OP_CLEARLOCKS_VOLUME]       = EMPTY,
         [GD_OP_DEFRAG_BRICK_VOLUME]     = EMPTY,
-        [GD_OP_LABEL_VOLUME]            = EMPTY,
 };
 #undef EMPTY
 
