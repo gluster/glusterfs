@@ -173,6 +173,22 @@ synctask_done (struct synctask *task)
 
 
 int
+synctask_setid (struct synctask *task, uid_t uid, gid_t gid)
+{
+	if (!task)
+		return -1;
+
+	if (uid != -1)
+		task->uid = uid;
+
+	if (gid != -1)
+		task->gid = gid;
+
+	return 0;
+}
+
+
+int
 synctask_new (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
               call_frame_t *frame, void *opaque)
 {
@@ -200,6 +216,10 @@ synctask_new (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
         newtask->syncfn     = fn;
 	newtask->synccbk    = cbk;
         newtask->opaque     = opaque;
+
+	/* default to the uid/gid of the passed frame */
+	newtask->uid = newtask->opframe->root->uid;
+	newtask->gid = newtask->opframe->root->gid;
 
         INIT_LIST_HEAD (&newtask->all_tasks);
 
