@@ -59,6 +59,9 @@ struct synctask {
         int                 slept;
 	int                 ret;
 
+	uid_t               uid;
+	gid_t               gid;
+
         ucontext_t          ctx;
 	struct syncproc    *proc;
 
@@ -170,6 +173,11 @@ struct syncargs {
 		else							\
 			frame = create_frame (THIS, THIS->ctx->pool);	\
 									\
+		if (task) {						\
+			frame->root->uid = task->uid;			\
+			frame->root->gid = task->gid;			\
+		}							\
+									\
 		__yawn (stb);						\
                                                                         \
                 STACK_WIND_COOKIE (frame, cbk, (void *)stb, subvol,	\
@@ -194,6 +202,9 @@ void syncenv_scale (struct syncenv *env);
 int synctask_new (struct syncenv *, synctask_fn_t, synctask_cbk_t, call_frame_t* frame, void *);
 void synctask_wake (struct synctask *task);
 void synctask_yield (struct synctask *task);
+
+int synctask_setid (struct synctask *task, uid_t uid, gid_t gid);
+#define SYNCTASK_SETID(uid, gid) synctask_setid (synctask_get(), uid, gid);
 
 int syncop_lookup (xlator_t *subvol, loc_t *loc, dict_t *xattr_req,
                    /* out */
