@@ -2437,8 +2437,6 @@ init (xlator_t *this)
 	priv->metadata_self_heal = 1;
 	priv->entry_self_heal    = 1;
 
-        priv->data_self_heal_algorithm = "";
-
         priv->data_self_heal_window_size = 16;
 
 	priv->data_change_log     = 1;

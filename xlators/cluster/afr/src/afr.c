@@ -596,7 +596,6 @@ struct volume_options options[] = {
         },
         { .key  = {"data-self-heal-algorithm"},
           .type = GF_OPTION_TYPE_STR,
-          .default_value = "",
           .description   = "Select between \"full\", \"diff\". The "
                            "\"full\" algorithm copies the entire file from "
                            "source to sink. The \"diff\" algorithm copies to "
@@ -608,7 +607,7 @@ struct volume_options options[] = {
                            "about the same as page size the entire file will "
                            "be read and written i.e \"full\" algo, "
                            "otherwise \"diff\" algo is chosen.",
-          .value = { "diff", "full", "" }
+          .value = { "diff", "full"}
         },
         { .key  = {"data-self-heal-window-size"},
           .type = GF_OPTION_TYPE_INT,
@@ -714,7 +713,7 @@ struct volume_options options[] = {
         },
         { .key = {"quorum-type"},
           .type = GF_OPTION_TYPE_STR,
-          .value = { "none", "auto", "fixed", "" },
+          .value = { "none", "auto", "fixed"},
           .default_value = "none",
           .description = "If value is \"fixed\" only allow writes if "
                          "quorum-count bricks are present.  If value is "
