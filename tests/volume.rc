@@ -74,3 +74,9 @@ function check_option_help_presence {
         option=$1
         $CLI volume set help | grep "^Option:" | grep -w $option
 }
+
+function afr_get_changelog_xattr {
+        file=$1
+        xkey=$2
+        getfattr -n $xkey -e hex $file 2>/dev/null | grep "client-" | cut -f2 -d'='
+}
