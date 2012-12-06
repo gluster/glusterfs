@@ -298,7 +298,12 @@ cli_opt_parse (char *opt, struct cli_state *state)
                 return 1;
 
         if (strcmp (opt, "version") == 0) {
-                puts (argp_program_version);
+                cli_out (argp_program_version);
+                exit (0);
+        }
+
+        if (strcmp (opt, "print-logdir") == 0) {
+                cli_out (DEFAULT_LOG_FILE_DIRECTORY);
                 exit (0);
         }
 
