@@ -276,6 +276,9 @@ rpcsvc_request_destroy (rpcsvc_request_t *req)
                 iobref_unref (req->iobref);
         }
 
+        if (req->hdr_iobuf)
+                iobuf_unref (req->hdr_iobuf);
+
         rpc_transport_unref (req->trans);
 
         mem_put (req);
@@ -434,18 +437,21 @@ err:
 
 
 int
-rpcsvc_synctask_cbk (int ret, call_frame_t *frame, void *opaque)
+rpcsvc_check_and_reply_error (int ret, call_frame_t *frame, void *opaque)
 {
 	rpcsvc_request_t  *req = NULL;
 
 	req = opaque;
 
-        if (ret == RPCSVC_ACTOR_ERROR)
-                rpcsvc_error_reply (req);
+        if (ret == RPCSVC_ACTOR_ERROR) {
+                ret = rpcsvc_error_reply (req);
+                if (ret)
+                        gf_log ("rpcsvc", GF_LOG_WARNING,
+                                "failed to queue error reply");
+        }
 
 	return 0;
 }
-
 
 int
 rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
@@ -527,22 +533,23 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
 			goto err_reply;
 		}
 
-		if (req->synctask)
+		if (req->synctask) {
+                        if (msg->hdr_iobuf)
+                                req->hdr_iobuf = iobuf_ref (msg->hdr_iobuf);
+
 			ret = synctask_new (THIS->ctx->env,
 					    (synctask_fn_t) actor_fn,
-					    rpcsvc_synctask_cbk, NULL, req);
-		else
+					    rpcsvc_check_and_reply_error, NULL,
+                                            req);
+                } else {
 			ret = actor_fn (req);
+                        req->hdr_iobuf = NULL;
+                }
         }
 
 err_reply:
-        if (ret == RPCSVC_ACTOR_ERROR) {
-                ret = rpcsvc_error_reply (req);
-        }
 
-        if (ret)
-                gf_log ("rpcsvc", GF_LOG_WARNING, "failed to queue error reply");
-
+        ret = rpcsvc_check_and_reply_error (ret, NULL, req);
         /* No need to propagate error beyond this function since the reply
          * has now been queued. */
         ret = 0;

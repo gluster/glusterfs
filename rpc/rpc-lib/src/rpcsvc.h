@@ -234,6 +234,9 @@ struct rpcsvc_request {
 
         /* Container for transport to store request-specific item */
         void                    *trans_private;
+
+        /* we need to ref the 'iobuf' in case of 'synctasking' it */
+        struct iobuf            *hdr_iobuf;
 };
 
 #define rpcsvc_request_program(req) ((rpcsvc_program_t *)((req)->prog))
