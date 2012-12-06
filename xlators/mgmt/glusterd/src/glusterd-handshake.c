@@ -126,8 +126,9 @@ server_getspec (rpcsvc_request_t *req)
         char                  addrstr[RPCSVC_PEER_STRLEN] = {0};
 
 
-        if (!xdr_to_generic (req->msg[0], &args,
-                             (xdrproc_t)xdr_gf_getspec_req)) {
+        ret = xdr_to_generic (req->msg[0], &args,
+                              (xdrproc_t)xdr_gf_getspec_req);
+        if (ret < 0) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto fail;
@@ -219,8 +220,9 @@ server_event_notify (rpcsvc_request_t *req)
         dict_t                 *dict            = NULL;
         gf_boolean_t            need_rsp        = _gf_true;
 
-        if (!xdr_to_generic (req->msg[0], &args,
-            (xdrproc_t)xdr_gf_event_notify_req)) {
+        ret = xdr_to_generic (req->msg[0], &args,
+                              (xdrproc_t)xdr_gf_event_notify_req);
+        if (ret < 0) {
                 req->rpc_err = GARBAGE_ARGS;
                 goto fail;
         }
@@ -315,8 +317,9 @@ glusterd_mgmt_hndsk_versions (rpcsvc_request_t *req)
         this = THIS;
         conf = this->private;
 
-        if (!xdr_to_generic (req->msg[0], &args,
-                             (xdrproc_t)xdr_gf_mgmt_hndsk_req)) {
+        ret = xdr_to_generic (req->msg[0], &args,
+                              (xdrproc_t)xdr_gf_mgmt_hndsk_req);
+        if (ret < 0) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -391,8 +394,9 @@ glusterd_mgmt_hndsk_versions_ack (rpcsvc_request_t *req)
         this = THIS;
         conf = this->private;
 
-        if (!xdr_to_generic (req->msg[0], &args,
-                             (xdrproc_t)xdr_gf_mgmt_hndsk_req)) {
+        ret = xdr_to_generic (req->msg[0], &args,
+                              (xdrproc_t)xdr_gf_mgmt_hndsk_req);
+        if (ret < 0) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;

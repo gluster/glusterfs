@@ -340,8 +340,9 @@ glusterfs_handle_translator_info_get (rpcsvc_request_t *req)
         this = THIS;
         GF_ASSERT (this);
 
-        if (!xdr_to_generic (req->msg[0], &xlator_req,
-                             (xdrproc_t)xdr_gd1_mgmt_brick_op_req)) {
+        ret = xdr_to_generic (req->msg[0], &xlator_req,
+                              (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+        if (ret < 0) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -621,7 +622,7 @@ out:
 }
 
 int
-glusterfs_handle_translator_op (void *data)
+glusterfs_handle_translator_op (rpcsvc_request_t *req)
 {
         int32_t                  ret     = -1;
         gd1_mgmt_brick_op_req    xlator_req = {0,};
@@ -636,14 +637,14 @@ glusterfs_handle_translator_op (void *data)
         xlator_t                 *this = NULL;
         int                      i = 0;
         int                      count = 0;
-        rpcsvc_request_t         *req = data;
 
         GF_ASSERT (req);
         this = THIS;
         GF_ASSERT (this);
 
-        if (!xdr_to_generic (req->msg[0], &xlator_req,
-                             (xdrproc_t)xdr_gd1_mgmt_brick_op_req)) {
+        ret = xdr_to_generic (req->msg[0], &xlator_req,
+                              (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+        if (ret < 0) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -736,8 +737,9 @@ glusterfs_handle_defrag (rpcsvc_request_t *req)
         }
 
         any = active->first;
-        if (!xdr_to_generic (req->msg[0], &xlator_req,
-                             (xdrproc_t)xdr_gd1_mgmt_brick_op_req)) {
+        ret = xdr_to_generic (req->msg[0], &xlator_req,
+                              (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+        if (ret < 0) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -805,8 +807,9 @@ glusterfs_handle_brick_status (rpcsvc_request_t *req)
         this = THIS;
         GF_ASSERT (this);
 
-        if (!xdr_to_generic (req->msg[0], &brick_req,
-            (xdrproc_t)xdr_gd1_mgmt_brick_op_req)) {
+        ret = xdr_to_generic (req->msg[0], &brick_req,
+                              (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+        if (ret < 0) {
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
@@ -914,12 +917,6 @@ out:
         return ret;
 }
 
-static int
-glusterfs_command_done  (int ret, call_frame_t *sync_frame, void *data)
-{
-        STACK_DESTROY (sync_frame->root);
-        return 0;
-}
 
 int
 glusterfs_handle_node_status (rpcsvc_request_t *req)
@@ -942,8 +939,9 @@ glusterfs_handle_node_status (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!xdr_to_generic (req->msg[0], &node_req,
-            (xdrproc_t)xdr_gd1_mgmt_brick_op_req)) {
+        ret = xdr_to_generic (req->msg[0], &node_req,
+                              (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+        if (ret < 0) {
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
@@ -1112,8 +1110,9 @@ glusterfs_handle_nfs_profile (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!xdr_to_generic (req->msg[0], &nfs_req,
-                             (xdrproc_t)xdr_gd1_mgmt_brick_op_req)) {
+        ret = xdr_to_generic (req->msg[0], &nfs_req,
+                              (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+        if (ret < 0) {
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
@@ -1189,7 +1188,7 @@ out:
 }
 
 int
-glusterfs_handle_bd_op (void *data)
+glusterfs_handle_bd_op (rpcsvc_request_t *req)
 {
         int32_t                  ret        = -1;
         gd1_mgmt_brick_op_req    xlator_req = {0,};
@@ -1201,15 +1200,15 @@ glusterfs_handle_bd_op (void *data)
         glusterfs_ctx_t          *ctx       = NULL;
         glusterfs_graph_t        *active    = NULL;
         xlator_t                 *this      = NULL;
-        rpcsvc_request_t         *req       = data;
         char                     *error     = NULL;
 
         GF_ASSERT (req);
         this = THIS;
         GF_ASSERT (this);
 
-        if (!xdr_to_generic (req->msg[0], &xlator_req,
-                             (xdrproc_t)xdr_gd1_mgmt_brick_op_req)) {
+        ret = xdr_to_generic (req->msg[0], &xlator_req,
+                              (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+        if (ret < 0) {
                 /* failed to decode msg */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -1260,52 +1259,8 @@ out:
 int
 glusterfs_handle_rpc_msg (rpcsvc_request_t *req)
 {
-        int             ret = -1;
-        xlator_t        *this = THIS;
-        call_frame_t    *frame = NULL;
-
-        GF_ASSERT (this);
-        switch (req->procnum) {
-        case GLUSTERD_BRICK_TERMINATE:
-                ret = glusterfs_handle_terminate (req);
-                break;
-        case GLUSTERD_BRICK_XLATOR_INFO:
-                ret = glusterfs_handle_translator_info_get (req);
-                break;
-        case GLUSTERD_BRICK_XLATOR_OP:
-                frame = create_frame (this, this->ctx->pool);
-                if (!frame)
-                        goto out;
-                ret = synctask_new (this->ctx->env,
-                                    glusterfs_handle_translator_op,
-                                    glusterfs_command_done, frame, req);
-                break;
-        case GLUSTERD_BRICK_STATUS:
-                ret = glusterfs_handle_brick_status (req);
-                break;
-        case GLUSTERD_BRICK_XLATOR_DEFRAG:
-                ret = glusterfs_handle_defrag (req);
-                break;
-        case GLUSTERD_NODE_PROFILE:
-                ret = glusterfs_handle_nfs_profile (req);
-                break;
-        case GLUSTERD_NODE_STATUS:
-                ret = glusterfs_handle_node_status (req);
-                break;
-#ifdef HAVE_BD_XLATOR
-        case GLUSTERD_BRICK_BD_OP:
-                frame = create_frame (this, this->ctx->pool);
-                if (!frame)
-                        goto out;
-                ret = synctask_new (this->ctx->env,
-                                    glusterfs_handle_bd_op,
-                                    glusterfs_command_done, frame, req);
-                break;
-#endif
-        default:
-                break;
-        }
-out:
+        int ret = -1;
+        /* for now, nothing */
         return ret;
 }
 
@@ -1357,16 +1312,16 @@ rpc_clnt_prog_t clnt_handshake_prog = {
 };
 
 rpcsvc_actor_t glusterfs_actors[] = {
-        [GLUSTERD_BRICK_NULL]        = { "NULL",    GLUSTERD_BRICK_NULL, glusterfs_handle_rpc_msg, NULL, 0},
-        [GLUSTERD_BRICK_TERMINATE] = { "TERMINATE", GLUSTERD_BRICK_TERMINATE, glusterfs_handle_rpc_msg, NULL, 0},
-        [GLUSTERD_BRICK_XLATOR_INFO] = { "TRANSLATOR INFO", GLUSTERD_BRICK_XLATOR_INFO, glusterfs_handle_rpc_msg, NULL, 0},
-        [GLUSTERD_BRICK_XLATOR_OP] = { "TRANSLATOR OP", GLUSTERD_BRICK_XLATOR_OP, glusterfs_handle_rpc_msg, NULL, 0},
-        [GLUSTERD_BRICK_STATUS] = {"STATUS", GLUSTERD_BRICK_STATUS, glusterfs_handle_rpc_msg, NULL, 0},
-        [GLUSTERD_BRICK_XLATOR_DEFRAG] = { "TRANSLATOR DEFRAG", GLUSTERD_BRICK_XLATOR_DEFRAG, glusterfs_handle_rpc_msg, NULL, 0},
-        [GLUSTERD_NODE_PROFILE] = {"NFS PROFILE", GLUSTERD_NODE_PROFILE, glusterfs_handle_rpc_msg, NULL, 0},
-        [GLUSTERD_NODE_STATUS] = {"NFS STATUS", GLUSTERD_NODE_STATUS, glusterfs_handle_rpc_msg, NULL, 0},
+        [GLUSTERD_BRICK_NULL]          = {"NULL", GLUSTERD_BRICK_NULL, glusterfs_handle_rpc_msg, NULL, 0},
+        [GLUSTERD_BRICK_TERMINATE]     = {"TERMINATE", GLUSTERD_BRICK_TERMINATE, glusterfs_handle_terminate, NULL, 0},
+        [GLUSTERD_BRICK_XLATOR_INFO]   = {"TRANSLATOR INFO", GLUSTERD_BRICK_XLATOR_INFO, glusterfs_handle_translator_info_get, NULL, 0},
+        [GLUSTERD_BRICK_XLATOR_OP]     = {"TRANSLATOR OP", GLUSTERD_BRICK_XLATOR_OP, glusterfs_handle_translator_op, NULL, 0},
+        [GLUSTERD_BRICK_STATUS]        = {"STATUS", GLUSTERD_BRICK_STATUS, glusterfs_handle_brick_status, NULL, 0},
+        [GLUSTERD_BRICK_XLATOR_DEFRAG] = {"TRANSLATOR DEFRAG", GLUSTERD_BRICK_XLATOR_DEFRAG, glusterfs_handle_defrag, NULL, 0},
+        [GLUSTERD_NODE_PROFILE]        = {"NFS PROFILE", GLUSTERD_NODE_PROFILE, glusterfs_handle_nfs_profile, NULL, 0},
+        [GLUSTERD_NODE_STATUS]         = {"NFS STATUS", GLUSTERD_NODE_STATUS, glusterfs_handle_node_status, NULL, 0},
 #ifdef HAVE_BD_XLATOR
-        [GLUSTERD_BRICK_BD_OP] = {"BD OP", GLUSTERD_BRICK_BD_OP, glusterfs_handle_rpc_msg, NULL, 0}
+        [GLUSTERD_BRICK_BD_OP]         = {"BD OP", GLUSTERD_BRICK_BD_OP, glusterfs_handle_bd_op, NULL, 0}
 #endif
 };
 

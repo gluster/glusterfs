@@ -65,8 +65,8 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         GF_ASSERT(this);
 
         ret = -1;
-        if (!xdr_to_generic (req->msg[0], &cli_req,
-                             (xdrproc_t)xdr_gf_cli_req)) {
+        ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
+        if (ret < 0) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 snprintf (err_str, sizeof (err_str), "Garbage args received");
@@ -233,8 +233,8 @@ glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
         this = THIS;
         GF_ASSERT (req);
 
-        if (!xdr_to_generic (req->msg[0], &cli_req,
-                             (xdrproc_t)xdr_gf_cli_req)) {
+        ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
+        if (ret < 0) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -293,8 +293,8 @@ glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
         this = THIS;
         GF_ASSERT (req);
 
-        if (!xdr_to_generic (req->msg[0], &cli_req,
-                             (xdrproc_t)xdr_gf_cli_req)) {
+        ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
+        if (ret < 0) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -353,8 +353,8 @@ glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!xdr_to_generic (req->msg[0], &cli_req,
-                             (xdrproc_t)xdr_gf_cli_req)) {
+        ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
+        if (ret < 0) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -418,8 +418,8 @@ glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
-        if (!xdr_to_generic (req->msg[0], &cli_req,
-                             (xdrproc_t)xdr_gf_cli_req)) {
+        ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
+        if (ret < 0) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -501,8 +501,8 @@ glusterd_handle_cli_statedump_volume (rpcsvc_request_t *req)
         GF_ASSERT (req);
 
         ret = -1;
-        if (!xdr_to_generic (req->msg[0], &cli_req,
-                             (xdrproc_t)xdr_gf_cli_req)) {
+        ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
+        if (ret < 0) {
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }

@@ -264,7 +264,9 @@ server_getspec (rpcsvc_request_t *req)
 
         this = req->svc->mydata;
         conf = this->private;
-        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gf_getspec_req)) {
+        ret = xdr_to_generic (req->msg[0], &args,
+                              (xdrproc_t)xdr_gf_getspec_req);
+        if (ret < 0) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 op_errno = EINVAL;
@@ -361,7 +363,9 @@ server_setvolume (rpcsvc_request_t *req)
 
         params = dict_new ();
         reply  = dict_new ();
-        if (!xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gf_setvolume_req)) {
+        ret = xdr_to_generic (req->msg[0], &args,
+                              (xdrproc_t)xdr_gf_setvolume_req);
+        if (ret < 0) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto fail;
@@ -719,8 +723,9 @@ server_set_lk_version (rpcsvc_request_t *req)
         if (!this)
                 goto fail;
 
-        if (!xdr_to_generic (req->msg[0], &args,
-                             (xdrproc_t)xdr_gf_set_lk_ver_req)) {
+        op_ret = xdr_to_generic (req->msg[0], &args,
+                              (xdrproc_t)xdr_gf_set_lk_ver_req);
+        if (op_ret < 0) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto fail;

@@ -55,8 +55,9 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
 
         priv = THIS->private;
 
-        if (!xdr_to_generic (req->msg[0], &cli_req,
-                             (xdrproc_t)xdr_gf_cli_req)) {
+        ret = xdr_to_generic (req->msg[0], &cli_req,
+                              (xdrproc_t)xdr_gf_cli_req);
+        if (ret < 0) {
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
