@@ -126,9 +126,9 @@ nfs3_fh_to_xlator (struct nfs3_state *nfs3, struct nfs3_fh *fh);
         do {                                                            \
                 calls = nfs3_call_state_init ((nfs3state), (rq), v); \
                 if (!calls) {                                           \
-                        gf_log (GF_NLM, GF_LOG_ERROR, "Failed to "      \
+                        gf_log (GF_ACL, GF_LOG_ERROR, "Failed to "      \
                                 "init call state");                     \
-                        opstat = nlm4_failed;                           \
+                        opstat = NFS3ERR_SERVERFAULT;                   \
                         rpcsvc_request_seterr (req, SYSTEM_ERR);        \
                         goto errlabel;                                  \
                 }                                                       \
@@ -229,12 +229,14 @@ acl3_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         getaclreply                     *getaclreply = NULL;
 
         cs = frame->local;
+        if (cs)
+                getaclreply = &cs->args.getaclreply;
+
         if (op_ret == -1) {
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto err;
         }
 
-        getaclreply = &cs->args.getaclreply;
         getaclreply->aclentry.aclentry_val = cs->aclentry;
         getaclreply->daclentry.daclentry_val = cs->daclentry;
 
@@ -271,7 +273,8 @@ acl3_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 
 err:
-        getaclreply->status = stat;
+        if (getaclreply)
+                getaclreply->status = stat;
         acl3_getacl_reply (cs, getaclreply);
         nfs3_call_state_wipe (cs);
         return 0;
@@ -289,12 +292,13 @@ acl3_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfs_user_t                      nfu = {0, };
 
         cs = frame->local;
+        if (cs)
+                getaclreply = &cs->args.getaclreply;
+
         if (op_ret == -1) {
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto err;
         }
-
-        getaclreply = &cs->args.getaclreply;
 
         getaclreply->attr_follows = 1;
         getaclreply->attr = nfs3_stat_to_fattr3 (buf);
@@ -377,7 +381,7 @@ acl3svc_getacl (rpcsvc_request_t *req)
                                      vol, stat, rpcerr);
 
         cs->vol = vol;
-        acl3_volume_started_check (nfs3, vol, ret, rpcerr);
+        acl3_volume_started_check (nfs3, vol, ret, acl3err);
 
         ret = nfs3_fh_resolve_and_resume (cs, fhp,
                                           NULL, acl3_getacl_resume);
@@ -385,9 +389,11 @@ acl3svc_getacl (rpcsvc_request_t *req)
 acl3err:
         if (ret < 0) {
                 gf_log (GF_ACL, GF_LOG_ERROR, "unable to resolve and resume");
-                cs->args.getaclreply.status = stat;
-                acl3_getacl_reply (cs, &cs->args.getaclreply);
-                nfs3_call_state_wipe (cs);
+                if (cs) {
+                        cs->args.getaclreply.status = stat;
+                        acl3_getacl_reply (cs, &cs->args.getaclreply);
+                        nfs3_call_state_wipe (cs);
+                }
                 return 0;
         }
 
