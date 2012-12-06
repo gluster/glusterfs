@@ -49,10 +49,11 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         int32_t         status = 0;
         int32_t         count = 0;
         gf_cli_rsp      rsp = {0,};
+        xlator_t        *this = NULL;
 
-        GF_ASSERT (THIS);
-
-        conf = THIS->private;
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
 
         GF_ASSERT (conf);
 
@@ -77,7 +78,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 if (ctx) {
                         ret = dict_get_int32 (ctx, "status", &status);
                         if (ret) {
-                                gf_log (THIS->name, GF_LOG_TRACE,
+                                gf_log (this->name, GF_LOG_TRACE,
                                         "failed to get status");
                         }
                 }
@@ -106,7 +107,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 if (ctx && dict_get_int32 (ctx, "count", &count)) {
                         ret = dict_set_int32 (ctx, "count", 0);
                         if (ret) {
-                                gf_log (THIS->name, GF_LOG_ERROR,
+                                gf_log (this->name, GF_LOG_ERROR,
                                         "failed to set count in dictionary");
                         }
                 }
@@ -115,13 +116,14 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         case GD_OP_START_BRICK:
         case GD_OP_STOP_BRICK:
         {
-                gf_log ("", GF_LOG_DEBUG, "not supported op %d", op);
+                gf_log (this->name, GF_LOG_DEBUG, "op '%s' not supported",
+                        gd_op_list[op]);
                 break;
         }
         case GD_OP_NONE:
         case GD_OP_MAX:
         {
-                gf_log ("", GF_LOG_ERROR, "invalid operation %d", op);
+                gf_log (this->name, GF_LOG_ERROR, "invalid operation");
                 break;
         }
         case GD_OP_CREATE_VOLUME:
@@ -160,7 +162,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 ret = dict_allocate_and_serialize (ctx, &rsp.dict.dict_val,
                                                    &rsp.dict.dict_len);
                 if (ret < 0 )
-                        gf_log (THIS->name, GF_LOG_ERROR, "failed to "
+                        gf_log (this->name, GF_LOG_ERROR, "failed to "
                                 "serialize buffer");
                 else
                         free_ptr = rsp.dict.dict_val;
@@ -178,7 +180,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         ret = 0;
 
         GF_FREE (free_ptr);
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 

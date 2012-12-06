@@ -2328,16 +2328,17 @@ glusterd_dict_set_volid (dict_t *dict, char *volname, char **op_errstr)
         glusterd_volinfo_t      *volinfo = NULL;
         char                    *volid = NULL;
         char                    msg[1024] = {0,};
+        xlator_t                *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         if (!dict || !volname)
                 goto out;
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                snprintf (msg, sizeof (msg), "Volume %s does not exist",
-                          volname);
-                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
-                *op_errstr = gf_strdup (msg);
+                snprintf (msg, sizeof (msg), FMTSTR_CHECK_VOL_EXISTS, volname);
                 goto out;
         }
         volid = gf_strdup (uuid_utoa (volinfo->volume_id));
@@ -2347,11 +2348,15 @@ glusterd_dict_set_volid (dict_t *dict, char *volname, char **op_errstr)
         }
         ret = dict_set_dynstr (dict, "vol-id", volid);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "Failed to set volume id in dictionary");
+                snprintf (msg, sizeof (msg), "Failed to set volume id of volume"
+                          " %s", volname);
                 goto out;
         }
 out:
+        if (msg[0] != '\0') {
+                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                *op_errstr = strdup (msg);
+        }
         return ret;
 }
 
@@ -2366,7 +2371,7 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
         char                    *volname = NULL;
         uint32_t                status_cmd = GF_CLI_STATUS_NONE;
         char                    *errstr = NULL;
-        xlator_t                *this = THIS;
+        xlator_t                *this = NULL;
 
         GF_ASSERT (req);
 
@@ -2390,8 +2395,11 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
         } else {
 #define GD_SYNC_OPCODE_KEY "sync-mgmt-operation"
                 ret = dict_get_int32 (op_ctx, GD_SYNC_OPCODE_KEY, (int32_t*)&op);
-                if (ret)
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to get volume"
+                                " operation");
                         goto out;
+                }
                 ctx = op_ctx;
 #undef GD_SYNC_OPCODE_KEY
         }
@@ -2403,8 +2411,12 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                                 ++glusterfs_port;
                                 ret = dict_set_int32 (dict, "port",
                                                       glusterfs_port);
-                                if (ret)
+                                if (ret) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Failed to set port in "
+                                                "dictionary");
                                         goto out;
+                                }
                                 dict_copy (dict, req_dict);
                         }
                         break;

@@ -484,12 +484,20 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         int32_t              tmp_op   = 0;
         gf_boolean_t         local_locked = _gf_false;
         char                 *op_errstr = NULL;
+        xlator_t             *this = NULL;
+        char                 *hostname = NULL;
 
-        conf = THIS->private;
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
 
         ret = dict_get_int32 (op_ctx, GD_SYNC_OPCODE_KEY, &tmp_op);
-        if (ret)
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get volume "
+                        "operation");
                 goto out;
+        }
 
         op = tmp_op;
 
@@ -501,7 +509,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         /*  Lock everything */
         ret = glusterd_lock (MY_UUID);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Unable to acquire lock");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to acquire lock");
                 gf_asprintf (&op_errstr, "Another transaction is in progress. "
                              "Please try again after sometime.");
                 goto out;
@@ -511,32 +519,51 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
 
         INIT_LIST_HEAD (&conf->xaction_peers);
         list_for_each_entry (peerinfo, &conf->peers, uuid_list) {
+                if (!peerinfo->connected)
+                        continue;
                 if (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
                         continue;
 
                 ret = gd_syncop_mgmt_lock (peerinfo->rpc,
                                            MY_UUID, tmp_uuid);
-                if (ret == 0)
+                if (ret) {
+                        gf_asprintf (&op_errstr, "Another transaction could be "
+                                     "in progress. Please try again after "
+                                     "sometime.");
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to acquire "
+                                "lock on peer %s", peerinfo->hostname);
+                        goto out;
+                } else {
                         list_add_tail (&peerinfo->op_peers_list,
                                        &conf->xaction_peers);
+                }
         }
 
         ret = glusterd_op_build_payload (&req_dict, &op_errstr, op_ctx);
-        if (ret)
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, LOGSTR_BUILD_PAYLOAD,
+                        gd_op_list[op]);
+                if (op_errstr == NULL)
+                        gf_asprintf (&op_errstr, OPERRSTR_BUILD_PAYLOAD);
                 goto out;
+        }
 
         /* stage op */
         ret = glusterd_op_stage_validate (op, req_dict, &op_errstr, rsp_dict);
-        if (ret)
-                goto out;
+        if (ret) {
+                hostname = "localhost";
+                goto stage_done;
+        }
 
         list_for_each_entry (peerinfo, &conf->xaction_peers, op_peers_list) {
                 ret = gd_syncop_mgmt_stage_op (peerinfo->rpc,
                                                MY_UUID, tmp_uuid,
                                                op, req_dict, &rsp_dict,
                                                &op_errstr);
-                if (ret)
-                        goto out;
+                if (ret) {
+                        hostname = peerinfo->hostname;
+                        goto stage_done;
+                }
 
                 if (op == GD_OP_REPLACE_BRICK)
                         (void) glusterd_syncop_aggr_rsp_dict (op, op_ctx,
@@ -547,23 +574,47 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
                         dict_unref (rsp_dict);
         }
 
+stage_done:
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, LOGSTR_STAGE_FAIL,
+                        gd_op_list[op], hostname, (op_errstr) ? ":" : " ",
+                        (op_errstr) ? op_errstr : " ");
+                if (op_errstr == NULL)
+                        gf_asprintf (&op_errstr, OPERRSTR_STAGE_FAIL, hostname);
+                goto out;
+        }
+
         /* commit op */
         ret = glusterd_op_commit_perform (op, req_dict, &op_errstr, rsp_dict);
-        if (ret)
-                goto out;
+        if (ret) {
+                hostname = "localhost";
+                goto commit_done;
+        }
 
         list_for_each_entry (peerinfo, &conf->xaction_peers, op_peers_list) {
                 ret = gd_syncop_mgmt_commit_op (peerinfo->rpc,
                                                 MY_UUID, tmp_uuid,
                                                 op, req_dict, &rsp_dict,
                                                 &op_errstr);
-                if (ret)
-                        goto out;
+                if (ret) {
+                        hostname = peerinfo->hostname;
+                        goto commit_done;
+                }
                 (void) glusterd_syncop_aggr_rsp_dict (op, op_ctx, rsp_dict,
                                                       op_errstr);
                 if (rsp_dict)
                         dict_unref (rsp_dict);
         }
+commit_done:
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, LOGSTR_COMMIT_FAIL,
+                        gd_op_list[op], hostname, (op_errstr) ? ":" : " ",
+                        (op_errstr) ? op_errstr : " ");
+                if (op_errstr == NULL)
+                        gf_asprintf (&op_errstr, OPERRSTR_COMMIT_FAIL,
+                                     hostname);
+                goto out;
+         }
 
         ret = 0;
 out:
