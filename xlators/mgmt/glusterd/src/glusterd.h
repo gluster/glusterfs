@@ -49,6 +49,20 @@
 
 #define GLUSTERD_SERVER_QUORUM "server"
 
+#define FMTSTR_CHECK_VOL_EXISTS "Volume %s does not exist"
+#define FMTSTR_RESOLVE_BRICK "Could not find peer on which brick %s:%s resides"
+
+#define LOGSTR_BUILD_PAYLOAD "Failed to build payload for operation 'Volume %s'"
+#define LOGSTR_STAGE_FAIL "Staging of operation 'Volume %s' failed on %s %s %s"
+#define LOGSTR_COMMIT_FAIL "Commit of operation 'Volume %s' failed on %s %s %s"
+
+#define OPERRSTR_BUILD_PAYLOAD "Failed to build payload. Please check the log "\
+                               "file for more details."
+#define OPERRSTR_STAGE_FAIL "Staging failed on %s. Please check the log file " \
+                            "for more details."
+#define OPERRSTR_COMMIT_FAIL "Commit failed on %s. Please check the log file "\
+                             "for more details."
+
 struct glusterd_volinfo_;
 typedef struct glusterd_volinfo_ glusterd_volinfo_t;
 

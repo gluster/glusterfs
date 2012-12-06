@@ -255,13 +255,17 @@ glusterd_lock (uuid_t   uuid)
         char    new_owner_str[50];
         char    owner_str[50];
         int     ret = -1;
+        xlator_t *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         GF_ASSERT (uuid);
 
         glusterd_get_lock_owner (&owner);
 
         if (!uuid_is_null (owner)) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get lock"
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get lock"
                         " for uuid: %s, lock held by: %s",
                         uuid_utoa_r (uuid, new_owner_str),
                         uuid_utoa_r (owner, owner_str));
@@ -271,7 +275,7 @@ glusterd_lock (uuid_t   uuid)
         ret = glusterd_set_lock_owner (uuid);
 
         if (!ret) {
-                gf_log ("glusterd", GF_LOG_INFO, "Cluster lock held by"
+                gf_log (this->name, GF_LOG_DEBUG, "Cluster lock held by"
                          " %s", uuid_utoa (uuid));
         }
 
@@ -716,11 +720,15 @@ int32_t
 glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo)
 {
         int32_t                 ret = -1;
+        xlator_t                *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         GF_ASSERT (brickinfo);
 
         ret = glusterd_hostname_to_uuid (brickinfo->hostname, brickinfo->uuid);
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -978,6 +986,7 @@ glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo)
         GF_ASSERT (this);
 
         priv = this->private;
+        GF_ASSERT (priv);
 
         list_for_each_entry (tmp_volinfo, &priv->volumes, vol_list) {
                 if (!strcmp (tmp_volinfo->volname, volname)) {
@@ -1193,14 +1202,15 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         GF_ASSERT (this);
 
         priv = this->private;
+        GF_ASSERT (priv);
 
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
         snprintf (rundir, PATH_MAX, "%s/run", path);
         ret = mkdir (rundir, 0777);
 
         if ((ret == -1) && (EEXIST != errno)) {
-                gf_log ("", GF_LOG_ERROR, "Unable to create rundir %s",
-                        rundir);
+                gf_log (this->name, GF_LOG_ERROR, "Unable to create rundir %s."
+                        "Reason : %s", rundir, strerror (errno));
                 goto out;
         }
 
@@ -1214,7 +1224,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 ret = lockf (fileno (file), F_TLOCK, 0);
                 if (ret && ((EAGAIN == errno) || (EACCES == errno))) {
                         ret = 0;
-                        gf_log ("", GF_LOG_INFO, "brick %s:%s "
+                        gf_log (this->name, GF_LOG_DEBUG, "brick %s:%s "
                                 "already started", brickinfo->hostname,
                                 brickinfo->path);
                         goto connect;
@@ -1230,7 +1240,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                         ret = lockf (fileno (file), F_TLOCK, 0);
                         if (ret && ((EAGAIN == errno) || (EACCES == errno))) {
                                 ret = 0;
-                                gf_log ("", GF_LOG_INFO, "brick %s:%s "
+                                gf_log (this->name, GF_LOG_DEBUG, "brick %s:%s "
                                         "already started", brickinfo->hostname,
                                         brickinfo->path);
                                 goto connect;
@@ -1244,7 +1254,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         }
         unlink (pidfile);
 
-        gf_log ("", GF_LOG_INFO, "About to start glusterfs"
+        gf_log (this->name, GF_LOG_DEBUG, "About to start glusterfs"
                 " for brick %s:%s", brickinfo->hostname,
                 brickinfo->path);
         GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, exp_path);
@@ -1335,8 +1345,9 @@ connect:
 out:
         if (is_locked && file)
                 if (lockf (fileno (file), F_ULOCK, 0) < 0)
-                        gf_log ("", GF_LOG_WARNING, "Cannot unlock pidfile: %s"
-                                " reason: %s", pidfile, strerror(errno));
+                        gf_log (this->name, GF_LOG_WARNING, "Cannot unlock "
+                                "pidfile: %s reason: %s", pidfile,
+                                strerror(errno));
         if (file)
                 fclose (file);
         return ret;
@@ -3930,8 +3941,7 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
         if (uuid_is_null (brickinfo->uuid)) {
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
-                                "cannot resolve brick: %s:%s",
+                        gf_log (this->name, GF_LOG_ERROR, FMTSTR_RESOLVE_BRICK,
                                 brickinfo->hostname, brickinfo->path);
                         goto out;
                 }
@@ -3943,13 +3953,13 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
         }
         ret = glusterd_volume_start_glusterfs (volinfo, brickinfo, wait);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to start "
-                        "glusterfs, ret: %d", ret);
+                gf_log (this->name, GF_LOG_ERROR, "Unable to start brick %s:%s",
+                        brickinfo->hostname, brickinfo->path);
                 goto out;
         }
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "returning %d ", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "returning %d ", ret);
         return ret;
 }
 
@@ -4716,7 +4726,7 @@ glusterd_hostname_to_uuid (char *hostname, uuid_t uuid)
         }
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
         return ret;
 }
 
@@ -6013,21 +6023,29 @@ glusterd_validate_volume_id (dict_t *op_dict, glusterd_volinfo_t *volinfo)
         int     ret             = -1;
         char    *volid_str      = NULL;
         uuid_t  vol_uid         = {0, };
+        xlator_t *this          = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         ret = dict_get_str (op_dict, "vol-id", &volid_str);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to get volume id");
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get volume id for "
+                        "volume %s", volinfo->volname);
                 goto out;
         }
         ret = uuid_parse (volid_str, vol_uid);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to parse uuid");
+                gf_log (this->name, GF_LOG_ERROR, "Failed to parse volume id "
+                        "for volume %s", volinfo->volname);
                 goto out;
         }
 
         if (uuid_compare (vol_uid, volinfo->volume_id)) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Volume ids are different. "
-                        "Possibly a split brain among peers.");
+                gf_log (this->name, GF_LOG_ERROR, "Volume ids of volume %s - %s"
+                        " and %s - are different. Possibly a split brain among "
+                        "peers.", volinfo->volname, volid_str,
+                        uuid_utoa (volinfo->volume_id));
                 ret = -1;
                 goto out;
         }
@@ -6210,6 +6228,10 @@ glusterd_to_cli (rpcsvc_request_t *req, gf_cli_rsp *arg, struct iovec *payload,
         int                op_ret = 0;
         char               *op_errstr = NULL;
         int                op_errno = 0;
+        xlator_t           *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         op_ret = arg->op_ret;
         op_errstr = arg->op_errstr;
@@ -6217,13 +6239,14 @@ glusterd_to_cli (rpcsvc_request_t *req, gf_cli_rsp *arg, struct iovec *payload,
 
         ret = dict_get_str (dict, "cmd-str", &cmd);
         if (ret)
-                gf_log ("glusterd", GF_LOG_ERROR, "Failed to get command string");
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get command "
+                        "string");
 
         if (cmd) {
                 if (op_ret)
                         gf_cmd_log ("", "%s : FAILED %s %s", cmd,
-                                       (op_errstr)? ":":" ",
-                                       (op_errstr)? op_errstr: " ");
+                                       (op_errstr)? ":" : " ",
+                                       (op_errstr)? op_errstr : " ");
                 else
                         gf_cmd_log ("", "%s : SUCCESS", cmd);
         }
