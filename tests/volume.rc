@@ -39,6 +39,16 @@ function get_mount_process_pid {
         ps aux | grep glusterfs | grep -E "volfile-id[ =]/?$vol " | awk '{print $2}' | head -1
 }
 
+function get_nfs_pid ()
+{
+        ps aux | grep "volfile-id\ gluster\/nfs" | awk '{print $2}' | head -1
+}
+
+function read_nfs_pidfile ()
+{
+        echo `cat /var/lib/glusterd/nfs/run/nfs.pid`
+}
+
 function cleanup_statedump {
        pid=$1
        rm -f $statedumpdir/*$pid.dump.*
