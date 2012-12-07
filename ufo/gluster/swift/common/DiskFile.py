@@ -14,10 +14,12 @@
 # limitations under the License.
 
 import os
+import errno
 from eventlet import tpool
 from tempfile import mkstemp
 from contextlib import contextmanager
 from swift.common.utils import normalize_timestamp, renamer
+from swift.common.exceptions import DiskFileNotExist
 from gluster.swift.common.utils import mkdirs, rmdirs, validate_object, \
      create_object_metadata,  do_open, do_close, do_unlink, do_chown, \
      do_stat, do_listdir, read_metadata, write_metadata
@@ -35,6 +37,10 @@ ASYNCDIR = 'async_pending'
 KEEP_CACHE_SIZE = (5 * 1024 * 1024)
 # keep these lower-case
 DISALLOWED_HEADERS = set('content-length content-type deleted etag'.split())
+
+
+class AlreadyExistsAsDir(Exception):
+    pass
 
 
 class Gluster_DiskFile(DiskFile):
@@ -142,7 +148,6 @@ class Gluster_DiskFile(DiskFile):
         mkdirs(dir_path)
         do_chown(dir_path, self.uid, self.gid)
         create_object_metadata(dir_path)
-        return True
 
     def put_metadata(self, metadata):
         obj_path = self.datadir + '/' + self.obj
@@ -162,7 +167,7 @@ class Gluster_DiskFile(DiskFile):
         """
         if extension == '.ts':
             # TombStone marker (deleted)
-            return True
+            return
 
         # Fix up the metadata to ensure it has a proper value for the
         # Content-Type metadata, as well as an X_TYPE and X_OBJECT_TYPE
@@ -170,6 +175,10 @@ class Gluster_DiskFile(DiskFile):
 
         content_type = metadata['Content-Type']
         if not content_type:
+            # FIXME: How can this be some object that evaluates to False?
+            #
+            # FIXME: If the file exists, we would already know it is a
+            # directory.
             metadata['Content-Type'] = FILE_TYPE
             x_object_type = FILE
         else:
@@ -178,23 +187,31 @@ class Gluster_DiskFile(DiskFile):
         metadata[X_OBJECT_TYPE] = x_object_type
 
         if extension == '.meta':
-            # Metadata recorded separately from the file
+            # Metadata recorded separately from the file, we just update the
+            # metadata for the file.
+            #
+            # FIXME: If the file does not exist, this call will fail.
             self.put_metadata(metadata)
-            return True
+            return
 
+        # Our caller will use '.data' here; we just ignore it since we map the
+        # URL directly to the file system.
         extension = ''
 
         if metadata[X_OBJECT_TYPE] == MARKER_DIR:
+            # FIXME: If we know it already exists, why call
+            # create_dir_object()?
             self.create_dir_object(os.path.join(self.datadir, self.obj))
             self.put_metadata(metadata)
             self.data_file = self.datadir + '/' + self.obj
-            return True
+            return
 
         # Check if directory already exists.
         if self.is_dir:
-            self.logger.error('Directory already exists %s/%s' % \
-                          (self.datadir , self.obj))
-            return False
+            # FIXME: How can we have a directory and it not be marked as a
+            # MARKER_DIR (see above)?
+            raise AlreadyExistsAsDir('File object already exists ' \
+                        'as a directory: %s/%s' % (self.datadir , self.obj))
 
         timestamp = normalize_timestamp(metadata[X_TIMESTAMP])
         write_metadata(tmppath, metadata)
@@ -203,18 +220,15 @@ class Gluster_DiskFile(DiskFile):
         tpool.execute(os.fsync, fd)
         if self.obj_path:
             dir_objs = self.obj_path.split('/')
+            assert len(dir_objs) >= 1
             tmp_path = ''
-            if len(dir_objs):
-                for dir_name in dir_objs:
-                    if tmp_path:
-                        tmp_path = tmp_path + '/' + dir_name
-                    else:
-                        tmp_path = dir_name
-                    if not self.create_dir_object(os.path.join(self.container_path,
-                            tmp_path)):
-                        self.logger.error("Failed in subdir %s",\
-                                        os.path.join(self.container_path,tmp_path))
-                        return False
+            for dir_name in dir_objs:
+                if tmp_path:
+                    tmp_path = tmp_path + '/' + dir_name
+                else:
+                    tmp_path = dir_name
+                self.create_dir_object(
+                    os.path.join(self.container_path, tmp_path))
 
         renamer(tmppath, os.path.join(self.datadir,
                                       self.obj + extension))
@@ -222,7 +236,7 @@ class Gluster_DiskFile(DiskFile):
               self.uid, self.gid)
         self.metadata = metadata
         self.data_file = self.datadir + '/' + self.obj + extension
-        return True
+        return
 
     def unlinkold(self, timestamp):
         """
@@ -231,33 +245,19 @@ class Gluster_DiskFile(DiskFile):
 
         :param timestamp: timestamp to compare with each file
         """
-        if self.metadata and self.metadata['X-Timestamp'] != timestamp:
-            self.unlink()
-
-    def unlink(self):
-        """
-        Remove the file.
-        """
-        #Marker dir.
-        if self.is_dir:
-            rmdirs(os.path.join(self.datadir, self.obj))
-            if not os.path.isdir(os.path.join(self.datadir, self.obj)):
-                self.metadata = {}
-                self.data_file = None
-            else:
-                logging.error('Unable to delete dir %s' % os.path.join(self.datadir, self.obj))
+        if not self.metadata or self.metadata['X-Timestamp'] >= timestamp:
             return
 
-        for fname in do_listdir(self.datadir):
-            if fname == self.obj:
-                try:
+        if self.is_dir:
+            # Marker directory object
+            if not rmdirs(os.path.join(self.datadir, self.obj)):
+                logging.error('Unable to delete dir %s' % os.path.join(self.datadir, self.obj))
+                return
+        else:
+            # File object
+            for fname in do_listdir(self.datadir):
+                if fname == self.obj:
                     do_unlink(os.path.join(self.datadir, fname))
-                except OSError, err:
-                    if err.errno != errno.ENOENT:
-                        raise
-
-        #Remove entire path for object.
-        #remove_dir_path(self.obj_path, self.container_path)
 
         self.metadata = {}
         self.data_file = None
@@ -286,7 +286,7 @@ class Gluster_DiskFile(DiskFile):
                         self.update_object(self.metadata)
 
                 return file_size
-        except OSError, err:
+        except OSError as err:
             if err.errno != errno.ENOENT:
                 raise
         raise DiskFileNotExist('Data File does not exist.')

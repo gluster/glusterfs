@@ -101,7 +101,10 @@ def do_rmdir(path):
         logging.exception("Rmdir failed on %s err: %s", path, str(err))
         if err.errno != errno.ENOENT:
             raise
-    return True
+        res = False
+    else:
+        res = True
+    return res
 
 def do_rename(old_path, new_path):
     try:
@@ -149,8 +152,8 @@ def dir_empty(path):
             return True
 
 def rmdirs(path):
-    if os.path.isdir(path) and dir_empty(path):
-        do_rmdir(path)
-    else:
-        logging.error("rmdirs failed dir may not be empty or not valid dir")
+    if not os.path.isdir(path) or not dir_empty(path):
+        logging.error("rmdirs failed: %s may not be empty or not valid dir", path)
         return False
+
+    return do_rmdir(path)
