@@ -262,6 +262,7 @@ dht_parse_decommissioned_bricks (xlator_t *this, dht_conf_t *conf,
                         if (!strcmp (conf->subvolumes[i]->name, node)) {
                                 conf->decommissioned_bricks[i] =
                                         conf->subvolumes[i];
+                                        conf->decommission_subvols_cnt++;
                                 gf_log (this->name, GF_LOG_INFO,
                                         "decommissioning subvolume %s",
                                         conf->subvolumes[i]->name);

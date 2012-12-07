@@ -263,6 +263,7 @@ struct dht_conf {
         /* to keep track of nodes which are decomissioned */
         xlator_t     **decommissioned_bricks;
         int            decommission_in_progress;
+        int            decommission_subvols_cnt;
 
         /* defrag related */
         gf_defrag_info_t *defrag;
@@ -721,4 +722,6 @@ int
 dht_dir_attr_heal_done (int ret, call_frame_t *sync_frame, void *data);
 int
 dht_dir_has_layout (dict_t *xattr);
+gf_boolean_t
+dht_is_subvol_in_layout (dht_layout_t *layout, xlator_t *xlator);
 #endif/* _DHT_H */
