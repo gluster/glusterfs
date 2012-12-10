@@ -32,9 +32,7 @@ import logging
 from swift.obj.server import DiskFile
 
 
-DATADIR = 'objects'
-ASYNCDIR = 'async_pending'
-KEEP_CACHE_SIZE = (5 * 1024 * 1024)
+DEFAULT_DISK_CHUNK_SIZE = 65536
 # keep these lower-case
 DISALLOWED_HEADERS = set('content-length content-type deleted etag'.split())
 
@@ -53,6 +51,7 @@ class Gluster_DiskFile(DiskFile):
     :param account: account name for the object
     :param container: container name for the object
     :param obj: object name for the object
+    :param logger: logger object for writing out log file messages
     :param keep_data_fp: if True, don't close the fp, otherwise close it
     :param disk_chunk_Size: size of chunks on file reads
     :param uid: user ID disk object should assume (file or directory)
@@ -60,59 +59,64 @@ class Gluster_DiskFile(DiskFile):
     """
 
     def __init__(self, path, device, partition, account, container, obj,
-                 logger, keep_data_fp=False, disk_chunk_size=65536,
-                 uid=DEFAULT_UID, gid=DEFAULT_GID):
+                 logger, keep_data_fp=False,
+                 disk_chunk_size=DEFAULT_DISK_CHUNK_SIZE,
+                 uid=DEFAULT_UID, gid=DEFAULT_GID, iter_hook=None):
         self.disk_chunk_size = disk_chunk_size
-        #Don't support obj_name ending/begining with '/', like /a, a/, /a/b/ etc
-        obj = obj.strip('/')
-        if '/' in obj:
-            self.obj_path, self.obj = obj.rsplit('/', 1)
+        self.iter_hook = iter_hook
+        # Don't support obj_name ending/begining with '/', like /a, a/, /a/b/,
+        # etc.
+        obj = obj.strip(os.path.sep)
+        if os.path.sep in obj:
+            self._obj_path, self._obj = os.path.split(obj)
         else:
-            self.obj_path = ''
-            self.obj = obj
+            self._obj_path = ''
+            self._obj = obj
 
-        if self.obj_path:
-            self.name = '/'.join((container, self.obj_path))
+        if self._obj_path:
+            self.name = os.path.join(container, self._obj_path)
         else:
             self.name = container
-        #Absolute path for obj directory.
+        # Absolute path for object directory.
         self.datadir = os.path.join(path, device, self.name)
         self.device_path = os.path.join(path, device)
-        self.container_path = os.path.join(path, device, container)
+        self._container_path = os.path.join(path, device, container)
+        self._is_dir = False
         self.tmpdir = os.path.join(path, device, 'tmp')
         self.logger = logger
         self.metadata = {}
-        self.data_file = None
+        self.meta_file = None
         self.fp = None
         self.iter_etag = None
         self.started_at_0 = False
         self.read_to_eof = False
         self.quarantined_dir = None
         self.keep_cache = False
-        self.is_dir = False
-        self.is_valid = True
         self.uid = int(uid)
         self.gid = int(gid)
-        if not os.path.exists(self.datadir + '/' + self.obj):
+
+        # Don't store a value for data_file until we know it exists.
+        self.data_file = None
+        data_file = os.path.join(self.datadir, self._obj)
+        if not os.path.exists(data_file):
             return
 
-        self.data_file = os.path.join(self.datadir, self.obj)
-        self.metadata = read_metadata(self.datadir + '/' + self.obj)
+        self.data_file = os.path.join(data_file)
+        self.metadata = read_metadata(data_file)
         if not self.metadata:
-            create_object_metadata(self.datadir + '/' + self.obj)
-            self.metadata = read_metadata(self.datadir + '/' + self.obj)
+            create_object_metadata(data_file)
+            self.metadata = read_metadata(data_file)
 
         if not validate_object(self.metadata):
-            create_object_metadata(self.datadir + '/' + self.obj)
-            self.metadata = read_metadata(self.datadir + '/' +
-                                        self.obj)
+            create_object_metadata(data_file)
+            self.metadata = read_metadata(data_file)
 
         self.filter_metadata()
 
-        if os.path.isdir(self.datadir + '/' + self.obj):
-            self.is_dir = True
+        if os.path.isdir(data_file):
+            self._is_dir = True
         else:
-            self.fp = do_open(self.data_file, 'rb')
+            self.fp = do_open(data_file, 'rb')
             if not keep_data_fp:
                 self.close(verify_file=False)
 
@@ -124,7 +128,7 @@ class Gluster_DiskFile(DiskFile):
                             file to see if it needs quarantining.
         """
         #Marker directory
-        if self.is_dir:
+        if self._is_dir:
             return
         if self.fp:
             do_close(self.fp)
@@ -150,8 +154,8 @@ class Gluster_DiskFile(DiskFile):
         create_object_metadata(dir_path)
 
     def put_metadata(self, metadata):
-        obj_path = self.datadir + '/' + self.obj
-        write_metadata(obj_path, metadata)
+        assert self.data_file is not None, "put_metadata: no file to put metadata into"
+        write_metadata(self.data_file, metadata)
         self.metadata = metadata
 
     def put(self, fd, tmppath, metadata, extension=''):
@@ -175,10 +179,11 @@ class Gluster_DiskFile(DiskFile):
 
         content_type = metadata['Content-Type']
         if not content_type:
-            # FIXME: How can this be some object that evaluates to False?
+            # FIXME: How can this be that our caller supplied us with metadata
+            # that has a content type that evaluates to False?
             #
             # FIXME: If the file exists, we would already know it is a
-            # directory.
+            # directory. So why are we assuming it is a file object?
             metadata['Content-Type'] = FILE_TYPE
             x_object_type = FILE
         else:
@@ -199,43 +204,37 @@ class Gluster_DiskFile(DiskFile):
         extension = ''
 
         if metadata[X_OBJECT_TYPE] == MARKER_DIR:
-            # FIXME: If we know it already exists, why call
-            # create_dir_object()?
-            self.create_dir_object(os.path.join(self.datadir, self.obj))
+            if not self.data_file:
+                self.data_file = os.path.join(self.datadir, self._obj)
+                self.create_dir_object(self.data_file)
             self.put_metadata(metadata)
-            self.data_file = self.datadir + '/' + self.obj
             return
 
         # Check if directory already exists.
-        if self.is_dir:
+        if self._is_dir:
             # FIXME: How can we have a directory and it not be marked as a
             # MARKER_DIR (see above)?
-            raise AlreadyExistsAsDir('File object already exists ' \
-                        'as a directory: %s/%s' % (self.datadir , self.obj))
+            msg = 'File object exists as a directory: %s' % self.data_file
+            raise AlreadyExistsAsDir(msg)
 
         timestamp = normalize_timestamp(metadata[X_TIMESTAMP])
         write_metadata(tmppath, metadata)
         if X_CONTENT_LENGTH in metadata:
             self.drop_cache(fd, 0, int(metadata[X_CONTENT_LENGTH]))
         tpool.execute(os.fsync, fd)
-        if self.obj_path:
-            dir_objs = self.obj_path.split('/')
+        if self._obj_path:
+            dir_objs = self._obj_path.split('/')
             assert len(dir_objs) >= 1
-            tmp_path = ''
+            tmp_path = self._container_path
             for dir_name in dir_objs:
-                if tmp_path:
-                    tmp_path = tmp_path + '/' + dir_name
-                else:
-                    tmp_path = dir_name
-                self.create_dir_object(
-                    os.path.join(self.container_path, tmp_path))
+                tmp_path = os.path.join(tmp_path, dir_name)
+                self.create_dir_object(tmp_path)
 
-        renamer(tmppath, os.path.join(self.datadir,
-                                      self.obj + extension))
-        do_chown(os.path.join(self.datadir, self.obj + extension), \
-              self.uid, self.gid)
+        newpath = os.path.join(self.datadir, self._obj)
+        renamer(tmppath, newpath)
+        do_chown(newpath, self.uid, self.gid)
         self.metadata = metadata
-        self.data_file = self.datadir + '/' + self.obj + extension
+        self.data_file = newpath
         return
 
     def unlinkold(self, timestamp):
@@ -248,16 +247,16 @@ class Gluster_DiskFile(DiskFile):
         if not self.metadata or self.metadata['X-Timestamp'] >= timestamp:
             return
 
-        if self.is_dir:
+        if self._is_dir:
             # Marker directory object
-            if not rmdirs(os.path.join(self.datadir, self.obj)):
-                logging.error('Unable to delete dir %s' % os.path.join(self.datadir, self.obj))
+            if not rmdirs(self.data_file):
+                logging.error('Unable to delete dir object: %s' % self.data_file)
                 return
         else:
             # File object
             for fname in do_listdir(self.datadir):
-                if fname == self.obj:
-                    do_unlink(os.path.join(self.datadir, fname))
+                if os.path.join(self.datadir, fname) == self.data_file:
+                    do_unlink(self.data_file)
 
         self.metadata = {}
         self.data_file = None
@@ -273,7 +272,7 @@ class Gluster_DiskFile(DiskFile):
         :raises DiskFileNotExist: on file not existing (including deleted)
         """
         #Marker directory.
-        if self.is_dir:
+        if self._is_dir:
             return 0
         try:
             file_size = 0
@@ -283,18 +282,13 @@ class Gluster_DiskFile(DiskFile):
                     metadata_size = int(self.metadata[X_CONTENT_LENGTH])
                     if file_size != metadata_size:
                         self.metadata[X_CONTENT_LENGTH] = file_size
-                        self.update_object(self.metadata)
+                        write_metadata(self.data_file, self.metadata)
 
                 return file_size
         except OSError as err:
             if err.errno != errno.ENOENT:
                 raise
         raise DiskFileNotExist('Data File does not exist.')
-
-    def update_object(self, metadata):
-        obj_path = self.datadir + '/' + self.obj
-        write_metadata(obj_path, metadata)
-        self.metadata = metadata
 
     def filter_metadata(self):
         if X_TYPE in self.metadata:
