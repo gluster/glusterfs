@@ -36,8 +36,8 @@ function vol-status-loop
 
 TEST vol-status-loop
 
-kill $LS_LOOP >/dev/null 2>&1
-sleep 2
+kill -KILL $LS_LOOP >/dev/null 2>&1
+sleep 2;
 
 TEST umount $M0
 
