@@ -41,6 +41,26 @@ class AlreadyExistsAsDir(Exception):
     pass
 
 
+def _adjust_metadata(metadata):
+    # Fix up the metadata to ensure it has a proper value for the
+    # Content-Type metadata, as well as an X_TYPE and X_OBJECT_TYPE
+    # metadata values.
+    content_type = metadata['Content-Type']
+    if not content_type:
+        # FIXME: How can this be that our caller supplied us with metadata
+        # that has a content type that evaluates to False?
+        #
+        # FIXME: If the file exists, we would already know it is a
+        # directory. So why are we assuming it is a file object?
+        metadata['Content-Type'] = FILE_TYPE
+        x_object_type = FILE
+    else:
+        x_object_type = MARKER_DIR if content_type.lower() == DIR_TYPE else FILE
+    metadata[X_TYPE] = OBJECT
+    metadata[X_OBJECT_TYPE] = x_object_type
+    return metadata
+
+
 class Gluster_DiskFile(DiskFile):
     """
     Manage object files on disk.
@@ -83,6 +103,7 @@ class Gluster_DiskFile(DiskFile):
         self._container_path = os.path.join(path, device, container)
         self._is_dir = False
         self.tmpdir = os.path.join(path, device, 'tmp')
+        self.tmppath = None
         self.logger = logger
         self.metadata = {}
         self.meta_file = None
@@ -143,7 +164,7 @@ class Gluster_DiskFile(DiskFile):
         """
         return not self.data_file
 
-    def create_dir_object(self, dir_path):
+    def _create_dir_object(self, dir_path):
         #TODO: if object already exists???
         if os.path.exists(dir_path) and not os.path.isdir(dir_path):
             self.logger.error("Deleting file %s", dir_path)
@@ -153,60 +174,42 @@ class Gluster_DiskFile(DiskFile):
         do_chown(dir_path, self.uid, self.gid)
         create_object_metadata(dir_path)
 
-    def put_metadata(self, metadata):
+    def put_metadata(self, metadata, tombstone=False):
+        """
+        Short hand for putting metadata to .meta and .ts files.
+
+        :param metadata: dictionary of metadata to be written
+        :param tombstone: whether or not we are writing a tombstone
+        """
+        if tombstone:
+            # We don't write tombstone files. So do nothing.
+            return
         assert self.data_file is not None, "put_metadata: no file to put metadata into"
+        metadata = _adjust_metadata(metadata)
         write_metadata(self.data_file, metadata)
         self.metadata = metadata
+        self.filter_metadata()
 
-    def put(self, fd, tmppath, metadata, extension=''):
+    def put(self, fd, metadata, extension='.data'):
         """
         Finalize writing the file on disk, and renames it from the temp file to
         the real location.  This should be called after the data has been
         written to the temp file.
 
-        :params fd: file descriptor of the temp file
-        :param tmppath: path to the temporary file being used
+        :param fd: file descriptor of the temp file
         :param metadata: dictionary of metadata to be written
-        :param extention: extension to be used when making the file
+        :param extension: extension to be used when making the file
         """
-        if extension == '.ts':
-            # TombStone marker (deleted)
-            return
-
-        # Fix up the metadata to ensure it has a proper value for the
-        # Content-Type metadata, as well as an X_TYPE and X_OBJECT_TYPE
-        # metadata values.
-
-        content_type = metadata['Content-Type']
-        if not content_type:
-            # FIXME: How can this be that our caller supplied us with metadata
-            # that has a content type that evaluates to False?
-            #
-            # FIXME: If the file exists, we would already know it is a
-            # directory. So why are we assuming it is a file object?
-            metadata['Content-Type'] = FILE_TYPE
-            x_object_type = FILE
-        else:
-            x_object_type = MARKER_DIR if content_type.lower() == DIR_TYPE else FILE
-        metadata[X_TYPE] = OBJECT
-        metadata[X_OBJECT_TYPE] = x_object_type
-
-        if extension == '.meta':
-            # Metadata recorded separately from the file, we just update the
-            # metadata for the file.
-            #
-            # FIXME: If the file does not exist, this call will fail.
-            self.put_metadata(metadata)
-            return
-
         # Our caller will use '.data' here; we just ignore it since we map the
         # URL directly to the file system.
         extension = ''
 
+        metadata = _adjust_metadata(metadata)
+
         if metadata[X_OBJECT_TYPE] == MARKER_DIR:
             if not self.data_file:
                 self.data_file = os.path.join(self.datadir, self._obj)
-                self.create_dir_object(self.data_file)
+                self._create_dir_object(self.data_file)
             self.put_metadata(metadata)
             return
 
@@ -218,7 +221,7 @@ class Gluster_DiskFile(DiskFile):
             raise AlreadyExistsAsDir(msg)
 
         timestamp = normalize_timestamp(metadata[X_TIMESTAMP])
-        write_metadata(tmppath, metadata)
+        write_metadata(self.tmppath, metadata)
         if X_CONTENT_LENGTH in metadata:
             self.drop_cache(fd, 0, int(metadata[X_CONTENT_LENGTH]))
         tpool.execute(os.fsync, fd)
@@ -228,13 +231,14 @@ class Gluster_DiskFile(DiskFile):
             tmp_path = self._container_path
             for dir_name in dir_objs:
                 tmp_path = os.path.join(tmp_path, dir_name)
-                self.create_dir_object(tmp_path)
+                self._create_dir_object(tmp_path)
 
         newpath = os.path.join(self.datadir, self._obj)
-        renamer(tmppath, newpath)
+        renamer(self.tmppath, newpath)
         do_chown(newpath, self.uid, self.gid)
         self.metadata = metadata
         self.data_file = newpath
+        self.filter_metadata()
         return
 
     def unlinkold(self, timestamp):
@@ -302,14 +306,15 @@ class Gluster_DiskFile(DiskFile):
 
         if not os.path.exists(self.tmpdir):
             mkdirs(self.tmpdir)
-        fd, tmppath = mkstemp(dir=self.tmpdir)
+        fd, self.tmppath = mkstemp(dir=self.tmpdir)
         try:
-            yield fd, tmppath
+            yield fd
         finally:
             try:
                 os.close(fd)
             except OSError:
                 pass
+            tmppath, self.tmppath = self.tmppath, None
             try:
                 os.unlink(tmppath)
             except OSError:
