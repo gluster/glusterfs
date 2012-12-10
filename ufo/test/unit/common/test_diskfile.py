@@ -315,7 +315,7 @@ class TestDiskFile(unittest.TestCase):
                                    "dir/z", self.lg)
             # Not created, dir object path is different, just checking
             assert gdf._obj == "z"
-            gdf.create_dir_object(the_dir)
+            gdf._create_dir_object(the_dir)
             assert os.path.isdir(the_dir)
             assert the_dir in _metadata
         finally:
@@ -339,7 +339,7 @@ class TestDiskFile(unittest.TestCase):
             dc = gluster.swift.common.DiskFile.do_chown
             gluster.swift.common.DiskFile.do_chown = _mock_do_chown
             try:
-                gdf.create_dir_object(the_dir)
+                gdf._create_dir_object(the_dir)
             finally:
                 gluster.swift.common.DiskFile.do_chown = dc
             assert os.path.isdir(the_dir)
@@ -355,9 +355,9 @@ class TestDiskFile(unittest.TestCase):
             os.makedirs(the_dir)
             gdf = Gluster_DiskFile(td, "vol0", "p57", "ufo47", "bar",
                                    "z", self.lg)
-            md = { 'a': 'b' }
-            gdf.put_metadata(md)
-            assert gdf.metadata == md
+            md = { 'Content-Type': 'application/octet-stream', 'a': 'b' }
+            gdf.put_metadata(md.copy())
+            assert gdf.metadata == md, "gdf.metadata = %r, md = %r" % (gdf.metadata, md)
             assert _metadata[the_dir] == md
         finally:
             shutil.rmtree(td)
@@ -368,7 +368,7 @@ class TestDiskFile(unittest.TestCase):
                                "z", self.lg)
         assert gdf.metadata == {}
 
-        gdf.put(None, '', {'x': '1'}, extension='.ts')
+        gdf.put_metadata({'x': '1'}, tombstone=True)
         assert gdf.metadata == {}
 
     def test_put_w_meta_file(self):
@@ -383,8 +383,7 @@ class TestDiskFile(unittest.TestCase):
                                    "z", self.lg)
             newmd = gdf.metadata.copy()
             newmd['X-Object-Meta-test'] = '1234'
-            with gdf.mkstemp() as (fd, tmppath):
-                gdf.put(fd, tmppath, newmd, extension='.meta')
+            gdf.put_metadata(newmd)
             assert gdf.metadata == newmd
             assert _metadata[the_file] == newmd
         finally:
@@ -403,8 +402,7 @@ class TestDiskFile(unittest.TestCase):
             newmd = gdf.metadata.copy()
             newmd['Content-Type'] = ''
             newmd['X-Object-Meta-test'] = '1234'
-            with gdf.mkstemp() as (fd, tmppath):
-                gdf.put(fd, tmppath, newmd, extension='.meta')
+            gdf.put_metadata(newmd)
             assert gdf.metadata == newmd
             assert _metadata[the_file] == newmd
         finally:
@@ -420,7 +418,7 @@ class TestDiskFile(unittest.TestCase):
                                    "dir", self.lg)
             newmd = gdf.metadata.copy()
             newmd['X-Object-Meta-test'] = '1234'
-            gdf.put(None, None, newmd, extension='.meta')
+            gdf.put_metadata(newmd)
             assert gdf.metadata == newmd
             assert _metadata[the_dir] == newmd
         finally:
@@ -436,7 +434,7 @@ class TestDiskFile(unittest.TestCase):
                                    "dir", self.lg)
             newmd = gdf.metadata.copy()
             newmd['X-Object-Meta-test'] = '1234'
-            gdf.put(None, None, newmd, extension='.data')
+            gdf.put_metadata(newmd)
             assert gdf.metadata == newmd
             assert _metadata[the_dir] == newmd
         finally:
@@ -455,7 +453,8 @@ class TestDiskFile(unittest.TestCase):
                 'ETag': 'etag',
                 'X-Timestamp': 'ts',
                 'Content-Type': 'application/directory'}
-            gdf.put(None, None, newmd)
+            gdf.put(None, newmd, extension='.dir')
+            assert gdf.data_file == the_dir
             assert gdf.metadata == newmd
             assert _metadata[the_dir] == newmd
         finally:
@@ -477,7 +476,7 @@ class TestDiskFile(unittest.TestCase):
             newmd['Content-Type'] = ''
             newmd['X-Object-Meta-test'] = '1234'
             try:
-                gdf.put(None, None, newmd, extension='.data')
+                gdf.put(None, newmd, extension='.data')
             except AlreadyExistsAsDir:
                 pass
             else:
@@ -509,9 +508,11 @@ class TestDiskFile(unittest.TestCase):
                 'Content-Length': '5',
                 }
 
-            with gdf.mkstemp() as (fd, tmppath):
+            with gdf.mkstemp() as fd:
+                assert gdf.tmppath is not None
+                tmppath = gdf.tmppath
                 os.write(fd, body)
-                gdf.put(fd, tmppath, metadata)
+                gdf.put(fd, metadata)
 
             assert gdf.data_file == os.path.join(td, "vol0", "bar", "z")
             assert os.path.exists(gdf.data_file)
@@ -543,9 +544,11 @@ class TestDiskFile(unittest.TestCase):
                 'Content-Length': '5',
                 }
 
-            with gdf.mkstemp() as (fd, tmppath):
+            with gdf.mkstemp() as fd:
+                assert gdf.tmppath is not None
+                tmppath = gdf.tmppath
                 os.write(fd, body)
-                gdf.put(fd, tmppath, metadata)
+                gdf.put(fd, metadata)
 
             assert gdf.data_file == os.path.join(td, "vol0", "bar", "b", "a", "z")
             assert os.path.exists(gdf.data_file)
@@ -844,12 +847,12 @@ class TestDiskFile(unittest.TestCase):
             gdf = Gluster_DiskFile(td, "vol0", "p57", "ufo47", "bar",
                                    "dir/z", self.lg)
             saved_tmppath = ''
-            with gdf.mkstemp() as (fd, tmppath):
+            with gdf.mkstemp() as fd:
                 assert gdf.tmpdir == os.path.join(td, "vol0", "tmp")
                 assert os.path.isdir(gdf.tmpdir)
-                assert os.path.dirname(tmppath) == gdf.tmpdir
-                assert os.path.exists(tmppath)
-                saved_tmppath = tmppath
+                saved_tmppath = gdf.tmppath
+                assert os.path.dirname(saved_tmppath) == gdf.tmpdir
+                assert os.path.exists(saved_tmppath)
                 os.write(fd, "123")
             assert not os.path.exists(saved_tmppath)
         finally:
@@ -863,12 +866,12 @@ class TestDiskFile(unittest.TestCase):
             gdf = Gluster_DiskFile(td, "vol0", "p57", "ufo47", "bar",
                                    "dir/z", self.lg)
             saved_tmppath = ''
-            with gdf.mkstemp() as (fd, tmppath):
+            with gdf.mkstemp() as fd:
                 assert gdf.tmpdir == os.path.join(td, "vol0", "tmp")
                 assert os.path.isdir(gdf.tmpdir)
-                assert os.path.dirname(tmppath) == gdf.tmpdir
-                assert os.path.exists(tmppath)
-                saved_tmppath = tmppath
+                saved_tmppath = gdf.tmppath
+                assert os.path.dirname(saved_tmppath) == gdf.tmpdir
+                assert os.path.exists(saved_tmppath)
                 os.write(fd, "123")
                 os.close(fd)
             assert not os.path.exists(saved_tmppath)
@@ -883,14 +886,14 @@ class TestDiskFile(unittest.TestCase):
             gdf = Gluster_DiskFile(td, "vol0", "p57", "ufo47", "bar",
                                    "dir/z", self.lg)
             saved_tmppath = ''
-            with gdf.mkstemp() as (fd, tmppath):
+            with gdf.mkstemp() as fd:
                 assert gdf.tmpdir == os.path.join(td, "vol0", "tmp")
                 assert os.path.isdir(gdf.tmpdir)
-                assert os.path.dirname(tmppath) == gdf.tmpdir
-                assert os.path.exists(tmppath)
-                saved_tmppath = tmppath
+                saved_tmppath = gdf.tmppath
+                assert os.path.dirname(saved_tmppath) == gdf.tmpdir
+                assert os.path.exists(saved_tmppath)
                 os.write(fd, "123")
-                os.unlink(tmppath)
+                os.unlink(saved_tmppath)
             assert not os.path.exists(saved_tmppath)
         finally:
             shutil.rmtree(td)
