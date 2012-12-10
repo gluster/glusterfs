@@ -234,6 +234,11 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
 %{__install} -p -m 0644 extras/hook-scripts/*.sh   \
     %{buildroot}%{_sharedstatedir}/glusterd/hook-scripts/
 
+# Install sysconfig file
+%{__mkdir_p} %{buildroot}%{_sysconfdir}/sysconfig
+%{__install} -p -m 0644 extras/glusterd-sysconfig   \
+    %{buildroot}%{_sysconfdir}/sysconfig/glusterd
+
 # Create directories and files that get created during runtime. This should
 # not be needed for files marged as "ghost", but rpm-4.9 is broken in this
 # respect :-(
@@ -379,6 +384,7 @@ fi
 %doc extras/clear_xattrs.sh
 #%doc examples/ doc/glusterfs*.vol.sample
 %config(noreplace) %{_sysconfdir}/glusterfs
+%config(noreplace) %{_sysconfdir}/sysconfig/glusterd
 %{_sysconfdir}/init.d/glusterd
 %{_sbindir}/gluster
 %{_sbindir}/glusterd
@@ -429,6 +435,9 @@ fi
 %{_libdir}/*.so
 
 %changelog
+* Tue Dec 11 2012 Filip Pytloun <filip.pytloun@gooddata.com>
+- add sysconfig file
+
 * Wed Sep 05 2012 Niels de Vos <ndevos@redhat.com>
 - Don't use python-ctypes on SLES (from Jörg Petersen)
 

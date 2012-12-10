@@ -1,0 +1,6 @@
+## Set custom log file and log level (bellow are defaults)
+# LOG_FILE='/var/log/glusterfs/glusterd.log'
+# LOG_LEVEL='INFO'
+
+## Set custom options for glusterd
+# GLUSTERD_OPTIONS=''

@@ -10,10 +10,21 @@
 BASE=glusterd
 PIDFILE=/var/run/$BASE.pid
 PID=`test -f $PIDFILE && cat $PIDFILE`
+
+# Overwriteable from sysconfig
+LOG_LEVEL=''
+LOG_FILE=''
+GLUSTERD_OPTIONS=''
+
+[ -f /etc/sysconfig/${BASE} ] && . /etc/sysconfig/${BASE}
+
+[ ! -z $LOG_LEVEL ] && GLUSTERD_OPTIONS="${GLUSTERD_OPTIONS} --log-level ${LOG_LEVEL}"
+[ ! -z $LOG_FILE ] && GLUSTERD_OPTIONS="${GLUSTERD_OPTIONS} --log-file ${LOG_FILE}"
+
 GLUSTERFSD=glusterfsd
 GLUSTERFS=glusterfs
 GLUSTERD_BIN=@prefix@/sbin/$BASE
-GLUSTERD_OPTS="--pid-file=$PIDFILE"
+GLUSTERD_OPTS="--pid-file=$PIDFILE ${GLUSTERD_OPTIONS}"
 GLUSTERD="$GLUSTERD_BIN $GLUSTERD_OPTS"
 RETVAL=0
 
