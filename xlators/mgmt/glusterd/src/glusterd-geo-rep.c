@@ -1184,6 +1184,16 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
 
         switch (type) {
         case GF_GSYNC_OPTION_TYPE_START:
+                /* don't attempt to start gsync if replace-brick is
+                 * in progress */
+                if (glusterd_is_rb_ongoing (volinfo)) {
+                        snprintf (errmsg, sizeof(errmsg),"replace-brick is in"
+                                   " progress, not starting geo-replication");
+                        *op_errstr = gf_strdup (errmsg);
+                        ret = -1;
+                        goto out;
+                }
+
                 ret = glusterd_op_verify_gsync_start_options (volinfo, slave,
                                                               op_errstr);
                 if (ret)
