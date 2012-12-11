@@ -256,8 +256,8 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"storage.owner-gid",                    "storage/posix",             "brick-gid", NULL, DOC, 0, 2},
         {"config.memory-accounting",             "configuration",             "!config", NULL, DOC, 0, 2},
         {"config.transport",                     "configuration",             "!config", NULL, DOC, 0, 2},
-        {GLUSTERD_QUORUM_TYPE_KEY,               "mgmt/glusterd",             NULL,         "off", DOC, 0},
-        {GLUSTERD_QUORUM_RATIO_KEY,              "mgmt/glusterd",             NULL,         "0", DOC, 0},
+        {GLUSTERD_QUORUM_TYPE_KEY,               "mgmt/glusterd",             NULL, "off", DOC, 0, 2},
+        {GLUSTERD_QUORUM_RATIO_KEY,              "mgmt/glusterd",             NULL, "0", DOC, 0, 2},
         {NULL,                                                                }
 };
 
