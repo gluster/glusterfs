@@ -416,13 +416,18 @@ glusterd_friend_find (uuid_t uuid, char *hostname,
                       glusterd_peerinfo_t **peerinfo)
 {
         int     ret = -1;
+        xlator_t *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         if (uuid) {
                 ret = glusterd_friend_find_by_uuid (uuid, peerinfo);
 
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_INFO,
-                                 "Unable to find peer by uuid");
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                 "Unable to find peer by uuid: %s",
+                                 uuid_utoa (uuid));
                 } else {
                         goto out;
                 }
@@ -433,7 +438,7 @@ glusterd_friend_find (uuid_t uuid, char *hostname,
                 ret = glusterd_friend_find_by_hostname (hostname, peerinfo);
 
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_INFO,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "Unable to find hostname: %s", hostname);
                 } else {
                         goto out;
@@ -465,14 +470,14 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
         ret = glusterd_lock (MY_UUID);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "Unable to acquire local lock, ret: %d", ret);
+                        "Unable to acquire lock on localhost, ret: %d", ret);
                 snprintf (err_str, err_len, "Another transaction is in progress. "
                           "Please try again after sometime.");
                 goto out;
         }
 
         locked = 1;
-        gf_log (this->name, GF_LOG_INFO, "Acquired local lock");
+        gf_log (this->name, GF_LOG_DEBUG, "Acquired lock on localhost");
 
         ret = glusterd_op_sm_inject_event (GD_OP_EVENT_START_LOCK, NULL);
         if (ret) {
@@ -501,22 +506,26 @@ glusterd_handle_cluster_lock (rpcsvc_request_t *req)
         int32_t                         ret = -1;
         glusterd_op_lock_ctx_t          *ctx = NULL;
         glusterd_peerinfo_t             *peerinfo = NULL;
+        xlator_t                        *this = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT (req);
 
         ret = xdr_to_generic (req->msg[0], &lock_req,
                               (xdrproc_t)xdr_gd1_mgmt_cluster_lock_req);
         if (ret < 0) {
-                //failed to decode msg;
+                gf_log (this->name, GF_LOG_ERROR, "Failed to decode lock "
+                        "request received from peer");
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_INFO,
-                "Received LOCK from uuid: %s", uuid_utoa (lock_req.uuid));
+        gf_log (this->name, GF_LOG_DEBUG, "Received LOCK from uuid: %s",
+                uuid_utoa (lock_req.uuid));
 
         if (glusterd_friend_find_by_uuid (lock_req.uuid, &peerinfo)) {
-                gf_log (THIS->name, GF_LOG_WARNING, "%s doesn't "
+                gf_log (this->name, GF_LOG_WARNING, "%s doesn't "
                         "belong to the cluster. Ignoring request.",
                         uuid_utoa (lock_req.uuid));
                 ret = -1;
@@ -536,7 +545,7 @@ glusterd_handle_cluster_lock (rpcsvc_request_t *req)
         ret = glusterd_op_sm_inject_event (GD_OP_EVENT_LOCK, ctx);
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
@@ -555,10 +564,13 @@ glusterd_req_ctx_create (rpcsvc_request_t *rpc_req,
         char                str[50] = {0,};
         glusterd_req_ctx_t *req_ctx = NULL;
         dict_t             *dict    = NULL;
+        xlator_t           *this    = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         uuid_unparse (uuid, str);
-        gf_log ("glusterd", GF_LOG_INFO,
-                "Received op from uuid: %s", str);
+        gf_log (this->name, GF_LOG_DEBUG, "Received op from uuid %s", str);
 
         dict = dict_new ();
         if (!dict)
@@ -573,7 +585,7 @@ glusterd_req_ctx_create (rpcsvc_request_t *rpc_req,
         req_ctx->op = op;
         ret = dict_unserialize (buf_val, buf_len, &dict);
         if (ret) {
-                gf_log ("", GF_LOG_WARNING,
+                gf_log (this->name, GF_LOG_WARNING,
                         "failed to unserialize the dictionary");
                 goto out;
         }
@@ -598,19 +610,23 @@ glusterd_handle_stage_op (rpcsvc_request_t *req)
         glusterd_req_ctx_t              *req_ctx = NULL;
         gd1_mgmt_stage_op_req           op_req = {{0},};
         glusterd_peerinfo_t             *peerinfo = NULL;
+        xlator_t                        *this = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT (req);
 
         ret = xdr_to_generic (req->msg[0], &op_req,
                               (xdrproc_t)xdr_gd1_mgmt_stage_op_req);
         if (ret < 0) {
-                //failed to decode msg;
+                gf_log (this->name, GF_LOG_ERROR, "Failed to decode stage "
+                        "request received from peer");
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
 
         if (glusterd_friend_find_by_uuid (op_req.uuid, &peerinfo)) {
-                gf_log (THIS->name, GF_LOG_WARNING, "%s doesn't "
+                gf_log (this->name, GF_LOG_WARNING, "%s doesn't "
                         "belong to the cluster. Ignoring request.",
                         uuid_utoa (op_req.uuid));
                 ret = -1;
@@ -639,19 +655,23 @@ glusterd_handle_commit_op (rpcsvc_request_t *req)
         glusterd_req_ctx_t              *req_ctx = NULL;
         gd1_mgmt_commit_op_req          op_req = {{0},};
         glusterd_peerinfo_t             *peerinfo = NULL;
+        xlator_t                        *this = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT (req);
 
         ret = xdr_to_generic (req->msg[0], &op_req,
                               (xdrproc_t)xdr_gd1_mgmt_commit_op_req);
         if (ret < 0) {
-                //failed to decode msg;
+                gf_log (this->name, GF_LOG_ERROR, "Failed to decode commit "
+                        "request received from peer");
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
 
         if (glusterd_friend_find_by_uuid (op_req.uuid, &peerinfo)) {
-                gf_log (THIS->name, GF_LOG_WARNING, "%s doesn't "
+                gf_log (this->name, GF_LOG_WARNING, "%s doesn't "
                         "belong to the cluster. Ignoring request.",
                         uuid_utoa (op_req.uuid));
                 ret = -1;
@@ -1549,8 +1569,7 @@ glusterd_op_lock_send_resp (rpcsvc_request_t *req, int32_t status)
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gd1_mgmt_cluster_lock_rsp);
 
-        gf_log ("glusterd", GF_LOG_INFO,
-                "Responded, ret: %d", ret);
+        gf_log (THIS->name, GF_LOG_DEBUG, "Responded to lock, ret: %d", ret);
 
         return 0;
 }
@@ -1569,8 +1588,7 @@ glusterd_op_unlock_send_resp (rpcsvc_request_t *req, int32_t status)
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gd1_mgmt_cluster_unlock_rsp);
 
-        gf_log ("glusterd", GF_LOG_INFO,
-                "Responded to unlock, ret: %d", ret);
+        gf_log (THIS->name, GF_LOG_DEBUG, "Responded to unlock, ret: %d", ret);
 
         return ret;
 }
@@ -1582,23 +1600,27 @@ glusterd_handle_cluster_unlock (rpcsvc_request_t *req)
         int32_t                         ret = -1;
         glusterd_op_lock_ctx_t          *ctx = NULL;
         glusterd_peerinfo_t             *peerinfo = NULL;
+        xlator_t                        *this = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT (req);
 
         ret = xdr_to_generic (req->msg[0], &unlock_req,
                               (xdrproc_t)xdr_gd1_mgmt_cluster_unlock_req);
         if (ret < 0) {
-                //failed to decode msg;
+                gf_log (this->name, GF_LOG_ERROR, "Failed to decode unlock "
+                        "request received from peer");
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
 
 
-        gf_log ("glusterd", GF_LOG_INFO,
+        gf_log (this->name, GF_LOG_DEBUG,
                 "Received UNLOCK from uuid: %s", uuid_utoa (unlock_req.uuid));
 
         if (glusterd_friend_find_by_uuid (unlock_req.uuid, &peerinfo)) {
-                gf_log (THIS->name, GF_LOG_WARNING, "%s doesn't "
+                gf_log (this->name, GF_LOG_WARNING, "%s doesn't "
                         "belong to the cluster. Ignoring request.",
                         uuid_utoa (unlock_req.uuid));
                 ret = -1;
@@ -1630,8 +1652,12 @@ glusterd_op_stage_send_resp (rpcsvc_request_t   *req,
 {
         gd1_mgmt_stage_op_rsp           rsp      = {{0},};
         int                             ret      = -1;
+        xlator_t                       *this     = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT (req);
+
         rsp.op_ret = status;
         glusterd_get_uuid (&rsp.uuid);
         rsp.op = op;
@@ -1643,7 +1669,7 @@ glusterd_op_stage_send_resp (rpcsvc_request_t   *req,
         ret = dict_allocate_and_serialize (rsp_dict, &rsp.dict.dict_val,
                                            &rsp.dict.dict_len);
         if (ret < 0) {
-                gf_log ("", GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_ERROR,
                         "failed to get serialized length of dict");
                 return ret;
         }
@@ -1651,8 +1677,7 @@ glusterd_op_stage_send_resp (rpcsvc_request_t   *req,
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gd1_mgmt_stage_op_rsp);
 
-        gf_log ("glusterd", GF_LOG_INFO,
-                "Responded to stage, ret: %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Responded to stage, ret: %d", ret);
         GF_FREE (rsp.dict.dict_val);
 
         return ret;
@@ -1665,7 +1690,10 @@ glusterd_op_commit_send_resp (rpcsvc_request_t *req,
 {
         gd1_mgmt_commit_op_rsp          rsp      = {{0}, };
         int                             ret      = -1;
+        xlator_t                        *this = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT (req);
         rsp.op_ret = status;
         glusterd_get_uuid (&rsp.uuid);
@@ -1680,7 +1708,7 @@ glusterd_op_commit_send_resp (rpcsvc_request_t *req,
                 ret = dict_allocate_and_serialize (rsp_dict, &rsp.dict.dict_val,
                                                    &rsp.dict.dict_len);
                 if (ret < 0) {
-                        gf_log ("", GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "failed to get serialized length of dict");
                         goto out;
                 }
@@ -1690,8 +1718,7 @@ glusterd_op_commit_send_resp (rpcsvc_request_t *req,
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gd1_mgmt_commit_op_rsp);
 
-        gf_log ("glusterd", GF_LOG_INFO,
-                "Responded to commit, ret: %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Responded to commit, ret: %d", ret);
 
 out:
         GF_FREE (rsp.dict.dict_val);

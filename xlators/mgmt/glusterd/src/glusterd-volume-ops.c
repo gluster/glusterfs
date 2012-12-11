@@ -309,8 +309,10 @@ glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
-                //failed to decode msg;
+                snprintf (err_str, sizeof (err_str), "Failed to decode message "
+                          "received from cli");
                 req->rpc_err = GARBAGE_ARGS;
+                gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
                 goto out;
         }
         if (cli_req.dict.dict_len) {
@@ -339,7 +341,7 @@ glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_INFO, "Received stop vol req "
+        gf_log (this->name, GF_LOG_DEBUG, "Received stop vol req "
                 "for volume %s", dup_volname);
 
         ret = glusterd_op_begin (req, GD_OP_STOP_VOLUME, dict,
@@ -806,19 +808,23 @@ int
 glusterd_op_stop_volume_args_get (dict_t *dict, char** volname, int *flags)
 {
         int ret = -1;
+        xlator_t *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         if (!dict || !volname || !flags)
                 goto out;
 
         ret = dict_get_str (dict, "volname", volname);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
                 goto out;
         }
 
         ret = dict_get_int32 (dict, "flags", flags);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get flags");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get flags");
                 goto out;
         }
 out:
@@ -936,7 +942,10 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
         gf_boolean_t                            is_run = _gf_false;
         glusterd_volinfo_t                      *volinfo = NULL;
         char                                    msg[2048] = {0};
+        xlator_t                                *this = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
 
         ret = glusterd_op_stop_volume_args_get (dict, &volname, &flags);
         if (ret)
@@ -945,18 +954,18 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
         exists = glusterd_check_volume_exists (volname);
 
         if (!exists) {
-                snprintf (msg, sizeof (msg), "Volume %s does not exist", volname);
-                gf_log ("", GF_LOG_ERROR, "%s", msg);
-                *op_errstr = gf_strdup (msg);
+                snprintf (msg, sizeof (msg), FMTSTR_CHECK_VOL_EXISTS, volname);
+                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
                 ret = -1;
                 goto out;
-        } else {
-                ret = 0;
         }
 
         ret  = glusterd_volinfo_find (volname, &volinfo);
-        if (ret)
+        if (ret) {
+                snprintf (msg, sizeof (msg), FMTSTR_CHECK_VOL_EXISTS, volname);
+                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
                 goto out;
+        }
 
         ret = glusterd_validate_volume_id (dict, volinfo);
         if (ret)
@@ -969,25 +978,22 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
         if (_gf_false == glusterd_is_volume_started (volinfo)) {
                 snprintf (msg, sizeof(msg), "Volume %s "
                           "is not in the started state", volname);
-                gf_log ("", GF_LOG_ERROR, "Volume %s "
-                        "has not been started", volname);
-                *op_errstr = gf_strdup (msg);
+                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
                 ret = -1;
                 goto out;
         }
         ret = glusterd_check_gsync_running (volinfo, &is_run);
         if (ret && (is_run == _gf_false))
-                gf_log ("", GF_LOG_WARNING, "Unable to get the status"
+                gf_log (this->name, GF_LOG_WARNING, "Unable to get the status"
                         " of active "GEOREP" session");
         if (is_run) {
-                gf_log ("", GF_LOG_WARNING, GEOREP" sessions active"
+                gf_log (this->name, GF_LOG_WARNING, GEOREP" sessions active"
                         "for the volume %s ", volname);
                 snprintf (msg, sizeof(msg), GEOREP" sessions are active "
                           "for the volume '%s'.\nUse 'volume "GEOREP" "
                           "status' command for more info. Use 'force' "
                           "option to ignore and stop the volume.",
                           volname);
-                *op_errstr = gf_strdup (msg);
                 ret = -1;
                 goto out;
         }
@@ -996,8 +1002,8 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
                 snprintf (msg, sizeof (msg), "Replace brick is in progress on "
                           "volume %s. Please retry after replace-brick "
                           "operation is committed or aborted", volname);
-                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
-                *op_errstr = gf_strdup (msg);
+                gf_log (this->name, GF_LOG_WARNING, "replace-brick in progress "
+                        "on volume %s", volname);
                 ret = -1;
                 goto out;
         }
@@ -1005,23 +1011,22 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
         if (glusterd_is_defrag_on (volinfo)) {
                 snprintf (msg, sizeof(msg), "rebalance session is "
                           "in progress for the volume '%s'", volname);
-                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
-                *op_errstr = gf_strdup (msg);
+                gf_log (this->name, GF_LOG_WARNING, "%s", msg);
                 ret = -1;
                 goto out;
         }
         if (volinfo->rep_brick.rb_status != GF_RB_STATUS_NONE) {
                 snprintf (msg, sizeof(msg), "replace-brick session is "
                           "in progress for the volume '%s'", volname);
-                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
-                *op_errstr = gf_strdup (msg);
+                gf_log (this->name, GF_LOG_WARNING, "%s", msg);
                 ret = -1;
                 goto out;
         }
 
 out:
-
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        if (msg[0] != 0)
+                *op_errstr = gf_strdup (msg);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
 }
@@ -1666,15 +1671,21 @@ glusterd_op_stop_volume (dict_t *dict)
         char                                    *volname = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
         glusterd_brickinfo_t                    *brickinfo = NULL;
+        xlator_t                                *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         ret = glusterd_op_stop_volume_args_get (dict, &volname, &flags);
         if (ret)
                 goto out;
 
         ret  = glusterd_volinfo_find (volname, &volinfo);
-
-        if (ret)
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, FMTSTR_CHECK_VOL_EXISTS,
+                        volname);
                 goto out;
+        }
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 ret = glusterd_brick_stop (volinfo, brickinfo, _gf_false);
