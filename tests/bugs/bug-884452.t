@@ -13,14 +13,16 @@ TEST $CLI volume start $V0
 TEST glusterfs -s $H0 --volfile-id $V0 $M0
 TEST touch $M0/{1..10000}
 
+RUN_LS_LOOP_FILE="$M0/run-ls-loop"
 function ls-loop
 {
-  while true; do
+  while [ -f $RUN_LS_LOOP_FILE ]; do
     ls -lR $M0 1>/dev/null 2>&1
   done;
 }
+
+touch $RUN_LS_LOOP_FILE
 ls-loop &
-LS_LOOP=$!
 
 function vol-status-loop
 {
@@ -36,12 +38,9 @@ function vol-status-loop
 
 TEST vol-status-loop
 
-kill -KILL $LS_LOOP >/dev/null 2>&1
-sleep 2;
+rm -f $RUN_LS_LOOP_FILE
+wait
 
 TEST umount $M0
 
 cleanup;
-
-
-
