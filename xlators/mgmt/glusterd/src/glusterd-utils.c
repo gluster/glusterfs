@@ -291,21 +291,25 @@ glusterd_unlock (uuid_t uuid)
         char    new_owner_str[50];
         char    owner_str[50];
         int32_t ret = -1;
+        xlator_t *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         GF_ASSERT (uuid);
 
         glusterd_get_lock_owner (&owner);
 
         if (uuid_is_null (owner)) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Cluster lock not held!");
+                gf_log (this->name, GF_LOG_ERROR, "Cluster lock not held!");
                 goto out;
         }
 
         ret = uuid_compare (uuid, owner);
 
         if (ret) {
-               gf_log ("glusterd", GF_LOG_ERROR, "Cluster lock held by %s"
-                        " ,unlock req from %s!", uuid_utoa_r (owner ,owner_str)
+               gf_log (this->name, GF_LOG_ERROR, "Cluster lock held by %s ,"
+                       "unlock req from %s!", uuid_utoa_r (owner ,owner_str)
                         , uuid_utoa_r (uuid, new_owner_str));
                goto out;
         }
@@ -313,7 +317,7 @@ glusterd_unlock (uuid_t uuid)
         ret = glusterd_unset_lock_owner (uuid);
 
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Unable to clear cluster "
+                gf_log (this->name, GF_LOG_ERROR, "Unable to clear cluster "
                         "lock");
                 goto out;
         }
@@ -1009,15 +1013,18 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
         pid_t    pid = -1;
         FILE    *file = NULL;
         gf_boolean_t is_locked = _gf_false;
+        xlator_t *this = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
         file = fopen (pidfile, "r+");
 
         if (!file) {
-                gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
+                gf_log (this->name, GF_LOG_ERROR, "Unable to open pidfile: %s",
                                 pidfile);
                 if (errno == ENOENT) {
-                        gf_log ("",GF_LOG_TRACE, "%s may not be running",
-                                service);
+                        gf_log (this->name, GF_LOG_TRACE, "%s may not be "
+                                "running", service);
                         ret = 0;
                         goto out;
                 }
@@ -1029,11 +1036,12 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
                 is_locked = _gf_true;
                 ret = unlink (pidfile);
                 if (ret && (ENOENT != errno)) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to "
+                        gf_log (this->name, GF_LOG_ERROR, "Unable to "
                                 "unlink stale pidfile: %s", pidfile);
                 } else if (ret && (ENOENT == errno)){
                         ret = 0;
-                        gf_log ("", GF_LOG_INFO, "Brick already stopped");
+                        gf_log (this->name, GF_LOG_DEBUG, "Brick already "
+                                "stopped");
                 }
                 goto out;
         }
@@ -1041,7 +1049,7 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
 
         ret = fscanf (file, "%d", &pid);
         if (ret <= 0) {
-                gf_log ("", GF_LOG_ERROR, "Unable to read pidfile: %s",
+                gf_log (this->name, GF_LOG_ERROR, "Unable to read pidfile: %s",
                                 pidfile);
                 ret = -1;
                 goto out;
@@ -1049,8 +1057,8 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
         fclose (file);
         file = NULL;
 
-        gf_log ("", GF_LOG_INFO, "Stopping gluster %s running in pid: %d",
-                service, pid);
+        gf_log (this->name, GF_LOG_DEBUG, "Stopping gluster %s running in pid: "
+                "%d", service, pid);
 
         ret = kill (pid, sig);
 
@@ -1065,7 +1073,7 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
                 if (ret && ((EAGAIN == errno) || (EACCES == errno))) {
                         ret = kill (pid, SIGKILL);
                         if (ret) {
-                                gf_log ("", GF_LOG_ERROR, "Unable to "
+                                gf_log (this->name, GF_LOG_ERROR, "Unable to "
                                         "kill pid %d reason: %s", pid,
                                         strerror(errno));
                                 goto out;
@@ -1076,7 +1084,7 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
                 }
                 ret = unlink (pidfile);
                 if (ret && (ENOENT != errno)) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to "
+                        gf_log (this->name, GF_LOG_ERROR, "Unable to "
                                 "unlink pidfile: %s", pidfile);
                         goto out;
                 }
@@ -1086,8 +1094,9 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
 out:
         if (is_locked && file)
                 if (lockf (fileno (file), F_ULOCK, 0) < 0)
-                        gf_log ("", GF_LOG_WARNING, "Cannot unlock pidfile: %s"
-                                " reason: %s", pidfile, strerror(errno));
+                        gf_log (this->name, GF_LOG_WARNING, "Cannot unlock "
+                                "pidfile: %s reason: %s", pidfile,
+                                strerror(errno));
         if (file)
                 fclose (file);
         return ret;
@@ -1377,7 +1386,7 @@ glusterd_brick_unlink_socket_file (glusterd_volinfo_t *volinfo,
         if (ret && (ENOENT == errno)) {
                 ret = 0;
         } else {
-                gf_log ("glusterd", GF_LOG_ERROR, "Failed to remove %s"
+                gf_log (this->name, GF_LOG_ERROR, "Failed to remove %s"
                         " error: %s", socketpath, strerror (errno));
         }
 
@@ -4750,8 +4759,7 @@ glusterd_brick_stop (glusterd_volinfo_t *volinfo,
         if (uuid_is_null (brickinfo->uuid)) {
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
-                                "cannot resolve brick: %s:%s",
+                        gf_log (this->name, GF_LOG_ERROR, FMTSTR_RESOLVE_BRICK,
                                 brickinfo->hostname, brickinfo->path);
                         goto out;
                 }
@@ -4764,19 +4772,19 @@ glusterd_brick_stop (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        gf_log ("", GF_LOG_INFO, "About to stop glusterfs"
+        gf_log (this->name, GF_LOG_DEBUG, "About to stop glusterfs"
                 " for brick %s:%s", brickinfo->hostname,
                 brickinfo->path);
         ret = glusterd_volume_stop_glusterfs (volinfo, brickinfo, del_brick);
         if (ret) {
-                gf_log ("", GF_LOG_CRITICAL, "Unable to remove"
+                gf_log (this->name, GF_LOG_CRITICAL, "Unable to stop"
                         " brick: %s:%s", brickinfo->hostname,
                         brickinfo->path);
                 goto out;
         }
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "returning %d ", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "returning %d ", ret);
         return ret;
 }
 
@@ -5238,6 +5246,10 @@ glusterd_sm_tr_log_transition_add (glusterd_sm_tr_log_t *log,
         glusterd_sm_transition_t *transitions = NULL;
         int                      ret = -1;
         int                      next = 0;
+        xlator_t                 *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         GF_ASSERT (log);
         if (!log)
@@ -5260,11 +5272,11 @@ glusterd_sm_tr_log_transition_add (glusterd_sm_tr_log_t *log,
         if (log->count < log->size)
                 log->count++;
         ret = 0;
-        gf_log ("glusterd", GF_LOG_DEBUG, "Transitioning from '%s' to '%s' "
+        gf_log (this->name, GF_LOG_DEBUG, "Transitioning from '%s' to '%s' "
                 "due to event '%s'", log->state_name_get (old_state),
                 log->state_name_get (new_state), log->event_name_get (event));
 out:
-        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
         return ret;
 }
 
@@ -5354,7 +5366,7 @@ glusterd_remove_pending_entry (struct list_head *list, void *elem)
                 }
         }
 out:
-        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        gf_log (THIS->name, GF_LOG_DEBUG, "returning %d", ret);
         return ret;
 
 }

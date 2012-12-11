@@ -450,11 +450,14 @@ glusterd_store_delete_brick (glusterd_volinfo_t *volinfo,
         char                    brickpath[PATH_MAX] = {0,};
         char                    *ptr = NULL;
         char                    *tmppath = NULL;
+        xlator_t                *this = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
 
-        priv = THIS->private;
+        priv = this->private;
 
         GF_ASSERT (priv);
 
@@ -477,8 +480,8 @@ glusterd_store_delete_brick (glusterd_volinfo_t *volinfo,
         ret = unlink (brickpath);
 
         if ((ret < 0) && (errno != ENOENT)) {
-                gf_log ("", GF_LOG_ERROR, "Unlink failed on %s, reason: %s",
-                        brickpath, strerror(errno));
+                gf_log (this->name, GF_LOG_ERROR, "Unlink failed on %s, "
+                        "reason: %s", brickpath, strerror(errno));
                 ret = -1;
                 goto out;
         } else {
@@ -490,7 +493,7 @@ out:
                 glusterd_store_handle_destroy (brickinfo->shandle);
                 brickinfo->shandle = NULL;
         }
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
 }
 
