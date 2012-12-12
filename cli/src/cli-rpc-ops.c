@@ -179,8 +179,10 @@ gf_cli_probe_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         if (global_state->mode & GLUSTER_MODE_XML) {
-                ret = cli_xml_output_str ("peerProbe", msg, rsp.op_ret,
-                                          rsp.op_errno, NULL);
+                ret = cli_xml_output_str (NULL,
+                                          (rsp.op_ret == -1)? NULL : msg,
+                                          rsp.op_ret, rsp.op_errno,
+                                          (rsp.op_ret == -1)? msg : NULL);
                 if (ret)
                         gf_log ("cli", GF_LOG_ERROR,
                                 "Error outputting to xml");
