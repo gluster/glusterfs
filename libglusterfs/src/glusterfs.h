@@ -300,6 +300,7 @@ struct _cmd_args {
         int              enable_ino32;
         int              worm;
         int              mac_compat;
+        int              gid_timeout;
 	struct list_head xlator_options;  /* list of xlator_option_t */
 
 	/* fuse options */

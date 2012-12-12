@@ -339,7 +339,7 @@ set_fuse_mount_options (glusterfs_ctx_t *ctx, dict_t *options)
         }
 
         if (cmd_args->enable_ino32) {
-                ret = dict_set_static_ptr (master->options, "enable-ino32",
+                ret = dict_set_static_ptr (options, "enable-ino32",
                                            "on");
                 if (ret < 0) {
                         gf_log ("glusterfsd", GF_LOG_ERROR,
