@@ -1932,11 +1932,8 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
         if (ret)
                 goto out;
 
-        if (!rsp_dict) {
-                //this should happen only on source
+        if (is_origin_glusterd ()) {
                 ret = 0;
-                rsp_dict = glusterd_op_get_ctx ();
-
                 if ((cmd & GF_CLI_STATUS_ALL)) {
                         ret = glusterd_get_all_volnames (rsp_dict);
                         if (ret)
@@ -2868,7 +2865,7 @@ out:
  * hostnames etc.
  */
 void
-glusterd_op_modify_op_ctx (glusterd_op_t op)
+glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
 {
         int             ret = -1;
         dict_t          *op_ctx = NULL;
@@ -2881,7 +2878,11 @@ glusterd_op_modify_op_ctx (glusterd_op_t op)
         this = THIS;
         GF_ASSERT (this);
 
-        op_ctx = glusterd_op_get_ctx();
+        if (ctx)
+                op_ctx = ctx;
+        else
+                op_ctx = glusterd_op_get_ctx();
+
         if (!op_ctx) {
                 gf_log (this->name, GF_LOG_CRITICAL,
                         "Operation context is not present.");
@@ -3129,7 +3130,7 @@ out:
                         ret = glusterd_op_start_rb_timer (op_dict);
 
                 } else {
-                        glusterd_op_modify_op_ctx (op);
+                        glusterd_op_modify_op_ctx (op, NULL);
                         ret = glusterd_op_sm_inject_all_acc ();
                 }
                 goto err;
@@ -3299,7 +3300,7 @@ out:
                 if (ret)
                         ret = glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT, NULL);
                 else if (!opinfo.pending_count) {
-                        glusterd_op_modify_op_ctx (op);
+                        glusterd_op_modify_op_ctx (op, NULL);
                         ret = glusterd_op_sm_inject_event (GD_OP_EVENT_COMMIT_ACC, NULL);
                 }
                 /*else do nothing*/
