@@ -149,13 +149,19 @@ cli_xml_output_str (char *op, char *str, int op_ret, int op_errno,
         if (ret)
                 goto out;
 
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"cliOp",
-                                               "%s", op);
-        XML_RET_CHECK_AND_GOTO (ret, out);
+        if (op) {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"cliOp",
+                                                       "%s", op);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+        }
 
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"output",
-                                               "%s", str);
-        XML_RET_CHECK_AND_GOTO (ret, out);
+        if (str) {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"output",
+                                                       "%s", str);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+        }
 
         ret = cli_end_xml_output (writer, buf);
 
