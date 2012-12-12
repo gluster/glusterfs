@@ -1364,6 +1364,7 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                         "failed for %s", entry_loc.path);
                                 defrag->defrag_status =
                                 GF_DEFRAG_STATUS_FAILED;
+                                defrag->total_failures ++;
                                 goto out;
                         }
                         ret = gf_defrag_fix_layout (this, defrag, &entry_loc,
@@ -1372,6 +1373,7 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR, "Fix layout "
                                         "failed for %s", entry_loc.path);
+                                defrag->total_failures++;
                                 goto out;
                         }
 
@@ -1455,6 +1457,7 @@ gf_defrag_start_crawl (void *data)
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "fix layout on %s failed",
                         loc.path);
+                defrag->total_failures++;
                 goto out;
         }
 

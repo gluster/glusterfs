@@ -481,7 +481,8 @@ dht_layout_sort_volname (dht_layout_t *layout)
 int
 dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
                       uint32_t *holes_p, uint32_t *overlaps_p,
-                      uint32_t *missing_p, uint32_t *down_p, uint32_t *misc_p)
+                      uint32_t *missing_p, uint32_t *down_p, uint32_t *misc_p,
+                      uint32_t *no_space_p)
 {
         uint32_t    overlaps = 0;
         uint32_t    missing  = 0;
@@ -494,6 +495,7 @@ dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
         uint32_t    prev_stop = 0;
         uint32_t    last_stop = 0;
         char        is_virgin = 1;
+        uint32_t    no_space  = 0;
 
         /* TODO: explain what is happening */
 
@@ -511,7 +513,7 @@ dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
                                 down++;
                                 break;
                         case ENOSPC:
-                                down++;
+                                no_space++;
                                 break;
                         default:
                                 misc++;
@@ -550,6 +552,9 @@ dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
         if (misc_p)
                 *misc_p = misc;
 
+        if (no_space_p)
+                *no_space_p = no_space;
+
         return ret;
 }
 
@@ -574,7 +579,7 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 
         ret = dht_layout_anomalies (this, loc, layout,
                                     &holes, &overlaps,
-                                    &missing, &down, &misc);
+                                    &missing, &down, &misc, NULL);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "error while finding anomalies in %s -- not good news",
