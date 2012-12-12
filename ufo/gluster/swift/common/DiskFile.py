@@ -251,16 +251,17 @@ class Gluster_DiskFile(DiskFile):
         if not self.metadata or self.metadata['X-Timestamp'] >= timestamp:
             return
 
+        assert self.data_file, \
+            "Have metadata, %r, but no data_file" % self.metadata
+
         if self._is_dir:
             # Marker directory object
             if not rmdirs(self.data_file):
-                logging.error('Unable to delete dir object: %s' % self.data_file)
+                logging.error('Unable to delete dir object: %s', self.data_file)
                 return
         else:
             # File object
-            for fname in do_listdir(self.datadir):
-                if os.path.join(self.datadir, fname) == self.data_file:
-                    do_unlink(self.data_file)
+            do_unlink(self.data_file)
 
         self.metadata = {}
         self.data_file = None
