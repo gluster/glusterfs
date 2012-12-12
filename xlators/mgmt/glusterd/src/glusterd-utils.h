@@ -459,6 +459,21 @@ int
 glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
 int
 glusterd_volume_heal_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
+int32_t
+glusterd_handle_node_rsp (dict_t *req_ctx, void *pending_entry,
+                          glusterd_op_t op, dict_t *rsp_dict, dict_t *op_ctx,
+                          char **op_errstr, gd_node_type type);
+int
+glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
+int
+glusterd_volume_heal_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
+int
+_profile_volume_add_brick_rsp (dict_t *this, char *key, data_t *value,
+                             void *data);
+int
+glusterd_profile_volume_brick_rsp (void *pending_entry,
+                                   dict_t *rsp_dict, dict_t *op_ctx,
+                                   char **op_errstr, gd_node_type type);
 
 /* Should be used only when an operation is in progress, as that is the only
  * time a lock_owner is set
