@@ -832,6 +832,8 @@ commit_done:
                         gf_asprintf (&op_errstr, OPERRSTR_COMMIT_FAIL,
                                      hostname);
                 goto out;
+         } else {
+                 glusterd_op_modify_op_ctx (op, op_ctx);
          }
 
         ret = 0;

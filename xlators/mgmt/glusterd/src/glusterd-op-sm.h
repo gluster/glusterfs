@@ -249,6 +249,8 @@ glusterd_handle_brick_rsp (void *pending_entry, glusterd_op_t op,
 dict_t*
 glusterd_op_init_commit_rsp_dict (glusterd_op_t op);
 
+void
+glusterd_op_modify_op_ctx (glusterd_op_t op, void *op_ctx);
 int32_t
 glusterd_op_init_ctx (glusterd_op_t op);
 int32_t
