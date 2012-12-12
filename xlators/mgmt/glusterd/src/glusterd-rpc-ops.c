@@ -1402,7 +1402,8 @@ glusterd_brick_op (call_frame_t *frame, xlator_t *this,
         req_ctx = data;
         GF_ASSERT (req_ctx);
         INIT_LIST_HEAD (&opinfo.pending_bricks);
-        ret = glusterd_op_bricks_select (req_ctx->op, req_ctx->dict, &op_errstr);
+        ret = glusterd_op_bricks_select (req_ctx->op, req_ctx->dict, &op_errstr,
+                                         &opinfo.pending_bricks);
 
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to select bricks "

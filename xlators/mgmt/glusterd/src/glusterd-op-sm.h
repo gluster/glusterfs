@@ -233,7 +233,8 @@ glusterd_op_sm_state_name_get (int state);
 char*
 glusterd_op_sm_event_name_get (int event);
 int32_t
-glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr);
+glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr,
+                           struct list_head *selected);
 int
 glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickinfo,
                                  gd1_mgmt_brick_op_req **req, dict_t *dict);

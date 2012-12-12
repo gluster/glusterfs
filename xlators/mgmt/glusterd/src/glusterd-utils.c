@@ -6857,6 +6857,354 @@ out:
         return ret;
 }
 
+int
+_profile_volume_add_brick_rsp (dict_t *this, char *key, data_t *value,
+                             void *data)
+{
+        char    new_key[256] = {0};
+        glusterd_pr_brick_rsp_conv_t *rsp_ctx = NULL;
+        data_t  *new_value = NULL;
+
+        rsp_ctx = data;
+        new_value = data_copy (value);
+        GF_ASSERT (new_value);
+        snprintf (new_key, sizeof (new_key), "%d-%s", rsp_ctx->count, key);
+        dict_set (rsp_ctx->dict, new_key, new_value);
+        return 0;
+}
+
+int
+glusterd_profile_volume_brick_rsp (void *pending_entry,
+                                   dict_t *rsp_dict, dict_t *op_ctx,
+                                   char **op_errstr, gd_node_type type)
+{
+        int                             ret = 0;
+        glusterd_pr_brick_rsp_conv_t    rsp_ctx = {0};
+        int32_t                         count = 0;
+        char                            brick[PATH_MAX+1024] = {0};
+        char                            key[256] = {0};
+        char                            *full_brick = NULL;
+        glusterd_brickinfo_t            *brickinfo = NULL;
+        xlator_t                        *this = NULL;
+        glusterd_conf_t                 *priv = NULL;
+
+        GF_ASSERT (rsp_dict);
+        GF_ASSERT (op_ctx);
+        GF_ASSERT (op_errstr);
+        GF_ASSERT (pending_entry);
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = dict_get_int32 (op_ctx, "count", &count);
+        if (ret) {
+                count = 1;
+        } else {
+                count++;
+        }
+        snprintf (key, sizeof (key), "%d-brick", count);
+        if (type == GD_NODE_BRICK) {
+                brickinfo = pending_entry;
+                snprintf (brick, sizeof (brick), "%s:%s", brickinfo->hostname,
+                          brickinfo->path);
+        } else if (type == GD_NODE_NFS) {
+                snprintf (brick, sizeof (brick), "%s", uuid_utoa (MY_UUID));
+        }
+        full_brick = gf_strdup (brick);
+        GF_ASSERT (full_brick);
+        ret = dict_set_dynstr (op_ctx, key, full_brick);
+
+        rsp_ctx.count = count;
+        rsp_ctx.dict = op_ctx;
+        dict_foreach (rsp_dict, _profile_volume_add_brick_rsp, &rsp_ctx);
+        dict_del (op_ctx, "count");
+        ret = dict_set_int32 (op_ctx, "count", count);
+        return ret;
+}
+
+//input-key: <replica-id>:<child-id>-*
+//output-key: <brick-id>-*
+int
+_heal_volume_add_shd_rsp (dict_t *this, char *key, data_t *value, void *data)
+{
+        char                            new_key[256] = {0,};
+        char                            int_str[16] = {0};
+        data_t                          *new_value = NULL;
+        char                            *rxl_end = NULL;
+        char                            *rxl_child_end = NULL;
+        glusterd_volinfo_t              *volinfo = NULL;
+        int                             rxl_id = 0;
+        int                             rxl_child_id = 0;
+        int                             brick_id = 0;
+        int                             int_len = 0;
+        int                             ret = 0;
+        glusterd_heal_rsp_conv_t        *rsp_ctx = NULL;
+        glusterd_brickinfo_t            *brickinfo = NULL;
+
+        rsp_ctx = data;
+        rxl_end = strchr (key, '-');
+        if (!rxl_end)
+                goto out;
+
+        int_len = strlen (key) - strlen (rxl_end);
+        strncpy (int_str, key, int_len);
+        int_str[int_len] = '\0';
+        ret = gf_string2int (int_str, &rxl_id);
+        if (ret)
+                goto out;
+
+        rxl_child_end = strchr (rxl_end + 1, '-');
+        if (!rxl_child_end)
+                goto out;
+
+        int_len = strlen (rxl_end) - strlen (rxl_child_end) - 1;
+        strncpy (int_str, rxl_end + 1, int_len);
+        int_str[int_len] = '\0';
+        ret = gf_string2int (int_str, &rxl_child_id);
+        if (ret)
+                goto out;
+
+        volinfo = rsp_ctx->volinfo;
+        brick_id = rxl_id * volinfo->replica_count + rxl_child_id;
+
+        if (!strcmp (rxl_child_end, "-status")) {
+                brickinfo = glusterd_get_brickinfo_by_position (volinfo,
+                                                                brick_id);
+                if (!brickinfo)
+                        goto out;
+                if (!glusterd_is_local_brick (rsp_ctx->this, volinfo,
+                                              brickinfo))
+                        goto out;
+        }
+        new_value = data_copy (value);
+        snprintf (new_key, sizeof (new_key), "%d%s", brick_id, rxl_child_end);
+        dict_set (rsp_ctx->dict, new_key, new_value);
+
+out:
+        return 0;
+}
+
+int
+glusterd_heal_volume_brick_rsp (dict_t *req_dict, dict_t *rsp_dict,
+                                dict_t *op_ctx, char **op_errstr)
+{
+        int                             ret = 0;
+        glusterd_heal_rsp_conv_t        rsp_ctx = {0};
+        char                            *volname = NULL;
+        glusterd_volinfo_t              *volinfo = NULL;
+
+        GF_ASSERT (rsp_dict);
+        GF_ASSERT (op_ctx);
+        GF_ASSERT (op_errstr);
+
+        ret = dict_get_str (req_dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+
+        if (ret)
+                goto out;
+
+        rsp_ctx.dict = op_ctx;
+        rsp_ctx.volinfo = volinfo;
+        rsp_ctx.this = THIS;
+        dict_foreach (rsp_dict, _heal_volume_add_shd_rsp, &rsp_ctx);
+
+out:
+        return ret;
+}
+
+int
+_status_volume_add_brick_rsp (dict_t *this, char *key, data_t *value,
+                              void *data)
+{
+        char                            new_key[256] = {0,};
+        data_t                          *new_value = 0;
+        glusterd_pr_brick_rsp_conv_t    *rsp_ctx = NULL;
+
+        rsp_ctx = data;
+        new_value = data_copy (value);
+        snprintf (new_key, sizeof (new_key), "brick%d.%s", rsp_ctx->count, key);
+        dict_set (rsp_ctx->dict, new_key, new_value);
+
+        return 0;
+}
+
+int
+glusterd_status_volume_brick_rsp (dict_t *rsp_dict, dict_t *op_ctx,
+                                  char **op_errstr)
+{
+        int                             ret = 0;
+        glusterd_pr_brick_rsp_conv_t    rsp_ctx = {0};
+        int32_t                         count = 0;
+        int                             index = 0;
+
+        GF_ASSERT (rsp_dict);
+        GF_ASSERT (op_ctx);
+        GF_ASSERT (op_errstr);
+
+        ret = dict_get_int32 (op_ctx, "count", &count);
+        if (ret) {
+                count = 0;
+        } else {
+                count++;
+        }
+        ret = dict_get_int32 (rsp_dict, "index", &index);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Couldn't get node index");
+                goto out;
+        }
+        dict_del (rsp_dict, "index");
+
+        rsp_ctx.count = index;
+        rsp_ctx.dict = op_ctx;
+        dict_foreach (rsp_dict, _status_volume_add_brick_rsp, &rsp_ctx);
+        ret = dict_set_int32 (op_ctx, "count", count);
+
+out:
+        return ret;
+}
+
+int
+glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
+                                 dict_t *op_ctx)
+{
+        int                             ret = 0;
+        char                            *volname = NULL;
+        glusterd_volinfo_t              *volinfo = NULL;
+        char                            key[256] = {0,};
+        int32_t                         i = 0;
+        char                            buf[1024] = {0,};
+        char                            *node_str = NULL;
+        glusterd_conf_t                 *priv = NULL;
+
+        priv = THIS->private;
+        GF_ASSERT (req_dict);
+
+        ret = dict_get_str (req_dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+
+        if (ret)
+                goto out;
+
+        if (rsp_dict) {
+                ret = glusterd_defrag_volume_status_update (volinfo,
+                                                            rsp_dict);
+        }
+
+        if (!op_ctx) {
+                dict_copy (rsp_dict, op_ctx);
+                goto out;
+        }
+
+        ret = dict_get_int32 (op_ctx, "count", &i);
+        i++;
+
+        ret = dict_set_int32 (op_ctx, "count", i);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to set count");
+
+        snprintf (buf, 1024, "%s", uuid_utoa (MY_UUID));
+        node_str = gf_strdup (buf);
+
+        snprintf (key, 256, "node-uuid-%d",i);
+        ret = dict_set_dynstr (op_ctx, key, node_str);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to set node-uuid");
+
+        memset (key, 0 , 256);
+        snprintf (key, 256, "files-%d", i);
+        ret = dict_set_uint64 (op_ctx, key, volinfo->rebal.rebalance_files);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to set file count");
+
+        memset (key, 0 , 256);
+        snprintf (key, 256, "size-%d", i);
+        ret = dict_set_uint64 (op_ctx, key, volinfo->rebal.rebalance_data);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to set size of xfer");
+
+        memset (key, 0 , 256);
+        snprintf (key, 256, "lookups-%d", i);
+        ret = dict_set_uint64 (op_ctx, key, volinfo->rebal.lookedup_files);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to set lookedup file count");
+
+        memset (key, 0 , 256);
+        snprintf (key, 256, "status-%d", i);
+        ret = dict_set_int32 (op_ctx, key, volinfo->rebal.defrag_status);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to set status");
+
+        memset (key, 0 , 256);
+        snprintf (key, 256, "failures-%d", i);
+        ret = dict_set_uint64 (op_ctx, key, volinfo->rebal.rebalance_failures);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to set failure count");
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "run-time-%d", i);
+        ret = dict_set_double (op_ctx, key, volinfo->rebal.rebalance_time);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to set run-time");
+
+out:
+        return ret;
+}
+int32_t
+glusterd_handle_node_rsp (dict_t *req_dict, void *pending_entry,
+                          glusterd_op_t op, dict_t *rsp_dict, dict_t *op_ctx,
+                          char **op_errstr, gd_node_type type)
+{
+        int                     ret = 0;
+
+        GF_ASSERT (op_errstr);
+
+        switch (op) {
+        case GD_OP_PROFILE_VOLUME:
+                ret = glusterd_profile_volume_brick_rsp (pending_entry,
+                                                         rsp_dict, op_ctx,
+                                                         op_errstr, type);
+                break;
+        case GD_OP_STATUS_VOLUME:
+                ret = glusterd_status_volume_brick_rsp (rsp_dict, op_ctx,
+                                                        op_errstr);
+                break;
+
+        case GD_OP_DEFRAG_BRICK_VOLUME:
+                glusterd_defrag_volume_node_rsp (req_dict,
+                                                 rsp_dict, op_ctx);
+                break;
+
+        case GD_OP_HEAL_VOLUME:
+                ret = glusterd_heal_volume_brick_rsp (req_dict, rsp_dict,
+                                                      op_ctx, op_errstr);
+                break;
+        default:
+                break;
+        }
+
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
 /* Should be used only when an operation is in progress, as that is the only
  * time a lock_owner is set
  */
