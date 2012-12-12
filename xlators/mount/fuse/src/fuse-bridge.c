@@ -10,6 +10,11 @@
 
 #include <sys/wait.h>
 #include "fuse-bridge.h"
+#include "mount-gluster-compat.h"
+
+#ifdef __NetBSD__
+#undef open /* in perfuse.h, pulled from mount-gluster-compat.h */
+#endif
 
 static int gf_fuse_conn_err_log;
 static int gf_fuse_xattr_enotsup_log;
