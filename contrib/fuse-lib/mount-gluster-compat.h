@@ -33,6 +33,7 @@
 #ifdef __NetBSD__
 #include <perfuse.h>
 #define umount2(dir, flags) unmount(dir, ((flags) != 0) ? MNT_FORCE : 0)
+#define MS_RDONLY MNT_RDONLY
 #endif
 
 #ifdef linux
