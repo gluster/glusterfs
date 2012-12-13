@@ -137,9 +137,13 @@ class Gluster_DiskFile(DiskFile):
         if os.path.isdir(data_file):
             self._is_dir = True
         else:
-            self.fp = do_open(data_file, 'rb')
-            if not keep_data_fp:
-                self.close(verify_file=False)
+            if keep_data_fp:
+                # The caller has an assumption that the "fp" field of this
+                # object is an file object if keep_data_fp is set. However,
+                # this implementation of the DiskFile object does not need to
+                # open the file for internal operations. So if the caller
+                # requests it, we'll just open the file for them.
+                self.fp = do_open(data_file, 'rb')
 
     def close(self, verify_file=True):
         """
