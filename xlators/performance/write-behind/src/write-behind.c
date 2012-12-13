@@ -123,7 +123,7 @@ typedef struct wb_request {
 
         call_stub_t          *stub;
 
-        size_t                write_size;  /* currently held size
+        ssize_t               write_size;  /* currently held size
 					      (after collapsing) */
 	size_t                orig_size;   /* size which arrived with the request.
 					      This is the size by which we grow
@@ -861,10 +861,20 @@ __wb_collapse_small_writes (wb_request_t *holder, wb_request_t *req)
         struct iobuf  *iobuf  = NULL;
         struct iobref *iobref = NULL;
         int            ret    = -1;
+        ssize_t        required_size = 0;
+        size_t         holder_len = 0;
+        size_t         req_len = 0;
 
         if (!holder->iobref) {
-                /* TODO: check the required size */
-                iobuf = iobuf_get (req->wb_inode->this->ctx->iobuf_pool);
+                holder_len = iov_length (holder->stub->args.writev.vector,
+                                         holder->stub->args.writev.count);
+                req_len = iov_length (req->stub->args.writev.vector,
+                                      req->stub->args.writev.count);
+
+                required_size = max ((THIS->ctx->page_size),
+                                     (holder_len + req_len));
+                iobuf = iobuf_get2 (req->wb_inode->this->ctx->iobuf_pool,
+                                    required_size);
                 if (iobuf == NULL) {
                         goto out;
                 }
@@ -917,13 +927,13 @@ void
 __wb_preprocess_winds (wb_inode_t *wb_inode)
 {
         off_t         offset_expected = 0;
-        size_t        space_left      = 0;
+        ssize_t       space_left      = 0;
 	wb_request_t *req             = NULL;
 	wb_request_t *tmp             = NULL;
 	wb_request_t *holder          = NULL;
 	wb_conf_t    *conf            = NULL;
         int           ret             = 0;
-	size_t        page_size       = 0;
+	ssize_t       page_size       = 0;
 
 	/* With asynchronous IO from a VM guest (as a file), there
 	   can be two sequential writes happening in two regions
