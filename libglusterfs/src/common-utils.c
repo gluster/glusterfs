@@ -2197,10 +2197,11 @@ generate_glusterfs_ctx_id (void)
 char *
 gf_get_reserved_ports ()
 {
+        char    *ports_info  = NULL;
+#if defined GF_LINUX_HOST_OS
         int     proc_fd      = -1;
         char    *proc_file   = "/proc/sys/net/ipv4/ip_local_reserved_ports";
         char    buffer[4096] = {0,};
-        char    *ports_info  = NULL;
         int32_t ret          = -1;
 
         proc_fd = open (proc_file, O_RDONLY);
@@ -2229,6 +2230,7 @@ gf_get_reserved_ports ()
 out:
         if (proc_fd != -1)
                 close (proc_fd);
+#endif /* GF_LINUX_HOST_OS */
         return ports_info;
 }
 
@@ -2236,6 +2238,7 @@ int
 gf_process_reserved_ports (gf_boolean_t *ports)
 {
         int      ret         = -1;
+#if defined GF_LINUX_HOST_OS
         char    *ports_info  = NULL;
         char    *tmp         = NULL;
         char    *blocked_port = NULL;
@@ -2265,6 +2268,7 @@ gf_process_reserved_ports (gf_boolean_t *ports)
 
 out:
         GF_FREE (ports_info);
+#endif /* GF_LINUX_HOST_OS */
         return ret;
 }
 
