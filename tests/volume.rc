@@ -69,3 +69,8 @@ function kill_brick()
         brick_hiphenated=$(echo $brick | tr '/' '-')
         kill -9 `cat /var/lib/glusterd/vols/$vol/run/${host}${brick_hiphenated}.pid`
 }
+
+function check_option_help_presence {
+        option=$1
+        $CLI volume set help | grep "^Option:" | grep -w $option
+}
