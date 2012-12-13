@@ -16,7 +16,7 @@
 
 %define _confdir     %{_sysconfdir}/swift
 %define _ufo_version 1.1
-%define _ufo_release 3
+%define _ufo_release 4
 
 Summary  : GlusterFS Unified File and Object Storage.
 Name     : gluster-swift-ufo
