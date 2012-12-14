@@ -286,9 +286,6 @@ class DiskDir(DiskCommon):
 
         objects, object_count, bytes_used = self.object_info
 
-        if objects:
-            objects.sort()
-
         if objects and prefix:
             objects = self.filter_prefix(objects, prefix)
 
