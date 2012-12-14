@@ -1431,7 +1431,7 @@ glusterd_op_set_volume (dict_t *dict)
                 if (ret) {
                         op_errstr = (op_errstr)? op_errstr:
                                      "Volume set help internal error";
-                        gf_log (this->name, GF_LOG_ERROR, op_errstr);
+                        gf_log (this->name, GF_LOG_ERROR, "%s", op_errstr);
                 }
                 goto out;
          }
@@ -2678,7 +2678,7 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 
         ret = glusterd_op_validate_quorum (this, op, dict, &op_errstr);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, op_errstr);
+                gf_log (this->name, GF_LOG_ERROR, "%s", op_errstr);
                 opinfo.op_errstr = op_errstr;
                 goto out;
         }

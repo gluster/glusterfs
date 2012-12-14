@@ -566,7 +566,7 @@ __posix_fd_set_odirect (fd_t *fd, struct posix_fd *pfd, int opflags,
 {
         xlator_t        *this = THIS;
         gf_log (this->name, GF_LOG_INFO,
-                "Linux AIO not availble at build-time."
+                "Linux AIO not available at build-time."
                 " Continuing with synchronous IO");
         return;
 }
