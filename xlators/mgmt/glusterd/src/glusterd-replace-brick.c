@@ -321,7 +321,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 if (glusterd_is_rb_started (volinfo)) {
                         snprintf (msg, sizeof (msg), "Replace brick is already "
                                   "started for volume");
-                        gf_log (this->name, GF_LOG_ERROR, msg);
+                        gf_log (this->name, GF_LOG_ERROR, "%s", msg);
                         *op_errstr = gf_strdup (msg);
                         ret = -1;
                         goto out;
@@ -487,7 +487,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         if (ret) {
                 *op_errstr = gf_strdup (msg);
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, *op_errstr);
+                gf_log (this->name, GF_LOG_ERROR, "%s", *op_errstr);
                 goto out;
         }
 

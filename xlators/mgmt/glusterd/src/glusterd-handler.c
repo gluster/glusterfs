@@ -1070,7 +1070,7 @@ glusterd_handle_cli_uuid_reset (rpcsvc_request_t *req)
                 snprintf (msg_str, sizeof (msg_str), "volumes are already "
                           "present in the cluster. Resetting uuid is not "
                           "allowed");
-                gf_log (this->name, GF_LOG_WARNING, msg_str);
+                gf_log (this->name, GF_LOG_WARNING, "%s", msg_str);
                 goto out;
         }
 
@@ -1079,7 +1079,7 @@ glusterd_handle_cli_uuid_reset (rpcsvc_request_t *req)
                 snprintf (msg_str, sizeof (msg_str),"trusted storage pool "
                           "has been already formed. Please detach this peer "
                           "from the pool and reset its uuid.");
-                gf_log (this->name, GF_LOG_WARNING, msg_str);
+                gf_log (this->name, GF_LOG_WARNING, "%s", msg_str);
                 goto out;
         }
 
@@ -1089,7 +1089,7 @@ glusterd_handle_cli_uuid_reset (rpcsvc_request_t *req)
         if (!uuid_compare (uuid, MY_UUID)) {
                 snprintf (msg_str, sizeof (msg_str), "old uuid and the new uuid"
                           " are same. Try gluster peer reset again");
-                gf_log (this->name, GF_LOG_ERROR, msg_str);
+                gf_log (this->name, GF_LOG_ERROR, "%s", msg_str);
                 ret = -1;
                 goto out;
         }

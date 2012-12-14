@@ -523,6 +523,18 @@ GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
 CFLAGS="-g"
 
+# check for gcc -Werror=format-security
+saved_CFLAGS=$CFLAGS
+CFLAGS="-Wformat -Werror=format-security"
+AC_MSG_CHECKING([whether $CC accepts -Werror=format-security])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM()], [cc_werror_format_security=yes], [cc_werror_format_security=no])
+echo $cc_werror_format_security
+if test "x$cc_werror_format_security" = "xno"; then
+    CFLAGS="$saved_CFLAGS"
+else
+    CFLAGS="$saved_CFLAGS $CFLAGS"
+fi
+
 case $host_os in
      linux*)
      dnl	GF_LINUX_HOST_OS=1
