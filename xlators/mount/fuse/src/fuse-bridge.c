@@ -632,7 +632,7 @@ fuse_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fuse_log_eh (this, "op_ret: %d, op_errno: %d, %"PRIu64": %s() %s => "
                    "gfid: %s", op_ret, op_errno, frame->root->unique,
                    gf_fop_list[frame->root->op], state->loc.path,
-                   uuid_utoa (state->loc.inode->gfid));
+                   state->loc.inode ? uuid_utoa (state->loc.inode->gfid) : "");
         if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "%"PRIu64": %s() %s => %"PRId64, frame->root->unique,
@@ -916,7 +916,7 @@ fuse_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fuse_log_eh(this, "op_ret: %d, op_errno: %d, %"PRIu64", %s() %s => "
                     "gfid: %s", op_ret, op_errno, frame->root->unique,
                     gf_fop_list[frame->root->op], state->loc.path,
-                    uuid_utoa (state->loc.inode->gfid));
+                    state->loc.inode ? uuid_utoa (state->loc.inode->gfid) : "");
 
         if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
@@ -1175,7 +1175,7 @@ fuse_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fuse_log_eh (this, "op_ret: %d, op_errno: %d, %"PRIu64": %s() %s => "
                      "gfid: %s", op_ret, op_errno, frame->root->unique,
                      gf_fop_list[frame->root->op], state->loc.path,
-                     uuid_utoa (state->loc.inode->gfid));
+                     state->loc.inode ? uuid_utoa (state->loc.inode->gfid) : "");
 
         if (op_ret == 0) {
                 inode_unlink (state->loc.inode, state->loc.parent,
@@ -1588,10 +1588,10 @@ fuse_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      "path: %s parent: %s ==> path: %s parent: %s"
                      "gfid: %s", op_ret, op_errno, frame->root->unique,
                      gf_fop_list[frame->root->op], state->loc.path,
-                     uuid_utoa (state->loc.parent->gfid),
+                     state->loc.parent?uuid_utoa (state->loc.parent->gfid):"",
                      state->loc2.path,
-                     uuid_utoa (state->loc2.parent->gfid),
-                     uuid_utoa (state->loc.inode->gfid));
+                     state->loc2.parent?uuid_utoa (state->loc2.parent->gfid):"",
+                     state->loc.inode?uuid_utoa (state->loc.inode->gfid):"");
 
         if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
