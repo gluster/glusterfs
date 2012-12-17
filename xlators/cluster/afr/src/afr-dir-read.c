@@ -517,6 +517,9 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
+        if ((priv->readdir_failover == _gf_false) && (op_ret < 0))
+                goto out;
+
         read_child = (long) cookie;
         last_index = &local->cont.readdir.last_index;
         fresh_children = local->fresh_children;
@@ -623,15 +626,14 @@ int32_t
 afr_do_readdir (call_frame_t *frame, xlator_t *this,
                 fd_t *fd, size_t size, off_t offset, int whichop, dict_t *dict)
 {
-        afr_private_t *  priv       = NULL;
-        xlator_t **      children   = NULL;
-        int              call_child = 0;
-        afr_local_t     *local      = NULL;
-        uint64_t         ctx        = 0;
-        afr_fd_ctx_t    *fd_ctx     = NULL;
-        int              ret        = -1;
-        int32_t          op_errno   = 0;
-        uint64_t         read_child = 0;
+        afr_private_t *priv      = NULL;
+        xlator_t      **children = NULL;
+        int           call_child = 0;
+        afr_local_t   *local     = NULL;
+        afr_fd_ctx_t  *fd_ctx    = NULL;
+        int           ret        = -1;
+        int32_t       op_errno   = 0;
+        uint64_t      read_child = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -656,11 +658,25 @@ afr_do_readdir (call_frame_t *frame, xlator_t *this,
         read_child = afr_inode_get_read_ctx (this, fd->inode,
                                              local->fresh_children);
         ret = afr_get_call_child (this, local->child_up, read_child,
-                                     local->fresh_children,
-                                     &call_child,
-                                     &local->cont.readdir.last_index);
+                                  local->fresh_children,
+                                  &call_child,
+                                  &local->cont.readdir.last_index);
         if (ret < 0) {
                 op_errno = -ret;
+                goto out;
+        }
+
+        fd_ctx  = afr_fd_ctx_get (fd, this);
+        if (!fd_ctx) {
+                op_errno = EBADF;
+                goto out;
+        }
+
+        if ((offset == 0) || (fd_ctx->call_child == -1)) {
+                fd_ctx->call_child = call_child;
+        } else if ((priv->readdir_failover == _gf_false) &&
+                   (call_child != fd_ctx->call_child)) {
+                op_errno = EBADF;
                 goto out;
         }
 
@@ -669,16 +685,6 @@ afr_do_readdir (call_frame_t *frame, xlator_t *this,
         local->cont.readdir.dict   = (dict)? dict_ref (dict) : NULL;
 
         if (priv->strict_readdir) {
-                ret = fd_ctx_get (fd, this, &ctx);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_INFO,
-                                "could not get fd ctx for fd=%p", fd);
-                        op_errno = -ret;
-                        goto out;
-                }
-
-                fd_ctx = (afr_fd_ctx_t *)(long) ctx;
-
                 if (fd_ctx->last_tried != call_child) {
                         gf_log (this->name, GF_LOG_TRACE,
                                 "first up child has changed from %d to %d, "
@@ -705,10 +711,9 @@ afr_do_readdir (call_frame_t *frame, xlator_t *this,
                                    children[call_child]->fops->readdirp, fd,
                                    size, offset, dict);
 
-        ret = 0;
+        return 0;
 out:
-        if (ret < 0)
-                AFR_STACK_UNWIND (readdir, frame, -1, op_errno, NULL, NULL);
+        AFR_STACK_UNWIND (readdir, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 

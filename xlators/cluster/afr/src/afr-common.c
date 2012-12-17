@@ -2292,6 +2292,7 @@ __afr_fd_ctx_set (xlator_t *this, fd_t *fd)
 	pthread_mutex_init (&fd_ctx->delay_lock, NULL);
         INIT_LIST_HEAD (&fd_ctx->paused_calls);
         INIT_LIST_HEAD (&fd_ctx->entries);
+        fd_ctx->call_child = -1;
 
         ret = __fd_ctx_set (fd, this, (uint64_t)(long) fd_ctx);
         if (ret)

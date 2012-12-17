@@ -167,6 +167,8 @@ reconfigure (xlator_t *this, dict_t *options)
 
 	GF_OPTION_RECONF ("post-op-delay-secs", priv->post_op_delay_secs, options,
 			  uint32, out);
+        GF_OPTION_RECONF ("readdir-failover", priv->readdir_failover, options,
+                          bool, out);
         ret = 0;
 out:
         return ret;
@@ -294,6 +296,7 @@ init (xlator_t *this)
         fix_quorum_options(this,priv,qtype);
 
 	GF_OPTION_INIT ("post-op-delay-secs", priv->post_op_delay_secs, uint32, out);
+        GF_OPTION_INIT ("readdir-failover", priv->readdir_failover, bool, out);
 
         priv->wait_count = 1;
 
@@ -608,6 +611,11 @@ struct volume_options options[] = {
           .description = "Time interval induced artificially before "
 	                 "post-operation phase of the transaction to "
                          "enhance overlap of adjacent write operations.",
+        },
+        { .key = {"readdir-failover"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .description = "readdir(p) will not failover if this option is off",
+          .default_value = "on",
         },
         { .key  = {NULL} },
 };

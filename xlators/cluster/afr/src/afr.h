@@ -155,6 +155,7 @@ typedef struct _afr_private {
         char                   vol_uuid[UUID_SIZE + 1];
         int32_t                *last_event;
         afr_self_heald_t       shd;
+        gf_boolean_t           readdir_failover;
 } afr_private_t;
 
 typedef struct {
@@ -741,6 +742,7 @@ typedef struct {
 	pthread_mutex_t    delay_lock;
 	gf_timer_t        *delay_timer;
 	call_frame_t      *delay_frame;
+        int               call_child;
 } afr_fd_ctx_t;
 
 
