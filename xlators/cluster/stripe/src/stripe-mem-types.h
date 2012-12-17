@@ -20,6 +20,7 @@ enum gf_stripe_mem_types_ {
         gf_stripe_mt_stripe_fd_ctx_t,
         gf_stripe_mt_char,
         gf_stripe_mt_int8_t,
+        gf_stripe_mt_int32_t,
         gf_stripe_mt_xlator_t,
         gf_stripe_mt_stripe_private_t,
         gf_stripe_mt_stripe_options,

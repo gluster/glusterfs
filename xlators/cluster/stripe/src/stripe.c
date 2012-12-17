@@ -3809,6 +3809,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         stripe_private_t *priv = NULL;
         int               down_client = 0;
         int               i = 0;
+        gf_boolean_t      heard_from_all_children = _gf_false;
 
         if (!this)
                 return 0;
@@ -3820,30 +3821,34 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         switch (event)
         {
         case GF_EVENT_CHILD_UP:
-        case GF_EVENT_CHILD_CONNECTING:
         {
                 /* get an index number to set */
                 for (i = 0; i < priv->child_count; i++) {
                         if (data == priv->xl_array[i])
                                 break;
                 }
-                priv->state[i] = 1;
-                for (i = 0; i < priv->child_count; i++) {
-                        if (!priv->state[i])
-                                down_client++;
+
+                if (priv->child_count == i) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "got GF_EVENT_CHILD_UP bad subvolume %s",
+                                data? ((xlator_t *)data)->name: NULL);
+                        break;
                 }
 
                 LOCK (&priv->lock);
                 {
-                        priv->nodes_down = down_client;
                         if (data == FIRST_CHILD (this))
                                 priv->first_child_down = 0;
-                        if (!priv->nodes_down)
-                                default_notify (this, event, data);
+                        priv->last_event[i] = event;
                 }
                 UNLOCK (&priv->lock);
         }
         break;
+        case GF_EVENT_CHILD_CONNECTING:
+        {
+                // 'CONNECTING' doesn't ensure its CHILD_UP, so do nothing
+                goto out;
+        }
         case GF_EVENT_CHILD_DOWN:
         {
                 /* get an index number to set */
@@ -3851,20 +3856,19 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                         if (data == priv->xl_array[i])
                                 break;
                 }
-                priv->state[i] = 0;
-                for (i = 0; i < priv->child_count; i++) {
-                        if (!priv->state[i])
-                                down_client++;
+
+                if (priv->child_count == i) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "got GF_EVENT_CHILD_DOWN bad subvolume %s",
+                                data? ((xlator_t *)data)->name: NULL);
+                        break;
                 }
 
                 LOCK (&priv->lock);
                 {
-                        priv->nodes_down = down_client;
-
                         if (data == FIRST_CHILD (this))
                                 priv->first_child_down = 1;
-                        if (priv->nodes_down)
-                                default_notify (this, event, data);
+                        priv->last_event[i] = event;
                 }
                 UNLOCK (&priv->lock);
         }
@@ -3874,10 +3878,30 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         {
                 /* */
                 default_notify (this, event, data);
+                goto out;
         }
         break;
         }
 
+        // Consider child as down if it's last_event is not CHILD_UP
+        for (i = 0, down_client = 0; i < priv->child_count; i++)
+                if (priv->last_event[i] != GF_EVENT_CHILD_UP)
+                        down_client++;
+
+        LOCK (&priv->lock);
+        {
+                priv->nodes_down = down_client;
+        }
+        UNLOCK (&priv->lock);
+
+        heard_from_all_children = _gf_true;
+        for (i = 0; i < priv->child_count; i++)
+                if (!priv->last_event[i])
+                        heard_from_all_children = _gf_false;
+
+        if (heard_from_all_children)
+                default_notify (this, event, data);
+out:
         return 0;
 }
 
@@ -4598,9 +4622,9 @@ init (xlator_t *this)
         if (!priv->xl_array)
                 goto out;
 
-        priv->state = GF_CALLOC (count, sizeof (int8_t),
-                                 gf_stripe_mt_int8_t);
-        if (!priv->state)
+        priv->last_event = GF_CALLOC (count, sizeof (int),
+                                      gf_stripe_mt_int32_t);
+        if (!priv->last_event)
                 goto out;
 
         priv->child_count = count;
@@ -4701,6 +4725,7 @@ fini (xlator_t *this)
                         trav = trav->next;
                         GF_FREE (prev);
                 }
+                GF_FREE (priv->last_event);
                 LOCK_DESTROY (&priv->lock);
                 GF_FREE (priv);
         }

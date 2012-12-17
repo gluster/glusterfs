@@ -98,8 +98,8 @@ struct stripe_private {
         gf_lock_t               lock;
         uint8_t                 nodes_down;
         int8_t                  first_child_down;
+        int                    *last_event;
         int8_t                  child_count;
-        int8_t                 *state; /* Current state of child node */
         gf_boolean_t            xattr_supported;  /* default yes */
 	gf_boolean_t		coalesce;
         char                    vol_uuid[UUID_SIZE + 1];
