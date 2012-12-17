@@ -725,6 +725,28 @@ done:
         return v;
 }
 
+static posix_lock_t *
+first_conflicting_overlap (pl_inode_t *pl_inode, posix_lock_t *lock)
+{
+        posix_lock_t *l = NULL;
+
+        list_for_each_entry (l, &pl_inode->ext_list, list) {
+                if (l->blocked)
+                        continue;
+
+                if (locks_overlap (l, lock)) {
+                        if (same_owner (l, lock))
+                                continue;
+
+                        if ((l->fl_type == F_WRLCK) ||
+                            (lock->fl_type == F_WRLCK))
+                                return l;
+                }
+        }
+
+        return NULL;
+}
+
 /*
   Start searching from {begin}, and return the first lock that
   conflicts, NULL if no conflict
@@ -1066,7 +1088,7 @@ pl_getlk (pl_inode_t *pl_inode, posix_lock_t *lock)
 {
         posix_lock_t *conf = NULL;
 
-        conf = first_overlap (pl_inode, lock);
+        conf = first_conflicting_overlap (pl_inode, lock);
 
         if (conf == NULL) {
                 lock->fl_type = F_UNLCK;
