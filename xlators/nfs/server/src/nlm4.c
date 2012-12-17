@@ -345,13 +345,12 @@ nlm_set_rpc_clnt (rpc_clnt_t *rpc_clnt, char *caller_name)
                         break;
                 }
         }
+
         if (!nlmclnt_found) {
                 nlmclnt = GF_CALLOC (1, sizeof(*nlmclnt),
                                      gf_nfs_mt_nlm4_nlmclnt);
-                if (nlmclnt == NULL) {
-                        gf_log (GF_NLM, GF_LOG_ERROR, "mem-alloc error");
+                if (nlmclnt == NULL)
                         goto ret;
-                }
 
                 INIT_LIST_HEAD(&nlmclnt->fdes);
                 INIT_LIST_HEAD(&nlmclnt->nlm_clients);
@@ -360,6 +359,7 @@ nlm_set_rpc_clnt (rpc_clnt_t *rpc_clnt, char *caller_name)
                 list_add (&nlmclnt->nlm_clients, &nlm_client_list);
                 nlmclnt->caller_name = gf_strdup (caller_name);
         }
+
         if (nlmclnt->rpc_clnt == NULL) {
                 nlmclnt->rpc_clnt = rpc_clnt_ref (rpc_clnt);
         }
@@ -880,50 +880,64 @@ nlm4svc_send_granted_cbk (struct rpc_req *req, struct iovec *iov, int count,
         return 0;
 }
 
-int nlm_rpcclnt_notify (struct rpc_clnt *rpc, void *mydata,
-                        rpc_clnt_event_t fn, void *data)
-{
-        nlm_condmutex_t *cm = NULL;
-        int ret;
-        cm = mydata;
-        switch (fn) {
-        case RPC_CLNT_CONNECT:
-                ret = pthread_cond_broadcast (&cm->cond);
-                if (ret!=0)
-                        gf_log (GF_NLM, GF_LOG_ERROR, "cond_broadcast error %s",
-                                strerror (errno));
-                break;
-        case RPC_CLNT_MSG:
-                break;
-        case RPC_CLNT_DISCONNECT:
-                nlm_unset_rpc_clnt(rpc);
-                break;
-        }
-        return 0;
-}
-
 void
 nlm4svc_send_granted (nfs3_call_state_t *cs);
+
+int
+nlm_rpcclnt_notify (struct rpc_clnt *rpc_clnt, void *mydata,
+                    rpc_clnt_event_t fn, void *data)
+{
+        int                ret         = 0;
+        char              *caller_name = NULL;
+        nfs3_call_state_t *cs          = NULL;
+
+        cs = mydata;
+        caller_name = cs->args.nlm4_lockargs.alock.caller_name;
+
+        switch (fn) {
+        case RPC_CLNT_CONNECT:
+                ret = nlm_set_rpc_clnt (rpc_clnt, caller_name);
+                if (ret == -1) {
+                        gf_log (GF_NLM, GF_LOG_ERROR, "Failed to set rpc clnt");
+                        goto err;
+                }
+                rpc_clnt_unref (rpc_clnt);
+                nlm4svc_send_granted (cs);
+
+                break;
+
+        case RPC_CLNT_MSG:
+                break;
+
+        case RPC_CLNT_DISCONNECT:
+                nlm_unset_rpc_clnt (rpc_clnt);
+                break;
+        }
+
+ err:
+        return 0;
+}
 
 void *
 nlm4_establish_callback (void *csarg)
 {
-        nfs3_call_state_t *cs = NULL;
-        union gf_sock_union sock_union;
-        dict_t *options = NULL;
-        char peerip[INET6_ADDRSTRLEN+1], *portstr = NULL;
-        rpc_clnt_t *rpc_clnt = NULL;
-        int port = -1;
-        int ret = -1;
-        char *caller_name = NULL;
+        int                           ret                        = -1;
+        nfs3_call_state_t            *cs                         = NULL;
+        union gf_sock_union           sock_union;
+        dict_t                       *options                    = NULL;
+        char                          peerip[INET6_ADDRSTRLEN+1] = {0};
+        char                         *portstr                    = NULL;
+        char                          myip[INET6_ADDRSTRLEN+1]   = {0};
+        rpc_clnt_t                   *rpc_clnt                   = NULL;
+        int                           port                       = -1;
+
 
         cs = (nfs3_call_state_t *) csarg;
         glusterfs_this_set (cs->nfsx);
 
-        caller_name = cs->args.nlm4_lockargs.alock.caller_name;
-
         rpc_transport_get_peeraddr (cs->trans, NULL, 0, &sock_union.storage,
                                     sizeof (sock_union.storage));
+
         switch (sock_union.sa.sa_family) {
         case AF_INET6:
         /* can not come here as NLM listens on IPv4 */
@@ -939,6 +953,9 @@ nlm4_establish_callback (void *csarg)
         case AF_INET:
                 inet_ntop (AF_INET, &sock_union.sin.sin_addr, peerip,
                            INET6_ADDRSTRLEN+1);
+                inet_ntop (AF_INET, &(((struct sockaddr_in *)&cs->req->trans->myinfo.sockaddr)->sin_addr),
+                           myip, INET6_ADDRSTRLEN + 1);
+
                 break;
         default:
                 break;
@@ -978,6 +995,13 @@ nlm4_establish_callback (void *csarg)
                 gf_log (GF_NLM, GF_LOG_ERROR, "dict_set_dynstr error");
                 goto err;
         }
+
+        /* needed in case virtual IP is used */
+        ret = dict_set_dynstr (options, "transport.socket.source-addr",
+                               gf_strdup (myip));
+        if (ret == -1)
+                goto err;
+
         ret = dict_set_str (options, "auth-null", "on");
         if (ret == -1) {
                 gf_log (GF_NLM, GF_LOG_ERROR, "dict_set_dynstr error");
@@ -990,32 +1014,25 @@ nlm4_establish_callback (void *csarg)
                 gf_log (GF_NLM, GF_LOG_ERROR, "rpc_clnt NULL");
                 goto err;
         }
-        nlm_condmutex_t *cm;
-        cm = GF_CALLOC (1, sizeof(*cm), gf_nfs_mt_nlm4_cm);
-        pthread_mutex_init (&cm->mutex, NULL);
-        pthread_cond_init (&cm->cond, NULL);
-        ret = rpc_clnt_register_notify (rpc_clnt, nlm_rpcclnt_notify,
-                                        cm);
+
+        ret = rpc_clnt_register_notify (rpc_clnt, nlm_rpcclnt_notify, cs);
         if (ret == -1) {
                 gf_log (GF_NLM, GF_LOG_ERROR,"rpc_clnt_register_connect error");
                 goto err;
         }
+
+        /* After this connect succeeds, granted msg is sent in notify */
         ret = rpc_transport_connect (rpc_clnt->conn.trans, port);
-        pthread_cond_wait (&cm->cond, &cm->mutex);
-        pthread_mutex_destroy (&cm->mutex);
-        GF_FREE (cm);
-        rpc_clnt_set_connected (&rpc_clnt->conn);
-        ret = nlm_set_rpc_clnt (rpc_clnt, caller_name);
-        if (ret == -1) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "dict_set_ptr error");
-                goto err;
-        }
-        nlm4svc_send_granted (cs);
+
+        if (ret == -1 && EINPROGRESS == errno)
+                ret = 0;
+
 err:
-        if (rpc_clnt) {
+        if (ret == -1 && rpc_clnt) {
                 rpc_clnt_unref (rpc_clnt);
         }
-        return NULL;
+
+        return rpc_clnt;
 }
 
 void
@@ -1028,12 +1045,17 @@ nlm4svc_send_granted (nfs3_call_state_t *cs)
         struct iobuf *iobuf = NULL;
         struct iobref *iobref = NULL;
         char peerip[INET6_ADDRSTRLEN+1];
-        pthread_t thr;
         union gf_sock_union sock_union;
 
+        rpc_clnt = nlm_get_rpc_clnt (cs->args.nlm4_lockargs.alock.caller_name);
+        if (rpc_clnt == NULL) {
+                nlm4_establish_callback ((void*)cs);
+                return;
+        }
 
         rpc_transport_get_peeraddr (cs->trans, NULL, 0, &sock_union.storage,
                                     sizeof (sock_union.storage));
+
         switch (sock_union.sa.sa_family) {
         case AF_INET6:
                 inet_ntop (AF_INET6, &sock_union.sin6.sin6_addr, peerip,
@@ -1042,15 +1064,9 @@ nlm4svc_send_granted (nfs3_call_state_t *cs)
         case AF_INET:
                 inet_ntop (AF_INET, &sock_union.sin.sin_addr, peerip,
                            INET6_ADDRSTRLEN+1);
+                break;
         default:
                 break;
-                /* FIXME: handle the error */
-        }
-
-        rpc_clnt = nlm_get_rpc_clnt (cs->args.nlm4_lockargs.alock.caller_name);
-        if (rpc_clnt == NULL) {
-                pthread_create (&thr, NULL, nlm4_establish_callback, (void*)cs);
-                return;
         }
 
         testargs.cookie = cs->args.nlm4_lockargs.cookie;
@@ -1078,10 +1094,8 @@ nlm4svc_send_granted (nfs3_call_state_t *cs)
         iobref_add (iobref, iobuf);
 
         ret = rpc_clnt_submit (rpc_clnt, &nlm4clntprog, NLM4_GRANTED,
-                               nlm4svc_send_granted_cbk,
-                               &outmsg, 1,
-                               NULL,
-                               0, iobref, cs->frame, NULL, 0,
+                               nlm4svc_send_granted_cbk, &outmsg, 1,
+                               NULL, 0, iobref, cs->frame, NULL, 0,
                                NULL, 0, NULL);
 
         if (ret < 0) {
@@ -1276,12 +1290,11 @@ nlm4svc_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         caller_name = cs->args.nlm4_lockargs.alock.caller_name;
-        transit_cnt = nlm_dec_transit_count (cs->fd,
-                                             caller_name);
+        transit_cnt = nlm_dec_transit_count (cs->fd, caller_name);
+
         if (op_ret == -1) {
                 if (transit_cnt == 0)
-                        nlm_search_and_delete (cs->fd,
-                                               caller_name);
+                        nlm_search_and_delete (cs->fd, caller_name);
                 stat = nlm4_errno_to_nlm4stat (op_errno);
                 goto err;
         } else {
@@ -1295,6 +1308,7 @@ nlm4svc_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 err:
         if (cs->args.nlm4_lockargs.block) {
                 cs->frame = copy_frame (frame);
+                frame->local = NULL;
                 nlm4svc_send_granted (cs);
         } else {
                 nlm4_generic_reply (cs->req, cs->args.nlm4_lockargs.cookie,

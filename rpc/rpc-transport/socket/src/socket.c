@@ -2559,7 +2559,9 @@ socket_connect (rpc_transport_t *this, int port)
         socklen_t                sockaddr_len = 0;
         glusterfs_ctx_t         *ctx = NULL;
         sa_family_t              sa_family = {0, };
+        char                    *local_addr   = NULL;
         union gf_sock_union      sock_union;
+        struct sockaddr_in      *addr         = NULL;
 
         GF_VALIDATE_OR_GOTO ("socket", this, err);
         GF_VALIDATE_OR_GOTO ("socket", this->private, err);
@@ -2679,6 +2681,15 @@ socket_connect (rpc_transport_t *this, int port)
 
                 SA (&this->myinfo.sockaddr)->sa_family =
                         SA (&this->peerinfo.sockaddr)->sa_family;
+
+                /* If a source addr is explicitly specified, use it */
+                ret = dict_get_str (this->options,
+                                    "transport.socket.source-addr",
+                                    &local_addr);
+                if (!ret && SA (&this->myinfo.sockaddr)->sa_family == AF_INET) {
+                        addr = (struct sockaddr_in *)(&this->myinfo.sockaddr);
+                        ret = inet_pton (AF_INET, local_addr, &(addr->sin_addr.s_addr));
+                }
 
                 ret = client_bind (this, SA (&this->myinfo.sockaddr),
                                    &this->myinfo.sockaddr_len, priv->sock);
