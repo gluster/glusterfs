@@ -1058,7 +1058,7 @@ unlock:
                 }
 
                 len = dict_serialized_length (local->dict);
-                if (len == 0) {
+                if (len <= 0) {
                         goto unwind;
                 }
 
