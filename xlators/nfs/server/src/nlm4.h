@@ -83,9 +83,4 @@ typedef struct nlm_fde {
         int transit_cnt;
 } nlm_fde_t;
 
-typedef struct {
-        pthread_cond_t cond;
-        pthread_mutex_t mutex;
-} nlm_condmutex_t;
-
 #endif
