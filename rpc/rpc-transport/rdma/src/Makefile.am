@@ -7,7 +7,7 @@ rdma_la_LDFLAGS = -module -avoid-version
 
 rdma_la_SOURCES = rdma.c name.c
 rdma_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la     \
-	-libverbs
+	-libverbs -lrdmacm
 
 noinst_HEADERS = rdma.h name.h
 	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/rpc/rpc-lib/src/ \

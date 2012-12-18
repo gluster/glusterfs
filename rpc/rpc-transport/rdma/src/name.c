@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <string.h>
+#include <rdma/rdma_cma.h>
 
 #ifndef AF_INET_SDP
 #define AF_INET_SDP 27
@@ -31,7 +32,8 @@ gf_resolve_ip6 (const char *hostname,
                 struct addrinfo **addr_info);
 
 static int32_t
-af_inet_bind_to_port_lt_ceiling (int fd, struct sockaddr *sockaddr,
+af_inet_bind_to_port_lt_ceiling (struct rdma_cm_id *cm_id,
+                                 struct sockaddr *sockaddr,
                                  socklen_t sockaddr_len, int ceiling)
 {
         int32_t        ret        = -1;
@@ -51,12 +53,14 @@ af_inet_bind_to_port_lt_ceiling (int fd, struct sockaddr *sockaddr,
                 switch (sockaddr->sa_family)
                 {
                 case AF_INET6:
-                        ((struct sockaddr_in6 *)sockaddr)->sin6_port = htons (port);
+                        ((struct sockaddr_in6 *)sockaddr)->sin6_port
+                                = htons (port);
                         break;
 
                 case AF_INET_SDP:
                 case AF_INET:
-                        ((struct sockaddr_in *)sockaddr)->sin_port = htons (port);
+                        ((struct sockaddr_in *)sockaddr)->sin_port
+                                = htons (port);
                         break;
                 }
                 // ignore the reserved ports
@@ -64,7 +68,7 @@ af_inet_bind_to_port_lt_ceiling (int fd, struct sockaddr *sockaddr,
                         port--;
                         continue;
                 }
-                ret = bind (fd, sockaddr, sockaddr_len);
+                ret = rdma_bind_addr (cm_id, sockaddr);
 
                 if (ret == 0)
                         break;
@@ -78,11 +82,10 @@ af_inet_bind_to_port_lt_ceiling (int fd, struct sockaddr *sockaddr,
         return ret;
 }
 
+#if 0
 static int32_t
-af_unix_client_bind (rpc_transport_t *this,
-                     struct sockaddr *sockaddr,
-                     socklen_t sockaddr_len,
-                     int sock)
+af_unix_client_bind (rpc_transport_t *this, struct sockaddr *sockaddr,
+                     socklen_t sockaddr_len, struct rdma_cm_id *cm_id)
 {
         data_t *path_data = NULL;
         struct sockaddr_un *addr = NULL;
@@ -114,6 +117,7 @@ af_unix_client_bind (rpc_transport_t *this,
 err:
         return ret;
 }
+#endif
 
 static int32_t
 client_fill_address_family (rpc_transport_t *this, struct sockaddr *sockaddr)
@@ -412,10 +416,8 @@ out:
 }
 
 int32_t
-gf_rdma_client_bind (rpc_transport_t *this,
-                     struct sockaddr *sockaddr,
-                     socklen_t *sockaddr_len,
-                     int sock)
+gf_rdma_client_bind (rpc_transport_t *this, struct sockaddr *sockaddr,
+                     socklen_t *sockaddr_len, struct rdma_cm_id *cm_id)
 {
         int ret = 0;
 
@@ -427,22 +429,24 @@ gf_rdma_client_bind (rpc_transport_t *this,
                 *sockaddr_len = sizeof (struct sockaddr_in);
 
         case AF_INET6:
-                ret = af_inet_bind_to_port_lt_ceiling (sock, sockaddr,
+                ret = af_inet_bind_to_port_lt_ceiling (cm_id, sockaddr,
                                                        *sockaddr_len,
                                                        GF_CLIENT_PORT_CEILING);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
-                                "cannot bind inet socket (%d) to port "
-                                "less than %d (%s)",
-                                sock, GF_CLIENT_PORT_CEILING, strerror (errno));
+                                "cannot bind rdma_cm_id to port "
+                                "less than %d (%s)", GF_CLIENT_PORT_CEILING,
+                                strerror (errno));
                         ret = 0;
                 }
                 break;
 
         case AF_UNIX:
                 *sockaddr_len = sizeof (struct sockaddr_un);
+#if 0
                 ret = af_unix_client_bind (this, (struct sockaddr *)sockaddr,
                                            *sockaddr_len, sock);
+#endif
                 break;
 
         default:
