@@ -171,8 +171,8 @@ def log_raise_exception(excont):
         logtag = None
         if isinstance(exc, GsyncdError):
             if is_filelog:
-                logging.error(exc.message)
-            sys.stderr.write('failure: ' + exc.message + "\n")
+                logging.error(exc.args[0])
+            sys.stderr.write('failure: ' + exc.args[0] + '\n')
         elif isinstance(exc, PickleError) or isinstance(exc, EOFError) or \
              ((isinstance(exc, OSError) or isinstance(exc, IOError)) and \
               exc.errno == EPIPE):
