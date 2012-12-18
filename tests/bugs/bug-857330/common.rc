@@ -67,4 +67,8 @@ function check-with-stored-task-id-xml()
 function get-task-status()
 {
         $CLI $COMMAND | grep -o $PATTERN
+        if [ ${PIPESTATUS[0]} -ne 0 ]; then
+                return 1
+        fi
+        return 0
 }
