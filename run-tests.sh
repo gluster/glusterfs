@@ -1,3 +1,3 @@
 #!/bin/bash
 
-prove -r --timer $(dirname $0)/tests;
+prove -rf --timer $(dirname $0)/tests;

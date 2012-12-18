@@ -34,11 +34,12 @@ function test_header()
 function test_footer()
 {
 	RET=$?
+        local err=$1
 
 	if [ $RET -eq 0 ]; then
 	     	echo "ok $t";
 	else
-		echo "not ok $t";
+                echo "not ok $t $err";
 		if [ "$EXIT_EARLY" = "1" ]; then
 			exit $RET
 		fi
@@ -49,19 +50,32 @@ function test_footer()
 	t=`expr $t + 1`;
 }
 
+function test_expect_footer()
+{
+        local e=$1
+        local a=$2
+        local err=""
+
+        if [ "x${e}" != "x${a}" ]; then
+                err="Got \"$a\" instead of \"$e\""
+        fi
+        [[ "x${e}" == "x${a}" ]];
+        test_footer "$err";
+}
 
 function _EXPECT()
 {
 	TESTLINE=$1;
 	shift;
+        local a=""
 
 	test_header "$@";
 
 	e="$1";
 	shift;
-	"$@" | tail -1 | egrep -q "^${e}\$"
+	a=$("$@" | tail -1)
 
-	test_footer;
+	test_expect_footer "$e" "$a";
 }
 
 function _EXPECT_KEYWORD()
