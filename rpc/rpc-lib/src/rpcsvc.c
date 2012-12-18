@@ -1729,15 +1729,17 @@ rpcsvc_dump (rpcsvc_request_t *req)
         uint32_t     dump_rsp_len      = 0;
 
         if (!req)
-                goto fail;
+                goto sendrsp;
 
         ret = build_prog_details (req, &rsp);
         if (ret < 0) {
                 op_errno = -ret;
-                goto fail;
+                goto sendrsp;
         }
 
-fail:
+        op_errno = 0;
+
+sendrsp:
         rsp.op_errno = gf_errno_to_error (op_errno);
         rsp.op_ret   = ret;
 
@@ -1749,14 +1751,10 @@ fail:
 
         ret = xdr_serialize_generic (iov, &rsp, (xdrproc_t)xdr_gf_dump_rsp);
         if (ret < 0) {
-                if (req)
-                        req->rpc_err = GARBAGE_ARGS;
-                op_errno = EINVAL;
-                goto fail;
+                ret = RPCSVC_ACTOR_ERROR;
+        } else {
+                rpcsvc_submit_generic (req, &iov, 1, NULL, 0, NULL);
         }
-
-        ret = rpcsvc_submit_generic (req, &iov, 1, NULL, 0,
-                                     NULL);
 
         free_prog_details (&rsp);
 
