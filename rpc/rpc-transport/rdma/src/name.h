@@ -11,16 +11,13 @@
 #ifndef _IB_VERBS_NAME_H
 #define _IB_VERBS_NAME_H
 
-#include <sys/socket.h>
-#include <sys/un.h>
+#include <rdma/rdma_cma.h>
 
 #include "compat.h"
 
 int32_t
-gf_rdma_client_bind (rpc_transport_t *this,
-                     struct sockaddr *sockaddr,
-                     socklen_t *sockaddr_len,
-                     int sock);
+gf_rdma_client_bind (rpc_transport_t *this, struct sockaddr *sockaddr,
+                     socklen_t *sockaddr_len, struct rdma_cm_id *cm_id);
 
 int32_t
 gf_rdma_client_get_remote_sockaddr (rpc_transport_t *this,

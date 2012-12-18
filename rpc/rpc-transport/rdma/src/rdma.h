@@ -29,6 +29,7 @@
 #include <list.h>
 #include <arpa/inet.h>
 #include <infiniband/verbs.h>
+#include <rdma/rdma_cma.h>
 
 /* FIXME: give appropriate values to these macros */
 #define GF_DEFAULT_RDMA_LISTEN_PORT (GF_DEFAULT_BASE_PORT + 1)
@@ -230,30 +231,33 @@ typedef enum __gf_rdma_send_post_type {
 
 /* represents one communication peer, two per transport_t */
 struct __gf_rdma_peer {
-        rpc_transport_t *trans;
-        struct ibv_qp *qp;
+        rpc_transport_t   *trans;
+        struct rdma_cm_id *cm_id;
+        struct ibv_qp     *qp;
+        pthread_t          rdma_event_thread;
+        char               quota_set;
 
         int32_t recv_count;
         int32_t send_count;
         int32_t recv_size;
         int32_t send_size;
 
-        int32_t quota;
+        int32_t                        quota;
         union {
-                struct list_head     ioq;
+                struct list_head       ioq;
                 struct {
-                        gf_rdma_ioq_t        *ioq_next;
-                        gf_rdma_ioq_t        *ioq_prev;
+                        gf_rdma_ioq_t *ioq_next;
+                        gf_rdma_ioq_t *ioq_prev;
                 };
         };
 
         /* QP attributes, needed to connect with remote QP */
-        int32_t local_lid;
-        int32_t local_psn;
-        int32_t local_qpn;
-        int32_t remote_lid;
-        int32_t remote_psn;
-        int32_t remote_qpn;
+        int32_t               local_lid;
+        int32_t               local_psn;
+        int32_t               local_qpn;
+        int32_t               remote_lid;
+        int32_t               remote_psn;
+        int32_t               remote_qpn;
 };
 typedef struct __gf_rdma_peer gf_rdma_peer_t;
 
@@ -327,26 +331,12 @@ struct __gf_rdma_device {
 };
 typedef struct __gf_rdma_device gf_rdma_device_t;
 
-typedef enum {
-        GF_RDMA_HANDSHAKE_START = 0,
-        GF_RDMA_HANDSHAKE_SENDING_DATA,
-        GF_RDMA_HANDSHAKE_RECEIVING_DATA,
-        GF_RDMA_HANDSHAKE_SENT_DATA,
-        GF_RDMA_HANDSHAKE_RECEIVED_DATA,
-        GF_RDMA_HANDSHAKE_SENDING_ACK,
-        GF_RDMA_HANDSHAKE_RECEIVING_ACK,
-        GF_RDMA_HANDSHAKE_RECEIVED_ACK,
-        GF_RDMA_HANDSHAKE_COMPLETE,
-} gf_rdma_handshake_state_t;
-
-struct gf_rdma_nbio {
-        int state;
-        char *buf;
-        int count;
-        struct iovec vector;
-        struct iovec *pending_vector;
-        int pending_count;
+struct __gf_rdma_ctx {
+        gf_rdma_device_t          *device;
+        struct rdma_event_channel *rdma_cm_event_channel;
+        pthread_t                  rdma_cm_thread;
 };
+typedef struct __gf_rdma_ctx gf_rdma_ctx_t;
 
 struct __gf_rdma_request_context {
         struct ibv_mr   *mr[GF_RDMA_MAX_SEGMENTS];
@@ -358,46 +348,35 @@ struct __gf_rdma_request_context {
 };
 typedef struct __gf_rdma_request_context gf_rdma_request_context_t;
 
+typedef enum {
+        GF_RDMA_SERVER_LISTENER,
+        GF_RDMA_SERVER,
+        GF_RDMA_CLIENT,
+} gf_rdma_transport_entity_t;
+
 struct __gf_rdma_private {
-        int32_t sock;
-        int32_t idx;
-        unsigned char connected;
-        unsigned char tcp_connected;
-        unsigned char ib_connected;
-        in_addr_t addr;
+        int32_t        idx;
+        unsigned char  connected;
+        in_addr_t      addr;
         unsigned short port;
 
         /* IB Verbs Driver specific variables, pointers */
-        gf_rdma_peer_t peer;
+        gf_rdma_peer_t           peer;
         struct __gf_rdma_device *device;
-        gf_rdma_options_t options;
+        gf_rdma_options_t        options;
 
         /* Used by trans->op->receive */
-        char *data_ptr;
-        int32_t data_offset;
-        int32_t data_len;
+        char    *data_ptr;
+        int32_t  data_offset;
+        int32_t  data_len;
 
         /* Mutex */
-        pthread_mutex_t read_mutex;
-        pthread_mutex_t write_mutex;
-        pthread_barrier_t handshake_barrier;
-        char handshake_ret;
-        char is_server;
-        rpc_transport_t *listener;
-
-        pthread_mutex_t recv_mutex;
-        pthread_cond_t  recv_cond;
-
-        /* used during gf_rdma_handshake */
-        struct {
-                struct gf_rdma_nbio incoming;
-                struct gf_rdma_nbio outgoing;
-                int               state;
-                gf_rdma_header_t header;
-                char *buf;
-                size_t size;
-        } handshake;
+        pthread_mutex_t             write_mutex;
+        rpc_transport_t            *listener;
+        pthread_mutex_t             recv_mutex;
+        pthread_cond_t              recv_cond;
+        gf_rdma_transport_entity_t  entity;
 };
-typedef struct __gf_rdma_private gf_rdma_private_t;
+typedef struct __gf_rdma_private    gf_rdma_private_t;
 
 #endif /* _XPORT_GF_RDMA_H */

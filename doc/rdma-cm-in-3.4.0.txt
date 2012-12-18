@@ -1,0 +1,9 @@
+Following is the impact of http://review.gluster.org/#change,149.
+
+New userspace packages needed:
+librdmacm
+librdmacm-devel
+
+rdmacm needs an IPoIB address for connection establishment. This requirement results in following issues:
+* Because of bug #890502, we've to probe the peer on an IPoIB address. This imposes a restriction that all volumes created in the future have to communicate over IPoIB address (irrespective of whether they use gluster's tcp or rdma transport).
+* Currently client has an independence to choose b/w tcp and rdma transports while communicating with the server (by creating volumes with transport-type tcp,rdma). This independence was a byproduct of our ability use the normal channel used with transport-type tcp for rdma connectiion establishment handshake too. However, with new requirement of IPoIB address for connection establishment, we loose this independence (till we bring in multi-network support - where a brick can be identified by a set of ip-addresses and we can choose different pairs of ip-addresses for communication based on our requirements - in glusterd).

@@ -342,16 +342,24 @@ if test "x$enable_ibverbs" != "xno"; then
                [ibv_get_device_list],
 	       [HAVE_LIBIBVERBS="yes"],
 	       [HAVE_LIBIBVERBS="no"])
+  AC_CHECK_LIB([rdmacm], [rdma_create_id], [HAVE_RDMACM="yes"], [HAVE_RDMACM="no"]) 
 fi
 
-if test "x$enable_ibverbs" = "xyes" -a "x$HAVE_LIBIBVERBS" = "xno"; then
-   echo "ibverbs requested but not found."
-   exit 1
+if test "x$enable_ibverbs" = "xyes"; then
+   if test "x$HAVE_LIBIBVERBS" = "xno"; then
+      echo "ibverbs-transport requested, but libibverbs is not present."
+      exit 1
+   fi
+
+   if test "x$HAVE_RDMACM" = "xno"; then
+      echo "ibverbs-transport requested, but librdmacm is not present."
+      exit 1
+   fi
 fi
 
 BUILD_RDMA=no
 BUILD_IBVERBS=no
-if test "x$enable_ibverbs" != "xno" -a "x$HAVE_LIBIBVERBS" = "xyes"; then
+if test "x$enable_ibverbs" != "xno" -a "x$HAVE_LIBIBVERBS" = "xyes" -a "x$HAVE_RDMACM" = "xyes"; then
   IBVERBS_SUBDIR=ib-verbs
   BUILD_IBVERBS=yes
   RDMA_SUBDIR=rdma
