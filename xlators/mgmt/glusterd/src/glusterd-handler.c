@@ -1267,6 +1267,8 @@ glusterd_handle_set_volume (rpcsvc_request_t *req)
         char                            err_str[2048] = {0,};
         xlator_t                        *this = NULL;
 
+        this = THIS;
+
         GF_ASSERT (req);
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
@@ -1325,6 +1327,8 @@ glusterd_handle_set_volume (rpcsvc_request_t *req)
                 gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
                 goto out;
         }
+        gf_log (this->name, GF_LOG_DEBUG, "Received volume set request for "
+                "volume %s", volname);
 
         ret = glusterd_op_begin (req, GD_OP_SET_VOLUME, dict,
                                  err_str, sizeof (err_str));

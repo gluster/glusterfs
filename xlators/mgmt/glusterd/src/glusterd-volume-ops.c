@@ -537,6 +537,8 @@ glusterd_handle_cli_statedump_volume (rpcsvc_request_t *req)
         char                            err_str[2048] = {0,};
         xlator_t                        *this = NULL;
 
+        this = THIS;
+
         GF_ASSERT (req);
 
         ret = -1;
