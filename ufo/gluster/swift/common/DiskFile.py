@@ -15,8 +15,9 @@
 
 import os
 import errno
+import random
+from hashlib import md5
 from eventlet import tpool
-from tempfile import mkstemp
 from contextlib import contextmanager
 from swift.common.utils import normalize_timestamp, renamer
 from swift.common.exceptions import DiskFileNotExist
@@ -102,7 +103,6 @@ class Gluster_DiskFile(DiskFile):
         self.device_path = os.path.join(path, device)
         self._container_path = os.path.join(path, device, container)
         self._is_dir = False
-        self.tmpdir = os.path.join(path, device, 'tmp')
         self.tmppath = None
         self.logger = logger
         self.metadata = {}
@@ -309,9 +309,24 @@ class Gluster_DiskFile(DiskFile):
     def mkstemp(self):
         """Contextmanager to make a temporary file."""
 
-        if not os.path.exists(self.tmpdir):
-            mkdirs(self.tmpdir)
-        fd, self.tmppath = mkstemp(dir=self.tmpdir)
+        # Creating intermidiate directories and corresponding metadata.
+        # For optimization, check if the subdirectory already exists,
+        # if exists, then it means that it also has its metadata.
+        # Not checking for container, since the container should already
+        # exist for the call to come here.
+        if not os.path.exists(self.datadir):
+            path = self._container_path
+            subdir_list = self._obj_path.split(os.path.sep)
+            for i in range(len(subdir_list)):
+                path = os.path.join(path, subdir_list[i]);
+                if not os.path.exists(path):
+                    self._create_dir_object(path)
+
+        tmpfile = '.' + self._obj + '.' + md5(self._obj + \
+                  str(random.random())).hexdigest()
+
+        self.tmppath = os.path.join(self.datadir, tmpfile)
+        fd = os.open(self.tmppath, os.O_RDWR | os.O_CREAT | os.O_EXCL)
         try:
             yield fd
         finally:
