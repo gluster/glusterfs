@@ -127,8 +127,17 @@ function _EXPECT_WITHIN()
 
         local success=0
         while [ `date +%s` -lt $endtime ]; do
-                "$@" | tail -1 | egrep -q "^${e}\$"
-                if [ $? -eq 0 ]; then
+                ("$@") | tail -1 | egrep -q "^${e}\$"
+
+                local pipestatus=(${PIPESTATUS[@]})
+
+                ## Check command success
+                if [ ${pipestatus[0]} -ne 0 ]; then
+                        break;
+                fi
+
+                ## Check match success
+                if [ ${pipestatus[2]} -eq 0 ]; then
                         success=1;
                         break;
                 fi
