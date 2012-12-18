@@ -83,10 +83,15 @@ function _TEST()
 {
 	TESTLINE=$1;
 	shift;
+        local redirect=""
 
 	test_header "$@";
 
-	eval "$@" >/dev/null 2>&1
+        if [ "$1"="!" ]; then
+                redirect="2>&1"
+        fi
+
+	eval "$@" >/dev/null $redirect
 
 	test_footer;
 }
