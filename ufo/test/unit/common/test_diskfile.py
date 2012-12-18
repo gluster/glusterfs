@@ -108,7 +108,6 @@ class TestDiskFile(unittest.TestCase):
         assert gdf.datadir == "/tmp/foo/vol0/bar"
         assert gdf.device_path == "/tmp/foo/vol0"
         assert gdf._container_path == "/tmp/foo/vol0/bar"
-        assert gdf.tmpdir == "/tmp/foo/vol0/tmp"
         assert gdf.disk_chunk_size == 65536
         assert gdf.iter_hook == None
         assert gdf.logger == self.lg
@@ -134,7 +133,6 @@ class TestDiskFile(unittest.TestCase):
         assert gdf.name == "bar/b/a"
         assert gdf.datadir == "/tmp/foo/vol0/bar/b/a"
         assert gdf.device_path == "/tmp/foo/vol0"
-        assert gdf.tmpdir == "/tmp/foo/vol0/tmp"
 
     def test_constructor_no_metadata(self):
         td = tempfile.mkdtemp()
@@ -848,10 +846,11 @@ class TestDiskFile(unittest.TestCase):
                                    "dir/z", self.lg)
             saved_tmppath = ''
             with gdf.mkstemp() as fd:
-                assert gdf.tmpdir == os.path.join(td, "vol0", "tmp")
-                assert os.path.isdir(gdf.tmpdir)
+                assert gdf.datadir == os.path.join(td, "vol0", "bar", "dir")
+                assert os.path.isdir(gdf.datadir)
                 saved_tmppath = gdf.tmppath
-                assert os.path.dirname(saved_tmppath) == gdf.tmpdir
+                assert os.path.dirname(saved_tmppath) == gdf.datadir
+                assert os.path.basename(saved_tmppath)[:3] == '.z.'
                 assert os.path.exists(saved_tmppath)
                 os.write(fd, "123")
             assert not os.path.exists(saved_tmppath)
@@ -867,10 +866,11 @@ class TestDiskFile(unittest.TestCase):
                                    "dir/z", self.lg)
             saved_tmppath = ''
             with gdf.mkstemp() as fd:
-                assert gdf.tmpdir == os.path.join(td, "vol0", "tmp")
-                assert os.path.isdir(gdf.tmpdir)
+                assert gdf.datadir == os.path.join(td, "vol0", "bar", "dir")
+                assert os.path.isdir(gdf.datadir)
                 saved_tmppath = gdf.tmppath
-                assert os.path.dirname(saved_tmppath) == gdf.tmpdir
+                assert os.path.dirname(saved_tmppath) == gdf.datadir
+                assert os.path.basename(saved_tmppath)[:3] == '.z.'
                 assert os.path.exists(saved_tmppath)
                 os.write(fd, "123")
                 os.close(fd)
@@ -887,10 +887,11 @@ class TestDiskFile(unittest.TestCase):
                                    "dir/z", self.lg)
             saved_tmppath = ''
             with gdf.mkstemp() as fd:
-                assert gdf.tmpdir == os.path.join(td, "vol0", "tmp")
-                assert os.path.isdir(gdf.tmpdir)
+                assert gdf.datadir == os.path.join(td, "vol0", "bar", "dir")
+                assert os.path.isdir(gdf.datadir)
                 saved_tmppath = gdf.tmppath
-                assert os.path.dirname(saved_tmppath) == gdf.tmpdir
+                assert os.path.dirname(saved_tmppath) == gdf.datadir
+                assert os.path.basename(saved_tmppath)[:3] == '.z.'
                 assert os.path.exists(saved_tmppath)
                 os.write(fd, "123")
                 os.unlink(saved_tmppath)
