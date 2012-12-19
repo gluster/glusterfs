@@ -931,6 +931,9 @@ dht_inode_ctx_time_update (inode_t *inode, xlator_t *this, struct iatt *stat,
         dht_stat_time_t         *time           = 0;
         int                      ret            = -1;
 
+        GF_VALIDATE_OR_GOTO (this->name, stat, out);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
         ret = dht_inode_ctx_get (inode, this, &ctx);
 
         if (ret) {
@@ -949,7 +952,7 @@ dht_inode_ctx_time_update (inode_t *inode, xlator_t *this, struct iatt *stat,
                         stat->ia_atime, stat->ia_atime_nsec, inode, post);
 
         ret = dht_inode_ctx_set (inode, this, ctx);
-
+out:
         return 0;
 }
 
