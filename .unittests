@@ -1,5 +1,0 @@
-#!/bin/bash
-
-cd ufo
-./.unittests $@
-cd -
