@@ -458,6 +458,7 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
         GF_ASSERT (NULL != ctx);
 
         this = THIS;
+        GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
 
@@ -1198,6 +1199,7 @@ glusterd_handle_reset_volume (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
         this = THIS;
+        GF_ASSERT (this);
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
@@ -1268,6 +1270,7 @@ glusterd_handle_set_volume (rpcsvc_request_t *req)
         xlator_t                        *this = NULL;
 
         this = THIS;
+        GF_ASSERT (this);
 
         GF_ASSERT (req);
 
@@ -1368,6 +1371,7 @@ glusterd_handle_sync_volume (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
         this = THIS;
+        GF_ASSERT (this);
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
@@ -2061,6 +2065,7 @@ glusterd_handle_cli_profile_volume (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
         this = THIS;
+        GF_ASSERT (this);
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
@@ -2898,6 +2903,7 @@ glusterd_handle_status_volume (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
         this = THIS;
+        GF_ASSERT (this);
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
@@ -2973,6 +2979,7 @@ glusterd_handle_cli_clearlocks_volume (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
         this = THIS;
+        GF_ASSERT (this);
 
         ret = -1;
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);

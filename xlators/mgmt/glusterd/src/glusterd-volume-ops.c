@@ -235,6 +235,7 @@ glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
         xlator_t                        *this = NULL;
 
         this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT (req);
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
@@ -303,6 +304,7 @@ glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
         char                            err_str[2048] = {0,};
 
         this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT (req);
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
@@ -374,6 +376,7 @@ glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
         xlator_t      *this        = NULL;
 
         this = THIS;
+        GF_ASSERT (this);
 
         GF_ASSERT (req);
 
@@ -457,6 +460,7 @@ glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
         }
 
         this = THIS;
+        GF_ASSERT (this);
 
         if (cli_req.dict.dict_len) {
                 /* Unserialize the dictionary */
@@ -538,6 +542,7 @@ glusterd_handle_cli_statedump_volume (rpcsvc_request_t *req)
         xlator_t                        *this = NULL;
 
         this = THIS;
+        GF_ASSERT (this);
 
         GF_ASSERT (req);
 
