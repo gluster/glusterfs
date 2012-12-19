@@ -52,11 +52,11 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
         xlator_t                *this = NULL;
 
         GF_ASSERT (req);
-        GF_ASSERT (THIS);
-        GF_ASSERT (THIS->private);
 
        this = THIS;
+       GF_ASSERT (this);
        priv = this->private;
+       GF_ASSERT (priv);
 
         ret = xdr_to_generic (req->msg[0], &cli_req,
                               (xdrproc_t)xdr_gf_cli_req);

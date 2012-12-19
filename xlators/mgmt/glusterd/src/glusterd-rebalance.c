@@ -389,8 +389,10 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
         this = THIS;
+        GF_ASSERT (this);
 
         priv = this->private;
+        GF_ASSERT (priv);
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
