@@ -17,11 +17,11 @@ REPO=${PWD}
 COMMIT=$(git describe)
 mkdir ${RESULT_DIR}/sources
 cd ${RESULT_DIR}/sources
-git clone -s file://${REPO} .
-git checkout ${COMMIT}
+git clone -q -s file://${REPO} .
+git checkout -q -b rpm-test ${COMMIT}
 
 # build the .tar.gz
-[ -e configure ] || ./autogen.sh
+[ -e configure ] || ./autogen.sh 2>&1 > /dev/null
 TEST ./configure --enable-fusermount
 TEST make dist
 
@@ -72,7 +72,7 @@ done
 # dependencies on the build-server :-/
 
 # only remove ${RESULT_DIR} if we're not debugging
-[ "${DEBUG}" != "0" ] && rm -rf ${RESULT_DIR}
+[ "${DEBUG}" = "0" ] && rm -rf ${RESULT_DIR}
 
 cleanup
 
