@@ -518,7 +518,6 @@ out:
                                                      dict, op_errstr);
                 if (dict)
                         dict_unref (dict);
-                GF_FREE (op_errstr);
         }
 
         return ret;
