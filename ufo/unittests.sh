@@ -1,6 +1,7 @@
 #!/bin/bash
 
-cd test/unit
+cd $(dirname $0)/test/unit
 nosetests --exe --with-coverage --cover-package gluster --cover-erase $@
+saved_status=$?
 rm -f .coverage
-cd -
+exit $saved_status
