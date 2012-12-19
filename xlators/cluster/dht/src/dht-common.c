@@ -701,7 +701,7 @@ cont:
 
                 if (local->loc.parent) {
                         dht_inode_ctx_time_update (local->loc.parent, this,
-                                                   postparent, 1);
+                                                   &local->postparent, 1);
                 }
 
                 DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
@@ -754,12 +754,12 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
                 local->stbuf.ia_prot.sticky = 1;
         }
 
-unwind:
         if (local->loc.parent) {
                 dht_inode_ctx_time_update (local->loc.parent, this,
                                            postparent, 1);
         }
 
+unwind:
         DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
         DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
                           local->inode, &local->stbuf, local->xattr,
@@ -1133,12 +1133,12 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
                 op_errno = EINVAL;
         }
 
-unwind:
         if (local->loc.parent) {
                 dht_inode_ctx_time_update (local->loc.parent, this,
                                            postparent, 1);
         }
 
+unwind:
         DHT_STRIP_PHASE1_FLAGS (stbuf);
         DHT_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, stbuf, xattr,
                           postparent);
@@ -1322,7 +1322,7 @@ out:
          * from each of the subvolume. See dht_iatt_merge for reference.
          */
 
-        if (local->loc.parent) {
+        if (!op_ret && local->loc.parent) {
                 dht_inode_ctx_time_update (local->loc.parent, this,
                                            postparent, 1);
         }
