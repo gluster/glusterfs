@@ -1691,7 +1691,9 @@ client_query_portmap_cbk (struct rpc_req *req, struct iovec *iov, int count, voi
                 ret = -1;
                 gf_log (this->name, ((!conf->portmap_err_logged) ?
                                      GF_LOG_ERROR : GF_LOG_DEBUG),
-                        "failed to get the port number for remote subvolume");
+                        "failed to get the port number for remote subvolume. "
+                        "Please run 'gluster volume status' on server to see "
+                        "if brick process is running.");
                 conf->portmap_err_logged = 1;
                 goto out;
         }
