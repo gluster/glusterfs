@@ -541,8 +541,10 @@ log:
 
                 if (ctx->log.logfile) {
                         fprintf (ctx->log.logfile, "%s\n", msg);
+                        fflush (ctx->log.logfile);
                 } else {
                         fprintf (stderr, "%s\n", msg);
+                        fflush (stderr);
                 }
 
 #ifdef GF_LINUX_HOST_OS
