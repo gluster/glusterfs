@@ -1386,6 +1386,7 @@ out:
 #endif
 }
 
+#if (HAVE_LIB_XML)
 int
 cli_xml_output_vol_status_tasks (cli_local_t *local, dict_t *dict) {
         int                     ret = -1;
@@ -1453,6 +1454,7 @@ out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
+#endif
 
 int
 cli_xml_output_vol_status (cli_local_t *local, dict_t *dict)
