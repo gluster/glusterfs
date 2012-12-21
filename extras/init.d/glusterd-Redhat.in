@@ -35,7 +35,7 @@ start()
        status=$?
        if [ $status -eq 0 ]; then
            echo "glusterd service is already running with pid $PID"
-           exit 1
+           exit 0
        else
            echo -n $"Starting $BASE:"
            daemon $GLUSTERD
