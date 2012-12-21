@@ -6568,6 +6568,7 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
         int32_t                         node_count = 0;
         int32_t                         rsp_node_count = 0;
         int32_t                         brick_index_max = -1;
+        int32_t                         rsp_brick_index_max = -1;
         int32_t                         other_count = 0;
         int32_t                         rsp_other_count = 0;
         dict_t                          *ctx_dict = NULL;
@@ -6578,6 +6579,14 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
         ret = dict_get_int32 (rsp_dict, "count", &rsp_node_count);
         if (ret) {
                 ret = 0; //no bricks in the rsp
+                goto out;
+        }
+
+        ret = dict_get_int32 (rsp_dict, "brick-index-max",
+                              &rsp_brick_index_max);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to get brick index max from rsp_dict");
                 goto out;
         }
 
@@ -6600,6 +6609,17 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
 
         ret = dict_get_int32 (ctx_dict, "count", &node_count);
         ret = dict_get_int32 (ctx_dict, "brick-index-max", &brick_index_max);
+        if (ret) {
+                //This happens when flag GF_CLI_STATUS_BRICK is on
+                brick_index_max = rsp_brick_index_max;
+                ret = dict_set_int32 (ctx_dict, "brick-index-max",
+                                      rsp_brick_index_max);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "Failed to update brick index max");
+                        goto out;
+                }
+        }
         ret = dict_get_int32 (ctx_dict, "other-count", &other_count);
 
         rsp_ctx.count = node_count;
