@@ -526,7 +526,7 @@ posix_acl_inherit_mode (struct posix_acl *acl, mode_t modein)
         if (mask_ce) {
                 mask_ce->perm &= (mode >> 3) | ~S_IRWXO;
                 mode &= (mask_ce->perm << 3) | ~S_IRWXG;
-        } else {
+        } else if (group_ce) {
                 group_ce->perm &= (mode >> 3) | ~S_IRWXO;
                 mode &= (group_ce->perm << 3) | ~S_IRWXG;
         }
