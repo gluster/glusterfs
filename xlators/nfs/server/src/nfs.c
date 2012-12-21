@@ -1245,8 +1245,9 @@ struct volume_options options[] = {
         { .key = {"nfs.mount-udp"},
           .type = GF_OPTION_TYPE_BOOL,
           .description = "set the option to 'on' to enable mountd on UDP. "
-                         "Needed by Solaris NFS clients if NLM support is"
-                         "needed"
+                         "Required for some Solaris and AIX NFS clients. "
+                         "The need for enabling this option often depends "
+                         "on the usage of NLM."
         },
         { .key = {OPT_SERVER_AUX_GIDS},
           .type = GF_OPTION_TYPE_BOOL,
