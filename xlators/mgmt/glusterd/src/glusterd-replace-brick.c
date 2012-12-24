@@ -1621,26 +1621,30 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
         if (ret)
                 goto out;
 
-        ctx = glusterd_op_get_ctx();
-        if (!ctx) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get op_ctx");
-                ret = -1;
-                goto out;
-        }
 
 	if ((GF_REPLACE_OP_START != replace_op)) {
 
                 /* Set task-id, if available, in op_ctx dict for operations
                  * other than start
                  */
-                if (!uuid_is_null (volinfo->rep_brick.rb_id)) {
-                        ret = glusterd_copy_uuid_to_dict
-                                (volinfo->rep_brick.rb_id, ctx,
-                                 GF_REPLACE_BRICK_TID_KEY);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Failed to set replace-brick-id");
+                if  (is_origin_glusterd ()) {
+                        ctx = glusterd_op_get_ctx();
+                        if (!ctx) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "get op_ctx");
+                                ret = -1;
                                 goto out;
+                        }
+                        if (!uuid_is_null (volinfo->rep_brick.rb_id)) {
+                                ret = glusterd_copy_uuid_to_dict
+                                        (volinfo->rep_brick.rb_id, ctx,
+                                         GF_REPLACE_BRICK_TID_KEY);
+                                if (ret) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Failed to set "
+                                                "replace-brick-id");
+                                        goto out;
+                                }
                         }
                 }
 	}
