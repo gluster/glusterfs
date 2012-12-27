@@ -483,6 +483,9 @@ mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks);
  * nr
  */
 
+int
+gf_lstat_dir (const char *path, struct stat *stbuf_in);
+
 int32_t gf_roundup_power_of_two (int32_t nr);
 
 /*
