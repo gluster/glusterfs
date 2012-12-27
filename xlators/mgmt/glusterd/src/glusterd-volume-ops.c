@@ -814,6 +814,9 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
         char                                    msg[2048];
         glusterd_conf_t                         *priv = NULL;
         xlator_t                                *this = NULL;
+        uuid_t                                  volume_id = {0,};
+        char                                    volid[50] = {0,};
+        char                                    xattr_volid[50] = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -828,8 +831,6 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
 
         if (!exists) {
                 snprintf (msg, sizeof (msg), FMTSTR_CHECK_VOL_EXISTS, volname);
-                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
-                *op_errstr = gf_strdup (msg);
                 ret = -1;
                 goto out;
         }
@@ -845,6 +846,15 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
         if (ret)
                 goto out;
 
+        if (!(flags & GF_CLI_FLAG_OP_FORCE)) {
+                if (glusterd_is_volume_started (volinfo)) {
+                        snprintf (msg, sizeof (msg), "Volume %s already "
+                                  "started", volname);
+                        ret = -1;
+                        goto out;
+                }
+        }
+
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret) {
@@ -853,22 +863,48 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
-                if (!(flags & GF_CLI_FLAG_OP_FORCE)) {
-                        if (glusterd_is_volume_started (volinfo)) {
-                                snprintf (msg, sizeof (msg), "Volume %s already"
-                                          " started", volname);
-                                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
-                                *op_errstr = gf_strdup (msg);
-                                ret = -1;
-                                goto out;
-                        }
+                if (uuid_compare (brickinfo->uuid, MY_UUID))
+                        continue;
+
+                if (volinfo->backend == GD_VOL_BK_BD)
+                        continue;
+
+                ret = gf_lstat_dir (brickinfo->path, NULL);
+                if (ret) {
+                        snprintf (msg, sizeof (msg), "Failed to find "
+                                          "brick directory %s for volume %s. "
+                                          "Reason : %s", brickinfo->path,
+                                          volname, strerror (errno));
+                        goto out;
+                }
+                ret = sys_lgetxattr (brickinfo->path, GF_XATTR_VOL_ID_KEY,
+                                     volume_id, 16);
+                if (ret < 0) {
+                        snprintf (msg, sizeof (msg), "Failed to get "
+                                  "extended attribute %s for brick dir %s. "
+                                  "Reason : %s", GF_XATTR_VOL_ID_KEY,
+                                  brickinfo->path, strerror (errno));
+                        ret = -1;
+                        goto out;
+                }
+                if (uuid_compare (volinfo->volume_id, volume_id)) {
+                        snprintf (msg, sizeof (msg), "Volume id mismatch for "
+                                  "brick %s:%s. Expected volume id %s, "
+                                  "volume id %s found", brickinfo->hostname,
+                                  brickinfo->path,
+                                  uuid_utoa_r (volinfo->volume_id, volid),
+                                  uuid_utoa_r (volume_id, xattr_volid));
+                        ret = -1;
+                        goto out;
                 }
         }
 
         ret = 0;
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
-
+        if (ret && (msg[0] != '\0')) {
+                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+        }
         return ret;
 }
 

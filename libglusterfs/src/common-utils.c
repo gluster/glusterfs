@@ -44,6 +44,7 @@
 #include "stack.h"
 #include "globals.h"
 #include "lkowner.h"
+#include "syscall.h"
 
 #ifndef AI_ADDRCONFIG
 #define AI_ADDRCONFIG 0
@@ -108,6 +109,35 @@ mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks)
 
         ret = 0;
 out:
+
+        return ret;
+}
+
+int
+gf_lstat_dir (const char *path, struct stat *stbuf_in)
+{
+        int ret           = -1;
+        struct stat stbuf = {0,};
+
+        if (path == NULL) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        ret = sys_lstat (path, &stbuf);
+        if (ret)
+                goto out;
+
+        if (!S_ISDIR (stbuf.st_mode)) {
+                errno = ENOTDIR;
+                ret = -1;
+                goto out;
+        }
+        ret = 0;
+
+out:
+        if (!ret && stbuf_in)
+                *stbuf_in = stbuf;
 
         return ret;
 }
