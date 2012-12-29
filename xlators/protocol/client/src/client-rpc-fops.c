@@ -396,6 +396,7 @@ client_add_fd_to_saved_fds (xlator_t *this, fd_t *fd, loc_t *loc, int32_t flags,
         fdctx->flags         = flags;
         fdctx->lk_ctx        = fd_lk_ctx_ref (fd->lk_ctx);
         fdctx->lk_heal_state = GF_LK_HEAL_DONE;
+        fdctx->reopen_done   = client_default_reopen_done;
 
         INIT_LIST_HEAD (&fdctx->sfd_pos);
         INIT_LIST_HEAD (&fdctx->lock_list);

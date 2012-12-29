@@ -415,9 +415,6 @@ clnt_fd_lk_reacquire_failed (xlator_t *this, clnt_fd_ctx_t *fdctx,
         {
                 fdctx->remote_fd     = -1;
                 fdctx->lk_heal_state = GF_LK_HEAL_DONE;
-
-                list_add_tail (&fdctx->sfd_pos,
-                               &conf->saved_fds);
         }
         pthread_mutex_unlock (&conf->lock);
 
@@ -603,7 +600,7 @@ clnt_release_reopen_fd_cbk (struct rpc_req *req, struct iovec *iov,
 
         clnt_fd_lk_reacquire_failed (this, fdctx, conf);
 
-        decrement_reopen_fd_count (this, conf);
+        fdctx->reopen_done (fdctx, this);
 
         frame->local = NULL;
         STACK_DESTROY (frame->root);
@@ -635,8 +632,8 @@ clnt_release_reopen_fd (xlator_t *this, clnt_fd_ctx_t *fdctx)
                                         (xdrproc_t)xdr_gfs3_releasedir_req);
  out:
         if (ret) {
-                decrement_reopen_fd_count (this, conf);
                 clnt_fd_lk_reacquire_failed (this, fdctx, conf);
+                fdctx->reopen_done (fdctx, this);
                 if (frame) {
                         frame->local = NULL;
                         STACK_DESTROY (frame->root);
@@ -754,13 +751,10 @@ client_reacquire_lock_cbk (struct rpc_req *req, struct iovec *iov,
                 pthread_mutex_lock (&conf->lock);
                 {
                         fdctx->lk_heal_state = GF_LK_HEAL_DONE;
-
-                        list_add_tail (&fdctx->sfd_pos,
-                                       &conf->saved_fds);
                 }
                 pthread_mutex_unlock (&conf->lock);
 
-                decrement_reopen_fd_count (this, conf);
+                fdctx->reopen_done (fdctx, this);
         }
 
         ret = 0;
@@ -869,8 +863,7 @@ client_reacquire_lock (xlator_t *this, clnt_fd_ctx_t *fdctx)
         if (client_fd_lk_list_empty (fdctx->lk_ctx, _gf_false)) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "fd lock list is empty");
-                decrement_reopen_fd_count (this,
-                                           (clnt_conf_t *)this->private);
+                fdctx->reopen_done (fdctx, this);
         } else {
                 lk_ctx = fdctx->lk_ctx;
 
@@ -885,14 +878,55 @@ out:
         return ret;
 }
 
+void
+client_default_reopen_done (clnt_fd_ctx_t *fdctx, xlator_t *this)
+{
+        gf_log_callingfn (this->name, GF_LOG_WARNING,
+                          "This function should never be called");
+}
+
+void
+client_child_up_reopen_done (clnt_fd_ctx_t *fdctx, xlator_t *this)
+{
+        clnt_conf_t  *conf    = NULL;
+        uint64_t     fd_count = 0;
+        gf_boolean_t destroy  = _gf_false;
+
+        conf = this->private;
+
+        LOCK (&conf->rec_lock);
+        {
+                fd_count = --(conf->reopen_fd_count);
+        }
+        UNLOCK (&conf->rec_lock);
+
+        pthread_mutex_lock (&conf->lock);
+        {
+                if (!fdctx->released)
+                        list_add_tail (&fdctx->sfd_pos, &conf->saved_fds);
+                else
+                        destroy = _gf_true;
+                fdctx->reopen_done = client_default_reopen_done;
+        }
+        pthread_mutex_unlock (&conf->lock);
+
+        if (fd_count == 0) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "last fd open'd/lock-self-heal'd - notifying CHILD-UP");
+                client_set_lk_version (this);
+                client_notify_parents_child_up (this);
+        }
+        if (destroy)
+                client_fdctx_destroy (this, fdctx);
+}
+
 int
 client3_3_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
                       void           *myframe)
 {
         int32_t        ret                   = -1;
         gfs3_open_rsp  rsp                   = {0,};
-        int            attempt_lock_recovery = _gf_false;
-        uint64_t       fd_count              = 0;
+        gf_boolean_t   attempt_lock_recovery = _gf_false;
         clnt_local_t  *local                 = NULL;
         clnt_conf_t   *conf                  = NULL;
         clnt_fd_ctx_t *fdctx                 = NULL;
@@ -900,12 +934,10 @@ client3_3_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
         xlator_t      *this                  = NULL;
 
         frame = myframe;
-        if (!frame || !frame->this)
-                goto out;
-
         this  = frame->this;
+        conf  = this->private;
         local = frame->local;
-        conf  = frame->this->private;
+        fdctx = local->fdctx;
 
         if (-1 == req->rpc_status) {
                 gf_log (frame->this->name, GF_LOG_WARNING,
@@ -938,32 +970,23 @@ client3_3_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        fdctx = local->fdctx;
-        if (!fdctx) {
-                gf_log (frame->this->name, GF_LOG_WARNING, "fdctx not found");
-                ret = -1;
-                goto out;
-        }
-
         pthread_mutex_lock (&conf->lock);
         {
                 fdctx->remote_fd = rsp.fd;
                 if (!fdctx->released) {
-                        if (!client_fd_lk_list_empty (fdctx->lk_ctx, _gf_false)) {
+                        if (conf->lk_heal &&
+                            !client_fd_lk_list_empty (fdctx->lk_ctx,
+                                                      _gf_false)) {
                                 attempt_lock_recovery = _gf_true;
                                 fdctx->lk_heal_state  = GF_LK_HEAL_IN_PROGRESS;
-                        } else {
-                                list_add_tail (&fdctx->sfd_pos,
-                                               &conf->saved_fds);
                         }
-                        fdctx = NULL;
                 }
         }
         pthread_mutex_unlock (&conf->lock);
 
         ret = 0;
 
-        if (conf->lk_heal && attempt_lock_recovery) {
+        if (attempt_lock_recovery) {
                 /* Delay decrementing the reopen fd count untill all the
                    locks corresponding to this fd are acquired.*/
                 gf_log (this->name, GF_LOG_DEBUG, "acquiring locks "
@@ -973,23 +996,15 @@ client3_3_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         clnt_reacquire_lock_error (this, local->fdctx, conf);
                         gf_log (this->name, GF_LOG_WARNING, "acquiring locks "
                                 "failed on %s", local->loc.path);
-                        ret = 0;
                 }
-        } else {
-                fd_count = decrement_reopen_fd_count (frame->this, conf);
         }
 
 out:
-        if (fdctx) {
-                clnt_release_reopen_fd (this, fdctx);
-        } else if ((ret < 0) && frame && frame->this && conf) {
-                decrement_reopen_fd_count (frame->this, conf);
-        }
+        if (!attempt_lock_recovery)
+                fdctx->reopen_done (fdctx, this);
 
-        if (frame) {
-                frame->local = NULL;
-                STACK_DESTROY (frame->root);
-        }
+        frame->local = NULL;
+        STACK_DESTROY (frame->root);
 
         client_local_wipe (local);
 
@@ -1008,11 +1023,10 @@ client3_3_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t  *frame = NULL;
 
         frame = myframe;
-        if (!frame || !frame->this)
-                goto out;
+        local = frame->local;
+        fdctx = local->fdctx;
+        conf  = frame->this->private;
 
-        local        = frame->local;
-        conf         = frame->this->private;
 
         if (-1 == req->rpc_status) {
                 gf_log (frame->this->name, GF_LOG_WARNING,
@@ -1045,39 +1059,17 @@ client3_3_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        fdctx = local->fdctx;
-        if (!fdctx) {
-                gf_log (frame->this->name, GF_LOG_WARNING, "fdctx not found");
-                ret = -1;
-                goto out;
-        }
-
         pthread_mutex_lock (&conf->lock);
         {
                 fdctx->remote_fd = rsp.fd;
-
-                if (!fdctx->released) {
-                        list_add_tail (&fdctx->sfd_pos, &conf->saved_fds);
-                        fdctx = NULL;
-                }
         }
         pthread_mutex_unlock (&conf->lock);
 
-        decrement_reopen_fd_count (frame->this, conf);
-        ret = 0;
-
 out:
-        if (fdctx)
-                client_fdctx_destroy (frame->this, fdctx);
+        fdctx->reopen_done (fdctx, frame->this);
 
-        if ((ret < 0) && frame && frame->this && conf)
-                decrement_reopen_fd_count (frame->this, conf);
-
-        if (frame) {
-                frame->local = NULL;
-                STACK_DESTROY (frame->root);
-        }
-
+        frame->local = NULL;
+        STACK_DESTROY (frame->root);
         client_local_wipe (local);
 
         return 0;
@@ -1091,9 +1083,6 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
         clnt_local_t     *local = NULL;
         call_frame_t     *frame = NULL;
         clnt_conf_t      *conf  = NULL;
-
-        if (!this || !fdctx)
-                goto out;
 
         conf = this->private;
 
@@ -1120,7 +1109,7 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
         gf_log (frame->this->name, GF_LOG_DEBUG,
                 "attempting reopen on %s", local->loc.path);
 
-        frame->local = local; local = NULL;
+        frame->local = local;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_OPENDIR,
@@ -1128,11 +1117,12 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
                                      NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_opendir_req);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_ERROR,
                         "failed to send the re-opendir request");
+                goto out;
         }
 
-        return ret;
+        return 0;
 
 out:
         if (frame) {
@@ -1143,9 +1133,7 @@ out:
         if (local)
                 client_local_wipe (local);
 
-        if ((ret < 0) && this && conf) {
-                decrement_reopen_fd_count (this, conf);
-        }
+        fdctx->reopen_done (fdctx, this);
 
         return 0;
 
@@ -1159,9 +1147,6 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
         clnt_local_t  *local = NULL;
         call_frame_t  *frame = NULL;
         clnt_conf_t   *conf  = NULL;
-
-        if (!this || !fdctx)
-                goto out;
 
         conf  = this->private;
 
@@ -1192,17 +1177,17 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
         gf_log (frame->this->name, GF_LOG_DEBUG,
                 "attempting reopen on %s", local->loc.path);
 
-        local = NULL;
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_OPEN, client3_3_reopen_cbk, NULL,
                                      NULL, 0, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gfs3_open_req);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_ERROR,
                         "failed to send the re-open request");
+                goto out;
         }
 
-        return ret;
+        return 0;
 
 out:
         if (frame) {
@@ -1213,14 +1198,11 @@ out:
         if (local)
                 client_local_wipe (local);
 
-        if ((ret < 0) && this && conf) {
-                decrement_reopen_fd_count (this, conf);
-        }
+        fdctx->reopen_done (fdctx, this);
 
         return 0;
 
 }
-
 
 int
 client_post_handshake (call_frame_t *frame, xlator_t *this)
@@ -1245,6 +1227,7 @@ client_post_handshake (call_frame_t *frame, xlator_t *this)
                         if (fdctx->remote_fd != -1)
                                 continue;
 
+                        fdctx->reopen_done = client_child_up_reopen_done;
                         list_del_init (&fdctx->sfd_pos);
                         list_add_tail (&fdctx->sfd_pos, &reopen_head);
                         count++;
