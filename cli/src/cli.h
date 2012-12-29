@@ -141,7 +141,7 @@ struct cli_local {
         gf_boolean_t    all;
 #if (HAVE_LIB_XML)
         xmlTextWriterPtr        writer;
-        xmlBufferPtr            buf;
+        xmlDocPtr               doc;
         int                     vol_count;
 #endif
 };
