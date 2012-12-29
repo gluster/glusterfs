@@ -130,6 +130,7 @@ typedef struct _client_fd_ctx {
         pthread_mutex_t   mutex;
         lk_heal_state_t   lk_heal_state;
         uuid_t            gfid;
+        void (*reopen_done) (struct _client_fd_ctx*, xlator_t *);
         struct list_head  lock_list;     /* List of all granted locks on this fd */
 } clnt_fd_ctx_t;
 
@@ -223,7 +224,6 @@ int client_attempt_lock_recovery (xlator_t *this, clnt_fd_ctx_t *fdctx);
 int32_t delete_granted_locks_owner (fd_t *fd, gf_lkowner_t *owner);
 int client_add_lock_for_recovery (fd_t *fd, struct gf_flock *flock,
                                   gf_lkowner_t *owner, int32_t cmd);
-uint64_t decrement_reopen_fd_count (xlator_t *this, clnt_conf_t *conf);
 int32_t delete_granted_locks_fd (clnt_fd_ctx_t *fdctx);
 int32_t client_cmd_to_gf_cmd (int32_t cmd, int32_t *gf_cmd);
 void client_save_number_fds (clnt_conf_t *conf, int count);
@@ -243,4 +243,5 @@ int client_mark_fd_bad (xlator_t *this);
 int client_set_lk_version (xlator_t *this);
 
 int client_fd_lk_list_empty (fd_lk_ctx_t *lk_ctx, gf_boolean_t use_try_lock);
+void client_default_reopen_done (clnt_fd_ctx_t *fdctx, xlator_t *this);
 #endif /* !_CLIENT_H */
