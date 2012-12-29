@@ -57,18 +57,11 @@
         }while (0)                                              \
 
 int
-cli_begin_xml_output (xmlTextWriterPtr *writer, xmlBufferPtr *buf)
+cli_begin_xml_output (xmlTextWriterPtr *writer, xmlDocPtr *doc)
 {
         int             ret = -1;
 
-        *buf = xmlBufferCreateSize (8192);
-        if (*buf == NULL) {
-                ret = -1;
-                goto out;
-        }
-        xmlBufferSetAllocationScheme (*buf, XML_BUFFER_ALLOC_DOUBLEIT);
-
-        *writer = xmlNewTextWriterMemory (*buf, 0);
+        *writer = xmlNewTextWriterDoc (doc, 0);
         if (writer == NULL) {
                 ret = -1;
                 goto out;
@@ -87,7 +80,7 @@ out:
 }
 
 int
-cli_end_xml_output (xmlTextWriterPtr writer, xmlBufferPtr buf)
+cli_end_xml_output (xmlTextWriterPtr writer, xmlDocPtr doc)
 {
         int             ret = -1;
 
@@ -98,10 +91,12 @@ cli_end_xml_output (xmlTextWriterPtr writer, xmlBufferPtr buf)
         ret = xmlTextWriterEndDocument (writer);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        cli_out ("%s", (const char *)buf->content);
+
+        /* Dump xml document to stdout and pretty format it */
+        xmlSaveFormatFileEnc ("-", doc, "UTF-8", 1);
 
         xmlFreeTextWriter (writer);
-        xmlBufferFree (buf);
+        xmlFreeDoc (doc);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -123,7 +118,7 @@ cli_xml_output_common (xmlTextWriterPtr writer, int op_ret, int op_errno,
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"opErrstr",
-                                               "%s", op_errstr);
+                                                "%s", op_errstr);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
 out:
@@ -139,9 +134,9 @@ cli_xml_output_str (char *op, char *str, int op_ret, int op_errno,
 #if (HAVE_LIB_XML)
         int                     ret = -1;
         xmlTextWriterPtr        writer = NULL;
-        xmlBufferPtr            buf = NULL;
+        xmlDocPtr               doc = NULL;
 
-        ret = cli_begin_xml_output (&writer, &buf);
+        ret = cli_begin_xml_output (&writer, &doc);
         if (ret)
                 goto out;
 
@@ -163,7 +158,7 @@ cli_xml_output_str (char *op, char *str, int op_ret, int op_errno,
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
 
-        ret = cli_end_xml_output (writer, buf);
+        ret = cli_end_xml_output (writer, doc);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -197,9 +192,9 @@ cli_xml_output_dict ( char *op, dict_t *dict, int op_ret, int op_errno,
 #if (HAVE_LIB_XML)
         int                     ret = -1;
         xmlTextWriterPtr        writer = NULL;
-        xmlBufferPtr            buf = NULL;
+        xmlDocPtr               doc = NULL;
 
-        ret = cli_begin_xml_output (&writer, &buf);
+        ret = cli_begin_xml_output (&writer, &doc);
         if (ret)
                 goto out;
 
@@ -218,7 +213,7 @@ cli_xml_output_dict ( char *op, dict_t *dict, int op_ret, int op_errno,
         ret = xmlTextWriterEndElement (writer);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        ret = cli_end_xml_output (writer, buf);
+        ret = cli_end_xml_output (writer, doc);
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -1339,7 +1334,7 @@ cli_xml_output_vol_status_begin (cli_local_t *local, int op_ret, int op_errno,
 #if (HAVE_LIB_XML)
         int                     ret = -1;
 
-        ret = cli_begin_xml_output (&(local->writer), &(local->buf));
+        ret = cli_begin_xml_output (&(local->writer), &(local->doc));
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         ret = cli_xml_output_common (local->writer, op_ret, op_errno,
@@ -1377,7 +1372,7 @@ cli_xml_output_vol_status_end (cli_local_t *local)
         ret = xmlTextWriterEndElement (local->writer);
         XML_RET_CHECK_AND_GOTO(ret, out);
 
-        ret = cli_end_xml_output (local->writer, local->buf);
+        ret = cli_end_xml_output (local->writer, local->doc);
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -1715,7 +1710,7 @@ cli_xml_output_vol_top (dict_t *dict, int op_ret, int op_errno,
 #if (HAVE_LIB_XML)
         int                     ret = -1;
         xmlTextWriterPtr        writer = NULL;
-        xmlBufferPtr            buf = NULL;
+        xmlDocPtr               doc = NULL;
         int                     brick_count = 0;
         int                     top_op = GF_CLI_TOP_NONE;
         char                    *brick_name = NULL;
@@ -1729,7 +1724,7 @@ cli_xml_output_vol_top (dict_t *dict, int op_ret, int op_errno,
         int                     i = 0;
         int                     j = 0;
 
-        ret = cli_begin_xml_output (&writer, &buf);
+        ret = cli_begin_xml_output (&writer, &doc);
         if (ret)
                 goto out;
 
@@ -1872,7 +1867,7 @@ cli_xml_output_vol_top (dict_t *dict, int op_ret, int op_errno,
         /* </volTop> */
         ret = xmlTextWriterEndElement (writer);
         XML_RET_CHECK_AND_GOTO (ret, out);
-        ret = cli_end_xml_output (writer, buf);
+        ret = cli_end_xml_output (writer, doc);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2067,7 +2062,7 @@ cli_xml_output_vol_profile (dict_t *dict, int op_ret, int op_errno,
 #if (HAVE_LIB_XML)
         int                     ret = -1;
         xmlTextWriterPtr        writer = NULL;
-        xmlBufferPtr            buf = NULL;
+        xmlDocPtr               doc = NULL;
         char                    *volname = NULL;
         int                     op = GF_CLI_STATS_NONE;
         int                     brick_count = 0;
@@ -2076,7 +2071,7 @@ cli_xml_output_vol_profile (dict_t *dict, int op_ret, int op_errno,
         char                    key[1024] = {0,};
         int                     i = 0;
 
-        ret = cli_begin_xml_output (&writer, &buf);
+        ret = cli_begin_xml_output (&writer, &doc);
         if (ret)
                 goto out;
 
@@ -2156,7 +2151,7 @@ cont:
         ret = xmlTextWriterEndElement (writer);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        ret = cli_end_xml_output (writer, buf);
+        ret = cli_end_xml_output (writer, doc);
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -2172,13 +2167,13 @@ cli_xml_output_vol_list (dict_t *dict, int op_ret, int op_errno,
 #if (HAVE_LIB_XML)
         int                     ret = -1;
         xmlTextWriterPtr        writer = NULL;
-        xmlBufferPtr            buf = NULL;
+        xmlDocPtr               doc = NULL;
         int                     count = 0;
         char                    *volname = NULL;
         char                    key[1024] = {0,};
         int                     i = 0;
 
-        ret = cli_begin_xml_output (&writer, &buf);
+        ret = cli_begin_xml_output (&writer, &doc);
         if (ret)
                 goto out;
 
@@ -2213,7 +2208,7 @@ cli_xml_output_vol_list (dict_t *dict, int op_ret, int op_errno,
         ret = xmlTextWriterEndElement (writer);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        ret = cli_end_xml_output (writer, buf);
+        ret = cli_end_xml_output (writer, doc);
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -2523,7 +2518,7 @@ cli_xml_output_vol_info_begin (cli_local_t *local, int op_ret, int op_errno,
 
         GF_ASSERT (local);
 
-        ret = cli_begin_xml_output (&(local->writer), &(local->buf));
+        ret = cli_begin_xml_output (&(local->writer), &(local->doc));
         if (ret)
                 goto out;
 
@@ -2571,7 +2566,7 @@ cli_xml_output_vol_info_end (cli_local_t *local)
         ret = xmlTextWriterEndElement (local->writer);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        ret = cli_end_xml_output (local->writer, local->buf);
+        ret = cli_end_xml_output (local->writer, local->doc);
 
 out:
         gf_log ("cli", GF_LOG_ERROR, "Returning %d", ret);
@@ -2589,7 +2584,7 @@ cli_xml_output_vol_quota_limit_list (char *volname, char *limit_list,
 #if (HAVE_LIB_XML)
         int                     ret = -1;
         xmlTextWriterPtr        writer = NULL;
-        xmlBufferPtr            buf = NULL;
+        xmlDocPtr               doc = NULL;
         int64_t                 size = 0;
         int64_t                 limit_value = 0;
         int                     i = 0;
@@ -2607,7 +2602,7 @@ cli_xml_output_vol_quota_limit_list (char *volname, char *limit_list,
         GF_ASSERT (volname);
         GF_ASSERT (limit_list);
 
-        ret = cli_begin_xml_output (&writer, &buf);
+        ret = cli_begin_xml_output (&writer, &doc);
         if (ret)
                 goto out;
 
@@ -2717,7 +2712,7 @@ cont:
         ret = xmlTextWriterEndElement (writer);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        ret = cli_end_xml_output (writer, buf);
+        ret = cli_end_xml_output (writer, doc);
 
 out:
         GF_FREE (size_str);
@@ -2735,7 +2730,7 @@ cli_xml_output_peer_status (dict_t *dict, int op_ret, int op_errno,
 #if (HAVE_LIB_XML)
         int                     ret = -1;
         xmlTextWriterPtr        writer = NULL;
-        xmlBufferPtr            buf = NULL;
+        xmlDocPtr               doc = NULL;
         int                     count = 0;
         char                    *uuid = NULL;
         char                    *hostname = NULL;
@@ -2746,7 +2741,7 @@ cli_xml_output_peer_status (dict_t *dict, int op_ret, int op_errno,
         int                     i = 1;
         char                    key[1024] = {0,};
 
-        ret = cli_begin_xml_output (&writer, &buf);
+        ret = cli_begin_xml_output (&writer, &doc);
         if (ret)
                 goto out;
 
@@ -2848,7 +2843,7 @@ cont:
         ret = xmlTextWriterEndElement (writer);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        ret = cli_end_xml_output (writer, buf);
+        ret = cli_end_xml_output (writer, doc);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -3006,10 +3001,10 @@ cli_xml_output_vol_rebalance (gf_cli_defrag_type op, dict_t *dict, int op_ret,
 #if (HAVE_LIB_XML)
         int                     ret = -1;
         xmlTextWriterPtr        writer = NULL;
-        xmlBufferPtr            buf = NULL;
+        xmlDocPtr               doc = NULL;
         char                    *task_id_str = NULL;
 
-        ret = cli_begin_xml_output (&writer, &buf);
+        ret = cli_begin_xml_output (&writer, &doc);
         if (ret)
                 goto out;
 
@@ -3044,7 +3039,7 @@ cli_xml_output_vol_rebalance (gf_cli_defrag_type op, dict_t *dict, int op_ret,
         XML_RET_CHECK_AND_GOTO (ret, out);
 
 
-        ret = cli_end_xml_output (writer, buf);
+        ret = cli_end_xml_output (writer, doc);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -3061,10 +3056,10 @@ cli_xml_output_vol_remove_brick (gf_boolean_t status_op, dict_t *dict,
 #if (HAVE_LIB_XML)
         int                     ret = -1;
         xmlTextWriterPtr        writer = NULL;
-        xmlBufferPtr            buf = NULL;
+        xmlDocPtr               doc = NULL;
         char                    *task_id_str = NULL;
 
-        ret = cli_begin_xml_output (&writer, &buf);
+        ret = cli_begin_xml_output (&writer, &doc);
         if (ret)
                 goto out;
 
@@ -3095,7 +3090,7 @@ cli_xml_output_vol_remove_brick (gf_boolean_t status_op, dict_t *dict,
         XML_RET_CHECK_AND_GOTO (ret, out);
 
 
-        ret = cli_end_xml_output (writer, buf);
+        ret = cli_end_xml_output (writer, doc);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -3116,9 +3111,9 @@ cli_xml_output_vol_replace_brick (gf1_cli_replace_op op, dict_t *dict,
         char                    *current_file = 0;
         char                    *task_id_str = NULL;
         xmlTextWriterPtr        writer = NULL;
-        xmlBufferPtr            buf = NULL;
+        xmlDocPtr               doc = NULL;
 
-        ret = cli_begin_xml_output (&writer, &buf);
+        ret = cli_begin_xml_output (&writer, &doc);
         if (ret)
                 goto out;
 
@@ -3175,7 +3170,7 @@ cont:
         ret = xmlTextWriterEndElement (writer);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        ret = cli_end_xml_output (writer, buf);
+        ret = cli_end_xml_output (writer, doc);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -3192,11 +3187,11 @@ cli_xml_output_vol_create (dict_t *dict, int op_ret, int op_errno,
 #if (HAVE_LIB_XML)
         int                     ret = -1;
         xmlTextWriterPtr        writer = NULL;
-        xmlBufferPtr            buf = NULL;
+        xmlDocPtr               doc = NULL;
         char                    *volname = NULL;
         char                    *volid = NULL;
 
-        ret = cli_begin_xml_output (&writer, &buf);
+        ret = cli_begin_xml_output (&writer, &doc);
         if (ret)
                 goto out;
 
@@ -3238,7 +3233,7 @@ cli_xml_output_vol_create (dict_t *dict, int op_ret, int op_errno,
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
 
-        ret = cli_end_xml_output (writer, buf);
+        ret = cli_end_xml_output (writer, doc);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -3255,13 +3250,13 @@ cli_xml_output_generic_volume (char *op, dict_t *dict, int op_ret, int op_errno,
 #if (HAVE_LIB_XML)
         int                     ret = -1;
         xmlTextWriterPtr        writer = NULL;
-        xmlBufferPtr            buf = NULL;
+        xmlDocPtr               doc = NULL;
         char                    *volname = NULL;
         char                    *volid = NULL;
 
         GF_ASSERT (op);
 
-        ret = cli_begin_xml_output (&writer, &buf);
+        ret = cli_begin_xml_output (&writer, &doc);
         if (ret)
                 goto out;
 
@@ -3302,7 +3297,7 @@ cli_xml_output_generic_volume (char *op, dict_t *dict, int op_ret, int op_errno,
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
 
-        ret = cli_end_xml_output (writer, buf);
+        ret = cli_end_xml_output (writer, doc);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -3397,15 +3392,14 @@ cli_xml_output_vol_gsync (dict_t *dict, int op_ret, int op_errno,
 #if (HAVE_LIB_XML)
         int                     ret = -1;
         xmlTextWriterPtr        writer = NULL;
-        xmlBufferPtr            buf = NULL;
+        xmlDocPtr               doc = NULL;
         char                    *master = NULL;
         char                    *slave = NULL;
-
-        int             type = 0;
+        int                     type = 0;
 
         GF_ASSERT (dict);
 
-        ret = cli_begin_xml_output (&writer, &buf);
+        ret = cli_begin_xml_output (&writer, &doc);
         if (ret)
                 goto out;
 
@@ -3461,7 +3455,7 @@ cli_xml_output_vol_gsync (dict_t *dict, int op_ret, int op_errno,
         ret = xmlTextWriterEndElement (writer);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        ret = cli_end_xml_output (writer, buf);
+        ret = cli_end_xml_output (writer, doc);
 out:
         gf_log ("cli",GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
