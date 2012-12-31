@@ -34,27 +34,27 @@ typedef enum {
         GF_LK_HEAL_DONE,
 } lk_heal_state_t;
 
-#define CLIENT_GET_REMOTE_FD(conf, fd, remote_fd, op_errno, label)      \
+typedef enum {
+        DEFAULT_REMOTE_FD = 0,
+        FALLBACK_TO_ANON_FD = 1
+} clnt_remote_fd_flags_t;
+
+#define CLIENT_GET_REMOTE_FD(xl, fd, flags, remote_fd, op_errno, label) \
         do {                                                            \
-                clnt_fd_ctx_t      *fdctx    = NULL;                    \
-                pthread_mutex_lock (&conf->lock);                       \
-                {                                                       \
-                        fdctx = this_fd_get_ctx (fd, THIS);             \
-                }                                                       \
-                pthread_mutex_unlock (&conf->lock);                     \
-                if (!fdctx) {                                           \
-                        remote_fd = -2;                                 \
-                } else {                                                \
-                        remote_fd = fdctx->remote_fd;                   \
+                int     _ret    = 0;                                    \
+                _ret = client_get_remote_fd (xl, fd, flags, &remote_fd);\
+                if (_ret < 0) {                                         \
+                        op_errno = errno;                               \
+                        goto label;                                     \
                 }                                                       \
                 if (remote_fd == -1) {                                  \
-                        gf_log (THIS->name, GF_LOG_WARNING, " (%s) "    \
+                        gf_log (xl->name, GF_LOG_WARNING, " (%s) "      \
                                 "remote_fd is -1. EBADFD",              \
                                 uuid_utoa (fd->inode->gfid));           \
                         op_errno = EBADFD;                              \
                         goto label;                                     \
                 }                                                       \
-        } while (0);
+        } while (0)
 
 #define CLIENT_STACK_UNWIND(op, frame, params ...) do {             \
                 clnt_local_t *__local = frame->local;               \
@@ -132,6 +132,7 @@ typedef struct _client_fd_ctx {
         uuid_t            gfid;
         void (*reopen_done) (struct _client_fd_ctx*, xlator_t *);
         struct list_head  lock_list;     /* List of all granted locks on this fd */
+        int32_t           reopen_attempts;
 } clnt_fd_ctx_t;
 
 typedef struct _client_posix_lock {
@@ -159,7 +160,8 @@ typedef struct client_local {
         int32_t              cmd;
         struct list_head     lock_list;
         pthread_mutex_t      mutex;
-        char           *name;
+        char                *name;
+        gf_boolean_t         attempt_reopen;
 } clnt_local_t;
 
 typedef struct client_args {
@@ -211,9 +213,6 @@ int client_submit_request (xlator_t *this, void *req,
                            struct iovec *rsp_payload, int rsp_count,
                            struct iobref *rsp_iobref, xdrproc_t xdrproc);
 
-int protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx);
-int protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx);
-
 int unserialize_rsp_dirent (struct gfs3_readdir_rsp *rsp, gf_dirent_t *entries);
 int unserialize_rsp_direntp (xlator_t *this, fd_t *fd,
                              struct gfs3_readdirp_rsp *rsp, gf_dirent_t *entries);
@@ -244,4 +243,11 @@ int client_set_lk_version (xlator_t *this);
 
 int client_fd_lk_list_empty (fd_lk_ctx_t *lk_ctx, gf_boolean_t use_try_lock);
 void client_default_reopen_done (clnt_fd_ctx_t *fdctx, xlator_t *this);
+void client_attempt_reopen (fd_t *fd, xlator_t *this);
+int client_get_remote_fd (xlator_t *this, fd_t *fd, int flags,
+                          int64_t *remote_fd);
+int client_fd_fop_prepare_local (call_frame_t *frame, fd_t *fd,
+                                 int64_t remote_fd);
+gf_boolean_t
+__is_fd_reopen_in_progress (clnt_fd_ctx_t *fdctx);
 #endif /* !_CLIENT_H */

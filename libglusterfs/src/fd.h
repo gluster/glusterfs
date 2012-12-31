@@ -24,6 +24,8 @@
 #include "fd-lk.h"
 #include "common-utils.h"
 
+#define GF_ANON_FD_NO -2
+
 struct _inode;
 struct _dict;
 struct fd_lk_ctx;

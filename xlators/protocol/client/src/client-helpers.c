@@ -16,7 +16,6 @@
 #include "client.h"
 #include "fd.h"
 
-
 int
 client_fd_lk_list_empty (fd_lk_ctx_t *lk_ctx, gf_boolean_t try_lock)
 {
@@ -275,4 +274,76 @@ clnt_readdir_rsp_cleanup (gfs3_readdir_rsp *rsp)
         }
 
         return 0;
+}
+
+int
+client_get_remote_fd (xlator_t *this, fd_t *fd, int flags, int64_t *remote_fd)
+{
+        clnt_fd_ctx_t *fdctx    = NULL;
+        clnt_conf_t   *conf     = NULL;
+
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
+        GF_VALIDATE_OR_GOTO (this->name, remote_fd, out);
+
+        conf = this->private;
+        pthread_mutex_lock (&conf->lock);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+                if (!fdctx)
+                        *remote_fd = GF_ANON_FD_NO;
+                else if (__is_fd_reopen_in_progress (fdctx))
+                        *remote_fd = -1;
+                else
+                        *remote_fd = fdctx->remote_fd;
+        }
+        pthread_mutex_unlock (&conf->lock);
+
+        if ((flags & FALLBACK_TO_ANON_FD) && (*remote_fd == -1))
+                *remote_fd = GF_ANON_FD_NO;
+
+        return 0;
+out:
+        return -1;
+}
+
+gf_boolean_t
+client_is_reopen_needed (fd_t *fd, xlator_t *this, int64_t remote_fd)
+{
+        clnt_fd_ctx_t   *fdctx = NULL;
+
+        fdctx = this_fd_get_ctx (fd, this);
+        if (fdctx && (fdctx->remote_fd == -1) &&
+            (remote_fd == GF_ANON_FD_NO))
+                return _gf_true;
+        return _gf_false;
+}
+
+int
+client_fd_fop_prepare_local (call_frame_t *frame, fd_t *fd, int64_t remote_fd)
+{
+        xlator_t     *this  = NULL;
+        clnt_conf_t  *conf  = NULL;
+        clnt_local_t *local = NULL;
+        int          ret    = 0;
+
+        this = frame->this;
+        conf = this->private;
+
+        if (!frame || !fd) {
+                ret = -EINVAL;
+                goto out;
+        }
+
+        frame->local = mem_get0 (this->local_pool);
+        if (frame->local == NULL) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        local = frame->local;
+        local->fd = fd_ref (fd);
+        local->attempt_reopen = client_is_reopen_needed (fd, this, remote_fd);
+        return 0;
+out:
+        return ret;
 }
