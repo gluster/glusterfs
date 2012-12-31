@@ -25,6 +25,7 @@
 #include "portmap-xdr.h"
 #include "rpc-common-xdr.h"
 
+#define CLIENT_REOPEN_MAX_ATTEMPTS 1024
 extern rpc_clnt_prog_t clnt3_3_fop_prog;
 extern rpc_clnt_prog_t clnt_pmap_prog;
 
@@ -886,11 +887,33 @@ client_default_reopen_done (clnt_fd_ctx_t *fdctx, xlator_t *this)
 }
 
 void
+client_reopen_done (clnt_fd_ctx_t *fdctx, xlator_t *this)
+{
+        clnt_conf_t  *conf    = NULL;
+        gf_boolean_t destroy  = _gf_false;
+
+        conf = this->private;
+
+        pthread_mutex_lock (&conf->lock);
+        {
+                fdctx->reopen_attempts = 0;
+                if (!fdctx->released)
+                        list_add_tail (&fdctx->sfd_pos, &conf->saved_fds);
+                else
+                        destroy = _gf_true;
+                fdctx->reopen_done = client_default_reopen_done;
+        }
+        pthread_mutex_unlock (&conf->lock);
+
+        if (destroy)
+                client_fdctx_destroy (this, fdctx);
+}
+
+void
 client_child_up_reopen_done (clnt_fd_ctx_t *fdctx, xlator_t *this)
 {
         clnt_conf_t  *conf    = NULL;
         uint64_t     fd_count = 0;
-        gf_boolean_t destroy  = _gf_false;
 
         conf = this->private;
 
@@ -900,24 +923,13 @@ client_child_up_reopen_done (clnt_fd_ctx_t *fdctx, xlator_t *this)
         }
         UNLOCK (&conf->rec_lock);
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                if (!fdctx->released)
-                        list_add_tail (&fdctx->sfd_pos, &conf->saved_fds);
-                else
-                        destroy = _gf_true;
-                fdctx->reopen_done = client_default_reopen_done;
-        }
-        pthread_mutex_unlock (&conf->lock);
-
+        client_reopen_done (fdctx, this);
         if (fd_count == 0) {
                 gf_log (this->name, GF_LOG_INFO,
                         "last fd open'd/lock-self-heal'd - notifying CHILD-UP");
                 client_set_lk_version (this);
                 client_notify_parents_child_up (this);
         }
-        if (destroy)
-                client_fdctx_destroy (this, fdctx);
 }
 
 int
@@ -1075,8 +1087,8 @@ out:
         return 0;
 }
 
-int
-protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
+static int
+protocol_client_reopendir (clnt_fd_ctx_t *fdctx, xlator_t *this)
 {
         int               ret   = -1;
         gfs3_opendir_req  req   = {{0,},};
@@ -1139,8 +1151,8 @@ out:
 
 }
 
-int
-protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
+static int
+protocol_client_reopenfile (clnt_fd_ctx_t *fdctx, xlator_t *this)
 {
         int            ret   = -1;
         gfs3_open_req  req   = {{0,},};
@@ -1204,6 +1216,60 @@ out:
 
 }
 
+static void
+protocol_client_reopen (clnt_fd_ctx_t *fdctx, xlator_t *this)
+{
+        if (fdctx->is_dir)
+                protocol_client_reopendir (fdctx, this);
+        else
+                protocol_client_reopenfile (fdctx, this);
+}
+
+gf_boolean_t
+__is_fd_reopen_in_progress (clnt_fd_ctx_t *fdctx)
+{
+        if (fdctx->reopen_done == client_default_reopen_done)
+                return _gf_false;
+        return _gf_true;
+}
+
+void
+client_attempt_reopen (fd_t *fd, xlator_t *this)
+{
+        clnt_conf_t   *conf  = NULL;
+        clnt_fd_ctx_t *fdctx = NULL;
+        gf_boolean_t  reopen = _gf_false;
+
+        if (!fd || !this)
+                goto out;
+
+        conf = this->private;
+        pthread_mutex_lock (&conf->lock);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+                if (!fdctx)
+                        goto unlock;
+                if (__is_fd_reopen_in_progress (fdctx))
+                        goto unlock;
+                if (fdctx->remote_fd != -1)
+                        goto unlock;
+
+                if (fdctx->reopen_attempts == CLIENT_REOPEN_MAX_ATTEMPTS) {
+                        reopen = _gf_true;
+                        fdctx->reopen_done = client_reopen_done;
+                        list_del_init (&fdctx->sfd_pos);
+                } else {
+                        fdctx->reopen_attempts++;
+                }
+        }
+unlock:
+        pthread_mutex_unlock (&conf->lock);
+        if (reopen)
+                protocol_client_reopen (fdctx, this);
+out:
+        return;
+}
+
 int
 client_post_handshake (call_frame_t *frame, xlator_t *this)
 {
@@ -1246,10 +1312,7 @@ client_post_handshake (call_frame_t *frame, xlator_t *this)
                 list_for_each_entry_safe (fdctx, tmp, &reopen_head, sfd_pos) {
                         list_del_init (&fdctx->sfd_pos);
 
-                        if (fdctx->is_dir)
-                                protocol_client_reopendir (this, fdctx);
-                        else
-                                protocol_client_reopen (this, fdctx);
+                        protocol_client_reopen (fdctx, this);
                 }
         } else {
                 gf_log (this->name, GF_LOG_DEBUG,

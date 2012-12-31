@@ -469,7 +469,7 @@ server_resolve_fd (call_frame_t *frame)
 
         fd_no = resolve->fd_no;
 
-        if (fd_no == -2) {
+        if (fd_no == GF_ANON_FD_NO) {
                 server_resolve_anonfd (frame);
                 return 0;
         }
