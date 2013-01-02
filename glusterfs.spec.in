@@ -275,9 +275,12 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
 # respect :-(
 # - see also https://bugzilla.redhat.com/show_bug.cgi?id=839656
 touch %{buildroot}%{_sharedstatedir}/glusterd/glusterd.info
+touch %{buildroot}%{_sharedstatedir}/glusterd/options
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/glustershd
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/{add-brick,create,delete,set,start,stop,remove,remove-brick}/{pre,post}
-%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/nfs
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/nfs/run
+touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/nfs-server.vol
+touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/peers
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/vols
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/groups
@@ -426,6 +429,7 @@ fi
 %{_libdir}/glusterfs/%{version}/xlator/nfs*
 %{_sharedstatedir}/glusterd/hook-scripts
 %ghost %attr(0644,-,-) %{_sharedstatedir}/glusterd/glusterd.info
+%ghost %attr(0600,-,-) %{_sharedstatedir}/glusterd/options
 # This is really ugly, but I have no idea how to mark these directories in an
 # other way. They should belong to the glusterfs-server package, but don't
 # exist after installation. They are generated on the first start...
@@ -455,6 +459,9 @@ fi
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glustershd
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/vols
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs
+%ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/nfs-server.vol
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs/run
+%ghost      %attr(0644,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/peers
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/groups
 
