@@ -40,6 +40,9 @@ gf_rdma_send_completion_proc (void *data);
 static void *
 gf_rdma_recv_completion_proc (void *data);
 
+void *
+gf_rdma_async_event_thread (void *context);
+
 static int32_t
 gf_rdma_create_qp (rpc_transport_t *this);
 
@@ -591,7 +594,8 @@ gf_rdma_get_device (rpc_transport_t *this, struct ibv_context *ibctx,
                 struct ibv_srq_init_attr attr = {
                         .attr = {
                                 .max_wr = options->recv_count,
-                                .max_sge = 1
+                                .max_sge = 1,
+                                .srq_limit = 10
                         }
                 };
                 trav->srq = ibv_create_srq (trav->pd, &attr);
@@ -634,6 +638,16 @@ gf_rdma_get_device (rpc_transport_t *this, struct ibv_context *ibctx,
                         gf_log (this->name, GF_LOG_ERROR,
                                 "could not create recv completion thread "
                                 "for device (%s)", device_name);
+                        return NULL;
+                }
+
+                ret = pthread_create (&trav->async_event_thread,
+                                      NULL,
+                                      gf_rdma_async_event_thread,
+                                      ibctx);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "could not create async_event_thread");
                         return NULL;
                 }
 
@@ -3741,6 +3755,42 @@ out:
         }
 
         return;
+}
+
+void *
+gf_rdma_async_event_thread (void *context)
+{
+        struct ibv_async_event event;
+        int ret;
+
+        while (1) {
+                do {
+                        ret = ibv_get_async_event((struct ibv_context *)context,
+                                                  &event);
+
+                        if (ret && errno != EINTR) {
+                                gf_log (GF_RDMA_LOG_NAME, GF_LOG_WARNING,
+                                        "Error getting event (%s)",
+                                        strerror (errno));
+                        }
+                } while(ret && errno == EINTR);
+
+                switch (event.event_type) {
+                case IBV_EVENT_SRQ_LIMIT_REACHED:
+                        gf_log (GF_RDMA_LOG_NAME, GF_LOG_WARNING,
+                                "recieved srq_limit reached");
+                        break;
+
+                default:
+                        gf_log (GF_RDMA_LOG_NAME, GF_LOG_DEBUG,
+                                "event (%d) recieved", event.event_type);
+                        break;
+                }
+
+                ibv_ack_async_event(&event);
+        }
+
+        return 0;
 }
 
 

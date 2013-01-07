@@ -324,7 +324,7 @@ struct __gf_rdma_device {
         struct ibv_comp_channel *send_chan, *recv_chan;
         struct ibv_cq *send_cq, *recv_cq;
         gf_rdma_queue_t sendq, recvq;
-        pthread_t send_thread, recv_thread;
+        pthread_t send_thread, recv_thread, async_event_thread;
         struct mem_pool *request_ctx_pool;
         struct mem_pool *ioq_pool;
         struct mem_pool *reply_info_pool;
