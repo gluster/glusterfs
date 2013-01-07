@@ -214,6 +214,13 @@ enum gf_defrag_status_t {
 };
 typedef enum gf_defrag_status_t gf_defrag_status_t;
 
+typedef struct gf_defrag_pattern_list gf_defrag_pattern_list_t;
+
+struct gf_defrag_pattern_list {
+        char                       path_pattern[256];
+        uint64_t                   size;
+        gf_defrag_pattern_list_t  *next;
+};
 
 struct gf_defrag_info_ {
         uint64_t                     total_files;
@@ -232,7 +239,7 @@ struct gf_defrag_info_ {
         uuid_t                       node_uuid;
         struct timeval               start_time;
         gf_boolean_t                 stats;
-
+        gf_defrag_pattern_list_t    *defrag_pattern;
 };
 
 typedef struct gf_defrag_info_ gf_defrag_info_t;

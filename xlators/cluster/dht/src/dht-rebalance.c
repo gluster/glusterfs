@@ -16,6 +16,7 @@
 
 #include "dht-common.h"
 #include "xlator.h"
+#include <fnmatch.h>
 
 #define GF_DISK_SECTOR_SIZE             512
 #define DHT_REBALANCE_PID               4242 /* Change it if required */
@@ -1037,6 +1038,31 @@ gf_defrag_handle_migrate_error (int32_t op_errno, gf_defrag_info_t *defrag)
         return 0;
 }
 
+static gf_boolean_t
+gf_defrag_pattern_match (gf_defrag_info_t *defrag, char *name, uint64_t size)
+{
+        gf_defrag_pattern_list_t *trav = NULL;
+        gf_boolean_t               match = _gf_false;
+        gf_boolean_t               ret = _gf_false;
+
+        GF_VALIDATE_OR_GOTO ("dht", defrag, out);
+
+        trav = defrag->defrag_pattern;
+        while (trav) {
+                if (!fnmatch (trav->path_pattern, name, FNM_NOESCAPE)) {
+                        match = _gf_true;
+                        break;
+                }
+                trav = trav->next;
+        }
+
+        if ((match == _gf_true) && (size >= trav->size))
+                ret = _gf_true;
+
+ out:
+        return ret;
+}
+
 /* We do a depth first traversal of directories. But before we move into
  * subdirs, we complete the data migration of those directories whose layouts
  * have been fixed
@@ -1122,6 +1148,12 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         defrag->num_files_lookedup++;
                         if (defrag->stats == _gf_true) {
                                 gettimeofday (&start, NULL);
+                        }
+                        if (defrag->defrag_pattern &&
+                            (gf_defrag_pattern_match (defrag, entry->d_name,
+                                                      entry->d_stat.ia_size)
+                             == _gf_false)) {
+                                continue;
                         }
                         loc_wipe (&entry_loc);
                         ret =dht_build_child_loc (this, &entry_loc, loc,

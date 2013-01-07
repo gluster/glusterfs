@@ -392,6 +392,74 @@ out:
         return ret;
 }
 
+static int
+gf_defrag_pattern_list_fill (xlator_t *this, gf_defrag_info_t *defrag, char *data)
+{
+        int                    ret = -1;
+        char                  *tmp_str = NULL;
+        char                  *tmp_str1 = NULL;
+        char                  *dup_str = NULL;
+        char                  *num = NULL;
+        char                  *pattern_str = NULL;
+        char                  *pattern = NULL;
+        gf_defrag_pattern_list_t *temp_list = NULL;
+        gf_defrag_pattern_list_t *pattern_list = NULL;
+
+        if (!this || !defrag || !data)
+                goto out;
+
+        /* Get the pattern for pattern list. "pattern:<optional-size>"
+         * eg: *avi, *pdf:10MB, *:1TB
+         */
+        pattern_str = strtok_r (data, ",", &tmp_str);
+        while (pattern_str) {
+                dup_str = gf_strdup (pattern_str);
+                pattern_list = GF_CALLOC (1, sizeof (gf_defrag_pattern_list_t),
+                                        1);
+                if (!pattern_list) {
+                        goto out;
+                }
+                pattern = strtok_r (dup_str, ":", &tmp_str1);
+                num = strtok_r (NULL, ":", &tmp_str1);
+                if (!pattern)
+                        goto out;
+                if (!num) {
+                        if (gf_string2bytesize(pattern, &pattern_list->size)
+                             == 0) {
+                                pattern = "*";
+                        }
+                } else if (gf_string2bytesize (num, &pattern_list->size) != 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "invalid number format \"%s\"", num);
+                        goto out;
+                }
+                memcpy (pattern_list->path_pattern, pattern, strlen (dup_str));
+
+                if (!defrag->defrag_pattern)
+                        temp_list = NULL;
+                else
+                        temp_list = defrag->defrag_pattern;
+
+                pattern_list->next = temp_list;
+
+                defrag->defrag_pattern = pattern_list;
+                pattern_list = NULL;
+
+                GF_FREE (dup_str);
+                dup_str = NULL;
+
+                pattern_str = strtok_r (NULL, ",", &tmp_str);
+        }
+
+        ret = 0;
+out:
+        if (ret)
+                GF_FREE (pattern_list);
+        GF_FREE (dup_str);
+
+        return ret;
+}
+
 int
 init (xlator_t *this)
 {
@@ -485,6 +553,15 @@ init (xlator_t *this)
 
         if (defrag) {
                 GF_OPTION_INIT ("rebalance-stats", defrag->stats, bool, err);
+                if (dict_get_str (this->options, "rebalance-filter", &temp_str)
+                    == 0) {
+                        if (gf_defrag_pattern_list_fill (this, defrag, temp_str)
+                            == -1) {
+                                gf_log (this->name, GF_LOG_ERROR, "Cannot parse"
+                                        " rebalance-filter (%s)", temp_str);
+                                goto err;
+                        }
+                }
         }
 
         /* option can be any one of percent or bytes */
@@ -698,6 +775,9 @@ struct volume_options options[] = {
           .description = "Regular expression for stripping temporary-file "
           "suffix and prefix used by an application, to prevent relocation when "
           "the file is renamed."
+        },
+        { .key = {"rebalance-filter"},
+          .type = GF_OPTION_TYPE_STR,
         },
 
         { .key  = {NULL} },
