@@ -24,7 +24,7 @@ if libtool --help 2>&1 | grep -q quiet; then
    AM_LIBTOOLFLAGS="--quiet";
 fi
 
-AM_CONFIG_HEADER([config.h])
+AC_CONFIG_HEADERS([config.h])
 
 AC_CONFIG_FILES([Makefile
 		libglusterfs/Makefile
