@@ -8,7 +8,7 @@ AC_CONFIG_SRCDIR([argp-ba.c])
 AC_CONFIG_AUX_DIR([.])
 
 AM_INIT_AUTOMAKE
-AM_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADERS(config.h)
 
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES(yes)])
 
@@ -22,7 +22,7 @@ AC_GNU_SOURCE
 AC_PROG_CC
 AC_PROG_MAKE_SET
 AC_PROG_RANLIB
-AM_PROG_CC_STDC
+AC_PROG_CC
 
 if test "x$am_cv_prog_cc_stdc" = xno ; then
   AC_ERROR([the C compiler doesn't handle ANSI-C])
