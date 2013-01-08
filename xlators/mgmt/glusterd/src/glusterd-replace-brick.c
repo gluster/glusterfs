@@ -634,6 +634,8 @@ rb_regenerate_volfiles (glusterd_volinfo_t *volinfo,
 
         ret = glusterd_create_rb_volfiles (volinfo, brickinfo);
 
+        dict_del (dict, "enable-pump");
+
 out:
         return ret;
 }
@@ -1727,11 +1729,6 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                 /* fall through */
         case GF_REPLACE_OP_COMMIT_FORCE:
         {
-                ret = dict_set_int32 (volinfo->dict, "enable-pump", 0);
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Received commit - will be adding dst brick and "
-                        "removing src brick");
-
                 if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "I AM THE DESTINATION HOST");
@@ -1812,12 +1809,6 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                                 goto out;
                         }
                 }
-
-                ret = dict_set_int32 (volinfo->dict, "enable-pump", 0);
-		if (ret) {
-			gf_log (this->name, GF_LOG_CRITICAL,
-                                "Unable to disable pump");
-		}
 
                 if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
                         ret = rb_src_brick_restart (volinfo, src_brickinfo,
