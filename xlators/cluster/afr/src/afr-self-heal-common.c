@@ -112,7 +112,8 @@ void
 afr_sh_set_error (afr_self_heal_t *sh, int32_t op_errno)
 {
         sh->op_ret = -1;
-	sh->op_errno = afr_most_important_error(sh->op_errno, op_errno);
+	sh->op_errno = afr_most_important_error(sh->op_errno, op_errno,
+						_gf_false);
 }
 
 void

@@ -954,7 +954,8 @@ afr_children_rm_child (int32_t *children, int32_t child,
 void
 afr_reset_children (int32_t *children, int32_t child_count);
 int32_t
-afr_most_important_error(int32_t old_errno, int32_t new_errno);
+afr_most_important_error(int32_t old_errno, int32_t new_errno,
+			 gf_boolean_t eio);
 int
 afr_errno_count (int32_t *children, int *child_errno,
                  unsigned int child_count, int32_t op_errno);

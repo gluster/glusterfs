@@ -1639,7 +1639,7 @@ afr_self_heal_lookup_unwind (call_frame_t *frame, xlator_t *this,
         if (op_ret == -1) {
                 local->op_ret = -1;
 		local->op_errno = afr_most_important_error(local->op_errno,
-							   op_errno);
+							   op_errno, _gf_true);
 
                 goto out;
         } else {
@@ -1993,11 +1993,12 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
  * The hierarchy is ESTALE > EIO > ENOENT > others
  */
 int32_t
-afr_most_important_error(int32_t old_errno, int32_t new_errno)
+afr_most_important_error(int32_t old_errno, int32_t new_errno,
+			 gf_boolean_t eio)
 {
 	if (old_errno == ESTALE || new_errno == ESTALE)
 		return ESTALE;
-	if (old_errno == EIO || new_errno == EIO)
+	if (eio && (old_errno == EIO || new_errno == EIO))
 		return EIO;
 	if (old_errno == ENOENT || new_errno == ENOENT)
 		return ENOENT;
@@ -2022,7 +2023,8 @@ afr_resultant_errno_get (int32_t *children,
                         child = i;
                 }
 		op_errno = afr_most_important_error(op_errno,
-						    child_errno[child]);
+						    child_errno[child],
+						    _gf_false);
         }
         return op_errno;
 }
@@ -2034,7 +2036,8 @@ afr_lookup_handle_error (afr_local_t *local, int32_t op_ret,  int32_t op_errno)
         if (op_errno == ENOENT)
                 local->enoent_count++;
 
-	local->op_errno = afr_most_important_error(local->op_errno, op_errno);
+	local->op_errno = afr_most_important_error(local->op_errno, op_errno,
+						   _gf_false);
 
         if (local->op_errno == ESTALE) {
                 local->op_ret = -1;
