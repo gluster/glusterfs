@@ -1638,8 +1638,8 @@ afr_self_heal_lookup_unwind (call_frame_t *frame, xlator_t *this,
 
         if (op_ret == -1) {
                 local->op_ret = -1;
-                if (afr_error_more_important (local->op_errno, op_errno))
-                        local->op_errno = op_errno;
+		local->op_errno = afr_most_important_error(local->op_errno,
+							   op_errno);
 
                 goto out;
         } else {
@@ -1990,25 +1990,19 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
  * others in that they must be given higher priority while
  * returning to the user.
  *
- * The hierarchy is ESTALE > ENOENT > others
- *
+ * The hierarchy is ESTALE > EIO > ENOENT > others
  */
-
-gf_boolean_t
-afr_error_more_important (int32_t old_errno, int32_t new_errno)
+int32_t
+afr_most_important_error(int32_t old_errno, int32_t new_errno)
 {
-        gf_boolean_t ret = _gf_true;
+	if (old_errno == ESTALE || new_errno == ESTALE)
+		return ESTALE;
+	if (old_errno == EIO || new_errno == EIO)
+		return EIO;
+	if (old_errno == ENOENT || new_errno == ENOENT)
+		return ENOENT;
 
-        /* Nothing should ever overwrite ESTALE */
-        if (old_errno == ESTALE)
-                ret = _gf_false;
-
-        /* Nothing should overwrite ENOENT, except ESTALE/EIO*/
-        else if ((old_errno == ENOENT) && (new_errno != ESTALE)
-                 && (new_errno != EIO))
-                ret = _gf_false;
-
-        return ret;
+	return new_errno;
 }
 
 int32_t
@@ -2027,8 +2021,8 @@ afr_resultant_errno_get (int32_t *children,
                 } else {
                         child = i;
                 }
-                if (afr_error_more_important (op_errno, child_errno[child]))
-                                op_errno = child_errno[child];
+		op_errno = afr_most_important_error(op_errno,
+						    child_errno[child]);
         }
         return op_errno;
 }
@@ -2040,8 +2034,7 @@ afr_lookup_handle_error (afr_local_t *local, int32_t op_ret,  int32_t op_errno)
         if (op_errno == ENOENT)
                 local->enoent_count++;
 
-        if (afr_error_more_important (local->op_errno, op_errno))
-                local->op_errno = op_errno;
+	local->op_errno = afr_most_important_error(local->op_errno, op_errno);
 
         if (local->op_errno == ESTALE) {
                 local->op_ret = -1;
