@@ -673,7 +673,7 @@ fail:
          * list of connections the server is maintaining and might segfault
          * during statedump when bound_xl of the connection is accessed.
          */
-        if (op_ret && conn)
+        if (op_ret && conn && !xl)
                 server_connection_put (this, conn, NULL);
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_setvolume_rsp);
