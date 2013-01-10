@@ -2461,7 +2461,6 @@ glusterd_friend_add (const char *hoststr, int port,
         int                     ret = 0;
         xlator_t               *this = NULL;
         glusterd_conf_t        *conf = NULL;
-        gf_boolean_t            handover = _gf_false;
 
         this = THIS;
         conf = this->private;
@@ -2469,36 +2468,40 @@ glusterd_friend_add (const char *hoststr, int port,
         GF_ASSERT (hoststr);
 
         ret = glusterd_peerinfo_new (friend, state, uuid, hoststr, port);
-        if (ret)
+        if (ret) {
                 goto out;
+        }
+
+        /*
+         * We can't add to the list after calling glusterd_friend_rpc_create,
+         * even if it succeeds, because by then the callback to take it back
+         * off and free might have happened already (notably in the case of an
+         * invalid peer name).  That would mean we're adding something that had
+         * just been free, and we're likely to crash later.
+         */
+        list_add_tail (&(*friend)->uuid_list, &conf->peers);
 
         //restore needs to first create the list of peers, then create rpcs
         //to keep track of quorum in race-free manner. In restore for each peer
         //rpc-create calls rpc_notify when the friend-list is partially
         //constructed, leading to wrong quorum calculations.
-        if (restore)
-                goto done;
-
-        ret = glusterd_store_peerinfo (*friend);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to store "
-                        "peerinfo");
-
-                goto out;
+        if (!restore) {
+                ret = glusterd_store_peerinfo (*friend);
+                if (ret == 0) {
+                        ret = glusterd_friend_rpc_create (this, *friend, args);
+                }
+                else {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to store peerinfo");
+                }
         }
-        ret = glusterd_friend_rpc_create (this, *friend, args);
-        if (ret)
-                goto out;
-done:
-        list_add_tail (&(*friend)->uuid_list, &conf->peers);
-        handover = _gf_true;
 
-out:
-        if (ret && !handover) {
+        if (ret) {
                 (void) glusterd_friend_cleanup (*friend);
                 *friend = NULL;
         }
 
+out:
         gf_log (this->name, GF_LOG_INFO, "connect returned %d", ret);
         return ret;
 }
