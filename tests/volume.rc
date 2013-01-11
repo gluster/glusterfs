@@ -90,13 +90,19 @@ function glustershd_up_status {
         gluster volume status | grep "Self-heal Daemon" | awk '{print $6}'
 }
 
-function kill_brick()
-{
-        local vol=$1
-        local host=$2
-        local brick=$3
+function get_brick_pid {
+        vol=$1
+        host=$2
+        brick=$3
         brick_hiphenated=$(echo $brick | tr '/' '-')
-        kill -9 `cat /var/lib/glusterd/vols/$vol/run/${host}${brick_hiphenated}.pid`
+        echo `cat /var/lib/glusterd/vols/$vol/run/${host}${brick_hiphenated}.pid`
+}
+
+function kill_brick {
+        vol=$1
+        host=$2
+        brick=$3
+        kill -9 $(get_brick_pid $vol $host $brick)
 }
 
 function check_option_help_presence {
@@ -123,4 +129,42 @@ function afr_get_index_path {
 function afr_get_num_indices_in_brick {
         local brick_path=$1
         echo $(ls $(afr_get_index_path $brick_path) | grep -v xattrop | wc -l)
+}
+
+function gf_get_gfid_xattr {
+        file=$1
+        getfattr -n trusted.gfid -e hex $file 2>/dev/null | grep "trusted.gfid" | cut -f2 -d'='
+}
+
+function gf_gfid_xattr_to_str {
+        xval=$1
+        echo "${xval:2:8}-${xval:10:4}-${xval:14:4}-${xval:18:4}-${xval:22:12}"
+}
+
+function gf_check_file_opened_in_brick {
+        vol=$1
+        host=$2
+        brick=$3
+        realpath=$4
+        ls -l /proc/$(get_brick_pid $vol $host $brick)/fd | grep "${realpath}$" 2>&1 > /dev/null
+        if [ $? -eq 0 ]; then
+                echo "Y"
+        else
+                echo "N"
+        fi
+}
+
+function gf_get_gfid_backend_file_path {
+        brickpath=$1
+        filepath_in_brick=$2
+        gfid=$(gf_get_gfid_xattr "$brickpath/$filepath_in_brick")
+        gfidstr=$(gf_gfid_xattr_to_str $gfid)
+        echo "$brickpath/.glusterfs/${gfidstr:0:2}/${gfidstr:2:2}/$gfidstr"
+}
+
+function gf_rm_file_and_gfid_link {
+        brickpath=$1
+        filepath_in_brick=$2
+        rm -f $(gf_get_gfid_backend_file_path $brickpath $filepath_in_brick)
+        rm -f "$brickpath/$filepath_in_brick"
 }
