@@ -148,10 +148,12 @@ typedef int SSL_trinary_func (SSL *, void *, int);
                                       &in->pending_count,               \
                                       &bytes_read);                     \
                 if (ret == -1) {                                        \
-                        gf_log (this->name, GF_LOG_WARNING,             \
-                                "reading from socket failed. Error (%s), " \
-                                "peer (%s)", strerror (errno),          \
-                                this->peerinfo.identifier);             \
+                        if (priv->read_fail_log)                        \
+                                gf_log (this->name, GF_LOG_WARNING,     \
+                                        "reading from socket failed."   \
+                                        "Error (%s), peer (%s)",        \
+                                        strerror (errno),               \
+                                        this->peerinfo.identifier);     \
                         break;                                          \
                 }                                                       \
                 __socket_proto_update_priv_after_read (priv, ret, bytes_read); \
@@ -496,9 +498,11 @@ __socket_rwv (rpc_transport_t *this, struct iovec *vector, int count,
                         if (errno == EINTR)
                                 continue;
 
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "%s failed (%s)", write ? "writev" : "readv",
-                                strerror (errno));
+                        if (write || (!write && priv->read_fail_log))
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "%s failed (%s)",
+                                        write ? "writev":"readv",
+                                        strerror (errno));
 			if (priv->use_ssl) {
 				ssl_dump_error_stack(this->name);
 			}
