@@ -19,6 +19,7 @@ import errno
 import xattr
 import random
 from hashlib import md5
+from eventlet import sleep
 import cPickle as pickle
 from ConfigParser import ConfigParser, NoSectionError, NoOptionError
 from swift.common.utils import normalize_timestamp, TRUE_VALUES
@@ -233,27 +234,30 @@ def _update_list(path, cont_path, src_list, reg_file=True, object_count=0,
     # strip the prefix off, also stripping the leading and trailing slashes
     obj_path = path.replace(cont_path, '').strip(os.path.sep)
 
-    for i in src_list:
+    for obj_name in src_list:
         if obj_path:
-            obj_list.append(os.path.join(obj_path, i))
+            obj_list.append(os.path.join(obj_path, obj_name))
         else:
-            obj_list.append(i)
+            obj_list.append(obj_name)
 
         object_count += 1
 
         if reg_file:
-            bytes_used += os.path.getsize(path + '/' + i)
+            bytes_used += os.path.getsize(os.path.join(path, obj_name))
+            sleep()
 
     return object_count, bytes_used
 
 def update_list(path, cont_path, dirs=[], files=[], object_count=0,
                 bytes_used=0, obj_list=[]):
-    object_count, bytes_used = _update_list(path, cont_path, files, True,
-                                            object_count, bytes_used,
-                                            obj_list)
-    object_count, bytes_used = _update_list(path, cont_path, dirs, False,
-                                            object_count, bytes_used,
-                                            obj_list)
+    if files:
+        object_count, bytes_used = _update_list(path, cont_path, files, True,
+                                                object_count, bytes_used,
+                                                obj_list)
+    if dirs:
+        object_count, bytes_used = _update_list(path, cont_path, dirs, False,
+                                                object_count, bytes_used,
+                                                obj_list)
     return object_count, bytes_used
 
 
@@ -281,6 +285,7 @@ def _get_container_details_from_fs(cont_path):
                                                    obj_list)
 
             dir_list.append((path, do_stat(path).st_mtime))
+            sleep()
 
     return ContainerDetails(bytes_used, object_count, obj_list, dir_list)
 
