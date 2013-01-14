@@ -1095,7 +1095,16 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
                 gf_log (this->name, GF_LOG_INFO,
                         "lookup of %s on %s (following linkfile) failed (%s)",
                         local->loc.path, subvol->name, strerror (op_errno));
-                goto err;
+
+                /* If cached subvol returned ENOTCONN, do not do
+                lookup_everywhere. We need to make sure linkfile does not get
+                removed, which can take away the namespace, and subvol is
+                anyways down. */
+
+                if (op_errno != ENOTCONN)
+                        goto err;
+                else
+                        goto unwind;
         }
 
         if (check_is_dir (inode, stbuf, xattr)) {
