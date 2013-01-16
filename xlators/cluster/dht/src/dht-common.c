@@ -3254,7 +3254,7 @@ dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  inode_t *inode, struct iatt *stbuf, struct iatt *preparent,
                  struct iatt *postparent, dict_t *xdata)
 {
-        call_frame_t *prev = NULL;
+        xlator_t     *prev = NULL;
         int           ret = -1;
         dht_local_t  *local = NULL;
 
@@ -3279,11 +3279,11 @@ dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                            postparent, 1);
         }
 
-        ret = dht_layout_preset (this, prev->this, inode);
+        ret = dht_layout_preset (this, prev, inode);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "could not set pre-set layout for subvolume %s",
-                        prev->this->name);
+                        prev? prev->name: NULL);
                 op_ret   = -1;
                 op_errno = EINVAL;
                 goto out;
@@ -3318,12 +3318,17 @@ dht_mknod_linkfile_create_cbk (call_frame_t *frame, void *cookie,
                 goto err;
 
         local = frame->local;
+        if (!local || !local->cached_subvol) {
+                op_errno = EINVAL;
+                goto err;
+        }
+
         cached_subvol = local->cached_subvol;
 
-        STACK_WIND (frame, dht_newfile_cbk,
-                    cached_subvol, cached_subvol->fops->mknod,
-                    &local->loc, local->mode, local->rdev, local->umask,
-                    local->params);
+        STACK_WIND_COOKIE (frame, dht_newfile_cbk, (void *)cached_subvol,
+                           cached_subvol, cached_subvol->fops->mknod,
+                           &local->loc, local->mode, local->rdev, local->umask,
+                           local->params);
 
         return 0;
 err:
@@ -3366,9 +3371,9 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_TRACE,
                         "creating %s on %s", loc->path, subvol->name);
 
-                STACK_WIND (frame, dht_newfile_cbk,
-                            subvol, subvol->fops->mknod,
-                            loc, mode, rdev, umask, params);
+                STACK_WIND_COOKIE (frame, dht_newfile_cbk, (void *)subvol,
+                                   subvol, subvol->fops->mknod, loc, mode,
+                                   rdev, umask, params);
         } else {
                 avail_subvol = dht_free_disk_available_subvol (this, subvol);
                 if (avail_subvol != subvol) {
@@ -3387,9 +3392,10 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
                         gf_log (this->name, GF_LOG_TRACE,
                                 "creating %s on %s", loc->path, subvol->name);
 
-                        STACK_WIND (frame, dht_newfile_cbk,
-                                    subvol, subvol->fops->mknod,
-                                    loc, mode, rdev, umask, params);
+                        STACK_WIND_COOKIE (frame, dht_newfile_cbk,
+                                           (void *)subvol, subvol,
+                                           subvol->fops->mknod, loc, mode,
+                                           rdev, umask, params);
                 }
         }
 
@@ -3434,9 +3440,9 @@ dht_symlink (call_frame_t *frame, xlator_t *this,
         gf_log (this->name, GF_LOG_TRACE,
                 "creating %s on %s", loc->path, subvol->name);
 
-        STACK_WIND (frame, dht_newfile_cbk,
-                    subvol, subvol->fops->symlink,
-                    linkname, loc, umask, params);
+        STACK_WIND_COOKIE (frame, dht_newfile_cbk, (void *)subvol, subvol,
+                           subvol->fops->symlink, linkname, loc, umask,
+                           params);
 
         return 0;
 

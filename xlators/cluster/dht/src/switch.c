@@ -475,17 +475,22 @@ switch_mknod_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t  *local = NULL;
 
         local = frame->local;
+        if (!local || !local->cached_subvol) {
+                op_errno = EINVAL;
+                op_ret = -1;
+                goto err;
+        }
 
         if (op_ret >= 0) {
-                STACK_WIND (frame, dht_newfile_cbk,
-                            local->cached_subvol,
+                STACK_WIND_COOKIE (frame, dht_newfile_cbk,
+                            (void *)local->cached_subvol, local->cached_subvol,
                             local->cached_subvol->fops->mknod,
                             &local->loc, local->mode, local->rdev,
                             local->umask, local->params);
 
                 return 0;
         }
-
+err:
         DHT_STACK_UNWIND (link, frame, op_ret, op_errno,
                           inode, stbuf, preparent, postparent, xdata);
         return 0;
@@ -549,9 +554,9 @@ switch_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         gf_log (this->name, GF_LOG_TRACE,
                 "creating %s on %s", loc->path, subvol->name);
 
-        STACK_WIND (frame, dht_newfile_cbk,
-                    subvol, subvol->fops->mknod,
-                    loc, mode, rdev, umask, params);
+        STACK_WIND_COOKIE (frame, dht_newfile_cbk, (void *)subvol, subvol,
+                           subvol->fops->mknod, loc, mode, rdev, umask,
+                           params);
 
         return 0;
 
