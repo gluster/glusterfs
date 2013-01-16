@@ -588,7 +588,7 @@ glusterd_check_volume_exists (char *volname)
         ret = stat (pathname, &stbuf);
 
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG, "Volume %s does not exist."
+                gf_log (THIS->name, GF_LOG_DEBUG, "Volume %s does not exist."
                         "stat failed with errno : %d on path: %s",
                         volname, errno, pathname);
                 return _gf_false;
@@ -635,7 +635,7 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
         ret = 0;
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -719,7 +719,7 @@ glusterd_volume_brickinfos_delete (glusterd_volinfo_t *volinfo)
         }
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -747,7 +747,7 @@ glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
         ret = 0;
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -773,7 +773,7 @@ glusterd_brickinfo_new (glusterd_brickinfo_t **brickinfo)
         ret = 0;
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -835,7 +835,7 @@ out:
         GF_FREE (tmp_host);
         if (tmp_host)
                 GF_FREE (tmp_path);
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -1682,8 +1682,8 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
 
         sort_fd = mkstemp (sort_filepath);
         if (sort_fd < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Could not generate temp file, "
-                        "reason: %s for volume: %s", strerror (errno),
+                gf_log (this->name, GF_LOG_ERROR, "Could not generate temp "
+                        "file, reason: %s for volume: %s", strerror (errno),
                         volinfo->volname);
                 goto out;
         } else {
@@ -4649,11 +4649,14 @@ glusterd_friend_find_by_uuid (uuid_t uuid,
         int                     ret = -1;
         glusterd_conf_t         *priv = NULL;
         glusterd_peerinfo_t     *entry = NULL;
+        xlator_t                *this = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT (peerinfo);
 
         *peerinfo = NULL;
-        priv    = THIS->private;
+        priv    = this->private;
 
         GF_ASSERT (priv);
 
@@ -4663,7 +4666,7 @@ glusterd_friend_find_by_uuid (uuid_t uuid,
         list_for_each_entry (entry, &priv->peers, uuid_list) {
                 if (!uuid_compare (entry->uuid, uuid)) {
 
-                        gf_log ("glusterd", GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                  "Friend found... state: %s",
                         glusterd_friend_sm_state_name_get (entry->state.state));
                         *peerinfo = entry;
@@ -4671,7 +4674,7 @@ glusterd_friend_find_by_uuid (uuid_t uuid,
                 }
         }
 
-        gf_log ("glusterd", GF_LOG_DEBUG, "Friend with uuid: %s, not found",
+        gf_log (this->name, GF_LOG_DEBUG, "Friend with uuid: %s, not found",
                 uuid_utoa (uuid));
         return ret;
 }
@@ -4899,7 +4902,6 @@ glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
         if (ret) {
                 snprintf(op_errstr, len, "Host %s is not in \'Peer "
                          "in Cluster\' state", newbrickinfo->hostname);
-                gf_log (this->name, GF_LOG_ERROR, "%s", op_errstr);
                 goto out;
         }
 
@@ -4910,7 +4912,6 @@ glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
                         snprintf(op_errstr, len, "Brick: %s not available."
                                  " Brick may be containing or be contained "
                                  "by an existing brick", brick);
-                        gf_log (this->name, GF_LOG_ERROR, "%s", op_errstr);
                         ret = -1;
                         goto out;
                 }
@@ -4918,13 +4919,15 @@ glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
         } else {
                 ret = glusterd_friend_find_by_uuid (newbrickinfo->uuid,
                                                     &peerinfo);
-                if (ret)
+                if (ret) {
+                        snprintf (op_errstr, len, "Failed to find host %s",
+                                  newbrickinfo->hostname);
                         goto out;
+                }
 
                 if ((!peerinfo->connected)) {
                         snprintf(op_errstr, len, "Host %s not connected",
                                  newbrickinfo->hostname);
-                        gf_log (this->name, GF_LOG_ERROR, "%s", op_errstr);
                         ret = -1;
                         goto out;
                 }
@@ -4933,7 +4936,6 @@ glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
                         snprintf(op_errstr, len, "Host %s is not in \'Peer "
                                  "in Cluster\' state",
                                  newbrickinfo->hostname);
-                        gf_log (this->name, GF_LOG_ERROR, "%s", op_errstr);
                         ret = -1;
                         goto out;
                 }
@@ -4943,6 +4945,8 @@ glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
 out:
         if (is_allocated)
                 glusterd_brickinfo_delete (newbrickinfo);
+        if (op_errstr[0] != '\0')
+                gf_log (this->name, GF_LOG_ERROR, "%s", op_errstr);
         gf_log (this->name, GF_LOG_DEBUG, "returning %d ", ret);
         return ret;
 }
@@ -5466,7 +5470,7 @@ glusterd_delete_volume (glusterd_volinfo_t *volinfo)
 
         ret = glusterd_volinfo_delete (volinfo);
 out:
-        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        gf_log (THIS->name, GF_LOG_DEBUG, "returning %d", ret);
         return ret;
 }
 

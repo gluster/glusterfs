@@ -3191,16 +3191,21 @@ glusterd_is_valid_volfpath (char *volname, char *brick)
         glusterd_brickinfo_t    *brickinfo = NULL;
         glusterd_volinfo_t      *volinfo = NULL;
         int32_t                 ret = 0;
+        xlator_t                *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         ret = glusterd_brickinfo_new_from_brick (brick, &brickinfo);
         if (ret) {
-                gf_log ("", GF_LOG_WARNING, "brick path validation failed");
+                gf_log (this->name, GF_LOG_WARNING, "Failed to create brickinfo"
+                        " for brick %s", brick );
                 ret = 0;
                 goto out;
         }
         ret = glusterd_volinfo_new (&volinfo);
         if (ret) {
-                gf_log ("", GF_LOG_WARNING, "brick path validation failed");
+                gf_log (this->name, GF_LOG_WARNING, "Failed to create volinfo");
                 ret = 0;
                 goto out;
         }
