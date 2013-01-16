@@ -352,6 +352,8 @@ af_inet_server_get_local_sockaddr (rpc_transport_t *this,
         if (listen_port_data) {
                 listen_port = data_to_uint16 (listen_port_data);
         } else {
+                listen_port = GF_DEFAULT_RDMA_LISTEN_PORT;
+
                 if (addr->sa_family == AF_INET6) {
                         struct sockaddr_in6 *in = (struct sockaddr_in6 *) addr;
                         in->sin6_addr = in6addr_any;
