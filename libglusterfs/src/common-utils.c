@@ -1369,7 +1369,7 @@ gf_string2percent_or_bytesize (const char *str,
 			       uint64_t *n,
 			       gf_boolean_t *is_percent)
 {
-        uint64_t value = 0ULL;
+        double value = 0ULL;
         char *tail = NULL;
         int old_errno = 0;
         const char *s = NULL;
@@ -1391,7 +1391,7 @@ gf_string2percent_or_bytesize (const char *str,
 
         old_errno = errno;
         errno = 0;
-        value = strtoull (str, &tail, 10);
+        value = strtod (str, &tail);
         if (str == tail)
                 errno = EINVAL;
 
@@ -1418,7 +1418,7 @@ gf_string2percent_or_bytesize (const char *str,
                         return -1;
         }
 
-        *n = value;
+        *n = (uint64_t) value;
 
         return 0;
 }
