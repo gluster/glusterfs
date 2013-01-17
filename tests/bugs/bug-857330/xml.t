@@ -30,11 +30,11 @@ TEST check-and-store-task-id-xml
 
 COMMAND="volume status $V0"
 PATTERN="id"
-TEST check-with-stored-task-id-xml
+EXPECT $TASK_ID get-task-id-xml
 
 COMMAND="volume rebalance $V0 status"
 PATTERN="task-id"
-TEST check-with-stored-task-id-xml
+EXPECT $TASK_ID get-task-id-xml
 
 ## TODO: Add tests for rebalance stop
 
@@ -53,11 +53,11 @@ TEST check-and-store-task-id-xml
 
 COMMAND="volume status $V0"
 PATTERN="id"
-TEST check-with-stored-task-id-xml
+EXPECT $TASK_ID get-task-id-xml
 
 COMMAND="volume replace-brick $V0 $REP_BRICK_PAIR status"
 PATTERN="task-id"
-TEST check-with-stored-task-id-xml
+EXPECT $TASK_ID get-task-id-xml
 
 ## TODO: Add more tests for replace-brick pause|abort
 
@@ -67,7 +67,7 @@ EXPECT_WITHIN 300 $PATTERN get-task-status
 
 COMMAND="volume replace-brick $V0 $REP_BRICK_PAIR commit"
 PATTERN="task-id"
-TEST check-with-stored-task-id-xml
+EXPECT $TASK_ID get-task-id-xml
 
 ##################
 ## Remove-brick ##
@@ -78,11 +78,11 @@ TEST check-and-store-task-id-xml
 
 COMMAND="volume status $V0"
 PATTERN="id"
-TEST check-with-stored-task-id-xml
+EXPECT $TASK_ID get-task-id-xml
 
 COMMAND="volume remove-brick $V0 $H0:$B0/${V0}3 status"
 PATTERN="task-id"
-TEST check-with-stored-task-id-xml
+EXPECT $TASK_ID get-task-id-xml
 
 COMMAND="volume remove-brick $V0 $H0:$B0/${V0}3 status"
 PATTERN="completed"
@@ -92,7 +92,7 @@ EXPECT_WITHIN 300 $PATTERN get-task-status
 
 COMMAND="volume remove-brick $V0 $H0:$B0/${V0}3 commit"
 PATTERN="task-id"
-TEST check-with-stored-task-id-xml
+EXPECT $TASK_ID get-task-id-xml
 
 TEST $CLI volume stop $V0;
 TEST $CLI volume delete $V0;
