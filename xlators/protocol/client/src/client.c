@@ -2720,16 +2720,19 @@ struct volume_options options[] = {
         { .key   = {"lk-heal"},
           .type  = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .description = "Enables or disables the lock heal."
         },
         { .key   = {"grace-timeout"},
           .type  = GF_OPTION_TYPE_INT,
           .min   = 10,
-          .max   = 1800
+          .max   = 1800,
+          .description = "Sets the grace-timeout value. Valid range 10-1800."
         },
         {.key  = {"tcp-window-size"},
          .type = GF_OPTION_TYPE_SIZET,
          .min  = GF_MIN_SOCKET_WINDOW_SIZE,
-         .max  = GF_MAX_SOCKET_WINDOW_SIZE
+         .max  = GF_MAX_SOCKET_WINDOW_SIZE,
+         .description = "Specifies the window size for tcp socket."
         },
         { .key   = {"filter-O_DIRECT"},
           .type  = GF_OPTION_TYPE_BOOL,

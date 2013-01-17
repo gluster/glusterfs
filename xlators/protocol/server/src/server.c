@@ -1258,6 +1258,8 @@ struct volume_options options[] = {
           .min   = 0,
           .max   = (1 * GF_UNIT_MB),
           .default_value = "16384",
+          .description = "Specifies the maximum megabytes of memory to be "
+          "used in the inode cache."
         },
         { .key   = {"verify-volfile-checksum"},
           .type  = GF_OPTION_TYPE_BOOL
@@ -1290,7 +1292,8 @@ struct volume_options options[] = {
         {.key  = {"tcp-window-size"},
          .type = GF_OPTION_TYPE_SIZET,
          .min  = GF_MIN_SOCKET_WINDOW_SIZE,
-         .max  = GF_MAX_SOCKET_WINDOW_SIZE
+         .max  = GF_MAX_SOCKET_WINDOW_SIZE,
+         .description = "Specifies the window size for tcp socket."
         },
 
         /*  The following two options are defined in addr.c, redifined here *

@@ -1987,6 +1987,8 @@ struct volume_options options[] = {
         { .key = {"strict-O_DIRECT"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .description = "This option when set to off, ignores the "
+          "O_DIRECT flag."
         },
         { .key = {"strict-write-ordering"},
           .type = GF_OPTION_TYPE_BOOL,

@@ -102,31 +102,31 @@
 
 static struct volopt_map_entry glusterd_volopt_map[] = {
         /* DHT xlator options */
-        {"cluster.lookup-unhashed",              "cluster/distribute", NULL, NULL, NO_DOC, 0, 1},
-        {"cluster.min-free-disk",                "cluster/distribute", NULL, NULL, NO_DOC, 0, 1},
-        {"cluster.min-free-inodes",              "cluster/distribute", NULL, NULL, NO_DOC, 0, 1},
-        {"cluster.rebalance-stats",              "cluster/distribute", NULL, NULL, NO_DOC, 0, 2},
-        {"cluster.subvols-per-directory",        "cluster/distribute", "directory-layout-spread", NULL, NO_DOC, 0, 2},
-        {"cluster.readdir-optimize",             "cluster/distribute", NULL, NULL, NO_DOC, 0, 2},
+        {"cluster.lookup-unhashed",              "cluster/distribute", NULL, NULL, DOC, 0, 1},
+        {"cluster.min-free-disk",                "cluster/distribute", NULL, NULL, DOC, 0, 1},
+        {"cluster.min-free-inodes",              "cluster/distribute", NULL, NULL, DOC, 0, 1},
+        {"cluster.rebalance-stats",              "cluster/distribute", NULL, NULL, DOC, 0, 2},
+        {"cluster.subvols-per-directory",        "cluster/distribute", "directory-layout-spread", NULL, DOC, 0, 2},
+        {"cluster.readdir-optimize",             "cluster/distribute", NULL, NULL, DOC, 0, 2},
         {"cluster.nufa",                         "cluster/distribute", "!nufa", NULL, NO_DOC, 0, 2},
 
         /* AFR xlator options */
-        {"cluster.entry-change-log",             "cluster/replicate",  NULL, NULL, NO_DOC, 0, 1},
-        {"cluster.read-subvolume",               "cluster/replicate",  NULL, NULL, NO_DOC, 0, 1},
-        {"cluster.read-subvolume-index",         "cluster/replicate",  NULL, NULL, NO_DOC, 0, 2},
-        {"cluster.read-hash-mode",               "cluster/replicate",  NULL, NULL, NO_DOC, 0, 2},
-        {"cluster.background-self-heal-count",   "cluster/replicate",  NULL, NULL, NO_DOC, 0, 1},
-        {"cluster.metadata-self-heal",           "cluster/replicate",  NULL, NULL, NO_DOC, 0, 1},
-        {"cluster.data-self-heal",               "cluster/replicate",  NULL, NULL, NO_DOC, 0, 1},
-        {"cluster.entry-self-heal",              "cluster/replicate",  NULL, NULL, NO_DOC, 0, 1},
-        {"cluster.self-heal-daemon",             "cluster/replicate",  "!self-heal-daemon" , NULL, NO_DOC, 0, 1},
-        {"cluster.heal-timeout",                 "cluster/replicate",  "!heal-timeout" , NULL, NO_DOC, 0, 2},
+        {"cluster.entry-change-log",             "cluster/replicate",  NULL, NULL, DOC, 0, 1},
+        {"cluster.read-subvolume",               "cluster/replicate",  NULL, NULL, DOC, 0, 1},
+        {"cluster.read-subvolume-index",         "cluster/replicate",  NULL, NULL, DOC, 0, 2},
+        {"cluster.read-hash-mode",               "cluster/replicate",  NULL, NULL, DOC, 0, 2},
+        {"cluster.background-self-heal-count",   "cluster/replicate",  NULL, NULL, DOC, 0, 1},
+        {"cluster.metadata-self-heal",           "cluster/replicate",  NULL, NULL, DOC, 0, 1},
+        {"cluster.data-self-heal",               "cluster/replicate",  NULL, NULL, DOC, 0, 1},
+        {"cluster.entry-self-heal",              "cluster/replicate",  NULL, NULL, DOC, 0, 1},
+        {"cluster.self-heal-daemon",             "cluster/replicate",  "!self-heal-daemon" , NULL, DOC, 0, 1},
+        {"cluster.heal-timeout",                 "cluster/replicate",  "!heal-timeout" , NULL, DOC, 0, 2},
         {"cluster.strict-readdir",               "cluster/replicate",  NULL, NULL, NO_DOC, 0, 1},
         {"cluster.self-heal-window-size",        "cluster/replicate",  "data-self-heal-window-size", NULL, DOC, 0, 1},
-        {"cluster.data-change-log",              "cluster/replicate",  NULL, NULL, NO_DOC, 0, 1},
-        {"cluster.metadata-change-log",          "cluster/replicate",  NULL, NULL, NO_DOC, 0, 1},
+        {"cluster.data-change-log",              "cluster/replicate",  NULL, NULL, DOC, 0, 1},
+        {"cluster.metadata-change-log",          "cluster/replicate",  NULL, NULL, DOC, 0, 1},
         {"cluster.data-self-heal-algorithm",     "cluster/replicate",  "data-self-heal-algorithm", NULL, DOC, 0, 1},
-        {"cluster.eager-lock",                   "cluster/replicate",  NULL, NULL, NO_DOC, 0, 1},
+        {"cluster.eager-lock",                   "cluster/replicate",  NULL, NULL, DOC, 0, 1},
         {"cluster.quorum-type",                  "cluster/replicate",  "quorum-type", NULL, DOC, 0, 1},
         {"cluster.quorum-count",                 "cluster/replicate",  "quorum-count", NULL, DOC, 0, 1},
         {"cluster.choose-local",                 "cluster/replicate",  NULL, NULL, DOC, 0, 2},
@@ -138,8 +138,8 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
 	{"cluster.stripe-coalesce",		 "cluster/stripe",     "coalesce", NULL, DOC, 0, 2},
 
         /* IO-stats xlator options */
-        {VKEY_DIAG_LAT_MEASUREMENT,              "debug/io-stats",     "latency-measurement", "off", NO_DOC, 0, 1},
-        {"diagnostics.dump-fd-stats",            "debug/io-stats",     NULL, NULL, NO_DOC, 0, 1},
+        {VKEY_DIAG_LAT_MEASUREMENT,              "debug/io-stats",     "latency-measurement", "off", DOC, 0, 1},
+        {"diagnostics.dump-fd-stats",            "debug/io-stats",     NULL, NULL, DOC, 0, 1},
         {VKEY_DIAG_CNT_FOP_HITS,                 "debug/io-stats",     "count-fop-hits", "off", NO_DOC, 0, 1},
         {"diagnostics.brick-log-level",          "debug/io-stats",     "!brick-log-level", NULL, DOC, 0, 1},
         {"diagnostics.client-log-level",         "debug/io-stats",     "!client-log-level", NULL, DOC, 0, 1},
@@ -151,7 +151,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.cache-min-file-size",      "performance/io-cache",      "min-file-size", NULL, DOC, 0, 1},
         {"performance.cache-refresh-timeout",    "performance/io-cache",      "cache-timeout", NULL, DOC, 0, 1},
         {"performance.cache-priority",           "performance/io-cache",      "priority", NULL, DOC, 0, 1},
-        {"performance.cache-size",               "performance/io-cache",      NULL, NULL, NO_DOC, 0, 1},
+        {"performance.cache-size",               "performance/io-cache",      NULL, NULL, DOC, 0, 1},
 
         /* IO-threads xlator options */
         {"performance.io-thread-count",          "performance/io-threads",    "thread-count", NULL, DOC, 0, 1},
@@ -163,7 +163,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
 	{"performance.least-rate-limit",	 "performance/io-threads",    NULL, NULL, DOC, 0, 1},
 
         /* Other perf xlators' options */
-        {"performance.cache-size",               "performance/quick-read",    NULL, NULL, NO_DOC, 0, 1},
+        {"performance.cache-size",               "performance/quick-read",    NULL, NULL, DOC, 0, 1},
 
         {"performance.flush-behind",             "performance/write-behind",  "flush-behind", NULL, DOC, 0, 1},
         {"performance.write-behind-window-size", "performance/write-behind",  "cache-size", NULL, DOC, 1},
@@ -174,17 +174,17 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.md-cache-timeout",         "performance/md-cache",      "md-cache-timeout", NULL, DOC, 0, 2},
 
         /* Client xlator options */
-        {"network.frame-timeout",                "protocol/client",           NULL, NULL, NO_DOC, 0, 1},
-        {"network.ping-timeout",                 "protocol/client",           NULL, NULL, NO_DOC, 0, 1},
-        {"network.tcp-window-size",              "protocol/client",           NULL, NULL, NO_DOC, 0, 1},
+        {"network.frame-timeout",                "protocol/client",           NULL, NULL, DOC, 0, 1},
+        {"network.ping-timeout",                 "protocol/client",           NULL, NULL, DOC, 0, 1},
+        {"network.tcp-window-size",              "protocol/client",           NULL, NULL, DOC, 0, 1},
         {"features.lock-heal",                   "protocol/client",           "lk-heal", NULL, DOC, 0, 1},
         {"features.grace-timeout",               "protocol/client",           "grace-timeout", NULL, DOC, 0, 1},
         {"client.ssl",                           "protocol/client",           "transport.socket.ssl-enabled", NULL, NO_DOC, 0, 2},
         {"network.remote-dio",                   "protocol/client",           "filter-O_DIRECT", NULL, DOC, 0, 1},
 
         /* Server xlator options */
-        {"network.tcp-window-size",              "protocol/server",           NULL, NULL, NO_DOC, 0, 1},
-        {"network.inode-lru-limit",              "protocol/server",           NULL, NULL, NO_DOC, 0, 1},
+        {"network.tcp-window-size",              "protocol/server",           NULL, NULL, DOC, 0, 1},
+        {"network.inode-lru-limit",              "protocol/server",           NULL, NULL, DOC, 0, 1},
         {AUTH_ALLOW_MAP_KEY,                     "protocol/server",           "!server-auth", "*", DOC, 0, 1},
         {AUTH_REJECT_MAP_KEY,                    "protocol/server",           "!server-auth", NULL, DOC, 0},
 
@@ -233,7 +233,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"nfs.export-dirs",                      "nfs/server",                "nfs3.export-dirs", NULL, GLOBAL_DOC, 0, 1},
         {"nfs.export-volumes",                   "nfs/server",                "nfs3.export-volumes", NULL, GLOBAL_DOC, 0, 1},
         {"nfs.addr-namelookup",                  "nfs/server",                "rpc-auth.addr.namelookup", NULL, GLOBAL_DOC, 0, 1},
-        {"nfs.dynamic-volumes",                  "nfs/server",                "nfs.dynamic-volumes", NULL, GLOBAL_NO_DOC, 0, 1},
+        {"nfs.dynamic-volumes",                  "nfs/server",                "nfs.dynamic-volumes", NULL, GLOBAL_DOC, 0, 1},
         {"nfs.register-with-portmap",            "nfs/server",                "rpc.register-with-portmap", NULL, GLOBAL_DOC, 0, 1},
         {"nfs.port",                             "nfs/server",                "nfs.port", NULL, GLOBAL_DOC, 0, 1},
         {"nfs.rpc-auth-unix",                    "nfs/server",                "!rpc-auth.auth-unix.*", NULL, DOC, 0, 1},
@@ -2122,9 +2122,9 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
         int                      ret = -1;
         char                    *def_val = NULL;
         char                    *descr = NULL;
-        char                     output_string[16384] = {0, };
+        char                     output_string[25600] = {0, };
         char                    *output = NULL;
-        char                     tmp_str[1024] = {0, };
+        char                     tmp_str[2048] = {0, };
 #if (HAVE_LIB_XML)
         xmlTextWriterPtr         writer = NULL;
         xmlBufferPtr             buf = NULL;
@@ -2170,7 +2170,7 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
                         gf_log ("glusterd", GF_LOG_ERROR, "Libxml not present");
 #endif
                 } else {
-                        snprintf (tmp_str, 1024, "Option: %s\nDefault "
+                        snprintf (tmp_str, 2048, "Option: %s\nDefault "
                                         "Value: %s\nDescription: %s\n\n",
                                         vme->key, def_val, descr);
                         strcat (output_string, tmp_str);
