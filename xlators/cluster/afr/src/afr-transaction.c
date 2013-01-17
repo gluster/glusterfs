@@ -1275,6 +1275,9 @@ afr_set_delayed_post_op (call_frame_t *frame, xlator_t *this)
 	if (!priv->post_op_delay_secs)
 		return;
 
+        if (!priv->eager_lock)
+                return;
+
 	local = frame->local;
 	if (!local)
 		return;
