@@ -1268,9 +1268,13 @@ struct volume_options options[] = {
         { .key = {"server-quorum-type"},
           .type = GF_OPTION_TYPE_STR,
           .value = { "none", "server"},
+          .description = "If set to server, enables the specified "
+          "volume to participate in quorum."
         },
         { .key = {"server-quorum-ratio"},
           .type = GF_OPTION_TYPE_PERCENT,
+          .description = "Sets the quorum percentage for the trusted "
+          "storage pool."
         },
         { .key   = {NULL} },
 };

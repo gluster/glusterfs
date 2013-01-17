@@ -578,18 +578,23 @@ struct volume_options options[] = {
                     "on", "off"},
           .type = GF_OPTION_TYPE_STR,
           .default_value = "on",
+          .description = "This option if set to ON, does a lookup through "
+          "all the sub-volumes, in case a lookup didn't return any result "
+          "from the hash subvolume. If set to OFF, it does not do a lookup "
+          "on the remaining subvolumes."
         },
         { .key  = {"min-free-disk"},
           .type = GF_OPTION_TYPE_PERCENT_OR_SIZET,
           .default_value = "10%",
-          .description = "Percentage/Size of disk space that must be "
-                         "kept free."
+          .description = "Percentage/Size of disk space, after which the "
+          "process starts balancing out the cluster, and logs will appear "
+          "in log files",
         },
 	{ .key  = {"min-free-inodes"},
           .type = GF_OPTION_TYPE_PERCENT,
           .default_value = "5%",
-          .description = "Percentage inodes that must be "
-                         "kept free."
+          .description = "after system has only N% of inodes, warnings "
+          "starts to appear in log files",
         },
         { .key = {"unhashed-sticky-bit"},
           .type = GF_OPTION_TYPE_BOOL,
@@ -598,16 +603,24 @@ struct volume_options options[] = {
         { .key = {"use-readdirp"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .description = "This option if set to ON, forces the use of "
+          "readdirp, and hence also displays the stats of the files."
         },
         { .key = {"assert-no-child-down"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .description = "This option if set to ON, in the event of "
+          "CHILD_DOWN, will call exit."
         },
         { .key  = {"directory-layout-spread"},
           .type = GF_OPTION_TYPE_INT,
+          .description = "Specifies the directory layout spread."
         },
         { .key  = {"decommissioned-bricks"},
           .type = GF_OPTION_TYPE_ANY,
+          .description = "This option if set to ON, decommissions "
+          "the brick, so that no new data is allowed to be created "
+          "on that brick."
         },
         { .key  = {"rebalance-cmd"},
           .type = GF_OPTION_TYPE_INT,
@@ -618,10 +631,17 @@ struct volume_options options[] = {
         { .key = {"rebalance-stats"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .description = "This option if set to ON displays and logs the "
+          " time taken for migration of each file, during the rebalance "
+          "process. If set to OFF, the rebalance logs will only display the "
+          "time spent in each directory."
         },
         { .key = {"readdir-optimize"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .description = "This option if set to ON enables the optimization "
+          "that allows DHT to requests non-first subvolumes to filter out "
+          "directory entries."
         },
 
         { .key  = {NULL} },
