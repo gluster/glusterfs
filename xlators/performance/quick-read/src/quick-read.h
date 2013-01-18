@@ -34,47 +34,19 @@
 #include <fnmatch.h>
 #include "quick-read-mem-types.h"
 
-struct qr_fd_ctx {
-        char              opened;
-        char              disabled;
-        char              open_in_transit;
-        char             *path;
-        int               flags;
-        int               wbflags;
-        struct list_head  waiting_ops;
-        gf_lock_t         lock;
-        struct list_head  inode_list;
-        fd_t             *fd;
-        dict_t           *xdata;
-};
-typedef struct qr_fd_ctx qr_fd_ctx_t;
-
-struct qr_local {
-        char              is_open;
-        char             *path;
-        char              just_validated;
-        fd_t             *fd;
-        int               open_flags;
-        int32_t           op_ret;
-        int32_t           op_errno;
-        uint32_t          open_count;
-        call_stub_t      *stub;
-        struct list_head  list;
-        gf_lock_t         lock;
-};
-typedef struct qr_local qr_local_t;
 
 struct qr_inode {
-        dict_t           *xattr;
-        inode_t          *inode;
+	void             *data;
+	size_t            size;
         int               priority;
-        struct iatt       stbuf;
-        struct timeval    tv;
+	uint32_t          ia_mtime;
+	uint32_t          ia_mtime_nsec;
+	struct iatt       buf;
+        struct timeval    last_refresh;
         struct list_head  lru;
-        struct list_head  fd_list;
-        struct list_head  unlinked_dentries;
 };
 typedef struct qr_inode qr_inode_t;
+
 
 struct qr_priority {
         char             *pattern;
@@ -105,20 +77,5 @@ struct qr_private {
 };
 typedef struct qr_private qr_private_t;
 
-struct qr_unlink_ctx {
-        struct list_head  list;
-        qr_fd_ctx_t      *fdctx;
-        char              need_open;
-};
-typedef struct qr_unlink_ctx qr_unlink_ctx_t;
-
-void qr_local_free (qr_local_t *local);
-
-#define QR_STACK_UNWIND(op, frame, params ...) do {             \
-                qr_local_t *__local = frame->local;             \
-                frame->local = NULL;                            \
-                STACK_UNWIND_STRICT (op, frame, params);        \
-                qr_local_free (__local);                        \
-        } while (0)
 
 #endif /* #ifndef __QUICK_READ_H */
