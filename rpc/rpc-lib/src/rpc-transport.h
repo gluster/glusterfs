@@ -71,6 +71,11 @@ struct peer_info {
         struct sockaddr_storage sockaddr;
         socklen_t sockaddr_len;
         char identifier[UNIX_PATH_MAX];
+        // OP-VERSION of clients
+        uint32_t max_op_version;
+        uint32_t min_op_version;
+        //Volume mounted by client
+        char volname[1024];
 };
 typedef struct peer_info peer_info_t;
 
