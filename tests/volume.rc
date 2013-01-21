@@ -34,27 +34,56 @@ function get_mount_process_pid {
         ps aux | grep glusterfs | grep -E "volfile-id[ =]/?$vol " | awk '{print $2}' | head -1
 }
 
-function generate_mount_statedump {
-        local vol=$1
+function generate_client_statedump {
         local fpath=""
-        mount_pid=$(get_mount_process_pid $vol)
+        client_pid=$1
         #remove old stale statedumps
-        rm -f /tmp/glusterdump.$mount_pid.dump.* 2>/dev/null
-        kill -USR1 $mount_pid
+        rm -f /tmp/glusterdump.$client_pid.dump.* 2>/dev/null
+        kill -USR1 $client_pid
         #Wait till the statedump is generated
         sleep 1
-        fname=$(ls /tmp | grep -E "glusterdump.$mount_pid.dump.*")
+        fname=$(ls /tmp | grep -E "glusterdump.$client_pid.dump.*")
         echo /tmp/$fname
+}
+
+function generate_mount_statedump {
+        local vol=$1
+        generate_client_statedump $(get_mount_process_pid $vol)
+}
+
+function _afr_child_up_status {
+        local vol=$1
+        #brick_id is (brick-num in volume info - 1)
+        local brick_id=$2
+        local gen_state_dump=$3
+        local fpath=$($gen_state_dump $vol)
+        up=$(grep -B1 trusted.afr.$vol-client-$brick_id $fpath | head -1 | cut -f2 -d'=')
+        rm -f $fpath
+        echo "$up"
 }
 
 function afr_child_up_status {
         local vol=$1
         #brick_id is (brick-num in volume info - 1)
         local brick_id=$2
-        local fpath=$(generate_mount_statedump $vol)
-        up=$(grep -B1 trusted.afr.$vol-client-$brick_id $fpath | head -1 | cut -f2 -d'=')
-        rm -f $fpath
-        echo "$up"
+        _afr_child_up_status $vol $brick_id generate_mount_statedump
+}
+
+function get_shd_process_pid {
+        local vol=$1
+        ps aux | grep glusterfs | grep -E "glustershd/run/glustershd.pid" | awk '{print $2}' | head -1
+}
+
+function generate_shd_statedump {
+        local vol=$1
+        generate_client_statedump $(get_shd_process_pid $vol)
+}
+
+function afr_child_up_status_in_shd {
+        local vol=$1
+        #brick_id is (brick-num in volume info - 1)
+        local brick_id=$2
+        _afr_child_up_status $vol $brick_id generate_shd_statedump
 }
 
 function glustershd_up_status {
