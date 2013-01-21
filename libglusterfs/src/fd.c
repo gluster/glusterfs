@@ -659,6 +659,12 @@ __fd_lookup (inode_t *inode, uint64_t pid)
 
 
         list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
+                if (iter_fd->anonymous)
+                        /* If someone was interested in getting an
+                           anonymous fd (or was OK getting an anonymous fd),
+                           they can as well call fd_anonymous() directly */
+                        continue;
+
                 if (!pid || iter_fd->pid == pid) {
                         fd = __fd_ref (iter_fd);
                         break;
