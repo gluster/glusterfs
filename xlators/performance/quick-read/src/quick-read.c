@@ -3180,11 +3180,11 @@ qr_unlink_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
 
         local = frame->local;
 
-        LOCK (&local->lock);
+        LOCK (&loc->inode->lock);
         {
                 open_count = --local->open_count;
         }
-        UNLOCK (&local->lock);
+        UNLOCK (&loc->inode->lock);
 
         if (open_count > 0) {
                 goto out;
