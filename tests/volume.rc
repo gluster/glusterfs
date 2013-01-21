@@ -63,20 +63,25 @@ function glustershd_up_status {
 
 function kill_brick()
 {
-        vol=$1
-        host=$2
-        brick=$3
+        local vol=$1
+        local host=$2
+        local brick=$3
         brick_hiphenated=$(echo $brick | tr '/' '-')
         kill -9 `cat /var/lib/glusterd/vols/$vol/run/${host}${brick_hiphenated}.pid`
 }
 
 function check_option_help_presence {
-        option=$1
+        local option=$1
         $CLI volume set help | grep "^Option:" | grep -w $option
 }
 
 function afr_get_changelog_xattr {
-        file=$1
-        xkey=$2
+        local file=$1
+        local xkey=$2
         getfattr -n $xkey -e hex $file 2>/dev/null | grep "client-" | cut -f2 -d'='
+}
+
+function afr_get_pending_heal_count {
+        local vol=$1
+        gluster volume heal $vol info | grep "Number of entries" | awk '{ sum+=$4} END {print sum}'
 }
