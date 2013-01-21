@@ -4539,12 +4539,12 @@ struct volume_options options[] = {
         {
           .key = {"brick-uid"},
           .type = GF_OPTION_TYPE_INT,
-          .description = "Support for setting uid of brick's root"
+          .description = "Support for setting uid of brick's owner"
         },
         {
           .key = {"brick-gid"},
           .type = GF_OPTION_TYPE_INT,
-          .description = "Support for setting gid of brick's root"
+          .description = "Support for setting gid of brick's owner"
         },
         { .key  = {NULL} }
 };
