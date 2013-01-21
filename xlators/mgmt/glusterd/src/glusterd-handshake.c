@@ -127,8 +127,8 @@ server_getspec (rpcsvc_request_t *req)
         dict_t               *dict                   = NULL;
         xlator_t             *this                   = NULL;
         glusterd_conf_t      *conf                   = NULL;
-        int                   client_min_op_version  = 0;
-        int                   client_max_op_version  = 0;
+        int                   client_min_op_version  = 1;       // OP-VERSIONs start at 1
+        int                   client_max_op_version  = 1;
 
         this = THIS;
         GF_ASSERT (this);
@@ -199,9 +199,21 @@ server_getspec (rpcsvc_request_t *req)
                                 req->trans->peerinfo.identifier);
                         goto fail;
                 }
+
         }
 
+        // Store the op-versions supported by the client
+        req->trans->peerinfo.max_op_version = client_max_op_version;
+        req->trans->peerinfo.min_op_version = client_min_op_version;
+
         volume = args.key;
+
+        // Store the name of volume  being mounted
+        if (volume[0] == '/')
+                strncpy (req->trans->peerinfo.volname, &volume[1],
+                         strlen(&volume[1]));
+        else
+                strncpy (req->trans->peerinfo.volname, volume, strlen(volume));
 
         trans = req->trans;
         ret = rpcsvc_transport_peername (trans, (char *)&addrstr,
