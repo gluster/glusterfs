@@ -673,8 +673,16 @@ fail:
          * list of connections the server is maintaining and might segfault
          * during statedump when bound_xl of the connection is accessed.
          */
-        if (op_ret && conn && !xl)
-                server_connection_put (this, conn, NULL);
+        if (op_ret && conn && !xl) {
+                /* We would have set the xl_private of the transport to the
+                 * @conn. But if we have put the connection i.e shutting down
+                 * the connection, then we should set xl_private to NULL as it
+                 * would be pointing to a freed memory and would segfault when
+                 * accessed upon getting DISCONNECT.
+                 */
+                if (server_connection_put (this, conn, NULL) == NULL)
+                        req->trans->xl_private = NULL;
+        }
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_setvolume_rsp);
 
