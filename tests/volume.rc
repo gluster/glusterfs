@@ -114,3 +114,13 @@ function afr_get_pending_heal_count {
         local vol=$1
         gluster volume heal $vol info | grep "Number of entries" | awk '{ sum+=$4} END {print sum}'
 }
+
+function afr_get_index_path {
+        local brick_path=$1
+        echo "$brick_path/.glusterfs/indices/xattrop"
+}
+
+function afr_get_num_indices_in_brick {
+        local brick_path=$1
+        echo $(ls $(afr_get_index_path $brick_path) | grep -v xattrop | wc -l)
+}
