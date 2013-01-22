@@ -201,6 +201,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.read-ahead",               "performance/read-ahead",    "!perf", "on", NO_DOC, 0, 1},
         {"performance.io-cache",                 "performance/io-cache",      "!perf", "on", NO_DOC, 0, 1},
         {"performance.quick-read",               "performance/quick-read",    "!perf", "on", NO_DOC, 0, 1},
+        {"performance.open-behind",              "performance/open-behind",   "!perf", "on", NO_DOC, 0, 2},
         {"performance.stat-prefetch",            "performance/md-cache",      "!perf", "on", NO_DOC, 0, 1},
         {"performance.client-io-threads",        "performance/io-threads",    "!perf", "off", NO_DOC, 0, 1},
 
