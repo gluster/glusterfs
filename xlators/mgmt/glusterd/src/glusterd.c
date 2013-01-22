@@ -455,6 +455,7 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
                 goto out;
         }
 
+        /* Slave log file directory */
         if (strlen(DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves") >= PATH_MAX) {
                 ret = -1;
                 gf_log ("glusterd", GF_LOG_CRITICAL,
@@ -467,6 +468,22 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         if (-1 == ret) {
                 gf_log ("glusterd", GF_LOG_CRITICAL,
                         "Unable to create "GEOREP" slave log directory");
+                goto out;
+        }
+
+        /* MountBroker log file directory */
+        if (strlen(DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/mbr") >= PATH_MAX) {
+                ret = -1;
+                gf_log ("glusterd", GF_LOG_CRITICAL,
+                        "Unable to create "GEOREP" moubtbroker directory %s",
+                        georepdir);
+                goto out;
+        }
+        ret = mkdir_p (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/mbr", 0777,
+                      _gf_true);
+        if (-1 == ret) {
+                gf_log ("glusterd", GF_LOG_CRITICAL,
+                        "Unable to create "GEOREP" mountbroker slave log directory");
                 goto out;
         }
 
@@ -487,6 +504,9 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
                 if (ret == 0)
                         ret = group_write_allow (DEFAULT_LOG_FILE_DIRECTORY"/"
                                                  GEOREP"-slaves", gr->gr_gid);
+                if (ret == 0)
+                        ret = group_write_allow (DEFAULT_LOG_FILE_DIRECTORY"/"
+                                                 GEOREP"-slaves/mbr", gr->gr_gid);
         }
 
  out:
@@ -638,6 +658,14 @@ configure_syncdaemon (glusterd_conf_t *conf)
         runner_add_args (&runner,
                          "log-file",
                          DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/${session_owner}:${eSlave}.log",
+                         ".", NULL);
+        RUN_GSYNCD_CMD;
+
+        /* MountBroker log-file */
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_args (&runner,
+                         "log-file-mbr",
+                         DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/mbr/${session_owner}:${eSlave}.log",
                          ".", NULL);
         RUN_GSYNCD_CMD;
 

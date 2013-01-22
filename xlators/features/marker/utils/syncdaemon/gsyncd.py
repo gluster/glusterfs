@@ -17,7 +17,7 @@ from ipaddr import IPAddress, IPNetwork
 
 from gconf import gconf
 from syncdutils import FreeObject, norm, grabpidfile, finalize, log_raise_exception
-from syncdutils import GsyncdError, select, set_term_handler
+from syncdutils import GsyncdError, select, set_term_handler, privileged
 from configinterface import GConffile
 import resource
 from monitor import monitor
@@ -157,6 +157,7 @@ def main_i():
     op.add_option('--mountbroker',         metavar='LABEL')
     op.add_option('-p', '--pid-file',      metavar='PIDF',  type=str, action='callback', callback=store_abs)
     op.add_option('-l', '--log-file',      metavar='LOGF',  type=str, action='callback', callback=store_abs)
+    op.add_option('--log-file-mbr',        metavar='LOGF',  type=str, action='callback', callback=store_abs)
     op.add_option('--state-file',          metavar='STATF', type=str, action='callback', callback=store_abs)
     op.add_option('--ignore-deletes',      default=False, action='store_true')
     op.add_option('--use-rsync-xattrs',    default=False, action='store_true')
@@ -356,6 +357,9 @@ def main_i():
         if lvl2 == "Level " + lvl1:
             raise GsyncdError('cannot recognize log level "%s"' % lvl0)
         gconf.log_level = lvl2
+
+    if not privileged() and gconf.log_file_mbr:
+        gconf.log_file = gconf.log_file_mbr
 
     if checkpoint_change:
         try:
