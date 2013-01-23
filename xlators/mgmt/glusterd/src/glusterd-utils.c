@@ -6761,21 +6761,25 @@ out:
 int
 glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 {
-        int            ret      = 0;
-        dict_t        *ctx_dict = NULL;
-        glusterd_op_t  op       = GD_OP_NONE;
-        uint64_t       value    = 0;
-        int32_t        value32  = 0;
-        char          *volname  = NULL;
-        glusterd_volinfo_t *volinfo = NULL;
-        char           key[256] = {0,};
-        int32_t        index    = 0;
-        int32_t        i        = 0;
-        char          *node_uuid = NULL;
-        char          *node_uuid_str = NULL;
-        double         elapsed_time = 0;
+        char                 key[256]      = {0,};
+        char                *node_uuid     = NULL;
+        char                *node_uuid_str = NULL;
+        char                *volname       = NULL;
+        dict_t              *ctx_dict      = NULL;
+        double               elapsed_time  = 0;
+        glusterd_conf_t     *conf          = NULL;
+        glusterd_op_t        op            = GD_OP_NONE;
+        glusterd_peerinfo_t *peerinfo      = NULL;
+        glusterd_volinfo_t  *volinfo       = NULL;
+        int                  ret           = 0;
+        int32_t              index         = 0;
+        int32_t              count         = 0;
+        int32_t              current_index = 2;
+        int32_t              value32       = 0;
+        uint64_t             value         = 0;
 
         GF_ASSERT (rsp_dict);
+        conf = THIS->private;
 
         op = glusterd_op_get_op ();
         GF_ASSERT ((GD_OP_REBALANCE == op) ||
@@ -6792,12 +6796,6 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         if (!ctx_dict)
                 goto out;
 
-        ret = dict_get_int32 (ctx_dict, "count", &i);
-        i++;
-        ret = dict_set_int32 (ctx_dict, "count", i);
-        if (ret)
-                gf_log ("", GF_LOG_ERROR, "Failed to set index");
-
         ret = dict_get_str (ctx_dict, "volname", &volname);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
@@ -6813,11 +6811,43 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         if (ret)
                 gf_log ("", GF_LOG_ERROR, "failed to get index");
 
+        memset (key, 0, 256);
+        snprintf (key, 256, "node-uuid-%d", index);
+        ret = dict_get_str (rsp_dict, key, &node_uuid);
+        if (!ret) {
+                node_uuid_str = gf_strdup (node_uuid);
+
+                /* Finding the index of the node-uuid in the peer-list */
+                list_for_each_entry (peerinfo, &conf->peers, uuid_list) {
+                        if (!strcmp(peerinfo->uuid_str, node_uuid_str)){
+                                break;
+                        }
+                        current_index++;
+                }
+
+                /* Setting the largest index value as the total count. */
+                ret = dict_get_int32 (ctx_dict, "count", &count);
+                if (count < current_index) {
+                    ret = dict_set_int32 (ctx_dict, "count", current_index);
+                    if (ret)
+                            gf_log ("", GF_LOG_ERROR, "Failed to set count");
+                }
+
+                /* Setting the same index for the node, as is in the peerlist.*/
+                memset (key, 0, 256);
+                snprintf (key, 256, "node-uuid-%d", current_index);
+                ret = dict_set_dynstr (ctx_dict, key, node_uuid_str);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set node-uuid");
+                }
+        }
+
         snprintf (key, 256, "files-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
                 memset (key, 0, 256);
-                snprintf (key, 256, "files-%d", i);
+                snprintf (key, 256, "files-%d", current_index);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
                         gf_log (THIS->name, GF_LOG_DEBUG,
@@ -6830,7 +6860,7 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
                 memset (key, 0, 256);
-                snprintf (key, 256, "size-%d", i);
+                snprintf (key, 256, "size-%d", current_index);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
                         gf_log (THIS->name, GF_LOG_DEBUG,
@@ -6843,7 +6873,7 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
                 memset (key, 0, 256);
-                snprintf (key, 256, "lookups-%d", i);
+                snprintf (key, 256, "lookups-%d", current_index);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
                         gf_log (THIS->name, GF_LOG_DEBUG,
@@ -6856,7 +6886,7 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         ret = dict_get_int32 (rsp_dict, key, &value32);
         if (!ret) {
                 memset (key, 0, 256);
-                snprintf (key, 256, "status-%d", i);
+                snprintf (key, 256, "status-%d", current_index);
                 ret = dict_set_int32 (ctx_dict, key, value32);
                 if (ret) {
                         gf_log (THIS->name, GF_LOG_DEBUG,
@@ -6865,25 +6895,11 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         }
 
         memset (key, 0, 256);
-        snprintf (key, 256, "node-uuid-%d", index);
-        ret = dict_get_str (rsp_dict, key, &node_uuid);
-        if (!ret) {
-                memset (key, 0, 256);
-                snprintf (key, 256, "node-uuid-%d", i);
-                node_uuid_str = gf_strdup (node_uuid);
-                ret = dict_set_dynstr (ctx_dict, key, node_uuid_str);
-                if (ret) {
-                        gf_log (THIS->name, GF_LOG_DEBUG,
-                                "failed to set node-uuid");
-                }
-        }
-
-        memset (key, 0, 256);
         snprintf (key, 256, "failures-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
                 memset (key, 0, 256);
-                snprintf (key, 256, "failures-%d", i);
+                snprintf (key, 256, "failures-%d", current_index);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
                         gf_log (THIS->name, GF_LOG_DEBUG,
@@ -6896,7 +6912,7 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         ret = dict_get_double (rsp_dict, key, &elapsed_time);
         if (!ret) {
                 memset (key, 0, 256);
-                snprintf (key, 256, "run-time-%d", i);
+                snprintf (key, 256, "run-time-%d", current_index);
                 ret = dict_set_double (ctx_dict, key, elapsed_time);
                 if (ret) {
                         gf_log (THIS->name, GF_LOG_DEBUG,
