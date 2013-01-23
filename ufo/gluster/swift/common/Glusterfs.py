@@ -12,12 +12,12 @@
 # implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import logging
 import os, fcntl, time
-from ConfigParser import ConfigParser
-from swift.common.utils import TRUE_VALUES
+from ConfigParser import ConfigParser, NoSectionError, NoOptionError
+from swift.common.utils import TRUE_VALUES, search_tree
 from gluster.swift.common.fs_utils import mkdirs
-
 
 #
 # Read the fs.conf file once at startup (module load)
@@ -26,6 +26,8 @@ _fs_conf = ConfigParser()
 MOUNT_IP = 'localhost'
 REMOTE_CLUSTER = False
 OBJECT_ONLY = False
+RUN_DIR='/var/run/swift'
+SWIFT_DIR = '/etc/swift'
 if _fs_conf.read(os.path.join('/etc/swift', 'fs.conf')):
     try:
         MOUNT_IP = _fs_conf.get('DEFAULT', 'mount_ip', 'localhost')
@@ -39,6 +41,11 @@ if _fs_conf.read(os.path.join('/etc/swift', 'fs.conf')):
         OBJECT_ONLY = _fs_conf.get('DEFAULT', 'object_only', "no") in TRUE_VALUES
     except (NoSectionError, NoOptionError):
         pass
+    try:
+        RUN_DIR = _fs_conf.get('DEFAULT', 'run_dir', '/var/run/swift')
+    except (NoSectionError, NoOptionError):
+        pass
+
 NAME = 'glusterfs'
 
 
@@ -68,13 +75,12 @@ def mount(root, drive):
     if not os.path.isdir(full_mount_path):
         mkdirs(full_mount_path)
 
-    pid_dir  = "/var/lib/glusterd/vols/%s/run/" % drive
-    pid_file = os.path.join(pid_dir, 'swift.pid');
+    lck_file = os.path.join(RUN_DIR, '%s.lock' %drive);
 
-    if not os.path.exists(pid_dir):
-        mkdirs(pid_dir)
+    if not os.path.exists(RUN_DIR):
+        mkdirs(RUN_DIR)
 
-    fd = os.open(pid_file, os.O_CREAT|os.O_RDWR)
+    fd = os.open(lck_file, os.O_CREAT|os.O_RDWR)
     with os.fdopen(fd, 'r+b') as f:
         try:
             fcntl.lockf(f, fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -124,3 +130,20 @@ def _get_export_list():
                 export_list.append(item.split(':')[1].strip(' '))
 
     return export_list
+
+def get_mnt_point(vol_name, conf_dir=SWIFT_DIR, conf_file="object-server*"):
+    """Read the object-server's configuration file and return
+    the device value"""
+
+    mnt_dir = ''
+    conf_files = search_tree(conf_dir, conf_file, '.conf')
+    if not conf_files:
+        raise Exception("Config file not found")
+
+    _conf = ConfigParser()
+    if _conf.read(conf_files[0]):
+        try:
+            mnt_dir = _conf.get('DEFAULT', 'devices', '')
+        except (NoSectionError, NoOptionError):
+            raise
+        return os.path.join(mnt_dir, vol_name)
