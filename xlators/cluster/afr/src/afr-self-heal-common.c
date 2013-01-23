@@ -142,6 +142,66 @@ afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
 }
 
 void
+afr_sh_print_split_brain_log (int32_t *pending_matrix[], xlator_t *this,
+                              const char *loc)
+{
+        afr_private_t *  priv = this->private;
+        char            *buf  = NULL;
+        char            *ptr  = NULL;
+        int              i    = 0;
+        int              j    = 0;
+        int             child_count = priv->child_count;
+        char            *matrix_begin = "[ [ ";
+        char            *matrix_end = "] ]";
+        char            *seperator = "] [ ";
+        int             pending_entry_strlen = 12; //Including space after entry
+        int             matrix_begin_strlen = 0;
+        int             matrix_end_strlen = 0;
+        int             seperator_strlen = 0;
+        int             string_length = 0;
+        char            *msg = "- Pending matrix:  ";
+
+        /*
+         *  for a list of lists of [ [ a b ] [ c d ] ]
+         * */
+
+        matrix_begin_strlen = strlen (matrix_begin);
+        matrix_end_strlen = strlen (matrix_end);
+        seperator_strlen = strlen (seperator);
+        string_length = matrix_begin_strlen + matrix_end_strlen
+                        + (child_count -1) * seperator_strlen
+                        + (child_count * child_count * pending_entry_strlen);
+
+        buf = GF_CALLOC (1, 1 + strlen (msg) + string_length , gf_afr_mt_char);
+        if (!buf) {
+                buf = "";
+                goto out;
+        }
+
+        ptr = buf;
+        ptr += sprintf (ptr, "%s", msg);
+        ptr += sprintf (ptr, "%s", matrix_begin);
+        for (i = 0; i < priv->child_count; i++) {
+                for (j = 0; j < priv->child_count; j++) {
+                        ptr += sprintf (ptr, "%d ", pending_matrix[i][j]);
+                }
+                if (i < priv->child_count -1)
+                        ptr += sprintf (ptr, "%s", seperator);
+        }
+
+        ptr += sprintf (ptr, "%s", matrix_end);
+
+out:
+        gf_log (this->name, GF_LOG_ERROR, "Unable to self-heal contents of '%s'"
+                " (possible split-brain). Please delete the file from all but "
+                "the preferred subvolume.%s", loc, buf);
+        if (buf)
+                GF_FREE (buf);
+        return;
+}
+
+
+void
 afr_init_pending_matrix (int32_t **pending_matrix, size_t child_count)
 {
         int             i   = 0;

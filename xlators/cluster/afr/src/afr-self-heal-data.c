@@ -711,11 +711,8 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
         }
 
         if (nsources == -1) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Unable to self-heal contents of '%s' (possible "
-                        "split-brain). Please delete the file from all but "
-                        "the preferred subvolume.", local->loc.path);
-
+                afr_sh_print_split_brain_log (sh->pending_matrix, this,
+                                              local->loc.path);
                 afr_set_split_brain (this, sh->inode, DONT_KNOW, SPB);
 
                 afr_sh_data_fail (frame, this);

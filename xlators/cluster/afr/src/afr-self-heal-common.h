@@ -35,6 +35,10 @@ afr_sh_source_count (int sources[], int child_count);
 void
 afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this);
 
+void
+afr_sh_print_split_brain_log (int32_t *pending_matrix[], xlator_t *this,
+                              const char *loc);
+
 int
 afr_build_pending_matrix (char **pending_key, int32_t **pending_matrix,
                           unsigned char *ignorant_subvols,
