@@ -2166,7 +2166,6 @@ conditional_dump (dict_t *dict, char *key, data_t *value, void *data)
                         return -1;
                 }
                 logfp = fopen (filename, "w+");
-                GF_ASSERT (logfp);
                 if (!logfp) {
                         gf_log (this->name, GF_LOG_ERROR, "failed to open %s "
                                 "for writing", filename);
