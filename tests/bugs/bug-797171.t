@@ -26,18 +26,18 @@ rm -f $M0/*;
 pid_file=$(ls /var/lib/glusterd/vols/$V0/run);
 brick_pid=$(cat /var/lib/glusterd/vols/$V0/run/$pid_file);
 
-mkdir /tmp/statedump_tmp/;
-echo "path=/tmp/statedump_tmp" > /tmp/glusterdump.options;
-echo "all=yes" >> /tmp/glusterdump.options;
+mkdir $statedumpdir/statedump_tmp/;
+echo "path=$statedumpdir/statedump_tmp" > $statedumpdir/glusterdump.options;
+echo "all=yes" >> $statedumpdir/glusterdump.options;
 
 TEST $CLI volume statedump $V0 history;
 
-file_name=$(ls /tmp/statedump_tmp);
-TEST grep "xlator.debug.trace.history" /tmp/statedump_tmp/$file_name;
+file_name=$(ls $statedumpdir/statedump_tmp);
+TEST grep "xlator.debug.trace.history" $statedumpdir/statedump_tmp/$file_name;
 
 TEST umount $M0
 
-rm -rf /tmp/statedump_tmp;
-rm -f /tmp/glusterdump.options;
+rm -rf $statedumpdir/statedump_tmp;
+rm -f $statedumpdir/glusterdump.options;
 
 cleanup;

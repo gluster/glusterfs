@@ -35,7 +35,7 @@ function del_samba_export () {
         volname=$1
         cp /etc/samba/smb.conf /tmp/smb.conf
         sed -i "/gluster-$volname/,/^$/d" /tmp/smb.conf &&\
-                mv /tmp/smb.conf /etc/samba/smb.conf
+                cp /tmp/smb.conf /etc/samba/smb.conf
 }
 
 function umount_volume () {

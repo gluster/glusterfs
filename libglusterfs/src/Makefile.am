@@ -1,5 +1,6 @@
 libglusterfs_la_CFLAGS = -Wall $(GF_CFLAGS) \
-	$(GF_DARWIN_LIBGLUSTERFS_CFLAGS)
+	$(GF_DARWIN_LIBGLUSTERFS_CFLAGS)    \
+        -DDATADIR=\"$(localstatedir)\"
 
 libglusterfs_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-DXLATORDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator\" \

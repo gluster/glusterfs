@@ -55,7 +55,7 @@ do
 done
 
 dump_dir='/tmp/gerrit_glusterfs'
-cat >/tmp/glusterdump.options <<EOF
+cat >$statedumpdir/glusterdump.options <<EOF
 all=yes
 path=$dump_dir
 EOF
@@ -76,6 +76,6 @@ TEST $CLI volume delete $V0;
 TEST ! $CLI volume info $V0;
 
 TEST rm -rf $dump_dir;
-TEST rm /tmp/glusterdump.options;
+TEST rm $statedumpdir/glusterdump.options;
 
 cleanup;

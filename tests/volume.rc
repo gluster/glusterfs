@@ -38,12 +38,12 @@ function generate_client_statedump {
         local fpath=""
         client_pid=$1
         #remove old stale statedumps
-        rm -f /tmp/glusterdump.$client_pid.dump.* 2>/dev/null
+        rm -f $statedumpdir/glusterdump.$client_pid.dump.* 2>/dev/null
         kill -USR1 $client_pid
         #Wait till the statedump is generated
         sleep 1
-        fname=$(ls /tmp | grep -E "glusterdump.$client_pid.dump.*")
-        echo /tmp/$fname
+        fname=$(ls $statedumpdir | grep -E "glusterdump.$client_pid.dump.*")
+        echo $statedumpdir/$fname
 }
 
 function generate_mount_statedump {
