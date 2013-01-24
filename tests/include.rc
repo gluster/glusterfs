@@ -168,6 +168,21 @@ function cleanup()
 {
 	killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;
 	killall -9 glusterfs glusterfsd glusterd 2>/dev/null || true;
+
+        MOUNTPOINTS=`mount | grep "$B0/" | awk '{print $3}'`
+        for m in $MOUNTPOINTS;
+        do
+                umount $m
+        done
+
+
+        LOOPDEVICES=`losetup -a | grep "$B0/" | awk '{print $1}' | tr -d :`
+        for l in $LOOPDEVICES;
+        do
+                losetup -d $l
+        done
+
+
 	rm -rf /var/lib/glusterd/* $B0/* /etc/glusterd/*;
 
 	umount -l $M0 2>/dev/null || true;
