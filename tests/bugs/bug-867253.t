@@ -53,3 +53,7 @@ ls -l $M0 >/dev/null;
 NEW_FILE_COUNT1=`echo $?`;
 
 EXPECT "0" file_count $NEW_FILE_COUNT $NEW_FILE_COUNT1
+
+TEST umount -l $M0
+
+cleanup
