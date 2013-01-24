@@ -1652,13 +1652,9 @@ wb_forget (xlator_t *this, inode_t *inode)
 	if (!wb_inode)
 		return 0;
 
-	LOCK (&wb_inode->lock);
-	{
-		GF_ASSERT (list_empty (&wb_inode->todo));
-		GF_ASSERT (list_empty (&wb_inode->liability));
-		GF_ASSERT (list_empty (&wb_inode->temptation));
-	}
-	UNLOCK (&wb_inode->lock);
+        GF_ASSERT (list_empty (&wb_inode->todo));
+        GF_ASSERT (list_empty (&wb_inode->liability));
+        GF_ASSERT (list_empty (&wb_inode->temptation));
 
         GF_FREE (wb_inode);
 
