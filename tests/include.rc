@@ -6,6 +6,7 @@ V0=${V0:=patchy};             # volume name to use in tests
 B0=${B0:=/d/backends};        # top level of brick directories
 H0=${H0:=`hostname --fqdn`};  # hostname
 DEBUG=${DEBUG:=0}             # turn on debugging?
+statedumpdir=`gluster --print-statedumpdir`; # Default directory for statedump
 
 CLI="gluster --mode=script";
 

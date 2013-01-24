@@ -27,7 +27,8 @@
 #include <signal.h>
 
 #define GLUSTERD_GET_RB_MNTPT(path, len, volinfo)                           \
-        snprintf (path, len, "/tmp/%s-"RB_CLIENT_MOUNTPOINT,      \
+        snprintf (path, len,                                                \
+                  DEFAULT_VAR_RUN_DIRECTORY"/%s-"RB_CLIENT_MOUNTPOINT,      \
                   volinfo->volname);
 
 

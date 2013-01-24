@@ -33,6 +33,7 @@
 #define CLI_TOP_CMD_TIMEOUT                  600 //Longer timeout for volume top
 #define DEFAULT_CLI_LOG_FILE_DIRECTORY     DATADIR "/log/glusterfs"
 #define DEFAULT_LOG_FILE_DIRECTORY         DATADIR "/log/glusterfs"
+#define DEFAULT_VAR_RUN_DIRECTORY          DATADIR "/run/gluster"
 #define CLI_VOL_STATUS_BRICK_LEN              55
 #define CLI_TAB_LENGTH                         8
 #define CLI_BRICK_STATUS_LINE_LEN             78

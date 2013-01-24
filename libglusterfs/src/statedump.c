@@ -541,7 +541,7 @@ out:
         return all_disabled;
 }
 
-/* These options are dumped by default if /tmp/glusterdump.options
+/* These options are dumped by default if glusterdump.options
    file exists and it is emtpty
 */
 static int
@@ -635,21 +635,22 @@ gf_proc_dump_options_init ()
         char    *saveptr = NULL;
         char    dump_option_file[PATH_MAX];
 
-        /* glusterd will create a file /tmp/glusterdump.<pid>.options and
+        /* glusterd will create a file glusterdump.<pid>.options and
            sets the statedump options for the process and the file is removed
            after the statedump is taken. Direct issue of SIGUSR1 does not have
            mechanism for considering the statedump options. So to have a way
            of configuring the statedump of all the glusterfs processes through
-           both cli command and SIGUSR1, /tmp/glusterdump.options file
-           is searched and the options mentioned in it are given the higher
-           priority.
+           both cli command and SIGUSR1, glusterdump.options file is searched
+           and the options mentioned in it are given the higher priority.
         */
         snprintf (dump_option_file, sizeof (dump_option_file),
-                  "/tmp/glusterdump.options");
+                  DEFAULT_VAR_RUN_DIRECTORY
+                  "/glusterdump.options");
         fp = fopen (dump_option_file, "r");
         if (!fp) {
                 snprintf (dump_option_file, sizeof (dump_option_file),
-                          "/tmp/glusterdump.%d.options", getpid ());
+                          DEFAULT_VAR_RUN_DIRECTORY
+                          "/glusterdump.%d.options", getpid ());
 
                 fp = fopen (dump_option_file, "r");
 
@@ -696,15 +697,15 @@ gf_proc_dump_options_init ()
 void
 gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
 {
-        int                i    = 0;
-        int                ret  = -1;
-        glusterfs_graph_t *trav = NULL;
-        char               brick_name[PATH_MAX] = {0,};
-        struct timeval     tv   = {0,};
-        char timestr[256]       = {0,};
-        char sign_string[512]   = {0,};
-        char tmp_dump_name[]    = "/tmp/dumpXXXXXX";
-        char path[PATH_MAX]     = {0,};
+        int                i                       = 0;
+        int                ret                     = -1;
+        glusterfs_graph_t *trav                    = NULL;
+        char               brick_name[PATH_MAX]    = {0,};
+        char               timestr[256]            = {0,};
+        char               sign_string[512]        = {0,};
+        char               tmp_dump_name[PATH_MAX] = {0,};
+        char               path[PATH_MAX]          = {0,};
+        struct timeval     tv                      = {0,};
 
         gf_proc_dump_lock ();
 
@@ -722,8 +723,14 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
 
         snprintf (path, sizeof (path), "%s/%s.%d.dump.%"PRIu64,
                   ((dump_options.dump_path != NULL)?dump_options.dump_path:
-                   ((ctx->statedump_path != NULL)?ctx->statedump_path:"/tmp")),
-                  brick_name, getpid(), (uint64_t) time (NULL));
+                   ((ctx->statedump_path != NULL)?ctx->statedump_path:
+                    DEFAULT_VAR_RUN_DIRECTORY)), brick_name, getpid(),
+                  (uint64_t) time (NULL));
+
+        snprintf (tmp_dump_name, PATH_MAX, "%s/dumpXXXXXX",
+                  ((dump_options.dump_path != NULL)?dump_options.dump_path:
+                   ((ctx->statedump_path != NULL)?ctx->statedump_path:
+                    DEFAULT_VAR_RUN_DIRECTORY)));
 
         ret = gf_proc_dump_open (tmp_dump_name);
         if (ret < 0)
