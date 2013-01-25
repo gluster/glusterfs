@@ -154,6 +154,15 @@ function _EXPECT_WITHIN()
 }
 
 
+function SKIP_TESTS()
+{
+        dbg "Skipping tests $t-$testcnt";
+        while [ $t -le $testcnt ]; do
+                true ; test_footer;
+        done
+}
+
+
 function cleanup()
 {
 	killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;
