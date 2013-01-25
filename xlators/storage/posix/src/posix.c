@@ -3758,6 +3758,8 @@ posix_readdirp_fill (xlator_t *this, fd_t *fd, gf_dirent_t *entries, dict_t *dic
         struct iatt      stbuf    = {0, };
 	uuid_t           gfid;
 
+	if (list_empty(&entries->list))
+		return 0;
 
         itable = fd->inode->table;
 
