@@ -2,7 +2,6 @@
 
 . $(dirname $0)/../include.rc
 
-cleanup
 RESULT_DIR=$(mktemp -d -p /var/tmp rpm-tests.XXXXXXXX)
 
 # enable some extra debugging
@@ -10,6 +9,32 @@ if [ -n "${DEBUG}" -a "${DEBUG}" != "0" ]
 then
 	exec &> ${RESULT_DIR}/log
 	set -x
+fi
+
+# detect the branch we're based off
+if [ -n "${BRANCH}" ] ; then
+        # $BRANCH is set in the environment (by Jenkins or other)
+        GIT_PARENT="origin/${BRANCH}"
+else
+        # get a reference to the latest clean tree
+        GIT_PARENT=$(git describe --abbrev=0)
+fi
+
+# check for changed files
+CHANGED_FILES=$(git diff --name-only ${GIT_PARENT})
+# filter out any files not affecting the build itself
+CHANGED_FILES=$(grep -E -v \
+        -e '\.c$' \
+        -e '\.h$' \
+        -e '\.py$' \
+        -e '^tests/' \
+        <<< "${CHANGED_FILES}")
+if [ -z "${CHANGED_FILES}" ]
+then
+        # only contents of files were changed, no need to retest rpmbuild
+        SKIP_TESTS
+        cleanup
+        exit 0
 fi
 
 # checkout the sources to a new directory to execute ./configure and all
