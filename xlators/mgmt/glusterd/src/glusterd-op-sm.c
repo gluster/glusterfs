@@ -763,25 +763,7 @@ glusterd_op_stage_sync_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        ret = glusterd_is_local_addr (hostname);
-        if (ret) {
-                ret = glusterd_friend_find (NULL, hostname, &peerinfo);
-                if (ret) {
-                        snprintf (msg, sizeof (msg), "%s, is not a friend",
-                                  hostname);
-                        *op_errstr = gf_strdup (msg);
-                        goto out;
-                }
-
-                if (!peerinfo->connected) {
-                        snprintf (msg, sizeof (msg), "%s, is not connected at "
-                                  "the moment", hostname);
-                        *op_errstr = gf_strdup (msg);
-                        ret = -1;
-                        goto out;
-                }
-        } else {
-
+        if (glusterd_is_local_addr (hostname)) {
                 //volname is not present in case of sync all
                 ret = dict_get_str (dict, "volname", &volname);
                 if (!ret) {
@@ -800,6 +782,23 @@ glusterd_op_stage_sync_volume (dict_t *dict, char **op_errstr)
                 } else {
                         ret = 0;
                 }
+         } else {
+                ret = glusterd_friend_find (NULL, hostname, &peerinfo);
+                if (ret) {
+                        snprintf (msg, sizeof (msg), "%s, is not a friend",
+                                  hostname);
+                        *op_errstr = gf_strdup (msg);
+                        goto out;
+                }
+
+                if (!peerinfo->connected) {
+                        snprintf (msg, sizeof (msg), "%s, is not connected at "
+                                  "the moment", hostname);
+                        *op_errstr = gf_strdup (msg);
+                        ret = -1;
+                        goto out;
+                }
+
         }
 
 out:
@@ -1654,7 +1653,7 @@ glusterd_op_sync_volume (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-        if (glusterd_is_local_addr (hostname)) {
+        if (!glusterd_is_local_addr (hostname)) {
                 ret = 0;
                 goto out;
         }
