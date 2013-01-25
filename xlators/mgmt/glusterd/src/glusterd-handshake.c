@@ -146,7 +146,7 @@ server_getspec (rpcsvc_request_t *req)
         *tmp = '\0';
 
         /* we trust the local admin */
-        if (!glusterd_is_local_addr (addrstr)) {
+        if (glusterd_is_local_addr (addrstr)) {
 
                 ret = build_volfile_path (volume, filename,
                                           sizeof (filename),

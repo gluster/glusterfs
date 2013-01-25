@@ -191,15 +191,13 @@ get_ip_from_addrinfo (struct addrinfo *addr, char **ip)
         return *ip;
 }
 
-/*TODO:FIXME: The function is expected to return a "yes/no" result.
-              change return type to bool.*/
-int32_t
+gf_boolean_t
 glusterd_is_local_addr (char *hostname)
 {
         int32_t         ret = -1;
         struct          addrinfo *result = NULL;
         struct          addrinfo *res = NULL;
-        int32_t         found = 0;
+        gf_boolean_t    found = _gf_false;
         int             sd = -1;
         char            *ip = NULL;
         xlator_t        *this = NULL;
@@ -244,7 +242,7 @@ out:
         if (!found)
                 gf_log (this->name, GF_LOG_DEBUG, "%s is not local", hostname);
 
-        return !found;
+        return found;
 }
 
 int32_t
@@ -4060,7 +4058,7 @@ glusterd_get_brickinfo (xlator_t *this, const char *brickname, int port,
         list_for_each_entry (volinfo, &priv->volumes, vol_list) {
                 list_for_each_entry (tmpbrkinfo, &volinfo->bricks,
                                      brick_list) {
-                        if (localhost && glusterd_is_local_addr (tmpbrkinfo->hostname))
+                        if (localhost && !glusterd_is_local_addr (tmpbrkinfo->hostname))
                                 continue;
                         if (!strcmp(tmpbrkinfo->path, brickname) &&
                             (tmpbrkinfo->port == port)) {
@@ -4725,11 +4723,12 @@ glusterd_hostname_to_uuid (char *hostname, uuid_t uuid)
 
         ret = glusterd_friend_find_by_hostname (hostname, &peerinfo);
         if (ret) {
-                ret = glusterd_is_local_addr (hostname);
-                if (ret)
-                        goto out;
-                else
+                if (glusterd_is_local_addr (hostname)) {
                         uuid_copy (uuid, MY_UUID);
+                        ret = 0;
+                } else {
+                        goto out;
+                }
         } else {
                 uuid_copy (uuid, peerinfo->uuid);
         }

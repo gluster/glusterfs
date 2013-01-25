@@ -148,7 +148,7 @@ glusterd_volume_brickinfo_get_by_brick (char *brick,
                                         glusterd_volinfo_t *volinfo,
                                         glusterd_brickinfo_t **brickinfo);
 
-int32_t
+gf_boolean_t
 glusterd_is_local_addr (char *hostname);
 
 int32_t
