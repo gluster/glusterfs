@@ -41,32 +41,91 @@
 
 /* {{{ writev */
 
-int
+void
+afr_writev_copy_outvars (call_frame_t *src_frame, call_frame_t *dst_frame)
+{
+        afr_local_t *src_local = NULL;
+        afr_local_t *dst_local = NULL;
+
+        src_local = src_frame->local;
+        dst_local = dst_frame->local;
+
+        dst_local->op_ret = src_local->op_ret;
+        dst_local->op_errno = src_local->op_errno;
+        dst_local->cont.writev.prebuf = src_local->cont.writev.prebuf;
+        dst_local->cont.writev.postbuf = src_local->cont.writev.postbuf;
+}
+
+void
 afr_writev_unwind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *   local = NULL;
-        call_frame_t   *main_frame = NULL;
+        local = frame->local;
+
+        AFR_STACK_UNWIND (writev, frame,
+                          local->op_ret, local->op_errno,
+                          &local->cont.writev.prebuf,
+                          &local->cont.writev.postbuf,
+                          NULL);
+}
+
+call_frame_t*
+afr_transaction_detach_fop_frame (call_frame_t *frame)
+{
+        afr_local_t *   local = NULL;
+        call_frame_t   *fop_frame = NULL;
 
         local = frame->local;
 
         LOCK (&frame->lock);
         {
-                if (local->transaction.main_frame)
-                        main_frame = local->transaction.main_frame;
+                fop_frame = local->transaction.main_frame;
                 local->transaction.main_frame = NULL;
         }
         UNLOCK (&frame->lock);
 
-        if (main_frame) {
-                AFR_STACK_UNWIND (writev, main_frame,
-                                  local->op_ret, local->op_errno,
-                                  &local->cont.writev.prebuf,
-                                  &local->cont.writev.postbuf,
-                                  NULL);
+        return fop_frame;
+}
+
+int
+afr_transaction_writev_unwind (call_frame_t *frame, xlator_t *this)
+{
+        call_frame_t *fop_frame = NULL;
+
+        fop_frame = afr_transaction_detach_fop_frame (frame);
+
+        if (fop_frame) {
+                afr_writev_copy_outvars (frame, fop_frame);
+                afr_writev_unwind (fop_frame, this);
         }
         return 0;
 }
 
+static void
+afr_writev_handle_short_writes (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t   *local = NULL;
+        afr_private_t *priv  = NULL;
+        int           i      = 0;
+
+        local = frame->local;
+        priv = this->private;
+        /*
+         * We already have the best case result of the writev calls staged
+         * as the return value. Any writev that returns some value less
+         * than the best case is now out of sync, so mark the fop as
+         * failed. Note that fops that have returned with errors have
+         * already been marked as failed.
+         */
+        for (i = 0; i < priv->child_count; i++) {
+                if ((!local->replies[i].valid) ||
+                    (local->replies[i].op_ret == -1))
+                        continue;
+
+                if (local->replies[i].op_ret < local->op_ret)
+                        afr_transaction_fop_failed(frame, this, i);
+        }
+}
 
 int
 afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -74,14 +133,12 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      struct iatt *postbuf, dict_t *xdata)
 {
         afr_local_t *   local = NULL;
+        call_frame_t    *fop_frame = NULL;
         int child_index = (long) cookie;
         int call_count  = -1;
         int read_child  = 0;
-	afr_private_t *priv = NULL;
-	int i = 0;
 
         local = frame->local;
-	priv = this->private;
 
         read_child = afr_inode_get_read_ctx (this, local->fd->inode, NULL);
 
@@ -118,24 +175,23 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
-		/*
-		 * We already have the best case result of the writev calls staged
-		 * as the return value. Any writev that returns some value less
-		 * than the best case is now out of sync, so mark the fop as
-		 * failed. Note that fops that have returned with errors have
-		 * already been marked as failed.
-		 */
-		for (i = 0; i < priv->child_count; i++) {
-			if ((!local->replies[i].valid) ||
-			    (local->replies[i].op_ret == -1))
-				continue;
 
-			if (local->replies[i].op_ret < local->op_ret)
-				afr_transaction_fop_failed(frame, this, i);
-		}
+                afr_writev_handle_short_writes (frame, this);
+                /*
+                 * Generally inode-write fops do transaction.unwind then
+                 * transaction.resume, but writev needs to make sure that
+                 * delayed post-op frame is placed in fdctx before unwind
+                 * happens. This prevents the race of flush doing the
+                 * changelog wakeup first in fuse thread and then this
+                 * writev placing its delayed post-op frame in fdctx.
+                 * This helps flush make sure all the delayed post-ops are
+                 * completed.
+                 */
 
-                local->transaction.unwind (frame, this);
+                fop_frame = afr_transaction_detach_fop_frame (frame);
+                afr_writev_copy_outvars (frame, fop_frame);
                 local->transaction.resume (frame, this);
+                afr_writev_unwind (fop_frame, this);
         }
         return 0;
 }
@@ -228,7 +284,7 @@ afr_do_writev (call_frame_t *frame, xlator_t *this)
         }
 
         transaction_frame->local = local;
-        frame->local = NULL;
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
 
         local->op = GF_FOP_WRITE;
 
@@ -236,7 +292,7 @@ afr_do_writev (call_frame_t *frame, xlator_t *this)
 
         local->transaction.fop    = afr_writev_wind;
         local->transaction.done   = afr_writev_done;
-        local->transaction.unwind = afr_writev_unwind;
+        local->transaction.unwind = afr_transaction_writev_unwind;
 
         local->transaction.main_frame = frame;
         if (local->fd->flags & O_APPEND) {
