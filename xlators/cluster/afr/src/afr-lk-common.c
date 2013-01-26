@@ -913,6 +913,8 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->op_errno              = op_errno;
                         int_lock->lock_op_errno      = op_errno;
                 }
+
+		int_lock->lk_attempted_count++;
         }
         UNLOCK (&frame->lock);
 
@@ -1072,7 +1074,7 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
                         child_index++;
         }
 
-        if ((child_index == priv->child_count) &&
+        if ((int_lock->lk_expected_count == int_lock->lk_attempted_count) &&
             ((afr_is_entrylk (int_lock, local->transaction.type) &&
               int_lock->entrylk_lock_count == 0) ||
              (int_lock->lock_count == 0))){
@@ -1091,10 +1093,7 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
 
         }
 
-        if ((child_index == priv->child_count) ||
-            (int_lock->entrylk_lock_count == int_lock->lk_expected_count) ||
-            (int_lock->lock_count == int_lock->lk_expected_count)) {
-
+        if (int_lock->lk_expected_count == int_lock->lk_attempted_count) {
                 /* we're done locking */
 
                 gf_log (this->name, GF_LOG_DEBUG,
