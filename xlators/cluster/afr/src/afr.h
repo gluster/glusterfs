@@ -382,6 +382,7 @@ typedef struct {
         uint64_t lock_number;
         int32_t lk_call_count;
         int32_t lk_expected_count;
+        int32_t lk_attempted_count;
 
         int32_t lock_op_ret;
         int32_t lock_op_errno;
