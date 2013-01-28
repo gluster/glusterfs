@@ -63,6 +63,9 @@ function rm_mv_correctness () {
     return $ret
 }
 
+TEST touch a;
+TEST mv a b;
+
 TEST rm_mv_correctness;
 TEST umount $M0;
 cleanup;

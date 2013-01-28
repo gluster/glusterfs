@@ -1030,6 +1030,7 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
         int ret = 0;
         int child_index = 0;
         int lockee_no   = 0;
+        gf_boolean_t is_entrylk = _gf_false;
 
         local         = frame->local;
         int_lock      = &local->internal_lock;
@@ -1074,23 +1075,23 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
                         child_index++;
         }
 
-        if ((int_lock->lk_expected_count == int_lock->lk_attempted_count) &&
-            ((afr_is_entrylk (int_lock, local->transaction.type) &&
-              int_lock->entrylk_lock_count == 0) ||
-             (int_lock->lock_count == 0))){
+        if (int_lock->lk_expected_count == int_lock->lk_attempted_count) {
+                is_entrylk = afr_is_entrylk (int_lock, local->transaction.type);
 
-                gf_log (this->name, GF_LOG_INFO,
-                        "unable to lock on even one child");
+                if ((is_entrylk && int_lock->entrylk_lock_count == 0) ||
+                    (!is_entrylk && int_lock->lock_count == 0)) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "unable to lock on even one child");
 
-                local->op_ret           = -1;
-                int_lock->lock_op_ret   = -1;
+                        local->op_ret           = -1;
+                        int_lock->lock_op_ret   = -1;
 
-                afr_copy_locked_nodes (frame, this);
+                        afr_copy_locked_nodes (frame, this);
 
-                afr_unlock(frame, this);
+                        afr_unlock(frame, this);
 
-                return 0;
-
+                        return 0;
+                }
         }
 
         if (int_lock->lk_expected_count == int_lock->lk_attempted_count) {
