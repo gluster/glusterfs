@@ -1925,9 +1925,12 @@ rpcsvc_transport_peer_check_search (dict_t *options, char *pattern, char *clstr)
         char                    *addrstr = NULL;
         char                    *dup_addrstr = NULL;
         char                    *svptr = NULL;
+        char                    *fqdn        = NULL;
 
         if ((!options) || (!clstr))
                 return -1;
+
+        ret = dict_get_str (options, "client.fqdn", &fqdn);
 
         if (!dict_get (options, pattern))
                 return -1;
@@ -1955,6 +1958,17 @@ rpcsvc_transport_peer_check_search (dict_t *options, char *pattern, char *clstr)
 #endif
                 if (ret == 0)
                         goto err;
+
+                /* compare hostnames if applicable */
+                if (fqdn) {
+#ifdef FNM_CASEFOLD
+                        ret = fnmatch (addrtok, fqdn, FNM_CASEFOLD);
+#else
+                        ret = fnmatch (addrtok, fqdn, 0);
+#endif
+                        if (ret == 0)
+                                goto err;
+                }
 
                 addrtok = strtok_r (NULL, ",", &svptr);
         }
@@ -2174,6 +2188,7 @@ rpcsvc_transport_peer_check_name (dict_t *options, char *volname,
         int     aret = RPCSVC_AUTH_REJECT;
         int     rjret = RPCSVC_AUTH_REJECT;
         char    clstr[RPCSVC_PEER_STRLEN];
+        char   *hostname    = NULL;
 
         if (!trans)
                 return ret;
@@ -2185,6 +2200,11 @@ rpcsvc_transport_peer_check_name (dict_t *options, char *volname,
                 ret = RPCSVC_AUTH_REJECT;
                 goto err;
         }
+
+        ret = gf_get_hostname_from_ip (clstr, &hostname);
+        if (!ret)
+                ret = dict_set_dynstr (options, "client.fqdn",
+                                       hostname);
 
         aret = rpcsvc_transport_peer_check_allow (options, volname, clstr);
         rjret = rpcsvc_transport_peer_check_reject (options, volname, clstr);

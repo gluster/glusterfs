@@ -1856,6 +1856,8 @@ rpcsvc_actor_t  mnt3svc_actors[MOUNT3_PROC_COUNT] = {
 
 /* Static init parts are assigned here, dynamic ones are done in
  * mnt3svc_init and mnt3_init_state.
+ * Making MOUNT3 a synctask so that the blocking DNS calls during rpc auth
+ * gets offloaded to syncenv, keeping the main/poll thread unblocked
  */
 rpcsvc_program_t        mnt3prog = {
                         .progname       = "MOUNT3",
@@ -1865,6 +1867,7 @@ rpcsvc_program_t        mnt3prog = {
                         .actors         = mnt3svc_actors,
                         .numactors      = MOUNT3_PROC_COUNT,
                         .min_auth       = AUTH_NULL,
+                        .synctask       = _gf_true,
 };
 
 
@@ -1953,6 +1956,7 @@ rpcsvc_program_t        mnt1prog = {
                         .actors         = mnt1svc_actors,
                         .numactors      = MOUNT1_PROC_COUNT,
                         .min_auth       = AUTH_NULL,
+                        .synctask       = _gf_true,
 };
 
 

@@ -2337,3 +2337,74 @@ gf_ports_reserved (char *blocked_port, gf_boolean_t *ports)
 out:
         return result;
 }
+
+/* Takes in client ip{v4,v6} and returns associated hostname, if any
+ * Also, allocates memory for the hostname.
+ * Returns: 0 for success, -1 for failure
+ */
+int
+gf_get_hostname_from_ip (char *client_ip, char **hostname)
+{
+        int                      ret                          = -1;
+        struct sockaddr         *client_sockaddr              = NULL;
+        struct sockaddr_in       client_sock_in               = {0};
+        struct sockaddr_in6      client_sock_in6              = {0};
+        char                     client_hostname[NI_MAXHOST]  = {0};
+        char                    *client_ip_copy               = NULL;
+        char                    *tmp                          = NULL;
+        char                    *ip                           = NULL;
+
+        /* if ipv4, reverse lookup the hostname to
+         * allow FQDN based rpc authentication
+         */
+        if (valid_ipv4_address (client_ip, strlen (client_ip), 0) == _gf_false) {
+                /* most times, we get a.b.c.d:port form, so check that */
+                client_ip_copy = gf_strdup (client_ip);
+                if (!client_ip_copy)
+                        goto out;
+
+                ip = strtok_r (client_ip_copy, ":", &tmp);
+        } else {
+                ip = client_ip;
+        }
+
+        if (valid_ipv4_address (ip, strlen (ip), 0) == _gf_true) {
+                client_sockaddr = (struct sockaddr *)&client_sock_in;
+                client_sock_in.sin_family = AF_INET;
+                ret = inet_pton (AF_INET, ip,
+                                 (void *)&client_sock_in.sin_addr.s_addr);
+
+        } else if (valid_ipv6_address (ip, strlen (ip), 0) == _gf_true) {
+                client_sockaddr = (struct sockaddr *) &client_sock_in6;
+
+                client_sock_in6.sin6_family = AF_INET6;
+                ret = inet_pton (AF_INET6, ip,
+                                 (void *)&client_sock_in6.sin6_addr);
+        } else {
+                goto out;
+        }
+
+        if (ret != 1) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = getnameinfo (client_sockaddr,
+                           sizeof (*client_sockaddr),
+                           client_hostname, sizeof (client_hostname),
+                           NULL, 0, 0);
+        if (ret) {
+                gf_log ("common-utils", GF_LOG_ERROR,
+                        "Could not lookup hostname of %s : %s",
+                        client_ip, gai_strerror (ret));
+                ret = -1;
+                goto out;
+        }
+
+        *hostname = gf_strdup ((char *)client_hostname);
+ out:
+        if (client_ip_copy)
+                GF_FREE (client_ip_copy);
+
+        return ret;
+}
