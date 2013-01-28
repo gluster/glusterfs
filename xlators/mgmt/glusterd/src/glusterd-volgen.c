@@ -209,6 +209,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.nfs.quick-read",           "performance/quick-read",    "!nfsperf", "off", NO_DOC, 0, 1},
         {"performance.nfs.stat-prefetch",        "performance/md-cache",      "!nfsperf", "off", NO_DOC, 0, 1},
         {"performance.nfs.io-threads",           "performance/io-threads",    "!nfsperf", "off", NO_DOC, 0, 1},
+	{"performance.force-readdirp",		 "performance/md-cache",      "force-readdirp", NULL, DOC, 0, 2},
 
         /* Quota xlator options */
         {VKEY_FEATURES_LIMIT_USAGE,              "features/quota",            "limit-set", NULL, NO_DOC, 0, 1},
