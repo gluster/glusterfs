@@ -63,8 +63,8 @@ function rm_mv_correctness () {
     return $ret
 }
 
-TEST touch a;
-TEST mv a b;
+TEST touch $M0/a;
+TEST mv $M0/a $M0/b;
 
 TEST rm_mv_correctness;
 TEST umount $M0;
