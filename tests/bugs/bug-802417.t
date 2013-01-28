@@ -9,31 +9,7 @@ function write_file()
 	echo "$*" > "$path"
 }
 
-function check_xattrs()
-{
-	result=""
-
-	for observer in 0 1 2; do
-		obs_path=${B0}/${V0}-$observer/a_file
-		for target in 0 1 2; do
-			tgt_xattr="trusted.afr.${V0}-client-$target"
-			actual=$(afr_get_changelog_xattr $obs_path $tgt_xattr)
-			if [ $observer -ne 2 -a $target -eq 2 ]; then
-				expected=0x000000020000000000000000
-			else 
-				expected=0x000000000000000000000000
-			fi
-			if [ "$actual" = "$expected" ]; then
-				result="${result}y"
-			else
-				result="${result}n"
-			fi
-		done
-	done
-
-	echo $result
-}
-	
+cleanup;
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume info;
@@ -81,7 +57,41 @@ EXPECT_WITHIN 20 "1" afr_child_up_status $V0 2
 TEST kill_brick ${V0} ${H0} ${B0}/${V0}-2
 TEST ls -l ${M0}/a_file
 
-EXPECT "yyyyyyyyy" check_xattrs
+
+obs_path_0=${B0}/${V0}-0/a_file
+obs_path_1=${B0}/${V0}-1/a_file
+obs_path_2=${B0}/${V0}-2/a_file
+
+tgt_xattr_0="trusted.afr.${V0}-client-0"
+tgt_xattr_1="trusted.afr.${V0}-client-1"
+tgt_xattr_2="trusted.afr.${V0}-client-2"
+
+actual=$(afr_get_changelog_xattr $obs_path_0 $tgt_xattr_0)
+EXPECT "0x000000000000000000000000" echo $actual
+
+actual=$(afr_get_changelog_xattr $obs_path_0 $tgt_xattr_1)
+EXPECT "0x000000000000000000000000" echo $actual
+
+actual=$(afr_get_changelog_xattr $obs_path_0 $tgt_xattr_2)
+EXPECT "0x000000020000000000000000" echo $actual
+
+actual=$(afr_get_changelog_xattr $obs_path_1 $tgt_xattr_0)
+EXPECT "0x000000000000000000000000" echo $actual
+
+actual=$(afr_get_changelog_xattr $obs_path_1 $tgt_xattr_1)
+EXPECT "0x000000000000000000000000" echo $actual
+
+actual=$(afr_get_changelog_xattr $obs_path_1 $tgt_xattr_2)
+EXPECT "0x000000020000000000000000" echo $actual
+
+actual=$(afr_get_changelog_xattr $obs_path_2 $tgt_xattr_0)
+EXPECT "0x000000000000000000000000" echo $actual
+
+actual=$(afr_get_changelog_xattr $obs_path_2 $tgt_xattr_1)
+EXPECT "0x000000000000000000000000" echo $actual
+
+actual=$(afr_get_changelog_xattr $obs_path_2 $tgt_xattr_2)
+EXPECT "0x000000000000000000000000" echo $actual
 
 if [ "$EXIT_EARLY" = "1" ]; then
 	exit 0;
