@@ -32,6 +32,7 @@ struct mdc_conf {
 	int  timeout;
 	gf_boolean_t cache_posix_acl;
 	gf_boolean_t cache_selinux;
+	gf_boolean_t force_readdirp;
 };
 
 
@@ -1787,12 +1788,27 @@ mdc_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	return 0;
 }
 
+int
+mdc_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
+		int op_errno, gf_dirent_t *entries, dict_t *xdata)
+{
+	STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, entries, xdata);
+	return 0;
+}
 
 int
 mdc_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	     size_t size, off_t offset, dict_t *xdata)
 {
         int need_unref = 0;
+	struct mdc_conf *conf = this->private;
+
+	if (!conf->force_readdirp) {
+		STACK_WIND(frame, mdc_readdir_cbk, FIRST_CHILD(this),
+			   FIRST_CHILD(this)->fops->readdir, fd, size, offset,
+			   xdata);
+		return 0;
+	}
 
 	if (!xdata) {
                 xdata = dict_new ();
@@ -1802,9 +1818,9 @@ mdc_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (xdata)
 		mdc_load_reqs (this, xdata);
 
-	STACK_WIND (frame, mdc_readdirp_cbk,
-		    FIRST_CHILD (this), FIRST_CHILD (this)->fops->readdirp,
-		    fd, size, offset, xdata);
+	STACK_WIND(frame, mdc_readdirp_cbk, FIRST_CHILD(this),
+		   FIRST_CHILD(this)->fops->readdirp, fd, size, offset,
+		   xdata);
 
         if (need_unref && xdata)
                 dict_unref (xdata);
@@ -1866,6 +1882,8 @@ reconfigure (xlator_t *this, dict_t *options)
 	GF_OPTION_RECONF ("cache-posix-acl", conf->cache_posix_acl, options, bool, out);
 	mdc_key_load_set (mdc_keys, "system.posix_acl_", conf->cache_posix_acl);
 
+	GF_OPTION_RECONF("force-readdirp", conf->force_readdirp, options, bool, out);
+
 out:
 	return 0;
 }
@@ -1898,6 +1916,8 @@ init (xlator_t *this)
 
 	GF_OPTION_INIT ("cache-posix-acl", conf->cache_posix_acl, bool, out);
 	mdc_key_load_set (mdc_keys, "system.posix_acl_", conf->cache_posix_acl);
+
+	GF_OPTION_INIT("force-readdirp", conf->force_readdirp, bool, out);
 out:
 	this->private = conf;
 
@@ -1960,4 +1980,10 @@ struct volume_options options[] = {
           .default_value = "1",
           .description = "Time period after which cache has to be refreshed",
         },
+	{ .key = {"force-readdirp"},
+	  .type = GF_OPTION_TYPE_BOOL,
+	  .default_value = "true",
+	  .description = "Convert all readdir requests to readdirplus to "
+			 "collect stat info on each entry.",
+	},
 };
