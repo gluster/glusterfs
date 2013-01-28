@@ -1019,6 +1019,17 @@ afr_is_entrylk (afr_internal_lock_t *int_lock,
         return is_entrylk;
 }
 
+static gf_boolean_t
+_is_lock_wind_needed (afr_local_t *local, int child_index)
+{
+        if (!local->child_up[child_index])
+                return _gf_false;
+        else if (local->fd && !local->fd_open_on[child_index])
+                return _gf_false;
+
+        return _gf_true;
+}
+
 int
 afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
 {
@@ -1059,20 +1070,6 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
 
                         return 0;
                 }
-
-                /* skip over children that or down
-                   or don't have the fd open */
-
-                while ((child_index < priv->child_count)
-                       && (!local->child_up[child_index] ||
-                          !local->fd_open_on[child_index]))
-
-                        child_index++;
-        } else {
-                /* skip over children that are down */
-                while ((child_index < priv->child_count)
-                       && !local->child_up[child_index])
-                        child_index++;
         }
 
         if (int_lock->lk_expected_count == int_lock->lk_attempted_count) {
@@ -1104,6 +1101,11 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
 
                 int_lock->lock_op_ret = 0;
                 int_lock->lock_cbk (frame, this);
+                return 0;
+        }
+
+        if (!_is_lock_wind_needed (local, child_index)) {
+                afr_lock_blocking (frame, this, cookie + 1);
                 return 0;
         }
 
@@ -1144,7 +1146,6 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
         case AFR_ENTRY_TRANSACTION:
                 /*Accounting for child_index increments on 'down'
                  *and 'fd-less' children */
-                cookie = lockee_no * priv->child_count + child_index;
 
                 if (local->fd) {
                         AFR_TRACE_ENTRYLK_IN (frame, this, AFR_ENTRYLK_TRANSACTION,

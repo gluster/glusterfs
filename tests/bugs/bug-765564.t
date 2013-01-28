@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 TEST glusterd
 TEST pidof glusterd
@@ -65,6 +66,16 @@ function rm_mv_correctness () {
 
 TEST touch $M0/a;
 TEST mv $M0/a $M0/b;
+
+#test rename fop when one of the bricks is down
+kill_brick ${V0} ${H0} ${B0}/${V0}-1;
+TEST touch $M0/h;
+TEST mv $M0/h $M0/1;
+
+TEST $CLI volume start $V0 force;
+
+EXPECT_WITHIN 20 "1" afr_child_up_status $V0 1;
+find $M0 | xargs stat 2>/dev/null 1>/dev/null;
 
 TEST rm_mv_correctness;
 TEST umount $M0;
