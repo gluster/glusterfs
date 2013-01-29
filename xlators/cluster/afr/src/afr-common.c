@@ -2557,11 +2557,7 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 	local->fd = fd_ref(fd);
         call_count = local->call_count;
 
-	/*
-	 * Ideally we should synchronize flush against completion of writing
-	 * the delayed changelog, but for now we just push it out first...
-	 */
-	afr_delayed_changelog_wake_up(this, fd);
+	afr_delayed_changelog_wake_up (this, fd);
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
@@ -2738,6 +2734,8 @@ afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
         call_count = local->call_count;
 
         local->fd             = fd_ref (fd);
+
+        afr_delayed_changelog_wake_up (this, fd);
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
