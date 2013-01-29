@@ -31,6 +31,16 @@ function write_to()
 
 TEST write_to "$M0/$F0" "$D0";
 EXPECT "$D0" cat $M1/$F0;
+EXPECT "$D0" cat $M0/$F0;
+EXPECT "$D0" cat $M1/$F0;
+EXPECT "$D0" cat $M0/$F0;
+
+sleep 1;
+
+EXPECT "$D0" cat $M1/$F0;
+EXPECT "$D0" cat $M0/$F0;
+EXPECT "$D0" cat $M1/$F0;
+EXPECT "$D0" cat $M0/$F0;
 
 TEST $CLI volume set $V0 performance.quick-read off;
 
@@ -38,7 +48,7 @@ D1="hello-this-is-a-test-message1";
 F1="test-file1";
 
 TEST write_to "$M0/$F1" "$D1";
-EXPECT "$D1" cat $M1/$F1;
+EXPECT "$D1" cat $M0/$F1;
 
 EXPECT "$D0" cat $M1/$F0;
 

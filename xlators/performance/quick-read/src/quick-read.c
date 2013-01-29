@@ -372,8 +372,12 @@ gf_boolean_t
 __qr_cache_is_fresh (xlator_t *this, qr_inode_t *qr_inode)
 {
 	qr_conf_t        *conf = NULL;
+	qr_private_t     *priv = NULL;
 	struct timeval    now;
 	struct timeval    diff;
+
+	priv = this->private;
+	conf = &priv->conf;
 
 	gettimeofday (&now, NULL);
 
@@ -444,6 +448,7 @@ qr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         qr_conf_t        *conf           = NULL;
         qr_inode_t       *qr_inode       = NULL;
 	int               ret            = -1;
+	dict_t           *new_xdata      = NULL;
 
         priv = this->private;
         conf = &priv->conf;
@@ -452,6 +457,9 @@ qr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 	if (qr_inode && qr_inode->data)
 		/* cached. only validate in qr_lookup_cbk */
 		goto wind;
+
+	if (!xdata)
+		xdata = new_xdata = dict_new ();
 
 	if (!xdata)
 		goto wind;
@@ -469,6 +477,9 @@ wind:
 
         STACK_WIND (frame, qr_lookup_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup, loc, xdata);
+
+	if (new_xdata)
+		dict_unref (new_xdata);
 
         return 0;
 }
@@ -598,7 +609,7 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	if (!qr_inode)
 		goto wind;
 
-	if (qr_readv_cached (frame, qr_inode, size, offset, flags, xdata) != 0)
+	if (qr_readv_cached (frame, qr_inode, size, offset, flags, xdata) <= 0)
 		goto wind;
 
 	return 0;
