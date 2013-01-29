@@ -168,3 +168,17 @@ function gf_rm_file_and_gfid_link {
         rm -f $(gf_get_gfid_backend_file_path $brickpath $filepath_in_brick)
         rm -f "$brickpath/$filepath_in_brick"
 }
+
+
+function gd_is_replace_brick_completed {
+        local host=$1
+        local vol=$2
+        local src_brick=$3
+        local dst_brick=$4
+        $CLI volume replace-brick $vol $src_brick $dst_brick status | grep -i "Migration complete"
+        if [ $? -eq 0 ]; then
+                echo "Y"
+        else
+                echo "N"
+        fi
+}
