@@ -605,6 +605,7 @@ __socket_disconnect (rpc_transport_t *this)
 			SSL_shutdown(priv->ssl_ssl);
 			SSL_clear(priv->ssl_ssl);
 			SSL_free(priv->ssl_ssl);
+                        priv->ssl_ssl = NULL;
 		}
 		if (priv->own_thread) {
 			/*
@@ -3241,6 +3242,7 @@ socket_init (rpc_transport_t *this)
         if (!priv) {
                 return -1;
         }
+        memset(priv,0,sizeof(*priv));
 
         pthread_mutex_init (&priv->lock, NULL);
 
