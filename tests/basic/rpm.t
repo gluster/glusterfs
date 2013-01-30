@@ -45,17 +45,16 @@ cd ${RESULT_DIR}/sources
 git clone -q -s file://${REPO} .
 git checkout -q -b rpm-test ${COMMIT}
 
-# build the .tar.gz
+# build the glusterfs-*.tar.gz and gluster-swift-ufo-*.tar.gz
 [ -e configure ] || ./autogen.sh 2>&1 > /dev/null
 TEST ./configure --enable-fusermount
+pwd
 TEST make dist
+ls *.tar.gz
 
-# need to use double quoting because the command is passed to TEST
-# EPEL-5 does not like new versions of rpmbuild and requires some _source_* defines
-TEST rpmbuild --define "'_srcrpmdir $PWD'" \
-	--define "'_source_payload w9.gzdio'" \
-	--define "'_source_filedigest_algorithm 1'" \
-	-ts *.tar.gz
+# build the glusterfs src.rpm
+ls extras
+TEST make -C extras/LinuxRPM testsrpm
 
 chmod g=rwx ${RESULT_DIR}
 chown :mock ${RESULT_DIR}

@@ -8,21 +8,29 @@ install-sh
 ltmain.sh
 Makefile.in
 missing
+py-compile
 *.sw?
 *~
 *.lo
 *.la
 *.o
+*.tar.gz
+*.rpm
 .libs
+.deps
 Makefile
 stamp-h1
 
 # Generated files
-extras/init.d/glusterfs-server.plist
-extras/init.d/glusterfsd-Debian
-extras/init.d/glusterfsd-Redhat
-extras/init.d/glusterfsd-SuSE
+contrib/uuid/uuid_types.h
+extras/init.d/glusterd.plist
+extras/init.d/glusterd-Debian
+extras/init.d/glusterd-Redhat
+extras/init.d/glusterd-SuSE
+extras/ocf/glusterd
+extras/ocf/volume
 glusterfs.spec
+glusterfs-api.pc
 libtool
 xlators/mount/fuse/utils/mount.glusterfs
 xlators/mount/fuse/utils/mount_glusterfs
