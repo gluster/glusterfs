@@ -3819,7 +3819,6 @@ fuse_migrate_fd_open (xlator_t *this, fd_t *basefd, fd_t *oldfd,
 out:
         loc_wipe (&loc);
 
-       	fd_unref (newfd);
         return ret;
 }
 
