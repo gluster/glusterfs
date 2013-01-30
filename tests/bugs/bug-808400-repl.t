@@ -22,9 +22,7 @@ EXPECT 'Created' volinfo_field $V0 'Status';
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
-#mount on a random dir
-TEST MOUNTDIR="/tmp/$RANDOM"
-TEST mkdir $MOUNTDIR
+MOUNTDIR=$M0;
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 --volfile-server=$H0 --volfile-id=$V0 $MOUNTDIR;
 
 function cleanup_tester ()
@@ -52,6 +50,5 @@ TEST rm -rf $MOUNTDIR/*
 TEST rm -rf $(dirname $0)/bug-808400-flock $(dirname $0)/bug-808400-fcntl $(dirname $0)/glusterfs.log
 
 TEST   umount $MOUNTDIR -l
-TEST   rm -rf $MOUNTDIR
 
 cleanup;
