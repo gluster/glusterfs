@@ -468,3 +468,21 @@ fd_lk_insert_and_merge (fd_t *fd, int32_t cmd,
 out:
         return ret;
 }
+
+
+gf_boolean_t
+fd_lk_ctx_empty (fd_lk_ctx_t *lk_ctx)
+{
+	gf_boolean_t verdict = _gf_true;
+
+	if (!lk_ctx)
+		return _gf_true;
+
+	LOCK (&lk_ctx->lock);
+	{
+		verdict = list_empty (&lk_ctx->lk_list);
+	}
+	UNLOCK (&lk_ctx->lock);
+
+	return verdict;
+}

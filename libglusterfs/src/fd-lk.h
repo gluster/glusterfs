@@ -18,6 +18,7 @@
 #include "mem-pool.h"
 #include "mem-types.h"
 #include "glusterfs.h"
+#include "common-utils.h"
 
 #define get_lk_type(type)                                               \
         type == F_UNLCK ? "F_UNLCK" : (type == F_RDLCK ? "F_RDLCK" : "F_WRLCK")
@@ -62,5 +63,8 @@ fd_lk_insert_and_merge (struct _fd *lk_ctx, int32_t cmd,
 
 int
 fd_lk_ctx_unref (fd_lk_ctx_t *lk_ctx);
+
+gf_boolean_t
+fd_lk_ctx_empty (fd_lk_ctx_t *lk_ctx);
 
 #endif /* _FD_LK_H */
