@@ -21,5 +21,5 @@ gitclean: distclean
 	rm -f argp-standalone/aclocal.m4 argp-standalone/config.h.in argp-standalone/configure argp-standalone/depcomp argp-standalone/install-sh argp-standalone/missing
 
 dist-hook:
-	sh -c "cd $(srcdir) && git diff && echo ===== git log ==== && git log" \
-	> $(distdir)/ChangeLog
+	(cd $(srcdir) && git diff && echo ===== git log ==== && git log) > $(distdir)/ChangeLog
+	tar czf gluster-swift-ufo-$(VERSION).tar.gz ufo
