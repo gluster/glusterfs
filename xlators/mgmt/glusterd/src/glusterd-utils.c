@@ -6471,7 +6471,7 @@ glusterd_gsync_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict, char *op_errstr)
                 if (ret)
                         goto out;
         }
-        if (strcmp ("", op_errstr)) {
+        if ((op_errstr) && (strcmp ("", op_errstr))) {
                 ret = dict_set_dynstr (ctx, "errstr", gf_strdup(op_errstr));
                 if (ret)
                         goto out;
