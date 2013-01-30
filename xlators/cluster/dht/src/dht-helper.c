@@ -627,6 +627,9 @@ dht_migration_complete_check_task (void *data)
 
         src_node = local->cached_subvol;
 
+        if (!local->loc.inode && !local->fd)
+                goto out;
+
         /* getxattr on cached_subvol for 'linkto' value */
         if (!local->loc.inode)
                 ret = syncop_fgetxattr (src_node, local->fd, &dict,
@@ -719,9 +722,6 @@ dht_migration_complete_check_task (void *data)
         local->cached_subvol = dst_node;
         ret = 0;
 
-        if (!local->fd)
-                goto out;
-
         /* once we detect the migration complete, the fd-ctx is no more
            required.. delete the ctx, and do one extra 'fd_unref' for open fd */
         ret = fd_ctx_del (local->fd, this, NULL);
@@ -805,6 +805,9 @@ dht_rebalance_inprogress_task (void *data)
 
         src_node = local->cached_subvol;
 
+        if (!local->loc.inode && !local->fd)
+                goto out;
+
         /* getxattr on cached_subvol for 'linkto' value */
         if (local->loc.inode)
                 ret = syncop_getxattr (src_node, &local->loc, &dict,
@@ -852,9 +855,6 @@ dht_rebalance_inprogress_task (void *data)
         }
 
         ret = 0;
-
-        if (!local->fd)
-                goto out;
 
         if (local->loc.inode) {
                 ret = syncop_open (dst_node, &local->loc,
