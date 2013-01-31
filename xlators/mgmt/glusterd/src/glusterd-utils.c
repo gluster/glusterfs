@@ -48,6 +48,7 @@
 #include <unistd.h>
 #include <fnmatch.h>
 #include <sys/statvfs.h>
+#include <ifaddrs.h>
 
 #ifdef GF_LINUX_HOST_OS
 #include <mntent.h>
@@ -192,13 +193,85 @@ get_ip_from_addrinfo (struct addrinfo *addr, char **ip)
 }
 
 gf_boolean_t
+glusterd_interface_search (char *ip)
+{
+        int32_t         ret = -1;
+        gf_boolean_t    found = _gf_false;
+        struct          ifaddrs *ifaddr, *ifa;
+        int             family;
+        char            host[NI_MAXHOST];
+        xlator_t        *this = NULL;
+        char            *pct = NULL;
+
+        this = THIS;
+
+        ret = getifaddrs (&ifaddr);
+
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "getifaddrs() failed: %s\n",
+                        gai_strerror(ret));
+                goto out;
+        }
+
+        for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+                if (!ifa->ifa_addr) {
+                        /*
+                         * This seemingly happens if an interface hasn't
+                         * been bound to a particular protocol (seen with
+                         * TUN devices).
+                         */
+                        continue;
+                }
+                family = ifa->ifa_addr->sa_family;
+
+                if (family != AF_INET && family != AF_INET6)
+                        continue;
+
+                ret = getnameinfo (ifa->ifa_addr,
+                        (family == AF_INET) ? sizeof(struct sockaddr_in) :
+                                              sizeof(struct sockaddr_in6),
+                        host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
+
+                if (ret != 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "getnameinfo() failed: %s\n",
+                                gai_strerror(ret));
+                        goto out;
+                }
+
+                /*
+                 * Sometimes the address comes back as addr%eth0 or
+                 * similar.  Since % is an invalid character, we can
+                 * strip it out with confidence that doing so won't
+                 * harm anything.
+                 */
+                pct = index(host,'%');
+                if (pct) {
+                        *pct = '\0';
+                }
+
+                if (strncmp (ip, host, NI_MAXHOST) == 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "%s is local address at interface %s",
+                                ip, ifa->ifa_name);
+                        found = _gf_true;
+                        goto out;
+                }
+        }
+out:
+        if(ifaddr)
+                freeifaddrs (ifaddr);
+        return found;
+}
+
+
+gf_boolean_t
 glusterd_is_local_addr (char *hostname)
 {
         int32_t         ret = -1;
         struct          addrinfo *result = NULL;
         struct          addrinfo *res = NULL;
         gf_boolean_t    found = _gf_false;
-        int             sd = -1;
         char            *ip = NULL;
         xlator_t        *this = NULL;
 
@@ -212,27 +285,13 @@ glusterd_is_local_addr (char *hostname)
         }
 
         for (res = result; res != NULL; res = res->ai_next) {
-                found = glusterd_is_loopback_localhost (res->ai_addr, hostname);
-                if (found)
-                        goto out;
-        }
-
-        for (res = result; res != NULL; res = res->ai_next) {
                 gf_log (this->name, GF_LOG_DEBUG, "%s ",
                         get_ip_from_addrinfo (res, &ip));
-                sd = socket (res->ai_family, SOCK_DGRAM, 0);
-                if (sd == -1)
+
+                found = glusterd_is_loopback_localhost (res->ai_addr, hostname)
+                        || glusterd_interface_search (ip);
+                if (found)
                         goto out;
-                /*If bind succeeds then its a local address*/
-                ret = bind (sd, res->ai_addr, res->ai_addrlen);
-                if (ret == 0) {
-                        found = _gf_true;
-                        gf_log (this->name, GF_LOG_DEBUG, "%s is local",
-                                get_ip_from_addrinfo (res, &ip));
-                        close (sd);
-                        break;
-                }
-                close (sd);
         }
 
 out:
