@@ -184,6 +184,12 @@ struct gf_sock_incoming {
 	char                *ra_buf;
 };
 
+typedef enum {
+        OT_IDLE,        /* Uninitialized or termination complete. */
+        OT_ALIVE,       /* Past pthread_create, no error/disconnect. */
+        OT_DYING,       /* Disconnect in progress. */
+} ot_state_t;
+
 typedef struct {
         int32_t                sock;
         int32_t                idx;
@@ -222,7 +228,8 @@ typedef struct {
 	pthread_t              thread;
 	int                    pipe[2];
 	gf_boolean_t           own_thread;
-	volatile int           socket_gen;
+        ot_state_t             ot_state;
+        pthread_cond_t         ot_event;
 } socket_private_t;
 
 
