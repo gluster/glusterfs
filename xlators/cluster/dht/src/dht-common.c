@@ -3876,6 +3876,15 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         ret = dht_layout_merge (this, layout, prev->this,
                                                 -1, ENOSPC, NULL);
                 } else {
+			if (op_ret == -1 && op_errno == EEXIST)
+				/* Very likely just a race between mkdir and
+				   self-heal (from lookup of a concurrent mkdir
+				   attempt).
+				   Ignore error for now. layout setting will
+				   anyways fail if this was a different (old)
+				   pre-existing different directory.
+				*/
+				op_ret = 0;
                         ret = dht_layout_merge (this, layout, prev->this,
                                                 op_ret, op_errno, NULL);
                 }
