@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -24,6 +25,8 @@ $(dirname $0)/bug-905864 $M0/file1 &
 $(dirname $0)/bug-905864 $M1/file1;
 wait
 rm -f $(dirname $0)/bug-905864
+
+EXPECT $(brick_count $V0) online_brick_count
 
 cleanup
 

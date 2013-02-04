@@ -14,6 +14,11 @@ function brick_count()
     $CLI volume info $vol | egrep "^Brick[0-9]+: " | wc -l;
 }
 
+function online_brick_count ()
+{
+    pidof glusterfsd | wc -w
+}
+
 function volume_option()
 {
         local vol=$1
