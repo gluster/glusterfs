@@ -2,5 +2,5 @@ quick-read=off
 read-ahead=off
 io-cache=off
 stat-prefetch=off
-linux-aio=enable
 eager-lock=enable
+remote-dio=enable
