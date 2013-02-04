@@ -1613,12 +1613,6 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        ret = glusterd_volume_compute_cksum (volinfo);
-        if (ret) {
-                *op_errstr = gf_strdup ("Failed to compute checksum of volume");
-                goto out;
-        }
-
         volinfo->rebal.defrag_status = 0;
         list_add_tail (&volinfo->vol_list, &priv->volumes);
         vol_added = _gf_true;
