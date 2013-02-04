@@ -1252,13 +1252,9 @@ glusterd_handle_reset_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        ret = glusterd_op_begin (req, GD_OP_RESET_VOLUME, dict,
-                                 err_str, sizeof (err_str));
+        ret = glusterd_op_begin_synctask (req, GD_OP_RESET_VOLUME, dict);
 
 out:
-        glusterd_friend_sm ();
-        glusterd_op_sm ();
-
         if (ret) {
                 if (err_str[0] == '\0')
                         snprintf (err_str, sizeof (err_str),
