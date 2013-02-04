@@ -6003,6 +6003,7 @@ cmd_heal_volume_brick_out (dict_t *dict, int brick)
         uint64_t        i = 0;
         uint32_t        time = 0;
         char            timestr[32] = {0};
+        char            *shd_status = NULL;
 
         snprintf (key, sizeof key, "%d-hostname", brick);
         ret = dict_get_str (dict, key, &hostname);
@@ -6013,33 +6014,45 @@ cmd_heal_volume_brick_out (dict_t *dict, int brick)
         if (ret)
                 goto out;
         cli_out ("\nBrick %s:%s", hostname, path);
-        snprintf (key, sizeof key, "%d-count", brick);
-        ret = dict_get_uint64 (dict, key, &num_entries);
-        cli_out ("Number of entries: %"PRIu64, num_entries);
+
         snprintf (key, sizeof key, "%d-status", brick);
         ret = dict_get_str (dict, key, &status);
         if (status && strlen (status))
                 cli_out ("Status: %s", status);
-        for (i = 0; i < num_entries; i++) {
-                snprintf (key, sizeof key, "%d-%"PRIu64, brick, i);
-                ret = dict_get_str (dict, key, &path);
-                if (ret)
-                        continue;
-                time = 0;
-                snprintf (key, sizeof key, "%d-%"PRIu64"-time", brick, i);
-                ret = dict_get_uint32 (dict, key, &time);
-                if (!time) {
-                        cli_out ("%s", path);
-                } else {
-                        gf_time_fmt (timestr, sizeof timestr,
-                                     time, gf_timefmt_FT);
-                        if (i == 0) {
+
+        snprintf (key, sizeof key, "%d-shd-status",brick);
+        ret = dict_get_str (dict, key, &shd_status);
+
+        if(!shd_status)
+        {
+                snprintf (key, sizeof key, "%d-count", brick);
+                ret = dict_get_uint64 (dict, key, &num_entries);
+                cli_out ("Number of entries: %"PRIu64, num_entries);
+
+
+                for (i = 0; i < num_entries; i++) {
+                        snprintf (key, sizeof key, "%d-%"PRIu64, brick, i);
+                        ret = dict_get_str (dict, key, &path);
+                        if (ret)
+                                continue;
+                        time = 0;
+                        snprintf (key, sizeof key, "%d-%"PRIu64"-time",
+                                  brick, i);
+                        ret = dict_get_uint32 (dict, key, &time);
+                        if (!time) {
+                                cli_out ("%s", path);
+                        } else {
+                                gf_time_fmt (timestr, sizeof timestr,
+                                             time, gf_timefmt_FT);
+                                if (i == 0) {
                                 cli_out ("at                    path on brick");
                                 cli_out ("-----------------------------------");
+                                }
+                                cli_out ("%s %s", timestr, path);
                         }
-                        cli_out ("%s %s", timestr, path);
                 }
         }
+
 out:
         return;
 }

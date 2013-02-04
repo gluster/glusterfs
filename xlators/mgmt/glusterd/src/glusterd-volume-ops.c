@@ -1085,11 +1085,13 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
         glusterd_conf_t                         *priv = NULL;
         dict_t                                  *opt_dict = NULL;
         gf_xl_afr_op_t                          heal_op = GF_AFR_OP_INVALID;
+        xlator_t                                *this = NULL;
 
-        priv = THIS->private;
+        this = THIS;
+        priv = this->private;
         if (!priv) {
                 ret = -1;
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_ERROR,
                         "priv is NULL");
                 goto out;
         }
@@ -1104,7 +1106,7 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
         if (ret) {
                 ret = -1;
                 snprintf (msg, sizeof (msg), "Volume %s does not exist", volname);
-                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
                 *op_errstr = gf_strdup (msg);
                 goto out;
         }
@@ -1118,7 +1120,7 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
                 snprintf (msg, sizeof (msg), "Volume %s is not of type "
                           "replicate", volname);
                 *op_errstr = gf_strdup (msg);
-                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
+                gf_log (this->name, GF_LOG_WARNING, "%s", msg);
                 goto out;
         }
 
@@ -1144,26 +1146,26 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
                 snprintf (msg, sizeof (msg), "Self-heal-daemon is "
                           "disabled. Heal will not be triggered on volume %s",
                           volname);
-                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
+                gf_log (this->name, GF_LOG_WARNING, "%s", msg);
                 *op_errstr = gf_strdup (msg);
-                goto out;
-        }
-
-        if (!glusterd_is_nodesvc_online ("glustershd")) {
-                ret = -1;
-                snprintf (msg, sizeof (msg), "Self-heal daemon is not "
-                          "running. Check self-heal daemon log file.");
-                *op_errstr = gf_strdup (msg);
-                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
                 goto out;
         }
 
         ret = dict_get_int32 (dict, "heal-op", (int32_t*)&heal_op);
         if (ret || (heal_op == GF_AFR_OP_INVALID)) {
                 ret = -1;
-                snprintf (msg, sizeof (msg), "Invalid heal-op");
-                *op_errstr = gf_strdup (msg);
-                gf_log (THIS->name, GF_LOG_WARNING, "%s", msg);
+                *op_errstr = gf_strdup("Invalid heal-op");
+                gf_log (this->name, GF_LOG_WARNING, "%s", "Invalid heal-op");
+                goto out;
+        }
+
+        if ((heal_op != GF_AFR_OP_INDEX_SUMMARY) &&
+            !glusterd_is_nodesvc_online ("glustershd")) {
+                ret = -1;
+                *op_errstr = gf_strdup ("Self-heal daemon is not running."
+                                        " Check self-heal daemon log file.");
+                gf_log (this->name, GF_LOG_WARNING, "%s", "Self-heal daemon is "
+                        "not running. Check self-heal daemon log file.");
                 goto out;
         }
 
