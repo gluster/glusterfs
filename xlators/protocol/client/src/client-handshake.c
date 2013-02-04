@@ -631,6 +631,7 @@ clnt_release_reopen_fd (xlator_t *this, clnt_fd_ctx_t *fdctx)
                                         clnt_release_reopen_fd_cbk, NULL,
                                         NULL, 0, NULL, 0, NULL,
                                         (xdrproc_t)xdr_gfs3_releasedir_req);
+        return 0;
  out:
         if (ret) {
                 clnt_fd_lk_reacquire_failed (this, fdctx, conf);
@@ -1131,7 +1132,6 @@ protocol_client_reopendir (clnt_fd_ctx_t *fdctx, xlator_t *this)
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to send the re-opendir request");
-                goto out;
         }
 
         return 0;
@@ -1196,7 +1196,6 @@ protocol_client_reopenfile (clnt_fd_ctx_t *fdctx, xlator_t *this)
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to send the re-open request");
-                goto out;
         }
 
         return 0;
