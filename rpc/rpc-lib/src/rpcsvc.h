@@ -244,8 +244,6 @@ struct rpcsvc_request {
 #define rpcsvc_request_program_private(req) (((rpcsvc_program_t *)((req)->prog))->private)
 #define rpcsvc_request_accepted(req)    ((req)->rpc_status == MSG_ACCEPTED)
 #define rpcsvc_request_accepted_success(req) ((req)->rpc_err == SUCCESS)
-#define rpcsvc_request_uid(req)         ((req)->uid)
-#define rpcsvc_request_gid(req)         ((req)->gid)
 #define rpcsvc_request_prog_minauth(req) (rpcsvc_request_program(req)->min_auth)
 #define rpcsvc_request_cred_flavour(req) (rpcsvc_auth_flavour(req->cred))
 #define rpcsvc_request_verf_flavour(req) (rpcsvc_auth_flavour(req->verf))
