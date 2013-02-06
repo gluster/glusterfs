@@ -2457,6 +2457,11 @@ fuse_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                            strlen (entry->d_name));
         }
 
+	if (size <= 0) {
+		send_fuse_data (this, finh, 0, 0);
+		goto out;
+	}
+
         buf = GF_CALLOC (1, size, gf_fuse_mt_char);
         if (!buf) {
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
