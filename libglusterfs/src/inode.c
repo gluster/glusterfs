@@ -1624,6 +1624,7 @@ inode_dump (inode_t *inode, char *prefix)
         {
                 gf_proc_dump_write("gfid", "%s", uuid_utoa (inode->gfid));
                 gf_proc_dump_write("nlookup", "%ld", inode->nlookup);
+                gf_proc_dump_write("fd-count", "%u", inode->fd_count);
                 gf_proc_dump_write("ref", "%u", inode->ref);
                 gf_proc_dump_write("ia_type", "%d", inode->ia_type);
                 if (inode->_ctx) {

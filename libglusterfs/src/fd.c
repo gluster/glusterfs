@@ -513,6 +513,11 @@ fd_destroy (fd_t *fd)
         LOCK_DESTROY (&fd->lock);
 
         GF_FREE (fd->_ctx);
+        LOCK (&fd->inode->lock);
+        {
+                fd->inode->fd_count--;
+        }
+        UNLOCK (&fd->inode->lock);
         inode_unref (fd->inode);
         fd->inode = (inode_t *)0xaaaaaaaa;
         fd_lk_ctx_unref (fd->lk_ctx);
@@ -552,6 +557,7 @@ __fd_bind (fd_t *fd)
 {
         list_del_init (&fd->inode_list);
         list_add (&fd->inode_list, &fd->inode->fd_list);
+        fd->inode->fd_count++;
 
         return fd;
 }
