@@ -76,13 +76,9 @@ glusterd_handle_log_rotate (rpcsvc_request_t *req)
         if (ret)
                 goto out;
 
-        ret = glusterd_op_begin (req, GD_OP_LOG_ROTATE, dict,
-                                 msg, sizeof (msg));
+        ret = glusterd_op_begin_synctask (req, GD_OP_LOG_ROTATE, dict);
 
 out:
-        glusterd_friend_sm ();
-        glusterd_op_sm ();
-
         if (ret) {
                 if (msg[0] == '\0')
                         snprintf (msg, sizeof (msg), "Operation failed");
