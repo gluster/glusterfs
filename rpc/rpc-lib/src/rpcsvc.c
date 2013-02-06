@@ -1754,6 +1754,7 @@ sendrsp:
                 ret = RPCSVC_ACTOR_ERROR;
         } else {
                 rpcsvc_submit_generic (req, &iov, 1, NULL, 0, NULL);
+                ret = 0;
         }
 
         free_prog_details (&rsp);
