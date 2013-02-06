@@ -1243,26 +1243,27 @@ afr_nonblocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                int_lock->lockee[lockee_no].basename, op_ret,
                                op_errno, (long) cookie);
 
-        if (op_ret < 0 ) {
-                if (op_errno == ENOSYS) {
+	LOCK (&frame->lock);
+	{
+		if (op_ret < 0 ) {
+			if (op_errno == ENOSYS) {
                         /* return ENOTSUP */
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "subvolume does not support locking. "
-                                "please load features/locks xlator on server");
-                        local->op_ret         = op_ret;
-                        int_lock->lock_op_ret = op_ret;
+				gf_log (this->name, GF_LOG_ERROR,
+					"subvolume does not support locking. "
+					"please load features/locks xlator on server");
+				local->op_ret         = op_ret;
+				int_lock->lock_op_ret = op_ret;
 
-                        int_lock->lock_op_errno      = op_errno;
-                        local->op_errno              = op_errno;
-                }
-        } else if (op_ret == 0) {
-                int_lock->lockee[lockee_no].locked_nodes[index] |= LOCKED_YES;
-                int_lock->lockee[lockee_no].locked_count++;
-                int_lock->entrylk_lock_count++;
-        }
+				int_lock->lock_op_errno      = op_errno;
+				local->op_errno              = op_errno;
+			}
+		} else if (op_ret == 0) {
+			int_lock->lockee[lockee_no].locked_nodes[index] |= \
+				LOCKED_YES;
+			int_lock->lockee[lockee_no].locked_count++;
+			int_lock->entrylk_lock_count++;
+		}
 
-        LOCK (&frame->lock);
-        {
                 call_count = --int_lock->lk_call_count;
         }
         UNLOCK (&frame->lock);
@@ -1426,47 +1427,47 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                AFR_LOCK_OP, NULL, op_ret,
                                op_errno, (long) cookie);
 
-        if (op_ret < 0) {
-                if (op_errno == ENOSYS) {
-                        /* return ENOTSUP */
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "subvolume does not support locking. "
-                                "please load features/locks xlator on server");
-                        local->op_ret                = op_ret;
-                        int_lock->lock_op_ret        = op_ret;
-                        int_lock->lock_op_errno      = op_errno;
-                        local->op_errno              = op_errno;
-                }
-                if (local->transaction.eager_lock)
-                        local->transaction.eager_lock[child_index] = 0;
-        } else {
-                int_lock->inode_locked_nodes[child_index]
-                        |= LOCKED_YES;
-                int_lock->inodelk_lock_count++;
-
-                if (local->transaction.eager_lock &&
-                    local->transaction.eager_lock[child_index] && local->fd) {
-                        fd_ctx = afr_fd_ctx_get (local->fd, this);
-                        /* piggybacked */
-
-                        if (op_ret == 1) {
-                                /* piggybacked */
-                        } else if (op_ret == 0) {
-                                /* lock acquired from server */
-                                LOCK (&local->fd->lock);
-                                {
-                                        fd_ctx->lock_acquired[child_index]++;
-                                }
-                                UNLOCK (&local->fd->lock);
-                        }
-                }
-        }
+	if (local->fd)
+		fd_ctx = afr_fd_ctx_get (local->fd, this);
 
         LOCK (&frame->lock);
         {
+		if (op_ret < 0) {
+			if (op_errno == ENOSYS) {
+				/* return ENOTSUP */
+				gf_log (this->name, GF_LOG_ERROR,
+					"subvolume does not support locking. "
+					"please load features/locks xlator on "
+					"server");
+				local->op_ret                = op_ret;
+				int_lock->lock_op_ret        = op_ret;
+				int_lock->lock_op_errno      = op_errno;
+				local->op_errno              = op_errno;
+			}
+			if (local->transaction.eager_lock)
+				local->transaction.eager_lock[child_index] = 0;
+		} else {
+			int_lock->inode_locked_nodes[child_index]
+				|= LOCKED_YES;
+			int_lock->inodelk_lock_count++;
+
+			if (local->transaction.eager_lock &&
+			    local->transaction.eager_lock[child_index] &&
+			    local->fd) {
+				/* piggybacked */
+				if (op_ret == 1) {
+					/* piggybacked */
+				} else if (op_ret == 0) {
+					/* lock acquired from server */
+                                        fd_ctx->lock_acquired[child_index]++;
+				}
+			}
+		}
+
                 call_count = --int_lock->lk_call_count;
         }
         UNLOCK (&frame->lock);
+
         if (call_count == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "Last inode locking reply received");
