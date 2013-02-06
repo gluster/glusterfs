@@ -26,8 +26,8 @@ function volume_option()
         $CLI volume info $vol | egrep "^$key: " | cut -f2 -d' ';
 }
 
-function rebalance_status_completed_field {
-        $CLI volume rebalance $V0 status | awk '{print $6}' | sed -n 3p
+function rebalance_status_field {
+        $CLI volume rebalance $1 status | sed -n '$p' | cut -d' ' -f4
 }
 
 function remove_brick_status_completed_field {
@@ -193,4 +193,9 @@ function gd_is_replace_brick_completed {
         else
                 echo "N"
         fi
+}
+
+function dht_get_layout {
+	local my_xa=trusted.glusterfs.dht
+	getfattr -d -e hex -n $my_xa $1 2> /dev/null | grep "$my_xa=" | cut -d= -f2
 }
