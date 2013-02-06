@@ -173,14 +173,9 @@ _posix_xattr_get_set (dict_t *xattr_req,
                 }
         } else if (!strcmp (key, GLUSTERFS_OPEN_FD_COUNT)) {
                 loc = filler->loc;
-                if (loc && !list_empty (&loc->inode->fd_list)) {
-                        ret = dict_set_uint32 (filler->xattr, key, 1);
-                        if (ret < 0)
-                                gf_log (filler->this->name, GF_LOG_WARNING,
-                                        "Failed to set dictionary value for %s",
-                                        key);
-                } else {
-                        ret = dict_set_uint32 (filler->xattr, key, 0);
+                if (loc) {
+                        ret = dict_set_uint32 (filler->xattr, key,
+                                               loc->inode->fd_count);
                         if (ret < 0)
                                 gf_log (filler->this->name, GF_LOG_WARNING,
                                         "Failed to set dictionary value for %s",
