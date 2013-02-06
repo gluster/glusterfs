@@ -339,7 +339,9 @@ fuse_ino_to_inode (uint64_t ino, xlator_t *fuse)
 uint64_t
 inode_to_fuse_nodeid (inode_t *inode)
 {
-        if (!inode || __is_root_gfid (inode->gfid))
+        if (!inode)
+		return 0;
+	if (__is_root_gfid (inode->gfid))
                 return 1;
 
         return (unsigned long) inode;

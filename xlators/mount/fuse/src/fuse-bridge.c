@@ -2521,6 +2521,139 @@ fuse_readdir (xlator_t *this, fuse_in_header_t *finh, void *msg)
         fuse_resolve_and_resume (state, fuse_readdir_resume);
 }
 
+
+static int
+fuse_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		   int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
+		   dict_t *xdata)
+{
+	fuse_state_t *state = NULL;
+	fuse_in_header_t *finh = NULL;
+	int           size = 0;
+	char         *buf = NULL;
+	gf_dirent_t  *entry = NULL;
+	struct fuse_direntplus *fde = NULL;
+	struct fuse_entry_out *feo = NULL;
+	fuse_private_t         *priv   = NULL;
+
+	state = frame->root->state;
+	finh  = state->finh;
+	priv = this->private;
+
+	if (op_ret < 0) {
+		gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+			"%"PRIu64": READDIRP => -1 (%s)", frame->root->unique,
+			strerror (op_errno));
+
+		send_fuse_err (this, finh, op_errno);
+		goto out;
+	}
+
+	gf_log ("glusterfs-fuse", GF_LOG_TRACE,
+		"%"PRIu64": READDIRP => %d/%"GF_PRI_SIZET",%"PRId64,
+		frame->root->unique, op_ret, state->size, state->off);
+
+	list_for_each_entry (entry, &entries->list, list) {
+		size += FUSE_DIRENT_ALIGN (FUSE_NAME_OFFSET_DIRENTPLUS +
+					   strlen (entry->d_name));
+	}
+
+	if (size <= 0) {
+		send_fuse_data (this, finh, 0, 0);
+		goto out;
+	}
+
+	buf = GF_CALLOC (1, size, gf_fuse_mt_char);
+	if (!buf) {
+		gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+			"%"PRIu64": READDIRP => -1 (%s)", frame->root->unique,
+			strerror (ENOMEM));
+		send_fuse_err (this, finh, ENOMEM);
+		goto out;
+	}
+
+	size = 0;
+	list_for_each_entry (entry, &entries->list, list) {
+		inode_t *linked_inode;
+
+		fde = (struct fuse_direntplus *)(buf + size);
+		feo = &fde->entry_out;
+		fde->dirent.ino = entry->d_ino;
+		fde->dirent.off = entry->d_off;
+		fde->dirent.type = entry->d_type;
+		fde->dirent.namelen = strlen (entry->d_name);
+		strncpy (fde->dirent.name, entry->d_name, fde->dirent.namelen);
+		size += FUSE_DIRENTPLUS_SIZE (fde);
+
+		if (!entry->inode)
+			continue;
+
+		entry->d_stat.ia_blksize = this->ctx->page_size;
+		gf_fuse_stat2attr (&entry->d_stat, &feo->attr, priv->enable_ino32);
+
+		linked_inode = inode_link (entry->inode, state->fd->inode,
+					   entry->d_name, &entry->d_stat);
+		if (!linked_inode)
+			continue;
+
+		inode_lookup (linked_inode);
+
+		feo->nodeid = inode_to_fuse_nodeid (linked_inode);
+
+		inode_unref (linked_inode);
+
+		feo->entry_valid =
+			calc_timeout_sec (priv->entry_timeout);
+		feo->entry_valid_nsec =
+			calc_timeout_nsec (priv->entry_timeout);
+		feo->attr_valid =
+			calc_timeout_sec (priv->attribute_timeout);
+		feo->attr_valid_nsec =
+			calc_timeout_nsec (priv->attribute_timeout);
+	}
+
+	send_fuse_data (this, finh, buf, size);
+out:
+	free_fuse_state (state);
+	STACK_DESTROY (frame->root);
+	GF_FREE (buf);
+	return 0;
+
+}
+
+
+void
+fuse_readdirp_resume (fuse_state_t *state)
+{
+	gf_log ("glusterfs-fuse", GF_LOG_TRACE,
+		"%"PRIu64": READDIRP (%p, size=%zu, offset=%"PRId64")",
+		state->finh->unique, state->fd, state->size, state->off);
+
+	FUSE_FOP (state, fuse_readdirp_cbk, GF_FOP_READDIRP,
+		  readdirp, state->fd, state->size, state->off, state->xdata);
+}
+
+
+static void
+fuse_readdirp (xlator_t *this, fuse_in_header_t *finh, void *msg)
+{
+	struct fuse_read_in *fri = msg;
+
+	fuse_state_t *state = NULL;
+	fd_t         *fd = NULL;
+
+	GET_STATE (this, finh, state);
+	state->size = fri->size;
+	state->off = fri->offset;
+	fd = FH_TO_FD (fri->fh);
+	state->fd = fd;
+
+	fuse_resolve_fd_init (state, &state->resolve, fd);
+
+	fuse_resolve_and_resume (state, fuse_readdirp_resume);
+}
+
+
 static void
 fuse_releasedir (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
@@ -3535,6 +3668,9 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
         if (fini->minor < 9)
                 *priv->msg0_len_p = sizeof(*finh) + FUSE_COMPAT_WRITE_IN_SIZE;
 #endif
+	if (fini->flags & FUSE_DO_READDIRPLUS)
+		fino.flags |= FUSE_DO_READDIRPLUS;
+
         ret = send_fuse_obj (this, finh, &fino);
         if (ret == 0)
                 gf_log ("glusterfs-fuse", GF_LOG_INFO,
@@ -4723,6 +4859,7 @@ static fuse_handler_t *fuse_std_ops[FUSE_OP_HIGH] = {
      /* [FUSE_NOTIFY_REPLY] */
      /* [FUSE_BATCH_FORGET] */
      /* [FUSE_FALLOCATE] */
+	[FUSE_READDIRPLUS] = fuse_readdirp,
 };
 
 
