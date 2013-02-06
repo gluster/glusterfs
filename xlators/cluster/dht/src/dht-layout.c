@@ -412,6 +412,22 @@ dht_layout_entry_swap (dht_layout_t *layout, int i, int j)
         layout->list[j].err    = err_swap;
 }
 
+void
+dht_layout_range_swap (dht_layout_t *layout, int i, int j)
+{
+        uint32_t  start_swap = 0;
+        uint32_t  stop_swap = 0;
+
+        start_swap  = layout->list[i].start;
+        stop_swap   = layout->list[i].stop;
+
+        layout->list[i].start  = layout->list[j].start;
+        layout->list[i].stop   = layout->list[j].stop;
+
+        layout->list[j].start  = start_swap;
+        layout->list[j].stop   = stop_swap;
+}
+
 int64_t
 dht_layout_entry_cmp_volname (dht_layout_t *layout, int i, int j)
 {
