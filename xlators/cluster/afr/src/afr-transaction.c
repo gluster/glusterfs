@@ -1291,10 +1291,10 @@ afr_set_delayed_post_op (call_frame_t *frame, xlator_t *this)
 	if (!priv->post_op_delay_secs)
 		return;
 
-        if (!priv->eager_lock)
+        local = frame->local;
+        if (!local->transaction.eager_lock_on)
                 return;
 
-	local = frame->local;
 	if (!local)
 		return;
 
@@ -1477,7 +1477,7 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
         local->transaction.resume = afr_transaction_resume;
         local->transaction.type   = type;
 
-        if (local->fd && priv->eager_lock &&
+        if (local->fd && local->transaction.eager_lock_on &&
             local->transaction.type == AFR_DATA_TRANSACTION)
                 afr_set_lk_owner (frame, this, local->fd);
         else
