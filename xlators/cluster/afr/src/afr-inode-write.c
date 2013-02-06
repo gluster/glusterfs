@@ -296,6 +296,13 @@ afr_do_writev (call_frame_t *frame, xlator_t *this)
 
         local->transaction.main_frame = frame;
         if (local->fd->flags & O_APPEND) {
+               /*
+                * Backend vfs ignores the 'offset' for append mode fd so
+                * locking just the region provided for the writev does not
+                * give consistency gurantee. The actual write may happen at a
+                * completely different range than the one provided by the
+                * offset, len in the fop. So lock the entire file.
+                */
                 local->transaction.start   = 0;
                 local->transaction.len     = 0;
         } else {

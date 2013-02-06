@@ -220,9 +220,12 @@ afr_transaction_perform_fop (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t     *local = NULL;
         afr_private_t   *priv = NULL;
+        fd_t            *fd   = NULL;
 
         local = frame->local;
         priv  = this->private;
+        fd    = local->fd;
+
         __mark_all_success (local->pending, priv->child_count,
                             local->transaction.type);
 
@@ -236,6 +239,17 @@ afr_transaction_perform_fop (call_frame_t *frame, xlator_t *this)
         frame->root->lk_owner =
                 local->transaction.main_frame->root->lk_owner;
 
+
+        /* The wake up needs to happen independent of
+           what type of fop arrives here. If it was
+           a write, then it has already inherited the
+           lock and changelog. If it was not a write,
+           then the presumption of the optimization (of
+           optimizing for successive write operations)
+           fails.
+        */
+        if (fd)
+                afr_delayed_changelog_wake_up (this, fd);
         local->transaction.fop (frame, this);
 }
 
@@ -1392,23 +1406,10 @@ afr_transaction_resume (call_frame_t *frame, xlator_t *this)
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
         afr_private_t       *priv     = NULL;
-	fd_t                *fd = NULL;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
         priv     = this->private;
-	fd       = local->fd;
-
-	if (fd)
-		/* The wake up needs to happen independent of
-		   what type of fop arrives here. If it was
-		   a write, then it has already inherited the
-		   lock and changelog. If it was not a write,
-		   then the presumption of the optimization (of
-		   optimizing for successive write operations)
-		   fails.
-		*/
-		afr_delayed_changelog_wake_up (this, fd);
 
 	afr_restore_lk_owner (frame);
 
