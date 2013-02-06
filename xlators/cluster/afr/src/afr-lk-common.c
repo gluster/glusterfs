@@ -1554,7 +1554,7 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
                                 continue;
 
                         flock_use = &flock;
-                        if (!priv->eager_lock) {
+                        if (!local->transaction.eager_lock_on) {
                                 goto wind;
                         }
 

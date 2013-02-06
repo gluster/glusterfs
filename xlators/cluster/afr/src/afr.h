@@ -655,6 +655,7 @@ typedef struct _afr_local {
         struct {
                 off_t start, len;
 
+                gf_boolean_t    eager_lock_on;
                 int *eager_lock;
 
                 char *basename;
