@@ -39,21 +39,21 @@ function get_mount_process_pid {
         ps aux | grep glusterfs | grep -E "volfile-id[ =]/?$vol " | awk '{print $2}' | head -1
 }
 
-function generate_client_statedump {
+function generate_statedump {
         local fpath=""
-        client_pid=$1
+        pid=$1
         #remove old stale statedumps
-        rm -f $statedumpdir/glusterdump.$client_pid.dump.* 2>/dev/null
-        kill -USR1 $client_pid
+        rm -f "$statedumpdir/*$pid.dump.*"
+        kill -USR1 $pid
         #Wait till the statedump is generated
         sleep 1
-        fname=$(ls $statedumpdir | grep -E "glusterdump.$client_pid.dump.*")
+        fname=$(ls $statedumpdir | grep -E "*$pid.dump.*")
         echo $statedumpdir/$fname
 }
 
 function generate_mount_statedump {
         local vol=$1
-        generate_client_statedump $(get_mount_process_pid $vol)
+        generate_statedump $(get_mount_process_pid $vol)
 }
 
 function _afr_child_up_status {
@@ -81,7 +81,14 @@ function get_shd_process_pid {
 
 function generate_shd_statedump {
         local vol=$1
-        generate_client_statedump $(get_shd_process_pid $vol)
+        generate_statedump $(get_shd_process_pid $vol)
+}
+
+function generate_brick_statedump {
+        local vol=$1
+        local host=$2
+        local brick=$3
+        generate_statedump $(get_brick_pid $vol $host $brick)
 }
 
 function afr_child_up_status_in_shd {
@@ -96,17 +103,17 @@ function glustershd_up_status {
 }
 
 function get_brick_pid {
-        vol=$1
-        host=$2
-        brick=$3
-        brick_hiphenated=$(echo $brick | tr '/' '-')
+        local vol=$1
+        local host=$2
+        local brick=$3
+        local brick_hiphenated=$(echo $brick | tr '/' '-')
         echo `cat /var/lib/glusterd/vols/$vol/run/${host}${brick_hiphenated}.pid`
 }
 
 function kill_brick {
-        vol=$1
-        host=$2
-        brick=$3
+        local vol=$1
+        local host=$2
+        local brick=$3
         kill -9 $(get_brick_pid $vol $host $brick)
 }
 
