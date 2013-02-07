@@ -1,9 +1,25 @@
 #!/bin/bash
 
+# Note that these port numbers must match the configured values for the
+# various servers in their configuration files.
+declare -A port=(["account.builder"]=6012 ["container.builder"]=6011 \
+    ["object.builder"]=6010)
+
+builder_files="account.builder container.builder object.builder"
+
 function create {
-    swift-ring-builder $1 create 0 1 1
-    swift-ring-builder $1 add z1-127.0.0.1:$2/$3_ 100.0
+    swift-ring-builder $1 create 1 1 1 >> /tmp/out
+}
+
+function add {
+    swift-ring-builder $1 add z$2-127.0.0.1:$3/$4_ 100.0
+}
+
+function rebalance {
     swift-ring-builder $1 rebalance
+}
+
+function build {
     swift-ring-builder $1
 }
 
@@ -12,8 +28,17 @@ if [ "$1x" = "x" ]; then
     exit 1
 fi
 
-# Note that these port numbers must match the configured values for the
-# various servers in their configuration files.
-create account.builder 6012 $1
-create container.builder 6011 $1
-create object.builder 6010 $1
+for builder_file in $builder_files
+do
+    create $builder_file
+
+    zone=1
+    for volname in $@
+    do
+	add $builder_file $zone ${port[$builder_file]} $volname
+	zone=$(expr $zone + 1)
+    done
+
+    rebalance $builder_file
+    build $builder_file
+done

@@ -16,7 +16,8 @@
 from webob.exc import HTTPBadRequest
 
 import swift.common.constraints
-from gluster.swift.common import Glusterfs
+import swift.common.ring as _ring
+from gluster.swift.common import Glusterfs, ring
 
 
 MAX_OBJECT_NAME_COMPONENT_LENGTH = swift.common.constraints.constraints_conf_int(
@@ -80,3 +81,9 @@ def gluster_check_mount(root, drive):
 
 # Replace the original check mount with ours
 swift.common.constraints.check_mount = gluster_check_mount
+
+# Save the original Ring class
+__Ring = _ring.Ring
+
+# Replace the original Ring class
+_ring.Ring = ring.Ring

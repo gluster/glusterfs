@@ -67,7 +67,7 @@ def mount(root, drive):
         if drive == export:
             break
     else:
-        logging.error('No export found in %r matching drive %s', el, drive)
+        logging.error('No export found in %r matching drive, %s', el, drive)
         return False
 
     # NOTE: root is typically the default value of /mnt/gluster-object
