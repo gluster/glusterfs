@@ -280,8 +280,8 @@ trace_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 LOG_ELEMENT (conf, string);
         }
 
-        TRACE_STACK_UNWIND (readdirp, frame, op_ret, op_errno, buf, xdata);
 out:
+        TRACE_STACK_UNWIND (readdirp, frame, op_ret, op_errno, buf, xdata);
         return 0;
 }
 
