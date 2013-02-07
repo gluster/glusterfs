@@ -112,6 +112,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/features/quiesce/src/Makefile
                 xlators/features/index/Makefile
                 xlators/features/index/src/Makefile
+		xlators/features/protect/Makefile
+		xlators/features/protect/src/Makefile
 		xlators/encryption/Makefile
 		xlators/encryption/rot-13/Makefile
 		xlators/encryption/rot-13/src/Makefile
