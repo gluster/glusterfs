@@ -1051,14 +1051,14 @@ glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo)
 
         list_for_each_entry (tmp_volinfo, &priv->volumes, vol_list) {
                 if (!strcmp (tmp_volinfo->volname, volname)) {
-                        gf_log ("", GF_LOG_DEBUG, "Volume %s found", volname);
+                        gf_log (this->name, GF_LOG_DEBUG, "Volume %s found", volname);
                         ret = 0;
                         *volinfo = tmp_volinfo;
                         break;
                 }
         }
 
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 

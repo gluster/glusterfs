@@ -842,6 +842,7 @@ glusterd_check_option_exists (char *key, char **completion)
         struct volopt_map_entry vme = {0,};
         struct volopt_map_entry *vmep = NULL;
         int ret = 0;
+        xlator_t *this = THIS;
 
         (void)vme;
         (void)vmep;
@@ -850,7 +851,8 @@ glusterd_check_option_exists (char *key, char **completion)
                 if (completion) {
                         ret = option_complete (key, completion);
                         if (ret) {
-                                gf_log ("", GF_LOG_ERROR, "Out of memory");
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Out of memory");
                                 return -1;
                         }
 
@@ -876,7 +878,7 @@ glusterd_check_option_exists (char *key, char **completion)
  trie:
         ret = volopt_trie (key, completion);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_ERROR,
                         "Some error occurred during keyword hinting");
         }
 
@@ -1943,9 +1945,9 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
                         gf_log ("glusterd", GF_LOG_ERROR, "Libxml not present");
 #endif
                 } else {
-                        snprintf (tmp_str, 2048, "Option: %s\nDefault "
-                                  "Value: %s\nDescription: %s\n\n",
-                                  vme->key, def_val, descr);
+                        snprintf (tmp_str, sizeof (tmp_str), "Option: %s\nDefault "
+                                        "Value: %s\nDescription: %s\n\n",
+                                        vme->key, def_val, descr);
                         strcat (output_string, tmp_str);
                 }
 
