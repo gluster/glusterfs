@@ -1221,7 +1221,9 @@ glusterd_handle_reset_volume (rpcsvc_request_t *req)
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
-                //failed to decode msg;
+                snprintf (err_str, sizeof (err_str), "Failed to decode request "
+                          "received from cli");
+                gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
@@ -1251,6 +1253,8 @@ glusterd_handle_reset_volume (rpcsvc_request_t *req)
                 gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
                 goto out;
         }
+        gf_log (this->name, GF_LOG_DEBUG, "Received volume reset request for "
+                "volume %s", volname);
 
         ret = glusterd_op_begin_synctask (req, GD_OP_RESET_VOLUME, dict);
 
@@ -1289,7 +1293,9 @@ glusterd_handle_set_volume (rpcsvc_request_t *req)
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
-                //failed to decode msg;
+                snprintf (err_str, sizeof (err_str), "Failed to decode "
+                          "request received from cli");
+                gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }

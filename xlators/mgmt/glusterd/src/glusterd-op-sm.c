@@ -444,7 +444,6 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                           "Required op_version (%d) is not "
                                           "supported", new_op_version);
                                 gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
-                                *op_errstr = gf_strdup (errstr);
                                 goto out;
                         }
                 }
@@ -492,10 +491,9 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
         if (strcasecmp (volname, "all") != 0) {
                 exists = glusterd_check_volume_exists (volname);
                 if (!exists) {
-                        snprintf (errstr, sizeof (errstr), "Volume %s does "
-                                  "not exist", volname);
+                        snprintf (errstr, sizeof (errstr),
+                                  FMTSTR_CHECK_VOL_EXISTS, volname);
                         gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
-                        *op_errstr = gf_strdup (errstr);
                         ret = -1;
                         goto out;
                 }
@@ -503,7 +501,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 ret = glusterd_volinfo_find (volname, &volinfo);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "Unable to allocate memory");
+                                FMTSTR_CHECK_VOL_EXISTS, volname);
                         goto out;
                 }
 
@@ -533,7 +531,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 }
 
                 if (strcmp (key, "config.memory-accounting") == 0) {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "enabling memory accounting for volume %s",
                                 volname);
                         ret = 0;
@@ -549,13 +547,13 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                               (strcasecmp (value, "tcp") == 0) ||
                               (strcasecmp (value, "tcp,rdma") == 0) ||
                               (strcasecmp (value, "rdma,tcp") == 0))) {
-                                ret = snprintf (errstr, 2048,
+                                ret = snprintf (errstr, sizeof (errstr),
                                                 "transport-type %s does "
-                                                "not exists", key);
-                                *op_errstr = gf_strdup (errstr);
+                                                "not exist", value);
                                 /* lets not bother about above return value,
                                    its a failure anyways */
                                 ret = -1;
+                                goto out;
                         }
                 }
 
@@ -582,15 +580,13 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
 
                 if (!exists) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "Option with name: %s "
-                                "does not exist", key);
-                        ret = snprintf (errstr, 2048,
+                                "Option with name: %s does not exist", key);
+                        ret = snprintf (errstr, sizeof (errstr),
                                        "option : %s does not exist",
                                        key);
                         if (key_fixed)
-                                snprintf (errstr + ret, 2048 - ret,
+                                snprintf (errstr + ret, sizeof (errstr) - ret,
                                           "\nDid you mean %s?", key_fixed);
-                        *op_errstr = gf_strdup (errstr);
                         ret = -1;
                         goto out;
                 }
@@ -625,7 +621,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                         }
                         if (local_key_op_version != key_op_version) {
                                 ret = -1;
-                                snprintf (errstr, 2048,
+                                snprintf (errstr, sizeof (errstr),
                                           "option: %s op-version mismatch",
                                           key);
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -633,7 +629,6 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                         "available op-version = %"PRIu32,
                                         errstr, key_op_version,
                                         local_key_op_version);
-                                *op_errstr = gf_strdup (errstr);
                                 goto out;
                         }
                 }
@@ -663,8 +658,9 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 }
 
                 if (ret) {
-                        gf_log (this->name, GF_LOG_DEBUG, "Could not create temp "
-                                "volfile, some option failed: %s", *op_errstr);
+                        gf_log (this->name, GF_LOG_ERROR, "Could not create "
+                                "temp volfile, some option failed: %s",
+                                *op_errstr);
                         goto out;
                 }
                 dict_del (val_dict, key);
@@ -712,6 +708,8 @@ out:
                 dict_unref (val_dict);
 
         GF_FREE (key_fixed);
+        if (errstr[0] != '\0')
+                *op_errstr = gf_strdup (errstr);
 
         if (ret) {
                 if (!(*op_errstr)) {
@@ -737,27 +735,32 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
         char                                    *key = NULL;
         char                                    *key_fixed = NULL;
         glusterd_volinfo_t                      *volinfo       = NULL;
+        xlator_t                                *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         ret = dict_get_str (dict, "volname", &volname);
 
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
                 goto out;
         }
 
         if (strcasecmp (volname, "all") != 0) {
                 exists = glusterd_check_volume_exists (volname);
                 if (!exists) {
-                        snprintf (msg, sizeof (msg), "Volume %s does not "
-                                  "exist", volname);
-                        gf_log ("", GF_LOG_ERROR, "%s", msg);
-                        *op_errstr = gf_strdup (msg);
+                        snprintf (msg, sizeof (msg), FMTSTR_CHECK_VOL_EXISTS,
+                                  volname);
                         ret = -1;
                         goto out;
                 }
                 ret = glusterd_volinfo_find (volname, &volinfo);
-                if (ret)
+                if (ret) {
+                        snprintf (msg, sizeof (msg), FMTSTR_CHECK_VOL_EXISTS,
+                                  volname);
                         goto out;
+                }
 
                 ret = glusterd_validate_volume_id (dict, volinfo);
                 if (ret)
@@ -766,7 +769,7 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
 
         ret = dict_get_str (dict, "key", &key);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get option key");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get option key");
                 goto out;
         }
         if (strcmp(key, "all")) {
@@ -776,14 +779,11 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
                         goto out;
                 }
                 if (!exists) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
-                                "Option %s does not exist", key);
-                        ret = snprintf (msg, 2048,
+                        ret = snprintf (msg, sizeof (msg),
                                         "Option %s does not exist", key);
                         if (key_fixed)
-                                snprintf (msg + ret, 2048 - ret,
+                                snprintf (msg + ret, sizeof (msg) - ret,
                                           "\nDid you mean %s?", key_fixed);
-                        *op_errstr = gf_strdup (msg);
                         ret = -1;
                         goto out;
                 } else if (exists > 0) {
@@ -797,7 +797,12 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
 out:
         GF_FREE (key_fixed);
 
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        if (msg[0] != '\0') {
+                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+        }
+
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
 }
@@ -1136,9 +1141,10 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
         int                      ret = 0;
         data_t                  *value = NULL;
         char                    *key_fixed = NULL;
+        xlator_t                *this = NULL;
 
-        gf_log ("", GF_LOG_DEBUG, "Received volume set reset command");
-
+        this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT (volinfo->dict);
         GF_ASSERT (key);
 
@@ -1147,7 +1153,7 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
         else {
                 value = dict_get (volinfo->dict, key);
                 if (!value) {
-                        gf_log ("glusterd", GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "no value set for option %s", key);
                         goto out;
                 }
@@ -1157,8 +1163,8 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
 
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to create volfile for"
-                        " 'volume set'");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to create volfile for"
+                        " 'volume reset'");
                 ret = -1;
                 goto out;
         }
@@ -1177,7 +1183,7 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
 
 out:
         GF_FREE (key_fixed);
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -1196,8 +1202,10 @@ glusterd_op_reset_all_volume_options (xlator_t *this, dict_t *dict)
 
         conf = this->private;
         ret = dict_get_str (dict, "key", &key);
-        if (ret)
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get key");
                 goto out;
+        }
 
         ret = dict_get_int32 (dict, "force", &is_force);
         if (ret)
@@ -1206,8 +1214,8 @@ glusterd_op_reset_all_volume_options (xlator_t *this, dict_t *dict)
         if (strcmp (key, "all")) {
                 ret = glusterd_check_option_exists (key, &key_fixed);
                 if (ret <= 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "Invalid key %s",
-                                key);
+                        gf_log (this->name, GF_LOG_ERROR, "Option %s does not "
+                                "exist", key);
                         ret = -1;
                         goto out;
                 }
@@ -1282,7 +1290,7 @@ glusterd_op_reset_volume (dict_t *dict, char **op_errstr)
         this = THIS;
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get volume name " );
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name" );
                 goto out;
         }
 
@@ -1297,19 +1305,20 @@ glusterd_op_reset_volume (dict_t *dict, char **op_errstr)
 
         ret = dict_get_str (dict, "key", &key);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get option key");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get option key");
                 goto out;
         }
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                gf_log (this->name, GF_LOG_ERROR, FMTSTR_CHECK_VOL_EXISTS,
+                        volname);
                 goto out;
         }
 
         if (strcmp (key, "all") &&
             glusterd_check_option_exists (key, &key_fixed) != 1) {
-                gf_log ("glusterd", GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_ERROR,
                         "volinfo dict inconsistency: option %s not found",
                         key);
                 ret = -1;
@@ -1333,7 +1342,7 @@ out:
         if (quorum_action)
                 glusterd_do_quorum_action ();
 
-        gf_log ("", GF_LOG_DEBUG, "'volume reset' returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "'volume reset' returning %d", ret);
         return ret;
 }
 
@@ -1506,7 +1515,8 @@ glusterd_op_set_volume (dict_t *dict)
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to allocate memory");
+                gf_log (this->name, GF_LOG_ERROR, FMTSTR_CHECK_VOL_EXISTS,
+                        volname);
                 goto out;
         }
 
