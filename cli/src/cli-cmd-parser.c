@@ -166,7 +166,8 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                                 NULL };
 
         char    *invalid_volnames[] = {"volume", "type", "subvolumes", "option",
-                                      "end-volume", "all", NULL};
+                                       "end-volume", "all", "volume_not_in_ring",
+                                       NULL};
         char    *w = NULL;
         int      op_count = 0;
         int32_t  replica_count = 1;
