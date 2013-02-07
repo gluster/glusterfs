@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = glusterd.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/mgmt
 glusterd_la_CPPFLAGS = $(AM_CPPFLAGS) "-DFILTERDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/filter\""
-glusterd_la_LDFLAGS = -module -avoidversion
+glusterd_la_LDFLAGS = -module -avoid-version
 if ENABLE_BD_XLATOR
 glusterd_la_LDFLAGS += -llvm2app
 endif

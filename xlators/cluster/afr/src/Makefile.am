@@ -7,11 +7,11 @@ afr_common_source = afr-dir-read.c afr-dir-write.c afr-inode-read.c \
 	afr-self-heal-algorithm.c afr-lk-common.c afr-self-heald.c \
 	$(top_builddir)/xlators/lib/src/libxlator.c
 
-afr_la_LDFLAGS = -module -avoidversion
+afr_la_LDFLAGS = -module -avoid-version
 afr_la_SOURCES = $(afr_common_source) afr.c
 afr_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-pump_la_LDFLAGS = -module -avoidversion
+pump_la_LDFLAGS = -module -avoid-version
 pump_la_SOURCES =  $(afr_common_source) pump.c
 pump_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 

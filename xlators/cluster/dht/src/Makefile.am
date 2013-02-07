@@ -12,13 +12,13 @@ dht_la_SOURCES = $(dht_common_source) dht.c
 nufa_la_SOURCES = $(dht_common_source) nufa.c
 switch_la_SOURCES = $(dht_common_source) switch.c
 
-dht_la_LDFLAGS = -module -avoidversion
+dht_la_LDFLAGS = -module -avoid-version
 dht_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-nufa_la_LDFLAGS = -module -avoidversion
+nufa_la_LDFLAGS = -module -avoid-version
 nufa_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-switch_la_LDFLAGS = -module -avoidversion
+switch_la_LDFLAGS = -module -avoid-version
 switch_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = dht-common.h dht-mem-types.h \

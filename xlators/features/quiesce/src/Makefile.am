@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = quiesce.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
-quiesce_la_LDFLAGS = -module -avoidversion
+quiesce_la_LDFLAGS = -module -avoid-version
 
 quiesce_la_SOURCES = quiesce.c
 quiesce_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
