@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = quota.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
-quota_la_LDFLAGS = -module -avoidversion
+quota_la_LDFLAGS = -module -avoid-version
 
 quota_la_SOURCES = quota.c
 quota_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la

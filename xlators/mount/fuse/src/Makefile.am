@@ -24,7 +24,7 @@ endif
 fuse_la_SOURCES = fuse-helpers.c fuse-resolve.c fuse-bridge.c \
 	$(CONTRIBDIR)/fuse-lib/misc.c $(mount_source)
 
-fuse_la_LDFLAGS = -module -avoidversion
+fuse_la_LDFLAGS = -module -avoid-version
 fuse_la_LIBADD = @GF_FUSE_LDADD@
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) \

@@ -19,7 +19,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/mount
 
 api_la_SOURCES = glfs-master.c
 
-api_la_LDFLAGS = -module -avoidversion
+api_la_LDFLAGS = -module -avoid-version
 api_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src
