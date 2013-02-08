@@ -23,7 +23,7 @@ $M0;
 ## Wait for volume to register with rpc.mountd
 sleep 6;
 ## check if port 1023 (which has been reserved) is used by the gluster processes
-op=$(netstat -antlp | grep gluster | grep -w 1023);
+op=$(netstat -ntp | grep gluster | grep -w 1023);
 EXPECT "" echo $op;
 
 #set the reserved ports to the older values
