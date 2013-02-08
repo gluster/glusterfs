@@ -43,11 +43,11 @@ function generate_statedump {
         local fpath=""
         pid=$1
         #remove old stale statedumps
-        rm -f "$statedumpdir/*$pid.dump.*"
+        rm -f $statedumpdir/*$pid.dump.*
         kill -USR1 $pid
         #Wait till the statedump is generated
         sleep 1
-        fname=$(ls $statedumpdir | grep -E "*$pid.dump.*")
+        fname=$(ls $statedumpdir | grep -E "\.$pid\.dump\.")
         echo $statedumpdir/$fname
 }
 
