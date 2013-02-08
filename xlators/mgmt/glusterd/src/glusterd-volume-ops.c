@@ -1944,7 +1944,7 @@ out:
 }
 
 int
-glusterd_op_clearlocks_volume (dict_t *dict, char **op_errstr)
+glusterd_op_clearlocks_volume (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {
         int32_t                         ret                 = -1;
         int                             i                   = 0;
@@ -1959,7 +1959,6 @@ glusterd_op_clearlocks_volume (dict_t *dict, char **op_errstr)
         char                            result[PATH_MAX]    = {0,};
         char                            *mntpt              = NULL;
         char                            **xl_opts           = NULL;
-        dict_t                          *ctx                = NULL;
         glusterd_volinfo_t              *volinfo            = NULL;
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -2048,14 +2047,8 @@ glusterd_op_clearlocks_volume (dict_t *dict, char **op_errstr)
                 goto umount;
         }
 
-        ctx = glusterd_op_get_ctx ();
-        if (!ctx)
-                /*Impossible. Only originator glusterd can
-                 * come here. */
-                goto umount;
-
         free_ptr = gf_strdup(result);
-        if (dict_set_dynstr (ctx, "lk-summary", free_ptr)) {
+        if (dict_set_dynstr (rsp_dict, "lk-summary", free_ptr)) {
                 GF_FREE (free_ptr);
                 snprintf (msg, sizeof (msg), "Failed to set clear-locks "
                           "result");

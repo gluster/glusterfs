@@ -595,6 +595,13 @@ glusterd_syncop_aggr_rsp_dict (glusterd_op_t op, dict_t *aggr, dict_t *rsp,
 
         break;
 
+        case GD_OP_CLEARLOCKS_VOLUME:
+                ret = glusterd_volume_clearlocks_use_rsp_dict (aggr, rsp);
+                if (ret)
+                        goto out;
+
+        break;
+
         default:
         break;
         }
@@ -696,7 +703,8 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
                 goto stage_done;
         }
 
-        if (op == GD_OP_REPLACE_BRICK) {
+        if ((op == GD_OP_REPLACE_BRICK) ||
+            (op == GD_OP_CLEARLOCKS_VOLUME)) {
                 ret = glusterd_syncop_aggr_rsp_dict (op, op_ctx, rsp_dict,
                                                      op_errstr);
                 if (ret) {

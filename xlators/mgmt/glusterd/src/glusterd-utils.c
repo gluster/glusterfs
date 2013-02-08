@@ -6931,6 +6931,24 @@ out:
 }
 
 int
+glusterd_volume_clearlocks_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
+{
+        int            ret      = 0;
+        glusterd_op_t  op       = GD_OP_NONE;
+
+        op = glusterd_op_get_op ();
+        GF_ASSERT (aggr);
+        GF_ASSERT (rsp_dict);
+        GF_ASSERT (GD_OP_CLEARLOCKS_VOLUME == op);
+
+        if (!aggr)
+                goto out;
+        dict_copy (rsp_dict, aggr);
+out:
+        return ret;
+}
+
+int
 glusterd_volume_heal_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 {
         int            ret      = 0;
