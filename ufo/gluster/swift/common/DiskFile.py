@@ -17,13 +17,13 @@ import os
 import errno
 import random
 from hashlib import md5
-from eventlet import tpool
 from contextlib import contextmanager
 from swift.common.utils import normalize_timestamp, renamer
 from swift.common.exceptions import DiskFileNotExist
+from gluster.swift.common.exceptions import AlreadyExistsAsDir
 from gluster.swift.common.utils import mkdirs, rmdirs, validate_object, \
-     create_object_metadata,  do_open, do_close, do_unlink, do_chown, \
-     do_stat, do_listdir, read_metadata, write_metadata
+     create_object_metadata, do_open, do_close, do_unlink, do_chown, \
+     do_listdir, read_metadata, write_metadata, os_path, do_fsync
 from gluster.swift.common.utils import X_CONTENT_TYPE, X_CONTENT_LENGTH, \
      X_TIMESTAMP, X_PUT_TIMESTAMP, X_TYPE, X_ETAG, X_OBJECTS_COUNT, \
      X_BYTES_USED, X_OBJECT_TYPE, FILE, DIR, MARKER_DIR, OBJECT, DIR_TYPE, \
@@ -36,10 +36,6 @@ from swift.obj.server import DiskFile
 DEFAULT_DISK_CHUNK_SIZE = 65536
 # keep these lower-case
 DISALLOWED_HEADERS = set('content-length content-type deleted etag'.split())
-
-
-class AlreadyExistsAsDir(Exception):
-    pass
 
 
 def _adjust_metadata(metadata):
@@ -119,7 +115,7 @@ class Gluster_DiskFile(DiskFile):
         # Don't store a value for data_file until we know it exists.
         self.data_file = None
         data_file = os.path.join(self.datadir, self._obj)
-        if not os.path.exists(data_file):
+        if not os_path.exists(data_file):
             return
 
         self.data_file = os.path.join(data_file)
@@ -134,7 +130,7 @@ class Gluster_DiskFile(DiskFile):
 
         self.filter_metadata()
 
-        if os.path.isdir(data_file):
+        if os_path.isdir(data_file):
             self._is_dir = True
         else:
             if keep_data_fp:
@@ -170,7 +166,7 @@ class Gluster_DiskFile(DiskFile):
 
     def _create_dir_object(self, dir_path):
         #TODO: if object already exists???
-        if os.path.exists(dir_path) and not os.path.isdir(dir_path):
+        if os_path.exists(dir_path) and not os_path.isdir(dir_path):
             self.logger.error("Deleting file %s", dir_path)
             do_unlink(dir_path)
         #If dir aleady exist just override metadata.
@@ -228,7 +224,7 @@ class Gluster_DiskFile(DiskFile):
         write_metadata(self.tmppath, metadata)
         if X_CONTENT_LENGTH in metadata:
             self.drop_cache(fd, 0, int(metadata[X_CONTENT_LENGTH]))
-        tpool.execute(os.fsync, fd)
+        do_fsync(fd)
         if self._obj_path:
             dir_objs = self._obj_path.split('/')
             assert len(dir_objs) >= 1
@@ -272,7 +268,7 @@ class Gluster_DiskFile(DiskFile):
 
     def get_data_file_size(self):
         """
-        Returns the os.path.getsize for the file.  Raises an exception if this
+        Returns the os_path.getsize for the file.  Raises an exception if this
         file does not match the Content-Length stored in the metadata. Or if
         self.data_file does not exist.
 
@@ -286,7 +282,7 @@ class Gluster_DiskFile(DiskFile):
         try:
             file_size = 0
             if self.data_file:
-                file_size = os.path.getsize(self.data_file)
+                file_size = os_path.getsize(self.data_file)
                 if  X_CONTENT_LENGTH in self.metadata:
                     metadata_size = int(self.metadata[X_CONTENT_LENGTH])
                     if file_size != metadata_size:
@@ -314,28 +310,29 @@ class Gluster_DiskFile(DiskFile):
         # if exists, then it means that it also has its metadata.
         # Not checking for container, since the container should already
         # exist for the call to come here.
-        if not os.path.exists(self.datadir):
+        if not os_path.exists(self.datadir):
             path = self._container_path
             subdir_list = self._obj_path.split(os.path.sep)
             for i in range(len(subdir_list)):
                 path = os.path.join(path, subdir_list[i]);
-                if not os.path.exists(path):
+                if not os_path.exists(path):
                     self._create_dir_object(path)
 
         tmpfile = '.' + self._obj + '.' + md5(self._obj + \
                   str(random.random())).hexdigest()
 
         self.tmppath = os.path.join(self.datadir, tmpfile)
-        fd = os.open(self.tmppath, os.O_RDWR | os.O_CREAT | os.O_EXCL)
+        fd = do_open(self.tmppath, os.O_RDWR | os.O_CREAT | os.O_EXCL)
         try:
             yield fd
         finally:
             try:
-                os.close(fd)
+                do_close(fd)
             except OSError:
                 pass
             tmppath, self.tmppath = self.tmppath, None
             try:
-                os.unlink(tmppath)
-            except OSError:
-                pass
+                do_unlink(tmppath)
+            except OSError as err:
+                if err.errno != errno.ENOENT:
+                    raise
