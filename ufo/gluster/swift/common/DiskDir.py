@@ -22,7 +22,7 @@ from gluster.swift.common.utils import clean_metadata, dir_empty, rmdirs, \
      DEFAULT_UID, validate_object, create_object_metadata, read_metadata, \
      write_metadata, X_CONTENT_TYPE, X_CONTENT_LENGTH, X_TIMESTAMP, \
      X_PUT_TIMESTAMP, X_TYPE, X_ETAG, X_OBJECTS_COUNT, X_BYTES_USED, \
-     X_CONTAINER_COUNT, CONTAINER
+     X_CONTAINER_COUNT, CONTAINER, os_path
 from gluster.swift.common import Glusterfs
 
 from swift.common.constraints import CONTAINER_LISTING_LIMIT
@@ -69,7 +69,7 @@ def _read_metadata(dd):
 
 class DiskCommon(object):
     def is_deleted(self):
-        return not os.path.exists(self.datadir)
+        return not os_path.exists(self.datadir)
 
     def filter_prefix(self, objects, prefix):
         """
@@ -170,7 +170,7 @@ class DiskDir(DiskCommon):
         self.uid = int(uid)
         self.gid = int(gid)
         self.db_file = _db_file
-        self.dir_exists = os.path.exists(self.datadir)
+        self.dir_exists = os_path.exists(self.datadir)
         if self.dir_exists:
             try:
                 self.metadata = _read_metadata(self.datadir)
@@ -201,7 +201,7 @@ class DiskDir(DiskCommon):
     def delete(self):
         if self.empty():
             #For delete account.
-            if os.path.ismount(self.datadir):
+            if os_path.ismount(self.datadir):
                 clean_metadata(self.datadir)
             else:
                 rmdirs(self.datadir)
@@ -387,7 +387,7 @@ class DiskDir(DiskCommon):
         """
         Create the container if it doesn't exist and update the timestamp
         """
-        if not os.path.exists(self.datadir):
+        if not os_path.exists(self.datadir):
             self.put(self.metadata)
 
     def delete_object(self, name, timestamp):

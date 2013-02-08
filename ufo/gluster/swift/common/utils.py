@@ -57,7 +57,6 @@ MEMCACHE_KEY_PREFIX = 'gluster.swift.'
 MEMCACHE_ACCOUNT_DETAILS_KEY_PREFIX = MEMCACHE_KEY_PREFIX + 'account.details.'
 MEMCACHE_CONTAINER_DETAILS_KEY_PREFIX = MEMCACHE_KEY_PREFIX + 'container.details.'
 
-
 def read_metadata(path):
     """
     Helper function to read the pickled metadata from a File/Directory.
@@ -140,7 +139,7 @@ def clean_metadata(path):
         key += 1
 
 def check_user_xattr(path):
-    if not os.path.exists(path):
+    if not os_path.exists(path):
         return False
     try:
         xattr.set(path, 'user.test.key1', 'value1')
@@ -243,7 +242,7 @@ def _update_list(path, cont_path, src_list, reg_file=True, object_count=0,
         object_count += 1
 
         if reg_file:
-            bytes_used += os.path.getsize(os.path.join(path, obj_name))
+            bytes_used += os_path.getsize(os.path.join(path, obj_name))
             sleep()
 
     return object_count, bytes_used
@@ -278,8 +277,8 @@ def _get_container_details_from_fs(cont_path):
     obj_list = []
     dir_list = []
 
-    if os.path.isdir(cont_path):
-        for (path, dirs, files) in os.walk(cont_path):
+    if os_path.isdir(cont_path):
+        for (path, dirs, files) in do_walk(cont_path):
             object_count, bytes_used = update_list(path, cont_path, dirs, files,
                                                    object_count, bytes_used,
                                                    obj_list)
@@ -338,7 +337,7 @@ def _get_account_details_from_fs(acc_path, acc_stats):
         for name in do_listdir(acc_path):
             if name.lower() == TEMP_DIR \
                     or name.lower() == ASYNCDIR \
-                    or not os.path.isdir(os.path.join(acc_path, name)):
+                    or not os_path.isdir(os.path.join(acc_path, name)):
                 continue
             container_count += 1
             container_list.append(name)
@@ -386,7 +385,7 @@ def get_object_metadata(obj_path):
     Return metadata of object.
     """
     try:
-        stats = os.stat(obj_path)
+        stats = do_stat(obj_path)
     except OSError as e:
         if e.errno != errno.ENOENT:
             raise
@@ -421,8 +420,8 @@ def get_container_metadata(cont_path, memcache=None):
     bytes_used = 0
     objects, object_count, bytes_used = get_container_details(cont_path, memcache)
     metadata = {X_TYPE: CONTAINER,
-                X_TIMESTAMP: normalize_timestamp(os.path.getctime(cont_path)),
-                X_PUT_TIMESTAMP: normalize_timestamp(os.path.getmtime(cont_path)),
+                X_TIMESTAMP: normalize_timestamp(os_path.getctime(cont_path)),
+                X_PUT_TIMESTAMP: normalize_timestamp(os_path.getmtime(cont_path)),
                 X_OBJECTS_COUNT: object_count,
                 X_BYTES_USED: bytes_used}
     return _add_timestamp(metadata)
@@ -432,8 +431,8 @@ def get_account_metadata(acc_path, memcache=None):
     container_count = 0
     containers, container_count = get_account_details(acc_path, memcache)
     metadata = {X_TYPE: ACCOUNT,
-                X_TIMESTAMP: normalize_timestamp(os.path.getctime(acc_path)),
-                X_PUT_TIMESTAMP: normalize_timestamp(os.path.getmtime(acc_path)),
+                X_TIMESTAMP: normalize_timestamp(os_path.getctime(acc_path)),
+                X_PUT_TIMESTAMP: normalize_timestamp(os_path.getmtime(acc_path)),
                 X_OBJECTS_COUNT: 0,
                 X_BYTES_USED: 0,
                 X_CONTAINER_COUNT: container_count}
@@ -484,9 +483,13 @@ def write_pickle(obj, dest, tmp=None, pickle_protocol=0):
     tmppath = os.path.join(dirname, tmpname)
     with open(tmppath, 'wb') as fo:
         pickle.dump(obj, fo, pickle_protocol)
+        # TODO: This flush() method call turns into a flush() system call
+        # We'll need to wrap this as well, but we would do this by writing
+        #a context manager for our own open() method which returns an object
+        # in fo which makes the gluster API call.
         fo.flush()
-        os.fsync(fo)
-    os.rename(tmppath, dest)
+        do_fsync(fo)
+    do_rename(tmppath, dest)
 
 # Over-ride Swift's utils.write_pickle with ours
 import swift.common.utils
