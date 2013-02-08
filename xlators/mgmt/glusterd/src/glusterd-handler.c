@@ -1350,13 +1350,9 @@ glusterd_handle_set_volume (rpcsvc_request_t *req)
         gf_log (this->name, GF_LOG_DEBUG, "Received volume set request for "
                 "volume %s", volname);
 
-        ret = glusterd_op_begin (req, GD_OP_SET_VOLUME, dict,
-                                 err_str, sizeof (err_str));
+        ret = glusterd_op_begin_synctask (req, GD_OP_SET_VOLUME, dict);
 
 out:
-        glusterd_friend_sm ();
-        glusterd_op_sm ();
-
         if (help)
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req, dict,
                                                      (op_errstr)? op_errstr:"");
