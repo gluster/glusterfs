@@ -670,7 +670,7 @@ int glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_heal_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr);
 int glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
-int glusterd_op_quota (dict_t *dict, char **op_errstr);
+int glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
 int glusterd_op_stage_quota (dict_t *dict, char **op_errstr);
 int glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                                      dict_t *rsp_dict);

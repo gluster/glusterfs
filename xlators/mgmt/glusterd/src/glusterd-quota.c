@@ -99,12 +99,9 @@ glusterd_handle_quota (rpcsvc_request_t *req)
                 strncpy (operation, "remove", sizeof (operation));
                 break;
         }
-        ret = glusterd_op_begin (req, GD_OP_QUOTA, dict, msg, sizeof (msg));
+        ret = glusterd_op_begin_synctask (req, GD_OP_QUOTA, dict);
 
 out:
-        glusterd_friend_sm ();
-        glusterd_op_sm ();
-
         if (ret) {
                 if (msg[0] == '\0')
                         snprintf (msg, sizeof (msg), "Operation failed");
@@ -379,18 +376,17 @@ glusterd_quota_get_limit_usages (glusterd_conf_t *priv,
                                  glusterd_volinfo_t *volinfo,
                                  char *volname,
                                  dict_t *dict,
-                                 char **op_errstr)
+                                 char **op_errstr,
+                                 dict_t *rsp_dict)
 {
         int32_t i               = 0;
         int32_t ret             = 0;
         int32_t count           = 0;
         char    *path           = NULL;
-        dict_t  *ctx            = NULL;
         char    cmd_str [1024]  = {0, };
         char   *ret_str         = NULL;
 
-        ctx = glusterd_op_get_ctx ();
-        if (ctx == NULL)
+        if (rsp_dict == NULL)
                 return 0;
 
         ret = dict_get_int32 (dict, "count", &count);
@@ -414,7 +410,7 @@ glusterd_quota_get_limit_usages (glusterd_conf_t *priv,
         }
 
         if (ret_str) {
-                ret = dict_set_dynstr (ctx, "limit_list", ret_str);
+                ret = dict_set_dynstr (rsp_dict, "limit_list", ret_str);
         }
 out:
         return ret;
@@ -669,12 +665,11 @@ out:
 
 
 int
-glusterd_op_quota (dict_t *dict, char **op_errstr)
+glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {
         glusterd_volinfo_t     *volinfo      = NULL;
         int32_t                 ret          = -1;
         char                   *volname      = NULL;
-        dict_t                 *ctx          = NULL;
         int                     type         = -1;
         gf_boolean_t            start_crawl  = _gf_false;
         glusterd_conf_t        *priv         = NULL;
@@ -739,7 +734,7 @@ glusterd_op_quota (dict_t *dict, char **op_errstr)
                 }
 
                 ret = glusterd_quota_get_limit_usages (priv, volinfo, volname,
-                                                       dict, op_errstr);
+                                                       dict, op_errstr, rsp_dict);
 
                 goto out;
         }
@@ -762,12 +757,11 @@ create_vol:
         ret = 0;
 
 out:
-        ctx = glusterd_op_get_ctx ();
-        if (ctx && start_crawl == _gf_true)
+        if (rsp_dict && start_crawl == _gf_true)
                 glusterd_quota_initiate_fs_crawl (priv, volname);
 
-        if (ctx && *op_errstr) {
-                ret = dict_set_dynstr (ctx, "errstr", *op_errstr);
+        if (rsp_dict && *op_errstr) {
+                ret = dict_set_dynstr (rsp_dict, "errstr", *op_errstr);
                 if (ret) {
                         GF_FREE (*op_errstr);
                         gf_log ("", GF_LOG_DEBUG,
