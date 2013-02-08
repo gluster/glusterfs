@@ -4368,7 +4368,8 @@ out:
 
 static int
 glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
-                                    struct list_head *selected)
+                                    struct list_head *selected,
+                                    dict_t *rsp_dict)
 {
         int                                     ret = -1;
         char                                    *volname = NULL;
@@ -4379,7 +4380,6 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
         glusterd_pending_node_t                 *pending_node = NULL;
         gf_xl_afr_op_t                          heal_op = GF_AFR_OP_INVALID;
         int                                     rxlator_count = 0;
-        dict_t                                  *op_ctx = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -4412,9 +4412,13 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
         if (!glusterd_is_nodesvc_online ("glustershd") &&
             (heal_op == GF_AFR_OP_INDEX_SUMMARY)) {
 
-                op_ctx = glusterd_op_get_ctx ();
+                if (!rsp_dict) {
+                        gf_log (this->name, GF_LOG_ERROR, "Received empty "
+                                "ctx.");
+                        goto out;
+                }
 
-                ret = fill_shd_status_for_local_bricks (op_ctx, volinfo);
+                ret = fill_shd_status_for_local_bricks (rsp_dict, volinfo);
                 if (ret)
                         gf_log (this->name, GF_LOG_ERROR, "Unable to fill the shd"
                                 " status for the local bricks");
@@ -4764,7 +4768,7 @@ out:
 
 int32_t
 glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr,
-                           struct list_head *selected)
+                           struct list_head *selected, dict_t *rsp_dict)
 {
         int     ret = 0;
 
@@ -4791,7 +4795,7 @@ glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr,
 
         case GD_OP_HEAL_VOLUME:
                 ret = glusterd_bricks_select_heal_volume (dict, op_errstr,
-                                                          selected);
+                                                          selected, rsp_dict);
                 break;
 
         case GD_OP_STATUS_VOLUME:
