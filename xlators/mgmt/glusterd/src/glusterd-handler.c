@@ -1445,8 +1445,7 @@ glusterd_handle_sync_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        ret = glusterd_op_begin (req, GD_OP_SYNC_VOLUME, dict,
-                                 msg, sizeof (msg));
+        ret = glusterd_op_begin_synctask (req, GD_OP_SYNC_VOLUME, dict);
 
 out:
         if (ret) {
@@ -1459,9 +1458,6 @@ out:
 
                 ret = 0; //sent error to cli, prevent second reply
         }
-
-        glusterd_friend_sm ();
-        glusterd_op_sm ();
 
         return ret;
 }
