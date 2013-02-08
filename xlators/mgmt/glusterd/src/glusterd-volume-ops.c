@@ -461,13 +461,9 @@ glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
         if (ret)
                 goto out;
 
-        ret = glusterd_op_begin (req, GD_OP_HEAL_VOLUME, dict,
-                                 op_errstr, sizeof (op_errstr));
+        ret = glusterd_op_begin_synctask (req, GD_OP_HEAL_VOLUME, dict);
 
 out:
-        glusterd_friend_sm ();
-        glusterd_op_sm ();
-
         if (ret) {
                 if (op_errstr[0] == '\0')
                         snprintf (op_errstr, sizeof (op_errstr),

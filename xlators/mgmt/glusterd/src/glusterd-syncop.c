@@ -754,8 +754,15 @@ stage_done:
         }
 
         /*brick op */
+        rsp_dict = dict_new ();
+        if (!rsp_dict) {
+                ret = -1;
+                goto out;
+        }
+
         INIT_LIST_HEAD (&selected);
-        ret = glusterd_op_bricks_select (op, req_dict, &op_errstr, &selected);
+        ret = glusterd_op_bricks_select (op, req_dict, &op_errstr,
+                                         &selected, rsp_dict);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "%s",
                        (op_errstr)? op_errstr: "Brick op failed. Check "
@@ -791,12 +798,6 @@ stage_done:
                 brick_count);
 
         /* commit op */
-        rsp_dict = dict_new ();
-        if (!rsp_dict) {
-                ret = -1;
-                goto out;
-        }
-
         ret = glusterd_op_commit_perform (op, req_dict, &op_errstr, rsp_dict);
         if (ret) {
                 hostname = "localhost";
