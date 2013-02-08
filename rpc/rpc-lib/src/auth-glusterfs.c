@@ -64,9 +64,9 @@ int auth_glusterfs_authenticate (rpcsvc_request_t *req, void *priv)
         struct auth_glusterfs_parms  au = {0,};
 
         int ret      = RPCSVC_AUTH_REJECT;
-        int gidcount = 0;
         int j        = 0;
         int i        = 0;
+        int gidcount = 0;
 
         if (!req)
                 return ret;
@@ -98,6 +98,8 @@ int auth_glusterfs_authenticate (rpcsvc_request_t *req, void *priv)
 
         for (gidcount = 0; gidcount < au.ngrps; ++gidcount)
                 req->auxgids[gidcount] = au.groups[gidcount];
+
+        RPC_AUTH_ROOT_SQUASH(req);
 
         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Auth Info: pid: %u, uid: %d"
                 ", gid: %d, owner: %s",
@@ -206,6 +208,8 @@ int auth_glusterfs_v2_authenticate (rpcsvc_request_t *req, void *priv)
 
         for (i = 0; i < au.lk_owner.lk_owner_len; ++i)
                 req->lk_owner.data[i] = au.lk_owner.lk_owner_val[i];
+
+        RPC_AUTH_ROOT_SQUASH(req);
 
         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Auth Info: pid: %u, uid: %d"
                 ", gid: %d, owner: %s",
