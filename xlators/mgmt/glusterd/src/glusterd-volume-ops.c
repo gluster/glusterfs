@@ -305,14 +305,10 @@ glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
         gf_log (this->name, GF_LOG_DEBUG, "Received stop vol req "
                 "for volume %s", dup_volname);
 
-        ret = glusterd_op_begin (req, GD_OP_STOP_VOLUME, dict,
-                                 err_str, sizeof (err_str));
+        ret = glusterd_op_begin_synctask (req, GD_OP_STOP_VOLUME, dict);
 
 out:
         free (cli_req.dict.dict_val); //its malloced by xdr
-
-        glusterd_friend_sm ();
-        glusterd_op_sm ();
 
         if (ret) {
                 if (err_str[0] == '\0')
