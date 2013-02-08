@@ -204,6 +204,21 @@ rpcsvc_set_allow_insecure (rpcsvc_t *svc, dict_t *options)
 }
 
 int
+rpcsvc_set_root_squash (rpcsvc_t *svc, dict_t *options)
+{
+        GF_ASSERT (svc);
+        GF_ASSERT (options);
+
+        if (dict_get_str_boolean (options, "root-squash", 0))
+                svc->root_squash = _gf_true;
+
+        if (svc->root_squash)
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "root squashing enabled ");
+
+        return 0;
+}
+
+int
 rpcsvc_auth_init (rpcsvc_t *svc, dict_t *options)
 {
         int             ret = -1;
@@ -212,6 +227,7 @@ rpcsvc_auth_init (rpcsvc_t *svc, dict_t *options)
                 return -1;
 
         (void) rpcsvc_set_allow_insecure (svc, options);
+        (void) rpcsvc_set_root_squash (svc, options);
         ret = rpcsvc_auth_add_initers (svc);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to add initers");
