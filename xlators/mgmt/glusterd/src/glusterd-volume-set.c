@@ -163,6 +163,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
 
         {"transport.keepalive",                  "protocol/server",           "transport.socket.keepalive", NULL, NO_DOC, 0, 1},
         {"server.allow-insecure",                "protocol/server",           "rpc-auth-allow-insecure", NULL, NO_DOC, 0, 1},
+        {"server.root-squash",                   "protocol/server",           "root-squash", NULL, DOC, 0, 2},
         {"server.statedump-path",                "protocol/server",           "statedump-path", NULL, DOC, 0, 1},
         {"features.lock-heal",                   "protocol/server",           "lk-heal", NULL, NO_DOC, 0, 1},
         {"features.grace-timeout",               "protocol/server",           "grace-timeout", NULL, NO_DOC, 0, 1},

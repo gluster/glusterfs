@@ -52,6 +52,7 @@ typedef struct rpcsvc_state {
         /* Allow insecure ports. */
         int                     allow_insecure;
         gf_boolean_t            register_portmap;
+        gf_boolean_t            root_squash;
         glusterfs_ctx_t         *ctx;
 
         /* list of connections which will listen for incoming connections */
