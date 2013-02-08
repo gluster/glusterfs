@@ -3038,12 +3038,9 @@ glusterd_handle_cli_clearlocks_volume (rpcsvc_request_t *req)
         gf_log (this->name, GF_LOG_INFO, "Received clear-locks volume req "
                 "for volume %s", volname);
 
-        ret = glusterd_op_begin (req, cli_op, dict, err_str, sizeof (err_str));
+        ret = glusterd_op_begin_synctask (req, GD_OP_CLEARLOCKS_VOLUME, dict);
 
 out:
-        glusterd_friend_sm ();
-        glusterd_op_sm ();
-
         if (ret) {
                 if (err_str[0] == '\0')
                         snprintf (err_str, sizeof (err_str),

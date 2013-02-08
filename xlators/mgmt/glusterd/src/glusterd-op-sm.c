@@ -3855,7 +3855,8 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         break;
 
                 case GD_OP_CLEARLOCKS_VOLUME:
-                        ret = glusterd_op_clearlocks_volume (dict, op_errstr);
+                        ret = glusterd_op_clearlocks_volume (dict, op_errstr,
+                                                             rsp_dict);
                         break;
 #ifdef HAVE_BD_XLATOR
                 case GD_OP_BD_OP:

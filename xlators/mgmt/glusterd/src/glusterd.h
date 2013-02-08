@@ -698,7 +698,8 @@ int glusterd_op_stage_statedump_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_statedump_volume (dict_t *dict, char **op_errstr);
 
 int glusterd_op_stage_clearlocks_volume (dict_t *dict, char **op_errstr);
-int glusterd_op_clearlocks_volume (dict_t *dict, char **op_errstr);
+int glusterd_op_clearlocks_volume (dict_t *dict, char **op_errstr,
+                                   dict_t *rsp_dict);
 int glusterd_op_stage_bd (dict_t *dict, char **op_errstr);
 
 /* misc */
