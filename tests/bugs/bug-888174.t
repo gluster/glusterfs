@@ -14,6 +14,8 @@ TEST pidof glusterd
 
 TEST $CLI volume create $V0 replica 2 $H0:$B0/r2_0 $H0:$B0/r2_1
 
+TEST $CLI volume set $V0 cluster.eager-lock on
+
 TEST $CLI volume set $V0 performance.flush-behind off
 EXPECT "off" volume_option $V0 performance.flush-behind
 
@@ -46,7 +48,6 @@ p=$!
 #trigger graph switches, tests for fsync not leaving any pending flags
 TEST $CLI volume set $V0 performance.quick-read off
 TEST $CLI volume set $V0 performance.io-cache off
-TEST $CLI volume set $V0 performance.write-behind off
 TEST $CLI volume set $V0 performance.stat-prefetch off
 TEST $CLI volume set $V0 performance.read-ahead off
 
