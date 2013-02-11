@@ -102,8 +102,12 @@ int glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx);
 int glusterfs_volfile_fetch (glusterfs_ctx_t *ctx);
 void cleanup_and_exit (int signum);
 
-void *glusterfs_volume_top_read_perf (void *args);
-void *glusterfs_volume_top_write_perf (void *args);
+int glusterfs_volume_top_write_perf (uint32_t blk_size, uint32_t blk_count,
+                                     char *brick_path, double *throughput,
+                                     double *time);
+int glusterfs_volume_top_read_perf (uint32_t blk_size, uint32_t blk_count,
+                                    char *brick_path, double *throughput,
+                                    double *time);
 
 extern glusterfs_ctx_t *glusterfsd_ctx;
 #endif /* __GLUSTERFSD_H__ */

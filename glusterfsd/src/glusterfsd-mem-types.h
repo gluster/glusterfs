@@ -20,7 +20,6 @@ enum gfd_mem_types_ {
         gfd_mt_xlator_cmdline_option_t,
         gfd_mt_char,
         gfd_mt_call_pool_t,
-        gfd_mt_vol_top_priv_t,
         gfd_mt_end
 
 };
