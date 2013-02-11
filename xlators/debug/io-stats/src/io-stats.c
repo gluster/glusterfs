@@ -2860,7 +2860,7 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_STR,
           .default_value = "CRITICAL",
           .description = "Gluster's syslog log-level",
-          .value = { "WARNING", "ERROR", "CRITICAL"}
+          .value = { "WARNING", "ERROR", "INFO", "CRITICAL"}
         },
         { .key = {"brick-log-level"},
           .type = GF_OPTION_TYPE_STR,
