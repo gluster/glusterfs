@@ -1,0 +1,72 @@
+#!/bin/bash
+
+function get_layout()
+{
+        layout=`getfattr -n trusted.glusterfs.dht -e hex $1 2>&1|grep dht |cut -d = -f2`
+        if [ $? -eq 1]
+        then
+                return -1
+        else
+                return $layout
+        fi
+
+}
+
+## populates $BRICK1 and $BRICK2 with hashed/cached subvolume. These will be
+## used by get_cached_brick and get_hashed_brick
+
+function file_has_linkfile()
+{
+        k=0
+        l=0
+        while [ $k -lt $BRICK_COUNT ]
+        do
+                stat=`stat $B0/${V0}$k/$1 2>/dev/null`
+                if [ $? -eq 0 ]
+                then
+                        let l++
+                        let "BRICK${l}=$k"
+
+                fi
+                let k++
+        done
+        return $l
+}
+
+function get_cached_brick()
+{
+        i=1
+        brick=$BRICK1
+        while [ $i -lt 3 ]
+        do
+                test=`getfattr -n trusted.glusterfs.dht.linkto -e text $B0/${V0}$brick/$1 2>&1`
+                if [ $? -eq 1 ]
+                then
+                        cached=$brick
+                        i=$(( $i+3 ))
+                fi
+                brick=$BRICK1
+                let i++
+        done
+
+        return $cached
+}
+
+function get_hashed_brick()
+{
+        j=1
+        brick=$BRICK1
+        while [ $j -lt 3 ]
+        do
+                test=`getfattr -n trusted.glusterfs.dht.linkto -e text $B0/${V0}$brick/$1 2>&1`
+                if [ $? -eq 0 ]
+                then
+                        hashed=$brick
+                        j=$(( $j+3 ))
+                fi
+                brick=$BRICK2
+                let j++
+        done
+
+        return $hashed
+}

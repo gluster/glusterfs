@@ -760,6 +760,9 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         }
 
 unwind:
+        if (local->linked == _gf_true)
+                dht_linkfile_attr_heal (frame, this);
+
         DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
         DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
                           local->inode, &local->stbuf, local->xattr,
@@ -3419,6 +3422,8 @@ dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 op_errno = EINVAL;
                 goto out;
         }
+        if (local->linked == _gf_true)
+                dht_linkfile_attr_heal (frame, this);
 out:
         /*
          * FIXME: ia_size and st_blocks of preparent and postparent do not have
@@ -3427,7 +3432,6 @@ out:
          * corresponding values from each of the subvolume.
          * See dht_iatt_merge for reference.
          */
-
         DHT_STRIP_PHASE1_FLAGS (stbuf);
         DHT_STACK_UNWIND (mknod, frame, op_ret, op_errno, inode, stbuf,
                           preparent, postparent, xdata);
@@ -3687,7 +3691,10 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dht_inode_ctx_time_update (local->loc.parent, this,
                                            postparent, 1);
         }
-
+        if (local->linked == _gf_true) {
+                local->stbuf = *stbuf;
+                dht_linkfile_attr_heal (frame, this);
+        }
 out:
         DHT_STRIP_PHASE1_FLAGS (stbuf);
         DHT_STACK_UNWIND (link, frame, op_ret, op_errno, inode, stbuf, preparent,
@@ -3831,7 +3838,10 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 op_errno = EINVAL;
                 goto out;
         }
-
+        if (local->linked == _gf_true) {
+                local->stbuf = *stbuf;
+                dht_linkfile_attr_heal (frame, this);
+        }
 out:
         DHT_STRIP_PHASE1_FLAGS (stbuf);
         DHT_STACK_UNWIND (create, frame, op_ret, op_errno, fd, inode, stbuf, preparent,
