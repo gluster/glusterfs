@@ -441,6 +441,10 @@ dht_rename_links_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->loc.path, prev->this->name, strerror (op_errno));
         }
 
+        if (local->linked == _gf_true) {
+                local->linked = _gf_false;
+                dht_linkfile_attr_heal (frame, this);
+        }
         DHT_STACK_DESTROY (frame);
 
         return 0;
@@ -510,6 +514,11 @@ err:
         dht_iatt_merge (this, &local->postoldparent, postoldparent, prev->this);
         dht_iatt_merge (this, &local->preparent, prenewparent, prev->this);
         dht_iatt_merge (this, &local->postparent, postnewparent, prev->this);
+
+        if (local->linked == _gf_true) {
+                local->linked = _gf_false;
+                dht_linkfile_attr_heal (frame, this);
+        }
 
         /* NOTE: rename_subvol is the same subvolume from which dht_rename_cbk
          *       is called. since rename has already happened on rename_subvol,
@@ -645,6 +654,8 @@ dht_rename_links_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->op_ret   = -1;
                 if (op_errno != ENOENT)
                         local->op_errno = op_errno;
+        } else {
+                dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
         }
 
         this_call_cnt = dht_frame_return (frame);
