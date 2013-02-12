@@ -392,6 +392,15 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 }
         }
 
+        if (state->mode & GLUSTER_MODE_SCRIPT) {
+                ret = dict_set_int32 (options, "force", _gf_true);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to set force "
+                                "option");
+                        goto out;
+                }
+        }
+
         CLI_LOCAL_INIT (local, words, frame, options);
 
         if (proc->fn) {
@@ -963,6 +972,15 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
                 }
         }
 
+        if (state->mode & GLUSTER_MODE_SCRIPT) {
+                ret = dict_set_int32 (options, "force", _gf_true);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to set force "
+                                "option");
+                        goto out;
+                }
+        }
+
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_ADD_BRICK];
 
         CLI_LOCAL_INIT (local, words, frame, options);
@@ -1129,6 +1147,15 @@ cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
                 cli_usage_out (word->pattern);
                 parse_error = 1;
                 goto out;
+        }
+
+        if (state->mode & GLUSTER_MODE_SCRIPT) {
+                ret = dict_set_int32 (options, "force", _gf_true);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to set force"
+                                "option");
+                        goto out;
+                }
         }
 
         CLI_LOCAL_INIT (local, words, frame, options);
@@ -1799,7 +1826,7 @@ struct cli_cmd volume_cmds[] = {
 #ifdef HAVE_BD_XLATOR
           "[device vg] "
 #endif
-          "[transport <tcp|rdma|tcp,rdma>] <NEW-BRICK> ...",
+          "[transport <tcp|rdma|tcp,rdma>] <NEW-BRICK> ... [force]",
           cli_cmd_volume_create_cbk,
           "create a new volume of specified type with mentioned bricks"},
 
@@ -1819,7 +1846,7 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_rename_cbk,
           "rename volume <VOLNAME> to <NEW-VOLNAME>"},*/
 
-        { "volume add-brick <VOLNAME> [<stripe|replica> <COUNT>] <NEW-BRICK> ...",
+        { "volume add-brick <VOLNAME> [<stripe|replica> <COUNT>] <NEW-BRICK> ... [force]",
           cli_cmd_volume_add_brick_cbk,
           "add brick to volume <VOLNAME>"},
 
@@ -1831,7 +1858,7 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_defrag_cbk,
           "rebalance operations"},
 
-        { "volume replace-brick <VOLNAME> <BRICK> <NEW-BRICK> {start|pause|abort|status|commit [force]}",
+        { "volume replace-brick <VOLNAME> <BRICK> <NEW-BRICK> {start [force]|pause|abort|status|commit [force]}",
           cli_cmd_volume_replace_brick_cbk,
           "replace-brick operations"},
 

@@ -134,6 +134,11 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
+        if (!dict_get (dict, "force")) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get 'force' flag");
+                goto out;
+        }
+
         uuid_generate (volume_id);
         free_ptr = gf_strdup (uuid_utoa (volume_id));
         ret = dict_set_dynstr (dict, "volume-id", free_ptr);
@@ -610,6 +615,8 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
 #ifdef HAVE_BD_XLATOR
         char                                    *dev_type = NULL;
 #endif
+        gf_boolean_t                             is_force = _gf_false;
+
         this = THIS;
         GF_ASSERT (this);
         priv = this->private;
@@ -663,6 +670,8 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        is_force = dict_get_str_boolean (dict, "force", _gf_false);
+
         if (bricks) {
                 brick_list = gf_strdup (bricks);
                 if (!brick_list) {
@@ -715,10 +724,9 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
                 } else
 #endif
                 if (!uuid_compare (brick_info->uuid, MY_UUID)) {
-                        ret = glusterd_brick_create_path (brick_info->hostname,
-                                                          brick_info->path,
-                                                          volume_uuid,
-                                                          op_errstr);
+                        ret = glusterd_validate_and_create_brickpath (brick_info,
+                                                          volume_uuid, op_errstr,
+                                                          is_force);
                         if (ret)
                                 goto out;
                         brick_list = tmpptr;

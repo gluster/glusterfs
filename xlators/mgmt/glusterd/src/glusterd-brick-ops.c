@@ -423,6 +423,10 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
                         stripe_count);
         }
 
+        if (!dict_get (dict, "force")) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get flag");
+                goto out;
+        }
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
@@ -1034,6 +1038,7 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
         gf_boolean_t                            brick_alloc = _gf_false;
         char                                    *all_bricks = NULL;
         char                                    *str_ret = NULL;
+        gf_boolean_t                            is_force = _gf_false;
 
         priv = THIS->private;
         if (!priv)
@@ -1096,6 +1101,8 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        is_force = dict_get_str_boolean (dict, "force", _gf_false);
+
         if (bricks) {
                 brick_list = gf_strdup (bricks);
                 all_bricks = gf_strdup (bricks);
@@ -1137,10 +1144,9 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
                 }
 
                 if (!uuid_compare (brickinfo->uuid, MY_UUID)) {
-                        ret = glusterd_brick_create_path (brickinfo->hostname,
-                                                          brickinfo->path,
+                        ret = glusterd_validate_and_create_brickpath (brickinfo,
                                                           volinfo->volume_id,
-                                                          op_errstr);
+                                                          op_errstr, is_force);
                         if (ret)
                                 goto out;
                 }
