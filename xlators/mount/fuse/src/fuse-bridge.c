@@ -5278,7 +5278,7 @@ struct volume_options options[] = {
         },
         { .key = {"gid-timeout"},
           .type = GF_OPTION_TYPE_INT,
-          .default_value = "0"
+          .default_value = "2"
         },
         { .key = {"acl"},
           .type = GF_OPTION_TYPE_BOOL,
