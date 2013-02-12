@@ -924,6 +924,105 @@ out:
         return available;
 }
 
+int
+glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
+                                        uuid_t volume_id, char **op_errstr,
+                                        gf_boolean_t is_force)
+{
+        int          ret                 = -1;
+        char         parentdir[PATH_MAX] = {0,};
+        struct stat  parent_st           = {0,};
+        struct stat  brick_st            = {0,};
+        struct stat  root_st             = {0,};
+        char         msg[2048]           = {0,};
+        gf_boolean_t is_created          = _gf_false;
+
+        ret = mkdir (brickinfo->path, 0777);
+        if (ret) {
+                if (errno != EEXIST) {
+                        snprintf (msg, sizeof (msg), "Failed to create brick "
+                                  "directory for brick %s:%s. Reason : %s ",
+                                  brickinfo->hostname, brickinfo->path,
+                                  strerror (errno));
+                        goto out;
+                }
+        } else {
+                is_created = _gf_true;
+        }
+
+        ret = lstat (brickinfo->path, &brick_st);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "lstat failed on %s. Reason : %s",
+                          brickinfo->path, strerror (errno));
+                goto out;
+        }
+
+        if ((!is_created) && (!S_ISDIR (brick_st.st_mode))) {
+                snprintf (msg, sizeof (msg), "The provided path %s which is "
+                          "already present, is not a directory",
+                          brickinfo->path);
+                ret = -1;
+                goto out;
+        }
+
+        snprintf (parentdir, sizeof (parentdir), "%s/..", brickinfo->path);
+
+        ret = lstat ("/", &root_st);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "lstat failed on /. Reason : %s",
+                          strerror (errno));
+                goto out;
+        }
+
+        ret = lstat (parentdir, &parent_st);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "lstat failed on %s. Reason : %s",
+                          parentdir, strerror (errno));
+                goto out;
+        }
+
+        if (!is_force) {
+                if (brick_st.st_dev != parent_st.st_dev) {
+                        snprintf (msg, sizeof (msg), "The brick %s:%s is a "
+                                  "mount point. Please create a sub-directory "
+                                  "under the mount point and use that as the "
+                                  "brick directory. Or use 'force' at the end "
+                                  "of the command if you want to override this "
+                                  "behavior.", brickinfo->hostname,
+                                  brickinfo->path);
+                        ret = -1;
+                        goto out;
+                }
+                else if (parent_st.st_dev == root_st.st_dev) {
+                        snprintf (msg, sizeof (msg), "The brick %s:%s is "
+                                  "is being created in the root partition. It "
+                                  "is recommended that you don't use the "
+                                  "system's root partition for storage backend."
+                                  " Or use 'force' at the end of the command if"
+                                  " you want to override this behavior.",
+                                  brickinfo->hostname, brickinfo->path);
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        ret = glusterd_check_and_set_brick_xattr (brickinfo->hostname,
+                                                  brickinfo->path, volume_id,
+                                                  op_errstr);
+        if (ret)
+                goto out;
+
+        ret = 0;
+
+out:
+        if (ret && is_created)
+                rmdir (brickinfo->path);
+        if (ret && !*op_errstr && msg[0] != '\0')
+                *op_errstr = gf_strdup (msg);
+
+        return ret;
+}
+
 int32_t
 glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                                glusterd_volinfo_t *volinfo,
@@ -5045,16 +5144,12 @@ out:
 }
 
 int
-glusterd_brick_create_path (char *host, char *path, uuid_t uuid,
-                            char **op_errstr)
+glusterd_check_and_set_brick_xattr (char *host, char *path, uuid_t uuid,
+                                    char **op_errstr)
 {
         int             ret             = -1;
         char            msg[2048]       = {0,};
         gf_boolean_t    in_use          = _gf_false;
-
-        ret = mkdir_p (path, 0777, _gf_true);
-        if (ret)
-                goto out;
 
         /* Check for xattr support in backend fs */
         ret = sys_lsetxattr (path, "trusted.glusterfs.test",
@@ -5068,7 +5163,6 @@ glusterd_brick_create_path (char *host, char *path, uuid_t uuid,
 
         } else {
                 sys_lremovexattr (path, "trusted.glusterfs.test");
-
         }
 
         ret = glusterd_is_path_in_use (path, &in_use, op_errstr);
@@ -5095,7 +5189,6 @@ out:
                 *op_errstr = gf_strdup (msg);
 
         return ret;
-
 }
 
 int

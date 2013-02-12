@@ -175,6 +175,8 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
 #ifdef HAVE_BD_XLATOR
         char     *dev_type = NULL;
 #endif
+        gf_boolean_t is_force = _gf_false;
+        int wc = wordcount;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -351,7 +353,12 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
 
         brick_index = index;
 
-        ret = cli_cmd_bricks_parse (words, wordcount, brick_index, &bricks,
+        if (strcmp (words[wordcount - 1], "force") == 0) {
+                is_force = _gf_true;
+                wc = wordcount - 1;
+        }
+
+        ret = cli_cmd_bricks_parse (words, wc, brick_index, &bricks,
                                     &brick_count);
         if (ret)
                 goto out;
@@ -419,6 +426,10 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
 #endif
 
         ret = dict_set_int32 (dict, "count", brick_count);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (dict, "force", is_force);
         if (ret)
                 goto out;
 
@@ -910,6 +921,8 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
         int     count = 1;
         char    *w = NULL;
         int     index;
+        gf_boolean_t is_force = _gf_false;
+        int wc = wordcount;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -987,7 +1000,13 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
         brick_index = index;
 
 parse_bricks:
-        ret = cli_cmd_bricks_parse (words, wordcount, brick_index, &bricks,
+
+        if (strcmp (words[wordcount - 1], "force") == 0) {
+                is_force = _gf_true;
+                wc = wordcount - 1;
+        }
+
+        ret = cli_cmd_bricks_parse (words, wc, brick_index, &bricks,
                                     &brick_count);
         if (ret)
                 goto out;
@@ -998,6 +1017,10 @@ parse_bricks:
 
         ret = dict_set_int32 (dict, "count", brick_count);
 
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (dict, "force", is_force);
         if (ret)
                 goto out;
 
@@ -1203,6 +1226,7 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
         char    *opwords[] = { "start", "commit", "pause", "abort", "status",
                                 NULL };
         char    *w = NULL;
+        gf_boolean_t is_force = _gf_false;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -1300,12 +1324,17 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
         }
 
         if (wordcount == (op_index + 1)) {
-                if (replace_op != GF_REPLACE_OP_COMMIT) {
+                if ((replace_op != GF_REPLACE_OP_COMMIT) &&
+                    (replace_op != GF_REPLACE_OP_START)) {
                         ret = -1;
                         goto out;
                 }
                 if (!strcmp ("force", words[op_index])) {
-                        replace_op = GF_REPLACE_OP_COMMIT_FORCE;
+                        if (replace_op == GF_REPLACE_OP_COMMIT)
+                                replace_op = GF_REPLACE_OP_COMMIT_FORCE;
+
+                        else if (replace_op == GF_REPLACE_OP_START)
+                                is_force = _gf_true;
                 }
         }
 
@@ -1319,6 +1348,9 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
         if (ret)
                 goto out;
 
+        ret = dict_set_int32 (dict, "force", is_force);
+        if (ret)
+                goto out;
 
         *options = dict;
 

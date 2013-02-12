@@ -317,8 +317,13 @@ glusterd_rb_check_bricks (glusterd_volinfo_t *volinfo,
                           glusterd_brickinfo_t *dst_brick);
 
 int
-glusterd_brick_create_path (char *host, char *path, uuid_t uuid,
-                            char **op_errstr);
+glusterd_check_and_set_brick_xattr (char *host, char *path, uuid_t uuid,
+                                    char **op_errstr);
+
+int
+glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
+                                        uuid_t volume_id, char **op_errstr,
+                                        gf_boolean_t is_force);
 int
 glusterd_sm_tr_log_transition_add (glusterd_sm_tr_log_t *log,
                                            int old_state, int new_state,

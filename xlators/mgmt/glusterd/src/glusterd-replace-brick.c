@@ -213,6 +213,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         char                                     pidfile[PATH_MAX] = {0};
         char                                    *task_id_str = NULL;
         xlator_t                                *this = NULL;
+        gf_boolean_t                            is_force = _gf_false;
 
         this = THIS;
         GF_ASSERT (this);
@@ -349,6 +350,8 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                                 ret = 0;
                         }
                 }
+                is_force = dict_get_str_boolean (dict, "force", _gf_false);
+
                 break;
 
         case GF_REPLACE_OP_PAUSE:
@@ -383,7 +386,9 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 }
                 break;
 
-        case GF_REPLACE_OP_COMMIT_FORCE: break;
+        case GF_REPLACE_OP_COMMIT_FORCE:
+                is_force = _gf_true;
+                break;
 
         case GF_REPLACE_OP_STATUS:
 
@@ -507,9 +512,9 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
 
         if (!glusterd_is_rb_ongoing (volinfo) &&
             glusterd_is_local_addr (host)) {
-                ret = glusterd_brick_create_path (host, path,
+                ret = glusterd_validate_and_create_brickpath (dst_brickinfo,
                                                   volinfo->volume_id,
-                                                  op_errstr);
+                                                  op_errstr, is_force);
                 if (ret)
                         goto out;
         }
