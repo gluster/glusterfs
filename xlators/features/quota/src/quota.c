@@ -2896,8 +2896,11 @@ int32_t
 quota_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
 	inode_t *root_inode = NULL;
+        quota_priv_t    *priv = NULL;
 
-	if (loc->inode) {
+        priv = this->private;
+
+	if (priv->consider_statfs && loc->inode) {
 		root_inode = loc->inode->table->root;
 		inode_ref(root_inode);
 		STACK_WIND_COOKIE (frame, quota_statfs_cbk, root_inode,
@@ -2911,9 +2914,13 @@ quota_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 		 * which is exactly what would happen with STACK_UNWIND using
 		 * that as a callback.  Therefore, use default_statfs_cbk in
 		 * this case instead.
+                 *
+                 * Also if the option deem-statfs is not set to "on" don't
+                 * bother calculating quota limit on / in statfs_cbk.
 		 */
-		gf_log(this->name,GF_LOG_WARNING,
-		       "missing inode, cannot adjust for quota");
+                if (priv->consider_statfs)
+                        gf_log(this->name,GF_LOG_WARNING,
+                               "missing inode, cannot adjust for quota");
 		STACK_WIND (frame, default_statfs_cbk, FIRST_CHILD(this),
 			    FIRST_CHILD(this)->fops->statfs, loc, xdata);
 	}
@@ -3125,6 +3132,7 @@ init (xlator_t *this)
         }
 
         GF_OPTION_INIT ("timeout", priv->timeout, int64, err);
+        GF_OPTION_INIT ("deem-statfs", priv->consider_statfs, bool, err);
 
         this->local_pool = mem_pool_new (quota_local_t, 64);
         if (!this->local_pool) {
@@ -3253,6 +3261,8 @@ reconfigure (xlator_t *this, dict_t *options)
         UNLOCK (&priv->lock);
 
         GF_OPTION_RECONF ("timeout", priv->timeout, options, int64, out);
+        GF_OPTION_RECONF ("deem-statfs", priv->consider_statfs, options, bool,
+                          out);
 
         ret = 0;
 out:
@@ -3309,6 +3319,13 @@ struct volume_options options[] = {
          .default_value = "0",
          .description = "quota caches the directory sizes on client. Timeout "
                         "indicates the timeout for the cache to be revalidated."
+        },
+        {.key = {"deem-statfs"},
+         .type = GF_OPTION_TYPE_BOOL,
+         .default_value = "off",
+         .description = "If set to on, it takes quota limits into"
+                        "consideration while estimating fs size. (df command)"
+                        " (Default is off)."
         },
         {.key = {NULL}}
 };

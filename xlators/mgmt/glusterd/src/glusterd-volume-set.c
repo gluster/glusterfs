@@ -582,6 +582,14 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .value       = "0",
           .op_version  = 1
         },
+        { .key         = "features.quota-deem-statfs",
+          .voltype     = "features/quota",
+          .option      = "deem-statfs",
+          .value       = "off",
+          .type        = DOC,
+          .flags       = 0,
+          .op_version  = 2
+        },
 
         /* Marker xlator options */
         { .key         = VKEY_MARKER_XTIME,

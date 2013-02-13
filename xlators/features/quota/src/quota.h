@@ -134,6 +134,7 @@ typedef struct quota_local quota_local_t;
 
 struct quota_priv {
         int64_t           timeout;
+        gf_boolean_t      consider_statfs;
         struct list_head  limit_head;
         gf_lock_t         lock;
 };
