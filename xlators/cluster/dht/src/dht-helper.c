@@ -753,8 +753,6 @@ dht_migration_complete_check_task (void *data)
                 goto out;
         }
 
-        /* need this unref for the fd on src_node */
-        fd_unref (local->fd);
         ret = 0;
 out:
 
