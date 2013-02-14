@@ -731,6 +731,10 @@ dht_migration_complete_check_task (void *data)
                 goto out;
         }
 
+        /* perform open as root:root. There is window between linkfile
+         * creation(root:root) and setattr with the correct uid/gid
+         */
+        SYNCTASK_SETID(0, 0);
         /* if 'local->fd' (ie, fd based operation), send a 'open()' on
            destination if not already done */
         if (local->loc.inode) {
@@ -746,6 +750,7 @@ dht_migration_complete_check_task (void *data)
                 GF_FREE (path);
 
         }
+        SYNCTASK_SETID (frame->root->uid, frame->root->gid);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "%s: failed to send open() on target file at %s",
@@ -853,7 +858,10 @@ dht_rebalance_inprogress_task (void *data)
         }
 
         ret = 0;
-
+        /* perform open as root:root. There is window between linkfile
+         * creation(root:root) and setattr with the correct uid/gid
+         */
+        SYNCTASK_SETID (0, 0);
         if (local->loc.inode) {
                 ret = syncop_open (dst_node, &local->loc,
                                    local->fd->flags, local->fd);
@@ -874,6 +882,7 @@ dht_rebalance_inprogress_task (void *data)
                 goto out;
         }
 
+        SYNCTASK_SETID (frame->root->uid, frame->root->gid);
         ret = fd_ctx_set (local->fd, this, (uint64_t)(long)dst_node);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
