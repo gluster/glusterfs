@@ -634,6 +634,11 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                                     cmd, NULL, GD_OP_REBALANCE);
                  break;
         case GF_DEFRAG_CMD_STOP:
+                /* Clear task-id only on explicitly stopping the
+                 * rebalance process.
+                 */
+                uuid_clear (volinfo->rebal.rebalance_id);
+
                 /* Fall back to the old volume file in case of decommission*/
                 list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
                                           brick_list) {
