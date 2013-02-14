@@ -2121,7 +2121,7 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
             !origin_glusterd)
                 goto out;
 
-        if (glusterd_is_defrag_on (volinfo)) {
+        if (!uuid_is_null (volinfo->rebal.rebalance_id)) {
                 ret = _add_task_to_dict (rsp_dict, volinfo, volinfo->rebal.op,
                                          tasks);
                 if (ret) {
@@ -2131,7 +2131,7 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                 }
                 tasks++;
         }
-        if (glusterd_is_rb_ongoing (volinfo)) {
+        if (!uuid_is_null (volinfo->rep_brick.rb_id)) {
                 ret = _add_task_to_dict (rsp_dict, volinfo, GD_OP_REPLACE_BRICK,
                                          tasks);
                 if (ret) {

@@ -1506,7 +1506,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 }
         }
 
-        /* Clear task-id on completion/stopping of remove-brick operation */
+        /* Clear task-id on commmitting/stopping of remove-brick operation */
         if ((cmd != GF_OP_CMD_START) || (cmd != GF_OP_CMD_STATUS))
                 uuid_clear (volinfo->rebal.rebalance_id);
 
