@@ -25,6 +25,14 @@
 #define VKEY_MARKER_XTIME         GEOREP".indexing"
 #define VKEY_FEATURES_QUOTA       "features.quota"
 
+#define AUTH_ALLOW_MAP_KEY "auth.allow"
+#define AUTH_REJECT_MAP_KEY "auth.reject"
+#define NFS_DISABLE_MAP_KEY "nfs.disable"
+#define AUTH_ALLOW_OPT_KEY "auth.addr.*.allow"
+#define AUTH_REJECT_OPT_KEY "auth.addr.*.reject"
+#define NFS_DISABLE_OPT_KEY "nfs.*.disable"
+
+
 typedef enum {
         GF_CLIENT_TRUSTED,
         GF_CLIENT_OTHER
