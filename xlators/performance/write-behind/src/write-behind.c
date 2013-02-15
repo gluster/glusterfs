@@ -43,13 +43,6 @@ typedef struct wb_inode {
 				 used for trickling_writes
 			      */
 
-        int32_t      op_ret;   /* Last found op_ret and op_errno
-				  while completing a liability
-				  operation. Will be picked by
-				  the next arriving writev/flush/fsync
-			       */
-        int32_t      op_errno;
-
         list_head_t  all;    /* All requests, from enqueue() till destroy().
 				Used only for resetting generation
 				number when empty.
@@ -202,6 +195,30 @@ wb_inode_ctx_get (xlator_t *this, inode_t *inode)
         UNLOCK (&inode->lock);
 out:
         return wb_inode;
+}
+
+
+gf_boolean_t
+wb_fd_err (fd_t *fd, xlator_t *this, int32_t *op_errno)
+{
+        gf_boolean_t err   = _gf_false;
+        uint64_t     value = 0;
+        int32_t      tmp   = 0;
+
+	if (fd_ctx_get (fd, this, &value) == 0) {
+                if (value != EBADF) {
+                        fd_ctx_set (fd, this, EBADF);
+                }
+
+                if (op_errno != NULL) {
+                        tmp = value;
+                        *op_errno = tmp;
+                }
+
+                err = _gf_true;
+        }
+
+        return err;
 }
 
 
@@ -629,12 +646,25 @@ wb_head_done (wb_request_t *head)
 
 
 void
-wb_inode_err (wb_inode_t *wb_inode, int op_errno)
+wb_fulfill_err (wb_request_t *head, int op_errno)
 {
+	wb_inode_t *wb_inode;
+	wb_request_t *req;
+
+	wb_inode = head->wb_inode;
+
+	/* for all future requests yet to arrive */
+	fd_ctx_set (head->fd, THIS, op_errno);
+
 	LOCK (&wb_inode->lock);
 	{
-		wb_inode->op_ret = -1;
-		wb_inode->op_errno = op_errno;
+		/* for all requests already arrived */
+		list_for_each_entry (req, &wb_inode->all, all) {
+			if (req->fd != head->fd)
+				continue;
+			req->op_ret = -1;
+			req->op_errno = op_errno;
+		}
 	}
 	UNLOCK (&wb_inode->lock);
 }
@@ -654,7 +684,7 @@ wb_fulfill_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         wb_inode = head->wb_inode;
 
 	if (op_ret == -1) {
-		wb_inode_err (wb_inode, op_errno);
+		wb_fulfill_err (head, op_errno);
 	} else if (op_ret < head->total_size) {
 		/*
 		 * We've encountered a short write, for whatever reason.
@@ -664,7 +694,7 @@ wb_fulfill_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		 * TODO: Retry the write so we can potentially capture
 		 * a real error condition (i.e., ENOSPC).
 		 */
-		wb_inode_err (wb_inode, EIO);
+		wb_fulfill_err (head, EIO);
 	}
 
 	wb_head_done (head);
@@ -688,14 +718,18 @@ wb_fulfill_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 void
 wb_fulfill_head (wb_inode_t *wb_inode, wb_request_t *head)
 {
-	struct iovec   vector[MAX_VECTOR_COUNT];
-	int            count = 0;
-	wb_request_t  *req = NULL;
-	call_frame_t  *frame = NULL;
+	struct iovec  vector[MAX_VECTOR_COUNT];
+	int           count    = 0;
+	wb_request_t *req      = NULL;
+	call_frame_t *frame    = NULL;
+        gf_boolean_t  fderr    = _gf_false;
+        xlator_t     *this     = NULL;
 
-	frame = create_frame (wb_inode->this, wb_inode->this->ctx->pool);
-	if (!frame)
-		goto enomem;
+        this = THIS;
+
+        /* make sure head->total_size is updated before we run into any
+         * errors
+         */
 
 	WB_IOV_LOAD (vector, count, head, head);
 
@@ -705,6 +739,15 @@ wb_fulfill_head (wb_inode_t *wb_inode, wb_request_t *head)
 		iobref_merge (head->stub->args.writev.iobref,
 			      req->stub->args.writev.iobref);
 	}
+
+        if (wb_fd_err (head->fd, this, NULL)) {
+                fderr = _gf_true;
+                goto err;
+        }
+
+	frame = create_frame (wb_inode->this, wb_inode->this->ctx->pool);
+	if (!frame)
+		goto err;
 
 	frame->root->lk_owner = head->lk_owner;
 	frame->local = head;
@@ -723,8 +766,11 @@ wb_fulfill_head (wb_inode_t *wb_inode, wb_request_t *head)
 		    head->stub->args.writev.iobref, NULL);
 
 	return;
-enomem:
-	wb_inode_err (wb_inode, ENOMEM);
+err:
+        if (!fderr) {
+                /* frame creation failure */
+                wb_fulfill_err (head, ENOMEM);
+        }
 
 	wb_head_done (head);
 
@@ -978,6 +1024,12 @@ __wb_preprocess_winds (wb_inode_t *wb_inode)
 			continue;
 		}
 
+                if (req->fd != holder->fd) {
+                        holder->ordering.go = 1;
+                        holder = req;
+                        continue;
+                }
+
 		space_left = page_size - holder->write_size;
 
 		if (space_left < req->write_size) {
@@ -1112,10 +1164,15 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         gf_boolean_t  wb_disabled   = 0;
         call_stub_t  *stub          = NULL;
         int           ret           = -1;
-	int           op_errno      = EINVAL;
+        int32_t       op_errno      = EINVAL;
 	int           o_direct      = O_DIRECT;
 
 	conf = this->private;
+
+        if (wb_fd_err (fd, this, &op_errno)) {
+                goto unwind;
+        }
+
         wb_inode = wb_inode_create (this, fd->inode);
 	if (!wb_inode) {
 		op_errno = ENOMEM;
@@ -1131,20 +1188,6 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 	if (flags & (O_SYNC|O_DSYNC|O_DIRECT))
 		/* O_DIRECT flag in params of writev must _always_ be honored */
 		wb_disabled = 1;
-
-	op_errno = 0;
-	LOCK (&wb_inode->lock);
-	{
-		/* pick up a previous error in fulfillment */
-		if (wb_inode->op_ret < 0)
-			op_errno = wb_inode->op_errno;
-
-		wb_inode->op_ret = 0;
-	}
-	UNLOCK (&wb_inode->lock);
-
-        if (op_errno)
-                goto unwind;
 
 	if (wb_disabled)
 		stub = fop_writev_stub (frame, wb_writev_helper, fd, vector,
@@ -1243,7 +1286,7 @@ wb_flush_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         wb_conf_t    *conf        = NULL;
         wb_inode_t   *wb_inode    = NULL;
         call_frame_t *bg_frame    = NULL;
-	int           op_errno    = 0;
+	int32_t       op_errno    = 0;
 	int           op_ret      = 0;
 
         conf = this->private;
@@ -1255,19 +1298,10 @@ wb_flush_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 		goto unwind;
 	}
 
-        LOCK (&wb_inode->lock);
-        {
-		if (wb_inode->op_ret < 0) {
-			op_ret = -1;
-			op_errno = wb_inode->op_errno;
-		}
-
-                wb_inode->op_ret = 0;
-        }
-        UNLOCK (&wb_inode->lock);
-
-	if (op_errno)
+	if (wb_fd_err (fd, this, &op_errno)) {
+		op_ret = -1;
 		goto unwind;
+	}
 
         if (conf->flush_behind)
 		goto flushbehind;
@@ -1344,6 +1378,10 @@ wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
 {
         wb_inode_t   *wb_inode     = NULL;
         call_stub_t  *stub         = NULL;
+	int32_t       op_errno     = EINVAL;
+
+	if (wb_fd_err (fd, this, &op_errno))
+		goto unwind;
 
         wb_inode = wb_inode_ctx_get (this, fd->inode);
 	if (!wb_inode)
@@ -1361,7 +1399,7 @@ wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
         return 0;
 
 unwind:
-        STACK_UNWIND_STRICT (fsync, frame, -1, ENOMEM, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT (fsync, frame, -1, op_errno, NULL, NULL, NULL);
 
         return 0;
 
@@ -1521,25 +1559,35 @@ wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 {
         wb_inode_t   *wb_inode     = NULL;
         call_stub_t  *stub         = NULL;
+        int32_t       op_errno     = 0;
 
         wb_inode = wb_inode_create (this, fd->inode);
-	if (!wb_inode)
+	if (!wb_inode) {
+                op_errno = ENOMEM;
+		goto unwind;
+        }
+
+	if (wb_fd_err (fd, this, &op_errno))
 		goto unwind;
 
 	stub = fop_ftruncate_stub (frame, wb_ftruncate_helper, fd,
 				   offset, xdata);
-	if (!stub)
+	if (!stub) {
+                op_errno = ENOMEM;
 		goto unwind;
+        }
 
-	if (!wb_enqueue (wb_inode, stub))
+	if (!wb_enqueue (wb_inode, stub)) {
+                op_errno = ENOMEM;
 		goto unwind;
+        }
 
 	wb_process_queue (wb_inode);
 
         return 0;
 
 unwind:
-        STACK_UNWIND_STRICT (ftruncate, frame, -1, ENOMEM, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT (ftruncate, frame, -1, op_errno, NULL, NULL, NULL);
 
         if (stub)
                 call_stub_destroy (stub);
@@ -1663,6 +1711,17 @@ wb_forget (xlator_t *this, inode_t *inode)
 
 
 int
+wb_release (xlator_t *this, fd_t *fd)
+{
+        uint64_t    tmp      = 0;
+
+        fd_ctx_del (fd, this, &tmp);
+
+        return 0;
+}
+
+
+int
 wb_priv_dump (xlator_t *this)
 {
         wb_conf_t      *conf                            = NULL;
@@ -1774,9 +1833,6 @@ wb_inode_dump (xlator_t *this, inode_t *inode)
         gf_proc_dump_write ("window_current", "%"GF_PRI_SIZET,
                             wb_inode->window_current);
 
-        gf_proc_dump_write ("op_ret", "%d", wb_inode->op_ret);
-
-        gf_proc_dump_write ("op_errno", "%d", wb_inode->op_errno);
 
         ret = TRY_LOCK (&wb_inode->lock);
         if (!ret)
@@ -1949,6 +2005,7 @@ struct xlator_fops fops = {
 
 struct xlator_cbks cbks = {
         .forget   = wb_forget,
+        .release  = wb_release
 };
 
 
