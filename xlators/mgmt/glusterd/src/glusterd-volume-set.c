@@ -33,7 +33,7 @@
  * we procced as if the default value were set for it.
  *
  * Fifth field is <doctype>, which decides if the option is public and available
- * in "set help" or not. "NODOC" entries are not part of the public interface
+ * in "set help" or not. "NO_DOC" entries are not part of the public interface
  * and are subject to change at any time. This also decides if an option is
  * global (apllies to all volumes) or normal (applies to only specified volume).
  *
@@ -74,169 +74,730 @@
 
 struct volopt_map_entry glusterd_volopt_map[] = {
         /* DHT xlator options */
-        {"cluster.lookup-unhashed",              "cluster/distribute", NULL, NULL, DOC, 0, 1},
-        {"cluster.min-free-disk",                "cluster/distribute", NULL, NULL, DOC, 0, 1},
-        {"cluster.min-free-inodes",              "cluster/distribute", NULL, NULL, DOC, 0, 1},
-        {"cluster.rebalance-stats",              "cluster/distribute", NULL, NULL, DOC, 0, 2},
-        {"cluster.subvols-per-directory",        "cluster/distribute", "directory-layout-spread", NULL, DOC, 0, 2},
-        {"cluster.readdir-optimize",             "cluster/distribute", NULL, NULL, DOC, 0, 2},
-        {"cluster.nufa",                         "cluster/distribute", "!nufa", NULL, NO_DOC, 0, 2},
+        { .key         = "cluster.lookup-unhashed",
+          .voltype     = "cluster/distribute",
+          .op_version  = 1
+        },
+        { .key         = "cluster.min-free-disk",
+          .voltype     = "cluster/distribute",
+          .op_version  = 1
+        },
+        { .key         = "cluster.min-free-inodes",
+          .voltype     = "cluster/distribute",
+          .op_version  = 1
+        },
+        { .key         = "cluster.rebalance-stats",
+          .voltype     = "cluster/distribute",
+          .op_version  = 2
+        },
+        { .key         = "cluster.subvols-per-directory",
+          .voltype     = "cluster/distribute",
+          .option      = "directory-layout-spread",
+          .op_version  = 2
+        },
+        { .key         = "cluster.readdir-optimize",
+          .voltype     = "cluster/distribute",
+          .op_version  = 2
+        },
+        { .key         = "cluster.nufa",
+          .voltype     = "cluster/distribute",
+          .option      = "!nufa",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+
 
         /* AFR xlator options */
-        {"cluster.entry-change-log",             "cluster/replicate",  NULL, NULL, DOC, 0, 1},
-        {"cluster.read-subvolume",               "cluster/replicate",  NULL, NULL, DOC, 0, 1},
-        {"cluster.read-subvolume-index",         "cluster/replicate",  NULL, NULL, DOC, 0, 2},
-        {"cluster.read-hash-mode",               "cluster/replicate",  NULL, NULL, DOC, 0, 2},
-        {"cluster.background-self-heal-count",   "cluster/replicate",  NULL, NULL, DOC, 0, 1},
-        {"cluster.metadata-self-heal",           "cluster/replicate",  NULL, NULL, DOC, 0, 1},
-        {"cluster.data-self-heal",               "cluster/replicate",  NULL, NULL, DOC, 0, 1},
-        {"cluster.entry-self-heal",              "cluster/replicate",  NULL, NULL, DOC, 0, 1},
-        {"cluster.self-heal-daemon",             "cluster/replicate",  "!self-heal-daemon" , NULL, DOC, 0, 1},
-        {"cluster.heal-timeout",                 "cluster/replicate",  "!heal-timeout" , NULL, DOC, 0, 2},
-        {"cluster.strict-readdir",               "cluster/replicate",  NULL, NULL, NO_DOC, 0, 1},
-        {"cluster.self-heal-window-size",        "cluster/replicate",  "data-self-heal-window-size", NULL, DOC, 0, 1},
-        {"cluster.data-change-log",              "cluster/replicate",  NULL, NULL, DOC, 0, 1},
-        {"cluster.metadata-change-log",          "cluster/replicate",  NULL, NULL, DOC, 0, 1},
-        {"cluster.data-self-heal-algorithm",     "cluster/replicate",  "data-self-heal-algorithm", NULL, DOC, 0, 1},
-        {"cluster.eager-lock",                   "cluster/replicate",  NULL, NULL, DOC, 0, 1},
-        {"cluster.quorum-type",                  "cluster/replicate",  "quorum-type", NULL, DOC, 0, 1},
-        {"cluster.quorum-count",                 "cluster/replicate",  "quorum-count", NULL, DOC, 0, 1},
-        {"cluster.choose-local",                 "cluster/replicate",  NULL, NULL, DOC, 0, 2},
-        {"cluster.self-heal-readdir-size",       "cluster/replicate",  NULL, NULL, DOC, 0, 2},
-        {"cluster.post-op-delay-secs",           "cluster/replicate",  NULL, NULL, NO_DOC, 0, 2},
-        {"cluster.readdir-failover",             "cluster/replicate",  NULL, NULL, DOC, 0, 2},
+        { .key         = "cluster.entry-change-log",
+          .voltype     = "cluster/replicate",
+          .op_version  = 1
+        },
+        { .key         = "cluster.read-subvolume",
+          .voltype     = "cluster/replicate",
+          .op_version  = 1
+        },
+        { .key         = "cluster.read-subvolume-index",
+          .voltype     = "cluster/replicate",
+          .op_version  = 2
+        },
+        { .key         = "cluster.read-hash-mode",
+          .voltype     = "cluster/replicate",
+          .op_version  = 2
+        },
+        { .key         = "cluster.background-self-heal-count",
+          .voltype     = "cluster/replicate",
+          .op_version  = 1
+        },
+        { .key         = "cluster.metadata-self-heal",
+          .voltype     = "cluster/replicate",
+          .op_version  = 1
+        },
+        { .key         = "cluster.data-self-heal",
+          .voltype     = "cluster/replicate",
+          .op_version  = 1
+        },
+        { .key         = "cluster.entry-self-heal",
+          .voltype     = "cluster/replicate",
+          .op_version  = 1
+        },
+        { .key         = "cluster.self-heal-daemon",
+          .voltype     = "cluster/replicate",
+          .option      = "!self-heal-daemon",
+          .op_version  = 1
+        },
+        { .key         = "cluster.heal-timeout",
+          .voltype     = "cluster/replicate",
+          .option      = "!heal-timeout",
+          .op_version  = 2
+        },
+        { .key         = "cluster.strict-readdir",
+          .voltype     = "cluster/replicate",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "cluster.self-heal-window-size",
+          .voltype     = "cluster/replicate",
+          .option      = "data-self-heal-window-size",
+          .op_version  = 1
+        },
+        { .key         = "cluster.data-change-log",
+          .voltype     = "cluster/replicate",
+          .op_version  = 1
+        },
+        { .key         = "cluster.metadata-change-log",
+          .voltype     = "cluster/replicate",
+          .op_version  = 1
+        },
+        { .key         = "cluster.data-self-heal-algorithm",
+          .voltype     = "cluster/replicate",
+          .option      = "data-self-heal-algorithm",
+          .op_version  = 1
+        },
+        { .key         = "cluster.eager-lock",
+          .voltype     = "cluster/replicate",
+          .op_version  = 1
+        },
+        { .key         = "cluster.quorum-type",
+          .voltype     = "cluster/replicate",
+          .option      = "quorum-type",
+          .op_version  = 1
+        },
+        { .key         = "cluster.quorum-count",
+          .voltype     = "cluster/replicate",
+          .option      = "quorum-count",
+          .op_version  = 1
+        },
+        { .key         = "cluster.choose-local",
+          .voltype     = "cluster/replicate",
+          .op_version  = 2
+        },
+        { .key         = "cluster.self-heal-readdir-size",
+          .voltype     = "cluster/replicate",
+          .op_version  = 2
+        },
+        { .key         = "cluster.post-op-delay-secs",
+          .voltype     = "cluster/replicate",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "cluster.readdir-failover",
+          .voltype     = "cluster/replicate",
+          .op_version  = 2
+        },
 
         /* Stripe xlator options */
-        {"cluster.stripe-block-size",            "cluster/stripe",     "block-size", NULL, DOC, 0, 1},
-	{"cluster.stripe-coalesce",		 "cluster/stripe",     "coalesce", NULL, DOC, 0, 2},
+        { .key         = "cluster.stripe-block-size",
+          .voltype     = "cluster/stripe",
+          .option      = "block-size",
+          .op_version  = 1
+        },
+        { .key         = "cluster.stripe-coalesce",
+          .voltype     = "cluster/stripe",
+          .option      = "coalesce",
+          .op_version  = 2
+        },
 
         /* IO-stats xlator options */
-        {VKEY_DIAG_LAT_MEASUREMENT,              "debug/io-stats",     "latency-measurement", "off", DOC, 0, 1},
-        {"diagnostics.dump-fd-stats",            "debug/io-stats",     NULL, NULL, DOC, 0, 1},
-        {VKEY_DIAG_CNT_FOP_HITS,                 "debug/io-stats",     "count-fop-hits", "off", NO_DOC, 0, 1},
-        {"diagnostics.brick-log-level",          "debug/io-stats",     "!brick-log-level", NULL, DOC, 0, 1},
-        {"diagnostics.client-log-level",         "debug/io-stats",     "!client-log-level", NULL, DOC, 0, 1},
-        {"diagnostics.brick-sys-log-level",      "debug/io-stats",     "!sys-log-level", NULL, DOC, 0, 1},
-        {"diagnostics.client-sys-log-level",     "debug/io-stats",     "!sys-log-level", NULL, DOC, 0, 1},
+        { .key         = VKEY_DIAG_LAT_MEASUREMENT,
+          .voltype     = "debug/io-stats",
+          .option      = "latency-measurement",
+          .value       = "off",
+          .op_version  = 1
+        },
+        { .key         = "diagnostics.dump-fd-stats",
+          .voltype     = "debug/io-stats",
+          .op_version  = 1
+        },
+        { .key         = VKEY_DIAG_CNT_FOP_HITS,
+          .voltype     = "debug/io-stats",
+          .option      = "count-fop-hits",
+          .value       = "off",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "diagnostics.brick-log-level",
+          .voltype     = "debug/io-stats",
+          .option      = "!brick-log-level",
+          .op_version  = 1
+        },
+        { .key         = "diagnostics.client-log-level",
+          .voltype     = "debug/io-stats",
+          .option      = "!client-log-level",
+          .op_version  = 1
+        },
+        { .key         = "diagnostics.brick-sys-log-level",
+          .voltype     = "debug/io-stats",
+          .option      = "!sys-log-level",
+          .op_version  = 1
+        },
+        { .key         = "diagnostics.client-sys-log-level",
+          .voltype     = "debug/io-stats",
+          .option      = "!sys-log-level",
+          .op_version  = 1
+        },
 
         /* IO-cache xlator options */
-        {"performance.cache-max-file-size",      "performance/io-cache",      "max-file-size", NULL, DOC, 0, 1},
-        {"performance.cache-min-file-size",      "performance/io-cache",      "min-file-size", NULL, DOC, 0, 1},
-        {"performance.cache-refresh-timeout",    "performance/io-cache",      "cache-timeout", NULL, DOC, 0, 1},
-        {"performance.cache-priority",           "performance/io-cache",      "priority", NULL, DOC, 0, 1},
-        {"performance.cache-size",               "performance/io-cache",      NULL, NULL, DOC, 0, 1},
+        { .key         = "performance.cache-max-file-size",
+          .voltype     = "performance/io-cache",
+          .option      = "max-file-size",
+          .op_version  = 1
+        },
+        { .key         = "performance.cache-min-file-size",
+          .voltype     = "performance/io-cache",
+          .option      = "min-file-size",
+          .op_version  = 1
+        },
+        { .key         = "performance.cache-refresh-timeout",
+          .voltype     = "performance/io-cache",
+          .option      = "cache-timeout",
+          .op_version  = 1
+        },
+        { .key         = "performance.cache-priority",
+          .voltype     = "performance/io-cache",
+          .option      = "priority",
+          .op_version  = 1
+        },
+        { .key         = "performance.cache-size",
+          .voltype     = "performance/io-cache",
+          .op_version  = 1
+        },
 
         /* IO-threads xlator options */
-        {"performance.io-thread-count",          "performance/io-threads",    "thread-count", NULL, DOC, 0, 1},
-        {"performance.high-prio-threads",        "performance/io-threads",    NULL, NULL, DOC, 0, 1},
-        {"performance.normal-prio-threads",      "performance/io-threads",    NULL, NULL, DOC, 0, 1},
-        {"performance.low-prio-threads",         "performance/io-threads",    NULL, NULL, DOC, 0, 1},
-        {"performance.least-prio-threads",       "performance/io-threads",    NULL, NULL, DOC, 0, 1},
-        {"performance.enable-least-priority",    "performance/io-threads",    NULL, NULL, DOC, 0, 2},
-	{"performance.least-rate-limit",	 "performance/io-threads",    NULL, NULL, DOC, 0, 1},
+        { .key         = "performance.io-thread-count",
+          .voltype     = "performance/io-threads",
+          .option      = "thread-count",
+          .op_version  = 1
+        },
+        { .key         = "performance.high-prio-threads",
+          .voltype     = "performance/io-threads",
+          .op_version  = 1
+        },
+        { .key         = "performance.normal-prio-threads",
+          .voltype     = "performance/io-threads",
+          .op_version  = 1
+        },
+        { .key         = "performance.low-prio-threads",
+          .voltype     = "performance/io-threads",
+          .op_version  = 1
+        },
+        { .key         = "performance.least-prio-threads",
+          .voltype     = "performance/io-threads",
+          .op_version  = 1
+        },
+        { .key         = "performance.enable-least-priority",
+          .voltype     = "performance/io-threads",
+          .op_version  = 2
+        },
+        { .key         = "performance.least-rate-limit",
+          .voltype     = "performance/io-threads",
+          .op_version  = 1
+        },
 
         /* Other perf xlators' options */
-        {"performance.cache-size",               "performance/quick-read",    NULL, NULL, DOC, 0, 1},
-
-        {"performance.flush-behind",             "performance/write-behind",  "flush-behind", NULL, DOC, 0, 1},
-        {"performance.write-behind-window-size", "performance/write-behind",  "cache-size", NULL, DOC, 1},
-        {"performance.strict-o-direct",          "performance/write-behind",  "strict-O_DIRECT", NULL, DOC, 2},
-        {"performance.strict-write-ordering",    "performance/write-behind",  "strict-write-ordering", NULL, DOC, 2},
-
-        {"performance.read-ahead-page-count",    "performance/read-ahead",    "page-count", NULL, DOC, 1},
-        {"performance.md-cache-timeout",         "performance/md-cache",      "md-cache-timeout", NULL, DOC, 0, 2},
+        { .key         = "performance.cache-size",
+          .voltype     = "performance/quick-read",
+          .op_version  = 1
+        },
+        { .key         = "performance.flush-behind",
+          .voltype     = "performance/write-behind",
+          .option      = "flush-behind",
+          .op_version  = 1
+        },
+        { .key         = "performance.write-behind-window-size",
+          .voltype     = "performance/write-behind",
+          .option      = "cache-size",
+          .flags       = 1,
+          .op_version  = 1
+        },
+        { .key         = "performance.strict-o-direct",
+          .voltype     = "performance/write-behind",
+          .option      = "strict-O_DIRECT",
+          .flags       = 2,
+          .op_version  = 1
+        },
+        { .key         = "performance.strict-write-ordering",
+          .voltype     = "performance/write-behind",
+          .option      = "strict-write-ordering",
+          .flags       = 2,
+          .op_version  = 1
+        },
+        { .key         = "performance.read-ahead-page-count",
+          .voltype     = "performance/read-ahead",
+          .option      = "page-count",
+          .flags       = 1,
+          .op_version  = 1
+        },
+        { .key         = "performance.md-cache-timeout",
+          .voltype     = "performance/md-cache",
+          .option      = "md-cache-timeout",
+          .op_version  = 2
+        },
 
         /* Client xlator options */
-        {"network.frame-timeout",                "protocol/client",           NULL, NULL, DOC, 0, 1},
-        {"network.ping-timeout",                 "protocol/client",           NULL, NULL, DOC, 0, 1},
-        {"network.tcp-window-size",              "protocol/client",           NULL, NULL, DOC, 0, 1},
-        {"features.lock-heal",                   "protocol/client",           "lk-heal", NULL, DOC, 0, 1},
-        {"features.grace-timeout",               "protocol/client",           "grace-timeout", NULL, DOC, 0, 1},
-        {"client.ssl",                           "protocol/client",           "transport.socket.ssl-enabled", NULL, NO_DOC, 0, 2},
-        {"network.remote-dio",                   "protocol/client",           "filter-O_DIRECT", NULL, DOC, 0, 1},
+        { .key         = "network.frame-timeout",
+          .voltype     = "protocol/client",
+          .op_version  = 1
+        },
+        { .key         = "network.ping-timeout",
+          .voltype     = "protocol/client",
+          .op_version  = 1
+        },
+        { .key         = "network.tcp-window-size",
+          .voltype     = "protocol/client",
+          .op_version  = 1
+        },
+        { .key         = "features.lock-heal",
+          .voltype     = "protocol/client",
+          .option      = "lk-heal",
+          .op_version  = 1
+        },
+        { .key         = "features.grace-timeout",
+          .voltype     = "protocol/client",
+          .option      = "grace-timeout",
+          .op_version  = 1
+        },
+        { .key         = "client.ssl",
+          .voltype     = "protocol/client",
+          .option      = "transport.socket.ssl-enabled",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "network.remote-dio",
+          .voltype     = "protocol/client",
+          .option      = "filter-O_DIRECT",
+          .op_version  = 1
+        },
 
         /* Server xlator options */
-        {"network.tcp-window-size",              "protocol/server",           NULL, NULL, DOC, 0, 1},
-        {"network.inode-lru-limit",              "protocol/server",           NULL, NULL, DOC, 0, 1},
-        {AUTH_ALLOW_MAP_KEY,                     "protocol/server",           "!server-auth", "*", DOC, 0, 1},
-        {AUTH_REJECT_MAP_KEY,                    "protocol/server",           "!server-auth", NULL, DOC, 0},
-
-        {"transport.keepalive",                  "protocol/server",           "transport.socket.keepalive", NULL, NO_DOC, 0, 1},
-        {"server.allow-insecure",                "protocol/server",           "rpc-auth-allow-insecure", NULL, NO_DOC, 0, 1},
-        {"server.root-squash",                   "protocol/server",           "root-squash", NULL, DOC, 0, 2},
-        {"server.statedump-path",                "protocol/server",           "statedump-path", NULL, DOC, 0, 1},
-        {"features.lock-heal",                   "protocol/server",           "lk-heal", NULL, NO_DOC, 0, 1},
-        {"features.grace-timeout",               "protocol/server",           "grace-timeout", NULL, NO_DOC, 0, 1},
-        {"server.ssl",                           "protocol/server",           "transport.socket.ssl-enabled", NULL, NO_DOC, 0, 2},
+        { .key         = "network.tcp-window-size",
+          .voltype     = "protocol/server",
+          .op_version  = 1
+        },
+        { .key         = "network.inode-lru-limit",
+          .voltype     = "protocol/server",
+          .op_version  = 1
+        },
+        { .key         = AUTH_ALLOW_MAP_KEY,
+          .voltype     = "protocol/server",
+          .option      = "!server-auth",
+          .value       = "*",
+          .op_version  = 1
+        },
+        { .key         = AUTH_REJECT_MAP_KEY,
+          .voltype     = "protocol/server",
+          .option      = "!server-auth",
+          .op_version  = 1
+        },
+        { .key         = "transport.keepalive",
+          .voltype     = "protocol/server",
+          .option      = "transport.socket.keepalive",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "server.allow-insecure",
+          .voltype     = "protocol/server",
+          .option      = "rpc-auth-allow-insecure",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "server.root-squash",
+          .voltype     = "protocol/server",
+          .option      = "root-squash",
+          .op_version  = 2
+        },
+        { .key         = "server.statedump-path",
+          .voltype     = "protocol/server",
+          .option      = "statedump-path",
+          .op_version  = 1
+        },
+        { .key         = "features.lock-heal",
+          .voltype     = "protocol/server",
+          .option      = "lk-heal",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "features.grace-timeout",
+          .voltype     = "protocol/server",
+          .option      = "grace-timeout",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "server.ssl",
+          .voltype     = "protocol/server",
+          .option      = "transport.socket.ssl-enabled",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
 
         /* Performance xlators enable/disbable options */
-        {"performance.write-behind",             "performance/write-behind",  "!perf", "on", NO_DOC, 0, 1},
-        {"performance.read-ahead",               "performance/read-ahead",    "!perf", "on", NO_DOC, 0, 1},
-        {"performance.io-cache",                 "performance/io-cache",      "!perf", "on", NO_DOC, 0, 1},
-        {"performance.quick-read",               "performance/quick-read",    "!perf", "on", NO_DOC, 0, 1},
-        {"performance.open-behind",              "performance/open-behind",   "!perf", "on", NO_DOC, 0, 2},
-        {"performance.stat-prefetch",            "performance/md-cache",      "!perf", "on", NO_DOC, 0, 1},
-        {"performance.client-io-threads",        "performance/io-threads",    "!perf", "off", NO_DOC, 0, 1},
-
-        {"performance.nfs.write-behind",         "performance/write-behind",  "!nfsperf", "off", NO_DOC, 0, 1},
-        {"performance.nfs.read-ahead",           "performance/read-ahead",    "!nfsperf", "off", NO_DOC, 0, 1},
-        {"performance.nfs.io-cache",             "performance/io-cache",      "!nfsperf", "off", NO_DOC, 0, 1},
-        {"performance.nfs.quick-read",           "performance/quick-read",    "!nfsperf", "off", NO_DOC, 0, 1},
-        {"performance.nfs.stat-prefetch",        "performance/md-cache",      "!nfsperf", "off", NO_DOC, 0, 1},
-        {"performance.nfs.io-threads",           "performance/io-threads",    "!nfsperf", "off", NO_DOC, 0, 1},
-	{"performance.force-readdirp",		 "performance/md-cache",      "force-readdirp", NULL, DOC, 0, 2},
+        { .key         = "performance.write-behind",
+          .voltype     = "performance/write-behind",
+          .option      = "!perf",
+          .value       = "on",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "performance.read-ahead",
+          .voltype     = "performance/read-ahead",
+          .option      = "!perf",
+          .value       = "on",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "performance.io-cache",
+          .voltype     = "performance/io-cache",
+          .option      = "!perf",
+          .value       = "on",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "performance.quick-read",
+          .voltype     = "performance/quick-read",
+          .option      = "!perf",
+          .value       = "on",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "performance.open-behind",
+          .voltype     = "performance/open-behind",
+          .option      = "!perf",
+          .value       = "on",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "performance.stat-prefetch",
+          .voltype     = "performance/md-cache",
+          .option      = "!perf",
+          .value       = "on",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "performance.client-io-threads",
+          .voltype     = "performance/io-threads",
+          .option      = "!perf",
+          .value       = "off",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "performance.nfs.write-behind",
+          .voltype     = "performance/write-behind",
+          .option      = "!nfsperf",
+          .value       = "off",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "performance.nfs.read-ahead",
+          .voltype     = "performance/read-ahead",
+          .option      = "!nfsperf",
+          .value       = "off",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "performance.nfs.io-cache",
+          .voltype     = "performance/io-cache",
+          .option      = "!nfsperf",
+          .value       = "off",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "performance.nfs.quick-read",
+          .voltype     = "performance/quick-read",
+          .option      = "!nfsperf",
+          .value       = "off",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "performance.nfs.stat-prefetch",
+          .voltype     = "performance/md-cache",
+          .option      = "!nfsperf",
+          .value       = "off",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "performance.nfs.io-threads",
+          .voltype     = "performance/io-threads",
+          .option      = "!nfsperf",
+          .value       = "off",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "performance.force-readdirp",
+          .voltype     = "performance/md-cache",
+          .option      = "force-readdirp",
+          .op_version  = 2
+        },
 
         /* Quota xlator options */
-        {VKEY_FEATURES_LIMIT_USAGE,              "features/quota",            "limit-set", NULL, NO_DOC, 0, 1},
-        {"features.quota-timeout",               "features/quota",            "timeout", "0", DOC, 0, 1},
+        { .key         = VKEY_FEATURES_LIMIT_USAGE,
+          .voltype     = "features/quota",
+          .option      = "limit-set",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "features.quota-timeout",
+          .voltype     = "features/quota",
+          .option      = "timeout",
+          .value       = "0",
+          .op_version  = 1
+        },
 
         /* Marker xlator options */
-        {VKEY_MARKER_XTIME,                      "features/marker",           "xtime", "off", NO_DOC, OPT_FLAG_FORCE, 1},
-        {VKEY_MARKER_XTIME,                      "features/marker",           "!xtime", "off", NO_DOC, OPT_FLAG_FORCE, 1},
-        {VKEY_FEATURES_QUOTA,                    "features/marker",           "quota", "off", NO_DOC, OPT_FLAG_FORCE, 1},
+        { .key         = VKEY_MARKER_XTIME,
+          .voltype     = "features/marker",
+          .option      = "xtime",
+          .value       = "off",
+          .type        = NO_DOC,
+          .flags       = OPT_FLAG_FORCE,
+          .op_version  = 1
+        },
+        { .key         = VKEY_MARKER_XTIME,
+          .voltype     = "features/marker",
+          .option      = "!xtime",
+          .value       = "off",
+          .type        = NO_DOC,
+          .flags       = OPT_FLAG_FORCE,
+          .op_version  = 1
+        },
+        { .key         = VKEY_FEATURES_QUOTA,
+          .voltype     = "features/marker",
+          .option      = "quota",
+          .value       = "off",
+          .type        = NO_DOC,
+          .flags       = OPT_FLAG_FORCE,
+          .op_version  = 1
+        },
 
         /* Debug xlators options */
-        {"debug.trace",                          "debug/trace",               "!debug","off", NO_DOC, 0, 1},
-        {"debug.log-history",                    "debug/trace",               "log-history", NULL, NO_DOC, 0, 2},
-        {"debug.log-file",                       "debug/trace",               "log-file", NULL, NO_DOC, 0, 2},
-        {"debug.exclude-ops",                    "debug/trace",               "exclude-ops", NULL, NO_DOC, 0, 2},
-        {"debug.include-ops",                    "debug/trace",               "include-ops", NULL, NO_DOC, 0, 2},
-        {"debug.error-gen",                      "debug/error-gen",           "!debug","off", NO_DOC, 0, 1},
+        { .key         = "debug.trace",
+          .voltype     = "debug/trace",
+          .option      = "!debug",
+          .value       = "off",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "debug.log-history",
+          .voltype     = "debug/trace",
+          .option      = "log-history",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "debug.log-file",
+          .voltype     = "debug/trace",
+          .option      = "log-file",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "debug.exclude-ops",
+          .voltype     = "debug/trace",
+          .option      = "exclude-ops",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "debug.include-ops",
+          .voltype     = "debug/trace",
+          .option      = "include-ops",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "debug.error-gen",
+          .voltype     = "debug/error-gen",
+          .option      = "!debug",
+          .value       = "off",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+
 
         /* NFS xlator options */
-        {"nfs.enable-ino32",                     "nfs/server",                "nfs.enable-ino32", NULL, GLOBAL_DOC, 0, 1},
-        {"nfs.mem-factor",                       "nfs/server",                "nfs.mem-factor", NULL, GLOBAL_DOC, 0, 1},
-        {"nfs.export-dirs",                      "nfs/server",                "nfs3.export-dirs", NULL, GLOBAL_DOC, 0, 1},
-        {"nfs.export-volumes",                   "nfs/server",                "nfs3.export-volumes", NULL, GLOBAL_DOC, 0, 1},
-        {"nfs.addr-namelookup",                  "nfs/server",                "rpc-auth.addr.namelookup", NULL, GLOBAL_DOC, 0, 1},
-        {"nfs.dynamic-volumes",                  "nfs/server",                "nfs.dynamic-volumes", NULL, GLOBAL_DOC, 0, 1},
-        {"nfs.register-with-portmap",            "nfs/server",                "rpc.register-with-portmap", NULL, GLOBAL_DOC, 0, 1},
-        {"nfs.port",                             "nfs/server",                "nfs.port", NULL, GLOBAL_DOC, 0, 1},
-        {"nfs.rpc-auth-unix",                    "nfs/server",                "!rpc-auth.auth-unix.*", NULL, DOC, 0, 1},
-        {"nfs.rpc-auth-null",                    "nfs/server",                "!rpc-auth.auth-null.*", NULL, DOC, 0, 1},
-        {"nfs.rpc-auth-allow",                   "nfs/server",                "!rpc-auth.addr.*.allow", NULL, DOC, 0, 1},
-        {"nfs.rpc-auth-reject",                  "nfs/server",                "!rpc-auth.addr.*.reject", NULL, DOC, 0, 1},
-        {"nfs.ports-insecure",                   "nfs/server",                "!rpc-auth.ports.*.insecure", NULL, DOC, 0, 1},
-        {"nfs.transport-type",                   "nfs/server",                "!nfs.transport-type", NULL, DOC, 0, 1},
-        {"nfs.trusted-sync",                     "nfs/server",                "!nfs3.*.trusted-sync", NULL, DOC, 0, 1},
-        {"nfs.trusted-write",                    "nfs/server",                "!nfs3.*.trusted-write", NULL, DOC, 0, 1},
-        {"nfs.volume-access",                    "nfs/server",                "!nfs3.*.volume-access", NULL, DOC, 0, 1},
-        {"nfs.export-dir",                       "nfs/server",                "!nfs3.*.export-dir", NULL, DOC, 0, 1},
-        {NFS_DISABLE_MAP_KEY,                    "nfs/server",                "!nfs-disable", NULL, DOC, 0, 1},
-        {"nfs.nlm",                              "nfs/server",                "nfs.nlm", NULL, GLOBAL_DOC, 0, 1},
-        {"nfs.mount-udp",                        "nfs/server",                "nfs.mount-udp", NULL, GLOBAL_DOC, 0, 1},
-        {"nfs.server-aux-gids",                  "nfs/server",                "nfs.server-aux-gids", NULL, NO_DOC, 0, 2},
+        { .key         = "nfs.enable-ino32",
+          .voltype     = "nfs/server",
+          .option      = "nfs.enable-ino32",
+          .type        = GLOBAL_DOC,
+          .op_version  = 1
+        },
+        { .key         = "nfs.mem-factor",
+          .voltype     = "nfs/server",
+          .option      = "nfs.mem-factor",
+          .type        = GLOBAL_DOC,
+          .op_version  = 1
+        },
+        { .key         = "nfs.export-dirs",
+          .voltype     = "nfs/server",
+          .option      = "nfs3.export-dirs",
+          .type        = GLOBAL_DOC,
+          .op_version  = 1
+        },
+        { .key         = "nfs.export-volumes",
+          .voltype     = "nfs/server",
+          .option      = "nfs3.export-volumes",
+          .type        = GLOBAL_DOC,
+          .op_version  = 1
+        },
+        { .key         = "nfs.addr-namelookup",
+          .voltype     = "nfs/server",
+          .option      = "rpc-auth.addr.namelookup",
+          .type        = GLOBAL_DOC,
+          .op_version  = 1
+        },
+        { .key         = "nfs.dynamic-volumes",
+          .voltype     = "nfs/server",
+          .option      = "nfs.dynamic-volumes",
+          .type        = GLOBAL_DOC,
+          .op_version  = 1
+        },
+        { .key         = "nfs.register-with-portmap",
+          .voltype     = "nfs/server",
+          .option      = "rpc.register-with-portmap",
+          .type        = GLOBAL_DOC,
+          .op_version  = 1
+        },
+        { .key         = "nfs.port",
+          .voltype     = "nfs/server",
+          .option      = "nfs.port",
+          .type        = GLOBAL_DOC,
+          .op_version  = 1
+        },
+        { .key         = "nfs.rpc-auth-unix",
+          .voltype     = "nfs/server",
+          .option      = "!rpc-auth.auth-unix.*",
+          .op_version  = 1
+        },
+        { .key         = "nfs.rpc-auth-null",
+          .voltype     = "nfs/server",
+          .option      = "!rpc-auth.auth-null.*",
+          .op_version  = 1
+        },
+        { .key         = "nfs.rpc-auth-allow",
+          .voltype     = "nfs/server",
+          .option      = "!rpc-auth.addr.*.allow",
+          .op_version  = 1
+        },
+        { .key         = "nfs.rpc-auth-reject",
+          .voltype     = "nfs/server",
+          .option      = "!rpc-auth.addr.*.reject",
+          .op_version  = 1
+        },
+        { .key         = "nfs.ports-insecure",
+          .voltype     = "nfs/server",
+          .option      = "!rpc-auth.ports.*.insecure",
+          .op_version  = 1
+        },
+        { .key         = "nfs.transport-type",
+          .voltype     = "nfs/server",
+          .option      = "!nfs.transport-type",
+          .op_version  = 1
+        },
+        { .key         = "nfs.trusted-sync",
+          .voltype     = "nfs/server",
+          .option      = "!nfs3.*.trusted-sync",
+          .op_version  = 1
+        },
+        { .key         = "nfs.trusted-write",
+          .voltype     = "nfs/server",
+          .option      = "!nfs3.*.trusted-write",
+          .op_version  = 1
+        },
+        { .key         = "nfs.volume-access",
+          .voltype     = "nfs/server",
+          .option      = "!nfs3.*.volume-access",
+          .op_version  = 1
+        },
+        { .key         = "nfs.export-dir",
+          .voltype     = "nfs/server",
+          .option      = "!nfs3.*.export-dir",
+          .op_version  = 1
+        },
+        { .key         = NFS_DISABLE_MAP_KEY,
+          .voltype     = "nfs/server",
+          .option      = "!nfs-disable",
+          .op_version  = 1
+        },
+        { .key         = "nfs.nlm",
+          .voltype     = "nfs/server",
+          .option      = "nfs.nlm",
+          .type        = GLOBAL_DOC,
+          .op_version  = 1
+        },
+        { .key         = "nfs.mount-udp",
+          .voltype     = "nfs/server",
+          .option      = "nfs.mount-udp",
+          .type        = GLOBAL_DOC,
+          .op_version  = 1
+        },
+        { .key         = "nfs.server-aux-gids",
+          .voltype     = "nfs/server",
+          .option      = "nfs.server-aux-gids",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
 
         /* Other options which don't fit any place above */
-        {"features.read-only",                   "features/read-only",        "!read-only", "off", DOC, 0, 2},
-        {"features.worm",                        "features/worm",             "!worm", "off", DOC, 0, 2},
-
-        {"storage.linux-aio",                    "storage/posix",             NULL, NULL, DOC, 0, 2},
-        {"storage.owner-uid",                    "storage/posix",             "brick-uid", NULL, DOC, 0, 2},
-        {"storage.owner-gid",                    "storage/posix",             "brick-gid", NULL, DOC, 0, 2},
-        {"config.memory-accounting",             "configuration",             "!config", NULL, DOC, 0, 2},
-        {"config.transport",                     "configuration",             "!config", NULL, DOC, 0, 2},
-        {GLUSTERD_QUORUM_TYPE_KEY,               "mgmt/glusterd",             NULL, "off", DOC, 0, 2},
-        {GLUSTERD_QUORUM_RATIO_KEY,              "mgmt/glusterd",             NULL, "0", DOC, 0, 2},
-        {NULL,                                                                }
+        { .key         = "features.read-only",
+          .voltype     = "features/read-only",
+          .option      = "!read-only",
+          .value       = "off",
+          .op_version  = 2
+        },
+        { .key         = "features.worm",
+          .voltype     = "features/worm",
+          .option      = "!worm",
+          .value       = "off",
+          .op_version  = 2
+        },
+        { .key         = "storage.linux-aio",
+          .voltype     = "storage/posix",
+          .op_version  = 2
+        },
+        { .key         = "storage.owner-uid",
+          .voltype     = "storage/posix",
+          .option      = "brick-uid",
+          .op_version  = 2
+        },
+        { .key         = "storage.owner-gid",
+          .voltype     = "storage/posix",
+          .option      = "brick-gid",
+          .op_version  = 2
+        },
+        { .key         = "config.memory-accounting",
+          .voltype     = "configuration",
+          .option      = "!config",
+          .op_version  = 2
+        },
+        { .key         = "config.transport",
+          .voltype     = "configuration",
+          .option      = "!config",
+          .op_version  = 2
+        },
+        { .key         = GLUSTERD_QUORUM_TYPE_KEY,
+          .voltype     = "mgmt/glusterd",
+          .value       = "off",
+          .op_version  = 2
+        },
+        { .key         = GLUSTERD_QUORUM_RATIO_KEY,
+          .voltype     = "mgmt/glusterd",
+          .value       = "0",
+          .op_version  = 2
+        },
+        { .key         = NULL
+        }
 };
