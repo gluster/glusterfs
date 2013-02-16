@@ -380,8 +380,8 @@ _fd_lk_insert_and_merge (fd_lk_ctx_t *lk_ctx,
                         return;
                 } else {
                         sum = _fd_lk_add_locks (entry, lock);
-                        sum->fl_type = entry->fl_type;
-                        sum->user_flock.l_type = entry->fl_type;
+                        sum->fl_type = lock->fl_type;
+                        sum->user_flock.l_type = lock->fl_type;
                         ret = _fd_lk_sub_locks (&v, sum, lock);
                         if (ret)
                                 return;
@@ -390,6 +390,8 @@ _fd_lk_insert_and_merge (fd_lk_ctx_t *lk_ctx,
 
                         _fd_lk_delete_lock (lock);
                         _fd_lk_destroy_lock (lock);
+
+                        _fd_lk_destroy_lock (sum);
 
                         for (i = 0; i < 3; i++) {
                                 if (!v.locks[i])
@@ -407,7 +409,7 @@ _fd_lk_insert_and_merge (fd_lk_ctx_t *lk_ctx,
         if (lock->fl_type != F_UNLCK) {
                 _fd_lk_insert_lock (lk_ctx, lock);
         } else {
-                _fd_lk_destroy_lock_list (lk_ctx);
+                _fd_lk_destroy_lock (lock);
         }
 }
 

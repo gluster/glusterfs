@@ -39,11 +39,17 @@ function get_mount_process_pid {
         ps aux | grep glusterfs | grep -E "volfile-id[ =]/?$vol " | awk '{print $2}' | head -1
 }
 
+function cleanup_statedump {
+       pid=$1
+       rm -f $statedumpdir/*$pid.dump.*
+       #.vimrc friendly comment */
+}
+
 function generate_statedump {
         local fpath=""
         pid=$1
         #remove old stale statedumps
-        rm -f $statedumpdir/*$pid.dump.*
+        cleanup_statedump $pid
         kill -USR1 $pid
         #Wait till the statedump is generated
         sleep 1
@@ -54,6 +60,11 @@ function generate_statedump {
 function generate_mount_statedump {
         local vol=$1
         generate_statedump $(get_mount_process_pid $vol)
+}
+
+function cleanup_mount_statedump {
+        local vol=$1
+        cleanup_statedump $(get_mount_process_pid $vol)
 }
 
 function _afr_child_up_status {
