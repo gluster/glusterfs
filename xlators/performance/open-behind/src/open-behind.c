@@ -31,6 +31,7 @@ typedef struct ob_fd {
 	loc_t             loc;
 	dict_t           *xdata;
 	int               flags;
+	int               op_errno;
 	struct list_head  list;
 } ob_fd_t;
 
@@ -136,25 +137,32 @@ ob_wake_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	fd = frame->local;
 	frame->local = NULL;
 
+	INIT_LIST_HEAD (&list);
+
 	LOCK (&fd->lock);
 	{
 		ob_fd = __ob_fd_ctx_get (this, fd);
 
-		__fd_ctx_del (fd, this, NULL);
+		list_splice_init (&ob_fd->list, &list);
+
+		if (op_ret < 0) {
+			/* mark fd BAD for ever */
+			ob_fd->op_errno = op_errno;
+		} else {
+			__fd_ctx_del (fd, this, NULL);
+			ob_fd_free (ob_fd);
+		}
 	}
 	UNLOCK (&fd->lock);
-
-	INIT_LIST_HEAD (&list);
-
-	list_splice_init (&ob_fd->list, &list);
 
 	list_for_each_entry_safe (stub, tmp, &list, list) {
 		list_del_init (&stub->list);
 
-		call_resume (stub);
+		if (op_ret < 0)
+			call_unwind_error (stub, -1, op_errno);
+		else
+			call_resume (stub);
 	}
-
-	ob_fd_free (ob_fd);
 
 	fd_unref (fd);
 
@@ -198,6 +206,7 @@ int
 open_and_resume (xlator_t *this, fd_t *fd, call_stub_t *stub)
 {
 	ob_fd_t  *ob_fd = NULL;
+	int       op_errno = 0;
 
 	if (!fd)
 		goto nofd;
@@ -208,13 +217,20 @@ open_and_resume (xlator_t *this, fd_t *fd, call_stub_t *stub)
 		if (!ob_fd)
 			goto unlock;
 
+		if (ob_fd->op_errno) {
+			op_errno = ob_fd->op_errno;
+			goto unlock;
+		}
+
 		list_add_tail (&stub->list, &ob_fd->list);
 	}
 unlock:
 	UNLOCK (&fd->lock);
 
 nofd:
-	if (ob_fd)
+	if (op_errno)
+		call_unwind_error (stub, -1, op_errno);
+	else if (ob_fd)
 		ob_fd_wake (this, fd);
 	else
 		call_resume (stub);
