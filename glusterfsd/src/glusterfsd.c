@@ -1839,9 +1839,9 @@ main (int argc, char *argv[])
         }
 	glusterfsd_ctx = ctx;
 
+#ifdef DEBUG
         gf_mem_acct_enable_set (ctx);
-
-#ifndef DEBUG
+#else
         /* Enable memory accounting on the fly based on argument */
         gf_check_and_set_mem_acct (ctx, argc, argv);
 #endif

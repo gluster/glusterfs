@@ -33,22 +33,13 @@
 void
 gf_mem_acct_enable_set (void *data)
 {
-        char            *opt = NULL;
-        long             val = -1;
         glusterfs_ctx_t *ctx = NULL;
 
         ctx = data;
 
-        if (ctx->mem_acct_enable) {
-                return;
-        }
+        GF_ASSERT (ctx);
 
-        opt = getenv (GLUSTERFS_ENV_MEM_ACCT_STR);
-        if (opt) {
-                val = strtol (opt, NULL, 0);
-                if (val)
-                        ctx->mem_acct_enable = 1;
-        }
+        ctx->mem_acct_enable = 1;
 
         return;
 }
