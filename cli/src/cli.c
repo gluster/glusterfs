@@ -572,7 +572,9 @@ main (int argc, char *argv[])
         if (!ctx)
                 return ENOMEM;
 
+#ifdef DEBUG
         gf_mem_acct_enable_set (ctx);
+#endif
 
         ret = glusterfs_globals_init (ctx);
         if (ret)
