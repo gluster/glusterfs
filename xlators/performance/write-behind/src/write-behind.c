@@ -449,8 +449,8 @@ wb_enqueue_common (wb_inode_t *wb_inode, call_stub_t *stub, int tempted)
 	req->ordering.tempted = tempted;
 
         if (stub->fop == GF_FOP_WRITE) {
-                req->write_size = iov_length (stub->args.writev.vector,
-					      stub->args.writev.count);
+                req->write_size = iov_length (stub->args.vector,
+					      stub->args.count);
 
 		/* req->write_size can change as we collapse
 		   small writes. But the window needs to grow
@@ -466,7 +466,7 @@ wb_enqueue_common (wb_inode_t *wb_inode, call_stub_t *stub, int tempted)
 		req->op_ret = req->write_size;
 		req->op_errno = 0;
 
-		if (stub->args.writev.fd->flags & O_APPEND)
+		if (stub->args.fd->flags & O_APPEND)
 			req->ordering.append = 1;
         }
 
@@ -474,28 +474,28 @@ wb_enqueue_common (wb_inode_t *wb_inode, call_stub_t *stub, int tempted)
 
 	switch (stub->fop) {
 	case GF_FOP_WRITE:
-		req->ordering.off = stub->args.writev.off;
+		req->ordering.off = stub->args.offset;
 		req->ordering.size = req->write_size;
 
-		req->fd = fd_ref (stub->args.writev.fd);
+		req->fd = fd_ref (stub->args.fd);
 
 		break;
 	case GF_FOP_READ:
-		req->ordering.off = stub->args.readv.off;
-		req->ordering.size = stub->args.readv.size;
+		req->ordering.off = stub->args.offset;
+		req->ordering.size = stub->args.size;
 
-		req->fd = fd_ref (stub->args.readv.fd);
+		req->fd = fd_ref (stub->args.fd);
 
 		break;
 	case GF_FOP_TRUNCATE:
-		req->ordering.off = stub->args.truncate.off;
+		req->ordering.off = stub->args.offset;
 		req->ordering.size = 0; /* till infinity */
 		break;
 	case GF_FOP_FTRUNCATE:
-		req->ordering.off = stub->args.ftruncate.off;
+		req->ordering.off = stub->args.offset;
 		req->ordering.size = 0; /* till infinity */
 
-		req->fd = fd_ref (stub->args.ftruncate.fd);
+		req->fd = fd_ref (stub->args.fd);
 
 		break;
 	default:
@@ -708,9 +708,9 @@ wb_fulfill_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 #define WB_IOV_LOAD(vec, cnt, req, head) do {				\
-		memcpy (&vec[cnt], req->stub->args.writev.vector,	\
-			(req->stub->args.writev.count * sizeof(vec[0]))); \
-		cnt += req->stub->args.writev.count;			\
+		memcpy (&vec[cnt], req->stub->args.vector,		\
+			(req->stub->args.count * sizeof(vec[0])));	\
+		cnt += req->stub->args.count;				\
 		head->total_size += req->write_size;			\
 	} while (0)
 
@@ -736,8 +736,8 @@ wb_fulfill_head (wb_inode_t *wb_inode, wb_request_t *head)
 	list_for_each_entry (req, &head->winds, winds) {
 		WB_IOV_LOAD (vector, count, req, head);
 
-		iobref_merge (head->stub->args.writev.iobref,
-			      req->stub->args.writev.iobref);
+		iobref_merge (head->stub->args.iobref,
+			      req->stub->args.iobref);
 	}
 
         if (wb_fd_err (head->fd, this, NULL)) {
@@ -761,9 +761,9 @@ wb_fulfill_head (wb_inode_t *wb_inode, wb_request_t *head)
 	STACK_WIND (frame, wb_fulfill_cbk, FIRST_CHILD (frame->this),
 		    FIRST_CHILD (frame->this)->fops->writev,
 		    head->fd, vector, count,
-		    head->stub->args.writev.off,
-		    head->stub->args.writev.flags,
-		    head->stub->args.writev.iobref, NULL);
+		    head->stub->args.offset,
+		    head->stub->args.flags,
+		    head->stub->args.iobref, NULL);
 
 	return;
 err:
@@ -782,7 +782,7 @@ err:
 		if (head)						\
 			wb_fulfill_head (wb_inode, head);		\
 		head = req;						\
-		expected_offset = req->stub->args.writev.off +		\
+		expected_offset = req->stub->args.offset +		\
 			req->write_size;				\
 		curr_aggregate = 0;					\
 		vector_count = 0;					\
@@ -820,7 +820,7 @@ wb_fulfill (wb_inode_t *wb_inode, list_head_t *liabilities)
 			continue;
 		}
 
-		if (expected_offset != req->stub->args.writev.off) {
+		if (expected_offset != req->stub->args.offset) {
 			NEXT_HEAD (head, req);
 			continue;
 		}
@@ -830,7 +830,7 @@ wb_fulfill (wb_inode_t *wb_inode, list_head_t *liabilities)
 			continue;
 		}
 
-		if (vector_count + req->stub->args.writev.count >
+		if (vector_count + req->stub->args.count >
 		    MAX_VECTOR_COUNT) {
 			NEXT_HEAD (head, req);
 			continue;
@@ -838,7 +838,7 @@ wb_fulfill (wb_inode_t *wb_inode, list_head_t *liabilities)
 
 		list_add_tail (&req->winds, &head->winds);
 		curr_aggregate += req->write_size;
-		vector_count += req->stub->args.writev.count;
+		vector_count += req->stub->args.count;
 	}
 
 	if (head)
@@ -912,10 +912,10 @@ __wb_collapse_small_writes (wb_request_t *holder, wb_request_t *req)
         size_t         req_len = 0;
 
         if (!holder->iobref) {
-                holder_len = iov_length (holder->stub->args.writev.vector,
-                                         holder->stub->args.writev.count);
-                req_len = iov_length (req->stub->args.writev.vector,
-                                      req->stub->args.writev.count);
+                holder_len = iov_length (holder->stub->args.vector,
+                                         holder->stub->args.count);
+                req_len = iov_length (req->stub->args.vector,
+                                      req->stub->args.count);
 
                 required_size = max ((THIS->ctx->page_size),
                                      (holder_len + req_len));
@@ -941,25 +941,25 @@ __wb_collapse_small_writes (wb_request_t *holder, wb_request_t *req)
                         goto out;
                 }
 
-                iov_unload (iobuf->ptr, holder->stub->args.writev.vector,
-                            holder->stub->args.writev.count);
-                holder->stub->args.writev.vector[0].iov_base = iobuf->ptr;
-		holder->stub->args.writev.count = 1;
+                iov_unload (iobuf->ptr, holder->stub->args.vector,
+                            holder->stub->args.count);
+                holder->stub->args.vector[0].iov_base = iobuf->ptr;
+		holder->stub->args.count = 1;
 
-                iobref_unref (holder->stub->args.writev.iobref);
-                holder->stub->args.writev.iobref = iobref;
+                iobref_unref (holder->stub->args.iobref);
+                holder->stub->args.iobref = iobref;
 
                 iobuf_unref (iobuf);
 
                 holder->iobref = iobref_ref (iobref);
         }
 
-        ptr = holder->stub->args.writev.vector[0].iov_base + holder->write_size;
+        ptr = holder->stub->args.vector[0].iov_base + holder->write_size;
 
-        iov_unload (ptr, req->stub->args.writev.vector,
-                    req->stub->args.writev.count);
+        iov_unload (ptr, req->stub->args.vector,
+                    req->stub->args.count);
 
-        holder->stub->args.writev.vector[0].iov_len += req->write_size;
+        holder->stub->args.vector[0].iov_len += req->write_size;
         holder->write_size += req->write_size;
         holder->ordering.size += req->write_size;
 
@@ -1009,10 +1009,10 @@ __wb_preprocess_winds (wb_inode_t *wb_inode)
 			continue;
 		}
 
-		offset_expected = holder->stub->args.writev.off
+		offset_expected = holder->stub->args.offset
 			+ holder->write_size;
 
-		if (req->stub->args.writev.off != offset_expected) {
+		if (req->stub->args.offset != offset_expected) {
 			holder->ordering.go = 1;
 			holder = req;
 			continue;
@@ -1776,7 +1776,7 @@ __wb_dump_requests (struct list_head *head, char *prefix)
                                             req->write_size);
 
                         gf_proc_dump_write ("offset", "%"PRId64,
-                                            req->stub->args.writev.off);
+                                            req->stub->args.offset);
 
                         flag = req->ordering.lied;
                         gf_proc_dump_write ("lied", "%d", flag);
