@@ -26,567 +26,151 @@ typedef struct {
 	call_frame_t *frame;
 	glusterfs_fop_t fop;
         struct mem_pool *stub_mem_pool; /* pointer to stub mempool in ctx_t */
-        dict_t *xdata;                  /* common accross all the fops */
 
 	union {
-		/* lookup */
-		struct {
-			fop_lookup_t fn;
-			loc_t loc;
-		} lookup;
-		struct {
-			fop_lookup_cbk_t fn;
-			int32_t op_ret, op_errno;
-			inode_t *inode;
-			struct iatt buf;
-                        struct iatt postparent;
-		} lookup_cbk;
+		fop_lookup_t lookup;
+		fop_stat_t stat;
+		fop_fstat_t fstat;
+		fop_truncate_t truncate;
+		fop_ftruncate_t ftruncate;
+		fop_access_t access;
+		fop_readlink_t readlink;
+		fop_mknod_t mknod;
+		fop_mkdir_t mkdir;
+		fop_unlink_t unlink;
+		fop_rmdir_t rmdir;
+		fop_symlink_t symlink;
+		fop_rename_t rename;
+		fop_link_t link;
+		fop_create_t create;
+		fop_open_t open;
+		fop_readv_t readv;
+		fop_writev_t writev;
+		fop_flush_t flush;
+		fop_fsync_t fsync;
+		fop_opendir_t opendir;
+		fop_fsyncdir_t fsyncdir;
+		fop_statfs_t statfs;
+		fop_setxattr_t setxattr;
+		fop_getxattr_t getxattr;
+		fop_fgetxattr_t fgetxattr;
+		fop_fsetxattr_t fsetxattr;
+		fop_removexattr_t removexattr;
+		fop_fremovexattr_t fremovexattr;
+		fop_lk_t lk;
+		fop_inodelk_t inodelk;
+		fop_finodelk_t finodelk;
+		fop_entrylk_t entrylk;
+		fop_fentrylk_t fentrylk;
+		fop_readdir_t readdir;
+		fop_readdirp_t readdirp;
+		fop_rchecksum_t rchecksum;
+		fop_xattrop_t xattrop;
+		fop_fxattrop_t fxattrop;
+		fop_setattr_t setattr;
+		fop_fsetattr_t fsetattr;
+	} fn;
 
-		/* stat */
-		struct {
-			fop_stat_t fn;
-			loc_t loc;
-		} stat;
-		struct {
-			fop_stat_cbk_t fn;
-			int32_t op_ret, op_errno;
-			struct iatt buf;
-		} stat_cbk;
+	union {
+		fop_lookup_cbk_t lookup;
+		fop_stat_cbk_t stat;
+		fop_fstat_cbk_t fstat;
+		fop_truncate_cbk_t truncate;
+		fop_ftruncate_cbk_t ftruncate;
+		fop_access_cbk_t access;
+		fop_readlink_cbk_t readlink;
+		fop_mknod_cbk_t mknod;
+		fop_mkdir_cbk_t mkdir;
+		fop_unlink_cbk_t unlink;
+		fop_rmdir_cbk_t rmdir;
+		fop_symlink_cbk_t symlink;
+		fop_rename_cbk_t rename;
+		fop_link_cbk_t link;
+		fop_create_cbk_t create;
+		fop_open_cbk_t open;
+		fop_readv_cbk_t readv;
+		fop_writev_cbk_t writev;
+		fop_flush_cbk_t flush;
+		fop_fsync_cbk_t fsync;
+		fop_opendir_cbk_t opendir;
+		fop_fsyncdir_cbk_t fsyncdir;
+		fop_statfs_cbk_t statfs;
+		fop_setxattr_cbk_t setxattr;
+		fop_getxattr_cbk_t getxattr;
+		fop_fgetxattr_cbk_t fgetxattr;
+		fop_fsetxattr_cbk_t fsetxattr;
+		fop_removexattr_cbk_t removexattr;
+		fop_fremovexattr_cbk_t fremovexattr;
+		fop_lk_cbk_t lk;
+		fop_inodelk_cbk_t inodelk;
+		fop_finodelk_cbk_t finodelk;
+		fop_entrylk_cbk_t entrylk;
+		fop_fentrylk_cbk_t fentrylk;
+		fop_readdir_cbk_t readdir;
+		fop_readdirp_cbk_t readdirp;
+		fop_rchecksum_cbk_t rchecksum;
+		fop_xattrop_cbk_t xattrop;
+		fop_fxattrop_cbk_t fxattrop;
+		fop_setattr_cbk_t setattr;
+		fop_fsetattr_cbk_t fsetattr;
+	} fn_cbk;
 
-		/* fstat */
-		struct {
-			fop_fstat_t fn;
-			fd_t *fd;
-		} fstat;
-		struct {
-			fop_fstat_cbk_t fn;
-			int32_t op_ret, op_errno;
-			struct iatt buf;
-		} fstat_cbk;
-
-		/* truncate */
-		struct {
-			fop_truncate_t fn;
-			loc_t loc;
-			off_t off;
-		} truncate;
-		struct {
-			fop_truncate_cbk_t fn;
-			int32_t op_ret, op_errno;
-			struct iatt prebuf;
-                        struct iatt postbuf;
-		} truncate_cbk;
-
-		/* ftruncate */
-		struct {
-			fop_ftruncate_t fn;
-			fd_t *fd;
-			off_t off;
-		} ftruncate;
-		struct {
-			fop_ftruncate_cbk_t fn;
-			int32_t op_ret, op_errno;
-			struct iatt prebuf;
-                        struct iatt postbuf;
-		} ftruncate_cbk;
-
-		/* access */
-		struct {
-			fop_access_t fn;
-			loc_t loc;
-			int32_t mask;
-		} access;
-		struct {
-			fop_access_cbk_t fn;
-			int32_t op_ret, op_errno;
-		} access_cbk;
-
-		/* readlink */
-		struct {
-			fop_readlink_t fn;
-			loc_t loc;
-			size_t size;
-		} readlink;
-		struct {
-			fop_readlink_cbk_t fn;
-			int32_t op_ret, op_errno;
-			const char *buf;
-                        struct iatt sbuf;
-		} readlink_cbk;
-
-		/* mknod */
-		struct {
-			fop_mknod_t fn;
-			loc_t loc;
-			mode_t mode;
-			dev_t rdev;
-                        mode_t umask;
-		} mknod;
-		struct {
-			fop_mknod_cbk_t fn;
-			int32_t op_ret, op_errno;
-			inode_t *inode;
-			struct iatt buf;
-                        struct iatt preparent;
-                        struct iatt postparent;
-		} mknod_cbk;
-
-		/* mkdir */
-		struct {
-			fop_mkdir_t fn;
-			loc_t loc;
-			mode_t mode;
-                        mode_t umask;
-		} mkdir;
-		struct {
-			fop_mkdir_cbk_t fn;
-			int32_t op_ret, op_errno;
-			inode_t *inode;
-			struct iatt buf;
-                        struct iatt preparent;
-                        struct iatt postparent;
-		} mkdir_cbk;
-
-		/* unlink */
-		struct {
-			fop_unlink_t fn;
-			loc_t loc;
-                        int xflag;
-		} unlink;
-		struct {
-			fop_unlink_cbk_t fn;
-			int32_t op_ret, op_errno;
-                        struct iatt preparent;
-                        struct iatt postparent;
-		} unlink_cbk;
-
-		/* rmdir */
-		struct {
-			fop_rmdir_t fn;
-			loc_t loc;
-                        int   flags;
-		} rmdir;
-		struct {
-			fop_rmdir_cbk_t fn;
-			int32_t op_ret, op_errno;
-                        struct iatt preparent;
-                        struct iatt postparent;
-		} rmdir_cbk;
-
-		/* symlink */
-		struct {
-			fop_symlink_t fn;
-			const char *linkname;
-			loc_t loc;
-                        mode_t umask;
-		} symlink;
-		struct {
-			fop_symlink_cbk_t fn;
-			int32_t op_ret, op_errno;
-			inode_t *inode;
-			struct iatt buf;
-                        struct iatt preparent;
-                        struct iatt postparent;
-		} symlink_cbk;
-
-		/* rename */
-		struct {
-			fop_rename_t fn;
-			loc_t old;
-			loc_t new;
-		} rename;
-		struct {
-			fop_rename_cbk_t fn;
-			int32_t op_ret, op_errno;
-			struct iatt buf;
-                        struct iatt preoldparent;
-                        struct iatt postoldparent;
-                        struct iatt prenewparent;
-                        struct iatt postnewparent;
-		} rename_cbk;
-
-		/* link */
-		struct {
-			fop_link_t fn;
-			loc_t oldloc;
-			loc_t newloc;
-		} link;
-		struct {
-			fop_link_cbk_t fn;
-			int32_t op_ret, op_errno;
-			inode_t *inode;
-			struct iatt buf;
-                        struct iatt preparent;
-                        struct iatt postparent;
-		} link_cbk;
-
-		/* create */
-		struct {
-			fop_create_t fn;
-			loc_t loc;
-			int32_t flags;
-			mode_t mode;
-			fd_t *fd;
-                        mode_t umask;
-		} create;
-		struct {
-			fop_create_cbk_t fn;
-			int32_t op_ret, op_errno;
-			fd_t *fd;
-			inode_t *inode;
-			struct iatt buf;
-                        struct iatt preparent;
-                        struct iatt postparent;
-		} create_cbk;
-
-		/* open */
-		struct {
-			fop_open_t fn;
-			loc_t loc;
-			int32_t flags;
-			fd_t *fd;
-		} open;
-		struct {
-			fop_open_cbk_t fn;
-			int32_t op_ret, op_errno;
-			fd_t *fd;
-		} open_cbk;
-
-		/* readv */
-		struct {
-			fop_readv_t fn;
-			fd_t *fd;
-			size_t size;
-			off_t off;
-                        uint32_t flags;
-		} readv;
-		struct {
-			fop_readv_cbk_t fn;
-			int32_t op_ret;
-			int32_t op_errno;
-			struct iovec *vector;
-			int32_t count;
-			struct iatt stbuf;
-			struct iobref *iobref;
-		} readv_cbk;
-
-		/* writev */
-		struct {
-			fop_writev_t fn;
-			fd_t *fd;
-			struct iovec *vector;
-			int32_t count;
-			off_t off;
-                        uint32_t flags;
-			struct iobref *iobref;
-		} writev;
-		struct {
-			fop_writev_cbk_t fn;
-			int32_t op_ret, op_errno;
-                        struct iatt prebuf;
-			struct iatt postbuf;
-		} writev_cbk;
-
-		/* flush */
-		struct {
-			fop_flush_t fn;
-			fd_t *fd;
-		} flush;
-		struct {
-			fop_flush_cbk_t fn;
-			int32_t op_ret, op_errno;
-		} flush_cbk;
-
-		/* fsync */
-		struct {
-			fop_fsync_t fn;
-			fd_t *fd;
-			int32_t datasync;
-		} fsync;
-		struct {
-			fop_fsync_cbk_t fn;
-			int32_t op_ret, op_errno;
-                        struct iatt prebuf;
-                        struct iatt postbuf;
-		} fsync_cbk;
-
-		/* opendir */
-		struct {
-			fop_opendir_t fn;
-			loc_t loc;
-			fd_t *fd;
-		} opendir;
-		struct {
-			fop_opendir_cbk_t fn;
-			int32_t op_ret, op_errno;
-			fd_t *fd;
-		} opendir_cbk;
-
-
-		/* fsyncdir */
-		struct {
-			fop_fsyncdir_t fn;
-			fd_t *fd;
-			int32_t datasync;
-		} fsyncdir;
-		struct {
-			fop_fsyncdir_cbk_t fn;
-			int32_t op_ret, op_errno;
-		} fsyncdir_cbk;
-
-		/* statfs */
-		struct {
-			fop_statfs_t fn;
-			loc_t loc;
-		} statfs;
-		struct {
-			fop_statfs_cbk_t fn;
-			int32_t op_ret, op_errno;
-			struct statvfs buf;
-		} statfs_cbk;
-
-		/* setxattr */
-		struct {
-			fop_setxattr_t fn;
-			loc_t loc;
-			dict_t *dict;
-			int32_t flags;
-		} setxattr;
-		struct {
-			fop_setxattr_cbk_t fn;
-			int32_t op_ret, op_errno;
-		} setxattr_cbk;
-
-		/* getxattr */
-		struct {
-			fop_getxattr_t fn;
-			loc_t loc;
-			const char *name;
-		} getxattr;
-		struct {
-			fop_getxattr_cbk_t fn;
-			int32_t op_ret, op_errno;
-			dict_t *dict;
-		} getxattr_cbk;
-
-		/* fsetxattr */
-		struct {
-			fop_fsetxattr_t fn;
-			fd_t *fd;
-			dict_t *dict;
-			int32_t flags;
-		} fsetxattr;
-		struct {
-			fop_fsetxattr_cbk_t fn;
-			int32_t op_ret, op_errno;
-		} fsetxattr_cbk;
-
-		/* fgetxattr */
-		struct {
-			fop_fgetxattr_t fn;
-			fd_t *fd;
-			const char *name;
-		} fgetxattr;
-		struct {
-			fop_fgetxattr_cbk_t fn;
-			int32_t op_ret, op_errno;
-			dict_t *dict;
-		} fgetxattr_cbk;
-
-		/* removexattr */
-		struct {
-			fop_removexattr_t fn;
-			loc_t loc;
-			const char *name;
-		} removexattr;
-		struct {
-			fop_removexattr_cbk_t fn;
-			int32_t op_ret, op_errno;
-		} removexattr_cbk;
-
-
-		/* fremovexattr */
-		struct {
-			fop_fremovexattr_t fn;
-			fd_t *fd;
-			const char *name;
-		} fremovexattr;
-		struct {
-			fop_fremovexattr_cbk_t fn;
-			int32_t op_ret, op_errno;
-		} fremovexattr_cbk;
-
-		/* lk */
-		struct {
-			fop_lk_t fn;
-			fd_t *fd;
-			int32_t cmd;
-			struct gf_flock lock;
-		} lk;
-		struct {
-			fop_lk_cbk_t fn;
-			int32_t op_ret, op_errno;
-			struct gf_flock lock;
-		} lk_cbk;
-
-		/* inodelk */
-		struct {
-			fop_inodelk_t fn;
-                        const char *volume;
-			loc_t loc;
-			int32_t cmd;
-			struct gf_flock lock;
-		} inodelk;
-
-		struct {
-			fop_inodelk_cbk_t fn;
-			int32_t op_ret, op_errno;
-		} inodelk_cbk;
-
-		/* finodelk */
-		struct {
-			fop_finodelk_t fn;
-                        const char *volume;
-			fd_t *fd;
-			int32_t cmd;
-			struct gf_flock lock;
-		} finodelk;
-
-		struct {
-			fop_finodelk_cbk_t fn;
-			int32_t op_ret, op_errno;
-		} finodelk_cbk;
-
-		/* entrylk */
-		struct {
-			fop_entrylk_t fn;
-			loc_t loc;
-                        const char *volume;
-			const char *name;
-			entrylk_cmd cmd;
-			entrylk_type type;
-		} entrylk;
-
-		struct {
-			fop_entrylk_cbk_t fn;
-			int32_t op_ret, op_errno;
-		} entrylk_cbk;
-
-		/* fentrylk */
-		struct {
-			fop_fentrylk_t fn;
-			fd_t *fd;
-                        const char *volume;
-			const char *name;
-			entrylk_cmd cmd;
-			entrylk_type type;
-		} fentrylk;
-
-		struct {
-			fop_fentrylk_cbk_t fn;
-			int32_t op_ret, op_errno;
-		} fentrylk_cbk;
-
-		/* readdir */
-		struct {
-			fop_readdir_t fn;
-			fd_t *fd;
-			size_t size;
-			off_t off;
-		} readdir;
-		struct {
-			fop_readdir_cbk_t fn;
-			int32_t op_ret, op_errno;
-			gf_dirent_t entries;
-		} readdir_cbk;
-
-                /* readdirp */
-		struct {
-			fop_readdirp_t fn;
-			fd_t *fd;
-			size_t size;
-			off_t off;
-		} readdirp;
-		struct {
-			fop_readdirp_cbk_t fn;
-			int32_t op_ret, op_errno;
-			gf_dirent_t entries;
-		} readdirp_cbk;
-
-		/* rchecksum */
-		struct {
-			fop_rchecksum_t fn;
-			fd_t *fd;
-                        off_t offset;
-			int32_t len;
-		} rchecksum;
-		struct {
-			fop_rchecksum_cbk_t fn;
-			int32_t op_ret, op_errno;
-			uint32_t weak_checksum;
-			uint8_t *strong_checksum;
-		} rchecksum_cbk;
-
-		/* xattrop */
-		struct {
-			fop_xattrop_t fn;
-			loc_t loc;
-			gf_xattrop_flags_t optype;
-			dict_t *xattr;
-		} xattrop;
-		struct {
-			fop_xattrop_cbk_t fn;
-			int32_t op_ret;
-			int32_t op_errno;
-			dict_t *xattr;
-		} xattrop_cbk;
-
-		/* fxattrop */
-		struct {
-			fop_fxattrop_t fn;
-			fd_t *fd;
-			gf_xattrop_flags_t optype;
-			dict_t *xattr;
-		} fxattrop;
-		struct {
-			fop_fxattrop_cbk_t fn;
-			int32_t op_ret;
-			int32_t op_errno;
-			dict_t *xattr;
-		} fxattrop_cbk;
-
-                /* setattr */
-                struct {
-                        fop_setattr_t fn;
-                        loc_t loc;
-                        struct iatt stbuf;
-                        int32_t valid;
-                } setattr;
-                struct {
-                        fop_setattr_cbk_t fn;
-                        int32_t op_ret;
-                        int32_t op_errno;
-                        struct iatt statpre;
-                        struct iatt statpost;
-                } setattr_cbk;
-
-                /* fsetattr */
-                struct {
-                        fop_fsetattr_t fn;
-                        fd_t *fd;
-                        struct iatt stbuf;
-                        int32_t valid;
-                } fsetattr;
-                struct {
-                        fop_fsetattr_cbk_t fn;
-                        int32_t op_ret;
-                        int32_t op_errno;
-                        struct iatt statpre;
-                        struct iatt statpost;
-                } fsetattr_cbk;
-
+	struct {
+		loc_t loc; // @old in rename(), link()
+		loc_t loc2; // @new in rename(), link()
+		fd_t *fd;
+		off_t offset;
+		int mask;
+		size_t size;
+		mode_t mode;
+		dev_t rdev;
+		mode_t umask;
+		int xflag;
+		int flags;
+		const char *linkname;
+		struct iovec *vector;
+		int count;
+		struct iobref *iobref;
+		int datasync;
+		dict_t *xattr;
+		const char *name;
+		int cmd;
+		struct gf_flock lock;
+		const char *volume;
+		entrylk_cmd entrylkcmd;
+		entrylk_type entrylktype;
+		gf_xattrop_flags_t optype;
+		int valid;
+		struct iatt stat;
+		dict_t *xdata;
 	} args;
+
+	struct {
+		int op_ret;
+		int op_errno;
+		inode_t *inode;
+		struct iatt stat;
+		struct iatt prestat;
+		struct iatt poststat;
+		struct iatt preparent;   // @preoldparent in rename_cbk
+		struct iatt postparent;  // @postoldparent in rename_cbk
+		struct iatt preparent2;  // @prenewparent in rename_cbk
+		struct iatt postparent2; // @postnewparent in rename_cbk
+		const char *buf;
+		struct iovec *vector;
+		int count;
+		struct iobref *iobref;
+		fd_t *fd;
+		struct statvfs statvfs;
+		dict_t *xattr;
+		struct gf_flock lock;
+		gf_dirent_t entries;
+		uint32_t weak_checksum;
+		uint8_t *strong_checksum;
+		dict_t *xdata;
+	} args_cbk;
 } call_stub_t;
+
 
 call_stub_t *
 fop_lookup_stub (call_frame_t *frame,
@@ -1131,4 +715,5 @@ fop_fsetattr_cbk_stub (call_frame_t *frame,
 
 void call_resume (call_stub_t *stub);
 void call_stub_destroy (call_stub_t *stub);
+void call_unwind_error (call_stub_t *stub, int op_ret, int op_errno);
 #endif
