@@ -88,10 +88,8 @@ start_glusterfs ()
 		;;
 	esac
     fi
-    if [ -n "$log_level" ]; then
-        cmd_line=$(echo "$cmd_line --log-level=$log_level");
-    fi
 
+#options without values start here
     if [ -n "$read_only" ]; then
 	cmd_line=$(echo "$cmd_line --read-only");
     fi
@@ -112,12 +110,25 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --worm");
     fi
 
-    if [ -n "$log_file" ]; then
-	cmd_line=$(echo "$cmd_line --log-file=$log_file");
+    if [ -n "$fopen_keep_cache" ]; then
+	cmd_line=$(echo "$cmd_line --fopen-keep-cache");
     fi
 
     if [ -n "$volfile_check" ]; then
 	cmd_line=$(echo "$cmd_line --volfile-check");
+    fi
+
+    if [ -n "$mem_accounting" ]; then
+        cmd_line=$(echo "$cmd_line --mem-accounting");
+    fi
+
+#options with values start here
+    if [ -n "$log_level" ]; then
+        cmd_line=$(echo "$cmd_line --log-level=$log_level");
+    fi
+
+    if [ -n "$log_file" ]; then
+	cmd_line=$(echo "$cmd_line --log-file=$log_file");
     fi
 
     if [ -n "$direct_io_mode" ]; then
@@ -142,10 +153,6 @@ start_glusterfs ()
 
     if [ -n "$gid_timeout" ]; then
 	cmd_line=$(echo "$cmd_line --gid-timeout=$gid_timeout");
-    fi
-
-    if [ -n "$fopen_keep_cache" ]; then
-	cmd_line=$(echo "$cmd_line --fopen-keep-cache");
     fi
 
     if [ -n "$bg_qlen" ]; then
@@ -331,6 +338,7 @@ main ()
                     "worm")             worm=1 ;;
 		    "fopen-keep-cache")	fopen_keep_cache=1 ;;
                     "enable-ino32")     enable_ino32=1 ;;
+                    "mem-accounting")   mem_accounting=1;;
                     # "mount -t glusterfs" sends this, but it's useless.
                     "rw")       ;;
                     # these ones are interpreted during system initialization
