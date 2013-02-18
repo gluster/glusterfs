@@ -1557,10 +1557,12 @@ gf_cli_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        if (rsp.op_ret &&  strcmp (rsp.op_errstr, ""))
-                cli_err ("volume set: failed: %s", rsp.op_errstr);
-
-        if (!rsp.op_ret) {
+        if (rsp.op_ret) {
+                if (strcmp (rsp.op_errstr, ""))
+                        cli_err ("volume set: failed: %s", rsp.op_errstr);
+                else
+                        cli_err ("volume set: failed");
+        } else {
                 if (help_str == NULL) {
                         if (debug_xlator == NULL)
                                 cli_out ("volume set: success");
@@ -1569,8 +1571,6 @@ gf_cli_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 }else {
                         cli_out ("%s", help_str);
                 }
-        } else {
-                cli_err ("volume set: failed");
         }
 
         ret = rsp.op_ret;

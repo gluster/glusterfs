@@ -14,6 +14,153 @@
 #endif
 
 #include "glusterd-volgen.h"
+#include "glusterd-utils.h"
+
+static int
+check_dict_key_value (dict_t *dict, char *key, char *value)
+{
+        char                 errstr[2048]  = "";
+        glusterd_conf_t     *priv          = NULL;
+        int                  ret           = 0;
+        xlator_t            *this          = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        if (!dict) {
+                snprintf (errstr, 2048, "Received Empty Dict.");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "%s.", errstr);
+                ret = -1;
+                goto out;
+        }
+
+        if (!key) {
+                snprintf (errstr, 2048, "Received Empty Key.");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "%s.", errstr);
+                ret = -1;
+                goto out;
+        }
+
+        if (!value) {
+                snprintf (errstr, 2048, "Received Empty Value.");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "%s.", errstr);
+                ret = -1;
+                goto out;
+        }
+
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+static int
+get_volname_volinfo (dict_t *dict, char **volname, glusterd_volinfo_t **volinfo)
+{
+        char                 errstr[2048]  = "";
+        glusterd_conf_t     *priv          = NULL;
+        int                  ret           = 0;
+        xlator_t            *this          = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = dict_get_str (dict, "volname", volname);
+        if (ret) {
+                snprintf (errstr, 2048, "Unable to get volume name");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "%s.", errstr);
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (*volname, volinfo);
+        if (ret) {
+                snprintf (errstr, 2048, "Unable to allocate memory");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "%s.", errstr);
+                goto out;
+        }
+
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+int
+validate_cache_max_min_size (dict_t *dict, char *key, char *value,
+                             char **op_errstr)
+{
+        char                *current_max_value = NULL;
+        char                *current_min_value = NULL;
+        char                 errstr[2048]  = "";
+        char                *volname       = NULL;
+        glusterd_conf_t     *priv          = NULL;
+        glusterd_volinfo_t  *volinfo       = NULL;
+        int                  ret           = 0;
+        uint64_t             max_value     = 0;
+        uint64_t             min_value     = 0;
+        xlator_t            *this          = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = check_dict_key_value (dict, key, value);
+        if (ret)
+                goto out;
+
+        ret = get_volname_volinfo (dict, &volname, &volinfo);
+        if (ret)
+                goto out;
+
+        if ((!strcmp (key, "performance.cache-min-file-size")) ||
+            (!strcmp (key, "cache-min-file-size"))) {
+                glusterd_volinfo_get (volinfo,
+                                      "performance.cache-max-file-size",
+                                      &current_max_value);
+                if (current_max_value) {
+                        gf_string2bytesize (current_max_value, &max_value);
+                        gf_string2bytesize (value, &min_value);
+                        current_min_value = value;
+                }
+        } else  if ((!strcmp (key, "performance.cache-max-file-size")) ||
+                    (!strcmp (key, "cache-max-file-size"))) {
+                glusterd_volinfo_get (volinfo,
+                                      "performance.cache-min-file-size",
+                                      &current_min_value);
+                if (current_min_value) {
+                        gf_string2bytesize (current_min_value, &min_value);
+                        gf_string2bytesize (value, &max_value);
+                        current_max_value = value;
+                }
+        }
+
+        if (min_value > max_value) {
+                snprintf (errstr, sizeof (errstr),
+                          "cache-min-file-size (%s) is greater than "
+                          "cache-max-file-size (%s)",
+                          current_min_value, current_max_value);
+                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                *op_errstr = gf_strdup (errstr);
+                ret = -1;
+                goto out;
+        }
+
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
 
 /* dispatch table for VOLUME SET
  * -----------------------------
@@ -275,12 +422,14 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key         = "performance.cache-max-file-size",
           .voltype     = "performance/io-cache",
           .option      = "max-file-size",
-          .op_version  = 1
+          .op_version  = 1,
+          .validate_fn = validate_cache_max_min_size
         },
         { .key         = "performance.cache-min-file-size",
           .voltype     = "performance/io-cache",
           .option      = "min-file-size",
-          .op_version  = 1
+          .op_version  = 1,
+          .validate_fn = validate_cache_max_min_size
         },
         { .key         = "performance.cache-refresh-timeout",
           .voltype     = "performance/io-cache",
