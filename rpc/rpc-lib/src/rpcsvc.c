@@ -1930,7 +1930,7 @@ rpcsvc_transport_peer_check_search (dict_t *options, char *pattern, char *clstr)
         if ((!options) || (!clstr))
                 return -1;
 
-        ret = dict_get_str (options, "client.fqdn", &fqdn);
+        ret = dict_get_str (options, "fqdn", &fqdn);
 
         if (!dict_get (options, pattern))
                 return -1;
@@ -2203,7 +2203,7 @@ rpcsvc_transport_peer_check_name (dict_t *options, char *volname,
 
         ret = gf_get_hostname_from_ip (clstr, &hostname);
         if (!ret)
-                ret = dict_set_dynstr (options, "client.fqdn",
+                ret = dict_set_dynstr (options, "fqdn",
                                        hostname);
 
         aret = rpcsvc_transport_peer_check_allow (options, volname, clstr);
