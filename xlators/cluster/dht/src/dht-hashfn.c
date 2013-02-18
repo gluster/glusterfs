@@ -44,30 +44,68 @@ dht_hash_compute_internal (int type, const char *name, uint32_t *hash_p)
 }
 
 
-#define MAKE_RSYNC_FRIENDLY_NAME(rsync_frndly_name, name) do {          \
-                rsync_frndly_name = (char *) name;                      \
-                if (name[0] == '.') {                                   \
-                        char *dot   = 0;                                \
-                        int namelen = 0;                                \
-                                                                        \
-                        dot = strrchr (name, '.');                      \
-                        if (dot && dot > (name + 1) && *(dot + 1)) {    \
-                                namelen = (dot - name);                 \
-                                rsync_frndly_name = alloca (namelen);   \
-                                strncpy (rsync_frndly_name, name + 1,   \
-                                         namelen);                      \
-                                rsync_frndly_name[namelen - 1] = 0;     \
-                        }                                               \
-                }                                                       \
-        } while (0);
+static inline
+gf_boolean_t
+dht_munge_name (const char *original, char *modified, size_t len, regex_t *re)
+{
+        regmatch_t      matches[2];
+        size_t          new_len;
 
+        if (regexec(re,original,2,matches,0) != REG_NOMATCH) {
+                if (matches[1].rm_so != -1) {
+                        new_len = matches[1].rm_eo - matches[1].rm_so;
+                        /* Equal would fail due to the NUL at the end. */
+                        if (new_len < len) {
+                                memcpy (modified,original+matches[1].rm_so,
+                                        new_len);
+                                modified[new_len] = '\0';
+                                return _gf_true;
+                        }
+                }
+        }
+
+        /* This is guaranteed safe because of how the dest was allocated. */
+        strcpy(modified,original);
+        return _gf_false;
+}
 
 int
-dht_hash_compute (int type, const char *name, uint32_t *hash_p)
+dht_hash_compute (xlator_t *this, int type, const char *name, uint32_t *hash_p)
 {
-        char     *rsync_friendly_name = NULL;
+        char            *rsync_friendly_name    = NULL;
+        dht_conf_t      *priv                   = this->private;
+        size_t           len                    = 0;
+        gf_boolean_t     munged                 = _gf_false;
 
-        MAKE_RSYNC_FRIENDLY_NAME (rsync_friendly_name, name);
+        /*
+         * It wouldn't be safe to use alloca in an inline function that doesn't
+         * actually get inlined, and it wouldn't be efficient to do a real
+         * allocation, so we use alloca here (if needed) and pass that to the
+         * inline.
+         */
+
+        if (priv->extra_regex_valid) {
+                len = strlen(name) + 1;
+                rsync_friendly_name = alloca(len);
+                munged = dht_munge_name (name, rsync_friendly_name, len,
+                                         &priv->extra_regex);
+        }
+
+        if (!munged && priv->rsync_regex_valid) {
+                len = strlen(name) + 1;
+                rsync_friendly_name = alloca(len);
+                gf_log (this->name, GF_LOG_INFO, "trying regex for %s", name);
+                munged = dht_munge_name (name, rsync_friendly_name, len,
+                                         &priv->rsync_regex);
+                if (munged) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "munged down to %s", rsync_friendly_name);
+                }
+        }
+
+        if (!munged) {
+                rsync_friendly_name = (char *)name;
+        }
 
         return dht_hash_compute_internal (type, rsync_friendly_name, hash_p);
 }

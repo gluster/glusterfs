@@ -13,6 +13,8 @@
 #include "config.h"
 #endif
 
+#include <regex.h>
+
 #include "dht-mem-types.h"
 #include "libxlator.h"
 #include "syncop.h"
@@ -275,6 +277,12 @@ struct dht_conf {
         /* Request to filter directory entries in readdir request */
 
         gf_boolean_t    readdir_optimize;
+
+        /* Support regex-based name reinterpretation. */
+        regex_t         rsync_regex;
+        gf_boolean_t    rsync_regex_valid;
+        regex_t         extra_regex;
+        gf_boolean_t    extra_regex_valid;
 };
 typedef struct dht_conf dht_conf_t;
 
@@ -420,7 +428,7 @@ xlator_t *dht_subvol_get_cached (xlator_t *this, inode_t *inode);
 xlator_t *dht_subvol_next (xlator_t *this, xlator_t *prev);
 int       dht_subvol_cnt (xlator_t *this, xlator_t *subvol);
 
-int dht_hash_compute (int type, const char *name, uint32_t *hash_p);
+int dht_hash_compute (xlator_t *this, int type, const char *name, uint32_t *hash_p);
 
 int dht_linkfile_create (call_frame_t    *frame, fop_mknod_cbk_t linkfile_cbk,
                          xlator_t        *tovol, xlator_t *fromvol, loc_t *loc);

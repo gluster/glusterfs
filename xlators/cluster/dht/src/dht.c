@@ -284,6 +284,39 @@ out:
         return ret;
 }
 
+void
+dht_init_regex (xlator_t *this, dict_t *odict, char *name,
+                regex_t *re, gf_boolean_t *re_valid)
+{
+        char    *temp_str;
+
+        if (dict_get_str (odict, name, &temp_str) != 0) {
+                if (strcmp(name,"rsync-hash-regex")) {
+                        return;
+                }
+                temp_str = "^\\.(.+)\\.[^.]+$";
+        }
+
+        if (*re_valid) {
+                regfree(re);
+                *re_valid = _gf_false;
+        }
+
+        if (!strcmp(temp_str,"none")) {
+                return;
+        }
+
+        if (regcomp(re,temp_str,REG_EXTENDED) == 0) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "using regex %s = %s", name, temp_str);
+                *re_valid = _gf_true;
+        }
+        else {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "compiling regex %s failed", temp_str);
+        }
+}
+
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
@@ -349,11 +382,15 @@ reconfigure (xlator_t *this, dict_t *options)
                         goto out;
         }
 
+        dht_init_regex (this, options, "rsync-hash-regex",
+                        &conf->rsync_regex, &conf->rsync_regex_valid);
+        dht_init_regex (this, options, "extra-hash-regex",
+                        &conf->extra_regex, &conf->extra_regex_valid);
+
         ret = 0;
 out:
         return ret;
 }
-
 
 int
 init (xlator_t *this)
@@ -465,6 +502,11 @@ init (xlator_t *this)
                 if (ret == -1)
                         goto err;
         }
+
+        dht_init_regex (this, this->options, "rsync-hash-regex",
+                        &conf->rsync_regex, &conf->rsync_regex_valid);
+        dht_init_regex (this, this->options, "extra-hash-regex",
+                        &conf->extra_regex, &conf->extra_regex_valid);
 
         ret = dht_layouts_init (this, conf);
         if (ret == -1) {
@@ -642,6 +684,20 @@ struct volume_options options[] = {
           .description = "This option if set to ON enables the optimization "
           "that allows DHT to requests non-first subvolumes to filter out "
           "directory entries."
+        },
+        { .key = {"rsync-hash-regex"},
+          .type = GF_OPTION_TYPE_STR,
+          /* Setting a default here doesn't work.  See dht_init_regex. */
+          .description = "Regular expression for stripping temporary-file "
+          "suffix and prefix used by rsync, to prevent relocation when the "
+          "file is renamed."
+        },
+        { .key = {"extra-hash-regex"},
+          .type = GF_OPTION_TYPE_STR,
+          /* Setting a default here doesn't work.  See dht_init_regex. */
+          .description = "Regular expression for stripping temporary-file "
+          "suffix and prefix used by an application, to prevent relocation when "
+          "the file is renamed."
         },
 
         { .key  = {NULL} },

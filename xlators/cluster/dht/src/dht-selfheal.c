@@ -509,7 +509,7 @@ dht_selfheal_layout_alloc_start (xlator_t *this, loc_t *loc,
         uint32_t      hashval = 0;
         int           ret = 0;
 
-        ret = dht_hash_compute (layout->type, loc->path, &hashval);
+        ret = dht_hash_compute (this, layout->type, loc->path, &hashval);
         if (ret == 0) {
                 start = (hashval % layout->cnt);
         }
