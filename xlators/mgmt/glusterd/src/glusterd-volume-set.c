@@ -41,6 +41,12 @@
  *
  * Seventh field is <op-version>.
  *
+ * Eight field is description of option: If NULL, tried to fetch from
+ * translator code's xlator_options table.
+ *
+ * Nineth field is validation function: If NULL, xlator's option specific
+ * validation will be tried, otherwise tried at glusterd code itself.
+ *
  * There are two type of entries: basic and special.
  *
  * - Basic entries are the ones where the <option> does _not_ start with
@@ -463,50 +469,52 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "performance/write-behind",
           .option      = "!perf",
           .value       = "on",
-          .type        = NO_DOC,
-          .op_version  = 1
+          .op_version  = 1,
+          .description = "enable/disable write-behind translator in the volume."
         },
         { .key         = "performance.read-ahead",
           .voltype     = "performance/read-ahead",
           .option      = "!perf",
           .value       = "on",
-          .type        = NO_DOC,
-          .op_version  = 1
+          .op_version  = 1,
+          .description = "enable/disable read-ahead translator in the volume."
         },
         { .key         = "performance.io-cache",
           .voltype     = "performance/io-cache",
           .option      = "!perf",
           .value       = "on",
-          .type        = NO_DOC,
-          .op_version  = 1
+          .op_version  = 1,
+          .description = "enable/disable io-cache translator in the volume."
         },
         { .key         = "performance.quick-read",
           .voltype     = "performance/quick-read",
           .option      = "!perf",
           .value       = "on",
-          .type        = NO_DOC,
-          .op_version  = 1
+          .op_version  = 1,
+          .description = "enable/disable quick-read translator in the volume."
         },
         { .key         = "performance.open-behind",
           .voltype     = "performance/open-behind",
           .option      = "!perf",
           .value       = "on",
-          .type        = NO_DOC,
-          .op_version  = 2
+          .op_version  = 2,
+          .description = "enable/disable open-behind translator in the volume."
         },
         { .key         = "performance.stat-prefetch",
           .voltype     = "performance/md-cache",
           .option      = "!perf",
           .value       = "on",
-          .type        = NO_DOC,
-          .op_version  = 1
+          .op_version  = 1,
+          .description = "enable/disable meta-data caching translator in the "
+                         "volume."
         },
         { .key         = "performance.client-io-threads",
           .voltype     = "performance/io-threads",
           .option      = "!perf",
           .value       = "off",
-          .type        = NO_DOC,
-          .op_version  = 1
+          .op_version  = 1,
+          .description = "enable/disable io-threads translator in the client "
+                         "graph of volume."
         },
         { .key         = "performance.nfs.write-behind",
           .voltype     = "performance/write-behind",

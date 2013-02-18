@@ -1916,33 +1916,37 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
                 if (get_key_from_volopt (vme, &key))
                                 goto out; /*Some error while getin key*/
 
-                if (!xlator_type || strcmp (vme->voltype, xlator_type)){
-                        ret = xlator_volopt_dynload (vme->voltype,
-                                                     &dl_handle,
-                                                     &vol_opt_handle);
-                        if (ret) {
-                                dl_handle = NULL;
-                                continue;
+                if (vme->description) {
+                        descr = vme->description;
+                        def_val = vme->value;
+                } else {
+                        if (!xlator_type || strcmp (vme->voltype, xlator_type)){
+                               ret = xlator_volopt_dynload (vme->voltype,
+                                                            &dl_handle,
+                                                            &vol_opt_handle);
+                                if (ret) {
+                                        dl_handle = NULL;
+                                        continue;
+                                }
                         }
+                        ret = xlator_option_info_list (&vol_opt_handle, key,
+                                                       &def_val, &descr);
+                        if (ret) /*Swallow Error i.e if option not found*/
+                                continue;
                 }
-
-                ret = xlator_option_info_list (&vol_opt_handle, key,
-                                               &def_val, &descr);
-                if (ret) /*Swallow Error i.e if option not found*/
-                        continue;
 
                 if (xml_out) {
 #if (HAVE_LIB_XML)
                         if (xml_add_volset_element (writer,vme->key,
-                                                        def_val, descr))
+                                                    def_val, descr))
                                 goto out;
 #else
                         gf_log ("glusterd", GF_LOG_ERROR, "Libxml not present");
 #endif
                 } else {
                         snprintf (tmp_str, 2048, "Option: %s\nDefault "
-                                        "Value: %s\nDescription: %s\n\n",
-                                        vme->key, def_val, descr);
+                                  "Value: %s\nDescription: %s\n\n",
+                                  vme->key, def_val, descr);
                         strcat (output_string, tmp_str);
                 }
 
