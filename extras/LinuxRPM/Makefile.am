@@ -6,7 +6,7 @@ GFS_SPEC = ../../glusterfs.spec
 .PHONY: all
 
 all: 
-	@echo "To build RPMS run `make glusterrpms`"
+	@echo "To build RPMS run 'make glusterrpms'"
 
 .PHONY: glusterrpms prep srcrpm testsrpm clean
 
