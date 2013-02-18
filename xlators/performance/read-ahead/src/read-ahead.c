@@ -498,7 +498,7 @@ ra_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                         "expected offset (%"PRId64") when page_count=%d",
                         offset, file->page_count);
 
-                if (file->expected < (conf->page_size * conf->page_count)) {
+                if (file->expected < (file->page_size * conf->page_count)) {
                         file->expected += size;
                         file->page_count = min ((file->expected
                                                  / file->page_size),
@@ -1024,6 +1024,8 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("page-count", conf->page_count, options, uint32, out);
 
+	GF_OPTION_RECONF ("page-size", conf->page_size, options, size, out);
+
         ret = 0;
  out:
         return ret;
@@ -1055,6 +1057,8 @@ init (xlator_t *this)
         }
 
         conf->page_size = this->ctx->page_size;
+
+	GF_OPTION_INIT ("page-size", conf->page_size, size, out);
 
         GF_OPTION_INIT ("page-count", conf->page_count, uint32, out);
 
@@ -1142,5 +1146,12 @@ struct volume_options options[] = {
           .default_value = "4",
           .description = "Number of pages that will be pre-fetched"
         },
+	{ .key = {"page-size"},
+	  .type = GF_OPTION_TYPE_SIZET,
+	  .min = 4096,
+	  .max = 1048576 * 64,
+	  .default_value = "131072",
+	  .description = "Page size with which read-ahead performs server I/O"
+	},
         { .key = {NULL} },
 };
