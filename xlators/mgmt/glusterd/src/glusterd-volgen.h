@@ -86,7 +86,7 @@ typedef enum {
 
 typedef enum  { DOC, NO_DOC, GLOBAL_DOC, GLOBAL_NO_DOC } option_type_t;
 
-typedef int (*vme_option_validation) (char *key, dict_t *dict,
+typedef int (*vme_option_validation) (dict_t *dict, char *key, char *value,
                                       char **op_errstr);
 
 struct volopt_map_entry {
