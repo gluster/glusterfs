@@ -1369,7 +1369,7 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
                         if (uuid_is_null (entry->d_stat.ia_gfid)) {
                                 gf_log (this->name, GF_LOG_ERROR, "%s/%s"
-                                        "gfid not present", loc->path,
+                                        " gfid not present", loc->path,
                                          entry->d_name);
                                 continue;
                         }
@@ -1379,7 +1379,7 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         uuid_copy (entry_loc.gfid, entry->d_stat.ia_gfid);
                         if (uuid_is_null (loc->gfid)) {
                                 gf_log (this->name, GF_LOG_ERROR, "%s/%s"
-                                        "gfid not present", loc->path,
+                                        " gfid not present", loc->path,
                                          entry->d_name);
                                 continue;
                         }
