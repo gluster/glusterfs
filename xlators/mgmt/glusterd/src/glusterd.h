@@ -338,6 +338,7 @@ enum glusterd_vol_comp_status_ {
 #define GLUSTERD_VOLUME_RBSTATE_FILE "rbstate"
 #define GLUSTERD_BRICK_INFO_DIR "bricks"
 #define GLUSTERD_CKSUM_FILE "cksum"
+#define GLUSTERD_TRASH "trash"
 #define GLUSTERD_NODE_STATE_FILE "node_state.info"
 
 /* definitions related to replace brick */

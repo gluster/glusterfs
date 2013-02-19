@@ -117,8 +117,8 @@ int32_t
 glusterd_store_delete_peerinfo (glusterd_peerinfo_t *peerinfo);
 
 int32_t
-glusterd_store_delete_brick (glusterd_volinfo_t *volinfo,
-                             glusterd_brickinfo_t *brickinfo);
+glusterd_store_delete_brick (glusterd_brickinfo_t *brickinfo,
+                             char *delete_path);
 
 int32_t
 glusterd_store_handle_destroy (glusterd_store_handle_t *handle);
