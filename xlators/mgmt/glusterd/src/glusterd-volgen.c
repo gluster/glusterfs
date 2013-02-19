@@ -448,7 +448,7 @@ struct opthandler_data {
 };
 
 static int
-process_option (dict_t *dict, char *key, data_t *value, void *param)
+process_option (char *key, data_t *value, void *param)
 {
         struct opthandler_data *odt = param;
         struct volopt_map_entry vme = {0,};
@@ -497,7 +497,7 @@ volgen_graph_set_options_generic (volgen_graph_t *graph, dict_t *dict,
                 data = dict_get (dict, vme->key);
 
                 if (data)
-                        process_option (dict, vme->key, data, &odt);
+                        process_option (vme->key, data, &odt);
                 if (odt.rv)
                         return odt.rv;
 
@@ -511,8 +511,7 @@ volgen_graph_set_options_generic (volgen_graph_t *graph, dict_t *dict,
                          * in this context
                          */
                         odt.data_t_fake = _gf_true;
-                        process_option (NULL, vme->key, (data_t *)vme->value,
-                                        &odt);
+                        process_option (vme->key, (data_t *)vme->value, &odt);
                         if (odt.rv)
                                 return odt.rv;
                 }
