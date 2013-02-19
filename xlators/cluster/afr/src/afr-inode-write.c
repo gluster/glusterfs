@@ -549,6 +549,11 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         priv = this->private;
 
+        if (afr_is_split_brain (this, fd->inode)) {
+                op_errno = EIO;
+                goto out;
+        }
+
         QUORUM_CHECK(writev,out);
 
         AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
@@ -1005,6 +1010,10 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
+        if (afr_is_split_brain (this, fd->inode)) {
+                op_errno = EIO;
+                goto out;
+        }
         QUORUM_CHECK(ftruncate,out);
 
         AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
@@ -1410,6 +1419,11 @@ afr_fsetattr (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
+        if (afr_is_split_brain (this, fd->inode)) {
+                op_errno = EIO;
+                goto out;
+        }
+
         QUORUM_CHECK(fsetattr,out);
 
         transaction_frame = copy_frame (frame);
@@ -1797,6 +1811,11 @@ afr_fsetxattr (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
+        if (afr_is_split_brain (this, fd->inode)) {
+                op_errno = EIO;
+                goto out;
+        }
+
         QUORUM_CHECK(fsetxattr,out);
 
         AFR_LOCAL_ALLOC_OR_GOTO (local, out);
@@ -2182,6 +2201,10 @@ afr_fremovexattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this->private, out);
 
         priv = this->private;
+        if (afr_is_split_brain (this, fd->inode)) {
+                op_errno = EIO;
+                goto out;
+        }
 
         QUORUM_CHECK(fremovexattr, out);
 
