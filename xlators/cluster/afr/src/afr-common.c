@@ -325,21 +325,6 @@ out:
 }
 
 gf_boolean_t
-afr_is_data_split_brain (xlator_t *this, inode_t *inode)
-{
-        afr_inode_ctx_t *ctx = NULL;
-        gf_boolean_t    spb  = _gf_false;
-
-        ctx = afr_inode_ctx_get (inode, this);
-        if (!ctx)
-                goto out;
-        if (ctx->data_spb == SPB)
-                spb = _gf_true;
-out:
-        return spb;
-}
-
-gf_boolean_t
 afr_is_opendir_done (xlator_t *this, inode_t *inode)
 {
         afr_inode_params_t params = {0};
