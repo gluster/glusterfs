@@ -361,7 +361,7 @@ ob_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	if (!stub)
 		goto err;
 
-	open_and_resume (this, fd, stub);
+	open_and_resume (this, wind_fd, stub);
 
 	return 0;
 err:
@@ -408,7 +408,7 @@ ob_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 	if (!stub)
 		goto err;
 
-	open_and_resume (this, fd, stub);
+	open_and_resume (this, wind_fd, stub);
 
 	return 0;
 err:
