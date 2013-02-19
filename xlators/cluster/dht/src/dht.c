@@ -733,6 +733,8 @@ struct volume_options options[] = {
         },
         { .key  = {"directory-layout-spread"},
           .type = GF_OPTION_TYPE_INT,
+          .min  = 1,
+          .validate = GF_OPT_VALIDATE_MIN,
           .description = "Specifies the directory layout spread."
         },
         { .key  = {"decommissioned-bricks"},
