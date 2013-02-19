@@ -48,9 +48,7 @@ git checkout -q -b rpm-test ${COMMIT}
 # build the glusterfs-*.tar.gz and gluster-swift-ufo-*.tar.gz
 [ -e configure ] || ./autogen.sh 2>&1 > /dev/null
 TEST ./configure --enable-fusermount
-pwd
 TEST make dist
-ls *.tar.gz
 
 # build the glusterfs src.rpm
 ls extras
