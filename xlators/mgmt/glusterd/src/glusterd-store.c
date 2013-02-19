@@ -446,12 +446,10 @@ out:
 }
 
 int32_t
-glusterd_store_delete_brick (glusterd_volinfo_t *volinfo,
-                             glusterd_brickinfo_t *brickinfo)
+glusterd_store_delete_brick (glusterd_brickinfo_t *brickinfo, char *delete_path)
 {
         int32_t                 ret = -1;
         glusterd_conf_t         *priv = NULL;
-        char                    path[PATH_MAX] = {0,};
         char                    brickpath[PATH_MAX] = {0,};
         char                    *ptr = NULL;
         char                    *tmppath = NULL;
@@ -459,14 +457,10 @@ glusterd_store_delete_brick (glusterd_volinfo_t *volinfo,
 
         this = THIS;
         GF_ASSERT (this);
-        GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
 
         priv = this->private;
-
         GF_ASSERT (priv);
-
-        GLUSTERD_GET_BRICK_DIR (path, volinfo, priv);
 
         tmppath = gf_strdup (brickinfo->path);
 
@@ -477,15 +471,16 @@ glusterd_store_delete_brick (glusterd_volinfo_t *volinfo,
                 ptr = strchr (tmppath, '/');
         }
 
-        snprintf (brickpath, sizeof (brickpath), "%s/%s:%s",
-                  path, brickinfo->hostname, tmppath);
+        snprintf (brickpath, sizeof (brickpath),
+                  "%s/"GLUSTERD_BRICK_INFO_DIR"/%s:%s", delete_path,
+                  brickinfo->hostname, tmppath);
 
         GF_FREE (tmppath);
 
         ret = unlink (brickpath);
 
         if ((ret < 0) && (errno != ENOENT)) {
-                gf_log (this->name, GF_LOG_ERROR, "Unlink failed on %s, "
+                gf_log (this->name, GF_LOG_DEBUG, "Unlink failed on %s, "
                         "reason: %s", brickpath, strerror(errno));
                 ret = -1;
                 goto out;
@@ -503,7 +498,7 @@ out:
 }
 
 int32_t
-glusterd_store_remove_bricks (glusterd_volinfo_t *volinfo)
+glusterd_store_remove_bricks (glusterd_volinfo_t *volinfo, char *delete_path)
 {
         int32_t                 ret = 0;
         glusterd_brickinfo_t    *tmp = NULL;
@@ -520,7 +515,7 @@ glusterd_store_remove_bricks (glusterd_volinfo_t *volinfo)
         GF_ASSERT (volinfo);
 
         list_for_each_entry (tmp, &volinfo->bricks, brick_list) {
-                ret = glusterd_store_delete_brick (volinfo, tmp);
+                ret = glusterd_store_delete_brick (tmp, delete_path);
                 if (ret)
                         goto out;
         }
@@ -528,7 +523,8 @@ glusterd_store_remove_bricks (glusterd_volinfo_t *volinfo)
         priv = this->private;
         GF_ASSERT (priv);
 
-        GLUSTERD_GET_BRICK_DIR (brickdir, volinfo, priv);
+        snprintf (brickdir, sizeof (brickdir), "%s/%s", delete_path,
+                  GLUSTERD_BRICK_INFO_DIR);
 
         dir = opendir (brickdir);
 
@@ -539,7 +535,7 @@ glusterd_store_remove_bricks (glusterd_volinfo_t *volinfo)
                           brickdir, entry->d_name);
                 ret = unlink (path);
                 if (ret && errno != ENOENT) {
-                        gf_log (this->name, GF_LOG_ERROR, "Unable to unlink %s, "
+                        gf_log (this->name, GF_LOG_DEBUG, "Unable to unlink %s, "
                                 "reason: %s", path, strerror(errno));
                 }
                 glusterd_for_each_entry (entry, dir);
@@ -1245,14 +1241,17 @@ out:
 int32_t
 glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
 {
-        char    pathname[PATH_MAX] = {0,};
-        int32_t ret = 0;
-        glusterd_conf_t *priv = NULL;
-        DIR     *dir = NULL;
-        struct dirent *entry = NULL;
-        char path[PATH_MAX] = {0,};
-        struct stat     st = {0, };
-        xlator_t        *this = NULL;
+        char             pathname[PATH_MAX]    = {0,};
+        int32_t          ret                   = 0;
+        glusterd_conf_t *priv                  = NULL;
+        DIR             *dir                   = NULL;
+        struct dirent   *entry                 = NULL;
+        char             path[PATH_MAX]        = {0,};
+        char             delete_path[PATH_MAX] = {0,};
+        char             trashdir[PATH_MAX]    = {0,};
+        struct stat      st                    = {0, };
+        xlator_t        *this                  = NULL;
+        gf_boolean_t     rename_fail           = _gf_false;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1261,29 +1260,53 @@ glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
         priv = this->private;
 
         GF_ASSERT (priv);
-        snprintf (pathname, sizeof (pathname), "%s/vols/%s", priv->workdir,
-                  volinfo->volname);
 
-        dir = opendir (pathname);
-        if (!dir) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to open directory %s."
-                        " Reason : %s", pathname, strerror (errno));
+        GLUSTERD_GET_VOLUME_DIR (pathname, volinfo, priv);
+
+        snprintf (delete_path, sizeof (delete_path),
+                  "%s/"GLUSTERD_TRASH"/%s.deleted", priv->workdir,
+                  uuid_utoa (volinfo->volume_id));
+
+        snprintf (trashdir, sizeof (trashdir), "%s/"GLUSTERD_TRASH,
+                  priv->workdir);
+
+        ret = mkdir (trashdir, 0777);
+        if (ret && errno != EEXIST) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to create trash "
+                        "directory, reason : %s", strerror (errno));
+                ret = -1;
                 goto out;
         }
-        ret = glusterd_store_remove_bricks (volinfo);
+
+        ret = rename (pathname, delete_path);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to rename volume "
+                        "directory for volume %s", volinfo->volname);
+                rename_fail = _gf_true;
+                goto out;
+        }
+
+        dir = opendir (delete_path);
+        if (!dir) {
+                gf_log (this->name, GF_LOG_DEBUG, "Failed to open directory %s."
+                        " Reason : %s", delete_path, strerror (errno));
+                ret = 0;
+                goto out;
+        }
+        ret = glusterd_store_remove_bricks (volinfo, delete_path);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Remove bricks failed for %s",
+                gf_log (this->name, GF_LOG_DEBUG, "Remove bricks failed for %s",
                         volinfo->volname);
         }
 
         glusterd_for_each_entry (entry, dir);
         while (entry) {
 
-                snprintf (path, PATH_MAX, "%s/%s", pathname, entry->d_name);
+                snprintf (path, PATH_MAX, "%s/%s", delete_path, entry->d_name);
                 ret = stat (path, &st);
                 if (ret == -1) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to stat "
+                        gf_log (this->name, GF_LOG_DEBUG, "Failed to stat "
                                 "entry %s : %s", path, strerror (errno));
                         goto stat_failed;
                 }
@@ -1293,11 +1316,12 @@ glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
                 else
                         ret = unlink (path);
 
-                if (ret)
-                        gf_log (this->name, GF_LOG_ERROR, " Failed to remove "
+                if (ret) {
+                        gf_log (this->name, GF_LOG_DEBUG, " Failed to remove "
                                 "%s. Reason : %s", path, strerror (errno));
+                }
 
-                gf_log (this->name, ret ? GF_LOG_ERROR : GF_LOG_DEBUG, "%s %s",
+                gf_log (this->name, GF_LOG_DEBUG, "%s %s",
                                 ret ? "Failed to remove":"Removed",
                                 entry->d_name);
 stat_failed:
@@ -1307,24 +1331,29 @@ stat_failed:
 
         ret = closedir (dir);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to close dir %s. "
-                        "Reason : %s",pathname, strerror (errno));
+                gf_log (this->name, GF_LOG_DEBUG, "Failed to close dir %s. "
+                        "Reason : %s",delete_path, strerror (errno));
         }
 
-        ret = rmdir (pathname);
+        ret = rmdir (delete_path);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to rmdir: %s, err: %s",
-                        pathname, strerror (errno));
+                gf_log (this->name, GF_LOG_DEBUG, "Failed to rmdir: %s,err: %s",
+                        delete_path, strerror (errno));
         }
-
+        ret = rmdir (trashdir);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG, "Failed to rmdir: %s, Reason:"
+                        " %s", trashdir, strerror (errno));
+        }
 
 out:
         if (volinfo->shandle) {
                 glusterd_store_handle_destroy (volinfo->shandle);
                 volinfo->shandle = NULL;
         }
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        ret = (rename_fail == _gf_true) ? -1: 0;
 
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 

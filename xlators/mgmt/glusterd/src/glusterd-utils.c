@@ -5495,11 +5495,15 @@ glusterd_delete_brick (glusterd_volinfo_t* volinfo,
                        glusterd_brickinfo_t *brickinfo)
 {
         int             ret = 0;
+        char      voldir[PATH_MAX] = {0,};
+        glusterd_conf_t *priv = THIS->private;
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
 
+        GLUSTERD_GET_VOLUME_DIR(voldir, volinfo, priv);
+
         glusterd_delete_volfile (volinfo, brickinfo);
-        glusterd_store_delete_brick (volinfo, brickinfo);
+        glusterd_store_delete_brick (brickinfo, voldir);
         glusterd_brickinfo_delete (brickinfo);
         volinfo->brick_count--;
         return ret;
