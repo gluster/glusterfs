@@ -356,6 +356,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .flags       = 2,
           .op_version  = 1
         },
+        { .key         = "performance.lazy-open",
+          .voltype     = "performance/open-behind",
+          .option      = "lazy-open",
+          .op_version =  2
+        },
         { .key         = "performance.read-ahead-page-count",
           .voltype     = "performance/read-ahead",
           .option      = "page-count",
