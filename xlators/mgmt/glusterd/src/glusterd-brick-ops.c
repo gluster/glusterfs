@@ -919,12 +919,14 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
         if (stripe_count) {
                 volinfo->stripe_count = stripe_count;
         }
-        volinfo->dist_leaf_count = (volinfo->stripe_count *
-                                    volinfo->replica_count);
+        volinfo->dist_leaf_count = glusterd_get_dist_leaf_count (volinfo);
 
         /* backward compatibility */
         volinfo->sub_count = ((volinfo->dist_leaf_count == 1) ? 0:
                               volinfo->dist_leaf_count);
+
+        volinfo->subvol_count = (volinfo->brick_count /
+                                 volinfo->dist_leaf_count);
 
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret)
@@ -1616,8 +1618,10 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                         volinfo->replica_count, replica_count,
                         volinfo->volname);
                 volinfo->replica_count = replica_count;
-                volinfo->dist_leaf_count = (volinfo->stripe_count *
-                                            replica_count);
+                volinfo->dist_leaf_count = glusterd_get_dist_leaf_count (volinfo);
+                volinfo->subvol_count = (volinfo->brick_count /
+                                         volinfo->dist_leaf_count);
+
                 if (replica_count == 1) {
                         if (volinfo->type == GF_CLUSTER_TYPE_REPLICATE) {
                                 volinfo->type = GF_CLUSTER_TYPE_NONE;

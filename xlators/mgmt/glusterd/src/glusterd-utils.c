@@ -4106,6 +4106,15 @@ glusterd_restart_gsyncds (glusterd_conf_t *conf)
         return ret;
 }
 
+inline int
+glusterd_get_dist_leaf_count (glusterd_volinfo_t *volinfo)
+{
+    int rcount = volinfo->replica_count;
+    int scount = volinfo->stripe_count;
+
+    return (rcount ? rcount : 1) * (scount ? scount : 1);
+}
+
 int
 glusterd_get_brickinfo (xlator_t *this, const char *brickname, int port,
                         gf_boolean_t localhost, glusterd_brickinfo_t **brickinfo)
