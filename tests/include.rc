@@ -102,7 +102,7 @@ function _TEST()
 
 	test_header "$@";
 
-        if [ "$1"="!" ]; then
+        if [ "$1" = "!" ]; then
                 redirect="2>&1"
         fi
 
