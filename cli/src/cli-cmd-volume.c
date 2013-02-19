@@ -1795,7 +1795,11 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_info_cbk,
           "list information of all volumes"},
 
-        { "volume create <NEW-VOLNAME> [stripe <COUNT>] [replica <COUNT>] [device vg] [transport <tcp|rdma|tcp,rdma>] <NEW-BRICK> ...",
+        { "volume create <NEW-VOLNAME> [stripe <COUNT>] [replica <COUNT>] "
+#ifdef HAVE_BD_XLATOR
+          "[device vg] "
+#endif
+          "[transport <tcp|rdma|tcp,rdma>] <NEW-BRICK> ...",
           cli_cmd_volume_create_cbk,
           "create a new volume of specified type with mentioned bricks"},
 
