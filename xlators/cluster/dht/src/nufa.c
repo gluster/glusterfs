@@ -516,6 +516,15 @@ same_first_part (char *str1, char term1, char *str2, char term2)
         }
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        ret = xlator_mem_acct_init (this, gf_dht_mt_end + 1);
+        return ret;
+}
+
 int
 init (xlator_t *this)
 {
