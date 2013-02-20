@@ -82,6 +82,12 @@ typedef struct wb_inode {
 				     write-behind from this list, and therefore
 				     get "upgraded" to the "liability" list.
 			     */
+	list_head_t  wip; /* List of write calls in progress, SYNC or non-SYNC
+			     which are currently STACK_WIND'ed towards the server.
+			     This is for guaranteeing that no two overlapping
+			     writes are in progress at the same time. Modules
+			     like eager-lock in AFR depend on this behavior.
+			  */
 	uint64_t     gen;    /* Liability generation number. Represents
 				the current 'state' of liability. Every
 				new addition to the liability list bumps
@@ -113,6 +119,7 @@ typedef struct wb_request {
 	list_head_t           lie;  /* either in @liability or @temptation */
         list_head_t           winds;
         list_head_t           unwinds;
+        list_head_t           wip;
 
         call_stub_t          *stub;
 
@@ -319,6 +326,30 @@ wb_liability_has_conflict (wb_inode_t *wb_inode, wb_request_t *req)
 }
 
 
+gf_boolean_t
+wb_wip_has_conflict (wb_inode_t *wb_inode, wb_request_t *req)
+{
+        wb_request_t *each     = NULL;
+
+	if (req->stub->fop != GF_FOP_WRITE)
+		/* non-writes fundamentally never conflict with WIP requests */
+		return _gf_false;
+
+        list_for_each_entry (each, &wb_inode->wip, wip) {
+		if (each == req)
+			/* request never conflicts with itself,
+			   though this condition should never occur.
+			*/
+			continue;
+
+		if (wb_requests_overlap (each, req))
+			return _gf_true;
+        }
+
+        return _gf_false;
+}
+
+
 static int
 __wb_request_unref (wb_request_t *req)
 {
@@ -337,6 +368,7 @@ __wb_request_unref (wb_request_t *req)
         if (req->refcount == 0) {
                 list_del_init (&req->todo);
                 list_del_init (&req->lie);
+		list_del_init (&req->wip);
 
 		list_del_init (&req->all);
 		if (list_empty (&wb_inode->all)) {
@@ -442,6 +474,7 @@ wb_enqueue_common (wb_inode_t *wb_inode, call_stub_t *stub, int tempted)
         INIT_LIST_HEAD (&req->lie);
         INIT_LIST_HEAD (&req->winds);
         INIT_LIST_HEAD (&req->unwinds);
+        INIT_LIST_HEAD (&req->wip);
 
         req->stub = stub;
         req->wb_inode = wb_inode;
@@ -558,6 +591,7 @@ __wb_inode_create (xlator_t *this, inode_t *inode)
         INIT_LIST_HEAD (&wb_inode->todo);
         INIT_LIST_HEAD (&wb_inode->liability);
         INIT_LIST_HEAD (&wb_inode->temptation);
+        INIT_LIST_HEAD (&wb_inode->wip);
 
         wb_inode->this = this;
 
@@ -1084,6 +1118,18 @@ __wb_pick_winds (wb_inode_t *wb_inode, list_head_t *tasks,
 			/* wait some more */
 			continue;
 
+		if (req->stub->fop == GF_FOP_WRITE) {
+			if (wb_wip_has_conflict (wb_inode, req))
+				continue;
+
+			list_add_tail (&req->wip, &wb_inode->wip);
+
+			if (!req->ordering.tempted)
+				/* unrefed in wb_writev_cbk */
+				req->stub->frame->local =
+					__wb_request_ref (req);
+		}
+
 		list_del_init (&req->todo);
 
 		if (req->ordering.tempted)
@@ -1143,11 +1189,29 @@ wb_process_queue (wb_inode_t *wb_inode)
 
 
 int
+wb_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+	       int32_t op_ret, int32_t op_errno,
+	       struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
+{
+	wb_request_t *req = NULL;
+
+	req = frame->local;
+	frame->local = NULL;
+
+	wb_request_unref (req);
+
+	STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf,
+			     xdata);
+	return 0;
+}
+
+
+int
 wb_writev_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		  struct iovec *vector, int32_t count, off_t offset,
 		  uint32_t flags, struct iobref *iobref, dict_t *xdata)
 {
-	STACK_WIND (frame, default_writev_cbk,
+	STACK_WIND (frame, wb_writev_cbk,
 		    FIRST_CHILD (this), FIRST_CHILD (this)->fops->writev,
 		    fd, vector, count, offset, flags, iobref, xdata);
 	return 0;
