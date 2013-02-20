@@ -509,4 +509,7 @@ glusterd_generate_and_set_task_id (dict_t *dict, char *key);
 
 int
 glusterd_copy_uuid_to_dict (uuid_t uuid, dict_t *dict, char *key);
+
+gf_boolean_t
+glusterd_is_same_address (char *name1, char *name2);
 #endif
