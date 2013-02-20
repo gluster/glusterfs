@@ -382,11 +382,8 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 
         local->fd = fd_ref (fd);
 
-        ret = afr_open_fd_fix (frame, this, _gf_false);
-        if (ret) {
-                op_errno = -ret;
-                goto out;
-        }
+        afr_open_fd_fix (fd, this);
+
         STACK_WIND_COOKIE (frame, afr_fstat_cbk, (void *) (long) call_child,
                            children[call_child],
                            children[call_child]->fops->fstat,
@@ -1856,11 +1853,8 @@ afr_readv (call_frame_t *frame, xlator_t *this,
         local->cont.readv.offset     = offset;
         local->cont.readv.flags      = flags;
 
-        ret = afr_open_fd_fix (frame, this, _gf_false);
-        if (ret) {
-                op_errno = -ret;
-                goto out;
-        }
+        afr_open_fd_fix (fd, this);
+
         STACK_WIND_COOKIE (frame, afr_readv_cbk,
                            (void *) (long) call_child,
                            children[call_child],

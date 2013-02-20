@@ -249,189 +249,126 @@ out:
         return 0;
 }
 
-//NOTE: this function should be called with holding the lock on
-//fd to which fd_ctx belongs
-void
-afr_get_resumable_calls (xlator_t *this, afr_fd_ctx_t *fd_ctx,
-                         struct list_head *list)
-{
-        afr_fd_paused_call_t *paused_call = NULL;
-        afr_fd_paused_call_t *tmp = NULL;
-        afr_local_t           *call_local  = NULL;
-        afr_private_t         *priv        = NULL;
-        int                    i = 0;
-        gf_boolean_t           call = _gf_false;
-
-        priv = this->private;
-        list_for_each_entry_safe (paused_call, tmp, &fd_ctx->paused_calls,
-                                  call_list) {
-                call = _gf_true;
-                call_local = paused_call->frame->local;
-                for (i = 0; i < priv->child_count; i++) {
-                        if (call_local->child_up[i] &&
-                            (fd_ctx->opened_on[i] == AFR_FD_OPENING))
-                                call = _gf_false;
-                }
-
-                if (call) {
-                        list_del_init (&paused_call->call_list);
-                        list_add (&paused_call->call_list, list);
-                }
-        }
-}
-
-void
-afr_resume_calls (xlator_t *this, struct list_head *list)
-{
-        afr_fd_paused_call_t *paused_call = NULL;
-        afr_fd_paused_call_t *tmp = NULL;
-        afr_local_t           *call_local  = NULL;
-
-        list_for_each_entry_safe (paused_call, tmp, list, call_list) {
-                list_del_init (&paused_call->call_list);
-                call_local = paused_call->frame->local;
-                call_local->fop_call_continue (paused_call->frame, this);
-                GF_FREE (paused_call);
-        }
-}
-
 int
 afr_openfd_fix_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+                         int32_t op_ret, int32_t op_errno, fd_t *fd,
+                         dict_t *xdata)
 {
-        afr_local_t           *local       = NULL;
-        afr_private_t         *priv        = NULL;
-        afr_fd_ctx_t          *fd_ctx      = NULL;
-        int                    call_count  = 0;
-        int                    child_index = (long) cookie;
-        struct list_head       paused_calls = {0};
-        gf_boolean_t           fop_paused = _gf_false;
-        fd_t                   *local_fd  = NULL;
+        afr_local_t   *local      = NULL;
+        afr_private_t *priv       = NULL;
+        afr_fd_ctx_t  *fd_ctx     = NULL;
+        int           call_count  = 0;
+        int           child_index = (long) cookie;
 
         priv     = this->private;
         local    = frame->local;
-        fop_paused = local->fop_paused;
 
         if (op_ret >= 0) {
-                gf_log (this->name, GF_LOG_INFO, "fd for %s opened "
+                gf_log (this->name, GF_LOG_DEBUG, "fd for %s opened "
                         "successfully on subvolume %s", local->loc.path,
+                        priv->children[child_index]->name);
+        } else {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to open %s "
+                        "on subvolume %s", local->loc.path,
                         priv->children[child_index]->name);
         }
 
-        local_fd = fd_ref (local->fd);
-        call_count = afr_frame_return (frame);
-        //Note: Do not access any thing using the frame outside call_count 0
-
-        //Note: No frame locking needed for this block of code
-        fd_ctx = afr_fd_ctx_get (local_fd, this);
+        fd_ctx = afr_fd_ctx_get (local->fd, this);
         if (!fd_ctx) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "failed to get fd context, %p", local_fd);
+                        "failed to get fd context, %p", local->fd);
                 goto out;
         }
 
-        LOCK (&local_fd->lock);
+        LOCK (&local->fd->lock);
         {
                 if (op_ret >= 0) {
                         fd_ctx->opened_on[child_index] = AFR_FD_OPENED;
                 } else {
                         fd_ctx->opened_on[child_index] = AFR_FD_NOT_OPENED;
                 }
-                if (call_count == 0) {
-                        INIT_LIST_HEAD (&paused_calls);
-                        afr_get_resumable_calls (this, fd_ctx, &paused_calls);
-                }
         }
-        UNLOCK (&local_fd->lock);
+        UNLOCK (&local->fd->lock);
 out:
-        if (call_count == 0) {
-                afr_resume_calls (this, &paused_calls);
-                //If the fop is paused then resume_calls will continue the fop
-                if (fop_paused)
-                        goto done;
+        call_count = afr_frame_return (frame);
+        if (call_count == 0)
+                AFR_STACK_DESTROY (frame);
 
-                if (local->fop_call_continue)
-                        local->fop_call_continue (frame, this);
-                else
-                        AFR_STACK_DESTROY (frame);
-        }
-
-done:
-        fd_unref (local_fd);
         return 0;
 }
 
-int
-afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
-              int need_open_count, int *need_open)
+void
+afr_fix_open (xlator_t *this, fd_t *fd, size_t need_open_count, int *need_open)
 {
-        afr_local_t       *local = NULL;
-        afr_private_t     *priv  = NULL;
-        int               i      = 0;
-        call_frame_t      *open_frame = NULL;
-        afr_local_t      *open_local = NULL;
-        int               ret    = -1;
-        ia_type_t         ia_type = IA_INVAL;
-        int32_t           op_errno = 0;
+        afr_private_t *priv    = NULL;
+        int           i        = 0;
+        call_frame_t  *frame   = NULL;
+        afr_local_t   *local   = NULL;
+        int           ret      = -1;
+        int32_t       op_errno = 0;
+        afr_fd_ctx_t  *fd_ctx  = NULL;
 
-        GF_ASSERT (fd_ctx);
-        GF_ASSERT (need_open_count > 0);
-        GF_ASSERT (need_open);
-
-        local = frame->local;
         priv  = this->private;
-        if (!local->fop_call_continue) {
-                open_frame = copy_frame (frame);
-                if (!open_frame) {
-                        ret = -ENOMEM;
-                        goto out;
-                }
-                AFR_LOCAL_ALLOC_OR_GOTO (open_frame->local, out);
-                open_local = open_frame->local;
-                ret = afr_local_init (open_local, priv, &op_errno);
-                if (ret < 0)
-                        goto out;
-                loc_copy (&open_local->loc, &local->loc);
-                open_local->fd = fd_ref (local->fd);
-        } else {
-                ret = 0;
-                open_frame = frame;
-                open_local = local;
+
+        if (!afr_is_fd_fixable (fd) || !need_open || !need_open_count)
+                goto out;
+
+        fd_ctx = afr_fd_ctx_get (fd, this);
+        if (!fd_ctx) {
+                ret = -1;
+                goto out;
         }
 
-        open_local->call_count = need_open_count;
+        frame = create_frame (this, this->ctx->pool);
+        if (!frame) {
+                ret = -1;
+                goto out;
+        }
 
-        gf_log (this->name, GF_LOG_DEBUG, "need open count: %d",
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
+        local = frame->local;
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
+                goto out;
+
+        local->loc.inode = inode_ref (fd->inode);
+        ret = loc_path (&local->loc, NULL);
+        if (ret < 0)
+                goto out;
+
+        local->fd = fd_ref (fd);
+        local->call_count = need_open_count;
+
+        gf_log (this->name, GF_LOG_DEBUG, "need open count: %zd",
                 need_open_count);
 
-        ia_type = open_local->fd->inode->ia_type;
-        GF_ASSERT (ia_type != IA_INVAL);
         for (i = 0; i < priv->child_count; i++) {
                 if (!need_open[i])
                         continue;
-                if (IA_IFDIR == ia_type) {
+
+                if (IA_IFDIR == fd->inode->ia_type) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "opening fd for dir %s on subvolume %s",
                                 local->loc.path, priv->children[i]->name);
 
-                        STACK_WIND_COOKIE (open_frame, afr_openfd_fix_open_cbk,
+                        STACK_WIND_COOKIE (frame, afr_openfd_fix_open_cbk,
                                            (void*) (long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->opendir,
-                                           &open_local->loc, open_local->fd,
+                                           &local->loc, local->fd,
                                            NULL);
                 } else {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "opening fd for file %s on subvolume %s",
                                 local->loc.path, priv->children[i]->name);
 
-                        STACK_WIND_COOKIE (open_frame, afr_openfd_fix_open_cbk,
+                        STACK_WIND_COOKIE (frame, afr_openfd_fix_open_cbk,
                                            (void *)(long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->open,
-                                           &open_local->loc,
+                                           &local->loc,
                                            fd_ctx->flags & (~O_TRUNC),
-                                           open_local->fd, NULL);
+                                           local->fd, NULL);
                 }
 
         }
@@ -439,8 +376,7 @@ afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
         ret = 0;
 out:
         if (op_errno)
-                ret = -op_errno;
-        if (ret && open_frame)
-                AFR_STACK_DESTROY (open_frame);
-        return ret;
+                ret = -1; //For handling ALLOC_OR_GOTO
+        if (ret && frame)
+                AFR_STACK_DESTROY (frame);
 }

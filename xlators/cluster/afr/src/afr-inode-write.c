@@ -328,153 +328,74 @@ out:
         return 0;
 }
 
-static int
-afr_prepare_loc (call_frame_t *frame, fd_t *fd)
-{
-        afr_local_t    *local = NULL;
-        char           *name = NULL;
-        char           *path = NULL;
-        int             ret = 0;
-
-        if ((!fd) || (!fd->inode))
-                return -1;
-
-        local = frame->local;
-        ret = inode_path (fd->inode, NULL, (char **)&path);
-        if (ret <= 0) {
-                gf_log (frame->this->name, GF_LOG_DEBUG,
-                        "Unable to get path for gfid: %s",
-                        uuid_utoa (fd->inode->gfid));
-                return -1;
-        }
-
-        if (local->loc.path) {
-                if (strcmp (path, local->loc.path))
-                        gf_log (frame->this->name, GF_LOG_DEBUG,
-                                "overwriting old loc->path %s with %s",
-                                local->loc.path, path);
-                GF_FREE ((char *)local->loc.path);
-        }
-        local->loc.path = path;
-
-        name = strrchr (local->loc.path, '/');
-        if (name)
-                name++;
-        local->loc.name = name;
-
-        if (local->loc.inode) {
-                inode_unref (local->loc.inode);
-        }
-        local->loc.inode = inode_ref (fd->inode);
-
-        if (local->loc.parent) {
-                inode_unref (local->loc.parent);
-        }
-
-        local->loc.parent = inode_parent (local->loc.inode, 0, NULL);
-
-        return 0;
-}
-
-afr_fd_paused_call_t*
-afr_paused_call_create (call_frame_t *frame)
-{
-        afr_local_t             *local = NULL;
-        afr_fd_paused_call_t   *paused_call = NULL;
-
-        local = frame->local;
-        GF_ASSERT (local->fop_call_continue);
-
-        paused_call = GF_CALLOC (1, sizeof (*paused_call),
-                                  gf_afr_fd_paused_call_t);
-        if (paused_call) {
-                INIT_LIST_HEAD (&paused_call->call_list);
-                paused_call->frame = frame;
-        }
-
-        return paused_call;
-}
-
-static int
-afr_pause_fd_fop (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx)
-{
-        afr_fd_paused_call_t *paused_call = NULL;
-        int                    ret = 0;
-
-        paused_call = afr_paused_call_create (frame);
-        if (paused_call)
-                list_add (&paused_call->call_list, &fd_ctx->paused_calls);
-        else
-                ret = -ENOMEM;
-
-        return ret;
-}
-
 static void
-afr_trigger_open_fd_self_heal (call_frame_t *frame, xlator_t *this)
+afr_trigger_open_fd_self_heal (fd_t *fd, xlator_t *this)
 {
-        afr_local_t             *local = NULL;
-        afr_self_heal_t         *sh = NULL;
-        inode_t                 *inode = NULL;
-        char                    *reason = NULL;
+        call_frame_t    *frame   = NULL;
+        afr_local_t     *local   = NULL;
+        afr_self_heal_t *sh      = NULL;
+        char            *reason  = NULL;
+        int32_t         op_errno = 0;
+        int             ret      = 0;
 
+        if (!fd || !fd->inode || uuid_is_null (fd->inode->gfid)) {
+                gf_log_callingfn (this->name, GF_LOG_ERROR, "Invalid args: "
+                                  "fd: %p, inode: %p", fd,
+                                  fd ? fd->inode : NULL);
+                goto out;
+        }
+
+        frame = create_frame (this, this->ctx->pool);
+        if (!frame)
+                goto out;
+
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
-        sh    = &local->self_heal;
-        inode = local->fd->inode;
+        ret = afr_local_init (local, this->private, &op_errno);
+        if (ret < 0)
+                goto out;
 
-        sh->do_missing_entry_self_heal = _gf_true;
-        sh->do_gfid_self_heal = _gf_true;
-        sh->do_data_self_heal = _gf_true;
+        local->loc.inode = inode_ref (fd->inode);
+        ret = loc_path (&local->loc, NULL);
+        if (ret < 0)
+                goto out;
+
+        sh    = &local->self_heal;
+        sh->do_metadata_self_heal = _gf_true;
+        if (fd->inode->ia_type == IA_IFREG)
+                sh->do_data_self_heal = _gf_true;
+        else if (fd->inode->ia_type == IA_IFDIR)
+                sh->do_entry_self_heal = _gf_true;
 
         reason = "subvolume came online";
-        afr_launch_self_heal (frame, this, inode, _gf_true, inode->ia_type,
-                              reason, NULL, NULL);
+        afr_launch_self_heal (frame, this, fd->inode, _gf_true,
+                              fd->inode->ia_type, reason, NULL, NULL);
+        return;
+out:
+        AFR_STACK_DESTROY (frame);
 }
 
-int
-afr_open_fd_fix (call_frame_t *frame, xlator_t *this, gf_boolean_t pause_fop)
+void
+afr_open_fd_fix (fd_t *fd, xlator_t *this)
 {
-        int                     ret = 0;
-        int                     i   = 0;
-        afr_fd_ctx_t            *fd_ctx = NULL;
-        inode_t                 *inode = NULL;
-        gf_boolean_t            need_self_heal = _gf_false;
-        int                     *need_open = NULL;
-        int                     need_open_count = 0;
-        afr_local_t             *local = NULL;
-        afr_private_t           *priv = NULL;
-        gf_boolean_t            fop_continue = _gf_true;
+        int           ret             = 0;
+        int           i               = 0;
+        afr_fd_ctx_t  *fd_ctx         = NULL;
+        gf_boolean_t  need_self_heal  = _gf_false;
+        int           *need_open      = NULL;
+        size_t        need_open_count = 0;
+        afr_private_t *priv           = NULL;
 
-        local = frame->local;
         priv  = this->private;
 
-        GF_ASSERT (local->fd);
-
-        inode = local->fd->inode;
-        //gfid is not set in rebalance, that case needs to be handled.
-        if (fd_is_anonymous (local->fd) ||
-            !inode || uuid_is_null (inode->gfid)) {
-                fop_continue = _gf_true;
+        if (!afr_is_fd_fixable (fd))
                 goto out;
-        }
 
-        if (pause_fop)
-                GF_ASSERT (local->fop_call_continue);
-
-        ret = afr_prepare_loc (frame, local->fd);
-        if (ret < 0) {
-                //File does not exist we cant open it.
-                ret = 0;
+        fd_ctx = afr_fd_ctx_get (fd, this);
+        if (!fd_ctx)
                 goto out;
-        }
 
-        fd_ctx = afr_fd_ctx_get (local->fd, this);
-        if (!fd_ctx) {
-                ret = -EINVAL;
-                goto out;
-        }
-
-        LOCK (&local->fd->lock);
+        LOCK (&fd->lock);
         {
                 if (fd_ctx->up_count < priv->up_count) {
                         need_self_heal = _gf_true;
@@ -482,55 +403,34 @@ afr_open_fd_fix (call_frame_t *frame, xlator_t *this, gf_boolean_t pause_fop)
                         fd_ctx->down_count = priv->down_count;
                 }
 
+                need_open = alloca (priv->child_count * sizeof (*need_open));
                 for (i = 0; i < priv->child_count; i++) {
-                        if ((fd_ctx->opened_on[i] == AFR_FD_NOT_OPENED) &&
-                            local->child_up[i]) {
-                                fd_ctx->opened_on[i] = AFR_FD_OPENING;
-                                if (!need_open)
-                                        need_open = GF_CALLOC (priv->child_count,
-                                                               sizeof (*need_open),
-                                                               gf_afr_mt_int32_t);
-                                need_open[i] = 1;
-                                need_open_count++;
-                        } else if (pause_fop && local->child_up[i] &&
-                                   (fd_ctx->opened_on[i] == AFR_FD_OPENING)) {
-                                local->fop_paused = _gf_true;
-                        }
-                }
+                        need_open[i] = 0;
+                        if (fd_ctx->opened_on[i] != AFR_FD_NOT_OPENED)
+                                continue;
 
-                if (local->fop_paused) {
-                        GF_ASSERT (pause_fop);
-                        gf_log (this->name, GF_LOG_INFO, "Pause fd %p",
-                                local->fd);
-                        ret = afr_pause_fd_fop (frame, this, fd_ctx);
-                        if (ret)
-                                goto unlock;
-                        fop_continue = _gf_false;
+                        if (!priv->child_up[i])
+                                continue;
+
+                        fd_ctx->opened_on[i] = AFR_FD_OPENING;
+
+                        need_open[i] = 1;
+                        need_open_count++;
                 }
         }
-unlock:
-        UNLOCK (&local->fd->lock);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to fix fd for %s",
-                        local->loc.path);
-                fop_continue = _gf_false;
+        UNLOCK (&fd->lock);
+        if (ret)
                 goto out;
-        }
 
         if (need_self_heal)
-                afr_trigger_open_fd_self_heal (frame, this);
+                afr_trigger_open_fd_self_heal (fd, this);
 
         if (!need_open_count)
                 goto out;
 
-        gf_log (this->name, GF_LOG_INFO, "Opening fd %p", local->fd);
-        afr_fix_open (frame, this, fd_ctx, need_open_count, need_open);
-        fop_continue = _gf_false;
+        afr_fix_open (this, fd, need_open_count, need_open);
 out:
-        GF_FREE (need_open);
-        if (fop_continue && local->fop_call_continue)
-                local->fop_call_continue (frame, this);
-        return ret;
+        return;
 }
 
 int
@@ -570,13 +470,10 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         local->cont.writev.iobref     = iobref_ref (iobref);
 
         local->fd                = fd_ref (fd);
-        local->fop_call_continue = afr_do_writev;
 
-        ret = afr_open_fd_fix (frame, this, _gf_true);
-        if (ret) {
-                op_errno = -ret;
-                goto out;
-        }
+        afr_open_fd_fix (fd, this);
+
+        afr_do_writev (frame, this);
 
         ret = 0;
 out:
@@ -1026,13 +923,10 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this,
         local->cont.ftruncate.offset  = offset;
 
         local->fd = fd_ref (fd);
-        local->fop_call_continue = afr_do_ftruncate;
 
-        ret = afr_open_fd_fix (frame, this, _gf_true);
-        if (ret) {
-                op_errno = -ret;
-                goto out;
-        }
+        afr_open_fd_fix (fd, this);
+
+        afr_do_ftruncate (frame, this);
 
         ret = 0;
 out:
@@ -1448,11 +1342,7 @@ afr_fsetattr (call_frame_t *frame, xlator_t *this,
 
         local->fd                 = fd_ref (fd);
 
-        ret = afr_open_fd_fix (transaction_frame, this, _gf_false);
-        if (ret) {
-                op_errno = -ret;
-                goto out;
-        }
+        afr_open_fd_fix (fd, this);
 
         local->transaction.main_frame = frame;
         local->transaction.start   = LLONG_MAX - 1;

@@ -27,7 +27,7 @@ function volume_option()
 }
 
 function rebalance_status_field {
-        $CLI volume rebalance $1 status | sed -n '$p' | cut -d' ' -f4
+        $CLI volume rebalance $1 status | awk '{print $6}' | sed -n 3p
 }
 
 function remove_brick_status_completed_field {

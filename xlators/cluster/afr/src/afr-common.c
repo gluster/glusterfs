@@ -887,8 +887,6 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 
         GF_FREE (local->fresh_children);
 
-        GF_FREE (local->fd_open_on);
-
         { /* lookup */
                 if (local->cont.lookup.xattrs) {
                         afr_reset_xattr (local->cont.lookup.xattrs,
@@ -2456,7 +2454,6 @@ __afr_fd_ctx_set (xlator_t *this, fd_t *fd)
         }
 
 	pthread_mutex_init (&fd_ctx->delay_lock, NULL);
-        INIT_LIST_HEAD (&fd_ctx->paused_calls);
         INIT_LIST_HEAD (&fd_ctx->entries);
         fd_ctx->call_child = -1;
 
@@ -2575,8 +2572,6 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
         uint64_t        ctx = 0;
         afr_fd_ctx_t    *fd_ctx = NULL;
         int             ret = 0;
-        afr_fd_paused_call_t *paused_call = NULL;
-        afr_fd_paused_call_t *tmp = NULL;
 
         ret = fd_ctx_get (fd, this, &ctx);
         if (ret < 0)
@@ -2592,12 +2587,6 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
                 GF_FREE (fd_ctx->locked_on);
 
                 GF_FREE (fd_ctx->pre_op_piggyback);
-                list_for_each_entry_safe (paused_call, tmp, &fd_ctx->paused_calls,
-                                          call_list) {
-                        list_del_init (&paused_call->call_list);
-                        GF_FREE (paused_call);
-                }
-
                 GF_FREE (fd_ctx->lock_piggyback);
 
                 GF_FREE (fd_ctx->lock_acquired);
@@ -3986,14 +3975,6 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
         if (!local->fresh_children)
                 goto out;
 
-        if (local->fd) {
-                local->fd_open_on = GF_CALLOC (sizeof (*local->fd_open_on),
-                                               priv->child_count,
-                                               gf_afr_mt_char);
-                if (!local->fd_open_on)
-                        goto out;
-        }
-
         local->transaction.pre_op = GF_CALLOC (sizeof (*local->transaction.pre_op),
                                                priv->child_count,
                                                gf_afr_mt_char);
@@ -4262,4 +4243,17 @@ afr_prepare_new_entry_pending_matrix (int32_t **pending,
                         pending[i][idx] = hton32 (1);
                 }
         }
+}
+
+gf_boolean_t
+afr_is_fd_fixable (fd_t *fd)
+{
+        if (!fd || !fd->inode)
+                return _gf_false;
+        else if (fd_is_anonymous (fd))
+                return _gf_false;
+        else if (uuid_is_null (fd->inode->gfid))
+                return _gf_false;
+
+        return _gf_true;
 }
