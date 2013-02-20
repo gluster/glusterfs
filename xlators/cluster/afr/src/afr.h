@@ -425,7 +425,6 @@ typedef struct _afr_local {
         loc_t newloc;
 
         fd_t *fd;
-        unsigned char *fd_open_on;
 
         glusterfs_fop_t fop;
 
@@ -448,9 +447,6 @@ typedef struct _afr_local {
         dict_t  *dict;
         int      optimistic_change_log;
 	gf_boolean_t      delayed_post_op;
-
-        gf_boolean_t    fop_paused;
-        int (*fop_call_continue) (call_frame_t *frame, xlator_t *this);
 
         /*
           This struct contains the arguments for the "continuation"
@@ -703,11 +699,6 @@ typedef enum {
 } afr_fd_open_status_t;
 
 typedef struct {
-        struct list_head call_list;
-        call_frame_t    *frame;
-} afr_fd_paused_call_t;
-
-typedef struct {
         unsigned int *pre_op_done;
         afr_fd_open_status_t *opened_on; /* which subvolumes the fd is open on */
         unsigned int *pre_op_piggyback;
@@ -726,7 +717,6 @@ typedef struct {
         struct list_head entries; /* needed for readdir failover */
 
         unsigned char *locked_on; /* which subvolumes locks have been successful */
-	struct list_head  paused_calls; /* queued calls while fix_open happens  */
 
 	/* used for delayed-post-op optimization */
 	pthread_mutex_t    delay_lock;
@@ -1021,11 +1011,11 @@ afr_launch_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode,
                       int (*unwind) (call_frame_t *frame, xlator_t *this,
                                      int32_t op_ret, int32_t op_errno,
                                      int32_t sh_failed));
-int
-afr_fix_open (call_frame_t *frame, xlator_t *this, afr_fd_ctx_t *fd_ctx,
-              int need_open_count, int *need_open);
-int
-afr_open_fd_fix (call_frame_t *frame, xlator_t *this, gf_boolean_t pause_fop);
+void
+afr_fix_open (xlator_t *this, fd_t *fd, size_t need_open_count, int *need_open);
+
+void
+afr_open_fd_fix (fd_t *fd, xlator_t *this);
 int
 afr_set_elem_count_get (unsigned char *elems, int child_count);
 
@@ -1058,6 +1048,9 @@ afr_is_errno_set (int *child_errno, int child);
 
 gf_boolean_t
 afr_is_errno_unset (int *child_errno, int child);
+
+gf_boolean_t
+afr_is_fd_fixable (fd_t *fd);
 
 void
 afr_prepare_new_entry_pending_matrix (int32_t **pending,
