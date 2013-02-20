@@ -7396,3 +7396,51 @@ glusterd_copy_uuid_to_dict (uuid_t uuid, dict_t *dict, char *key)
 
         return 0;
 }
+
+gf_boolean_t
+glusterd_is_same_address (char *name1, char *name2)
+{
+        struct addrinfo         *addr1 = NULL;
+        struct addrinfo         *addr2 = NULL;
+        struct addrinfo         *p = NULL;       
+        struct addrinfo         *q = NULL;       
+        gf_boolean_t            ret = _gf_false;
+        int                     gai_err = 0;
+
+        gai_err = getaddrinfo(name1,NULL,NULL,&addr1);
+        if (gai_err != 0) {
+                gf_log (name1, GF_LOG_WARNING,
+                        "error in getaddrinfo: %s\n", gai_strerror(gai_err));
+                goto out;
+        }
+
+        gai_err = getaddrinfo(name2,NULL,NULL,&addr2);
+        if (gai_err != 0) {
+                gf_log (name2, GF_LOG_WARNING,
+                        "error in getaddrinfo: %s\n", gai_strerror(gai_err));
+                goto out;
+        }
+
+        for (p = addr1; p; p = p->ai_next) {
+                for (q = addr2; q; q = q->ai_next) {
+                        if (p->ai_addrlen != q->ai_addrlen) {
+                                continue;
+                        }
+                        if (memcmp(p->ai_addr,q->ai_addr,p->ai_addrlen)) {
+                                continue;
+                        }
+                        ret = _gf_true;
+                        goto out;
+                }
+        }
+
+out:
+        if (addr1) {
+                freeaddrinfo(addr1);
+        }
+        if (addr2) {
+                freeaddrinfo(addr2);
+        }
+        return ret;
+
+}
