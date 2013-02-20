@@ -23,27 +23,27 @@ __run (struct synctask *task)
         env = task->env;
 
         list_del_init (&task->all_tasks);
-	switch (task->state) {
-	case SYNCTASK_INIT:
+        switch (task->state) {
+        case SYNCTASK_INIT:
         case SYNCTASK_SUSPEND:
-		break;
-	case SYNCTASK_RUN:
-		gf_log (task->xl->name, GF_LOG_WARNING,
-			"re-running already running task");
-		env->runcount--;
-		break;
-	case SYNCTASK_WAIT:
-		env->waitcount--;
-		break;
-	case SYNCTASK_DONE:
-		gf_log (task->xl->name, GF_LOG_WARNING,
-			"running completed task");
-		break;
-	}
+                break;
+        case SYNCTASK_RUN:
+                gf_log (task->xl->name, GF_LOG_WARNING,
+                        "re-running already running task");
+                env->runcount--;
+                break;
+        case SYNCTASK_WAIT:
+                env->waitcount--;
+                break;
+        case SYNCTASK_DONE:
+                gf_log (task->xl->name, GF_LOG_WARNING,
+                        "running completed task");
+                break;
+        }
 
         list_add_tail (&task->all_tasks, &env->runq);
-	env->runcount++;
-	task->state = SYNCTASK_RUN;
+        env->runcount++;
+        task->state = SYNCTASK_RUN;
 }
 
 
@@ -55,38 +55,38 @@ __wait (struct synctask *task)
         env = task->env;
 
         list_del_init (&task->all_tasks);
-	switch (task->state) {
-	case SYNCTASK_INIT:
+        switch (task->state) {
+        case SYNCTASK_INIT:
         case SYNCTASK_SUSPEND:
-		break;
-	case SYNCTASK_RUN:
-		env->runcount--;
-		break;
-	case SYNCTASK_WAIT:
-		gf_log (task->xl->name, GF_LOG_WARNING,
-			"re-waiting already waiting task");
-		env->waitcount--;
-		break;
-	case SYNCTASK_DONE:
-		gf_log (task->xl->name, GF_LOG_WARNING,
-			"running completed task");
-		break;
-	}
+                break;
+        case SYNCTASK_RUN:
+                env->runcount--;
+                break;
+        case SYNCTASK_WAIT:
+                gf_log (task->xl->name, GF_LOG_WARNING,
+                        "re-waiting already waiting task");
+                env->waitcount--;
+                break;
+        case SYNCTASK_DONE:
+                gf_log (task->xl->name, GF_LOG_WARNING,
+                        "running completed task");
+                break;
+        }
 
         list_add_tail (&task->all_tasks, &env->waitq);
-	env->waitcount++;
-	task->state = SYNCTASK_WAIT;
+        env->waitcount++;
+        task->state = SYNCTASK_WAIT;
 }
 
 
 void
 synctask_yield (struct synctask *task)
 {
-	xlator_t *oldTHIS = THIS;
+        xlator_t *oldTHIS = THIS;
 
 #if defined(__NetBSD__) && defined(_UC_TLSBASE)
-	/* Preserve pthread private pointer through swapcontex() */
-	task->proc->sched.uc_flags &= ~_UC_TLSBASE;
+        /* Preserve pthread private pointer through swapcontex() */
+        task->proc->sched.uc_flags &= ~_UC_TLSBASE;
 #endif
 
         if (swapcontext (&task->ctx, &task->proc->sched) < 0) {
@@ -94,7 +94,7 @@ synctask_yield (struct synctask *task)
                         "swapcontext failed (%s)", strerror (errno));
         }
 
-	THIS = oldTHIS;
+        THIS = oldTHIS;
 }
 
 
@@ -127,8 +127,8 @@ synctask_wrap (struct synctask *old_task)
 
         task = synctask_get ();
         task->ret = task->syncfn (task->opaque);
-	if (task->synccbk)
-		task->synccbk (task->ret, task->frame, task->opaque);
+        if (task->synccbk)
+                task->synccbk (task->ret, task->frame, task->opaque);
 
         task->state = SYNCTASK_DONE;
 
@@ -147,9 +147,9 @@ synctask_destroy (struct synctask *task)
         if (task->opframe)
                 STACK_DESTROY (task->opframe->root);
 
-	pthread_mutex_destroy (&task->mutex);
+        pthread_mutex_destroy (&task->mutex);
 
-	pthread_cond_destroy (&task->cond);
+        pthread_cond_destroy (&task->cond);
 
         FREE (task);
 }
@@ -158,33 +158,33 @@ synctask_destroy (struct synctask *task)
 void
 synctask_done (struct synctask *task)
 {
-	if (task->synccbk) {
-		synctask_destroy (task);
-		return;
-	}
+        if (task->synccbk) {
+                synctask_destroy (task);
+                return;
+        }
 
-	pthread_mutex_lock (&task->mutex);
-	{
-		task->done = 1;
-		pthread_cond_broadcast (&task->cond);
-	}
-	pthread_mutex_unlock (&task->mutex);
+        pthread_mutex_lock (&task->mutex);
+        {
+                task->done = 1;
+                pthread_cond_broadcast (&task->cond);
+        }
+        pthread_mutex_unlock (&task->mutex);
 }
 
 
 int
 synctask_setid (struct synctask *task, uid_t uid, gid_t gid)
 {
-	if (!task)
-		return -1;
+        if (!task)
+                return -1;
 
-	if (uid != -1)
-		task->uid = uid;
+        if (uid != -1)
+                task->uid = uid;
 
-	if (gid != -1)
-		task->gid = gid;
+        if (gid != -1)
+                task->gid = gid;
 
-	return 0;
+        return 0;
 }
 
 
@@ -194,7 +194,7 @@ synctask_new (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
 {
         struct synctask *newtask = NULL;
         xlator_t        *this    = THIS;
-	int              ret     = 0;
+        int              ret     = 0;
 
         VALIDATE_OR_GOTO (env, err);
         VALIDATE_OR_GOTO (fn, err);
@@ -214,12 +214,12 @@ synctask_new (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
         newtask->env        = env;
         newtask->xl         = this;
         newtask->syncfn     = fn;
-	newtask->synccbk    = cbk;
+        newtask->synccbk    = cbk;
         newtask->opaque     = opaque;
 
-	/* default to the uid/gid of the passed frame */
-	newtask->uid = newtask->opframe->root->uid;
-	newtask->gid = newtask->opframe->root->gid;
+        /* default to the uid/gid of the passed frame */
+        newtask->uid = newtask->opframe->root->uid;
+        newtask->gid = newtask->opframe->root->gid;
 
         INIT_LIST_HEAD (&newtask->all_tasks);
 
@@ -242,15 +242,15 @@ synctask_new (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
 
         makecontext (&newtask->ctx, (void (*)(void)) synctask_wrap, 2, newtask);
 
-	newtask->state = SYNCTASK_INIT;
+        newtask->state = SYNCTASK_INIT;
 
         newtask->slept = 1;
 
-	if (!cbk) {
-		pthread_mutex_init (&newtask->mutex, NULL);
-		pthread_cond_init (&newtask->cond, NULL);
-		newtask->done = 0;
-	}
+        if (!cbk) {
+                pthread_mutex_init (&newtask->mutex, NULL);
+                pthread_cond_init (&newtask->cond, NULL);
+                newtask->done = 0;
+        }
 
         synctask_wake (newtask);
         /*
@@ -259,19 +259,19 @@ synctask_new (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
          */
         syncenv_scale(env);
 
-	if (!cbk) {
-		pthread_mutex_lock (&newtask->mutex);
-		{
-			while (!newtask->done) {
-				pthread_cond_wait (&newtask->cond, &newtask->mutex);
-			}
-		}
-		pthread_mutex_unlock (&newtask->mutex);
+        if (!cbk) {
+                pthread_mutex_lock (&newtask->mutex);
+                {
+                        while (!newtask->done) {
+                                pthread_cond_wait (&newtask->cond, &newtask->mutex);
+                        }
+                }
+                pthread_mutex_unlock (&newtask->mutex);
 
-		ret = newtask->ret;
+                ret = newtask->ret;
 
-		synctask_destroy (newtask);
-	}
+                synctask_destroy (newtask);
+        }
 
         return ret;
 err:
@@ -288,12 +288,12 @@ err:
 struct synctask *
 syncenv_task (struct syncproc *proc)
 {
-	struct syncenv   *env = NULL;
+        struct syncenv   *env = NULL;
         struct synctask  *task = NULL;
         struct timespec   sleep_till = {0, };
         int               ret = 0;
 
-	env = proc->env;
+        env = proc->env;
 
         pthread_mutex_lock (&env->mutex);
         {
@@ -315,9 +315,9 @@ syncenv_task (struct syncproc *proc)
                 task = list_entry (env->runq.next, struct synctask, all_tasks);
 
                 list_del_init (&task->all_tasks);
-		env->runcount--;
+                env->runcount--;
 
-		task->proc = proc;
+                task->proc = proc;
         }
 unlock:
         pthread_mutex_unlock (&env->mutex);
@@ -340,8 +340,8 @@ synctask_switchto (struct synctask *task)
         task->slept = 0;
 
 #if defined(__NetBSD__) && defined(_UC_TLSBASE)
-	/* Preserve pthread private pointer through swapcontex() */
-	task->ctx.uc_flags &= ~_UC_TLSBASE;
+        /* Preserve pthread private pointer through swapcontex() */
+        task->ctx.uc_flags &= ~_UC_TLSBASE;
 #endif
 
         if (swapcontext (&task->proc->sched, &task->ctx) < 0) {
@@ -383,7 +383,7 @@ syncenv_processor (void *thdata)
 
                 synctask_switchto (task);
 
-		syncenv_scale (env);
+                syncenv_scale (env);
         }
 
         return NULL;
@@ -393,15 +393,15 @@ syncenv_processor (void *thdata)
 void
 syncenv_scale (struct syncenv *env)
 {
-	int  diff = 0;
+        int  diff = 0;
         int  scale = 0;
-	int  i = 0;
-	int  ret = 0;
+        int  i = 0;
+        int  ret = 0;
 
-	pthread_mutex_lock (&env->mutex);
-	{
-		if (env->procs > env->runcount)
-			goto unlock;
+        pthread_mutex_lock (&env->mutex);
+        {
+                if (env->procs > env->runcount)
+                        goto unlock;
 
                 scale = env->runcount;
                 if (scale > SYNCENV_PROC_MAX)
@@ -415,17 +415,17 @@ syncenv_scale (struct syncenv *env)
                                         break;
                         }
 
-			env->proc[i].env = env;
-			ret = pthread_create (&env->proc[i].processor, NULL,
-					      syncenv_processor, &env->proc[i]);
-			if (ret)
-				break;
-			env->procs++;
+                        env->proc[i].env = env;
+                        ret = pthread_create (&env->proc[i].processor, NULL,
+                                              syncenv_processor, &env->proc[i]);
+                        if (ret)
+                                break;
+                        env->procs++;
                         i++;
-		}
-	}
+                }
+        }
 unlock:
-	pthread_mutex_unlock (&env->mutex);
+        pthread_mutex_unlock (&env->mutex);
 }
 
 
@@ -1121,7 +1121,7 @@ syncop_writev (xlator_t *subvol, fd_t *fd, const struct iovec *vector,
 
         SYNCOP (subvol, (&args), syncop_writev_cbk, subvol->fops->writev,
                 fd, (struct iovec *) vector, count, offset, flags, iobref,
-		NULL);
+                NULL);
 
         errno = args.op_errno;
         return args.op_ret;
@@ -1245,8 +1245,8 @@ syncop_rmdir (xlator_t *subvol, loc_t *loc)
 
 int
 syncop_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		 int32_t op_ret, int32_t op_errno, inode_t *inode,
-		 struct iatt *buf, struct iatt *preparent,
+                 int32_t op_ret, int32_t op_errno, inode_t *inode,
+                 struct iatt *buf, struct iatt *preparent,
                  struct iatt *postparent, dict_t *xdata)
 {
         struct syncargs *args = NULL;
@@ -1278,10 +1278,10 @@ syncop_link (xlator_t *subvol, loc_t *oldloc, loc_t *newloc)
 
 int
 syncop_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		   int32_t op_ret, int32_t op_errno, struct iatt *buf,
-		   struct iatt *preoldparent, struct iatt *postoldparent,
-		   struct iatt *prenewparent, struct iatt *postnewparent,
-		   dict_t *xdata)
+                   int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                   struct iatt *preoldparent, struct iatt *postoldparent,
+                   struct iatt *prenewparent, struct iatt *postnewparent,
+                   dict_t *xdata)
 {
         struct syncargs *args = NULL;
 

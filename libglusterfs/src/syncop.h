@@ -36,11 +36,11 @@ typedef int (*synctask_fn_t) (void *opaque);
 
 
 typedef enum {
-	SYNCTASK_INIT = 0,
-	SYNCTASK_RUN,
+        SYNCTASK_INIT = 0,
+        SYNCTASK_RUN,
         SYNCTASK_SUSPEND,
-	SYNCTASK_WAIT,
-	SYNCTASK_DONE,
+        SYNCTASK_WAIT,
+        SYNCTASK_DONE,
 } synctask_state_t;
 
 /* for one sequential execution of @syncfn */
@@ -52,22 +52,22 @@ struct synctask {
         call_frame_t       *opframe;
         synctask_cbk_t      synccbk;
         synctask_fn_t       syncfn;
-	synctask_state_t    state;
+        synctask_state_t    state;
         void               *opaque;
         void               *stack;
         int                 woken;
         int                 slept;
-	int                 ret;
+        int                 ret;
 
-	uid_t               uid;
-	gid_t               gid;
+        uid_t               uid;
+        gid_t               gid;
 
         ucontext_t          ctx;
-	struct syncproc    *proc;
+        struct syncproc    *proc;
 
-	pthread_mutex_t     mutex; /* for synchronous spawning of synctask */
-	pthread_cond_t      cond;
-	int                 done;
+        pthread_mutex_t     mutex; /* for synchronous spawning of synctask */
+        pthread_cond_t      cond;
+        int                 done;
 };
 
 
@@ -116,80 +116,80 @@ struct syncargs {
 
         /* do not touch */
         struct synctask    *task;
-	pthread_mutex_t     mutex;
-	pthread_cond_t      cond;
-	int                 done;
+        pthread_mutex_t     mutex;
+        pthread_cond_t      cond;
+        int                 done;
 };
 
 
-#define __yawn(args) do {					\
-	if (!args->task) {					\
-		pthread_mutex_init (&args->mutex, NULL);	\
-		pthread_cond_init (&args->cond, NULL);		\
-		args->done = 0;					\
-	}							\
-	} while (0)
+#define __yawn(args) do {                                       \
+        if (!args->task) {                                      \
+                pthread_mutex_init (&args->mutex, NULL);        \
+                pthread_cond_init (&args->cond, NULL);          \
+                args->done = 0;                                 \
+        }                                                       \
+        } while (0)
 
 
-#define __wake(args) do {					\
-	if (args->task) {					\
-		synctask_wake (args->task);			\
-	} else {						\
-		pthread_mutex_lock (&args->mutex);		\
-		{						\
-			args->done = 1;				\
-			pthread_cond_signal (&args->cond);	\
-		}						\
-		pthread_mutex_unlock (&args->mutex);		\
-	}							\
-	} while (0)
+#define __wake(args) do {                                       \
+        if (args->task) {                                       \
+                synctask_wake (args->task);                     \
+        } else {                                                \
+                pthread_mutex_lock (&args->mutex);              \
+                {                                               \
+                        args->done = 1;                         \
+                        pthread_cond_signal (&args->cond);      \
+                }                                               \
+                pthread_mutex_unlock (&args->mutex);            \
+        }                                                       \
+        } while (0)
 
 
-#define __yield(args) do {						\
-	if (args->task) {						\
-		synctask_yield (args->task);				\
-	} else {							\
-		pthread_mutex_lock (&args->mutex);			\
-		{							\
-			while (!args->done)				\
-				pthread_cond_wait (&args->cond,		\
-						   &args->mutex);	\
-		}							\
-		pthread_mutex_unlock (&args->mutex);			\
-		pthread_mutex_destroy (&args->mutex);			\
-		pthread_cond_destroy (&args->cond);			\
-	}								\
-	} while (0)
+#define __yield(args) do {                                              \
+        if (args->task) {                                               \
+                synctask_yield (args->task);                            \
+        } else {                                                        \
+                pthread_mutex_lock (&args->mutex);                      \
+                {                                                       \
+                        while (!args->done)                             \
+                                pthread_cond_wait (&args->cond,         \
+                                                   &args->mutex);       \
+                }                                                       \
+                pthread_mutex_unlock (&args->mutex);                    \
+                pthread_mutex_destroy (&args->mutex);                   \
+                pthread_cond_destroy (&args->cond);                     \
+        }                                                               \
+        } while (0)
 
 
 #define SYNCOP(subvol, stb, cbk, op, params ...) do {                   \
                 struct  synctask        *task = NULL;                   \
-		call_frame_t            *frame = NULL;			\
+                call_frame_t            *frame = NULL;                  \
                                                                         \
                 task = synctask_get ();                                 \
                 stb->task = task;                                       \
-		if (task)						\
-			frame = task->opframe;				\
-		else							\
-			frame = create_frame (THIS, THIS->ctx->pool);	\
-									\
-		if (task) {						\
-			frame->root->uid = task->uid;			\
-			frame->root->gid = task->gid;			\
-		}							\
-									\
-		__yawn (stb);						\
+                if (task)                                               \
+                        frame = task->opframe;                          \
+                else                                                    \
+                        frame = create_frame (THIS, THIS->ctx->pool);   \
                                                                         \
-                STACK_WIND_COOKIE (frame, cbk, (void *)stb, subvol,	\
-				   op, params);				\
-		if (task)						\
-			task->state = SYNCTASK_SUSPEND;			\
-									\
-                __yield (stb);						\
-		if (task)						\
-			STACK_RESET (frame->root);			\
-		else							\
-			STACK_DESTROY (frame->root);			\
+                if (task) {                                             \
+                        frame->root->uid = task->uid;                   \
+                        frame->root->gid = task->gid;                   \
+                }                                                       \
+                                                                        \
+                __yawn (stb);                                           \
+                                                                        \
+                STACK_WIND_COOKIE (frame, cbk, (void *)stb, subvol,     \
+                                   op, params);                         \
+                if (task)                                               \
+                        task->state = SYNCTASK_SUSPEND;                 \
+                                                                        \
+                __yield (stb);                                          \
+                if (task)                                               \
+                        STACK_RESET (frame->root);                      \
+                else                                                    \
+                        STACK_DESTROY (frame->root);                    \
         } while (0)
 
 
@@ -265,7 +265,7 @@ int syncop_fstat (xlator_t *subvol, fd_t *fd, struct iatt *stbuf);
 int syncop_stat (xlator_t *subvol, loc_t *loc, struct iatt *stbuf);
 
 int syncop_symlink (xlator_t *subvol, loc_t *loc, const char *newpath,
-		    dict_t *dict);
+                    dict_t *dict);
 int syncop_readlink (xlator_t *subvol, loc_t *loc, char **buffer, size_t size);
 int syncop_mknod (xlator_t *subvol, loc_t *loc, mode_t mode, dev_t rdev,
                   dict_t *dict);
