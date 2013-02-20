@@ -114,6 +114,7 @@ struct syncargs {
         uuid_t              uuid;
         char               *errstr;
         dict_t             *dict;
+        pthread_mutex_t     lock_dict;
 
         /* do not touch */
         struct synctask    *task;

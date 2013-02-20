@@ -12,7 +12,6 @@
 
 #include "syncop.h"
 
-
 #define GD_SYNC_OPCODE_KEY "sync-mgmt-operation"
 
 /* gd_syncop_* */
@@ -36,15 +35,14 @@ int gd_syncop_submit_request (struct rpc_clnt *rpc, void *req,
                                xdrproc_t xdrproc);
 
 
-int gd_syncop_mgmt_lock (struct rpc_clnt *rpc, uuid_t my_uuid,
-                          uuid_t recv_uuid);
-int gd_syncop_mgmt_unlock (struct rpc_clnt *rpc, uuid_t my_uuid,
-                            uuid_t recv_uuid);
-int gd_syncop_mgmt_stage_op (struct rpc_clnt *rpc, uuid_t my_uuid,
-                              uuid_t recv_uuid, int op, dict_t *dict_out,
-                              dict_t **dict_in, char **errstr);
-int gd_syncop_mgmt_commit_op (struct rpc_clnt *rpc, uuid_t my_uuid,
-                               uuid_t recv_uuid, int op, dict_t *dict_out,
-                               dict_t **dict_in, char **errstr);
-
+int gd_syncop_mgmt_lock (struct rpc_clnt *rpc, struct syncargs *arg,
+                         uuid_t my_uuid, uuid_t recv_uuid);
+int gd_syncop_mgmt_unlock (struct rpc_clnt *rpc, struct syncargs *arg,
+                           uuid_t my_uuid, uuid_t recv_uuid);
+int gd_syncop_mgmt_stage_op (struct rpc_clnt *rpc, struct syncargs *arg,
+                             uuid_t my_uuid, uuid_t recv_uuid, int op,
+                             dict_t *dict_out, dict_t *op_ctx);
+int gd_syncop_mgmt_commit_op (struct rpc_clnt *rpc, struct syncargs *arg,
+                              uuid_t my_uuid, uuid_t recv_uuid, int op,
+                              dict_t *dict_out, dict_t *op_ctx);
 #endif /* __RPC_SYNCOP_H */
