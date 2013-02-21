@@ -191,6 +191,28 @@ function cleanup()
 	umount -l $N1 2>/dev/null || true;
 }
 
+function volinfo_field()
+{
+    local vol=$1;
+    local field=$2;
+
+    $CLI volume info $vol | grep "^$field: " | sed 's/.*: //';
+}
+
+function cleanup_tester ()
+{
+    local exe=$1
+    rm -f $exe
+}
+
+function build_tester ()
+{
+    local cfile=$1
+    local fname=$(basename "$cfile")
+    local ext="${fname##*.}"
+    local execname="${fname%.*}"
+    gcc -g -o $(dirname $cfile)/$execname $cfile
+}
 
 alias EXPECT='_EXPECT $LINENO'
 alias TEST='_TEST $LINENO'

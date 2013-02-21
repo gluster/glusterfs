@@ -11,15 +11,6 @@ TEST pidof glusterd
 
 TEST $CLI volume create $V0 $H0:$B0/${V0}1;
 
-function volinfo_field()
-{
-    local vol=$1;
-    local field=$2;
-
-    $CLI volume info $vol | grep "^$field: " | sed 's/.*: //';
-}
-
-
 ## Verify volume is is created
 EXPECT "$V0" volinfo_field $V0 'Volume Name';
 EXPECT 'Created' volinfo_field $V0 'Status';
@@ -35,21 +26,6 @@ TEST $CLI volume set $V0 performance.stat-prefetch off;
 
 ## Mount FUSE with caching disabled
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
-
-function cleanup_tester ()
-{
-    local exe=$1
-    rm -f $exe
-}
-
-function build_tester ()
-{
-    local cfile=$1
-    local fname=$(basename "$cfile")
-    local ext="${fname##*.}"
-    local execname="${fname%.*}"
-    gcc -g -o $(dirname $cfile)/$execname $cfile
-}
 
 touch $M0/test;
 build_tester $(dirname $0)/getlk_owner.c

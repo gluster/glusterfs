@@ -9,14 +9,6 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume info;
 
-function volinfo_field()
-{
-    local vol=$1;
-    local field=$2;
-
-    $CLI volume info $vol | grep "^$field: " | sed 's/.*: //';
-}
-
 TEST $CLI volume create $V0 $H0:$B0/brick1 $H0:$B0/brick2;
 EXPECT 'Created' volinfo_field $V0 'Status';
 
@@ -33,14 +25,6 @@ if [ $? -eq '0' ]
 then
         nalloc1=`grep -A2 "fuse - usage-type 85" $sdump1 | grep num_allocs | cut -d '=' -f2`
 fi
-
-function build_tester ()
-{
-    local cfile=$1
-    local fname=$(basename "$cfile")
-    local execname=$(basename $fname ".c")
-    gcc -g -o $(dirname $cfile)/$execname $cfile
-}
 
 build_tester $(dirname $0)/bug-834465.c
 
