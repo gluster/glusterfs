@@ -8,14 +8,6 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume info;
 
-function volinfo_field()
-{
-    local vol=$1;
-    local field=$2;
-
-    $CLI volume info $vol | grep "^$field: " | sed 's/.*: //';
-}
-
 TEST $CLI volume create $V0 $H0:$B0/brick1;
 EXPECT 'Created' volinfo_field $V0 'Status';
 
@@ -26,21 +18,6 @@ EXPECT 'Started' volinfo_field $V0 'Status';
 TEST MOUNTDIR="/tmp/$RANDOM"
 TEST mkdir $MOUNTDIR
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 --volfile-server=$H0 --volfile-id=$V0 $MOUNTDIR;
-
-function cleanup_tester ()
-{
-    local exe=$1
-    rm -f $exe
-}
-
-function build_tester ()
-{
-    local cfile=$1
-    local fname=$(basename "$cfile")
-    local ext="${fname##*.}"
-    local execname="${fname%.*}"
-    gcc -g -o $(dirname $cfile)/$execname $cfile
-}
 
 build_tester $(dirname $0)/bug-808400-flock.c
 build_tester $(dirname $0)/bug-808400-fcntl.c
