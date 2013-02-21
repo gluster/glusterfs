@@ -94,7 +94,7 @@ out:
         return ret;
 }
 
-int
+static int
 validate_cache_max_min_size (dict_t *dict, char *key, char *value,
                              char **op_errstr)
 {
@@ -202,6 +202,44 @@ validate_quota (dict_t *dict, char *key, char *value,
         }
 
         ret = 0;
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+static int
+validate_stripe (dict_t *dict, char *key, char *value, char **op_errstr)
+{
+        char                 errstr[2048]  = "";
+        char                *volname       = NULL;
+        glusterd_conf_t     *priv          = NULL;
+        glusterd_volinfo_t  *volinfo       = NULL;
+        int                  ret           = 0;
+        xlator_t            *this          = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = check_dict_key_value (dict, key, value);
+        if (ret)
+                goto out;
+
+        ret = get_volname_volinfo (dict, &volname, &volinfo);
+        if (ret)
+                goto out;
+
+        if (volinfo->stripe_count == 1) {
+                snprintf (errstr, sizeof (errstr),
+                          "Cannot set %s for a non-stripe volume.", key);
+                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                *op_errstr = gf_strdup (errstr);
+                ret = -1;
+               goto out;
+        }
+
 out:
         gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
 
@@ -417,7 +455,8 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key         = "cluster.stripe-block-size",
           .voltype     = "cluster/stripe",
           .option      = "block-size",
-          .op_version  = 1
+          .op_version  = 1,
+          .validate_fn = validate_stripe
         },
         { .key         = "cluster.stripe-coalesce",
           .voltype     = "cluster/stripe",
