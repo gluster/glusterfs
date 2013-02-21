@@ -161,6 +161,52 @@ out:
         return ret;
 }
 
+static int
+validate_quota (dict_t *dict, char *key, char *value,
+                char **op_errstr)
+{
+        char                 errstr[2048] = "";
+        char                *volname      = NULL;
+        glusterd_conf_t     *priv         = NULL;
+        glusterd_volinfo_t  *volinfo      = NULL;
+        int                  ret          = 0;
+        xlator_t            *this         = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = check_dict_key_value (dict, key, value);
+        if (ret)
+                goto out;
+
+        ret = get_volname_volinfo (dict, &volname, &volinfo);
+        if (ret)
+                goto out;
+
+        ret = glusterd_volinfo_get_boolean (volinfo, VKEY_FEATURES_QUOTA);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to get the quota status");
+                goto out;
+        }
+
+        if (ret == _gf_false) {
+                snprintf (errstr, sizeof (errstr),
+                          "Cannot set %s. Enable quota first.", key);
+                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                *op_errstr = gf_strdup (errstr);
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
 
 /* dispatch table for VOLUME SET
  * -----------------------------
@@ -729,7 +775,8 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "features/quota",
           .option      = "timeout",
           .value       = "0",
-          .op_version  = 1
+          .op_version  = 1,
+          .validate_fn = validate_quota
         },
         { .key         = "features.quota-deem-statfs",
           .voltype     = "features/quota",
@@ -737,7 +784,8 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .value       = "off",
           .type        = DOC,
           .flags       = 0,
-          .op_version  = 2
+          .op_version  = 2,
+          .validate_fn = validate_quota
         },
 
         /* Marker xlator options */
