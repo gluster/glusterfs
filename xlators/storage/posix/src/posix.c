@@ -2519,8 +2519,13 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 else
                         rpath = real_path;
 
-                (void) snprintf (host_buf, 1024, "<POSIX(%s):%s:%s>",
-                                 priv->base_path, priv->hostname, rpath);
+                (void) snprintf (host_buf, 1024,
+                                 "<POSIX(%s):%s:%s>", priv->base_path,
+                                 ((priv->node_uuid_pathinfo
+                                   && !uuid_is_null(priv->glusterd_uuid))
+                                      ? uuid_utoa (priv->glusterd_uuid)
+                                      : priv->hostname),
+                                 rpath);
 
                 dyn_rpath = gf_strdup (host_buf);
                 if (!dyn_rpath) {
@@ -4138,6 +4143,16 @@ reconfigure (xlator_t *this, dict_t *options)
 	else
 		posix_aio_off (this);
 
+        GF_OPTION_RECONF ("node-uuid-pathinfo", priv->node_uuid_pathinfo,
+                          options, bool, out);
+
+        if (priv->node_uuid_pathinfo &&
+            (uuid_is_null (priv->glusterd_uuid))) {
+                    gf_log (this->name, GF_LOG_INFO,
+                            "glusterd uuid is NULL, pathinfo xattr would"
+                            " fallback to <hostname>:<export>");
+        }
+
 	ret = 0;
 out:
 	return ret;
@@ -4499,6 +4514,15 @@ init (xlator_t *this)
 		}
 	}
 
+        GF_OPTION_INIT ("node-uuid-pathinfo",
+                        _private->node_uuid_pathinfo, bool, out);
+        if (_private->node_uuid_pathinfo &&
+            (uuid_is_null (_private->glusterd_uuid))) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "glusterd uuid is NULL, pathinfo xattr would"
+                                " fallback to <hostname>:<export>");
+        }
+
         pthread_mutex_init (&_private->janitor_lock, NULL);
         pthread_cond_init (&_private->janitor_cond, NULL);
         INIT_LIST_HEAD (&_private->janitor_fds);
@@ -4615,6 +4639,12 @@ struct volume_options options[] = {
           .min = 0,
           .validate = GF_OPT_VALIDATE_MIN,
           .description = "Support for setting gid of brick's owner"
+        },
+        { .key = {"node-uuid-pathinfo"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "return glusterd's node-uuid in pathinfo xattr"
+                         " string instead of hostname"
         },
         { .key  = {NULL} }
 };

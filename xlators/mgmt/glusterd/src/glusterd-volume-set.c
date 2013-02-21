@@ -1109,6 +1109,10 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "brick-gid",
           .op_version  = 2
         },
+        { .key         = "storage.node-uuid-pathinfo",
+          .voltype     = "storage/posix",
+          .op_version  = 2
+        },
         { .key         = "config.memory-accounting",
           .voltype     = "configuration",
           .option      = "!config",
