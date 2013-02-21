@@ -57,6 +57,7 @@ struct synctask {
         void               *stack;
         int                 woken;
         int                 slept;
+	int                 waitfor;
         int                 ret;
 
         uid_t               uid;
@@ -118,15 +119,18 @@ struct syncargs {
         struct synctask    *task;
         pthread_mutex_t     mutex;
         pthread_cond_t      cond;
-        int                 done;
+        int                 wakecnt;
 };
 
 
 #define __yawn(args) do {                                       \
-        if (!args->task) {                                      \
+	args->task = synctask_get ();			        \
+        if (args->task) {                                       \
+		synctask_yawn (args->task);			\
+	} else {						\
                 pthread_mutex_init (&args->mutex, NULL);        \
                 pthread_cond_init (&args->cond, NULL);          \
-                args->done = 0;                                 \
+                args->wakecnt = 0;				\
         }                                                       \
         } while (0)
 
@@ -137,7 +141,7 @@ struct syncargs {
         } else {                                                \
                 pthread_mutex_lock (&args->mutex);              \
                 {                                               \
-                        args->done = 1;                         \
+                        args->wakecnt++;			\
                         pthread_cond_signal (&args->cond);      \
                 }                                               \
                 pthread_mutex_unlock (&args->mutex);            \
@@ -145,21 +149,24 @@ struct syncargs {
         } while (0)
 
 
-#define __yield(args) do {                                              \
-        if (args->task) {                                               \
-                synctask_yield (args->task);                            \
-        } else {                                                        \
-                pthread_mutex_lock (&args->mutex);                      \
-                {                                                       \
-                        while (!args->done)                             \
-                                pthread_cond_wait (&args->cond,         \
-                                                   &args->mutex);       \
-                }                                                       \
-                pthread_mutex_unlock (&args->mutex);                    \
-                pthread_mutex_destroy (&args->mutex);                   \
-                pthread_cond_destroy (&args->cond);                     \
-        }                                                               \
-        } while (0)
+#define __waitfor(args, cnt) do {					\
+	if (args->task) {				                \
+		synctask_waitfor (args->task, cnt);			\
+	} else {							\
+		pthread_mutex_lock (&args->mutex);			\
+		{							\
+			while (args->wakecnt < cnt)			\
+				pthread_cond_wait (&args->cond,		\
+						   &args->mutex);	\
+		}							\
+		pthread_mutex_unlock (&args->mutex);			\
+		pthread_mutex_destroy (&args->mutex);			\
+		pthread_cond_destroy (&args->cond);			\
+	}								\
+	} while (0)
+
+
+#define __yield(args) __waitfor(args, 1)
 
 
 #define SYNCOP(subvol, stb, cbk, op, params ...) do {                   \
@@ -202,6 +209,12 @@ void syncenv_scale (struct syncenv *env);
 int synctask_new (struct syncenv *, synctask_fn_t, synctask_cbk_t, call_frame_t* frame, void *);
 void synctask_wake (struct synctask *task);
 void synctask_yield (struct synctask *task);
+void synctask_yawn (struct synctask *task);
+void synctask_waitfor (struct synctask *task, int count);
+
+#define synctask_barrier_init(args) __yawn (args)
+#define synctask_barrier_wait(args, n) __waitfor (args, n)
+#define synctask_barrier_wake(args) __wake (args)
 
 int synctask_setid (struct synctask *task, uid_t uid, gid_t gid);
 #define SYNCTASK_SETID(uid, gid) synctask_setid (synctask_get(), uid, gid);
