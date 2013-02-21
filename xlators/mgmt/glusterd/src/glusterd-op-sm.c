@@ -2430,7 +2430,7 @@ glusterd_dict_set_volid (dict_t *dict, char *volname, char **op_errstr)
 out:
         if (msg[0] != '\0') {
                 gf_log (this->name, GF_LOG_ERROR, "%s", msg);
-                *op_errstr = strdup (msg);
+                *op_errstr = gf_strdup (msg);
         }
         return ret;
 }
