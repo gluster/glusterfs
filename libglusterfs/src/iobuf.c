@@ -841,6 +841,29 @@ out:
 }
 
 
+void
+iobref_clear (struct iobref *iobref)
+{
+        int i = 0;
+
+        GF_VALIDATE_OR_GOTO ("iobuf", iobref, out);
+
+        for (; i < GF_IOBREF_IOBUF_COUNT; i++) {
+                if (iobref->iobrefs[i] != NULL) {
+                        iobuf_unref (iobref->iobrefs[i]);
+                } else {
+                        /** iobuf's are attched serially */
+                        break;
+                }
+        }
+
+        iobref_unref (iobref);
+
+ out:
+        return;
+}
+
+
 int
 __iobref_add (struct iobref *iobref, struct iobuf *iobuf)
 {
