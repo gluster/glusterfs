@@ -150,7 +150,7 @@ struct iobref *iobref_ref (struct iobref *iobref);
 void iobref_unref (struct iobref *iobref);
 int iobref_add (struct iobref *iobref, struct iobuf *iobuf);
 int iobref_merge (struct iobref *to, struct iobref *from);
-
+void iobref_clear (struct iobref *iobref);
 
 size_t iobuf_size (struct iobuf *iobuf);
 size_t iobref_size (struct iobref *iobref);
