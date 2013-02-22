@@ -4,16 +4,8 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
+. $(dirname $0)/../cluster.rc
 
-function vglusterd {
-	wd=$1/wd-$2
-	cp -r /var/lib/glusterd $wd
-	rm -rf $wd/peers/* $wd/vols/*
-	echo -n "UUID=$(uuidgen)\noperating-version=1\n" > $wd/glusterd.info
-	opt1="management.transport.socket.bind-address=127.0.0.$2"
-	opt2="management.working-directory=$wd"
-	glusterd --xlator-option $opt1 --xlator-option $opt2
-}
 
 function check_fs {
 	df $1 &> /dev/null
@@ -21,46 +13,42 @@ function check_fs {
 }
 
 function check_peers {
-	$VCLI peer status | grep 'Peer in Cluster (Connected)' | wc -l
+	$CLI_1 peer status | grep 'Peer in Cluster (Connected)' | wc -l
+}
+
+function glusterfsd_count {
+    pidof glusterfsd | wc -w;
 }
 
 cleanup;
 
-topwd=$(mktemp -d)
-trap "rm -rf $topwd" EXIT
-
-vglusterd $topwd 100
-VCLI="$CLI --remote-host=127.0.0.100"
-vglusterd $topwd 101
-TEST $VCLI peer probe 127.0.0.101
-vglusterd $topwd 102
-TEST $VCLI peer probe 127.0.0.102
+TEST launch_cluster 3; # start 3-node virtual cluster
+TEST $CLI_1 peer probe $H2; # peer probe server 2 from server 1 cli
+TEST $CLI_1 peer probe $H3; # peer probe server 3 from server 1 cli
 
 EXPECT_WITHIN 20 2 check_peers
 
-create_cmd="$VCLI volume create $V0"
-for i in $(seq 100 102); do
-	mkdir -p $B0/$V0$i
-	create_cmd="$create_cmd 127.0.0.$i:$B0/$V0$i"
-done
-
-TEST $create_cmd
-TEST $VCLI volume set $V0 cluster.server-quorum-type server
-TEST $VCLI volume start $V0
-TEST glusterfs --volfile-server=127.0.0.100 --volfile-id=$V0 $M0
+TEST $CLI_1 volume create $V0 $H1:$B1/$V0 $H2:$B2/$V0 $H3:$B3/$V0
+TEST $CLI_1 volume set $V0 cluster.server-quorum-type server
+TEST $CLI_1 volume start $V0
+TEST glusterfs --volfile-server=$H1 --volfile-id=$V0 $M0
 
 # Kill one pseudo-node, make sure the others survive and volume stays up.
-kill -9 $(ps -ef | grep gluster | grep 127.0.0.102 | awk '{print $2}')
-EXPECT_WITHIN 20 1 check_peers
-fs_status=$(check_fs $M0)
-nnodes=$(pidof glusterfsd | wc -w)
-TEST [ "$fs_status" = 0 -a "$nnodes" = 2 ]
+TEST kill_node 3;
+EXPECT_WITHIN 20 1 check_peers;
+EXPECT 0 check_fs $M0;
+EXPECT 2 glusterfsd_count;
 
 # Kill another pseudo-node, make sure the last one dies and volume goes down.
-kill -9 $(ps -ef | grep gluster | grep 127.0.0.101 | awk '{print $2}')
+TEST kill_node 2;
 EXPECT_WITHIN 20 0 check_peers
-fs_status=$(check_fs $M0)
-nnodes=$(pidof glusterfsd | wc -w)
-TEST [ "$fs_status" = 1 -a "$nnodes" = 0 ]
+EXPECT 1 check_fs $M0;
+EXPECT 0 glusterfsd_count; # the two glusterfsds of the other two glusterds
+                           # must be dead
+
+TEST $glusterd_2;
+TEST $glusterd_3;
+EXPECT_WITHIN 20 3 glusterfsd_count; # restore quorum, all ok
+EXPECT_WITHIN 5 0 check_fs $M0;
 
 cleanup
