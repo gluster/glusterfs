@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
+. $(dirname $0)/../fileio.rc
 
 cleanup;
 
@@ -30,7 +31,8 @@ TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M1;
 TEST touch $M0/testfile;
 
 # open the file with the fd as 4
-exec 4>"$M0/testfile";
+TEST fd=`fd_available`;
+TEST fd_open $fd 'w' "$M0/testfile";
 
 # remove the file from the other mount point. If unlink is sent from
 # $M0 itself, then the file will be actually opened by open-behind which
@@ -47,7 +49,7 @@ TEST rm -f $M1/testfile;
 echo "data" >> $M0/testfile 2>/dev/null 1>/dev/null;
 TEST [ $? -ne 0 ]
 
-exec 4>&-
+TEST fd_close $fd;
 
 TEST rm -rf $MOUNTDIR/*
 
