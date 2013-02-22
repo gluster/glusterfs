@@ -1,0 +1,61 @@
+#!/bin/bash
+
+function fd_available() {
+         for i in {1..65536}; do
+	     if [ ! -e /proc/$$/fd/$i ]; then
+		 echo $i;
+		 return 0;
+	     fi
+	 done
+
+	 return 1;
+}
+
+function fd_open() {
+	 local fd=$1;
+	 local mode=$2
+	 local path=$3;
+
+	 case $mode in
+	     r)
+		 eval "exec $fd<$path";;
+	     w)
+		 eval "exec $fd>$path";;
+	     rw)
+		 eval "exec $fd<>$path";;
+	     *)
+		 false;;
+	 esac
+}
+
+
+function fd_cat() {
+	 local fd=$1;
+
+	 eval "cat <&$fd";
+}
+
+
+function fd_write() {
+	 local fd=$1;
+	 shift;
+	 local msg="$@";
+
+	 eval "echo $@ >&$fd";
+}
+
+
+function fd_close() {
+	 local fd=$1;
+
+	 eval "exec $fd>&-";
+}
+
+
+function fd_based_example() {
+    TEST fd=`fd_available`;
+    TEST fd_open $fd "rw" $M0/filename;
+    TEST fd_cat $fd; # print existing stuff
+    TEST fd_write $fd "new stuff"; # append
+    TEST fd_close $fd;
+}
