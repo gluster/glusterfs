@@ -602,7 +602,9 @@ typedef struct _afr_local {
                 struct {
                         struct iatt prebuf;
                         struct iatt postbuf;
+                } inode_wfop; //common structure for all inode-write-fops
 
+                struct {
                         int32_t op_ret;
 
                         struct iovec *vector;
@@ -613,34 +615,21 @@ typedef struct _afr_local {
                 } writev;
 
                 struct {
-                        struct iatt prebuf;
-                        struct iatt postbuf;
-                } fsync;
-
-                struct {
                         off_t offset;
-                        struct iatt prebuf;
-                        struct iatt postbuf;
                 } truncate;
 
                 struct {
                         off_t offset;
-                        struct iatt prebuf;
-                        struct iatt postbuf;
                 } ftruncate;
 
                 struct {
                         struct iatt in_buf;
                         int32_t valid;
-                        struct iatt preop_buf;
-                        struct iatt postop_buf;
                 } setattr;
 
                 struct {
                         struct iatt in_buf;
                         int32_t valid;
-                        struct iatt preop_buf;
-                        struct iatt postop_buf;
                 } fsetattr;
 
                 struct {
@@ -707,15 +696,11 @@ typedef struct _afr_local {
 			int32_t mode;
 			off_t offset;
 			size_t len;
-			struct iatt prebuf;
-			struct iatt postbuf;
 		} fallocate;
 
 		struct {
 			off_t offset;
 			size_t len;
-			struct iatt prebuf;
-			struct iatt postbuf;
 		} discard;
 
         } cont;
