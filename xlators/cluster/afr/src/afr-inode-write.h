@@ -68,4 +68,11 @@ int32_t
 afr_fremovexattr (call_frame_t *frame, xlator_t *this,
                   fd_t *fd, const char *name, dict_t *xdata);
 
+int
+afr_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+             size_t len, dict_t *xdata);
+
+int
+afr_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
+               off_t offset, size_t len, dict_t *xdata);
 #endif /* __INODE_WRITE_H__ */
