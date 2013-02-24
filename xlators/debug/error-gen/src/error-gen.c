@@ -1954,6 +1954,52 @@ error_gen_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	return 0;
 }
 
+static void
+error_gen_set_failure (eg_t *pvt, int percent)
+{
+        GF_ASSERT (pvt);
+
+        if (percent)
+                pvt->failure_iter_no = 100/percent;
+        else
+                pvt->failure_iter_no = 100/GF_FAILURE_DEFAULT;
+}
+
+static void
+error_gen_parse_fill_fops (eg_t *pvt, char *enable_fops)
+{
+        char            *op_no_str = NULL;
+        int              op_no = -1;
+        int              i = 0;
+        xlator_t        *this = THIS;
+        char            *saveptr = NULL;
+
+        GF_ASSERT (pvt);
+        GF_ASSERT (this);
+
+        for (i = 0; i < GF_FOP_MAXVALUE; i++)
+                pvt->enable[i] = 0;
+
+        if (!enable_fops) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "All fops are enabled.");
+                for (i = 0; i < GF_FOP_MAXVALUE; i++)
+                        pvt->enable[i] = 1;
+        } else {
+                op_no_str = strtok_r (enable_fops, ",", &saveptr);
+                while (op_no_str) {
+                        op_no = get_fop_int (&op_no_str);
+                        if (op_no == -1) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Wrong option value %s", op_no_str);
+                        } else
+                                pvt->enable[op_no] = 1;
+
+                        op_no_str = strtok_r (NULL, ",", &saveptr);
+                }
+        }
+}
+
 int32_t
 error_gen_priv_dump (xlator_t *this)
 {
@@ -2007,18 +2053,43 @@ mem_acct_init (xlator_t *this)
 }
 
 int
+reconfigure (xlator_t *this, dict_t *options)
+{
+        eg_t            *pvt = NULL;
+        int32_t          ret = 0;
+        char            *error_enable_fops = NULL;
+        int32_t          failure_percent_int = 0;
+
+        if (!this || !this->private)
+                goto out;
+
+        pvt = this->private;
+
+        GF_OPTION_RECONF ("error-no", pvt->error_no, options, str, out);
+
+        GF_OPTION_RECONF ("failure", failure_percent_int, options, int32,
+                          out);
+
+        GF_OPTION_RECONF ("enable", error_enable_fops, options, str, out);
+
+        GF_OPTION_RECONF ("random-failure", pvt->random_failure, options,
+                          bool, out);
+
+        error_gen_parse_fill_fops (pvt, error_enable_fops);
+        error_gen_set_failure (pvt, failure_percent_int);
+
+        ret = 0;
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "reconfigure returning %d", ret);
+        return ret;
+}
+
+int
 init (xlator_t *this)
 {
         eg_t            *pvt = NULL;
-        data_t          *error_no = NULL;
-        data_t          *failure_percent = NULL;
-        data_t          *enable = NULL;
-        gf_boolean_t    random_failure = _gf_false;
         int32_t          ret = 0;
         char            *error_enable_fops = NULL;
-        char            *op_no_str = NULL;
-        int              op_no = -1;
-        int              i = 0;
         int32_t          failure_percent_int = 0;
 
         if (!this->children || this->children->next) {
@@ -2033,79 +2104,34 @@ init (xlator_t *this)
                         "dangling volume. check volfile ");
         }
 
-        error_no = dict_get (this->options, "error-no");
-        failure_percent = dict_get (this->options, "failure");
-        enable = dict_get (this->options, "enable");
-
         pvt = GF_CALLOC (1, sizeof (eg_t), gf_error_gen_mt_eg_t);
 
         if (!pvt) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "out of memory.");
                 ret = -1;
                 goto out;
         }
 
         LOCK_INIT (&pvt->lock);
 
-        for (i = 0; i < GF_FOP_MAXVALUE; i++)
-                pvt->enable[i] = 0;
-        if (!error_no) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "error-no not specified.");
-        } else {
-                pvt->error_no = data_to_str (error_no);
-        }
+        GF_OPTION_INIT ("error-no", pvt->error_no, str, out);
 
-        if (!failure_percent) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failure percent not specified.");
-                pvt->failure_iter_no = 100/GF_FAILURE_DEFAULT;
-        } else {
-                failure_percent_int = data_to_int32 (failure_percent);
-                if (failure_percent_int)
-                        pvt->failure_iter_no = 100/failure_percent_int;
-                else
-                        pvt->failure_iter_no = 100/GF_FAILURE_DEFAULT;
-        }
+        GF_OPTION_INIT ("failure", failure_percent_int, int32, out);
 
-        if (!enable) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "All fops are enabled.");
-                for (i = 0; i < GF_FOP_MAXVALUE; i++)
-                        pvt->enable[i] = 1;
-        } else {
-                error_enable_fops = data_to_str (enable);
-                op_no_str = error_enable_fops;
-                while ((*error_enable_fops) != '\0') {
-                        error_enable_fops++;
-                        if (((*error_enable_fops) == ',') ||
-                            ((*error_enable_fops) == '\0')) {
-                                if ((*error_enable_fops) != '\0') {
-                                        (*error_enable_fops) = '\0';
-                                        error_enable_fops++;
-                                }
-                                op_no = get_fop_int (&op_no_str);
-                                if (op_no == -1) {
-                                        gf_log (this->name, GF_LOG_WARNING,
-                                                "Wrong option value %s",
-                                                op_no_str);
-                                } else
-                                        pvt->enable[op_no] = 1;
-                                op_no_str = error_enable_fops;
-                        }
-                }
-        }
+        GF_OPTION_INIT ("enable", error_enable_fops, str, out);
 
-        random_failure = dict_get_str_boolean (this->options, "random-failure",
-                                               _gf_false);
-        pvt->random_failure = random_failure;
+        GF_OPTION_INIT ("random-failure", pvt->random_failure, bool, out);
+
+
+        error_gen_parse_fill_fops (pvt, error_enable_fops);
+        error_gen_set_failure (pvt, failure_percent_int);
 
         this->private = pvt;
 
         /* Give some seed value here */
         srand (time(NULL));
 out:
+        if (ret)
+                GF_FREE (pvt);
         return ret;
 }
 
@@ -2180,17 +2206,27 @@ struct xlator_fops fops = {
 
 struct volume_options options[] = {
         { .key  = {"failure"},
-          .type = GF_OPTION_TYPE_INT },
+          .type = GF_OPTION_TYPE_INT,
+          .description = "Percentage failure of operations when enabled.",
+        },
+
         { .key  = {"error-no"},
           .value = {"ENOENT","ENOTDIR","ENAMETOOLONG","EACCES","EBADF",
                     "EFAULT","ENOMEM","EINVAL","EIO","EEXIST","ENOSPC",
                     "EPERM","EROFS","EBUSY","EISDIR","ENOTEMPTY","EMLINK"
                     "ENODEV","EXDEV","EMFILE","ENFILE","ENOSYS","EINTR",
                     "EFBIG","EAGAIN","GF_ERROR_SHORT_WRITE"},
-          .type = GF_OPTION_TYPE_STR },
+          .type = GF_OPTION_TYPE_STR,
+        },
+
         { .key = {"random-failure"},
-          .type = GF_OPTION_TYPE_BOOL},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+        },
+
         { .key  = {"enable"},
-          .type = GF_OPTION_TYPE_STR },
+          .type = GF_OPTION_TYPE_STR,
+        },
+
         { .key  = {NULL} }
 };
