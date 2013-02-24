@@ -853,6 +853,30 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = NO_DOC,
           .op_version  = 1
         },
+        { .key         = "debug.error-failure",
+          .voltype     = "debug/error-gen",
+          .option      = "failure",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "debug.error-number",
+          .voltype     = "debug/error-gen",
+          .option      = "error-no",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "debug.random-failure",
+          .voltype     = "debug/error-gen",
+          .option      = "random-failure",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "debug.error-fops",
+          .voltype     = "debug/error-gen",
+          .option      = "enable",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
 
 
         /* NFS xlator options */
