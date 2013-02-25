@@ -1650,8 +1650,10 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char     key[1024]                = {0};
         char     *vgname                  = NULL;
         char     *vg                      = NULL;
+        glusterd_brickinfo_t *brickinfo   = NULL;
 
-        path = param;
+        brickinfo = param;
+        path      = brickinfo->path;
         volname = volinfo->volname;
         get_vol_transport_type (volinfo, transt);
 
@@ -1851,6 +1853,16 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 return -1;
 
+        /*In the case of running multiple glusterds on a single machine,
+         * we should ensure that bricks don't listen on all IPs on that
+         * machine and break the IP based separation being brought about.*/
+        if (dict_get (THIS->options, "transport.socket.bind-address")) {
+                ret = xlator_set_option (xl, "transport.socket.bind-address",
+                                         brickinfo->hostname);
+                if (ret)
+                        return -1;
+        }
+
         if (username) {
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "auth.login.%s.allow", path);
@@ -1883,9 +1895,9 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 /* builds a graph for server role , with option overrides in mod_dict */
 static int
 build_server_graph (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
-                    dict_t *mod_dict, char *path)
+                    dict_t *mod_dict, glusterd_brickinfo_t *brickinfo)
 {
-        return build_graph_generic (graph, volinfo, mod_dict, path,
+        return build_graph_generic (graph, volinfo, mod_dict, brickinfo,
                                     &server_graph_builder);
 }
 
@@ -2479,7 +2491,7 @@ volgen_graph_build_dht_cluster (volgen_graph_t *graph,
                 /* Keep static analyzers quiet by "using" the value. */
                 ret = gf_string2boolean(optstr,&use_nufa);
         }
-                        
+
         clusters = volgen_graph_build_clusters (graph,  volinfo,
                                                 use_nufa
                                                         ? "cluster/nufa"
@@ -3237,7 +3249,7 @@ glusterd_generate_brick_volfile (glusterd_volinfo_t *volinfo,
 
         get_brick_filepath (filename, volinfo, brickinfo);
 
-        ret = build_server_graph (&graph, volinfo, NULL, brickinfo->path);
+        ret = build_server_graph (&graph, volinfo, NULL, brickinfo);
         if (!ret)
                 ret = volgen_write_volfile (&graph, filename);
 
@@ -3732,7 +3744,7 @@ validate_clientopts (glusterd_volinfo_t *volinfo,
 
 int
 validate_brickopts (glusterd_volinfo_t *volinfo,
-                    char *brickinfo_path,
+                    glusterd_brickinfo_t *brickinfo,
                     dict_t *val_dict,
                     char **op_errstr)
 {
@@ -3743,7 +3755,7 @@ validate_brickopts (glusterd_volinfo_t *volinfo,
 
         graph.errstr = op_errstr;
 
-        ret = build_server_graph (&graph, volinfo, val_dict, brickinfo_path);
+        ret = build_server_graph (&graph, volinfo, val_dict, brickinfo);
         if (!ret)
                 ret = graph_reconf_validateopt (&graph.graph, op_errstr);
 
@@ -3765,7 +3777,7 @@ glusterd_validate_brickreconf (glusterd_volinfo_t *volinfo,
                 gf_log ("", GF_LOG_DEBUG,
                         "Validating %s", brickinfo->hostname);
 
-                ret = validate_brickopts (volinfo, brickinfo->path, val_dict,
+                ret = validate_brickopts (volinfo, brickinfo, val_dict,
                                           op_errstr);
                 if (ret)
                         goto out;
