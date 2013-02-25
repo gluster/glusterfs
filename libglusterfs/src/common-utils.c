@@ -1708,6 +1708,11 @@ valid_host_name (char *address, int length)
                 goto out;
         }
 
+        if (!isalnum (dup_addr[length - 1]) && (dup_addr[length - 1] != '*')) {
+                ret = 0;
+                goto out;
+        }
+
         /* gen-name */
         temp_str = strtok_r (dup_addr, ".", &save_ptr);
         do {
@@ -1744,8 +1749,13 @@ valid_ipv4_address (char *address, int length, gf_boolean_t wildcard_acc)
 
         tmp = gf_strdup (address);
 
-        /* To prevent cases where last character is '.' */
+        /*
+         * To prevent cases where last character is '.' and which have
+         * consecutive dots like ".." as strtok ignore consecutive
+         * delimeters.
+         */
         if (length <= 0 ||
+            (strstr (address, "..")) ||
             (!isdigit (tmp[length - 1]) && (tmp[length - 1] != '*'))) {
                 ret = 0;
                 goto out;
