@@ -70,3 +70,16 @@ function get_hashed_brick()
 
         return $hashed
 }
+
+
+function rebalance_completed()
+{
+       val=1
+       test=`gluster volume rebalance $V0 status |grep localhost|grep -v "in progress" 2>&1`
+       if [ $? -eq 0 ]
+       then
+                val=0
+       fi
+
+       echo $val
+}
