@@ -2291,17 +2291,11 @@ gf_process_reserved_ports (gf_boolean_t *ports)
                 goto out;
         }
 
-        blocked_port = strtok_r (ports_info, ",",&tmp);
-        if (!blocked_port || !strcmp (blocked_port, ports_info)) {
-                if (!blocked_port)
-                        blocked_port = ports_info;
-                gf_ports_reserved (blocked_port, ports);
-                blocked_port = strtok_r (NULL, ",", &tmp);
-        }
+        blocked_port = strtok_r (ports_info, ",\n",&tmp);
 
         while (blocked_port) {
                 gf_ports_reserved (blocked_port, ports);
-                blocked_port = strtok_r (NULL, ",", &tmp);
+                blocked_port = strtok_r (NULL, ",\n", &tmp);
         }
 
         ret = 0;
