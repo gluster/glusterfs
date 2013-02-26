@@ -1027,7 +1027,10 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key         = "nfs.transport-type",
           .voltype     = "nfs/server",
           .option      = "!nfs.transport-type",
-          .op_version  = 1
+          .value       = "tcp",
+          .op_version  = 1,
+          .description = "Specifies the nfs transport type. Valid "
+                         "transport types are 'tcp' and 'rdma'."
         },
         { .key         = "nfs.trusted-sync",
           .voltype     = "nfs/server",
