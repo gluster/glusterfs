@@ -613,6 +613,19 @@ out:
         return 0;
 }
 
+static gf_boolean_t
+can_skip_entry_self_heal (char *name, loc_t *parent_loc)
+{
+        if (strcmp (name, ".") == 0) {
+                return _gf_true;
+        } else if (strcmp (name, "..") == 0) {
+                return _gf_true;
+        } else if (loc_is_root (parent_loc) &&
+                   (strcmp (name, GF_REPLICATE_TRASH_DIR) == 0)) {
+                return _gf_true;
+        }
+        return _gf_false;
+}
 
 int
 afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
@@ -640,13 +653,7 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
         sh->expunge_done = afr_sh_entry_expunge_entry_done;
 
         name = entry->d_name;
-
-        if ((strcmp (name, ".") == 0)
-            || (strcmp (name, "..") == 0)) {
-
-                gf_log (this->name, GF_LOG_TRACE,
-                        "skipping inspection of %s under %s",
-                        name, local->loc.path);
+        if (can_skip_entry_self_heal (name, &local->loc)) {
                 op_ret = 0;
                 goto out;
         }
@@ -1901,12 +1908,7 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
         active_src = sh->active_source;
         sh->impunge_done = afr_sh_entry_impunge_entry_done;
 
-        if ((strcmp (entry->d_name, ".") == 0)
-            || (strcmp (entry->d_name, "..") == 0)) {
-
-                gf_log (this->name, GF_LOG_TRACE,
-                        "skipping inspection of %s under %s",
-                        entry->d_name, local->loc.path);
+        if (can_skip_entry_self_heal (entry->d_name, &local->loc)) {
                 op_ret = 0;
                 goto out;
         }

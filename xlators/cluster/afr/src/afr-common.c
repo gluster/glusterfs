@@ -2351,6 +2351,13 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (local->loc.path &&
+            (strcmp (local->loc.path, "/" GF_REPLICATE_TRASH_DIR) == 0)) {
+                op_errno = EPERM;
+                ret = -1;
+                goto out;
+        }
+
         ret = inode_ctx_get (local->loc.inode, this, &ctx);
         if (ret == 0) {
                 /* lookup is a revalidate */

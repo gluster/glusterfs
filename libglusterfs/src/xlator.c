@@ -684,6 +684,17 @@ err:
         return ret;
 }
 
+gf_boolean_t
+loc_is_root (loc_t *loc)
+{
+        if (loc && __is_root_gfid (loc->gfid)) {
+                return _gf_true;
+        } else if (loc && loc->inode && __is_root_gfid (loc->inode->gfid)) {
+                return _gf_true;
+        }
+        return _gf_false;
+}
+
 int
 xlator_list_destroy (xlator_list_t *list)
 {
