@@ -2021,41 +2021,6 @@ nfs3svc_write_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-/*
- * If this logic determines that the write should return a reply to the client
- * after this function, the return value is -1 and the writetype is reset to
- * the type of write we want to signify to the client.
- *
- * In case the write should continue to serve the request according to the type
- * of stable write, a 0 is returned and writetype is left as it is.
- */
-int
-nfs3_write_how (int *writetype, int write_trusted, int sync_trusted)
-{
-        int     ret = -1;
-
-        if (*writetype == UNSTABLE) {
-                /* On an UNSTABLE write, only return STABLE when trusted-write
-                 * is set. TW is also set when trusted-sync is set.
-                 */
-                if (write_trusted)
-                        *writetype = FILE_SYNC;
-
-                goto err;
-        } else if ((*writetype == DATA_SYNC) || (*writetype == FILE_SYNC)) {
-
-                /* On a STABLE write, if sync-trusted is on, only then, return
-                 * without syncing.
-                 */
-                if (sync_trusted)
-                        goto err;
-        }
-
-        ret = 0;
-err:
-        return ret;
-}
-
 
 /*
  * Before going into the write reply logic, here is a matrix that shows the
@@ -2094,12 +2059,8 @@ nfs3svc_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    struct iatt *postbuf, dict_t *xdata)
 {
         nfsstat3                stat = NFS3ERR_SERVERFAULT;
-        int                     ret = -EFAULT;
-        nfs_user_t              nfu = {0, };
         nfs3_call_state_t       *cs = NULL;
         struct nfs3_state       *nfs3 = NULL;
-        int                     write_trusted = 0;
-        int                     sync_trusted = 0;
 
         cs = frame->local;
         nfs3 = rpcsvc_request_program_private (cs->req);
@@ -2114,35 +2075,14 @@ nfs3svc_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         stat = NFS3_OK;
         cs->maxcount = op_ret;
 
-        write_trusted = nfs3_export_write_trusted (cs->nfs3state,
-                                                   cs->resolvefh.exportid);
-        sync_trusted = nfs3_export_sync_trusted (cs->nfs3state,
-                                                 cs->resolvefh.exportid);
-        ret = nfs3_write_how (&cs->writetype, write_trusted, sync_trusted);
-        if (ret == -1)
-                goto err;
-
-        nfs_request_user_init (&nfu, cs->req);
-        /* Store the current preattr so that this can be used as the pre attr
-         * when fsync returns. We dont want to use the preattr in fsync because
-         * the write fop happened before the fsync.
-         */
-        cs->stbuf = *prebuf;
-        ret = nfs_fsync (cs->nfsx, cs->vol, &nfu, cs->fd, 0,
-                         nfs3svc_write_fsync_cbk, cs);
-        if (ret < 0)
-                stat = nfs3_errno_to_nfsstat3 (-ret);
-
 err:
-        if (ret < 0) {
-                nfs3_log_write_res (rpcsvc_request_xid (cs->req), stat,
-                                    op_errno, cs->maxcount, cs->writetype,
-                                    nfs3->serverstart);
-                nfs3_write_reply (cs->req, stat, cs->maxcount,
-                                  cs->writetype, nfs3->serverstart, prebuf,
-                                  postbuf);
-                nfs3_call_state_wipe (cs);
-        }
+	nfs3_log_write_res (rpcsvc_request_xid (cs->req), stat,
+			    op_errno, cs->maxcount, cs->writetype,
+			    nfs3->serverstart);
+	nfs3_write_reply (cs->req, stat, cs->maxcount,
+			  cs->writetype, nfs3->serverstart, prebuf,
+			  postbuf);
+	nfs3_call_state_wipe (cs);
 
         return 0;
 }
@@ -2198,6 +2138,25 @@ nfs3_write_resume (void *carg)
         }
 
         cs->fd = fd;    /* Gets unrefd when the call state is wiped. */
+
+/*
+  enum stable_how {
+  UNSTABLE = 0,
+  DATA_SYNC = 1,
+  FILE_SYNC = 2,
+  };
+*/
+	switch (cs->writetype) {
+	case UNSTABLE:
+		break;
+	case DATA_SYNC:
+		fd->flags |= O_DSYNC;
+		break;
+	case FILE_SYNC:
+		fd->flags |= O_SYNC;
+		break;
+	}
+
         ret = __nfs3_write_resume (cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
