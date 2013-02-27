@@ -897,6 +897,7 @@ cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
         call_frame_t            *frame = NULL;
         dict_t                  *options = NULL;
         cli_local_t             *local = NULL;
+        char                    *op_errstr = NULL;
 
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_SET_VOLUME];
 
@@ -904,9 +905,14 @@ cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (!frame)
                 goto out;
 
-        ret = cli_cmd_volume_set_parse (words, wordcount, &options);
+        ret = cli_cmd_volume_set_parse (words, wordcount, &options, &op_errstr);
         if (ret) {
-                cli_usage_out (word->pattern);
+                if (op_errstr) {
+                    cli_err ("%s", op_errstr);
+                    GF_FREE (op_errstr);
+                } else
+                    cli_usage_out (word->pattern);
+
                 parse_error = 1;
                 goto out;
         }
