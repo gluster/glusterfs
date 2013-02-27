@@ -1183,6 +1183,35 @@ out:
         return ret;
 }
 
+/* Caller should ensure that brick process is not running*/
+static void
+_reap_brick_process (char *pidfile, char *brickpath)
+{
+        unlink (pidfile);
+        /* Brick process is not running and pmap may have an entry for it.*/
+        pmap_registry_remove (THIS, 0, brickpath,
+                              GF_PMAP_PORT_BRICKSERVER, NULL);
+}
+
+static int
+_mk_rundir_p (glusterd_volinfo_t *volinfo)
+{
+        char voldir[PATH_MAX]   = {0,};
+        char rundir[PATH_MAX]   = {0,};
+        glusterd_conf_t *priv   = NULL;
+        xlator_t        *this   = NULL;
+        int             ret     = -1;
+
+        this = THIS;
+        priv = this->private;
+        GLUSTERD_GET_VOLUME_DIR (voldir, volinfo, priv);
+        snprintf (rundir, sizeof (rundir)-1, "%s/run", voldir);
+        ret =  mkdir_p (rundir, 0777, _gf_true);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR, "Failed to create rundir");
+        return ret;
+}
+
 int32_t
 glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                                  glusterd_brickinfo_t  *brickinfo,
@@ -1191,17 +1220,13 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         int32_t                 ret = -1;
         xlator_t                *this = NULL;
         glusterd_conf_t         *priv = NULL;
-        char                    pidfile[PATH_MAX] = {0,};
+        char                    pidfile[PATH_MAX+1] = {0,};
         char                    volfile[PATH_MAX] = {0,};
-        char                    path[PATH_MAX] = {0,};
         runner_t                runner = {0,};
-        char                    rundir[PATH_MAX] = {0,};
         char                    exp_path[PATH_MAX] = {0,};
         char                    logfile[PATH_MAX] = {0,};
         int                     port = 0;
         int                     rdma_port = 0;
-        FILE                    *file = NULL;
-        gf_boolean_t            is_locked = _gf_false;
         char                    socketpath[PATH_MAX] = {0};
         char                    glusterd_uuid[1024] = {0,};
 #ifdef DEBUG
@@ -1216,100 +1241,59 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         priv = this->private;
         GF_ASSERT (priv);
 
-        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
-        snprintf (rundir, PATH_MAX, "%s/run", path);
-        ret = mkdir (rundir, 0777);
-
-        if ((ret == -1) && (EEXIST != errno)) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to create rundir %s."
-                        "Reason : %s", rundir, strerror (errno));
+        ret = _mk_rundir_p (volinfo);
+        if (ret)
                 goto out;
-        }
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, priv);
+        if (glusterd_is_service_running (pidfile, NULL))
+                goto connect;
 
-        glusterd_set_brick_socket_filepath (volinfo, brickinfo, socketpath,
-                                            sizeof (socketpath));
-        GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
-                                    brickinfo->path);
-
-        file = fopen (pidfile, "r+");
-        if (file) {
-                ret = lockf (fileno (file), F_TLOCK, 0);
-                if (ret && ((EAGAIN == errno) || (EACCES == errno))) {
-                        ret = 0;
-                        gf_log (this->name, GF_LOG_DEBUG, "brick %s:%s "
-                                "already started", brickinfo->hostname,
-                                brickinfo->path);
-                        goto connect;
-                }
-        }
-
-        ret = pmap_registry_search (this, brickinfo->path,
-                                    GF_PMAP_PORT_BRICKSERVER);
-        if (ret) {
-                ret = 0;
-                file = fopen (pidfile, "r+");
-                if (file) {
-                        ret = lockf (fileno (file), F_TLOCK, 0);
-                        if (ret && ((EAGAIN == errno) || (EACCES == errno))) {
-                                ret = 0;
-                                gf_log (this->name, GF_LOG_DEBUG, "brick %s:%s "
-                                        "already started", brickinfo->hostname,
-                                        brickinfo->path);
-                                goto connect;
-                        } else if (0 == ret) {
-                                is_locked = _gf_true;
-                        }
-                }
-                /* This means, pmap has the entry, remove it */
-                ret = pmap_registry_remove (this, 0, brickinfo->path,
-                                            GF_PMAP_PORT_BRICKSERVER, NULL);
-        }
-        unlink (pidfile);
-
-        gf_log (this->name, GF_LOG_DEBUG, "About to start glusterfs"
-                " for brick %s:%s", brickinfo->hostname,
-                brickinfo->path);
-        GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, exp_path);
-        snprintf (volfile, PATH_MAX, "%s.%s.%s", volinfo->volname,
-                  brickinfo->hostname, exp_path);
-
-        if (!brickinfo->logfile && volinfo->logdir) {
-                snprintf (logfile, PATH_MAX, "%s/%s.log", volinfo->logdir,
-                                                          exp_path);
-                brickinfo->logfile = gf_strdup (logfile);
-        } else if (!brickinfo->logfile) {
-                snprintf (logfile, PATH_MAX, "%s/bricks/%s.log",
-                          DEFAULT_LOG_FILE_DIRECTORY, exp_path);
-                brickinfo->logfile = gf_strdup (logfile);
-        }
+        _reap_brick_process (pidfile, brickinfo->path);
 
         port = brickinfo->port;
         if (!port)
                 port = pmap_registry_alloc (THIS);
 
         runinit (&runner);
-
 #ifdef DEBUG
         if (priv->valgrind) {
+                /* Run bricks with valgrind */
                 if (volinfo->logdir) {
                         snprintf (valgrind_logfile, PATH_MAX,
-                                  "%s/valgrind-%s-%s.log", volinfo->logdir,
+                                  "%s/valgrind-%s-%s.log",
+                                  volinfo->logdir,
                                   volinfo->volname, exp_path);
                 } else {
-                         snprintf (valgrind_logfile, PATH_MAX,
-                                   "%s/bricks/valgrind-%s-%s.log",
-                                   DEFAULT_LOG_FILE_DIRECTORY,
-                                   volinfo->volname, exp_path);
+                        snprintf (valgrind_logfile, PATH_MAX,
+                                  "%s/bricks/valgrind-%s-%s.log",
+                                  DEFAULT_LOG_FILE_DIRECTORY,
+                                  volinfo->volname, exp_path);
                 }
-                /* Run bricks with valgrind */
+
                 runner_add_args (&runner, "valgrind", "--leak-check=full",
                                 "--trace-children=yes", NULL);
                 runner_argprintf (&runner, "--log-file=%s", valgrind_logfile);
-	}
+        }
 #endif
+        GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, exp_path);
+        snprintf (volfile, PATH_MAX, "%s.%s.%s", volinfo->volname,
+                  brickinfo->hostname, exp_path);
+
+        if (volinfo->logdir) {
+                snprintf (logfile, PATH_MAX, "%s/%s.log",
+                          volinfo->logdir, exp_path);
+        } else {
+                snprintf (logfile, PATH_MAX, "%s/bricks/%s.log",
+                          DEFAULT_LOG_FILE_DIRECTORY, exp_path);
+        }
+        if (!brickinfo->logfile)
+                brickinfo->logfile = gf_strdup (logfile);
+
+        glusterd_set_brick_socket_filepath (volinfo, brickinfo, socketpath,
+                                            sizeof (socketpath));
         (void) snprintf (glusterd_uuid, 1024, "*-posix.glusterd-uuid=%s",
                          uuid_utoa (MY_UUID));
-	runner_add_args (&runner, SBIN_DIR"/glusterfsd",
+        runner_add_args (&runner, SBIN_DIR"/glusterfsd",
                          "-s", brickinfo->hostname, "--volfile-id", volfile,
                          "-p", pidfile, "-S", socketpath,
                          "--brick-name", brickinfo->path,
@@ -1317,7 +1301,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                          "--xlator-option", glusterd_uuid,
                          NULL);
 
-	runner_add_arg (&runner, "--brick-port");
+        runner_add_arg (&runner, "--brick-port");
         if (volinfo->transport_type != GF_TRANSPORT_BOTH_TCP_RDMA) {
                 runner_argprintf (&runner, "%d", port);
         } else {
@@ -1346,7 +1330,6 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         if (ret)
                 goto out;
 
-        //pmap_registry_bind (THIS, port, brickinfo->path);
         brickinfo->port = port;
         brickinfo->rdma_port = rdma_port;
 
@@ -1355,13 +1338,6 @@ connect:
         if (ret)
                 goto out;
 out:
-        if (is_locked && file)
-                if (lockf (fileno (file), F_ULOCK, 0) < 0)
-                        gf_log (this->name, GF_LOG_WARNING, "Cannot unlock "
-                                "pidfile: %s reason: %s", pidfile,
-                                strerror(errno));
-        if (file)
-                fclose (file);
         return ret;
 }
 
@@ -1419,7 +1395,6 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
         xlator_t                *this = NULL;
         glusterd_conf_t         *priv = NULL;
         char                    pidfile[PATH_MAX] = {0,};
-        char                    path[PATH_MAX] = {0,};
         int                     ret = 0;
 
         GF_ASSERT (volinfo);
@@ -1434,11 +1409,7 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
 
         if (GLUSTERD_STATUS_STARTED == volinfo->status) {
                 (void) glusterd_brick_disconnect (brickinfo);
-
-                GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
-                GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
-                                            brickinfo->path);
-
+                GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, priv);
                 ret = glusterd_service_stop ("brick", pidfile, SIGTERM, _gf_false);
                 if (ret == 0) {
                         glusterd_set_brick_status (brickinfo, GF_BRICK_STOPPED);
@@ -4483,7 +4454,6 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
         char            key[1024]             = {0};
         char            base_key[1024]        = {0};
         char            pidfile[PATH_MAX]     = {0};
-        char            path[PATH_MAX]        = {0};
         xlator_t        *this                 = NULL;
         glusterd_conf_t *priv                 = NULL;
 
@@ -4516,9 +4486,7 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
-        GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
-                                    brickinfo->path);
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, priv);
 
         brick_online = glusterd_is_service_running (pidfile, &pid);
 
@@ -5684,7 +5652,6 @@ glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
         xlator_t                *this = NULL;
         glusterd_conf_t         *conf = NULL;
         char                    pidfile_path[PATH_MAX] = {0,};
-        char                    path[PATH_MAX] = {0,};
         char                    dumpoptions_path[PATH_MAX] = {0,};
         FILE                    *pidfile = NULL;
         pid_t                   pid = -1;
@@ -5709,9 +5676,7 @@ glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        GLUSTERD_GET_VOLUME_DIR (path, volinfo, conf);
-        GLUSTERD_GET_BRICK_PIDFILE (pidfile_path, path, brickinfo->hostname,
-                                    brickinfo->path);
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile_path, volinfo, brickinfo, conf);
 
         pidfile = fopen (pidfile_path, "r");
         if (!pidfile) {
@@ -7368,8 +7333,8 @@ glusterd_is_same_address (char *name1, char *name2)
 {
         struct addrinfo         *addr1 = NULL;
         struct addrinfo         *addr2 = NULL;
-        struct addrinfo         *p = NULL;       
-        struct addrinfo         *q = NULL;       
+        struct addrinfo         *p = NULL;
+        struct addrinfo         *q = NULL;
         gf_boolean_t            ret = _gf_false;
         int                     gai_err = 0;
 

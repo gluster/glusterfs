@@ -373,12 +373,14 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                 }                                                       \
         } while (0)
 
-#define GLUSTERD_GET_BRICK_PIDFILE(pidfile,volpath,hostname,brickpath) { \
-                char exp_path[PATH_MAX] = {0,};                         \
-                GLUSTERD_REMOVE_SLASH_FROM_PATH (brickpath, exp_path);  \
-                snprintf (pidfile, PATH_MAX, "%s/run/%s-%s.pid",        \
-                          volpath, hostname, exp_path);                 \
-        }
+#define GLUSTERD_GET_BRICK_PIDFILE(pidfile,volinfo,brickinfo, priv) do {      \
+                char exp_path[PATH_MAX] = {0,};                               \
+                char volpath[PATH_MAX]  = {0,};                               \
+                GLUSTERD_GET_VOLUME_DIR (volpath, volinfo, priv);             \
+                GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, exp_path);  \
+                snprintf (pidfile, PATH_MAX, "%s/run/%s-%s.pid",              \
+                          volpath, brickinfo->hostname, exp_path);            \
+        } while (0)
 
 #define GLUSTERD_GET_NFS_PIDFILE(pidfile,nfspath) {                     \
                 snprintf (pidfile, PATH_MAX, "%s/run/nfs.pid",          \
