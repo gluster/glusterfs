@@ -5086,15 +5086,7 @@ unlock:
            or wait for anything else. Just propagate blindly */
         if (have_heard_from_all) {
                 propagate = 1;
-                if (conf->defrag) {
-                        ret = pthread_create (&conf->defrag->th, NULL,
-                                              gf_defrag_start, this);
-                        if (ret) {
-                                conf->defrag = NULL;
-                                GF_FREE (conf->defrag);
-                                kill (getpid(), SIGTERM);
-                        }
-                }
+
         }
 
 
@@ -5114,6 +5106,19 @@ unlock:
                         if (conf->last_event[i] == GF_EVENT_CHILD_CONNECTING) {
                                 event = GF_EVENT_CHILD_CONNECTING;
                                 /* continue to check other events for CHILD_UP */
+                        }
+                }
+
+                /* rebalance is started with assert_no_child_down. So we do
+                 * not need to handle CHILD_DOWN event here.
+                 */
+                if (conf->defrag) {
+                        ret = pthread_create (&conf->defrag->th, NULL,
+                                              gf_defrag_start, this);
+                        if (ret) {
+                                conf->defrag = NULL;
+                                GF_FREE (conf->defrag);
+                                kill (getpid(), SIGTERM);
                         }
                 }
         }
