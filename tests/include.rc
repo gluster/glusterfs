@@ -214,6 +214,12 @@ function build_tester ()
     gcc -g -o $(dirname $cfile)/$execname $cfile
 }
 
+function process_leak_count ()
+{
+    local pid=$1;
+    return $(ls -lh /proc/$pid/fd | grep "(deleted)"| wc -l)
+}
+
 alias EXPECT='_EXPECT $LINENO'
 alias TEST='_TEST $LINENO'
 alias EXPECT_WITHIN='_EXPECT_WITHIN $LINENO'

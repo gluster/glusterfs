@@ -210,7 +210,6 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         dict_t                                  *ctx           = NULL;
         glusterd_conf_t                         *priv          = NULL;
         char                                    *savetok       = NULL;
-        char                                     voldir[PATH_MAX] = {0};
         char                                     pidfile[PATH_MAX] = {0};
         char                                    *task_id_str = NULL;
         xlator_t                                *this = NULL;
@@ -443,10 +442,8 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                         }
                 }
 
-                GLUSTERD_GET_VOLUME_DIR (voldir, volinfo, priv);
-                GLUSTERD_GET_BRICK_PIDFILE (pidfile, voldir,
-                                            src_brickinfo->hostname,
-                                            src_brickinfo->path);
+                GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, src_brickinfo,
+                                            priv);
                 if ((replace_op != GF_REPLACE_OP_COMMIT_FORCE) &&
                     !glusterd_is_service_running (pidfile, NULL)) {
                         snprintf(msg, sizeof(msg), "Source brick %s:%s "

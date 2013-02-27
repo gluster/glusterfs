@@ -160,7 +160,6 @@ glusterd_op_log_rotate (dict_t *dict)
         xlator_t             *this               = NULL;
         char                 *volname            = NULL;
         char                 *brick              = NULL;
-        char                  path[PATH_MAX]     = {0,};
         char                  logfile[PATH_MAX]  = {0,};
         char                  pidfile[PATH_MAX]  = {0,};
         FILE                 *file               = NULL;
@@ -216,10 +215,7 @@ cont:
 
                 valid_brick = 1;
 
-                GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
-                GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
-                                            brickinfo->path);
-
+                GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, priv);
                 file = fopen (pidfile, "r+");
                 if (!file) {
                         gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
