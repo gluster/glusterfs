@@ -2058,6 +2058,7 @@ respond:
         uuid_copy (rsp.uuid, MY_UUID);
 
         rsp.hostname = probe_req.hostname;
+        rsp.op_errstr = "";
 
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (xdrproc_t)xdr_gd1_mgmt_probe_rsp);
