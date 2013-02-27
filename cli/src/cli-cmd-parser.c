@@ -712,7 +712,7 @@ cli_is_key_spl (char *key)
 
 #define GLUSTERD_DEFAULT_WORKDIR "/var/lib/glusterd"
 static int
-cli_add_key_group (dict_t *dict, char *key, char *value)
+cli_add_key_group (dict_t *dict, char *key, char *value, char **op_errstr)
 {
         int             ret = -1;
         int             opt_count = 0;
@@ -726,6 +726,7 @@ cli_add_key_group (dict_t *dict, char *key, char *value)
         char            *tagpath = NULL;
         char            *buf = NULL;
         char            line[PATH_MAX + 256] = {0,};
+        char            errstr[2048] = "";
         FILE            *fp = NULL;
 
         ret = gf_asprintf (&tagpath, "%s/groups/%s",
@@ -738,6 +739,10 @@ cli_add_key_group (dict_t *dict, char *key, char *value)
         fp = fopen (tagpath, "r");
         if (!fp) {
                 ret = -1;
+                snprintf(errstr, sizeof(errstr), "Unable to open file '%s'."
+                         " Error: %s", tagpath, strerror (errno));
+                if (op_errstr)
+                        *op_errstr = gf_strdup(errstr);
                 goto out;
         }
 
@@ -750,6 +755,10 @@ cli_add_key_group (dict_t *dict, char *key, char *value)
                 tok_val = strtok_r (NULL, "=", &saveptr);
                 if (!tok_key || !tok_val) {
                         ret = -1;
+                        snprintf(errstr, sizeof(errstr), "'%s' file format "
+                                 "not valid.", tagpath);
+                        if (op_errstr)
+                                *op_errstr = gf_strdup(errstr);
                         goto out;
                 }
 
@@ -771,6 +780,10 @@ cli_add_key_group (dict_t *dict, char *key, char *value)
 
         if (!opt_count) {
                 ret = -1;
+                snprintf(errstr, sizeof(errstr), "'%s' file format "
+                         "not valid.", tagpath);
+                if (op_errstr)
+                        *op_errstr = gf_strdup(errstr);
                 goto out;
         }
         ret = dict_set_int32 (dict, "count", opt_count);
@@ -791,7 +804,8 @@ out:
 #undef GLUSTERD_DEFAULT_WORKDIR
 
 int32_t
-cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
+cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options,
+                          char **op_errstr)
 {
         dict_t                  *dict = NULL;
         char                    *volname = NULL;
@@ -849,7 +863,7 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
                         goto out;
                 }
 
-                ret = cli_add_key_group (dict, key, value);
+                ret = cli_add_key_group (dict, key, value, op_errstr);
                 if (ret == 0)
                         *options = dict;
                 goto out;
