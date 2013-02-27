@@ -1445,19 +1445,6 @@ afr_transaction_fop_failed (call_frame_t *frame, xlator_t *this, int child_index
                            child_index, local->transaction.type);
 }
 
-gf_boolean_t
-_does_transaction_conflict_with_delayed_post_op (call_frame_t *frame)
-{
-        afr_local_t     *local = frame->local;
-        //check if it is going to compete with inode lock from the fd
-        if (local->fd)
-                return _gf_false;
-        if ((local->transaction.type == AFR_DATA_TRANSACTION) ||
-            (local->transaction.type == AFR_METADATA_TRANSACTION))
-                return _gf_true;
-        return _gf_false;
-}
-
 int
 afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
 {
@@ -1469,22 +1456,20 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
         local = frame->local;
         priv  = this->private;
 
+        local->transaction.resume = afr_transaction_resume;
+        local->transaction.type   = type;
+
         ret = afr_transaction_local_init (local, this);
         if (ret < 0) {
             goto out;
         }
 
-        local->transaction.resume = afr_transaction_resume;
-        local->transaction.type   = type;
-
-        if (local->fd && local->transaction.eager_lock_on &&
-            local->transaction.type == AFR_DATA_TRANSACTION)
+        if (local->fd && local->transaction.eager_lock_on)
                 afr_set_lk_owner (frame, this, local->fd);
         else
                 afr_set_lk_owner (frame, this, frame->root);
 
-        if (_does_transaction_conflict_with_delayed_post_op (frame) &&
-            local->loc.inode) {
+        if (!local->transaction.eager_lock_on && local->loc.inode) {
                 fd = fd_lookup (local->loc.inode, frame->root->pid);
                 if (fd) {
                         afr_delayed_changelog_wake_up (this, fd);
