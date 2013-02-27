@@ -3990,7 +3990,8 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
                                                            AFR_NUM_CHANGE_LOGS);
         if (!local->transaction.txn_changelog)
                 goto out;
-        local->transaction.eager_lock_on = priv->eager_lock;
+        if (local->fd && (local->transaction.type == AFR_DATA_TRANSACTION))
+                local->transaction.eager_lock_on = priv->eager_lock;
         ret = 0;
 out:
         return ret;
