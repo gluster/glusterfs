@@ -1379,7 +1379,7 @@ nfs_fop_write (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
         iobref_add (nfl->iobref, srciob);
 */
         STACK_WIND_COOKIE (frame, nfs_fop_writev_cbk, xl, xl,xl->fops->writev,
-                           fd, vector, count, offset, 0, srciobref, NULL);
+                           fd, vector, count, offset, fd->flags, srciobref, NULL);
         ret = 0;
 err:
         if (ret < 0) {
