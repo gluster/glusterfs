@@ -794,7 +794,9 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                                 continue;
                         }
 
-                        gf_log (this->name, GF_LOG_INFO, "Found brick");
+                        gf_log (this->name, GF_LOG_DEBUG, LOGSTR_FOUND_BRICK,
+                                brickinfo->hostname, brickinfo->path,
+                                volinfo->volname);
                         if (!sub_volume && (volinfo->dist_leaf_count > 1)) {
                                 sub_volume = (pos / volinfo->dist_leaf_count) + 1;
                                 sub_volume_start = (volinfo->dist_leaf_count *
@@ -805,7 +807,7 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                                 if (pos < sub_volume_start ||
                                     pos >sub_volume_end) {
                                         ret = -1;
-                                        snprintf (err_str, sizeof (err_str), 
+                                        snprintf (err_str, sizeof (err_str),
                                                   "Bricks not from same subvol "
                                                   "for %s", vol_type);
                                         gf_log (this->name, GF_LOG_ERROR,

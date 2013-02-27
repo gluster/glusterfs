@@ -52,6 +52,7 @@
 #define FMTSTR_CHECK_VOL_EXISTS "Volume %s does not exist"
 #define FMTSTR_RESOLVE_BRICK "Could not find peer on which brick %s:%s resides"
 
+#define LOGSTR_FOUND_BRICK  "Found brick %s:%s in volume %s"
 #define LOGSTR_BUILD_PAYLOAD "Failed to build payload for operation 'Volume %s'"
 #define LOGSTR_STAGE_FAIL "Staging of operation 'Volume %s' failed on %s %s %s"
 #define LOGSTR_COMMIT_FAIL "Commit of operation 'Volume %s' failed on %s %s %s"

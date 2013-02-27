@@ -932,6 +932,9 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
         glusterd_brickinfo_t    *brickiter = NULL;
         uuid_t                  peer_uuid = {0};
         int32_t                 ret = -1;
+        xlator_t                *this = NULL;
+
+        this = THIS;
 
         if (uuid) {
                 uuid_copy (peer_uuid, uuid);
@@ -950,7 +953,9 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                         continue;
 
                 if (strcmp (brickiter->path, path) == 0) {
-                        gf_log (THIS->name, GF_LOG_INFO, "Found brick");
+                        gf_log (this->name, GF_LOG_DEBUG, LOGSTR_FOUND_BRICK,
+                                brickiter->hostname, brickiter->path,
+                                volinfo->volname);
                         ret = 0;
                         if (brickinfo)
                                 *brickinfo = brickiter;
@@ -959,7 +964,7 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
         }
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
