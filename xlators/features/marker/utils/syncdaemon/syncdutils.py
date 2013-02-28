@@ -173,6 +173,12 @@ def log_raise_exception(excont):
             logging.error('connection to peer is broken')
             if hasattr(gconf, 'transport'):
                 gconf.transport.wait()
+                if gconf.transport.returncode == 127:
+                    logging.warn("!!!!!!!!!!!!!")
+                    logging.warn('!!! getting "No such file or directory" errors '
+                                 "is most likely due to MISCONFIGURATION, please consult "
+                                 "http://access.redhat.com/knowledge/docs/en-US/Red_Hat_Storage/2.0/html/Administration_Guide/chap-User_Guide-Geo_Rep-Preparation-Settingup_Environment.html")
+                    logging.warn("!!!!!!!!!!!!!")
                 gconf.transport.terminate_geterr()
         elif isinstance(exc, OSError) and exc.errno in (ENOTCONN, ECONNABORTED):
             logging.error('glusterfs session went down [%s]', errorcode[exc.errno])
