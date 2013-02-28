@@ -28,6 +28,7 @@
 static char *gsync_reserved_opts[] = {
         "gluster-command-dir",
         "pid-file",
+        "remote-gsyncd"
         "state-file",
         "session-owner",
         "state-socket-unencoded",
