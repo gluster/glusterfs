@@ -575,20 +575,17 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key         = "performance.write-behind-window-size",
           .voltype     = "performance/write-behind",
           .option      = "cache-size",
-          .flags       = 1,
           .op_version  = 1
         },
         { .key         = "performance.strict-o-direct",
           .voltype     = "performance/write-behind",
           .option      = "strict-O_DIRECT",
-          .flags       = 2,
-          .op_version  = 1
+          .op_version  = 2
         },
         { .key         = "performance.strict-write-ordering",
           .voltype     = "performance/write-behind",
           .option      = "strict-write-ordering",
-          .flags       = 2,
-          .op_version  = 1
+          .op_version  = 2
         },
         { .key         = "performance.lazy-open",
           .voltype     = "performance/open-behind",
@@ -598,7 +595,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key         = "performance.read-ahead-page-count",
           .voltype     = "performance/read-ahead",
           .option      = "page-count",
-          .flags       = 1,
           .op_version  = 1
         },
         { .key         = "performance.md-cache-timeout",
@@ -822,7 +818,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "deem-statfs",
           .value       = "off",
           .type        = DOC,
-          .flags       = 0,
           .op_version  = 2,
           .validate_fn = validate_quota
         },
