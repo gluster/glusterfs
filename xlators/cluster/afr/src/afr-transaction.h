@@ -37,4 +37,7 @@ afr_set_delayed_post_op (call_frame_t *frame, xlator_t *this);
 void
 afr_delayed_changelog_wake_up (xlator_t *this, fd_t *fd);
 
+void
+__mark_all_success (int32_t *pending[], int child_count,
+                    afr_transaction_type type);
 #endif /* __TRANSACTION_H__ */
