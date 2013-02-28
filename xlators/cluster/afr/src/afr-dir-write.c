@@ -231,7 +231,27 @@ afr_dir_fop_mark_entry_pending_changelog (call_frame_t *frame, xlator_t *this)
         afr_mark_new_entry_changelog (frame, this);
 
 out:
-        local->transaction.resume (frame, this);
+        return;
+}
+
+void
+afr_dir_fop_handle_all_fop_failures (call_frame_t *frame)
+{
+        xlator_t        *this = NULL;
+        afr_local_t     *local = NULL;
+        afr_private_t   *priv = NULL;
+
+        this = frame->this;
+        local = frame->local;
+        priv = this->private;
+
+        if (local->op_ret >= 0)
+                goto out;
+
+        __mark_all_success (local->pending, priv->child_count,
+                            local->transaction.type);
+out:
+        return;
 }
 
 void
@@ -253,6 +273,8 @@ afr_dir_fop_done (call_frame_t *frame, xlator_t *this)
 done:
         local->transaction.unwind (frame, this);
         afr_dir_fop_mark_entry_pending_changelog (frame, this);
+        afr_dir_fop_handle_all_fop_failures (frame);
+        local->transaction.resume (frame, this);
 }
 
 /* {{{ create */
@@ -870,6 +892,7 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
         if (params)
                 local->xdata_req = dict_ref (params);
 
+        local->op = GF_FOP_MKDIR;
         local->transaction.fop    = afr_mkdir_wind;
         local->transaction.done   = afr_mkdir_done;
         local->transaction.unwind = afr_mkdir_unwind;
@@ -1071,6 +1094,7 @@ afr_link (call_frame_t *frame, xlator_t *this,
         }
         UNLOCK (&priv->read_child_lock);
 
+        local->op = GF_FOP_LINK;
         local->transaction.fop    = afr_link_wind;
         local->transaction.done   = afr_link_done;
         local->transaction.unwind = afr_link_unwind;
@@ -1275,6 +1299,7 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
         if (params)
                 local->xdata_req = dict_ref (params);
 
+        local->op = GF_FOP_SYMLINK;
         local->transaction.fop    = afr_symlink_wind;
         local->transaction.done   = afr_symlink_done;
         local->transaction.unwind = afr_symlink_unwind;
@@ -1371,6 +1396,7 @@ afr_rename_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (afr_fop_failed (op_ret, op_errno) && op_errno != ENOTEMPTY)
                         afr_transaction_fop_failed (frame, this, child_index);
                 local->op_errno = op_errno;
+                local->child_errno[child_index] = op_errno;
 
                 if (op_ret > -1)
                         __dir_entry_fop_common_cbk (frame, child_index, this,
@@ -1479,6 +1505,7 @@ afr_rename (call_frame_t *frame, xlator_t *this,
 
         local->read_child_index = afr_inode_get_read_ctx (this, oldloc->inode, NULL);
 
+        local->op = GF_FOP_RENAME;
         local->transaction.fop    = afr_rename_wind;
         local->transaction.done   = afr_rename_done;
         local->transaction.unwind = afr_rename_unwind;
@@ -1699,6 +1726,7 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
         if (xdata)
                 local->xdata_req = dict_ref (xdata);
 
+        local->op = GF_FOP_UNLINK;
         local->transaction.fop    = afr_unlink_wind;
         local->transaction.done   = afr_unlink_done;
         local->transaction.unwind = afr_unlink_unwind;
@@ -1794,6 +1822,7 @@ afr_rmdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (afr_fop_failed (op_ret, op_errno) && (op_errno != ENOTEMPTY))
                         afr_transaction_fop_failed (frame, this, child_index);
                 local->op_errno = op_errno;
+                local->child_errno[child_index] = op_errno;
                 if (op_ret > -1)
                         __dir_entry_fop_common_cbk (frame, child_index, this,
                                                    op_ret, op_errno, NULL, NULL,
@@ -1899,6 +1928,7 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
         local->cont.rmdir.flags = flags;
         loc_copy (&local->loc, loc);
 
+        local->op = GF_FOP_RMDIR;
         local->transaction.fop    = afr_rmdir_wind;
         local->transaction.done   = afr_rmdir_done;
         local->transaction.unwind = afr_rmdir_unwind;

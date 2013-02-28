@@ -162,7 +162,7 @@ __mark_non_participant_children (int32_t *pending[], int child_count,
 }
 
 
-static void
+void
 __mark_all_success (int32_t *pending[], int child_count,
                     afr_transaction_type type)
 {
