@@ -1691,6 +1691,13 @@ cli_cmd_log_rotate_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
         }
 
+        if (!((strcmp ("rotate", words[2]) == 0) ||
+              (strcmp ("rotate", words[3]) == 0))) {
+                cli_usage_out (word->pattern);
+                parse_error = 1;
+                goto out;
+        }
+
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_LOG_ROTATE];
 
         frame = create_frame (THIS, THIS->ctx->pool);
@@ -2316,9 +2323,14 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_help_cbk,
           "display help for the volume command"},
 
-        { "volume log rotate <VOLNAME> [BRICK]",
+        { "volume log <VOLNAME> rotate [BRICK]",
           cli_cmd_log_rotate_cbk,
          "rotate the log file for corresponding volume/brick"},
+
+        { "volume log rotate <VOLNAME> [BRICK]",
+          cli_cmd_log_rotate_cbk,
+         "rotate the log file for corresponding volume/brick"
+         " NOTE: This is an old syntax, will be deprecated from next release."},
 
         { "volume sync <HOSTNAME> [all|<VOLNAME>]",
           cli_cmd_sync_volume_cbk,
