@@ -1948,7 +1948,8 @@ afr_sh_common_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 
 int
-afr_sh_post_nb_entrylk_conflicting_sh_cbk (call_frame_t *frame, xlator_t *this)
+afr_sh_post_nb_entrylk_missing_entry_sh_cbk (call_frame_t *frame,
+                                             xlator_t *this)
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
@@ -1970,34 +1971,6 @@ afr_sh_post_nb_entrylk_conflicting_sh_cbk (call_frame_t *frame, xlator_t *this)
                 afr_sh_common_lookup (frame, this, &sh->parent_loc,
                                       afr_sh_find_fresh_parents,
                                       NULL, AFR_LOOKUP_FAIL_CONFLICTS,
-                                      NULL);
-        }
-
-        return 0;
-}
-
-int
-afr_sh_post_nb_entrylk_gfid_sh_cbk (call_frame_t *frame, xlator_t *this)
-{
-        afr_internal_lock_t *int_lock = NULL;
-        afr_local_t         *local    = NULL;
-        afr_self_heal_t     *sh       = NULL;
-
-        local    = frame->local;
-        sh       = &local->self_heal;
-        int_lock = &local->internal_lock;
-
-        if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "Non blocking entrylks failed.");
-                afr_sh_missing_entries_done (frame, this);
-        } else {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Non blocking entrylks done. Proceeding to FOP");
-                afr_sh_common_lookup (frame, this, &local->loc,
-                                      afr_sh_missing_entries_lookup_done,
-                                      sh->sh_gfid_req, AFR_LOOKUP_FAIL_CONFLICTS|
-                                      AFR_LOOKUP_FAIL_MISSING_GFIDS,
                                       NULL);
         }
 
@@ -2066,22 +2039,15 @@ out:
 }
 
 static int
-afr_self_heal_conflicting_entries (call_frame_t *frame, xlator_t *this)
+afr_self_heal_missing_entries (call_frame_t *frame, xlator_t *this)
 {
         afr_self_heal_parent_entrylk (frame, this,
-                                      afr_sh_post_nb_entrylk_conflicting_sh_cbk);
+                                   afr_sh_post_nb_entrylk_missing_entry_sh_cbk);
         return 0;
 }
 
-static int
-afr_self_heal_gfids (call_frame_t *frame, xlator_t *this)
-{
-        afr_self_heal_parent_entrylk (frame, this,
-                                      afr_sh_post_nb_entrylk_gfid_sh_cbk);
-        return 0;
-}
-
-afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
+afr_local_t*
+afr_local_copy (afr_local_t *l, xlator_t *this)
 {
         afr_private_t *priv = NULL;
         afr_local_t   *lc     = NULL;
@@ -2337,11 +2303,8 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
         }
 
         FRAME_SU_DO (sh_frame, afr_local_t);
-        if (sh->do_missing_entry_self_heal) {
-                afr_self_heal_conflicting_entries (sh_frame, this);
-        } else if (sh->do_gfid_self_heal) {
-                GF_ASSERT (!uuid_is_null (sh->sh_gfid_req));
-                afr_self_heal_gfids (sh_frame, this);
+        if (sh->do_missing_entry_self_heal || sh->do_gfid_self_heal) {
+                afr_self_heal_missing_entries (sh_frame, this);
         } else {
                 loc = &sh_local->loc;
                 if (uuid_is_null (loc->inode->gfid) && uuid_is_null (loc->gfid)) {
