@@ -594,8 +594,14 @@ nlm4_file_open_and_resume(nfs3_call_state_t *cs, nlm4_resume_fn_t resume)
 {
         fd_t *fd = NULL;
         int ret = -1;
+        int flags = 0;
         nlm_client_t *nlmclnt = NULL;
         call_frame_t *frame = NULL;
+
+        if (cs->args.nlm4_lockargs.exclusive == _gf_false)
+                flags = O_RDONLY;
+        else
+                flags = O_WRONLY;
 
         nlmclnt = nlm_get_uniq (cs->args.nlm4_lockargs.alock.caller_name);
         if (nlmclnt == NULL) {
@@ -636,7 +642,7 @@ nlm4_file_open_and_resume(nfs3_call_state_t *cs, nlm4_resume_fn_t resume)
         nfs_fix_groups (cs->nfsx, frame->root);
 
         STACK_WIND_COOKIE (frame, nlm4_file_open_cbk, cs->vol, cs->vol,
-                          cs->vol->fops->open, &cs->resolvedloc, O_RDWR,
+                          cs->vol->fops->open, &cs->resolvedloc, flags,
                           cs->fd, NULL);
         ret = 0;
 err:
