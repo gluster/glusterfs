@@ -1,0 +1,2 @@
+SUBDIRS = template
+CLEANFILES =
