@@ -2169,7 +2169,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         }
 
         if (key && (!strcmp (GF_XATTR_MARKER_KEY, key))
-            && (-1 == frame->root->pid)) {
+            && (GF_CLIENT_PID_GSYNCD == frame->root->pid)) {
                 if (DHT_IS_DIR(layout)) {
                         cnt = layout->cnt;
                 } else {
@@ -2193,7 +2193,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
 
         if (key && *conf->vol_uuid) {
                 if ((match_uuid_local (key, conf->vol_uuid) == 0) &&
-                    (-1 == frame->root->pid)) {
+                    (GF_CLIENT_PID_GSYNCD == frame->root->pid)) {
                         if (DHT_IS_DIR(layout)) {
                                 cnt = layout->cnt;
                         } else {
