@@ -3982,7 +3982,7 @@ stripe_setxattr (call_frame_t *frame, xlator_t *this,
          * Set xattrs for directories on all subvolumes. Additionally
          * this power is only given to a special client.
          */
-        if ((frame->root->pid == -1) && IA_ISDIR (loc->inode->ia_type)) {
+        if ((frame->root->pid == GF_CLIENT_PID_GSYNCD) && IA_ISDIR (loc->inode->ia_type)) {
                 for (i = 0; i < priv->child_count; i++, trav = trav->next) {
                         STACK_WIND (frame, stripe_setxattr_cbk,
                                     trav->xlator, trav->xlator->fops->setxattr,
@@ -4954,7 +4954,7 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
 
 
         if (name && (strcmp (GF_XATTR_MARKER_KEY, name) == 0)
-            && (-1 == frame->root->pid)) {
+            && (GF_CLIENT_PID_GSYNCD == frame->root->pid)) {
                 local->marker.call_count = priv->child_count;
 
                 sub_volumes = alloca ( priv->child_count *
@@ -5025,7 +5025,7 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
 
         if (name &&(*priv->vol_uuid)) {
                 if ((match_uuid_local (name, priv->vol_uuid) == 0)
-                    && (-1 == frame->root->pid)) {
+                    && (GF_CLIENT_PID_GSYNCD == frame->root->pid)) {
 
                         if (!IA_FILE_OR_DIR (loc->inode->ia_type))
                                 local->marker.call_count = 1;
