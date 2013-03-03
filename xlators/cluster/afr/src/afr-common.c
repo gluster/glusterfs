@@ -1920,6 +1920,57 @@ out:
         return;
 }
 
+gf_boolean_t
+afr_is_entry_possibly_under_creation (afr_local_t *local, xlator_t *this)
+{
+        /*
+         * We need to perform this test in lookup done and treat on going
+         * create/DELETE as ENOENT.
+         * Reason:
+        Multiple clients A, B and C are attempting 'mkdir -p /mnt/a/b/c'
+
+        1 Client A is in the middle of mkdir(/a). It has acquired lock.
+          It has performed mkdir(/a) on one subvol, and second one is still
+          in progress
+        2 Client B performs a lookup, sees directory /a on one,
+          ENOENT on the other, succeeds lookup.
+        3 Client B performs lookup on /a/b on both subvols, both return ENOENT
+          (one subvol because /a/b does not exist, another because /a
+          itself does not exist)
+        4 Client B proceeds to mkdir /a/b. It obtains entrylk on inode=/a with
+          basename=b on one subvol, but fails on other subvol as /a is yet to
+          be created by Client A.
+        5 Client A finishes mkdir of /a on other subvol
+        6 Client C also attempts to create /a/b, lookup returns ENOENT on
+          both subvols.
+        7 Client C tries to obtain entrylk on on inode=/a with basename=b,
+          obtains on one subvol (where B had failed), and waits for B to unlock
+          on other subvol.
+        8 Client B finishes mkdir() on one subvol with GFID-1 and completes
+          transaction and unlocks
+        9 Client C gets the lock on the second subvol, At this stage second
+          subvol already has /a/b created from Client B, but Client C does not
+          check that in the middle of mkdir transaction
+        10 Client C attempts mkdir /a/b on both subvols. It succeeds on
+           ONLY ONE (where Client B could not get lock because of
+           missing parent /a dir) with GFID-2, and gets EEXIST from ONE subvol.
+        This way we have /a/b in GFID mismatch. One subvol got GFID-1 because
+        Client B performed transaction on only one subvol (because entrylk()
+        could not be obtained on second subvol because of missing parent dir --
+        caused by premature/speculative succeeding of lookup() on /a when locks
+        are detected). Other subvol gets GFID-2 from Client C because while
+        it was waiting for entrylk() on both subvols, Client B was in the
+        middle of creating mkdir() on only one subvol, and Client C does not
+        "expect" this when it is between lock() and pre-op()/op() phase of the
+        transaction.
+         */
+	if (local->cont.lookup.parent_entrylk && local->enoent_count)
+		return _gf_true;
+
+	return _gf_false;
+}
+
+
 static void
 afr_lookup_done (call_frame_t *frame, xlator_t *this)
 {
@@ -1935,6 +1986,12 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 
         priv  = this->private;
         local = frame->local;
+
+	if (afr_is_entry_possibly_under_creation (local, this)) {
+		local->op_ret = -1;
+		local->op_errno = ENOENT;
+		goto unwind;
+	}
 
         if (local->op_ret < 0)
                 goto unwind;
