@@ -21,6 +21,6 @@ TEST touch $M0/dir{1..10}/files{1..10};
 TEST $CLI volume add-brick $V0 $H0:$B0/${V0}4 $H0:/$B0/${V0}5
 
 TEST $CLI volume rebalance $V0 start force
-EXPECT_WITHIN 60 "success:" rebalance_status_field $V0
+EXPECT_WITHIN 60 "completed" rebalance_status_field $V0
 
 cleanup;
