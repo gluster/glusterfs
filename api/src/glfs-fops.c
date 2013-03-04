@@ -268,7 +268,7 @@ out:
 	loc_wipe (&loc);
 
 	if (xattr_req)
-		dict_destroy (xattr_req);
+		dict_unref (xattr_req);
 
 	if (ret && glfd) {
 		glfs_fd_destroy (glfd);
@@ -953,7 +953,7 @@ out:
 	loc_wipe (&loc);
 
 	if (xattr_req)
-		dict_destroy (xattr_req);
+		dict_unref (xattr_req);
 
 	return ret;
 }
@@ -1059,7 +1059,7 @@ out:
 	loc_wipe (&loc);
 
 	if (xattr_req)
-		dict_destroy (xattr_req);
+		dict_unref (xattr_req);
 
 	return ret;
 }
@@ -1130,7 +1130,7 @@ out:
 	loc_wipe (&loc);
 
 	if (xattr_req)
-		dict_destroy (xattr_req);
+		dict_unref (xattr_req);
 
 	return ret;
 }
