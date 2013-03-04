@@ -201,7 +201,7 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 		*iatt = ciatt;
 out:
 	if (xattr_req)
-		dict_destroy (xattr_req);
+		dict_unref (xattr_req);
 
 	loc_wipe (&loc);
 
