@@ -241,6 +241,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                          "*replicate*.metadata-self-heal=off",
                          "--xlator-option", "*replicate*.entry-self-heal=off",
                          "--xlator-option", "*replicate*.readdir-failover=off",
+                         "--xlator-option", "*dht.readdir-optimize=on",
                          NULL);
         runner_add_arg (&runner, "--xlator-option");
         runner_argprintf ( &runner, "*dht.rebalance-cmd=%d",cmd);
