@@ -767,12 +767,14 @@ gd_commit_op_phase (struct list_head *peers, glusterd_op_t op, dict_t *op_ctx,
                 hostname = "localhost";
                 goto commit_done;
         }
-        ret =  glusterd_syncop_aggr_rsp_dict (op, op_ctx, rsp_dict);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "%s",
-                        "Failed to aggregate response "
-                        "from node/brick");
-                goto out;
+        if (op != GD_OP_SYNC_VOLUME) {
+                ret =  glusterd_syncop_aggr_rsp_dict (op, op_ctx, rsp_dict);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "%s",
+                                "Failed to aggregate response "
+                                "from node/brick");
+                        goto out;
+                }
         }
         dict_unref (rsp_dict);
         rsp_dict = NULL;
@@ -893,9 +895,11 @@ gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict, char **op
                 goto out;
         }
 
-        ret = glusterd_syncop_aggr_rsp_dict (op, op_ctx, rsp_dict);
-        if (ret)
-                goto out;
+        if (op == GD_OP_HEAL_VOLUME) {
+                ret = glusterd_syncop_aggr_rsp_dict (op, op_ctx, rsp_dict);
+                if (ret)
+                        goto out;
+        }
         dict_unref (rsp_dict);
         rsp_dict = NULL;
 
