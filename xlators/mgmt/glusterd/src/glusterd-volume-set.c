@@ -944,6 +944,17 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .flags      = OPT_FLAG_CLIENT_OPT
         },
 
+	/* Feature translators */
+        { .key         = "features.file-snapshot",
+          .voltype     = "features/qemu-block",
+          .option      = "!feat",
+          .value       = "off",
+          .op_version  = 3,
+          .description = "enable/disable file-snapshot feature in the "
+                         "volume.",
+          .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
+        },
+
         /* Quota xlator options */
         { .key        = VKEY_FEATURES_LIMIT_USAGE,
           .voltype    = "features/quota",
