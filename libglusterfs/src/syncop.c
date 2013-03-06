@@ -80,14 +80,23 @@ __wait (struct synctask *task)
 
 
 void
-synctask_yield (struct synctask *task)
+synctask_waitfor (struct synctask *task, int waitfor)
 {
-	xlator_t *oldTHIS = THIS;
+	struct syncenv *env = NULL;
+        xlator_t *oldTHIS = THIS;
+
+	env = task->env;
 
 #if defined(__NetBSD__) && defined(_UC_TLSBASE)
 	/* Preserve pthread private pointer through swapcontex() */
 	task->proc->sched.uc_flags &= ~_UC_TLSBASE;
 #endif
+
+	pthread_mutex_lock (&env->mutex);
+	{
+		task->waitfor = waitfor;
+	}
+	pthread_mutex_unlock (&env->mutex);
 
         if (swapcontext (&task->ctx, &task->proc->sched) < 0) {
                 gf_log ("syncop", GF_LOG_ERROR,
@@ -95,6 +104,29 @@ synctask_yield (struct synctask *task)
         }
 
 	THIS = oldTHIS;
+}
+
+
+void
+synctask_yield (struct synctask *task)
+{
+	synctask_waitfor (task, 1);
+}
+
+
+void
+synctask_yawn (struct synctask *task)
+{
+	struct syncenv *env = NULL;
+
+	env = task->env;
+
+	pthread_mutex_lock (&env->mutex);
+	{
+		task->woken = 0;
+		task->waitfor = 0;
+	}
+	pthread_mutex_unlock (&env->mutex);
 }
 
 
@@ -107,9 +139,9 @@ synctask_wake (struct synctask *task)
 
         pthread_mutex_lock (&env->mutex);
         {
-                task->woken = 1;
+                task->woken++;
 
-                if (task->slept)
+                if (task->slept && task->woken >= task->waitfor)
                         __run (task);
         }
         pthread_mutex_unlock (&env->mutex);
@@ -338,6 +370,7 @@ synctask_switchto (struct synctask *task)
 
         task->woken = 0;
         task->slept = 0;
+	task->waitfor = 0;
 
 #if defined(__NetBSD__) && defined(_UC_TLSBASE)
 	/* Preserve pthread private pointer through swapcontex() */
@@ -356,7 +389,7 @@ synctask_switchto (struct synctask *task)
 
         pthread_mutex_lock (&env->mutex);
         {
-                if (task->woken) {
+                if (task->woken >= task->waitfor) {
                         __run (task);
                 } else {
                         task->slept = 1;
