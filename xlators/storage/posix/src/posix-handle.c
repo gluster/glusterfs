@@ -573,13 +573,6 @@ posix_handle_hard (xlator_t *this, const char *oldpath, uuid_t gfid, struct stat
                 }
         }
 
-        ret = lstat (newpath, &newbuf);
-        if (ret) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "lstat on %s failed (%s)", newpath, strerror (errno));
-                return -1;
-        }
-
         if (newbuf.st_ino != oldbuf->st_ino ||
             newbuf.st_dev != oldbuf->st_dev) {
                 gf_log (this->name, GF_LOG_WARNING,
