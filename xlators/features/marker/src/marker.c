@@ -146,12 +146,21 @@ out:
 }
 
 int32_t
-marker_error_handler (xlator_t *this)
+marker_error_handler (xlator_t *this, marker_local_t *local, int32_t op_errno)
 {
-        marker_conf_t *priv = NULL;
+         marker_conf_t *priv = NULL;
+         const char    *path = NULL;
 
-        priv = (marker_conf_t *) this->private;
+         priv = (marker_conf_t *) this->private;
+         path = local
+                 ? (local->loc.path
+                    ? local->loc.path : uuid_utoa(local->loc.gfid))
+                 : "<nul>";
 
+         gf_log (this->name, GF_LOG_CRITICAL,
+                 "Indexing gone corrupt at %s (reason: %s)."
+                 " Geo-replication slave content needs to be revalidated",
+                 path, strerror (op_errno));
         unlink (priv->timestamp_file);
 
         return 0;
@@ -345,7 +354,7 @@ marker_specific_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = (marker_local_t*) frame->local;
 
         if (op_ret == -1 && op_errno == ENOSPC) {
-                marker_error_handler (this);
+                marker_error_handler (this, local, op_errno);
                 done = 1;
                 goto out;
         }
