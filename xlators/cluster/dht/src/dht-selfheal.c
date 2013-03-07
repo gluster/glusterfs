@@ -28,7 +28,13 @@
                         layout->list[i].xlator->name, path);            \
         } while (0)
 
-
+#define DHT_RESET_LAYOUT_RANGE(layout)    do {                          \
+                int cnt = 0;                                            \
+                for (cnt = 0; cnt < layout->cnt; cnt++ ) {              \
+                        layout->list[cnt].start = 0;                    \
+                        layout->list[cnt].stop  = 0;                    \
+                }                                                       \
+        } while (0)
 static uint32_t
 dht_overlap_calc (dht_layout_t *old, int o, dht_layout_t *new, int n)
 {
@@ -231,52 +237,6 @@ out:
 }
 
 int
-dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
-{
-        dht_local_t *local = NULL;
-        int          missing_xattr = 0;
-        int          i = 0;
-        xlator_t    *this = NULL;
-
-        local = frame->local;
-        this = frame->this;
-
-        for (i = 0; i < layout->cnt; i++) {
-                if (layout->list[i].err != -1 || !layout->list[i].stop) {
-                        /* err != -1 would mean xattr present on the directory
-                         * or the directory is non existent.
-                         * !layout->list[i].stop would mean layout absent
-                         */
-
-                        continue;
-                }
-                missing_xattr++;
-        }
-
-        gf_log (this->name, GF_LOG_TRACE,
-                "%d subvolumes missing xattr for %s",
-                missing_xattr, loc->path);
-
-        if (missing_xattr == 0) {
-                dht_selfheal_dir_finish (frame, this, 0);
-                return 0;
-        }
-
-        local->call_cnt = missing_xattr;
-
-        for (i = 0; i < layout->cnt; i++) {
-                if (layout->list[i].err != -1 || !layout->list[i].stop)
-                        continue;
-
-                dht_selfheal_dir_xattr_persubvol (frame, loc, layout, i, NULL);
-
-                if (--missing_xattr == 0)
-                        break;
-        }
-        return 0;
-}
-
-int
 dht_selfheal_dir_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                               int op_ret, int op_errno, struct iatt *statpre,
                               struct iatt *statpost, dict_t *xdata)
@@ -291,7 +251,7 @@ dht_selfheal_dir_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         this_call_cnt = dht_frame_return (frame);
 
         if (is_last_call (this_call_cnt)) {
-                dht_selfheal_dir_xattr (frame, &local->loc, layout);
+                dht_fix_dir_xattr (frame, &local->loc, layout);
         }
 
         return 0;
@@ -316,7 +276,7 @@ dht_selfheal_dir_setattr (call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
         }
 
         if (missing_attr == 0) {
-                dht_selfheal_dir_xattr (frame, loc, layout);
+                dht_fix_dir_xattr (frame, loc, layout);
                 return 0;
         }
 
@@ -741,6 +701,8 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
 
         start_subvol = dht_selfheal_layout_alloc_start (this, loc, layout);
 
+        /* clear out the range, as we are re-computing here */
+        DHT_RESET_LAYOUT_RANGE (layout);
         for (i = start_subvol; i < layout->cnt; i++) {
                 err = layout->list[i].err;
                 if (err == -1) {
@@ -818,7 +780,7 @@ dht_selfheal_new_directory (call_frame_t *frame,
 
         dht_layout_sort_volname (layout);
         dht_selfheal_layout_new_directory (frame, &local->loc, layout);
-        dht_selfheal_dir_xattr (frame, &local->loc, layout);
+        dht_fix_dir_xattr (frame, &local->loc, layout);
         return 0;
 }
 
