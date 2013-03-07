@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../dht.rc
 
 cleanup;
 
@@ -54,13 +55,18 @@ TEST $CLI volume start $V0
 ## Mount FUSE
 TEST glusterfs -s $H0 --volfile-id $V0 $M0;
 
-TEST mkdir $M0/dir{1..10};
+TEST mkdir $M0/dir{1..10} 2>/dev/null;
 
 ## Add-brick n run rebalance to force re-write of layout
 TEST $CLI volume add-brick $V0 $H0:$B0/${V0}2
 sleep 5;
+
+## trigger dir self heal on client
+TEST ls -l $M0 2>/dev/null;
+
 TEST $CLI volume rebalance $V0 start force
-sleep 30;
+
+EXPECT_WITHIN 15 "0" rebalance_completed
 
 ## check for layout overlaps.
 EXPECT "0" get_layout $B0/${V0}0 $B0/${V0}1 $B0/${V0}2
