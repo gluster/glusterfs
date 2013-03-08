@@ -185,29 +185,20 @@ afr_sh_data_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
-afr_sh_data_setattr (call_frame_t *frame, xlator_t *this)
+afr_sh_data_setattr (call_frame_t *frame, xlator_t *this, struct iatt* stbuf)
 {
         afr_local_t     *local      = NULL;
         afr_private_t   *priv       = NULL;
         afr_self_heal_t *sh         = NULL;
         int              i          = 0;
         int              call_count = 0;
-        int              source     = 0;
         int32_t          valid      = 0;
-        struct iatt      stbuf      = {0,};
 
         local = frame->local;
         sh    = &local->self_heal;
         priv  = this->private;
 
-        source = sh->source;
-
-        valid |= (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME);
-
-        stbuf.ia_atime = sh->buf[source].ia_atime;
-        stbuf.ia_atime_nsec = sh->buf[source].ia_atime_nsec;
-        stbuf.ia_mtime = sh->buf[source].ia_mtime;
-        stbuf.ia_mtime_nsec = sh->buf[source].ia_mtime_nsec;
+        valid = (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME);
 
         call_count        = afr_set_elem_count_get (sh->success,
                                                     priv->child_count);
@@ -227,7 +218,7 @@ afr_sh_data_setattr (call_frame_t *frame, xlator_t *this)
                                    (void *) (long) i,
                                    priv->children[i],
                                    priv->children[i]->fops->setattr,
-                                   &local->loc, &stbuf, valid, NULL);
+                                   &local->loc, stbuf, valid, NULL);
 
                 if (!--call_count)
                         break;
@@ -251,7 +242,7 @@ afr_sh_data_setattr_fstat_cbk (call_frame_t *frame, void *cookie,
         GF_ASSERT (sh->source == child_index);
         if (op_ret != -1) {
                 sh->buf[child_index] = *buf;
-                afr_sh_data_setattr (frame, this);
+                afr_sh_data_setattr (frame, this, buf);
         } else {
                 gf_log (this->name, GF_LOG_ERROR, "%s: Failed to set "
                         "time-stamps after self-heal", local->loc.path);
@@ -729,6 +720,9 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
         afr_private_t   *priv = NULL;
         int              nsources = 0;
         int              ret = 0;
+        int             *old_sources = NULL;
+        int             tstamp_source = 0;
+        int             i = 0;
 
         local = frame->local;
         sh = &local->self_heal;
@@ -736,6 +730,13 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
 
         gf_log (this->name, GF_LOG_DEBUG, "Pending matrix for: %s",
                 lkowner_utoa (&frame->root->lk_owner));
+        if (sh->sync_done) {
+                //store sources before sync so that mtime can be set using the
+                //iatt buf from one of them.
+                old_sources = alloca (priv->child_count*sizeof (*old_sources));
+                memcpy (old_sources, sh->sources,
+                        priv->child_count * sizeof (*old_sources));
+        }
 
         nsources = afr_build_sources (this, sh->xattr, sh->buf, sh->pending_matrix,
                                       sh->sources, sh->success_children,
@@ -778,7 +779,16 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
         }
 
         if (sh->sync_done) {
-                afr_sh_data_setattr (frame, this);
+                /* Perform setattr from one of the old_sources if possible
+                 * Because only they have the correct mtime, the new sources
+                 * (i.e. old sinks) have mtime from last writev in sync.
+                 */
+                tstamp_source = sh->source;
+                for (i = 0; i < priv->child_count; i++) {
+                        if (old_sources[i] && sh->sources[i])
+                                tstamp_source = i;
+                }
+                afr_sh_data_setattr (frame, this, &sh->buf[tstamp_source]);
         } else {
                 if (nsources == 0) {
                         gf_log (this->name, GF_LOG_DEBUG,
