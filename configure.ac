@@ -440,7 +440,7 @@ fi
 echo -n "checking if libxml2 is present... "
 
 PKG_CHECK_MODULES([LIBXML2], [libxml-2.0 >= 2.6.19],
-                  [echo "yes (features requiring libxml2 enabled)"  AC_DEFINE(HAVE_LIB_XML, 1, [define if libxml2 is present])],
+                  [echo "yes (features requiring libxml2 enabled)"  AC_DEFINE([HAVE_LIB_XML], [1], [define if libxml2 is present])],
                   [echo "no"] )
 
 AC_SUBST(LIBXML2_CFLAGS)
