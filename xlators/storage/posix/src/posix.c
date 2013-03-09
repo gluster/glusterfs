@@ -2976,6 +2976,28 @@ out:
         return 0;
 }
 
+int
+_posix_remove_xattr (dict_t *dict, char *key, data_t *value, void *data)
+{
+        int32_t               op_ret   = 0;
+        xlator_t             *this     = NULL;
+        posix_xattr_filler_t *filler   = NULL;
+
+        filler = (posix_xattr_filler_t *) data;
+        this = filler->this;
+
+        op_ret = sys_lremovexattr (filler->real_path, key);
+        if (op_ret == -1) {
+                filler->op_errno = errno;
+                if (errno != ENOATTR && errno != EPERM)
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "removexattr failed on %s (for %s): %s",
+                                filler->real_path, key, strerror (errno));
+        }
+
+        return op_ret;
+}
+
 
 int32_t
 posix_removexattr (call_frame_t *frame, xlator_t *this,
@@ -2984,6 +3006,7 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
         int32_t op_ret    = -1;
         int32_t op_errno  = 0;
         char *  real_path = NULL;
+        posix_xattr_filler_t filler = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -2998,6 +3021,22 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
 
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
+
+        /**
+         * sending an empty key name with xdata containing the
+         * list of key(s) to be removed implies "bulk remove request"
+         * for removexattr.
+         */
+        if (name && (strcmp (name, "") == 0) && xdata) {
+                filler.real_path = real_path;
+                filler.this = this;
+                op_ret = dict_foreach (xdata, _posix_remove_xattr, &filler);
+                if (op_ret) {
+                        op_errno = filler.op_errno;
+                }
+
+                goto out;
+        }
 
         op_ret = sys_lremovexattr (real_path, name);
         if (op_ret == -1) {

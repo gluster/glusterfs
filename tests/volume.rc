@@ -220,3 +220,12 @@ function dht_get_layout {
 	local my_xa=trusted.glusterfs.dht
 	getfattr -d -e hex -n $my_xa $1 2> /dev/null | grep "$my_xa=" | cut -d= -f2
 }
+
+##
+ # query pathinfo xattr and extract POSIX pathname(s)
+ ##
+function get_backend_paths {
+       local path=$1
+
+       getfattr -m . -n trusted.glusterfs.pathinfo $path | tr ' ' '\n' | sed -n 's/<POSIX.*:.*:\(.*\)>.*/\1/p'
+}

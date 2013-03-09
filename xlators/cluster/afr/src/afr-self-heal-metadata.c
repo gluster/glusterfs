@@ -180,8 +180,13 @@ afr_sh_metadata_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         call_count = afr_frame_return (frame);
 
-        if (call_count == 0)
+        if (call_count == 0) {
+                if (local->xattr_req) {
+                        dict_unref (local->xattr_req);
+                        local->xattr_req = NULL;
+                }
                 afr_sh_metadata_erase_pending (frame, this);
+        }
 
         return 0;
 }
@@ -207,6 +212,78 @@ afr_sh_metadata_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+int
+afr_sh_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno,
+                        dict_t *xdata)
+{
+        int            i     = 0;
+        afr_private_t *priv  = NULL;
+        afr_local_t   *local = NULL;
+
+        priv = this->private;
+        local = frame->local;
+
+        if (op_ret < 0) {
+                afr_sh_metadata_sync_cbk (frame, cookie,
+                                          this, -1, op_errno, xdata);
+                goto out;
+        }
+
+        i = (long) cookie;
+
+        STACK_WIND_COOKIE (frame, afr_sh_metadata_xattr_cbk,
+                           (void *) (long) i,
+                           priv->children[i],
+                           priv->children[i]->fops->setxattr,
+                           &local->loc, local->xattr_req, 0, NULL);
+
+ out:
+        return 0;
+}
+
+inline void
+afr_prune_pending_keys (dict_t *xattr_dict, afr_private_t *priv)
+{
+        int i = 0;
+
+        for (; i < priv->child_count; i++) {
+                dict_del (xattr_dict, priv->pending_key[i]);
+        }
+}
+
+int
+afr_sh_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, dict_t *xattr,
+                     dict_t *xdata)
+{
+        int            i     = 0;
+        afr_private_t *priv  = NULL;
+        afr_local_t   *local = NULL;
+
+        priv = this->private;
+        local = frame->local;
+
+        if (op_ret < 0) {
+                afr_sh_metadata_sync_cbk (frame, cookie,
+                                          this, -1, op_errno, xdata);
+                goto out;
+        }
+
+        afr_prune_pending_keys (xattr, priv);
+
+        i = (long) cookie;
+
+        /* send removexattr in bulk via xdata */
+        STACK_WIND_COOKIE (frame, afr_sh_removexattr_cbk,
+                           cookie,
+                           priv->children[i],
+                           priv->children[i]->fops->removexattr,
+                           &local->loc, "", xattr);
+
+ out:
+        return 0;
+}
 
 int
 afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
@@ -232,9 +309,10 @@ afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
         /*
          * 2 calls per sink - setattr, setxattr
          */
-        if (xattr)
+        if (xattr) {
                 call_count = active_sinks * 2;
-        else
+                local->xattr_req = dict_ref (xattr);
+        } else
                 call_count = active_sinks;
 
         local->call_count = call_count;
@@ -277,11 +355,11 @@ afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
                 if (!xattr)
                         continue;
 
-                STACK_WIND_COOKIE (frame, afr_sh_metadata_xattr_cbk,
+                STACK_WIND_COOKIE (frame, afr_sh_getxattr_cbk,
                                    (void *) (long) i,
                                    priv->children[i],
-                                   priv->children[i]->fops->setxattr,
-                                   &local->loc, xattr, 0, NULL);
+                                   priv->children[i]->fops->getxattr,
+                                   &local->loc, NULL, NULL);
                 call_count--;
         }
 
@@ -299,8 +377,6 @@ afr_sh_metadata_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_private_t   *priv = NULL;
         int              source = 0;
 
-        int i;
-
         local = frame->local;
         sh = &local->self_heal;
         priv = this->private;
@@ -315,10 +391,7 @@ afr_sh_metadata_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 afr_sh_metadata_sync (frame, this, NULL);
         } else {
-                for (i = 0; i < priv->child_count; i++) {
-                        dict_del (xattr, priv->pending_key[i]);
-                }
-
+                afr_prune_pending_keys (xattr, priv);
                 afr_sh_metadata_sync (frame, this, xattr);
         }
 
