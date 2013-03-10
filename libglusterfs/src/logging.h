@@ -19,6 +19,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <pthread.h>
 
 #ifdef GF_DARWIN_HOST_OS
 #define GF_PRI_FSBLK       "u"
