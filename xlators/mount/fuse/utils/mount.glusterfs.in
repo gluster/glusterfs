@@ -167,6 +167,11 @@ start_glusterfs ()
 	cmd_line=$(echo "$cmd_line --fuse-mountopts=$fuse_mountopts");
     fi
 
+    if [ -n "$xlator_option" ]; then
+        xlator_option=$(echo $xlator_option | sed s/"xlator-option="/"--xlator-option "/g)
+        cmd_line=$(echo "$cmd_line $xlator_option");
+    fi
+
     # for rdma volume, we have to fetch volfile with '.rdma' added
     # to volume name, so that it fetches the right client vol file
     volume_id_rdma="";
@@ -369,6 +374,7 @@ main ()
 			    "gid-timeout")	gid_timeout=$value ;;
 			    "background-qlen")	bg_qlen=$value ;;
 			    "congestion-threshold")	cong_threshold=$value ;;
+			    "xlator-option")	xlator_option=$xlator_option" "$pair ;;
 			    "fuse-mountopts")	fuse_mountopts=$value ;;
                             *)
                                 # Passthru
