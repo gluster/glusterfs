@@ -240,6 +240,7 @@ sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
 %{__install} -p -m 0644 xlators/protocol/server/src/*.h \
     %{buildroot}%{_includedir}/glusterfs/server/
 
+%{__mkdir_p} %{buildroot}%{_localstatedir}/run/gluster
 
 # Remove unwanted files from all the shared libraries
 find %{buildroot}%{_libdir} -name '*.a' -delete
@@ -318,6 +319,7 @@ fi
 %{_sbindir}/glusterfs*
 %{_mandir}/man8/*gluster*.8*
 %dir %{_localstatedir}/log/glusterfs
+%dir %{_localstatedir}/run/gluster
 %dir %{_sharedstatedir}/glusterd
 %if 0%{!?_without_rdma:1}
 %exclude %{_libdir}/glusterfs/%{version}/rpc-transport/rdma*
@@ -480,6 +482,9 @@ fi
 %{_libdir}/*.so
 
 %changelog
+* Mon Mar 4 2013 Niels de Vos <ndevos@redhat.com>
+- Package /var/run/gluster so that statedumps can be created
+
 * Tue Dec 11 2012 Filip Pytloun <filip.pytloun@gooddata.com>
 - add sysconfig file
 
