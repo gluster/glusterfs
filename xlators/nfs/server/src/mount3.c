@@ -781,8 +781,7 @@ mnt3_check_client_net (struct mount3_state *ms, rpcsvc_request_t *req,
                         gai_strerror (ret));
         }
 
-        ret = rpcsvc_transport_peer_check (svc->options, targetxl->name,
-                                           trans);
+        ret = rpcsvc_auth_check (svc->options, targetxl->name, trans);
         if (ret == RPCSVC_AUTH_REJECT) {
                 gf_log (GF_MNT, GF_LOG_INFO, "Peer %s  not allowed", peer);
                 goto err;
