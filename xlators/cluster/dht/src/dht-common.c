@@ -2255,7 +2255,8 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 if (cluster_getmarkerattr (frame, this, loc, key,
                                            local, dht_getxattr_unwind,
                                            sub_volumes, cnt,
-                                           MARKER_UUID_TYPE, conf->vol_uuid)) {
+                                           MARKER_UUID_TYPE, marker_uuid_default_gauge,
+                                           conf->vol_uuid)) {
                         op_errno = EINVAL;
                         goto err;
                 }
@@ -2279,6 +2280,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                                                    local, dht_getxattr_unwind,
                                                    sub_volumes, cnt,
                                                    MARKER_XTIME_TYPE,
+                                                   marker_xtime_default_gauge,
                                                    conf->vol_uuid)) {
                                 op_errno = EINVAL;
                                 goto err;

@@ -48,6 +48,69 @@ struct volume_mark {
         uint32_t usec;
 }__attribute__ ((__packed__));
 
+
+/*
+ * The enumerated type here
+ * is used to index two kind
+ * of integer arrays:
+ * - gauges
+ * - counters
+
+ * A counter is used internally,
+ * in getxattr callbacks, to count
+ * the results, categorized as
+ * the enum names suggest. So values
+ * in the counter are always non-negative.
+
+ * Gauges are part of the API.
+ * The caller passes one to the
+ * top-level aggregator function,
+ * cluster_getmarkerattr(). The gauge
+ * defines an evaluation policy for the
+ * counter. That is, at the
+ * end of the aggregation process
+ * the gauge is matched against the
+ * counter, and the policy
+ * represented by the gauge decides
+ * whether to return with success or failure,
+ * and in latter case, what particular failure
+ * case (errno).
+
+ * The rules are the following: for some index i,
+ * - if gauge[i] == 0, no requirement is set
+ *   against counter[i];
+ * - if gauge[i] > 0, counter[i] >= gauge[i]
+ *   is required;
+ * - if gauge[i] < 0, counter[i] < |gauge[i]|
+ *   is required.
+
+ * If the requirement is not met, then i is mapped
+ * to the respective errno (MCNT_ENOENT -> ENOENT),
+ * or in lack of that, EINVAL.
+
+ * Cf. evaluate_marker_results() and marker_idx_errno_map[]
+ * in libxlator.c
+
+ * We provide two default gauges, one inteded for xtime
+ * aggregation, other for volume mark aggregation. The
+ * policies they represent agree with the hard-coded
+ * one prior to gauges. Cf. marker_xtime_default_gauge
+ * and marker_uuid_default_gauge in libxlator.c
+ */
+
+typedef enum {
+        MCNT_FOUND,
+        MCNT_NOTFOUND,
+        MCNT_ENODATA,
+        MCNT_ENOTCONN,
+        MCNT_ENOENT,
+        MCNT_EOTHER,
+        MCNT_MAX
+} marker_result_idx_t;
+
+extern int marker_xtime_default_gauge[];
+extern int marker_uuid_default_gauge[];
+
 struct marker_str {
         struct volume_mark    *volmark;
         data_t                *data;
@@ -55,13 +118,8 @@ struct marker_str {
         uint32_t               host_timebuf[2];
         uint32_t               net_timebuf[2];
         int32_t                call_count;
-        unsigned               has_xtime:1;
-        int32_t                enoent_count;
-        int32_t                enotconn_count;
-        int32_t                enodata_count;
-        int32_t                noxtime_count;
-
-        int                    esomerr;
+        int                    gauge[MCNT_MAX];
+        int                    count[MCNT_MAX];
 
         xlator_specf_unwind_t  xl_specf_unwind;
         void                  *xl_local;
@@ -70,15 +128,6 @@ struct marker_str {
 };
 
 typedef struct marker_str xl_marker_local_t;
-
-static inline gf_boolean_t
-marker_has_volinfo (xl_marker_local_t *marker)
-{
-       if (marker->volmark)
-                return _gf_true;
-       else
-                return _gf_false;
-}
 
 int32_t
 cluster_markerxtime_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -93,7 +142,7 @@ cluster_getmarkerattr (call_frame_t *frame,xlator_t *this, loc_t *loc,
                        const char *name, void *xl_local,
                        xlator_specf_unwind_t xl_specf_getxattr_unwind,
                        xlator_t **sub_volumes, int count, int type,
-                       char *vol_uuid);
+                       int *gauge, char *vol_uuid);
 
 int
 match_uuid_local (const char *name, char *uuid);
