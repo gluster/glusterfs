@@ -366,14 +366,10 @@ err:
 int
 rpcsvc_auth_array (rpcsvc_t *svc, char *volname, int *autharr, int arrlen)
 {
-        int             count = 0;
-        int             gen = RPCSVC_AUTH_REJECT;
-        int             spec = RPCSVC_AUTH_REJECT;
-        int             final = RPCSVC_AUTH_REJECT;
-        char            *srchstr = NULL;
-        char            *valstr = NULL;
-        gf_boolean_t    boolval = _gf_false;
-        int             ret = 0;
+        int             count      = 0;
+        int             result     = RPCSVC_AUTH_REJECT;
+        char           *srchstr    = NULL;
+        int             ret        = 0;
 
         struct rpcsvc_auth_list *auth = NULL;
         struct rpcsvc_auth_list *tmp = NULL;
@@ -391,59 +387,27 @@ rpcsvc_auth_array (rpcsvc_t *svc, char *volname, int *autharr, int arrlen)
                 if (count >= arrlen)
                         break;
 
-                gen = gf_asprintf (&srchstr, "rpc-auth.%s", auth->name);
-                if (gen == -1) {
+                result = gf_asprintf (&srchstr, "rpc-auth.%s.%s",
+                                      auth->name, volname);
+                if (result == -1) {
                         count = -1;
                         goto err;
                 }
 
-                gen = RPCSVC_AUTH_REJECT;
-                if (dict_get (svc->options, srchstr)) {
-                        ret = dict_get_str (svc->options, srchstr, &valstr);
-                        if (ret == 0) {
-                                ret = gf_string2boolean (valstr, &boolval);
-                                if (ret == 0) {
-                                        if (boolval == _gf_true)
-                                                gen = RPCSVC_AUTH_ACCEPT;
-                                } else
-                                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "Faile"
-                                                "d to read auth val");
-                        } else
-                                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Faile"
-                                        "d to read auth val");
-                }
-
+                ret = dict_get_str_boolean (svc->options, srchstr, 0xC00FFEE);
                 GF_FREE (srchstr);
-                spec = gf_asprintf (&srchstr, "rpc-auth.%s.%s", auth->name,
-                                    volname);
-                if (spec == -1) {
-                        count = -1;
-                        goto err;
-                }
 
-                spec = RPCSVC_AUTH_DONTCARE;
-                if (dict_get (svc->options, srchstr)) {
-                        ret = dict_get_str (svc->options, srchstr, &valstr);
-                        if (ret == 0) {
-                                ret = gf_string2boolean (valstr, &boolval);
-                                if (ret == 0) {
-                                        if (boolval == _gf_true)
-                                                spec = RPCSVC_AUTH_ACCEPT;
-                                        else
-                                                spec = RPCSVC_AUTH_REJECT;
-                                } else
-                                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "Faile"
-                                                "d to read auth val");
-                        } else
-                                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Faile"
-                                        "d to read auth val");
-                }
-
-                GF_FREE (srchstr);
-                final = rpcsvc_combine_gen_spec_volume_checks (gen, spec);
-                if (final == RPCSVC_AUTH_ACCEPT) {
+                switch (ret) {
+                case _gf_true:
+                        result = RPCSVC_AUTH_ACCEPT;
                         autharr[count] = auth->auth->authnum;
                         ++count;
+                        break;
+                case _gf_false:
+                        result = RPCSVC_AUTH_REJECT;
+                        break;
+                default:
+                        result = RPCSVC_AUTH_DONTCARE;
                 }
         }
 

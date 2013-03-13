@@ -473,12 +473,13 @@ rpcsvc_transport_peeraddr (rpc_transport_t *trans, char *addrstr, int addrlen,
                            struct sockaddr_storage *returnsa, socklen_t sasize);
 
 extern int
-rpcsvc_transport_peer_check (dict_t *options, char *volname,
-                             rpc_transport_t *trans);
+rpcsvc_auth_check (dict_t *options, char *volname,
+                   rpc_transport_t *trans);
 
 extern int
 rpcsvc_transport_privport_check (rpcsvc_t *svc, char *volname,
                                  rpc_transport_t *trans);
+
 #define rpcsvc_request_seterr(req, err)                 (req)->rpc_err = err
 #define rpcsvc_request_set_autherr(req, err)            (req)->auth_err = err
 
@@ -549,9 +550,6 @@ rpcsvc_auth_array (rpcsvc_t *svc, char *volname, int *autharr, int arrlen);
  */
 extern gid_t *
 rpcsvc_auth_unix_auxgids (rpcsvc_request_t *req, int *arrlen);
-
-extern int
-rpcsvc_combine_gen_spec_volume_checks (int gen, int spec);
 
 extern char *
 rpcsvc_volume_allowed (dict_t *options, char *volname);
