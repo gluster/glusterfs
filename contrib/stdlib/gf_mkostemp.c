@@ -1,16 +1,5 @@
 /* Borrowed from glibc-2.16/sysdeps/posix/tempname.c */
 
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <errno.h>
-#include <sys/time.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <time.h>
-#include <inttypes.h>
-
 /* Copyright (C) 1991-2001, 2006, 2007, 2009 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 
@@ -28,12 +17,27 @@
    License along with the GNU C Library; if not, see
    <http://www.gnu.org/licenses/>.  */
 
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <errno.h>
+#include <sys/time.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <time.h>
+#include <inttypes.h>
+
 static const char letters[] =
 "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
 /* Generate a temporary file name based on TMPL.  TMPL must match the
    rules for mk[s]temp (i.e. end in "XXXXXX", possibly with a suffix).
 */
+
+#if !defined(TMP_MAX)
+#define TMP_MAX 238328
+#endif
 
 int
 gf_mkostemp (char *tmpl, int suffixlen, int flags)
@@ -51,15 +55,8 @@ gf_mkostemp (char *tmpl, int suffixlen, int flags)
      necessary to try all these combinations.  Instead if a reasonable
      number of names is tried (we define reasonable as 62**3) fail to
      give the system administrator the chance to remove the problems.  */
-#define ATTEMPTS_MIN (62 * 62 * 62)
 
-        /* The number of times to attempt to generate a temporary file.  To
-           conform to POSIX, this must be no smaller than TMP_MAX.  */
-#if ATTEMPTS_MIN < TMP_MAX
-        unsigned int attempts = TMP_MAX;
-#else
-        unsigned int attempts = ATTEMPTS_MIN;
-#endif
+        unsigned int attempts = TMP_MAX; /* TMP_MAX == 62³ */
 
         len = strlen (tmpl);
         if (len < 6 + suffixlen || memcmp (&tmpl[len - 6 - suffixlen],
