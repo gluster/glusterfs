@@ -1,3 +1,3 @@
-SUBDIRS = rot-13
+SUBDIRS = rot-13 crypt
 
 CLEANFILES = 

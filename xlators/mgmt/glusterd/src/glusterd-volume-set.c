@@ -724,6 +724,34 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .flags      = OPT_FLAG_CLIENT_OPT
         },
 
+ 	/* Crypt xlator options */
+
+	{ .key         = "features.encryption",
+	  .voltype     = "encryption/crypt",
+	  .option      = "!feat",
+	  .value       = "off",
+	  .op_version  = 3,
+	  .description = "enable/disable client-side encryption for "
+                         "the volume.",
+	  .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
+	},
+
+        { .key         = "encryption.master-key",
+          .voltype     = "encryption/crypt",
+          .op_version  = 3,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key         = "encryption.data-key-size",
+          .voltype     = "encryption/crypt",
+          .op_version  = 3,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key         = "encryption.block-size",
+          .voltype     = "encryption/crypt",
+          .op_version  = 3,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+
         /* Client xlator options */
         { .key        = "network.frame-timeout",
           .voltype    = "protocol/client",

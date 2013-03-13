@@ -2452,6 +2452,29 @@ out:
         return ret;
 }
 
+static int client_graph_set_perf_options(volgen_graph_t *graph,
+					 glusterd_volinfo_t *volinfo,
+					 dict_t *set_dict)
+{
+	data_t *tmp_data = NULL;
+	char *volname = NULL;
+
+	/*
+	 * Logic to make sure NFS doesn't have performance translators by
+	 * default for a volume
+	 */
+	volname = volinfo->volname;
+	tmp_data = dict_get (set_dict, "nfs-volume-file");
+	if (!tmp_data)
+		return volgen_graph_set_options_generic(graph, set_dict,
+							volname,
+							&perfxl_option_handler);
+	else
+		return volgen_graph_set_options_generic(graph, set_dict,
+							volname,
+							&nfsperfxl_option_handler);
+}
+
 static int
 client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
@@ -2459,7 +2482,6 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         int       ret      = 0;
         xlator_t *xl       = NULL;
         char     *volname  = NULL;
-        data_t   *tmp_data = NULL;
 
         volname = volinfo->volname;
         ret = volgen_graph_build_clients (graph, volinfo, set_dict, param);
@@ -2481,6 +2503,18 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 if (ret)
                         goto out;
 
+        }
+
+        ret = glusterd_volinfo_get_boolean (volinfo, "features.encryption");
+        if (ret == -1)
+                goto out;
+        if (ret) {
+                xl = volgen_graph_add (graph, "encryption/crypt", volname);
+
+                if (!xl) {
+                        ret = -1;
+                        goto out;
+                }
         }
 
         ret = glusterd_volinfo_get_boolean (volinfo, VKEY_FEATURES_QUOTA);
@@ -2508,16 +2542,7 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 }
         }
 
-        /* Logic to make sure NFS doesn't have performance translators by
-           default for a volume */
-        tmp_data = dict_get (set_dict, "nfs-volume-file");
-        if (!tmp_data)
-                ret = volgen_graph_set_options_generic (graph, set_dict, volinfo,
-                                                        &perfxl_option_handler);
-        else
-                ret = volgen_graph_set_options_generic (graph, set_dict, volname,
-                                                        &nfsperfxl_option_handler);
-
+	ret = client_graph_set_perf_options(graph, volinfo, set_dict);
         if (ret)
                 goto out;
 
