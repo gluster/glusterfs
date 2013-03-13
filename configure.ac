@@ -131,6 +131,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/encryption/Makefile
                 xlators/encryption/rot-13/Makefile
                 xlators/encryption/rot-13/src/Makefile
+                xlators/encryption/crypt/Makefile
+                xlators/encryption/crypt/src/Makefile
 		xlators/features/qemu-block/Makefile
 		xlators/features/qemu-block/src/Makefile
                 xlators/system/Makefile
@@ -339,6 +341,26 @@ if test "x${enable-bd-xlator}" != "xno" -a "x${HAVE_BD_LIB}" = "xyes"; then
 fi
 
 AM_CONDITIONAL([ENABLE_BD_XLATOR], [test x$BUILD_BD_XLATOR = xyes])
+
+# start encryption/crypt section
+
+AC_CHECK_HEADERS([openssl/cmac.h], [have_cmac_h=yes], [have_cmac_h=no])
+
+AC_ARG_ENABLE([crypt-xlator],
+	AC_HELP_STRING([--enable-crypt-xlator], [Build crypt encryption xlator]))
+
+if test "x$enable_crypt_xlator" = "xyes" -a "x$have_cmac_h" = "xno"; then
+   echo "Encryption xlator requires OpenSSL with cmac.h"
+   exit 1
+fi
+
+BUILD_CRYPT_XLATOR=no
+if test "x$enable_crypt_xlator" != "xno" -a "x$have_cmac_h" = "xyes"; then
+   BUILD_CRYPT_XLATOR=yes
+   AC_DEFINE(HAVE_CRYPT_XLATOR, 1, [enable building crypt encryption xlator])
+fi
+
+AM_CONDITIONAL([ENABLE_CRYPT_XLATOR], [test x$BUILD_CRYPT_XLATOR = xyes])
 
 AC_SUBST(FUSE_CLIENT_SUBDIR)
 # end FUSE section
@@ -865,4 +887,5 @@ echo "glupy                : $BUILD_GLUPY"
 echo "Use syslog           : $USE_SYSLOG"
 echo "XML output           : $BUILD_XML_OUTPUT"
 echo "QEMU Block formats   : $BUILD_QEMU_BLOCK"
+echo "Encryption xlator    : $BUILD_CRYPT_XLATOR"
 echo
