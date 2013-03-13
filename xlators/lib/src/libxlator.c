@@ -11,6 +11,34 @@
 #include "libxlator.h"
 
 
+int marker_xtime_default_gauge[] = {
+        [MCNT_FOUND]    =  1,
+        [MCNT_NOTFOUND] = -1,
+        [MCNT_ENODATA]  = -1,
+        [MCNT_ENOTCONN] = -1,
+        [MCNT_ENOENT]   = -1,
+        [MCNT_EOTHER]   = -1,
+};
+
+int marker_uuid_default_gauge[] = {
+        [MCNT_FOUND]    =  1,
+        [MCNT_NOTFOUND] =  0,
+        [MCNT_ENODATA]  =  0,
+        [MCNT_ENOTCONN] =  0,
+        [MCNT_ENOENT]   =  0,
+        [MCNT_EOTHER]   =  0,
+};
+
+static int marker_idx_errno_map[] = {
+        [MCNT_FOUND]    = EINVAL,
+        [MCNT_NOTFOUND] = EINVAL,
+        [MCNT_ENOENT]   = ENOENT,
+        [MCNT_ENOTCONN] = ENOTCONN,
+        [MCNT_ENODATA]  = ENODATA,
+        [MCNT_EOTHER]   = EINVAL,
+        [MCNT_MAX]      = 0,
+};
+
 /*Copy the contents of oldtimebuf to newtimbuf*/
 static void
 update_timebuf (uint32_t *oldtimbuf, uint32_t *newtimebuf)
@@ -47,22 +75,61 @@ match_uuid_local (const char *name, char *uuid)
 static void
 marker_local_incr_errcount (xl_marker_local_t *local, int op_errno)
 {
+        marker_result_idx_t i = -1;
+
         if (!local)
                 return;
 
         switch (op_errno) {
                 case ENODATA:
-                        local->enodata_count++;
+                        i = MCNT_ENODATA;
                         break;
                 case ENOENT:
-                        local->enoent_count++;
+                        i = MCNT_ENOENT;
                         break;
                 case ENOTCONN:
-                        local->enotconn_count++;
+                        i = MCNT_ENOTCONN;
                         break;
                 default:
+                        i = MCNT_EOTHER;
                         break;
         }
+
+        local->count[i]++;
+}
+
+static int
+evaluate_marker_results (int *gauge, int *count)
+{
+        int i = 0;
+        int op_errno = 0;
+        gf_boolean_t sane = _gf_true;
+
+        /* check if the policy of the gauge is violated;
+         * if yes, try to get the best errno, ie. look
+         * for the first position where there is a more
+         * specific kind of vioilation than the generic EINVAL
+         */
+        for (i = 0; i < MCNT_MAX; i++) {
+                if (sane) {
+                        if ((gauge[i] > 0 && count[i] < gauge[i]) ||
+                            (gauge[i] < 0 && count[i] >= -gauge[i])) {
+                                sane = _gf_false;
+                                /* generic action: adopt corresponding errno */
+                                op_errno = marker_idx_errno_map[i];
+                        }
+                } else {
+                        /* already insane; trying to get a more informative
+                         * errno by checking subsequent counters
+                         */
+                        if (count[i] > 0)
+                                op_errno = marker_idx_errno_map[i];
+                }
+                if (op_errno && op_errno != EINVAL)
+                        break;
+        }
+
+        return op_errno;
 }
 
 /* Aggregate all the <volid>.xtime attrs of the cluster and send the max*/
@@ -98,14 +165,10 @@ cluster_markerxtime_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         {
                 callcnt = --local->call_count;
 
-                if (local->esomerr)
-                        goto unlock;
-
                 vol_uuid = local->vol_uuid;
 
                 if (op_ret) {
                         marker_local_incr_errcount (local, op_errno);
-                        local->esomerr = op_errno;
                         goto unlock;
                 }
 
@@ -119,11 +182,11 @@ cluster_markerxtime_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (dict_get_ptr (dict, marker_xattr, (void **)&net_timebuf)) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "Unable to get <uuid>.xtime attr");
-                        local->noxtime_count++;
+                        local->count[MCNT_NOTFOUND]++;
                         goto unlock;
                 }
 
-                if (local->has_xtime) {
+                if (local->count[MCNT_FOUND]) {
                         get_hosttime (net_timebuf, host_timebuf);
                         if ( (host_timebuf[0]>local->host_timebuf[0]) ||
                                 (host_timebuf[0] == local->host_timebuf[0] &&
@@ -135,7 +198,7 @@ cluster_markerxtime_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 } else {
                         get_hosttime (net_timebuf, local->host_timebuf);
                         update_timebuf (net_timebuf, local->net_timebuf);
-                        local->has_xtime = _gf_true;
+                        local->count[MCNT_FOUND]++;
                 }
 
         }
@@ -147,7 +210,7 @@ unlock:
                 op_errno = 0;
                 need_unwind = 1;
 
-                if (local->has_xtime) {
+                if (local->count[MCNT_FOUND]) {
                         if (!dict)
                                 dict = dict_new();
 
@@ -160,17 +223,9 @@ unlock:
                         }
                 }
 
-                if (local->noxtime_count)
-                        goto out;
-
-                if (local->enodata_count || local->enotconn_count ||
-                                              local->enoent_count) {
+                op_errno = evaluate_marker_results (local->gauge, local->count);
+                if (op_errno)
                         op_ret = -1;
-                        op_errno = local->enodata_count? ENODATA:
-                                        local->enotconn_count? ENOTCONN:
-                                        local->enoent_count? ENOENT:
-                                        local->esomerr;
-                }
         }
 
 out:
@@ -228,7 +283,7 @@ cluster_markeruuid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (ret)
                         goto unlock;
 
-                if (marker_has_volinfo (local)) {
+                if (local->count[MCNT_FOUND]) {
                         if ((local->volmark->major != volmark->major) ||
                             (local->volmark->minor != volmark->minor)) {
                                 op_ret = -1;
@@ -257,6 +312,7 @@ cluster_markeruuid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         uuid_unparse (volmark->uuid, vol_uuid);
                         if (volmark->retval)
                                 local->retval = volmark->retval;
+                        local->count[MCNT_FOUND]++;
                 }
         }
 unlock:
@@ -267,7 +323,7 @@ unlock:
                 op_errno = 0;
                 need_unwind = 1;
 
-                if (marker_has_volinfo (local)) {
+                if (local->count[MCNT_FOUND]) {
                         if (!dict)
                                 dict = dict_new();
 
@@ -277,11 +333,10 @@ unlock:
                                 op_ret = -1;
                                 op_errno = ENOMEM;
                         }
-                } else {
-                        op_ret = -1;
-                        op_errno = local->enotconn_count? ENOTCONN:
-                               local->enoent_count? ENOENT:EINVAL;
                 }
+                op_errno = evaluate_marker_results (local->gauge, local->count);
+                if (op_errno)
+                        op_ret = -1;
         }
 
  out:
@@ -303,7 +358,7 @@ cluster_getmarkerattr (call_frame_t *frame,xlator_t *this, loc_t *loc,
                        const char *name, void *xl_local,
                        xlator_specf_unwind_t xl_specf_getxattr_unwind,
                        xlator_t **sub_volumes, int count, int type,
-                       char *vol_uuid)
+                       int *gauge, char *vol_uuid)
 {
         int                i     = 0;
         xl_marker_local_t  *local = NULL;
@@ -326,6 +381,7 @@ cluster_getmarkerattr (call_frame_t *frame,xlator_t *this, loc_t *loc,
         local->call_count = count;
         local->xl_specf_unwind = xl_specf_getxattr_unwind;
         local->vol_uuid = vol_uuid;
+        memcpy (local->gauge, gauge, sizeof (local->gauge));
 
         frame->local = local;
 

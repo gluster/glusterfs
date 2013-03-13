@@ -5302,7 +5302,8 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
                 if (cluster_getmarkerattr (frame, this, loc, name,
                                            local, stripe_getxattr_unwind,
                                            sub_volumes, priv->child_count,
-                                           MARKER_UUID_TYPE, priv->vol_uuid)) {
+                                           MARKER_UUID_TYPE, marker_uuid_default_gauge,
+                                           priv->vol_uuid)) {
                         op_errno = EINVAL;
                         goto err;
                 }
@@ -5381,6 +5382,7 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
                                                    sub_volumes,
                                                    local->marker.call_count,
                                                    MARKER_XTIME_TYPE,
+                                                   marker_xtime_default_gauge,
                                                    priv->vol_uuid)) {
                                 op_errno = EINVAL;
                                 goto err;

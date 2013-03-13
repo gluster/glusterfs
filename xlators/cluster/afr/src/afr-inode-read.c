@@ -1510,6 +1510,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                                            sub_volumes,
                                            priv->child_count,
                                            MARKER_UUID_TYPE,
+                                           marker_uuid_default_gauge,
                                            priv->vol_uuid)) {
 
                         gf_log (this->name, GF_LOG_INFO,
@@ -1562,6 +1563,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                                                    sub_volumes,
                                                    priv->child_count,
                                                    MARKER_XTIME_TYPE,
+                                                   marker_xtime_default_gauge,
                                                    priv->vol_uuid)) {
                                 gf_log (this->name, GF_LOG_INFO,
                                         "%s: failed to get marker attr (%s)",
