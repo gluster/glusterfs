@@ -2760,6 +2760,18 @@ socket_connect (rpc_transport_t *this, int port)
                         goto unlock;
                 }
 
+                if (!priv->use_ssl && !priv->bio && !priv->own_thread) {
+                        ret = __socket_nonblock (priv->sock);
+                        if (ret == -1) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "NBIO on %d failed (%s)",
+                                        priv->sock, strerror (errno));
+                                close (priv->sock);
+                                priv->sock = -1;
+                                goto unlock;
+                        }
+                }
+
                 ret = connect (priv->sock, SA (&this->peerinfo.sockaddr),
                                this->peerinfo.sockaddr_len);
 
