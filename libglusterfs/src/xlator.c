@@ -637,6 +637,21 @@ out:
         return ret;
 }
 
+char*
+loc_gfid_utoa (loc_t *loc)
+{
+        uuid_t  gfid={0};
+
+        if (!loc)
+                goto out;
+        else if (!uuid_is_null (loc->gfid))
+                uuid_copy (gfid, loc->gfid);
+        else if (loc->inode && (!uuid_is_null (loc->inode->gfid)))
+                uuid_copy (gfid, loc->inode->gfid);
+out:
+        return uuid_utoa (gfid);
+}
+
 int
 loc_copy (loc_t *dst, loc_t *src)
 {
@@ -675,7 +690,6 @@ out:
 err:
         return ret;
 }
-
 
 int
 xlator_list_destroy (xlator_list_t *list)
