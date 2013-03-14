@@ -260,13 +260,11 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname)
                          "-l", DEFAULT_LOG_FILE_DIRECTORY"/quota-crawl.log",
                          mountdir, NULL);
 
-        ret = runner_run_reuse (&runner);
+        ret = runner_run_nowait (&runner);
         if (ret == -1) {
-                runner_log (&runner, "glusterd", GF_LOG_DEBUG, "command failed");
-                runner_end (&runner);
+                gf_log ("glusterd", GF_LOG_ERROR, "Failed to start fs-crawl");
                 goto out;
         }
-        runner_end (&runner);
 
         if ((pid = fork ()) < 0) {
                 gf_log ("glusterd", GF_LOG_WARNING, "fork from parent failed");
