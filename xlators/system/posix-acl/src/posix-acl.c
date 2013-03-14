@@ -2094,8 +2094,11 @@ struct xlator_fops fops = {
 #if FD_MODE_CHECK_IS_IMPLEMENTED
         .readv            = posix_acl_readv,
         .writev           = posix_acl_writev,
-#endif
         .ftruncate        = posix_acl_ftruncate,
+        .fsetattr         = posix_acl_fsetattr,
+        .fsetxattr        = posix_acl_fsetxattr,
+        .fgetxattr        = posix_acl_fgetxattr,
+#endif
         .access           = posix_acl_access,
         .truncate         = posix_acl_truncate,
         .mkdir            = posix_acl_mkdir,
@@ -2110,11 +2113,8 @@ struct xlator_fops fops = {
         .readdir          = posix_acl_readdir,
         .readdirp         = posix_acl_readdirp,
         .setattr          = posix_acl_setattr,
-        .fsetattr         = posix_acl_fsetattr,
         .setxattr         = posix_acl_setxattr,
-        .fsetxattr        = posix_acl_fsetxattr,
         .getxattr         = posix_acl_getxattr,
-        .fgetxattr        = posix_acl_fgetxattr,
         .removexattr      = posix_acl_removexattr,
 };
 
