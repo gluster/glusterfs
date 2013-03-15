@@ -1,11 +1,11 @@
 
-GFS_TAR = ../../glusterfs-3git.tar.gz
-UFO_TAR = ../../gluster-swift-ufo-3git.tar.gz
+GFS_TAR = ../../glusterfs-*git.tar.gz
+UFO_TAR = ../../gluster-swift-ufo-*git.tar.gz
 GFS_SPEC = ../../glusterfs.spec
 
 .PHONY: all
 
-all: 
+all:
 	@echo "To build RPMS run 'make glusterrpms'"
 
 .PHONY: glusterrpms prep srcrpm testsrpm clean
@@ -13,7 +13,7 @@ all:
 glusterrpms: prep srcrpm rpms
 	-rm -rf rpmbuild
 
-prep:: 
+prep::
 	if [ ! -e $(GFS_TAR) -a ! -e $(UFO_TAR) -a ! -e $(GFS_SPEC) ]; then \
 		$(MAKE) -c ../.. dist; \
 	fi
@@ -21,23 +21,37 @@ prep::
 	-mkdir -p rpmbuild/RPMS
 	-mkdir -p rpmbuild/SRPMS
 	-rm -rf rpmbuild/SOURCES
-	cd rpmbuild && git clone http://pkgs.fedoraproject.org/cgit/glusterfs.git > /dev/null && mv glusterfs SOURCES
-	cp ../../*.tar.gz rpmbuild/SOURCES
-	cp ../../glusterfs.spec rpmbuild/SPECS
+	@if [ -d /d/cache/glusterfs -a -e /d/cache/glusterfs/sources ]; then \
+		echo "copying glusterfs rpm files from local cache..."  ; \
+		mkdir -p ./rpmbuild/SOURCES; \
+		cp /d/cache/glusterfs/* ./rpmbuild/SOURCES/ ; \
+		touch /d/cache/.gluster ; \
+	elif [ -x /usr/bin/git ]; then \
+		echo "fetching glusterfs rpm files from fedora git repo..."; \
+		cd ./rpmbuild && git clone git://pkgs.fedoraproject.org/glusterfs.git > /dev/null && mv glusterfs SOURCES; \
+	else \
+		echo "glusterfs rpm files not fetched, you don't have git installed!" ; \
+		exit 1 ; \
+	fi
+	cp ../../*.tar.gz ./rpmbuild/SOURCES
+	cp ../../glusterfs.spec ./rpmbuild/SPECS
 
-# openstack/launchpad 'hides' source tarballs behind javascript glorp,
-# and curl will fail to fetch it using their download URL; we're forced
-# to fetch it from somewhere else.
-# maybe someone with better awk and sed skills than I have can suggest 
-# something better here.
-SWIFT_URL = http://pkgs.fedoraproject.org/repo/pkgs/glusterfs/$(shell grep -v gluster rpmbuild/SOURCES/sources | cut -d ' ' -f 3)/$(shell grep -v gluster rpmbuild/SOURCES/sources | cut -d ' ' -f 1)/$(shell grep -v gluster rpmbuild/SOURCES/sources | cut -d ' ' -f 3)
+# Remember to change folsom to grizzly when we rebase to grizzly
+SWIFT_TARBALL = $(shell grep -v gluster ./rpmbuild/SOURCES/sources | cut -d ' ' -f 3)
+SWIFT_MD5SIG = $(shell grep -v gluster ./rpmbuild/SOURCES/sources | cut -d ' ' -f 1)
+SWIFT_VERS = $(shell echo $(SWIFT_TARBALL) | grep -o 1\.[0-9]\.[0-9])
+SWIFT_URL = https://launchpad.net/swift/folsom/$(SWIFT_VERS)/+download/$(SWIFT_TARBALL)
 
 prep::
-	@if [ -x /usr/bin/curl -a ! -e rpmbuild/SOURCES/swift-1.7.4.tar.gz ]; then \
-		echo "fetching swift..." ; \
-		cd rpmbuild/SOURCES && /usr/bin/curl -s -O $(SWIFT_URL) ; \
-	elif [ ! -x /usr/bin/curl ]; then \
-		echo "you don't have curl installed, swift source not fetched" ; \
+	@if [ -e /d/cache/$(SWIFT_TARBALL) -a -d ./rpmbuild/SOURCES ]; then \
+		echo "copying swift source tarball from local cache..." ; \
+		cp /d/cache/$(SWIFT_TARBALL) ./rpmbuild/SOURCES/ ; \
+		touch /d/cache/.swift ; \
+	elif [ -x /usr/bin/curl -a -d ./rpmbuild/SOURCES ]; then \
+		echo "fetching swift from launchpad.net..." ; \
+		cd ./rpmbuild/SOURCES && /usr/bin/curl -sOL $(SWIFT_URL) ; \
+	else \
+		echo "swift source not fetched, you don't have curl installed!" ; \
 		exit 1 ; \
 	fi
 
