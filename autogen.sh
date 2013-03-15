@@ -41,17 +41,23 @@ fi
 
 # Check for libtoolize or glibtoolize
 env libtoolize --version > /dev/null 2>&1
-if [ $? = 0 ]; then
+if [ $? -eq 0 ]; then
   # libtoolize was found, so use it
   TOOL=libtoolize
 else
   # libtoolize wasn't found, so check for glibtoolize
   env glibtoolize --version > /dev/null 2>&1
-  if [ $? = 0 ]; then
+  if [ $? -eq 0 ]; then
     TOOL=glibtoolize
   else
     MISSING="$MISSING libtoolize/glibtoolize"
   fi
+fi
+
+# Check for pkg-config
+env pkg-config --version > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+  MISSING="$MISSING pkg-config"
 fi
 
 ## If dependencies are missing, warn the user and abort
