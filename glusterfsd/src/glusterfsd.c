@@ -1957,7 +1957,7 @@ main (int argc, char *argv[])
         if (ret)
                 goto out;
 
-	ctx->env = syncenv_new (0);
+	ctx->env = syncenv_new (0, 0, 0);
         if (!ctx->env) {
                 gf_log ("", GF_LOG_ERROR,
                         "Could not create new sync-environment");
