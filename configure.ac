@@ -6,7 +6,7 @@ dnl  General Public License, version 3 or any later version (LGPLv3 or
 dnl  later), or the GNU General Public License, version 2 (GPLv2), in all
 dnl  cases as published by the Free Software Foundation.
 
-AC_INIT([glusterfs],[3git],[gluster-users@gluster.org],,[https://github.com/gluster/glusterfs.git])
+AC_INIT([glusterfs],[3.4git],[gluster-users@gluster.org],,[https://github.com/gluster/glusterfs.git])
 
 AM_INIT_AUTOMAKE
 
