@@ -102,6 +102,8 @@ enum gf_common_mem_types_ {
         gf_common_mt_buffer_t             = 86,
         gf_common_mt_circular_buffer_t    = 87,
         gf_common_mt_eh_t                 = 88,
-        gf_common_mt_end                  = 89
+        gf_common_mt_store_handle_t       = 89,
+        gf_common_mt_store_iter_t         = 90,
+        gf_common_mt_end                  = 91
 };
 #endif
