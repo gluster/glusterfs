@@ -1201,7 +1201,7 @@ fini (xlator_t *this)
         conf = this->private;
         FREE (conf->pmap);
         if (conf->handle)
-                glusterd_store_handle_destroy (conf->handle);
+                gf_store_handle_destroy (conf->handle);
         glusterd_sm_tr_log_delete (&conf->op_sm_log);
         GF_FREE (conf);
         this->private = NULL;

@@ -3052,7 +3052,7 @@ glusterd_delete_stale_volume (glusterd_volinfo_t *stale_volinfo,
         (void) glusterd_delete_all_bricks (stale_volinfo);
         if (stale_volinfo->shandle) {
                 unlink (stale_volinfo->shandle->path);
-                (void) glusterd_store_handle_destroy (stale_volinfo->shandle);
+                (void) gf_store_handle_destroy (stale_volinfo->shandle);
                 stale_volinfo->shandle = NULL;
         }
         (void) glusterd_volinfo_delete (stale_volinfo);

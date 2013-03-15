@@ -82,31 +82,11 @@ typedef enum glusterd_store_ver_ac_{
         } while (0); \
 
 
-typedef enum {
-        GD_STORE_SUCCESS,
-        GD_STORE_KEY_NULL,
-        GD_STORE_VALUE_NULL,
-        GD_STORE_KEY_VALUE_NULL,
-        GD_STORE_EOF,
-        GD_STORE_ENOMEM,
-        GD_STORE_STAT_FAILED
-} glusterd_store_op_errno_t;
-
 int32_t
 glusterd_store_volinfo (glusterd_volinfo_t *volinfo, glusterd_volinfo_ver_ac_t ac);
 
 int32_t
 glusterd_store_delete_volume (glusterd_volinfo_t *volinfo);
-
-int32_t
-glusterd_store_handle_new (char *path, glusterd_store_handle_t **handle);
-
-int32_t
-glusterd_store_save_value (int fd, char *key, char *value);
-
-int32_t
-glusterd_store_retrieve_value (glusterd_store_handle_t *handle,
-                               char *key, char **value);
 
 int32_t
 glusterd_retrieve_uuid ();
@@ -120,9 +100,6 @@ glusterd_store_delete_peerinfo (glusterd_peerinfo_t *peerinfo);
 int32_t
 glusterd_store_delete_brick (glusterd_brickinfo_t *brickinfo,
                              char *delete_path);
-
-int32_t
-glusterd_store_handle_destroy (glusterd_store_handle_t *handle);
 
 int32_t
 glusterd_restore ();

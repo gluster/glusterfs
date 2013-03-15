@@ -37,6 +37,7 @@
 #include "glusterd-pmap.h"
 #include "cli1-xdr.h"
 #include "syncop.h"
+#include "store.h"
 
 #define GLUSTERD_MAX_VOLUME_NAME        1000
 #define DEFAULT_LOG_FILE_DIRECTORY      DATADIR "/log/glusterfs"
@@ -98,13 +99,6 @@ typedef enum glusterd_op_ {
 } glusterd_op_t;
 
 extern const char * gd_op_list[];
-struct glusterd_store_iter_ {
-        int     fd;
-        FILE    *file;
-        char    filepath[PATH_MAX];
-};
-
-typedef struct glusterd_store_iter_     glusterd_store_iter_t;
 
 struct glusterd_volgen {
         dict_t *dict;
@@ -137,7 +131,7 @@ typedef struct {
         struct list_head  volumes;
         pthread_mutex_t   xprt_lock;
         struct list_head  xprt_list;
-        glusterd_store_handle_t *handle;
+        gf_store_handle_t *handle;
         gf_timer_t *timer;
         glusterd_sm_tr_log_t op_sm_log;
         struct rpc_clnt_program *gfs_mgmt;
@@ -170,7 +164,7 @@ struct glusterd_brickinfo {
         int     rdma_port;
         char   *logfile;
         gf_boolean_t signed_in;
-        glusterd_store_handle_t *shandle;
+        gf_store_handle_t *shandle;
         gf_brick_status_t status;
         struct rpc_clnt *rpc;
         int decommissioned;
@@ -273,9 +267,9 @@ struct glusterd_volinfo_ {
         int                     dist_leaf_count; /* Number of bricks in one
                                                     distribute subvolume */
         int                     port;
-        glusterd_store_handle_t *shandle;
-        glusterd_store_handle_t *rb_shandle;
-        glusterd_store_handle_t *node_state_shandle;
+        gf_store_handle_t *shandle;
+        gf_store_handle_t *rb_shandle;
+        gf_store_handle_t *node_state_shandle;
 
         /* Defrag/rebalance related */
         glusterd_rebalance_t    rebal;
