@@ -21,6 +21,7 @@ struct gf_store_handle_ {
         char    *path;
         int     fd;
         FILE    *read;
+        int     locked;   /* state of lockf() */
 };
 
 typedef struct gf_store_handle_ gf_store_handle_t;
@@ -98,5 +99,14 @@ gf_store_iter_destroy (gf_store_iter_t *iter);
 
 char*
 gf_store_strerror (gf_store_op_errno_t op_errno);
+
+int
+gf_store_lock (gf_store_handle_t *sh);
+
+void
+gf_store_unlock (gf_store_handle_t *sh);
+
+int
+gf_store_locked_local (gf_store_handle_t *sh);
 
 #endif

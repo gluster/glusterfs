@@ -221,7 +221,12 @@ gf_store_retrieve_value (gf_store_handle_t *handle, char *key, char **value)
 
         GF_ASSERT (handle);
 
-        handle->fd = open (handle->path, O_RDWR);
+        if (handle->locked == F_ULOCK)
+                /* no locking is used handle->fd gets closed() after usage */
+                handle->fd = open (handle->path, O_RDWR);
+        else
+                /* handle->fd is valid already, kept open for lockf() */
+                lseek (handle->fd, 0, SEEK_SET);
 
         if (handle->fd == -1) {
                 gf_log ("", GF_LOG_ERROR, "Unable to open file %s errno: %s",
@@ -229,7 +234,9 @@ gf_store_retrieve_value (gf_store_handle_t *handle, char *key, char **value)
                 goto out;
         }
         if (!handle->read)
-                handle->read = fdopen (handle->fd, "r");
+                handle->read = fdopen (dup(handle->fd), "r");
+        else
+                fseek (handle->read, 0, SEEK_SET);
 
         if (!handle->read) {
                 gf_log ("", GF_LOG_ERROR, "Unable to open file %s errno: %s",
@@ -278,9 +285,14 @@ gf_store_retrieve_value (gf_store_handle_t *handle, char *key, char **value)
                 }
         } while (1);
 out:
-        if (handle->fd > 0) {
-                close (handle->fd);
+        if (handle->read) {
+                fclose (handle->read);
                 handle->read = NULL;
+        }
+
+        if (handle->fd > 0 && handle->locked == F_ULOCK) {
+                /* only invalidate handle->fd if not locked */
+                close (handle->fd);
         }
 
         GF_FREE (free_str);
@@ -366,6 +378,7 @@ gf_store_handle_new (char *path, gf_store_handle_t **handle)
                 goto out;
 
         shandle->path = spath;
+        shandle->locked = F_ULOCK;
         *handle = shandle;
 
         ret = 0;
@@ -629,4 +642,50 @@ gf_store_strerror (gf_store_op_errno_t op_errno)
                 return "Invalid errno";
         }
         return "Invalid errno";
+}
+
+int
+gf_store_lock (gf_store_handle_t *sh)
+{
+        int                     ret;
+
+        GF_ASSERT (sh);
+        GF_ASSERT (sh->path);
+        GF_ASSERT (sh->locked == F_ULOCK);
+
+        sh->fd = open (sh->path, O_RDWR);
+        if (sh->fd == -1) {
+                gf_log ("", GF_LOG_ERROR, "Failed to open '%s': %s", sh->path,
+                        strerror (errno));
+                return -1;
+        }
+
+        ret = lockf (sh->fd, F_LOCK, 0);
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, "Failed to gain lock on '%s': %s",
+                        sh->path, strerror (errno));
+        else
+                /* sh->locked is protected by the lockf(sh->fd) above */
+                sh->locked = F_LOCK;
+
+        return ret;
+}
+
+void
+gf_store_unlock (gf_store_handle_t *sh)
+{
+        GF_ASSERT (sh);
+        GF_ASSERT (sh->locked == F_LOCK);
+
+        sh->locked = F_ULOCK;
+        lockf (sh->fd, F_ULOCK, 0);
+        close (sh->fd);
+}
+
+int
+gf_store_locked_local (gf_store_handle_t *sh)
+{
+        GF_ASSERT (sh);
+
+        return (sh->locked == F_LOCK);
 }
