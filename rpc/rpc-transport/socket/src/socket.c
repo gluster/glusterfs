@@ -509,8 +509,9 @@ __socket_rwv (rpc_transport_t *this, struct iovec *vector, int count,
 
                         if (write || (!write && priv->read_fail_log))
                                 gf_log (this->name, GF_LOG_WARNING,
-                                        "%s failed (%s)",
+                                        "%s on %s failed (%s)",
                                         write ? "writev":"readv",
+                                        this->peerinfo.identifier,
                                         strerror (errno));
 			if (priv->use_ssl) {
 				ssl_dump_error_stack(this->name);
@@ -2764,8 +2765,8 @@ socket_connect (rpc_transport_t *this, int port)
 
                 if (ret == -1 && ((errno != EINPROGRESS) && (errno != ENOENT))) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "connection attempt failed (%s)",
-                                strerror (errno));
+                                "connection attempt on %s failed, (%s)",
+                                this->peerinfo.identifier, strerror (errno));
                         close (priv->sock);
                         priv->sock = -1;
                         goto unlock;
