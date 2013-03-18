@@ -913,10 +913,8 @@ init (xlator_t *this)
         int                first_time        = 0;
         char              *mountbroker_root  = NULL;
         int                i                 = 0;
-
-#ifdef DEBUG
         char              *valgrind_str      = NULL;
-#endif
+
         dir_data = dict_get (this->options, "working-directory");
 
         if (!dir_data) {
@@ -1098,7 +1096,6 @@ init (xlator_t *this)
                 goto out;
 
         /* Set option to run bricks on valgrind if enabled in glusterd.vol */
-#ifdef DEBUG
         conf->valgrind = _gf_false;
         ret = dict_get_str (this->options, "run-with-valgrind", &valgrind_str);
         if (ret < 0) {
@@ -1111,7 +1108,6 @@ init (xlator_t *this)
                                 "run-with-valgrind value not a boolean string");
                 }
         }
-#endif
 
         this->private = conf;
         (void) glusterd_nodesvc_set_online_status ("glustershd", _gf_false);
@@ -1289,11 +1285,9 @@ struct volume_options options[] = {
         { .key = {GEOREP"-log-group"},
           .type = GF_OPTION_TYPE_ANY,
         },
-#ifdef DEBUG
         { .key = {"run-with-valgrind"},
           .type = GF_OPTION_TYPE_BOOL,
         },
-#endif
         { .key = {"server-quorum-type"},
           .type = GF_OPTION_TYPE_STR,
           .value = { "none", "server"},
