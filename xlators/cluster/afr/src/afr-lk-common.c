@@ -863,8 +863,8 @@ afr_lock_lower_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         UNLOCK (&frame->lock);
 
         if (op_ret != 0) {
-                afr_copy_locked_nodes (frame, this);
-                afr_unlock (frame, this);
+                //No need to lock higher name, move on to next one
+                afr_lock_blocking (frame, this, child_index + 1);
                 goto out;
         } else {
                 int_lock->lower_locked_nodes[child_index] |= LOCKED_LOWER;
@@ -946,6 +946,38 @@ afr_copy_locked_nodes (call_frame_t *frame, xlator_t *this)
 
 }
 
+static gf_boolean_t
+did_blocking_lock_fail (call_frame_t *frame, xlator_t *this)
+{
+        int                 i         = 0;
+        afr_local_t         *local    = NULL;
+        afr_internal_lock_t *int_lock = NULL;
+        afr_private_t       *priv     = NULL;
+        unsigned char       *lower    = NULL;
+        unsigned char       *higher   = NULL;
+
+        local    = frame->local;
+        int_lock = &local->internal_lock;
+        priv     = this->private;
+
+        if (local->transaction.type != AFR_ENTRY_RENAME_TRANSACTION) {
+                if (int_lock->lock_count == 0)
+                        return _gf_true;
+                else
+                        return _gf_false;
+        }
+
+        //Rename lock is successful when at least on one subvolume both lower
+        //and higher locks are acquired.
+        lower = int_lock->lower_locked_nodes;
+        higher = int_lock->locked_nodes;
+        for (i = 0; i < priv->child_count; i++) {
+                if ((lower[i] & LOCKED_LOWER) && (higher[i] & LOCKED_YES))
+                        return _gf_false;
+        }
+        return _gf_true;
+}
+
 int
 afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
 {
@@ -1000,7 +1032,7 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
         }
 
         if ((child_index == priv->child_count) &&
-            int_lock->lock_count == 0) {
+            did_blocking_lock_fail (frame, this)) {
 
                 gf_log (this->name, GF_LOG_INFO,
                         "unable to lock on even one child");
