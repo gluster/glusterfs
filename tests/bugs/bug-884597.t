@@ -107,3 +107,45 @@ BACKEND_UID=`stat --printf=%u $B0/${V0}$cached/link$i`;
 BACKEND_GID=`stat --printf=%g $B0/${V0}$cached/link$i`;
 
 EXPECT "0" uid_gid_compare $NEW_UID $NEW_GID $BACKEND_UID $BACKEND_GID
+
+## UID/GID creation as different user
+i=1
+NEW_UID=36
+NEW_GID=36
+
+TEST touch $M0/user_file1
+TEST chown $NEW_UID:$NEW_GID $M0/user_file1;
+
+## Give permission on volume, so that different users can perform rename
+
+TEST chmod 0777 $M0
+
+## Add a user known as ABC and perform renames
+TEST `useradd -M ABC 2>/dev/null`
+
+TEST cd $M0
+## rename as different user till file gets a linkfile
+
+while [ $i -ne 0 ]
+do
+        su -c "mv $M0/user_file$i $M0/user_file$(( $i+1 ))" ABC
+        let i++
+        file_has_linkfile user_file$i
+        has_link=$?
+        if [ $has_link -eq 2 ]
+        then
+                break;
+        fi
+done
+
+## del user ABC
+TEST userdel ABC
+
+get_hashed_brick user_file$i
+cached=$?
+
+# check if uid/gid on linkfile is created with correct uid/gid
+BACKEND_UID=`stat --printf=%u $B0/${V0}$cached/user_file$i`;
+BACKEND_GID=`stat --printf=%g $B0/${V0}$cached/user_file$i`;
+
+EXPECT "0" uid_gid_compare $NEW_UID $NEW_GID $BACKEND_UID $BACKEND_GID
