@@ -564,7 +564,7 @@ dht_selfheal_layout_maximize_overlap (call_frame_t *frame, loc_t *loc,
         if (!table) {
                 return;
         }
-        memset(table,0,sizeof(overlap)*new->cnt*new->cnt);
+        memset(table,0,sizeof(overlap)*old->cnt*new->cnt);
         for (i = 0; i < new->cnt; ++i) {
                 for (j = 0; j < old->cnt; ++j) {
                         OV_ENTRY(i,j) = dht_overlap_calc(old,j,new,i);
