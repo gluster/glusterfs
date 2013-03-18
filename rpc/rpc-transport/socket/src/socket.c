@@ -2456,7 +2456,8 @@ socket_server_event_handler (int fd, int idx, void *data,
                                 }
                         }
 
-                        if (priv->keepalive) {
+                        if (priv->keepalive &&
+                            new_sockaddr.ss_family != AF_UNIX) {
                                 ret = __socket_keepalive (new_sock,
                                                           new_sockaddr.ss_family,
                                                           priv->keepaliveintvl,
@@ -2725,7 +2726,7 @@ socket_connect (rpc_transport_t *this, int port)
                         }
                 }
 
-                if (priv->keepalive) {
+                if (priv->keepalive && sa_family != AF_UNIX) {
                         ret = __socket_keepalive (priv->sock,
                                                   sa_family,
                                                   priv->keepaliveintvl,
