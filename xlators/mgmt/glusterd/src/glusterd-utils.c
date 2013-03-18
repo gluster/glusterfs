@@ -1229,9 +1229,8 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         int                     rdma_port = 0;
         char                    socketpath[PATH_MAX] = {0};
         char                    glusterd_uuid[1024] = {0,};
-#ifdef DEBUG
         char                    valgrind_logfile[PATH_MAX] = {0};
-#endif
+
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
 
@@ -1255,7 +1254,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 port = pmap_registry_alloc (THIS);
 
         runinit (&runner);
-#ifdef DEBUG
+
         if (priv->valgrind) {
                 /* Run bricks with valgrind */
                 if (volinfo->logdir) {
@@ -1271,10 +1270,11 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 }
 
                 runner_add_args (&runner, "valgrind", "--leak-check=full",
-                                "--trace-children=yes", NULL);
+                                 "--trace-children=yes", "--track-origins=yes",
+                                 NULL);
                 runner_argprintf (&runner, "--log-file=%s", valgrind_logfile);
         }
-#endif
+
         GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, exp_path);
         snprintf (volfile, PATH_MAX, "%s.%s.%s", volinfo->volname,
                   brickinfo->hostname, exp_path);
@@ -1291,6 +1291,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
 
         glusterd_set_brick_socket_filepath (volinfo, brickinfo, socketpath,
                                             sizeof (socketpath));
+
         (void) snprintf (glusterd_uuid, 1024, "*-posix.glusterd-uuid=%s",
                          uuid_utoa (MY_UUID));
         runner_add_args (&runner, SBIN_DIR"/glusterfsd",
@@ -3353,9 +3354,7 @@ glusterd_nodesvc_start (char *server)
         char                    sockfpath[PATH_MAX] = {0,};
         char                    volfileid[256]             = {0};
         char                    glusterd_uuid_option[1024] = {0};
-#ifdef DEBUG
         char                    valgrind_logfile[PATH_MAX] = {0};
-#endif
 
         this = THIS;
         GF_ASSERT(this);
@@ -3392,7 +3391,6 @@ glusterd_nodesvc_start (char *server)
 
         runinit (&runner);
 
-#ifdef DEBUG
         if (priv->valgrind) {
                 snprintf (valgrind_logfile, PATH_MAX,
                           "%s/valgrind-%s.log",
@@ -3400,10 +3398,10 @@ glusterd_nodesvc_start (char *server)
                           server);
 
                 runner_add_args (&runner, "valgrind", "--leak-check=full",
-                                 "--trace-children=yes", NULL);
+                                 "--trace-children=yes", "--track-origins=yes",
+                                 NULL);
                 runner_argprintf (&runner, "--log-file=%s", valgrind_logfile);
         }
-#endif
 
         runner_add_args (&runner, SBIN_DIR"/glusterfs",
                          "-s", "localhost",

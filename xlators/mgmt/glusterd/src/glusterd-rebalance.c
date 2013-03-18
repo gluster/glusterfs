@@ -174,9 +174,8 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         char                   pidfile[PATH_MAX] = {0,};
         char                   logfile[PATH_MAX] = {0,};
         dict_t                 *options = NULL;
-#ifdef DEBUG
         char                   valgrind_logfile[PATH_MAX] = {0,};
-#endif
+
         priv    = THIS->private;
 
         GF_ASSERT (volinfo);
@@ -218,7 +217,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         snprintf (logfile, PATH_MAX, "%s/%s-rebalance.log",
                     DEFAULT_LOG_FILE_DIRECTORY, volinfo->volname);
         runinit (&runner);
-#ifdef DEBUG
+
         if (priv->valgrind) {
                 snprintf (valgrind_logfile, PATH_MAX,
                           "%s/valgrind-%s-rebalance.log",
@@ -226,10 +225,10 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                           volinfo->volname);
 
                 runner_add_args (&runner, "valgrind", "--leak-check=full",
-                                 "--trace-children=yes", NULL);
+                                 "--trace-children=yes", "--track-origins=yes",
+                                 NULL);
                 runner_argprintf (&runner, "--log-file=%s", valgrind_logfile);
         }
-#endif
 
         runner_add_args (&runner, SBIN_DIR"/glusterfs",
                          "-s", "localhost", "--volfile-id", volinfo->volname,

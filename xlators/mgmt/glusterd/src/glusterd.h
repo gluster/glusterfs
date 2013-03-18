@@ -143,9 +143,7 @@ typedef struct {
         struct rpc_clnt_program *gfs_mgmt;
 
         struct list_head mount_specs;
-#ifdef DEBUG
         gf_boolean_t      valgrind;
-#endif
         pthread_t       brick_thread;
         void           *hooks_priv;
         /* need for proper handshake_t */
