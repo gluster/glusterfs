@@ -264,6 +264,7 @@ xlator_dynload (xlator_t *xl)
                 gf_log (xl->name, GF_LOG_TRACE,
                         "Strict option validation not enforced -- neglecting");
         }
+        INIT_LIST_HEAD (&vol_opt->list);
         list_add_tail (&vol_opt->list, &xl->volume_options);
 
         fill_defaults (xl);
