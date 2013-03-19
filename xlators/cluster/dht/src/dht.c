@@ -489,6 +489,7 @@ init (xlator_t *this)
         if (!conf) {
                 goto err;
         }
+        memset (conf, 0, sizeof(*conf));
 
         ret = dict_get_int32 (this->options, "rebalance-cmd", &cmd);
 
@@ -602,6 +603,13 @@ init (xlator_t *this)
                 goto err;
         }
 
+        GF_OPTION_INIT ("xattr-name", conf->xattr_name, str, err);
+        gf_asprintf (&conf->link_xattr_name, "%s.linkto", conf->xattr_name);
+        gf_asprintf (&conf->wild_xattr_name, "%s*", conf->xattr_name);
+        if (!conf->link_xattr_name || !conf->wild_xattr_name) {
+                goto err;
+        }
+
         this->private = conf;
 
         return 0;
@@ -622,6 +630,10 @@ err:
                 GF_FREE (conf->du_stats);
 
                 GF_FREE (conf->defrag);
+
+                GF_FREE (conf->xattr_name);
+                GF_FREE (conf->link_xattr_name);
+                GF_FREE (conf->wild_xattr_name);
 
                 GF_FREE (conf);
         }
@@ -780,6 +792,13 @@ struct volume_options options[] = {
         },
         { .key = {"rebalance-filter"},
           .type = GF_OPTION_TYPE_STR,
+        },
+        { .key = {"xattr-name"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = "trusted.glusterfs.dht",
+          .description = "Base for extended attributes used by this "
+          "translator instance, to avoid conflicts with others above or "
+          "below it."
         },
 
         { .key  = {NULL} },

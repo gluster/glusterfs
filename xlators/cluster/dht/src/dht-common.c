@@ -226,6 +226,7 @@ dht_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           is_dir                  = 0;
         int           is_linkfile             = 0;
         int           attempt_unwind          = 0;
+        dht_conf_t   *conf                    = 0;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, out);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -235,6 +236,7 @@ dht_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
         prev  = cookie;
+        conf = this->private;
 
         layout = local->layout;
 
@@ -269,7 +271,8 @@ dht_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto unlock;
                 }
 
-                is_linkfile = check_is_linkfile (inode, stbuf, xattr);
+                is_linkfile = check_is_linkfile (inode, stbuf, xattr,
+                                                 conf->link_xattr_name);
                 is_dir = check_is_dir (inode, stbuf, xattr);
 
                 if (is_dir) {
@@ -328,23 +331,20 @@ dht_discover (call_frame_t *frame, xlator_t *this, loc_t *loc)
         int          i = 0;
         call_frame_t *discover_frame = NULL;
 
-
         conf = this->private;
         local = frame->local;
 
-        ret = dict_set_uint32 (local->xattr_req,
-                               "trusted.glusterfs.dht", 4 * 4);
+        ret = dict_set_uint32 (local->xattr_req, conf->xattr_name, 4 * 4);
         if (ret)
                 gf_log (this->name, GF_LOG_WARNING,
-                        "%s: failed to set 'trusted.glusterfs.dht' key",
-                        loc->path);
+                        "%s: failed to set '%s' key",
+                        loc->path, conf->xattr_name);
 
-        ret = dict_set_uint32 (local->xattr_req,
-                               "trusted.glusterfs.dht.linkto", 256);
+        ret = dict_set_uint32 (local->xattr_req, conf->link_xattr_name, 256);
         if (ret)
                 gf_log (this->name, GF_LOG_WARNING,
-                        "%s: failed to set 'trusted.glusterfs.dht.linkto' key",
-                        loc->path);
+                        "%s: failed to set '%s' key",
+                        loc->path, conf->link_xattr_name);
 
         call_cnt        = conf->subvolume_cnt;
         local->call_cnt = call_cnt;
@@ -585,7 +585,8 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 layout = local->layout;
 
                 is_dir = check_is_dir (inode, stbuf, xattr);
-                is_linkfile = check_is_linkfile (inode, stbuf, xattr);
+                is_linkfile = check_is_linkfile (inode, stbuf, xattr,
+                                                 conf->link_xattr_name);
 
                 if (is_linkfile) {
                         gf_log (this->name, GF_LOG_INFO,
@@ -597,7 +598,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 if (is_dir) {
-                        ret = dht_dir_has_layout (xattr);
+                        ret = dht_dir_has_layout (xattr, conf->xattr_name);
                         if (ret >= 0) {
                                 if (is_greater_time(local->stbuf.ia_ctime,
                                                     local->stbuf.ia_ctime_nsec,
@@ -886,7 +887,7 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                 hashed_subvol->name);
 
         ret = dht_linkfile_create (frame,
-                                   dht_lookup_linkfile_create_cbk,
+                                   dht_lookup_linkfile_create_cbk, this,
                                    cached_subvol, hashed_subvol, &local->loc);
 
         return ret;
@@ -924,8 +925,9 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         xlator_t     *subvol        = NULL;
         loc_t        *loc           = NULL;
         xlator_t     *link_subvol   = NULL;
-        int           ret = -1;
-        int32_t       fd_count = 0;
+        int           ret           = -1;
+        int32_t       fd_count      = 0;
+        dht_conf_t   *conf          = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, out);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -935,6 +937,7 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local  = frame->local;
         loc    = &local->loc;
+        conf   = this->private;
 
         prev   = cookie;
         subvol = prev->this;
@@ -956,7 +959,8 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 loc->path, prev->this->name);
                 }
 
-                is_linkfile = check_is_linkfile (inode, buf, xattr);
+                is_linkfile = check_is_linkfile (inode, buf, xattr,
+                                                 conf->link_xattr_name);
                 is_dir = check_is_dir (inode, buf, xattr);
 
                 if (is_linkfile) {
@@ -1117,7 +1121,7 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
                 goto err;
         }
 
-        if (check_is_linkfile (inode, stbuf, xattr)) {
+        if (check_is_linkfile (inode, stbuf, xattr, conf->link_xattr_name)) {
                 gf_log (this->name, GF_LOG_INFO,
                         "lookup of %s on %s (following linkfile) reached link",
                         local->loc.path, subvol->name);
@@ -1294,7 +1298,8 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        is_linkfile = check_is_linkfile (inode, stbuf, xattr);
+        is_linkfile = check_is_linkfile (inode, stbuf, xattr,
+                                         conf->link_xattr_name);
 
         if (!is_linkfile) {
                 /* non-directory and not a linkfile */
@@ -1474,7 +1479,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                  *       revalidates directly go to the cached-subvolume.
                  */
                 ret = dict_set_uint32 (local->xattr_req,
-                                       "trusted.glusterfs.dht", 4 * 4);
+                                       conf->xattr_name, 4 * 4);
 
                 if (IA_ISDIR (local->inode->ia_type)) {
                         local->call_cnt = call_cnt = conf->subvolume_cnt;
@@ -1509,10 +1514,10 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
         do_fresh_lookup:
                 /* TODO: remove the hard-coding */
                 ret = dict_set_uint32 (local->xattr_req,
-                                       "trusted.glusterfs.dht", 4 * 4);
+                                       conf->xattr_name, 4 * 4);
 
                 ret = dict_set_uint32 (local->xattr_req,
-                                       DHT_LINKFILE_KEY, 256);
+                                       conf->link_xattr_name, 256);
 
                 /* need it for self-healing linkfiles which is
                    'in-migration' state */
@@ -2009,10 +2014,13 @@ dht_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         int             this_call_cnt = 0;
         dht_local_t     *local = NULL;
+        dht_conf_t      *conf = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (frame->local, out);
+        VALIDATE_OR_GOTO (this->private, out);
 
+        conf = this->private;
         local = frame->local;
 
         this_call_cnt = dht_frame_return (frame);
@@ -2020,8 +2028,8 @@ dht_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!xattr || (op_ret == -1))
                 goto out;
 
-        if (dict_get (xattr, "trusted.glusterfs.dht")) {
-                dict_del (xattr, "trusted.glusterfs.dht");
+        if (dict_get (xattr, conf->xattr_name)) {
+                dict_del (xattr, conf->xattr_name);
         }
         local->op_ret = 0;
 
@@ -2308,13 +2316,17 @@ dht_fsetxattr (call_frame_t *frame, xlator_t *this,
         xlator_t     *subvol   = NULL;
         dht_local_t  *local    = NULL;
         int           op_errno = EINVAL;
+        dht_conf_t   *conf     = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
+        VALIDATE_OR_GOTO (this->private, err);
 
-        GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.dht*", xattr,
+        conf = this->private;
+
+        GF_IF_INTERNAL_XATTR_GOTO (conf->wild_xattr_name, xattr,
                                    op_errno, err);
 
         local = dht_local_init (frame, NULL, fd, GF_FOP_FSETXATTR);
@@ -2420,10 +2432,11 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
-        GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.dht*", xattr,
+        conf   = this->private;
+
+        GF_IF_INTERNAL_XATTR_GOTO (conf->wild_xattr_name, xattr,
                                    op_errno, err);
 
-        conf   = this->private;
         local = dht_local_init (frame, loc, NULL, GF_FOP_SETXATTR);
         if (!local) {
                 op_errno = ENOMEM;
@@ -2636,13 +2649,16 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
         dht_local_t  *local = NULL;
         dht_layout_t *layout = NULL;
         int           call_cnt = 0;
+        dht_conf_t   *conf = NULL;
 
         int i;
 
         VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (this->private, err);
 
-        GF_IF_NATIVE_XATTR_GOTO ("trusted.glusterfs.dht*",
-                                 key, op_errno, err);
+        conf = this->private;
+
+        GF_IF_NATIVE_XATTR_GOTO (conf->wild_xattr_name, key, op_errno, err);
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (loc, err);
@@ -2699,13 +2715,16 @@ dht_fremovexattr (call_frame_t *frame, xlator_t *this,
         dht_local_t  *local = NULL;
         dht_layout_t *layout = NULL;
         int           call_cnt = 0;
+        dht_conf_t   *conf = 0;
 
         int i;
 
         VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (this->private, err);
 
-        GF_IF_NATIVE_XATTR_GOTO ("trusted.glusterfs.dht*",
-                                 key, op_errno, err);
+        conf = this->private;
+
+        GF_IF_NATIVE_XATTR_GOTO (conf->wild_xattr_name, key, op_errno, err);
 
         VALIDATE_OR_GOTO (frame, err);
 
@@ -2996,10 +3015,13 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
         list_for_each_entry (orig_entry, (&orig_entries->list), list) {
                 next_offset = orig_entry->d_off;
-                if ((check_is_dir (NULL, (&orig_entry->d_stat), NULL) &&
-                     (prev->this != dht_first_up_subvol (this))) ||
-                    check_is_linkfile (NULL, (&orig_entry->d_stat),
-                                       orig_entry->dict)) {
+                if (check_is_dir (NULL, (&orig_entry->d_stat), NULL) &&
+                    (prev->this != dht_first_up_subvol (this))) {
+                        continue;
+                }
+                if (check_is_linkfile (NULL, (&orig_entry->d_stat),
+                                       orig_entry->dict,
+                                       conf->link_xattr_name)) {
                         continue;
                 }
 
@@ -3215,6 +3237,7 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
+        VALIDATE_OR_GOTO (this->private, err);
 
         conf = this->private;
 
@@ -3239,12 +3262,11 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
                 if (local->xattr) {
                         ret = dict_set_uint32 (local->xattr,
-                                               "trusted.glusterfs.dht.linkto",
-                                               256);
+                                               conf->link_xattr_name, 256);
                         if (ret)
                                 gf_log (this->name, GF_LOG_WARNING,
-                                        "failed to set 'glusterfs.dht.linkto'"
-                                        " key");
+                                        "failed to set '%s' key",
+                                        conf->link_xattr_name);
 			if (conf->readdir_optimize == _gf_true) {
                                 if (xvol != dht_first_up_subvol (this)) {
 				        ret = dict_set_int32 (local->xattr,
@@ -3522,7 +3544,7 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
                         local->umask = umask;
                         dht_linkfile_create (frame,
                                              dht_mknod_linkfile_create_cbk,
-                                             avail_subvol, subvol, loc);
+                                             this, avail_subvol, subvol, loc);
                 } else {
                         gf_log (this->name, GF_LOG_TRACE,
                                 "creating %s on %s", loc->path, subvol->name);
@@ -3781,7 +3803,7 @@ dht_link (call_frame_t *frame, xlator_t *this,
 
         if (hashed_subvol != cached_subvol) {
                 uuid_copy (local->gfid, oldloc->inode->gfid);
-                dht_linkfile_create (frame, dht_link_linkfile_cbk,
+                dht_linkfile_create (frame, dht_link_linkfile_cbk, this,
                                      cached_subvol, hashed_subvol, newloc);
         } else {
                 STACK_WIND (frame, dht_link_cbk,
@@ -3942,9 +3964,8 @@ dht_create (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_TRACE,
                         "creating %s on %s (link at %s)", loc->path,
                         avail_subvol->name, subvol->name);
-                dht_linkfile_create (frame,
-                                     dht_create_linkfile_create_cbk,
-                                     avail_subvol, subvol, loc);
+                dht_linkfile_create (frame, dht_create_linkfile_create_cbk,
+                                     this, avail_subvol, subvol, loc);
                 goto done;
         }
         gf_log (this->name, GF_LOG_TRACE,
@@ -4483,6 +4504,7 @@ dht_rmdir_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_frame_t   *main_frame = NULL;
         dht_local_t    *main_local = NULL;
         int             this_call_cnt = 0;
+        dht_conf_t     *conf = this->private;
 
         local = frame->local;
         prev  = cookie;
@@ -4494,7 +4516,7 @@ dht_rmdir_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret != 0)
                 goto err;
 
-        if (check_is_linkfile (inode, stbuf, xattr) == 0) {
+        if (!check_is_linkfile (inode, stbuf, xattr, conf->link_xattr_name)) {
                 main_local->op_ret  = -1;
                 main_local->op_errno = ENOTEMPTY;
 
@@ -4529,6 +4551,7 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
         dht_local_t        *lookup_local = NULL;
         dht_local_t        *local = NULL;
         dict_t             *xattrs = NULL;
+        dht_conf_t         *conf = this->private;
 
         local = frame->local;
 
@@ -4537,7 +4560,8 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                         continue;
                 if (strcmp (trav->d_name, "..") == 0)
                         continue;
-                if (check_is_linkfile (NULL, (&trav->d_stat), trav->dict)) {
+                if (check_is_linkfile (NULL, (&trav->d_stat), trav->dict,
+                                              conf->link_xattr_name)) {
                         ret++;
                         continue;
                 }
@@ -4555,7 +4579,7 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                 return -1;
         }
 
-        ret = dict_set_uint32 (xattrs, DHT_LINKFILE_KEY, 256);
+        ret = dict_set_uint32 (xattrs, conf->link_xattr_name, 256);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "failed to set linkto key"
                         " in dict");
@@ -4678,6 +4702,7 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_frame_t *prev = NULL;
         dict_t       *dict = NULL;
         int           ret = 0;
+        dht_conf_t   *conf = this->private;
 
         local = frame->local;
         prev  = cookie;
@@ -4701,12 +4726,11 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
         }
 
-        ret = dict_set_uint32 (dict,
-                               "trusted.glusterfs.dht.linkto", 256);
+        ret = dict_set_uint32 (dict, conf->link_xattr_name, 256);
         if (ret)
                 gf_log (this->name, GF_LOG_WARNING,
-                        "%s: failed to set 'trusted.glusterfs.dht.linkto' key",
-                        local->loc.path);
+                        "%s: failed to set '%s' key",
+                        local->loc.path, conf->link_xattr_name);
 
         STACK_WIND (frame, dht_rmdir_readdirp_cbk,
                     prev->this, prev->this->fops->readdirp,

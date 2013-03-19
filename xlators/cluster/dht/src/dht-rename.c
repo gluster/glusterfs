@@ -505,7 +505,8 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 uuid_copy (link_local->gfid, local->loc.inode->gfid);
 
                 dht_linkfile_create (link_frame, dht_rename_links_create_cbk,
-                                     src_cached, dst_hashed, &link_local->loc);
+                                     this, src_cached, dst_hashed,
+                                     &link_local->loc);
         }
 
 err:
@@ -759,7 +760,7 @@ dht_rename_create_links (call_frame_t *frame)
                         "linkfile %s @ %s => %s",
                         local->loc.path, dst_hashed->name, src_cached->name);
                 memcpy (local->gfid, local->loc.inode->gfid, 16);
-		dht_linkfile_create (frame, dht_rename_links_cbk,
+		dht_linkfile_create (frame, dht_rename_links_cbk, this,
 				     src_cached, dst_hashed, &local->loc);
 	}
 

@@ -43,12 +43,14 @@ dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
+                     xlator_t *this,
                      xlator_t *tovol, xlator_t *fromvol, loc_t *loc)
 {
         dht_local_t *local = NULL;
         dict_t      *dict = NULL;
         int          need_unref = 0;
         int          ret = 0;
+        dht_conf_t  *conf = this->private;
 
         local = frame->local;
         local->linkfile.linkfile_cbk = linkfile_cbk;
@@ -76,8 +78,7 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
                 gf_log ("dht-linkfile", GF_LOG_INFO,
                         "%s: internal-fop set failed", loc->path);
 
-        ret = dict_set_str (dict, "trusted.glusterfs.dht.linkto",
-                                   tovol->name);
+        ret = dict_set_str (dict, conf->link_xattr_name, tovol->name);
 
         if (ret < 0) {
                 gf_log (frame->this->name, GF_LOG_INFO,
@@ -179,7 +180,7 @@ dht_linkfile_subvol (xlator_t *this, inode_t *inode, struct iatt *stbuf,
         if (!xattr)
                 goto out;
 
-        ret = dict_get_ptr (xattr, "trusted.glusterfs.dht.linkto", &volname);
+        ret = dict_get_ptr (xattr, conf->link_xattr_name, &volname);
 
         if ((-1 == ret) || !volname)
                 goto out;

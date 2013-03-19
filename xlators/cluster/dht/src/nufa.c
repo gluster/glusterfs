@@ -52,7 +52,8 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1)
                 goto out;
 
-        is_linkfile = check_is_linkfile (inode, stbuf, xattr);
+        is_linkfile = check_is_linkfile (inode, stbuf, xattr,
+                                         conf->link_xattr_name);
         is_dir      = check_is_dir (inode, stbuf, xattr);
 
         if (!is_dir && !is_linkfile) {
@@ -201,7 +202,7 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
                  *       revalidates directly go to the cached-subvolume.
                  */
                 ret = dict_set_uint32 (local->xattr_req,
-                                       "trusted.glusterfs.dht", 4 * 4);
+                                       conf->xattr_name, 4 * 4);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to set dict value.");
@@ -222,7 +223,7 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
         } else {
         do_fresh_lookup:
                 ret = dict_set_uint32 (local->xattr_req,
-                                       "trusted.glusterfs.dht", 4 * 4);
+                                       conf->xattr_name, 4 * 4);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to set dict value.");
@@ -231,7 +232,7 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
                 }
 
                 ret = dict_set_uint32 (local->xattr_req,
-                                       "trusted.glusterfs.dht.linkto", 256);
+                                       conf->link_xattr_name, 256);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to set dict value.");
@@ -330,9 +331,8 @@ nufa_create (call_frame_t *frame, xlator_t *this,
                 local->flags = flags;
                 local->umask = umask;
                 local->cached_subvol = avail_subvol;
-                dht_linkfile_create (frame,
-                                     nufa_create_linkfile_create_cbk,
-                                     avail_subvol, subvol, loc);
+                dht_linkfile_create (frame, nufa_create_linkfile_create_cbk,
+                                     this, avail_subvol, subvol, loc);
                 return 0;
         }
 
@@ -437,7 +437,7 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
                 local->rdev = rdev;
                 local->cached_subvol = avail_subvol;
 
-                dht_linkfile_create (frame, nufa_mknod_linkfile_cbk,
+                dht_linkfile_create (frame, nufa_mknod_linkfile_cbk, this,
                                      avail_subvol, subvol, loc);
                 return 0;
         }
