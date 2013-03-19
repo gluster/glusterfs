@@ -24,17 +24,12 @@ from gluster.swift.common.fs_utils import mkdirs
 #
 _fs_conf = ConfigParser()
 MOUNT_IP = 'localhost'
-REMOTE_CLUSTER = False
 OBJECT_ONLY = False
 RUN_DIR='/var/run/swift'
 SWIFT_DIR = '/etc/swift'
 if _fs_conf.read(os.path.join('/etc/swift', 'fs.conf')):
     try:
         MOUNT_IP = _fs_conf.get('DEFAULT', 'mount_ip', 'localhost')
-    except (NoSectionError, NoOptionError):
-        pass
-    try:
-        REMOTE_CLUSTER = _fs_conf.get('DEFAULT', 'remote_cluster', False) in TRUE_VALUES
     except (NoSectionError, NoOptionError):
         pass
     try:
@@ -106,19 +101,12 @@ def unmount(full_mount_path):
         logging.error('Unable to unmount %s %s' % (full_mount_path, NAME))
 
 def _get_export_list():
-    if REMOTE_CLUSTER:
-        cmnd = 'gluster --remote-host=%s volume info' % MOUNT_IP
-    else:
-        cmnd = 'gluster volume info'
+    cmnd = 'gluster --remote-host=%s volume info' % MOUNT_IP
 
     export_list = []
 
     if os.system(cmnd + ' >> /dev/null'):
-        if REMOTE_CLUSTER:
-            logging.error('Getting volume info failed for %s, make sure '\
-                          'gluster --remote-host=%s works', NAME, MOUNT_IP)
-        else:
-            logging.error('Getting volume info failed for %s', NAME)
+        logging.error('Getting volume info failed for %s', NAME)
     else:
         fp = os.popen(cmnd)
         while True:

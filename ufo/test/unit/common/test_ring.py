@@ -38,6 +38,6 @@ class TestRing(unittest.TestCase):
             assert node[0]['device'] == 'test'
             part, node = self.ring.get_nodes('test2')
             assert node
-            assert node[0]['device'] == 'volume'
+            assert node[0]['device'] == 'volume_not_in_ring'
         finally:
             self.ring._devs = __devs
