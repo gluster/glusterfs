@@ -124,7 +124,7 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
         xlator_t          *this = NULL;
         int32_t           *disk_layout = NULL;
         dht_local_t       *local = NULL;
-
+        dht_conf_t        *conf = NULL;
 
         local = frame->local;
         if (req_subvol)
@@ -137,6 +137,9 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
         GF_VALIDATE_OR_GOTO (this->name, layout, err);
         GF_VALIDATE_OR_GOTO (this->name, local, err);
         GF_VALIDATE_OR_GOTO (this->name, subvol, err);
+        VALIDATE_OR_GOTO (this->private, err);
+
+        conf = this->private;
 
         xattr = get_new_dict ();
         if (!xattr) {
@@ -151,8 +154,7 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
                 goto err;
         }
 
-        ret = dict_set_bin (xattr, "trusted.glusterfs.dht",
-                            disk_layout, 4 * 4);
+        ret = dict_set_bin (xattr, conf->xattr_name, disk_layout, 4 * 4);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: (subvol %s) failed to set xattr dictionary",

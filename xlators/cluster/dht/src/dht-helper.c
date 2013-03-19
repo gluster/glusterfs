@@ -620,10 +620,12 @@ dht_migration_complete_check_task (void *data)
         call_frame_t *frame    = NULL;
         loc_t         tmp_loc  = {0,};
         char         *path     = NULL;
+        dht_conf_t   *conf     = NULL;
 
         this  = THIS;
         frame = data;
         local = frame->local;
+        conf = this->private;
 
         src_node = local->cached_subvol;
 
@@ -633,10 +635,10 @@ dht_migration_complete_check_task (void *data)
         /* getxattr on cached_subvol for 'linkto' value */
         if (!local->loc.inode)
                 ret = syncop_fgetxattr (src_node, local->fd, &dict,
-                                        DHT_LINKFILE_KEY);
+                                        conf->link_xattr_name);
         else
                 ret = syncop_getxattr (src_node, &local->loc, &dict,
-                                       DHT_LINKFILE_KEY);
+                                       conf->link_xattr_name);
 
         if (!ret)
                 dst_node = dht_linkfile_subvol (this, NULL, NULL, dict);
@@ -801,10 +803,12 @@ dht_rebalance_inprogress_task (void *data)
         char         *path     = NULL;
         struct iatt   stbuf    = {0,};
         loc_t         tmp_loc  = {0,};
+        dht_conf_t   *conf     = NULL;
 
         this  = THIS;
         frame = data;
         local = frame->local;
+        conf = this->private;
 
         src_node = local->cached_subvol;
 
@@ -814,10 +818,10 @@ dht_rebalance_inprogress_task (void *data)
         /* getxattr on cached_subvol for 'linkto' value */
         if (local->loc.inode)
                 ret = syncop_getxattr (src_node, &local->loc, &dict,
-                                       DHT_LINKFILE_KEY);
+                                       conf->link_xattr_name);
         else
                 ret = syncop_fgetxattr (src_node, local->fd, &dict,
-                                        DHT_LINKFILE_KEY);
+                                        conf->link_xattr_name);
 
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,

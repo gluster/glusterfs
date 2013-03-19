@@ -290,6 +290,11 @@ struct dht_conf {
         gf_boolean_t    rsync_regex_valid;
         regex_t         extra_regex;
         gf_boolean_t    extra_regex_valid;
+
+        /* Support variable xattr names. */
+        char            *xattr_name;
+        char            *link_xattr_name;
+        char            *wild_xattr_name;
 };
 typedef struct dht_conf dht_conf_t;
 
@@ -320,13 +325,12 @@ typedef enum {
 #define DHT_MIGRATION_IN_PROGRESS 1
 #define DHT_MIGRATION_COMPLETED   2
 
-#define DHT_LINKFILE_KEY         "trusted.glusterfs.dht.linkto"
 #define DHT_LINKFILE_MODE        (S_ISVTX)
 
-#define check_is_linkfile(i,s,x) (                                      \
+#define check_is_linkfile(i,s,x,n) (                                      \
                 ((st_mode_from_ia ((s)->ia_prot, (s)->ia_type) & ~S_IFMT) \
-                 == DHT_LINKFILE_MODE) &&                               \
-                dict_get (x, DHT_LINKFILE_KEY))
+                 == DHT_LINKFILE_MODE) &&                                 \
+                dict_get (x, n))
 
 #define IS_DHT_MIGRATION_PHASE2(buf)  (                                 \
                 IA_ISREG ((buf)->ia_type) &&                            \
@@ -438,7 +442,8 @@ int       dht_subvol_cnt (xlator_t *this, xlator_t *subvol);
 int dht_hash_compute (xlator_t *this, int type, const char *name, uint32_t *hash_p);
 
 int dht_linkfile_create (call_frame_t    *frame, fop_mknod_cbk_t linkfile_cbk,
-                         xlator_t        *tovol, xlator_t *fromvol, loc_t *loc);
+                         xlator_t        *this, xlator_t *tovol,
+                         xlator_t        *fromvol, loc_t *loc);
 int                                       dht_lookup_directory (call_frame_t *frame, xlator_t *this, loc_t *loc);
 int                                       dht_lookup_everywhere (call_frame_t *frame, xlator_t *this, loc_t *loc);
 int
@@ -740,7 +745,7 @@ dht_dir_attr_heal (void *data);
 int
 dht_dir_attr_heal_done (int ret, call_frame_t *sync_frame, void *data);
 int
-dht_dir_has_layout (dict_t *xattr);
+dht_dir_has_layout (dict_t *xattr, char *name);
 gf_boolean_t
 dht_is_subvol_in_layout (dht_layout_t *layout, xlator_t *xlator);
 xlator_t *
