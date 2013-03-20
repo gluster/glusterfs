@@ -1235,8 +1235,12 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         goto done;
                 } else {
                         snprintf (msg, sizeof (msg),
-                                 "Stopped rebalance process on volume %s \n",
-                                  volname);
+                                  "rebalance process may be in the middle of a "
+                                  "file migration.\nThe process will be fully "
+                                  "stopped once the migration of the file is "
+                                  "complete.\nPlease check rebalance process "
+                                  "for completion before doing any further "
+                                  "brick related tasks on the volume.");
                 }
         }
         if (cmd == GF_DEFRAG_CMD_STATUS) {
@@ -1652,6 +1656,11 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
         uint64_t                 failures = 0;
         double                   elapsed = 0;
         char                    *size_str = NULL;
+        int32_t                  command = 0;
+        gf1_op_commands          cmd = GF_OP_CMD_NONE;
+        cli_local_t             *local = NULL;
+        call_frame_t            *frame = NULL;
+        char                    *cmd_str = "unknown";
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -1664,14 +1673,33 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        frame = myframe;
+        if (frame)
+                local = frame->local;
+        ret = dict_get_int32 (local->dict, "command", &command);
+        if (ret)
+                goto out;
+        cmd = command;
+
+        switch (cmd) {
+        case GF_OP_CMD_STOP:
+                cmd_str = "stop";
+                break;
+        case GF_OP_CMD_STATUS:
+                cmd_str = "status";
+                break;
+        default:
+                break;
+        }
+
         ret = rsp.op_ret;
         if (rsp.op_ret == -1) {
                 if (strcmp (rsp.op_errstr, ""))
-                        snprintf (msg, sizeof (msg), "volume remove-brick: "
-                                  "failed: %s", rsp.op_errstr);
+                        snprintf (msg, sizeof (msg), "volume remove-brick %s: "
+                                  "failed: %s", cmd_str, rsp.op_errstr);
                 else
-                        snprintf (msg, sizeof (msg), "volume remove-brick: "
-                                  "failed: status getting failed");
+                        snprintf (msg, sizeof (msg), "volume remove-brick %s: "
+                                  "failed", cmd_str);
 
                 if (global_state->mode & GLUSTER_MODE_XML)
                         goto xml_output;
@@ -1804,6 +1832,15 @@ xml_output:
 
                 i++;
         } while (i <= counter);
+
+        if ((cmd == GF_OP_CMD_STOP) && (rsp.op_ret == 0)) {
+                cli_out ("'remove-brick' process may be in the middle of a "
+                         "file migration.\nThe process will be fully stopped "
+                         "once the migration of the file is complete.\nPlease "
+                         "check remove-brick process for completion before "
+                         "doing any further brick related tasks on the "
+                         "volume.");
+        }
 
 out:
         free (rsp.dict.dict_val); //malloced by xdr
