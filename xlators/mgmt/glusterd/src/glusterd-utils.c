@@ -2107,7 +2107,8 @@ out:
 }
 
 int32_t
-glusterd_compare_friend_volume (dict_t *vols, int32_t count, int32_t *status)
+glusterd_compare_friend_volume (dict_t *vols, int32_t count, int32_t *status,
+                                char *hostname)
 {
 
         int32_t                 ret = -1;
@@ -2143,8 +2144,8 @@ glusterd_compare_friend_volume (dict_t *vols, int32_t count, int32_t *status)
                 //Mismatch detected
                 ret = 0;
                 gf_log ("", GF_LOG_ERROR, "Version of volume %s differ."
-                        "local version = %d, remote version = %d",
-                        volinfo->volname, volinfo->version, version);
+                        "local version = %d, remote version = %d on peer %s",
+                        volinfo->volname, volinfo->version, version, hostname);
                 *status = GLUSTERD_VOL_COMP_UPDATE_REQ;
                 goto out;
         } else if (version < volinfo->version) {
@@ -2163,8 +2164,8 @@ glusterd_compare_friend_volume (dict_t *vols, int32_t count, int32_t *status)
         if (cksum != volinfo->cksum) {
                 ret = 0;
                 gf_log ("", GF_LOG_ERROR, "Cksums of volume %s differ."
-                        " local cksum = %d, remote cksum = %d",
-                        volinfo->volname, volinfo->cksum, cksum);
+                        " local cksum = %u, remote cksum = %u on peer %s",
+                        volinfo->volname, volinfo->cksum, cksum, hostname);
                 *status = GLUSTERD_VOL_COMP_RJT;
                 goto out;
         }
@@ -3154,7 +3155,7 @@ out:
 }
 
 int32_t
-glusterd_compare_friend_data (dict_t  *vols, int32_t *status)
+glusterd_compare_friend_data (dict_t  *vols, int32_t *status, char *hostname)
 {
         int32_t                 ret = -1;
         int32_t                 count = 0;
@@ -3171,7 +3172,8 @@ glusterd_compare_friend_data (dict_t  *vols, int32_t *status)
                 goto out;
 
         while (i <= count) {
-                ret = glusterd_compare_friend_volume (vols, i, status);
+                ret = glusterd_compare_friend_volume (vols, i, status,
+                                                      hostname);
                 if (ret)
                         goto out;
 
