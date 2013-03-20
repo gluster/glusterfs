@@ -2799,6 +2799,7 @@ struct volume_options options[] = {
 	{.key	= {"least-rate-limit"},
 	 .type	= GF_OPTION_TYPE_INT,
 	 .min	= 0,
+         .max	= INT_MAX,
 	 .default_value = "0",
 	 .description = "Max number of least priority operations to handle "
 			"per-second"

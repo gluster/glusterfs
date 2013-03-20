@@ -15,6 +15,21 @@ TEST glusterd
 TEST $CLI volume create $V0 $H0:$B0/${V0}1
 TEST $CLI volume start $V0
 
+#Accept min val
+TEST $CLI volume set $V0 performance.least-rate-limit 0
+#Accept some value in between
+TEST $CLI volume set $V0 performance.least-rate-limit 1035
+#Accept max val INT_MAX
+TEST $CLI volume set $V0 performance.least-rate-limit 2147483647
+
+#Reject other values
+TEST ! $CLI volume set $V0 performance.least-rate-limit 2147483648
+TEST ! $CLI volume set $V0 performace.least-rate-limit -8
+TEST ! $CLI volume set $V0 performance.least-rate-limit abc
+TEST ! $CLI volume set $V0 performance.least-rate-limit 0.0
+TEST ! $CLI volume set $V0 performance.least-rate-limit -10.0
+TEST ! $CLI volume set $V0 performance.least-rate-limit 1%
+
 # set rate limit to 1 operation/sec
 TEST $CLI volume set $V0 performance.least-rate-limit 1
 
