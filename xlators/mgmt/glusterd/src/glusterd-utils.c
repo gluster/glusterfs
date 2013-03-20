@@ -5120,8 +5120,13 @@ out:
         }
 
         if (*in_use) {
-                snprintf (msg, sizeof (msg), "%s or a prefix of it is "
-                          "already part of a volume", path);
+                if (!strcmp (path, curdir)) {
+                        snprintf (msg, sizeof (msg), "%s is already part of a "
+                          "volume", path);
+                } else {
+                        snprintf (msg, sizeof (msg), "parent directory %s is "
+                          "already part of a volume", curdir);
+                }
         }
 
         if (strlen (msg)) {
