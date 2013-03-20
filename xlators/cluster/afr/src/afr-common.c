@@ -1630,6 +1630,7 @@ afr_self_heal_lookup_unwind (call_frame_t *frame, xlator_t *this,
         afr_local_t *local = NULL;
         int         ret    = -1;
         dict_t      *xattr = NULL;
+        int32_t     spb    = 0;
 
         local = frame->local;
 
@@ -1661,6 +1662,9 @@ afr_self_heal_lookup_unwind (call_frame_t *frame, xlator_t *this,
                                        local->self_heal.actual_sh_started);
                 }
 
+                if (local->loc.inode)
+                        spb = afr_is_split_brain (this, local->loc.inode);
+                ret = dict_set_int32 (xattr, "split-brain", spb);
         }
 out:
         AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
