@@ -650,7 +650,8 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         uuid_copy (peerinfo->uuid, ev_ctx->uuid);
 
         //Build comparison logic here.
-        ret = glusterd_compare_friend_data (ev_ctx->vols, &status);
+        ret = glusterd_compare_friend_data (ev_ctx->vols, &status,
+                                            peerinfo->hostname);
         if (ret)
                 goto out;
 

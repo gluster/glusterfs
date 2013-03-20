@@ -155,7 +155,7 @@ int32_t
 glusterd_build_volume_dict (dict_t **vols);
 
 int32_t
-glusterd_compare_friend_data (dict_t  *vols, int32_t *status);
+glusterd_compare_friend_data (dict_t  *vols, int32_t *status, char *hostname);
 
 int
 glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo);
