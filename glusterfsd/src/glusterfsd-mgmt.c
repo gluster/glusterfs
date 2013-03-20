@@ -1408,14 +1408,21 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
 {
         glusterfs_graph_t *oldvolfile_graph = NULL;
         glusterfs_graph_t *newvolfile_graph = NULL;
+        int                oldvolfile_fd    = -1;
         FILE              *oldvolfile_fp    = NULL;
         glusterfs_ctx_t   *ctx              = NULL;
+        char               template[PATH_MAX] = {0};
 
         int ret = -1;
 
-        oldvolfile_fp = tmpfile ();
-        if (!oldvolfile_fp)
+        strcpy (template, "/tmp/tmp.XXXXXX");
+        oldvolfile_fd = mkstemp (template);
+        oldvolfile_fp = fdopen (oldvolfile_fd, "w+b");
+        if (!oldvolfile_fp) {
+                gf_log ("glusterfsd-mgmt", GF_LOG_CRITICAL, "Failed to create "
+                        "temporary volfile");
                 goto out;
+        }
 
         if (!oldvollen) {
                 ret = 1; // Has to call INIT for the whole graph
@@ -1472,8 +1479,13 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
 
         ret = 0;
 out:
-        if (oldvolfile_fp)
+        if (oldvolfile_fp) {
                 fclose (oldvolfile_fp);
+
+        } else if (-1 != oldvolfile_fd) {
+            close (oldvolfile_fd);
+
+        }
 
         return ret;
 }
