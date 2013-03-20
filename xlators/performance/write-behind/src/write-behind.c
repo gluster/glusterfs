@@ -1254,8 +1254,7 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 	if (fd->flags & (O_SYNC|O_DSYNC|o_direct))
 		wb_disabled = 1;
 
-	if (flags & (O_SYNC|O_DSYNC|O_DIRECT))
-		/* O_DIRECT flag in params of writev must _always_ be honored */
+	if (flags & (O_SYNC|O_DSYNC|o_direct))
 		wb_disabled = 1;
 
 	if (wb_disabled)
