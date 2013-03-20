@@ -553,52 +553,54 @@ glusterfs_graph_t *
 glusterfs_graph_construct (FILE *fp)
 {
         int                ret = 0;
+        int                tmp_fd = -1;
         glusterfs_graph_t *graph = NULL;
-	FILE              *tmp_file = NULL;
+        FILE              *tmp_file = NULL;
+        char               template[PATH_MAX] = {0};
 
         graph = glusterfs_graph_new ();
         if (!graph)
-                return NULL;
+                goto err;
 
-	tmp_file = tmpfile ();
+        strcpy (template, "/tmp/tmp.XXXXXX");
+        tmp_fd = mkstemp (template);
+        if (-1 == tmp_fd)
+                goto err;
 
-	if (tmp_file == NULL) {
-		gf_log ("parser", GF_LOG_ERROR,
-			"cannot create temporary file");
+        tmp_file = fdopen (tmp_fd, "w+b");
+        if (!tmp_file)
+                goto err;
 
-                glusterfs_graph_destroy (graph);
-		return NULL;
-	}
-
-	ret = preprocess (fp, tmp_file);
-	if (ret < 0) {
-		gf_log ("parser", GF_LOG_ERROR,
-			"parsing of backticks failed");
-
-                glusterfs_graph_destroy (graph);
-		fclose (tmp_file);
-		return NULL;
-	}
+        ret = preprocess (fp, tmp_file);
+        if (ret < 0) {
+                gf_log ("parser", GF_LOG_ERROR, "parsing of backticks failed");
+                goto err;
+        }
 
         yyin = tmp_file;
-
         construct = graph;
-
         ret = yyparse ();
-
         construct = NULL;
-
-	fclose (tmp_file);
 
         if (ret == 1) {
                 gf_log ("parser", GF_LOG_DEBUG,
-			"parsing of volfile failed, please review it "
-			"once more");
-
-                glusterfs_graph_destroy (graph);
-                return NULL;
+                        "parsing of volfile failed, please review it "
+                        "once more");
+                goto err;
         }
 
+        fclose (tmp_file);
         return graph;
+err:
+        if (tmp_file) {
+                fclose (tmp_file);
+        } else {
+                gf_log ("parser", GF_LOG_ERROR, "cannot create temporary file");
+                if (-1 != tmp_fd)
+                        close (tmp_fd);
+        }
+
+        glusterfs_graph_destroy (graph);
+        return NULL;
 }
 
