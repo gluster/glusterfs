@@ -225,8 +225,10 @@ xlator_dynload (xlator_t *xl)
          */
         vtbl = dlsym(handle,"class_methods");
         if (vtbl) {
-                xl->init = vtbl->init;
-                xl->fini = vtbl->fini;
+                xl->init        = vtbl->init;
+                xl->fini        = vtbl->fini;
+                xl->reconfigure = vtbl->reconfigure;
+                xl->notify      = vtbl->notify;
         }
         else {
                 if (!(*VOID(&xl->init) = dlsym (handle, "init"))) {
@@ -240,11 +242,18 @@ xlator_dynload (xlator_t *xl)
                                 dlerror ());
                         goto out;
                 }
-        }
+                if (!(*VOID(&(xl->reconfigure)) = dlsym (handle,
+                                                         "reconfigure"))) {
+                        gf_log ("xlator", GF_LOG_TRACE,
+                                "dlsym(reconfigure) on %s -- neglecting",
+                                dlerror());
+                }
+                if (!(*VOID(&(xl->notify)) = dlsym (handle, "notify"))) {
+                        gf_log ("xlator", GF_LOG_TRACE,
+                                "dlsym(notify) on %s -- neglecting",
+                                dlerror ());
+                }
 
-        if (!(*VOID(&(xl->notify)) = dlsym (handle, "notify"))) {
-                gf_log ("xlator", GF_LOG_TRACE,
-                        "dlsym(notify) on %s -- neglecting", dlerror ());
         }
 
         if (!(xl->dumpops = dlsym (handle, "dumpops"))) {
@@ -256,12 +265,6 @@ xlator_dynload (xlator_t *xl)
                 gf_log (xl->name, GF_LOG_TRACE,
                         "dlsym(mem_acct_init) on %s -- neglecting",
                         dlerror ());
-        }
-
-        if (!(*VOID(&(xl->reconfigure)) = dlsym (handle, "reconfigure"))) {
-                gf_log ("xlator", GF_LOG_TRACE,
-                        "dlsym(reconfigure) on %s -- neglecting",
-                        dlerror());
         }
 
         vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),

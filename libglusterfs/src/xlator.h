@@ -828,8 +828,11 @@ struct _xlator {
 };
 
 typedef struct {
-        int32_t (*init) (xlator_t *this);
-        void    (*fini) (xlator_t *this);
+        int32_t                 (*init) (xlator_t *this);
+        void                    (*fini) (xlator_t *this);
+        int32_t                 (*reconfigure) (xlator_t *this,
+                                                dict_t *options);
+        event_notify_fn_t       notify;
 } class_methods_t;
 
 #define xlator_has_parent(xl) (xl->parents != NULL)
