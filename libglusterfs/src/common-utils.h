@@ -107,7 +107,7 @@ void gf_global_variable_init(void);
 
 in_addr_t gf_resolve_ip (const char *hostname, void **dnscache);
 
-void gf_log_volume_file (FILE *specfp);
+void gf_log_dump_graph (FILE *specfp, glusterfs_graph_t *graph);
 void gf_print_trace (int32_t signal, glusterfs_ctx_t *ctx);
 
 #define VECTORSIZE(count) (count * (sizeof (struct iovec)))

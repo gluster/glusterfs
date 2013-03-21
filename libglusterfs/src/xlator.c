@@ -322,6 +322,24 @@ out:
 }
 
 
+void
+xlator_foreach_depth_first (xlator_t *this,
+			    void (*fn)(xlator_t *each, void *data),
+			    void *data)
+{
+	xlator_list_t *subv = NULL;
+
+	subv = this->children;
+
+	while (subv) {
+		xlator_foreach_depth_first (subv->xlator, fn, data);
+		subv = subv->next;
+	}
+
+	fn (this, data);
+}
+
+
 xlator_t *
 xlator_search_by_name (xlator_t *any, const char *name)
 {
