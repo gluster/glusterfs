@@ -1866,7 +1866,7 @@ struct cli_cmd volume_cmds[] = {
          cli_cmd_check_gsync_exists_cbk},
 #endif
 
-         { "volume profile <VOLNAME> {start|info|stop} [nfs]",
+         { "volume profile <VOLNAME> {start|stop|info [nfs]}",
            cli_cmd_volume_profile_cbk,
            "volume profile operations"},
 
@@ -1874,9 +1874,8 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_quota_cbk,
           "quota translator specific operations"},
 
-         { "volume top <VOLNAME> {[open|read|write|opendir|readdir [nfs]] "
-           "|[read-perf|write-perf [nfs|{bs <size> count <count>}]]"
-           "|[clear [nfs]]} [brick <brick>] [list-cnt <count>]",
+         { "volume top <VOLNAME> {open|read|write|opendir|readdir|clear} [nfs|brick <brick>] [list-cnt <value>] |\n"
+           "volume top <VOLNAME> {read-perf|write-perf} [bs <size> count <count>] [brick <brick>] [list-cnt <value>]",
            cli_cmd_volume_top_cbk,
            "volume top operations"},
 
