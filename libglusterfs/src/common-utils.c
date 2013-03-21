@@ -268,30 +268,101 @@ err:
 }
 
 
-void
-gf_log_volume_file (FILE *specfp)
+struct xldump {
+	int lineno;
+	FILE *logfp;
+};
+
+
+static int
+nprintf (struct xldump *dump, const char *fmt, ...)
 {
-        int          lcount = 0;
-        char         data[GF_UNIT_KB];
+	va_list ap;
+	int ret = 0;
+
+
+	ret += fprintf (dump->logfp, "%3d: ", ++dump->lineno);
+
+	va_start (ap, fmt);
+	ret += vfprintf (dump->logfp, fmt, ap);
+	va_end (ap);
+
+	ret += fprintf (dump->logfp, "\n");
+
+	return ret;
+}
+
+
+static int
+xldump_options (dict_t *this, char *key, data_t *value,	void *d)
+{
+	nprintf (d, "    option %s %s", key, value->data);
+	return 0;
+}
+
+
+static void
+xldump_subvolumes (xlator_t *this, void *d)
+{
+	xlator_list_t *subv = NULL;
+	int len = 0;
+	char *subvstr = NULL;
+
+	subv = this->children;
+	if (!this->children)
+		return;
+
+	for (subv = this->children; subv; subv = subv->next)
+		len += (strlen (subv->xlator->name) + 1);
+
+	subvstr = GF_CALLOC (1, len, gf_common_mt_strdup);
+
+	len = 0;
+	for (subv = this->children; subv; subv= subv->next)
+		len += sprintf (subvstr + len, "%s%s", subv->xlator->name,
+				subv->next ? " " : "");
+
+	nprintf (d, "    subvolumes %s", subvstr);
+
+	GF_FREE (subvstr);
+}
+
+
+static void
+xldump (xlator_t *each, void *d)
+{
+	nprintf (d, "volume %s", each->name);
+	nprintf (d, "    type %s", each->type);
+	dict_foreach (each->options, xldump_options, d);
+
+	xldump_subvolumes (each, d);
+
+	nprintf (d, "end-volume");
+	nprintf (d, "");
+}
+
+
+void
+gf_log_dump_graph (FILE *specfp, glusterfs_graph_t *graph)
+{
         glusterfs_ctx_t *ctx;
+	struct xldump xld = {0, };
+
 
         ctx = THIS->ctx;
+	xld.logfp = ctx->log.gf_log_logfile;
 
-        fseek (specfp, 0L, SEEK_SET);
-
-        fprintf (ctx->log.gf_log_logfile, "Given volfile:\n");
+        fprintf (ctx->log.gf_log_logfile, "Final graph:\n");
         fprintf (ctx->log.gf_log_logfile,
                  "+---------------------------------------"
                  "---------------------------------------+\n");
-        while (fgets (data, GF_UNIT_KB, specfp) != NULL){
-                lcount++;
-                fprintf (ctx->log.gf_log_logfile, "%3d: %s", lcount, data);
-        }
+
+	xlator_foreach_depth_first (graph->top, xldump, &xld);
+
         fprintf (ctx->log.gf_log_logfile,
-                 "\n+---------------------------------------"
+                 "+---------------------------------------"
                  "---------------------------------------+\n");
         fflush (ctx->log.gf_log_logfile);
-        fseek (specfp, 0L, SEEK_SET);
 }
 
 static void
