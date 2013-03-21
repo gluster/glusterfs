@@ -684,6 +684,9 @@ int32_t dht_setattr (call_frame_t  *frame, xlator_t *this, loc_t *loc,
 int32_t dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                       struct iatt  *stbuf, int32_t valid, dict_t *xdata);
 
+int32_t dht_init (xlator_t *this);
+void    dht_fini (xlator_t *this);
+int     dht_reconfigure (xlator_t *this, dict_t *options);
 int32_t dht_notify (xlator_t *this, int32_t event, void *data, ...);
 
 /* definitions for nufa/switch */
@@ -754,4 +757,12 @@ xlator_t *
 dht_subvol_maxspace_nonzeroinode (xlator_t *this, xlator_t *subvol);
 int
 dht_linkfile_attr_heal (call_frame_t *frame, xlator_t *this);
+
+void
+dht_layout_dump (dht_layout_t  *layout, const char *prefix);
+int32_t
+dht_priv_dump (xlator_t *this);
+int32_t
+dht_inodectx_dump (xlator_t *this, inode_t *inode);
+
 #endif/* _DHT_H */

@@ -4,7 +4,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
 
 dht_common_source = dht-layout.c dht-helper.c dht-linkfile.c dht-rebalance.c \
 	dht-selfheal.c dht-rename.c dht-hashfn.c dht-diskusage.c \
-	dht-common.c dht-inode-write.c dht-inode-read.c \
+	dht-common.c dht-inode-write.c dht-inode-read.c dht-shared.c \
 	$(top_builddir)/xlators/lib/src/libxlator.c
 
 dht_la_SOURCES = $(dht_common_source) dht.c
