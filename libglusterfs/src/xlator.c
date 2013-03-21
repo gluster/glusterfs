@@ -183,7 +183,7 @@ xlator_dynload (xlator_t *xl)
         char              *name = NULL;
         void              *handle = NULL;
         volume_opt_list_t *vol_opt = NULL;
-
+        class_methods_t   *vtbl = NULL;
 
         GF_VALIDATE_OR_GOTO ("xlator", xl, out);
 
@@ -218,16 +218,28 @@ xlator_dynload (xlator_t *xl)
                 goto out;
         }
 
-        if (!(*VOID(&xl->init) = dlsym (handle, "init"))) {
-                gf_log ("xlator", GF_LOG_WARNING, "dlsym(init) on %s",
-                        dlerror ());
-                goto out;
+        /*
+         * If class_methods exists, its contents override any definitions of
+         * init or fini for that translator.  Otherwise, we fall back to the
+         * older method of looking for init and fini directly.
+         */
+        vtbl = dlsym(handle,"class_methods");
+        if (vtbl) {
+                xl->init = vtbl->init;
+                xl->fini = vtbl->fini;
         }
+        else {
+                if (!(*VOID(&xl->init) = dlsym (handle, "init"))) {
+                        gf_log ("xlator", GF_LOG_WARNING, "dlsym(init) on %s",
+                                dlerror ());
+                        goto out;
+                }
 
-        if (!(*VOID(&(xl->fini)) = dlsym (handle, "fini"))) {
-                gf_log ("xlator", GF_LOG_WARNING, "dlsym(fini) on %s",
-                        dlerror ());
-                goto out;
+                if (!(*VOID(&(xl->fini)) = dlsym (handle, "fini"))) {
+                        gf_log ("xlator", GF_LOG_WARNING, "dlsym(fini) on %s",
+                                dlerror ());
+                        goto out;
+                }
         }
 
         if (!(*VOID(&(xl->notify)) = dlsym (handle, "notify"))) {
