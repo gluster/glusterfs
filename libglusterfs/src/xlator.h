@@ -827,6 +827,11 @@ struct _xlator {
         gf_boolean_t        is_autoloaded;
 };
 
+typedef struct {
+        int32_t (*init) (xlator_t *this);
+        void    (*fini) (xlator_t *this);
+} class_methods_t;
+
 #define xlator_has_parent(xl) (xl->parents != NULL)
 
 #define XLATOR_NOTIFY(_xl, params ...)          \
