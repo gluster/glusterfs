@@ -1495,11 +1495,12 @@ rpcerr:
 
 
 int
-nfs3_access_reply (rpcsvc_request_t *req, nfsstat3 status, int32_t accbits)
+nfs3_access_reply (rpcsvc_request_t *req, nfsstat3 status, int32_t accbits,
+		   int32_t reqaccbits)
 {
         access3res      res;
 
-        nfs3_fill_access3res (&res, status, accbits);
+        nfs3_fill_access3res (&res, status, accbits, reqaccbits);
         nfs3svc_submit_reply (req, &res,
                               (nfs3_serializer)xdr_serialize_access3res);
         return 0;
@@ -1523,7 +1524,7 @@ nfs3svc_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_ACCESS, status,
                              op_errno);
-        nfs3_access_reply (cs->req, status, op_errno);
+        nfs3_access_reply (cs->req, status, op_errno, cs->accessbits);
         nfs3_call_state_wipe (cs);
 
         return 0;
@@ -1552,7 +1553,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_ACCESS,
                                      stat, -ret);
-                nfs3_access_reply (cs->req, stat, 0);
+                nfs3_access_reply (cs->req, stat, 0, 0);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
@@ -1588,7 +1589,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_ACCESS,
                                      stat, -ret);
-                nfs3_access_reply (req, stat, 0);
+                nfs3_access_reply (req, stat, 0, 0);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }

@@ -591,7 +591,8 @@ nfs3_request_to_accessbits (int32_t accbits)
         return acc_request;
 }
 void
-nfs3_fill_access3res (access3res *res, nfsstat3 status, int32_t accbits)
+nfs3_fill_access3res (access3res *res, nfsstat3 status, int32_t accbits,
+		      int32_t reqaccbits)
 {
         uint32_t        accres = 0;
 
@@ -602,7 +603,8 @@ nfs3_fill_access3res (access3res *res, nfsstat3 status, int32_t accbits)
 
         accres = nfs3_accessbits (accbits);
 
-        res->access3res_u.resok.access = accres;
+	/* do not answer what was not asked */
+        res->access3res_u.resok.access = accres & reqaccbits;
 }
 
 void
