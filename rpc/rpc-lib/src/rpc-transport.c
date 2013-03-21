@@ -339,8 +339,10 @@ fail:
 
         GF_FREE (name);
 
-        list_del_init (&vol_opt->list);
-        GF_FREE (vol_opt);
+        if (vol_opt && !list_empty (&vol_opt->list)) {
+                list_del_init (&vol_opt->list);
+                GF_FREE (vol_opt);
+        }
 
         return NULL;
 }
