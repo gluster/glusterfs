@@ -60,6 +60,12 @@ if [ $? -ne 0 ]; then
   MISSING="$MISSING pkg-config"
 fi
 
+# Check for tar
+env tar --version > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+  MISSING="$MISSING tar"
+fi
+
 ## If dependencies are missing, warn the user and abort
 if [ "x$MISSING" != "x" ]; then
   echo "Aborting."
