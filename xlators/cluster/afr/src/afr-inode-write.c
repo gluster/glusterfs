@@ -176,6 +176,9 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (call_count == 0) {
 
+		if (!local->stable_write)
+			afr_fd_report_unstable_write (this, local->fd);
+
                 afr_writev_handle_short_writes (frame, this);
                 /*
                  * Generally inode-write fops do transaction.unwind then
@@ -470,6 +473,11 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         local->cont.writev.iobref     = iobref_ref (iobref);
 
         local->fd                = fd_ref (fd);
+
+	/* detect here, but set it in writev_wind_cbk *after* the unstable
+	   write is performed
+	*/
+	local->stable_write = !!((fd->flags|flags)&(O_SYNC|O_DSYNC));
 
         afr_open_fd_fix (fd, this);
 
