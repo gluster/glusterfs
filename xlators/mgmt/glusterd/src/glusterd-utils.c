@@ -1073,94 +1073,35 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
 {
         int32_t  ret = -1;
         pid_t    pid = -1;
-        FILE    *file = NULL;
-        gf_boolean_t is_locked = _gf_false;
         xlator_t *this = NULL;
 
         this = THIS;
         GF_ASSERT (this);
-        file = fopen (pidfile, "r+");
-
-        if (!file) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to open pidfile: %s",
-                                pidfile);
-                if (errno == ENOENT) {
-                        gf_log (this->name, GF_LOG_TRACE, "%s may not be "
-                                "running", service);
-                        ret = 0;
-                        goto out;
-                }
-                ret = -1;
+        if (!glusterd_is_service_running (pidfile, &pid)) {
+                ret = 0;
+                gf_log (this->name, GF_LOG_INFO, "%s already stopped", service);
                 goto out;
         }
-        ret = lockf (fileno (file), F_TLOCK, 0);
-        if (!ret) {
-                is_locked = _gf_true;
-                ret = unlink (pidfile);
-                if (ret && (ENOENT != errno)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Unable to "
-                                "unlink stale pidfile: %s", pidfile);
-                } else if (ret && (ENOENT == errno)){
-                        ret = 0;
-                        gf_log (this->name, GF_LOG_DEBUG, "Brick already "
-                                "stopped");
-                }
-                goto out;
-        }
-
-
-        ret = fscanf (file, "%d", &pid);
-        if (ret <= 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to read pidfile: %s",
-                                pidfile);
-                ret = -1;
-                goto out;
-        }
-        fclose (file);
-        file = NULL;
-
         gf_log (this->name, GF_LOG_DEBUG, "Stopping gluster %s running in pid: "
                 "%d", service, pid);
 
         ret = kill (pid, sig);
+        if (!force_kill)
+                goto out;
 
-        if (force_kill) {
-                sleep (1);
-                file = fopen (pidfile, "r+");
-                if (!file) {
-                        ret = 0;
-                        goto out;
-                }
-                ret = lockf (fileno (file), F_TLOCK, 0);
-                if (ret && ((EAGAIN == errno) || (EACCES == errno))) {
-                        ret = kill (pid, SIGKILL);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR, "Unable to "
-                                        "kill pid %d reason: %s", pid,
-                                        strerror(errno));
-                                goto out;
-                        }
-
-                } else if (0 == ret){
-                        is_locked = _gf_true;
-                }
-                ret = unlink (pidfile);
-                if (ret && (ENOENT != errno)) {
+        sleep (1);
+        if (glusterd_is_service_running (pidfile, NULL)) {
+                ret = kill (pid, SIGKILL);
+                if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "Unable to "
-                                "unlink pidfile: %s", pidfile);
+                                "kill pid %d reason: %s", pid,
+                                strerror(errno));
                         goto out;
                 }
         }
 
         ret = 0;
 out:
-        if (is_locked && file)
-                if (lockf (fileno (file), F_ULOCK, 0) < 0)
-                        gf_log (this->name, GF_LOG_WARNING, "Cannot unlock "
-                                "pidfile: %s reason: %s", pidfile,
-                                strerror(errno));
-        if (file)
-                fclose (file);
         return ret;
 }
 
