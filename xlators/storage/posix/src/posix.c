@@ -2147,10 +2147,16 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                  * the file we wrote to
                  */
 
-                if (pfd->flushwrites) {
-                        /* NOTE: ignore the error, if one occurs at this
-                         * point */
-                        fsync (_fd);
+                if (flags & (O_SYNC|O_DSYNC)) {
+                        ret = fsync (_fd);
+			if (ret) {
+				gf_log (this->name, GF_LOG_ERROR,
+					"fsync() in writev on fd %d failed: %s",
+					_fd, strerror (errno));
+				op_ret = -1;
+				op_errno = errno;
+				goto out;
+			}
                 }
 
                 ret = posix_fdstat (this, _fd, &postop);
