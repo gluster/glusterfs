@@ -16,7 +16,7 @@ glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c \
 glusterd_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 		     $(top_builddir)/rpc/xdr/src/libgfxdr.la \
 		     $(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
-		     $(LIBXML2_LIBS) -lcrypto
+		     $(XML_LIBS) -lcrypto
 
 noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h \
 	glusterd-sm.h glusterd-store.h glusterd-mem-types.h \
@@ -29,7 +29,7 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(CONTRIBDIR)/uuid \
 	-DSBIN_DIR=\"$(sbindir)\" -DDATADIR=\"$(localstatedir)\" \
 	-DGSYNCD_PREFIX=\"$(libexecdir)/glusterfs\"\
-        -DSYNCDAEMON_COMPILE=$(SYNCDAEMON_COMPILE) $(LIBXML2_CFLAGS)
+        -DSYNCDAEMON_COMPILE=$(SYNCDAEMON_COMPILE) $(XML_CPPFLAGS)
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)
 

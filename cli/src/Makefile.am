@@ -10,7 +10,7 @@ endif
 gluster_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(GF_LDADD)\
 		$(RLLIBS) $(top_builddir)/rpc/xdr/src/libgfxdr.la \
 		$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
-		$(GF_GLUSTERFS_LIBS) $(LIBXML2_LIBS)
+		$(GF_GLUSTERFS_LIBS) $(XML_LIBS)
 
 gluster_LDFLAGS = $(GF_LDFLAGS)
 noinst_HEADERS = cli.h cli-mem-types.h cli-cmd.h
@@ -22,7 +22,7 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-DCONFDIR=\"$(sysconfdir)/glusterfs\" \
 	-DGSYNCD_PREFIX=\"$(libexecdir)/glusterfs\"\
 	-DSYNCDAEMON_COMPILE=$(SYNCDAEMON_COMPILE) -DSBIN_DIR=\"$(sbindir)\"\
-	$(LIBXML2_CFLAGS)
+	$(XML_CPPFLAGS)
 
 AM_CFLAGS = -Wall $(GF_GLUSTERFS_CFLAGS)
 

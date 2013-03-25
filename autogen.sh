@@ -54,12 +54,6 @@ else
   fi
 fi
 
-# Check for pkg-config
-env pkg-config --version > /dev/null 2>&1
-if [ $? -ne 0 ]; then
-  MISSING="$MISSING pkg-config"
-fi
-
 # Check for tar
 env tar --version > /dev/null 2>&1
 if [ $? -ne 0 ]; then
