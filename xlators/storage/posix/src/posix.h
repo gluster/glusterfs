@@ -57,7 +57,6 @@ struct posix_fd {
 	int     fd;      /* fd returned by the kernel */
 	int32_t flags;   /* flags for open/creat      */
 	DIR *   dir;     /* handle returned by the kernel */
-        int     flushwrites;
         int     odirect;
         struct list_head list; /* to add to the janitor list */
 };
