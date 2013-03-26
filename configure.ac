@@ -132,6 +132,7 @@ AC_CONFIG_FILES([Makefile
 		extras/ocf/Makefile
 		extras/ocf/glusterd
 		extras/ocf/volume
+		extras/LinuxRPM/Makefile
 		contrib/fuse-util/Makefile
 		contrib/uuid/uuid_types.h
                 xlators/nfs/Makefile
