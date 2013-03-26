@@ -1180,8 +1180,10 @@ dict_keys_join (void *value, int size, dict_t *dict,
         while (pairs) {
                 next = pairs->next;
 
-                if (filter_fn && filter_fn (pairs->key))
-                        continue;
+                if (filter_fn && filter_fn (pairs->key)){
+		    pairs = next;
+		    continue;
+		}
 
 		if (value && (size > len))
 			strncpy (value + len, pairs->key, size - len);
