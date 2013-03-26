@@ -399,7 +399,7 @@ afr_changelog_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (call_count == 0) {
                 if (local->transaction.resume_stub) {
-                        call_resume (local->transaction.resume_stub);
+			AFR_CALL_RESUME (local->transaction.resume_stub);
                         local->transaction.resume_stub = NULL;
                 }
 
