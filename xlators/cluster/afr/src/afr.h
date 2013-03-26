@@ -923,6 +923,22 @@ afr_launch_openfd_self_heal (call_frame_t *frame, xlator_t *this, fd_t *fd);
                 }                                               \
         } while (0);
 
+#define AFR_CALL_RESUME(stub)					\
+        do {                                                    \
+                afr_local_t *__local = NULL;                    \
+                xlator_t    *__this = NULL;                     \
+								\
+		__local = stub->frame->local;			\
+		__this = stub->frame->this;			\
+		stub->frame->local = NULL;			\
+								\
+		call_resume (stub);				\
+                if (__local) {                                  \
+                        afr_local_cleanup (__local, __this);    \
+                        mem_put (__local);                      \
+                }                                               \
+        } while (0)
+
 #define AFR_NUM_CHANGE_LOGS            3 /*data + metadata + entry*/
 /* allocate and return a string that is the basename of argument */
 static inline char *
