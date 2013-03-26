@@ -206,11 +206,16 @@ rpcsvc_set_allow_insecure (rpcsvc_t *svc, dict_t *options)
 int
 rpcsvc_set_root_squash (rpcsvc_t *svc, dict_t *options)
 {
+        int  ret = -1;
+
         GF_ASSERT (svc);
         GF_ASSERT (options);
 
-        if (dict_get_str_boolean (options, "root-squash", 0))
-                svc->root_squash = _gf_true;
+        ret = dict_get_str_boolean (options, "root-squash", 0);
+        if (ret != -1)
+                svc->root_squash = ret;
+        else
+                svc->root_squash = _gf_false;
 
         if (svc->root_squash)
                 gf_log (GF_RPCSVC, GF_LOG_DEBUG, "root squashing enabled ");
