@@ -797,7 +797,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key         = "performance.nfs.write-behind",
           .voltype     = "performance/write-behind",
           .option      = "!nfsperf",
-          .value       = "off",
+          .value       = "on",
           .type        = NO_DOC,
           .op_version  = 1
         },
