@@ -170,7 +170,7 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 			gf_log ("dict", GF_LOG_DEBUG,
 				"setting transport-type failed");
                 else
-                        gf_log ("rpc-transport", GF_LOG_WARNING,
+                        gf_log ("rpc-transport", GF_LOG_DEBUG,
                                 "missing 'option transport-type'. defaulting to "
                                 "\"socket\"");
 	} else {
