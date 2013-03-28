@@ -427,8 +427,8 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         if (strlen (conf->workdir)+2 > PATH_MAX-strlen(GEOREP)) {
                 ret = -1;
                 gf_log ("glusterd", GF_LOG_CRITICAL,
-                        "Unable to create "GEOREP" directory %s",
-                        georepdir);
+                        "directory path %s/"GEOREP" is longer than PATH_MAX",
+                        conf->workdir);
                 goto out;
         }
 
@@ -444,8 +444,8 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         if (strlen (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP) >= PATH_MAX) {
                 ret = -1;
                 gf_log ("glusterd", GF_LOG_CRITICAL,
-                        "Unable to create "GEOREP" directory %s",
-                        georepdir);
+                        "directory path "DEFAULT_LOG_FILE_DIRECTORY"/"
+                        GEOREP" is longer than PATH_MAX");
                 goto out;
         }
         ret = mkdir_p (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP, 0777, _gf_true);
@@ -459,8 +459,8 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         if (strlen(DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves") >= PATH_MAX) {
                 ret = -1;
                 gf_log ("glusterd", GF_LOG_CRITICAL,
-                        "Unable to create "GEOREP" directory %s",
-                        georepdir);
+                        "directory path "DEFAULT_LOG_FILE_DIRECTORY"/"
+                        GEOREP"-slaves"" is longer than PATH_MAX");
                 goto out;
         }
         ret = mkdir_p (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves", 0777,
@@ -475,8 +475,8 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         if (strlen(DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/mbr") >= PATH_MAX) {
                 ret = -1;
                 gf_log ("glusterd", GF_LOG_CRITICAL,
-                        "Unable to create "GEOREP" moubtbroker directory %s",
-                        georepdir);
+                        "directory path "DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP
+                        "-slaves/mbr"" is longer than PATH_MAX");
                 goto out;
         }
         ret = mkdir_p (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/mbr", 0777,
