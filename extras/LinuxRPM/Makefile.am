@@ -13,6 +13,9 @@ all:
 glusterrpms: prep srcrpm rpms
 	-rm -rf rpmbuild
 
+glusterrpmswithoutufo: prep srcrpm rpmswithoutufo
+	-rm -rf rpmbuild
+
 prep::
 	if [ ! -e $(GFS_TAR) -a ! -e $(UFO_TAR) -a ! -e $(GFS_SPEC) ]; then \
 		$(MAKE) -c ../.. dist; \
@@ -61,6 +64,10 @@ srcrpm:
 
 rpms:
 	rpmbuild --define '_topdir $(shell pwd)/rpmbuild' -bb rpmbuild/SPECS/glusterfs.spec
+	mv rpmbuild/RPMS/*/* .
+
+rpmswithoutufo:
+	rpmbuild --define '_topdir $(shell pwd)/rpmbuild' -bb rpmbuild/SPECS/glusterfs.spec --without ufo
 	mv rpmbuild/RPMS/*/* .
 
 # EPEL-5 does not like new versions of rpmbuild and requires some
