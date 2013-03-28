@@ -673,6 +673,10 @@ typedef struct _afr_local {
 		*/
 		int              *postop_piggybacked;
 
+		/* stub to resume on destruction
+		   of the transaction frame */
+		call_stub_t      *resume_stub;
+
 
                 int32_t         **txn_changelog;//changelog after pre+post ops
                 unsigned char   *pre_op;
@@ -1101,5 +1105,8 @@ afr_fd_report_unstable_write (xlator_t *this, fd_t *fd);
 
 gf_boolean_t
 afr_fd_has_witnessed_unstable_write (xlator_t *this, fd_t *fd);
+
+void
+afr_delayed_changelog_wake_resume (xlator_t *this, fd_t *fd, call_stub_t *stub);
 
 #endif /* __AFR_H__ */

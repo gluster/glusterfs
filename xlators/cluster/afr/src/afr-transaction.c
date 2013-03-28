@@ -1339,7 +1339,8 @@ out:
 
 
 void
-afr_delayed_changelog_post_op (xlator_t *this, call_frame_t *frame, fd_t *fd);
+afr_delayed_changelog_post_op (xlator_t *this, call_frame_t *frame, fd_t *fd,
+			       call_stub_t *stub);
 
 void
 afr_delayed_changelog_wake_up_cbk (void *data)
@@ -1579,12 +1580,14 @@ afr_changelog_post_op_safe (call_frame_t *frame, xlator_t *this)
 
 
 void
-afr_delayed_changelog_post_op (xlator_t *this, call_frame_t *frame, fd_t *fd)
+afr_delayed_changelog_post_op (xlator_t *this, call_frame_t *frame, fd_t *fd,
+			       call_stub_t *stub)
 {
 	afr_fd_ctx_t      *fd_ctx = NULL;
 	call_frame_t      *prev_frame = NULL;
 	struct timeval     delta = {0, };
 	afr_private_t     *priv = NULL;
+	afr_local_t       *local = NULL;
 
 	priv = this->private;
 
@@ -1613,7 +1616,11 @@ unlock:
 	pthread_mutex_unlock (&fd_ctx->delay_lock);
 
 	if (prev_frame) {
+		local = prev_frame->local;
+		local->transaction.resume_stub = stub;
 		afr_changelog_post_op_safe (prev_frame, this);
+	} else {
+		call_resume (stub);
 	}
 }
 
@@ -1626,16 +1633,31 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 
 	if (is_afr_delayed_changelog_post_op_needed (frame, this))
-		afr_delayed_changelog_post_op (this, frame, local->fd);
+		afr_delayed_changelog_post_op (this, frame, local->fd, NULL);
 	else
 		afr_changelog_post_op_safe (frame, this);
+}
+
+
+
+/* Wake up the sleeping/delayed post-op, and also register
+   a stub to have it resumed after this transaction
+   completely finishes.
+
+   The @stub gets saved in @local and gets resumed in
+   afr_local_cleanup()
+*/
+void
+afr_delayed_changelog_wake_resume (xlator_t *this, fd_t *fd, call_stub_t *stub)
+{
+	afr_delayed_changelog_post_op (this, NULL, fd, stub);
 }
 
 
 void
 afr_delayed_changelog_wake_up (xlator_t *this, fd_t *fd)
 {
-	afr_delayed_changelog_post_op (this, NULL, fd);
+	afr_delayed_changelog_post_op (this, NULL, fd, NULL);
 }
 
 

@@ -852,6 +852,11 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
         loc_wipe (&local->transaction.new_parent_loc);
 
         GF_FREE (local->transaction.postop_piggybacked);
+
+	if (local->transaction.resume_stub) {
+		call_resume (local->transaction.resume_stub);
+		local->transaction.resume_stub = NULL;
+	}
 }
 
 
@@ -2643,6 +2648,7 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int call_count = -1;
         int child_index = (long) cookie;
         int read_child  = 0;
+	call_stub_t *stub = NULL;
 
         local = frame->local;
 
@@ -2677,18 +2683,29 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
+		/* Make a stub out of the frame, and register it
+		   with the waking up post-op. When the call-stub resumes,
+		   we are guaranteed that there was no post-op pending
+		   (i.e changelogs were unset in the server). This is an
+		   essential "guarantee", that fsync() returns only after
+		   completely finishing EVERYTHING, including the delayed
+		   post-op. This guarantee is expected by FUSE graph switching
+		   for example.
+		*/
+		stub = fop_fsync_cbk_stub (frame, default_fsync_cbk, op_ret,
+					   op_errno, prebuf, postbuf, xdata);
+		if (!stub) {
+			AFR_STACK_UNWIND (fsync, frame, -1, ENOMEM, 0, 0, 0);
+			return 0;
+		}
+
 		/* If no new unstable writes happened between the
 		   time we cleared the unstable write witness flag in afr_fsync
 		   and now, calling afr_delayed_changelog_wake_up() should
 		   wake up and skip over the fsync phase and go straight to
 		   afr_changelog_post_op_now()
 		*/
-		afr_delayed_changelog_wake_up (this, local->fd);
-
-                AFR_STACK_UNWIND (fsync, frame, local->op_ret, local->op_errno,
-                                  &local->cont.fsync.prebuf,
-                                  &local->cont.fsync.postbuf,
-                                  NULL);
+		afr_delayed_changelog_wake_resume (this, local->fd, stub);
         }
 
         return 0;
