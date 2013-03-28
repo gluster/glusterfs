@@ -852,11 +852,6 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
         loc_wipe (&local->transaction.new_parent_loc);
 
         GF_FREE (local->transaction.postop_piggybacked);
-
-	if (local->transaction.resume_stub) {
-		call_resume (local->transaction.resume_stub);
-		local->transaction.resume_stub = NULL;
-	}
 }
 
 
@@ -2692,8 +2687,10 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		   post-op. This guarantee is expected by FUSE graph switching
 		   for example.
 		*/
-		stub = fop_fsync_cbk_stub (frame, default_fsync_cbk, op_ret,
-					   op_errno, prebuf, postbuf, xdata);
+		stub = fop_fsync_cbk_stub (frame, default_fsync_cbk,
+                                           local->op_ret, local->op_errno,
+                                           &local->cont.fsync.prebuf,
+                                           &local->cont.fsync.postbuf, xdata);
 		if (!stub) {
 			AFR_STACK_UNWIND (fsync, frame, -1, ENOMEM, 0, 0, 0);
 			return 0;
