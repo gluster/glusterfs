@@ -397,6 +397,80 @@ afr_sh_data_erase_pending (call_frame_t *frame, xlator_t *this)
         return 0;
 }
 
+int
+afr_sh_data_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int op_ret, int op_errno, struct iatt *pre,
+                       struct iatt *post, dict_t *xdata)
+{
+        afr_local_t     *local      = NULL;
+        afr_private_t   *priv       = NULL;
+        afr_self_heal_t *sh         = NULL;
+        int             call_count  = 0;
+        int             child_index = (long) cookie;
+
+        local = frame->local;
+        priv = this->private;
+        sh   = &local->self_heal;
+
+        if (op_ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "%s: Failed to fsync on "
+                        "%s - %s", local->loc.path,
+                        priv->children[child_index]->name, strerror (op_errno));
+                LOCK (&frame->lock);
+                {
+                        sh->op_failed = 1;
+                }
+                UNLOCK (&frame->lock);
+                if (sh->old_loop_frame)
+                        sh_loop_finish (sh->old_loop_frame, this);
+                sh->old_loop_frame = NULL;
+        }
+
+        call_count = afr_frame_return (frame);
+        if (call_count == 0) {
+                if (sh->op_failed)
+                        afr_sh_data_fail (frame, this);
+                else
+                        afr_sh_data_erase_pending (frame, this);
+        }
+        return 0;
+}
+
+/*
+ * Before erasing xattrs, make sure the data is written to disk
+ */
+int
+afr_sh_data_fsync (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t     *local     = NULL;
+        afr_private_t   *priv      = NULL;
+        afr_self_heal_t *sh        = NULL;
+        int             i          = 0;
+        int             call_count = 0;
+
+        local = frame->local;
+        priv = this->private;
+        sh   = &local->self_heal;
+
+        call_count        = sh->active_sinks;
+        if (call_count == 0) {
+                afr_sh_data_erase_pending (frame, this);
+                return 0;
+        }
+
+        local->call_count = call_count;
+        for (i = 0; i < priv->child_count; i++) {
+                if (!sh->success[i] || sh->sources[i])
+                        continue;
+
+                STACK_WIND_COOKIE (frame, afr_sh_data_fsync_cbk,
+                                   (void *) (long) i, priv->children[i],
+                                   priv->children[i]->fops->fsync,
+                                   sh->healing_fd, 1, NULL);
+        }
+
+        return 0;
+}
 
 static struct afr_sh_algorithm *
 sh_algo_from_name (xlator_t *this, char *name)
@@ -494,7 +568,7 @@ afr_sh_data_sync_prepare (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         sh = &local->self_heal;
 
-        sh->algo_completion_cbk = afr_sh_data_erase_pending;
+        sh->algo_completion_cbk = afr_sh_data_fsync;
         sh->algo_abort_cbk      = afr_sh_data_fail;
 
         sh_algo = afr_sh_data_pick_algo (frame, this);
