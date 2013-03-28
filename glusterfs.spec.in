@@ -26,6 +26,10 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without ocf
 %{?_without_ocf:%global _without_ocf --without-ocf}
 
+# if you wish to build rpms without UFO, compile like this
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@tar.gz --without ufo
+%{?_without_ufo:%global _without_ufo true}
+
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
 %global           SWIFTVER 1.7.4
 %if 0%{_for_fedora_koji_builds}
@@ -33,7 +37,9 @@
 %else
 %global           UFOVER @PACKAGE_VERSION@
 %endif
+%if ! 0%{?_without_ufo:1}
 %global           _with_ufo true
+%endif
 %endif
 
 %if ( 0%{?fedora} && 0%{?fedora} > 16 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
