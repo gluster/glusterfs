@@ -43,7 +43,7 @@ EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_0/a trusted.a
 EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_1/a trusted.afr.$V0-client-0
 EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_1/a trusted.afr.$V0-client-1
 
-dd of=$M0/a if=/dev/urandom bs=1M count=1024 oflag=sync 2>/dev/null &
+dd of=$M0/a if=/dev/urandom bs=1M count=1024 2>/dev/null &
 p=$!
 #trigger graph switches, tests for fsync not leaving any pending flags
 TEST $CLI volume set $V0 performance.quick-read off
@@ -55,6 +55,8 @@ kill -SIGTERM $p
 #wait for dd to exit
 wait  > /dev/null 2>&1
 
+#Goal is to check if there is permanent FOOL changelog
+sleep 5
 EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_0/a trusted.afr.$V0-client-0
 EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_0/a trusted.afr.$V0-client-1
 EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_1/a trusted.afr.$V0-client-0

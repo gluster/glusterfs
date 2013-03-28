@@ -398,6 +398,11 @@ afr_changelog_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         UNLOCK (&frame->lock);
 
         if (call_count == 0) {
+                if (local->transaction.resume_stub) {
+                        call_resume (local->transaction.resume_stub);
+                        local->transaction.resume_stub = NULL;
+                }
+
                 if (afr_lock_server_count (priv, local->transaction.type) == 0) {
                         local->transaction.done (frame, this);
                 } else {
@@ -1370,12 +1375,6 @@ is_piggyback_post_op (call_frame_t *frame, fd_t *fd)
 	local = frame->local;
 	fdctx = afr_fd_ctx_get (fd, frame->this);
 
-	if (!afr_txn_nothing_failed (frame, frame->this))
-		/* something failed in this transaction,
-		   we will be performing a hard post-op
-		*/
-		return _gf_false;
-
 	LOCK(&fd->lock);
 	{
 		piggyback = _gf_true;
@@ -1398,7 +1397,14 @@ is_piggyback_post_op (call_frame_t *frame, fd_t *fd)
 	}
 	UNLOCK(&fd->lock);
 
-	return piggyback;
+        if (!afr_txn_nothing_failed (frame, frame->this)) {
+                /* something failed in this transaction,
+                   we will be performing a hard post-op
+                */
+                return _gf_false;
+        }
+
+        return piggyback;
 }
 
 
@@ -1619,7 +1625,7 @@ unlock:
 		local = prev_frame->local;
 		local->transaction.resume_stub = stub;
 		afr_changelog_post_op_safe (prev_frame, this);
-	} else {
+	} else if (stub) {
 		call_resume (stub);
 	}
 }
