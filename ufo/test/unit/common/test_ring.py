@@ -30,14 +30,52 @@ class TestRing(unittest.TestCase):
     def setUp(self):
         self.ring = Ring(SWIFT_DIR, ring_name='object')
 
-    def test_get_notes(self):
+    def test_first_device(self):
         try:
             __devs = self.ring._devs
             self.ring._devs = _mock_ring_data()
+
             part, node = self.ring.get_nodes('test')
             assert node[0]['device'] == 'test'
+            node = self.ring.get_part_nodes(0)
+            assert node[0]['device'] == 'test'
+            for node in self.ring.get_more_nodes(0):
+                assert node['device'] == 'volume_not_in_ring'
+        finally:
+            self.ring._devs = __devs
+
+    def test_invalid_device(self):
+        try:
+            __devs = self.ring._devs
+            self.ring._devs = _mock_ring_data()
+
             part, node = self.ring.get_nodes('test2')
-            assert node
             assert node[0]['device'] == 'volume_not_in_ring'
+            node = self.ring.get_part_nodes(0)
+            assert node[0]['device'] == 'volume_not_in_ring'
+        finally:
+            self.ring._devs = __devs
+
+    def test_second_device(self):
+        try:
+            __devs = self.ring._devs
+            self.ring._devs = _mock_ring_data()
+
+            part, node = self.ring.get_nodes('iops')
+            assert node[0]['device'] == 'iops'
+            node = self.ring.get_part_nodes(0)
+            assert node[0]['device'] == 'iops'
+            for node in self.ring.get_more_nodes(0):
+                assert node['device'] == 'volume_not_in_ring'
+        finally:
+            self.ring._devs = __devs
+
+    def test_second_device_with_reseller_prefix(self):
+        try:
+            __devs = self.ring._devs
+            self.ring._devs = _mock_ring_data()
+
+            part, node = self.ring.get_nodes('AUTH_iops')
+            assert node[0]['device'] == 'iops'
         finally:
             self.ring._devs = __devs
