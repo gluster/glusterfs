@@ -37,6 +37,29 @@ if not reseller_prefix.endswith('_'):
     reseller_prefix = reseller_prefix + '_'
 
 class Ring(ring.Ring):
+    def _get_part_nodes(self, part):
+        seen_ids = set()
+        nodes = [dev for dev in self._devs \
+                     if dev['device'] == self.acc_name \
+                     and not (dev['id'] in seen_ids \
+                                  or seen_ids.add(dev['id']))]
+        if not nodes:
+            nodes = [self.false_node]
+        return nodes
+
+    def get_part_nodes(self, part):
+        """
+        Get the nodes that are responsible for the partition. If one
+        node is responsible for more than one replica of the same
+        partition, it will only appear in the output once.
+
+        :param part: partition to get nodes for
+        :returns: list of node dicts
+
+        See :func:`get_nodes` for a description of the node dicts.
+        """
+        return self._get_part_nodes(part)
+
     def get_nodes(self, account, container=None, obj=None):
         """
         Get the partition and nodes for an account/container/object.
@@ -63,20 +86,26 @@ class Ring(ring.Ring):
                 hardware description
         ======  ===============================================================
         """
-        false_node = [{'zone': 1, 'weight': 100.0, 'ip': '127.0.0.1', 'id': 0, \
+        self.false_node = {'zone': 1, 'weight': 100.0, 'ip': '127.0.0.1', 'id': 0, \
                            'meta': '', 'device': 'volume_not_in_ring', \
-                           'port': 6012}]
+                           'port': 6012}
         if account.startswith(reseller_prefix):
-            acc_name = account.replace(reseller_prefix, '', 1)
+            self.acc_name = account.replace(reseller_prefix, '', 1)
         else:
-            acc_name = account
+            self.acc_name = account
 
         part = 0
-        seen_ids = set()
-        nodes = [dev for dev in self._devs \
-                     if dev['device'] == acc_name \
-                     and not (dev['id'] in seen_ids \
-                                  or seen_ids.add(dev['id']))]
-        if not nodes:
-            nodes = false_node
-        return part, nodes
+        return part, self._get_part_nodes(part)
+
+
+    def get_more_nodes(self, part):
+        """
+        Generator to get extra nodes for a partition for hinted handoff.
+
+        :param part: partition to get handoff nodes for
+        :returns: generator of node dicts
+
+        See :func:`get_nodes` for a description of the node dicts.
+        Should never be called in the swift UFO environment, so yield nothing
+        """
+        yield self.false_node
