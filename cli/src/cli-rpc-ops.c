@@ -137,7 +137,8 @@ gf_cli_probe_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf1_cli_probe_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 //rsp.op_ret   = -1;
                 //rsp.op_errno = EINVAL;
                 goto out;
@@ -215,7 +216,8 @@ gf_cli_deprobe_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf1_cli_deprobe_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 //rsp.op_ret   = -1;
                 //rsp.op_errno = EINVAL;
                 goto out;
@@ -315,7 +317,8 @@ gf_cli_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf1_cli_peer_list_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 //rsp.op_ret   = -1;
                 //rsp.op_errno = EINVAL;
                 goto out;
@@ -530,7 +533,8 @@ gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("cli", GF_LOG_ERROR, "error");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -791,7 +795,8 @@ gf_cli_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -858,20 +863,22 @@ gf_cli_delete_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        frame = myframe;
+
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
-        frame = myframe;
         local = frame->local;
 
         if (local)
                 dict = local->dict;
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_log (frame->this->name, GF_LOG_ERROR,
                         "dict get failed");
                 goto out;
         }
@@ -932,13 +939,15 @@ gf_cli3_1_uuid_reset_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        frame = myframe;
+
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
-        frame = myframe;
         local = frame->local;
         frame->local = NULL;
 
@@ -988,13 +997,14 @@ gf_cli_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        frame = myframe;
+
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
-
-        frame = myframe;
 
         if (frame)
                 local = frame->local;
@@ -1004,7 +1014,7 @@ gf_cli_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "dict get failed");
+                gf_log (frame->this->name, GF_LOG_ERROR, "dict get failed");
                 goto out;
         }
 
@@ -1065,13 +1075,14 @@ gf_cli_stop_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        frame = myframe;
+
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
-
-        frame = myframe;
 
         if (frame)
                 local = frame->local;
@@ -1080,7 +1091,7 @@ gf_cli_stop_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 dict = local->dict;
                 ret = dict_get_str (dict, "volname", &volname);
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_ERROR,
+                        gf_log (frame->this->name, GF_LOG_ERROR,
                                 "Unable to get volname from dict");
                         goto out;
                 }
@@ -1158,14 +1169,15 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        frame = myframe;
+
         ret = xdr_to_generic (*iov, &rsp,
                               (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
-
-        frame = myframe;
 
         if (frame)
                 local = frame->local;
@@ -1175,14 +1187,14 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = dict_get_str (local_dict, "volname", &volname);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_log (frame->this->name, GF_LOG_ERROR,
                         "Failed to get volname");
                 goto out;
         }
 
         ret = dict_get_int32 (local_dict, "rebalance-command", (int32_t*)&cmd);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_log (frame->this->name, GF_LOG_ERROR,
                         "Failed to get command");
                 goto out;
         }
@@ -1265,7 +1277,7 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = dict_get_int32 (dict, "count", &counter);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "count not set");
+                gf_log (frame->this->name, GF_LOG_ERROR, "count not set");
                 goto out;
         }
 
@@ -1278,49 +1290,49 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 snprintf (key, 256, "node-uuid-%d", i);
                 ret = dict_get_str (dict, key, &node_uuid);
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_TRACE,
+                        gf_log (frame->this->name, GF_LOG_TRACE,
                                 "failed to get node-uuid");
 
                 memset (key, 0, 256);
                 snprintf (key, 256, "files-%d", i);
                 ret = dict_get_uint64 (dict, key, &files);
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_TRACE,
+                        gf_log (frame->this->name, GF_LOG_TRACE,
                                 "failed to get file count");
 
                 memset (key, 0, 256);
                 snprintf (key, 256, "size-%d", i);
                 ret = dict_get_uint64 (dict, key, &size);
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_TRACE,
+                        gf_log (frame->this->name, GF_LOG_TRACE,
                                 "failed to get size of xfer");
 
                 memset (key, 0, 256);
                 snprintf (key, 256, "lookups-%d", i);
                 ret = dict_get_uint64 (dict, key, &lookup);
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_TRACE,
+                        gf_log (frame->this->name, GF_LOG_TRACE,
                                 "failed to get lookedup file count");
 
                 memset (key, 0, 256);
                 snprintf (key, 256, "status-%d", i);
                 ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_TRACE,
+                        gf_log (frame->this->name, GF_LOG_TRACE,
                                 "failed to get status");
 
                 memset (key, 0, 256);
                 snprintf (key, 256, "failures-%d", i);
                 ret = dict_get_uint64 (dict, key, &failures);
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_TRACE,
+                        gf_log (frame->this->name, GF_LOG_TRACE,
                                 "failed to get failures count");
 
                 memset (key, 0, 256);
                 snprintf (key, 256, "run-time-%d", i);
                 ret = dict_get_double (dict, key, &elapsed);
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_TRACE,
+                        gf_log (frame->this->name, GF_LOG_TRACE,
                                 "failed to get run-time");
 
                 switch (status_rcd) {
@@ -1381,7 +1393,8 @@ gf_cli_rename_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -1425,7 +1438,8 @@ gf_cli_reset_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -1521,7 +1535,8 @@ gf_cli_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -1601,7 +1616,8 @@ gf_cli_add_brick_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -1666,14 +1682,16 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        frame = myframe;
+
         ret = xdr_to_generic (*iov, &rsp,
                               (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
-        frame = myframe;
         if (frame)
                 local = frame->local;
         ret = dict_get_int32 (local->dict, "command", &command);
@@ -1747,7 +1765,7 @@ xml_output:
 
         ret = dict_get_int32 (dict, "count", &counter);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "count not set");
+                gf_log (frame->this->name, GF_LOG_ERROR, "count not set");
                 goto out;
         }
 
@@ -1762,48 +1780,48 @@ xml_output:
                 snprintf (key, 256, "node-uuid-%d", i);
                 ret = dict_get_str (dict, key, &node_uuid);
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_TRACE,
+                        gf_log (frame->this->name, GF_LOG_TRACE,
                                 "failed to get node-uuid");
 
                 memset (key, 0, 256);
                 snprintf (key, 256, "files-%d", i);
                 ret = dict_get_uint64 (dict, key, &files);
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_TRACE,
+                        gf_log (frame->this->name, GF_LOG_TRACE,
                                 "failed to get file count");
 
                 memset (key, 0, 256);
                 snprintf (key, 256, "size-%d", i);
                 ret = dict_get_uint64 (dict, key, &size);
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_TRACE,
+                        gf_log (frame->this->name, GF_LOG_TRACE,
                                 "failed to get size of xfer");
 
                 memset (key, 0, 256);
                 snprintf (key, 256, "lookups-%d", i);
                 ret = dict_get_uint64 (dict, key, &lookup);
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_TRACE,
+                        gf_log (frame->this->name, GF_LOG_TRACE,
                                 "failed to get lookedup file count");
 
                 memset (key, 0, 256);
                 snprintf (key, 256, "status-%d", i);
                 ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_TRACE,
+                        gf_log (frame->this->name, GF_LOG_TRACE,
                                 "failed to get status");
 
                 snprintf (key, 256, "failures-%d", i);
                 ret = dict_get_uint64 (dict, key, &failures);
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_TRACE,
+                        gf_log (frame->this->name, GF_LOG_TRACE,
                                 "Failed to get failure on files");
 
                 memset (key, 0, 256);
                 snprintf (key, 256, "run-time-%d", i);
                 ret = dict_get_double (dict, key, &elapsed);
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_TRACE,
+                        gf_log (frame->this->name, GF_LOG_TRACE,
                                 "Failed to get run-time");
 
                 switch (status_rcd) {
@@ -1874,7 +1892,8 @@ gf_cli_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -1987,7 +2006,8 @@ gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -2047,7 +2067,7 @@ gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                         ret = dict_get_str (rsp_dict, "status-reply",
                                             &status_reply);
                         if (ret) {
-                                gf_log (THIS->name, GF_LOG_ERROR, "failed to"
+                                gf_log (frame->this->name, GF_LOG_ERROR, "failed to"
                                         "get status");
                                 goto out;
                         }
@@ -2166,7 +2186,8 @@ gf_cli_log_rotate_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -2214,7 +2235,8 @@ gf_cli_sync_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -2370,15 +2392,19 @@ gf_cli_quota_cbk (struct rpc_req *req, struct iovec *iov,
         char              *volname    = NULL;
         char              *limit_list = NULL;
         int32_t            type       = 0;
-        char               msg[1024] = {0,};
+        char               msg[1024]  = {0,};
+        call_frame_t      *frame      = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
         }
 
+        frame = myframe;
+
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -2409,17 +2435,17 @@ gf_cli_quota_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret)
-                gf_log (THIS->name, GF_LOG_TRACE,
+                gf_log (frame->this->name, GF_LOG_TRACE,
                         "failed to get volname");
 
         ret = dict_get_str (dict, "limit_list", &limit_list);
         if (ret)
-                gf_log (THIS->name, GF_LOG_TRACE,
+                gf_log (frame->this->name, GF_LOG_TRACE,
                         "failed to get limit_list");
 
         ret = dict_get_int32 (dict, "type", &type);
         if (ret)
-                gf_log (THIS->name, GF_LOG_TRACE,
+                gf_log (frame->this->name, GF_LOG_TRACE,
                         "failed to get type");
 
         if (type == GF_QUOTA_OPTION_TYPE_LIST) {
@@ -2488,14 +2514,24 @@ gf_cli_getspec_cbk (struct rpc_req *req, struct iovec *iov,
         gf_getspec_rsp          rsp   = {0,};
         int                     ret   = -1;
         char                   *spec  = NULL;
+        call_frame_t           *frame = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
         }
 
+        frame = myframe;
+
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_getspec_rsp);
-        if (ret < 0 || rsp.op_ret == -1) {
-                gf_log ("", GF_LOG_ERROR, "error");
+        if (ret < 0) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
+                goto out;
+        }
+
+        if (rsp.op_ret == -1) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "getspec failed");
                 goto out;
         }
 
@@ -2525,14 +2561,24 @@ gf_cli_pmap_b2p_cbk (struct rpc_req *req, struct iovec *iov,
         pmap_port_by_brick_rsp rsp = {0,};
         int                     ret   = -1;
         char                   *spec  = NULL;
+        call_frame_t           *frame = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
         }
 
+        frame = myframe;
+
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_pmap_port_by_brick_rsp);
-        if (ret < 0 || rsp.op_ret == -1) {
-                gf_log ("", GF_LOG_ERROR, "error");
+        if (ret < 0) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
+                goto out;
+        }
+
+        if (rsp.op_ret == -1) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "pump_b2p failed");
                 goto out;
         }
 
@@ -2740,7 +2786,7 @@ gf_cli_get_volume (call_frame_t *frame, xlator_t *this,
         flags = ctx->flags;
         ret = dict_set_int32 (dict, "flags", flags);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "failed to set flags");
+                gf_log (frame->this->name, GF_LOG_ERROR, "failed to set flags");
                 goto out;
         }
 
@@ -2802,9 +2848,12 @@ gf_cli_bd_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (-1 == req->rpc_status)
                 goto out;
 
+        frame = myframe;
+
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -2814,7 +2863,6 @@ gf_cli_bd_op_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        frame = myframe;
         if (frame)
                 local = frame->local;
 
@@ -3223,7 +3271,7 @@ gf_cli_remove_brick (call_frame_t *frame, xlator_t *this,
 
                 ret = dict_set_str (req_dict, "volname", volname);
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to set dict");
                         goto out;
                 }
@@ -3235,7 +3283,7 @@ gf_cli_remove_brick (call_frame_t *frame, xlator_t *this,
 
                 ret = dict_set_int32 (req_dict, "rebalance-command", (int32_t) cmd);
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to set dict");
                         goto out;
                 }
@@ -3484,7 +3532,8 @@ gf_cli_fsm_log_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf1_cli_fsm_log_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -3691,17 +3740,20 @@ gf_cli_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
         char                    *gsync_status = NULL;
         char                    *master = NULL;
         char                    *slave  = NULL;
-        int32_t                  type    = 0;
+        int32_t                  type   = 0;
+        call_frame_t            *frame  = NULL;
 
         if (req->rpc_status == -1) {
                 ret = -1;
                 goto out;
         }
 
+        frame = myframe;
+
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR,
-                        "Unable to get response structure");
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -3741,7 +3793,7 @@ gf_cli_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = dict_get_int32 (dict, "type", &type);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "failed to get type");
+                gf_log (frame->this->name, GF_LOG_ERROR, "failed to get type");
                 goto out;
         }
 
@@ -4015,7 +4067,8 @@ gf_cli_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_DEBUG, "Received resp to profile");
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -4203,7 +4256,8 @@ gf_cli_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_DEBUG, "Received resp to top");
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "Unable to decode response");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -4439,8 +4493,15 @@ gf_cli_getwd_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf1_cli_getwd_rsp);
-        if (ret < 0 || rsp.op_ret == -1) {
-                gf_log ("", GF_LOG_ERROR, "error");
+        if (ret < 0) {
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
+                goto out;
+        }
+
+        if (rsp.op_ret == -1) {
+                cli_err ("getwd failed");
+                ret = rsp.op_ret;
                 goto out;
         }
 
@@ -5533,7 +5594,8 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("cli", GF_LOG_ERROR, "Volume status response error");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -5912,7 +5974,8 @@ gf_cli_mount_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf1_cli_mount_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -5979,7 +6042,8 @@ gf_cli_umount_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf1_cli_umount_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -6115,13 +6179,14 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        frame = myframe;
+
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
-
-        frame = myframe;
 
         if (frame)
                 local = frame->local;
@@ -6145,7 +6210,7 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = dict_get_str (input_dict, "volname", &volname);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "failed to get volname");
+                gf_log (frame->this->name, GF_LOG_ERROR, "failed to get volname");
                 goto out;
         }
 
@@ -6259,7 +6324,8 @@ gf_cli_statedump_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = xdr_to_generic (*iov, &rsp,
                               (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log (THIS->name, GF_LOG_ERROR, "XDR decoding failed");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
         gf_log ("cli", GF_LOG_DEBUG, "Received response to statedump");
@@ -6330,7 +6396,8 @@ gf_cli_list_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = xdr_to_generic (*iov, &rsp,
                               (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-                gf_log (THIS->name, GF_LOG_ERROR, "XDR decoding failed");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
 
@@ -6417,8 +6484,8 @@ gf_cli_clearlocks_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = xdr_to_generic (*iov, &rsp,
                               (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
-
-                gf_log ("cli", GF_LOG_ERROR, "XDR decoding failed");
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
                 goto out;
         }
         gf_log ("cli", GF_LOG_DEBUG, "Received response to clear-locks");
