@@ -7,6 +7,7 @@ import signal
 import logging
 import socket
 import errno
+import re
 from errno import ENOENT, ENODATA, EPIPE
 from threading import currentThread, Condition, Lock
 from datetime import datetime
@@ -394,6 +395,12 @@ class GMasterBase(object):
         self.lastreport = {'crawls': 0, 'turns': 0}
         self.start = None
         self.change_seen = None
+        self.syncTime=0
+        self.lastSyncTime=0
+        self.crawlStartTime=0
+        self.crawlTime=0
+        self.filesSynced=0
+        self.bytesSynced=0
         # the authoritative (foreign, native) volinfo pair
         # which lets us deduce what to do when we refetch
         # the volinfos from system
@@ -435,6 +442,34 @@ class GMasterBase(object):
             ts += '.' + str(tpair[1])
         return ts
 
+    def get_extra_info(self):
+        str_info="\nFile synced : %d" %(self.filesSynced)
+        str_info+="\nBytes Synced : %d KB" %(self.syncer.bytesSynced)
+        str_info+="\nSync Time : %f seconds" %(self.syncTime)
+        self.crawlTime=datetime.now()-self.crawlStartTime
+        years , days =divmod(self.crawlTime.days,365.25)
+        years=int(years)
+        days=int(days)
+
+        date=""
+        m, s = divmod(self.crawlTime.seconds, 60)
+        h, m = divmod(m, 60)
+
+        if years!=0 :
+                date+=str(years)+" year "
+        if days!=0 :
+                date+=str(days)+" day "
+        if h!=0 :
+                date+=str(h)+" H : "
+        if m!=0 or h!=0 :
+                date+=str(m)+" M : "
+
+        date+=str(s)+" S"
+        self.crawlTime=date
+        str_info+="\nCrawl Time : %s" %(str(self.crawlTime))
+        str_info+="\n\0"
+        return str_info
+
     def checkpt_service(self, chan, chkpt, tgt):
         """checkpoint service loop
 
@@ -446,7 +481,7 @@ class GMasterBase(object):
             while True:
                 select([chan], [], [])
                 conn, _ = chan.accept()
-                conn.send('\0')
+                conn.send(self.get_extra_info())
                 conn.close()
         completed = self._checkpt_param(chkpt, 'completed', xtimish=False)
         if completed:
@@ -482,7 +517,7 @@ class GMasterBase(object):
                 try:
                     conn, _ = chan.accept()
                     try:
-                        conn.send("  | checkpoint %s %s\0" % (chkpt, status))
+                        conn.send("  | checkpoint %s %s %s" % (chkpt, status,self.get_extra_info()))
                     except:
                         exc = sys.exc_info()[1]
                         if (isinstance(exc, OSError) or isinstance(exc, IOError)) and \
@@ -536,6 +571,7 @@ class GMasterBase(object):
             t = Thread(target=keep_alive)
             t.start()
         self.lastreport['time'] = time.time()
+        self.crawlStartTime=datetime.now()
         while not self.terminate:
             self.crawl()
 
@@ -779,10 +815,16 @@ class GMasterBase(object):
             elif stat.S_ISREG(mo):
                 logging.debug("syncing %s ..." % e)
                 pb = self.syncer.add(e)
+                timeA=datetime.now()
                 def regjob(e, xte, pb):
                     if pb.wait():
                         logging.debug("synced " + e)
                         self.sendmark_regular(e, xte)
+
+                        timeB=datetime.now()
+                        self.lastSyncTime=timeB-timeA
+                        self.syncTime=(self.syncTime+self.lastSyncTime.microseconds)/(10.0**6)
+                        self.filesSynced=self.filesSynced+1
                         return True
                     else:
                         logging.warn("failed to sync " + e)
@@ -878,6 +920,7 @@ class Syncer(object):
         self.slave = slave
         self.lock = Lock()
         self.pb = PostBox()
+        self.bytesSynced=0
         for i in range(int(gconf.sync_jobs)):
             t = Thread(target=self.syncjob)
             t.start()
@@ -897,6 +940,9 @@ class Syncer(object):
             pb.close()
             po = self.slave.rsync(pb)
             if po.returncode == 0:
+                regEx=re.search('\ *total\ *transferred\ *file\ *size:\ *(\d+)\ *bytes\ *',po.stdout.read(),re.IGNORECASE)
+                if regEx:
+                        self.bytesSynced+=(int(regEx.group(1)))/1024
                 ret = True
             elif po.returncode in (23, 24):
                 # partial transfer (cf. rsync(1)), that's normal
