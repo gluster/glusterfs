@@ -3659,3 +3659,20 @@ glusterd_get_op_version_for_key (char *key)
 
         return 0;
 }
+
+gf_boolean_t
+gd_is_client_option (char *key)
+{
+        char *completion = NULL;
+        struct volopt_map_entry *vmep = NULL;
+        int   ret = 0;
+
+        COMPLETE_OPTION(key, completion, ret);
+        for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
+                if (strcmp (vmep->key, key) == 0) {
+                        return vmep->client_option;
+                }
+        }
+
+        return _gf_false;
+}

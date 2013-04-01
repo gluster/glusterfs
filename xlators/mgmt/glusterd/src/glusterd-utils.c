@@ -3031,6 +3031,8 @@ glusterd_import_friend_volume (dict_t *vols, size_t count)
         if (ret)
                 goto out;
 
+        gd_update_volume_op_versions (new_volinfo);
+
         list_add_tail (&new_volinfo->vol_list, &priv->volumes);
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with ret: %d", ret);
@@ -7487,4 +7489,44 @@ out:
         }
         return ret;
 
+}
+
+int
+_update_volume_op_versions (dict_t *this, char *key, data_t *value, void *data)
+{
+        int                op_version = 0;
+        glusterd_volinfo_t *ctx       = NULL;
+
+        GF_ASSERT (data);
+        ctx = data;
+
+        op_version = glusterd_get_op_version_for_key (key);
+
+        if (op_version > ctx->op_version)
+                ctx->op_version = op_version;
+
+        if (gd_is_client_option (key) &&
+            (op_version > ctx->client_op_version))
+                ctx->client_op_version = op_version;
+
+        return 0;
+}
+
+void
+gd_update_volume_op_versions (glusterd_volinfo_t *volinfo)
+{
+        glusterd_conf_t    *conf = NULL;
+
+        GF_ASSERT (volinfo);
+
+        conf = THIS->private;
+        GF_ASSERT (conf);
+
+        /* Reset op-versions to minimum */
+        volinfo->op_version = 1;
+        volinfo->client_op_version = 1;
+
+        dict_foreach (volinfo->dict, _update_volume_op_versions, volinfo);
+
+        return;
 }
