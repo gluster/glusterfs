@@ -1337,6 +1337,8 @@ glusterd_op_reset_volume (dict_t *dict, char **op_errstr)
                             key);
         }
 
+        gd_update_volume_op_versions (volinfo);
+
 out:
         GF_FREE (key_fixed);
         if (quorum_action)
@@ -1520,6 +1522,7 @@ glusterd_op_set_volume (dict_t *dict)
                 goto out;
         }
 
+        // TODO: Remove this once v3.3 compatability is not required
         check_op_version = dict_get_str_boolean (dict, "check-op-version",
                                                  _gf_false);
 
@@ -1648,6 +1651,7 @@ glusterd_op_set_volume (dict_t *dict)
                                 goto out;
                         }
                 }
+                gd_update_volume_op_versions (volinfo);
 
         } else {
                 list_for_each_entry (voliter, &priv->volumes, vol_list) {
@@ -1674,6 +1678,7 @@ glusterd_op_set_volume (dict_t *dict)
                                         goto out;
                                 }
                         }
+                        gd_update_volume_op_versions (volinfo);
                 }
         }
 
