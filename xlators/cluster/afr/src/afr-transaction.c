@@ -146,36 +146,6 @@ out:
         return;
 }
 
-
-static void
-__mark_pre_op_undone_on_fd (call_frame_t *frame, xlator_t *this, int child_index)
-{
-        afr_local_t   *local = NULL;
-        afr_fd_ctx_t  *fd_ctx = NULL;
-
-        local = frame->local;
-
-        if (!local->fd)
-                return;
-
-        fd_ctx = afr_fd_ctx_get (local->fd, this);
-
-        if (!fd_ctx)
-                goto out;
-
-        LOCK (&local->fd->lock);
-        {
-                if (local->transaction.type == AFR_DATA_TRANSACTION) {
-                        GF_ASSERT (fd_ctx->pre_op_done[child_index]);
-                        fd_ctx->pre_op_done[child_index]--;
-                }
-        }
-        UNLOCK (&local->fd->lock);
-out:
-        return;
-}
-
-
 static void
 __mark_non_participant_children (int32_t *pending[], int child_count,
                                  unsigned char *participants,
@@ -691,9 +661,6 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
                                 afr_changelog_post_op_cbk (frame, (void *)(long)i,
                                                            this, 1, 0, xattr[i], NULL);
                         } else {
-                                if (!piggyback)
-                                        __mark_pre_op_undone_on_fd (frame, this,
-                                                                    i);
                                 STACK_WIND_COOKIE (frame,
                                                    afr_changelog_post_op_cbk,
                                                    (void *) (long) i,
@@ -1392,6 +1359,8 @@ is_piggyback_post_op (call_frame_t *frame, fd_t *fd)
 				   if necesssary
 				*/
 				piggyback = _gf_false;
+                                GF_ASSERT (fdctx->pre_op_done[i]);
+                                fdctx->pre_op_done[i]--;
 			}
 		}
 	}
