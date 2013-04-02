@@ -1645,7 +1645,7 @@ afr_sh_purge_entry_common (call_frame_t *frame, xlator_t *this,
                 if (!purge_condition (local, priv, i))
                         continue;
                 gf_log (this->name, GF_LOG_INFO, "purging the stale entry %s "
-                        "on %d", local->loc.path, i);
+                        "on %s", local->loc.path, priv->children[i]->name);
                 afr_sh_call_entry_expunge_remove (frame, this,
                                                   (long) i, &sh->buf[i],
                                                   &sh->parentbufs[i],
@@ -1765,8 +1765,6 @@ afr_sh_children_lookup_done (call_frame_t *frame, xlator_t *this,
                                                sh->child_errno,
                                                priv->child_count, ENOENT);
         if (fresh_child_enoents == fresh_parent_count) {
-                gf_log (this->name, GF_LOG_INFO, "Deleting stale file %s",
-                        local->loc.path);
                 afr_sh_set_error (sh, ENOENT);
                 sh->op_failed = 1;
                 afr_sh_purge_entry (frame, this);
