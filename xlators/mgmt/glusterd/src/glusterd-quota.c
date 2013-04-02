@@ -25,7 +25,7 @@
 #include <sys/wait.h>
 
 int
-glusterd_handle_quota (rpcsvc_request_t *req)
+__glusterd_handle_quota (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf_cli_req                      cli_req = {{0,}};
@@ -110,6 +110,12 @@ out:
         }
 
         return ret;
+}
+
+int
+glusterd_handle_quota (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req, __glusterd_handle_quota);
 }
 
 int32_t
@@ -257,7 +263,9 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname)
                          "-l", DEFAULT_LOG_FILE_DIRECTORY"/quota-crawl.log",
                          mountdir, NULL);
 
+        synclock_unlock (&priv->big_lock);
         ret = runner_run_reuse (&runner);
+        synclock_lock (&priv->big_lock);
         if (ret == -1) {
                 runner_log (&runner, "glusterd", GF_LOG_DEBUG, "command failed");
                 runner_end (&runner);
