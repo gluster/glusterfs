@@ -31,7 +31,7 @@
         glusterd_op_stop_volume_args_get (dict, volname, flags)
 
 int
-glusterd_handle_create_volume (rpcsvc_request_t *req)
+__glusterd_handle_create_volume (rpcsvc_request_t *req)
 {
         int32_t                 ret         = -1;
         gf_cli_req              cli_req     = {{0,}};
@@ -192,7 +192,14 @@ out:
 }
 
 int
-glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
+glusterd_handle_create_volume (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_create_volume);
+}
+
+int
+__glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf_cli_req                      cli_req = {{0,}};
@@ -257,9 +264,15 @@ out:
         return ret;
 }
 
+int
+glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_cli_start_volume);
+}
 
 int
-glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
+__glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf_cli_req                      cli_req = {{0,}};
@@ -327,7 +340,14 @@ out:
 }
 
 int
-glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
+glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_cli_stop_volume);
+}
+
+int
+__glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
 {
         int32_t        ret         = -1;
         gf_cli_req     cli_req     = {{0,},};
@@ -397,7 +417,14 @@ out:
 }
 
 int
-glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
+glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_cli_delete_volume);
+}
+
+int
+__glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf_cli_req                      cli_req = {{0,}};
@@ -481,7 +508,14 @@ out:
 }
 
 int
-glusterd_handle_cli_statedump_volume (rpcsvc_request_t *req)
+glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_cli_heal_volume);
+}
+
+int
+__glusterd_handle_cli_statedump_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf_cli_req                      cli_req = {{0,}};
@@ -560,6 +594,13 @@ out:
         free (cli_req.dict.dict_val);
 
         return ret;
+}
+
+int
+glusterd_handle_cli_statedump_volume (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_cli_statedump_volume);
 }
 
 #ifdef HAVE_BD_XLATOR
@@ -1852,7 +1893,9 @@ glusterd_clearlocks_unmount (glusterd_volinfo_t *volinfo, char *mntpt)
         runner_add_args (&runner, "/bin/umount", "-f", NULL);
         runner_argprintf (&runner, "%s", mntpt);
 
+        synclock_unlock (&priv->big_lock);
         ret = runner_run (&runner);
+        synclock_lock (&priv->big_lock);
         if (ret) {
                 ret = 0;
                 gf_log ("", GF_LOG_DEBUG,
@@ -1924,7 +1967,9 @@ glusterd_clearlocks_mount (glusterd_volinfo_t *volinfo, char **xl_opts,
         }
 
         runner_argprintf (&runner, "%s", mntpt);
+        synclock_unlock (&priv->big_lock);
         ret = runner_run (&runner);
+        synclock_lock (&priv->big_lock);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_DEBUG,
                         "Could not start glusterfs");

@@ -37,7 +37,7 @@ static char *gsync_reserved_opts[] = {
 };
 
 int
-glusterd_handle_gsync_set (rpcsvc_request_t *req)
+__glusterd_handle_gsync_set (rpcsvc_request_t *req)
 {
         int32_t                 ret     = 0;
         dict_t                  *dict   = NULL;
@@ -154,6 +154,12 @@ out:
         return ret;
 }
 
+
+int
+glusterd_handle_gsync_set (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req, __glusterd_handle_gsync_set);
+}
 
 /*****
  *
@@ -1343,7 +1349,9 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
         runner_add_arg (&runner, op_name);
         if (op_value)
                 runner_add_arg (&runner, op_value);
+        synclock_unlock (&priv->big_lock);
         ret = runner_run (&runner);
+        synclock_lock (&priv->big_lock);
         if (ret) {
                 gf_log ("", GF_LOG_WARNING, "gsyncd failed to "
                         "%s %s option for %s %s peers",
