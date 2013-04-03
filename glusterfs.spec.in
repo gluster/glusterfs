@@ -14,9 +14,9 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without epoll
 %{?_without_epoll:%global _without_epoll --disable-epoll}
 
-# if you wish to compile an rpm with fusermount...
-# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with fusermount
-%{?_with_fusermount:%global _with_fusermount --enable-fusermount}
+# if you wish to compile an rpm without fusermount...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without fusermount
+%{?_without_fusermount:%global _without_fusermount --disable-fusermount}
 
 # if you wish to compile an rpm without geo-replication support, compile like this...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without georeplication
@@ -530,7 +530,7 @@ cd ../ufo
 
 %build
 ./autogen.sh
-%configure %{?_without_rdma} %{?_without_epoll} %{?_with_fusermount} %{?_without_georeplication} %{?_without_ocf}
+%configure %{?_without_rdma} %{?_without_epoll} %{?_without_fusermount} %{?_without_georeplication} %{?_without_ocf}
 
 # Remove rpath
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
@@ -827,7 +827,7 @@ fi
 %if 0%{_for_fedora_koji_builds}
 /sbin/umount.glusterfs
 %endif
-%if 0%{?_with_fusermount:1}
+%if 0%{!?_without_fusermount:1}
 %{_bindir}/fusermount-glusterfs
 %endif
 

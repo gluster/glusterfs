@@ -301,14 +301,15 @@ AC_SUBST(FUSE_CLIENT_SUBDIR)
 
 # FUSERMOUNT section
 AC_ARG_ENABLE([fusermount],
-              AC_HELP_STRING([--enable-fusermount],
-                             [Build fusermount]))
+	      AC_HELP_STRING([--disable-fusermount],
+			     [Use system's fusermount]))
 
-BUILD_FUSERMOUNT="no"
-if test "x$enable_fusermount" = "xyes"; then
-  FUSERMOUNT_SUBDIR="contrib/fuse-util"
-  BUILD_FUSERMOUNT="yes"
+BUILD_FUSERMOUNT="yes"
+if test "x$disable_fusermount" = "xyes"; then
+  BUILD_FUSERMOUNT="no"
+else
   AC_DEFINE(GF_FUSERMOUNT, 1, [Use our own fusermount])
+  FUSERMOUNT_SUBDIR="contrib/fuse-util"
 fi
 
 AC_SUBST(FUSERMOUNT_SUBDIR)
