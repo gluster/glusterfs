@@ -14,7 +14,7 @@
 # limitations under the License.
 
 import logging
-import os, fcntl, time
+import os, sys, fcntl, time, errno
 from ConfigParser import ConfigParser, NoSectionError, NoOptionError
 from swift.common.utils import TRUE_VALUES, search_tree
 from gluster.swift.common.fs_utils import mkdirs
@@ -81,7 +81,8 @@ def mount(root, drive):
             fcntl.lockf(f, fcntl.LOCK_EX|fcntl.LOCK_NB)
         except:
             ex = sys.exc_info()[1]
-            if isinstance(ex, IOError) and ex.errno in (EACCES, EAGAIN):
+            if isinstance(ex, IOError) and ex.errno in \
+                    (errno.EACCES, errno.EAGAIN):
                 # This means that some other process is mounting the
                 # filesystem, so wait for the mount process to complete
                 return _busy_wait(full_mount_path)
