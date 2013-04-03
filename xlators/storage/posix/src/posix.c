@@ -3897,8 +3897,23 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
          */
         ret = dict_get_int32 (dict, GF_READDIR_SKIP_DIRS, &skip_dirs);
 
-        count = posix_fill_readdir (fd, dir, off, size, &entries, this,
-                                    skip_dirs);
+	LOCK (&fd->lock);
+	{
+		/* posix_fill_readdir performs multiple separate individual
+		   readdir() calls to fill up the buffer.
+
+		   In case of NFS where the same anonymous FD is shared between
+		   different applications, reading a common directory can
+		   result in the anonymous fd getting re-used unsafely between
+		   the two readdir requests (in two different io-threads).
+
+		   It would also help, in the future, to replace the loop
+		   around readdir() with a single large getdents() call.
+		*/
+		count = posix_fill_readdir (fd, dir, off, size, &entries, this,
+					    skip_dirs);
+	}
+	UNLOCK (&fd->lock);
 
         /* pick ENOENT to indicate EOF */
         op_errno = errno;
