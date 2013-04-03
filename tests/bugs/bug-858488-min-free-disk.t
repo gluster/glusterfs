@@ -7,7 +7,7 @@ cleanup;
 
 function pidgrep()
 {
-    ps ax | grep "$1" | awk '{print $1}' | head -1
+    ps ax | grep "$1" | grep -v grep | awk '{print $1}' | head -1
 }
 
 ## Start glusterd
