@@ -204,6 +204,9 @@ Group:            Applications/File
 BuildRequires:    fuse-devel
 
 Requires:         %{name} = %{version}-%{release}
+%if ! 0%{?_with_fusermount}
+Requires:         /usr/bin/fusermount
+%endif
 
 Obsoletes:        %{name}-client < %{version}-%{release}
 Provides:         %{name}-client = %{version}-%{release}
