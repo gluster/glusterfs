@@ -2443,6 +2443,7 @@ init (xlator_t *this)
 	priv->metadata_change_log = 1;
 	priv->entry_change_log    = 1;
         priv->use_afr_in_pump = 1;
+        priv->sh_readdir_size = 65536;
 
 	/* Locking options */
 
