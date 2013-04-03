@@ -2576,6 +2576,7 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
                                           "available (%lu) < required (%lu)",
                                           (long)(orig_buf + size),
                                           (long)(buf + vallen));
+                        goto out;
                 }
                 value = get_new_data ();
                 value->len  = vallen;
