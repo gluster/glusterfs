@@ -365,7 +365,7 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
         }
 
         if (ret != 0) {
-                layout->list[i].err = -1;
+                layout->list[i].err = 0;
                 gf_log (this->name, GF_LOG_TRACE,
                         "missing disk layout on %s. err = %d",
                         subvol->name, err);
@@ -529,23 +529,29 @@ dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
         prev_stop = last_stop;
 
         for (i = 0; i < layout->cnt; i++) {
-                if (layout->list[i].err) {
-                        switch (layout->list[i].err) {
-                        case -1:
-                        case ENOENT:
-                                missing++;
-                                break;
-                        case ENOTCONN:
-                                down++;
-                                break;
-                        case ENOSPC:
-                                no_space++;
-                                break;
-                        default:
-                                misc++;
+                switch (layout->list[i].err) {
+                case -1:
+                case ENOENT:
+                        missing++;
+                        break;
+                case ENOTCONN:
+                        down++;
+                        break;
+                case ENOSPC:
+                        no_space++;
+                        break;
+                case 0:
+                        /* if err == 0 and start == stop, then it is a non misc++;
+                         * participating subvolume(spread-cnt). Then, do not
+                         * check for anomalies. If start != stop, then treat it
+                         * as misc err */
+                        if (layout->list[i].start == layout->list[i].stop) {
+                                continue;
                         }
-                        continue;
-                }
+                        break;
+                default:
+                        misc++;
+                 }
 
                 is_virgin = 0;
 
