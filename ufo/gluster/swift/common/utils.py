@@ -70,7 +70,7 @@ def read_metadata(path):
     key = 0
     while metadata is None:
         try:
-            metadata_s += xattr.get(path, '%s%s' % (METADATA_KEY, (key or '')))
+            metadata_s += xattr.getxattr(path, '%s%s' % (METADATA_KEY, (key or '')))
         except IOError as err:
             if err.errno == errno.ENODATA:
                 if key > 0:
@@ -86,7 +86,7 @@ def read_metadata(path):
                 # to the caller we have no metadata.
                 metadata = {}
             else:
-                logging.exception("xattr.get failed on %s key %s err: %s",
+                logging.exception("xattr.getxattr failed on %s key %s err: %s",
                                   path, key, str(err))
                 # Note that we don't touch the keys on errors fetching the
                 # data since it could be a transient state.
@@ -120,9 +120,9 @@ def write_metadata(path, metadata):
     key = 0
     while metastr:
         try:
-            xattr.set(path, '%s%s' % (METADATA_KEY, key or ''), metastr[:MAX_XATTR_SIZE])
+            xattr.setxattr(path, '%s%s' % (METADATA_KEY, key or ''), metastr[:MAX_XATTR_SIZE])
         except IOError as err:
-            logging.exception("xattr.set failed on %s key %s err: %s", path, key, str(err))
+            logging.exception("setxattr failed on %s key %s err: %s", path, key, str(err))
             raise
         metastr = metastr[MAX_XATTR_SIZE:]
         key += 1
@@ -131,7 +131,7 @@ def clean_metadata(path):
     key = 0
     while True:
         try:
-            xattr.remove(path, '%s%s' % (METADATA_KEY, (key or '')))
+            xattr.removexattr(path, '%s%s' % (METADATA_KEY, (key or '')))
         except IOError as err:
             if err.errno == errno.ENODATA:
                 break
@@ -142,12 +142,12 @@ def check_user_xattr(path):
     if not os_path.exists(path):
         return False
     try:
-        xattr.set(path, 'user.test.key1', 'value1')
+        xattr.setxattr(path, 'user.test.key1', 'value1')
     except IOError as err:
         logging.exception("check_user_xattr: set failed on %s err: %s", path, str(err))
         raise
     try:
-        xattr.remove(path, 'user.test.key1')
+        xattr.removexattr(path, 'user.test.key1')
     except IOError as err:
         logging.exception("check_user_xattr: remove failed on %s err: %s", path, str(err))
         #Remove xattr may fail in case of concurrent remove.
