@@ -2,13 +2,7 @@
 
 function get_layout()
 {
-        layout=`getfattr -n trusted.glusterfs.dht -e hex $1 2>&1|grep dht |cut -d = -f2`
-        if [ $? -eq 1]
-        then
-                return -1
-        else
-                return $layout
-        fi
+        getfattr -n trusted.glusterfs.dht -e hex $1 2>&1|grep dht |cut -d = -f2
 
 }
 
