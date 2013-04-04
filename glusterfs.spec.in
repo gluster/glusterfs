@@ -31,7 +31,7 @@
 %{?_without_ufo:%global _without_ufo true}
 
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
-%global           SWIFTVER 1.7.4
+%global           SWIFTVER 1.8.0
 %if 0%{_for_fedora_koji_builds}
 %global           UFOVER 1.1
 %else
@@ -98,10 +98,10 @@ Requires(postun): systemd-units
 # can't seem to make a generic macro that works
 %define _init_glusterd   %{_unitdir}/glusterd.service
 %define _init_glusterfsd %{_unitdir}/glusterfsd.service
-%define _init_gluster_swift_account    %{_unitdir}/gluster-swift-account.service
+%define _init_gluster_swift_account   %{_unitdir}/gluster-swift-account.service
+%define _init_gluster_swift_container %{_unitdir}/gluster-swift-container.service
 %define _init_gluster_swift_object    %{_unitdir}/gluster-swift-object.service
-%define _init_gluster_swift_container    %{_unitdir}/gluster-swift-container.service
-%define _init_gluster_swift_proxy %{_unitdir}/gluster-swift-proxy.service
+%define _init_gluster_swift_proxy     %{_unitdir}/gluster-swift-proxy.service
 %else
 %if 0%{_for_fedora_koji_builds}
 %global glusterd_service %{S:%{SOURCE12}}
@@ -119,10 +119,10 @@ Requires(postun): /sbin/service
 # can't seem to make a generic macro that works
 %define _init_glusterd   %{_sysconfdir}/init.d/glusterd
 %define _init_glusterfsd %{_sysconfdir}/init.d/glusterfsd
-%define _init_gluster_swift_account %{_sysconfdir}/init.d/gluster-swift-account
-%define _init_gluster_swift_object  %{_sysconfdir}/init.d/gluster-swift-object
-%define _init_gluster_swift_container  %{_sysconfdir}/init.d/gluster-swift-container
-%define _init_gluster_swift_proxy  %{_sysconfdir}/init.d/gluster-swift-proxy
+%define _init_gluster_swift_account   %{_sysconfdir}/init.d/gluster-swift-account
+%define _init_gluster_swift_container %{_sysconfdir}/init.d/gluster-swift-container
+%define _init_gluster_swift_object    %{_sysconfdir}/init.d/gluster-swift-object
+%define _init_gluster_swift_proxy     %{_sysconfdir}/init.d/gluster-swift-proxy
 %endif
 
 BuildRequires:    bison flex
@@ -288,6 +288,7 @@ is in user space and easily manageable.
 This package provides the development libraries.
 
 %if 0%{?_with_ufo:1}
+%if ( 0%{?fedora} && 0%{?fedora} < 19 ) || ( 0%{?rhel} && 0%{?rhel} < 7 )
 %package swift
 
 Summary:          GlusterFS OpenStack Object Storage
@@ -341,10 +342,12 @@ Source71:         container-server.conf
 Source72:         object-server.conf
 Source73:         proxy-server.conf
 Source74:         swift.conf
+Source75:         object-expirer.conf
 
 Patch20:          0001-Use-updated-parallel-install-versions-of-epel-packag.patch
 Patch21:          0002-Add-fixes-for-building-the-doc-package.patch
 Patch22:          glusterfs-3.3.1.swift.constraints.backport-1.7.4.patch
+Patch23:          glusterfs-3.4.0.swift.egginfo-grizzly.patch
 #BuildRoot:        %(mktemp -ud %{_tmppath}/swift-%{SWIFTVER}-%{release}-XXXXXX)
 
 %if 0%{?_with_systemd:1}
@@ -359,7 +362,6 @@ Patch22:          glusterfs-3.3.1.swift.constraints.backport-1.7.4.patch
 %global glusterswiftproxy_service %{S:%{SOURCE43}}
 %endif
 
-BuildRequires:    dos2unix
 BuildRequires:    python-devel
 BuildRequires:    python-setuptools
 BuildRequires:    python-netifaces
@@ -382,6 +384,9 @@ Requires:         python-simplejson
 Requires:         pyxattr
 Requires:         python-setuptools
 Requires:         python-netifaces
+%if "%{SWIFTVER}" != "1.7.4"
+Requires:         python-swiftclient
+%endif
 
 Conflicts:        openstack-swift
 
@@ -477,12 +482,18 @@ in clusters for reliable, redundant, and large-scale storage of static objects.
 
 This package contains documentation files for %{name}-swift.
 
+%endif
+
 %package ufo
 Summary:          GlusterFS Unified File and Object Storage.
 Group:            Applications/System
 License:          ASL 2.0
 BuildArch:        noarch
+%if ( 0%{?fedora} && 0%{?fedora} < 19 ) || ( 0%{?rhel} && 0%{?rhel} < 7 )
 Requires:         %{name}-swift = %{version}-%{release}
+%else
+Requires:         openstack-swift = %{SWIFTVER}-1
+%endif
 Requires:         memcached
 Requires:         openssl
 Requires:         python
@@ -516,15 +527,20 @@ storage costs.
 %patch1 -p0
 %endif
 cd swift-%{SWIFTVER}
+%if "%{SWIFTVER}" == "1.7.4"
 %if ( 0%{?rhel} && 0%{?rhel} < 7 )
 %patch20 -p1
 %patch21 -p1
 %endif
 %patch22 -p1
-dos2unix LICENSE
+%else
+%patch23 -p1
+%endif
 %if 0%{_for_fedora_koji_builds}
+%if "%{UFOVER}" == "1.1"
 cd ../ufo
 %patch15 -p1
+%endif
 %endif
 %endif
 
@@ -731,6 +747,7 @@ cd swift-%{SWIFTVER}
 #install -p -D -m 660 %{SOURCE72} %{buildroot}%{_sysconfdir}/swift/object-server.conf
 #install -p -D -m 660 %{SOURCE73} %{buildroot}%{_sysconfdir}/swift/proxy-server.conf
 #install -p -D -m 660 %{SOURCE74} %{buildroot}%{_sysconfdir}/swift/swift.conf
+#install -p -D -m 660 %{SOURCE75} %{buildroot}%{_sysconfdir}/swift/object-expirer.conf
 #%endif
 # Install pid directory
 %{__install} -d -m 755 %{buildroot}%{_localstatedir}/run/swift
@@ -743,6 +760,8 @@ cd swift-%{SWIFTVER}
 %{__mkdir_p} %{buildroot}%{_sysconfdir}/tmpfiles.d
 install -p -m 0644 %{SOURCE37} %{buildroot}%{_sysconfdir}/tmpfiles.d/gluster-swift.conf
 %endif
+# Install recon directory
+install -d -m 755 %{buildroot}%{_localstatedir}/cache/swift
 # man pages
 install -d -m 755 %{buildroot}%{_mandir}/man5
 for m in doc/manpages/*.5; do
@@ -913,20 +932,13 @@ fi
 %defattr(-,root,root,-)
 %doc swift-%{SWIFTVER}/AUTHORS
 %doc swift-%{SWIFTVER}/LICENSE
-%doc swift-%{SWIFTVER}/README
+%doc swift-%{SWIFTVER}/README*
 %doc swift-%{SWIFTVER}/etc/dispersion.conf-sample
 %doc swift-%{SWIFTVER}/etc/drive-audit.conf-sample
 %doc swift-%{SWIFTVER}/etc/object-expirer.conf-sample
 %doc swift-%{SWIFTVER}/etc/swift.conf-sample
 %{_mandir}/man5/dispersion.conf.5*
-%{_mandir}/man1/swift-dispersion-populate.1*
-%{_mandir}/man1/swift-dispersion-report.1*
-%{_mandir}/man1/swift.1*
-%{_mandir}/man1/swift-get-nodes.1*
-%{_mandir}/man1/swift-init.1*
-%{_mandir}/man1/swift-orphans.1*
-%{_mandir}/man1/swift-recon.1*
-%{_mandir}/man1/swift-ring-builder.1*
+%{_mandir}/man1/swift*.1*
 %if 0%{?_with_systemd:1}
 %config(noreplace) %{_sysconfdir}/tmpfiles.d/gluster-swift.conf
 %else
@@ -940,6 +952,7 @@ fi
 %dir %{python_sitelib}/swift
 %{_bindir}/swift-account-audit
 %{_bindir}/swift-bench
+%{_bindir}/swift-bench-client
 %{_bindir}/swift-drive-audit
 %{_bindir}/swift-get-nodes
 %{_bindir}/swift-init
@@ -966,7 +979,10 @@ fi
 %{_mandir}/man1/swift-account-server.1*
 %_init_gluster_swift_account
 %if 0%{?_with_systemd:1}
-%{_unitdir}/gluster-swift-account*.service
+%{_unitdir}/gluster-swift-account@.service
+%if ( 0%{?fedora} && 0%{?fedora} > 18 )
+%{_unitdir}/gluster-swift-account-*.service
+%endif
 %endif
 %dir %attr(0755, swift, swift) %{_localstatedir}/run/swift/account-server
 %dir %{_sysconfdir}/swift/account-server
@@ -987,9 +1003,13 @@ fi
 %{_mandir}/man1/swift-container-updater.1*
 %_init_gluster_swift_container
 %if 0%{?_with_systemd:1}
-%{_unitdir}/gluster-swift-container*.service
+%{_unitdir}/gluster-swift-container@.service
+%if ( 0%{?fedora} && 0%{?fedora} > 18 )
+%{_unitdir}/gluster-swift-container-*.service
+%endif
 %endif
 %dir %attr(0755, swift, swift) %{_localstatedir}/run/swift/container-server
+%dir %attr(0755, swift, swift) %{_localstatedir}/cache/swift
 %dir %{_sysconfdir}/swift/container-server
 %{_bindir}/swift-container-auditor
 %{_bindir}/swift-container-server
@@ -1003,18 +1023,21 @@ fi
 %doc swift-%{SWIFTVER}/etc/object-server.conf-sample
 %doc swift-%{SWIFTVER}/etc/rsyncd.conf-sample
 %{_mandir}/man5/object-server.conf.5*
-%{_mandir}/man5/object-expirer.conf.5*
 %{_mandir}/man1/swift-object-auditor.1*
-%{_mandir}/man1/swift-object-expirer.1*
 %{_mandir}/man1/swift-object-info.1*
 %{_mandir}/man1/swift-object-replicator.1*
 %{_mandir}/man1/swift-object-server.1*
 %{_mandir}/man1/swift-object-updater.1*
 %_init_gluster_swift_object
 %if 0%{?_with_systemd:1}
-%{_unitdir}/gluster-swift-object*.service
+%{_unitdir}/gluster-swift-object@.service
+%if ( 0%{?fedora} && 0%{?fedora} > 18 )
+%{_unitdir}/gluster-swift-object-*.service
+%exclude %{_unitdir}/gluster-swift-object-expirer*.service
+%endif
 %endif
 %dir %attr(0755, swift, swift) %{_localstatedir}/run/swift/object-server
+%dir %attr(0755, swift, swift) %{_localstatedir}/cache/swift
 %dir %{_sysconfdir}/swift/object-server
 %{_bindir}/swift-object-auditor
 %{_bindir}/swift-object-info
@@ -1026,11 +1049,19 @@ fi
 %files swift-proxy
 %defattr(-,root,root,-)
 %doc swift-%{SWIFTVER}/etc/proxy-server.conf-sample
+%doc swift-%{SWIFTVER}/etc/object-expirer.conf-sample
+%{_mandir}/man5/object-expirer.conf.5*
 %{_mandir}/man5/proxy-server.conf.5*
+%{_mandir}/man1/swift-object-expirer.1*
 %{_mandir}/man1/swift-proxy-server.1*
 %_init_gluster_swift_proxy
+%if ( 0%{?fedora} && 0%{?fedora} > 18 )
+%{_unitdir}/gluster-swift-object-expirer*.service
+%endif
 %dir %attr(0755, swift, swift) %{_localstatedir}/run/swift/proxy-server
+%dir %attr(0755, swift, swift) %{_localstatedir}/cache/swift
 %dir %{_sysconfdir}/swift/proxy-server
+%{_bindir}/swift-object-expirer
 %{_bindir}/swift-proxy-server
 %{python_sitelib}/swift/proxy
 
@@ -1130,18 +1161,36 @@ fi
 
 %post swift-account
 %_init_enable gluster-swift-account
+%if ( 0%{?fedora} && 0%{?fedora} > 18 )
+%_init_enable gluster-swift-account-replicator
+%_init_enable gluster-swift-account-auditor
+%_init_enable gluster-swift-account-reaper
+%endif
 
 
 %preun swift-account
 if [ $1 = 0 ] ; then
     %_init_stop gluster-swift-account
+%if ( 0%{?fedora} && 0%{?fedora} > 18 )
     %_init_disable gluster-swift-account
+    %_init_stop gluster-swift-account-replicator
+    %_init_disable gluster-swift-account-replicator
+    %_init_stop gluster-swift-account-auditor
+    %_init_disable gluster-swift-account-auditor
+    %_init_stop gluster-swift-account-reaper
+    %_init_disable gluster-swift-account-reaper
+%endif
 fi
 
 
 %postun swift-account
-if [ "$1" -ge "1" ] ; then
+if [ $1 -ge 1 ] ; then
     %_init_restart gluster-swift-account
+%if ( 0%{?fedora} && 0%{?fedora} > 18 )
+    %_init_restart gluster-swift-account-replicator
+    %_init_restart gluster-swift-account-auditor
+    %_init_restart gluster-swift-account-reaper
+%endif
 fi
 
 
@@ -1155,18 +1204,36 @@ fi
 
 %post swift-container
 %_init_enable gluster-swift-container
+%if ( 0%{?fedora} && 0%{?fedora} > 18 )
+%_init_enable gluster-swift-container-replicator
+%_init_enable gluster-swift-container-auditor
+%_init_enable gluster-swift-container-updater
+%endif
 
 
 %preun swift-container
 if [ $1 = 0 ] ; then
     %_init_stop gluster-swift-container
     %_init_disable gluster-swift-container
+%if ( 0%{?fedora} && 0%{?fedora} > 18 )
+    %_init_stop gluster-swift-container-replicator
+    %_init_disable gluster-swift-container-replicator
+    %_init_stop gluster-swift-container-auditor
+    %_init_disable gluster-swift-container-auditor
+    %_init_stop gluster-swift-container-updater
+    %_init_disable gluster-swift-container-updater
+%endif
 fi
 
 
 %postun swift-container
-if [ "$1" -ge "1" ] ; then
+if [ $1 -ge 1 ] ; then
     %_init_restart gluster-swift-container
+%if ( 0%{?fedora} && 0%{?fedora} > 18 )
+    %_init_restart gluster-swift-container-replicator
+    %_init_restart gluster-swift-container-auditor
+    %_init_restart gluster-swift-container-updator
+%endif
 fi
 
 
@@ -1180,18 +1247,36 @@ fi
 
 %post swift-object
 %_init_enable gluster-swift-object
+%if ( 0%{?fedora} && 0%{?fedora} > 18 )
+%_init_enable gluster-swift-object-replicator
+%_init_enable gluster-swift-object-auditor
+%_init_enable gluster-swift-object-updater
+%endif
 
 
 %preun swift-object
 if [ $1 = 0 ] ; then
     %_init_stop gluster-swift-object
     %_init_disable gluster-swift-object
+%if ( 0%{?fedora} && 0%{?fedora} > 18 )
+    %_init_stop gluster-swift-object-replicator
+    %_init_disable gluster-swift-object-replicator
+    %_init_stop gluster-swift-object-auditor
+    %_init_disable gluster-swift-object-auditor
+    %_init_stop gluster-swift-object-updater
+    %_init_disable gluster-swift-object-updater
+%endif
 fi
 
 
 %postun swift-object
-if [ "$1" -ge "1" ] ; then
+if [ $1 -ge 1 ] ; then
     %_init_restart gluster-swift-object
+%if ( 0%{?fedora} && 0%{?fedora} > 18 )
+    %_init_restart gluster-swift-object-replicator
+    %_init_restart gluster-swift-object-auditor
+    %_init_restart gluster-swift-object-updater
+%endif
 fi
 
 
@@ -1201,22 +1286,38 @@ if [ -f /etc/swift/proxy-server.conf ]; then
     echo "warning: /etc/swift/proxy-server.conf saved as /etc/swift/proxy-server.conf.rpmsave"
     cp /etc/swift/proxy-server.conf /etc/swift/proxy-server.conf.rpmsave
 fi
+%if ( 0%{?fedora} && 0%{?fedora} > 18 )
+if [ -f /etc/swift/object-expirer.conf ]; then
+    echo "warning: /etc/swift/object-expirer.conf saved as /etc/swift/object-expirer.conf.rpmsave"
+    cp /etc/swift/object-expirer.conf /etc/swift/object-expirer.conf.rpmsave
+fi
+%endif
 
 
 %post swift-proxy
 %_init_enable gluster-swift-proxy
+%if ( 0%{?fedora} && 0%{?fedora} > 18 )
+%_init_enable gluster-swift-object-expirer
+%endif
 
 
 %preun swift-proxy
 if [ $1 = 0 ] ; then
     %_init_stop gluster-swift-proxy
     %_init_disable gluster-swift-proxy
+%if ( 0%{?fedora} && 0%{?fedora} > 18 )
+    %_init_stop gluster-swift-object-expirer
+    %_init_disable gluster-swift-object-expirer
+%endif
 fi
 
 
 %postun swift-proxy
-if [ "$1" -ge "1" ] ; then
+if [ $1 -ge 1 ] ; then
     %_init_restart gluster-swift-proxy
+%if ( 0%{?fedora} && 0%{?fedora} > 18 )
+    %_init_restart gluster-swift-object-expirer
+%endif
 fi
 %endif
 
