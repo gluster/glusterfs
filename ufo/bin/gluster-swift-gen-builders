@@ -35,8 +35,8 @@ do
     zone=1
     for volname in $@
     do
-	add $builder_file $zone ${port[$builder_file]} $volname
-	zone=$(expr $zone + 1)
+        add $builder_file $zone ${port[$builder_file]} $volname
+        zone=$(expr $zone + 1)
     done
 
     rebalance $builder_file

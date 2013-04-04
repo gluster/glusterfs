@@ -13,15 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from webob.exc import HTTPBadRequest
-
+try:
+    from webob.exc import HTTPBadRequest
+except ImportError:
+    from swift.common.swob import HTTPBadRequest
 import swift.common.constraints
 import swift.common.ring as _ring
 from gluster.swift.common import Glusterfs, ring
 
-
-MAX_OBJECT_NAME_COMPONENT_LENGTH = swift.common.constraints.constraints_conf_int(
-        'max_object_name_component_length', 255)
+if hasattr(swift.common.constraints, 'constraints_conf_int'):
+    MAX_OBJECT_NAME_COMPONENT_LENGTH = \
+            swift.common.constraints.constraints_conf_int(
+                'max_object_name_component_length', 255)
+else:
+    MAX_OBJECT_NAME_COMPONENT_LENGTH = 255
 
 def validate_obj_name_component(obj):
     if len(obj) > MAX_OBJECT_NAME_COMPONENT_LENGTH:
