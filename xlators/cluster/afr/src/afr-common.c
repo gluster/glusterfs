@@ -2520,6 +2520,8 @@ __afr_fd_ctx_set (xlator_t *this, fd_t *fd)
         INIT_LIST_HEAD (&fd_ctx->entries);
         fd_ctx->call_child = -1;
 
+        INIT_LIST_HEAD (&fd_ctx->eager_locked);
+
         ret = __fd_ctx_set (fd, this, (uint64_t)(long) fd_ctx);
         if (ret)
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -4086,8 +4088,9 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
                                                            AFR_NUM_CHANGE_LOGS);
         if (!local->transaction.txn_changelog)
                 goto out;
-        if (local->fd && (local->transaction.type == AFR_DATA_TRANSACTION))
-                local->transaction.eager_lock_on = priv->eager_lock;
+
+	INIT_LIST_HEAD (&local->transaction.eager_locked);
+
         ret = 0;
 out:
         return ret;
