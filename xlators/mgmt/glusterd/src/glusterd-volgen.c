@@ -3440,56 +3440,6 @@ out:
         return ret;
 }
 
-int
-validate_wb_eagerlock (glusterd_volinfo_t *volinfo, dict_t *val_dict,
-                       char **op_errstr)
-{
-        int          ret = -1;
-        gf_boolean_t wb_val = _gf_false;
-        gf_boolean_t el_val = _gf_false;
-        char         msg[2048] = {0};
-        char         *wb_key = NULL;
-        char         *el_key = NULL;
-
-        wb_key = "performance.write-behind";
-        el_key = "cluster.eager-lock";
-        ret = dict_get_str_boolean (val_dict, wb_key, -1);
-        if (ret < 0)
-                goto check_eager_lock;
-        wb_val = ret;
-        ret = glusterd_volinfo_get_boolean (volinfo, el_key);
-        if (ret < 0)
-                goto out;
-        el_val = ret;
-        goto done;
-
-check_eager_lock:
-        ret = dict_get_str_boolean (val_dict, el_key, -1);
-        if (ret < 0) {
-                ret = 0; //Keys of intereset to this fn are not present.
-                goto out;
-        }
-        el_val = ret;
-        ret = glusterd_volinfo_get_boolean (volinfo, wb_key);
-        if (ret < 0)
-                goto out;
-        wb_val = ret;
-        goto done;
-
-done:
-        ret = 0;
-        if (!wb_val && el_val) {
-                ret = -1;
-                snprintf (msg, sizeof (msg), "%s off and %s on is not "
-                          "valid configuration", wb_key, el_key);
-                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
-                if (op_errstr)
-                        *op_errstr = gf_strdup (msg);
-                goto out;
-        }
-out:
-        return ret;
-}
 
 int
 validate_clientopts (glusterd_volinfo_t *volinfo,
@@ -3649,10 +3599,6 @@ glusterd_validate_reconfopts (glusterd_volinfo_t *volinfo, dict_t *val_dict,
                         "Could not Validate  bricks");
                 goto out;
         }
-
-        ret = validate_wb_eagerlock (volinfo, val_dict, op_errstr);
-        if (ret)
-                goto out;
 
         ret = validate_clientopts (volinfo, val_dict, op_errstr);
         if (ret) {

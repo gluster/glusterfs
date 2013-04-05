@@ -677,6 +677,7 @@ typedef struct _afr_local {
 		   of the transaction frame */
 		call_stub_t      *resume_stub;
 
+		struct list_head  eager_locked;
 
                 int32_t         **txn_changelog;//changelog after pre+post ops
                 unsigned char   *pre_op;
@@ -744,6 +745,9 @@ typedef struct {
 	   (i.e, without O_SYNC or O_DSYNC)
 	*/
 	gf_boolean_t      witnessed_unstable_write;
+
+	/* list of frames currently in progress */
+	struct list_head  eager_locked;
 } afr_fd_ctx_t;
 
 
