@@ -143,10 +143,10 @@ synctask_wake (struct synctask *task)
 
                 if (task->slept && task->woken >= task->waitfor)
                         __run (task);
+
+		pthread_cond_broadcast (&env->cond);
         }
         pthread_mutex_unlock (&env->mutex);
-
-        pthread_cond_broadcast (&env->cond);
 }
 
 void
@@ -349,6 +349,10 @@ syncenv_task (struct syncproc *proc)
                 list_del_init (&task->all_tasks);
                 env->runcount--;
 
+                task->woken = 0;
+                task->slept = 0;
+                task->waitfor = 0;
+
                 task->proc = proc;
         }
 unlock:
@@ -367,10 +371,6 @@ synctask_switchto (struct synctask *task)
 
         synctask_set (task);
         THIS = task->xl;
-
-        task->woken = 0;
-        task->slept = 0;
-	task->waitfor = 0;
 
 #if defined(__NetBSD__) && defined(_UC_TLSBASE)
         /* Preserve pthread private pointer through swapcontex() */
