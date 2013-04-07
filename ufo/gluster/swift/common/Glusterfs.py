@@ -27,6 +27,7 @@ MOUNT_IP = 'localhost'
 OBJECT_ONLY = False
 RUN_DIR='/var/run/swift'
 SWIFT_DIR = '/etc/swift'
+_do_getsize = False
 if _fs_conf.read(os.path.join('/etc/swift', 'fs.conf')):
     try:
         MOUNT_IP = _fs_conf.get('DEFAULT', 'mount_ip', 'localhost')
@@ -38,6 +39,12 @@ if _fs_conf.read(os.path.join('/etc/swift', 'fs.conf')):
         pass
     try:
         RUN_DIR = _fs_conf.get('DEFAULT', 'run_dir', '/var/run/swift')
+    except (NoSectionError, NoOptionError):
+        pass
+
+    try:
+        _do_getsize = _fs_conf.get('DEFAULT', 'accurate_size_in_listing', \
+                                       "no") in TRUE_VALUES
     except (NoSectionError, NoOptionError):
         pass
 

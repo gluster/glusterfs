@@ -241,7 +241,7 @@ def _update_list(path, cont_path, src_list, reg_file=True, object_count=0,
 
         object_count += 1
 
-        if reg_file:
+        if Glusterfs._do_getsize and reg_file:
             bytes_used += os_path.getsize(os.path.join(path, obj_name))
             sleep()
 

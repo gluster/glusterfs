@@ -7,3 +7,11 @@ mount_ip = localhost
 # methods besides UFO (not object only), which disables a caching
 # optimizations in order to keep in sync with file system changes.
 object_only = no
+
+# Performance optimization parameter. When turned off, the filesystem will
+# see a reduced number of stat calls, resulting in substantially faster
+# response time for GET and HEAD container requests on containers with large
+# numbers of objects, at the expense of an accurate count of combined bytes
+# used by all objects in the container. For most installations "off" works
+# fine.
+accurate_size_in_listing = off

@@ -26,7 +26,7 @@ import tarfile
 import shutil
 from collections import defaultdict
 from swift.common.utils import normalize_timestamp
-from gluster.swift.common import utils
+from gluster.swift.common import utils, Glusterfs
 
 #
 # Somewhat hacky way of emulating the operation of xattr calls. They are made
@@ -755,7 +755,7 @@ class TestUtils(unittest.TestCase):
             utils._get_account_details_from_fs = orig_gcdff
             utils.do_stat = orig_ds
 
-    def test_get_container_details_from_fs(self):
+    def test_get_account_details_from_fs(self):
         orig_cwd = os.getcwd()
         td = tempfile.mkdtemp()
         try:
@@ -779,7 +779,7 @@ class TestUtils(unittest.TestCase):
         assert cd.obj_list == []
         assert cd.dir_list == []
 
-    def test_get_account_details_from_fs(self):
+    def test_get_container_details_from_fs(self):
         orig_cwd = os.getcwd()
         td = tempfile.mkdtemp()
         try:
@@ -788,12 +788,13 @@ class TestUtils(unittest.TestCase):
             tf.extractall()
 
             cd = utils._get_container_details_from_fs(td)
-            assert cd.bytes_used == 30, repr(cd.bytes_used)
+            assert cd.bytes_used == 0, repr(cd.bytes_used)
             assert cd.object_count == 8, repr(cd.object_count)
             assert set(cd.obj_list) == set(['file1', 'file3', 'file2',
                                    'dir3', 'dir1', 'dir2',
                                    'dir1/file1', 'dir1/file2'
                                    ]), repr(cd.obj_list)
+
             full_dir1 = os.path.join(td, 'dir1')
             full_dir2 = os.path.join(td, 'dir2')
             full_dir3 = os.path.join(td, 'dir3')
@@ -806,6 +807,42 @@ class TestUtils(unittest.TestCase):
                 assert d in exp_dir_dict
                 assert exp_dir_dict[d] == m
         finally:
+            os.chdir(orig_cwd)
+            shutil.rmtree(td)
+
+
+    def test_get_container_details_from_fs_do_getsize_true(self):
+        orig_cwd = os.getcwd()
+        td = tempfile.mkdtemp()
+        try:
+            tf = tarfile.open("common/data/container_tree.tar.bz2", "r:bz2")
+            os.chdir(td)
+            tf.extractall()
+
+            __do_getsize = Glusterfs._do_getsize
+            Glusterfs._do_getsize = True
+
+            cd = utils._get_container_details_from_fs(td)
+            assert cd.bytes_used == 30, repr(cd.bytes_used)
+            assert cd.object_count == 8, repr(cd.object_count)
+            assert set(cd.obj_list) == set(['file1', 'file3', 'file2',
+                                   'dir3', 'dir1', 'dir2',
+                                   'dir1/file1', 'dir1/file2'
+                                   ]), repr(cd.obj_list)
+
+            full_dir1 = os.path.join(td, 'dir1')
+            full_dir2 = os.path.join(td, 'dir2')
+            full_dir3 = os.path.join(td, 'dir3')
+            exp_dir_dict = { td:        os.path.getmtime(td),
+                             full_dir1: os.path.getmtime(full_dir1),
+                             full_dir2: os.path.getmtime(full_dir2),
+                             full_dir3: os.path.getmtime(full_dir3),
+                             }
+            for d,m in cd.dir_list:
+                assert d in exp_dir_dict
+                assert exp_dir_dict[d] == m
+        finally:
+            Glusterfs._do_getsize = __do_getsize
             os.chdir(orig_cwd)
             shutil.rmtree(td)
 
