@@ -2495,12 +2495,12 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                 ret = xmlTextWriterEndElement (local->writer);
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
-        GF_FREE (local->get_vol.volname);
+
         if (volname) {
+                GF_FREE (local->get_vol.volname);
                 local->get_vol.volname = gf_strdup (volname);
                 local->vol_count += count;
         }
-
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
