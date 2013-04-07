@@ -86,14 +86,13 @@ def mount(root, drive):
     with os.fdopen(fd, 'r+b') as f:
         try:
             fcntl.lockf(f, fcntl.LOCK_EX|fcntl.LOCK_NB)
-        except:
-            ex = sys.exc_info()[1]
-            if isinstance(ex, IOError) and ex.errno in \
-                    (errno.EACCES, errno.EAGAIN):
+        except IOError as ex:
+            if ex.errno in (errno.EACCES, errno.EAGAIN):
                 # This means that some other process is mounting the
                 # filesystem, so wait for the mount process to complete
                 return _busy_wait(full_mount_path)
-
+            else:
+                raise ex
         mnt_cmd = 'mount -t glusterfs %s:%s %s' % (MOUNT_IP, export, \
                                                    full_mount_path)
         if os.system(mnt_cmd) or not _busy_wait(full_mount_path):
