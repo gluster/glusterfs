@@ -567,6 +567,12 @@ glusterfs_graph_construct (FILE *fp)
         if (-1 == tmp_fd)
                 goto err;
 
+        ret = unlink (template);
+        if (ret < 0) {
+                gf_log ("parser", GF_LOG_WARNING, "Unable to delete file: %s",
+                        template);
+        }
+
         tmp_file = fdopen (tmp_fd, "w+b");
         if (!tmp_file)
                 goto err;
