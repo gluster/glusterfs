@@ -1417,6 +1417,19 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
 
         strcpy (template, "/tmp/tmp.XXXXXX");
         oldvolfile_fd = mkstemp (template);
+        if (oldvolfile_fd == -1) {
+                gf_log ("glusterfsd-mgmt", GF_LOG_ERROR, "Unable to create "
+                        "temporary file: %s (%s)", template,
+                        strerror (errno));
+                goto out;
+        }
+
+        ret = unlink (template);
+        if (ret < 0) {
+                gf_log ("glusterfsd-mgmt", GF_LOG_WARNING, "Unable to delete "
+                        "file: %s", template);
+        }
+
         oldvolfile_fp = fdopen (oldvolfile_fd, "w+b");
         if (!oldvolfile_fp) {
                 gf_log ("glusterfsd-mgmt", GF_LOG_CRITICAL, "Failed to create "
@@ -1947,7 +1960,7 @@ glusterfs_listener_stop (glusterfs_ctx_t *ctx)
 
         if (ret) {
                 this = THIS;
-                gf_log (this->name, GF_LOG_ERROR, "Failed to unlink linstener "
+                gf_log (this->name, GF_LOG_ERROR, "Failed to unlink listener "
                         "socket %s, error: %s", cmd_args->sock_file,
                         strerror (errno));
         }
