@@ -481,14 +481,24 @@ if test "x${DTRACE}" = "xyes" -a "x${SDT_H_FOUND}" = "xyes"; then
 fi
 # end of systemtap/dtrace
 
-#check if libxml is present if so enable HAVE_LIB_XML
-echo -n "checking if libxml2 is present... "
+# xml-output
+AC_ARG_ENABLE([xml-output],
+              AC_HELP_STRING([--disable-xml-output],
+                             [Disable the xml output]))
+BUILD_XML_OUTPUT="yes"
+if test "x$enable_xml_output" != "xno"; then
+    #check if libxml is present if so enable HAVE_LIB_XML
+    AM_PATH_XML2([2.6.19])
 
-AM_PATH_XML2([2.6.19])
-
-if test "x${no_xml}" = "x"; then
-    AC_DEFINE([HAVE_LIB_XML], [1], [Define to 1 if using libxml2.])
+    if test "x${no_xml}" = "x"; then
+        AC_DEFINE([HAVE_LIB_XML], [1], [Define to 1 if using libxml2.])
+    else
+        BUILD_XML_OUTPUT="no"
+    fi
+else
+    BUILD_XML_OUTPUT="no"
 fi
+# end of xml-output
 
 dnl FreeBSD > 5 has execinfo as a Ported library for giving a workaround
 dnl solution to GCC backtrace functionality
@@ -803,4 +813,5 @@ echo "systemtap            : $BUILD_SYSTEMTAP"
 echo "Block Device backend : $BUILD_BD_XLATOR"
 echo "glupy                : $BUILD_GLUPY"
 echo "Use syslog           : $USE_SYSLOG"
+echo "XML output           : $BUILD_XML_OUTPUT"
 echo
