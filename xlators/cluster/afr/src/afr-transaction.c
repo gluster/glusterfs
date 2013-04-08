@@ -1738,6 +1738,23 @@ afr_transaction_eager_lock_init (afr_local_t *local, xlator_t *this)
 	if (!fdctx)
 		return;
 
+        /*
+         * Once full file lock is acquired in eager-lock phase, overlapping
+         * writes do not compete for inode-locks, instead are transferred to the
+         * next writes. Because of this overlapping writes are not ordered.
+         * This can cause inconsistencies in replication.
+         * Example:
+         * Two overlapping writes w1, w2 are sent in parallel on same fd
+         * in two threads t1, t2.
+         * Both threads can execute afr_writev_wind in the following manner.
+         * t1 winds w1 on brick-0
+         * t2 winds w2 on brick-0
+         * t2 winds w2 on brick-1
+         * t1 winds w1 on brick-1
+         *
+         * This check makes sure the locks are not transferred for
+         * overlapping writes.
+         */
 	LOCK (&local->fd->lock);
 	{
 		list_for_each_entry (each, &fdctx->eager_locked,
