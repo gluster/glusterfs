@@ -2809,6 +2809,8 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
         char               *skey          = NULL;
         int                 ret           = 0;
         char               nfs_xprt[16]   = {0,};
+        char               *volname       = NULL;
+        data_t             *data          = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2893,6 +2895,12 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 ret = dict_set_str (set_dict, "nfs-volume-file", "yes");
                 if (ret)
                         goto out;
+
+                if (mod_dict && (data = dict_get (mod_dict, "volume-name"))) {
+                        volname = data->data;
+                        if (strcmp (volname, voliter->volname) == 0)
+                                dict_copy (mod_dict, set_dict);
+                }
 
                 ret = build_client_graph (&cgraph, voliter, set_dict);
                 if (ret)
@@ -3405,6 +3413,9 @@ validate_nfsopts (glusterd_volinfo_t *volinfo,
         char    transport_type[16] = {0,};
         char    *tt                = NULL;
         char    err_str[4096]      = {0,};
+        xlator_t *this             = THIS;
+
+        GF_ASSERT (this);
 
         graph.errstr = op_errstr;
 
@@ -3415,7 +3426,7 @@ validate_nfsopts (glusterd_volinfo_t *volinfo,
                         snprintf (err_str, sizeof (err_str), "Changing nfs "
                                   "transport type is allowed only for volumes "
                                   "of transport type tcp,rdma");
-                        gf_log ("", GF_LOG_ERROR, "%s", err_str);
+                        gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
                         *op_errstr = gf_strdup (err_str);
                         ret = -1;
                         goto out;
@@ -3429,6 +3440,12 @@ validate_nfsopts (glusterd_volinfo_t *volinfo,
                 }
         }
 
+        ret = dict_set_str (val_dict, "volume-name", volinfo->volname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set volume name");
+                goto out;
+        }
+
         ret = build_nfs_graph (&graph, val_dict);
         if (!ret)
                 ret = graph_reconf_validateopt (&graph.graph, op_errstr);
@@ -3436,7 +3453,7 @@ validate_nfsopts (glusterd_volinfo_t *volinfo,
         volgen_graph_free (&graph);
 
 out:
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
