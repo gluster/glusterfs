@@ -59,7 +59,7 @@ function count_entries()
 
 TEST $CLI volume start $V0 force
 sleep 5
-TEST $CLI volume heal $V0 full
+TEST $CLI volume heal $V0
 
 
 ##Expected number of entries are 0 in the .glusterfs/indices/xattrop directory
