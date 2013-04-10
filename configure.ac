@@ -305,7 +305,7 @@ AC_ARG_ENABLE([fusermount],
 			     [Use system's fusermount]))
 
 BUILD_FUSERMOUNT="yes"
-if test "x$disable_fusermount" = "xyes"; then
+if test "x$enable_fusermount" = "xno"; then
   BUILD_FUSERMOUNT="no"
 else
   AC_DEFINE(GF_FUSERMOUNT, 1, [Use our own fusermount])
