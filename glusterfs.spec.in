@@ -164,7 +164,7 @@ both GlusterFS server and client framework.
 Summary:          GlusterFS rdma support for ib-verbs
 Group:            Applications/File
 BuildRequires:    libibverbs-devel
-
+BuildRequires:    librdmacm-devel
 Requires:         %{name} = %{version}-%{release}
 
 %description rdma
