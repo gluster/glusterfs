@@ -1384,13 +1384,14 @@ out:
 
 
 int
-rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
-                 int procnum, fop_cbk_fn_t cbkfn,
-                 struct iovec *proghdr, int proghdrcount,
-                 struct iovec *progpayload, int progpayloadcount,
-                 struct iobref *iobref, void *frame, struct iovec *rsphdr,
-                 int rsphdr_count, struct iovec *rsp_payload,
-                 int rsp_payload_count, struct iobref *rsp_iobref)
+rpc_clnt_submit2 (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
+                  int procnum, fop_cbk_fn_t cbkfn,
+                  struct iovec *proghdr, int proghdrcount,
+                  struct iovec *progpayload, int progpayloadcount,
+                  struct iobref *iobref, void *frame, struct iovec *rsphdr,
+                  int rsphdr_count, struct iovec *rsp_payload,
+                  int rsp_payload_count, struct iobref *rsp_iobref,
+                  gf_boolean_t *lost)
 {
         rpc_clnt_connection_t *conn        = NULL;
         struct iobuf          *request_iob = NULL;
@@ -1401,6 +1402,7 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
         int                    proglen     = 0;
         char                   new_iobref  = 0;
         uint64_t               callid      = 0;
+        gf_boolean_t           cbk_lost    = _gf_true;
 
         if (!rpc || !prog || !frame) {
                 goto out;
@@ -1489,6 +1491,7 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
 
                 if ((ret >= 0) && frame) {
                         /* Save the frame in queue */
+                        cbk_lost = _gf_false;
                         __save_frame (rpc, frame, rpcreq);
 
                         gf_log ("rpc-clnt", GF_LOG_TRACE, "submitted request "
@@ -1519,10 +1522,29 @@ out:
                 if (rpcreq) {
                         rpcreq->rpc_status = -1;
                         cbkfn (rpcreq, NULL, 0, frame);
+                        cbk_lost = _gf_false;
                         mem_put (rpcreq);
                 }
         }
+        if (lost)
+                *lost = cbk_lost;
         return ret;
+}
+
+int
+rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
+                 int procnum, fop_cbk_fn_t cbkfn,
+                 struct iovec *proghdr, int proghdrcount,
+                 struct iovec *progpayload, int progpayloadcount,
+                 struct iobref *iobref, void *frame, struct iovec *rsphdr,
+                 int rsphdr_count, struct iovec *rsp_payload,
+                 int rsp_payload_count, struct iobref *rsp_iobref)
+{
+        return rpc_clnt_submit2 (rpc, prog, procnum, cbkfn, proghdr,
+                                 proghdrcount, progpayload, progpayloadcount,
+                                 iobref, frame, rsphdr, rsphdr_count,
+                                 rsp_payload, rsp_payload_count, rsp_iobref,
+                                 NULL);
 }
 
 

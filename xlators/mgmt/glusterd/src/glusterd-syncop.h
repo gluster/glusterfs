@@ -18,13 +18,15 @@
 #define GD_SYNCOP(rpc, stb, cbk, req, prog, procnum, xdrproc) do {      \
                 int ret = 0;                                            \
                 struct  synctask        *task = NULL;                   \
+                gf_boolean_t            cbk_lost = _gf_true;            \
                 task = synctask_get ();                                 \
                 stb->task = task;                                       \
                                                                         \
                 ret = gd_syncop_submit_request (rpc, req, stb,          \
                                                 prog, procnum, cbk,     \
-                                                (xdrproc_t)xdrproc);    \
-                if (!ret)                                               \
+                                                (xdrproc_t)xdrproc,     \
+                                                &cbk_lost);             \
+                if (!cbk_lost)                                          \
                         synctask_yield (stb->task);                     \
         } while (0)
 
@@ -32,7 +34,7 @@
 int gd_syncop_submit_request (struct rpc_clnt *rpc, void *req,
                                void *cookie, rpc_clnt_prog_t *prog,
                                int procnum, fop_cbk_fn_t cbkfn,
-                               xdrproc_t xdrproc);
+                               xdrproc_t xdrproc, gf_boolean_t *cbk_lost);
 
 
 int gd_syncop_mgmt_lock (struct rpc_clnt *rpc, struct syncargs *arg,

@@ -216,6 +216,15 @@ int rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                      int rsphdr_count, struct iovec *rsp_payload,
                      int rsp_payload_count, struct iobref *rsp_iobref);
 
+int rpc_clnt_submit2 (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
+                     int procnum, fop_cbk_fn_t cbkfn,
+                     struct iovec *proghdr, int proghdrcount,
+                     struct iovec *progpayload, int progpayloadcount,
+                     struct iobref *iobref, void *frame, struct iovec *rsphdr,
+                     int rsphdr_count, struct iovec *rsp_payload,
+                     int rsp_payload_count, struct iobref *rsp_iobref,
+                     gf_boolean_t *cbk_lost);
+
 struct rpc_clnt *
 rpc_clnt_ref (struct rpc_clnt *rpc);
 
