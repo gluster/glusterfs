@@ -39,21 +39,17 @@ prep::
 	cp ../../*.tar.gz ./rpmbuild/SOURCES
 	cp ../../glusterfs.spec ./rpmbuild/SPECS
 
-FOLSOM_TAR = swift-1.7.4.tar.gz
-FOLSOM_URL = https://launchpad.net/swift/folsom/1.7.4/+download/$(FOLSOM_TAR)
 GRIZZLY_TAR = swift-1.8.0.tar.gz
 GRIZZLY_URL = https://launchpad.net/swift/grizzly/1.8.0/+download/$(GRIZZLY_TAR)
 
 prep::
-	@if [ -d /d/cache -a -f /d/cache/$(FOLSOM_TAR) -a -f /d/cache/$(GRIZZLY_TAR) -a -d ./rpmbuild/SOURCES ]; then \
+	@if [ -d /d/cache -a -f /d/cache/$(GRIZZLY_TAR) -a -d ./rpmbuild/SOURCES ]; then \
 		echo "copying swift source tarball from local cache..." ; \
-		cp /d/cache/swift-*.tar.gz ./rpmbuild/SOURCES/ ; \
+		cp /d/cache/$(GRIZZLY_TAR) ./rpmbuild/SOURCES/ ; \
 		touch /d/cache/.swift ; \
 	elif [ -x /usr/bin/curl -a -d ./rpmbuild/SOURCES ]; then \
 		echo "fetching swift from launchpad.net..." ; \
-		cd ./rpmbuild/SOURCES && \
-			/usr/bin/curl -sOL $(FOLSOM_URL) && \
-			/usr/bin/curl -sOL $(GRIZZLY_URL) ; \
+		cd ./rpmbuild/SOURCES && /usr/bin/curl -sOL $(GRIZZLY_URL) ; \
 	else \
 		echo "swift source not fetched, you don't have curl installed!" ; \
 		exit 1 ; \
