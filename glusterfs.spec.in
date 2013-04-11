@@ -388,7 +388,9 @@ Requires:         python-netifaces
 Requires:         python-swiftclient
 %endif
 
+%if ( 0%{?fedora} && 0%{?fedora} < 19 ) || ( 0%{?rhel} && 0%{?rhel} < 7 )
 Conflicts:        openstack-swift
+%endif
 
 
 %description swift
@@ -492,7 +494,7 @@ BuildArch:        noarch
 %if ( 0%{?fedora} && 0%{?fedora} < 19 ) || ( 0%{?rhel} && 0%{?rhel} < 7 )
 Requires:         %{name}-swift = %{version}-%{release}
 %else
-Requires:         openstack-swift = %{SWIFTVER}-1
+Requires:         openstack-swift = %{SWIFTVER}
 %endif
 Requires:         memcached
 Requires:         openssl
