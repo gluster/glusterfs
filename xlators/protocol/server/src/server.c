@@ -121,6 +121,7 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
         char                    new_iobref = 0;
         server_connection_t    *conn       = NULL;
         gf_boolean_t            lk_heal    = _gf_false;
+        glusterfs_fop_t         fop        = GF_FOP_NULL;
 
         GF_VALIDATE_OR_GOTO ("server", req, ret);
 
@@ -164,14 +165,23 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
          */
         iobuf_unref (iob);
         if (ret == -1) {
-                gf_log_callingfn ("", GF_LOG_ERROR, "Reply submission failed");
                 if (frame && conn && !lk_heal) {
+                        fop = frame->root->op;
+                        if ((GF_FOP_NULL < fop) &&
+                           (fop < GF_FOP_MAXVALUE)) {
+                                pthread_mutex_lock (&conn->lock);
+                                {
+                                        conn->rsp_failure_fops[fop]++;
+                                }
+                                pthread_mutex_unlock (&conn->lock);
+                        }
                         server_connection_cleanup (frame->this, conn,
                                                   INTERNAL_LOCKS | POSIX_LOCKS);
                 } else {
+                        gf_log_callingfn ("", GF_LOG_ERROR,
+                                          "Reply submission failed");
                         /* TODO: Failure of open(dir), create, inodelk, entrylk
                            or lk fops send failure must be handled specially. */
-                        ;
                 }
                 goto ret;
         }
@@ -759,7 +769,8 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                         break;
 
                 gf_log (this->name, GF_LOG_INFO, "disconnecting connection"
-                        "from %s", conn->id);
+                        " from %s, Number of pending operations: %"PRIu64,
+                        conn->id, conn->ref);
 
                 /* If lock self heal is off, then destroy the
                    conn object, else register a grace timer event */
