@@ -53,7 +53,7 @@ struct _lock_table {
 struct _server_connection {
         struct list_head    list;
         char               *id;
-        int                 ref;
+        uint64_t            ref;
         int                 bind_ref;
         pthread_mutex_t     lock;
         fdtable_t          *fdtable;
@@ -62,6 +62,7 @@ struct _server_connection {
         xlator_t           *bound_xl;
         xlator_t           *this;
         uint32_t           lk_version;
+        uint64_t           rsp_failure_fops[GF_FOP_MAXVALUE];
 };
 
 typedef struct _server_connection server_connection_t;

@@ -272,7 +272,6 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
         xlator_t         *bound_xl = NULL;
         struct _locker   *locker = NULL, *tmp = NULL;
         int               ret = -1;
-        char             *path = NULL;
 
         GF_VALIDATE_OR_GOTO ("server", this, out);
         GF_VALIDATE_OR_GOTO ("server", conn, out);
@@ -307,20 +306,9 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                 memset (&tmp_frame->root->lk_owner, 0, sizeof (gf_lkowner_t));
 
                 if (locker->fd) {
-                        GF_ASSERT (locker->fd->inode);
-
-                        ret = inode_path (locker->fd->inode, NULL, &path);
-
-                        if (ret > 0) {
-                                gf_log (this->name, GF_LOG_INFO, "finodelk "
-                                        "released on %s", path);
-                                GF_FREE (path);
-                        } else {
-
-                                gf_log (this->name, GF_LOG_INFO, "finodelk "
-                                        "released on inode with gfid %s",
-                                        uuid_utoa (locker->fd->inode->gfid));
-                        }
+                        gf_log (this->name, GF_LOG_DEBUG, "finodelk "
+                                "released on inode with gfid %s",
+                                uuid_utoa (locker->fd->inode->gfid));
 
                         STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
                                     bound_xl->fops->finodelk,
@@ -328,7 +316,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                                     locker->fd, F_SETLK, &flock, NULL);
                         fd_unref (locker->fd);
                 } else {
-                        gf_log (this->name, GF_LOG_INFO, "inodelk released "
+                        gf_log (this->name, GF_LOG_DEBUG, "inodelk released "
                                 "on %s", locker->loc.path);
 
                         STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
@@ -356,18 +344,9 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                 if (locker->fd) {
                         GF_ASSERT (locker->fd->inode);
 
-                        ret = inode_path (locker->fd->inode, NULL, &path);
-
-                        if (ret > 0) {
-                                gf_log (this->name, GF_LOG_INFO, "fentrylk "
-                                        "released on %s", path);
-                                GF_FREE (path);
-                        }  else {
-
-                                gf_log (this->name, GF_LOG_INFO, "fentrylk "
-                                        "released on inode with gfid %s",
-                                        uuid_utoa (locker->fd->inode->gfid));
-                        }
+                        gf_log (this->name, GF_LOG_DEBUG, "fentrylk "
+                                "released on inode with gfid %s",
+                                uuid_utoa (locker->fd->inode->gfid));
 
                         STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
                                     bound_xl->fops->fentrylk,
@@ -376,7 +355,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                                     ENTRYLK_UNLOCK, ENTRYLK_WRLCK, NULL);
                         fd_unref (locker->fd);
                 } else {
-                        gf_log (this->name, GF_LOG_INFO, "entrylk released "
+                        gf_log (this->name, GF_LOG_DEBUG, "entrylk released "
                                 "on %s", locker->loc.path);
 
                         STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
@@ -526,7 +505,6 @@ out:
         return ret;
 }
 
-
 int
 server_connection_cleanup (xlator_t *this, server_connection_t *conn,
                            int32_t flags)
@@ -561,6 +539,52 @@ out:
         return ret;
 }
 
+void
+server_log_conn_destroy (server_connection_t *conn)
+{
+        int     i = 0;
+        char    *rsp_failures_msg = NULL;
+        char    *free_ptr = NULL;
+        char    *msg = NULL;
+        char    *failed_to_rsp = "";
+        char    *sep1 = " - ";
+        char    *sep2 = ", ";
+        int     msg_len = 0;
+
+        for (i = GF_FOP_NULL + 1; i < GF_FOP_MAXVALUE; i++) {
+                msg_len += strlen (gf_fop_list[i]);
+                msg_len += 20; //Max len of uint64_t is 20
+                //Separators for fop-string, count
+                msg_len += strlen (sep1) + strlen (sep2);
+        }
+
+        rsp_failures_msg = GF_CALLOC (msg_len + 1, 1, gf_common_mt_char);
+        if (rsp_failures_msg == NULL) {
+                rsp_failures_msg = "";
+                goto out;
+        } else {
+                free_ptr = rsp_failures_msg;
+        }
+
+        msg = rsp_failures_msg;
+        for (i = GF_FOP_NULL + 1; i < GF_FOP_MAXVALUE; i++) {
+                if (!conn->rsp_failure_fops[i])
+                        continue;
+                //Note: Please make sure the size is calculated appropriately
+                //if you plan to change the format string.
+                msg += sprintf (msg, "%s%s%"PRIu64"%s", gf_fop_list[i], sep1,
+                                conn->rsp_failure_fops[i], sep2);
+        }
+        if (rsp_failures_msg[0]) {
+                failed_to_rsp = " - Failed to respond to following operations:";
+                //Remove last comma
+                rsp_failures_msg[strlen (rsp_failures_msg) - 2] = '\0';
+        }
+out:
+        gf_log (conn->this->name, GF_LOG_INFO, "destroyed connection of "
+                "%s %s %s", conn->id, failed_to_rsp, rsp_failures_msg);
+        GF_FREE (free_ptr);
+}
 
 int
 server_connection_destroy (xlator_t *this, server_connection_t *conn)
@@ -610,8 +634,7 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                         gf_fd_fdtable_destroy (fdtable);
         }
 
-        gf_log (this->name, GF_LOG_INFO, "destroyed connection of %s",
-                conn->id);
+        server_log_conn_destroy (conn);
 
         pthread_mutex_destroy (&conn->lock);
         GF_FREE (conn->id);
