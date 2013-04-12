@@ -2,14 +2,47 @@
 bind_port = 8080
 user = root
 log_facility = LOG_LOCAL1
+# Consider using 1 worker per CPU
+workers = 1
 
 [pipeline:main]
 pipeline = healthcheck cache tempauth proxy-server
 
 [app:proxy-server]
 use = egg:gluster_swift_ufo#proxy
-allow_account_management = true
+log_facility = LOG_LOCAL1
+# The API allows for account creation and deletion, but since Gluster/Swift
+# automounts a Gluster volume for a given account, there is no way to create
+# or delete an account. So leave this off.
+allow_account_management = false
 account_autocreate = true
+# Only need to recheck the account exists once a day
+recheck_account_existence = 86400
+# May want to consider bumping this up if containers are created and destroyed
+# infrequently.
+recheck_container_existence = 60
+# Timeout clients that don't read or write to the proxy server after 5
+# seconds.
+client_timeout = 5
+# Give more time to connect to the object, container or account servers in
+# cases of high load.
+conn_timeout = 5
+# For high load situations, once connected to an object, container or account
+# server, allow for delays communicating with them.
+node_timeout = 60
+# May want to consider bumping up this value to 1 - 4 MB depending on how much
+# traffic is for multi-megabyte or gigabyte requests; perhaps matching the
+# stripe width (not stripe element size) of your storage volume is a good
+# starting point. See below for sizing information.
+object_chunk_size = 65536
+# If you do decide to increase the object_chunk_size, then consider lowering
+# this value to one. Up to "put_queue_length" object_chunk_size'd buffers can
+# be queued to the object server for processing. Given one proxy server worker
+# can handle up to 1,024 connections, by default, it will consume 10 * 65,536
+# * 1,024 bytes of memory in the worse case (default values). Be sure the
+# amount of memory available on the system can accommodate increased values
+# for object_chunk_size.
+put_queue_depth = 10
 
 [filter:tempauth]
 use = egg:swift#tempauth
@@ -31,3 +64,6 @@ use = egg:swift#healthcheck
 
 [filter:cache]
 use = egg:swift#memcache
+# Update this line to contain a comma separated list of memcache servers
+# shared by all nodes running the proxy-server service.
+memcache_servers = localhost:11211
