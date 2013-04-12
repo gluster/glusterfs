@@ -2,14 +2,31 @@
 devices = /mnt/gluster-object
 mount_check = true
 bind_port = 6010
-user = root
-log_facility = LOG_LOCAL2
+# If not doing the above, setting this value initially to match the number of
+# CPUs is a good starting point for determining the right value.
+workers = 1
 
 [pipeline:main]
 pipeline = object-server
 
 [app:object-server]
 use = egg:gluster_swift_ufo#object
+user = root
+log_facility = LOG_LOCAL2
+# Timeout clients that don't read or write to the proxy server after 5
+# seconds.
+conn_timeout = 5
+# For high load situations, once connected to a container server, allow for
+# delays communicating with it.
+node_timeout = 60
+# Adjust this value to match the stripe width of the underlying storage array
+# (not the stripe element size). This will provide a reasonable starting point
+# for tuning this value.
+disk_chunk_size = 65536
+# Adjust this value match whatever is set for the disk_chunk_size
+# initially. This will provide a reasonable starting point for tuning this
+# value.
+network_chunk_size = 65556
 
 [object-replicator]
 vm_test_mode = yes
