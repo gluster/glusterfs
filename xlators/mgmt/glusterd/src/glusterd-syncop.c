@@ -634,7 +634,8 @@ out:
 
 
 int
-gd_build_peers_list (struct list_head *peers, struct list_head *xact_peers)
+gd_build_peers_list (struct list_head *peers, struct list_head *xact_peers,
+                     glusterd_op_t op)
 {
         glusterd_peerinfo_t *peerinfo = NULL;
         int                 npeers      = 0;
@@ -642,7 +643,8 @@ gd_build_peers_list (struct list_head *peers, struct list_head *xact_peers)
         list_for_each_entry (peerinfo, peers, uuid_list) {
                 if (!peerinfo->connected)
                         continue;
-                if (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+                if (op != GD_OP_SYNC_VOLUME &&
+                    peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
                         continue;
 
                 list_add_tail (&peerinfo->op_peers_list, xact_peers);
@@ -999,7 +1001,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
          * the 'cluster' lock*/
         glusterd_op_set_op  (op);
         INIT_LIST_HEAD (&conf->xaction_peers);
-        npeers = gd_build_peers_list  (&conf->peers, &conf->xaction_peers);
+        npeers = gd_build_peers_list  (&conf->peers, &conf->xaction_peers, op);
 
         ret = gd_lock_op_phase (&conf->xaction_peers, op, op_ctx, &op_errstr, npeers);
         if (ret)
