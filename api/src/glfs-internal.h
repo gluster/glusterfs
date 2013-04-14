@@ -36,9 +36,12 @@ struct glfs {
 
 	char               *oldvolfile;
 	ssize_t             oldvollen;
+
+	inode_t            *cwd;
 };
 
 struct glfs_fd {
+	struct glfs       *fs;
 	off_t              offset;
 	fd_t              *fd;
 	struct list_head   entries;
@@ -74,6 +77,8 @@ __glfs_entry_fd (struct glfs_fd *fd)
 
 
 void glfs_fd_destroy (struct glfs_fd *glfd);
+
+struct glfs_fd *glfs_fd_new (struct glfs *fs);
 
 xlator_t * glfs_fd_subvol (struct glfs_fd *glfd);
 
