@@ -11,6 +11,7 @@
 
 /*
   TODO:
+  - refresh fs->cwd inode on graph switch
   - set proper pid/lk_owner to call frames (currently buried in syncop)
   - fix logging.c/h to store logfp and loglevel in glusterfs_ctx_t and
     reach it via THIS.
@@ -280,7 +281,22 @@ out:
 struct glfs *
 glfs_from_glfd (struct glfs_fd *glfd)
 {
-	return 	((xlator_t *)glfd->fd->inode->table->xl->ctx->master)->private;
+	return glfd->fs;
+}
+
+
+struct glfs_fd *
+glfs_fd_new (struct glfs *fs)
+{
+	struct glfs_fd  *glfd = NULL;
+
+	glfd = GF_CALLOC (1, sizeof (*glfd), glfs_mt_glfs_fd_t);
+	if (!glfd)
+		return NULL;
+
+	glfd->fs = fs;
+
+	return glfd;
 }
 
 

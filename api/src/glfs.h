@@ -442,6 +442,14 @@ int glfs_lremovexattr (glfs_t *fs, const char *path, const char *name);
 
 int glfs_fremovexattr (glfs_fd_t *fd, const char *name);
 
+char *glfs_getcwd (glfs_t *fs, char *buf, size_t size);
+
+int glfs_chdir (glfs_t *fs, const char *path);
+
+int glfs_fchdir (glfs_fd_t *fd);
+
+char *glfs_realpath (glfs_t *fs, const char *path, char *resolved_path);
+
 __END_DECLS
 
 #endif /* !_GLFS_H */
