@@ -98,7 +98,7 @@ glfs_resolve_symlink (struct glfs *fs, xlator_t *subvol, inode_t *inode,
 
 	ret = syncop_readlink (subvol, &loc, &path, 4096);
 
-	if (ret)
+	if (ret < 0)
 		goto out;
 
 	if (lpath)
@@ -161,7 +161,12 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 		goto out;
 	}
 
-	loc.inode = inode_grep (parent->table, parent, component);
+	if (strcmp (component, ".") == 0)
+		loc.inode = inode_ref (parent);
+	else if (strcmp (component, "..") == 0)
+		loc.inode = inode_parent (parent, 0, 0);
+	else
+		loc.inode = inode_grep (parent->table, parent, component);
 
 	if (loc.inode) {
 		uuid_copy (loc.gfid, loc.inode->gfid);
@@ -335,12 +340,29 @@ out:
 
 
 int
+glfs_resolve_path (struct glfs *fs, xlator_t *subvol, const char *origpath,
+		   loc_t *loc, struct iatt *iatt, int follow)
+{
+	int ret = -1;
+
+	if (origpath[0] == '/')
+		ret = glfs_resolve_at (fs, subvol, NULL, origpath, loc, iatt,
+				       follow);
+	else
+		ret = glfs_resolve_at (fs, subvol, fs->cwd, origpath, loc, iatt,
+				       follow);
+
+	return ret;
+}
+
+
+int
 glfs_resolve (struct glfs *fs, xlator_t *subvol, const char *origpath,
 	      loc_t *loc, struct iatt *iatt)
 {
 	int ret = -1;
 
-	ret = glfs_resolve_at (fs, subvol, NULL, origpath, loc, iatt, 1);
+	ret = glfs_resolve_path (fs, subvol, origpath, loc, iatt, 1);
 
 	return ret;
 }
@@ -352,7 +374,7 @@ glfs_lresolve (struct glfs *fs, xlator_t *subvol, const char *origpath,
 {
 	int ret = -1;
 
-	ret = glfs_resolve_at (fs, subvol, NULL, origpath, loc, iatt, 0);
+	ret = glfs_resolve_path (fs, subvol, origpath, loc, iatt, 0);
 
 	return ret;
 }

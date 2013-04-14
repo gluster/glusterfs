@@ -33,7 +33,7 @@ glfs_open (struct glfs *fs, const char *path, int flags)
 		goto out;
 	}
 
-	glfd = GF_CALLOC (1, sizeof (*glfd), glfs_mt_glfs_fd_t);
+	glfd = glfs_fd_new (fs);
 	if (!glfd)
 		goto out;
 
@@ -207,7 +207,7 @@ glfs_creat (struct glfs *fs, const char *path, int flags, mode_t mode)
 		goto out;
 	}
 
-	glfd = GF_CALLOC (1, sizeof (*glfd), glfs_mt_glfs_fd_t);
+	glfd = glfs_fd_new (fs);
 	if (!glfd)
 		goto out;
 
@@ -1316,7 +1316,7 @@ glfs_opendir (struct glfs *fs, const char *path)
 		goto out;
 	}
 
-	glfd = GF_CALLOC (1, sizeof (*glfd), glfs_mt_glfs_fd_t);
+	glfd = glfs_fd_new (fs);
 	if (!glfd)
 		goto out;
 	INIT_LIST_HEAD (&glfd->entries);
@@ -2135,4 +2135,168 @@ glfs_fremovexattr (struct glfs_fd *glfd, const char *name)
 	ret = syncop_fremovexattr (subvol, glfd->fd, name);
 out:
 	return ret;
+}
+
+
+void
+glfs_cwd_set (struct glfs *fs, inode_t *inode)
+{
+	if (fs->cwd) {
+		inode_unref (fs->cwd);
+		fs->cwd = NULL;
+	}
+
+	fs->cwd = inode_ref (inode);
+}
+
+
+int
+glfs_chdir (struct glfs *fs, const char *path)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	loc_t            loc = {0, };
+	struct iatt      iatt = {0, };
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+	if (ret)
+		goto out;
+
+	if (!IA_ISDIR (iatt.ia_type)) {
+		ret = -1;
+		errno = ENOTDIR;
+		goto out;
+	}
+
+	glfs_cwd_set (fs, loc.inode);
+
+out:
+	loc_wipe (&loc);
+
+	return ret;
+}
+
+
+int
+glfs_fchdir (struct glfs_fd *glfd)
+{
+	int ret = -1;
+	inode_t *inode = NULL;
+
+	__glfs_entry_fd (glfd);
+
+	inode = glfd->fd->inode;
+
+	if (!IA_ISDIR (inode->ia_type)) {
+		ret = -1;
+		errno = ENOTDIR;
+		goto out;
+	}
+
+	glfs_cwd_set (glfd->fs, inode);
+	ret = 0;
+out:
+	return ret;
+}
+
+
+char *
+glfs_realpath (struct glfs *fs, const char *path, char *resolved_path)
+{
+	int              ret = -1;
+	char            *retpath = NULL;
+	char            *allocpath = NULL;
+	xlator_t        *subvol = NULL;
+	loc_t            loc = {0, };
+	struct iatt      iatt = {0, };
+
+	__glfs_entry_fs (fs);
+
+	if (resolved_path)
+		retpath = resolved_path;
+	else
+		retpath = allocpath = malloc (PATH_MAX + 1);
+
+	if (!retpath) {
+		ret = -1;
+		errno = ENOMEM;
+		goto out;
+	}
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+	if (ret)
+		goto out;
+
+	if (loc.path) {
+		strncpy (retpath, loc.path, PATH_MAX);
+		retpath[PATH_MAX] = 0;
+	}
+
+out:
+	loc_wipe (&loc);
+
+	if (ret == -1) {
+		if (allocpath)
+			free (allocpath);
+		retpath = NULL;
+	}
+
+	return retpath;
+}
+
+
+char *
+glfs_getcwd (struct glfs *fs, char *buf, size_t n)
+{
+	int              ret = -1;
+	inode_t         *inode = NULL;
+	char            *path = NULL;
+
+	__glfs_entry_fs (fs);
+
+	if (!buf || n < 2) {
+		ret = -1;
+		errno = EINVAL;
+		goto out;
+	}
+
+	inode = fs->cwd;
+	if (!inode) {
+		strncpy (buf, "/", n);
+		ret = 0;
+		goto out;
+	}
+
+	ret = inode_path (inode, 0, &path);
+	if (n <= ret) {
+		ret = -1;
+		errno = ERANGE;
+		goto out;
+	}
+
+	strncpy (buf, path, n);
+	ret = 0;
+out:
+	GF_FREE (path);
+
+	if (ret < 0)
+		return NULL;
+
+	return buf;
 }

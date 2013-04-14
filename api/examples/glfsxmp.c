@@ -60,6 +60,81 @@ test_xattr (glfs_t *fs)
 
 
 int
+test_chdir (glfs_t *fs)
+{
+	int ret = -1;
+	ino_t ino = 0;
+	struct stat st;
+	char *topdir = "/topdir";
+	char *linkdir = "/linkdir";
+	char *subdir = "./subdir";
+	char *respath = NULL;
+	char pathbuf[4096];
+
+	ret = glfs_mkdir (fs, topdir, 0755);
+	if (ret) {
+		fprintf (stderr, "mkdir(%s): %s\n", topdir, strerror (errno));
+		return -1;
+	}
+
+	respath = glfs_getcwd (fs, pathbuf, 4096);
+	fprintf (stdout, "getcwd() = %s\n", respath);
+
+	ret = glfs_symlink (fs, topdir, linkdir);
+	if (ret) {
+		fprintf (stderr, "symlink(%s, %s): %s\n", topdir, linkdir, strerror (errno));
+		return -1;
+	}
+
+	ret = glfs_chdir (fs, linkdir);
+	if (ret) {
+		fprintf (stderr, "chdir(%s): %s\n", linkdir, strerror (errno));
+		return -1;
+	}
+
+	respath = glfs_getcwd (fs, pathbuf, 4096);
+	fprintf (stdout, "getcwd() = %s\n", respath);
+
+	respath = glfs_realpath (fs, subdir, pathbuf);
+	if (respath) {
+		fprintf (stderr, "realpath(%s) worked unexpectedly: %s\n", subdir, respath);
+		return -1;
+	}
+
+	ret = glfs_mkdir (fs, subdir, 0755);
+	if (ret) {
+		fprintf (stderr, "mkdir(%s): %s\n", subdir, strerror (errno));
+		return -1;
+	}
+
+	respath = glfs_realpath (fs, subdir, pathbuf);
+	if (!respath) {
+		fprintf (stderr, "realpath(%s): %s\n", subdir, strerror (errno));
+	} else {
+		fprintf (stdout, "realpath(%s) = %s\n", subdir, respath);
+	}
+
+	ret = glfs_chdir (fs, subdir);
+	if (ret) {
+		fprintf (stderr, "chdir(%s): %s\n", subdir, strerror (errno));
+		return -1;
+	}
+
+	respath = glfs_getcwd (fs, pathbuf, 4096);
+	fprintf (stdout, "getcwd() = %s\n", respath);
+
+	respath = glfs_realpath (fs, "/linkdir/subdir", pathbuf);
+	if (!respath) {
+		fprintf (stderr, "realpath(/linkdir/subdir): %s\n", strerror (errno));
+	} else {
+		fprintf (stdout, "realpath(/linkdir/subdir) = %s\n", respath);
+	}
+
+	return 0;
+}
+
+
+int
 main (int argc, char *argv[])
 {
 	glfs_t    *fs = NULL;
@@ -73,7 +148,7 @@ main (int argc, char *argv[])
 
 	char      *filename = "/filename2";
 
-	fs = glfs_new ("iops");
+	fs = glfs_new ("fsync");
 	if (!fs) {
 		fprintf (stderr, "glfs_new: returned NULL\n");
 		return 1;
@@ -93,7 +168,7 @@ main (int argc, char *argv[])
 
 	sleep (2);
 
-	fs2 = glfs_new ("iops");
+	fs2 = glfs_new ("fsync");
 	if (!fs2) {
 		fprintf (stderr, "glfs_new: returned NULL\n");
 		return 1;
@@ -160,6 +235,8 @@ main (int argc, char *argv[])
 	test_dirops (fs);
 
 	test_xattr (fs);
+
+	test_chdir (fs);
 
 	// done
 
