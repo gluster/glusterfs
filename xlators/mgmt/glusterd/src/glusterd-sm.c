@@ -1075,8 +1075,25 @@ glusterd_friend_sm ()
 
         ret = 0;
 out:
-        if (quorum_action)
+        if (quorum_action) {
+            /* When glusterd is restarted, it needs to wait until the 'friends' view
+             * of the volumes settle, before it starts any of the internal daemons.
+             *
+             * Every friend that was part of the cluster, would send its
+             * cluster-view, 'our' way. For every friend, who belongs to
+             * a partition which has a different cluster-view from our
+             * partition, we may update our cluster-view. For subsequent
+             * friends from that partition would agree with us, if the first
+             * friend wasn't rejected. For every first friend, whom we agreed with,
+             * we would need to start internal daemons/bricks belonging to the
+             * new volumes.
+             * glusterd_spawn_daemons calls functions that are idempotent. ie,
+             * the functions spawn process(es) only if they are not started yet.
+             *
+             * */
+                glusterd_spawn_daemons ((void*) _gf_false);
                 glusterd_do_quorum_action ();
+        }
         return ret;
 }
 

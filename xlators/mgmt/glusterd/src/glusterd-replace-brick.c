@@ -70,7 +70,7 @@ out:
 }
 
 int
-glusterd_handle_replace_brick (rpcsvc_request_t *req)
+__glusterd_handle_replace_brick (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf_cli_req                      cli_req = {{0,}};
@@ -169,6 +169,13 @@ out:
         }
 
         return ret;
+}
+
+int
+glusterd_handle_replace_brick (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_replace_brick);
 }
 
 static int
@@ -748,7 +755,7 @@ rb_spawn_dst_brick (glusterd_volinfo_t *volinfo,
         if (volinfo->memory_accounting)
                 runner_add_arg (&runner, "--mem-accounting");
 
-        ret = runner_run (&runner);
+        ret = runner_run_nowait (&runner);
         if (ret) {
                 pmap_registry_remove (THIS, 0, brickinfo->path,
                                       GF_PMAP_PORT_BRICKSERVER, NULL);

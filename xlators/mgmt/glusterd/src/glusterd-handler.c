@@ -54,6 +54,30 @@
 #include <lvm2app.h>
 #endif
 
+int glusterd_big_locked_notify (struct rpc_clnt *rpc, void *mydata,
+                                rpc_clnt_event_t event,
+                                void *data, rpc_clnt_notify_t notify_fn)
+{
+        glusterd_conf_t *priv = THIS->private;
+        int             ret   = -1;
+        synclock_lock (&priv->big_lock);
+        ret = notify_fn (rpc, mydata, event, data);
+        synclock_unlock (&priv->big_lock);
+        return ret;
+}
+
+int glusterd_big_locked_handler (rpcsvc_request_t *req, rpcsvc_actor actor_fn)
+{
+        glusterd_conf_t *priv = THIS->private;
+        int             ret   = -1;
+
+        synclock_lock (&priv->big_lock);
+        ret = actor_fn (req);
+        synclock_unlock (&priv->big_lock);
+
+        return ret;
+}
+
 static int
 glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid,
                             char *hostname, int port,
@@ -500,7 +524,7 @@ out:
 }
 
 int
-glusterd_handle_cluster_lock (rpcsvc_request_t *req)
+__glusterd_handle_cluster_lock (rpcsvc_request_t *req)
 {
         gd1_mgmt_cluster_lock_req       lock_req = {{0},};
         int32_t                         ret = -1;
@@ -554,6 +578,13 @@ out:
 }
 
 int
+glusterd_handle_cluster_lock (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_cluster_lock);
+}
+
+int
 glusterd_req_ctx_create (rpcsvc_request_t *rpc_req,
                          glusterd_op_t op, uuid_t uuid,
                          char *buf_val, size_t buf_len,
@@ -604,7 +635,7 @@ out:
 }
 
 int
-glusterd_handle_stage_op (rpcsvc_request_t *req)
+__glusterd_handle_stage_op (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         glusterd_req_ctx_t              *req_ctx = NULL;
@@ -649,7 +680,14 @@ glusterd_handle_stage_op (rpcsvc_request_t *req)
 }
 
 int
-glusterd_handle_commit_op (rpcsvc_request_t *req)
+glusterd_handle_stage_op (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req, __glusterd_handle_stage_op);
+}
+
+
+int
+__glusterd_handle_commit_op (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         glusterd_req_ctx_t              *req_ctx = NULL;
@@ -700,7 +738,13 @@ out:
 }
 
 int
-glusterd_handle_cli_probe (rpcsvc_request_t *req)
+glusterd_handle_commit_op (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req, __glusterd_handle_commit_op);
+}
+
+int
+__glusterd_handle_cli_probe (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf1_cli_probe_req               cli_req = {0,};
@@ -788,7 +832,13 @@ out:
 }
 
 int
-glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
+glusterd_handle_cli_probe (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req, __glusterd_handle_cli_probe);
+}
+
+int
+__glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf1_cli_deprobe_req             cli_req = {0,};
@@ -877,7 +927,13 @@ out:
 }
 
 int
-glusterd_handle_cli_list_friends (rpcsvc_request_t *req)
+glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req, __glusterd_handle_cli_deprobe);
+}
+
+int
+__glusterd_handle_cli_list_friends (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf1_cli_peer_list_req           cli_req = {0,};
@@ -925,7 +981,14 @@ out:
 }
 
 int
-glusterd_handle_cli_get_volume (rpcsvc_request_t *req)
+glusterd_handle_cli_list_friends (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_cli_list_friends);
+}
+
+int
+__glusterd_handle_cli_get_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf_cli_req                      cli_req = {{0,}};
@@ -978,9 +1041,16 @@ out:
         return ret;
 }
 
+int
+glusterd_handle_cli_get_volume (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_cli_get_volume);
+}
+
 #ifdef HAVE_BD_XLATOR
 int
-glusterd_handle_cli_bd_op (rpcsvc_request_t *req)
+__glusterd_handle_cli_bd_op (rpcsvc_request_t *req)
 {
         int32_t          ret        = -1;
         gf_cli_req       cli_req    = { {0,} };
@@ -1044,10 +1114,16 @@ out:
 
         return ret;
 }
+
+int
+glusterd_handle_cli_bd_op (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req, __glusterd_handle_cli_bd_op);
+}
 #endif
 
 int
-glusterd_handle_cli_uuid_reset (rpcsvc_request_t *req)
+__glusterd_handle_cli_uuid_reset (rpcsvc_request_t *req)
 {
         int                     ret     = -1;
         dict_t                  *dict   = NULL;
@@ -1144,7 +1220,14 @@ out:
 }
 
 int
-glusterd_handle_cli_list_volume (rpcsvc_request_t *req)
+glusterd_handle_cli_uuid_reset (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_cli_uuid_reset);
+}
+
+int
+__glusterd_handle_cli_list_volume (rpcsvc_request_t *req)
 {
         int                     ret = -1;
         dict_t                  *dict = NULL;
@@ -1203,6 +1286,13 @@ out:
         return ret;
 }
 
+int
+glusterd_handle_cli_list_volume (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_cli_list_volume);
+}
+
 int32_t
 glusterd_op_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
                    char *err_str, size_t err_len)
@@ -1215,7 +1305,7 @@ glusterd_op_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
 }
 
 int
-glusterd_handle_reset_volume (rpcsvc_request_t *req)
+__glusterd_handle_reset_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf_cli_req                      cli_req = {{0,}};
@@ -1276,9 +1366,15 @@ out:
         return ret;
 }
 
+int
+glusterd_handle_reset_volume (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_reset_volume);
+}
 
 int
-glusterd_handle_set_volume (rpcsvc_request_t *req)
+__glusterd_handle_set_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf_cli_req                      cli_req = {{0,}};
@@ -1376,7 +1472,13 @@ out:
 }
 
 int
-glusterd_handle_sync_volume (rpcsvc_request_t *req)
+glusterd_handle_set_volume (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req, __glusterd_handle_set_volume);
+}
+
+int
+__glusterd_handle_sync_volume (rpcsvc_request_t *req)
 {
         int32_t                          ret     = -1;
         gf_cli_req                       cli_req = {{0,}};
@@ -1465,6 +1567,12 @@ out:
 }
 
 int
+glusterd_handle_sync_volume (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req, __glusterd_handle_sync_volume);
+}
+
+int
 glusterd_fsm_log_send_resp (rpcsvc_request_t *req, int op_ret,
                             char *op_errstr, dict_t *dict)
 {
@@ -1491,7 +1599,7 @@ glusterd_fsm_log_send_resp (rpcsvc_request_t *req, int op_ret,
 }
 
 int
-glusterd_handle_fsm_log (rpcsvc_request_t *req)
+__glusterd_handle_fsm_log (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf1_cli_fsm_log_req             cli_req = {0,};
@@ -1548,6 +1656,12 @@ out:
 }
 
 int
+glusterd_handle_fsm_log (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req, __glusterd_handle_fsm_log);
+}
+
+int
 glusterd_op_lock_send_resp (rpcsvc_request_t *req, int32_t status)
 {
 
@@ -1586,7 +1700,7 @@ glusterd_op_unlock_send_resp (rpcsvc_request_t *req, int32_t status)
 }
 
 int
-glusterd_handle_cluster_unlock (rpcsvc_request_t *req)
+__glusterd_handle_cluster_unlock (rpcsvc_request_t *req)
 {
         gd1_mgmt_cluster_unlock_req     unlock_req = {{0}, };
         int32_t                         ret = -1;
@@ -1635,6 +1749,13 @@ out:
         glusterd_op_sm ();
 
         return ret;
+}
+
+int
+glusterd_handle_cluster_unlock (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_cluster_unlock);
 }
 
 int
@@ -1718,7 +1839,7 @@ out:
 }
 
 int
-glusterd_handle_incoming_friend_req (rpcsvc_request_t *req)
+__glusterd_handle_incoming_friend_req (rpcsvc_request_t *req)
 {
         int32_t                 ret = -1;
         gd1_mgmt_friend_req     friend_req = {{0},};
@@ -1757,7 +1878,14 @@ out:
 }
 
 int
-glusterd_handle_incoming_unfriend_req (rpcsvc_request_t *req)
+glusterd_handle_incoming_friend_req (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_incoming_friend_req);
+}
+
+int
+__glusterd_handle_incoming_unfriend_req (rpcsvc_request_t *req)
 {
         int32_t                 ret = -1;
         gd1_mgmt_friend_req     friend_req = {{0},};
@@ -1792,6 +1920,14 @@ out:
         glusterd_op_sm ();
 
         return ret;
+}
+
+int
+glusterd_handle_incoming_unfriend_req (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_incoming_unfriend_req);
+
 }
 
 int
@@ -1840,7 +1976,7 @@ out:
 }
 
 int
-glusterd_handle_friend_update (rpcsvc_request_t *req)
+__glusterd_handle_friend_update (rpcsvc_request_t *req)
 {
         int32_t                 ret = -1;
         gd1_mgmt_friend_update     friend_req = {{0},};
@@ -1977,7 +2113,14 @@ out:
 }
 
 int
-glusterd_handle_probe_query (rpcsvc_request_t *req)
+glusterd_handle_friend_update (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_friend_update);
+}
+
+int
+__glusterd_handle_probe_query (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         xlator_t                        *this = NULL;
@@ -2071,8 +2214,13 @@ out:
         return ret;
 }
 
+int glusterd_handle_probe_query (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req, __glusterd_handle_probe_query);
+}
+
 int
-glusterd_handle_cli_profile_volume (rpcsvc_request_t *req)
+__glusterd_handle_cli_profile_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret     = -1;
         gf_cli_req                      cli_req = {{0,}};
@@ -2140,7 +2288,14 @@ out:
 }
 
 int
-glusterd_handle_getwd (rpcsvc_request_t *req)
+glusterd_handle_cli_profile_volume (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_cli_profile_volume);
+}
+
+int
+__glusterd_handle_getwd (rpcsvc_request_t *req)
 {
         int32_t                 ret = -1;
         gf1_cli_getwd_rsp     rsp = {0,};
@@ -2165,9 +2320,14 @@ glusterd_handle_getwd (rpcsvc_request_t *req)
         return ret;
 }
 
+int
+glusterd_handle_getwd (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req, __glusterd_handle_getwd);
+}
 
 int
-glusterd_handle_mount (rpcsvc_request_t *req)
+__glusterd_handle_mount (rpcsvc_request_t *req)
 {
         gf1_cli_mount_req mnt_req = {0,};
         gf1_cli_mount_rsp rsp     = {0,};
@@ -2230,7 +2390,13 @@ glusterd_handle_mount (rpcsvc_request_t *req)
 }
 
 int
-glusterd_handle_umount (rpcsvc_request_t *req)
+glusterd_handle_mount (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req, __glusterd_handle_mount);
+}
+
+int
+__glusterd_handle_umount (rpcsvc_request_t *req)
 {
         gf1_cli_umount_req umnt_req = {0,};
         gf1_cli_umount_rsp rsp      = {0,};
@@ -2243,9 +2409,11 @@ glusterd_handle_umount (rpcsvc_request_t *req)
         gf_boolean_t dir_ok         = _gf_false;
         char *pdir                  = NULL;
         char *t                     = NULL;
+        glusterd_conf_t     *priv   = NULL;
 
         GF_ASSERT (req);
         GF_ASSERT (this);
+        priv = this->private;
 
         ret = xdr_to_generic (req->msg[0], &umnt_req,
                               (xdrproc_t)xdr_gf1_cli_umount_req);
@@ -2288,7 +2456,9 @@ glusterd_handle_umount (rpcsvc_request_t *req)
         runner_add_args (&runner, "umount", umnt_req.path, NULL);
         if (umnt_req.lazy)
                 runner_add_arg (&runner, "-l");
+        synclock_unlock (&priv->big_lock);
         rsp.op_ret = runner_run (&runner);
+        synclock_lock (&priv->big_lock);
         if (rsp.op_ret == 0) {
                 if (realpath (umnt_req.path, mntp))
                         rmdir (mntp);
@@ -2314,6 +2484,12 @@ glusterd_handle_umount (rpcsvc_request_t *req)
         glusterd_op_sm ();
 
         return ret;
+}
+
+int
+glusterd_handle_umount (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req, __glusterd_handle_umount);
 }
 
 int
@@ -2521,7 +2697,9 @@ glusterd_friend_add (const char *hoststr, int port,
         if (!restore) {
                 ret = glusterd_store_peerinfo (*friend);
                 if (ret == 0) {
+                        synclock_unlock (&conf->big_lock);
                         ret = glusterd_friend_rpc_create (this, *friend, args);
+                        synclock_lock (&conf->big_lock);
                 }
                 else {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -2926,7 +3104,7 @@ out:
 }
 
 int
-glusterd_handle_status_volume (rpcsvc_request_t *req)
+__glusterd_handle_status_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret     = -1;
         uint32_t                        cmd     = 0;
@@ -2998,7 +3176,14 @@ out:
 }
 
 int
-glusterd_handle_cli_clearlocks_volume (rpcsvc_request_t *req)
+glusterd_handle_status_volume (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_status_volume);
+}
+
+int
+__glusterd_handle_cli_clearlocks_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf_cli_req                      cli_req = {{0,}};
@@ -3067,9 +3252,15 @@ out:
 }
 
 int
-glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
-                          rpc_clnt_event_t event,
-                          void *data)
+glusterd_handle_cli_clearlocks_volume (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_cli_clearlocks_volume);
+}
+
+int
+__glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
+                          rpc_clnt_event_t event, void *data)
 {
         xlator_t                *this = NULL;
         glusterd_conf_t         *conf = NULL;
@@ -3108,9 +3299,16 @@ glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 }
 
 int
-glusterd_nodesvc_rpc_notify (struct rpc_clnt *rpc, void *mydata,
-                             rpc_clnt_event_t event,
-                             void *data)
+glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
+                           rpc_clnt_event_t event, void *data)
+{
+        return glusterd_big_locked_notify (rpc, mydata, event, data,
+                                           __glusterd_brick_rpc_notify);
+}
+
+int
+__glusterd_nodesvc_rpc_notify (struct rpc_clnt *rpc, void *mydata,
+                               rpc_clnt_event_t event, void *data)
 {
         xlator_t                *this = NULL;
         glusterd_conf_t         *conf = NULL;
@@ -3146,6 +3344,14 @@ glusterd_nodesvc_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         }
 
         return ret;
+}
+
+int
+glusterd_nodesvc_rpc_notify (struct rpc_clnt *rpc, void *mydata,
+                             rpc_clnt_event_t event, void *data)
+{
+        return glusterd_big_locked_notify (rpc, mydata, event, data,
+                                           __glusterd_nodesvc_rpc_notify);
 }
 
 int
@@ -3190,9 +3396,8 @@ out:
 }
 
 int
-glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
-                          rpc_clnt_event_t event,
-                          void *data)
+__glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
+                            rpc_clnt_event_t event, void *data)
 {
         xlator_t             *this        = NULL;
         glusterd_conf_t      *conf        = NULL;
@@ -3308,6 +3513,14 @@ out:
         if (quorum_action)
                 glusterd_do_quorum_action ();
         return ret;
+}
+
+int
+glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
+                          rpc_clnt_event_t event, void *data)
+{
+        return glusterd_big_locked_notify (rpc, mydata, event, data,
+                                           __glusterd_peer_rpc_notify);
 }
 
 int
