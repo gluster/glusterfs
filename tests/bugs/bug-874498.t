@@ -47,8 +47,7 @@ EXPECT "3" echo $count
 
 TEST $CLI volume start $V0 force
 sleep 5
-TEST $CLI volume heal $V0 full
-sleep 2
+TEST $CLI volume heal $V0
 
 val1=0
 
