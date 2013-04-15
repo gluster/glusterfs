@@ -11,6 +11,7 @@
 
 /*
   TODO:
+  - merge locks in glfs_posix_lock for lock self-healing
   - refresh fs->cwd inode on graph switch
   - set proper pid/lk_owner to call frames (currently buried in syncop)
   - fix logging.c/h to store logfp and loglevel in glusterfs_ctx_t and

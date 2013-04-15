@@ -2315,3 +2315,49 @@ out:
 
 	return buf;
 }
+
+
+static void
+gf_flock_to_flock (struct gf_flock *gf_flock, struct flock *flock)
+{
+	flock->l_type   = gf_flock->l_type;
+	flock->l_whence = gf_flock->l_whence;
+	flock->l_start  = gf_flock->l_start;
+	flock->l_len    = gf_flock->l_len;
+	flock->l_pid    = gf_flock->l_pid;
+}
+
+
+static void
+gf_flock_from_flock (struct gf_flock *gf_flock, struct flock *flock)
+{
+	gf_flock->l_type   = flock->l_type;
+	gf_flock->l_whence = flock->l_whence;
+	gf_flock->l_start  = flock->l_start;
+	gf_flock->l_len    = flock->l_len;
+	gf_flock->l_pid    = flock->l_pid;
+}
+
+
+int
+glfs_posix_lock (struct glfs_fd *glfd, int cmd, struct flock *flock)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	struct gf_flock  gf_flock = {0, };
+
+	__glfs_entry_fd (glfd);
+
+	subvol = glfs_fd_subvol (glfd);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	gf_flock_from_flock (&gf_flock, flock);
+	ret = syncop_lk (subvol, glfd->fd, cmd, &gf_flock);
+	gf_flock_to_flock (&gf_flock, flock);
+out:
+	return ret;
+}
