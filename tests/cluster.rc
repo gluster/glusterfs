@@ -1,0 +1,106 @@
+#!/bin/bash
+
+CLUSTER_PFX="127.1.1"; # ".x" for each glusterd
+CLUSTER_COUNT=1; # Just initial definition
+
+function launch_cluster() {
+    local count=$1;
+
+    CLUSTER_COUNT=$count;
+
+    define_backends $count;
+    define_hosts $count;
+    define_glusterds $count;
+    define_clis $count;
+
+    start_glusterds;
+}
+
+
+function define_backends() {
+    local b;
+
+    for i in `seq 1 $count`; do
+	eval "B$i=$B0/$i";
+    done
+
+    for i in `seq 1 $count`; do
+	b="B$i";
+	mkdir -pv ${!b}/glusterd;
+    done
+}
+
+
+function define_glusterds() {
+    local count=$1;
+    local h;
+    local b;
+    local wopt;
+    local bopt;
+    local popt;
+
+    for i in `seq 1 $count`; do
+	b="B$i";
+	h="H$i";
+	wopt="management.working-directory=${!b}/glusterd";
+	bopt="management.transport.socket.bind-address=${!h}";
+	popt="--pid-file=${!b}/glusterd.pid";
+	eval "glusterd_$i='glusterd --xlator-option $wopt --xlator-option $bopt $popt'";
+	eval "glusterd$i='glusterd --xlator-option $wopt --xlator-option $bopt $popt'";
+    done
+}
+
+
+function start_glusterds() {
+    local g;
+
+    for i in `seq 1 $CLUSTER_COUNT`; do
+	g="glusterd_$i";
+	${!g};
+    done
+}
+
+
+function kill_glusterd() {
+    local index=$1;
+    local b;
+    local pidfile;
+
+    b="B$index";
+    pidfile="${!b}/glusterd.pid";
+
+    kill `cat $pidfile`;
+}
+
+
+function kill_node() {
+    local index=$1;
+    local h;
+
+    h="H$index";
+
+    kill -9 $(ps -ef | grep gluster | grep ${!h} | awk '{print $2}');
+}
+
+
+function define_hosts() {
+    local count=$1;
+
+    for i in `seq 1 $count`; do
+	eval "H_$i=${CLUSTER_PFX}.$i"
+	eval "H$i=${CLUSTER_PFX}.$i";
+    done
+}
+
+
+function define_clis() {
+    local count=$1;
+    local h;
+
+    for i in `seq 1 $count`; do
+	h="H$i";
+	eval "CLI_$i='$CLI --remote-host=${!h}'";
+	eval "CLI$i='$CLI --remote-host=${!h}'";
+    done
+}
+
