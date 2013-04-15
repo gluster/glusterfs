@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2008-2012 Red Hat, Inc. <http://www.redhat.com>
+  Copyright (c) 2008-2013 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -504,6 +504,154 @@ syncenv_new (size_t stacksize)
                 syncenv_destroy (newenv);
 
         return newenv;
+}
+
+
+int
+synclock_init (synclock_t *lock)
+{
+	if (!lock)
+		return -1;
+
+	pthread_cond_init (&lock->cond, 0);
+	lock->lock = 0;
+	INIT_LIST_HEAD (&lock->waitq);
+
+	return pthread_mutex_init (&lock->guard, 0);
+}
+
+
+int
+synclock_destroy (synclock_t *lock)
+{
+	if (!lock)
+		return -1;
+
+	pthread_cond_destroy (&lock->cond);
+	return pthread_mutex_destroy (&lock->guard);
+}
+
+
+static int
+__synclock_lock (struct synclock *lock)
+{
+	struct synctask *task = NULL;
+
+	if (!lock)
+		return -1;
+
+	task = synctask_get ();
+
+	while (lock->lock) {
+		if (task) {
+			/* called within a synctask */
+			list_add_tail (&task->waitq, &lock->waitq);
+			{
+				pthread_mutex_unlock (&lock->guard);
+				synctask_yield (task);
+				pthread_mutex_lock (&lock->guard);
+			}
+			list_del_init (&task->waitq);
+		} else {
+			/* called by a non-synctask */
+			pthread_cond_wait (&lock->cond, &lock->guard);
+		}
+	}
+
+	lock->lock = _gf_true;
+	lock->owner = task;
+
+	return 0;
+}
+
+
+int
+synclock_lock (synclock_t *lock)
+{
+	int ret = 0;
+
+	pthread_mutex_lock (&lock->guard);
+	{
+		ret = __synclock_lock (lock);
+	}
+	pthread_mutex_unlock (&lock->guard);
+
+	return ret;
+}
+
+
+int
+synclock_trylock (synclock_t *lock)
+{
+	int ret = 0;
+
+	errno = 0;
+
+	pthread_mutex_lock (&lock->guard);
+	{
+		if (lock->lock) {
+			errno = EBUSY;
+			ret = -1;
+			goto unlock;
+		}
+
+		ret = __synclock_lock (lock);
+	}
+unlock:
+	pthread_mutex_unlock (&lock->guard);
+
+	return ret;
+}
+
+
+static int
+__synclock_unlock (synclock_t *lock)
+{
+	struct synctask *task = NULL;
+	struct synctask *curr = NULL;
+
+	if (!lock)
+		return -1;
+
+	curr = synctask_get ();
+
+	if (lock->owner != curr) {
+		/* warn ? */
+	}
+
+	lock->lock = _gf_false;
+
+	/* There could be both synctasks and non synctasks
+	   waiting (or none, or either). As a mid-approach
+	   between maintaining too many waiting counters
+	   at one extreme and a thundering herd on unlock
+	   at the other, call a cond_signal (which wakes
+	   one waiter) and first synctask waiter. So at
+	   most we have two threads waking up to grab the
+	   just released lock.
+	*/
+	pthread_cond_signal (&lock->cond);
+	if (!list_empty (&lock->waitq)) {
+		task = list_entry (lock->waitq.next, struct synctask, waitq);
+		synctask_wake (task);
+	}
+
+	return 0;
+}
+
+
+int
+synclock_unlock (synclock_t *lock)
+{
+	int ret = 0;
+
+	pthread_mutex_lock (&lock->guard);
+	{
+		ret = __synclock_unlock (lock);
+	}
+	pthread_mutex_unlock (&lock->guard);
+
+	return ret;
 }
 
 

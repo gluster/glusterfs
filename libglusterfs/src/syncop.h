@@ -69,6 +69,8 @@ struct synctask {
         pthread_mutex_t     mutex; /* for synchronous spawning of synctask */
         pthread_cond_t      cond;
         int                 done;
+
+	struct list_head    waitq; /* can wait only "once" at a time */
 };
 
 
@@ -95,6 +97,15 @@ struct syncenv {
         size_t              stacksize;
 };
 
+
+struct synclock {
+	pthread_mutex_t     guard; /* guard the remaining members, pair @cond */
+	pthread_cond_t      cond;  /* waiting non-synctasks */
+	struct list_head    waitq; /* waiting synctasks */
+	gf_boolean_t        lock;  /* _gf_true or _gf_false, lock status */
+	struct synctask    *owner; /* NULL if current owner is not a synctask */
+};
+typedef struct synclock synclock_t;
 
 struct syncargs {
         int                 op_ret;
@@ -218,6 +229,13 @@ void synctask_waitfor (struct synctask *task, int count);
 
 int synctask_setid (struct synctask *task, uid_t uid, gid_t gid);
 #define SYNCTASK_SETID(uid, gid) synctask_setid (synctask_get(), uid, gid);
+
+
+int synclock_init (synclock_t *lock);
+int synclock_destory (synclock_t *lock);
+int synclock_lock (synclock_t *lock);
+int synclock_trylock (synclock_t *lock);
+int synclock_unlock (synclock_t *lock);
 
 int syncop_lookup (xlator_t *subvol, loc_t *loc, dict_t *xattr_req,
                    /* out */
