@@ -45,19 +45,26 @@ done
 EXPECT "3" echo $count
 
 
+function count_entries()
+{
+    val1=0
+##count the number of entries after self heal
+    for g in `ls $1`
+    do
+	val1=$(( val1 + 1 ))
+    done
+
+    echo $val1;
+}
+
 TEST $CLI volume start $V0 force
 sleep 5
 TEST $CLI volume heal $V0
 
-val1=0
 
-##count the number of entries after self heal
-for g in `ls $FILEN`
-do
-val1=$(( val1 + 1 ))
-done
 ##Expected number of entries are 0 in the .glusterfs/indices/xattrop directory
-EXPECT '0' echo $val1
+EXPECT_WITHIN 60 '0' count_entries $FILEN;
+
 TEST $CLI volume stop $V0;
 TEST $CLI volume delete $V0;
 
