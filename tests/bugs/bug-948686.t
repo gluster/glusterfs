@@ -34,3 +34,13 @@ TEST $CLI_2 volume stop $V0;
 TEST $CLI_2 volume delete $V0;
 
 cleanup;
+
+TEST glusterd;
+TEST $CLI volume create $V0 $H0:$B0/$V0
+TEST $CLI volume start $V0
+pkill glusterd;
+pkill glusterfsd;
+TEST glusterd
+TEST $CLI volume status $V0
+
+cleanup;
