@@ -145,6 +145,22 @@ Provides:         %{name}-libs = %{version}-%{release}
 Provides:         %{name}-common = %{version}-%{release}
 Provides:         %{name}-core = %{version}-%{release}
 
+# We do not want to generate useless provides and requires for xlator .so files
+# Filter all generated:
+# - .so requires that do not start with 'lib'
+# - all provides from xlators and private libraries not in the ldconfig path
+#
+# TODO: RHEL5 does not have a convenient solution
+%if 0%{?rhel} == 6
+    # filter_setup exists in RHEL6 only
+    %filter_provides_in %{_libdir}/glusterfs/%{version}/
+    %global __filter_from_req %{?__filter_from_req} | %{__grep} -v -P '^(?!lib).*\.so.*$'
+    %filter_setup
+%else
+    # modern rpm and current Fedora
+    %global __requires_exclude -P ^(?!lib).*\.so.*$
+    %global __provides_exclude_from ^%{_libdir}/glusterfs/%{version}/.*$
+%endif
 
 %description
 GlusterFS is a clustered file-system capable of scaling to several
