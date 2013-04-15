@@ -453,6 +453,12 @@ int glfs_fchdir (glfs_fd_t *fd);
 
 char *glfs_realpath (glfs_t *fs, const char *path, char *resolved_path);
 
+/*
+ * @cmd and @flock are as specified in man fcntl(2).
+ */
+int glfs_posix_lock (glfs_fd_t *fd, int cmd, struct flock *flock);
+
+
 __END_DECLS
 
 #endif /* !_GLFS_H */

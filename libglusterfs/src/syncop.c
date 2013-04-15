@@ -1803,3 +1803,37 @@ syncop_access (xlator_t *subvol, loc_t *loc, int32_t mask)
         errno = args.op_errno;
         return args.op_ret;
 }
+
+
+int
+syncop_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+	       int op_ret, int op_errno, struct gf_flock *flock,
+	       dict_t *xdata)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+	if (flock)
+		args->flock = *flock;
+        __wake (args);
+
+        return 0;
+}
+
+
+int
+syncop_lk (xlator_t *subvol, fd_t *fd, int cmd, struct gf_flock *flock)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_lk_cbk, subvol->fops->lk,
+                fd, cmd, flock, NULL);
+
+        errno = args.op_errno;
+	*flock = args.flock;
+
+        return args.op_ret;
+}
