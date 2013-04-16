@@ -75,7 +75,7 @@ void trap (void);
 /* Defining this here as it is needed by glusterd for setting
  * nfs port in volume status.
  */
-#define GF_NFS3_PORT    38467
+#define GF_NFS3_PORT    2049
 #define GF_CLIENT_PORT_CEILING 1024
 
 enum _gf_boolean
