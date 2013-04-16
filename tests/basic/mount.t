@@ -52,7 +52,7 @@ TEST 'grep -E "^$H0:$V0 .+ ,?ro,.+" /proc/mounts';
 sleep 5;
 
 ## Mount NFS
-TEST mount -t nfs -o vers=3,nolock,soft,intr $H0:/$V0 $N0;
+TEST mount -t nfs -o nolock,soft,intr $H0:/$V0 $N0;
 
 
 ## Test for consistent views between NFS and FUSE mounts
