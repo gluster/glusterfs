@@ -664,4 +664,9 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
 int
 dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                  int flag);
+xlator_t *
+dht_subvol_with_free_space_inodes (xlator_t *this, xlator_t *subvol);
+
+xlator_t *
+dht_subvol_maxspace_nonzeroinode (xlator_t *this, xlator_t *subvol);
 #endif/* _DHT_H */

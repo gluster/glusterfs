@@ -248,12 +248,11 @@ dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
 	return is_subvol_filled;
 }
 
+
+/*Get the best subvolume to create the file in*/
 xlator_t *
 dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol)
 {
-	int         i = 0;
-	double      max = 0;
-	double      max_inodes = 0;
 	xlator_t   *avail_subvol = NULL;
 	dht_conf_t *conf = NULL;
 
@@ -261,37 +260,96 @@ dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol)
 
 	LOCK (&conf->subvolume_lock);
 	{
-		for (i = 0; i < conf->subvolume_cnt; i++) {
-			if (conf->disk_unit == 'p') {
-				if ((conf->du_stats[i].avail_percent > max)
-				    && (conf->du_stats[i].avail_inodes > max_inodes)) {
-					max = conf->du_stats[i].avail_percent;
-					max_inodes = conf->du_stats[i].avail_inodes;
-					avail_subvol = conf->subvolumes[i];
-				}
-			} else {
-				if ((conf->du_stats[i].avail_space > max)
-				    && (conf->du_stats[i].avail_inodes > max_inodes)) {
-					max = conf->du_stats[i].avail_space;
-					max_inodes = conf->du_stats[i].avail_inodes;
-					avail_subvol = conf->subvolumes[i];
-				}
+                avail_subvol = dht_subvol_with_free_space_inodes(this, subvol);
+                if(!avail_subvol)
+                {
+                        avail_subvol = dht_subvol_maxspace_nonzeroinode(this,
+                                                                        subvol);
+                }
 
-			}
-		}
 	}
 	UNLOCK (&conf->subvolume_lock);
 
 	if (!avail_subvol) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"no subvolume has enough free space and inodes to create");
+		gf_log (this->name,
+                        GF_LOG_DEBUG,
+			"no subvolume has enough free space and/or inodes\
+                         to create");
+                avail_subvol = subvol;
 	}
 
-	if ((max < conf->min_free_disk) && (max_inodes < conf->min_free_inodes))
-		avail_subvol = subvol;
-
-	if (!avail_subvol)
-		avail_subvol = subvol;
 
 	return avail_subvol;
+}
+
+/*Get subvolume which has both space and inodes more than the min criteria*/
+xlator_t *
+dht_subvol_with_free_space_inodes(xlator_t *this, xlator_t *subvol)
+{
+        int i = 0;
+        double max = 0;
+        double max_inodes = 0;
+
+        xlator_t *avail_subvol = NULL;
+        dht_conf_t *conf = NULL;
+
+        conf = this->private;
+
+        for(i=0; i < conf->subvolume_cnt; i++) {
+                if ((conf->disk_unit == 'p') &&
+                    (conf->du_stats[i].avail_percent > conf->min_free_disk) &&
+                    (conf->du_stats[i].avail_inodes  > conf->min_free_inodes)) {
+                        if ((conf->du_stats[i].avail_inodes > max_inodes) ||
+                            (conf->du_stats[i].avail_percent > max)) {
+                                max = conf->du_stats[i].avail_percent;
+                                max_inodes = conf->du_stats[i].avail_inodes;
+                                avail_subvol = conf->subvolumes[i];
+                        }
+                }
+
+                if ((conf->disk_unit != 'p') &&
+                    (conf->du_stats[i].avail_space > conf->min_free_disk) &&
+                    (conf->du_stats[i].avail_inodes  > conf->min_free_inodes)) {
+                        if ((conf->du_stats[i].avail_inodes > max_inodes) ||
+                            (conf->du_stats[i].avail_space > max)) {
+                                max = conf->du_stats[i].avail_space;
+                                max_inodes = conf->du_stats[i].avail_inodes;
+                                avail_subvol = conf->subvolumes[i];
+                        }
+                }
+        }
+
+        return avail_subvol;
+}
+
+
+/* Get subvol which has atleast one inode and maximum space */
+xlator_t *
+dht_subvol_maxspace_nonzeroinode (xlator_t *this, xlator_t *subvol)
+{
+        int         i = 0;
+        double      max = 0;
+
+        xlator_t   *avail_subvol = NULL;
+        dht_conf_t *conf = NULL;
+
+        conf = this->private;
+
+        for (i = 0; i < conf->subvolume_cnt; i++) {
+                if (conf->disk_unit == 'p') {
+                        if ((conf->du_stats[i].avail_percent > max)
+                            && (conf->du_stats[i].avail_inodes > 0 )) {
+                                max = conf->du_stats[i].avail_percent;
+                                avail_subvol = conf->subvolumes[i];
+                        }
+               } else {
+                         if ((conf->du_stats[i].avail_space > max)
+                            && (conf->du_stats[i].avail_inodes > 0)) {
+                                 max = conf->du_stats[i].avail_space;
+                                 avail_subvol = conf->subvolumes[i];
+                         }
+               }
+        }
+
+        return avail_subvol;
 }
