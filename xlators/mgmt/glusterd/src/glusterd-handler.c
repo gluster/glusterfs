@@ -707,6 +707,7 @@ glusterd_handle_cli_probe (rpcsvc_request_t *req)
         glusterd_peerinfo_t             *peerinfo = NULL;
         gf_boolean_t                    run_fsm = _gf_true;
         xlator_t                        *this = NULL;
+        char                            *bind_name = NULL;
 
         GF_ASSERT (req);
         this = THIS;
@@ -736,7 +737,16 @@ glusterd_handle_cli_probe (rpcsvc_request_t *req)
         gf_log ("glusterd", GF_LOG_INFO, "Received CLI probe req %s %d",
                 cli_req.hostname, cli_req.port);
 
-        if (glusterd_is_local_addr(cli_req.hostname)) {
+        if (dict_get_str(this->options,"transport.socket.bind-address",
+                         &bind_name) == 0) {
+                gf_log ("glusterd", GF_LOG_DEBUG,
+                        "only checking probe address vs. bind address");
+                ret = glusterd_is_same_address(bind_name,cli_req.hostname);
+        }
+        else {
+                ret = glusterd_is_local_addr(cli_req.hostname);
+        }
+        if (ret) {
                 glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_LOCALHOST, NULL,
                                               cli_req.hostname, cli_req.port);
                 ret = 0;
@@ -2429,6 +2439,7 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
         dict_t                 *options = NULL;
         int                    ret = -1;
         glusterd_peerctx_t     *peerctx = NULL;
+        data_t                 *data = NULL;
 
         peerctx = GF_CALLOC (1, sizeof (*peerctx), gf_gld_mt_peerctx_t);
         if (!peerctx)
@@ -2444,6 +2455,19 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
                                                      peerinfo->port);
         if (ret)
                 goto out;
+
+        /*
+         * For simulated multi-node testing, we need to make sure that we
+         * create our RPC endpoint with the same address that the peer would
+         * use to reach us.
+         */
+        if (this->options) {
+                data = dict_get(this->options,"transport.socket.bind-address");
+                if (data) {
+                        ret = dict_set(options,
+                                       "transport.socket.source-addr",data);
+                }
+        }
 
         ret = glusterd_rpc_create (&peerinfo->rpc, options,
                                    glusterd_peer_rpc_notify, peerctx);
