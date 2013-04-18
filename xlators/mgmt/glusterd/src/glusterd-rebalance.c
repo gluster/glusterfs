@@ -277,7 +277,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
          * default timeout of 30mins used for unreliable network connections is
          * too long for unix domain socket connections.
          */
-        ret = rpc_clnt_transport_unix_options_build (&options, sockfile, 600);
+        ret = rpc_transport_unix_options_build (&options, sockfile, 600);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Unix options build failed");
                 goto out;
@@ -331,7 +331,7 @@ glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
          * default timeout of 30mins used for unreliable network connections is
          * too long for unix domain socket connections.
          */
-        ret = rpc_clnt_transport_unix_options_build (&options, sockfile, 600);
+        ret = rpc_transport_unix_options_build (&options, sockfile, 600);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Unix options build failed");
                 goto out;

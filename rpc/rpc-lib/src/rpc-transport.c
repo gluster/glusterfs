@@ -559,6 +559,63 @@ out:
 }
 
 int
+rpc_transport_unix_options_build (dict_t **options, char *filepath,
+                                  int frame_timeout)
+{
+        dict_t                  *dict = NULL;
+        char                    *fpath = NULL;
+        int                     ret = -1;
+
+        GF_ASSERT (filepath);
+        GF_ASSERT (options);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        fpath = gf_strdup (filepath);
+        if (!fpath) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_dynstr (dict, "transport.socket.connect-path", fpath);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dict, "transport.address-family", "unix");
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dict, "transport.socket.nodelay", "off");
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dict, "transport-type", "socket");
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dict, "transport.socket.keepalive", "off");
+        if (ret)
+                goto out;
+
+        if (frame_timeout > 0) {
+                ret = dict_set_int32 (dict, "frame-timeout", frame_timeout);
+                if (ret)
+                        goto out;
+        }
+
+        *options = dict;
+out:
+        if (ret) {
+                GF_FREE (fpath);
+                if (dict)
+                        dict_unref (dict);
+        }
+        return ret;
+}
+
+int
 rpc_transport_inet_options_build (dict_t **options, const char *hostname,
                                   int port)
 {
