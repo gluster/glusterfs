@@ -302,5 +302,9 @@ rpc_transport_keepalive_options_set (dict_t *options, int32_t interval,
                                      int32_t time);
 
 int
+rpc_transport_unix_options_build (dict_t **options, char *filepath,
+                                  int frame_timeout);
+
+int
 rpc_transport_inet_options_build (dict_t **options, const char *hostname, int port);
 #endif /* __RPC_TRANSPORT_H__ */

@@ -1268,8 +1268,8 @@ glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
                  * The default timeout of 30mins used for unreliable network
                  * connections is too long for unix domain socket connections.
                  */
-                ret = rpc_clnt_transport_unix_options_build (&options,
-                                                             socketpath, 600);
+                ret = rpc_transport_unix_options_build (&options, socketpath,
+                                                        600);
                 if (ret)
                         goto out;
                 synclock_unlock (&priv->big_lock);
@@ -3436,8 +3436,8 @@ glusterd_nodesvc_connect (char *server, char *socketpath) {
                  * The default timeout of 30mins used for unreliable network
                  * connections is too long for unix domain socket connections.
                  */
-                ret = rpc_clnt_transport_unix_options_build (&options,
-                                                             socketpath, 600);
+                ret = rpc_transport_unix_options_build (&options, socketpath,
+                                                        600);
                 if (ret)
                         goto out;
                 synclock_unlock (&priv->big_lock);
