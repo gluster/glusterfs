@@ -1629,6 +1629,19 @@ glusterd_op_set_volume (dict_t *dict)
                 goto out;
         }
 
+        /* Update the cluster op-version before regenerating volfiles so that
+         * correct volfiles are generated
+         */
+        if (new_op_version > priv->op_version) {
+                priv->op_version = new_op_version;
+                ret = glusterd_store_global_info (this);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to store op-version");
+                        goto out;
+                }
+        }
+
         if (!global_opt) {
                 ret = glusterd_create_volfiles_and_notify_services (volinfo);
                 if (ret) {
@@ -1679,16 +1692,6 @@ glusterd_op_set_volume (dict_t *dict)
                                 }
                         }
                         gd_update_volume_op_versions (volinfo);
-                }
-        }
-
-        if (new_op_version > priv->op_version) {
-                priv->op_version = new_op_version;
-                ret = glusterd_store_global_info (this);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to store op-version");
-                        goto out;
                 }
         }
 
