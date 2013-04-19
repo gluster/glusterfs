@@ -31,7 +31,6 @@ __glusterd_handle_quota (rpcsvc_request_t *req)
         gf_cli_req                      cli_req = {{0,}};
         dict_t                         *dict = NULL;
         glusterd_op_t                   cli_op = GD_OP_QUOTA;
-        char                            operation[256] = {0, };
         char                           *volname = NULL;
         int32_t                         type = 0;
         char                            msg[2048] = {0,};
@@ -82,23 +81,6 @@ __glusterd_handle_quota (rpcsvc_request_t *req)
                goto out;
         }
 
-        switch (type) {
-        case GF_QUOTA_OPTION_TYPE_ENABLE:
-                strncpy (operation, "enable", sizeof (operation));
-                break;
-
-        case GF_QUOTA_OPTION_TYPE_DISABLE:
-                strncpy (operation, "disable", sizeof (operation));
-                break;
-
-        case GF_QUOTA_OPTION_TYPE_LIMIT_USAGE:
-                strncpy (operation, "limit-usage", sizeof (operation));
-                break;
-
-        case GF_QUOTA_OPTION_TYPE_REMOVE:
-                strncpy (operation, "remove", sizeof (operation));
-                break;
-        }
         ret = glusterd_op_begin_synctask (req, GD_OP_QUOTA, dict);
 
 out:
@@ -518,12 +500,14 @@ out:
 int32_t
 glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict, char **op_errstr)
 {
-        int32_t          ret    = -1;
-        char            *path   = NULL;
-        char            *limit  = NULL;
-        char            *value  = NULL;
-        char             msg [1024] = {0,};
-        char            *quota_limits = NULL;
+        uint64_t         softlim_int    = 0;
+        int32_t          ret            = -1;
+        char            *path           = NULL;
+        char            *hard_limit     = NULL;
+        char            *soft_limit     = NULL;
+        char            *value          = NULL;
+        char             msg [1024]     = {0,};
+        char            *quota_limits   = NULL;
 
         GF_VALIDATE_OR_GOTO ("glusterd", dict, out);
         GF_VALIDATE_OR_GOTO ("glusterd", volinfo, out);
@@ -551,12 +535,15 @@ glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict, char **op
                 goto out;
         }
 
-        ret = dict_get_str (dict, "limit", &limit);
+        ret = dict_get_str (dict, "limit", &hard_limit);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to fetch quota limits" );
                 *op_errstr = gf_strdup ("failed to set limit");
                 goto out;
         }
+        gf_string2bytesize (hard_limit, &softlim_int);
+        softlim_int = (softlim_int * 9 )/10;
+        soft_limit = gf_uint64_2human_readable (softlim_int);
 
         if (quota_limits) {
                 ret = _glusterd_quota_remove_limits (&quota_limits, path, NULL);
@@ -568,15 +555,16 @@ glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict, char **op
         }
 
         if (quota_limits == NULL) {
-                ret = gf_asprintf (&value, "%s:%s", path, limit);
+                ret = gf_asprintf (&value, "%s:%s:%s", path, soft_limit,
+                                   hard_limit);
                 if (ret == -1) {
                         gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
                         *op_errstr = gf_strdup ("failed to set limit");
                         goto out;
                 }
         } else {
-                ret = gf_asprintf (&value, "%s,%s:%s",
-                                   quota_limits, path, limit);
+                ret = gf_asprintf (&value, "%s,%s:%s:%s",
+                                   quota_limits, path, soft_limit, hard_limit);
                 if (ret == -1) {
                         gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
                         *op_errstr = gf_strdup ("failed to set limit");
@@ -600,6 +588,7 @@ glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict, char **op
 
         ret = 0;
 out:
+        GF_FREE (soft_limit);
         return ret;
 }
 
@@ -670,7 +659,6 @@ glusterd_quota_remove_limits (glusterd_volinfo_t *volinfo, dict_t *dict, char **
 out:
         return ret;
 }
-
 
 int
 glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
@@ -759,8 +747,13 @@ create_vol:
         if (ret)
                 goto out;
 
-        if (GLUSTERD_STATUS_STARTED == volinfo->status)
+        if (GLUSTERD_STATUS_STARTED == volinfo->status) {
                 ret = glusterd_check_generate_start_nfs ();
+                ret = glusterd_check_generate_start_qc ();
+
+                if (ret != 0)
+                        goto out;
+        }
 
         ret = 0;
 
@@ -837,3 +830,97 @@ out:
 
         return ret;
 }
+
+/*
+int32_t
+glusterd_quota_client_stop (xlator_t *this)
+{
+        char            pidfile[PATH_MAX]       = {0,};
+        glusterd_conf_t         *priv           = this->private;
+
+        glusterd_get_nodesvc_pidfile ("quota-client", priv->workdir, pidfile,
+                                      sizeof (pidfile));
+
+        glusterd_service_stop ("quota-client", pidfile, SIGTERM, _gf_true);
+
+        return 0;
+}
+
+int32_t
+glusterd_quota_client_start (xlator_t *this, glusterd_volinfo_t *volinfo)
+{
+        int32_t         ret                     = -1;
+        char            volfile[PATH_MAX]       = {0,};
+        char            pidfile[PATH_MAX]       = {0,};
+        char            volfileid[256]          = {0,};
+        char            rundir[PATH_MAX]        = {0,};
+        char            logfile[PATH_MAX]       = {0,};
+        runner_t        runner                  = {0,};
+        glusterd_conf_t *priv                   = this->private;
+
+        glusterd_get_nodesvc_rundir ("quota-client", priv->workdir, rundir,
+                                     sizeof (rundir));
+
+        ret = mkdir (rundir, 0777);
+        if (-1 == ret && EEXIST != errno) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to create rundir %s",
+                        rundir);
+                goto err;
+        }
+
+        glusterd_get_nodesvc_volfile ("quota-client", priv->workdir,
+                                      volfile, sizeof (volfile));
+        glusterd_get_nodesvc_pidfile ("quota-client", priv->workdir,
+                                      pidfile, sizeof (pidfile));
+        ret = access (volfile, F_OK);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "quota-client Volfile %s is "
+                        "not present", volfile);
+                goto err;
+        }
+
+        snprintf (logfile, PATH_MAX< "%s/quota-client.log",
+                  DEFAULT_LOG_FILE_DIRECTORY);
+
+        runinit (&runner);
+        runner_add_args (&runner, SBIN_DIR"/glusterfs",
+                         "-s", "localhost",
+                         "--volfile-id", "quota-client.vol",
+                         "-p", pidfile,
+                         "-l", DEFAULT_LOG_FILE_DIRECTORY"/quota-client.log",
+                         NULL);
+
+        ret = runner_run_nowait (&runner);
+        if (ret == -1) {
+                runner_log (&runner, "glusterd-quota", GF_LOG_ERROR,
+                            "Starting the trusted quota has failed");
+                goto err;
+        }
+err:
+        return ret;
+}
+
+int32_t
+glusterd_check_generate_start_quota (dict_t *dict, glusterd_volinfo_t volinfo)
+{
+        xlator_t        *this   = THIS;
+        glusterd_conf_t *priv   = NULL;
+        int32_t          ret    = 0;
+
+        priv = this->private;
+
+        ret = glusterd_create_quota_client_volfile (this, dict, "quota-client");
+        if (ret)
+                return ret;
+
+        ret = glusterd_quota_client_stop (this);
+        if (ret)
+                return ret;
+
+        ret = glusterd_quota_client_start (this, volinfo);
+        if (ret)
+                return ret;
+
+        return 0;
+}
+*/

@@ -917,14 +917,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version    = 1,
           .client_option = _gf_true
         },
-        { .key           = "features.quota-timeout",
-          .voltype       = "features/quota",
-          .option        = "timeout",
-          .value         = "0",
-          .op_version    = 1,
-          .validate_fn   = validate_quota,
-          .client_option = _gf_true
-        },
         { .key           = "features.quota-deem-statfs",
           .voltype       = "features/quota",
           .option        = "deem-statfs",
@@ -933,6 +925,25 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version    = 2,
           .validate_fn   = validate_quota,
           .client_option = _gf_true
+        },
+
+        /* Quota client xlator options */
+        { .key           = VKEY_FEATURES_LIMIT_USAGE,
+          .voltype       = "features/quota-client",
+          .option        = "*.limit-set",
+          .type          = NO_DOC,
+          .op_version    = 1,
+          .client_option = _gf_true
+        },
+        { .key           = "features.*.soft-timeout",
+          .voltype       = "features/quota-client",
+          .op_version    = 2,
+          .type          = DOC,
+        },
+        { .key           = "features.*.hard-timeout",
+          .voltype       = "features/quota-client",
+          .op_version    = 1,
+          .type          = DOC,
         },
 
         /* Marker xlator options */

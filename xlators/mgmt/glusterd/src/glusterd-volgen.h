@@ -116,6 +116,7 @@ void glusterd_get_shd_filepath (char *filename);
 
 int glusterd_create_nfs_volfile ();
 int glusterd_create_shd_volfile ();
+int glusterd_create_qc_volfile ();
 
 int glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
                              glusterd_brickinfo_t *brickinfo);

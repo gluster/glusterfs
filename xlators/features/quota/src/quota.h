@@ -25,6 +25,9 @@
 #define CONTRIBUTION            "contri"
 #define VAL_LENGTH              8
 #define READDIR_BUF             4096
+#define QUOTA_UPDATE_USAGE_KEY  "quota-update-usage"
+
+#define GET_THIS_VOL(list_ptr) ((list_ptr)->my_vol)
 
 #define QUOTA_SAFE_INCREMENT(lock, var)         \
         do {                                    \
@@ -46,7 +49,7 @@
                                  gf_quota_mt_##type);   \
                 if (!var) {                             \
                         gf_log ("", GF_LOG_ERROR,       \
-                                "out of memory :(");    \
+                                "out of memory");    \
                         ret = -1;                       \
                         goto label;                     \
                 }                                       \
@@ -96,6 +99,8 @@
                         goto label;                             \
         } while (0)
 
+
+
 struct quota_dentry {
         char            *name;
         uuid_t           par;
@@ -105,7 +110,8 @@ typedef struct quota_dentry quota_dentry_t;
 
 struct quota_inode_ctx {
         int64_t          size;
-        int64_t          limit;
+        int64_t          hard_lim;
+        int64_t          soft_lim;
         struct iatt      buf;
         struct list_head parents;
         struct timeval   tv;
@@ -125,27 +131,71 @@ struct quota_local {
         int32_t      op_ret;
         int32_t      op_errno;
         int64_t      size;
-        int64_t      limit;
+        int64_t      hard_lim;
+        int64_t      soft_lim;
         char         just_validated;
         inode_t     *inode;
         call_stub_t *stub;
 };
 typedef struct quota_local quota_local_t;
 
+
+struct qc_vols_conf {
+        char                    *name;
+        inode_table_t           *itable;
+        struct limits_level {
+                struct list_head         limit_head;
+                uint64_t                 time_out;
+                struct qc_vols_conf     *my_vol;
+        } below_soft, above_soft;
+};
+typedef struct qc_vols_conf qc_vols_conf_t;
+
+
 struct quota_priv {
-        int64_t           timeout;
-        gf_boolean_t      consider_statfs;
-        struct list_head  limit_head;
-        gf_lock_t         lock;
+        int64_t                 timeout;
+        gf_boolean_t            consider_statfs;
+        struct list_head        limit_head;
+        qc_vols_conf_t        **qc_vols_conf;
+        gf_lock_t               lock;
 };
 typedef struct quota_priv quota_priv_t;
+
 
 struct limits {
         struct list_head  limit_list;
         char             *path;
         int64_t           value;
         uuid_t            gfid;
+        uint64_t          prev_size;
+        int64_t           hard_lim;
+        int64_t           soft_lim;
 };
 typedef struct limits     limits_t;
 
 uint64_t cn = 1;
+
+int32_t
+quota_construct_loc (xlator_t *this, limits_t *lim_entry, loc_t *entry_loc)
+{
+        if (!entry_loc || !lim_entry)
+                goto err;
+
+        if (!(entry_loc->path = gf_strdup (lim_entry->path))) {
+                gf_log (this->name, GF_LOG_ERROR, "String duplication failed, "
+                        "increasing your RAM is suggested.");
+                goto err;
+        }
+
+        if (!(entry_loc->name = strrchr (entry_loc->path, '/'))) {
+                gf_log (this->name, GF_LOG_ERROR, "Hmmmm, error again!! %s",
+                        entry_loc->path);
+                goto err;
+        }
+        entry_loc->name++;
+
+        return 0;
+err:
+        loc_wipe (entry_loc);
+        return -1;
+}

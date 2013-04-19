@@ -228,6 +228,9 @@ int
 glusterd_check_generate_start_shd (void);
 
 int
+glusterd_check_generate_start_qc (void);
+
+int
 glusterd_nodesvcs_handle_graph_change (glusterd_volinfo_t *volinfo);
 
 int
@@ -397,6 +400,9 @@ int
 glusterd_nfs_statedump (char *options, int option_cnt, char **op_errstr);
 gf_boolean_t
 glusterd_is_volume_replicate (glusterd_volinfo_t *volinfo);
+gf_boolean_t
+glusterd_is_quota_on (glusterd_volinfo_t *volinfo);
+
 gf_boolean_t
 glusterd_is_brick_decommissioned (glusterd_volinfo_t *volinfo, char *hostname,
                                   char *path);
