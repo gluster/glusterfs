@@ -711,6 +711,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 3,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key        = "performance.read-after-open",
+          .voltype    = "performance/open-behind",
+          .option     = "read-after-open",
+          .op_version = 3,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key        = "performance.read-ahead-page-count",
           .voltype    = "performance/read-ahead",
           .option     = "page-count",

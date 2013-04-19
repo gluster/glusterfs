@@ -2517,6 +2517,9 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         xlator_t        *xl      = NULL;
         char            *volname = NULL;
         glusterd_conf_t *conf    = THIS->private;
+        char            *tmp     = NULL;
+        gf_boolean_t     var     = _gf_false;
+        gf_boolean_t     ob      = _gf_false;
 
         GF_ASSERT (conf);
 
@@ -2582,7 +2585,93 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 }
         }
 
-	ret = client_graph_set_perf_options(graph, volinfo, set_dict);
+        /* Do not allow changing read-after-open option if root-squash is
+           enabled.
+        */
+        ret = dict_get_str (set_dict, "performance.read-after-open", &tmp);
+        if (!ret) {
+                ret = dict_get_str (volinfo->dict, "server.root-squash", &tmp);
+                if (!ret) {
+                        ob = _gf_false;
+                        ret = gf_string2boolean (tmp, &ob);
+                        if (!ret && ob) {
+                                gf_log (THIS->name, GF_LOG_WARNING,
+                                        "root-squash is enabled. Please turn it"
+                                        " off to change read-after-open "
+                                        "option");
+                                ret = -1;
+                                goto out;
+                        }
+                }
+        }
+
+        /* open behind causes problems when root-squash is enabled
+           (by allowing reads to happen even though the squashed user
+           does not have permissions to do so) as it fakes open to be
+           successful and later sends reads on anonymous fds. So when
+           root-squash is enabled, open-behind's option to read after
+           open is done is also enabled.
+        */
+        ret = dict_get_str (set_dict, "server.root-squash", &tmp);
+        if (!ret) {
+                ret = gf_string2boolean (tmp, &var);
+                if (ret)
+                        goto out;
+
+                if (var) {
+                        ret = dict_get_str (volinfo->dict,
+                                            "performance.read-after-open",
+                                            &tmp);
+                        if (!ret) {
+                                ret = gf_string2boolean (tmp, &ob);
+                                /* go ahead with turning read-after-open on
+                                   even if string2boolean conversion fails,
+                                   OR if read-after-open option is turned off
+                                */
+                                if (ret || !ob)
+                                        ret = dict_set_str (set_dict,
+                                                 "performance.read-after-open",
+                                                            "yes");
+                        } else {
+                                ret = dict_set_str (set_dict,
+                                                    "performance.read-after-open",
+                                                    "yes");
+                        }
+                } else {
+                        /* When root-squash has to be turned off, open-behind's
+                           read-after-open option should be reset to what was
+                           there before root-squash was turned on. If the option
+                           cannot be found in volinfo's dict, it means that
+                           option was not set before turning on root-squash.
+                        */
+                        ob = _gf_false;
+                        ret = dict_get_str (volinfo->dict,
+                                            "performance.read-after-open",
+                                            &tmp);
+                        if (!ret) {
+                                ret = gf_string2boolean (tmp, &ob);
+
+                                if (!ret && ob) {
+                                        ret = dict_set_str (set_dict,
+                                                 "performance.read-after-open",
+                                                            "yes");
+                                }
+                        }
+                        /* consider operation is failure only if read-after-open
+                           option is enabled and could not set into set_dict
+                        */
+                        if (!ob)
+                                ret = 0;
+                }
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_WARNING, "setting "
+                                "open behind option as part of root "
+                                "squash failed");
+                        goto out;
+                }
+        }
+
+        ret = client_graph_set_perf_options(graph, volinfo, set_dict);
         if (ret)
                 goto out;
 

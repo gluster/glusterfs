@@ -364,9 +364,10 @@ struct _cmd_args {
         int              aux_gfid_mount;
         struct list_head xlator_options;  /* list of xlator_option_t */
 
-        /* fuse options */
-        int              fuse_direct_io_mode;
-        char             *use_readdirp;
+	/* fuse options */
+	int              fuse_direct_io_mode;
+	char             *use_readdirp;
+        int              no_root_squash;
         int              volfile_check;
         double           fuse_entry_timeout;
         double           fuse_negative_timeout;

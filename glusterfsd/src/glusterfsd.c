@@ -192,6 +192,9 @@ static struct argp_option gf_options[] = {
 	 "[default: 48]"},
         {"client-pid", ARGP_CLIENT_PID_KEY, "PID", OPTION_HIDDEN,
          "client will authenticate itself with process id PID to server"},
+        {"no-root-squash", ARGP_FUSE_NO_ROOT_SQUASH_KEY, "BOOL",
+         OPTION_ARG_OPTIONAL, "disable/enable root squashing for the trusted "
+         "client"},
         {"user-map-root", ARGP_USER_MAP_ROOT_KEY, "USER", OPTION_HIDDEN,
          "replace USER with root in messages"},
         {"dump-fuse", ARGP_DUMP_FUSE_KEY, "PATH", 0,
@@ -464,6 +467,32 @@ set_fuse_mount_options (glusterfs_ctx_t *ctx, dict_t *options)
         default:
                 gf_log ("", GF_LOG_DEBUG, "fuse direct io type %d",
                         cmd_args->fuse_direct_io_mode);
+                break;
+        }
+
+        switch (cmd_args->no_root_squash) {
+        case GF_OPTION_ENABLE: /* enable */
+                ret = dict_set_static_ptr (options, "no-root-squash",
+                                           "enable");
+                if (ret < 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "failed to set 'enable' for key "
+                                "no-root-squash");
+                        goto err;
+                }
+                break;
+        case GF_OPTION_DISABLE: /* disable/default */
+        default:
+                ret = dict_set_static_ptr (options, "no-root-squash",
+                                           "disable");
+                if (ret < 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "failed to set 'disable' for key "
+                                "no-root-squash");
+                        goto err;
+                }
+                gf_log ("", GF_LOG_DEBUG, "fuse no-root-squash mode %d",
+                        cmd_args->no_root_squash);
                 break;
         }
 
@@ -898,6 +927,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
                 argp_failure (state, -1, 0,
                               "unknown direct I/O mode setting \"%s\"", arg);
+                break;
+
+        case ARGP_FUSE_NO_ROOT_SQUASH_KEY:
+                cmd_args->no_root_squash = _gf_true;
                 break;
 
         case ARGP_ENTRY_TIMEOUT_KEY:

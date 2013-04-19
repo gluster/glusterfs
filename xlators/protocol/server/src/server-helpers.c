@@ -302,6 +302,11 @@ get_frame_from_request (rpcsvc_request_t *req)
 {
         call_frame_t  *frame = NULL;
         client_t      *client = NULL;
+        client_t      *tmp_client = NULL;
+        xlator_t  *this = NULL;
+        server_conf_t *priv = NULL;
+        clienttable_t *clienttable = NULL;
+        unsigned int   i           = 0;
 
         GF_VALIDATE_OR_GOTO ("server", req, out);
 
@@ -314,6 +319,57 @@ get_frame_from_request (rpcsvc_request_t *req)
         frame->root->op       = req->procnum;
 
         frame->root->unique   = req->xid;
+
+        client = req->trans->xl_private;
+        this = req->trans->xl;
+        priv = this->private;
+        clienttable = this->ctx->clienttable;
+
+        for (i = 0; i < clienttable->max_clients; i++) {
+                tmp_client = clienttable->cliententries[i].client;
+                if (client == tmp_client) {
+                        /* for non trusted clients username and password
+                           would not have been set. So for non trusted clients
+                           (i.e clients not from the same machine as the brick,
+                           and clients from outside the storage pool)
+                           do the root-squashing.
+                           TODO: If any client within the storage pool (i.e
+                           mounting within a machine from the pool but using
+                           other machine's ip/hostname from the same pool)
+                           is present treat it as a trusted client
+                        */
+                        if (!client->auth.username && req->pid != NFS_PID)
+                                RPC_AUTH_ROOT_SQUASH (req);
+
+                        /* Problem: If we just check whether the client is
+                           trusted client and do not do root squashing for
+                           them, then for smb clients and UFO clients root
+                           squashing will never happen as they use the fuse
+                           mounts done within the trusted pool (i.e they are
+                           trusted clients).
+                           Solution: To fix it, do root squashing for trusted
+                           clients also. If one wants to have a client within
+                           the storage pool for which root-squashing does not
+                           happen, then the client has to be mounted with
+                           --no-root-squash option. But for defrag client and
+                           gsyncd client do not do root-squashing.
+                        */
+                        if (client->auth.username &&
+                            req->pid != GF_CLIENT_PID_NO_ROOT_SQUASH &&
+                            req->pid != GF_CLIENT_PID_GSYNCD &&
+                            req->pid != GF_CLIENT_PID_DEFRAG)
+                                RPC_AUTH_ROOT_SQUASH (req);
+
+                        /* For nfs clients the server processes will be running
+                           within the trusted storage pool machines. So if we
+                           do not do root-squashing for nfs servers, thinking
+                           that its a trusted client, then root-squashing wont
+                           work for nfs clients.
+                        */
+                        if (req->pid == NFS_PID)
+                                RPC_AUTH_ROOT_SQUASH (req);
+                }
+        }
 
         frame->root->uid      = req->uid;
         frame->root->gid      = req->gid;
@@ -934,4 +990,105 @@ server_ctx_get (client_t *client, xlator_t *xlator)
 
 out:
         return ctx;
+}
+
+int
+auth_set_username_passwd (dict_t *input_params, dict_t *config_params,
+                          client_t *client)
+{
+        int      ret           = 0;
+        data_t  *allow_user    = NULL;
+        data_t  *passwd_data   = NULL;
+        char    *username      = NULL;
+        char    *password      = NULL;
+        char    *brick_name    = NULL;
+        char    *searchstr     = NULL;
+        char    *username_str  = NULL;
+        char    *tmp           = NULL;
+        char    *username_cpy  = NULL;
+
+        ret = dict_get_str (input_params, "username", &username);
+        if (ret) {
+                gf_log ("auth/login", GF_LOG_DEBUG,
+                        "username not found, returning DONT-CARE");
+                /* For non trusted clients username and password
+                   will not be there. So dont reject the client.
+                */
+                ret = 0;
+                goto out;
+        }
+
+        ret = dict_get_str (input_params, "password", &password);
+        if (ret) {
+                gf_log ("auth/login", GF_LOG_WARNING,
+                        "password not found, returning DONT-CARE");
+                goto out;
+        }
+
+        ret = dict_get_str (input_params, "remote-subvolume", &brick_name);
+        if (ret) {
+                gf_log ("auth/login", GF_LOG_ERROR,
+                        "remote-subvolume not specified");
+                ret = -1;
+                goto out;
+        }
+
+        ret = gf_asprintf (&searchstr, "auth.login.%s.allow", brick_name);
+        if (-1 == ret) {
+                ret = 0;
+                goto out;
+        }
+
+        allow_user = dict_get (config_params, searchstr);
+        GF_FREE (searchstr);
+
+        if (allow_user) {
+                username_cpy = gf_strdup (allow_user->data);
+                if (!username_cpy)
+                        goto out;
+
+                username_str = strtok_r (username_cpy, " ,", &tmp);
+
+                while (username_str) {
+                        if (!fnmatch (username_str, username, 0)) {
+                                ret = gf_asprintf (&searchstr,
+                                                   "auth.login.%s.password",
+                                                   username);
+                                if (-1 == ret)
+                                        goto out;
+
+                                passwd_data = dict_get (config_params,
+                                                        searchstr);
+                                GF_FREE (searchstr);
+
+                                if (!passwd_data) {
+                                        gf_log ("auth/login", GF_LOG_ERROR,
+                                                "wrong username/password "
+                                                "combination");
+                                        ret = -1;
+                                        goto out;
+                                }
+
+                                ret = !((strcmp (data_to_str (passwd_data),
+                                                    password))?0: -1);
+                                if (!ret) {
+                                        client->auth.username =
+                                                gf_strdup (username);
+                                        client->auth.passwd =
+                                                gf_strdup (password);
+                                }
+                                if (ret == -1)
+                                        gf_log ("auth/login", GF_LOG_ERROR,
+                                                "wrong password for user %s",
+                                                username);
+                                break;
+                        }
+                        username_str = strtok_r (NULL, " ,", &tmp);
+                }
+        }
+
+out:
+        GF_FREE (username_cpy);
+
+        return ret;
 }

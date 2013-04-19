@@ -448,6 +448,8 @@ server_setvolume (rpcsvc_request_t *req)
         if (req->trans->xl_private != client)
                 req->trans->xl_private = client;
 
+        auth_set_username_passwd (params, config_params, client);
+
         ret = dict_get_int32 (params, "fops-version", &fop_version);
         if (ret < 0) {
                 ret = dict_set_str (reply, "ERROR",
