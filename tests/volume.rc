@@ -119,6 +119,10 @@ function afr_child_up_status_in_shd {
         _afr_child_up_status $vol $brick_id generate_shd_statedump
 }
 
+function nfs_up_status {
+        gluster volume status | grep "NFS Server" | awk '{print $6}'
+}
+
 function glustershd_up_status {
         gluster volume status | grep "Self-heal Daemon" | awk '{print $6}'
 }

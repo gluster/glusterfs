@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -23,6 +24,8 @@ TEST mount -t nfs -o vers=3,nolock,soft,intr $H0:/$V0 $N0;
 TEST $CLI volume status all
 TEST $CLI volume status $V0
 
+EXPECT_WITHIN 10 'Y' nfs_up_status
+EXPECT_WITHIN 10 'Y' glustershd_up_status
 function test_nfs_cmds () {
     local ret=0
     declare -a nfs_cmds=("clients" "mem" "inode" "callpool")
@@ -30,17 +33,17 @@ function test_nfs_cmds () {
         $CLI volume status $V0 nfs $cmd
         (( ret += $? ))
     done
-    echo ret
+    return $ret
 }
 
 function test_shd_cmds () {
     local ret=0
     declare -a shd_cmds=("mem" "inode" "callpool")
-    for scmd in ${shd_cmds[@]}; do
+    for cmd in ${shd_cmds[@]}; do
         $CLI volume status $V0 shd $cmd
         (( ret += $? ))
     done
-    echo ret
+    return $ret
 }
 
 function test_brick_cmds () {
@@ -52,7 +55,7 @@ function test_brick_cmds () {
             (( ret += $? ))
         done
     done
-    echo ret
+    return $ret
 }
 
 TEST test_shd_cmds;
