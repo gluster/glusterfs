@@ -5323,6 +5323,18 @@ init (xlator_t *this_xl)
         GF_OPTION_INIT ("congestion-threshold", priv->congestion_threshold,
                         int32, cleanup_exit);
 
+        GF_OPTION_INIT("no-root-squash", priv->no_root_squash, bool,
+                       cleanup_exit);
+        /* change the client_pid to no-root-squash pid only if the
+           client is none of defrag process, hadoop access and gsyncd process.
+        */
+        if (!priv->client_pid_set) {
+                if (priv->no_root_squash == _gf_true) {
+                        priv->client_pid_set = _gf_true;
+                        priv->client_pid = GF_CLIENT_PID_NO_ROOT_SQUASH;
+                }
+        }
+
         /* user has set only background-qlen, not congestion-threshold,
            use the fuse kernel driver formula to set congestion. ie, 75% */
         if (dict_get (this_xl->options, "background-qlen") &&
@@ -5562,6 +5574,16 @@ struct volume_options options[] = {
         { .key = {"use-readdirp"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "yes"
+        },
+        { .key = {"no-root-squash"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false",
+          .description = "This is the mount option for disabling the "
+          "root squash for the client irrespective of whether the root-squash "
+          "option for the volume is set or not. But this option is honoured "
+          "only for the trusted clients. For non trusted clients this value "
+          "does not have any affect and the volume option for root-squash is "
+          "honoured.",
         },
         { .key = {NULL} },
 };

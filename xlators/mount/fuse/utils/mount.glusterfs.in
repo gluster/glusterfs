@@ -171,7 +171,11 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --aux-gfid-mount");
     fi
 
-    # options with values start here
+    if [ -n "$no_root_squash" ]; then
+        cmd_line=$(echo "$cmd_line --no-root-squash");
+    fi
+
+#options with values start here
     if [ -n "$log_level" ]; then
         cmd_line=$(echo "$cmd_line --log-level=$log_level");
     fi
@@ -442,6 +446,13 @@ with_options()
         "use-readdirp")
             use_readdirp=$value
             ;;
+        "root-squash")
+            if [ $value == "no" ] ||
+                [ $value == "off" ] ||
+                [ $value == "disable" ] ||
+                [ $value == "false" ] ; then
+                no_root_squash=1;
+            fi ;;
         *)
             echo "Invalid option: $key"
             exit 0

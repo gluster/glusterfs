@@ -53,6 +53,8 @@ int serialize_rsp_dirent (gf_dirent_t *entries, gfs3_readdir_rsp *rsp);
 int serialize_rsp_direntp (gf_dirent_t *entries, gfs3_readdirp_rsp *rsp);
 int readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp);
 int readdir_rsp_cleanup (gfs3_readdir_rsp *rsp);
+int auth_set_username_passwd (dict_t *input_params, dict_t *config_params,
+                              struct _client_t *client);
 
 server_ctx_t *server_ctx_get (client_t *client, xlator_t *xlator);
 

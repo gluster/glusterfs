@@ -44,6 +44,8 @@ typedef struct _client_t {
                 int                  flavour;
                 size_t               len;
                 char                *data;
+                char                *username;
+                char                *passwd;
         }            auth;
 } client_t;
 

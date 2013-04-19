@@ -104,6 +104,14 @@ struct fuse_private {
 	int32_t	             fopen_keep_cache;
 	int32_t		     gid_cache_timeout;
         gf_boolean_t         enable_ino32;
+        /* This is the mount option for disabling the root-squash for the
+           mount irrespective of whether the root-squash option for the
+           volume is set or not. But this option is honoured only for
+           thr trusted clients. For non trusted clients this value does
+           not have any affect and the volume option for root-squash is
+           honoured.
+        */
+        gf_boolean_t        no_root_squash;
         fdtable_t           *fdtable;
 	gid_cache_t	     gid_cache;
         char                *fuse_mountopts;

@@ -23,6 +23,11 @@ typedef struct ob_conf {
 					   like mandatory locks
 					*/
 	gf_boolean_t  lazy_open; /* delay backend open as much as possible */
+        gf_boolean_t  read_after_open; /* instead of sending readvs on
+                                               anonymous fds, open the file
+                                               first and then send readv i.e
+                                               similar to what writev does
+                                            */
 } ob_conf_t;
 
 
@@ -367,8 +372,14 @@ ob_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 {
 	call_stub_t  *stub = NULL;
 	fd_t         *wind_fd = NULL;
+        ob_conf_t    *conf = NULL;
 
-	wind_fd = ob_get_wind_fd (this, fd);
+        conf = this->private;
+
+        if (!conf->read_after_open)
+                wind_fd = ob_get_wind_fd (this, fd);
+        else
+                wind_fd = fd_ref (fd);
 
 	stub = fop_readv_stub (frame, default_readv_resume, wind_fd,
 			       size, offset, flags, xdata);
@@ -894,6 +905,8 @@ reconfigure (xlator_t *this, dict_t *options)
 			  bool, out);
 
         GF_OPTION_RECONF ("lazy-open", conf->lazy_open, options, bool, out);
+        GF_OPTION_RECONF ("read-after-open", conf->read_after_open, options,
+                          bool, out);
 
         ret = 0;
 out:
@@ -924,7 +937,7 @@ init (xlator_t *this)
         GF_OPTION_INIT ("use-anonymous-fd", conf->use_anonymous_fd, bool, err);
 
         GF_OPTION_INIT ("lazy-open", conf->lazy_open, bool, err);
-
+        GF_OPTION_INIT ("read-after-open", conf->read_after_open, bool, err);
         this->private = conf;
 
 	return 0;
@@ -995,6 +1008,12 @@ struct volume_options options[] = {
           .description = "Perform open in the backend only when a necessary "
           "FOP arrives (e.g writev on the FD, unlink of the file). When option "
           "is disabled, perform backend open right after unwinding open().",
+        },
+        { .key  = {"read-after-open"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "no",
+          .description = "read is sent only after actual open happens and real "
+          "fd is obtained, instead of doing on anonymous fd (similar to write)",
         },
         { .key  = {NULL} }
 
