@@ -7528,7 +7528,8 @@ _update_volume_op_versions (dict_t *this, char *key, data_t *value, void *data)
 void
 gd_update_volume_op_versions (glusterd_volinfo_t *volinfo)
 {
-        glusterd_conf_t    *conf = NULL;
+        glusterd_conf_t *conf = NULL;
+        gf_boolean_t    ob_enabled = _gf_false;
 
         GF_ASSERT (volinfo);
 
@@ -7540,6 +7541,27 @@ gd_update_volume_op_versions (glusterd_volinfo_t *volinfo)
         volinfo->client_op_version = 1;
 
         dict_foreach (volinfo->dict, _update_volume_op_versions, volinfo);
+
+        /* Special case for open-behind
+         * If cluster op-version >= 2 and open-behind hasn't been explicitly
+         * disabled, volume op-versions must be updated to account for it
+         */
+
+        /* TODO: Remove once we have a general way to update automatically
+         * enabled features
+         */
+        if (conf->op_version >= 2) {
+                ob_enabled = dict_get_str_boolean (volinfo->dict,
+                                                   "performance.open-behind",
+                                                   _gf_true);
+                if (ob_enabled) {
+
+                        if (volinfo->op_version < 2)
+                                volinfo->op_version = 2;
+                        if (volinfo->client_op_version < 2)
+                                volinfo->client_op_version = 2;
+                }
+        }
 
         return;
 }

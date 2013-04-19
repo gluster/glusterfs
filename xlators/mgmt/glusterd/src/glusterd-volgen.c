@@ -460,6 +460,8 @@ process_option (char *key, data_t *value, void *param)
         vme.key = key;
         vme.voltype = odt->vme->voltype;
         vme.option = odt->vme->option;
+        vme.op_version = odt->vme->op_version;
+
         if (!vme.option) {
                 vme.option = strrchr (key, '.');
                 if (vme.option)
@@ -1674,6 +1676,12 @@ perfxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
 {
         char *volname = NULL;
         gf_boolean_t enabled = _gf_false;
+        xlator_t *this = NULL;
+        glusterd_conf_t *conf = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
 
         volname = param;
 
@@ -1683,6 +1691,12 @@ perfxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
         if (gf_string2boolean (vme->value, &enabled) == -1)
                 return -1;
         if (!enabled)
+                return 0;
+
+        /* Check op-version before adding the 'open-behind' xlator in the graph
+         */
+        if (!strcmp (vme->key, "performance.open-behind") &&
+            (vme->op_version > conf->op_version))
                 return 0;
 
         if (volgen_graph_add (graph, vme->voltype, volname))
