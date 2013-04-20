@@ -2949,36 +2949,49 @@ glusterd_list_friends (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
         int32_t                 count = 0;
         dict_t                  *friends = NULL;
         gf1_cli_peer_list_rsp   rsp = {0,};
+        char                    my_uuid_str[64] = {0,};
+        char                    key[256] = {0,};
 
         priv = THIS->private;
         GF_ASSERT (priv);
 
-        if (!list_empty (&priv->peers)) {
-                friends = dict_new ();
-                if (!friends) {
-                        gf_log ("", GF_LOG_WARNING, "Out of Memory");
-                        goto out;
-                }
-        } else {
-                ret = 0;
+        friends = dict_new ();
+        if (!friends) {
+                gf_log ("", GF_LOG_WARNING, "Out of Memory");
                 goto out;
         }
-
-        if (flags == GF_CLI_LIST_ALL) {
-                        list_for_each_entry (entry, &priv->peers, uuid_list) {
-                                count++;
-                                ret = glusterd_add_peer_detail_to_dict (entry,
+        if (!list_empty (&priv->peers)) {
+                list_for_each_entry (entry, &priv->peers, uuid_list) {
+                        count++;
+                        ret = glusterd_add_peer_detail_to_dict (entry,
                                                                 friends, count);
-                                if (ret)
-                                        goto out;
-
-                        }
-
-                        ret = dict_set_int32 (friends, "count", count);
-
                         if (ret)
                                 goto out;
+                }
         }
+
+        if (flags == GF_CLI_LIST_POOL_NODES) {
+                count++;
+                snprintf (key, 256, "friend%d.uuid", count);
+                uuid_utoa_r (MY_UUID, my_uuid_str);
+                ret = dict_set_str (friends, key, my_uuid_str);
+                if (ret)
+                        goto out;
+
+                snprintf (key, 256, "friend%d.hostname", count);
+                ret = dict_set_str (friends, key, "localhost");
+                if (ret)
+                        goto out;
+
+                snprintf (key, 256, "friend%d.connected", count);
+                ret = dict_set_int32 (friends, key, 1);
+                if (ret)
+                        goto out;
+        }
+
+        ret = dict_set_int32 (friends, "count", count);
+        if (ret)
+                goto out;
 
         ret = dict_allocate_and_serialize (friends, &rsp.friends.friends_val,
                                            &rsp.friends.friends_len);
