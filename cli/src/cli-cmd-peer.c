@@ -184,7 +184,7 @@ cli_cmd_peer_status_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
 
         if (proc->fn) {
-                ret = proc->fn (frame, THIS, (char *)words[1] );
+                ret = proc->fn (frame, THIS, (void *)GF_CLI_LIST_PEERS);
         }
 
 out:
@@ -192,6 +192,45 @@ out:
                 cli_cmd_sent_status_get (&sent);
                 if ((sent == 0) && (parse_error == 0))
                         cli_out ("Peer status failed");
+        }
+
+        CLI_STACK_DESTROY (frame);
+
+        return ret;
+}
+
+int
+cli_cmd_pool_list_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                       const char **words, int wordcount)
+{
+        int                     ret = -1;
+        rpc_clnt_procedure_t    *proc = NULL;
+        call_frame_t            *frame = NULL;
+        int                     sent = 0;
+        int                     parse_error = 0;
+
+        if (wordcount != 2) {
+                cli_usage_out (word->pattern);
+                parse_error = 1;
+                goto out;
+        }
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_LIST_FRIENDS];
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS,
+                                (void *)GF_CLI_LIST_POOL_NODES);
+        }
+
+out:
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_err ("pool list: command execution failed");
         }
 
         CLI_STACK_DESTROY (frame);
@@ -215,6 +254,10 @@ struct cli_cmd cli_probe_cmds[] = {
 	{ "peer help",
            cli_cmd_peer_help_cbk,
            "Help command for peer "},
+
+        { "pool list",
+          cli_cmd_pool_list_cbk,
+          "list all the nodes in the pool (including localhost)"},
 
         { NULL, NULL, NULL }
 };

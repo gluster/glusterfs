@@ -2801,29 +2801,30 @@ cli_xml_output_peer_status (dict_t *dict, int op_ret, int op_errno,
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "friend%d.stateId", i);
                 ret = dict_get_int32 (dict, key, &state_id);
-                if (ret)
-                        goto out;
+                if (!ret) {
+                        /* ignore */
 
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"state",
-                                                       "%d", state_id);
-                XML_RET_CHECK_AND_GOTO (ret, out);
+                        ret = xmlTextWriterWriteFormatElement (writer,
+                                           (xmlChar *)"state", "%d", state_id);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                }
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "friend%d.state", i);
                 ret = dict_get_str (dict, key, &state_str);
-                if (ret)
-                        goto out;
+                if (!ret) {
+                        /* ignore */
 
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"stateStr",
-                                                       "%s", state_str);
-                XML_RET_CHECK_AND_GOTO (ret, out);
+                        ret = xmlTextWriterWriteFormatElement (writer,
+                                       (xmlChar *)"stateStr", "%s", state_str);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                }
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "friend%d.port", i);
                 ret = dict_get_int32 (dict, key, &port);
-                if (port != 0) {
+                if (!ret) {
+                        /* ignore */
                         ret = xmlTextWriterWriteFormatElement
                                 (writer, (xmlChar *)"port", "%d", port);
                         XML_RET_CHECK_AND_GOTO (ret, out);

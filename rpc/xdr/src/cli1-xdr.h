@@ -92,7 +92,8 @@ enum gf_quota_type {
 typedef enum gf_quota_type gf_quota_type;
 
 enum gf1_cli_friends_list {
-	GF_CLI_LIST_ALL = 1,
+	GF_CLI_LIST_PEERS = 1,
+	GF_CLI_LIST_POOL_NODES = 2,
 };
 typedef enum gf1_cli_friends_list gf1_cli_friends_list;
 

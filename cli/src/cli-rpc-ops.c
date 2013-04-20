@@ -295,12 +295,9 @@ out:
 }
 
 int
-gf_cli_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
-                             int count, void *myframe)
+gf_cli_output_peer_status (dict_t *dict, int count)
 {
-        gf1_cli_peer_list_rsp      rsp   = {0,};
         int                        ret   = -1;
-        dict_t                     *dict = NULL;
         char                       *uuid_buf = NULL;
         char                       *hostname_buf = NULL;
         int32_t                    i = 1;
@@ -309,7 +306,130 @@ gf_cli_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                    port = 0;
         int32_t                    connected = 0;
         char                       *connected_str = NULL;
+
+        cli_out ("Number of Peers: %d", count);
+        i = 1;
+        while ( i <= count) {
+                snprintf (key, 256, "friend%d.uuid", i);
+                ret = dict_get_str (dict, key, &uuid_buf);
+                if (ret)
+                        goto out;
+
+                snprintf (key, 256, "friend%d.hostname", i);
+                ret = dict_get_str (dict, key, &hostname_buf);
+                if (ret)
+                        goto out;
+
+                snprintf (key, 256, "friend%d.connected", i);
+                ret = dict_get_int32 (dict, key, &connected);
+                if (ret)
+                        goto out;
+                if (connected)
+                        connected_str = "Connected";
+                else
+                        connected_str = "Disconnected";
+
+                snprintf (key, 256, "friend%d.port", i);
+                ret = dict_get_int32 (dict, key, &port);
+                if (ret)
+                        goto out;
+
+                snprintf (key, 256, "friend%d.state", i);
+                ret = dict_get_str (dict, key, &state);
+                if (ret)
+                        goto out;
+
+                if (!port) {
+                        cli_out ("\nHostname: %s\nUuid: %s\nState: %s "
+                                 "(%s)",
+                                 hostname_buf, uuid_buf, state,
+                                 connected_str);
+                } else {
+                        cli_out ("\nHostname: %s\nPort: %d\nUuid: %s\n"
+                                 "State: %s (%s)", hostname_buf, port,
+                                 uuid_buf, state, connected_str);
+                }
+                i++;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+gf_cli_output_pool_list (dict_t *dict, int count)
+{
+        int                        ret   = -1;
+        char                       *uuid_buf = NULL;
+        char                       *hostname_buf = NULL;
+        int32_t                    i = 1;
+        char                       key[256] = {0,};
+        int32_t                    connected = 0;
+        char                       *connected_str = NULL;
+
+        if (count >= 1)
+                cli_out ("UUID\t\t\t\t\tHostname\tState");
+
+        while ( i <= count) {
+                snprintf (key, 256, "friend%d.uuid", i);
+                ret = dict_get_str (dict, key, &uuid_buf);
+                if (ret)
+                        goto out;
+
+                snprintf (key, 256, "friend%d.hostname", i);
+                ret = dict_get_str (dict, key, &hostname_buf);
+                if (ret)
+                        goto out;
+
+                snprintf (key, 256, "friend%d.connected", i);
+                ret = dict_get_int32 (dict, key, &connected);
+                if (ret)
+                        goto out;
+                if (connected)
+                        connected_str = "Connected";
+                else
+                        connected_str = "Disconnected";
+
+                cli_out ("%s\t%s\t%s ", uuid_buf, hostname_buf,
+                         connected_str);
+                i++;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+/* function pointer for gf_cli_output_{pool_list,peer_status} */
+typedef int (*cli_friend_output_fn) (dict_t*, int);
+
+int
+gf_cli_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
+                             int count, void *myframe)
+{
+        gf1_cli_peer_list_rsp      rsp   = {0,};
+        int                        ret   = -1;
+        dict_t                    *dict = NULL;
         char                       msg[1024] = {0,};
+        char                      *cmd = NULL;
+        cli_friend_output_fn       friend_output_fn;
+        call_frame_t              *frame = NULL;
+        unsigned long              flags = 0;
+
+        frame = myframe;
+        flags = (long)frame->local;
+
+        if (flags == GF_CLI_LIST_POOL_NODES) {
+                cmd = "pool list";
+                friend_output_fn = &gf_cli_output_pool_list;
+        } else {
+                cmd = "peer status";
+                friend_output_fn = &gf_cli_output_peer_status;
+        }
+
+        /* 'free' the flags set by gf_cli_list_friends */
+        frame->local = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -324,7 +444,7 @@ gf_cli_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        gf_log ("cli", GF_LOG_INFO, "Received resp to list: %d",
+        gf_log ("cli", GF_LOG_DEBUG, "Received resp to list: %d",
                 rsp.op_ret);
 
         ret = rsp.op_ret;
@@ -333,7 +453,7 @@ gf_cli_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
 
                 if (!rsp.friends.friends_len) {
                         snprintf (msg, sizeof (msg),
-                                  "peer status: No peers present");
+                                  "%s: No peers present", cmd);
                         if (global_state->mode & GLUSTER_MODE_XML) {
                                 ret = cli_xml_output_peer_status (dict,
                                                                   rsp.op_ret,
@@ -380,49 +500,9 @@ gf_cli_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
                         goto out;
                 }
 
-                cli_out ("Number of Peers: %d", count);
-                i = 1;
-                while ( i <= count) {
-                        snprintf (key, 256, "friend%d.uuid", i);
-                        ret = dict_get_str (dict, key, &uuid_buf);
-                        if (ret)
-                                goto out;
-
-                        snprintf (key, 256, "friend%d.hostname", i);
-                        ret = dict_get_str (dict, key, &hostname_buf);
-                        if (ret)
-                                goto out;
-
-                        snprintf (key, 256, "friend%d.connected", i);
-                        ret = dict_get_int32 (dict, key, &connected);
-                        if (ret)
-                                goto out;
-                        if (connected)
-                                connected_str = "Connected";
-                        else
-                                connected_str = "Disconnected";
-
-                        snprintf (key, 256, "friend%d.port", i);
-                        ret = dict_get_int32 (dict, key, &port);
-                        if (ret)
-                                goto out;
-
-                        snprintf (key, 256, "friend%d.state", i);
-                        ret = dict_get_str (dict, key, &state);
-                        if (ret)
-                                goto out;
-
-                        if (!port) {
-                                cli_out ("\nHostname: %s\nUuid: %s\nState: %s "
-                                         "(%s)",
-                                         hostname_buf, uuid_buf, state,
-                                         connected_str);
-                        } else {
-                                cli_out ("\nHostname: %s\nPort: %d\nUuid: %s\n"
-                                         "State: %s (%s)", hostname_buf, port,
-                                         uuid_buf, state, connected_str);
-                        }
-                        i++;
+                ret = friend_output_fn (dict, count);
+                if (ret) {
+                        goto out;
                 }
         } else {
                 if (global_state->mode & GLUSTER_MODE_XML) {
@@ -443,7 +523,7 @@ gf_cli_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
 out:
         cli_cmd_broadcast_response (ret);
         if (ret)
-                cli_err ("peer status: failed");
+                cli_err ("%s: failed", cmd);
 
         if (dict)
                 dict_destroy (dict);
@@ -2676,18 +2756,22 @@ out:
 
 int32_t
 gf_cli_list_friends (call_frame_t *frame, xlator_t *this,
-                        void *data)
+                     void *data)
 {
         gf1_cli_peer_list_req   req = {0,};
         int                     ret = 0;
+        unsigned long           flags = 0;
 
         if (!frame || !this) {
                 ret = -1;
                 goto out;
         }
 
-        req.flags = GF_CLI_LIST_ALL;
+        GF_ASSERT (frame->local == NULL);
 
+        flags = (long)data;
+        req.flags = flags;
+        frame->local = (void*)flags;
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GLUSTER_CLI_LIST_FRIENDS, NULL,
                               this, gf_cli_list_friends_cbk,
