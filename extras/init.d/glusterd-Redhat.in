@@ -1,20 +1,39 @@
 #!/bin/bash
 #
-# chkconfig: 35 20 80
-# description: Gluster File System service for volume management
+# glusterd   Startup script for the glusterfs server
+#
+# chkconfig:   - 20 80
+# description: Clustered file-system server
+
+### BEGIN INIT INFO
+# Provides: glusterd
+# Required-Start: $local_fs $network
+# Required-Stop: $local_fs $network
+# Should-Start: 
+# Should-Stop: 
+# Default-Start: 
+# Default-Stop: 0 1 2 3 4 5 6
+# Short-Description: glusterfs server
+# Description:       Clustered file-system server
+### END INIT INFO
 #
 
-# Get function from functions library
+# Source function library.
 . /etc/rc.d/init.d/functions
 
 BASE=glusterd
-PIDFILE=/var/run/$BASE.pid
+
+# Fedora File System Layout dictates /run
+[ -e /run ] && RUNDIR="/run"
+PIDFILE="${RUNDIR:-/var/run}/${BASE}.pid"
+
 PID=`test -f $PIDFILE && cat $PIDFILE`
 
 # Overwriteable from sysconfig
 LOG_LEVEL=''
 LOG_FILE=''
 GLUSTERD_OPTIONS=''
+GLUSTERD_NOFILE='65536'
 
 [ -f /etc/sysconfig/${BASE} ] && . /etc/sysconfig/${BASE}
 
@@ -31,57 +50,88 @@ RETVAL=0
 # Start the service $BASE
 start()
 {
-       pidofproc -p $PIDFILE $GLUSTERD_BIN &> /dev/null
-       status=$?
-       if [ $status -eq 0 ]; then
+       if pidofproc -p $PIDFILE $GLUSTERD_BIN &> /dev/null; then
            echo "glusterd service is already running with pid $PID"
-           exit 0
+           return 0
        else
+           ulimit -n $GLUSTERD_NOFILE
            echo -n $"Starting $BASE:"
            daemon $GLUSTERD
            RETVAL=$?
            echo
-           [ $RETVAL -ne 0 ] && exit $RETVAL
+           return $RETVAL
        fi
-
 }
 
 # Stop the service $BASE
 stop()
 {
     echo -n $"Stopping $BASE:"
-    pidofproc -p $PIDFILE $GLUSTERD_BIN &> /dev/null
-    status=$?
-    if [ $status -eq 0 ]; then
+    if pidofproc -p $PIDFILE $GLUSTERD_BIN &> /dev/null; then
         killproc -p $PIDFILE $BASE
         [ -w $PIDFILE ] && rm -f $PIDFILE
     else
         killproc $BASE
     fi
+}
 
+restart()
+{
+    stop
+    start
+}
+
+reload()
+{
+    restart
+}
+
+force_reload()
+{
+    restart
+}
+
+rh_status()
+{
+    status $BASE
+}
+
+rh_status_q()
+{
+    rh_status &>/dev/null
 }
 
 
 ### service arguments ###
 case $1 in
     start)
-        start
+        rh_status_q && exit 0
+        $1
         ;;
     stop)
-        stop
-        RETVAL=$?
-        ;;
-    status)
-        status $BASE
-        RETVAL=$?
+        rh_status_q || exit 0
+        $1
         ;;
     restart)
-        $0 stop
-        $0 start
+        $1
+        ;;
+    reload)
+        rh_status_q || exit 7
+        $1
+        ;;
+    force-reload)
+        force_reload
+        ;;
+    status)
+        rh_status
+        ;;
+    condrestart|try-restart)
+        rh_status_q || exit 0
+        restart
         ;;
     *)
-        echo $"Usage: $0 {start|stop|status|restart}."
+        echo $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload}"
         exit 1
 esac
 
-exit $RETVAL
+exit $?
