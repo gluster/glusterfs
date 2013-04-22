@@ -1146,7 +1146,6 @@ __glusterd_handle_cli_bd_op (rpcsvc_request_t *req)
 
         ret = glusterd_op_begin (req, GD_OP_BD_OP, dict, op_errstr,
                                  sizeof (op_errstr));
-        gf_cmd_log ("bd op: %s", ((ret == 0) ? "SUCCESS": "FAILED"));
 out:
         if (ret && dict)
                 dict_unref (dict);
