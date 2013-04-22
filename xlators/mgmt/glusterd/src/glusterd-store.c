@@ -1768,11 +1768,29 @@ glusterd_restore_op_version (xlator_t *this)
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_INFO, "op-version not found in store, "
-                "setting it to minimum op-version : %d", GD_OP_VERSION_MIN);
-
-        /* If op-version is missing, set it to  GD_OP_VERSION_MIN */
-        conf->op_version = GD_OP_VERSION_MIN;
+        /* op-version can be missing from the store file in 2 cases,
+         * 1. This is a new install of glusterfs
+         * 2. This is an upgrade of glusterfs from a version without op-version
+         *    to a version with op-version (eg. 3.3 -> 3.4)
+         *
+         * Detection of a new install or an upgrade from an older install can be
+         * done by checking for the presence of the its peer-id in the store
+         * file.  If peer-id is present, the installation is an upgrade else, it
+         * is a new install.
+         *
+         * For case 1, set op-version to GD_OP_VERSION_MAX.
+         * For case 2, set op-version to GD_OP_VERSION_MIN.
+         */
+        ret = glusterd_retrieve_uuid();
+        if (ret) {
+                gf_log (this->name, GF_LOG_INFO, "Detected new install. Setting"
+                        " op-version to maximum : %d", GD_OP_VERSION_MAX);
+                conf->op_version = GD_OP_VERSION_MAX;
+        } else {
+                gf_log (this->name, GF_LOG_INFO, "Upgrade detected. Setting"
+                        " op-version to minimum : %d", GD_OP_VERSION_MIN);
+                conf->op_version = GD_OP_VERSION_MIN;
+        }
         ret = 0;
 out:
         return ret;
