@@ -3031,10 +3031,10 @@ gf_cli_bd_op (call_frame_t *frame, xlator_t *this,
                                            &req.dict.dict_len);
 
 
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_BD_OP, NULL,
-                              this, gf_cli_bd_op_cbk,
-                              (xdrproc_t) xdr_gf_cli_req);
+        ret = cli_to_glusterd (&req, frame, gf_cli_bd_op_cbk,
+                               (xdrproc_t)xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_BD_OP, this, cli_rpc_prog,
+                               NULL);
 
 out:
         if (dict)
