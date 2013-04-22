@@ -26,6 +26,8 @@ gd_synctask_barrier_wait (struct syncargs *args, int count)
         synclock_unlock (&conf->big_lock);
         synctask_barrier_wait (args, count);
         synclock_lock (&conf->big_lock);
+
+	syncbarrier_destroy (&args->barrier);
 }
 
 static void
