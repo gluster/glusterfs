@@ -190,7 +190,7 @@ struct syncargs {
                 if (task)                                               \
                         frame = task->opframe;                          \
                 else                                                    \
-                        frame = create_frame (THIS, THIS->ctx->pool);   \
+                        frame = syncop_create_frame (THIS);		\
                                                                         \
                 if (task) {                                             \
                         frame->root->uid = task->uid;                   \
@@ -231,6 +231,23 @@ void synctask_waitfor (struct synctask *task, int count);
 int synctask_setid (struct synctask *task, uid_t uid, gid_t gid);
 #define SYNCTASK_SETID(uid, gid) synctask_setid (synctask_get(), uid, gid);
 
+
+static inline call_frame_t *
+syncop_create_frame (xlator_t *this)
+{
+	call_frame_t  *frame = NULL;
+
+	frame = create_frame (this, this->ctx->pool);
+	if (!frame)
+		return NULL;
+
+	frame->root->pid = getpid();
+	frame->root->uid = geteuid ();
+	frame->root->gid = getegid ();
+        frame->root->ngrps = getgroups (GF_MAX_AUX_GROUPS, frame->root->groups);
+
+	return frame;
+}
 
 int synclock_init (synclock_t *lock);
 int synclock_destory (synclock_t *lock);
