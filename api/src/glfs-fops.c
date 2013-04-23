@@ -1421,7 +1421,7 @@ gf_dirent_to_dirent (gf_dirent_t *gf_dirent, struct dirent *dirent)
 
 
 int
-glfd_entry_refresh (struct glfs_fd *glfd)
+glfd_entry_refresh (struct glfs_fd *glfd, int plus)
 {
 	xlator_t        *subvol = NULL;
 	gf_dirent_t      entries;
@@ -1437,8 +1437,12 @@ glfd_entry_refresh (struct glfs_fd *glfd)
 	INIT_LIST_HEAD (&entries.list);
 	INIT_LIST_HEAD (&old.list);
 
-	ret = syncop_readdir (subvol, glfd->fd, 131072, glfd->offset,
-			      &entries);
+	if (plus)
+		ret = syncop_readdirp (subvol, glfd->fd, 131072, glfd->offset,
+				       NULL, &entries);
+	else
+		ret = syncop_readdir (subvol, glfd->fd, 131072, glfd->offset,
+				      &entries);
 	if (ret >= 0) {
 		/* spurious errno is dangerous for glfd_entry_next() */
 		errno = 0;
@@ -1457,13 +1461,13 @@ glfd_entry_refresh (struct glfs_fd *glfd)
 
 
 gf_dirent_t *
-glfd_entry_next (struct glfs_fd *glfd)
+glfd_entry_next (struct glfs_fd *glfd, int plus)
 {
 	gf_dirent_t     *entry = NULL;
 	int              ret = -1;
 
 	if (!glfd->offset || !glfd->next) {
-		ret = glfd_entry_refresh (glfd);
+		ret = glfd_entry_refresh (glfd, plus);
 		if (ret < 0)
 			return NULL;
 	}
@@ -1484,7 +1488,8 @@ glfd_entry_next (struct glfs_fd *glfd)
 
 
 int
-glfs_readdir_r (struct glfs_fd *glfd, struct dirent *buf, struct dirent **res)
+glfs_readdirplus_r (struct glfs_fd *glfd, struct stat *stat, struct dirent *buf,
+		    struct dirent **res)
 {
 	int              ret = 0;
 	gf_dirent_t     *entry = NULL;
@@ -1498,7 +1503,7 @@ glfs_readdir_r (struct glfs_fd *glfd, struct dirent *buf, struct dirent **res)
 	}
 
 	errno = 0;
-	entry = glfd_entry_next (glfd);
+	entry = glfd_entry_next (glfd, !!stat);
 	if (errno)
 		ret = -1;
 
@@ -1509,10 +1514,20 @@ glfs_readdir_r (struct glfs_fd *glfd, struct dirent *buf, struct dirent **res)
 			*res = NULL;
 	}
 
-	if (entry)
+	if (entry) {
 		gf_dirent_to_dirent (entry, buf);
+		if (stat)
+			iatt_to_stat (&entry->d_stat, stat);
+	}
 out:
 	return ret;
+}
+
+
+int
+glfs_readdir_r (struct glfs_fd *glfd, struct dirent *buf, struct dirent **res)
+{
+	return glfs_readdirplus_r (glfd, 0, buf, res);
 }
 
 
