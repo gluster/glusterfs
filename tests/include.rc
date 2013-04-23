@@ -14,7 +14,17 @@ mkdir -p $B0;
 mkdir -p $M0 $M1;
 mkdir -p $N0 $N1;
 
-testcnt=`egrep '^[[:space:]]*(EXPECT|TEST|EXPECT_WITHIN|EXPECT_KEYWORD)' $0 | wc -l`;
+testcnt=`egrep '^[[:space:]]*(EXPECT|TEST|EXPECT_WITHIN|EXPECT_KEYWORD)[[:space:]]' $0 | wc -l`
+expect_tests=`egrep '^[[:space:]]*TESTS_EXPECTED_IN_LOOP[[:space:]]*' $0`
+
+x_ifs=$IFS
+IFS=$'\n'
+for line in $expect_tests; do
+	expect_tests=`echo $line | cut -f 2 -d =`
+	testcnt=`expr $testcnt + $expect_tests`
+done
+IFS=$x_ifs
+
 echo 1..$testcnt
 
 t=1
@@ -164,6 +174,13 @@ function SKIP_TESTS()
 }
 
 
+function _TEST_IN_LOOP()
+{
+	testcnt=`expr $testcnt + 1`;
+	_TEST $@
+}
+
+
 function cleanup()
 {
 	killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;
@@ -224,4 +241,5 @@ alias EXPECT='_EXPECT $LINENO'
 alias TEST='_TEST $LINENO'
 alias EXPECT_WITHIN='_EXPECT_WITHIN $LINENO'
 alias EXPECT_KEYWORD='_EXPECT_KEYWORD $LINENO'
+alias TEST_IN_LOOP='_TEST_IN_LOOP $LINENO'
 shopt -s expand_aliases

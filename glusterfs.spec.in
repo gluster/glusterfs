@@ -261,6 +261,9 @@ This package provides the glusterfs server daemon.
 %package resource-agents
 Summary:          OCF Resource Agents for GlusterFS
 License:          GPLv3+
+%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
+BuildArch:        noarch
+%endif
 # this Group handling comes from the Fedora resource-agents package
 %if 0%{?fedora} || 0%{?centos_version} || 0%{?rhel}
 Group:            System Environment/Base
@@ -364,6 +367,7 @@ Patch20:          0001-Use-updated-parallel-install-versions-of-epel-packag.patc
 Patch21:          0002-Add-fixes-for-building-the-doc-package.patch
 Patch22:          glusterfs-3.3.1.swift.constraints.backport-1.7.4.patch
 Patch23:          glusterfs-3.4.0.swift.egginfo-grizzly.patch
+Patch24:          0002-Add-fixes-for-building-the-doc-package.patch.180
 #BuildRoot:        %(mktemp -ud %{_tmppath}/swift-%{SWIFTVER}-%{release}-XXXXXX)
 
 %if 0%{?_with_systemd:1}
@@ -545,11 +549,15 @@ storage costs.
 %patch1 -p0
 %endif
 cd swift-%{SWIFTVER}
-%if "%{SWIFTVER}" == "1.7.4"
 %if ( 0%{?rhel} && 0%{?rhel} < 7 )
 %patch20 -p1
+%if "%{SWIFTVER}" == "1.7.4"
 %patch21 -p1
+%else
+%patch24 -p1
 %endif
+%endif
+%if "%{SWIFTVER}" == "1.7.4"
 %patch22 -p1
 %else
 %patch23 -p1
