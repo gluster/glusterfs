@@ -2341,6 +2341,7 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
         int                     count = 0;
         char                    *volname = NULL;
         char                    *volume_id = NULL;
+        char                    *uuid = NULL;
         int                     type = 0;
         int                     status = 0;
         int                     brick_count = 0;
@@ -2473,15 +2474,34 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                                  (xmlChar *)"bricks");
                 XML_RET_CHECK_AND_GOTO (ret, out);
                 while (j <= brick_count) {
+                        ret = xmlTextWriterStartElement
+                                (local->writer, (xmlChar *)"brick");
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "volume%d.brick%d.uuid",
+                                  i, j);
+                        ret = dict_get_str (dict, key, &uuid);
+                        if (ret)
+                                goto out;
+                        ret = xmlTextWriterWriteFormatAttribute
+                                (local->writer, (xmlChar *)"uuid", "%s",
+                                 uuid);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+
                         memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "volume%d.brick%d", i, j);
                         ret = dict_get_str (dict, key, &brick);
                         if (ret)
                                 goto out;
-                        ret = xmlTextWriterWriteFormatElement
-                                (local->writer, (xmlChar *)"brick", "%s",
-                                 brick);
+                        ret = xmlTextWriterWriteFormatString
+                                (local->writer, "%s", brick);
                         XML_RET_CHECK_AND_GOTO (ret, out);
+
+                        /* </brick> */
+                        ret = xmlTextWriterEndElement (local->writer);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+
                         j++;
                 }
                 /* </bricks> */
