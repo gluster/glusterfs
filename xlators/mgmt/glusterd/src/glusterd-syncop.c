@@ -843,9 +843,7 @@ commit_done:
                         gf_asprintf (op_errstr, OPERRSTR_COMMIT_FAIL,
                                      hostname);
                 goto out;
-         } else {
-                 glusterd_op_modify_op_ctx (op, op_ctx);
-         }
+        }
 
         if (!npeers) {
                 ret = 0;
@@ -866,6 +864,9 @@ commit_done:
                 *op_errstr = gf_strdup (errstr);
 
 out:
+        if (!ret)
+                glusterd_op_modify_op_ctx (op, op_ctx);
+
         if (rsp_dict)
                 dict_unref (rsp_dict);
         return ret;
