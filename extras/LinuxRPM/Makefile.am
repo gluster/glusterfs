@@ -28,7 +28,6 @@ prep::
 		echo "copying glusterfs rpm files from local cache..."  ; \
 		mkdir -p ./rpmbuild/SOURCES; \
 		cp /d/cache/glusterfs/* ./rpmbuild/SOURCES/ ; \
-		touch /d/cache/.gluster ; \
 	elif [ -x /usr/bin/git ]; then \
 		echo "fetching glusterfs rpm files from fedora git repo..."; \
 		cd ./rpmbuild && git clone git://pkgs.fedoraproject.org/glusterfs.git > /dev/null && mv glusterfs SOURCES; \
@@ -46,7 +45,6 @@ prep::
 	@if [ -d /d/cache -a -f /d/cache/$(GRIZZLY_TAR) -a -d ./rpmbuild/SOURCES ]; then \
 		echo "copying swift source tarball from local cache..." ; \
 		cp /d/cache/$(GRIZZLY_TAR) ./rpmbuild/SOURCES/ ; \
-		touch /d/cache/.swift ; \
 	elif [ -x /usr/bin/curl -a -d ./rpmbuild/SOURCES ]; then \
 		echo "fetching swift from launchpad.net..." ; \
 		cd ./rpmbuild/SOURCES && /usr/bin/curl -sOL $(GRIZZLY_URL) ; \

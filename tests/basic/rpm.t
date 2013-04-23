@@ -60,6 +60,8 @@ chmod g=rwx ${RESULT_DIR}
 chown :mock ${RESULT_DIR}
 
 # build for the last two Fedora EPEL releases (x86_64 only)
+# TAP/Prove aren't smart about loops
+TESTS_EXPECTED_IN_LOOP=2
 for MOCK_CONF in $(ls -x1 /etc/mock/*.cfg | egrep -e 'epel-[0-9]+-x86_64.cfg$' | tail -n2)
 do
 	EPEL_RELEASE=$(basename ${MOCK_CONF} .cfg)
@@ -82,13 +84,14 @@ EOF
 	if (groups | grep -q mock)
 	then
 		# the current user is in group 'mock'
-		TEST ${RESULT_DIR}/${EPEL_RELEASE}/mock.sh
+		RUNMOCK="${RESULT_DIR}/${EPEL_RELEASE}/mock.sh"
 	else
 		# switch to the user called 'mock'
 		chown mock:mock ${RESULT_DIR}/${EPEL_RELEASE}
 		# "su" might not work, using sudo instead
-		TEST sudo -u mock -E ${RESULT_DIR}/${EPEL_RELEASE}/mock.sh
+		RUNMOCK="sudo -u mock -E ${RESULT_DIR}/${EPEL_RELEASE}/mock.sh"
 	fi
+	TEST_IN_LOOP ${RUNMOCK}
 done
 
 # we could build for the last two Fedora releases too, but that is not
