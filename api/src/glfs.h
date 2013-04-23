@@ -387,6 +387,9 @@ glfs_fd_t *glfs_opendir (glfs_t *fs, const char *path);
 int glfs_readdir_r (glfs_fd_t *fd, struct dirent *dirent,
 		    struct dirent **result);
 
+int glfs_readdirplus_r (glfs_fd_t *fd, struct stat *stat, struct dirent *dirent,
+			struct dirent **result);
+
 long glfs_telldir (glfs_fd_t *fd);
 
 void glfs_seekdir (glfs_fd_t *fd, long offset);
