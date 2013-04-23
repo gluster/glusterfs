@@ -60,7 +60,10 @@ glfs_loc_touchup (loc_t *loc)
 	int   ret = -1;
 	char *bn = NULL;
 
-	ret = inode_path (loc->parent, loc->name, &path);
+	if (loc->parent)
+		ret = inode_path (loc->parent, loc->name, &path);
+	else
+		ret = inode_path (loc->inode, 0, &path);
 
 	loc->path = path;
 
