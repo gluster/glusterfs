@@ -19,8 +19,7 @@ function brick_count()
 
 
 TEST $CLI volume start $V0
-TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}2 start;
-TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}2 commit;
+TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}2;
 EXPECT '2' brick_count $V0
 
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}3;
