@@ -824,7 +824,6 @@ ioc_frame_unwind (call_frame_t *frame)
         }
 
         //  ioc_local_lock (local);
-        frame->local = NULL;
         iobref = iobref_new ();
         if (iobref == NULL) {
                 op_ret = -1;
@@ -875,6 +874,7 @@ unwind:
 
         //  ioc_local_unlock (local);
 
+        frame->local = NULL;
         STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector,
                              count, &stbuf, iobref, NULL);
 
@@ -888,7 +888,8 @@ unwind:
         }
 
         pthread_mutex_destroy (&local->local_lock);
-        mem_put (local);
+        if (local)
+                mem_put (local);
 
         return;
 }
