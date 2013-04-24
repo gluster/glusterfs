@@ -6,6 +6,7 @@ includedir=@includedir@
 
 Name: glusterfs-api
 Description: GlusterFS API
-Version: @VERSION@
+/* This is the API version, NOT package version */
+Version: 4
 Libs: -Wl,-R${libdir} -L${libdir} -lgfapi -lglusterfs -lgfrpc -lgfxdr
 Cflags: -I${includedir}/glusterfs -D_FILE_OFFSET_BITS=64 -D__USE_FILE_OFFSET64
