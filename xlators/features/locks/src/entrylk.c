@@ -520,6 +520,8 @@ grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 
                 STACK_UNWIND_STRICT (entrylk, lock->frame, 0, 0, NULL);
 
+		GF_FREE ((char *)lock->basename);
+		GF_FREE (lock);
         }
 
         GF_FREE ((char *)unlocked->basename);
