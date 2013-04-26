@@ -931,9 +931,6 @@ syncop_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         args->op_ret   = op_ret;
         args->op_errno = op_errno;
 
-        if (op_ret != -1)
-                fd_ref (fd);
-
         __wake (args);
 
         return 0;
@@ -1078,9 +1075,6 @@ syncop_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         args->op_ret   = op_ret;
         args->op_errno = op_errno;
-
-        if (op_ret != -1)
-                fd_ref (fd);
 
         __wake (args);
 
