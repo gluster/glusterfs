@@ -547,7 +547,6 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
                                             req);
                 } else {
                         ret = actor_fn (req);
-                        req->hdr_iobuf = NULL;
                 }
         }
 
