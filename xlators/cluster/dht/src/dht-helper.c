@@ -709,13 +709,18 @@ dht_migration_complete_check_task (void *data)
         if (!local->loc.inode && !local->fd)
                 goto out;
 
-        /* getxattr on cached_subvol for 'linkto' value */
-        if (!local->loc.inode)
+        /* getxattr on cached_subvol for 'linkto' value. Do path based getxattr
+         * as root:root. If a fd is already open, access check wont be done*/
+
+        if (!local->loc.inode) {
                 ret = syncop_fgetxattr (src_node, local->fd, &dict,
                                         conf->link_xattr_name);
-        else
+        } else {
+                SYNCTASK_SETID (0, 0);
                 ret = syncop_getxattr (src_node, &local->loc, &dict,
                                        conf->link_xattr_name);
+                SYNCTASK_SETID (frame->root->uid, frame->root->gid);
+        }
 
         if (!ret)
                 dst_node = dht_linkfile_subvol (this, NULL, NULL, dict);
@@ -889,13 +894,17 @@ dht_rebalance_inprogress_task (void *data)
         if (!local->loc.inode && !local->fd)
                 goto out;
 
-        /* getxattr on cached_subvol for 'linkto' value */
-        if (local->loc.inode)
+        /* getxattr on cached_subvol for 'linkto' value. Do path based getxattr
+         * as root:root. If a fd is already open, access check wont be done*/
+        if (local->loc.inode) {
+                SYNCTASK_SETID (0, 0);
                 ret = syncop_getxattr (src_node, &local->loc, &dict,
                                        conf->link_xattr_name);
-        else
+                SYNCTASK_SETID (frame->root->uid, frame->root->gid);
+        } else {
                 ret = syncop_fgetxattr (src_node, local->fd, &dict,
                                         conf->link_xattr_name);
+        }
 
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
