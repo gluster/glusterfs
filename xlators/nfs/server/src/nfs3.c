@@ -971,7 +971,8 @@ nfs3svc_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          * truncation and also only if this is not a directory.
          */
         if ((gf_attr_size_set (cs->setattr_valid)) &&
-            (!IA_ISDIR (postop->ia_type))) {
+            (!IA_ISDIR (postop->ia_type)) &&
+            (preop->ia_size != cs->stbuf.ia_size)) {
                 nfs_request_user_init (&nfu, cs->req);
                 ret = nfs_truncate (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                                     cs->stbuf.ia_size, nfs3svc_truncate_cbk,cs);
