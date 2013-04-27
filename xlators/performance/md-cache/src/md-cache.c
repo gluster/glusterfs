@@ -598,13 +598,15 @@ mdc_inode_xatt_get (xlator_t *this, inode_t *inode, dict_t **dict)
 
         LOCK (&mdc->lock);
         {
+                ret = 0;
+		/* Missing xattr only means no keys were there, i.e
+		   a negative cache for the "loaded" keys
+		*/
                 if (!mdc->xattr)
                         goto unlock;
 
                 if (dict)
                         *dict = dict_ref (mdc->xattr);
-
-                ret = 0;
         }
 unlock:
         UNLOCK (&mdc->lock);
@@ -647,7 +649,7 @@ is_mdc_key_satisfied (const char *key)
 		return 0;
 
 	for (mdc_key = mdc_keys[i].name; (mdc_key = mdc_keys[i].name); i++) {
-		if (!mdc_keys[i].check)
+		if (!mdc_keys[i].load)
 			continue;
 		if (strcmp (mdc_key, key) == 0)
 			return 1;
@@ -721,6 +723,7 @@ mdc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         struct iatt  stbuf = {0, };
         struct iatt  postparent = {0, };
         dict_t      *xattr_rsp = NULL;
+        dict_t      *xattr_alloc = NULL;
         mdc_local_t *local = NULL;
 
 
@@ -752,6 +755,8 @@ mdc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return 0;
 
 uncached:
+	if (!xdata)
+		xdata = xattr_alloc = dict_new ();
 	if (xdata)
 		mdc_load_reqs (this, xdata);
 
@@ -760,7 +765,8 @@ uncached:
 
         if (xattr_rsp)
                 dict_unref (xattr_rsp);
-
+	if (xattr_alloc)
+		dict_unref (xattr_alloc);
         return 0;
 }
 
@@ -1666,6 +1672,7 @@ mdc_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
               dict_t *xdata)
 {
         int           ret;
+	int           op_errno = ENODATA;
         mdc_local_t  *local = NULL;
 	dict_t       *xattr = NULL;
 
@@ -1682,10 +1689,12 @@ mdc_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
 	if (ret != 0)
 		goto uncached;
 
-	if (!dict_get (xattr, (char *)key))
-		goto uncached;
+	if (!xattr || dict_get (xattr, (char *)key)) {
+		ret = -1;
+		op_errno = ENODATA;
+	}
 
-        MDC_STACK_UNWIND (getxattr, frame, 0, 0, xattr, xdata);
+        MDC_STACK_UNWIND (getxattr, frame, ret, op_errno, xattr, xdata);
 
         return 0;
 
@@ -1727,6 +1736,7 @@ mdc_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
         int           ret;
         mdc_local_t  *local = NULL;
 	dict_t       *xattr = NULL;
+	int           op_errno = ENODATA;
 
         local = mdc_local_get (frame);
         if (!local)
@@ -1741,10 +1751,12 @@ mdc_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
 	if (ret != 0)
 		goto uncached;
 
-	if (!dict_get (xattr, (char *)key))
-		goto uncached;
+	if (!xattr || dict_get (xattr, (char *)key)) {
+		ret = -1;
+		op_errno = ENODATA;
+	}
 
-        MDC_STACK_UNWIND (fgetxattr, frame, 0, 0, xattr, xdata);
+        MDC_STACK_UNWIND (fgetxattr, frame, ret, op_errno, xattr, xdata);
 
         return 0;
 
@@ -1782,9 +1794,18 @@ int
 mdc_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	      size_t size, off_t offset, dict_t *xdata)
 {
+	dict_t *xattr_alloc = NULL;
+
+	if (!xdata)
+		xdata = xattr_alloc = dict_new ();
+	if (xdata)
+		mdc_load_reqs (this, xdata);
+
 	STACK_WIND (frame, mdc_readdirp_cbk,
 		    FIRST_CHILD (this), FIRST_CHILD (this)->fops->readdirp,
 		    fd, size, offset, xdata);
+	if (xattr_alloc)
+		dict_unref (xattr_alloc);
 	return 0;
 }
 
