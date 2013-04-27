@@ -21,7 +21,6 @@
   - protocol/client to reconnect immediately after portmap disconnect.
   - handle SEEK_END failure in _lseek()
   - handle umask (per filesystem?)
-  - implement glfs_set_xlator_option(), like --xlator-option
   - make itables LRU based
   - implement glfs_fini()
   - 0-copy for readv/writev
@@ -277,6 +276,47 @@ out:
 
 
 ///////////////////////////////////////////////////////////////////////////////
+
+
+int
+glfs_set_xlator_option (struct glfs *fs, const char *xlator, const char *key,
+			const char *value)
+{
+	xlator_cmdline_option_t *option = NULL;
+
+	option = GF_CALLOC (1, sizeof (*option),
+			    glfs_mt_xlator_cmdline_option_t);
+	if (!option)
+		goto enomem;
+
+	INIT_LIST_HEAD (&option->cmd_args);
+
+	option->volume = gf_strdup (xlator);
+	if (!option->volume)
+		goto enomem;
+	option->key = gf_strdup (key);
+	if (!option->key)
+		goto enomem;
+	option->value = gf_strdup (value);
+	if (!option->value)
+		goto enomem;
+
+	list_add (&option->cmd_args, &fs->ctx->cmd_args.xlator_options);
+
+	return 0;
+enomem:
+	errno = ENOMEM;
+
+	if (!option)
+		return -1;
+
+	GF_FREE (option->volume);
+	GF_FREE (option->key);
+	GF_FREE (option->value);
+	GF_FREE (option);
+
+	return -1;
+}
 
 
 struct glfs *

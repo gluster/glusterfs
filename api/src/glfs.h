@@ -301,6 +301,9 @@ int glfs_close (glfs_fd_t *fd);
 
 glfs_t *glfs_from_glfd (glfs_fd_t *fd);
 
+int glfs_set_xlator_option (glfs_t *fs, const char *xlator, const char *key,
+			    const char *value);
+
 typedef void (*glfs_io_cbk) (glfs_fd_t *fd, ssize_t ret, void *data);
 
 // glfs_{read,write}[_async]
