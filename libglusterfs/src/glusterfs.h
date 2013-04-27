@@ -112,6 +112,7 @@
 #define GLUSTERFS_PARENT_ENTRYLK "glusterfs.parent-entrylk"
 #define QUOTA_SIZE_KEY "trusted.glusterfs.quota.size"
 #define GFID_TO_PATH_KEY "glusterfs.gfid2path"
+#define GF_XATTR_STIME_PATTERN "trusted.glusterfs.*.stime"
 
 /* Index xlator related */
 #define GF_XATTROP_INDEX_GFID "glusterfs.xattrop_index_gfid"

@@ -62,6 +62,11 @@ dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
                 }
 
                 *size = hton64 (ntoh64 (*size) + ntoh64 (*ptr));
+
+        } else if (fnmatch (GF_XATTR_STIME_PATTERN, key, FNM_NOESCAPE) == 0) {
+                ret = gf_get_min_stime (THIS, dst, key, value);
+                if (ret < 0)
+                        return ret;
         } else {
                 /* compare user xattrs only */
                 if (!strncmp (key, "user.", strlen ("user."))) {
