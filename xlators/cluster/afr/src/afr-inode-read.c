@@ -1323,6 +1323,62 @@ afr_getxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
         return ret;
 }
 
+static int
+afr_aggregate_stime_xattr (dict_t *this, char *key, data_t *value, void *data)
+{
+        int ret = 0;
+
+        if (fnmatch (GF_XATTR_STIME_PATTERN, key, FNM_NOESCAPE) == 0)
+                ret = gf_get_min_stime (THIS, data, key, value);
+
+        return ret;
+}
+
+int32_t
+afr_common_getxattr_stime_cbk (call_frame_t *frame, void *cookie,
+                               xlator_t *this, int32_t op_ret, int32_t op_errno,
+                               dict_t *dict, dict_t *xdata)
+{
+        afr_local_t *local          = NULL;
+        int32_t      callcnt        = 0;
+
+        if (!frame || !frame->local || !this) {
+                gf_log ("", GF_LOG_ERROR, "possible NULL deref");
+                goto out;
+        }
+
+        local = frame->local;
+
+        LOCK (&frame->lock);
+        {
+                callcnt = --local->call_count;
+
+                if (!dict || (op_ret < 0)) {
+                        local->op_errno = op_errno;
+                        goto cleanup;
+                }
+
+                if (!local->dict)
+                        local->dict = dict_copy_with_ref (dict, NULL);
+                else
+                        dict_foreach (dict, afr_aggregate_stime_xattr,
+                                      local->dict);
+                local->op_ret = 0;
+        }
+
+cleanup:
+        UNLOCK (&frame->lock);
+
+        if (!callcnt) {
+                AFR_STACK_UNWIND (getxattr, frame, local->op_ret,
+                                  local->op_errno, local->dict, xdata);
+        }
+
+out:
+        return 0;
+}
+
+
 static gf_boolean_t
 afr_is_special_xattr (const char *name, fop_getxattr_cbk_t *cbk,
                       gf_boolean_t is_fgetxattr)
@@ -1355,6 +1411,8 @@ afr_is_special_xattr (const char *name, fop_getxattr_cbk_t *cbk,
                 } else {
                         *cbk = afr_getxattr_lockinfo_cbk;
                 }
+        } else if (fnmatch (GF_XATTR_STIME_PATTERN, name, FNM_NOESCAPE) == 0) {
+                *cbk = afr_common_getxattr_stime_cbk;
         } else {
                 is_spl = _gf_false;
         }

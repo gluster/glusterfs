@@ -98,7 +98,7 @@ cluster_getmarkerattr (call_frame_t *frame,xlator_t *this, loc_t *loc,
 int
 match_uuid_local (const char *name, char *uuid);
 
-
-
+int
+gf_get_min_stime (xlator_t *this, dict_t *dst, char *key, data_t *value);
 
 #endif /* !_LIBXLATOR_H */
