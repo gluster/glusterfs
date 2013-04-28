@@ -136,7 +136,8 @@ out:
 
 inode_t *
 glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
-			const char *component, struct iatt *iatt)
+			const char *component, struct iatt *iatt,
+			int force_lookup)
 {
 	loc_t        loc = {0, };
 	inode_t     *inode = NULL;
@@ -152,17 +153,6 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 	loc.parent = inode_ref (parent);
 	uuid_copy (loc.pargfid, parent->gfid);
 
-	xattr_req = dict_new ();
-	if (!xattr_req) {
-		errno = ENOMEM;
-		goto out;
-	}
-
-	ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
-	if (ret) {
-		errno = ENOMEM;
-		goto out;
-	}
 
 	if (strcmp (component, ".") == 0)
 		loc.inode = inode_ref (parent);
@@ -174,6 +164,12 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 	if (loc.inode) {
 		uuid_copy (loc.gfid, loc.inode->gfid);
 		reval = 1;
+
+		if (!force_lookup) {
+			inode = inode_ref (loc.inode);
+			ciatt.ia_type = inode->ia_type;
+			goto found;
+		}
 	} else {
 		uuid_generate (gfid);
 		loc.inode = inode_new (parent->table);
@@ -182,20 +178,35 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 	if (!loc.inode)
 		goto out;
 
-
 	glret = glfs_loc_touchup (&loc);
 	if (glret < 0) {
 		ret = -1;
 		goto out;
 	}
 
-	ret = syncop_lookup (subvol, &loc, xattr_req, &ciatt, NULL, NULL);
+	ret = syncop_lookup (subvol, &loc, NULL, &ciatt, NULL, NULL);
 	if (ret && reval) {
 		inode_unref (loc.inode);
 		loc.inode = inode_new (parent->table);
-		if (!loc.inode)
+		if (!loc.inode) {
+			errno = ENOMEM;
 			goto out;
+		}
+
+		xattr_req = dict_new ();
+		if (!xattr_req) {
+			errno = ENOMEM;
+			goto out;
+		}
+
 		uuid_generate (gfid);
+
+		ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
+		if (ret) {
+			errno = ENOMEM;
+			goto out;
+		}
+
 		ret = syncop_lookup (subvol, &loc, xattr_req, &ciatt,
 				     NULL, NULL);
 	}
@@ -203,6 +214,7 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 		goto out;
 
 	inode = inode_link (loc.inode, loc.parent, component, &ciatt);
+found:
 	if (inode)
 		inode_lookup (inode);
 	if (iatt)
@@ -220,7 +232,7 @@ out:
 int
 glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 		 const char *origpath, loc_t *loc, struct iatt *iatt,
-		 int follow)
+		 int follow, int reval)
 {
 	inode_t    *inode = NULL;
 	inode_t    *parent = NULL;
@@ -260,7 +272,12 @@ glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 		parent = inode;
 
 		inode = glfs_resolve_component (fs, subvol, parent,
-						component, &ciatt);
+						component, &ciatt,
+						/* force hard lookup on the last
+						   component, as the caller
+						   wants proper iatt filled
+						*/
+						(reval || !next_component));
 		if (!inode)
 			break;
 
@@ -287,7 +304,7 @@ glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 					       /* always recurisvely follow while
 						  following symlink
 					       */
-					       1);
+					       1, reval);
 			if (ret == 0)
 				inode = inode_ref (sym_loc.inode);
 			loc_wipe (&sym_loc);
@@ -344,16 +361,16 @@ out:
 
 int
 glfs_resolve_path (struct glfs *fs, xlator_t *subvol, const char *origpath,
-		   loc_t *loc, struct iatt *iatt, int follow)
+		   loc_t *loc, struct iatt *iatt, int follow, int reval)
 {
 	int ret = -1;
 
 	if (origpath[0] == '/')
 		ret = glfs_resolve_at (fs, subvol, NULL, origpath, loc, iatt,
-				       follow);
+				       follow, reval);
 	else
 		ret = glfs_resolve_at (fs, subvol, fs->cwd, origpath, loc, iatt,
-				       follow);
+				       follow, reval);
 
 	return ret;
 }
@@ -361,11 +378,11 @@ glfs_resolve_path (struct glfs *fs, xlator_t *subvol, const char *origpath,
 
 int
 glfs_resolve (struct glfs *fs, xlator_t *subvol, const char *origpath,
-	      loc_t *loc, struct iatt *iatt)
+	      loc_t *loc, struct iatt *iatt, int reval)
 {
 	int ret = -1;
 
-	ret = glfs_resolve_path (fs, subvol, origpath, loc, iatt, 1);
+	ret = glfs_resolve_path (fs, subvol, origpath, loc, iatt, 1, reval);
 
 	return ret;
 }
@@ -373,11 +390,11 @@ glfs_resolve (struct glfs *fs, xlator_t *subvol, const char *origpath,
 
 int
 glfs_lresolve (struct glfs *fs, xlator_t *subvol, const char *origpath,
-	       loc_t *loc, struct iatt *iatt)
+	       loc_t *loc, struct iatt *iatt, int reval)
 {
 	int ret = -1;
 
-	ret = glfs_resolve_path (fs, subvol, origpath, loc, iatt, 0);
+	ret = glfs_resolve_path (fs, subvol, origpath, loc, iatt, 0, reval);
 
 	return ret;
 }
