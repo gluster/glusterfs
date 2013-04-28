@@ -26,6 +26,41 @@
 	}						\
 	} while (0)
 
+
+static int
+glfs_loc_link (loc_t *loc, struct iatt *iatt)
+{
+	int ret = -1;
+	inode_t *linked_inode = NULL;
+
+	if (!loc->inode) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	linked_inode = inode_link (loc->inode, loc->parent, loc->name, iatt);
+	if (linked_inode) {
+		inode_lookup (linked_inode);
+		inode_unref (linked_inode);
+		ret = 0;
+	} else {
+		ret = -1;
+		errno = ENOMEM;
+	}
+
+	return ret;
+}
+
+
+static int
+glfs_loc_unlink (loc_t *loc)
+{
+	inode_unlink (loc->inode, loc->parent, loc->name);
+
+	return 0;
+}
+
+
 struct glfs_fd *
 glfs_open (struct glfs *fs, const char *path, int flags)
 {
@@ -302,9 +337,13 @@ retry:
 		goto out;
 	}
 
-	ret = syncop_create (subvol, &loc, flags, mode, glfd->fd, xattr_req);
+	ret = syncop_create (subvol, &loc, flags, mode, glfd->fd,
+			     xattr_req, &iatt);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
+	if (ret == 0)
+		ret = glfs_loc_link (&loc, &iatt);
 out:
 	loc_wipe (&loc);
 
@@ -998,9 +1037,12 @@ retry:
 		goto out;
 	}
 
-	ret = syncop_symlink (subvol, &loc, data, xattr_req);
+	ret = syncop_symlink (subvol, &loc, data, xattr_req, &iatt);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
+	if (ret == 0)
+		ret = glfs_loc_link (&loc, &iatt);
 out:
 	loc_wipe (&loc);
 
@@ -1115,9 +1157,12 @@ retry:
 		goto out;
 	}
 
-	ret = syncop_mknod (subvol, &loc, mode, dev, xattr_req);
+	ret = syncop_mknod (subvol, &loc, mode, dev, xattr_req, &iatt);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
+	if (ret == 0)
+		ret = glfs_loc_link (&loc, &iatt);
 out:
 	loc_wipe (&loc);
 
@@ -1191,9 +1236,12 @@ retry:
 		goto out;
 	}
 
-	ret = syncop_mkdir (subvol, &loc, mode, xattr_req);
+	ret = syncop_mkdir (subvol, &loc, mode, xattr_req, &iatt);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
+	if (ret == 0)
+		ret = glfs_loc_link (&loc, &iatt);
 out:
 	loc_wipe (&loc);
 
@@ -1238,6 +1286,9 @@ retry:
 	ret = syncop_unlink (subvol, &loc);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
+	if (ret == 0)
+		ret = glfs_loc_unlink (&loc);
 out:
 	loc_wipe (&loc);
 
@@ -1279,6 +1330,9 @@ retry:
 	ret = syncop_rmdir (subvol, &loc);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
+	if (ret == 0)
+		ret = glfs_loc_unlink (&loc);
 out:
 	loc_wipe (&loc);
 
@@ -1341,6 +1395,11 @@ retrynew:
 			goto retry;
 		}
 	}
+
+	if (ret == 0)
+		inode_rename (oldloc.parent->table, oldloc.parent, oldloc.name,
+			      newloc.parent, newloc.name, oldloc.inode,
+			      &oldiatt);
 out:
 	loc_wipe (&oldloc);
 	loc_wipe (&newloc);
@@ -1401,6 +1460,8 @@ retrynew:
 			goto retry;
 	}
 
+	if (ret == 0)
+		ret = glfs_loc_link (&newloc, &oldiatt);
 out:
 	loc_wipe (&oldloc);
 	loc_wipe (&newloc);
@@ -1569,6 +1630,10 @@ glfd_entry_refresh (struct glfs_fd *glfd, int plus)
 	if (ret >= 0) {
 		/* spurious errno is dangerous for glfd_entry_next() */
 		errno = 0;
+
+		if (plus)
+			gf_link_inodes_from_dirent (THIS, glfd->fd->inode,
+						    &entries);
 
 		list_splice_init (&glfd->entries, &old.list);
 		list_splice_init (&entries.list, &glfd->entries);
