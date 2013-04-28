@@ -1433,6 +1433,9 @@ syncop_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         args->op_ret   = op_ret;
         args->op_errno = op_errno;
 
+	if (buf)
+		args->iatt1 = *buf;
+
         __wake (args);
 
         return 0;
@@ -1440,7 +1443,7 @@ syncop_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 syncop_create (xlator_t *subvol, loc_t *loc, int32_t flags, mode_t mode,
-               fd_t *fd, dict_t *xdata)
+               fd_t *fd, dict_t *xdata, struct iatt *iatt)
 {
         struct syncargs args = {0, };
 
@@ -1448,6 +1451,9 @@ syncop_create (xlator_t *subvol, loc_t *loc, int32_t flags, mode_t mode,
                 loc, flags, mode, 0, fd, xdata);
 
         errno = args.op_errno;
+	if (iatt)
+		*iatt = args.iatt1;
+
         return args.op_ret;
 
 }
@@ -1744,6 +1750,8 @@ syncop_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         args->op_ret   = op_ret;
         args->op_errno = op_errno;
+	if (buf)
+		args->iatt1 = *buf;
 
         __wake (args);
 
@@ -1751,7 +1759,8 @@ syncop_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
-syncop_symlink (xlator_t *subvol, loc_t *loc, const char *newpath, dict_t *dict)
+syncop_symlink (xlator_t *subvol, loc_t *loc, const char *newpath, dict_t *dict,
+		struct iatt *iatt)
 {
         struct syncargs args = {0, };
 
@@ -1759,6 +1768,9 @@ syncop_symlink (xlator_t *subvol, loc_t *loc, const char *newpath, dict_t *dict)
                 newpath, loc, 0, dict);
 
         errno = args.op_errno;
+	if (iatt)
+		*iatt = args.iatt1;
+
         return args.op_ret;
 
 }
@@ -1812,6 +1824,9 @@ syncop_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         args->op_ret   = op_ret;
         args->op_errno = op_errno;
 
+	if (buf)
+		args->iatt1 = *buf;
+
         __wake (args);
 
         return 0;
@@ -1819,7 +1834,7 @@ syncop_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 syncop_mknod (xlator_t *subvol, loc_t *loc, mode_t mode, dev_t rdev,
-              dict_t *dict)
+              dict_t *dict, struct iatt *iatt)
 {
         struct syncargs args = {0, };
 
@@ -1827,6 +1842,9 @@ syncop_mknod (xlator_t *subvol, loc_t *loc, mode_t mode, dev_t rdev,
                 loc, mode, rdev, 0, dict);
 
         errno = args.op_errno;
+	if (iatt)
+		*iatt = args.iatt1;
+
         return args.op_ret;
 
 }
@@ -1844,6 +1862,8 @@ syncop_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         args->op_ret   = op_ret;
         args->op_errno = op_errno;
+	if (buf)
+		args->iatt1 = *buf;
 
         __wake (args);
 
@@ -1852,7 +1872,8 @@ syncop_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-syncop_mkdir (xlator_t *subvol, loc_t *loc, mode_t mode, dict_t *dict)
+syncop_mkdir (xlator_t *subvol, loc_t *loc, mode_t mode, dict_t *dict,
+	      struct iatt *iatt)
 {
         struct syncargs args = {0, };
 
@@ -1860,6 +1881,9 @@ syncop_mkdir (xlator_t *subvol, loc_t *loc, mode_t mode, dict_t *dict)
                 loc, mode, 0, dict);
 
         errno = args.op_errno;
+	if (iatt)
+		*iatt = args.iatt1;
+
         return args.op_ret;
 
 }

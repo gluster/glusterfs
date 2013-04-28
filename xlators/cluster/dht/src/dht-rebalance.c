@@ -299,7 +299,7 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
         /* Create the destination with LINKFILE mode, and linkto xattr,
            if the linkfile already exists, it will just open the file */
         ret = syncop_create (to, loc, O_RDWR, DHT_LINKFILE_MODE, fd,
-                             dict);
+                             dict, &new_stbuf);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to create %s on %s (%s)",
@@ -598,7 +598,7 @@ migrate_special_files (xlator_t *this, xlator_t *from, xlator_t *to, loc_t *loc,
                         goto out;
                 }
 
-                ret = syncop_symlink (to, loc, link, dict);
+                ret = syncop_symlink (to, loc, link, dict, 0);
                 if (ret) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "%s: creating symlink failed (%s)",
@@ -612,7 +612,7 @@ migrate_special_files (xlator_t *this, xlator_t *from, xlator_t *to, loc_t *loc,
         ret = syncop_mknod (to, loc, st_mode_from_ia (buf->ia_prot,
                                                       buf->ia_type),
                             makedev (ia_major (buf->ia_rdev),
-                                     ia_minor (buf->ia_rdev)), dict);
+                                     ia_minor (buf->ia_rdev)), dict, 0);
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING, "%s: mknod failed (%s)",
                         loc->path, strerror (errno));
