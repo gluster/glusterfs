@@ -365,7 +365,8 @@ cli_rl_input (void *_data)
                 if (!line)
                         exit(0);  //break;
 
-                cli_rl_process_line (line);
+                if (*line)
+                        cli_rl_process_line (line);
 
                 free (line);
         }
