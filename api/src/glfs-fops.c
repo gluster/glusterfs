@@ -14,6 +14,17 @@
 #include "syncop.h"
 #include "glfs.h"
 
+#define DEFAULT_REVAL_COUNT 1
+
+#define ESTALE_RETRY(ret,errno,reval,loc,label) do {	\
+	if (ret == -1 && errno == ESTALE) {	        \
+		if (reval < DEFAULT_REVAL_COUNT) {	\
+			reval++;			\
+			loc_wipe (loc);			\
+			goto label;			\
+		}					\
+	}						\
+	} while (0)
 
 struct glfs_fd *
 glfs_open (struct glfs *fs, const char *path, int flags)
@@ -23,6 +34,7 @@ glfs_open (struct glfs *fs, const char *path, int flags)
 	xlator_t        *subvol = NULL;
 	loc_t            loc = {0, };
 	struct iatt      iatt = {0, };
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -37,7 +49,11 @@ glfs_open (struct glfs *fs, const char *path, int flags)
 	if (!glfd)
 		goto out;
 
-	ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+retry:
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
 	if (ret)
 		goto out;
 
@@ -53,6 +69,11 @@ glfs_open (struct glfs *fs, const char *path, int flags)
 		goto out;
 	}
 
+	if (glfd->fd) {
+		fd_unref (glfd->fd);
+		glfd->fd = NULL;
+	}
+
 	glfd->fd = fd_create (loc.inode, getpid());
 	if (!glfd->fd) {
 		ret = -1;
@@ -61,6 +82,8 @@ glfs_open (struct glfs *fs, const char *path, int flags)
 	}
 
 	ret = syncop_open (subvol, &loc, flags, glfd->fd);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 out:
 	loc_wipe (&loc);
 
@@ -98,6 +121,7 @@ glfs_lstat (struct glfs *fs, const char *path, struct stat *stat)
 	xlator_t        *subvol = NULL;
 	loc_t            loc = {0, };
 	struct iatt      iatt = {0, };
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -107,8 +131,10 @@ glfs_lstat (struct glfs *fs, const char *path, struct stat *stat)
 		errno = EIO;
 		goto out;
 	}
+retry:
+	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt, reval);
 
-	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
 	if (ret == 0 && stat)
 		iatt_to_stat (&iatt, stat);
@@ -126,6 +152,7 @@ glfs_stat (struct glfs *fs, const char *path, struct stat *stat)
 	xlator_t        *subvol = NULL;
 	loc_t            loc = {0, };
 	struct iatt      iatt = {0, };
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -135,8 +162,10 @@ glfs_stat (struct glfs *fs, const char *path, struct stat *stat)
 		errno = EIO;
 		goto out;
 	}
+retry:
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 
-	ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
 	if (ret == 0 && stat)
 		iatt_to_stat (&iatt, stat);
@@ -182,6 +211,7 @@ glfs_creat (struct glfs *fs, const char *path, int flags, mode_t mode)
 	struct iatt      iatt = {0, };
 	uuid_t           gfid;
 	dict_t          *xattr_req = NULL;
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -216,7 +246,11 @@ glfs_creat (struct glfs *fs, const char *path, int flags, mode_t mode)
 	   is a danging symlink must create the dangling
 	   destinataion.
 	*/
-	ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+retry:
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
 	if (ret == -1 && errno != ENOENT)
 		/* Any other type of error is fatal */
 		goto out;
@@ -256,6 +290,11 @@ glfs_creat (struct glfs *fs, const char *path, int flags, mode_t mode)
 		}
 	}
 
+	if (glfd->fd) {
+		fd_unref (glfd->fd);
+		glfd->fd = NULL;
+	}
+
 	glfd->fd = fd_create (loc.inode, getpid());
 	if (!glfd->fd) {
 		ret = -1;
@@ -264,6 +303,8 @@ glfs_creat (struct glfs *fs, const char *path, int flags, mode_t mode)
 	}
 
 	ret = syncop_create (subvol, &loc, flags, mode, glfd->fd, xattr_req);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 out:
 	loc_wipe (&loc);
 
@@ -866,6 +907,7 @@ glfs_access (struct glfs *fs, const char *path, int mode)
 	xlator_t        *subvol = NULL;
 	loc_t            loc = {0, };
 	struct iatt      iatt = {0, };
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -875,12 +917,17 @@ glfs_access (struct glfs *fs, const char *path, int mode)
 		errno = EIO;
 		goto out;
 	}
+retry:
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 
-	ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
 	if (ret)
 		goto out;
 
 	ret = syncop_access (subvol, &loc, mode);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 out:
 	loc_wipe (&loc);
 
@@ -897,6 +944,7 @@ glfs_symlink (struct glfs *fs, const char *data, const char *path)
 	struct iatt      iatt = {0, };
 	uuid_t           gfid;
 	dict_t          *xattr_req = NULL;
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -921,8 +969,10 @@ glfs_symlink (struct glfs *fs, const char *data, const char *path)
 		errno = ENOMEM;
 		goto out;
 	}
+retry:
+	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt, reval);
 
-	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
 	if (loc.inode) {
 		errno = EEXIST;
@@ -949,6 +999,8 @@ glfs_symlink (struct glfs *fs, const char *data, const char *path)
 	}
 
 	ret = syncop_symlink (subvol, &loc, data, xattr_req);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 out:
 	loc_wipe (&loc);
 
@@ -966,6 +1018,7 @@ glfs_readlink (struct glfs *fs, const char *path, char *buf, size_t bufsiz)
 	xlator_t        *subvol = NULL;
 	loc_t            loc = {0, };
 	struct iatt      iatt = {0, };
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -975,8 +1028,11 @@ glfs_readlink (struct glfs *fs, const char *path, char *buf, size_t bufsiz)
 		errno = EIO;
 		goto out;
 	}
+retry:
+	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt, reval);
 
-	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
 	if (ret)
 		goto out;
 
@@ -987,6 +1043,8 @@ glfs_readlink (struct glfs *fs, const char *path, char *buf, size_t bufsiz)
 	}
 
 	ret = syncop_readlink (subvol, &loc, &buf, bufsiz);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 out:
 	loc_wipe (&loc);
 
@@ -1003,6 +1061,7 @@ glfs_mknod (struct glfs *fs, const char *path, mode_t mode, dev_t dev)
 	struct iatt      iatt = {0, };
 	uuid_t           gfid;
 	dict_t          *xattr_req = NULL;
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -1027,8 +1086,10 @@ glfs_mknod (struct glfs *fs, const char *path, mode_t mode, dev_t dev)
 		errno = ENOMEM;
 		goto out;
 	}
+retry:
+	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt, reval);
 
-	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
 	if (loc.inode) {
 		errno = EEXIST;
@@ -1055,6 +1116,8 @@ glfs_mknod (struct glfs *fs, const char *path, mode_t mode, dev_t dev)
 	}
 
 	ret = syncop_mknod (subvol, &loc, mode, dev, xattr_req);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 out:
 	loc_wipe (&loc);
 
@@ -1074,6 +1137,7 @@ glfs_mkdir (struct glfs *fs, const char *path, mode_t mode)
 	struct iatt      iatt = {0, };
 	uuid_t           gfid;
 	dict_t          *xattr_req = NULL;
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -1098,8 +1162,10 @@ glfs_mkdir (struct glfs *fs, const char *path, mode_t mode)
 		errno = ENOMEM;
 		goto out;
 	}
+retry:
+	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt, reval);
 
-	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
 	if (loc.inode) {
 		errno = EEXIST;
@@ -1126,6 +1192,8 @@ glfs_mkdir (struct glfs *fs, const char *path, mode_t mode)
 	}
 
 	ret = syncop_mkdir (subvol, &loc, mode, xattr_req);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 out:
 	loc_wipe (&loc);
 
@@ -1143,6 +1211,7 @@ glfs_unlink (struct glfs *fs, const char *path)
 	xlator_t        *subvol = NULL;
 	loc_t            loc = {0, };
 	struct iatt      iatt = {0, };
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -1152,8 +1221,11 @@ glfs_unlink (struct glfs *fs, const char *path)
 		errno = EIO;
 		goto out;
 	}
+retry:
+	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt, reval);
 
-	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
 	if (ret)
 		goto out;
 
@@ -1164,6 +1236,8 @@ glfs_unlink (struct glfs *fs, const char *path)
 	}
 
 	ret = syncop_unlink (subvol, &loc);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 out:
 	loc_wipe (&loc);
 
@@ -1178,6 +1252,7 @@ glfs_rmdir (struct glfs *fs, const char *path)
 	xlator_t        *subvol = NULL;
 	loc_t            loc = {0, };
 	struct iatt      iatt = {0, };
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -1187,8 +1262,11 @@ glfs_rmdir (struct glfs *fs, const char *path)
 		errno = EIO;
 		goto out;
 	}
+retry:
+	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt, reval);
 
-	ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
 	if (ret)
 		goto out;
 
@@ -1199,6 +1277,8 @@ glfs_rmdir (struct glfs *fs, const char *path)
 	}
 
 	ret = syncop_rmdir (subvol, &loc);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 out:
 	loc_wipe (&loc);
 
@@ -1215,6 +1295,7 @@ glfs_rename (struct glfs *fs, const char *oldpath, const char *newpath)
 	loc_t            newloc = {0, };
 	struct iatt      oldiatt = {0, };
 	struct iatt      newiatt = {0, };
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -1224,12 +1305,18 @@ glfs_rename (struct glfs *fs, const char *oldpath, const char *newpath)
 		errno = EIO;
 		goto out;
 	}
+retry:
+	ret = glfs_lresolve (fs, subvol, oldpath, &oldloc, &oldiatt, reval);
 
-	ret = glfs_lresolve (fs, subvol, oldpath, &oldloc, &oldiatt);
+	ESTALE_RETRY (ret, errno, reval, &oldloc, retry);
+
 	if (ret)
 		goto out;
+retrynew:
+	ret = glfs_lresolve (fs, subvol, newpath, &newloc, &newiatt, reval);
 
-	ret = glfs_lresolve (fs, subvol, newpath, &newloc, &newiatt);
+	ESTALE_RETRY (ret, errno, reval, &newloc, retrynew);
+
 	if (ret && errno != ENOENT && newloc.parent)
 		goto out;
 
@@ -1245,6 +1332,15 @@ glfs_rename (struct glfs *fs, const char *oldpath, const char *newpath)
 	/* TODO: check if new or old is a prefix of the other, and fail EINVAL */
 
 	ret = syncop_rename (subvol, &oldloc, &newloc);
+
+	if (ret == -1 && errno == ESTALE) {
+		if (reval < DEFAULT_REVAL_COUNT) {
+			reval++;
+			loc_wipe (&oldloc);
+			loc_wipe (&newloc);
+			goto retry;
+		}
+	}
 out:
 	loc_wipe (&oldloc);
 	loc_wipe (&newloc);
@@ -1262,6 +1358,7 @@ glfs_link (struct glfs *fs, const char *oldpath, const char *newpath)
 	loc_t            newloc = {0, };
 	struct iatt      oldiatt = {0, };
 	struct iatt      newiatt = {0, };
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -1271,12 +1368,18 @@ glfs_link (struct glfs *fs, const char *oldpath, const char *newpath)
 		errno = EIO;
 		goto out;
 	}
+retry:
+	ret = glfs_lresolve (fs, subvol, oldpath, &oldloc, &oldiatt, reval);
 
-	ret = glfs_lresolve (fs, subvol, oldpath, &oldloc, &oldiatt);
+	ESTALE_RETRY (ret, errno, reval, &oldloc, retry);
+
 	if (ret)
 		goto out;
+retrynew:
+	ret = glfs_lresolve (fs, subvol, newpath, &newloc, &newiatt, reval);
 
-	ret = glfs_lresolve (fs, subvol, newpath, &newloc, &newiatt);
+	ESTALE_RETRY (ret, errno, reval, &newloc, retrynew);
+
 	if (ret == 0) {
 		ret = -1;
 		errno = EEXIST;
@@ -1290,6 +1393,14 @@ glfs_link (struct glfs *fs, const char *oldpath, const char *newpath)
 	}
 
 	ret = syncop_link (subvol, &oldloc, &newloc);
+
+	if (ret == -1 && errno == ESTALE) {
+		loc_wipe (&oldloc);
+		loc_wipe (&newloc);
+		if (reval--)
+			goto retry;
+	}
+
 out:
 	loc_wipe (&oldloc);
 	loc_wipe (&newloc);
@@ -1306,6 +1417,7 @@ glfs_opendir (struct glfs *fs, const char *path)
 	xlator_t        *subvol = NULL;
 	loc_t            loc = {0, };
 	struct iatt      iatt = {0, };
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -1319,9 +1431,13 @@ glfs_opendir (struct glfs *fs, const char *path)
 	glfd = glfs_fd_new (fs);
 	if (!glfd)
 		goto out;
-	INIT_LIST_HEAD (&glfd->entries);
 
-	ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+	INIT_LIST_HEAD (&glfd->entries);
+retry:
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
 	if (ret)
 		goto out;
 
@@ -1329,6 +1445,11 @@ glfs_opendir (struct glfs *fs, const char *path)
 		ret = -1;
 		errno = ENOTDIR;
 		goto out;
+	}
+
+	if (glfd->fd) {
+		fd_unref (glfd->fd);
+		glfd->fd = NULL;
 	}
 
 	glfd->fd = fd_create (loc.inode, getpid());
@@ -1339,6 +1460,8 @@ glfs_opendir (struct glfs *fs, const char *path)
 	}
 
 	ret = syncop_opendir (subvol, &loc, glfd->fd);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 out:
 	loc_wipe (&loc);
 
@@ -1538,6 +1661,7 @@ glfs_statvfs (struct glfs *fs, const char *path, struct statvfs *buf)
 	xlator_t        *subvol = NULL;
 	loc_t            loc = {0, };
 	struct iatt      iatt = {0, };
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -1547,12 +1671,17 @@ glfs_statvfs (struct glfs *fs, const char *path, struct statvfs *buf)
 		errno = EIO;
 		goto out;
 	}
+retry:
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 
-	ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
 	if (ret)
 		goto out;
 
 	ret = syncop_statfs (subvol, &loc, buf);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 out:
 	loc_wipe (&loc);
 
@@ -1568,6 +1697,7 @@ glfs_setattr (struct glfs *fs, const char *path, struct iatt *iatt,
 	xlator_t        *subvol = NULL;
 	loc_t            loc = {0, };
 	struct iatt      riatt = {0, };
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -1577,16 +1707,20 @@ glfs_setattr (struct glfs *fs, const char *path, struct iatt *iatt,
 		errno = EIO;
 		goto out;
 	}
-
+retry:
 	if (follow)
-		ret = glfs_resolve (fs, subvol, path, &loc, &riatt);
+		ret = glfs_resolve (fs, subvol, path, &loc, &riatt, reval);
 	else
-		ret = glfs_lresolve (fs, subvol, path, &loc, &riatt);
+		ret = glfs_lresolve (fs, subvol, path, &loc, &riatt, reval);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
 	if (ret)
 		goto out;
 
 	ret = syncop_setattr (subvol, &loc, iatt, valid, 0, 0);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 out:
 	loc_wipe (&loc);
 
@@ -1799,6 +1933,7 @@ glfs_getxattr_common (struct glfs *fs, const char *path, const char *name,
 	loc_t            loc = {0, };
 	struct iatt      iatt = {0, };
 	dict_t          *xattr = NULL;
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -1808,15 +1943,21 @@ glfs_getxattr_common (struct glfs *fs, const char *path, const char *name,
 		errno = EIO;
 		goto out;
 	}
-
+retry:
 	if (follow)
-		ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+		ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 	else
-		ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+		ret = glfs_lresolve (fs, subvol, path, &loc, &iatt, reval);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
 	if (ret)
 		goto out;
 
 	ret = syncop_getxattr (subvol, &loc, &xattr, name);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
 	if (ret)
 		goto out;
 
@@ -1904,6 +2045,7 @@ glfs_listxattr_common (struct glfs *fs, const char *path, void *value,
 	loc_t            loc = {0, };
 	struct iatt      iatt = {0, };
 	dict_t          *xattr = NULL;
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -1914,14 +2056,21 @@ glfs_listxattr_common (struct glfs *fs, const char *path, void *value,
 		goto out;
 	}
 
+retry:
 	if (follow)
-		ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+		ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 	else
-		ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+		ret = glfs_lresolve (fs, subvol, path, &loc, &iatt, reval);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
 	if (ret)
 		goto out;
 
 	ret = syncop_getxattr (subvol, &loc, &xattr, NULL);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
 	if (ret)
 		goto out;
 
@@ -2002,6 +2151,7 @@ glfs_setxattr_common (struct glfs *fs, const char *path, const char *name,
 	loc_t            loc = {0, };
 	struct iatt      iatt = {0, };
 	dict_t          *xattr = NULL;
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -2011,11 +2161,14 @@ glfs_setxattr_common (struct glfs *fs, const char *path, const char *name,
 		errno = EIO;
 		goto out;
 	}
-
+retry:
 	if (follow)
-		ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+		ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 	else
-		ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+		ret = glfs_lresolve (fs, subvol, path, &loc, &iatt, reval);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
 	if (ret)
 		goto out;
 
@@ -2027,6 +2180,9 @@ glfs_setxattr_common (struct glfs *fs, const char *path, const char *name,
 	}
 
 	ret = syncop_setxattr (subvol, &loc, xattr, flags);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
 out:
 	loc_wipe (&loc);
 	if (xattr)
@@ -2093,6 +2249,7 @@ glfs_removexattr_common (struct glfs *fs, const char *path, const char *name,
 	xlator_t        *subvol = NULL;
 	loc_t            loc = {0, };
 	struct iatt      iatt = {0, };
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -2102,15 +2259,21 @@ glfs_removexattr_common (struct glfs *fs, const char *path, const char *name,
 		errno = EIO;
 		goto out;
 	}
-
+retry:
 	if (follow)
-		ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+		ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 	else
-		ret = glfs_lresolve (fs, subvol, path, &loc, &iatt);
+		ret = glfs_lresolve (fs, subvol, path, &loc, &iatt, reval);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
 	if (ret)
 		goto out;
 
 	ret = syncop_removexattr (subvol, &loc, name);
+
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
 out:
 	loc_wipe (&loc);
 
@@ -2172,6 +2335,7 @@ glfs_chdir (struct glfs *fs, const char *path)
 	xlator_t        *subvol = NULL;
 	loc_t            loc = {0, };
 	struct iatt      iatt = {0, };
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -2181,8 +2345,11 @@ glfs_chdir (struct glfs *fs, const char *path)
 		errno = EIO;
 		goto out;
 	}
+retry:
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 
-	ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
 	if (ret)
 		goto out;
 
@@ -2233,6 +2400,7 @@ glfs_realpath (struct glfs *fs, const char *path, char *resolved_path)
 	xlator_t        *subvol = NULL;
 	loc_t            loc = {0, };
 	struct iatt      iatt = {0, };
+	int              reval = 0;
 
 	__glfs_entry_fs (fs);
 
@@ -2253,8 +2421,11 @@ glfs_realpath (struct glfs *fs, const char *path, char *resolved_path)
 		errno = EIO;
 		goto out;
 	}
+retry:
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 
-	ret = glfs_resolve (fs, subvol, path, &loc, &iatt);
+	ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
 	if (ret)
 		goto out;
 
