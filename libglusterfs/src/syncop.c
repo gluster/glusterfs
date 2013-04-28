@@ -802,6 +802,8 @@ entry_copy (gf_dirent_t *source)
         sink->d_type = source->d_type;
         sink->d_stat = source->d_stat;
 
+	if (source->inode)
+		sink->inode = inode_ref (source->inode);
         return sink;
 }
 
