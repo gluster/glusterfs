@@ -243,6 +243,12 @@ afr_sh_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 inline void
+afr_prune_special_keys (dict_t *xattr_dict)
+{
+        dict_del (xattr_dict, GF_SELINUX_XATTR_KEY);
+}
+
+inline void
 afr_prune_pending_keys (dict_t *xattr_dict, afr_private_t *priv)
 {
         int i = 0;
@@ -271,6 +277,8 @@ afr_sh_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         afr_prune_pending_keys (xattr, priv);
+
+        afr_prune_special_keys (xattr);
 
         i = (long) cookie;
 

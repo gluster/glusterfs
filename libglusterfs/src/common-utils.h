@@ -65,6 +65,8 @@ void trap (void);
 #define GEOREP "geo-replication"
 #define GHADOOP "glusterfs-hadoop"
 
+#define GF_SELINUX_XATTR_KEY "security.selinux"
+
 #define WIPE(statp) do { typeof(*statp) z = {0,}; if (statp) *statp = z; } while (0)
 
 #define IS_EXT_FS(fs_name)          \
