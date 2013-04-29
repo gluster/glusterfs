@@ -1,0 +1,10 @@
+volume vol-posix
+    type storage/posix
+    option directory /path/to/brick
+end-volume
+
+volume vol-glupy
+    type features/glupy
+    option module-name debug-trace
+    subvolumes vol-posix
+end-volume

@@ -1,0 +1,9 @@
+Loading a translator written in Python using the glupy meta translator
+-------------------------------------------------------------------------------
+'test.vol' is a simple volfile with the debug-trace Python translator on top
+of a brick. The volfile can be mounted using the following command.
+
+$ glusterfs --debug -f test.vol /path/to/mntpt
+
+If then file operations are performed on the newly mounted file system, log
+output would be printed by the Python translator on the standard output.

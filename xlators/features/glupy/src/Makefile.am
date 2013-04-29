@@ -4,7 +4,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 glupydir = $(xlatordir)/glupy
 
-glupy_PYTHON = gluster.py negative.py helloworld.py
+glupy_PYTHON = gluster.py negative.py helloworld.py debug-trace.py
 
 glupy_la_LDFLAGS = -module -avoid-version -shared -nostartfiles
 glupy_la_SOURCES = glupy.c
