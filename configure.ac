@@ -95,6 +95,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/protocol/server/Makefile
 		xlators/protocol/server/src/Makefile
 		xlators/features/Makefile
+		xlators/features/glupy/Makefile
+		xlators/features/glupy/src/Makefile
 		xlators/features/locks/Makefile
 		xlators/features/locks/src/Makefile
 		xlators/features/quota/Makefile
@@ -631,6 +633,14 @@ if test "x$LIBAIO" != "x"; then
    BUILD_LIBAIO=yes
 fi
 
+
+BUILD_GLUPY=no
+AC_CHECK_LIB([python2.6],[PyImport_Import],[BUILD_GLUPY=yes])
+
+if test "x$BUILD_GLUPY" = "xyes"; then
+   GLUPY_SUBDIR=glupy
+fi
+AC_SUBST(GLUPY_SUBDIR)
 
 AC_SUBST(GF_HOST_OS)
 AC_SUBST([GF_GLUSTERFS_LIBS])
