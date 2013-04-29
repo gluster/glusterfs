@@ -29,6 +29,28 @@
 enum {
         GLUPY_LOOKUP = 0,
         GLUPY_CREATE,
+        GLUPY_OPEN,
+        GLUPY_READV,
+        GLUPY_WRITEV,
+        GLUPY_OPENDIR,
+        GLUPY_READDIR,
+        GLUPY_READDIRP,
+        GLUPY_STAT,
+        GLUPY_FSTAT,
+        GLUPY_STATFS,
+        GLUPY_SETXATTR,
+        GLUPY_GETXATTR,
+        GLUPY_FSETXATTR,
+        GLUPY_FGETXATTR,
+        GLUPY_REMOVEXATTR,
+        GLUPY_FREMOVEXATTR,
+        GLUPY_LINK,
+        GLUPY_UNLINK,
+        GLUPY_READLINK,
+        GLUPY_SYMLINK,
+        GLUPY_MKNOD,
+        GLUPY_MKDIR,
+        GLUPY_RMDIR,
         GLUPY_N_FUNCS
 };
 
