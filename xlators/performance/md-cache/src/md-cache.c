@@ -52,7 +52,7 @@ static struct mdc_key {
 		.check = 1,
 	},
 	{
-		.name = "security.selinux",
+		.name = GF_SELINUX_XATTR_KEY,
 		.load = 0,
 		.check = 1,
 	},

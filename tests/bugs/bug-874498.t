@@ -1,5 +1,7 @@
 #!/bin/bash
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../afr.rc
+
 cleanup;
 
 TEST glusterd
@@ -13,11 +15,11 @@ TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0;
 B0_hiphenated=`echo $B0 | tr '/' '-'`
 kill -9 `cat /var/lib/glusterd/vols/$V0/run/$H0$B0_hiphenated-brick1.pid` ;
 
-
 echo "GLUSTER FILE SYSTEM" > $M0/FILE1
 echo "GLUSTER FILE SYSTEM" > $M0/FILE2
 
-FILEN=$B0"/brick2/.glusterfs/indices/xattrop/"
+FILEN=$B0"/brick2"
+XATTROP=$FILEN/.glusterfs/indices/xattrop
 
 function get_gfid()
 {
@@ -34,7 +36,7 @@ GFID_FILE2=`get_gfid $B0/brick2/FILE2`
 
 
 count=0
-for i in `ls $FILEN`
+for i in `ls $XATTROP`
 do
  if [ "$i" == "$GFID_ROOT" ] || [ "$i" == "$GFID_FILE1" ] || [ "$i" == "$GFID_FILE2" ]
         then
@@ -45,25 +47,13 @@ done
 EXPECT "3" echo $count
 
 
-function count_entries()
-{
-    val1=0
-##count the number of entries after self heal
-    for g in `ls $1`
-    do
-	val1=$(( val1 + 1 ))
-    done
-
-    echo $val1;
-}
-
 TEST $CLI volume start $V0 force
 sleep 5
 TEST $CLI volume heal $V0
 
 
 ##Expected number of entries are 0 in the .glusterfs/indices/xattrop directory
-EXPECT_WITHIN 60 '0' count_entries $FILEN;
+EXPECT_WITHIN 60 '0' count_sh_entries $FILEN;
 
 TEST $CLI volume stop $V0;
 TEST $CLI volume delete $V0;
