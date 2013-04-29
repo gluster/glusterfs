@@ -1461,7 +1461,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
         int32_t                 read_child    = -1;
         int                     ret           = -1;
         fop_getxattr_cbk_t      cbk           = NULL;
-
+        int                     afr_xtime_gauge[MCNT_MAX] = {0,};
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -1557,13 +1557,20 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 
                         }
 
+                        /* don't err out on getting ENOTCONN (brick down)
+                         * from a subset of the bricks
+                         */
+                        memcpy (afr_xtime_gauge, marker_xtime_default_gauge,
+                                sizeof (afr_xtime_gauge));
+                        afr_xtime_gauge[MCNT_NOTFOUND] = 0;
+                        afr_xtime_gauge[MCNT_ENOTCONN] = 0;
                         if (cluster_getmarkerattr (frame, this, loc,
                                                    name, local,
                                                    afr_getxattr_unwind,
                                                    sub_volumes,
                                                    priv->child_count,
                                                    MARKER_XTIME_TYPE,
-                                                   marker_xtime_default_gauge,
+                                                   afr_xtime_gauge,
                                                    priv->vol_uuid)) {
                                 gf_log (this->name, GF_LOG_INFO,
                                         "%s: failed to get marker attr (%s)",
