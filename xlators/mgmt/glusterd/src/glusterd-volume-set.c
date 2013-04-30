@@ -347,197 +347,197 @@ out:
 
 struct volopt_map_entry glusterd_volopt_map[] = {
         /* DHT xlator options */
-        { .key           = "cluster.lookup-unhashed",
-          .voltype       = "cluster/distribute",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "cluster.lookup-unhashed",
+          .voltype    = "cluster/distribute",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.min-free-disk",
-          .voltype       = "cluster/distribute",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "cluster.min-free-disk",
+          .voltype    = "cluster/distribute",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.min-free-inodes",
-          .voltype       = "cluster/distribute",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "cluster.min-free-inodes",
+          .voltype    = "cluster/distribute",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.rebalance-stats",
-          .voltype       = "cluster/distribute",
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "cluster.rebalance-stats",
+          .voltype    = "cluster/distribute",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.subvols-per-directory",
-          .voltype       = "cluster/distribute",
-          .option        = "directory-layout-spread",
-          .op_version    = 2,
-          .validate_fn   = validate_subvols_per_directory,
-          .client_option = _gf_true
+        { .key         = "cluster.subvols-per-directory",
+          .voltype     = "cluster/distribute",
+          .option      = "directory-layout-spread",
+          .op_version  = 2,
+          .validate_fn = validate_subvols_per_directory,
+          .flags       = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.readdir-optimize",
-          .voltype       = "cluster/distribute",
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "cluster.readdir-optimize",
+          .voltype    = "cluster/distribute",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.nufa",
-          .voltype       = "cluster/distribute",
-          .option        = "!nufa",
-          .type          = NO_DOC,
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "cluster.nufa",
+          .voltype    = "cluster/distribute",
+          .option     = "!nufa",
+          .type       = NO_DOC,
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.rsync-hash-regex",
-          .voltype       = "cluster/distribute",
-          .type          = NO_DOC,
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "cluster.rsync-hash-regex",
+          .voltype    = "cluster/distribute",
+          .type       = NO_DOC,
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.extra-hash-regex",
-          .voltype       = "cluster/distribute",
-          .type          = NO_DOC,
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "cluster.extra-hash-regex",
+          .voltype    = "cluster/distribute",
+          .type       = NO_DOC,
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.dht-xattr-name",
-          .voltype       = "cluster/distribute",
-          .option        = "xattr-name",
-          .type          = NO_DOC,
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "cluster.dht-xattr-name",
+          .voltype    = "cluster/distribute",
+          .option     = "xattr-name",
+          .type       = NO_DOC,
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
 
         /* AFR xlator options */
-        { .key           = "cluster.entry-change-log",
-          .voltype       = "cluster/replicate",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "cluster.entry-change-log",
+          .voltype    = "cluster/replicate",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.read-subvolume",
-          .voltype       = "cluster/replicate",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "cluster.read-subvolume",
+          .voltype    = "cluster/replicate",
+          .op_version = 1,
+          .flags     = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.read-subvolume-index",
-          .voltype       = "cluster/replicate",
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "cluster.read-subvolume-index",
+          .voltype    = "cluster/replicate",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.read-hash-mode",
-          .voltype       = "cluster/replicate",
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "cluster.read-hash-mode",
+          .voltype    = "cluster/replicate",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.background-self-heal-count",
-          .voltype       = "cluster/replicate",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "cluster.background-self-heal-count",
+          .voltype    = "cluster/replicate",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.metadata-self-heal",
-          .voltype       = "cluster/replicate",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "cluster.metadata-self-heal",
+          .voltype    = "cluster/replicate",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.data-self-heal",
-          .voltype       = "cluster/replicate",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "cluster.data-self-heal",
+          .voltype    = "cluster/replicate",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.entry-self-heal",
-          .voltype       = "cluster/replicate",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "cluster.entry-self-heal",
+          .voltype    = "cluster/replicate",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
         { .key           = "cluster.self-heal-daemon",
           .voltype       = "cluster/replicate",
           .option        = "!self-heal-daemon",
           .op_version    = 1
         },
-        { .key           = "cluster.heal-timeout",
-          .voltype       = "cluster/replicate",
-          .option        = "!heal-timeout",
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "cluster.heal-timeout",
+          .voltype    = "cluster/replicate",
+          .option     = "!heal-timeout",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.strict-readdir",
-          .voltype       = "cluster/replicate",
-          .type          = NO_DOC,
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "cluster.strict-readdir",
+          .voltype    = "cluster/replicate",
+          .type       = NO_DOC,
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.self-heal-window-size",
-          .voltype       = "cluster/replicate",
-          .option        = "data-self-heal-window-size",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "cluster.self-heal-window-size",
+          .voltype    = "cluster/replicate",
+          .option     = "data-self-heal-window-size",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.data-change-log",
-          .voltype       = "cluster/replicate",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "cluster.data-change-log",
+          .voltype    = "cluster/replicate",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.metadata-change-log",
-          .voltype       = "cluster/replicate",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "cluster.metadata-change-log",
+          .voltype    = "cluster/replicate",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.data-self-heal-algorithm",
-          .voltype       = "cluster/replicate",
-          .option        = "data-self-heal-algorithm",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "cluster.data-self-heal-algorithm",
+          .voltype    = "cluster/replicate",
+          .option     = "data-self-heal-algorithm",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.eager-lock",
-          .voltype       = "cluster/replicate",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "cluster.eager-lock",
+          .voltype    = "cluster/replicate",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.quorum-type",
-          .voltype       = "cluster/replicate",
-          .option        = "quorum-type",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "cluster.quorum-type",
+          .voltype    = "cluster/replicate",
+          .option     = "quorum-type",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.quorum-count",
-          .voltype       = "cluster/replicate",
-          .option        = "quorum-count",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "cluster.quorum-count",
+          .voltype    = "cluster/replicate",
+          .option     = "quorum-count",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.choose-local",
-          .voltype       = "cluster/replicate",
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "cluster.choose-local",
+          .voltype    = "cluster/replicate",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.self-heal-readdir-size",
-          .voltype       = "cluster/replicate",
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "cluster.self-heal-readdir-size",
+          .voltype    = "cluster/replicate",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.post-op-delay-secs",
-          .voltype       = "cluster/replicate",
-          .type          = NO_DOC,
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "cluster.post-op-delay-secs",
+          .voltype    = "cluster/replicate",
+          .type       = NO_DOC,
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.readdir-failover",
-          .voltype       = "cluster/replicate",
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "cluster.readdir-failover",
+          .voltype    = "cluster/replicate",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
 
         /* Stripe xlator options */
-        { .key           = "cluster.stripe-block-size",
-          .voltype       = "cluster/stripe",
-          .option        = "block-size",
-          .op_version    = 1,
+        { .key         = "cluster.stripe-block-size",
+          .voltype     = "cluster/stripe",
+          .option      = "block-size",
+          .op_version  = 1,
           .validate_fn = validate_stripe,
-          .client_option = _gf_true
+          .flags       = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "cluster.stripe-coalesce",
-          .voltype       = "cluster/stripe",
-          .option        = "coalesce",
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "cluster.stripe-coalesce",
+          .voltype    = "cluster/stripe",
+          .option     = "coalesce",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
 
         /* IO-stats xlator options */
@@ -563,55 +563,55 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "!brick-log-level",
           .op_version  = 1
         },
-        { .key           = "diagnostics.client-log-level",
-          .voltype       = "debug/io-stats",
-          .option        = "!client-log-level",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "diagnostics.client-log-level",
+          .voltype    = "debug/io-stats",
+          .option     = "!client-log-level",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
         { .key         = "diagnostics.brick-sys-log-level",
           .voltype     = "debug/io-stats",
           .option      = "!sys-log-level",
           .op_version  = 1
         },
-        { .key           = "diagnostics.client-sys-log-level",
-          .voltype       = "debug/io-stats",
-          .option        = "!sys-log-level",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "diagnostics.client-sys-log-level",
+          .voltype    = "debug/io-stats",
+          .option     = "!sys-log-level",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
 
         /* IO-cache xlator options */
-        { .key           = "performance.cache-max-file-size",
-          .voltype       = "performance/io-cache",
-          .option        = "max-file-size",
-          .op_version    = 1,
-          .validate_fn   = validate_cache_max_min_size,
-          .client_option = _gf_true
+        { .key         = "performance.cache-max-file-size",
+          .voltype     = "performance/io-cache",
+          .option      = "max-file-size",
+          .op_version  = 1,
+          .validate_fn = validate_cache_max_min_size,
+          .flags       = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "performance.cache-min-file-size",
-          .voltype       = "performance/io-cache",
-          .option        = "min-file-size",
-          .op_version    = 1,
-          .validate_fn   = validate_cache_max_min_size,
-          .client_option = _gf_true
+        { .key         = "performance.cache-min-file-size",
+          .voltype     = "performance/io-cache",
+          .option      = "min-file-size",
+          .op_version  = 1,
+          .validate_fn = validate_cache_max_min_size,
+          .flags       = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "performance.cache-refresh-timeout",
-          .voltype       = "performance/io-cache",
-          .option        = "cache-timeout",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "performance.cache-refresh-timeout",
+          .voltype    = "performance/io-cache",
+          .option     = "cache-timeout",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "performance.cache-priority",
-          .voltype       = "performance/io-cache",
-          .option        = "priority",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "performance.cache-priority",
+          .voltype    = "performance/io-cache",
+          .option     = "priority",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "performance.cache-size",
-          .voltype       = "performance/io-cache",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "performance.cache-size",
+          .voltype    = "performance/io-cache",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
 
         /* IO-threads xlator options */
@@ -646,94 +646,94 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
 
         /* Other perf xlators' options */
-        { .key           = "performance.cache-size",
-          .voltype       = "performance/quick-read",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "performance.cache-size",
+          .voltype    = "performance/quick-read",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "performance.flush-behind",
-          .voltype       = "performance/write-behind",
-          .option        = "flush-behind",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "performance.flush-behind",
+          .voltype    = "performance/write-behind",
+          .option     = "flush-behind",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "performance.write-behind-window-size",
-          .voltype       = "performance/write-behind",
-          .option        = "cache-size",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "performance.write-behind-window-size",
+          .voltype    = "performance/write-behind",
+          .option     = "cache-size",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "performance.strict-o-direct",
-          .voltype       = "performance/write-behind",
-          .option        = "strict-O_DIRECT",
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "performance.strict-o-direct",
+          .voltype    = "performance/write-behind",
+          .option     = "strict-O_DIRECT",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "performance.strict-write-ordering",
-          .voltype       = "performance/write-behind",
-          .option        = "strict-write-ordering",
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "performance.strict-write-ordering",
+          .voltype    = "performance/write-behind",
+          .option     = "strict-write-ordering",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "performance.lazy-open",
-          .voltype       = "performance/open-behind",
-          .option        = "lazy-open",
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "performance.lazy-open",
+          .voltype    = "performance/open-behind",
+          .option     = "lazy-open",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "performance.read-ahead-page-count",
-          .voltype       = "performance/read-ahead",
-          .option        = "page-count",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "performance.read-ahead-page-count",
+          .voltype    = "performance/read-ahead",
+          .option     = "page-count",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "performance.md-cache-timeout",
-          .voltype       = "performance/md-cache",
-          .option        = "md-cache-timeout",
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "performance.md-cache-timeout",
+          .voltype    = "performance/md-cache",
+          .option     = "md-cache-timeout",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
 
         /* Client xlator options */
-        { .key           = "network.frame-timeout",
-          .voltype       = "protocol/client",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "network.frame-timeout",
+          .voltype    = "protocol/client",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "network.ping-timeout",
-          .voltype       = "protocol/client",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "network.ping-timeout",
+          .voltype    = "protocol/client",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "network.tcp-window-size",
-          .voltype       = "protocol/client",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "network.tcp-window-size",
+          .voltype    = "protocol/client",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "features.lock-heal",
-          .voltype       = "protocol/client",
-          .option        = "lk-heal",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "features.lock-heal",
+          .voltype    = "protocol/client",
+          .option     = "lk-heal",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "features.grace-timeout",
-          .voltype       = "protocol/client",
-          .option        = "grace-timeout",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "features.grace-timeout",
+          .voltype    = "protocol/client",
+          .option     = "grace-timeout",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "client.ssl",
-          .voltype       = "protocol/client",
-          .option        = "transport.socket.ssl-enabled",
-          .type          = NO_DOC,
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "client.ssl",
+          .voltype    = "protocol/client",
+          .option     = "transport.socket.ssl-enabled",
+          .type       = NO_DOC,
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "network.remote-dio",
-          .voltype       = "protocol/client",
-          .option        = "filter-O_DIRECT",
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = "network.remote-dio",
+          .voltype    = "protocol/client",
+          .option     = "filter-O_DIRECT",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
 
         /* Server xlator options */
@@ -798,141 +798,146 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
 
         /* Performance xlators enable/disbable options */
-        { .key           = "performance.write-behind",
-          .voltype       = "performance/write-behind",
-          .option        = "!perf",
-          .value         = "on",
-          .op_version    = 1,
-          .description   = "enable/disable write-behind translator in the "
-                           "volume.",
-          .client_option = _gf_true
-        },
-        { .key           = "performance.read-ahead",
-          .voltype       = "performance/read-ahead",
-          .option        = "!perf",
-          .value         = "on",
-          .op_version    = 1,
-          .description   = "enable/disable read-ahead translator in the "
-                           "volume.",
-          .client_option = _gf_true
-        },
-        { .key           = "performance.io-cache",
-          .voltype       = "performance/io-cache",
-          .option        = "!perf",
-          .value         = "on",
-          .op_version    = 1,
-          .description   = "enable/disable io-cache translator in the volume.",
-          .client_option = _gf_true
-        },
-        { .key           = "performance.quick-read",
-          .voltype       = "performance/quick-read",
-          .option        = "!perf",
-          .value         = "on",
-          .op_version    = 1,
-          .description   = "enable/disable quick-read translator in the "
-                           "volume.",
-          .client_option = _gf_true
-        },
-        { .key           = "performance.open-behind",
-          .voltype       = "performance/open-behind",
-          .option        = "!perf",
-          .value         = "on",
-          .op_version    = 2,
-          .description   = "enable/disable open-behind translator in the "
-                           "volume.",
-          .client_option = _gf_true
-        },
-        { .key           = "performance.stat-prefetch",
-          .voltype       = "performance/md-cache",
-          .option        = "!perf",
-          .value         = "on",
-          .op_version    = 1,
-          .description   = "enable/disable meta-data caching translator in the "
-                           "volume.",
-          .client_option = _gf_true
-        },
-        { .key           = "performance.client-io-threads",
-          .voltype       = "performance/io-threads",
-          .option        = "!perf",
-          .value         = "off",
-          .op_version    = 1,
-          .description   = "enable/disable io-threads translator in the client "
-                           "graph of volume.",
-          .client_option = _gf_true
-        },
-        { .key         = "performance.nfs.write-behind",
+        { .key         = "performance.write-behind",
           .voltype     = "performance/write-behind",
-          .option      = "!nfsperf",
+          .option      = "!perf",
           .value       = "on",
-          .type        = NO_DOC,
-          .op_version  = 1
+          .op_version  = 1,
+          .description = "enable/disable write-behind translator in the "
+                         "volume.",
+          .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
-        { .key         = "performance.nfs.read-ahead",
+        { .key         = "performance.read-ahead",
           .voltype     = "performance/read-ahead",
-          .option      = "!nfsperf",
-          .value       = "off",
-          .type        = NO_DOC,
-          .op_version  = 1
+          .option      = "!perf",
+          .value       = "on",
+          .op_version  = 1,
+          .description = "enable/disable read-ahead translator in the volume.",
+          .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
-        { .key         = "performance.nfs.io-cache",
+        { .key         = "performance.io-cache",
           .voltype     = "performance/io-cache",
-          .option      = "!nfsperf",
-          .value       = "off",
-          .type        = NO_DOC,
-          .op_version  = 1
+          .option      = "!perf",
+          .value       = "on",
+          .op_version  = 1,
+          .description = "enable/disable io-cache translator in the volume.",
+          .flags       = OPT_FLAG_CLIENT_OPT
         },
-        { .key         = "performance.nfs.quick-read",
+        { .key         = "performance.quick-read",
           .voltype     = "performance/quick-read",
-          .option      = "!nfsperf",
-          .value       = "off",
-          .type        = NO_DOC,
-          .op_version  = 1
+          .option      = "!perf",
+          .value       = "on",
+          .op_version  = 1,
+          .description = "enable/disable quick-read translator in the volume.",
+          .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
+
         },
-        { .key         = "performance.nfs.stat-prefetch",
+        { .key         = "performance.open-behind",
+          .voltype     = "performance/open-behind",
+          .option      = "!perf",
+          .value       = "on",
+          .op_version  = 2,
+          .description = "enable/disable open-behind translator in the volume.",
+          .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
+
+        },
+        { .key         = "performance.stat-prefetch",
           .voltype     = "performance/md-cache",
-          .option      = "!nfsperf",
-          .value       = "off",
-          .type        = NO_DOC,
-          .op_version  = 1
+          .option      = "!perf",
+          .value       = "on",
+          .op_version  = 1,
+          .description = "enable/disable meta-data caching translator in the "
+                         "volume.",
+          .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
-        { .key         = "performance.nfs.io-threads",
+        { .key         = "performance.client-io-threads",
           .voltype     = "performance/io-threads",
-          .option      = "!nfsperf",
+          .option      = "!perf",
           .value       = "off",
-          .type        = NO_DOC,
-          .op_version  = 1
+          .op_version  = 1,
+          .description = "enable/disable io-threads translator in the client "
+                         "graph of volume.",
+          .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
-        { .key           = "performance.force-readdirp",
-          .voltype       = "performance/md-cache",
-          .option        = "force-readdirp",
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "performance.nfs.write-behind",
+          .voltype    = "performance/write-behind",
+          .option     = "!nfsperf",
+          .value      = "on",
+          .type       = NO_DOC,
+          .op_version = 1,
+          .flags      = OPT_FLAG_XLATOR_OPT
+        },
+        { .key        = "performance.nfs.read-ahead",
+          .voltype    = "performance/read-ahead",
+          .option     = "!nfsperf",
+          .value      = "off",
+          .type       = NO_DOC,
+          .op_version = 1,
+          .flags      = OPT_FLAG_XLATOR_OPT
+        },
+        { .key        = "performance.nfs.io-cache",
+          .voltype    = "performance/io-cache",
+          .option     = "!nfsperf",
+          .value      = "off",
+          .type       = NO_DOC,
+          .op_version = 1,
+          .flags      = OPT_FLAG_XLATOR_OPT
+        },
+        { .key        = "performance.nfs.quick-read",
+          .voltype    = "performance/quick-read",
+          .option     = "!nfsperf",
+          .value      = "off",
+          .type       = NO_DOC,
+          .op_version = 1,
+          .flags      = OPT_FLAG_XLATOR_OPT
+        },
+        { .key        = "performance.nfs.stat-prefetch",
+          .voltype    = "performance/md-cache",
+          .option     = "!nfsperf",
+          .value      = "off",
+          .type       = NO_DOC,
+          .op_version = 1,
+          .flags      = OPT_FLAG_XLATOR_OPT
+        },
+        { .key        = "performance.nfs.io-threads",
+          .voltype    = "performance/io-threads",
+          .option     = "!nfsperf",
+          .value      = "off",
+          .type       = NO_DOC,
+          .op_version = 1,
+          .flags      = OPT_FLAG_XLATOR_OPT
+        },
+        { .key        = "performance.force-readdirp",
+          .voltype    = "performance/md-cache",
+          .option     = "force-readdirp",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
 
         /* Quota xlator options */
-        { .key           = VKEY_FEATURES_LIMIT_USAGE,
-          .voltype       = "features/quota",
-          .option        = "limit-set",
-          .type          = NO_DOC,
-          .op_version    = 1,
-          .client_option = _gf_true
+        { .key        = VKEY_FEATURES_LIMIT_USAGE,
+          .voltype    = "features/quota",
+          .option     = "limit-set",
+          .type       = NO_DOC,
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "features.quota-timeout",
-          .voltype       = "features/quota",
-          .option        = "timeout",
-          .value         = "0",
-          .op_version    = 1,
-          .validate_fn   = validate_quota,
-          .client_option = _gf_true
+        { .key         = "features.quota-timeout",
+          .voltype     = "features/quota",
+          .option      = "timeout",
+          .value       = "0",
+          .op_version  = 1,
+          .validate_fn = validate_quota,
+          .flags       = OPT_FLAG_CLIENT_OPT
         },
-        { .key           = "features.quota-deem-statfs",
-          .voltype       = "features/quota",
-          .option        = "deem-statfs",
-          .value         = "off",
-          .type          = DOC,
-          .op_version    = 2,
-          .validate_fn   = validate_quota,
-          .client_option = _gf_true
+        { .key         = "features.quota-deem-statfs",
+          .voltype     = "features/quota",
+          .option      = "deem-statfs",
+          .value       = "off",
+          .type        = DOC,
+          .op_version  = 2,
+          .validate_fn = validate_quota,
+          .flags       = OPT_FLAG_CLIENT_OPT
         },
 
         /* Marker xlator options */
@@ -962,12 +967,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
 
         /* Debug xlators options */
-        { .key         = "debug.trace",
-          .voltype     = "debug/trace",
-          .option      = "!debug",
-          .value       = "off",
-          .type        = NO_DOC,
-          .op_version  = 1
+        { .key        = "debug.trace",
+          .voltype    = "debug/trace",
+          .option     = "!debug",
+          .value      = "off",
+          .type       = NO_DOC,
+          .op_version = 1,
+          .flags      = OPT_FLAG_XLATOR_OPT
         },
         { .key         = "debug.log-history",
           .voltype     = "debug/trace",
@@ -993,12 +999,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = NO_DOC,
           .op_version  = 2
         },
-        { .key         = "debug.error-gen",
-          .voltype     = "debug/error-gen",
-          .option      = "!debug",
-          .value       = "off",
-          .type        = NO_DOC,
-          .op_version  = 1
+        { .key        = "debug.error-gen",
+          .voltype    = "debug/error-gen",
+          .option     = "!debug",
+          .value      = "off",
+          .type       = NO_DOC,
+          .op_version = 1,
+          .flags      = OPT_FLAG_XLATOR_OPT
         },
         { .key         = "debug.error-failure",
           .voltype     = "debug/error-gen",
@@ -1153,19 +1160,19 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
 
         /* Other options which don't fit any place above */
-        { .key           = "features.read-only",
-          .voltype       = "features/read-only",
-          .option        = "!read-only",
-          .value         = "off",
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "features.read-only",
+          .voltype    = "features/read-only",
+          .option     = "!read-only",
+          .value      = "off",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
-        { .key           = "features.worm",
-          .voltype       = "features/worm",
-          .option        = "!worm",
-          .value         = "off",
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "features.worm",
+          .voltype    = "features/worm",
+          .option     = "!worm",
+          .value      = "off",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
         { .key         = "storage.linux-aio",
           .voltype     = "storage/posix",
@@ -1185,11 +1192,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "storage/posix",
           .op_version  = 2
         },
-        { .key           = "config.memory-accounting",
-          .voltype       = "configuration",
-          .option        = "!config",
-          .op_version    = 2,
-          .client_option = _gf_true
+        { .key        = "config.memory-accounting",
+          .voltype    = "configuration",
+          .option     = "!config",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
         { .key         = "config.transport",
           .voltype     = "configuration",

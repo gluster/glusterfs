@@ -15,6 +15,7 @@
 
 #include <fnmatch.h>
 #include <sys/wait.h>
+#include <dlfcn.h>
 
 #if (HAVE_LIB_XML)
 #include <libxml/encoding.h>
@@ -34,6 +35,7 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
 #include "run.h"
+#include "options.h"
 
 extern struct volopt_map_entry glusterd_volopt_map[];
 
@@ -1864,7 +1866,7 @@ xml_add_volset_element (xmlTextWriterPtr writer, const char *name,
 #endif
 
 static int
-get_key_from_volopt ( struct volopt_map_entry *vme, char **key)
+_get_xlator_opt_key_from_vme ( struct volopt_map_entry *vme, char **key)
 {
         int ret = 0;
 
@@ -1907,6 +1909,19 @@ get_key_from_volopt ( struct volopt_map_entry *vme, char **key)
         return ret;
 }
 
+static void
+_free_xlator_opt_key (char *key)
+{
+        GF_ASSERT (key);
+
+        if (!strcmp (key, AUTH_ALLOW_OPT_KEY) ||
+            !strcmp (key, AUTH_REJECT_OPT_KEY) ||
+            !strcmp (key, NFS_DISABLE_OPT_KEY))
+                GF_FREE (key);
+
+        return;
+}
+
 int
 glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
 {
@@ -1937,36 +1952,40 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
 
         for (vme = &glusterd_volopt_map[0]; vme->key; vme++) {
 
-                if ( ( vme->type == NO_DOC) || (vme->type == GLOBAL_NO_DOC) )
+                if ((vme->type == NO_DOC) || (vme->type == GLOBAL_NO_DOC))
                         continue;
-
-                if (get_key_from_volopt (vme, &key))
-                                goto out; /*Some error while getin key*/
 
                 if (vme->description) {
                         descr = vme->description;
                         def_val = vme->value;
                 } else {
+                        if (_get_xlator_opt_key_from_vme (vme, &key))
+                                goto out; /*Some error while geting key*/
+
                         if (!xlator_type || strcmp (vme->voltype, xlator_type)){
-                               ret = xlator_volopt_dynload (vme->voltype,
-                                                            &dl_handle,
-                                                            &vol_opt_handle);
+                                ret = xlator_volopt_dynload (vme->voltype,
+                                                             &dl_handle,
+                                                             &vol_opt_handle);
                                 if (ret) {
-                                        dl_handle = NULL;
-                                        continue;
+                                        ret = 0;
+                                        goto cont;
                                 }
                         }
                         ret = xlator_option_info_list (&vol_opt_handle, key,
                                                        &def_val, &descr);
-                        if (ret) /*Swallow Error i.e if option not found*/
-                                continue;
+                        if (ret) { /*Swallow Error i.e if option not found*/
+                                ret = 0;
+                                goto cont;
+                        }
                 }
 
                 if (xml_out) {
 #if (HAVE_LIB_XML)
                         if (xml_add_volset_element (writer,vme->key,
-                                                    def_val, descr))
-                                goto out;
+                                                    def_val, descr)) {
+                                ret = -1;
+                                goto cont;
+                        }
 #else
                         gf_log ("glusterd", GF_LOG_ERROR, "Libxml not present");
 #endif
@@ -1976,11 +1995,18 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
                                         vme->key, def_val, descr);
                         strcat (output_string, tmp_str);
                 }
-
-                if (!strcmp (key, AUTH_ALLOW_OPT_KEY) ||
-                    !strcmp (key, AUTH_REJECT_OPT_KEY) ||
-                    !strcmp (key, NFS_DISABLE_OPT_KEY))
-                        GF_FREE (key);
+cont:
+                if (dl_handle) {
+                        dlclose (dl_handle);
+                        dl_handle = NULL;
+                        vol_opt_handle.given_opt = NULL;
+                }
+                if (key) {
+                        _free_xlator_opt_key (key);
+                        key = NULL;
+                }
+                if (ret)
+                        goto out;
         }
 
 #if (HAVE_LIB_XML)
@@ -2007,7 +2033,7 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
         }
 
         ret = dict_set_dynstr (ctx, "help-str", output);
- out:
+out:
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 
@@ -3659,19 +3685,31 @@ out:
         return ret;
 }
 
+static struct volopt_map_entry *
+_gd_get_vmep (char *key) {
+        char *completion = NULL;
+        struct volopt_map_entry *vmep = NULL;
+        int ret = 0;
+
+        COMPLETE_OPTION ((char *)key, completion, ret);
+        for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
+                if (strcmp (vmep->key, key) == 0)
+                        return vmep;
+        }
+
+        return NULL;
+}
+
 uint32_t
 glusterd_get_op_version_for_key (char *key)
 {
-        char *completion = NULL;
         struct volopt_map_entry *vmep = NULL;
-        int   ret = 0;
 
-        COMPLETE_OPTION(key, completion, ret);
-        for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
-                if (strcmp (vmep->key, key) == 0) {
-                        return vmep->op_version;
-                }
-        }
+        GF_ASSERT (key);
+
+        vmep = _gd_get_vmep (key);
+        if (vmep)
+                return vmep->op_version;
 
         return 0;
 }
@@ -3679,16 +3717,79 @@ glusterd_get_op_version_for_key (char *key)
 gf_boolean_t
 gd_is_client_option (char *key)
 {
-        char *completion = NULL;
         struct volopt_map_entry *vmep = NULL;
-        int   ret = 0;
 
-        COMPLETE_OPTION(key, completion, ret);
-        for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
-                if (strcmp (vmep->key, key) == 0) {
-                        return vmep->client_option;
-                }
+        GF_ASSERT (key);
+
+        vmep = _gd_get_vmep (key);
+        if (vmep && (vmep->flags & OPT_FLAG_CLIENT_OPT))
+                return _gf_true;
+
+        return _gf_false;
+}
+
+gf_boolean_t
+gd_is_xlator_option (char *key)
+{
+        struct volopt_map_entry *vmep = NULL;
+
+        GF_ASSERT (key);
+
+        vmep = _gd_get_vmep (key);
+        if (vmep && (vmep->flags & OPT_FLAG_XLATOR_OPT))
+                return _gf_true;
+
+        return _gf_false;
+}
+
+volume_option_type_t
+_gd_get_option_type (char *key)
+{
+        struct volopt_map_entry *vmep = NULL;
+        void                    *dl_handle = NULL;
+        volume_opt_list_t       vol_opt_list = {{0},};
+        int                     ret = -1;
+        volume_option_t         *opt = NULL;
+        char                    *xlopt_key = NULL;
+        volume_option_type_t    opt_type = GF_OPTION_TYPE_MAX;
+
+        GF_ASSERT (key);
+
+        vmep = _gd_get_vmep (key);
+
+        if (vmep) {
+                INIT_LIST_HEAD (&vol_opt_list.list);
+                ret = xlator_volopt_dynload (vmep->voltype, &dl_handle,
+                                             &vol_opt_list);
+                if (ret)
+                        goto out;
+
+                if (_get_xlator_opt_key_from_vme (vmep, &xlopt_key))
+                        goto out;
+
+                opt = xlator_volume_option_get_list (&vol_opt_list, xlopt_key);
+                _free_xlator_opt_key (xlopt_key);
+
+                if (opt)
+                        opt_type = opt->type;
         }
+
+out:
+        if (dl_handle) {
+                dlclose (dl_handle);
+                dl_handle = NULL;
+        }
+
+        return opt_type;
+}
+
+gf_boolean_t
+gd_is_boolean_option (char *key)
+{
+        GF_ASSERT (key);
+
+        if (GF_OPTION_TYPE_BOOL == _gd_get_option_type (key))
+                return _gf_true;
 
         return _gf_false;
 }
