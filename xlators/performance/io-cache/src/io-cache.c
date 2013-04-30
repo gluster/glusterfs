@@ -551,6 +551,13 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 inode_ctx_get (fd->inode, this, &tmp_ioc_inode);
                 ioc_inode = (ioc_inode_t *)(long)tmp_ioc_inode;
 
+                //TODO: see why inode context is NULL and handle it.
+                if (!ioc_inode) {
+                        gf_log (this->name, GF_LOG_ERROR, "inode context is "
+                                "NULL (%s)", uuid_utoa (fd->inode->gfid));
+                        goto out;
+                }
+
                 ioc_table_lock (ioc_inode->table);
                 {
                         list_move_tail (&ioc_inode->inode_lru,
