@@ -46,6 +46,12 @@ nfs3_fh_validate (struct nfs3_fh *fh)
 	if (fh->ident[1] != GF_NFSFH_IDENT1)
 		return 0;
 
+       if (fh->ident[2] != GF_NFSFH_IDENT2)
+               return 0;
+
+       if (fh->ident[3] != GF_NFSFH_IDENT3)
+               return 0;
+
         return 1;
 }
 
@@ -58,6 +64,8 @@ nfs3_fh_init (struct nfs3_fh *fh, struct iatt *buf)
 
         fh->ident[0] = GF_NFSFH_IDENT0;
         fh->ident[1] = GF_NFSFH_IDENT1;
+        fh->ident[2] = GF_NFSFH_IDENT2;
+        fh->ident[3] = GF_NFSFH_IDENT3;
 
         uuid_copy (fh->gfid, buf->ia_gfid);
 }
@@ -161,6 +169,8 @@ nfs3_build_fh (inode_t *inode, uuid_t exportid, struct nfs3_fh *newfh)
 
         newfh->ident[0] = GF_NFSFH_IDENT0;
         newfh->ident[1] = GF_NFSFH_IDENT1;
+        newfh->ident[2] = GF_NFSFH_IDENT2;
+        newfh->ident[3] = GF_NFSFH_IDENT3;
         uuid_copy (newfh->gfid, inode->gfid);
         uuid_copy (newfh->exportid, exportid);
         return 0;
