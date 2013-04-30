@@ -93,6 +93,9 @@ int xlator_options_validate (xlator_t *xl, dict_t *options, char **errstr);
 volume_option_t *
 xlator_volume_option_get (xlator_t *xl, const char *key);
 
+volume_option_t *
+xlator_volume_option_get_list (volume_opt_list_t *vol_list, const char *key);
+
 
 #define DECLARE_INIT_OPT(type_t, type)                                  \
 int                                                                     \

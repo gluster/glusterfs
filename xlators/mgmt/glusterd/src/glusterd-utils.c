@@ -7509,11 +7509,22 @@ _update_volume_op_versions (dict_t *this, char *key, data_t *value, void *data)
 {
         int                op_version = 0;
         glusterd_volinfo_t *ctx       = NULL;
+        gf_boolean_t       enabled    = _gf_true;
+        int                ret        = -1;
 
         GF_ASSERT (data);
         ctx = data;
 
         op_version = glusterd_get_op_version_for_key (key);
+
+        if (gd_is_xlator_option (key) || gd_is_boolean_option (key)) {
+                ret = gf_string2boolean (value->data, &enabled);
+                if (ret)
+                        return 0;
+
+                if (!enabled)
+                        return 0;
+        }
 
         if (op_version > ctx->op_version)
                 ctx->op_version = op_version;

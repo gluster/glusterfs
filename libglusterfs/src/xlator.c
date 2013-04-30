@@ -119,17 +119,8 @@ xlator_volopt_dynload (char *xlator_type, void **dl_handle,
         int                     ret = -1;
         char                    *name = NULL;
         void                    *handle = NULL;
-        volume_opt_list_t       *vol_opt = NULL;
 
         GF_VALIDATE_OR_GOTO ("xlator", xlator_type, out);
-
-        GF_ASSERT (dl_handle);
-
-        if (*dl_handle)
-                if (dlclose (*dl_handle))
-                        gf_log ("xlator", GF_LOG_WARNING, "Unable to close "
-                                  "previously opened handle( may be stale)."
-                                  "Ignoring the invalid handle");
 
         ret = gf_asprintf (&name, "%s/%s.so", XLATORDIR, xlator_type);
         if (-1 == ret) {
@@ -146,25 +137,15 @@ xlator_volopt_dynload (char *xlator_type, void **dl_handle,
                 gf_log ("xlator", GF_LOG_WARNING, "%s", dlerror ());
                 goto out;
         }
-        *dl_handle = handle;
 
-
-        vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
-                         gf_common_mt_volume_opt_list_t);
-
-        if (!vol_opt) {
+        if (!(opt_list->given_opt = dlsym (handle, "options"))) {
+                dlerror ();
+                gf_log ("xlator", GF_LOG_ERROR,
+                        "Failed to load xlator opt table");
                 goto out;
         }
 
-        if (!(vol_opt->given_opt = dlsym (handle, "options"))) {
-                dlerror ();
-                gf_log ("xlator", GF_LOG_DEBUG,
-                         "Strict option validation not enforced -- neglecting");
-        }
-        opt_list->given_opt = vol_opt->given_opt;
-
-        INIT_LIST_HEAD (&vol_opt->list);
-        list_add_tail (&vol_opt->list, &opt_list->list);
+        *dl_handle = handle;
 
         ret = 0;
  out:

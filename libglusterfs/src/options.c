@@ -761,7 +761,7 @@ out:
 }
 
 
-static volume_option_t *
+volume_option_t *
 xlator_volume_option_get_list (volume_opt_list_t *vol_list, const char *key)
 {
         volume_option_t         *opt = NULL;
@@ -1097,7 +1097,6 @@ pc_or_size (char *in, double *out)
         }
         return ret;
 }
-
 
 DEFINE_INIT_OPT(char *, str, pass);
 DEFINE_INIT_OPT(uint64_t, uint64, gf_string2uint64);
