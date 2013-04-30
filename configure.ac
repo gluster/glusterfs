@@ -658,6 +658,20 @@ fi
 AC_SUBST(CFLAGS)
 # end enable debug section
 
+# syslog section
+AC_ARG_ENABLE([syslog],
+	      AC_HELP_STRING([--disable-syslog],
+			     [Disable syslog for logging]))
+
+USE_SYSLOG="yes"
+if test "x$enable_syslog" != "xno"; then
+  AC_DEFINE(GF_USE_SYSLOG, 1, [Use syslog for logging])
+else
+  USE_SYSLOG="no"
+fi
+AM_CONDITIONAL([ENABLE_SYSLOG], [test x$USE_SYSLOG = xyes])
+#end syslog section
+
 BUILD_READLINE=no
 AC_CHECK_LIB([readline -lcurses],[readline],[RLLIBS="-lreadline -lcurses"])
 AC_CHECK_LIB([readline -ltermcap],[readline],[RLLIBS="-lreadline -ltermcap"])
@@ -768,4 +782,5 @@ echo "Enable Debug         : $BUILD_DEBUG"
 echo "systemtap            : $BUILD_SYSTEMTAP"
 echo "Block Device backend : $BUILD_BD_XLATOR"
 echo "glupy                : $BUILD_GLUPY"
+echo "Use syslog           : $USE_SYSLOG"
 echo
