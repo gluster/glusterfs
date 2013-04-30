@@ -2472,6 +2472,15 @@ socket_server_event_handler (int fd, int idx, void *data,
                         if (!new_trans)
                                 goto unlock;
 
+                        ret = pthread_mutex_init(&new_trans->lock, NULL);
+                        if (ret == -1) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "pthread_mutex_init() failed: %s",
+                                        strerror (errno));
+                                close (new_sock);
+                                goto unlock;
+                        }
+
                         new_trans->name = gf_strdup (this->name);
 
                         memcpy (&new_trans->peerinfo.sockaddr, &new_sockaddr,
