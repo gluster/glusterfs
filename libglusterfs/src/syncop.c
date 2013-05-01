@@ -179,9 +179,10 @@ synctask_destroy (struct synctask *task)
         if (task->opframe)
                 STACK_DESTROY (task->opframe->root);
 
-	pthread_mutex_destroy (&task->mutex);
-
-	pthread_cond_destroy (&task->cond);
+	if (task->synccbk == NULL) {
+		pthread_mutex_destroy (&task->mutex);
+		pthread_cond_destroy (&task->cond);
+	}
 
         FREE (task);
 }
