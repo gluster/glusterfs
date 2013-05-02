@@ -57,7 +57,6 @@ struct synctask {
         void               *stack;
         int                 woken;
         int                 slept;
-        int                 waitfor;
         int                 ret;
 
         uid_t               uid;
@@ -107,6 +106,16 @@ struct synclock {
 };
 typedef struct synclock synclock_t;
 
+
+struct syncbarrier {
+	pthread_mutex_t     guard; /* guard the remaining members, pair @cond */
+	pthread_cond_t      cond;  /* waiting non-synctasks */
+	struct list_head    waitq; /* waiting synctasks */
+	int                 count; /* count the number of wakes */
+};
+typedef struct syncbarrier syncbarrier_t;
+
+
 struct syncargs {
         int                 op_ret;
         int                 op_errno;
@@ -127,11 +136,13 @@ struct syncargs {
         dict_t             *dict;
         pthread_mutex_t     lock_dict;
 
+	syncbarrier_t       barrier;
+
         /* do not touch */
         struct synctask    *task;
         pthread_mutex_t     mutex;
         pthread_cond_t      cond;
-        int                 wakecnt;
+	int                 done;
 };
 
 
@@ -142,7 +153,7 @@ struct syncargs {
         } else {                                                \
                 pthread_mutex_init (&args->mutex, NULL);        \
                 pthread_cond_init (&args->cond, NULL);          \
-                args->wakecnt = 0;                              \
+                args->done = 0;					\
         }                                                       \
         } while (0)
 
@@ -153,7 +164,7 @@ struct syncargs {
         } else {                                                \
                 pthread_mutex_lock (&args->mutex);              \
                 {                                               \
-                        args->wakecnt++;                        \
+                        args->done = 1;				\
                         pthread_cond_signal (&args->cond);      \
                 }                                               \
                 pthread_mutex_unlock (&args->mutex);            \
@@ -161,24 +172,21 @@ struct syncargs {
         } while (0)
 
 
-#define __waitfor(args, cnt) do {                                       \
-        if (args->task) {                                               \
-                synctask_waitfor (args->task, cnt);                     \
-        } else {                                                        \
-                pthread_mutex_lock (&args->mutex);                      \
-                {                                                       \
-                        while (args->wakecnt < cnt)                     \
-                                pthread_cond_wait (&args->cond,         \
-                                                   &args->mutex);       \
-                }                                                       \
-                pthread_mutex_unlock (&args->mutex);                    \
-                pthread_mutex_destroy (&args->mutex);                   \
-                pthread_cond_destroy (&args->cond);                     \
-        }                                                               \
-        } while (0)
-
-
-#define __yield(args) __waitfor(args, 1)
+#define __yield(args) do {						\
+	if (args->task) {				                \
+		synctask_yield (args->task);				\
+	} else {							\
+		pthread_mutex_lock (&args->mutex);			\
+		{							\
+			while (!args->done)				\
+				pthread_cond_wait (&args->cond,		\
+						   &args->mutex);	\
+		}							\
+		pthread_mutex_unlock (&args->mutex);			\
+		pthread_mutex_destroy (&args->mutex);			\
+		pthread_cond_destroy (&args->cond);			\
+	}								\
+	} while (0)
 
 
 #define SYNCOP(subvol, stb, cbk, op, params ...) do {                   \
@@ -223,9 +231,9 @@ void synctask_yield (struct synctask *task);
 void synctask_yawn (struct synctask *task);
 void synctask_waitfor (struct synctask *task, int count);
 
-#define synctask_barrier_init(args) __yawn (args)
-#define synctask_barrier_wait(args, n) __waitfor (args, n)
-#define synctask_barrier_wake(args) __wake (args)
+#define synctask_barrier_init(args) syncbarrier_init (&args->barrier)
+#define synctask_barrier_wait(args, n) syncbarrier_wait (&args->barrier, n)
+#define synctask_barrier_wake(args) syncbarrier_wake (&args->barrier)
 
 int synctask_setid (struct synctask *task, uid_t uid, gid_t gid);
 #define SYNCTASK_SETID(uid, gid) synctask_setid (synctask_get(), uid, gid);
@@ -236,6 +244,12 @@ int synclock_destory (synclock_t *lock);
 int synclock_lock (synclock_t *lock);
 int synclock_trylock (synclock_t *lock);
 int synclock_unlock (synclock_t *lock);
+
+
+int syncbarrier_init (syncbarrier_t *barrier);
+int syncbarrier_wait (syncbarrier_t *barrier, int waitfor);
+int syncbarrier_wake (syncbarrier_t *barrier);
+int syncbarrier_destroy (syncbarrier_t *barrier);
 
 int syncop_lookup (xlator_t *subvol, loc_t *loc, dict_t *xattr_req,
                    /* out */

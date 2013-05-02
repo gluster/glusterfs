@@ -26,6 +26,8 @@ gd_synctask_barrier_wait (struct syncargs *args, int count)
         synclock_unlock (&conf->big_lock);
         synctask_barrier_wait (args, count);
         synclock_lock (&conf->big_lock);
+
+	syncbarrier_destroy (&args->barrier);
 }
 
 static void
@@ -82,8 +84,7 @@ gd_brick_op_req_free (gd1_mgmt_brick_op_req *req)
 int
 gd_syncop_submit_request (struct rpc_clnt *rpc, void *req,
                           void *cookie, rpc_clnt_prog_t *prog,
-                          int procnum, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc,
-                          gf_boolean_t *cbk_lost)
+                          int procnum, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
 {
         int            ret      = -1;
         struct iobuf  *iobuf    = NULL;
@@ -126,9 +127,9 @@ gd_syncop_submit_request (struct rpc_clnt *rpc, void *req,
         frame->local = cookie;
 
         /* Send the msg */
-        ret = rpc_clnt_submit2 (rpc, prog, procnum, cbkfn, &iov, count, NULL,
-                                0, iobref, frame, NULL, 0, NULL, 0, NULL,
-                                cbk_lost);
+        ret = rpc_clnt_submit (rpc, prog, procnum, cbkfn,
+                               &iov, count, NULL, 0, iobref,
+                               frame, NULL, 0, NULL, 0, NULL);
 
         /* TODO: do we need to start ping also? */
 
@@ -208,8 +209,8 @@ out:
 }
 
 int32_t
-gd_syncop_mgmt_lock_cbk (struct rpc_req *req, struct iovec *iov,
-                         int count, void *myframe)
+_gd_syncop_mgmt_lock_cbk (struct rpc_req *req, struct iovec *iov,
+                          int count, void *myframe)
 {
         int                         ret         = -1;
         struct syncargs             *args       = NULL;
@@ -239,6 +240,13 @@ out:
         return 0;
 }
 
+int32_t
+gd_syncop_mgmt_lock_cbk (struct rpc_req *req, struct iovec *iov,
+                         int count, void *myframe)
+{
+        return glusterd_big_locked_cbk (req, iov, count, myframe,
+                                        _gd_syncop_mgmt_lock_cbk);
+}
 
 int
 gd_syncop_mgmt_lock (struct rpc_clnt *rpc, struct syncargs *args,
@@ -246,22 +254,21 @@ gd_syncop_mgmt_lock (struct rpc_clnt *rpc, struct syncargs *args,
 {
         int                       ret = -1;
         gd1_mgmt_cluster_lock_req req  = {{0},};
-        gf_boolean_t              cbk_lost = _gf_true;
+        glusterd_conf_t           *conf = THIS->private;
 
         uuid_copy (req.uuid, my_uuid);
+        synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (rpc, &req, args, &gd_mgmt_prog,
                                         GLUSTERD_MGMT_CLUSTER_LOCK,
                                         gd_syncop_mgmt_lock_cbk,
-                                        (xdrproc_t) xdr_gd1_mgmt_cluster_lock_req,
-                                        &cbk_lost);
-        if (cbk_lost)
-                synctask_barrier_wake(args);
+                                        (xdrproc_t) xdr_gd1_mgmt_cluster_lock_req);
+        synclock_lock (&conf->big_lock);
         return ret;
 }
 
 int32_t
-gd_syncop_mgmt_unlock_cbk (struct rpc_req *req, struct iovec *iov,
-                           int count, void *myframe)
+_gd_syncop_mgmt_unlock_cbk (struct rpc_req *req, struct iovec *iov,
+                            int count, void *myframe)
 {
         int                         ret         = -1;
         struct syncargs             *args       = NULL;
@@ -291,6 +298,14 @@ out:
         return 0;
 }
 
+int32_t
+gd_syncop_mgmt_unlock_cbk (struct rpc_req *req, struct iovec *iov,
+                           int count, void *myframe)
+{
+        return glusterd_big_locked_cbk (req, iov, count, myframe,
+                                        _gd_syncop_mgmt_unlock_cbk);
+}
+
 
 int
 gd_syncop_mgmt_unlock (struct rpc_clnt *rpc, struct syncargs *args,
@@ -298,22 +313,21 @@ gd_syncop_mgmt_unlock (struct rpc_clnt *rpc, struct syncargs *args,
 {
         int                         ret     = -1;
         gd1_mgmt_cluster_unlock_req req     = {{0},};
-        gf_boolean_t                cbk_lost = _gf_true;
+        glusterd_conf_t             *conf   = THIS->private;
 
         uuid_copy (req.uuid, my_uuid);
+        synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (rpc, &req, args, &gd_mgmt_prog,
                                         GLUSTERD_MGMT_CLUSTER_UNLOCK,
                                         gd_syncop_mgmt_unlock_cbk,
-                                        (xdrproc_t) xdr_gd1_mgmt_cluster_lock_req,
-                                        &cbk_lost);
-        if (cbk_lost)
-                synctask_barrier_wake(args);
+                                        (xdrproc_t) xdr_gd1_mgmt_cluster_lock_req);
+        synclock_lock (&conf->big_lock);
         return ret;
 }
 
 int32_t
-gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
-                        int count, void *myframe)
+_gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
+                         int count, void *myframe)
 {
         int                         ret         = -1;
         gd1_mgmt_stage_op_rsp       rsp         = {{0},};
@@ -377,6 +391,14 @@ out:
         return 0;
 }
 
+int32_t
+gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
+                        int count, void *myframe)
+{
+        return glusterd_big_locked_cbk (req, iov, count, myframe,
+                                        _gd_syncop_stage_op_cbk);
+}
+
 
 int
 gd_syncop_mgmt_stage_op (struct rpc_clnt *rpc, struct syncargs *args,
@@ -384,8 +406,8 @@ gd_syncop_mgmt_stage_op (struct rpc_clnt *rpc, struct syncargs *args,
                          dict_t *dict_out, dict_t *op_ctx)
 {
         gd1_mgmt_stage_op_req *req  = NULL;
-        int                   ret  = -1;
-        gf_boolean_t          cbk_lost = _gf_true;
+        glusterd_conf_t       *conf = THIS->private;
+        int                   ret   = -1;
 
         req = GF_CALLOC (1, sizeof (*req), gf_gld_mt_mop_stage_req_t);
         if (!req)
@@ -399,22 +421,20 @@ gd_syncop_mgmt_stage_op (struct rpc_clnt *rpc, struct syncargs *args,
         if (ret)
                 goto out;
 
+        synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (rpc, req, args, &gd_mgmt_prog,
                                         GLUSTERD_MGMT_STAGE_OP,
                                         gd_syncop_stage_op_cbk,
-                                        (xdrproc_t) xdr_gd1_mgmt_stage_op_req,
-                                        &cbk_lost);
+                                        (xdrproc_t) xdr_gd1_mgmt_stage_op_req);
+        synclock_lock (&conf->big_lock);
 out:
         gd_stage_op_req_free (req);
-        if (cbk_lost)
-                synctask_barrier_wake(args);
-
         return ret;
 
 }
 
 int32_t
-gd_syncop_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
+_gd_syncop_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
                         int count, void *myframe)
 {
         struct syncargs        *args  = NULL;
@@ -467,6 +487,14 @@ out:
         __wake (args);
 
         return 0;
+}
+
+int32_t
+gd_syncop_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
+                        int count, void *myframe)
+{
+        return glusterd_big_locked_cbk (req, iov, count, myframe,
+                                        _gd_syncop_brick_op_cbk);
 }
 
 int
@@ -532,8 +560,8 @@ out:
 }
 
 int32_t
-gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
-                         int count, void *myframe)
+_gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
+                          int count, void *myframe)
 {
         int                         ret         = -1;
         gd1_mgmt_commit_op_rsp      rsp         = {{0},};
@@ -595,15 +623,23 @@ out:
         return 0;
 }
 
+int32_t
+gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
+                         int count, void *myframe)
+{
+        return glusterd_big_locked_cbk (req, iov, count, myframe,
+                                        _gd_syncop_commit_op_cbk);
+}
+
 
 int
 gd_syncop_mgmt_commit_op (struct rpc_clnt *rpc, struct syncargs *args,
                           uuid_t my_uuid, uuid_t recv_uuid,
                           int op, dict_t *dict_out, dict_t *op_ctx)
 {
+        glusterd_conf_t        *conf = THIS->private;
         gd1_mgmt_commit_op_req *req  = NULL;
         int                    ret  = -1;
-        gf_boolean_t           cbk_lost = _gf_true;
 
         req = GF_CALLOC (1, sizeof (*req), gf_gld_mt_mop_commit_req_t);
         if (!req)
@@ -617,16 +653,14 @@ gd_syncop_mgmt_commit_op (struct rpc_clnt *rpc, struct syncargs *args,
         if (ret)
                 goto out;
 
+        synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (rpc, req, args, &gd_mgmt_prog,
                                         GLUSTERD_MGMT_COMMIT_OP ,
                                         gd_syncop_commit_op_cbk,
-                                        (xdrproc_t) xdr_gd1_mgmt_commit_op_req,
-                                        &cbk_lost);
+                                        (xdrproc_t) xdr_gd1_mgmt_commit_op_req);
+        synclock_lock (&conf->big_lock);
 out:
         gd_commit_op_req_free (req);
-        if (cbk_lost)
-                synctask_barrier_wake(args);
-
         return ret;
 }
 
@@ -942,12 +976,8 @@ gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict, char **op
                                 "due to rpc failure.");
                         goto out;
                 }
-                /*This is to ensure that the brick_op_cbk is able to take
-                 * the big lock*/
-                synclock_unlock (&conf->big_lock);
                 ret = gd_syncop_mgmt_brick_op (rpc, pending_node, op, req_dict,
                                                op_ctx, op_errstr);
-                synclock_lock (&conf->big_lock);
                 if (ret)
                         goto out;
 
