@@ -2027,6 +2027,71 @@ dht_getxattr_unwind (call_frame_t *frame,
 
 
 int
+dht_getxattr_get_real_filename_cbk (call_frame_t *frame, void *cookie,
+				    xlator_t *this, int op_ret, int op_errno,
+				    dict_t *xattr, dict_t *xdata)
+{
+        int             this_call_cnt = 0;
+        dht_local_t     *local = NULL;
+        dht_conf_t      *conf = NULL;
+
+
+        conf = this->private;
+        local = frame->local;
+
+	if (op_ret != -1) {
+		if (local->xattr)
+			dict_unref (local->xattr);
+		local->xattr = dict_ref (xattr);
+
+		if (local->xattr_req)
+			dict_unref (local->xattr_req);
+		local->xattr_req = dict_ref (xdata);
+	}
+
+	this_call_cnt = dht_frame_return (frame);
+	if (is_last_call (this_call_cnt)) {
+		DHT_STACK_UNWIND (getxattr, frame, local->op_ret, op_errno,
+				  local->xattr, local->xattr_req);
+	}
+
+	return 0;
+}
+
+
+int
+dht_getxattr_get_real_filename (call_frame_t *frame, xlator_t *this,
+				loc_t *loc, const char *key, dict_t *xdata)
+{
+	dht_conf_t      *conf = NULL;
+	dht_local_t     *local = NULL;
+	int              i = 0;
+	dht_layout_t    *layout = NULL;
+	int              cnt = 0;
+	xlator_t        *subvol = NULL;
+
+
+        conf   = this->private;
+	local = frame->local;
+	layout = local->layout;
+
+	cnt = local->call_cnt = layout->cnt;
+
+	local->op_ret = -1;
+	local->op_errno = ENODATA;
+
+	for (i = 0; i < cnt; i++) {
+		subvol = layout->list[i].xlator;
+		STACK_WIND (frame, dht_getxattr_get_real_filename_cbk,
+			    subvol, subvol->fops->getxattr,
+			    loc, key, xdata);
+	}
+
+	return 0;
+}
+
+
+int
 dht_getxattr (call_frame_t *frame, xlator_t *this,
               loc_t *loc, const char *key, dict_t *xdata)
 #define DHT_IS_DIR(layout)  (layout->cnt > 1)
@@ -2074,6 +2139,14 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                         goto err;
                 }
         }
+
+	if (key &&
+	    (strncmp (key, GF_XATTR_GET_REAL_FILENAME_KEY,
+		      strlen (GF_XATTR_GET_REAL_FILENAME_KEY)) == 0)
+	    && DHT_IS_DIR(layout)) {
+		dht_getxattr_get_real_filename (frame, this, loc, key, xdata);
+		return 0;
+	}
 
         /* for file use cached subvolume (obviously!): see if {}
          * below
