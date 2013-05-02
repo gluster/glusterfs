@@ -2439,6 +2439,53 @@ out:
         return 0;
 }
 
+
+int
+posix_xattr_get_real_filename (call_frame_t *frame, xlator_t *this, loc_t *loc,
+			       const char *key, dict_t *dict, dict_t *xdata)
+{
+	char *real_path = NULL;
+	struct dirent *dirent = NULL;
+	DIR *fd = NULL;
+	const char *fname = NULL;
+	char *found = NULL;
+	int ret = -1;
+	int op_ret = -1;
+
+        MAKE_INODE_HANDLE (real_path, this, loc, NULL);
+
+	fd = opendir (real_path);
+	if (!fd)
+		return -errno;
+
+	fname = key + strlen (GF_XATTR_GET_REAL_FILENAME_KEY);
+
+	while ((dirent = readdir (fd))) {
+		if (strcasecmp (dirent->d_name, fname) == 0) {
+			found = gf_strdup (dirent->d_name);
+			if (!found) {
+				closedir (fd);
+				return -ENOMEM;
+			}
+			break;
+		}
+	}
+
+	closedir (fd);
+
+	if (!found)
+		return -ENOENT;
+
+	ret = dict_set_dynstr (dict, (char *)key, found);
+	if (ret) {
+		GF_FREE (found);
+		return -ENOMEM;
+	}
+	ret = strlen (found) + 1;
+
+	return ret;
+}
+
 /**
  * posix_getxattr - this function returns a dictionary with all the
  *                  key:value pair present as xattr. used for
@@ -2493,8 +2540,27 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
 
         dict = dict_new ();
         if (!dict) {
+		op_errno = ENOMEM;
                 goto out;
         }
+
+	if (loc->inode && name &&
+	    (strncmp (name, GF_XATTR_GET_REAL_FILENAME_KEY,
+		      strlen (GF_XATTR_GET_REAL_FILENAME_KEY)) == 0)) {
+		ret = posix_xattr_get_real_filename (frame, this, loc,
+						     name, dict, xdata);
+		if (ret < 0) {
+			op_ret = -1;
+			op_errno = -ret;
+			gf_log (this->name, GF_LOG_WARNING,
+				"Failed to get rea filename (%s, %s): %s",
+				loc->path, name, strerror (op_errno));
+			goto out;
+		}
+
+		size = ret;
+		goto done;
+	}
 
         if (loc->inode && name && !strcmp (name, GLUSTERFS_OPEN_FD_COUNT)) {
                 if (!list_empty (&loc->inode->fd_list)) {

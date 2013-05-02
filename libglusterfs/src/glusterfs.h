@@ -83,6 +83,7 @@
 #define GF_XATTR_NODE_UUID_KEY  "trusted.glusterfs.node-uuid"
 #define GF_XATTR_VOL_ID_KEY   "trusted.glusterfs.volume-id"
 #define GF_XATTR_LOCKINFO_KEY   "trusted.glusterfs.lockinfo"
+#define GF_XATTR_GET_REAL_FILENAME_KEY "user.glusterfs.get_real_filename:"
 
 #define GF_READDIR_SKIP_DIRS       "readdir-filter-directories"
 
