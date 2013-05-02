@@ -3453,6 +3453,8 @@ validate_nfsopts (glusterd_volinfo_t *volinfo,
         volgen_graph_free (&graph);
 
 out:
+        if (dict_get (val_dict, "volume-name"))
+                dict_del (val_dict, "volume-name");
         gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
