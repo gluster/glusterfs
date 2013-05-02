@@ -84,8 +84,7 @@ gd_brick_op_req_free (gd1_mgmt_brick_op_req *req)
 int
 gd_syncop_submit_request (struct rpc_clnt *rpc, void *req,
                           void *cookie, rpc_clnt_prog_t *prog,
-                          int procnum, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc,
-                          gf_boolean_t *cbk_lost)
+                          int procnum, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
 {
         int            ret      = -1;
         struct iobuf  *iobuf    = NULL;
@@ -128,9 +127,9 @@ gd_syncop_submit_request (struct rpc_clnt *rpc, void *req,
         frame->local = cookie;
 
         /* Send the msg */
-        ret = rpc_clnt_submit2 (rpc, prog, procnum, cbkfn, &iov, count, NULL,
-                                0, iobref, frame, NULL, 0, NULL, 0, NULL,
-                                cbk_lost);
+        ret = rpc_clnt_submit (rpc, prog, procnum, cbkfn,
+                               &iov, count, NULL, 0, iobref,
+                               frame, NULL, 0, NULL, 0, NULL);
 
         /* TODO: do we need to start ping also? */
 
@@ -256,16 +255,12 @@ gd_syncop_mgmt_lock (struct rpc_clnt *rpc, struct syncargs *args,
 {
         int                       ret = -1;
         gd1_mgmt_cluster_lock_req req  = {{0},};
-        gf_boolean_t              cbk_lost = _gf_true;
 
         uuid_copy (req.uuid, my_uuid);
         ret = gd_syncop_submit_request (rpc, &req, args, &gd_mgmt_prog,
                                         GLUSTERD_MGMT_CLUSTER_LOCK,
                                         gd_syncop_mgmt_lock_cbk,
-                                        (xdrproc_t) xdr_gd1_mgmt_cluster_lock_req,
-                                        &cbk_lost);
-        if (cbk_lost)
-                synctask_barrier_wake(args);
+                                        (xdrproc_t) xdr_gd1_mgmt_cluster_lock_req);
         return ret;
 }
 
@@ -316,16 +311,12 @@ gd_syncop_mgmt_unlock (struct rpc_clnt *rpc, struct syncargs *args,
 {
         int                         ret     = -1;
         gd1_mgmt_cluster_unlock_req req     = {{0},};
-        gf_boolean_t                cbk_lost = _gf_true;
 
         uuid_copy (req.uuid, my_uuid);
         ret = gd_syncop_submit_request (rpc, &req, args, &gd_mgmt_prog,
                                         GLUSTERD_MGMT_CLUSTER_UNLOCK,
                                         gd_syncop_mgmt_unlock_cbk,
-                                        (xdrproc_t) xdr_gd1_mgmt_cluster_lock_req,
-                                        &cbk_lost);
-        if (cbk_lost)
-                synctask_barrier_wake(args);
+                                        (xdrproc_t) xdr_gd1_mgmt_cluster_lock_req);
         return ret;
 }
 
@@ -411,7 +402,6 @@ gd_syncop_mgmt_stage_op (struct rpc_clnt *rpc, struct syncargs *args,
 {
         gd1_mgmt_stage_op_req *req  = NULL;
         int                   ret  = -1;
-        gf_boolean_t          cbk_lost = _gf_true;
 
         req = GF_CALLOC (1, sizeof (*req), gf_gld_mt_mop_stage_req_t);
         if (!req)
@@ -428,13 +418,9 @@ gd_syncop_mgmt_stage_op (struct rpc_clnt *rpc, struct syncargs *args,
         ret = gd_syncop_submit_request (rpc, req, args, &gd_mgmt_prog,
                                         GLUSTERD_MGMT_STAGE_OP,
                                         gd_syncop_stage_op_cbk,
-                                        (xdrproc_t) xdr_gd1_mgmt_stage_op_req,
-                                        &cbk_lost);
+                                        (xdrproc_t) xdr_gd1_mgmt_stage_op_req);
 out:
         gd_stage_op_req_free (req);
-        if (cbk_lost)
-                synctask_barrier_wake(args);
-
         return ret;
 
 }
@@ -646,7 +632,6 @@ gd_syncop_mgmt_commit_op (struct rpc_clnt *rpc, struct syncargs *args,
 {
         gd1_mgmt_commit_op_req *req  = NULL;
         int                    ret  = -1;
-        gf_boolean_t           cbk_lost = _gf_true;
 
         req = GF_CALLOC (1, sizeof (*req), gf_gld_mt_mop_commit_req_t);
         if (!req)
@@ -663,13 +648,9 @@ gd_syncop_mgmt_commit_op (struct rpc_clnt *rpc, struct syncargs *args,
         ret = gd_syncop_submit_request (rpc, req, args, &gd_mgmt_prog,
                                         GLUSTERD_MGMT_COMMIT_OP ,
                                         gd_syncop_commit_op_cbk,
-                                        (xdrproc_t) xdr_gd1_mgmt_commit_op_req,
-                                        &cbk_lost);
+                                        (xdrproc_t) xdr_gd1_mgmt_commit_op_req);
 out:
         gd_commit_op_req_free (req);
-        if (cbk_lost)
-                synctask_barrier_wake(args);
-
         return ret;
 }
 
