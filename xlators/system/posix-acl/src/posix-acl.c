@@ -1394,6 +1394,11 @@ posix_acl_link (call_frame_t *frame, xlator_t *this, loc_t *old, loc_t *new, dic
                 goto red;
         }
 
+        if (!sticky_permits (frame, new->parent, new->inode)) {
+                op_errno = EACCES;
+                goto red;
+        }
+
         STACK_WIND (frame, posix_acl_link_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->link,
                     old, new, xdata);
