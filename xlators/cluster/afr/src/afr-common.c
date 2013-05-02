@@ -1273,7 +1273,7 @@ afr_detect_self_heal_by_iatt (afr_local_t *local, xlator_t *this,
 
         if (uuid_compare (buf->ia_gfid, lookup_buf->ia_gfid)) {
                 /* mismatching gfid */
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "%s: gfid different on subvolume", local->loc.path);
         }
 }
@@ -1497,7 +1497,7 @@ afr_conflicting_iattrs (struct iatt *bufs, int32_t *success_children,
 
                 child2 = &bufs[success_children[i-1]];
                 if (FILETYPE_DIFFERS (child1, child2)) {
-                        gf_log (xlator_name, GF_LOG_WARNING, "%s: filetype "
+                        gf_log (xlator_name, GF_LOG_DEBUG, "%s: filetype "
                                 "differs on subvolumes (%d, %d)", path,
                                 success_children[i-1], success_children[i]);
                         conflicting = _gf_true;
@@ -1506,7 +1506,7 @@ afr_conflicting_iattrs (struct iatt *bufs, int32_t *success_children,
                 if (!gfid || uuid_is_null (child1->ia_gfid))
                         continue;
                 if (uuid_compare (*gfid, child1->ia_gfid)) {
-                       gf_log (xlator_name, GF_LOG_WARNING, "%s: gfid differs"
+                       gf_log (xlator_name, GF_LOG_DEBUG, "%s: gfid differs"
                                " on subvolume %d", path, success_children[i]);
                        conflicting = _gf_true;
                        goto out;
