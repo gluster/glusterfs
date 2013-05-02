@@ -209,8 +209,8 @@ out:
 }
 
 int32_t
-gd_syncop_mgmt_lock_cbk (struct rpc_req *req, struct iovec *iov,
-                         int count, void *myframe)
+_gd_syncop_mgmt_lock_cbk (struct rpc_req *req, struct iovec *iov,
+                          int count, void *myframe)
 {
         int                         ret         = -1;
         struct syncargs             *args       = NULL;
@@ -240,6 +240,13 @@ out:
         return 0;
 }
 
+int32_t
+gd_syncop_mgmt_lock_cbk (struct rpc_req *req, struct iovec *iov,
+                         int count, void *myframe)
+{
+        return glusterd_big_locked_cbk (req, iov, count, myframe,
+                                        _gd_syncop_mgmt_lock_cbk);
+}
 
 int
 gd_syncop_mgmt_lock (struct rpc_clnt *rpc, struct syncargs *args,
@@ -261,8 +268,8 @@ gd_syncop_mgmt_lock (struct rpc_clnt *rpc, struct syncargs *args,
 }
 
 int32_t
-gd_syncop_mgmt_unlock_cbk (struct rpc_req *req, struct iovec *iov,
-                           int count, void *myframe)
+_gd_syncop_mgmt_unlock_cbk (struct rpc_req *req, struct iovec *iov,
+                            int count, void *myframe)
 {
         int                         ret         = -1;
         struct syncargs             *args       = NULL;
@@ -292,6 +299,14 @@ out:
         return 0;
 }
 
+int32_t
+gd_syncop_mgmt_unlock_cbk (struct rpc_req *req, struct iovec *iov,
+                           int count, void *myframe)
+{
+        return glusterd_big_locked_cbk (req, iov, count, myframe,
+                                        _gd_syncop_mgmt_unlock_cbk);
+}
+
 
 int
 gd_syncop_mgmt_unlock (struct rpc_clnt *rpc, struct syncargs *args,
@@ -313,8 +328,8 @@ gd_syncop_mgmt_unlock (struct rpc_clnt *rpc, struct syncargs *args,
 }
 
 int32_t
-gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
-                        int count, void *myframe)
+_gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
+                         int count, void *myframe)
 {
         int                         ret         = -1;
         gd1_mgmt_stage_op_rsp       rsp         = {{0},};
@@ -378,6 +393,14 @@ out:
         return 0;
 }
 
+int32_t
+gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
+                        int count, void *myframe)
+{
+        return glusterd_big_locked_cbk (req, iov, count, myframe,
+                                        _gd_syncop_stage_op_cbk);
+}
+
 
 int
 gd_syncop_mgmt_stage_op (struct rpc_clnt *rpc, struct syncargs *args,
@@ -415,7 +438,7 @@ out:
 }
 
 int32_t
-gd_syncop_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
+_gd_syncop_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
                         int count, void *myframe)
 {
         struct syncargs        *args  = NULL;
@@ -469,6 +492,14 @@ out:
         __wake (args);
 
         return 0;
+}
+
+int32_t
+gd_syncop_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
+                        int count, void *myframe)
+{
+        return glusterd_big_locked_cbk (req, iov, count, myframe,
+                                        _gd_syncop_brick_op_cbk);
 }
 
 int
@@ -534,8 +565,8 @@ out:
 }
 
 int32_t
-gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
-                         int count, void *myframe)
+_gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
+                          int count, void *myframe)
 {
         int                         ret         = -1;
         gd1_mgmt_commit_op_rsp      rsp         = {{0},};
@@ -595,6 +626,14 @@ out:
         synctask_barrier_wake(args);
 
         return 0;
+}
+
+int32_t
+gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
+                         int count, void *myframe)
+{
+        return glusterd_big_locked_cbk (req, iov, count, myframe,
+                                        _gd_syncop_commit_op_cbk);
 }
 
 
@@ -942,12 +981,8 @@ gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict, char **op
                                 "due to rpc failure.");
                         goto out;
                 }
-                /*This is to ensure that the brick_op_cbk is able to take
-                 * the big lock*/
-                synclock_unlock (&conf->big_lock);
                 ret = gd_syncop_mgmt_brick_op (rpc, pending_node, op, req_dict,
                                                op_ctx, op_errstr);
-                synclock_lock (&conf->big_lock);
                 if (ret)
                         goto out;
 

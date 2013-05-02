@@ -18,16 +18,21 @@
 #define GD_SYNCOP(rpc, stb, cbk, req, prog, procnum, xdrproc) do {      \
                 int ret = 0;                                            \
                 struct  synctask        *task = NULL;                   \
+                glusterd_conf_t         *conf= THIS->private;           \
                 gf_boolean_t            cbk_lost = _gf_true;            \
                 task = synctask_get ();                                 \
                 stb->task = task;                                       \
                                                                         \
+                /*This is to ensure that the brick_op_cbk is able to    \
+                 * take the big lock*/                                  \
+                synclock_unlock (&conf->big_lock);                      \
                 ret = gd_syncop_submit_request (rpc, req, stb,          \
                                                 prog, procnum, cbk,     \
                                                 (xdrproc_t)xdrproc,     \
                                                 &cbk_lost);             \
                 if (!cbk_lost)                                          \
                         synctask_yield (stb->task);                     \
+                synclock_lock (&conf->big_lock);                        \
         } while (0)
 
 
