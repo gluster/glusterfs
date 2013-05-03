@@ -66,7 +66,7 @@ TEST ls -l $M0 2>/dev/null;
 
 TEST $CLI volume rebalance $V0 start force
 
-EXPECT_WITHIN 15 "0" rebalance_completed
+EXPECT_WITHIN 30 "0" rebalance_completed
 
 ## check for layout overlaps.
 EXPECT "0" get_layout $B0/${V0}0 $B0/${V0}1 $B0/${V0}2
