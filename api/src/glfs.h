@@ -461,6 +461,7 @@ char *glfs_realpath (glfs_t *fs, const char *path, char *resolved_path);
  */
 int glfs_posix_lock (glfs_fd_t *fd, int cmd, struct flock *flock);
 
+glfs_fd_t *glfs_dup (glfs_fd_t *fd);
 
 __END_DECLS
 

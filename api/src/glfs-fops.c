@@ -2882,3 +2882,45 @@ out:
 
 	return ret;
 }
+
+
+struct glfs_fd *
+glfs_dup (struct glfs_fd *glfd)
+{
+	xlator_t  *subvol = NULL;
+	fd_t      *fd = NULL;
+	glfs_fd_t *dupfd = NULL;
+	struct glfs *fs = NULL;
+
+	__glfs_entry_fd (glfd);
+
+	fs = glfd->fs;
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		errno = EIO;
+		goto out;
+	}
+
+	fd = glfs_resolve_fd (fs, subvol, glfd);
+	if (!fd) {
+		errno = EBADFD;
+		goto out;
+	}
+
+	dupfd = glfs_fd_new (fs);
+	if (!dupfd) {
+		errno = ENOMEM;
+		goto out;
+	}
+
+	dupfd->fd = fd_ref (fd);
+out:
+	if (fd)
+		fd_unref (fd);
+	if (dupfd)
+		glfs_fd_bind (dupfd);
+
+	glfs_subvol_done (fs, subvol);
+
+	return dupfd;
+}
