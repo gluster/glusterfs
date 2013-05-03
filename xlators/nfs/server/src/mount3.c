@@ -526,7 +526,7 @@ __mnt3_resolve_export_subdir_comp (mnt3_resolve_t *mres)
         if ((ret < 0) && (ret != -2)) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to resolve and create "
                         "inode: parent gfid %s, entry %s",
-                        uuid_utoa (mres->resolveloc.inode->gfid), nextcomp);
+                        uuid_utoa (gfid), nextcomp);
                 ret = -EFAULT;
                 goto err;
         }
