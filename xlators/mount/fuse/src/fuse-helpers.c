@@ -14,9 +14,6 @@
 #include <sys/sysctl.h>
 #endif
 
-#ifndef GF_REQUEST_MAXGROUPS
-#define GF_REQUEST_MAXGROUPS    16
-#endif /* GF_REQUEST_MAXGROUPS */
 
 static void
 fuse_resolve_wipe (fuse_resolve_t *resolve)
@@ -138,6 +135,7 @@ get_fuse_state (xlator_t *this, fuse_in_header_t *finh)
 }
 
 
+#define FUSE_MAX_AUX_GROUPS 32 /* We can get only up to 32 aux groups from /proc */
 void
 frame_fill_groups (call_frame_t *frame)
 {
@@ -160,6 +158,9 @@ frame_fill_groups (call_frame_t *frame)
         if (!fp)
                 goto out;
 
+	if (call_stack_alloc_groups (frame->root, FUSE_MAX_AUX_GROUPS) != 0)
+		goto out;
+
         while ((ptr = fgets (line, sizeof line, fp))) {
                 if (strncmp (ptr, "Groups:", 7) != 0)
                         continue;
@@ -176,7 +177,7 @@ frame_fill_groups (call_frame_t *frame)
                         if (!endptr || *endptr)
                                 break;
                         frame->root->groups[idx++] = id;
-                        if (idx == GF_MAX_AUX_GROUPS)
+                        if (idx == FUSE_MAX_AUX_GROUPS)
                                 break;
                 }
 
@@ -192,6 +193,7 @@ out:
         prcred_t    *prcred = (prcred_t *) scratch;
         FILE        *fp = NULL;
         int          ret = 0;
+	int          ngrps;
 
         ret = snprintf (filename, sizeof filename,
                         "/proc/%d/cred", frame->root->pid);
@@ -200,8 +202,11 @@ out:
                 fp = fopen (filename, "r");
                 if (fp != NULL) {
                         if (fgets (scratch, sizeof scratch, fp) != NULL) {
-                                frame->root->ngrps = MIN(prcred->pr_ngroups,
-                                                         GF_REQUEST_MAXGROUPS);
+                                ngrps = MIN(prcred->pr_ngroups,
+					    GF_MAX_AUX_GROUPS);
+				if (call_stack_alloc_groups (frame->root,
+							     ngrps) != 0)
+					return;
                         }
                         fclose (fp);
                  }
@@ -226,7 +231,9 @@ out:
 
         if (sysctl(name, namelen, &kp, &kplen, NULL, 0) != 0)
                 return;
-        ngroups = MIN(kp.kp_eproc.e_ucred.cr_ngroups, GF_REQUEST_MAXGROUPS);
+        ngroups = MIN(kp.kp_eproc.e_ucred.cr_ngroups, GF_MAX_AUX_GROUPS);
+	if (call_stack_alloc_groups (frame->root, ngroups) != 0)
+		return;
         for (i = 0; i < ngroups; i++)
                 frame->root->groups[i] = kp.kp_eproc.e_ucred.cr_groups[i];
         frame->root->ngrps = ngroups;
@@ -257,6 +264,8 @@ static void get_groups(fuse_private_t *priv, call_frame_t *frame)
 
 	gl = gid_cache_lookup(&priv->gid_cache, frame->root->pid);
 	if (gl) {
+		if (call_stack_alloc_groups (frame->root, gl->gl_count) != 0)
+			return;
 		frame->root->ngrps = gl->gl_count;
 		for (i = 0; i < gl->gl_count; i++)
 			frame->root->groups[i] = gl->gl_list[i];

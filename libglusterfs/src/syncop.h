@@ -240,6 +240,7 @@ static inline call_frame_t *
 syncop_create_frame (xlator_t *this)
 {
 	call_frame_t  *frame = NULL;
+	int            ngrps = -1;
 
 	frame = create_frame (this, this->ctx->pool);
 	if (!frame)
@@ -248,7 +249,21 @@ syncop_create_frame (xlator_t *this)
 	frame->root->pid = getpid();
 	frame->root->uid = geteuid ();
 	frame->root->gid = getegid ();
-        frame->root->ngrps = getgroups (GF_MAX_AUX_GROUPS, frame->root->groups);
+        ngrps = getgroups (0, 0);
+	if (ngrps < 0) {
+		STACK_DESTROY (frame->root);
+		return NULL;
+	}
+
+	if (call_stack_alloc_groups (frame->root, ngrps) != 0) {
+		STACK_DESTROY (frame->root);
+		return NULL;
+	}
+
+	if (getgroups (ngrps, frame->root->groups) < 0) {
+		STACK_DESTROY (frame->root);
+		return NULL;
+	}
 
 	return frame;
 }
