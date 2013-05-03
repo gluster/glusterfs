@@ -108,6 +108,7 @@ enum gf_common_mem_types_ {
         gf_common_mt_drc_globals_t        = 92,
         gf_common_mt_drc_rbtree_node_t    = 93,
         gf_common_mt_iov_base_t           = 94,
-        gf_common_mt_end                  = 95,
+        gf_common_mt_groups_t             = 95,
+        gf_common_mt_end                  = 96
 };
 #endif
