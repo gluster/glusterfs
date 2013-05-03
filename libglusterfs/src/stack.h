@@ -82,6 +82,8 @@ struct _call_frame_t {
         const char      *unwind_to;
 };
 
+#define SMALL_GROUP_COUNT 128
+
 struct _call_stack_t {
         union {
                 struct list_head      all_frames;
@@ -99,7 +101,9 @@ struct _call_stack_t {
         gid_t                         gid;
         pid_t                         pid;
         uint16_t                      ngrps;
-        uint32_t                      groups[GF_MAX_AUX_GROUPS];
+        uint32_t                      groups_small[SMALL_GROUP_COUNT];
+	uint32_t                     *groups_large;
+	uint32_t                     *groups;
         gf_lkowner_t                  lk_owner;
         glusterfs_ctx_t              *ctx;
 
@@ -174,6 +178,9 @@ STACK_DESTROY (call_stack_t *stack)
         while (stack->frames.next) {
                 FRAME_DESTROY (stack->frames.next);
         }
+
+	GF_FREE (stack->groups_large);
+
         mem_put (stack);
 
         if (local)
@@ -370,6 +377,24 @@ STACK_RESET (call_stack_t *stack)
         } while (0)
 
 
+static inline int
+call_stack_alloc_groups (call_stack_t *stack, int ngrps)
+{
+	if (ngrps <= SMALL_GROUP_COUNT) {
+		stack->groups = stack->groups_small;
+	} else {
+		stack->groups_large = GF_CALLOC (sizeof (gid_t), ngrps,
+						 gf_common_mt_groups_t);
+		if (!stack->groups_large)
+			return -1;
+		stack->groups = stack->groups_large;
+	}
+
+	stack->ngrps = ngrps;
+
+	return 0;
+}
+
 static inline call_frame_t *
 copy_frame (call_frame_t *frame)
 {
@@ -393,8 +418,12 @@ copy_frame (call_frame_t *frame)
         newstack->ngrps = oldstack->ngrps;
         newstack->op  = oldstack->op;
         newstack->type = oldstack->type;
+	if (call_stack_alloc_groups (newstack, oldstack->ngrps) != 0) {
+		mem_put (newstack);
+		return NULL;
+	}
         memcpy (newstack->groups, oldstack->groups,
-                sizeof (gid_t) * GF_MAX_AUX_GROUPS);
+                sizeof (gid_t) * oldstack->ngrps);
         newstack->unique = oldstack->unique;
 
         newstack->frames.this = frame->this;
