@@ -14,13 +14,12 @@ libgfapi_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-I$(top_srcdir)/rpc/rpc-lib/src \
 	-I$(top_srcdir)/rpc/xdr/src
 
-api.la: libgfapi.la
 
 xlator_LTLIBRARIES = api.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/mount
 
 api_la_SOURCES = glfs-master.c
-
+api_la_DEPENDENCIES = libgfapi.la
 api_la_LDFLAGS = -module -avoid-version
 api_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
