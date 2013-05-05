@@ -197,7 +197,7 @@ call_bail (void *data)
                           ".%"GF_PRI_SUSECONDS, trav->saved_at.tv_usec);
 
 		gf_log (conn->trans->name, GF_LOG_ERROR,
-			"bailing out frame type(%s) op(%s(%d)) xid = 0x%ux "
+			"bailing out frame type(%s) op(%s(%d)) xid = 0x%x "
                         "sent = %s. timeout = %d",
 			trav->rpcreq->prog->progname,
                         (trav->rpcreq->prog->procnames) ?
@@ -359,7 +359,7 @@ saved_frames_unwind (struct saved_frames *saved_frames)
                 gf_log_callingfn (trav->rpcreq->conn->trans->name,
                                   GF_LOG_ERROR,
                                   "forced unwinding frame type(%s) op(%s(%d)) "
-                                  "called at %s (xid=0x%ux)",
+                                  "called at %s (xid=0x%x)",
                                   trav->rpcreq->prog->progname,
                                   ((trav->rpcreq->prog->procnames) ?
                                    trav->rpcreq->prog->procnames[trav->rpcreq->procnum]
@@ -661,7 +661,7 @@ rpc_clnt_reply_init (rpc_clnt_connection_t *conn, rpc_transport_pollin_t *msg,
         }
 
         gf_log (conn->trans->name, GF_LOG_TRACE,
-                "received rpc message (RPC XID: 0x%ux"
+                "received rpc message (RPC XID: 0x%x"
                 " Program: %s, ProgVers: %d, Proc: %d) from rpc-transport (%s)",
                 saved_frame->rpcreq->xid,
                 saved_frame->rpcreq->prog->progname,
@@ -1481,7 +1481,7 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                 if (ret == -1) {
                         gf_log (conn->trans->name, GF_LOG_WARNING,
                                 "failed to submit rpc-request "
-                                "(XID: 0x%ux Program: %s, ProgVers: %d, "
+                                "(XID: 0x%x Program: %s, ProgVers: %d, "
                                 "Proc: %d) to rpc-transport (%s)", rpcreq->xid,
                                 rpcreq->prog->progname, rpcreq->prog->progver,
                                 rpcreq->procnum, rpc->conn.trans->name);
@@ -1492,7 +1492,7 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                         __save_frame (rpc, frame, rpcreq);
 
                         gf_log ("rpc-clnt", GF_LOG_TRACE, "submitted request "
-                                "(XID: 0x%ux Program: %s, ProgVers: %d, "
+                                "(XID: 0x%x Program: %s, ProgVers: %d, "
                                 "Proc: %d) to rpc-transport (%s)", rpcreq->xid,
                                 rpcreq->prog->progname, rpcreq->prog->progver,
                                 rpcreq->procnum, rpc->conn.trans->name);
