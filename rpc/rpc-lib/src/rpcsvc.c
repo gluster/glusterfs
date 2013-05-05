@@ -1105,14 +1105,14 @@ rpcsvc_submit_generic (rpcsvc_request_t *req, struct iovec *proghdr,
 
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "failed to submit message "
-                        "(XID: 0x%ux, Program: %s, ProgVers: %d, Proc: %d) to "
+                        "(XID: 0x%x, Program: %s, ProgVers: %d, Proc: %d) to "
                         "rpc-transport (%s)", req->xid,
                         req->prog ? req->prog->progname : "(not matched)",
                         req->prog ? req->prog->progver : 0,
                         req->procnum, trans->name);
         } else {
                 gf_log (GF_RPCSVC, GF_LOG_TRACE,
-                        "submitted reply for rpc-message (XID: 0x%ux, "
+                        "submitted reply for rpc-message (XID: 0x%x, "
                         "Program: %s, ProgVers: %d, Proc: %d) to rpc-transport "
                         "(%s)", req->xid, req->prog ? req->prog->progname: "-",
                         req->prog ? req->prog->progver : 0,
