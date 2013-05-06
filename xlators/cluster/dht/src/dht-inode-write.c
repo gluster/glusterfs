@@ -212,7 +212,7 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
                 dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
                 ret = fd_ctx_get (local->fd, this, NULL);
-                if (!ret) {
+                if (!ret || !local->fd) {
                         dht_truncate2 (this, frame, 0);
                         return 0;
                 }
