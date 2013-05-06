@@ -25,6 +25,14 @@
 #define VKEY_MARKER_XTIME         GEOREP".indexing"
 #define VKEY_FEATURES_QUOTA       "features.quota"
 
+#define AUTH_ALLOW_MAP_KEY "auth.allow"
+#define AUTH_REJECT_MAP_KEY "auth.reject"
+#define NFS_DISABLE_MAP_KEY "nfs.disable"
+#define AUTH_ALLOW_OPT_KEY "auth.addr.*.allow"
+#define AUTH_REJECT_OPT_KEY "auth.addr.*.reject"
+#define NFS_DISABLE_OPT_KEY "nfs.*.disable"
+
+
 typedef enum {
         GF_CLIENT_TRUSTED,
         GF_CLIENT_OTHER
@@ -78,6 +86,9 @@ typedef enum {
 
 typedef enum  { DOC, NO_DOC, GLOBAL_DOC, GLOBAL_NO_DOC } option_type_t;
 
+typedef int (*vme_option_validation) (dict_t *dict, char *key, char *value,
+                                      char **op_errstr);
+
 struct volopt_map_entry {
         char *key;
         char *voltype;
@@ -86,7 +97,10 @@ struct volopt_map_entry {
         option_type_t type;
         uint32_t flags;
         uint32_t op_version;
+        char *description;
+        vme_option_validation validate_fn;
 };
+
 int glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
                                  glusterd_brickinfo_t *brickinfo);
 

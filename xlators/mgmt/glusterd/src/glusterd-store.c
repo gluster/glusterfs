@@ -2530,8 +2530,11 @@ glusterd_store_retrieve_volume (char    *volname)
                         break;
                 }
 
-                volinfo->dist_leaf_count = (volinfo->stripe_count *
-                                            volinfo->replica_count);
+                volinfo->dist_leaf_count = glusterd_get_dist_leaf_count (volinfo);
+
+                volinfo->subvol_count = (volinfo->brick_count /
+                                         volinfo->dist_leaf_count);
+
         }
 
         if (op_errno != GD_STORE_EOF)
