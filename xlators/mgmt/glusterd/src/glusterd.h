@@ -446,7 +446,8 @@ int32_t
 glusterd_brick_from_brickinfo (glusterd_brickinfo_t *brickinfo,
                                char **new_brick);
 int
-glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port);
+glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
+                      dict_t *dict);
 
 int
 glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *myhostname,
@@ -520,7 +521,7 @@ glusterd_handle_defrag_volume_v2 (rpcsvc_request_t *req);
 int
 glusterd_xfer_cli_probe_resp (rpcsvc_request_t *req, int32_t op_ret,
                               int32_t op_errno, char *op_errstr, char *hostname,
-                              int port);
+                              int port, dict_t *dict);
 
 int
 glusterd_op_commit_send_resp (rpcsvc_request_t *req,
@@ -532,7 +533,7 @@ glusterd_xfer_friend_remove_resp (rpcsvc_request_t *req, char *hostname, int por
 
 int
 glusterd_deprobe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
-                        uuid_t uuid);
+                        uuid_t uuid, dict_t *dict);
 
 int
 glusterd_handle_cli_deprobe (rpcsvc_request_t *req);
@@ -618,7 +619,7 @@ glusterd_handle_fsm_log (rpcsvc_request_t *req);
 int
 glusterd_xfer_cli_deprobe_resp (rpcsvc_request_t *req, int32_t op_ret,
                                 int32_t op_errno, char *op_errstr,
-                                char *hostname);
+                                char *hostname, dict_t *dict);
 
 int
 glusterd_fetchspec_notify (xlator_t *this);

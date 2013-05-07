@@ -677,6 +677,7 @@ glusterd_event_connected_inject (glusterd_peerctx_t *peerctx)
         ctx->hostname = gf_strdup (peerinfo->hostname);
         ctx->port = peerinfo->port;
         ctx->req = peerctx->args.req;
+        ctx->dict = peerctx->args.dict;
 
         event->peerinfo = peerinfo;
         event->ctx = ctx;

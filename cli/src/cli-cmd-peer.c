@@ -41,6 +41,7 @@ cli_cmd_peer_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         dict_t                  *dict = NULL;
         int                     sent = 0;
         int                     parse_error = 0;
+        cli_local_t             *local = NULL;
 
         if (!(wordcount == 3)) {
                 cli_usage_out (word->pattern);
@@ -78,6 +79,9 @@ cli_cmd_peer_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
                         goto out;
         }
 */
+
+        CLI_LOCAL_INIT (local, words, frame, dict);
+
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, dict);
         }
@@ -106,6 +110,7 @@ cli_cmd_peer_deprobe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                  flags = 0;
         int                  sent = 0;
         int                  parse_error = 0;
+        cli_local_t          *local = NULL;
 
         if ((wordcount < 3) || (wordcount > 4)) {
                 cli_usage_out (word->pattern);
@@ -144,6 +149,8 @@ cli_cmd_peer_deprobe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         ret = dict_set_int32 (dict, "flags", flags);
         if (ret)
                 goto out;
+
+        CLI_LOCAL_INIT (local, words, frame, dict);
 
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, dict);
