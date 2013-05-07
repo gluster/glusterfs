@@ -47,6 +47,8 @@ GLUSTERD_OPTS="--pid-file=$PIDFILE ${GLUSTERD_OPTIONS}"
 GLUSTERD="$GLUSTERD_BIN $GLUSTERD_OPTS"
 RETVAL=0
 
+LOCKFILE=/var/lock/subsys/${BASE}
+
 # Start the service $BASE
 start()
 {
@@ -59,6 +61,7 @@ start()
            daemon $GLUSTERD
            RETVAL=$?
            echo
+           [ $RETVAL -eq 0 ] && touch $LOCKFILE
            return $RETVAL
        fi
 }
@@ -73,6 +76,9 @@ stop()
     else
         killproc $BASE
     fi
+    RETVAL=$?
+    [ $RETVAL -eq 0 ] && rm -f $LOCKFILE
+    return $RETVAL
 }
 
 restart()
