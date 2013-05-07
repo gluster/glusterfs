@@ -255,12 +255,15 @@ gd_syncop_mgmt_lock (struct rpc_clnt *rpc, struct syncargs *args,
 {
         int                       ret = -1;
         gd1_mgmt_cluster_lock_req req  = {{0},};
+        glusterd_conf_t           *conf = THIS->private;
 
         uuid_copy (req.uuid, my_uuid);
+        synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (rpc, &req, args, &gd_mgmt_prog,
                                         GLUSTERD_MGMT_CLUSTER_LOCK,
                                         gd_syncop_mgmt_lock_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_cluster_lock_req);
+        synclock_lock (&conf->big_lock);
         return ret;
 }
 
@@ -311,12 +314,15 @@ gd_syncop_mgmt_unlock (struct rpc_clnt *rpc, struct syncargs *args,
 {
         int                         ret     = -1;
         gd1_mgmt_cluster_unlock_req req     = {{0},};
+        glusterd_conf_t             *conf   = THIS->private;
 
         uuid_copy (req.uuid, my_uuid);
+        synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (rpc, &req, args, &gd_mgmt_prog,
                                         GLUSTERD_MGMT_CLUSTER_UNLOCK,
                                         gd_syncop_mgmt_unlock_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_cluster_lock_req);
+        synclock_lock (&conf->big_lock);
         return ret;
 }
 
@@ -401,7 +407,8 @@ gd_syncop_mgmt_stage_op (struct rpc_clnt *rpc, struct syncargs *args,
                          dict_t *dict_out, dict_t *op_ctx)
 {
         gd1_mgmt_stage_op_req *req  = NULL;
-        int                   ret  = -1;
+        glusterd_conf_t       *conf = THIS->private;
+        int                   ret   = -1;
 
         req = GF_CALLOC (1, sizeof (*req), gf_gld_mt_mop_stage_req_t);
         if (!req)
@@ -415,10 +422,12 @@ gd_syncop_mgmt_stage_op (struct rpc_clnt *rpc, struct syncargs *args,
         if (ret)
                 goto out;
 
+        synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (rpc, req, args, &gd_mgmt_prog,
                                         GLUSTERD_MGMT_STAGE_OP,
                                         gd_syncop_stage_op_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_stage_op_req);
+        synclock_lock (&conf->big_lock);
 out:
         gd_stage_op_req_free (req);
         return ret;
@@ -630,6 +639,7 @@ gd_syncop_mgmt_commit_op (struct rpc_clnt *rpc, struct syncargs *args,
                           uuid_t my_uuid, uuid_t recv_uuid,
                           int op, dict_t *dict_out, dict_t *op_ctx)
 {
+        glusterd_conf_t        *conf = THIS->private;
         gd1_mgmt_commit_op_req *req  = NULL;
         int                    ret  = -1;
 
@@ -645,10 +655,12 @@ gd_syncop_mgmt_commit_op (struct rpc_clnt *rpc, struct syncargs *args,
         if (ret)
                 goto out;
 
+        synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (rpc, req, args, &gd_mgmt_prog,
                                         GLUSTERD_MGMT_COMMIT_OP ,
                                         gd_syncop_commit_op_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_commit_op_req);
+        synclock_lock (&conf->big_lock);
 out:
         gd_commit_op_req_free (req);
         return ret;
