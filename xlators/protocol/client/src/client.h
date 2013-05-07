@@ -93,6 +93,10 @@ typedef struct clnt_conf {
                                                    which was sent earlier */
         char                   portmap_err_logged; /* flag used to prevent
                                                       excessive logging */
+        char                   disconnect_err_logged; /* flag used to prevent
+                                                         excessive disconnect
+                                                         logging */
+
         char                   need_different_port; /* flag used to change the
                                                        portmap path in case of
                                                        'tcp,rdma' on server */

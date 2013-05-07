@@ -2092,9 +2092,19 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                         client_register_grace_timer (this, conf);
 
                 if (!conf->skip_notify) {
-                        if (conf->connected)
-                                gf_log (this->name, GF_LOG_INFO,
-                                        "disconnected");
+                        if (conf->connected) {
+                               gf_log (this->name,
+                                        ((!conf->disconnect_err_logged)
+                                        ? GF_LOG_INFO : GF_LOG_DEBUG),
+                                        "disconnected from %s. Client process "
+                                        "will keep trying to connect to "
+                                        "glusterd until brick's port is "
+                                        "available",
+                                  conf->rpc->conn.trans->peerinfo.identifier);
+
+                                if (conf->portmap_err_logged)
+                                        conf->disconnect_err_logged = 1;
+                        }
 
                         /* If the CHILD_DOWN event goes to parent xlator
                            multiple times, the logic of parent xlator notify
