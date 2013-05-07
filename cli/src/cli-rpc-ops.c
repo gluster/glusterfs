@@ -87,47 +87,11 @@ rpc_clnt_prog_t cli_pmap_prog = {
         .progver    = GLUSTER_PMAP_VERSION,
 };
 
-void
-gf_cli_probe_strerror (gf1_cli_probe_rsp *rsp, char *msg, size_t len)
-{
-        switch (rsp->op_errno) {
-        case GF_PROBE_ANOTHER_CLUSTER:
-                snprintf (msg, len, "%s is already part of another cluster",
-                          rsp->hostname);
-                break;
-        case GF_PROBE_VOLUME_CONFLICT:
-                snprintf (msg, len, "Atleast one volume on %s conflicts with "
-                          "existing volumes in the cluster", rsp->hostname);
-                break;
-        case GF_PROBE_UNKNOWN_PEER:
-                snprintf (msg, len, "%s responded with 'unknown peer' error, "
-                          "this could happen if %s doesn't have localhost in "
-                          "its peer database", rsp->hostname, rsp->hostname);
-                break;
-        case GF_PROBE_ADD_FAILED:
-                snprintf (msg, len, "Failed to add peer information on %s" ,
-                          rsp->hostname);
-                break;
-        case GF_PROBE_SAME_UUID:
-                snprintf (msg, len, "Peer uuid (host %s) is same as local uuid",
-                          rsp->hostname);
-                break;
-        case GF_PROBE_QUORUM_NOT_MET:
-                snprintf (msg, len, "Cluster quorum is not met. Changing "
-                          "peers is not allowed in this state");
-                break;
-        default:
-                snprintf (msg, len, "Probe returned with unknown "
-                          "errno %d", rsp->op_errno);
-                break;
-        }
-}
-
 int
 gf_cli_probe_cbk (struct rpc_req *req, struct iovec *iov,
                         int count, void *myframe)
 {
-        gf1_cli_probe_rsp     rsp   = {0,};
+        gf_cli_rsp            rsp   = {0,};
         int                   ret   = -1;
         char                  msg[1024] = {0,};
 
@@ -135,7 +99,7 @@ gf_cli_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf1_cli_probe_rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
                 gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
                         "Failed to decode xdr response");
@@ -145,38 +109,11 @@ gf_cli_probe_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to probe");
-         if (!rsp.op_ret) {
-                switch (rsp.op_errno) {
-                        case GF_PROBE_SUCCESS:
-                                snprintf (msg, sizeof (msg),
-                                          "success");
-                                break;
-                        case GF_PROBE_LOCALHOST:
-                                snprintf (msg, sizeof (msg),
-                                          "success: on localhost not needed");
-                                break;
-                        case GF_PROBE_FRIEND:
-                                snprintf (msg, sizeof (msg),
-                                          "success: host %s port %d already"
-                                          " in peer list", rsp.hostname,
-                                          rsp.port);
-                                break;
-                        default:
-                                rsp.op_ret = -1;
-                                snprintf (msg, sizeof (msg),
-                                          "Probe returned with unknown errno"
-                                          " %d", rsp.op_errno);
-                                break;
-                }
-         }
 
-        if (rsp.op_ret) {
-                if (rsp.op_errstr && (strlen (rsp.op_errstr) > 0)) {
-                        snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
-                } else {
-                        gf_cli_probe_strerror (&rsp, msg, sizeof (msg));
-                }
-                gf_log ("cli", GF_LOG_ERROR, "%s", msg);
+        if (rsp.op_errstr && (strlen (rsp.op_errstr) > 0)) {
+                snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
+                if (rsp.op_ret)
+                        gf_log ("cli", GF_LOG_ERROR, "%s", msg);
         }
 
         if (global_state->mode & GLUSTER_MODE_XML) {
@@ -191,7 +128,7 @@ gf_cli_probe_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         if (!rsp.op_ret)
-                cli_out ("peer probe: %s", msg);
+                cli_out ("peer probe: success. %s", msg);
         else
                 cli_err ("peer probe: failed: %s", msg);
 
@@ -206,15 +143,15 @@ int
 gf_cli_deprobe_cbk (struct rpc_req *req, struct iovec *iov,
                        int count, void *myframe)
 {
-        gf1_cli_deprobe_rsp    rsp   = {0,};
+        gf_cli_rsp            rsp   = {0,};
         int                   ret   = -1;
-        char                  msg[1024] = {0,};
+        char              msg[1024] = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
         }
 
-        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf1_cli_deprobe_rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
                 gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
                         "Failed to decode xdr response");
@@ -224,48 +161,11 @@ gf_cli_deprobe_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to deprobe");
+
         if (rsp.op_ret) {
                 if (strlen (rsp.op_errstr) > 0) {
                         snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
                         gf_log ("cli", GF_LOG_ERROR, "%s", rsp.op_errstr);
-                } else {
-                        switch (rsp.op_errno) {
-                                case GF_DEPROBE_LOCALHOST:
-                                        snprintf (msg, sizeof (msg),
-                                                  "%s is localhost",
-                                                  rsp.hostname);
-                                        break;
-                                case GF_DEPROBE_NOT_FRIEND:
-                                        snprintf (msg, sizeof (msg),
-                                                  "%s is not part of cluster",
-                                                  rsp.hostname);
-                                        break;
-                                case GF_DEPROBE_BRICK_EXIST:
-                                        snprintf (msg, sizeof (msg),
-                                                  "Brick(s) with the peer %s "
-                                                  "exist in cluster",
-                                                  rsp.hostname);
-                                        break;
-                                case GF_DEPROBE_FRIEND_DOWN:
-                                        snprintf (msg, sizeof (msg),
-                                                  "One of the peers is probably"
-                                                  " down. Check with 'peer "
-                                                  "status'.");
-                                        break;
-                                case GF_DEPROBE_QUORUM_NOT_MET:
-                                        snprintf (msg, sizeof (msg), "Cluster "
-                                                  "quorum is not met. Changing "
-                                                  "peers is not allowed in this"
-                                                  " state");
-                                        break;
-                                default:
-                                        snprintf (msg, sizeof (msg),
-                                                  "Detach returned with unknown"
-                                                  " errno %d", rsp.op_errno);
-                                        break;
-                        }
-                        gf_log ("cli", GF_LOG_ERROR,"Detach failed with op_ret "
-                                "%d and op_errno %d", rsp.op_ret, rsp.op_errno);
                 }
         } else {
                 snprintf (msg, sizeof (msg), "success");
@@ -2750,10 +2650,9 @@ int32_t
 gf_cli_probe (call_frame_t *frame, xlator_t *this,
                  void *data)
 {
-        gf1_cli_probe_req  req      = {0,};
+        gf_cli_req         req      = {{0,},};
         int                ret      = 0;
         dict_t            *dict     = NULL;
-        char              *hostname = NULL;
         int                port     = 0;
 
         if (!frame || !this ||  !data) {
@@ -2762,24 +2661,22 @@ gf_cli_probe (call_frame_t *frame, xlator_t *this,
         }
 
         dict = data;
-        ret = dict_get_str (dict, "hostname", &hostname);
-        if (ret)
-                goto out;
 
         ret = dict_get_int32 (dict, "port", &port);
-        if (ret)
-                port = CLI_GLUSTERD_PORT;
+        if (ret) {
+                ret = dict_set_int32 (dict, "port", CLI_GLUSTERD_PORT);
+                if (ret)
+                        goto out;
+        }
 
-        req.hostname = hostname;
-        req.port     = port;
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_PROBE, NULL,
-                              this, gf_cli_probe_cbk,
-                              (xdrproc_t)xdr_gf1_cli_probe_req);
+        ret = cli_to_glusterd (&req, frame, gf_cli_probe_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_PROBE, this, cli_rpc_prog, NULL);
 
 out:
+        GF_FREE (req.dict.dict_val);
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
         return ret;
 }
 
@@ -2787,10 +2684,9 @@ int32_t
 gf_cli_deprobe (call_frame_t *frame, xlator_t *this,
                    void *data)
 {
-        gf1_cli_deprobe_req  req      = {0,};
+        gf_cli_req           req      = {{0,},};
         int                  ret      = 0;
         dict_t              *dict     = NULL;
-        char                *hostname = NULL;
         int                  port     = 0;
         int                  flags    = 0;
 
@@ -2800,28 +2696,28 @@ gf_cli_deprobe (call_frame_t *frame, xlator_t *this,
         }
 
         dict = data;
-        ret = dict_get_str (dict, "hostname", &hostname);
-        if (ret)
-                goto out;
-
         ret = dict_get_int32 (dict, "port", &port);
-        if (ret)
-                port = CLI_GLUSTERD_PORT;
+        if (ret) {
+                ret = dict_set_int32 (dict, "port", CLI_GLUSTERD_PORT);
+                if (ret)
+                        goto out;
+        }
 
         ret = dict_get_int32 (dict, "flags", &flags);
-        if (ret)
-                flags = 0;
+        if (ret) {
+                ret = dict_set_int32 (dict, "flags", 0);
+                if (ret)
+                        goto out;
+        }
 
-        req.hostname = hostname;
-        req.port     = port;
-        req.flags    = flags;
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GLUSTER_CLI_DEPROBE, NULL,
-                              this, gf_cli_deprobe_cbk,
-                              (xdrproc_t)xdr_gf1_cli_deprobe_req);
+        ret = cli_to_glusterd (&req, frame, gf_cli_deprobe_cbk,
+                               (xdrproc_t)xdr_gf_cli_req, dict,
+                              GLUSTER_CLI_DEPROBE, this, cli_rpc_prog, NULL);
 
 out:
+        GF_FREE (req.dict.dict_val);
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
         return ret;
 }
 

@@ -125,32 +125,6 @@ enum gf_cli_status_type {
         opaque  dict<>;
 }  ;
 
- struct gf1_cli_probe_req {
-        string  hostname<>;
-	int	port;
-}  ;
-
- struct gf1_cli_probe_rsp {
-        int     op_ret;
-        int     op_errno;
-	int	port;
-        string  hostname<>;
-        string  op_errstr<>;
-}  ;
-
- struct gf1_cli_deprobe_req {
-        string  hostname<>;
-	int	port;
-        int     flags;
-}  ;
-
- struct gf1_cli_deprobe_rsp {
-        int     op_ret;
-        int     op_errno;
-        string  hostname<>;
-        string  op_errstr<>;
-}  ;
-
 struct gf1_cli_peer_list_req {
         int     flags;
         opaque  dict<>;

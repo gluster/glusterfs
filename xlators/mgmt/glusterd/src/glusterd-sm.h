@@ -123,6 +123,7 @@ typedef enum glusterd_ev_gen_mode_ {
 typedef struct glusterd_peer_ctx_args_ {
         rpcsvc_request_t        *req;
         glusterd_ev_gen_mode_t  mode;
+        dict_t                  *dict;
 } glusterd_peerctx_args_t;
 
 typedef struct glusterd_peer_ctx_ {
@@ -189,6 +190,7 @@ typedef struct glusterd_probe_ctx_ {
         char                    *hostname;
         rpcsvc_request_t        *req;
         int                      port;
+        dict_t                  *dict;
 } glusterd_probe_ctx_t;
 int
 glusterd_friend_sm_new_event (glusterd_friend_sm_event_type_t event_type,

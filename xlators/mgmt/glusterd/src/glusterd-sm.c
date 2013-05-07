@@ -400,7 +400,8 @@ glusterd_ac_send_friend_remove_req (glusterd_friend_sm_event_t *event,
                 if (ctx)
                         ret = glusterd_xfer_cli_deprobe_resp (ctx->req, ret, 0,
                                                               NULL,
-                                                              ctx->hostname);
+                                                              ctx->hostname,
+                                                              ctx->dict);
                 glusterd_friend_sm ();
                 glusterd_op_sm ();
 
