@@ -1961,6 +1961,40 @@ out:
 	return 0;
 }
 
+int32_t
+client_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
+		 off_t offset, size_t len, dict_t *xdata)
+{
+        int          ret  = -1;
+        clnt_conf_t *conf = NULL;
+        rpc_clnt_procedure_t *proc = NULL;
+        clnt_args_t  args = {0,};
+
+        conf = this->private;
+        if (!conf || !conf->fops)
+                goto out;
+
+        args.fd = fd;
+	args.flags = mode;
+	args.offset = offset;
+	args.size = len;
+        args.xdata = xdata;
+
+        proc = &conf->fops->proctable[GF_FOP_FALLOCATE];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_FALLOCATE]);
+                goto out;
+        }
+        if (proc->fn)
+                ret = proc->fn (frame, this, &args);
+out:
+        if (ret)
+                STACK_UNWIND_STRICT (fallocate, frame, -1, ENOTCONN, NULL, NULL, NULL);
+
+	return 0;
+}
 
 int32_t
 client_getspec (call_frame_t *frame, xlator_t *this, const char *key,
@@ -2679,6 +2713,7 @@ struct xlator_fops fops = {
         .fxattrop    = client_fxattrop,
         .setattr     = client_setattr,
         .fsetattr    = client_fsetattr,
+	.fallocate   = client_fallocate,
         .getspec     = client_getspec,
 };
 

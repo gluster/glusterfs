@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Helper to verify a given fallocate command is supported and skip a test
+# otherwise. Older versions of the fallocate utility might not support all modes
+# (i.e., discard) and older versions of fuse might not support the associated
+# fallocate requests.
+
+function require_fallocate()
+{
+	output=`fallocate $* 2>&1`
+	ret=$?
+	if [ ! $ret -eq 0 ] && ([[ $output == *unsupported* ]] ||
+				[[ $output == *invalid* ]] ||
+				[[ $output == *"not supported"* ]])
+	then
+		SKIP_TESTS
+		exit
+	fi
+}

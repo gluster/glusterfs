@@ -691,6 +691,8 @@ int32_t dht_setattr (call_frame_t  *frame, xlator_t *this, loc_t *loc,
                      struct iatt   *stbuf, int32_t valid, dict_t *xdata);
 int32_t dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                       struct iatt  *stbuf, int32_t valid, dict_t *xdata);
+int32_t dht_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd,
+		      int32_t mode, off_t offset, size_t len, dict_t *xdata);
 
 int32_t dht_init (xlator_t *this);
 void    dht_fini (xlator_t *this);

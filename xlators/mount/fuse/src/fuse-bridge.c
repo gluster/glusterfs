@@ -2653,6 +2653,51 @@ fuse_readdirp (xlator_t *this, fuse_in_header_t *finh, void *msg)
 	fuse_resolve_and_resume (state, fuse_readdirp_resume);
 }
 
+static int
+fuse_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+		   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+		   struct iatt *postbuf, dict_t *xdata)
+{
+	return fuse_err_cbk(frame, cookie, this, op_ret, op_errno, xdata);
+}
+
+static void
+fuse_fallocate_resume(fuse_state_t *state)
+{
+	gf_log("glusterfs-fuse", GF_LOG_TRACE,
+	       "%"PRIu64": FALLOCATE (%p, flags=%d, size=%zu, offset=%"PRId64")",
+	       state->finh->unique, state->fd, state->flags, state->size,
+	       state->off);
+
+	/* we only support KEEP_SIZE */
+	FUSE_FOP(state, fuse_fallocate_cbk, GF_FOP_FALLOCATE, fallocate, state->fd,
+		 (state->flags & FALLOC_FL_KEEP_SIZE), state->off, state->size,
+		 state->xdata);
+}
+
+static void
+fuse_fallocate(xlator_t *this, fuse_in_header_t *finh, void *msg)
+{
+	struct fuse_fallocate_in *ffi = msg;
+	fuse_state_t *state = NULL;
+
+	GET_STATE(this, finh, state);
+	state->off = ffi->offset;
+	state->size = ffi->length;
+	state->flags = ffi->mode;
+	state->fd = FH_TO_FD(ffi->fh);
+
+	/* discard TBD as separate FOP */
+	if (state->flags & FALLOC_FL_PUNCH_HOLE) {
+		send_fuse_err(this, finh, EOPNOTSUPP);
+		free_fuse_state(state);
+		return;
+	}
+
+	fuse_resolve_fd_init(state, &state->resolve, state->fd);
+	fuse_resolve_and_resume(state, fuse_fallocate_resume);
+}
+
 
 static void
 fuse_releasedir (xlator_t *this, fuse_in_header_t *finh, void *msg)
@@ -4861,7 +4906,7 @@ static fuse_handler_t *fuse_std_ops[FUSE_OP_HIGH] = {
      /* [FUSE_POLL] */
      /* [FUSE_NOTIFY_REPLY] */
      /* [FUSE_BATCH_FORGET] */
-     /* [FUSE_FALLOCATE] */
+	[FUSE_FALLOCATE]   = fuse_fallocate,
 	[FUSE_READDIRPLUS] = fuse_readdirp,
 };
 

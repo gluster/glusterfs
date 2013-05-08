@@ -1936,6 +1936,61 @@ out:
         return 0;
 }
 
+int
+client3_3_fallocate_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                        void *myframe)
+{
+        call_frame_t    *frame      = NULL;
+        gfs3_fallocate_rsp rsp      = {0,};
+        struct iatt      prestat    = {0,};
+        struct iatt      poststat   = {0,};
+        int              ret        = 0;
+        xlator_t *this       = NULL;
+        dict_t  *xdata       = NULL;
+
+
+        this = THIS;
+
+        frame = myframe;
+
+        if (-1 == req->rpc_status) {
+                rsp.op_ret   = -1;
+                rsp.op_errno = ENOTCONN;
+                goto out;
+        }
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gfs3_fallocate_rsp);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        if (-1 != rsp.op_ret) {
+                gf_stat_to_iatt (&rsp.statpre, &prestat);
+                gf_stat_to_iatt (&rsp.statpost, &poststat);
+        }
+
+        GF_PROTOCOL_DICT_UNSERIALIZE (this, xdata, (rsp.xdata.xdata_val),
+                                      (rsp.xdata.xdata_len), ret,
+                                      rsp.op_errno, out);
+
+out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
+        CLIENT_STACK_UNWIND (fallocate, frame, rsp.op_ret,
+                             gf_error_to_errno (rsp.op_errno), &prestat,
+                             &poststat, xdata);
+
+        free (rsp.xdata.xdata_val);
+
+        if (xdata)
+                dict_unref (xdata);
+
+        return 0;
+}
 
 int
 client3_3_setattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
@@ -5786,7 +5841,52 @@ unwind:
         return 0;
 }
 
+int32_t
+client3_3_fallocate(call_frame_t *frame, xlator_t *this, void *data)
+{
+        clnt_args_t       *args     = NULL;
+        int64_t            remote_fd = -1;
+        clnt_conf_t       *conf     = NULL;
+	gfs3_fallocate_req req	    = {{0},};
+        int                op_errno = ESTALE;
+        int                ret        = 0;
 
+        if (!frame || !this || !data)
+                goto unwind;
+
+        args = data;
+        conf = this->private;
+
+        CLIENT_GET_REMOTE_FD (this, args->fd, DEFAULT_REMOTE_FD,
+                              remote_fd, op_errno, unwind);
+
+        req.fd = remote_fd;
+	req.flags = args->flags;
+	req.offset = args->offset;
+	req.size = args->size;
+	memcpy(req.gfid, args->fd->inode->gfid, 16);
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, args->xdata, (&req.xdata.xdata_val),
+                                    req.xdata.xdata_len, op_errno, unwind);
+
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_FALLOCATE,
+                                     client3_3_fallocate_cbk, NULL,
+                                     NULL, 0, NULL, 0,
+                                     NULL, (xdrproc_t)xdr_gfs3_fallocate_req);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
+        }
+
+        GF_FREE (req.xdata.xdata_val);
+
+        return 0;
+unwind:
+        CLIENT_STACK_UNWIND (fallocate, frame, -1, op_errno, NULL, NULL, NULL);
+        GF_FREE (req.xdata.xdata_val);
+
+        return 0;
+}
 
 /* Table Specific to FOPS */
 
@@ -5833,6 +5933,7 @@ rpc_clnt_procedure_t clnt3_3_fop_actors[GF_FOP_MAXVALUE] = {
         [GF_FOP_SETATTR]     = { "SETATTR",     client3_3_setattr },
         [GF_FOP_FSETATTR]    = { "FSETATTR",    client3_3_fsetattr },
         [GF_FOP_READDIRP]    = { "READDIRP",    client3_3_readdirp },
+	[GF_FOP_FALLOCATE]   = { "FALLOCATE",	client3_3_fallocate },
         [GF_FOP_RELEASE]     = { "RELEASE",     client3_3_release },
         [GF_FOP_RELEASEDIR]  = { "RELEASEDIR",  client3_3_releasedir },
         [GF_FOP_GETSPEC]     = { "GETSPEC",     client3_getspec },
@@ -5882,6 +5983,7 @@ char *clnt3_3_fop_names[GFS3_OP_MAXVALUE] = {
         [GFS3_OP_SETATTR]     = "SETATTR",
         [GFS3_OP_FSETATTR]    = "FSETATTR",
         [GFS3_OP_READDIRP]    = "READDIRP",
+	[GFS3_OP_FALLOCATE]   = "FALLOCATE",
         [GFS3_OP_RELEASE]     = "RELEASE",
         [GFS3_OP_RELEASEDIR]  = "RELEASEDIR",
         [GFS3_OP_FREMOVEXATTR] = "FREMOVEXATTR",

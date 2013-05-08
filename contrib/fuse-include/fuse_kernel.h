@@ -262,6 +262,7 @@ enum fuse_opcode {
 	FUSE_IOCTL         = 39,
 	FUSE_POLL          = 40,
 
+	FUSE_FALLOCATE	   = 43,
 	FUSE_READDIRPLUS   = 44,
 	/* CUSE specific operations */
 	CUSE_INIT          = 4096,
@@ -535,6 +536,14 @@ struct fuse_poll_out {
 
 struct fuse_notify_poll_wakeup_out {
 	__u64	kh;
+};
+
+struct fuse_fallocate_in {
+	__u64	fh;
+	__u64	offset;
+	__u64	length;
+	__u32	mode;
+	__u32	padding;
 };
 
 struct fuse_in_header {

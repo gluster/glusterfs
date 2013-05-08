@@ -448,6 +448,8 @@ int glfs_lremovexattr (glfs_t *fs, const char *path, const char *name);
 
 int glfs_fremovexattr (glfs_fd_t *fd, const char *name);
 
+int glfs_fallocate(glfs_fd_t *fd, int keep_size, off_t offset, size_t len);
+
 char *glfs_getcwd (glfs_t *fs, char *buf, size_t size);
 
 int glfs_chdir (glfs_t *fs, const char *path);

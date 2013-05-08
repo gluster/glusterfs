@@ -197,6 +197,7 @@ typedef enum {
         GF_FOP_RELEASEDIR,
         GF_FOP_GETSPEC,
         GF_FOP_FREMOVEXATTR,
+	GF_FOP_FALLOCATE,
         GF_FOP_MAXVALUE,
 } glusterfs_fop_t;
 

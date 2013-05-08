@@ -652,6 +652,14 @@ typedef struct _afr_local {
                         dict_t *params;
                         char *linkpath;
                 } symlink;
+
+		struct {
+			int32_t mode;
+			off_t offset;
+			size_t len;
+			struct iatt prebuf;
+			struct iatt postbuf;
+		} fallocate;
         } cont;
 
         struct {

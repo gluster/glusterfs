@@ -455,6 +455,15 @@ default_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int32_t
+default_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, struct iatt *pre,
+                      struct iatt *post, dict_t *xdata)
+{
+	STACK_UNWIND_STRICT(fallocate, frame, op_ret, op_errno, pre, post, xdata);
+	return 0;
+}
+
+int32_t
 default_getspec_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, char *spec_data)
 {
@@ -862,6 +871,17 @@ default_fsetattr_resume (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
 }
 
+int32_t
+default_fallocate_resume(call_frame_t *frame, xlator_t *this, fd_t *fd,
+			 int32_t keep_size, off_t offset, size_t len, dict_t *xdata)
+{
+	STACK_WIND(frame, default_fallocate_cbk, FIRST_CHILD(this),
+		   FIRST_CHILD(this)->fops->fallocate, fd, keep_size, offset, len,
+		   xdata);
+        return 0;
+}
+
+
 /* FOPS */
 
 int32_t
@@ -1266,6 +1286,15 @@ default_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
 }
 
+int32_t
+default_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd,
+		  int32_t keep_size, off_t offset, size_t len, dict_t *xdata)
+{
+	STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+			FIRST_CHILD(this)->fops->fallocate, fd, keep_size, offset,
+			len, xdata);
+	return 0;
+}
 
 int32_t
 default_forget (xlator_t *this, inode_t *inode)

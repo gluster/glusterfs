@@ -79,6 +79,7 @@ fill_defaults (xlator_t *xl)
         SET_DEFAULT_FOP (fxattrop);
         SET_DEFAULT_FOP (setattr);
         SET_DEFAULT_FOP (fsetattr);
+	SET_DEFAULT_FOP (fallocate);
 
         SET_DEFAULT_FOP (getspec);
 
