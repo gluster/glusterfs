@@ -2632,6 +2632,40 @@ out:
 
 
 int
+glfs_fallocate (struct glfs_fd *glfd, int keep_size, off_t offset, size_t len)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	fd_t		*fd = NULL;
+
+	__glfs_entry_fd (glfd);
+
+	subvol = glfs_active_subvol (glfd->fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+	if (!fd) {
+		ret = -1;
+		errno = EBADFD;
+		goto out;
+	}
+
+	ret = syncop_fallocate (subvol, fd, keep_size, offset, len);
+out:
+	if (fd)
+		fd_unref(fd);
+
+	glfs_subvol_done (glfd->fs, subvol);
+
+	return ret;
+}
+
+
+int
 glfs_chdir (struct glfs *fs, const char *path)
 {
 	int              ret = -1;

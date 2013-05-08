@@ -69,6 +69,7 @@ typedef struct {
 		fop_fxattrop_t fxattrop;
 		fop_setattr_t setattr;
 		fop_fsetattr_t fsetattr;
+		fop_fallocate_t fallocate;
 	} fn;
 
 	union {
@@ -113,6 +114,7 @@ typedef struct {
 		fop_fxattrop_cbk_t fxattrop;
 		fop_setattr_cbk_t setattr;
 		fop_fsetattr_cbk_t fsetattr;
+		fop_fallocate_cbk_t fallocate;
 	} fn_cbk;
 
 	struct {
@@ -712,6 +714,20 @@ fop_fsetattr_cbk_stub (call_frame_t *frame,
                        int32_t op_errno,
                        struct iatt *statpre,
                        struct iatt *statpost, dict_t *xdata);
+
+call_stub_t *
+fop_fallocate_stub(call_frame_t *frame,
+		   fop_fallocate_t fn,
+		   fd_t *fd,
+		   int32_t mode, off_t offset,
+		   size_t len, dict_t *xdata);
+
+call_stub_t *
+fop_fallocate_cbk_stub(call_frame_t *frame,
+		       fop_fallocate_cbk_t fn,
+                       int32_t op_ret, int32_t op_errno,
+                       struct iatt *statpre, struct iatt *statpost,
+                       dict_t *xdata);
 
 void call_resume (call_stub_t *stub);
 void call_stub_destroy (call_stub_t *stub);

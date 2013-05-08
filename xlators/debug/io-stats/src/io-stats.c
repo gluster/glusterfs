@@ -1724,6 +1724,18 @@ io_stats_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
+io_stats_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+		       int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+		       struct iatt *postbuf, dict_t *xdata)
+{
+	UPDATE_PROFILE_STATS(frame, FALLOCATE);
+	STACK_UNWIND_STRICT(fallocate, frame, op_ret, op_errno, prebuf, postbuf,
+			    xdata);
+	return 0;
+}
+
+
+int
 io_stats_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct gf_flock *lock, dict_t *xdata)
 {
@@ -2392,6 +2404,19 @@ io_stats_fstat (call_frame_t *frame, xlator_t *this,
 
 
 int
+io_stats_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
+		   off_t offset, size_t len, dict_t *xdata)
+{
+	START_FOP_LATENCY(frame);
+
+	STACK_WIND(frame, io_stats_fallocate_cbk, FIRST_CHILD(this),
+		   FIRST_CHILD(this)->fops->fallocate, fd, mode, offset, len,
+		   xdata);
+
+	return 0;
+}
+
+int
 io_stats_lk (call_frame_t *frame, xlator_t *this,
              fd_t *fd, int32_t cmd, struct gf_flock *lock, dict_t *xdata)
 {
@@ -2817,6 +2842,7 @@ struct xlator_fops fops = {
         .fxattrop    = io_stats_fxattrop,
         .setattr     = io_stats_setattr,
         .fsetattr    = io_stats_fsetattr,
+	.fallocate   = io_stats_fallocate,
 };
 
 struct xlator_cbks cbks = {

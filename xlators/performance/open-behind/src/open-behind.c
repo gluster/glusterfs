@@ -681,6 +681,24 @@ err:
 	return 0;
 }
 
+int
+ob_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
+	     off_t offset, size_t len, dict_t *xdata)
+{
+	call_stub_t *stub;
+
+	stub = fop_fallocate_stub(frame, default_fallocate_resume, fd, mode,
+				  offset, len, xdata);
+	if (!stub)
+		goto err;
+
+	open_and_resume(this, fd, stub);
+
+	return 0;
+err:
+	STACK_UNWIND_STRICT(fallocate, frame, -1, ENOMEM, NULL, NULL, NULL);
+	return 0;
+}
 
 int
 ob_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
@@ -903,6 +921,7 @@ struct xlator_fops fops = {
 	.fentrylk    = ob_fentrylk,
 	.fxattrop    = ob_fxattrop,
 	.fsetattr    = ob_fsetattr,
+	.fallocate   = ob_fallocate,
 	.unlink      = ob_unlink,
 	.rename      = ob_rename,
 	.lk          = ob_lk,

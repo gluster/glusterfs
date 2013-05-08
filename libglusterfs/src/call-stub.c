@@ -2130,6 +2130,61 @@ out:
         return stub;
 }
 
+call_stub_t *
+fop_fallocate_cbk_stub(call_frame_t *frame, fop_fallocate_cbk_t fn,
+                       int32_t op_ret, int32_t op_errno,
+                       struct iatt *statpre, struct iatt *statpost,
+		       dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+
+        stub = stub_new (frame, 0, GF_FOP_FALLOCATE);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn_cbk.fallocate = fn;
+
+        stub->args_cbk.op_ret = op_ret;
+        stub->args_cbk.op_errno = op_errno;
+
+        if (statpre)
+                stub->args_cbk.prestat = *statpre;
+        if (statpost)
+                stub->args_cbk.poststat = *statpost;
+        if (xdata)
+                stub->args_cbk.xdata = dict_ref (xdata);
+out:
+        return stub;
+}
+
+call_stub_t *
+fop_fallocate_stub(call_frame_t *frame, fop_fallocate_t fn, fd_t *fd,
+		   int32_t mode, off_t offset, size_t len, dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", fn, out);
+
+        stub = stub_new (frame, 1, GF_FOP_FALLOCATE);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn.fallocate = fn;
+
+        if (fd)
+                stub->args.fd = fd_ref (fd);
+
+	stub->args.flags = mode;
+	stub->args.offset = offset;
+	stub->args.size = len;
+
+        if (xdata)
+                stub->args.xdata = dict_ref (xdata);
+out:
+        return stub;
+
+}
 
 static void
 call_resume_wind (call_stub_t *stub)
@@ -2347,6 +2402,12 @@ call_resume_wind (call_stub_t *stub)
 				   stub->args.fd, &stub->args.stat,
 				   stub->args.valid, stub->args.xdata);
                 break;
+	case GF_FOP_FALLOCATE:
+		stub->fn.fallocate(stub->frame, stub->frame->this,
+				   stub->args.fd, stub->args.flags,
+				   stub->args.offset, stub->args.size,
+				   stub->args.xdata);
+		break;
         default:
                 gf_log_callingfn ("call-stub", GF_LOG_ERROR,
                                   "Invalid value of FOP (%d)",
@@ -2541,6 +2602,10 @@ call_resume_unwind (call_stub_t *stub)
 		STUB_UNWIND (stub, fsetattr, &stub->args_cbk.prestat,
 			     &stub->args_cbk.poststat, stub->args_cbk.xdata);
                 break;
+	case GF_FOP_FALLOCATE:
+		STUB_UNWIND(stub, fallocate, &stub->args_cbk.prestat,
+			    &stub->args_cbk.poststat, stub->args_cbk.xdata);
+		break;
         default:
                 gf_log_callingfn ("call-stub", GF_LOG_ERROR,
                                   "Invalid value of FOP (%d)",

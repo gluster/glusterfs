@@ -417,6 +417,14 @@ typedef int32_t (*fop_fsetattr_cbk_t) (call_frame_t *frame,
                                        struct iatt *preop_stbuf,
                                        struct iatt *postop_stbuf, dict_t *xdata);
 
+typedef int32_t (*fop_fallocate_cbk_t) (call_frame_t *frame,
+                                        void *cookie,
+                                        xlator_t *this,
+                                        int32_t op_ret,
+                                        int32_t op_errno,
+                                        struct iatt *preop_stbuf,
+                                        struct iatt *postop_stbuf, dict_t *xdata);
+
 typedef int32_t (*fop_lookup_t) (call_frame_t *frame,
                                  xlator_t *this,
                                  loc_t *loc,
@@ -634,6 +642,13 @@ typedef int32_t (*fop_fsetattr_t) (call_frame_t *frame,
                                    struct iatt *stbuf,
                                    int32_t valid, dict_t *xdata);
 
+typedef int32_t (*fop_fallocate_t) (call_frame_t *frame,
+                                    xlator_t *this,
+                                    fd_t *fd,
+				    int32_t keep_size,
+				    off_t offset,
+				    size_t len,
+                                    dict_t *xdata);
 
 struct xlator_fops {
         fop_lookup_t         lookup;
@@ -678,6 +693,7 @@ struct xlator_fops {
         fop_setattr_t        setattr;
         fop_fsetattr_t       fsetattr;
         fop_getspec_t        getspec;
+	fop_fallocate_t	     fallocate;
 
         /* these entries are used for a typechecking hack in STACK_WIND _only_ */
         fop_lookup_cbk_t         lookup_cbk;
@@ -722,6 +738,7 @@ struct xlator_fops {
         fop_setattr_cbk_t        setattr_cbk;
         fop_fsetattr_cbk_t       fsetattr_cbk;
         fop_getspec_cbk_t        getspec_cbk;
+	fop_fallocate_cbk_t	 fallocate_cbk;
 };
 
 typedef int32_t (*cbk_forget_t) (xlator_t *this,

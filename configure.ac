@@ -233,6 +233,8 @@ AC_CHECK_HEADERS([sys/extattr.h])
 
 AC_CHECK_HEADERS([openssl/md5.h])
 
+AC_CHECK_HEADERS([linux/falloc.h])
+
 case $host_os in
   darwin*)
     if ! test "`/usr/bin/sw_vers | grep ProductVersion: | cut -f 2 | cut -d. -f2`" -ge 5; then
@@ -517,6 +519,17 @@ AC_CHECK_FUNC([fdatasync], [have_fdatasync=yes])
 if test "x${have_fdatasync}" = "xyes"; then
    AC_DEFINE(HAVE_FDATASYNC, 1, [define if fdatasync exists])
 fi
+
+AC_CHECK_FUNC([fallocate], [have_fallocate=yes])
+if test "x${have_fallocate}" = "xyes"; then
+   AC_DEFINE(HAVE_FALLOCATE, 1, [define if fallocate exists])
+fi
+
+AC_CHECK_FUNC([posix_fallocate], [have_posix_fallocate=yes])
+if test "x${have_posix_fallocate}" = "xyes"; then
+   AC_DEFINE(HAVE_POSIX_FALLOCATE, 1, [define if posix_fallocate exists])
+fi
+
 
 # Check the distribution where you are compiling glusterfs on 
 

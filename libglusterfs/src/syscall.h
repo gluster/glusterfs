@@ -139,4 +139,6 @@ sys_access (const char *pathname, int mode);
 int
 sys_ftruncate (int fd, off_t length);
 
+int sys_fallocate(int fd, int mode, off_t offset, off_t len);
+
 #endif /* __SYSCALL_H__ */

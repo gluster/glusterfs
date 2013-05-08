@@ -887,6 +887,31 @@ struct gfs3_fsetattr_rsp {
 };
 typedef struct gfs3_fsetattr_rsp gfs3_fsetattr_rsp;
 
+struct gfs3_fallocate_req {
+	char gfid[16];
+	quad_t fd;
+	u_int flags;
+	u_quad_t offset;
+	u_quad_t size;
+	struct {
+		u_int xdata_len;
+		char *xdata_val;
+	} xdata;
+};
+typedef struct gfs3_fallocate_req gfs3_fallocate_req;
+
+struct gfs3_fallocate_rsp {
+	int op_ret;
+	int op_errno;
+	struct gf_iatt statpre;
+	struct gf_iatt statpost;
+	struct {
+		u_int xdata_len;
+		char *xdata_val;
+	} xdata;
+};
+typedef struct gfs3_fallocate_rsp gfs3_fallocate_rsp;
+
 struct gfs3_rchecksum_req {
 	quad_t fd;
 	u_quad_t offset;
@@ -1182,6 +1207,8 @@ extern  bool_t xdr_gfs3_setattr_req (XDR *, gfs3_setattr_req*);
 extern  bool_t xdr_gfs3_setattr_rsp (XDR *, gfs3_setattr_rsp*);
 extern  bool_t xdr_gfs3_fsetattr_req (XDR *, gfs3_fsetattr_req*);
 extern  bool_t xdr_gfs3_fsetattr_rsp (XDR *, gfs3_fsetattr_rsp*);
+extern  bool_t xdr_gfs3_fallocate_req (XDR *, gfs3_fallocate_req*);
+extern  bool_t xdr_gfs3_fallocate_rsp (XDR *, gfs3_fallocate_rsp*);
 extern  bool_t xdr_gfs3_rchecksum_req (XDR *, gfs3_rchecksum_req*);
 extern  bool_t xdr_gfs3_rchecksum_rsp (XDR *, gfs3_rchecksum_rsp*);
 extern  bool_t xdr_gf_setvolume_req (XDR *, gf_setvolume_req*);
@@ -1276,6 +1303,8 @@ extern bool_t xdr_gfs3_setattr_req ();
 extern bool_t xdr_gfs3_setattr_rsp ();
 extern bool_t xdr_gfs3_fsetattr_req ();
 extern bool_t xdr_gfs3_fsetattr_rsp ();
+extern bool_t xdr_gfs3_fallocate_req ();
+extern bool_t xdr_gfs3_fallocate_rsp ();
 extern bool_t xdr_gfs3_rchecksum_req ();
 extern bool_t xdr_gfs3_rchecksum_rsp ();
 extern bool_t xdr_gf_setvolume_req ();

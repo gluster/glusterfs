@@ -307,6 +307,7 @@ iot_schedule (call_frame_t *frame, xlator_t *this, call_stub_t *stub)
         case GF_FOP_XATTROP:
         case GF_FOP_FXATTROP:
         case GF_FOP_RCHECKSUM:
+	case GF_FOP_FALLOCATE:
                 pri = IOT_PRI_LO;
                 break;
 
@@ -2406,6 +2407,56 @@ out:
         return 0;
 }
 
+int
+iot_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno,
+                  struct iatt *preop, struct iatt *postop, dict_t *xdata)
+{
+        STACK_UNWIND_STRICT (fallocate, frame, op_ret, op_errno, preop, postop,
+                             xdata);
+        return 0;
+}
+
+
+int
+iot_fallocate_wrapper(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
+		      off_t offset, size_t len, dict_t *xdata)
+{
+        STACK_WIND (frame, iot_fallocate_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->fallocate, fd, mode, offset, len,
+		    xdata);
+        return 0;
+}
+
+
+int
+iot_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
+	      off_t offset, size_t len, dict_t *xdata)
+{
+        call_stub_t     *stub = NULL;
+        int              ret = -1;
+
+        stub = fop_fallocate_stub(frame, iot_fallocate_wrapper, fd, mode, offset,
+				  len, xdata);
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create fallocate stub"
+                        "(out of memory)");
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        ret = iot_schedule (frame, this, stub);
+
+out:
+        if (ret < 0) {
+                STACK_UNWIND_STRICT (fallocate, frame, -1, -ret, NULL, NULL,
+                                     NULL);
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
+        return 0;
+}
 
 int
 __iot_workers_scale (iot_conf_t *conf)
@@ -2736,6 +2787,7 @@ struct xlator_fops fops = {
         .xattrop     = iot_xattrop,
 	.fxattrop    = iot_fxattrop,
         .rchecksum   = iot_rchecksum,
+	.fallocate   = iot_fallocate,
 };
 
 struct xlator_cbks cbks;

@@ -458,3 +458,26 @@ sys_access (const char *pathname, int mode)
 {
         return access (pathname, mode);
 }
+
+
+int
+sys_fallocate(int fd, int mode, off_t offset, off_t len)
+{
+#ifdef HAVE_FALLOCATE
+	return fallocate(fd, mode, offset, len);
+#endif
+
+#ifdef HAVE_POSIX_FALLOCATE
+	if (mode) {
+		/* keep size not supported */
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+
+	return posix_fallocate(fd, offset, len);
+#endif
+
+	errno = ENOSYS;
+	return -1;
+}
+

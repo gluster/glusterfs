@@ -98,6 +98,9 @@ class File(object):
         def write (self, data, flags=0):
                 return api.glfs_write(self.fd,data,len(data),flags)
 
+	def fallocate (self, mode, offset, len):
+		return api.glfs_fallocate(self.fd, mode, offset, len)
+
 class Dir(object):
 
         def __init__ (self, fd):
@@ -349,6 +352,16 @@ if __name__ == "__main__":
                         return False, "wrong listxattr value %s" % repr(xattrs)
                 return True, "listxattr worked"
 
+        def test_fallocate (vol, path, data):
+                mypath = path + ".io"
+                fd = vol.creat(mypath,os.O_WRONLY|os.O_EXCL,0644)
+                if not fd:
+                        return False, "creat error"
+		rc = fd.fallocate(0, 0, 1024)
+                if rc != 0:
+                        return False, "fallocate error"
+                return True, "fallocate worked"
+
         test_list = (
                 test_create_write,
                 test_open_read,
@@ -363,6 +376,7 @@ if __name__ == "__main__":
                 test_setxattr,
                 test_getxattr,
                 test_listxattr,
+		test_fallocate,
         )
 
         ok_to_fail = (

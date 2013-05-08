@@ -1917,6 +1917,37 @@ syncop_access (xlator_t *subvol, loc_t *loc, int32_t mask)
 
 
 int
+syncop_fallocate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int op_ret, int op_errno, struct iatt *prebuf,
+                      struct iatt *postbuf, dict_t *xdata)
+{
+	struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        __wake (args);
+
+	return 0;
+}
+
+int
+syncop_fallocate(xlator_t *subvol, fd_t *fd, int32_t keep_size, off_t offset,
+		 size_t len)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_fallocate_cbk, subvol->fops->fallocate,
+                fd, keep_size, offset, len, NULL);
+
+        errno = args.op_errno;
+        return args.op_ret;
+}
+
+
+int
 syncop_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	       int op_ret, int op_errno, struct gf_flock *flock,
 	       dict_t *xdata)
