@@ -97,15 +97,14 @@ cb_buffer_dump (buffer_t *buffer, void *data,
         pthread_mutex_lock (&buffer->lock);
         {
                 if (buffer->use_once == _gf_false) {
-                        for (i = (buffer->w_index - 1) ; entries <
-                                     buffer->used_len ; entries++) {
+                        i = buffer->w_index;
+                        for (entries = 0; entries < buffer->used_len;
+                             entries++) {
                                 entry = buffer->cb[i];
                                 if (entry)
                                         fn (entry, data);
-                                if (0 == i)
-                                        i = buffer->used_len - 1;
-                                else
-                                        i = (i - 1) % (buffer->used_len - 1);
+                                i++;
+                                i %= buffer->size_buffer;
                         }
                 } else {
                         for (i = 0; i < buffer->used_len ; i++) {
