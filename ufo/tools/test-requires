@@ -1,6 +1,0 @@
-coverage
-nose
-nosexcover
-openstack.nose_plugin
-nosehtmloutput
-mock>=0.8.0

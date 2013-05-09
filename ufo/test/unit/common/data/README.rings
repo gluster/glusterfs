@@ -1,3 +1,0 @@
-The unit tests expect certain ring data built using the following command:
-
-    ../../../../bin/gluster-swift-gen-builders test iops
