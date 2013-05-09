@@ -2398,10 +2398,12 @@ int
 glusterd_spawn_daemons (void *opaque)
 {
         glusterd_conf_t *conf = THIS->private;
-        gf_boolean_t    start_bricks = (long) opaque;
+        gf_boolean_t    start_bricks = !conf->restart_done;
 
-        if (start_bricks)
+        if (start_bricks) {
                 glusterd_restart_bricks (conf);
+                conf->restart_done = _gf_true;
+        }
         glusterd_restart_gsyncds (conf);
         glusterd_restart_rebalance (conf);
         return 0;

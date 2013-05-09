@@ -1157,8 +1157,7 @@ init (xlator_t *this)
          * time (this) glusterd was up.*/
 
         if (list_empty (&conf->peers)) {
-                glusterd_launch_synctask (glusterd_spawn_daemons,
-                                          (void*) _gf_true);
+                glusterd_launch_synctask (glusterd_spawn_daemons, NULL);
         }
         ret = glusterd_options_init (this);
         if (ret < 0)
