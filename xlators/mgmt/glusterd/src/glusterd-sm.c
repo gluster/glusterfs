@@ -1092,7 +1092,7 @@ out:
              * the functions spawn process(es) only if they are not started yet.
              *
              * */
-                glusterd_spawn_daemons ((void*) _gf_false);
+                glusterd_spawn_daemons (NULL);
                 glusterd_do_quorum_action ();
         }
         return ret;
