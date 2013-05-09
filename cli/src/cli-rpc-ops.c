@@ -2007,6 +2007,8 @@ gf_cli_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR,
                                 "remove-brick-id is not present in dict");
+                        cli_err ("volume remove-brick %s: failed: %s", cmd_str,
+                                 rsp.op_errstr);
                         goto out;
                 }
                 break;

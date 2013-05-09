@@ -671,15 +671,26 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 strcpy (vol_type, "distribute");
         }
 
-	/* Do not allow remove-brick if the volume is plain stripe */
+	/* Do not allow remove-brick if the volume is a stripe volume*/
 	if ((volinfo->type == GF_CLUSTER_TYPE_STRIPE) &&
             (volinfo->brick_count == volinfo->stripe_count)) {
                 snprintf (err_str, sizeof (err_str),
-                          "Removing brick from a plain stripe is not allowed");
+                          "Removing brick from a stripe volume is not allowed");
                 gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
                 ret = -1;
                 goto out;
 	}
+
+        /*Do not allow remove-brick if the volume is a replicate volume*/
+        if ((volinfo->type == GF_CLUSTER_TYPE_REPLICATE) &&
+            (volinfo->brick_count == volinfo->replica_count)) {
+                snprintf (err_str, sizeof(err_str),
+                          "Removing brick from a replicate volume "
+                           "is not allowed");
+                gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
+                ret = -1;
+                goto out;
+        }
 
 	if (!replica_count &&
             (volinfo->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) &&
