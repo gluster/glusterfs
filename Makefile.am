@@ -22,4 +22,3 @@ gitclean: distclean
 
 dist-hook:
 	(cd $(srcdir) && git diff && echo ===== git log ==== && git log) > $(distdir)/ChangeLog
-	tar czf gluster-swift-ufo-$(VERSION).tar.gz ufo

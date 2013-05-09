@@ -45,7 +45,7 @@ cd ${RESULT_DIR}/sources
 git clone -q -s file://${REPO} .
 git checkout -q -b rpm-test ${COMMIT}
 
-# build the glusterfs-*.tar.gz and gluster-swift-ufo-*.tar.gz
+# build the glusterfs-*.tar.gz
 [ -e configure ] || ./autogen.sh 2>&1 > /dev/null
 TEST ./configure --enable-fusermount
 TEST make dist
@@ -100,4 +100,3 @@ done
 [ "${DEBUG}" = "0" ] && rm -rf ${RESULT_DIR}
 
 cleanup
-

@@ -1,6 +1,5 @@
 
 GFS_TAR = ../../glusterfs-*git.tar.gz
-UFO_TAR = ../../gluster-swift-ufo-*git.tar.gz
 GFS_SPEC = ../../glusterfs.spec
 
 .PHONY: all
@@ -13,11 +12,8 @@ all:
 glusterrpms: prep srcrpm rpms
 	-rm -rf rpmbuild
 
-glusterrpmswithoutufo: prep srcrpm rpmswithoutufo
-	-rm -rf rpmbuild
-
 prep::
-	if [ ! -e $(GFS_TAR) -a ! -e $(UFO_TAR) -a ! -e $(GFS_SPEC) ]; then \
+	if [ ! -e $(GFS_TAR) -a ! -e $(GFS_SPEC) ]; then \
 		$(MAKE) -c ../.. dist; \
 	fi
 	-mkdir -p rpmbuild/SPECS
@@ -38,31 +34,12 @@ prep::
 	cp ../../*.tar.gz ./rpmbuild/SOURCES
 	cp ../../glusterfs.spec ./rpmbuild/SPECS
 
-GRIZZLY_TAR = swift-1.8.0.tar.gz
-GRIZZLY_URL = https://launchpad.net/swift/grizzly/1.8.0/+download/$(GRIZZLY_TAR)
-
-prep::
-	@if [ -d /d/cache -a -f /d/cache/$(GRIZZLY_TAR) -a -d ./rpmbuild/SOURCES ]; then \
-		echo "copying swift source tarball from local cache..." ; \
-		cp /d/cache/$(GRIZZLY_TAR) ./rpmbuild/SOURCES/ ; \
-	elif [ -x /usr/bin/curl -a -d ./rpmbuild/SOURCES ]; then \
-		echo "fetching swift from launchpad.net..." ; \
-		cd ./rpmbuild/SOURCES && /usr/bin/curl -sOL $(GRIZZLY_URL) ; \
-	else \
-		echo "swift source not fetched, you don't have curl installed!" ; \
-		exit 1 ; \
-	fi
-
 srcrpm:
 	rpmbuild --define '_topdir $(shell pwd)/rpmbuild' -bs rpmbuild/SPECS/glusterfs.spec
 	mv rpmbuild/SRPMS/* .
 
 rpms:
 	rpmbuild --define '_topdir $(shell pwd)/rpmbuild' -bb rpmbuild/SPECS/glusterfs.spec
-	mv rpmbuild/RPMS/*/* .
-
-rpmswithoutufo:
-	rpmbuild --define '_topdir $(shell pwd)/rpmbuild' -bb rpmbuild/SPECS/glusterfs.spec --without ufo
 	mv rpmbuild/RPMS/*/* .
 
 # EPEL-5 does not like new versions of rpmbuild and requires some
