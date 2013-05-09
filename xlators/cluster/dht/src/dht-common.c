@@ -1645,7 +1645,7 @@ dht_unlink_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         LOCK (&frame->lock);
         {
-                if (op_ret == -1) {
+                if ((op_ret == -1) && (op_errno != ENOENT)) {
                         local->op_errno = op_errno;
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "subvolume %s returned -1 (%s)",
@@ -1658,7 +1658,7 @@ dht_unlink_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 unlock:
         UNLOCK (&frame->lock);
 
-        if (op_ret == -1)
+        if (local->op_ret == -1)
                 goto err;
 
         cached_subvol = dht_subvol_get_cached (this, local->loc.inode);
