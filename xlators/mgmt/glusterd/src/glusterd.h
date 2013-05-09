@@ -152,6 +152,7 @@ typedef struct {
         gf_boolean_t   pending_quorum_action;
         dict_t             *opts;
         synclock_t      big_lock;
+        gf_boolean_t    restart_done;
 } glusterd_conf_t;
 
 
