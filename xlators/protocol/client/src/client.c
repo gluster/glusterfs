@@ -2050,7 +2050,7 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_CONNECT");
 
                 if ((ret < 0) || (strcasecmp (handshake, "on"))) {
-                        ret = client_handshake (this, conf->rpc);
+                        ret = client_handshake (this, rpc);
                         if (ret)
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "handshake msg returned %d", ret);
@@ -2118,10 +2118,14 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 conf->connected = 0;
                 conf->skip_notify = 0;
 
-		if (conf->quick_reconnect) {
-			conf->quick_reconnect = 0;
-			rpc_clnt_start (conf->rpc);
-		}
+                if (conf->quick_reconnect) {
+                        conf->quick_reconnect = 0;
+                        rpc_clnt_start (rpc);
+
+                } else {
+                        rpc->conn.config.remote_port = 0;
+
+                }
 
                 break;
 
