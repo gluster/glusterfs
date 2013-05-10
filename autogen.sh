@@ -75,6 +75,16 @@ if [ "x$MISSING" != "x" ]; then
   exit 1
 fi
 
+## generate gf-error-codes.h from error-codes.json
+echo "Generate gf-error-codes.h ..."
+if ./gen-headers.py; then
+    if ! mv -fv gf-error-codes.h libglusterfs/src/gf-error-codes.h; then
+	exit 1
+    fi
+else
+    exit 1
+fi
+
 ## Do the autogeneration
 echo Running ${ACLOCAL}...
 $ACLOCAL -I ./contrib/aclocal

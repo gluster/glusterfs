@@ -29,7 +29,7 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	event-poll.c event-epoll.c
 
 
-nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c
+nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c gf-error-codes.h
 
 BUILT_SOURCES = graph.lex.c
 
