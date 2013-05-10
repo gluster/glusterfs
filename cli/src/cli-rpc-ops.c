@@ -2778,6 +2778,15 @@ gf_cli_list_friends (call_frame_t *frame, xlator_t *this,
                               (xdrproc_t) xdr_gf1_cli_peer_list_req);
 
 out:
+        if (ret) {
+                /*
+                 * If everything goes fine, gf_cli_list_friends_cbk()
+                 * [invoked through cli_cmd_submit()]resets the
+                 * frame->local to NULL. In case cli_cmd_submit()
+                 * fails in between, RESET frame->local here.
+                 */
+                frame->local = NULL;
+        }
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
