@@ -802,13 +802,10 @@ dht_migration_complete_check_task (void *data)
         ret = 0;
 
         /* once we detect the migration complete, the fd-ctx is no more
-           required.. delete the ctx, and do one extra 'fd_unref' for open fd */
+           required.. delete the ctx */
         ret = fd_ctx_del (local->fd, this, NULL);
-        if (!ret) {
-                fd_unref (local->fd);
-                ret = 0;
+        if (!ret)
                 goto out;
-        }
 
         /* perform open as root:root. There is window between linkfile
          * creation(root:root) and setattr with the correct uid/gid
