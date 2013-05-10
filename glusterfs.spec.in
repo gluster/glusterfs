@@ -69,6 +69,9 @@ Source0:          @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz
 
 BuildRoot:        %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
+%if ( 0%{?rhel} && 0%{?rhel} <= 5 )
+BuildRequires:    python-simplejson
+%endif
 %if ( 0%{?_with_systemd:1} )
 BuildRequires:    systemd-units
 Requires(post):   systemd-units
