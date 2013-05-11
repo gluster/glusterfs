@@ -208,8 +208,6 @@ struct syncargs {
                                                                         \
                 STACK_WIND_COOKIE (frame, cbk, (void *)stb, subvol,     \
                                    op, params);                         \
-                if (task)                                               \
-                        task->state = SYNCTASK_SUSPEND;                 \
                                                                         \
                 __yield (stb);                                          \
                 if (task)                                               \

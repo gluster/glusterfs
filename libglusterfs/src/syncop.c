@@ -89,6 +89,8 @@ synctask_yield (struct synctask *task)
 	task->proc->sched.uc_flags &= ~_UC_TLSBASE;
 #endif
 
+        if (task->state != SYNCTASK_DONE)
+                task->state = SYNCTASK_SUSPEND;
         if (swapcontext (&task->ctx, &task->proc->sched) < 0) {
                 gf_log ("syncop", GF_LOG_ERROR,
                         "swapcontext failed (%s)", strerror (errno));
@@ -238,6 +240,7 @@ synctask_new (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
 	newtask->gid = newtask->opframe->root->gid;
 
         INIT_LIST_HEAD (&newtask->all_tasks);
+        INIT_LIST_HEAD (&newtask->waitq);
 
         if (getcontext (&newtask->ctx) < 0) {
                 gf_log ("syncop", GF_LOG_ERROR,
@@ -530,6 +533,7 @@ __synclock_lock (struct synclock *lock)
 			/* called within a synctask */
 			list_add_tail (&task->waitq, &lock->waitq);
                         pthread_mutex_unlock (&lock->guard);
+                        synctask_yawn (task);
                         synctask_yield (task);
                         /* task is removed from waitq in unlock,
                          * under lock->guard.*/
@@ -686,6 +690,7 @@ __syncbarrier_wait (struct syncbarrier *barrier, int waitfor)
 			list_add_tail (&task->waitq, &barrier->waitq);
 			{
 				pthread_mutex_unlock (&barrier->guard);
+                                synctask_yawn (task);
 				synctask_yield (task);
 				pthread_mutex_lock (&barrier->guard);
 			}
