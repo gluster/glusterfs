@@ -529,12 +529,11 @@ __synclock_lock (struct synclock *lock)
 		if (task) {
 			/* called within a synctask */
 			list_add_tail (&task->waitq, &lock->waitq);
-			{
-				pthread_mutex_unlock (&lock->guard);
-				synctask_yield (task);
-				pthread_mutex_lock (&lock->guard);
-			}
-			list_del_init (&task->waitq);
+                        pthread_mutex_unlock (&lock->guard);
+                        synctask_yield (task);
+                        /* task is removed from waitq in unlock,
+                         * under lock->guard.*/
+                        pthread_mutex_lock (&lock->guard);
 		} else {
 			/* called by a non-synctask */
 			pthread_cond_wait (&lock->cond, &lock->guard);
@@ -616,6 +615,7 @@ __synclock_unlock (synclock_t *lock)
 	pthread_cond_signal (&lock->cond);
 	if (!list_empty (&lock->waitq)) {
 		task = list_entry (lock->waitq.next, struct synctask, waitq);
+                list_del_init (&task->waitq);
 		synctask_wake (task);
 	}
 
