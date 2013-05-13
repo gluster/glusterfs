@@ -481,7 +481,7 @@ _gd_syncop_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
         args->errstr = gf_strdup (rsp.op_errstr);
 
 out:
-        if (strcmp (rsp.op_errstr, "") != 0)
+        if ((rsp.op_errstr) && (strcmp (rsp.op_errstr, "") != 0))
                 free (rsp.op_errstr);
         free (rsp.output.output_val);
 
