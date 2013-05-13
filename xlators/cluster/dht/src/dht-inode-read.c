@@ -154,6 +154,7 @@ dht_file_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->call_cnt != 1)
                 goto out;
 
+        local->op_errno = op_errno;
         /* Check if the rebalance phase2 is true */
         if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (stbuf)) {
                 if (local->fd)
@@ -396,6 +397,7 @@ dht_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if ((op_ret == -1) && (op_errno != ENOENT))
                 goto out;
 
+        local->op_errno = op_errno;
         if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (stbuf)) {
                 /* File would be migrated to other node */
                 ret = fd_ctx_get (local->fd, this, NULL);
@@ -517,6 +519,7 @@ dht_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         if ((op_ret == -1) && (op_errno == ENOENT)) {
                 /* File would be migrated to other node */
+                local->op_errno = op_errno;
                 local->rebalance.target_op_fn = dht_access2;
                 ret = dht_rebalance_complete_check (frame->this, frame);
                 if (!ret)
@@ -706,7 +709,7 @@ dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         prev = cookie;
 
         local->op_errno = op_errno;
-        if (op_ret == -1) {
+        if (op_ret == -1 && (op_errno != ENOENT)) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "subvolume %s returned -1 (%s)",
                         prev->this->name, strerror (op_errno));
@@ -721,6 +724,7 @@ dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 goto out;
         }
 
+        local->op_errno = op_errno;
         ret = fd_ctx_get (local->fd, this, NULL);
         if (ret) {
                 local->rebalance.target_op_fn = dht_fsync2;
