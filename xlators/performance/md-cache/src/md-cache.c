@@ -1986,4 +1986,5 @@ struct volume_options options[] = {
 	  .description = "Convert all readdir requests to readdirplus to "
 			 "collect stat info on each entry.",
 	},
+    { .key = {NULL} },
 };
