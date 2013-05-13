@@ -536,7 +536,6 @@ AC_SUBST(GF_DISTRIBUTION)
 
 GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
-CFLAGS="-g"
 
 # check for gcc -Werror=format-security
 saved_CFLAGS=$CFLAGS
@@ -612,13 +611,12 @@ AC_ARG_ENABLE([debug],
               AC_HELP_STRING([--enable-debug],
                              [Enable debug build options.]))
 
-DEBUG=no
+BUILD_DEBUG=no
 if test "x$enable_debug" = "xyes"; then
-   DEBUG=yes
-   CFLAGS="-O0 $CFLAGS"
+   BUILD_DEBUG=yes
+   CFLAGS=`echo $CFLAGS | sed -e s/O2/O0/`
 else
-   CFLAGS="-O2 $CFLAGS"
-   DEBUG=no
+   BUILD_DEBUG=no
 fi
 AC_SUBST(CFLAGS)
 # end enable debug section
@@ -688,7 +686,7 @@ echo "fusermount           : $BUILD_FUSERMOUNT"
 echo "readline             : $BUILD_READLINE"
 echo "georeplication       : $BUILD_SYNCDAEMON"
 echo "Linux-AIO            : $BUILD_LIBAIO"
-echo "Enable Debug         : $DEBUG"
+echo "Enable Debug         : $BUILD_DEBUG"
 echo "systemtap            : $BUILD_SYSTEMTAP"
 echo "Block Device backend : $BUILD_BD_XLATOR"
 echo
