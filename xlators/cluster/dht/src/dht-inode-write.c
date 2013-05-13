@@ -28,7 +28,7 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t *local = NULL;
         int          ret   = -1;
 
-        if (op_ret == -1) {
+        if (op_ret == -1 && (op_errno != ENOENT)) {
                 goto out;
         }
 
@@ -50,6 +50,7 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local->rebalance.target_op_fn = dht_writev2;
 
+        local->op_errno = op_errno;
         /* Phase 2 of migration */
         if (IS_DHT_MIGRATION_PHASE2 (postbuf)) {
                 ret = dht_rebalance_complete_check (this, frame);
@@ -198,6 +199,7 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local->rebalance.target_op_fn = dht_truncate2;
 
+        local->op_errno = op_errno;
         /* Phase 2 of migration */
         if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (postbuf)) {
                 ret = dht_rebalance_complete_check (this, frame);
