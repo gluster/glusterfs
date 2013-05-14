@@ -19,7 +19,7 @@
 
 #include <ctype.h>
 #include <sys/uio.h>
-#include <python2.6/Python.h>
+#include <Python.h>
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -2424,19 +2424,10 @@ err_return:
 void
 fini (xlator_t *this)
 {
-        int              i = 0;
         glupy_private_t *priv = this->private;
 
         if (!priv)
                 return;
-        for (i = 0; i < GLUPY_N_FUNCS; ++i) {
-                if (priv->fops[i]) {
-                        Py_DECREF(priv->fops[i]);
-                }
-                if (priv->cbks[i]) {
-                        Py_DECREF(priv->fops[i]);
-                }
-        }
         Py_DECREF(priv->py_xlator);
         Py_DECREF(priv->py_module);
         this->private = NULL;

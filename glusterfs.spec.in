@@ -107,11 +107,8 @@ BuildRequires:    ncurses-devel readline-devel
 BuildRequires:    libxml2-devel openssl-devel
 BuildRequires:    libaio-devel
 #BuildRequires:    systemtap-sdt-devel lvm2-devel # glusterfs-3.4.x
-%if 0%{?suse_version}
 BuildRequires:    python-devel
-%else
 BuildRequires:    python-ctypes
-%endif
 
 Obsoletes:        hekafs <= 0.7
 Obsoletes:        %{name}-libs <= 2.0.0
