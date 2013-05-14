@@ -79,7 +79,7 @@
 #define NLMV4_VERSION       4
 #define NLMV1_VERSION       1
 
-char    *glusterd_sock_dir = "/tmp";
+char    *glusterd_sock_dir = "/var/run";
 static glusterd_lock_t lock;
 
 static void
@@ -5179,7 +5179,7 @@ glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
         }
 
         snprintf (dumpoptions_path, sizeof (dumpoptions_path),
-                  "/tmp/glusterdump.%d.options", pid);
+                  DEFAULT_VAR_RUN_DIRECTORY"glusterdump.%d.options", pid);
         ret = glusterd_set_dump_options (dumpoptions_path, options, option_cnt);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error while parsing the statedump "
@@ -5252,7 +5252,7 @@ glusterd_nfs_statedump (char *options, int option_cnt, char **op_errstr)
         }
 
         snprintf (dumpoptions_path, sizeof (dumpoptions_path),
-                  "/tmp/glusterdump.%d.options", pid);
+                  DEFAULT_VAR_RUN_DIRECTORY"glusterdump.%d.options", pid);
         ret = glusterd_set_dump_options (dumpoptions_path, options, option_cnt);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error while parsing the statedump "

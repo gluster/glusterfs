@@ -16,6 +16,7 @@ AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall    \
 	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles  \
 	-DCONFDIR=\"$(sysconfdir)/glusterfs\" -D$(GF_HOST_OS)   \
 	-DLIBDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/auth\" \
+	-DDATADIR=\"$(localstatedir)\"                          \
 	$(GF_CFLAGS) -I$(top_srcdir)/xlators/protocol/lib/src   \
 	-I$(top_srcdir)/rpc/rpc-lib/src/       \
 	-I$(top_srcdir)/rpc/xdr/src/

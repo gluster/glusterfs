@@ -467,7 +467,7 @@ main (int argc, char **argv)
         printf ("%d %d [%s]\n", ret, errno, strerror (errno));
 
         TBANNER ("output redirection");
-        fd = open ("/tmp/foof", O_WRONLY|O_CREAT|O_TRUNC, 0600);
+        fd = mkstemp ("/tmp/foof");
         assert (fd != -1);
         runinit (&runner);
         runner_add_args (&runner, "echo", "foo", NULL);

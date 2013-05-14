@@ -55,15 +55,11 @@ gf_proc_dump_unlock (void)
 
 
 static int
-gf_proc_dump_open (char *dump_dir, char *brickname)
+gf_proc_dump_open (char path[])
 {
-        char path[PATH_MAX] = {0,};
         int  dump_fd = -1;
 
-        snprintf (path, sizeof (path), "%s/%s.%d.dump", (dump_dir ?
-                  dump_dir : "/tmp"), brickname, getpid());
-
-        dump_fd = open (path, O_CREAT|O_RDWR|O_TRUNC|O_APPEND, 0600);
+        dump_fd = mkostemp (path, O_CREAT|O_RDWR|O_TRUNC|O_APPEND);
         if (dump_fd < 0)
                 return -1;
 
@@ -572,7 +568,8 @@ gf_proc_dump_options_init ()
         char    dump_option_file[PATH_MAX];
 
         snprintf (dump_option_file, sizeof (dump_option_file),
-                  "/tmp/glusterdump.%d.options", getpid ());
+                  DEFAULT_VAR_RUN_DIRECTORY
+                  "glusterdump.%d.options", getpid ());
 
         fp = fopen (dump_option_file, "r");
 
@@ -619,6 +616,8 @@ gf_proc_dump_info (int signum)
         glusterfs_ctx_t   *ctx  = NULL;
         glusterfs_graph_t *trav = NULL;
         char               brick_name[PATH_MAX] = {0,};
+        char               tmp_dump_name[PATH_MAX] = {0,};
+        char               path[PATH_MAX] = {0,};
 
         gf_proc_dump_lock ();
 
@@ -631,7 +630,16 @@ gf_proc_dump_info (int signum)
         } else
                 strncpy (brick_name, "glusterdump", sizeof (brick_name));
 
-        ret = gf_proc_dump_open (ctx->statedump_path, brick_name);
+        snprintf (path, sizeof (path), "%s/%s.%d.dump",
+                  ((ctx->statedump_path != NULL)?ctx->statedump_path:
+                   DEFAULT_VAR_RUN_DIRECTORY),
+                  brick_name, getpid());
+
+        snprintf (tmp_dump_name, PATH_MAX, "%s/dumpXXXXXX",
+                  ((ctx->statedump_path != NULL)?ctx->statedump_path:
+                   DEFAULT_VAR_RUN_DIRECTORY));
+
+        ret = gf_proc_dump_open (tmp_dump_name);
         if (ret < 0)
                 goto out;
 
@@ -673,6 +681,7 @@ gf_proc_dump_info (int signum)
 out:
         if (gf_dump_fd != -1)
                 gf_proc_dump_close ();
+        rename (tmp_dump_name, path);
         gf_proc_dump_unlock ();
 
         return;
