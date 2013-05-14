@@ -117,6 +117,9 @@ glusterd_peer_hostname_new (char *hostname, glusterd_peer_hostname_t **name);
 int32_t
 glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo);
 
+int
+glusterd_volinfo_find_by_volume_id (uuid_t volume_id, glusterd_volinfo_t **volinfo);
+
 int32_t
 glusterd_service_stop(const char *service, char *pidfile, int sig,
                       gf_boolean_t force_kill);
