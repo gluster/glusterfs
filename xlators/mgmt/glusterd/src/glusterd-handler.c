@@ -3356,6 +3356,43 @@ glusterd_handle_cli_clearlocks_volume (rpcsvc_request_t *req)
                                             __glusterd_handle_cli_clearlocks_volume);
 }
 
+static int
+get_brickinfo_from_brickid (char *brickid, glusterd_brickinfo_t **brickinfo)
+{
+        glusterd_volinfo_t      *volinfo    = NULL;
+        char                    *volid_str  = NULL;
+        char                    *brick      = NULL;
+        char                    *brickid_dup = NULL;
+        uuid_t                  volid       = {0};
+        int                     ret         = -1;
+
+        brickid_dup = gf_strdup (brickid);
+        if (!brickid_dup)
+                goto out;
+
+        volid_str = brickid_dup;
+        brick = strchr (brickid_dup, ':');
+        *brick = '\0';
+        brick++;
+        if (!volid_str || !brick)
+                goto out;
+
+        uuid_parse (volid_str, volid);
+        ret = glusterd_volinfo_find_by_volume_id (volid, &volinfo);
+        if (ret)
+                goto out;
+
+        ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
+                                                      brickinfo);
+        if (ret)
+                goto out;
+
+        ret = 0;
+out:
+        GF_FREE (brickid_dup);
+        return ret;
+}
+
 int
 __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                           rpc_clnt_event_t event, void *data)
@@ -3363,10 +3400,15 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         xlator_t                *this = NULL;
         glusterd_conf_t         *conf = NULL;
         int                     ret = 0;
+        char                    *brickid = NULL;
         glusterd_brickinfo_t    *brickinfo = NULL;
 
-        brickinfo = mydata;
-        if (!brickinfo)
+        brickid = mydata;
+        if (!brickid)
+                return 0;
+
+        ret = get_brickinfo_from_brickid (brickid, &brickinfo);
+        if (ret)
                 return 0;
 
         this = THIS;
@@ -3385,6 +3427,8 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         case RPC_CLNT_DISCONNECT:
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_DISCONNECT");
                 glusterd_set_brick_status (brickinfo, GF_BRICK_STOPPED);
+                if (rpc_clnt_is_disabled (rpc))
+                        GF_FREE (brickid);
                 break;
 
         default:
