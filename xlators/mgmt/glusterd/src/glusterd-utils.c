@@ -1156,6 +1156,32 @@ glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
         return 0;
 }
 
+int
+glusterd_volinfo_find_by_volume_id (uuid_t volume_id, glusterd_volinfo_t **volinfo)
+{
+        int32_t                 ret = -1;
+        xlator_t                *this = NULL;
+        glusterd_volinfo_t      *voliter = NULL;
+        glusterd_conf_t         *priv = NULL;
+
+        if (!volume_id)
+                return -1;
+
+        this = THIS;
+        priv = this->private;
+
+        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+                if (uuid_compare (volume_id, voliter->volume_id))
+                        continue;
+                *volinfo = voliter;
+                ret = 0;
+                gf_log (this->name, GF_LOG_DEBUG, "Volume %s found",
+                        voliter->volname);
+                break;
+        }
+        return ret;
+}
+
 int32_t
 glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo)
 {
@@ -1269,6 +1295,8 @@ glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
 {
         int                     ret = 0;
         char                    socketpath[PATH_MAX] = {0};
+        char                    volume_id_str[64];
+        char                    *brickid = NULL;
         dict_t                  *options = NULL;
         struct rpc_clnt         *rpc = NULL;
         glusterd_conf_t         *priv = THIS->private;
@@ -1290,10 +1318,17 @@ glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
                                                         600);
                 if (ret)
                         goto out;
+
+                uuid_utoa_r (volinfo->volume_id, volume_id_str);
+                ret = gf_asprintf (&brickid, "%s:%s:%s", volume_id_str,
+                                   brickinfo->hostname, brickinfo->path);
+                if (ret < 0)
+                        goto out;
+
                 synclock_unlock (&priv->big_lock);
                 ret = glusterd_rpc_create (&rpc, options,
                                            glusterd_brick_rpc_notify,
-                                           brickinfo);
+                                           brickid);
                 synclock_lock (&priv->big_lock);
                 if (ret)
                         goto out;
@@ -1501,18 +1536,21 @@ glusterd_brick_unlink_socket_file (glusterd_volinfo_t *volinfo,
 int32_t
 glusterd_brick_disconnect (glusterd_brickinfo_t *brickinfo)
 {
+        rpc_clnt_t              *rpc = NULL;
+
         GF_ASSERT (brickinfo);
-        glusterd_conf_t         *priv = THIS->private;
 
-        if (brickinfo->rpc) {
-                /* cleanup the saved-frames before last unref */
-                synclock_unlock (&priv->big_lock);
-                rpc_clnt_connection_cleanup (&brickinfo->rpc->conn);
-                synclock_lock (&priv->big_lock);
-
-                rpc_clnt_unref (brickinfo->rpc);
-                brickinfo->rpc = NULL;
+        if (!brickinfo) {
+                gf_log_callingfn ("glusterd", GF_LOG_WARNING, "!brickinfo");
+                return -1;
         }
+
+        rpc            = brickinfo->rpc;
+        brickinfo->rpc = NULL;
+
+        if (rpc)
+                rpc_clnt_unref (rpc);
+
         return 0;
 }
 
@@ -3478,17 +3516,12 @@ int32_t
 glusterd_nodesvc_disconnect (char *server)
 {
         struct rpc_clnt         *rpc = NULL;
-        glusterd_conf_t         *priv = THIS->private;
 
         rpc = glusterd_nodesvc_get_rpc (server);
+        (void)glusterd_nodesvc_set_rpc (server, NULL);
 
-        if (rpc) {
-                synclock_unlock (&priv->big_lock);
-                rpc_clnt_connection_cleanup (&rpc->conn);
-                synclock_lock (&priv->big_lock);
+        if (rpc)
                 rpc_clnt_unref (rpc);
-                (void)glusterd_nodesvc_set_rpc (server, NULL);
-        }
 
         return 0;
 }
