@@ -122,6 +122,12 @@ AC_CONFIG_FILES([Makefile
                 xlators/system/Makefile
                 xlators/system/posix-acl/Makefile
                 xlators/system/posix-acl/src/Makefile
+                xlators/nfs/Makefile
+                xlators/nfs/server/Makefile
+                xlators/nfs/server/src/Makefile
+                xlators/mgmt/Makefile
+                xlators/mgmt/glusterd/Makefile
+                xlators/mgmt/glusterd/src/Makefile
                 cli/Makefile
                 cli/src/Makefile
 		doc/Makefile
@@ -139,12 +145,6 @@ AC_CONFIG_FILES([Makefile
 		extras/LinuxRPM/Makefile
 		contrib/fuse-util/Makefile
 		contrib/uuid/uuid_types.h
-                xlators/nfs/Makefile
-                xlators/nfs/server/Makefile
-                xlators/nfs/server/src/Makefile
-                xlators/mgmt/Makefile
-                xlators/mgmt/glusterd/Makefile
-                xlators/mgmt/glusterd/src/Makefile
 		glusterfs-api.pc
 		api/Makefile
 		api/src/Makefile
@@ -639,14 +639,22 @@ if test "x$LIBAIO" != "x"; then
    BUILD_LIBAIO=yes
 fi
 
-
-BUILD_GLUPY=no
-AC_CHECK_LIB([python2.6],[PyImport_Import],[BUILD_GLUPY=yes])
-
-if test "x$BUILD_GLUPY" = "xyes"; then
-   GLUPY_SUBDIR=glupy
-fi
+AM_PATH_PYTHON()
+  if echo $PYTHON_VERSION | grep ^2; then
+    BUILD_PYTHON_INC=`$PYTHON -c "from distutils import sysconfig; print sysconfig.get_python_inc()"`
+    BUILD_PYTHON_LIB=python$PYTHON_VERSION
+    GLUPY_SUBDIR=glupy
+    GLUPY_SUBDIR_MAKEFILE=xlators/features/glupy/Makefile
+    GLUPY_SUBDIR_SRC_MAKEFILE=xlators/features/glupy/src/Makefile
+    echo "building glupy with -isystem $BUILD_PYTHON_INC -l $BUILD_PYTHON_LIB"
+  else
+    AC_MSG_ERROR([only python 2.x is supported])
+  fi
+AC_SUBST(BUILD_PYTHON_INC)
+AC_SUBST(BUILD_PYTHON_LIB)
 AC_SUBST(GLUPY_SUBDIR)
+AC_SUBST(GLUPY_SUBDIR_MAKEFILE)
+AC_SUBST(GLUPY_SUBDIR_SRC_MAKEFILE)
 
 AC_SUBST(GF_HOST_OS)
 AC_SUBST([GF_GLUSTERFS_LIBS])
