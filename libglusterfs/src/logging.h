@@ -72,6 +72,9 @@ typedef struct gf_log_handle_ {
         FILE            *gf_log_logfile;
         char            *cmd_log_filename;
         FILE            *cmdlogfile;
+#ifdef GF_USE_SYSLOG
+        int              log_control_file_found;
+#endif /* GF_USE_SYSLOG */
 
 } gf_log_handle_t;
 

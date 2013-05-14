@@ -25,11 +25,13 @@
 #ifdef GF_USE_SYSLOG
 #include <libintl.h>
 #include <syslog.h>
+#include <sys/stat.h>
 #include "gf-error-codes.h"
 
 #define GF_JSON_MSG_LENGTH      8192
 #define GF_SYSLOG_CEE_FORMAT    \
         "@cee: {\"msg\": \"%s\", \"gf_code\": \"%u\", \"gf_message\": \"%s\"}"
+#define GF_LOG_CONTROL_FILE     "/var/lib/glusterd/logger.conf"
 #endif /* GF_USE_SYSLOG */
 
 #include "xlator.h"
@@ -324,7 +326,20 @@ gf_log_globals_init (void *data)
         ctx->log.gf_log_syslog    = 1;
         ctx->log.sys_log_level    = GF_LOG_CRITICAL;
 
-#ifdef GF_LINUX_HOST_OS
+#if defined(GF_USE_SYSLOG)
+        {
+                /* use default ident and option */
+                /* TODO: make FACILITY configurable than LOG_DAEMON */
+                struct stat buf;
+
+                if (stat (GF_LOG_CONTROL_FILE, &buf) == 0) {
+                        ctx->log.log_control_file_found = 1; /* use gf_log */
+                } else {
+                        ctx->log.log_control_file_found = 0;
+                        gf_openlog (NULL, -1, LOG_DAEMON);
+                }
+        }
+#elif defined(GF_LINUX_HOST_OS)
         /* For the 'syslog' output. one can grep 'GlusterFS' in syslog
            for serious logs */
         openlog ("GlusterFS", LOG_PID, LOG_DAEMON);
@@ -426,6 +441,12 @@ _gf_log_nomem (const char *domain, const char *file,
                 return -1;
         }
 
+        basename = strrchr (file, '/');
+        if (basename)
+                basename++;
+        else
+                basename = file;
+
 #if HAVE_BACKTRACE
         /* Print 'calling function' */
         do {
@@ -452,18 +473,31 @@ _gf_log_nomem (const char *domain, const char *file,
         } while (0);
 #endif /* HAVE_BACKTRACE */
 
+#if defined(GF_USE_SYSLOG)
+        if (!(ctx->log.log_control_file_found))
+        {
+                int priority;
+                /* treat GF_LOG_TRACE and GF_LOG_NONE as LOG_DEBUG and
+                   other level as is */
+                if (GF_LOG_TRACE == level || GF_LOG_NONE == level) {
+                        priority = LOG_DEBUG;
+                } else {
+                        priority = level - 1;
+                }
+                gf_syslog (GF_ERR_DEV, priority,
+                           "[%s:%d:%s] %s %s: no memory "
+                           "available for size (%"GF_PRI_SIZET")",
+                           basename, line, function, callstr, domain,
+                           size);
+                goto out;
+        }
+#endif /* GF_USE_SYSLOG */
         ret = gettimeofday (&tv, NULL);
         if (-1 == ret)
                 goto out;
         gf_time_fmt (timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
         snprintf (timestr + strlen (timestr), sizeof timestr - strlen (timestr),
                   ".%"GF_PRI_SUSECONDS, tv.tv_usec);
-
-        basename = strrchr (file, '/');
-        if (basename)
-                basename++;
-        else
-                basename = file;
 
         ret = sprintf (msg, "[%s] %s [%s:%d:%s] %s %s: no memory "
                        "available for size (%"GF_PRI_SIZET")",
@@ -542,6 +576,12 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
                 return -1;
         }
 
+        basename = strrchr (file, '/');
+        if (basename)
+                basename++;
+        else
+                basename = file;
+
 #if HAVE_BACKTRACE
         /* Print 'calling function' */
         do {
@@ -568,6 +608,32 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
         } while (0);
 #endif /* HAVE_BACKTRACE */
 
+#if defined(GF_USE_SYSLOG)
+        if (!(ctx->log.log_control_file_found))
+        {
+                int priority;
+                /* treat GF_LOG_TRACE and GF_LOG_NONE as LOG_DEBUG and
+                   other level as is */
+                if (GF_LOG_TRACE == level || GF_LOG_NONE == level) {
+                        priority = LOG_DEBUG;
+                } else {
+                        priority = level - 1;
+                }
+
+                va_start (ap, fmt);
+                vasprintf (&str2, fmt, ap);
+                va_end (ap);
+
+                gf_syslog (GF_ERR_DEV, priority,
+                           "[%s:%d:%s] %s %d-%s: %s",
+                           basename, line, function,
+                           callstr,
+                           ((this->graph) ? this->graph->id:0), domain,
+                           str2);
+
+                goto out;
+        }
+#endif /* GF_USE_SYSLOG */
         ret = gettimeofday (&tv, NULL);
         if (-1 == ret)
                 goto out;
@@ -575,12 +641,6 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
         gf_time_fmt (timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
         snprintf (timestr + strlen (timestr), sizeof timestr - strlen (timestr),
                   ".%"GF_PRI_SUSECONDS, tv.tv_usec);
-
-        basename = strrchr (file, '/');
-        if (basename)
-                basename++;
-        else
-                basename = file;
 
         ret = gf_asprintf (&str1, "[%s] %s [%s:%d:%s] %s %d-%s: ",
                            timestr, level_strings[level],
@@ -679,6 +739,35 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
                 return -1;
         }
 
+        basename = strrchr (file, '/');
+        if (basename)
+                basename++;
+        else
+                basename = file;
+
+#if defined(GF_USE_SYSLOG)
+        if (!(ctx->log.log_control_file_found))
+        {
+                int priority;
+                /* treat GF_LOG_TRACE and GF_LOG_NONE as LOG_DEBUG and
+                   other level as is */
+                if (GF_LOG_TRACE == level || GF_LOG_NONE == level) {
+                        priority = LOG_DEBUG;
+                } else {
+                        priority = level - 1;
+                }
+
+                va_start (ap, fmt);
+                vasprintf (&str2, fmt, ap);
+                va_end (ap);
+
+                gf_syslog (GF_ERR_DEV, priority,
+                           "[%s:%d:%s] %d-%s: %s",
+                           basename, line, function,
+                           ((this->graph) ? this->graph->id:0), domain, str2);
+                goto err;
+        }
+#endif /* GF_USE_SYSLOG */
 
         if (ctx->log.logrotate) {
                 ctx->log.logrotate = 0;
@@ -719,12 +808,6 @@ log:
         gf_time_fmt (timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
         snprintf (timestr + strlen (timestr), sizeof timestr - strlen (timestr),
                   ".%"GF_PRI_SUSECONDS, tv.tv_usec);
-
-        basename = strrchr (file, '/');
-        if (basename)
-                basename++;
-        else
-                basename = file;
 
         ret = gf_asprintf (&str1, "[%s] %s [%s:%d:%s] %d-%s: ",
                            timestr, level_strings[level],
