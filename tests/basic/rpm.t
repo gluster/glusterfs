@@ -33,6 +33,7 @@ if [ -z "${CHANGED_FILES}" ]
 then
         # only contents of files were changed, no need to retest rpmbuild
         SKIP_TESTS
+	rm -rf ${RESULT_DIR}
         cleanup
         exit 0
 fi
