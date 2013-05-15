@@ -162,6 +162,7 @@ struct fuse_file_lock {
 #define FUSE_BIG_WRITES		(1 << 5)
 #define FUSE_DONT_MASK		(1 << 6)
 #define FUSE_DO_READDIRPLUS	(1 << 13)
+#define FUSE_ASYNC_DIO		(1 << 15)
 
 /**
  * CUSE INIT request/reply flags
