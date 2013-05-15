@@ -4,6 +4,11 @@
 
 cleanup;
 
+function is_nfs_export_available {
+exp=$(showmount -e | grep $V0 | wc -l)
+echo "$exp"
+}
+
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{1,2};
@@ -14,7 +19,7 @@ sleep 2;
 ## Mount FUSE with caching disabled
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
 
-sleep 2;
+EXPECT_WITHIN 10 "1" is_nfs_export_available;
 
 TEST mount -t nfs -o vers=3,nolock $H0:/$V0 $N0;
 
