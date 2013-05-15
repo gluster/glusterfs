@@ -3397,14 +3397,18 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 
         switch (event) {
         case RPC_CLNT_CONNECT:
-                gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_CONNECT");
+                gf_log (this->name, GF_LOG_DEBUG, "Connected to %s:%s",
+                        brickinfo->hostname, brickinfo->path);
                 glusterd_set_brick_status (brickinfo, GF_BRICK_STARTED);
                 ret = default_notify (this, GF_EVENT_CHILD_UP, NULL);
 
                 break;
 
         case RPC_CLNT_DISCONNECT:
-                gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_DISCONNECT");
+                if (GF_BRICK_STARTED == brickinfo->status)
+                        gf_log (this->name, GF_LOG_INFO, "Disconnected from "
+                                "%s:%s", brickinfo->hostname, brickinfo->path);
+
                 glusterd_set_brick_status (brickinfo, GF_BRICK_STOPPED);
                 break;
 
