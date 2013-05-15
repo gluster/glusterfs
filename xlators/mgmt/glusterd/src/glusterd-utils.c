@@ -74,6 +74,18 @@
 
 static glusterd_lock_t lock;
 
+char*
+gd_peer_uuid_str (glusterd_peerinfo_t *peerinfo)
+{
+        if ((peerinfo == NULL) || uuid_is_null (peerinfo->uuid))
+                return NULL;
+
+        if (peerinfo->uuid_str[0] == '\0')
+                uuid_utoa_r (peerinfo->uuid, peerinfo->uuid_str);
+
+        return peerinfo->uuid_str;
+}
+
 static void
 md5_wrapper(const unsigned char *data, size_t len, char *md5)
 {
@@ -6840,6 +6852,7 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         int32_t              current_index = 2;
         int32_t              value32       = 0;
         uint64_t             value         = 0;
+        char                *peer_uuid_str = NULL;
 
         GF_ASSERT (rsp_dict);
         conf = THIS->private;
@@ -6882,9 +6895,10 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 
                 /* Finding the index of the node-uuid in the peer-list */
                 list_for_each_entry (peerinfo, &conf->peers, uuid_list) {
-                        if (!strcmp(peerinfo->uuid_str, node_uuid_str)){
+                        peer_uuid_str = gd_peer_uuid_str (peerinfo);
+                        if (strcmp (peer_uuid_str, node_uuid_str) == 0)
                                 break;
-                        }
+
                         current_index++;
                 }
 

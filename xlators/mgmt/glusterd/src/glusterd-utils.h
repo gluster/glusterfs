@@ -525,4 +525,6 @@ glusterd_is_same_address (char *name1, char *name2);
 
 void
 gd_update_volume_op_versions (glusterd_volinfo_t *volinfo);
+char*
+gd_peer_uuid_str (glusterd_peerinfo_t *peerinfo);
 #endif

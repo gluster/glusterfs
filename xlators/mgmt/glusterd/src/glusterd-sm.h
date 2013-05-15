@@ -93,7 +93,9 @@ typedef struct glusterd_sm_tr_log_ {
 
 struct glusterd_peerinfo_ {
         uuid_t                          uuid;
-        char                            uuid_str[50];
+        char                            uuid_str[50]; /* Retrieve this using
+                                                       * gd_peer_uuid_str ()
+                                                       */
         glusterd_peer_state_info_t      state;
         char                            *hostname;
         int                             port;

@@ -254,13 +254,14 @@ glusterd_add_peer_detail_to_dict (glusterd_peerinfo_t   *peerinfo,
 
         int             ret = -1;
         char            key[256] = {0, };
+        char           *peer_uuid_str = NULL;
 
         GF_ASSERT (peerinfo);
         GF_ASSERT (friends);
 
         snprintf (key, 256, "friend%d.uuid", count);
-        uuid_utoa_r (peerinfo->uuid, peerinfo->uuid_str);
-        ret = dict_set_str (friends, key, peerinfo->uuid_str);
+        peer_uuid_str = gd_peer_uuid_str (peerinfo);
+        ret = dict_set_str (friends, key, peer_uuid_str);
         if (ret)
                 goto out;
 
