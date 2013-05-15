@@ -924,13 +924,27 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
                 }
                 ret = sys_lgetxattr (brickinfo->path, GF_XATTR_VOL_ID_KEY,
                                      volume_id, 16);
-                if (ret < 0) {
+                if (ret < 0 && (!(flags & GF_CLI_FLAG_OP_FORCE))) {
                         snprintf (msg, sizeof (msg), "Failed to get "
                                   "extended attribute %s for brick dir %s. "
                                   "Reason : %s", GF_XATTR_VOL_ID_KEY,
                                   brickinfo->path, strerror (errno));
                         ret = -1;
                         goto out;
+                } else if (ret < 0) {
+                        ret = sys_lsetxattr (brickinfo->path,
+                                             GF_XATTR_VOL_ID_KEY,
+                                             volinfo->volume_id, 16,
+                                             XATTR_CREATE);
+                        if (ret) {
+                                snprintf (msg, sizeof (msg), "Failed to set "
+                                        "extended attribute %s on %s. Reason: "
+                                        "%s", GF_XATTR_VOL_ID_KEY,
+                                        brickinfo->path, strerror (errno));
+                                goto out;
+                        } else {
+                                continue;
+                        }
                 }
                 if (uuid_compare (volinfo->volume_id, volume_id)) {
                         snprintf (msg, sizeof (msg), "Volume id mismatch for "
