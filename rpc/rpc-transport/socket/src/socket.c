@@ -2812,7 +2812,12 @@ socket_connect (rpc_transport_t *this, int port)
                                this->peerinfo.sockaddr_len);
 
                 if (ret == -1 && ((errno != EINPROGRESS) && (errno != ENOENT))) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        /* For unix path based sockets, the socket path is
+                         * cryptic (md5sum of path) and may not be useful for
+                         * the user in debugging so log it in DEBUG
+                         */
+                        gf_log (this->name, ((sa_family == AF_UNIX) ?
+                                GF_LOG_DEBUG : GF_LOG_ERROR),
                                 "connection attempt on %s failed, (%s)",
                                 this->peerinfo.identifier, strerror (errno));
                         close (priv->sock);
