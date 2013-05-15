@@ -1194,11 +1194,16 @@ wb_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	       struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
 {
 	wb_request_t *req = NULL;
+	wb_inode_t *wb_inode;
 
 	req = frame->local;
 	frame->local = NULL;
+	wb_inode = req->wb_inode;
 
 	wb_request_unref (req);
+
+	/* requests could be pending while this was in progress */
+	wb_process_queue(wb_inode);
 
 	STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf,
 			     xdata);

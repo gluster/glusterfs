@@ -3671,6 +3671,9 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
 	if (fini->flags & FUSE_DO_READDIRPLUS)
 		fino.flags |= FUSE_DO_READDIRPLUS;
 
+	if (fini->flags & FUSE_ASYNC_DIO)
+		fino.flags |= FUSE_ASYNC_DIO;
+
         ret = send_fuse_obj (this, finh, &fino);
         if (ret == 0)
                 gf_log ("glusterfs-fuse", GF_LOG_INFO,
