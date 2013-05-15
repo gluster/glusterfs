@@ -147,15 +147,8 @@ typedef int SSL_trinary_func (SSL *, void *, int);
                                       &in->pending_vector,              \
                                       &in->pending_count,               \
                                       &bytes_read);                     \
-                if (ret == -1) {                                        \
-                        if (priv->read_fail_log)                        \
-                                gf_log (this->name, GF_LOG_WARNING,     \
-                                        "reading from socket failed."   \
-                                        "Error (%s), peer (%s)",        \
-                                        strerror (errno),               \
-                                        this->peerinfo.identifier);     \
+                if (ret == -1)                                          \
                         break;                                          \
-                }                                                       \
                 __socket_proto_update_priv_after_read (priv, ret, bytes_read); \
         }
 
@@ -424,6 +417,19 @@ out:
 	return ret;
 }
 
+static gf_boolean_t
+__does_socket_rwv_error_need_logging (socket_private_t *priv, int write)
+{
+        int read = !write;
+
+        if (priv->connected == -1) /* Didn't even connect, of course it fails */
+                return _gf_false;
+
+        if (read && (priv->read_fail_log == _gf_false))
+                return _gf_false;
+
+        return _gf_true;
+}
 
 /*
  * return value:
@@ -507,12 +513,15 @@ __socket_rwv (rpc_transport_t *this, struct iovec *vector, int count,
                         if (errno == EINTR)
                                 continue;
 
-                        if (write || (!write && priv->read_fail_log))
+                        if (__does_socket_rwv_error_need_logging (priv,
+                                                                  write)) {
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "%s on %s failed (%s)",
                                         write ? "writev":"readv",
                                         this->peerinfo.identifier,
                                         strerror (errno));
+                        }
+
 			if (priv->use_ssl) {
 				ssl_dump_error_stack(this->name);
 			}
@@ -1953,17 +1962,8 @@ __socket_proto_state_machine (rpc_transport_t *this,
                                               &in->pending_vector,
                                               &in->pending_count,
                                               NULL);
-                        if (ret == -1) {
-                                if (priv->read_fail_log == 1) {
-                                        gf_log (this->name,
-                                                ((priv->connected == 1) ?
-                                                 GF_LOG_WARNING : GF_LOG_DEBUG),
-                                                "reading from socket failed. Error (%s)"
-                                                ", peer (%s)", strerror (errno),
-                                                this->peerinfo.identifier);
-                                }
+                        if (ret == -1)
                                 goto out;
-                        }
 
                         if (ret > 0) {
                                 gf_log (this->name, GF_LOG_TRACE, "partial "
