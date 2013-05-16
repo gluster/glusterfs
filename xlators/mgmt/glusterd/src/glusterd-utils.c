@@ -7630,3 +7630,16 @@ gd_update_volume_op_versions (glusterd_volinfo_t *volinfo)
 
         return;
 }
+
+/* A task is committed/completed once the task-id for it is cleared */
+gf_boolean_t
+gd_is_remove_brick_committed (glusterd_volinfo_t *volinfo)
+{
+        GF_ASSERT (volinfo);
+
+        if ((GD_OP_REMOVE_BRICK == volinfo->rebal.op) &&
+            !uuid_is_null (volinfo->rebal.rebalance_id))
+                        return _gf_false;
+
+        return _gf_true;
+}

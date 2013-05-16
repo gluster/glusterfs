@@ -42,12 +42,27 @@ glusterd_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe);
 int
 glusterd_defrag_start_validate (glusterd_volinfo_t *volinfo, char *op_errstr,
-                                size_t len)
+                                size_t len, glusterd_op_t op)
 {
-        int     ret = -1;
+        int      ret = -1;
+        xlator_t *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        /* Check only if operation is not remove-brick */
+        if ((GD_OP_REMOVE_BRICK != op) &&
+            !gd_is_remove_brick_committed (volinfo)) {
+                gf_log (this->name, GF_LOG_DEBUG, "A remove-brick task on "
+                        "volume %s is not yet committed", volinfo->volname);
+                snprintf (op_errstr, len, "A remove-brick task on volume %s is"
+                          " not yet committed. Either commit or stop the "
+                          "remove-brick task.", volinfo->volname);
+                goto out;
+        }
 
         if (glusterd_is_defrag_on (volinfo)) {
-                gf_log ("glusterd", GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "rebalance on volume %s already started",
                         volinfo->volname);
                 snprintf (op_errstr, len, "Rebalance on %s is already started",
@@ -57,7 +72,7 @@ glusterd_defrag_start_validate (glusterd_volinfo_t *volinfo, char *op_errstr,
 
         if (glusterd_is_rb_started (volinfo) ||
             glusterd_is_rb_paused (volinfo)) {
-                gf_log ("glusterd", GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "Rebalance failed as replace brick is in progress on volume %s",
                         volinfo->volname);
                 snprintf (op_errstr, len, "Rebalance failed as replace brick is in progress on "
@@ -66,7 +81,7 @@ glusterd_defrag_start_validate (glusterd_volinfo_t *volinfo, char *op_errstr,
         }
         ret = 0;
 out:
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -190,7 +205,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         GF_ASSERT (volinfo);
         GF_ASSERT (op_errstr);
 
-        ret = glusterd_defrag_start_validate (volinfo, op_errstr, len);
+        ret = glusterd_defrag_start_validate (volinfo, op_errstr, len, op);
         if (ret)
                 goto out;
         if (!volinfo->rebal.defrag)
@@ -544,8 +559,9 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                                 ret = 0;
                         }
                 }
-                ret = glusterd_defrag_start_validate (volinfo,
-                                msg, sizeof (msg));
+                ret = glusterd_defrag_start_validate (volinfo, msg,
+                                                      sizeof (msg),
+                                                      GD_OP_REBALANCE);
                 if (ret) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                         "start validate failed");
@@ -654,10 +670,12 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                                     cmd, NULL, GD_OP_REBALANCE);
                  break;
         case GF_DEFRAG_CMD_STOP:
-                /* Clear task-id only on explicitly stopping the
-                 * rebalance process.
+                /* Clear task-id only on explicitly stopping rebalance.
+                 * Also clear the stored operation, so it doesn't cause trouble
+                 * with future rebalance/remove-brick starts
                  */
                 uuid_clear (volinfo->rebal.rebalance_id);
+                volinfo->rebal.op = GD_OP_NONE;
 
                 /* Fall back to the old volume file in case of decommission*/
                 list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
