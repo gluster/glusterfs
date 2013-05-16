@@ -34,6 +34,8 @@ dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!op_ret)
                 local->linked = _gf_true;
 
+        FRAME_SU_UNDO (frame, dht_local_t);
+
         local->linkfile.linkfile_cbk (frame, cookie, this, op_ret, op_errno,
                                       inode, stbuf, preparent, postparent,
                                       xdata);
@@ -87,6 +89,9 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
         }
 
         local->link_subvol = fromvol;
+        /* Always create as root:root. dht_linkfile_attr_heal fixes the
+         * ownsership */
+        FRAME_SU_DO (frame, dht_local_t);
         STACK_WIND (frame, dht_linkfile_create_cbk,
                     fromvol, fromvol->fops->mknod, loc,
                     S_IFREG | DHT_LINKFILE_MODE, 0, 0, dict);
@@ -251,6 +256,8 @@ dht_linkfile_attr_heal (call_frame_t *frame, xlator_t *this)
         subvol = local->link_subvol;
 
         copy->local = copy_local;
+
+        FRAME_SU_DO (copy, dht_local_t);
 
         STACK_WIND (copy, dht_linkfile_setattr_cbk, subvol,
                     subvol->fops->setattr, &copy_local->loc,
