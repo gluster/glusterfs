@@ -99,8 +99,8 @@ glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid,
         ret = glusterd_friend_find (uuid, rhost, &peerinfo);
 
         if (ret) {
-                ret = glusterd_xfer_friend_add_resp (req, rhost, port, -1,
-                                                     GF_PROBE_UNKNOWN_PEER);
+                ret = glusterd_xfer_friend_add_resp (req, hostname, rhost, port,
+                                                     -1, GF_PROBE_UNKNOWN_PEER);
                 if (friend_req->vols.vols_val) {
                         free (friend_req->vols.vols_val);
                         friend_req->vols.vols_val = NULL;
@@ -2863,15 +2863,16 @@ glusterd_xfer_friend_remove_resp (rpcsvc_request_t *req, char *hostname, int por
 
 
 int
-glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname, int port,
-                               int32_t op_ret, int32_t op_errno)
+glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *myhostname,
+                               char *remote_hostname, int port, int32_t op_ret,
+                               int32_t op_errno)
 {
         gd1_mgmt_friend_rsp  rsp = {{0}, };
         int32_t              ret = -1;
         xlator_t             *this = NULL;
         glusterd_conf_t      *conf = NULL;
 
-        GF_ASSERT (hostname);
+        GF_ASSERT (myhostname);
 
         this = THIS;
         GF_ASSERT (this);
@@ -2881,14 +2882,14 @@ glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname, int port,
         uuid_copy (rsp.uuid, MY_UUID);
         rsp.op_ret = op_ret;
         rsp.op_errno = op_errno;
-        rsp.hostname = gf_strdup (hostname);
+        rsp.hostname = gf_strdup (myhostname);
         rsp.port = port;
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gd1_mgmt_friend_rsp);
 
         gf_log ("glusterd", GF_LOG_INFO,
-                "Responded to %s (%d), ret: %d", hostname, port, ret);
+                "Responded to %s (%d), ret: %d", remote_hostname, port, ret);
         GF_FREE (rsp.hostname);
         return ret;
 }
