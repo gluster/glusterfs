@@ -1264,6 +1264,17 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                         gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
                         goto out;
                 }
+                if (!gd_is_remove_brick_committed (volinfo)) {
+                        snprintf (msg, sizeof (msg), "An earlier remove-brick "
+                                  "task exists for volume %s. Either commit it"
+                                  " or stop it before starting a new task.",
+                                  volinfo->volname);
+                        errstr = gf_strdup (msg);
+                        gf_log (this->name, GF_LOG_ERROR, "Earlier remove-brick"
+                                " task exists for volume %s.",
+                                volinfo->volname);
+                        goto out;
+                }
                 if (glusterd_is_defrag_on(volinfo)) {
                         errstr = gf_strdup("Rebalance is in progress. Please "
                                            "retry after completion");
@@ -1538,9 +1549,11 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 }
         }
 
-        /* Clear task-id on commmitting/stopping of remove-brick operation */
-        if ((cmd != GF_OP_CMD_START) || (cmd != GF_OP_CMD_STATUS))
+        /* Clear task-id & rebal.op on commmitting/stopping remove-brick */
+        if ((cmd != GF_OP_CMD_START) || (cmd != GF_OP_CMD_STATUS)) {
                 uuid_clear (volinfo->rebal.rebalance_id);
+                volinfo->rebal.op = GD_OP_NONE;
+        }
 
         ret = -1;
         switch (cmd) {
