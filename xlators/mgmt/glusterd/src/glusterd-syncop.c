@@ -789,6 +789,8 @@ stage_done:
         ret = args.op_ret;
         if (dict_get_str (op_ctx, "errstr", &errstr) == 0)
                 *op_errstr = gf_strdup (errstr);
+        else if (args.errstr)
+                *op_errstr = gf_strdup (args.errstr);
 
 out:
         if (rsp_dict)
@@ -862,6 +864,8 @@ commit_done:
         ret = args.op_ret;
         if (dict_get_str (op_ctx, "errstr", &errstr) == 0)
                 *op_errstr = gf_strdup (errstr);
+        else if (args.errstr)
+                *op_errstr = gf_strdup (args.errstr);
 
 out:
         if (!ret)
