@@ -158,6 +158,9 @@ struct dht_local {
 
         glusterfs_fop_t      fop;
 
+        gf_boolean_t     linked;
+        xlator_t        *link_subvol;
+
         struct dht_rebalance_ rebalance;
 
 };
@@ -669,4 +672,6 @@ dht_subvol_with_free_space_inodes (xlator_t *this, xlator_t *subvol);
 
 xlator_t *
 dht_subvol_maxspace_nonzeroinode (xlator_t *this, xlator_t *subvol);
+int
+dht_linkfile_attr_heal (call_frame_t *frame, xlator_t *this);
 #endif/* _DHT_H */
