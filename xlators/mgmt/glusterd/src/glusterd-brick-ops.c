@@ -1587,6 +1587,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                         ret = 0;
                 } else {
                         uuid_parse (task_id_str, volinfo->rebal.rebalance_id) ;
+                        volinfo->rebal.op = GD_OP_REMOVE_BRICK;
                 }
                 force = 0;
                 break;
