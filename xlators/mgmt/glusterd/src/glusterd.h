@@ -449,8 +449,9 @@ int
 glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port);
 
 int
-glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname,
-                               int port, int32_t op_ret, int32_t op_errno);
+glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *myhostname,
+                               char *remote_hostname, int port, int32_t op_ret,
+                               int32_t op_errno);
 
 int
 glusterd_friend_find (uuid_t uuid, char *hostname,
