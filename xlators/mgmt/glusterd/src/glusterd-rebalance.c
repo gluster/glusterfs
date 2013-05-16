@@ -648,6 +648,7 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         ret = 0;
                 } else {
                         uuid_parse (task_id_str, volinfo->rebal.rebalance_id) ;
+                        volinfo->rebal.op = GD_OP_REBALANCE;
                 }
                 ret = glusterd_handle_defrag_start (volinfo, msg, sizeof (msg),
                                                     cmd, NULL, GD_OP_REBALANCE);
