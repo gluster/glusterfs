@@ -165,7 +165,7 @@ out:
 
 
 /*
- * ioc_inode_update - create a new ioc_inode_t structure and add it to
+ * ioc_inode_create - create a new ioc_inode_t structure and add it to
  *                    the table table. fill in the fields which are derived
  *                    from inode_t corresponding to the file
  *
@@ -175,7 +175,7 @@ out:
  * not for external reference
  */
 ioc_inode_t *
-ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight)
+ioc_inode_create (ioc_table_t *table, inode_t *inode, uint32_t weight)
 {
         ioc_inode_t     *ioc_inode   = NULL;
 
