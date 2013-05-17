@@ -300,8 +300,12 @@ ioc_inode_search (ioc_table_t *table, inode_t *inode);
 void
 ioc_inode_destroy (ioc_inode_t *ioc_inode);
 
+int32_t
+ioc_inode_update (xlator_t *this, inode_t *inode, char *path,
+                  struct iatt *iabuf);
+
 ioc_inode_t *
-ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight);
+ioc_inode_create (ioc_table_t *table, inode_t *inode, uint32_t weight);
 
 int64_t
 __ioc_page_destroy (ioc_page_t *page);
