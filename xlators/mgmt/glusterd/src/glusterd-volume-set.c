@@ -926,6 +926,15 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .validate_fn   = validate_quota,
           .client_option = _gf_true
         },
+        {.key            = "features.quota",
+         .voltype        = "features/quota",
+         .option         = "quota",
+         .value          = "off",
+         .type           = DOC,
+         .op_version     = 2,
+         .validate_fn    = validate_quota,
+         .client_option  = _gf_true
+        },
 
         /* Quota client xlator options */
         { .key           = VKEY_FEATURES_LIMIT_USAGE,

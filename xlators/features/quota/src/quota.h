@@ -29,6 +29,9 @@
 
 #define GET_THIS_VOL(list_ptr) ((list_ptr)->my_vol)
 
+#define DID_CROSS_SOFT_LIMIT(soft_lim, prev_size, cur_size)               \
+        ((cur_size) >= (soft_lim) && (prev_size) < (soft_lim))
+
 #define QUOTA_SAFE_INCREMENT(lock, var)         \
         do {                                    \
                 LOCK (lock);                    \
@@ -110,6 +113,7 @@ typedef struct quota_dentry quota_dentry_t;
 
 struct quota_inode_ctx {
         int64_t          size;
+        int64_t          agg_size;
         int64_t          hard_lim;
         int64_t          soft_lim;
         struct iatt      buf;
@@ -140,23 +144,26 @@ struct quota_local {
 typedef struct quota_local quota_local_t;
 
 
-struct qc_vols_conf {
+struct qd_vols_conf {
         char                    *name;
         inode_table_t           *itable;
+        int64_t                  log_timeout;
+        gf_boolean_t             is_any_child_down;
         struct limits_level {
                 struct list_head         limit_head;
                 uint64_t                 time_out;
-                struct qc_vols_conf     *my_vol;
+                struct qd_vols_conf     *my_vol;
         } below_soft, above_soft;
 };
-typedef struct qc_vols_conf qc_vols_conf_t;
+typedef struct qd_vols_conf qd_vols_conf_t;
 
 
 struct quota_priv {
         int64_t                 timeout;
+        gf_boolean_t            is_quota_on;
         gf_boolean_t            consider_statfs;
         struct list_head        limit_head;
-        qc_vols_conf_t        **qc_vols_conf;
+        qd_vols_conf_t        **qd_vols_conf;
         gf_lock_t               lock;
 };
 typedef struct quota_priv quota_priv_t;
@@ -168,6 +175,7 @@ struct limits {
         int64_t           value;
         uuid_t            gfid;
         uint64_t          prev_size;
+        struct timeval    prev_log_tv;
         int64_t           hard_lim;
         int64_t           soft_lim;
 };
@@ -175,27 +183,5 @@ typedef struct limits     limits_t;
 
 uint64_t cn = 1;
 
-int32_t
-quota_construct_loc (xlator_t *this, limits_t *lim_entry, loc_t *entry_loc)
-{
-        if (!entry_loc || !lim_entry)
-                goto err;
-
-        if (!(entry_loc->path = gf_strdup (lim_entry->path))) {
-                gf_log (this->name, GF_LOG_ERROR, "String duplication failed, "
-                        "increasing your RAM is suggested.");
-                goto err;
-        }
-
-        if (!(entry_loc->name = strrchr (entry_loc->path, '/'))) {
-                gf_log (this->name, GF_LOG_ERROR, "Hmmmm, error again!! %s",
-                        entry_loc->path);
-                goto err;
-        }
-        entry_loc->name++;
-
-        return 0;
-err:
-        loc_wipe (entry_loc);
-        return -1;
-}
+int
+quota_timeout (struct timeval *tv, int32_t timeout);

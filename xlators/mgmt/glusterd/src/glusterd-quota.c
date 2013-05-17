@@ -443,6 +443,12 @@ glusterd_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
                 goto out;
         }
 
+        ret = dict_set_dynstr (volinfo->dict, "quota", quota_status);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "dict set failed");
+                *op_errstr = gf_strdup ("its an error");
+                goto out;
+        }
         *op_errstr = gf_strdup ("Enabling quota has been successful");
 
         *crawl = _gf_true;

@@ -22,7 +22,7 @@ enum gf_quota_mem_types_ {
         gf_quota_mt_limits_t,
         gf_quota_mt_quota_dentry_t,
         gf_quota_mt_quota_limits_level_t,
-        gf_quota_mt_qc_vols_conf_t,
+        gf_quota_mt_qd_vols_conf_t,
         gf_quota_mt_end
 };
 #endif

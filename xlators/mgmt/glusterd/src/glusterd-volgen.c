@@ -1583,16 +1583,10 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 return -1;
 
-        ret = glusterd_volinfo_get_boolean (volinfo, VKEY_FEATURES_QUOTA);
-        if (-1 == ret)
+        xl = volgen_graph_add (graph, "features/quota", volname);
+        if (!xl) {
+                ret = -1;
                 goto out;
-        if (ret) {
-                xl = volgen_graph_add (graph, "features/quota", volname);
-
-                if (!xl) {
-                        ret = -1;
-                        goto out;
-                }
         }
 
         if (dict_get_str_boolean (set_dict, "features.read-only", 0) &&
