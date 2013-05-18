@@ -84,9 +84,9 @@ main (int argc, char *argv[])
         system (cmd);
 
         /* wait till graph switch completes */
-        ret = fstat (fd, &stbuf);
+        ret = fstat64 (fd, &stbuf);
         if (ret < 0) {
-                fprintf (stderr, "fstat failure (%s)\n", strerror (errno));
+                fprintf (stderr, "fstat64 failure (%s)\n", strerror (errno));
                 goto out;
         }
 
