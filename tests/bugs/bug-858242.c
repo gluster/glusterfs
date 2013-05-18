@@ -43,9 +43,9 @@ main (int argc, char *argv[])
                 goto out;
         }
 
-        ret = fstat (fd, &statbuf);
+        ret = fstat64 (fd, &statbuf);
         if (ret < 0) {
-                fprintf (stderr, "fstat failed (%s)", strerror (errno));
+                fprintf (stderr, "fstat64 failed (%s)", strerror (errno));
                 goto out;
         }
 
