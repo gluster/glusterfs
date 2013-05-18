@@ -3383,7 +3383,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
 
         dict = dict_new ();
         if (!dict) {
-		op_errno = ENOMEM;
+                op_errno = ENOMEM;
                 goto out;
         }
 
@@ -3550,6 +3550,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 value = GF_CALLOC (size + 1, sizeof(char), gf_posix_mt_char);
                 if (!value) {
                         op_ret = -1;
+                        op_errno = ENOMEM;
                         goto out;
                 }
                 size = sys_lgetxattr (real_path, key, value, size);
@@ -3565,6 +3566,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 value [size] = '\0';
                 op_ret = dict_set_dynptr (dict, key, value, size);
                 if (op_ret < 0) {
+                        op_errno = -op_ret;
                         gf_log (this->name, GF_LOG_ERROR, "dict set operation "
                                 "on %s for the key %s failed.", real_path, key);
                         GF_FREE (value);
@@ -3642,6 +3644,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 value [size] = '\0';
                 op_ret = dict_set_dynptr (dict, key, value, size);
                 if (op_ret < 0) {
+                        op_errno = -op_ret;
                         gf_log (this->name, GF_LOG_ERROR, "dict set operation "
                                 "on %s for the key %s failed.", real_path, key);
                         GF_FREE (value);
