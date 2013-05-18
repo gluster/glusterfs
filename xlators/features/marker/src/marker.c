@@ -1021,7 +1021,7 @@ marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 if (local->err == 0) {
-                        local->err = op_errno;
+                        local->err =  op_errno ? op_errno : EINVAL;
                 }
 
                 gf_log (this->name, GF_LOG_WARNING,
@@ -1037,6 +1037,11 @@ marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
         } else if (local->err != 0) {
                 STACK_UNWIND_STRICT (rename, frame, -1, local->err, NULL, NULL,
                                      NULL, NULL, NULL, NULL);
+        } else {
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "continuation stub to unwind the call is absent, hence "
+                        "call will be hung (call-stack id = %"PRIu64")",
+                        frame->root->unique);
         }
 
         mq_reduce_parent_size (this, &oplocal->loc, oplocal->contribution);
@@ -1082,7 +1087,7 @@ marker_rename_release_newp_lock (call_frame_t *frame, void *cookie,
 
         if (op_ret < 0) {
                 if (local->err == 0) {
-                        local->err = op_errno;
+                        local->err = op_errno ? op_errno : EINVAL;
                 }
 
                 gf_log (this->name, GF_LOG_WARNING,
@@ -1271,7 +1276,7 @@ marker_do_rename (call_frame_t *frame, void *cookie, xlator_t *this,
                 MARKER_RESET_UID_GID (frame, frame->root, local);
 
         if ((op_ret < 0) && (op_errno != ENOATTR)) {
-                local->err = op_errno;
+                local->err = op_errno ? op_errno : EINVAL;
                 gf_log (this->name, GF_LOG_WARNING,
                         "fetching contribution values from %s (gfid:%s) "
                         "failed (%s)", local->loc.path,
@@ -1283,7 +1288,7 @@ marker_do_rename (call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->loc.inode != NULL) {
                 GET_CONTRI_KEY (contri_key, local->loc.parent->gfid, ret);
                 if (ret < 0) {
-                        local->err = errno;
+                        local->err = errno ? errno : ENOMEM;
                         goto err;
                 }
 
@@ -1323,7 +1328,7 @@ marker_get_newpath_contribution (call_frame_t *frame, void *cookie,
                 MARKER_RESET_UID_GID (frame, frame->root, local);
 
         if ((op_ret < 0) && (op_errno != ENOATTR)) {
-                local->err = op_errno;
+                local->err = op_errno ? op_errno : EINVAL;
                 gf_log (this->name, GF_LOG_WARNING,
                         "fetching contribution values from %s (gfid:%s) "
                         "failed (%s)", oplocal->loc.path,
@@ -1334,7 +1339,7 @@ marker_get_newpath_contribution (call_frame_t *frame, void *cookie,
 
         GET_CONTRI_KEY (contri_key, oplocal->loc.parent->gfid, ret);
         if (ret < 0) {
-                local->err = errno;
+                local->err = errno ? errno : ENOMEM;
                 goto err;
         }
 
@@ -1344,7 +1349,7 @@ marker_get_newpath_contribution (call_frame_t *frame, void *cookie,
         if (local->loc.inode != NULL) {
                 GET_CONTRI_KEY (contri_key, local->loc.parent->gfid, ret);
                 if (ret < 0) {
-                        local->err = errno;
+                        local->err = errno ? errno : ENOMEM;
                         goto err;
                 }
 
@@ -1385,7 +1390,7 @@ marker_get_oldpath_contribution (call_frame_t *frame, void *cookie,
         oplocal = local->oplocal;
 
         if (op_ret < 0) {
-                local->err = op_errno;
+                local->err = op_errno ? op_errno : EINVAL;
                 gf_log (this->name, GF_LOG_WARNING,
                         "cannot hold inodelk on %s (gfid:%s) (%s)",
                         local->next_lock_on->path,
@@ -1396,7 +1401,7 @@ marker_get_oldpath_contribution (call_frame_t *frame, void *cookie,
 
         GET_CONTRI_KEY (contri_key, oplocal->loc.parent->gfid, ret);
         if (ret < 0) {
-                local->err = errno;
+                local->err = errno ? errno : ENOMEM;
                 goto quota_err;
         }
 
@@ -1452,7 +1457,7 @@ marker_rename_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         loc = &local->parent_loc;
                 }
 
-                local->err = op_errno;
+                local->err = op_errno ? op_errno : EINVAL;
                 gf_log (this->name, GF_LOG_WARNING,
                         "cannot hold inodelk on %s (gfid:%s) (%s)",
                         loc->path, uuid_utoa (loc->inode->gfid),
