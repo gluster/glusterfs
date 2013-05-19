@@ -622,6 +622,46 @@ wind:
 
 
 int
+qr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *iov,
+	   int count, off_t offset, uint32_t flags, struct iobref *iobref,
+	   dict_t *xdata)
+{
+	qr_inode_prune (this, fd->inode);
+
+	STACK_WIND (frame, default_writev_cbk,
+		    FIRST_CHILD (this), FIRST_CHILD (this)->fops->writev,
+		    fd, iov, count, offset, flags, iobref, xdata);
+	return 0;
+}
+
+
+int
+qr_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
+	     dict_t *xdata)
+{
+	qr_inode_prune (this, loc->inode);
+
+	STACK_WIND (frame, default_truncate_cbk,
+		    FIRST_CHILD (this), FIRST_CHILD (this)->fops->truncate,
+		    loc, offset, xdata);
+	return 0;
+}
+
+
+int
+qr_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+	      dict_t *xdata)
+{
+	qr_inode_prune (this, fd->inode);
+
+	STACK_WIND (frame, default_ftruncate_cbk,
+		    FIRST_CHILD (this), FIRST_CHILD (this)->fops->ftruncate,
+		    fd, offset, xdata);
+	return 0;
+}
+
+
+int
 qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 	 fd_t *fd, dict_t *xdata)
 {
@@ -1066,6 +1106,9 @@ struct xlator_fops fops = {
 	.readdirp    = qr_readdirp,
         .open        = qr_open,
         .readv       = qr_readv,
+	.writev      = qr_writev,
+	.truncate    = qr_truncate,
+	.ftruncate   = qr_ftruncate
 };
 
 struct xlator_cbks cbks = {
