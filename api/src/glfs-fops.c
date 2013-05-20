@@ -52,6 +52,14 @@ glfs_loc_link (loc_t *loc, struct iatt *iatt)
 }
 
 
+static void
+glfs_iatt_to_stat (struct glfs *fs, struct iatt *iatt, struct stat *stat)
+{
+	iatt_to_stat (iatt, stat);
+	stat->st_dev = fs->dev_id;
+}
+
+
 static int
 glfs_loc_unlink (loc_t *loc)
 {
@@ -172,7 +180,7 @@ retry:
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
 	if (ret == 0 && stat)
-		iatt_to_stat (&iatt, stat);
+		glfs_iatt_to_stat (fs, &iatt, stat);
 out:
 	loc_wipe (&loc);
 
@@ -203,7 +211,7 @@ retry:
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
 	if (ret == 0 && stat)
-		iatt_to_stat (&iatt, stat);
+		glfs_iatt_to_stat (fs, &iatt, stat);
 out:
 	loc_wipe (&loc);
 
@@ -230,7 +238,7 @@ glfs_fstat (struct glfs_fd *glfd, struct stat *stat)
 	ret = syncop_fstat (subvol, glfd->fd, &iatt);
 
 	if (ret == 0 && stat)
-		iatt_to_stat (&iatt, stat);
+		glfs_iatt_to_stat (glfd->fs, &iatt, stat);
 out:
 	return ret;
 }
@@ -1705,7 +1713,7 @@ glfs_readdirplus_r (struct glfs_fd *glfd, struct stat *stat, struct dirent *buf,
 	if (entry) {
 		gf_dirent_to_dirent (entry, buf);
 		if (stat)
-			iatt_to_stat (&entry->d_stat, stat);
+			glfs_iatt_to_stat (glfd->fs, &entry->d_stat, stat);
 	}
 out:
 	return ret;

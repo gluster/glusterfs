@@ -38,6 +38,8 @@ struct glfs {
 	ssize_t             oldvollen;
 
 	inode_t            *cwd;
+
+	uint32_t            dev_id; /* Used to fill st_dev in struct stat */
 };
 
 struct glfs_fd {
