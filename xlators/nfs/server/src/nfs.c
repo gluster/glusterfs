@@ -1177,7 +1177,7 @@ struct volume_options options[] = {
                   " incoming client connections using this option. Use this "
                   "option to turn on name lookups during address-based "
                   "authentication. Turning this on will enable you to"
-                  " use hostnames in rpc-auth.addr.* filters. In some "
+                  " use hostnames in nfs.rpc-auth-* filters. In some "
                   "setups, the name server can take too long to reply to DNS "
                   "queries resulting in timeouts of mount requests. By default, "
                   " name lookup is off"
