@@ -688,13 +688,10 @@ __syncbarrier_wait (struct syncbarrier *barrier, int waitfor)
 		if (task) {
 			/* called within a synctask */
 			list_add_tail (&task->waitq, &barrier->waitq);
-			{
-				pthread_mutex_unlock (&barrier->guard);
-                                synctask_yawn (task);
-				synctask_yield (task);
-				pthread_mutex_lock (&barrier->guard);
-			}
-			list_del_init (&task->waitq);
+                        pthread_mutex_unlock (&barrier->guard);
+                        synctask_yawn (task);
+                        synctask_yield (task);
+                        pthread_mutex_lock (&barrier->guard);
 		} else {
 			/* called by a non-synctask */
 			pthread_cond_wait (&barrier->cond, &barrier->guard);
@@ -737,6 +734,7 @@ __syncbarrier_wake (struct syncbarrier *barrier)
 	pthread_cond_signal (&barrier->cond);
 	if (!list_empty (&barrier->waitq)) {
 		task = list_entry (barrier->waitq.next, struct synctask, waitq);
+                list_del_init (&task->waitq);
 		synctask_wake (task);
 	}
 
