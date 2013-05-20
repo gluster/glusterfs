@@ -52,6 +52,7 @@
 
 #include "glfs.h"
 #include "glfs-internal.h"
+#include "hashfn.h"
 
 
 static gf_boolean_t
@@ -577,6 +578,7 @@ glfs_init_common (struct glfs *fs)
 	if (ret)
 		return ret;
 
+	fs->dev_id = gf_dm_hashfn (fs->volname, strlen (fs->volname));
 	return ret;
 }
 
