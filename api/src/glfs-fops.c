@@ -113,6 +113,9 @@ retry:
 	}
 
 	if (glfd->fd) {
+		/* Retry. Safe to touch glfd->fd as we
+		   still have not glfs_fd_bind() yet.
+		*/
 		fd_unref (glfd->fd);
 		glfd->fd = NULL;
 	}
@@ -133,7 +136,12 @@ out:
 	if (ret && glfd) {
 		glfs_fd_destroy (glfd);
 		glfd = NULL;
+	} else {
+		fd_bind (glfd->fd);
+		glfs_fd_bind (glfd);
 	}
+
+	glfs_subvol_done (fs, subvol);
 
 	return glfd;
 }
@@ -144,14 +152,29 @@ glfs_close (struct glfs_fd *glfd)
 {
 	xlator_t  *subvol = NULL;
 	int        ret = -1;
+	fd_t      *fd = NULL;
+	struct glfs *fs = NULL;
 
 	__glfs_entry_fd (glfd);
 
-	subvol = glfs_fd_subvol (glfd);
+	subvol = glfs_active_subvol (glfd->fs);
 
-	ret = syncop_flush (subvol, glfd->fd);
+	fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+	if (!fd) {
+		ret = -1;
+		errno = EBADFD;
+		goto out;
+	}
 
+	ret = syncop_flush (subvol, fd);
+out:
+	fs = glfd->fs;
 	glfs_fd_destroy (glfd);
+
+	if (fd)
+		fd_unref (fd);
+
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -184,6 +207,8 @@ retry:
 out:
 	loc_wipe (&loc);
 
+	glfs_subvol_done (fs, subvol);
+
 	return ret;
 }
 
@@ -215,6 +240,8 @@ retry:
 out:
 	loc_wipe (&loc);
 
+	glfs_subvol_done (fs, subvol);
+
 	return ret;
 }
 
@@ -225,21 +252,34 @@ glfs_fstat (struct glfs_fd *glfd, struct stat *stat)
 	int              ret = -1;
 	xlator_t        *subvol = NULL;
 	struct iatt      iatt = {0, };
+	fd_t            *fd = NULL;
 
 	__glfs_entry_fd (glfd);
 
-	subvol = glfs_fd_subvol (glfd);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
 		goto out;
 	}
 
-	ret = syncop_fstat (subvol, glfd->fd, &iatt);
+	fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+	if (!fd) {
+		ret = -1;
+		errno = EBADFD;
+		goto out;
+	}
+
+	ret = syncop_fstat (subvol, fd, &iatt);
 
 	if (ret == 0 && stat)
 		glfs_iatt_to_stat (glfd->fs, &iatt, stat);
 out:
+	if (fd)
+		fd_unref (fd);
+
+	glfs_subvol_done (glfd->fs, subvol);
+
 	return ret;
 }
 
@@ -334,6 +374,9 @@ retry:
 	}
 
 	if (glfd->fd) {
+		/* Retry. Safe to touch glfd->fd as we
+		   still have not glfs_fd_bind() yet.
+		*/
 		fd_unref (glfd->fd);
 		glfd->fd = NULL;
 	}
@@ -361,7 +404,12 @@ out:
 	if (ret && glfd) {
 		glfs_fd_destroy (glfd);
 		glfd = NULL;
+	} else {
+		fd_bind (glfd->fd);
+		glfs_fd_bind (glfd);
 	}
+
+	glfs_subvol_done (fs, subvol);
 
 	return glfd;
 }
@@ -408,17 +456,29 @@ glfs_preadv (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
 	struct iovec   *iov = NULL;
 	int             cnt = 0;
 	struct iobref  *iobref = NULL;
+	fd_t           *fd = NULL;
 
 	__glfs_entry_fd (glfd);
 
-	subvol = glfs_fd_subvol (glfd);
+	subvol = glfs_active_subvol (glfd->fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+	if (!fd) {
+		ret = -1;
+		errno = EBADFD;
+		goto out;
+	}
 
 	size = iov_length (iovec, iovcnt);
 
-	ret = syncop_readv (subvol, glfd->fd, size, offset,
-			    0, &iov, &cnt, &iobref);
+	ret = syncop_readv (subvol, fd, size, offset, 0, &iov, &cnt, &iobref);
 	if (ret <= 0)
-		return ret;
+		goto out;
 
 	size = iov_copy (iovec, iovcnt, iov, cnt); /* FIXME!!! */
 
@@ -428,6 +488,12 @@ glfs_preadv (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
 		GF_FREE (iov);
 	if (iobref)
 		iobref_unref (iobref);
+
+out:
+	if (fd)
+		fd_unref (fd);
+
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return size;
 }
@@ -628,24 +694,39 @@ glfs_pwritev (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
 	struct iobref  *iobref = NULL;
 	struct iobuf   *iobuf = NULL;
 	struct iovec    iov = {0, };
+	fd_t           *fd = NULL;
 
 	__glfs_entry_fd (glfd);
 
-	subvol = glfs_fd_subvol (glfd);
+	subvol = glfs_active_subvol (glfd->fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+	if (!fd) {
+		ret = -1;
+		errno = EBADFD;
+		goto out;
+	}
 
 	size = iov_length (iovec, iovcnt);
 
 	iobuf = iobuf_get2 (subvol->ctx->iobuf_pool, size);
 	if (!iobuf) {
+		ret = -1;
 		errno = ENOMEM;
-		return -1;
+		goto out;
 	}
 
 	iobref = iobref_new ();
 	if (!iobref) {
 		iobuf_unref (iobuf);
 		errno = ENOMEM;
-		return -1;
+		ret = -1;
+		goto out;
 	}
 
 	ret = iobref_add (iobref, iobuf);
@@ -653,7 +734,8 @@ glfs_pwritev (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
 		iobuf_unref (iobuf);
 		iobref_unref (iobref);
 		errno = ENOMEM;
-		return -1;
+		ret = -1;
+		goto out;
 	}
 
 	iov_unload (iobuf_ptr (iobuf), iovec, iovcnt);  /* FIXME!!! */
@@ -661,16 +743,21 @@ glfs_pwritev (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
 	iov.iov_base = iobuf_ptr (iobuf);
 	iov.iov_len = size;
 
-	ret = syncop_writev (subvol, glfd->fd, &iov, 1, offset,
-			     iobref, flags);
+	ret = syncop_writev (subvol, fd, &iov, 1, offset, iobref, flags);
 
 	iobuf_unref (iobuf);
 	iobref_unref (iobref);
 
 	if (ret <= 0)
-		return ret;
+		goto out;
 
 	glfd->offset = (offset + size);
+
+out:
+	if (fd)
+		fd_unref (fd);
+
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -810,18 +897,31 @@ glfs_fsync (struct glfs_fd *glfd)
 {
 	int              ret = -1;
 	xlator_t        *subvol = NULL;
+	fd_t            *fd = NULL;
 
 	__glfs_entry_fd (glfd);
 
-	subvol = glfs_fd_subvol (glfd);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
 		goto out;
 	}
 
-	ret = syncop_fsync (subvol, glfd->fd, 0);
+	fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+	if (!fd) {
+		ret = -1;
+		errno = EBADFD;
+		goto out;
+	}
+
+	ret = syncop_fsync (subvol, fd, 0);
 out:
+	if (fd)
+		fd_unref (fd);
+
+	glfs_subvol_done (glfd->fs, subvol);
+
 	return ret;
 }
 
@@ -871,18 +971,31 @@ glfs_fdatasync (struct glfs_fd *glfd)
 {
 	int              ret = -1;
 	xlator_t        *subvol = NULL;
+	fd_t            *fd = NULL;
 
 	__glfs_entry_fd (glfd);
 
-	subvol = glfs_fd_subvol (glfd);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
 		goto out;
 	}
 
-	ret = syncop_fsync (subvol, glfd->fd, 1);
+	fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+	if (!fd) {
+		ret = -1;
+		errno = EBADFD;
+		goto out;
+	}
+
+	ret = syncop_fsync (subvol, fd, 1);
 out:
+	if (fd)
+		fd_unref (fd);
+
+	glfs_subvol_done (glfd->fs, subvol);
+
 	return ret;
 }
 
@@ -899,18 +1012,31 @@ glfs_ftruncate (struct glfs_fd *glfd, off_t offset)
 {
 	int              ret = -1;
 	xlator_t        *subvol = NULL;
+	fd_t            *fd = NULL;
 
 	__glfs_entry_fd (glfd);
 
-	subvol = glfs_fd_subvol (glfd);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
 		goto out;
 	}
 
-	ret = syncop_ftruncate (subvol, glfd->fd, offset);
+	fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+	if (!fd) {
+		ret = -1;
+		errno = EBADFD;
+		goto out;
+	}
+
+	ret = syncop_ftruncate (subvol, fd, offset);
 out:
+	if (fd)
+		fd_unref (fd);
+
+	glfs_subvol_done (glfd->fs, subvol);
+
 	return ret;
 }
 
@@ -977,6 +1103,8 @@ retry:
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 out:
 	loc_wipe (&loc);
+
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -1057,6 +1185,8 @@ out:
 	if (xattr_req)
 		dict_unref (xattr_req);
 
+	glfs_subvol_done (fs, subvol);
+
 	return ret;
 }
 
@@ -1097,6 +1227,8 @@ retry:
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 out:
 	loc_wipe (&loc);
+
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -1177,6 +1309,8 @@ out:
 	if (xattr_req)
 		dict_unref (xattr_req);
 
+	glfs_subvol_done (fs, subvol);
+
 	return ret;
 }
 
@@ -1256,6 +1390,8 @@ out:
 	if (xattr_req)
 		dict_unref (xattr_req);
 
+	glfs_subvol_done (fs, subvol);
+
 	return ret;
 }
 
@@ -1300,6 +1436,8 @@ retry:
 out:
 	loc_wipe (&loc);
 
+	glfs_subvol_done (fs, subvol);
+
 	return ret;
 }
 
@@ -1343,6 +1481,8 @@ retry:
 		ret = glfs_loc_unlink (&loc);
 out:
 	loc_wipe (&loc);
+
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -1412,6 +1552,8 @@ out:
 	loc_wipe (&oldloc);
 	loc_wipe (&newloc);
 
+	glfs_subvol_done (fs, subvol);
+
 	return ret;
 }
 
@@ -1474,6 +1616,8 @@ out:
 	loc_wipe (&oldloc);
 	loc_wipe (&newloc);
 
+	glfs_subvol_done (fs, subvol);
+
 	return ret;
 }
 
@@ -1517,6 +1661,9 @@ retry:
 	}
 
 	if (glfd->fd) {
+		/* Retry. Safe to touch glfd->fd as we
+		   still have not glfs_fd_bind() yet.
+		*/
 		fd_unref (glfd->fd);
 		glfd->fd = NULL;
 	}
@@ -1537,7 +1684,12 @@ out:
 	if (ret && glfd) {
 		glfs_fd_destroy (glfd);
 		glfd = NULL;
+	} else {
+		fd_bind (glfd->fd);
+		glfs_fd_bind (glfd);
 	}
+
+	glfs_subvol_done (fs, subvol);
 
 	return glfd;
 }
@@ -1619,38 +1771,57 @@ glfd_entry_refresh (struct glfs_fd *glfd, int plus)
 	gf_dirent_t      entries;
 	gf_dirent_t      old;
 	int              ret = -1;
+	fd_t            *fd = NULL;
 
-	subvol = glfs_fd_subvol (glfd);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
+		ret = -1;
 		errno = EIO;
-		return -1;
+		goto out;
+	}
+
+	fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+	if (!fd) {
+		ret = -1;
+		errno = EBADFD;
+		goto out;
+	}
+
+	if (fd->inode->ia_type != IA_IFDIR) {
+		ret = -1;
+		errno = EBADF;
+		goto out;
 	}
 
 	INIT_LIST_HEAD (&entries.list);
 	INIT_LIST_HEAD (&old.list);
 
 	if (plus)
-		ret = syncop_readdirp (subvol, glfd->fd, 131072, glfd->offset,
+		ret = syncop_readdirp (subvol, fd, 131072, glfd->offset,
 				       NULL, &entries);
 	else
-		ret = syncop_readdir (subvol, glfd->fd, 131072, glfd->offset,
+		ret = syncop_readdir (subvol, fd, 131072, glfd->offset,
 				      &entries);
 	if (ret >= 0) {
-		/* spurious errno is dangerous for glfd_entry_next() */
-		errno = 0;
-
 		if (plus)
-			gf_link_inodes_from_dirent (THIS, glfd->fd->inode,
-						    &entries);
+			gf_link_inodes_from_dirent (THIS, fd->inode, &entries);
 
 		list_splice_init (&glfd->entries, &old.list);
 		list_splice_init (&entries.list, &glfd->entries);
+
+		/* spurious errno is dangerous for glfd_entry_next() */
+		errno = 0;
 	}
 
 	if (ret > 0)
 		glfd->next = list_entry (glfd->entries.next, gf_dirent_t, list);
 
 	gf_dirent_free (&old);
+out:
+	if (fd)
+		fd_unref (fd);
+
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -1692,12 +1863,6 @@ glfs_readdirplus_r (struct glfs_fd *glfd, struct stat *stat, struct dirent *buf,
 
 	__glfs_entry_fd (glfd);
 
-	if (glfd->fd->inode->ia_type != IA_IFDIR) {
-		ret = -1;
-		errno = EBADF;
-		goto out;
-	}
-
 	errno = 0;
 	entry = glfd_entry_next (glfd, !!stat);
 	if (errno)
@@ -1715,7 +1880,7 @@ glfs_readdirplus_r (struct glfs_fd *glfd, struct stat *stat, struct dirent *buf,
 		if (stat)
 			glfs_iatt_to_stat (glfd->fs, &entry->d_stat, stat);
 	}
-out:
+
 	return ret;
 }
 
@@ -1758,6 +1923,8 @@ retry:
 out:
 	loc_wipe (&loc);
 
+	glfs_subvol_done (fs, subvol);
+
 	return ret;
 }
 
@@ -1797,6 +1964,8 @@ retry:
 out:
 	loc_wipe (&loc);
 
+	glfs_subvol_done (fs, subvol);
+
 	return ret;
 }
 
@@ -1806,18 +1975,31 @@ glfs_fsetattr (struct glfs_fd *glfd, struct iatt *iatt, int valid)
 {
 	int              ret = -1;
 	xlator_t        *subvol = NULL;
+	fd_t            *fd = NULL;
 
 	__glfs_entry_fd (glfd);
 
-	subvol = glfs_fd_subvol (glfd);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
 		goto out;
 	}
 
-	ret = syncop_fsetattr (subvol, glfd->fd, iatt, valid, 0, 0);
+	fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+	if (!fd) {
+		ret = -1;
+		errno = EBADFD;
+		goto out;
+	}
+
+	ret = syncop_fsetattr (subvol, fd, iatt, valid, 0, 0);
 out:
+	if (fd)
+		fd_unref (fd);
+
+	glfs_subvol_done (glfd->fs, subvol);
+
 	return ret;
 }
 
@@ -2038,6 +2220,8 @@ retry:
 out:
 	loc_wipe (&loc);
 
+	glfs_subvol_done (fs, subvol);
+
 	return ret;
 }
 
@@ -2065,22 +2249,35 @@ glfs_fgetxattr (struct glfs_fd *glfd, const char *name, void *value,
 	int              ret = -1;
 	xlator_t        *subvol = NULL;
 	dict_t          *xattr = NULL;
+	fd_t            *fd = NULL;
 
 	__glfs_entry_fd (glfd);
 
-	subvol = glfs_fd_subvol (glfd);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
 		goto out;
 	}
 
-	ret = syncop_fgetxattr (subvol, glfd->fd, &xattr, name);
+	fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+	if (!fd) {
+		ret = -1;
+		errno = EBADFD;
+		goto out;
+	}
+
+	ret = syncop_fgetxattr (subvol, fd, &xattr, name);
 	if (ret)
 		goto out;
 
 	ret = glfs_getxattr_process (value, size, xattr, name);
 out:
+	if (fd)
+		fd_unref (fd);
+
+	glfs_subvol_done (glfd->fs, subvol);
+
 	return ret;
 }
 
@@ -2151,6 +2348,8 @@ retry:
 out:
 	loc_wipe (&loc);
 
+	glfs_subvol_done (fs, subvol);
+
 	return ret;
 }
 
@@ -2175,22 +2374,35 @@ glfs_flistxattr (struct glfs_fd *glfd, void *value, size_t size)
 	int              ret = -1;
 	xlator_t        *subvol = NULL;
 	dict_t          *xattr = NULL;
+	fd_t            *fd = NULL;
 
 	__glfs_entry_fd (glfd);
 
-	subvol = glfs_fd_subvol (glfd);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
 		goto out;
 	}
 
-	ret = syncop_fgetxattr (subvol, glfd->fd, &xattr, NULL);
+	fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+	if (!fd) {
+		ret = -1;
+		errno = EBADFD;
+		goto out;
+	}
+
+	ret = syncop_fgetxattr (subvol, fd, &xattr, NULL);
 	if (ret)
 		goto out;
 
 	ret = glfs_listxattr_process (value, size, xattr);
 out:
+	if (fd)
+		fd_unref (fd);
+
+	glfs_subvol_done (glfd->fs, subvol);
+
 	return ret;
 }
 
@@ -2261,6 +2473,8 @@ out:
 	if (xattr)
 		dict_unref (xattr);
 
+	glfs_subvol_done (fs, subvol);
+
 	return ret;
 }
 
@@ -2288,13 +2502,21 @@ glfs_fsetxattr (struct glfs_fd *glfd, const char *name, const void *value,
 	int              ret = -1;
 	xlator_t        *subvol = NULL;
 	dict_t          *xattr = NULL;
+	fd_t            *fd = NULL;
 
 	__glfs_entry_fd (glfd);
 
-	subvol = glfs_fd_subvol (glfd);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
+		goto out;
+	}
+
+	fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+	if (!fd) {
+		ret = -1;
+		errno = EBADFD;
 		goto out;
 	}
 
@@ -2305,10 +2527,15 @@ glfs_fsetxattr (struct glfs_fd *glfd, const char *name, const void *value,
 		goto out;
 	}
 
-	ret = syncop_fsetxattr (subvol, glfd->fd, xattr, flags);
+	ret = syncop_fsetxattr (subvol, fd, xattr, flags);
 out:
 	if (xattr)
 		dict_unref (xattr);
+
+	if (fd)
+		fd_unref (fd);
+
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -2350,6 +2577,8 @@ retry:
 out:
 	loc_wipe (&loc);
 
+	glfs_subvol_done (fs, subvol);
+
 	return ret;
 }
 
@@ -2373,31 +2602,32 @@ glfs_fremovexattr (struct glfs_fd *glfd, const char *name)
 {
 	int              ret = -1;
 	xlator_t        *subvol = NULL;
+	fd_t            *fd = NULL;
 
 	__glfs_entry_fd (glfd);
 
-	subvol = glfs_fd_subvol (glfd);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
 		goto out;
 	}
 
-	ret = syncop_fremovexattr (subvol, glfd->fd, name);
-out:
-	return ret;
-}
-
-
-void
-glfs_cwd_set (struct glfs *fs, inode_t *inode)
-{
-	if (fs->cwd) {
-		inode_unref (fs->cwd);
-		fs->cwd = NULL;
+	fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+	if (!fd) {
+		ret = -1;
+		errno = EBADFD;
+		goto out;
 	}
 
-	fs->cwd = inode_ref (inode);
+	ret = syncop_fremovexattr (subvol, fd, name);
+out:
+	if (fd)
+		fd_unref (fd);
+
+	glfs_subvol_done (glfd->fs, subvol);
+
+	return ret;
 }
 
 
@@ -2437,6 +2667,8 @@ retry:
 out:
 	loc_wipe (&loc);
 
+	glfs_subvol_done (fs, subvol);
+
 	return ret;
 }
 
@@ -2444,12 +2676,28 @@ out:
 int
 glfs_fchdir (struct glfs_fd *glfd)
 {
-	int ret = -1;
-	inode_t *inode = NULL;
+	int       ret = -1;
+	inode_t  *inode = NULL;
+	xlator_t *subvol = NULL;
+	fd_t     *fd = NULL;
 
 	__glfs_entry_fd (glfd);
 
-	inode = glfd->fd->inode;
+	subvol = glfs_active_subvol (glfd->fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+	if (!fd) {
+		ret = -1;
+		errno = EBADFD;
+		goto out;
+	}
+
+	inode = fd->inode;
 
 	if (!IA_ISDIR (inode->ia_type)) {
 		ret = -1;
@@ -2460,6 +2708,11 @@ glfs_fchdir (struct glfs_fd *glfd)
 	glfs_cwd_set (glfd->fs, inode);
 	ret = 0;
 out:
+	if (fd)
+		fd_unref (fd);
+
+	glfs_subvol_done (glfd->fs, subvol);
+
 	return ret;
 }
 
@@ -2516,6 +2769,8 @@ out:
 		retpath = NULL;
 	}
 
+	glfs_subvol_done (fs, subvol);
+
 	return retpath;
 }
 
@@ -2535,7 +2790,8 @@ glfs_getcwd (struct glfs *fs, char *buf, size_t n)
 		goto out;
 	}
 
-	inode = fs->cwd;
+	inode = glfs_cwd_get (fs);
+
 	if (!inode) {
 		strncpy (buf, "/", n);
 		ret = 0;
@@ -2553,6 +2809,9 @@ glfs_getcwd (struct glfs *fs, char *buf, size_t n)
 	ret = 0;
 out:
 	GF_FREE (path);
+
+	if (inode)
+		inode_unref (inode);
 
 	if (ret < 0)
 		return NULL;
@@ -2589,19 +2848,37 @@ glfs_posix_lock (struct glfs_fd *glfd, int cmd, struct flock *flock)
 	int              ret = -1;
 	xlator_t        *subvol = NULL;
 	struct gf_flock  gf_flock = {0, };
+	struct gf_flock  saved_flock = {0, };
+	fd_t            *fd = NULL;
 
 	__glfs_entry_fd (glfd);
 
-	subvol = glfs_fd_subvol (glfd);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
 		goto out;
 	}
 
+	fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+	if (!fd) {
+		ret = -1;
+		errno = EBADFD;
+		goto out;
+	}
+
 	gf_flock_from_flock (&gf_flock, flock);
-	ret = syncop_lk (subvol, glfd->fd, cmd, &gf_flock);
+	gf_flock_from_flock (&saved_flock, flock);
+	ret = syncop_lk (subvol, fd, cmd, &gf_flock);
 	gf_flock_to_flock (&gf_flock, flock);
+
+	if (ret == 0 && (cmd == F_SETLK || cmd == F_SETLKW))
+		fd_lk_insert_and_merge (fd, cmd, &saved_flock);
 out:
+	if (fd)
+		fd_unref (fd);
+
+	glfs_subvol_done (glfd->fs, subvol);
+
 	return ret;
 }

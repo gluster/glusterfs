@@ -12,11 +12,9 @@
 /*
   TODO:
   - merge locks in glfs_posix_lock for lock self-healing
-  - refresh fs->cwd inode on graph switch
   - set proper pid/lk_owner to call frames (currently buried in syncop)
   - fix logging.c/h to store logfp and loglevel in glusterfs_ctx_t and
     reach it via THIS.
-  - fd migration on graph switch.
   - update syncop functions to accept/return xdata. ???
   - protocol/client to reconnect immediately after portmap disconnect.
   - handle SEEK_END failure in _lseek()
@@ -338,66 +336,41 @@ glfs_fd_new (struct glfs *fs)
 
 	glfd->fs = fs;
 
+	INIT_LIST_HEAD (&glfd->openfds);
+
 	return glfd;
 }
 
+
+void
+glfs_fd_bind (struct glfs_fd *glfd)
+{
+	struct glfs *fs = NULL;
+
+	fs = glfd->fs;
+
+	glfs_lock (fs);
+	{
+		list_add_tail (&glfd->openfds, &fs->openfds);
+	}
+	glfs_unlock (fs);
+}
 
 void
 glfs_fd_destroy (struct glfs_fd *glfd)
 {
 	if (!glfd)
 		return;
+
+	glfs_lock (glfd->fs);
+	{
+		list_del_init (&glfd->openfds);
+	}
+	glfs_unlock (glfd->fs);
+
 	if (glfd->fd)
 		fd_unref (glfd->fd);
 	GF_FREE (glfd);
-}
-
-
-xlator_t *
-glfs_fd_subvol (struct glfs_fd *glfd)
-{
-	xlator_t    *subvol = NULL;
-
-	if (!glfd)
-		return NULL;
-
-	subvol = glfd->fd->inode->table->xl;
-
-	return subvol;
-}
-
-
-xlator_t *
-glfs_active_subvol (struct glfs *fs)
-{
-	xlator_t      *subvol = NULL;
-	inode_table_t *itable = NULL;
-
-	pthread_mutex_lock (&fs->mutex);
-	{
-		while (!fs->init)
-			pthread_cond_wait (&fs->cond, &fs->mutex);
-
-		subvol = fs->active_subvol;
-	}
-	pthread_mutex_unlock (&fs->mutex);
-
-	if (!subvol)
-		return NULL;
-
-	if (!subvol->itable) {
-		itable = inode_table_new (0, subvol);
-		if (!itable) {
-			errno = ENOMEM;
-			return NULL;
-		}
-
-		subvol->itable = itable;
-
-		glfs_first_lookup (subvol);
-	}
-
-	return subvol;
 }
 
 
@@ -455,6 +428,8 @@ glfs_new (const char *volname)
 
 	pthread_mutex_init (&fs->mutex, NULL);
 	pthread_cond_init (&fs->cond, NULL);
+
+	INIT_LIST_HEAD (&fs->openfds);
 
 	return fs;
 }
@@ -519,7 +494,8 @@ glfs_init_wait (struct glfs *fs)
 {
 	int   ret = -1;
 
-	pthread_mutex_lock (&fs->mutex);
+	/* Always a top-down call, use glfs_lock() */
+	glfs_lock (fs);
 	{
 		while (!fs->init)
 			pthread_cond_wait (&fs->cond,
@@ -527,7 +503,7 @@ glfs_init_wait (struct glfs *fs)
 		ret = fs->ret;
 		errno = fs->err;
 	}
-	pthread_mutex_unlock (&fs->mutex);
+	glfs_unlock (fs);
 
 	return ret;
 }
@@ -546,6 +522,7 @@ glfs_init_done (struct glfs *fs, int ret)
 
 	init_cbk = fs->init_cbk;
 
+	/* Always a bottom-up call, use mutex_lock() */
 	pthread_mutex_lock (&fs->mutex);
 	{
 		fs->init = 1;

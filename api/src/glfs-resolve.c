@@ -32,9 +32,11 @@
 
 #include "glfs-internal.h"
 
+#define graphid_str(subvol) (uuid_utoa((unsigned char *)subvol->graph->graph_uuid))
 
-void
-glfs_first_lookup (xlator_t *subvol)
+
+int
+glfs_first_lookup_safe (xlator_t *subvol)
 {
 	loc_t  loc = {0, };
 	int    ret = -1;
@@ -49,9 +51,86 @@ glfs_first_lookup (xlator_t *subvol)
 
 	gf_log (subvol->name, GF_LOG_DEBUG, "first lookup complete %d", ret);
 
-	return;
+	return ret;
 }
 
+
+int
+__glfs_first_lookup (struct glfs *fs, xlator_t *subvol)
+{
+	int ret = -1;
+
+	fs->migration_in_progress = 1;
+	pthread_mutex_unlock (&fs->mutex);
+	{
+		ret = glfs_first_lookup_safe (subvol);
+	}
+	pthread_mutex_lock (&fs->mutex);
+	fs->migration_in_progress = 0;
+
+	return ret;
+}
+
+
+inode_t *
+glfs_refresh_inode_safe (xlator_t *subvol, inode_t *oldinode)
+{
+	loc_t        loc = {0, };
+	int          ret = -1;
+	struct iatt  iatt = {0, };
+	inode_t     *newinode = NULL;
+
+
+	if (!oldinode)
+		return NULL;
+
+	if (oldinode->table->xl == subvol)
+		return inode_ref (oldinode);
+
+	newinode = inode_find (subvol->itable, oldinode->gfid);
+	if (newinode)
+		return newinode;
+
+	uuid_copy (loc.gfid, oldinode->gfid);
+	loc.inode = inode_new (subvol->itable);
+	if (!loc.inode)
+		return NULL;
+
+	ret = syncop_lookup (subvol, &loc, 0, &iatt, 0, 0);
+
+	if (ret) {
+		gf_log (subvol->name, GF_LOG_WARNING,
+			"inode refresh of %s failed: %s",
+			uuid_utoa (oldinode->gfid), strerror (errno));
+		loc_wipe (&loc);
+		return NULL;
+	}
+
+	newinode = inode_link (loc.inode, 0, 0, &iatt);
+	if (newinode)
+		inode_lookup (newinode);
+
+	loc_wipe (&loc);
+
+	return newinode;
+}
+
+
+inode_t *
+__glfs_refresh_inode (struct glfs *fs, xlator_t *subvol, inode_t *inode)
+{
+	inode_t *newinode = NULL;
+
+	fs->migration_in_progress = 1;
+	pthread_mutex_unlock (&fs->mutex);
+	{
+		newinode = glfs_refresh_inode_safe (subvol, inode);
+	}
+	pthread_mutex_lock (&fs->mutex);
+	fs->migration_in_progress = 0;
+
+	return newinode;
+}
 
 int
 glfs_loc_touchup (loc_t *loc)
@@ -364,13 +443,18 @@ glfs_resolve_path (struct glfs *fs, xlator_t *subvol, const char *origpath,
 		   loc_t *loc, struct iatt *iatt, int follow, int reval)
 {
 	int ret = -1;
+	inode_t *cwd = NULL;
 
 	if (origpath[0] == '/')
-		ret = glfs_resolve_at (fs, subvol, NULL, origpath, loc, iatt,
-				       follow, reval);
-	else
-		ret = glfs_resolve_at (fs, subvol, fs->cwd, origpath, loc, iatt,
-				       follow, reval);
+		return glfs_resolve_at (fs, subvol, NULL, origpath, loc, iatt,
+					follow, reval);
+
+	cwd = glfs_cwd_get (fs);
+
+	ret = glfs_resolve_at (fs, subvol, cwd, origpath, loc, iatt,
+			       follow, reval);
+	if (cwd)
+		inode_unref (cwd);
 
 	return ret;
 }
@@ -399,3 +483,397 @@ glfs_lresolve (struct glfs *fs, xlator_t *subvol, const char *origpath,
 	return ret;
 }
 
+
+int
+glfs_migrate_fd_locks_safe (struct glfs *fs, xlator_t *oldsubvol, fd_t *oldfd,
+			    xlator_t *newsubvol, fd_t *newfd)
+{
+	dict_t *lockinfo = NULL;
+	int ret = 0;
+	char uuid1[64];
+
+	if (!oldfd->lk_ctx || fd_lk_ctx_empty (oldfd->lk_ctx))
+		return 0;
+
+	newfd->lk_ctx = fd_lk_ctx_ref (oldfd->lk_ctx);
+
+	ret = syncop_fgetxattr (oldsubvol, oldfd, &lockinfo,
+				GF_XATTR_LOCKINFO_KEY);
+	if (ret < 0) {
+		gf_log (fs->volname, GF_LOG_WARNING,
+			"fgetxattr (%s) failed (%s) on graph %s (%d)",
+			uuid_utoa_r (oldfd->inode->gfid, uuid1),
+			strerror (errno),
+			graphid_str (oldsubvol), oldsubvol->graph->id);
+		goto out;
+	}
+
+	if (!dict_get (lockinfo, GF_XATTR_LOCKINFO_KEY)) {
+		gf_log (fs->volname, GF_LOG_WARNING,
+			"missing lokinfo key (%s) on graph %s (%d)",
+			uuid_utoa_r (oldfd->inode->gfid, uuid1),
+			graphid_str (oldsubvol), oldsubvol->graph->id);
+		goto out;
+	}
+
+	ret = syncop_fsetxattr (newsubvol, newfd, lockinfo, 0);
+	if (ret < 0) {
+		gf_log (fs->volname, GF_LOG_WARNING,
+			"fsetxattr (%s) failed (%s) on graph %s (%d)",
+			uuid_utoa_r (newfd->inode->gfid, uuid1),
+			strerror (errno),
+			graphid_str (newsubvol), newsubvol->graph->id);
+		goto out;
+	}
+out:
+	if (lockinfo)
+		dict_unref (lockinfo);
+	return ret;
+}
+
+
+fd_t *
+glfs_migrate_fd_safe (struct glfs *fs, xlator_t *newsubvol, fd_t *oldfd)
+{
+	fd_t *newfd = NULL;
+	inode_t *oldinode = NULL;
+	inode_t *newinode = NULL;
+	xlator_t *oldsubvol = NULL;
+	int ret = -1;
+	loc_t loc = {0, };
+	char uuid1[64];
+
+
+	oldinode = oldfd->inode;
+	oldsubvol = oldinode->table->xl;
+
+	if (oldsubvol == newsubvol)
+		return fd_ref (oldfd);
+
+	if (!oldsubvol->switched) {
+		ret = syncop_fsync (oldsubvol, oldfd, 0);
+		if (ret) {
+			gf_log (fs->volname, GF_LOG_WARNING,
+				"fsync() failed (%s) on %s graph %s (%d)",
+				strerror (errno),
+				uuid_utoa_r (oldfd->inode->gfid, uuid1),
+				graphid_str (oldsubvol), oldsubvol->graph->id);
+		}
+	}
+
+	newinode = glfs_refresh_inode_safe (newsubvol, oldinode);
+	if (!newinode) {
+		gf_log (fs->volname, GF_LOG_WARNING,
+			"inode (%s) refresh failed (%s) on graph %s (%d)",
+			uuid_utoa_r (oldinode->gfid, uuid1),
+			strerror (errno),
+			graphid_str (newsubvol), newsubvol->graph->id);
+		goto out;
+	}
+
+	newfd = fd_create (newinode, getpid());
+	if (!newfd) {
+		gf_log (fs->volname, GF_LOG_WARNING,
+			"fd_create (%s) failed (%s) on graph %s (%d)",
+			uuid_utoa_r (newinode->gfid, uuid1),
+			strerror (errno),
+			graphid_str (newsubvol), newsubvol->graph->id);
+		goto out;
+	}
+
+	loc.inode = inode_ref (newinode);
+
+	if (IA_ISDIR (oldinode->ia_type))
+		ret = syncop_opendir (newsubvol, &loc, newfd);
+	else
+		ret = syncop_open (newsubvol, &loc,
+				   oldfd->flags & ~(O_TRUNC|O_EXCL|O_CREAT),
+				   newfd);
+	loc_wipe (&loc);
+
+	if (ret) {
+		gf_log (fs->volname, GF_LOG_WARNING,
+			"syncop_open%s (%s) failed (%s) on graph %s (%d)",
+			IA_ISDIR (oldinode->ia_type) ? "dir" : "",
+			uuid_utoa_r (newinode->gfid, uuid1),
+			strerror (errno),
+			graphid_str (newsubvol), newsubvol->graph->id);
+		goto out;
+	}
+
+	ret = glfs_migrate_fd_locks_safe (fs, oldsubvol, oldfd, newsubvol,
+					  newfd);
+
+	if (ret) {
+		gf_log (fs->volname, GF_LOG_WARNING,
+			"lock migration (%s) failed (%s) on graph %s (%d)",
+			uuid_utoa_r (newinode->gfid, uuid1),
+			strerror (errno),
+			graphid_str (newsubvol), newsubvol->graph->id);
+		goto out;
+	}
+
+	fd_bind (newfd);
+out:
+	if (newinode)
+		inode_unref (newinode);
+
+	if (ret) {
+		fd_unref (newfd);
+		newfd = NULL;
+	}
+
+	return newfd;
+}
+
+
+fd_t *
+__glfs_migrate_fd (struct glfs *fs, xlator_t *newsubvol, struct glfs_fd *glfd)
+{
+	fd_t *oldfd = NULL;
+	fd_t *newfd = NULL;
+
+	oldfd = glfd->fd;
+
+	fs->migration_in_progress = 1;
+	pthread_mutex_unlock (&fs->mutex);
+	{
+		newfd = glfs_migrate_fd_safe (fs, newsubvol, oldfd);
+	}
+	pthread_mutex_lock (&fs->mutex);
+	fs->migration_in_progress = 0;
+
+	return newfd;
+}
+
+
+fd_t *
+__glfs_resolve_fd (struct glfs *fs, xlator_t *subvol, struct glfs_fd *glfd)
+{
+	fd_t *fd = NULL;
+
+	if (glfd->fd->inode->table->xl == subvol)
+		return fd_ref (glfd->fd);
+
+	fd = __glfs_migrate_fd (fs, subvol, glfd);
+	if (!fd)
+		return NULL;
+
+	if (subvol == fs->active_subvol) {
+		fd_unref (glfd->fd);
+		glfd->fd = fd_ref (fd);
+	}
+
+	return fd;
+}
+
+
+fd_t *
+glfs_resolve_fd (struct glfs *fs, xlator_t *subvol, struct glfs_fd *glfd)
+{
+	fd_t *fd = NULL;
+
+	glfs_lock (fs);
+	{
+		fd = __glfs_resolve_fd (fs, subvol, glfd);
+	}
+	glfs_unlock (fs);
+
+	return fd;
+}
+
+
+void
+__glfs_migrate_openfds (struct glfs *fs, xlator_t *subvol)
+{
+	struct glfs_fd *glfd = NULL;
+	fd_t *fd = NULL;
+
+	list_for_each_entry (glfd, &fs->openfds, openfds) {
+		if (uuid_is_null (glfd->fd->inode->gfid)) {
+			gf_log (fs->volname, GF_LOG_INFO,
+				"skipping openfd %p/%p in graph %s (%d)",
+				glfd, glfd->fd,	graphid_str(subvol),
+				subvol->graph->id);
+			/* create in progress, defer */
+			continue;
+		}
+
+		fd = __glfs_migrate_fd (fs, subvol, glfd);
+		if (fd) {
+			fd_unref (glfd->fd);
+			glfd->fd = fd;
+		}
+	}
+}
+
+
+xlator_t *
+__glfs_active_subvol (struct glfs *fs)
+{
+	xlator_t      *new_subvol = NULL;
+	int            ret = -1;
+	inode_t       *new_cwd = NULL;
+
+	if (!fs->next_subvol)
+		return fs->active_subvol;
+
+	new_subvol = fs->next_subvol;
+
+	ret = __glfs_first_lookup (fs, new_subvol);
+	if (ret) {
+		gf_log (fs->volname, GF_LOG_INFO,
+			"first lookup on graph %s (%d) failed (%s)",
+			graphid_str (new_subvol), new_subvol->graph->id,
+			strerror (errno));
+		return NULL;
+	}
+
+	if (fs->cwd) {
+		new_cwd = __glfs_refresh_inode (fs, new_subvol, fs->cwd);
+
+		if (!new_cwd) {
+			char buf1[64];
+			gf_log (fs->volname, GF_LOG_INFO,
+				"cwd refresh of %s graph %s (%d) failed (%s)",
+				uuid_utoa_r (fs->cwd->gfid, buf1),
+				graphid_str (new_subvol),
+				new_subvol->graph->id, strerror (errno));
+			return NULL;
+		}
+	}
+
+	__glfs_migrate_openfds (fs, new_subvol);
+
+	/* switching @active_subvol and @cwd
+	   should be atomic
+	*/
+	fs->old_subvol = fs->active_subvol;
+	fs->active_subvol = fs->next_subvol;
+	fs->next_subvol = NULL;
+
+	if (new_cwd) {
+		__glfs_cwd_set (fs, new_cwd);
+		inode_unref (new_cwd);
+	}
+
+	gf_log (fs->volname, GF_LOG_INFO, "switched to graph %s (%d)",
+		graphid_str (new_subvol), new_subvol->graph->id);
+
+	return new_subvol;
+}
+
+xlator_t *
+glfs_active_subvol (struct glfs *fs)
+{
+	xlator_t      *subvol = NULL;
+	xlator_t      *old_subvol = NULL;
+
+	glfs_lock (fs);
+	{
+		subvol = __glfs_active_subvol (fs);
+
+		if (subvol)
+			subvol->winds++;
+
+		if (fs->old_subvol) {
+			old_subvol = fs->old_subvol;
+			fs->old_subvol = NULL;
+			old_subvol->switched = 1;
+		}
+	}
+	glfs_unlock (fs);
+
+	if (old_subvol)
+		glfs_subvol_done (fs, old_subvol);
+
+	return subvol;
+}
+
+
+void
+glfs_subvol_done (struct glfs *fs, xlator_t *subvol)
+{
+	int ref = 0;
+	xlator_t *active_subvol = NULL;
+
+	glfs_lock (fs);
+	{
+		ref = (--subvol->winds);
+		active_subvol = fs->active_subvol;
+	}
+	glfs_unlock (fs);
+
+	if (ref == 0) {
+		assert (subvol != active_subvol);
+		xlator_notify (subvol, GF_EVENT_PARENT_DOWN, subvol, NULL);
+	}
+}
+
+
+int
+__glfs_cwd_set (struct glfs *fs, inode_t *inode)
+{
+	if (inode->table->xl != fs->active_subvol) {
+		inode = __glfs_refresh_inode (fs, fs->active_subvol, inode);
+		if (!inode)
+			return -1;
+	} else {
+		inode_ref (inode);
+	}
+
+	if (fs->cwd)
+		inode_unref (fs->cwd);
+
+	fs->cwd = inode;
+
+	return 0;
+}
+
+
+int
+glfs_cwd_set (struct glfs *fs, inode_t *inode)
+{
+	int ret = 0;
+
+	glfs_lock (fs);
+	{
+		ret = __glfs_cwd_set (fs, inode);
+	}
+	glfs_unlock (fs);
+
+	return ret;
+}
+
+
+inode_t *
+__glfs_cwd_get (struct glfs *fs)
+{
+	inode_t *cwd = NULL;
+
+	if (!fs->cwd)
+		return NULL;
+
+	if (fs->cwd->table->xl == fs->active_subvol) {
+		cwd = inode_ref (fs->cwd);
+		return cwd;
+	}
+
+	cwd = __glfs_refresh_inode (fs, fs->active_subvol, fs->cwd);
+
+	return cwd;
+}
+
+inode_t *
+glfs_cwd_get (struct glfs *fs)
+{
+	inode_t *cwd = NULL;
+
+	glfs_lock (fs);
+	{
+		cwd = __glfs_cwd_get (fs);
+	}
+	glfs_unlock (fs);
+
+	return cwd;
+}
