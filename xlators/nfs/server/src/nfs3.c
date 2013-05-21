@@ -246,12 +246,10 @@ out:
 
 #define nfs3_validate_gluster_fh(handle, status, errlabel)              \
         do {                                                            \
-                if ((handle)) {                                         \
-                        if (!nfs3_fh_validate (handle)) {               \
-                                gf_log (GF_NFS3, GF_LOG_ERROR, "Bad Handle");\
-                                status = NFS3ERR_BADHANDLE;             \
-                                goto errlabel;                          \
-                        }                                               \
+                if (!nfs3_fh_validate (handle)) {                       \
+                        gf_log (GF_NFS3, GF_LOG_ERROR, "Bad Handle");   \
+                        status = NFS3ERR_BADHANDLE;                     \
+                        goto errlabel;                                  \
                 }                                                       \
         } while (0)                                                     \
 
@@ -267,8 +265,8 @@ out:
                         uuid_unparse (cst->resolvefh.gfid, gfid);       \
                         sprintf (buf, "(%s) %s : %s", trans->peerinfo.identifier,\
                         xlatorp ? xlatorp->name : "ERR", gfid);         \
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "Unable to resolve FH"\
-                                ": %s", buf);                           \
+                        gf_log (GF_NFS3, GF_LOG_ERROR, "%s: %s",        \
+                                strerror(cst->resolve_errno), buf);     \
                         nfstat = nfs3_errno_to_nfsstat3 (cst->resolve_errno);\
                         goto erlabl;                                    \
                 }                                                       \
@@ -287,8 +285,8 @@ out:
                         uuid_unparse (cst->resolvefh.gfid, gfid);       \
                         sprintf (buf, "(%s) %s : %s", trans->peerinfo.identifier,\
                         xlatorp ? xlatorp->name : "ERR", gfid);         \
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "Unable to resolve FH"\
-                                ": %s", buf);                           \
+                        gf_log (GF_NFS3, GF_LOG_ERROR, "%s: %s",        \
+                                strerror(cst->resolve_errno), buf);     \
                         nfstat = nfs3_errno_to_nfsstat3 (cs->resolve_errno);\
                         goto erlabl;                                    \
                 }                                                       \
