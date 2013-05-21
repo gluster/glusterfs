@@ -101,21 +101,6 @@ synctask_yield (struct synctask *task)
 
 
 void
-synctask_yawn (struct synctask *task)
-{
-	struct syncenv *env = NULL;
-
-	env = task->env;
-
-	pthread_mutex_lock (&env->mutex);
-	{
-		task->woken = 0;
-	}
-	pthread_mutex_unlock (&env->mutex);
-}
-
-
-void
 synctask_wake (struct synctask *task)
 {
         struct syncenv *env = NULL;
@@ -533,7 +518,6 @@ __synclock_lock (struct synclock *lock)
 			/* called within a synctask */
 			list_add_tail (&task->waitq, &lock->waitq);
                         pthread_mutex_unlock (&lock->guard);
-                        synctask_yawn (task);
                         synctask_yield (task);
                         /* task is removed from waitq in unlock,
                          * under lock->guard.*/
@@ -689,7 +673,6 @@ __syncbarrier_wait (struct syncbarrier *barrier, int waitfor)
 			/* called within a synctask */
 			list_add_tail (&task->waitq, &barrier->waitq);
                         pthread_mutex_unlock (&barrier->guard);
-                        synctask_yawn (task);
                         synctask_yield (task);
                         pthread_mutex_lock (&barrier->guard);
 		} else {
