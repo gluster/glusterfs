@@ -208,7 +208,8 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
                                 "(overlaps/holes present)", local->loc.path);
                 }
 
-                dht_layout_set (this, local->inode, layout);
+                if (local->inode)
+                        dht_layout_set (this, local->inode, layout);
         }
 
         DHT_STACK_UNWIND (lookup, main_frame, local->op_ret, local->op_errno,
