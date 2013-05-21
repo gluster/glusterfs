@@ -1115,12 +1115,15 @@ glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
         GF_ASSERT (peerinfo);
         glusterd_peerctx_t      *peerctx = NULL;
         gf_boolean_t            quorum_action = _gf_false;
+        glusterd_conf_t         *priv = THIS->private;
 
         if (peerinfo->quorum_contrib != QUORUM_NONE)
                 quorum_action = _gf_true;
         if (peerinfo->rpc) {
                 /* cleanup the saved-frames before last unref */
+                synclock_unlock (&priv->big_lock);
                 rpc_clnt_connection_cleanup (&peerinfo->rpc->conn);
+                synclock_lock (&priv->big_lock);
 
                 peerctx = peerinfo->rpc->mydata;
                 peerinfo->rpc->mydata = NULL;
@@ -1484,10 +1487,13 @@ int32_t
 glusterd_brick_disconnect (glusterd_brickinfo_t *brickinfo)
 {
         GF_ASSERT (brickinfo);
+        glusterd_conf_t         *priv = THIS->private;
 
         if (brickinfo->rpc) {
                 /* cleanup the saved-frames before last unref */
+                synclock_unlock (&priv->big_lock);
                 rpc_clnt_connection_cleanup (&brickinfo->rpc->conn);
+                synclock_lock (&priv->big_lock);
 
                 rpc_clnt_unref (brickinfo->rpc);
                 brickinfo->rpc = NULL;
@@ -3457,11 +3463,14 @@ int32_t
 glusterd_nodesvc_disconnect (char *server)
 {
         struct rpc_clnt         *rpc = NULL;
+        glusterd_conf_t         *priv = THIS->private;
 
         rpc = glusterd_nodesvc_get_rpc (server);
 
         if (rpc) {
+                synclock_unlock (&priv->big_lock);
                 rpc_clnt_connection_cleanup (&rpc->conn);
+                synclock_lock (&priv->big_lock);
                 rpc_clnt_unref (rpc);
                 (void)glusterd_nodesvc_set_rpc (server, NULL);
         }
