@@ -647,6 +647,13 @@ dht_selfheal_layout_maximize_overlap (call_frame_t *frame, loc_t *loc,
                 max_overlap = 0;
                 max_overlap_idx = i;
                 for (j = (i + 1); j < new->cnt; ++j) {
+                        if (new->list[j].err > 0) {
+			        /* Subvol might be marked for decommission
+			        with EINVAL, or some other serious error
+			        marked with positive errno.
+			        */
+			        continue;
+                        }
                         /* Calculate the overlap now. */
                         curr_overlap = OV_ENTRY(i,i) + OV_ENTRY(j,j);
                         /* Calculate the overlap after the proposed swap. */
