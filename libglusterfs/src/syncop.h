@@ -148,14 +148,12 @@ struct syncargs {
 
 
 #define __yawn(args) do {                                       \
-	args->task = synctask_get ();			        \
-        if (args->task) {                                       \
-		synctask_yawn (args->task);			\
-	} else {						\
-                pthread_mutex_init (&args->mutex, NULL);        \
-                pthread_cond_init (&args->cond, NULL);          \
-                args->done = 0;					\
-        }                                                       \
+        args->task = synctask_get ();                           \
+        if (args->task)                                         \
+            break;                                              \
+        pthread_mutex_init (&args->mutex, NULL);                \
+        pthread_cond_init (&args->cond, NULL);                  \
+        args->done = 0;                                         \
         } while (0)
 
 
@@ -228,7 +226,6 @@ void syncenv_scale (struct syncenv *env);
 int synctask_new (struct syncenv *, synctask_fn_t, synctask_cbk_t, call_frame_t* frame, void *);
 void synctask_wake (struct synctask *task);
 void synctask_yield (struct synctask *task);
-void synctask_yawn (struct synctask *task);
 void synctask_waitfor (struct synctask *task, int count);
 
 #define synctask_barrier_init(args) syncbarrier_init (&args->barrier)
