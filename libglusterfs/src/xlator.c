@@ -618,10 +618,12 @@ out:
         return ret;
 }
 
-char*
-loc_gfid_utoa (loc_t *loc)
+void
+loc_gfid (loc_t *loc, uuid_t gfid)
 {
-        uuid_t  gfid={0};
+        if (!gfid)
+                goto out;
+        uuid_clear (gfid);
 
         if (!loc)
                 goto out;
@@ -630,6 +632,14 @@ loc_gfid_utoa (loc_t *loc)
         else if (loc->inode && (!uuid_is_null (loc->inode->gfid)))
                 uuid_copy (gfid, loc->inode->gfid);
 out:
+        return;
+}
+
+char*
+loc_gfid_utoa (loc_t *loc)
+{
+        uuid_t gfid;
+        loc_gfid (loc, gfid);
         return uuid_utoa (gfid);
 }
 
