@@ -134,6 +134,9 @@ fd_lookup (struct _inode *inode, pid_t pid);
 fd_t *
 fd_lookup_uint64 (struct _inode *inode, uint64_t pid);
 
+fd_t*
+fd_lookup_anonymous (inode_t *inode);
+
 fd_t *
 fd_anonymous (inode_t *inode);
 

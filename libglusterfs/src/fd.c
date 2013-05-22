@@ -780,6 +780,23 @@ fd_anonymous (inode_t *inode)
         return fd;
 }
 
+fd_t*
+fd_lookup_anonymous (inode_t *inode)
+{
+        fd_t *fd = NULL;
+
+        if (!inode) {
+                gf_log_callingfn ("fd", GF_LOG_WARNING, "!inode");
+                return NULL;
+        }
+
+        LOCK (&inode->lock);
+        {
+                fd = __fd_lookup_anonymous (inode);
+        }
+        UNLOCK (&inode->lock);
+        return fd;
+}
 
 gf_boolean_t
 fd_is_anonymous (fd_t *fd)
