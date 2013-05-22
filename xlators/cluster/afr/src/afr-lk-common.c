@@ -57,11 +57,15 @@
 int
 afr_entry_lockee_cmp (const void *l1, const void *l2)
 {
-       const afr_entry_lockee_t       *r1 = l1;
-       const afr_entry_lockee_t       *r2 = l2;
-       int                            ret = 0;
+        const afr_entry_lockee_t       *r1 = l1;
+        const afr_entry_lockee_t       *r2 = l2;
+        int                            ret = 0;
+        uuid_t                         gfid1 = {0};
+        uuid_t                         gfid2 = {0};
 
-        ret = uuid_compare (r1->loc.gfid, r2->loc.gfid);
+        loc_gfid ((loc_t*)&r1->loc, gfid1);
+        loc_gfid ((loc_t*)&r2->loc, gfid2);
+        ret = uuid_compare (gfid1, gfid2);
         /*Entrylks with NULL basename are the 'smallest'*/
         if (ret == 0) {
                 if (!r1->basename)
@@ -75,7 +79,6 @@ afr_entry_lockee_cmp (const void *l1, const void *l2)
                 return -1;
         else
                 return 1;
-
 }
 
 int afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index);
