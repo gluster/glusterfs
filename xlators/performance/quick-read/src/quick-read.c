@@ -1143,4 +1143,5 @@ struct volume_options options[] = {
           .max  = 1 * GF_UNIT_KB * 1000,
           .default_value = "64KB",
         },
+        { .key  = {NULL} }
 };

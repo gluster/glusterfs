@@ -922,15 +922,16 @@ struct volume_options options[] = {
         { .key  = {"use-anonymous-fd"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "yes",
-	  .description = "For read operations, use anonymous FD when "
-	  "original FD is open-behind and not yet opened in the backend.",
+          .description = "For read operations, use anonymous FD when "
+          "original FD is open-behind and not yet opened in the backend.",
         },
         { .key  = {"lazy-open"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "yes",
-	  .description = "Perform open in the backend only when a necessary "
-	  "FOP arrives (e.g writev on the FD, unlink of the file). When option "
-	  "is disabled, perform backend open right after unwinding open().",
+          .description = "Perform open in the backend only when a necessary "
+          "FOP arrives (e.g writev on the FD, unlink of the file). When option "
+          "is disabled, perform backend open right after unwinding open().",
         },
+        { .key  = {NULL} }
 
 };
