@@ -605,6 +605,11 @@ cd ..
 %{__rm} -f %{buildroot}%{_sysconfdir}/init.d/glusterd
 %endif
 
+%if 0%{?rhel} && 0%{?rhel} <= 5
+%{__install} -D -p -m 0755 extras/init.d/rhel5-load-fuse.modules \
+    %{buildroot}%{_sysconfdir}/sysconfig/modules/glusterfs-fuse.modules
+%endif
+
 %{__mkdir_p} %{buildroot}%{_localstatedir}/log/glusterd
 %{__mkdir_p} %{buildroot}%{_localstatedir}/log/glusterfs
 %{__mkdir_p} %{buildroot}%{_localstatedir}/log/glusterfsd
@@ -854,6 +859,9 @@ fi
 %endif
 %if 0%{?_with_fusermount:1}
 %{_bindir}/fusermount-glusterfs
+%endif
+%if 0%{?rhel} && 0%{?rhel} <= 5
+%{_sysconfdir}/sysconfig/modules/glusterfs-fuse.modules
 %endif
 
 %files server

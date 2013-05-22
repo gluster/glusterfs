@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+# fusermount-glusterfs requires the /dev/fuse character device. The fuse module
+# provides this and is loaded on demand in newer Linux distributions.
+#
+
+[ -c /dev/fuse ] || /sbin/modprobe fuse
