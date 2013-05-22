@@ -585,6 +585,23 @@ out:
         return ret;
 }
 
+void
+loc_gfid (loc_t *loc, uuid_t gfid)
+{
+        if (!gfid)
+                goto out;
+        uuid_clear (gfid);
+
+        if (!loc)
+                goto out;
+        else if (!uuid_is_null (loc->gfid))
+                uuid_copy (gfid, loc->gfid);
+        else if (loc->inode && (!uuid_is_null (loc->inode->gfid)))
+                uuid_copy (gfid, loc->inode->gfid);
+out:
+        return;
+}
+
 int
 loc_copy (loc_t *dst, loc_t *src)
 {

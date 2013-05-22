@@ -873,6 +873,7 @@ int loc_copy (loc_t *dst, loc_t *src);
 #define loc_dup(src, dst) loc_copy(dst, src)
 void loc_wipe (loc_t *loc);
 int loc_path (loc_t *loc, const char *bname);
+void loc_gfid (loc_t *loc, uuid_t gfid);
 int xlator_mem_acct_init (xlator_t *xl, int num_types);
 int is_gf_log_command (xlator_t *trans, const char *name, char *value);
 int glusterd_check_log_level (const char *value);
