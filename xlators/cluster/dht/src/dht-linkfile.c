@@ -19,6 +19,35 @@
 #include "compat.h"
 #include "dht-common.h"
 
+int
+dht_linkfile_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int op_ret, int op_errno,
+                         inode_t *inode, struct iatt *stbuf, dict_t *xattr,
+                         struct iatt *postparent)
+{
+        char          is_linkfile   = 0;
+        dht_conf_t   *conf          = NULL;
+        dht_local_t  *local         = NULL;
+        call_frame_t *prev          = NULL;
+
+        if (!op_ret)
+                goto out;
+
+        local = frame->local;
+        prev = cookie;
+        conf = this->private;
+
+        is_linkfile = check_is_linkfile (inode, stbuf, xattr,
+                                         conf->link_xattr_name);
+        if (!is_linkfile)
+                gf_log (this->name, GF_LOG_WARNING, "got non-linkfile %s:%s",
+                        prev->this->name, local->loc.path);
+out:
+        local->linkfile.linkfile_cbk (frame, cookie, this, op_ret, op_errno,
+                                      inode, stbuf, postparent, postparent,
+                                      xattr);
+        return 0;
+}
 
 #define is_equal(a, b) (a == b)
 int
@@ -28,6 +57,11 @@ dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          struct iatt *postparent, dict_t *xdata)
 {
         dht_local_t  *local = NULL;
+        xlator_t     *subvol = NULL;
+        call_frame_t *prev = NULL;
+        dict_t       *xattrs = NULL;
+        dht_conf_t   *conf = NULL;
+        int           ret = -1;
 
         local = frame->local;
 
@@ -36,9 +70,34 @@ dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         FRAME_SU_UNDO (frame, dht_local_t);
 
+        if (op_ret && (op_errno == EEXIST)) {
+                conf = this->private;
+                prev = cookie;
+                subvol = prev->this;
+                if (!subvol)
+                        goto out;
+                xattrs = dict_new ();
+                if (!xattrs)
+                        goto out;
+                ret = dict_set_uint32 (xattrs, conf->link_xattr_name, 256);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set linkto key");
+                        goto out;
+                }
+
+                STACK_WIND (frame, dht_linkfile_lookup_cbk, subvol,
+                            subvol->fops->lookup, &local->loc, xattrs);
+                if (xattrs)
+                        dict_unref (xattrs);
+                return 0;
+        }
+out:
         local->linkfile.linkfile_cbk (frame, cookie, this, op_ret, op_errno,
                                       inode, stbuf, preparent, postparent,
                                       xdata);
+        if (xattrs)
+                dict_unref (xattrs);
         return 0;
 }
 
