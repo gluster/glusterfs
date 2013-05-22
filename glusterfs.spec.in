@@ -193,9 +193,6 @@ Group:            Applications/File
 BuildRequires:    fuse-devel
 
 Requires:         %{name} = %{version}-%{release}
-%if ! 0%{?_with_fusermount}
-Requires:         /usr/bin/fusermount
-%endif
 
 Obsoletes:        %{name}-client < %{version}-%{release}
 Provides:         %{name}-client = %{version}-%{release}
@@ -323,6 +320,11 @@ sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
 # We'll use our init.d
 %if 0%{?_with_systemd:1}
 %{__rm} -f %{buildroot}%{_sysconfdir}/init.d/glusterd
+%endif
+
+%if 0%{?rhel} && 0%{?rhel} <= 5
+%{__install} -D -p -m 0755 extras/init.d/rhel5-load-fuse.modules \
+    %{buildroot}%{_sysconfdir}/sysconfig/modules/glusterfs-fuse.modules
 %endif
 
 %{__mkdir_p} %{buildroot}%{_localstatedir}/log/glusterd
@@ -482,6 +484,9 @@ fi
 %endif
 %if 0%{!?_without_fusermount:1}
 %{_bindir}/fusermount-glusterfs
+%endif
+%if 0%{?rhel} && 0%{?rhel} <= 5
+%{_sysconfdir}/sysconfig/modules/glusterfs-fuse.modules
 %endif
 
 %files server
