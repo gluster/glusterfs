@@ -109,6 +109,7 @@ struct glusterd_peerinfo_ {
         glusterd_sm_tr_log_t            sm_log;
         gf_boolean_t                    quorum_action;
         gd_quorum_contrib_t             quorum_contrib;
+        gf_boolean_t                    locked;
 };
 
 typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;
