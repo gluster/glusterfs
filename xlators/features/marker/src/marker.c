@@ -1876,6 +1876,75 @@ err:
         return 0;
 }
 
+
+int32_t
+marker_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                   struct iatt *postbuf, dict_t *xdata)
+{
+        marker_local_t     *local   = NULL;
+        marker_conf_t      *priv    = NULL;
+
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_TRACE, "%s occurred during discard",
+                        strerror (op_errno));
+        }
+
+        local = (marker_local_t *) frame->local;
+
+        frame->local = NULL;
+
+        STACK_UNWIND_STRICT (discard, frame, op_ret, op_errno, prebuf,
+                             postbuf, xdata);
+
+        if (op_ret == -1 || local == NULL)
+                goto out;
+
+        priv = this->private;
+
+        if (priv->feature_enabled & GF_QUOTA)
+                mq_initiate_quota_txn (this, &local->loc);
+
+        if (priv->feature_enabled & GF_XTIME)
+                marker_xtime_update_marks (this, local);
+out:
+        marker_local_unref (local);
+
+        return 0;
+}
+
+int32_t
+marker_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+	       size_t len, dict_t *xdata)
+{
+        int32_t          ret   = 0;
+        marker_local_t  *local = NULL;
+        marker_conf_t   *priv  = NULL;
+
+        priv = this->private;
+
+        if (priv->feature_enabled == 0)
+                goto wind;
+
+        local = mem_get0 (this->local_pool);
+
+        MARKER_INIT_LOCAL (frame, local);
+
+        ret = marker_inode_loc_fill (fd->inode, &local->loc);
+
+        if (ret == -1)
+                goto err;
+wind:
+        STACK_WIND (frame, marker_discard_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->discard, fd, offset, len, xdata);
+        return 0;
+err:
+        STACK_UNWIND_STRICT (discard, frame, -1, ENOMEM, NULL, NULL, NULL);
+
+        return 0;
+}
+
+
 /* when a call from the special client is received on
  * key trusted.glusterfs.volume-mark with value "RESET"
  * or if the value is 0length, update the change the
@@ -2686,6 +2755,7 @@ struct xlator_fops fops = {
         .getxattr    = marker_getxattr,
         .readdirp    = marker_readdirp,
 	.fallocate   = marker_fallocate,
+	.discard     = marker_discard,
 };
 
 struct xlator_cbks cbks = {

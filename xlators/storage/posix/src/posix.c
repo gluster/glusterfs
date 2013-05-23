@@ -562,16 +562,12 @@ out:
 }
 
 static int32_t
-_posix_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t keep_size,
-		off_t offset, size_t len, dict_t *xdata)
+posix_do_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
+		   off_t offset, size_t len, struct iatt *statpre,
+		   struct iatt *statpost)
 {
-	int32_t        op_ret    = -1;
-        int32_t        op_errno  = 0;
-        struct iatt    statpre     = {0,};
-        struct iatt    statpost    = {0,};
         struct posix_fd *pfd = NULL;
         int32_t          ret = -1;
-	int32_t		flags = 0;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -583,48 +579,87 @@ _posix_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t keep_siz
 
         ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
-                op_errno = -ret;
                 gf_log (this->name, GF_LOG_DEBUG,
                         "pfd is NULL from fd=%p", fd);
                 goto out;
         }
 
-        op_ret = posix_fdstat (this, pfd->fd, &statpre);
-        if (op_ret == -1) {
-                op_errno = errno;
+        ret = posix_fdstat (this, pfd->fd, statpre);
+        if (ret == -1) {
+                ret = -errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "fallocate (fstat) failed on fd=%p: %s", fd,
-                        strerror (op_errno));
+                        strerror (errno));
                 goto out;
         }
 
-	if (keep_size)
-		flags = FALLOC_FL_KEEP_SIZE;
-
-	op_ret = sys_fallocate(pfd->fd, flags, offset, len);
-	if (op_ret == -1) {
-		op_errno = errno;
+	ret = sys_fallocate(pfd->fd, flags, offset, len);
+	if (ret == -1) {
+		ret = -errno;
 		goto out;
 	}
 
-        op_ret = posix_fdstat (this, pfd->fd, &statpost);
-        if (op_ret == -1) {
-                op_errno = errno;
+        ret = posix_fdstat (this, pfd->fd, statpost);
+        if (ret == -1) {
+                ret = -errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "fallocate (fstat) failed on fd=%p: %s", fd,
-                        strerror (op_errno));
+                        strerror (errno));
                 goto out;
         }
-
-        op_ret = 0;
 
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (fallocate, frame, op_ret, op_errno,
-                             &statpre, &statpost, NULL);
+        return ret;
+}
 
-        return 0;
+static int32_t
+_posix_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t keep_size,
+		off_t offset, size_t len, dict_t *xdata)
+{
+	int32_t ret;
+	int32_t flags = 0;
+        struct iatt statpre = {0,};
+        struct iatt statpost = {0,};
+
+	if (keep_size)
+		flags = FALLOC_FL_KEEP_SIZE;
+
+	ret = posix_do_fallocate(frame, this, fd, flags, offset, len,
+				 &statpre, &statpost);
+	if (ret < 0) 
+		goto err;
+
+	STACK_UNWIND_STRICT(fallocate, frame, 0, 0, &statpre, &statpost, NULL);
+	return 0;
+
+err:
+	STACK_UNWIND_STRICT(fallocate, frame, -1, -ret, NULL, NULL, NULL);
+	return 0;
+}
+
+static int32_t
+posix_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+	      size_t len, dict_t *xdata)
+{
+	int32_t ret;
+	int32_t flags = FALLOC_FL_KEEP_SIZE|FALLOC_FL_PUNCH_HOLE;
+        struct iatt statpre = {0,};
+        struct iatt statpost = {0,};
+
+	ret = posix_do_fallocate(frame, this, fd, flags, offset, len,
+				 &statpre, &statpost);
+	if (ret < 0) 
+		goto err;
+
+	STACK_UNWIND_STRICT(discard, frame, 0, 0, &statpre, &statpost, NULL);
+	return 0;
+
+err:
+	STACK_UNWIND_STRICT(discard, frame, -1, -ret, NULL, NULL, NULL);
+	return 0;
+
 }
 
 int32_t
@@ -4726,6 +4761,7 @@ struct xlator_fops fops = {
         .setattr     = posix_setattr,
         .fsetattr    = posix_fsetattr,
 	.fallocate   = _posix_fallocate,
+	.discard     = posix_discard,
 };
 
 struct xlator_cbks cbks = {

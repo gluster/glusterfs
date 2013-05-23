@@ -583,6 +583,22 @@ struct gfs3_fstat_req {
         opaque   xdata<>; /* Extra data */
 }  ;
 
+ struct gfs3_discard_req {
+	opaque		gfid[16];
+        hyper		fd;
+	unsigned hyper	offset;
+	unsigned hyper	size;
+        opaque   xdata<>; /* Extra data */
+}  ;
+
+ struct gfs3_discard_rsp {
+        int    op_ret;
+        int    op_errno;
+        struct gf_iatt statpre;
+        struct gf_iatt statpost;
+        opaque   xdata<>; /* Extra data */
+}  ;
+
  struct gfs3_rchecksum_req {
         hyper   fd;
         unsigned hyper  offset;

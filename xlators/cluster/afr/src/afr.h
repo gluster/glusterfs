@@ -660,6 +660,14 @@ typedef struct _afr_local {
 			struct iatt prebuf;
 			struct iatt postbuf;
 		} fallocate;
+
+		struct {
+			off_t offset;
+			size_t len;
+			struct iatt prebuf;
+			struct iatt postbuf;
+		} discard;
+
         } cont;
 
         struct {

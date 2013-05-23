@@ -3941,6 +3941,172 @@ err:
 
 
 int32_t
+stripe_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                   struct iatt *postbuf, dict_t *xdata)
+{
+        int32_t         callcnt = 0;
+        stripe_local_t *local = NULL;
+	stripe_local_t *mlocal = NULL;
+        call_frame_t   *prev = NULL;
+	call_frame_t   *mframe = NULL;
+
+        if (!this || !frame || !frame->local || !cookie) {
+                gf_log ("stripe", GF_LOG_DEBUG, "possible NULL deref");
+                goto out;
+        }
+
+        prev  = cookie;
+        local = frame->local;
+	mframe = local->orig_frame;
+	mlocal = mframe->local;
+
+        LOCK(&frame->lock);
+        {
+                callcnt = ++mlocal->call_count;
+
+                if (op_ret == 0) {
+                        mlocal->post_buf = *postbuf;
+                        mlocal->pre_buf = *prebuf;
+
+			mlocal->prebuf_blocks  += prebuf->ia_blocks;
+			mlocal->postbuf_blocks += postbuf->ia_blocks;
+
+			correct_file_size(prebuf, mlocal->fctx, prev);
+			correct_file_size(postbuf, mlocal->fctx, prev);
+
+			if (mlocal->prebuf_size < prebuf->ia_size)
+				mlocal->prebuf_size = prebuf->ia_size;
+			if (mlocal->postbuf_size < postbuf->ia_size)
+				mlocal->postbuf_size = postbuf->ia_size;
+                }
+
+		/* return the first failure */
+		if (mlocal->op_ret == 0) {
+			mlocal->op_ret = op_ret;
+			mlocal->op_errno = op_errno;
+		}
+        }
+        UNLOCK (&frame->lock);
+
+        if ((callcnt == mlocal->wind_count) && mlocal->unwind) {
+		mlocal->pre_buf.ia_size = mlocal->prebuf_size;
+		mlocal->pre_buf.ia_blocks = mlocal->prebuf_blocks;
+		mlocal->post_buf.ia_size = mlocal->postbuf_size;
+		mlocal->post_buf.ia_blocks = mlocal->postbuf_blocks;
+
+                STRIPE_STACK_UNWIND (discard, mframe, mlocal->op_ret,
+                                     mlocal->op_errno, &mlocal->pre_buf,
+                                     &mlocal->post_buf, NULL);
+        }
+out:
+	STRIPE_STACK_DESTROY(frame);
+        return 0;
+}
+
+int32_t
+stripe_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+	       size_t len, dict_t *xdata)
+{
+        stripe_local_t   *local = NULL;
+        stripe_fd_ctx_t  *fctx = NULL;
+        int32_t           op_errno = 1;
+        int32_t           idx = 0;
+        int32_t           offset_offset = 0;
+        int32_t           remaining_size = 0;
+        off_t             fill_size = 0;
+        uint64_t          stripe_size = 0;
+        uint64_t          tmp_fctx = 0;
+	off_t		  dest_offset = 0;
+	call_frame_t	  *fframe = NULL;
+	stripe_local_t	  *flocal = NULL;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (fd, err);
+        VALIDATE_OR_GOTO (fd->inode, err);
+
+        inode_ctx_get (fd->inode, this, &tmp_fctx);
+        if (!tmp_fctx) {
+                op_errno = EINVAL;
+                goto err;
+        }
+        fctx = (stripe_fd_ctx_t *)(long)tmp_fctx;
+        stripe_size = fctx->stripe_size;
+
+        STRIPE_VALIDATE_FCTX (fctx, err);
+
+        remaining_size = len;
+
+        local = mem_get0 (this->local_pool);
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+        frame->local = local;
+        local->stripe_size = stripe_size;
+	local->fctx = fctx;
+
+        if (!stripe_size) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Wrong stripe size for the file");
+                op_errno = EINVAL;
+                goto err;
+        }
+
+        while (1) {
+		fframe = copy_frame(frame);
+		flocal = mem_get0(this->local_pool);
+		if (!flocal) {
+			op_errno = ENOMEM;
+			goto err;
+		}
+		flocal->orig_frame = frame;
+		fframe->local = flocal;
+
+		/* send discard request to the associated child node */
+                idx = (((offset + offset_offset) /
+                        local->stripe_size) % fctx->stripe_count);
+
+                fill_size = (local->stripe_size -
+                             ((offset + offset_offset) % local->stripe_size));
+                if (fill_size > remaining_size)
+                        fill_size = remaining_size;
+
+                remaining_size -= fill_size;
+
+                local->wind_count++;
+                if (remaining_size == 0)
+                        local->unwind = 1;
+
+		dest_offset = offset + offset_offset;
+		if (fctx->stripe_coalesce)
+			dest_offset = coalesced_offset(dest_offset,
+					local->stripe_size, fctx->stripe_count);
+
+		/*
+		 * TODO: Create a separate handler for coalesce mode that sends a
+		 * single discard per-child (since the ranges are linear).
+		 */
+		STACK_WIND(fframe, stripe_discard_cbk, fctx->xl_array[idx],
+			   fctx->xl_array[idx]->fops->discard, fd, dest_offset,
+			   fill_size, xdata);
+
+                offset_offset += fill_size;
+                if (remaining_size == 0)
+                        break;
+        }
+
+        return 0;
+err:
+	if (fframe)
+		STRIPE_STACK_DESTROY(fframe);
+
+        STRIPE_STACK_UNWIND (discard, frame, -1, op_errno, NULL, NULL, NULL);
+        return 0;
+}
+
+int32_t
 stripe_release (xlator_t *this, fd_t *fd)
 {
 	return 0;
@@ -5389,6 +5555,7 @@ struct xlator_fops fops = {
         .fremovexattr   = stripe_fremovexattr,
         .readdirp       = stripe_readdirp,
 	.fallocate	= stripe_fallocate,
+	.discard	= stripe_discard,
 };
 
 struct xlator_cbks cbks = {

@@ -1422,6 +1422,33 @@ ioc_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         return 0;
 }
 
+static int32_t
+ioc_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+		int32_t op_ret, int32_t op_errno, struct iatt *pre,
+		struct iatt *post, dict_t *xdata)
+{
+	STACK_UNWIND_STRICT(discard, frame, op_ret, op_errno, pre, post, xdata);
+	return 0;
+}
+
+static int32_t
+ioc_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+	    size_t len, dict_t *xdata)
+{
+	uint64_t ioc_inode = 0;
+
+	inode_ctx_get (fd->inode, this, &ioc_inode);
+
+	if (ioc_inode)
+		ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
+
+	STACK_WIND(frame, ioc_discard_cbk, FIRST_CHILD(this),
+		   FIRST_CHILD(this)->fops->discard, fd, offset, len, xdata);
+       return 0;
+}
+
+
+
 int32_t
 ioc_get_priority_list (const char *opt_str, struct list_head *first)
 {
@@ -2044,6 +2071,7 @@ struct xlator_fops fops = {
         .mknod       = ioc_mknod,
 
         .readdirp    = ioc_readdirp,
+	.discard     = ioc_discard,
 };
 
 

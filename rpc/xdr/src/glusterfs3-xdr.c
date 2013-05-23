@@ -1547,6 +1547,44 @@ xdr_gfs3_fallocate_rsp (XDR *xdrs, gfs3_fallocate_rsp *objp)
 }
 
 bool_t
+xdr_gfs3_discard_req (XDR *xdrs, gfs3_discard_req *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
+		 return FALSE;
+	 if (!xdr_quad_t (xdrs, &objp->fd))
+		 return FALSE;
+	 if (!xdr_u_quad_t (xdrs, &objp->offset))
+		 return FALSE;
+	 if (!xdr_u_quad_t (xdrs, &objp->size))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->xdata.xdata_val, (u_int *) &objp->xdata.xdata_len, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gfs3_discard_rsp (XDR *xdrs, gfs3_discard_rsp *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_gf_iatt (xdrs, &objp->statpre))
+		 return FALSE;
+	 if (!xdr_gf_iatt (xdrs, &objp->statpost))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->xdata.xdata_val, (u_int *) &objp->xdata.xdata_len, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
 xdr_gfs3_rchecksum_req (XDR *xdrs, gfs3_rchecksum_req *objp)
 {
 	register int32_t *buf;

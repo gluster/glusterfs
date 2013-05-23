@@ -2669,10 +2669,13 @@ fuse_fallocate_resume(fuse_state_t *state)
 	       state->finh->unique, state->fd, state->flags, state->size,
 	       state->off);
 
-	/* we only support KEEP_SIZE */
-	FUSE_FOP(state, fuse_fallocate_cbk, GF_FOP_FALLOCATE, fallocate, state->fd,
-		 (state->flags & FALLOC_FL_KEEP_SIZE), state->off, state->size,
-		 state->xdata);
+	if (state->flags & FALLOC_FL_PUNCH_HOLE)
+		FUSE_FOP(state, fuse_fallocate_cbk, GF_FOP_DISCARD, discard,
+			 state->fd, state->off, state->size, state->xdata);
+	else
+		FUSE_FOP(state, fuse_fallocate_cbk, GF_FOP_FALLOCATE, fallocate,
+			 state->fd, (state->flags & FALLOC_FL_KEEP_SIZE),
+			 state->off, state->size, state->xdata);
 }
 
 static void
@@ -2686,13 +2689,6 @@ fuse_fallocate(xlator_t *this, fuse_in_header_t *finh, void *msg)
 	state->size = ffi->length;
 	state->flags = ffi->mode;
 	state->fd = FH_TO_FD(ffi->fh);
-
-	/* discard TBD as separate FOP */
-	if (state->flags & FALLOC_FL_PUNCH_HOLE) {
-		send_fuse_err(this, finh, EOPNOTSUPP);
-		free_fuse_state(state);
-		return;
-	}
 
 	fuse_resolve_fd_init(state, &state->resolve, state->fd);
 	fuse_resolve_and_resume(state, fuse_fallocate_resume);
