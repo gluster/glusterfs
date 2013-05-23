@@ -438,7 +438,6 @@ posix_handle_init (xlator_t *this)
         struct posix_private *priv = NULL;
         char                 *handle_pfx = NULL;
         int                   ret = 0;
-        int                   len = 0;
         struct stat           stbuf;
         struct stat           rootbuf;
         struct stat           exportbuf;
@@ -491,9 +490,7 @@ posix_handle_init (xlator_t *this)
 
         stat (handle_pfx, &priv->handledir);
 
-        len = posix_handle_path (this, gfid, NULL, NULL, 0);
-        rootstr = alloca (len);
-        posix_handle_path (this, gfid, NULL, rootstr, len);
+        MAKE_HANDLE_ABSPATH(rootstr, this, gfid);
 
         ret = stat (rootstr, &rootbuf);
         switch (ret) {
@@ -683,7 +680,7 @@ posix_handle_hard (xlator_t *this, const char *oldpath, uuid_t gfid, struct stat
         int          ret = -1;
 
 
-        MAKE_HANDLE_PATH (newpath, this, gfid, NULL);
+        MAKE_HANDLE_ABSPATH (newpath, this, gfid);
 
         ret = lstat (newpath, &newbuf);
         if (ret == -1 && errno != ENOENT) {
@@ -742,10 +739,8 @@ posix_handle_soft (xlator_t *this, const char *real_path, loc_t *loc,
         struct stat  newbuf;
         int          ret = -1;
 
-
-        MAKE_HANDLE_PATH (newpath, this, gfid, NULL);
+        MAKE_HANDLE_ABSPATH (newpath, this, gfid);
         MAKE_HANDLE_RELPATH (oldpath, this, loc->pargfid, loc->name);
-
 
         ret = lstat (newpath, &newbuf);
         if (ret == -1 && errno != ENOENT) {
