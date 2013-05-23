@@ -72,7 +72,6 @@ stop()
     echo -n $"Stopping $BASE:"
     if pidofproc -p $PIDFILE $GLUSTERD_BIN &> /dev/null; then
         killproc -p $PIDFILE $BASE
-        [ -w $PIDFILE ] && rm -f $PIDFILE
     else
         killproc $BASE
     fi
