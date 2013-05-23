@@ -100,6 +100,8 @@ class File(object):
 
 	def fallocate (self, mode, offset, len):
 		return api.glfs_fallocate(self.fd, mode, offset, len)
+	def discard (self, offset, len):
+		return api.glfs_discard(self.fd, offset, len)
 
 class Dir(object):
 
@@ -357,10 +359,13 @@ if __name__ == "__main__":
                 fd = vol.creat(mypath,os.O_WRONLY|os.O_EXCL,0644)
                 if not fd:
                         return False, "creat error"
-		rc = fd.fallocate(0, 0, 1024)
+		rc = fd.fallocate(0, 0, 1024*1024)
                 if rc != 0:
                         return False, "fallocate error"
-                return True, "fallocate worked"
+		rc = fd.discard(4096, 4096)
+		if rc != 0:
+			return False, "discard error"
+                return True, "fallocate/discard worked"
 
         test_list = (
                 test_create_write,

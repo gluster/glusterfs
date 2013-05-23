@@ -68,6 +68,7 @@ const char *gf_fop_list[GF_FOP_MAXVALUE] = {
         [GF_FOP_RELEASEDIR]  = "RELEASEDIR",
         [GF_FOP_FREMOVEXATTR]= "FREMOVEXATTR",
 	[GF_FOP_FALLOCATE]   = "FALLOCATE",
+	[GF_FOP_DISCARD]     = "DISCARD",
 };
 /* THIS */
 

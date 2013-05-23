@@ -3065,6 +3065,247 @@ out:
 
 /* }}} */
 
+/* {{{ discard */
+
+static int
+afr_discard_unwind (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t *   local = NULL;
+        call_frame_t   *main_frame = NULL;
+
+        local = frame->local;
+
+        LOCK (&frame->lock);
+        {
+                if (local->transaction.main_frame)
+                        main_frame = local->transaction.main_frame;
+                local->transaction.main_frame = NULL;
+        }
+        UNLOCK (&frame->lock);
+
+        if (main_frame) {
+                AFR_STACK_UNWIND (discard, main_frame, local->op_ret,
+                                  local->op_errno,
+                                  &local->cont.discard.prebuf,
+                                  &local->cont.discard.postbuf,
+                                  NULL);
+        }
+        return 0;
+}
+
+static int
+afr_discard_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                     struct iatt *postbuf, dict_t *xdata)
+{
+        afr_local_t *   local = NULL;
+        afr_private_t * priv  = NULL;
+        int child_index = (long) cookie;
+        int call_count  = -1;
+        int need_unwind = 0;
+        int read_child  = 0;
+
+        local = frame->local;
+        priv  = this->private;
+
+        read_child = afr_inode_get_read_ctx (this, local->fd->inode, NULL);
+
+        LOCK (&frame->lock);
+        {
+                if (child_index == read_child) {
+                        local->read_child_returned = _gf_true;
+                }
+
+                if (afr_fop_failed (op_ret, op_errno))
+                        afr_transaction_fop_failed (frame, this, child_index);
+
+                if (op_ret != -1) {
+                        if (local->success_count == 0) {
+                                local->op_ret = op_ret;
+                                local->cont.discard.prebuf  = *prebuf;
+                                local->cont.discard.postbuf = *postbuf;
+                        }
+
+                        if (child_index == read_child) {
+                                local->cont.discard.prebuf  = *prebuf;
+                                local->cont.discard.postbuf = *postbuf;
+                        }
+
+                        local->success_count++;
+
+                        if ((local->success_count >= priv->wait_count)
+                            && local->read_child_returned) {
+                                need_unwind = 1;
+                        }
+                }
+                local->op_errno = op_errno;
+        }
+        UNLOCK (&frame->lock);
+
+        if (need_unwind)
+                local->transaction.unwind (frame, this);
+
+        call_count = afr_frame_return (frame);
+
+        if (call_count == 0) {
+                local->transaction.resume (frame, this);
+        }
+
+        return 0;
+}
+
+static int
+afr_discard_wind (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+        int call_count = -1;
+        int i = 0;
+
+        local = frame->local;
+        priv = this->private;
+
+        call_count = afr_pre_op_done_children_count (local->transaction.pre_op,
+                                                     priv->child_count);
+
+        if (call_count == 0) {
+                local->transaction.resume (frame, this);
+                return 0;
+        }
+
+        local->call_count = call_count;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->transaction.pre_op[i]) {
+                        STACK_WIND_COOKIE (frame, afr_discard_wind_cbk,
+                                           (void *) (long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->discard,
+                                           local->fd,
+                                           local->cont.discard.offset,
+					   local->cont.discard.len,
+                                           NULL);
+
+                        if (!--call_count)
+                                break;
+                }
+        }
+
+        return 0;
+}
+
+static int
+afr_discard_done (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t *local = NULL;
+
+        local = frame->local;
+
+        local->transaction.unwind (frame, this);
+
+        AFR_STACK_DESTROY (frame);
+
+        return 0;
+}
+
+static int
+afr_do_discard(call_frame_t *frame, xlator_t *this)
+{
+        call_frame_t * transaction_frame = NULL;
+        afr_local_t *  local             = NULL;
+        int op_ret   = -1;
+        int op_errno = 0;
+
+        local = frame->local;
+
+        transaction_frame = copy_frame (frame);
+        if (!transaction_frame) {
+                goto out;
+        }
+
+        transaction_frame->local = local;
+        frame->local = NULL;
+
+        local->op = GF_FOP_DISCARD;
+
+        local->transaction.fop    = afr_discard_wind;
+        local->transaction.done   = afr_discard_done;
+        local->transaction.unwind = afr_discard_unwind;
+
+        local->transaction.main_frame = frame;
+
+        local->transaction.start   = local->cont.discard.offset;
+        local->transaction.len     = 0;
+
+        op_ret = afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
+        if (op_ret < 0) {
+            op_errno = -op_ret;
+            goto out;
+        }
+
+        op_ret = 0;
+out:
+        if (op_ret < 0) {
+                if (transaction_frame)
+                        AFR_STACK_DESTROY (transaction_frame);
+                AFR_STACK_UNWIND (discard, frame, op_ret, op_errno, NULL,
+                                  NULL, NULL);
+        }
+
+        return 0;
+}
+
+int
+afr_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+	    size_t len, dict_t *xdata)
+{
+        afr_private_t * priv  = NULL;
+        afr_local_t   * local = NULL;
+        call_frame_t   *transaction_frame = NULL;
+        int ret = -1;
+        int op_errno = 0;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (this->private, out);
+
+        priv = this->private;
+
+        if (afr_is_split_brain (this, fd->inode)) {
+                op_errno = EIO;
+                goto out;
+        }
+        QUORUM_CHECK(discard, out);
+
+        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
+        local = frame->local;
+
+        ret = afr_local_init (local, priv, &op_errno);
+        if (ret < 0)
+                goto out;
+
+        local->cont.discard.offset  = offset;
+	local->cont.discard.len = len;
+
+        local->fd = fd_ref (fd);
+
+        afr_open_fd_fix (fd, this);
+
+        afr_do_discard(frame, this);
+
+        ret = 0;
+out:
+        if (ret < 0) {
+                if (transaction_frame)
+                        AFR_STACK_DESTROY (transaction_frame);
+                AFR_STACK_UNWIND (discard, frame, -1, op_errno, NULL, NULL, NULL);
+        }
+
+        return 0;
+}
+
+/* }}} */
+
 /* {{{ fsync */
 
 int32_t

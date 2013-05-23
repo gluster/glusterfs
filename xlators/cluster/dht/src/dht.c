@@ -71,6 +71,7 @@ struct xlator_fops fops = {
         .setattr     = dht_setattr,
         .fsetattr    = dht_fsetattr,
 	.fallocate   = dht_fallocate,
+	.discard     = dht_discard,
 };
 
 struct xlator_dumpops dumpops = {

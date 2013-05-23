@@ -701,6 +701,25 @@ err:
 }
 
 int
+ob_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+	   size_t len, dict_t *xdata)
+{
+	call_stub_t *stub;
+
+	stub = fop_discard_stub(frame, default_discard_resume, fd, offset, len,
+				xdata);
+	if (!stub)
+		goto err;
+
+	open_and_resume(this, fd, stub);
+
+	return 0;
+err:
+	STACK_UNWIND_STRICT(discard, frame, -1, ENOMEM, NULL, NULL, NULL);
+	return 0;
+}
+
+int
 ob_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
 	   dict_t *xdata)
 {
@@ -922,6 +941,7 @@ struct xlator_fops fops = {
 	.fxattrop    = ob_fxattrop,
 	.fsetattr    = ob_fsetattr,
 	.fallocate   = ob_fallocate,
+	.discard     = ob_discard,
 	.unlink      = ob_unlink,
 	.rename      = ob_rename,
 	.lk          = ob_lk,

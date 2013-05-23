@@ -1889,6 +1889,45 @@ int mdc_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
 }
 
 int
+mdc_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno,
+                struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
+{
+        mdc_local_t  *local = NULL;
+
+        local = frame->local;
+
+        if (op_ret != 0)
+                goto out;
+
+        if (!local)
+                goto out;
+
+        mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf);
+
+out:
+        MDC_STACK_UNWIND(discard, frame, op_ret, op_errno, prebuf, postbuf,
+                         xdata);
+
+        return 0;
+}
+
+int mdc_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+		size_t len, dict_t *xdata)
+{
+	mdc_local_t *local;
+
+	local = mdc_local_get(frame);
+	local->fd = fd_ref(fd);
+
+	STACK_WIND(frame, mdc_discard_cbk, FIRST_CHILD(this),
+		   FIRST_CHILD(this)->fops->discard, fd, offset, len,
+		   xdata);
+
+	return 0;
+}
+
+int
 mdc_forget (xlator_t *this, inode_t *inode)
 {
         mdc_inode_wipe (this, inode);
@@ -2017,6 +2056,7 @@ struct xlator_fops fops = {
 	.readdirp    = mdc_readdirp,
 	.readdir     = mdc_readdir,
 	.fallocate   = mdc_fallocate,
+	.discard     = mdc_discard,
 };
 
 

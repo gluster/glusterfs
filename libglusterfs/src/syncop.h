@@ -335,6 +335,7 @@ int syncop_fsyncdir (xlator_t *subvol, fd_t *fd, int datasync);
 int syncop_access (xlator_t *subvol, loc_t *loc, int32_t mask);
 int syncop_fallocate(xlator_t *subvol, fd_t *fd, int32_t keep_size, off_t offset,
 		     size_t len);
+int syncop_discard(xlator_t *subvol, fd_t *fd, off_t offset, size_t len);
 
 int syncop_rename (xlator_t *subvol, loc_t *oldloc, loc_t *newloc);
 

@@ -2186,6 +2186,61 @@ out:
 
 }
 
+call_stub_t *
+fop_discard_cbk_stub(call_frame_t *frame, fop_discard_cbk_t fn,
+                     int32_t op_ret, int32_t op_errno,
+                     struct iatt *statpre, struct iatt *statpost,
+		     dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+
+        stub = stub_new (frame, 0, GF_FOP_DISCARD);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn_cbk.discard = fn;
+
+        stub->args_cbk.op_ret = op_ret;
+        stub->args_cbk.op_errno = op_errno;
+
+        if (statpre)
+                stub->args_cbk.prestat = *statpre;
+        if (statpost)
+                stub->args_cbk.poststat = *statpost;
+        if (xdata)
+                stub->args_cbk.xdata = dict_ref (xdata);
+out:
+        return stub;
+}
+
+call_stub_t *
+fop_discard_stub(call_frame_t *frame, fop_discard_t fn, fd_t *fd,
+		 off_t offset, size_t len, dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", fn, out);
+
+        stub = stub_new (frame, 1, GF_FOP_DISCARD);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn.discard = fn;
+
+        if (fd)
+                stub->args.fd = fd_ref (fd);
+
+	stub->args.offset = offset;
+	stub->args.size = len;
+
+        if (xdata)
+                stub->args.xdata = dict_ref (xdata);
+out:
+        return stub;
+
+}
+
 static void
 call_resume_wind (call_stub_t *stub)
 {
@@ -2408,6 +2463,11 @@ call_resume_wind (call_stub_t *stub)
 				   stub->args.offset, stub->args.size,
 				   stub->args.xdata);
 		break;
+	case GF_FOP_DISCARD:
+		stub->fn.discard(stub->frame, stub->frame->this,
+				 stub->args.fd, stub->args.offset,
+				 stub->args.size, stub->args.xdata);
+		break;
         default:
                 gf_log_callingfn ("call-stub", GF_LOG_ERROR,
                                   "Invalid value of FOP (%d)",
@@ -2604,6 +2664,10 @@ call_resume_unwind (call_stub_t *stub)
                 break;
 	case GF_FOP_FALLOCATE:
 		STUB_UNWIND(stub, fallocate, &stub->args_cbk.prestat,
+			    &stub->args_cbk.poststat, stub->args_cbk.xdata);
+		break;
+	case GF_FOP_DISCARD:
+		STUB_UNWIND(stub, discard, &stub->args_cbk.prestat,
 			    &stub->args_cbk.poststat, stub->args_cbk.xdata);
 		break;
         default:
