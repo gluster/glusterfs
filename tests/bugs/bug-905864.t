@@ -10,7 +10,7 @@ TEST glusterd;
 TEST pidof glusterd;
 TEST $CLI volume info;
 
-TEST $CLI volume create $V0 replica 2 stripe 2 $H0:$B0/${V0}{1,2,3,4,5,6,7,8};
+TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{1,2,3,4};
 TEST $CLI volume start $V0;
 
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
