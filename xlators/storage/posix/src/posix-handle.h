@@ -19,6 +19,10 @@
 #include "xlator.h"
 
 
+#define HANDLE_ABSPATH_LEN(this) (POSIX_BASE_PATH_LEN(this) + \
+                                  SLEN("/" GF_HIDDEN_PATH "/00/00/" \
+                                  UUID0_STR) + 1)
+
 #define LOC_HAS_ABSPATH(loc) ((loc) && (loc->path) && (loc->path[0] == '/'))
 
 #define MAKE_REAL_PATH(var, this, path) do {                            \
@@ -55,6 +59,15 @@
                 break;                                                  \
         var = alloca (__len);                                           \
         __len = posix_handle_relpath (this, gfid, base, var, __len);    \
+        } while (0)
+
+
+#define MAKE_HANDLE_ABSPATH(var, this, gfid) do {                       \
+        struct posix_private * __priv = this->private;                  \
+        int __len = HANDLE_ABSPATH_LEN(this);                           \
+        var = alloca(__len);                                            \
+        snprintf(var, __len, "%s/" GF_HIDDEN_PATH "/%02x/%02x/%s",      \
+                 __priv->base_path, gfid[0], gfid[1], uuid_utoa(gfid)); \
         } while (0)
 
 
