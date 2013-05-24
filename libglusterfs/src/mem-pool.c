@@ -418,8 +418,6 @@ mem_get (struct mem_pool *mem_pool)
                         mem_pool->max_stdalloc = mem_pool->curr_stdalloc;
                 ptr = GF_CALLOC (1, mem_pool->padded_sizeof_type,
                                  gf_common_mt_mem_pool);
-                gf_log_callingfn ("mem-pool", GF_LOG_DEBUG, "Mem pool is full. "
-                                  "Callocing mem");
 
                 /* Memory coming from the heap need not be transformed from a
                  * chunkhead to a usable pointer since it is not coming from
