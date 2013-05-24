@@ -499,13 +499,16 @@ glfs_set_volfile_server (struct glfs *fs, const char *transport,
 int
 glfs_set_logging (struct glfs *fs, const char *logfile, int loglevel)
 {
-	int  ret = -1;
+	int  ret = 0;
 
-	ret = gf_log_init (fs->ctx, logfile);
-	if (ret)
-		return ret;
+	if (logfile) {
+		ret = gf_log_init (fs->ctx, logfile);
+		if (ret)
+			return ret;
+	}
 
-	gf_log_set_loglevel (loglevel);
+	if (loglevel >= 0)
+		gf_log_set_loglevel (loglevel);
 
 	return ret;
 }
