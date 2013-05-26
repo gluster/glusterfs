@@ -639,22 +639,55 @@ if test "x$LIBAIO" != "x"; then
    BUILD_LIBAIO=yes
 fi
 
+# glupy section
+BUILD_GLUPY=no
+have_python2=no
+have_Python_h=no
+
 AM_PATH_PYTHON()
-  if echo $PYTHON_VERSION | grep ^2; then
-    BUILD_PYTHON_INC=`$PYTHON -c "from distutils import sysconfig; print sysconfig.get_python_inc()"`
-    BUILD_PYTHON_LIB=python$PYTHON_VERSION
-    GLUPY_SUBDIR=glupy
-    GLUPY_SUBDIR_MAKEFILE=xlators/features/glupy/Makefile
-    GLUPY_SUBDIR_SRC_MAKEFILE=xlators/features/glupy/src/Makefile
-    echo "building glupy with -isystem $BUILD_PYTHON_INC -l $BUILD_PYTHON_LIB"
-  else
-    AC_MSG_ERROR([only python 2.x is supported])
-  fi
-AC_SUBST(BUILD_PYTHON_INC)
-AC_SUBST(BUILD_PYTHON_LIB)
-AC_SUBST(GLUPY_SUBDIR)
-AC_SUBST(GLUPY_SUBDIR_MAKEFILE)
-AC_SUBST(GLUPY_SUBDIR_SRC_MAKEFILE)
+if echo $PYTHON_VERSION | grep ^2; then
+  have_python2=yes
+fi
+AC_CHECK_HEADERS([python$PYTHON_VERSION/Python.h],[have_Python_h=yes],[])
+AC_ARG_ENABLE([glupy],
+	      AS_HELP_STRING([--enable-glupy],
+			     [build glupy]))
+case x$enable_glupy in
+   xyes)
+      if test "x$have_python2" = "xyes" -a "x$have_Python_h" = "xyes"; then
+         BUILD_GLUPY=yes
+      else
+         AC_MSG_ERROR([glupy requires python-devel/python-dev package and python2.x])
+      fi
+      ;;
+   xno)
+      ;;
+   *)
+      if test "x$have_python2" = "xyes" -a "x$have_Python_h" = "xyes"; then
+         BUILD_GLUPY=yes
+      else
+         AC_MSG_WARN([
+        ---------------------------------------------------------------------------------
+         cannot build glupy. python 2.x and python-devel/python-dev package are required.
+        ---------------------------------------------------------------------------------])
+      fi
+      ;;
+esac
+
+if test "x$BUILD_GLUPY" = "xyes"; then
+   BUILD_PYTHON_INC=`$PYTHON -c "from distutils import sysconfig; print sysconfig.get_python_inc()"`
+   BUILD_PYTHON_LIB=python$PYTHON_VERSION
+   GLUPY_SUBDIR=glupy
+   GLUPY_SUBDIR_MAKEFILE=xlators/features/glupy/Makefile
+   GLUPY_SUBDIR_SRC_MAKEFILE=xlators/features/glupy/src/Makefile
+   echo "building glupy with -isystem $BUILD_PYTHON_INC -l $BUILD_PYTHON_LIB"
+   AC_SUBST(BUILD_PYTHON_INC)
+   AC_SUBST(BUILD_PYTHON_LIB)
+   AC_SUBST(GLUPY_SUBDIR)
+   AC_SUBST(GLUPY_SUBDIR_MAKEFILE)
+   AC_SUBST(GLUPY_SUBDIR_SRC_MAKEFILE)
+fi
+# end glupy section
 
 AC_SUBST(GF_HOST_OS)
 AC_SUBST([GF_GLUSTERFS_LIBS])
@@ -697,4 +730,5 @@ echo "Linux-AIO            : $BUILD_LIBAIO"
 echo "Enable Debug         : $BUILD_DEBUG"
 echo "systemtap            : $BUILD_SYSTEMTAP"
 echo "Block Device backend : $BUILD_BD_XLATOR"
+echo "glupy                : $BUILD_GLUPY"
 echo
