@@ -1925,8 +1925,6 @@ _free_xlator_opt_key (char *key)
 int
 glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
 {
-
-        char                    *xlator_type = NULL;
         void                    *dl_handle = NULL;
         volume_opt_list_t        vol_opt_handle = {{0},};
         char                    *key = NULL;
@@ -1959,21 +1957,29 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
                         descr = vme->description;
                         def_val = vme->value;
                 } else {
-                        if (_get_xlator_opt_key_from_vme (vme, &key))
+                        if (_get_xlator_opt_key_from_vme (vme, &key)) {
+                                gf_log ("glusterd", GF_LOG_DEBUG, "Failed to "
+                                        "get %s key from volume option entry",
+                                        vme->key);
                                 goto out; /*Some error while geting key*/
-
-                        if (!xlator_type || strcmp (vme->voltype, xlator_type)){
-                                ret = xlator_volopt_dynload (vme->voltype,
-                                                             &dl_handle,
-                                                             &vol_opt_handle);
-                                if (ret) {
-                                        ret = 0;
-                                        goto cont;
-                                }
                         }
+
+                        ret = xlator_volopt_dynload (vme->voltype,
+                                                     &dl_handle,
+                                                     &vol_opt_handle);
+
+                        if (ret) {
+                                gf_log ("glusterd", GF_LOG_DEBUG,
+                                        "xlator_volopt_dynload error(%d)", ret);
+                                ret = 0;
+                                goto cont;
+                        }
+
                         ret = xlator_option_info_list (&vol_opt_handle, key,
                                                        &def_val, &descr);
                         if (ret) { /*Swallow Error i.e if option not found*/
+                                gf_log ("glusterd", GF_LOG_DEBUG,
+                                        "Failed to get option for %s key", key);
                                 ret = 0;
                                 goto cont;
                         }
