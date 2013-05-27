@@ -107,9 +107,6 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/quota/src/Makefile
                 xlators/features/marker/Makefile
                 xlators/features/marker/src/Makefile
-                xlators/features/marker/utils/Makefile
-                xlators/features/marker/utils/src/Makefile
-                xlators/features/marker/utils/syncdaemon/Makefile
                 xlators/features/read-only/Makefile
                 xlators/features/read-only/src/Makefile
                 xlators/features/mac-compat/Makefile
@@ -158,6 +155,9 @@ AC_CONFIG_FILES([Makefile
                 libgfchangelog.pc
                 api/Makefile
                 api/src/Makefile
+		geo-replication/Makefile
+		geo-replication/src/Makefile
+		geo-replication/syncdaemon/Makefile
                 glusterfs.spec])
 
 AC_CANONICAL_HOST
@@ -422,7 +422,7 @@ case $host_os in
 esac
 SYNCDAEMON_COMPILE=0
 if test "x$enable_georeplication" != "xno"; then
-  SYNCDAEMON_SUBDIR=utils
+  SYNCDAEMON_SUBDIR=geo-replication
   SYNCDAEMON_COMPILE=1
 
   BUILD_SYNCDAEMON="yes"
