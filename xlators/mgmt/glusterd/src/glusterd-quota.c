@@ -480,6 +480,13 @@ glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr)
                 goto out;
         }
 
+        quota_status = gf_strdup ("off");
+        if (!quota_status) {
+                gf_log ("", GF_LOG_ERROR, "memory allocation failed");
+                *op_errstr = gf_strdup ("Enabling quota has been unsuccessful");
+                goto out;
+        }
+
         ret = dict_set_dynstr (volinfo->dict, VKEY_FEATURES_QUOTA, quota_status);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "dict set failed");
@@ -753,8 +760,8 @@ create_vol:
         if (ret)
                 goto out;
 
-        if (GLUSTERD_STATUS_STARTED == volinfo->status) {
-                ret = glusterd_check_generate_start_nfs ();
+        if (GLUSTERD_STATUS_STARTED == volinfo->status &&
+                        glusterd_is_quota_on (volinfo)) {
                 ret = glusterd_check_generate_start_qc ();
 
                 if (ret != 0)

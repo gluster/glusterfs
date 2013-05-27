@@ -1072,12 +1072,13 @@ init (xlator_t *this)
         conf = GF_CALLOC (1, sizeof (glusterd_conf_t),
                           gf_gld_mt_glusterd_conf_t);
         GF_VALIDATE_OR_GOTO(this->name, conf, out);
-        conf->shd = GF_CALLOC (1, sizeof (nodesrv_t),
-                               gf_gld_mt_nodesrv_t);
+
+        conf->shd = GF_CALLOC (1, sizeof (nodesrv_t), gf_gld_mt_nodesrv_t);
         GF_VALIDATE_OR_GOTO(this->name, conf->shd, out);
-        conf->nfs = GF_CALLOC (1, sizeof (nodesrv_t),
-                               gf_gld_mt_nodesrv_t);
+        conf->nfs = GF_CALLOC (1, sizeof (nodesrv_t), gf_gld_mt_nodesrv_t);
         GF_VALIDATE_OR_GOTO(this->name, conf->nfs, out);
+        conf->qc = GF_CALLOC (1, sizeof (nodesrv_t), gf_gld_mt_nodesrv_t);
+        GF_VALIDATE_OR_GOTO (this->name, conf->qc, out);
 
         INIT_LIST_HEAD (&conf->peers);
         INIT_LIST_HEAD (&conf->volumes);

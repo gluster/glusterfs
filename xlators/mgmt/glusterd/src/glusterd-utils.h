@@ -188,6 +188,9 @@ glusterd_shd_start ();
 int32_t
 glusterd_shd_stop ();
 
+int32_t
+glusterd_qc_stop ();
+
 void
 glusterd_set_socket_filepath (char *sock_filepath, char *sockpath, size_t len);
 

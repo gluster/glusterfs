@@ -3171,6 +3171,7 @@ glusterd_compare_friend_data (dict_t  *vols, int32_t *status, char *hostname)
         gf_boolean_t            update = _gf_false;
         gf_boolean_t            stale_nfs = _gf_false;
         gf_boolean_t            stale_shd = _gf_false;
+        gf_boolean_t            stale_qc  = _gf_false;
 
         GF_ASSERT (vols);
         GF_ASSERT (status);
@@ -3200,6 +3201,8 @@ glusterd_compare_friend_data (dict_t  *vols, int32_t *status, char *hostname)
                         stale_nfs = _gf_true;
                 if (glusterd_is_nodesvc_running ("glustershd"))
                         stale_shd = _gf_true;
+                if (glusterd_is_nodesvc_running ("quota-client"))
+                        stale_qc  = _gf_true;
                 ret = glusterd_import_global_opts (vols);
                 if (ret)
                         goto out;
@@ -3213,6 +3216,8 @@ glusterd_compare_friend_data (dict_t  *vols, int32_t *status, char *hostname)
                                 glusterd_nfs_server_stop ();
                         if (stale_shd)
                                 glusterd_shd_stop ();
+                        if (stale_qc)
+                                glusterd_qc_stop ();
                 }
         }
 
@@ -3311,11 +3316,14 @@ glusterd_nodesvc_set_online_status (char *server, gf_boolean_t status)
         GF_ASSERT (priv);
         GF_ASSERT (priv->shd);
         GF_ASSERT (priv->nfs);
+        GF_ASSERT (priv->qc);
 
         if (!strcmp("glustershd", server))
                 priv->shd->online = status;
         else if (!strcmp ("nfs", server))
                 priv->nfs->online = status;
+        else if (!strcmp ("quota-client", server))
+                priv->qc->online = status;
 }
 
 gf_boolean_t
@@ -3329,11 +3337,14 @@ glusterd_is_nodesvc_online (char *server)
         GF_ASSERT (conf);
         GF_ASSERT (conf->shd);
         GF_ASSERT (conf->nfs);
+        GF_ASSERT (conf->qc);
 
         if (!strcmp (server, "glustershd"))
                 online = conf->shd->online;
         else if (!strcmp (server, "nfs"))
                 online = conf->nfs->online;
+        else if (!strcmp (server, "quota-client"))
+                online = conf->qc->online;
 
         return online;
 }
@@ -3399,11 +3410,14 @@ glusterd_nodesvc_get_rpc (char *server)
         GF_ASSERT (priv);
         GF_ASSERT (priv->shd);
         GF_ASSERT (priv->nfs);
+        GF_ASSERT (priv->qc);
 
         if (!strcmp (server, "glustershd"))
                 rpc = priv->shd->rpc;
         else if (!strcmp (server, "nfs"))
                 rpc = priv->nfs->rpc;
+        else if (!strcmp (server, "quota-client"))
+                rpc = priv->qc->rpc;
 
         return rpc;
 }
@@ -3426,6 +3440,8 @@ glusterd_nodesvc_set_rpc (char *server, struct rpc_clnt *rpc)
                 priv->shd->rpc = rpc;
         else if (!strcmp ("nfs", server))
                 priv->nfs->rpc = rpc;
+        else if (!strcmp ("quota-client", server))
+                priv->qc->rpc = rpc;
 
         return ret;
 }
@@ -3738,6 +3754,8 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
                 ret = dict_set_str (dict, key, "NFS Server");
         else if (!strcmp (server, "glustershd"))
                 ret = dict_set_str (dict, key, "Self-heal Daemon");
+        else if (!strcmp (server, "quota-client"))
+                ret = dict_set_str (dict, key, "Quota Daemon");
         if (ret)
                 goto out;
 

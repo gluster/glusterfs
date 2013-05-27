@@ -100,7 +100,6 @@ struct marker_local{
         int64_t d_off;
         int64_t sum;
         int64_t size;
-        int32_t hl_count;
         int32_t dentry_child_count;
 
         fd_t         *fd;
@@ -134,3 +133,6 @@ struct marker_conf{
 typedef struct marker_conf marker_conf_t;
 
 #endif
+
+int32_t
+mq_reduce_parent_size (xlator_t *, marker_local_t *, int64_t);

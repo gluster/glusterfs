@@ -1016,15 +1016,13 @@ struct volume_options options[] = {
         {.key = {"*.limit-set"}},
         {.key = {"*.soft-timeout"},
          .type = GF_OPTION_TYPE_SIZET,
-         .min = 0,
-         .max = 60,
+         .min = 1,
          .default_value = "10",
          .description = ""
         },
         {.key = {"*.hard-timeout"},
          .type = GF_OPTION_TYPE_SIZET,
          .min = 0,
-         .max = 60,
          .default_value = "2",
          .description = ""
         },

@@ -3026,7 +3026,9 @@ build_qc_graph (volgen_graph_t *graph, dict_t *mod_dict)
         /* Set all the quota client options */
 
         list_for_each_entry (voliter, &priv->volumes, vol_list) {
-                if (voliter->status != GLUSTERD_STATUS_STARTED)
+                if (voliter->status != GLUSTERD_STATUS_STARTED &&
+                                !glusterd_is_quota_on (voliter))
+
                         continue;
 
                 ret = dict_set_str (set_dict, "quota-volume-file", "yes");

@@ -2245,7 +2245,7 @@ _mq_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
 
         frame->local = NULL;
 
-        if (local->hl_count > 1) {
+        if (local->ia_nlink > 1) {
                 GET_CONTRI_KEY (contri_key, local->contri->gfid, ret);
 
                 STACK_WIND (frame, mq_removexattr_cbk, FIRST_CHILD(this),
@@ -2375,16 +2375,21 @@ err:
 }
 
 int32_t
-mq_reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
+mq_reduce_parent_size (xlator_t *this, marker_local_t *local, int64_t contri)
 {
         int32_t                  ret           = -1;
         struct gf_flock          lock          = {0,};
         call_frame_t            *frame         = NULL;
-        quota_local_t           *local         = NULL;
         quota_inode_ctx_t       *ctx           = NULL;
         inode_contribution_t    *contribution  = NULL;
+        loc_t                   *loc           = NULL;
+        int32_t                  ia_nlink      = 0;
 
         GF_VALIDATE_OR_GOTO ("marker", this, out);
+        GF_VALIDATE_OR_GOTO ("marker", local, out);
+
+        ia_nlink = local->ia_nlink;
+        loc = &local->loc;
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
 
         ret = mq_inode_ctx_get (loc->inode, this, &ctx);
@@ -2421,6 +2426,7 @@ mq_reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
                 goto out;
 
         local->ctx = ctx;
+        local->ia_nlink = ia_nlink;
         local->contri = contribution;
 
         ret = mq_inode_loc_fill (NULL, loc->parent, &local->parent_loc);

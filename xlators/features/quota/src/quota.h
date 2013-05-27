@@ -176,6 +176,7 @@ struct limits {
         uuid_t            gfid;
         uint64_t          prev_size;
         struct timeval    prev_log_tv;
+        // Make it uint/size_t
         int64_t           hard_lim;
         int64_t           soft_lim;
 };

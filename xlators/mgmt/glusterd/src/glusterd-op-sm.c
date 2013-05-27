@@ -4661,7 +4661,26 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                 list_add_tail (&pending_node->list, selected);
 
                 ret = 0;
-        } else {
+        }/* else if ((cmd & GF_CLI_STATUS_QC) != 0) {
+                if (!glusterd_is_nodesvc_online ("quota-client")) {
+                        ret = -1;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Quota-client is not running");
+                        goto out;
+                }
+                pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                          gf_gld_mt_pending_node_t);
+                if (!pending_node) {
+                        ret = -1;
+                        goto out;
+                }
+                pending_node->node = priv->qc;
+                pending_node->type = GD_NODE_QC;
+                pending_node->index = 0;
+                list_add_tail (&pending_node->list, selected);
+
+                ret = 0;
+        }*/ else {
                 list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                         brick_index++;
                         if (uuid_compare (brickinfo->uuid, MY_UUID) ||

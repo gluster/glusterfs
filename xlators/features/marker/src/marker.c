@@ -733,7 +733,7 @@ marker_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                mq_reduce_parent_size (this, &local->loc, -1);
+                mq_reduce_parent_size (this, local, -1);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -800,8 +800,8 @@ marker_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         priv = this->private;
 
-        if ((priv->feature_enabled & GF_QUOTA) && (local->ia_nlink == 1))
-                mq_reduce_parent_size (this, &local->loc, -1);
+        if (priv->feature_enabled & GF_QUOTA)
+                mq_reduce_parent_size (this, local, -1);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -989,10 +989,10 @@ marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
                                      NULL, NULL, NULL, NULL);
         }
 
-        mq_reduce_parent_size (this, &oplocal->loc, oplocal->contribution);
+        mq_reduce_parent_size (this, oplocal, oplocal->contribution);
 
         if (local->loc.inode != NULL) {
-                mq_reduce_parent_size (this, &local->loc, local->contribution);
+                mq_reduce_parent_size (this, local, local->contribution);
         }
 
         newloc.inode = inode_ref (oplocal->loc.inode);

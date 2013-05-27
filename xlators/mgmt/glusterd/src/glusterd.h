@@ -133,6 +133,7 @@ typedef struct {
         rpcsvc_t          *rpc;
         nodesrv_t         *shd;
         nodesrv_t         *nfs;
+        nodesrv_t         *qc;
         struct pmap_registry *pmap;
         struct list_head  volumes;
         pthread_mutex_t   xprt_lock;
@@ -310,6 +311,7 @@ typedef enum gd_node_type_ {
         GD_NODE_NONE,
         GD_NODE_BRICK,
         GD_NODE_SHD,
+        GD_NODE_QC,
         GD_NODE_REBALANCE,
         GD_NODE_NFS,
 } gd_node_type;
