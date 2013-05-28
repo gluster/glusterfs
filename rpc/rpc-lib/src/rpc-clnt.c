@@ -819,6 +819,9 @@ out:
         return;
 }
 
+static void
+rpc_clnt_destroy (struct rpc_clnt *rpc);
+
 int
 rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
                  rpc_transport_event_t event, void *data, ...)
@@ -864,9 +867,7 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
         }
 
         case RPC_TRANSPORT_CLEANUP:
-                /* this event should not be received on a client for, a
-                 * transport is only disconnected, but never destroyed.
-                 */
+                rpc_clnt_destroy (clnt);
                 ret = 0;
                 break;
 
@@ -1541,18 +1542,21 @@ rpc_clnt_ref (struct rpc_clnt *rpc)
 
 
 static void
+rpc_clnt_trigger_destroy (struct rpc_clnt *rpc)
+{
+        if (!rpc)
+                return;
+
+        rpc_clnt_disable (rpc);
+        rpc_transport_unref (rpc->conn.trans);
+}
+
+static void
 rpc_clnt_destroy (struct rpc_clnt *rpc)
 {
         if (!rpc)
                 return;
 
-        if (rpc->conn.trans) {
-                rpc_transport_unregister_notify (rpc->conn.trans);
-                rpc_transport_disconnect (rpc->conn.trans);
-                rpc_transport_unref (rpc->conn.trans);
-        }
-
-        rpc_clnt_reconnect_cleanup (&rpc->conn);
         saved_frames_destroy (rpc->conn.saved_frames);
         pthread_mutex_destroy (&rpc->lock);
         pthread_mutex_destroy (&rpc->conn.lock);
@@ -1579,12 +1583,35 @@ rpc_clnt_unref (struct rpc_clnt *rpc)
         }
         pthread_mutex_unlock (&rpc->lock);
         if (!count) {
-                rpc_clnt_destroy (rpc);
+                rpc_clnt_trigger_destroy (rpc);
                 return NULL;
         }
         return rpc;
 }
 
+
+char
+rpc_clnt_is_disabled (struct rpc_clnt *rpc)
+{
+
+        rpc_clnt_connection_t *conn = NULL;
+        char                   disabled = 0;
+
+        if (!rpc) {
+                goto out;
+        }
+
+        conn = &rpc->conn;
+
+        pthread_mutex_lock (&conn->lock);
+        {
+                disabled = rpc->disabled;
+        }
+        pthread_mutex_unlock (&conn->lock);
+
+out:
+        return disabled;
+}
 
 void
 rpc_clnt_disable (struct rpc_clnt *rpc)

@@ -477,6 +477,8 @@ rpc_transport_unref (rpc_transport_t *this)
                 if (this->mydata)
                         this->notify (this, this->mydata, RPC_TRANSPORT_CLEANUP,
                                       NULL);
+                this->mydata = NULL;
+                this->notify = NULL;
                 rpc_transport_destroy (this);
 	}
 
@@ -519,18 +521,6 @@ out:
         return ret;
 }
 
-
-inline int
-rpc_transport_unregister_notify (rpc_transport_t *trans)
-{
-        GF_VALIDATE_OR_GOTO ("rpc-transport", trans, out);
-
-        trans->notify = NULL;
-        trans->mydata = NULL;
-
-out:
-        return 0;
-}
 
 
 //give negative values to skip setting that value

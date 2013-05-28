@@ -273,9 +273,6 @@ int
 rpc_transport_register_notify (rpc_transport_t *trans, rpc_transport_notify_t,
                                void *mydata);
 
-int
-rpc_transport_unregister_notify (rpc_transport_t *trans);
-
 int32_t
 rpc_transport_get_peername (rpc_transport_t *this, char *hostname, int hostlen);
 
