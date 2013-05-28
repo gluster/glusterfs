@@ -244,4 +244,7 @@ rpc_clnt_transport_unix_options_build (dict_t **options, char *filepath,
 void
 rpc_clnt_disable (struct rpc_clnt *rpc);
 
+char
+rpc_clnt_is_disabled (struct rpc_clnt *rpc);
+
 #endif /* !_RPC_CLNT_H */
