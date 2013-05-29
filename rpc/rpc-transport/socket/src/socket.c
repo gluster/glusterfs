@@ -159,9 +159,9 @@ typedef int SSL_trinary_func (SSL *, void *, int);
                 __socket_proto_update_priv_after_read (priv, ret, bytes_read); \
         }
 
-int socket_init (rpc_transport_t *this);
+static int socket_init (rpc_transport_t *this);
 
-void
+static void
 ssl_dump_error_stack (const char *caller)
 {
 	unsigned long  errnum = 0;
@@ -175,7 +175,7 @@ ssl_dump_error_stack (const char *caller)
 	}
 }
 
-int
+static int
 ssl_do (rpc_transport_t *this, void *buf, size_t len, SSL_trinary_func *func)
 {
 	int               r = (-1);
@@ -246,7 +246,7 @@ out:
 #define ssl_read_one(t,b,l)  ssl_do((t),(b),(l),(SSL_trinary_func *)SSL_read)
 #define ssl_write_one(t,b,l) ssl_do((t),(b),(l),(SSL_trinary_func *)SSL_write)
 
-int
+static int
 ssl_setup_connection (rpc_transport_t *this, int server)
 {
 	X509             *peer = NULL;
@@ -311,7 +311,7 @@ done:
 }
 
 
-void
+static void
 ssl_teardown_connection (socket_private_t *priv)
 {
         SSL_shutdown(priv->ssl_ssl);
@@ -321,7 +321,7 @@ ssl_teardown_connection (socket_private_t *priv)
 }
 
 
-ssize_t
+static ssize_t
 __socket_ssl_readv (rpc_transport_t *this, struct iovec *opvector, int opcount)
 {
 	socket_private_t    *priv = NULL;
@@ -341,7 +341,7 @@ __socket_ssl_readv (rpc_transport_t *this, struct iovec *opvector, int opcount)
 }
 
 
-ssize_t
+static ssize_t
 __socket_ssl_read (rpc_transport_t *this, void *buf, size_t count)
 {
 	struct iovec iov = {0, };
@@ -356,7 +356,7 @@ __socket_ssl_read (rpc_transport_t *this, void *buf, size_t count)
 }
 
 
-int
+static int
 __socket_cached_read (rpc_transport_t *this, struct iovec *opvector, int opcount)
 {
 	socket_private_t   *priv = NULL;
@@ -432,7 +432,7 @@ out:
  * > 0 = incomplete
  */
 
-int
+static int
 __socket_rwv (rpc_transport_t *this, struct iovec *vector, int count,
               struct iovec **pending_vector, int *pending_count, size_t *bytes,
               int write)
@@ -563,7 +563,7 @@ out:
 }
 
 
-int
+static int
 __socket_readv (rpc_transport_t *this, struct iovec *vector, int count,
                 struct iovec **pending_vector, int *pending_count,
                 size_t *bytes)
@@ -577,7 +577,7 @@ __socket_readv (rpc_transport_t *this, struct iovec *vector, int count,
 }
 
 
-int
+static int
 __socket_writev (rpc_transport_t *this, struct iovec *vector, int count,
                  struct iovec **pending_vector, int *pending_count)
 {
@@ -590,7 +590,7 @@ __socket_writev (rpc_transport_t *this, struct iovec *vector, int count,
 }
 
 
-int
+static int
 __socket_shutdown (rpc_transport_t *this)
 {
         int               ret = -1;
@@ -609,7 +609,7 @@ __socket_shutdown (rpc_transport_t *this)
         return ret;
 }
 
-int
+static int
 __socket_disconnect (rpc_transport_t *this)
 {
         int               ret = -1;
@@ -649,7 +649,7 @@ out:
 }
 
 
-int
+static int
 __socket_server_bind (rpc_transport_t *this)
 {
         socket_private_t *priv = NULL;
@@ -705,7 +705,7 @@ out:
 }
 
 
-int
+static int
 __socket_nonblock (int fd)
 {
         int flags = 0;
@@ -719,7 +719,7 @@ __socket_nonblock (int fd)
         return ret;
 }
 
-int
+static int
 __socket_nodelay (int fd)
 {
         int     on = 1;
@@ -795,7 +795,7 @@ err:
 }
 
 
-int
+static int
 __socket_connect_finish (int fd)
 {
         int       ret = -1;
@@ -813,7 +813,7 @@ __socket_connect_finish (int fd)
 }
 
 
-void
+static void
 __socket_reset (rpc_transport_t *this)
 {
         socket_private_t *priv = NULL;
@@ -850,13 +850,13 @@ out:
 }
 
 
-void
+static void
 socket_set_lastfrag (uint32_t *fragsize) {
         (*fragsize) |= 0x80000000U;
 }
 
 
-void
+static void
 socket_set_frag_header_size (uint32_t size, char *haddr)
 {
         size = htonl (size);
@@ -864,14 +864,14 @@ socket_set_frag_header_size (uint32_t size, char *haddr)
 }
 
 
-void
+static void
 socket_set_last_frag_header_size (uint32_t size, char *haddr)
 {
         socket_set_lastfrag (&size);
         socket_set_frag_header_size (size, haddr);
 }
 
-struct ioq *
+static struct ioq *
 __socket_ioq_new (rpc_transport_t *this, rpc_transport_msg_t *msg)
 {
         struct ioq       *entry = NULL;
@@ -938,7 +938,7 @@ out:
 }
 
 
-void
+static void
 __socket_ioq_entry_free (struct ioq *entry)
 {
         GF_VALIDATE_OR_GOTO ("socket", entry, out);
@@ -955,7 +955,7 @@ out:
 }
 
 
-void
+static void
 __socket_ioq_flush (rpc_transport_t *this)
 {
         socket_private_t *priv = NULL;
@@ -976,7 +976,7 @@ out:
 }
 
 
-int
+static int
 __socket_ioq_churn_entry (rpc_transport_t *this, struct ioq *entry, int direct)
 {
         int               ret = -1;
@@ -1010,7 +1010,7 @@ __socket_ioq_churn_entry (rpc_transport_t *this, struct ioq *entry, int direct)
 }
 
 
-int
+static int
 __socket_ioq_churn (rpc_transport_t *this)
 {
         socket_private_t *priv = NULL;
@@ -1043,7 +1043,7 @@ out:
 }
 
 
-int
+static int
 socket_event_poll_err (rpc_transport_t *this)
 {
         socket_private_t *priv = NULL;
@@ -1068,7 +1068,7 @@ out:
 }
 
 
-int
+static int
 socket_event_poll_out (rpc_transport_t *this)
 {
         socket_private_t *priv = NULL;
@@ -1912,7 +1912,7 @@ void __socket_reset_priv (socket_private_t *priv)
 }
 
 
-int
+static int
 __socket_proto_state_machine (rpc_transport_t *this,
                               rpc_transport_pollin_t **pollin)
 {
@@ -2084,7 +2084,7 @@ out:
 }
 
 
-int
+static int
 socket_proto_state_machine (rpc_transport_t *this,
                             rpc_transport_pollin_t **pollin)
 {
@@ -2107,7 +2107,7 @@ out:
 }
 
 
-int
+static int
 socket_event_poll_in (rpc_transport_t *this)
 {
         int                     ret    = -1;
@@ -2125,7 +2125,7 @@ socket_event_poll_in (rpc_transport_t *this)
 }
 
 
-int
+static int
 socket_connect_finish (rpc_transport_t *this)
 {
         int                   ret        = -1;
@@ -2199,7 +2199,7 @@ out:
 
 
 /* reads rpc_requests during pollin */
-int
+static int
 socket_event_handler (int fd, int idx, void *data,
                       int poll_in, int poll_out, int poll_err)
 {
@@ -2244,7 +2244,7 @@ out:
 }
 
 
-void *
+static void *
 socket_poller (void *ctx)
 {
         rpc_transport_t  *this = ctx;
@@ -2390,7 +2390,7 @@ err:
 }
 
 
-void
+static void
 socket_spawn (rpc_transport_t *this)
 {
         socket_private_t        *priv   = this->private;
@@ -2409,7 +2409,7 @@ socket_spawn (rpc_transport_t *this)
         }
 }
 
-int
+static int
 socket_server_event_handler (int fd, int idx, void *data,
                              int poll_in, int poll_out, int poll_err)
 {
@@ -2596,7 +2596,7 @@ out:
 }
 
 
-int
+static int
 socket_disconnect (rpc_transport_t *this)
 {
         socket_private_t *priv = NULL;
@@ -2618,7 +2618,7 @@ out:
 }
 
 
-int
+static int
 socket_connect (rpc_transport_t *this, int port)
 {
         int                      ret = -1;
@@ -2852,7 +2852,7 @@ err:
 }
 
 
-int
+static int
 socket_listen (rpc_transport_t *this)
 {
         socket_private_t *       priv = NULL;
@@ -3003,7 +3003,7 @@ out:
 }
 
 
-int32_t
+static int32_t
 socket_submit_request (rpc_transport_t *this, rpc_transport_req_t *req)
 {
         socket_private_t *priv = NULL;
@@ -3077,7 +3077,7 @@ out:
 }
 
 
-int32_t
+static int32_t
 socket_submit_reply (rpc_transport_t *this, rpc_transport_reply_t *reply)
 {
         socket_private_t *priv = NULL;
@@ -3151,7 +3151,7 @@ out:
 }
 
 
-int32_t
+static int32_t
 socket_getpeername (rpc_transport_t *this, char *hostname, int hostlen)
 {
         int32_t ret = -1;
@@ -3170,7 +3170,7 @@ out:
 }
 
 
-int32_t
+static int32_t
 socket_getpeeraddr (rpc_transport_t *this, char *peeraddr, int addrlen,
                     struct sockaddr_storage *sa, socklen_t salen)
 {
@@ -3191,7 +3191,7 @@ out:
 }
 
 
-int32_t
+static int32_t
 socket_getmyname (rpc_transport_t *this, char *hostname, int hostlen)
 {
         int32_t ret = -1;
@@ -3210,7 +3210,7 @@ out:
 }
 
 
-int32_t
+static int32_t
 socket_getmyaddr (rpc_transport_t *this, char *myaddr, int addrlen,
                   struct sockaddr_storage *sa, socklen_t salen)
 {
@@ -3296,7 +3296,7 @@ out:
 
 }
 
-int
+static int
 socket_init (rpc_transport_t *this)
 {
         socket_private_t *priv = NULL;
