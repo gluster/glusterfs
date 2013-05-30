@@ -1239,8 +1239,8 @@ afr_start_crawl (xlator_t *this, int idx, afr_crawl_type_t crawl,
         ret = synctask_new (this->ctx->env, crawler,
                             crawl_done, frame, crawl_data);
         if (ret)
-                gf_log (this->name, GF_LOG_ERROR, "Could not create the "
-                        "task for %d ret %d", idx, ret);
+                gf_log (this->name, GF_LOG_ERROR, "afr crawl failed for child"
+                        " %d with ret %d", idx, ret);
 out:
         return;
 }
