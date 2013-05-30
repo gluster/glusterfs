@@ -3529,6 +3529,7 @@ gf_cli_getspec (call_frame_t *frame, xlator_t *this,
         gf_getspec_req          req = {0,};
         int                     ret = 0;
         dict_t                  *dict = NULL;
+        dict_t                  *op_dict = NULL;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
@@ -3541,12 +3542,45 @@ gf_cli_getspec (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
+        op_dict = dict_new ();
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        // Set the supported min and max op-versions, so glusterd can make a
+        // decision
+        ret = dict_set_int32 (op_dict, "min-op-version", GD_OP_VERSION_MIN);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to set min-op-version"
+                        " in request dict");
+                goto out;
+        }
+
+        ret = dict_set_int32 (op_dict, "max-op-version", GD_OP_VERSION_MAX);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to set max-op-version"
+                        " in request dict");
+                goto out;
+        }
+
+        ret = dict_allocate_and_serialize (op_dict, &req.xdata.xdata_val,
+                                           &req.xdata.xdata_len);
+        if (ret < 0) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to serialize dictionary");
+                goto out;
+        }
+
         ret = cli_cmd_submit (&req, frame, &cli_handshake_prog,
                               GF_HNDSK_GETSPEC, NULL,
                               this, gf_cli_getspec_cbk,
                               (xdrproc_t) xdr_gf_getspec_req);
 
 out:
+        if (op_dict) {
+                dict_unref(op_dict);
+        }
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
