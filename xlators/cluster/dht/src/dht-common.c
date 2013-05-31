@@ -2053,10 +2053,8 @@ dht_getxattr_get_real_filename_cbk (call_frame_t *frame, void *cookie,
 {
         int             this_call_cnt = 0;
         dht_local_t     *local = NULL;
-        dht_conf_t      *conf = NULL;
 
 
-        conf = this->private;
         local = frame->local;
 
 	if (op_ret != -1) {
@@ -2083,7 +2081,6 @@ int
 dht_getxattr_get_real_filename (call_frame_t *frame, xlator_t *this,
 				loc_t *loc, const char *key, dict_t *xdata)
 {
-	dht_conf_t      *conf = NULL;
 	dht_local_t     *local = NULL;
 	int              i = 0;
 	dht_layout_t    *layout = NULL;
@@ -2091,7 +2088,6 @@ dht_getxattr_get_real_filename (call_frame_t *frame, xlator_t *this,
 	xlator_t        *subvol = NULL;
 
 
-        conf   = this->private;
 	local = frame->local;
 	layout = local->layout;
 
