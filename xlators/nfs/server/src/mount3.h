@@ -68,6 +68,13 @@ struct mountentry {
 #define MNT3_EXPTYPE_VOLUME     1
 #define MNT3_EXPTYPE_DIR        2
 
+/* Structure to hold export-dir AUTH parameter */
+struct host_auth_spec {
+        char                    *host_addr;    /* Allowed IP or host name */
+        int                     routeprefix;   /* Routing prefix */
+        struct host_auth_spec   *next;         /* Pointer to next AUTH struct */
+};
+
 struct mnt3_export {
         struct list_head        explist;
 
@@ -75,6 +82,11 @@ struct mnt3_export {
          * is exported or the subdirectory in the volume.
          */
         char                    *expname;
+        /*
+         * IP address, hostname or subnets who are allowed to connect to expname
+         * subvolume or subdirectory
+         */
+        struct host_auth_spec*  hostspec;
         xlator_t                *vol;
         int                     exptype;
 

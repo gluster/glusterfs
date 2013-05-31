@@ -1124,7 +1124,19 @@ struct volume_options options[] = {
                          "be exported separately. This option can also be used "
                          "in conjunction with nfs3.export-volumes option to "
                          "restrict exports only to the subdirectories specified"
-                         " through this option. Must be an absolute path."
+                         " through this option. Must be an absolute path. Along"
+                         " with path allowed list of IPs/hostname can be "
+                         "associated with each subdirectory. If provided "
+                         "connection will allowed only from these IPs. By "
+                         "default connections from all IPs are allowed. "
+                         "Format: <dir>[(hostspec[|hostspec|...])][,...]. Where"
+                         " hostspec can be an IP address, hostname or an IP "
+                         "range in CIDR notation. "
+                         "e.g. /foo(192.168.1.0/24|host1|10.1.1.8),/host2."
+                         " NOTE: Care must be taken while configuring this "
+                         "option as invalid entries and/or unreachable DNS "
+                         "servers can introduce unwanted delay in all the mount"
+                         " calls."
         },
         { .key  = {"nfs3.export-dirs"},
           .type = GF_OPTION_TYPE_BOOL,

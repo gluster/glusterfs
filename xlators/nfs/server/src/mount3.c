@@ -45,6 +45,39 @@
 #include <sys/socket.h>
 #include <sys/uio.h>
 
+
+#define IPv4_ADDR_SIZE  32
+
+/* Macro to typecast the parameter to struct sockaddr_in
+ */
+#define SA(addr) ((struct sockaddr_in*)(addr))
+
+/* Macro will mask the ip address with netmask.
+ */
+#define MASKED_IP(ipv4addr, netmask)                    \
+                (ntohl(SA(ipv4addr)->sin_addr.s_addr) & (netmask))
+
+/* Macro will compare two IP address after applying the mask
+ */
+#define COMPARE_IPv4_ADDRS(ip1, ip2, netmask)           \
+                ((MASKED_IP(ip1, netmask)) == (MASKED_IP(ip2, netmask)))
+
+/* This macro will assist in freeing up entire link list
+ * of host_auth_spec structure.
+ */
+#define FREE_HOSTSPEC(exp) do {                                 \
+                struct host_auth_spec *host= exp->hostspec;     \
+                while (NULL != host){                           \
+                        struct host_auth_spec* temp = host;     \
+                        host = host->next;                      \
+                        if (NULL != temp->host_addr) {          \
+                                GF_FREE (temp->host_addr);      \
+                        }                                       \
+                        GF_FREE (temp);                         \
+                }                                               \
+                exp->hostspec = NULL;                           \
+        } while (0)
+
 typedef ssize_t (*mnt3_serializer) (struct iovec outmsg, void *args);
 
 extern void *
@@ -645,6 +678,132 @@ err:
 }
 
 
+/**
+ * This function will verify if the client is allowed to mount
+ * the directory or not. Client's IP address will be compared with
+ * allowed IP list or range present in mnt3_export structure.
+ *
+ * @param req - RPC request. This structure contains client's IP address.
+ * @param export - mnt3_export structure. Contains allowed IP list/range.
+ *
+ * @return 0 - on Success and -EACCES on failure.
+ */
+int
+mnt3_verify_auth (rpcsvc_request_t *req, struct mnt3_export *export)
+{
+        int                     retvalue = -EACCES;
+        int                     ret = 0;
+        int                     shiftbits = 0;
+        uint32_t                ipv4netmask = 0;
+        uint32_t                routingprefix = 0;
+        struct host_auth_spec   *host = NULL;
+        struct sockaddr_in      *client_addr = NULL;
+        struct sockaddr_in      *allowed_addr = NULL;
+        struct addrinfo         *allowed_addrinfo = NULL;
+
+        /* Sanity check */
+        if ((NULL == req) ||
+            (NULL == req->trans) ||
+            (NULL == export) ||
+            (NULL == export->hostspec)) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Invalid argument");
+                return retvalue;
+        }
+
+        host = export->hostspec;
+
+
+        /* Client's IP address. */
+        client_addr = (struct sockaddr_in *)(&(req->trans->peerinfo.sockaddr));
+
+        /* Try to see if the client IP matches the allowed IP list.*/
+        while (NULL != host){
+                GF_ASSERT (host->host_addr);
+
+                if (NULL != allowed_addrinfo) {
+                        freeaddrinfo (allowed_addrinfo);
+                        allowed_addrinfo = NULL;
+                }
+
+                /* Get the addrinfo for the allowed host (host_addr). */
+                ret = getaddrinfo (host->host_addr,
+                                NULL,
+                                NULL,
+                                &allowed_addrinfo);
+                if (0 != ret){
+                        gf_log (GF_MNT, GF_LOG_ERROR, "getaddrinfo: %s\n",
+                                gai_strerror (ret));
+                        host = host->next;
+
+                        /* Failed to get IP addrinfo. Continue to check other
+                         * allowed IPs in the list.
+                         */
+                        continue;
+                }
+
+                allowed_addr = (struct sockaddr_in *)(allowed_addrinfo->ai_addr);
+
+                if (NULL == allowed_addr) {
+                        gf_log (GF_MNT, GF_LOG_ERROR, "Invalid structure");
+                        break;
+                }
+
+                if (AF_INET == allowed_addr->sin_family){
+                        if (IPv4_ADDR_SIZE < host->routeprefix) {
+                                gf_log (GF_MNT, GF_LOG_ERROR, "invalid IP "
+                                        "configured for export-dir AUTH");
+                                host = host->next;
+                                continue;
+                        }
+
+                        /* -1 means no route prefix is provided. In this case
+                         * the IP should be an exact match. Which is same as
+                         * providing a route prefix of IPv4_ADDR_SIZE.
+                         */
+                        if (-1 == host->routeprefix) {
+                                routingprefix = IPv4_ADDR_SIZE;
+                        } else {
+                                routingprefix = host->routeprefix;
+                        }
+
+                        /* Create a mask from the routing prefix. User provided
+                         * CIDR address is split into IP address (host_addr) and
+                         * routing prefix (routeprefix). This CIDR address may
+                         * denote a single, distinct interface address or the
+                         * beginning address of an entire network.
+                         *
+                         * e.g. the IPv4 block 192.168.100.0/24 represents the
+                         * 256 IPv4 addresses from 192.168.100.0 to
+                         * 192.168.100.255.
+                         * Therefore to check if an IP matches 192.168.100.0/24
+                         * we should mask the IP with FFFFFF00 and compare it
+                         * with host address part of CIDR.
+                         */
+                        shiftbits = IPv4_ADDR_SIZE - routingprefix;
+                        ipv4netmask = 0xFFFFFFFFUL << shiftbits;
+
+                        /* Mask both the IPs and then check if they match
+                         * or not. */
+                        if (COMPARE_IPv4_ADDRS (allowed_addr,
+                                                client_addr,
+                                                ipv4netmask)){
+                                retvalue = 0;
+                                break;
+                        }
+                }
+
+                /* Client IP didn't match the allowed IP.
+                 * Check with the next allowed IP.*/
+               host = host->next;
+        }
+
+        if (NULL != allowed_addrinfo) {
+               freeaddrinfo (allowed_addrinfo);
+        }
+
+        return retvalue;
+}
+
 int
 mnt3_resolve_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
                      struct mnt3_export *exp, char *subdir)
@@ -655,6 +814,16 @@ mnt3_resolve_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
 
         if ((!req) || (!ms) || (!exp) || (!subdir))
                 return ret;
+
+        /* Need to check AUTH */
+        if (NULL != exp->hostspec) {
+                ret = mnt3_verify_auth (req, exp);
+                if (0 != ret) {
+                        gf_log (GF_MNT,GF_LOG_ERROR,
+                                        "AUTH verification failed");
+                        return ret;
+                }
+        }
 
         mres = GF_CALLOC (1, sizeof (mnt3_resolve_t), gf_nfs_mt_mnt3_resolve);
         if (!mres) {
@@ -1489,7 +1658,151 @@ mount3udp_delete_mountlist (char *hostname, dirpath *expname)
         return 0;
 }
 
+/**
+ * This function will parse the hostip (IP addres, IP range, or hostname)
+ * and fill the host_auth_spec structure.
+ *
+ * @param hostspec - struct host_auth_spec
+ * @param hostip   - IP address, IP range (CIDR format) or hostname
+ *
+ * @return 0 - on success and -1 on failure
+ */
+int
+mnt3_export_fill_hostspec (struct host_auth_spec* hostspec, const char* hostip)
+{
+        char *ipdupstr = NULL;
+        char *savptr = NULL;
+        char *ip = NULL;
+        char *token = NULL;
+        int  ret = -1;
 
+        /* Create copy of the string so that the source won't change
+         */
+        ipdupstr = gf_strdup (hostip);
+        if (NULL == ipdupstr) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation failed");
+                goto err;
+        }
+
+        ip = strtok_r (ipdupstr, "/", &savptr);
+        hostspec->host_addr = gf_strdup (ip);
+        if (NULL == hostspec->host_addr) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation failed");
+                goto err;
+        }
+
+        /* Check if the IP is in <IP address> / <Range> format.
+         * If yes, then strip the range and store it separately.
+         */
+        token = strtok_r (NULL, "/", &savptr);
+
+        if (NULL == token) {
+              hostspec->routeprefix = -1;
+        } else {
+              hostspec->routeprefix = atoi (token);
+        }
+
+        // success
+        ret = 0;
+err:
+        if (NULL != ipdupstr) {
+                GF_FREE (ipdupstr);
+        }
+        return ret;
+}
+
+
+/**
+ * This function will parse the AUTH parameter passed along with
+ * "export-dir" option. If AUTH parameter is present then it will be
+ * stripped from exportpath and stored in mnt3_export (exp) structure.
+ *
+ * @param exp - mnt3_export structure. Holds information needed for mount.
+ * @param exportpath - Value of "export-dir" key. Holds both export path
+ *                     and AUTH parameter for the path.
+ *                     exportpath format: <abspath>[(hostdesc[|hostspec|...])]
+ *
+ * @return This function will return 0 on success and -1 on failure.
+ */
+int
+mnt3_export_parse_auth_param (struct mnt3_export* exp, char* exportpath)
+{
+        char *token = NULL;
+        char *savPtr = NULL;
+        char *hostip = NULL;
+        struct host_auth_spec *host = NULL;
+        int ret = 0;
+
+        /* Using exportpath directly in strtok_r because we want
+         * to strip off AUTH parameter from exportpath. */
+        token = strtok_r (exportpath, "(", &savPtr);
+
+        /* Get the next token, which will be the AUTH parameter. */
+        token = strtok_r (NULL, ")", &savPtr);
+
+        if (NULL == token) {
+                /* If AUTH is not present then we should return success. */
+                return 0;
+        }
+
+        /* Free any previously allocated hostspec structure. */
+        if (NULL != exp->hostspec) {
+                GF_FREE (exp->hostspec);
+                exp->hostspec = NULL;
+        }
+
+        exp->hostspec = GF_CALLOC (1,
+                        sizeof (*(exp->hostspec)),
+                        gf_nfs_mt_auth_spec);
+        if (NULL == exp->hostspec){
+                gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation failed");
+                return -1;
+        }
+
+        /* AUTH parameter can have multiple entries. For each entry
+         * a host_auth_spec structure is created. */
+        host = exp->hostspec;
+
+        hostip = strtok_r (token, "|", &savPtr);
+
+        /* Parse all AUTH parameters separated by '|' */
+        while (NULL != hostip){
+                ret = mnt3_export_fill_hostspec (host, hostip);
+                if (0 != ret) {
+                        gf_log(GF_MNT, GF_LOG_WARNING,
+                                        "Failed to parse hostspec: %s", hostip);
+                        goto err;
+                }
+
+                hostip = strtok_r (NULL, "|", &savPtr);
+                if (NULL == hostip) {
+                        break;
+                }
+
+                host->next = GF_CALLOC (1, sizeof (*(host)),
+                                gf_nfs_mt_auth_spec);
+                if (NULL == host->next){
+                        gf_log (GF_MNT,GF_LOG_ERROR,
+                                        "Memory allocation failed");
+                        goto err;
+                }
+                host = host->next;
+        }
+
+        /* In case of success return from here */
+        return 0;
+err:
+        /* In case of failure free up hostspec structure.  */
+        FREE_HOSTSPEC (exp);
+
+        return -1;
+}
+
+/**
+ * exportpath will also have AUTH options (ip address, subnet address or
+ * hostname) mentioned.
+ * exportpath format: <abspath>[(hostdesc[|hostspec|...])]
+ */
 struct mnt3_export *
 mnt3_init_export_ent (struct mount3_state *ms, xlator_t *xl, char *exportpath,
                       uuid_t volumeid)
@@ -1507,6 +1820,20 @@ mnt3_init_export_ent (struct mount3_state *ms, xlator_t *xl, char *exportpath,
                 return NULL;
         }
 
+        if (NULL != exportpath) {
+                /* If exportpath is not NULL then we should check if AUTH
+                 * parameter is present or not. If AUTH parameter is present
+                 * then it will be stripped and stored in mnt3_export (exp)
+                 * structure.
+                 */
+                if (0 != mnt3_export_parse_auth_param (exp, exportpath)){
+                        gf_log (GF_MNT, GF_LOG_ERROR,
+                                                "Failed to parse auth param");
+                        goto err;
+                }
+        }
+
+
         INIT_LIST_HEAD (&exp->explist);
         if (exportpath)
                 alloclen = strlen (xl->name) + 2 + strlen (exportpath);
@@ -1516,8 +1843,6 @@ mnt3_init_export_ent (struct mount3_state *ms, xlator_t *xl, char *exportpath,
         exp->expname = GF_CALLOC (alloclen, sizeof (char), gf_nfs_mt_char);
         if (!exp->expname) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation failed");
-                GF_FREE (exp);
-                exp = NULL;
                 goto err;
         }
 
@@ -1543,7 +1868,17 @@ mnt3_init_export_ent (struct mount3_state *ms, xlator_t *xl, char *exportpath,
          */
         uuid_copy (exp->volumeid, volumeid);
         exp->vol = xl;
+
+        /* On success we should return from here*/
+        return exp;
 err:
+        /* On failure free exp and it's members.*/
+        if (NULL != exp) {
+                FREE_HOSTSPEC (exp);
+                GF_FREE (exp);
+                exp = NULL;
+        }
+
         return exp;
 }
 

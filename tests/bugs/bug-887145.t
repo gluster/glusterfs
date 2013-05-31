@@ -1,13 +1,9 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../nfs.rc
 
 cleanup;
-
-function is_nfs_export_available {
-exp=$(showmount -e | grep $V0 | wc -l)
-echo "$exp"
-}
 
 TEST glusterd
 TEST pidof glusterd
