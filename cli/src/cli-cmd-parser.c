@@ -532,9 +532,7 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
         uint64_t         value   = 0;
         gf_quota_type    type    = GF_QUOTA_OPTION_TYPE_NONE;
         char           *opwords[] = { "enable", "disable", "limit-usage",
-                                      "remove", "list", "soft-limit",
-                                      "alert-time", "soft-timeout",
-                                      "hard-timeout", NULL };
+                                      "remove", "list", "version", NULL };
         char            *w       = NULL;
 
         GF_ASSERT (words);
@@ -685,70 +683,8 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 goto set_type;
         }
 
-        if (strcmp (w, "soft-limit") == 0) {
-                if (wordcount != 6) {
-                        ret = -1;
-                        goto out;
-                }
-
-                type = GF_QUOTA_OPTION_TYPE_SOFT_LIMIT;
-                if (words[4][0] != '/') {
-                        cli_err ("Please enter absolute path");
-
-                        return -2;
-                }
-                ret = dict_set_str (dict, "path", (char *) words[4]);
-                if (ret)
-                        goto out;
-
-                if (!words[5]) {
-                        cli_err ("Please enter the limit value to be set");
-
-                        return -2;
-                }
-
-                ret = dict_set_str (dict, "limit", (char *) words[5]);
-                if (ret < 0)
-                        goto out;
-
-                goto set_type;
-
-        }
-        if (strcmp (w, "alert-time") == 0) {
-                if (wordcount != 5) {
-                        ret = -1;
-                        goto out;
-                }
-                type = GF_QUOTA_OPTION_TYPE_ALERT_TIME;
-
-                ret = dict_set_str (dict, "alert-time", (char *)words[4]);
-                if (ret < 0)
-                        goto out;
-                goto set_type;
-        }
-        if (strcmp (w, "soft-timeout") == 0) {
-                if (wordcount != 5) {
-                        ret = -1;
-                        goto out;
-                }
-                type = GF_QUOTA_OPTION_TYPE_SOFT_TIMEOUT;
-
-                ret = dict_set_str (dict, "soft-timeout", (char *)words[4]);
-                if (ret < 0)
-                        goto out;
-                goto set_type;
-        }
-        if (strcmp (w, "hard-timeout") == 0) {
-                if(wordcount != 5) {
-                        ret = -1;
-                        goto out;
-                }
-                type = GF_QUOTA_OPTION_TYPE_HARD_TIMEOUT;
-
-                ret = dict_set_str (dict, "hard-timeout", (char *)words[4]);
-                if (ret < 0)
-                        goto out;
-                goto set_type;
+        if (strcmp (w, "version") == 0) {
+                type = GF_QUOTA_OPTION_TYPE_VERSION;
         } else {
                 GF_ASSERT (!"opword mismatch");
         }
