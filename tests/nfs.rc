@@ -1,0 +1,21 @@
+#!/bin/bash
+
+
+# Due to portmap registration NFS takes some time to
+# export all volumes. Therefore tests should start only
+# after exports are visible by showmount command. This
+# routine will check if showmount shows the exports or not
+#
+function is_nfs_export_available ()
+{
+        vol=$1
+
+        if [ "$vol" == "" ]; then
+                vol=$V0
+        fi
+
+        exp=$(showmount -e 2> /dev/null | grep $vol | wc -l)
+        echo "$exp"
+}
+
+
