@@ -2484,7 +2484,6 @@ gf_cli_quota_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t            type       = 0;
         char               msg[1024]  = {0,};
         call_frame_t      *frame      = NULL;
-        uint32_t           op_version = 1;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -2517,7 +2516,7 @@ gf_cli_quota_cbk (struct rpc_req *req, struct iovec *iov,
                                         rsp.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
-                        gf_log ("cli", GF_LOG_ERROR,
+                        gf_log ("glusterd", GF_LOG_ERROR,
                                 "failed to "
                                 "unserialize req-buffer to dictionary");
                         goto out;
@@ -2533,11 +2532,6 @@ gf_cli_quota_cbk (struct rpc_req *req, struct iovec *iov,
         if (ret)
                 gf_log (frame->this->name, GF_LOG_TRACE,
                         "failed to get limit_list");
-
-        ret = dict_get_uint32 (dict, "op-version", &op_version);
-        if (ret)
-                gf_log (frame->this->name, GF_LOG_TRACE, "failed to get "
-                        "op-version");
 
         ret = dict_get_int32 (dict, "type", &type);
         if (ret)
@@ -2559,7 +2553,7 @@ gf_cli_quota_cbk (struct rpc_req *req, struct iovec *iov,
                 if (limit_list) {
                         gf_cli_print_limit_list (volname,
                                                     limit_list,
-                                                    rsp.op_errstr, op_version);
+                                                    rsp.op_errstr);
                 } else {
                         gf_log ("cli", GF_LOG_INFO, "Received resp to quota "
                                 "command ");
