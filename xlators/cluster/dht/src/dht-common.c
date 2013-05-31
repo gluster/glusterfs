@@ -148,9 +148,12 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
         int              op_errno = 0;
         int              ret = -1;
         dht_layout_t    *layout = NULL;
+        dht_conf_t      *conf = NULL;
+        uint32_t         missing = 0;
 
         local = discover_frame->local;
         layout = local->layout;
+        conf = this->private;
 
         LOCK(&discover_frame->lock);
         {
@@ -183,18 +186,26 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
                         goto out;
                 }
         } else {
-                ret = dht_layout_normalize (this, &local->loc, layout);
-                if ((ret < 0) || ((ret > 0) && (local->op_ret != 0))) {
-                        /* either the layout is incorrect or the directory is
-                         * not found even in one subvolume.
-                         */
+                ret = dht_layout_normalize (this, &local->loc, layout,
+                                            &missing);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "normalizing failed on %s (internal error)",
+                                local->loc.path);
+                        op_errno = EIO;
+                        goto out;
+                }
+                if (missing == conf->subvolume_cnt) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "normalizing failed on %s, ENOENT errors: %u)",
+                                local->loc.path, missing);
+                        op_errno = ENOENT;
+                        goto out;
+                }
+                if (ret != 0) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "normalizing failed on %s "
-                                "(overlaps/holes present: %s, "
-                                "ENOENT errors: %d)", local->loc.path,
-                                (ret < 0) ? "yes" : "no", (ret > 0) ? ret : 0);
-                        op_errno = EINVAL;
-                        goto out;
+                                "(overlaps/holes present)", local->loc.path);
                 }
 
                 dht_layout_set (this, local->inode, layout);
@@ -397,6 +408,7 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_layout_t *layout                  = NULL;
         int           ret                     = -1;
         int           is_dir                  = 0;
+        uint32_t      missing                 = 0;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, out);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -477,9 +489,16 @@ unlock:
                 }
 
                 if (local->op_ret == 0) {
-                        ret = dht_layout_normalize (this, &local->loc, layout);
+                        ret = dht_layout_normalize (this, &local->loc, layout,
+                                                    &missing);
 
-                        if (ret != 0) {
+                        /*
+                         * Arguably, we shouldn't do self-heal just because
+                         * bricks are missing as long as there are no other
+                         * anomalies.  For now, though, just preserve the
+                         * existing behavior.
+                         */
+                        if ((ret != 0) || (missing != 0)) {
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "fixing assignment on %s",
                                         local->loc.path);
