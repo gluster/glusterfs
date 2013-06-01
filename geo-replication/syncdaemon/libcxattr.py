@@ -43,6 +43,16 @@ class Xattr(object):
         return cls._query_xattr( path, siz, 'lgetxattr', attr)
 
     @classmethod
+    def lgetxattr_buf(cls, path, attr):
+        """lgetxattr variant with size discovery"""
+        size = cls.lgetxattr(path, attr)
+        if size == -1:
+            cls.raise_oserr()
+        if size == 0:
+            return ''
+        return cls.lgetxattr(path, attr, size)
+
+    @classmethod
     def llistxattr(cls, path, siz=0):
         ret = cls._query_xattr(path, siz, 'llistxattr')
         if isinstance(ret, str):
@@ -54,6 +64,11 @@ class Xattr(object):
         ret = cls.libc.lsetxattr(path, attr, val, len(val), 0)
         if ret == -1:
             cls.raise_oserr()
+
+    @classmethod
+    def lsetxattr_l(cls, path, attr, val):
+        """ lazy lsetxattr(): caller handles errno """
+        cls.libc.lsetxattr(path, attr, val, len(val), 0)
 
     @classmethod
     def lremovexattr(cls, path, attr):

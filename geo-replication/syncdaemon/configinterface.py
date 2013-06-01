@@ -24,9 +24,9 @@ class MultiDict(object):
     def __getitem__(self, key):
         val = None
         for d in self.dicts:
-            if d.get(key):
+            if d.get(key) != None:
                 val = d[key]
-        if not val:
+        if val == None:
             raise KeyError(key)
         return val
 

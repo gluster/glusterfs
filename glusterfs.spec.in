@@ -520,6 +520,7 @@ fi
 %defattr(-,root,root)
 %{_libexecdir}/glusterfs/gsyncd
 %{_libexecdir}/glusterfs/python/syncdaemon/*
+%{_libexecdir}/glusterfs/gverify.sh
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/geo-replication
 %ghost %attr(0644,-,-) %{_sharedstatedir}/glusterd/geo-replication/gsyncd.conf
 %endif
@@ -696,6 +697,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Thu Jul 25 2013 Aravinda VK <avishwan@redhat.com>
+- Added gverify.sh to %{_libexecdir}/glusterfs directory.
+
 * Thu Jul 25 2013 Harshavardhana <fharshav@redhat.com>
 - Allow to build with '--without bd' to disable 'bd' xlator
 

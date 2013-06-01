@@ -1,4 +1,11 @@
+
 gsyncddir = $(libexecdir)/glusterfs
+
+gsyncd_SCRIPTS = gverify.sh peer_add_secret_pub peer_gsec_create
+
+# peer_gsec_create is not added to EXTRA_DIST as it's derived
+# from a .in file
+EXTRA_DIST = gverify.sh peer_add_secret_pub
 
 gsyncd_PROGRAMS = gsyncd
 
