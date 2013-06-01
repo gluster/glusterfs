@@ -33,6 +33,10 @@ static char *gsync_reserved_opts[] = {
         "session-owner",
         "state-socket-unencoded",
         "socketdir",
+        "ignore-deletes",
+        "local-id",
+        "local-path",
+        "slave-id",
         NULL
 };
 

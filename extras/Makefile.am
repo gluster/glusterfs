@@ -2,7 +2,7 @@
 EditorModedir = $(docdir)
 EditorMode_DATA = glusterfs-mode.el glusterfs.vim
 
-SUBDIRS = init.d systemd benchmarking hook-scripts $(OCF_SUBDIR) LinuxRPM
+SUBDIRS = init.d systemd benchmarking hook-scripts $(OCF_SUBDIR) LinuxRPM geo-rep
 
 confdir = $(sysconfdir)/glusterfs
 conf_DATA = glusterfs-logrotate

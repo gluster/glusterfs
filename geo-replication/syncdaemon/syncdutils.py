@@ -5,8 +5,9 @@ import time
 import fcntl
 import shutil
 import logging
+import socket
 from threading import Lock, Thread as baseThread
-from errno import EACCES, EAGAIN, EPIPE, ENOTCONN, ECONNABORTED, EINTR, errorcode
+from errno import EACCES, EAGAIN, EPIPE, ENOTCONN, ECONNABORTED, EINTR, ENOENT, EPERM, ESTALE, errorcode
 from signal import signal, SIGTERM, SIGKILL
 from time import sleep
 import select as oselect
@@ -24,6 +25,15 @@ try:
     from urllib import parse as urllib
 except ImportError:
     import urllib
+
+try:
+    from hashlib import md5 as md5
+except ImportError:
+    # py 2.4
+    from md5 import new as md5
+
+# auxillary gfid based access prefix
+_CL_AUX_GFID_PFX = ".gfid/"
 
 def escape(s):
     """the chosen flavor of string escaping, used all over
@@ -286,3 +296,93 @@ def waitpid (*a):
 
 def set_term_handler(hook=lambda *a: finalize(*a, **{'exval': 1})):
     signal(SIGTERM, hook)
+
+def is_host_local(host):
+    locaddr = False
+    for ai in socket.getaddrinfo(host, None):
+        # cf. http://github.com/gluster/glusterfs/blob/ce111f47/xlators/mgmt/glusterd/src/glusterd-utils.c#L125
+        if ai[0] == socket.AF_INET:
+            if ai[-1][0].split(".")[0] == "127":
+                locaddr = True
+                break
+        elif ai[0] == socket.AF_INET6:
+            if ai[-1][0] == "::1":
+                locaddr = True
+                break
+        else:
+            continue
+        try:
+            # use ICMP socket to avoid net.ipv4.ip_nonlocal_bind issue,
+            # cf. https://bugzilla.redhat.com/show_bug.cgi?id=890587
+            s = socket.socket(ai[0], socket.SOCK_RAW, socket.IPPROTO_ICMP)
+        except socket.error:
+            ex = sys.exc_info()[1]
+            if ex.errno != EPERM:
+                raise
+            f = None
+            try:
+                f = open("/proc/sys/net/ipv4/ip_nonlocal_bind")
+                if int(f.read()) != 0:
+                    raise GsyncdError(
+                            "non-local bind is set and not allowed to create raw sockets, "
+                            "cannot determine if %s is local" % host)
+                s = socket.socket(ai[0], socket.SOCK_DGRAM)
+            finally:
+                if f:
+                    f.close()
+        try:
+            s.bind(ai[-1])
+            locaddr = True
+            break
+        except:
+            pass
+        s.close()
+    return locaddr
+
+def funcode(f):
+    fc = getattr(f, 'func_code', None)
+    if not fc:
+        # python 3
+        fc = f.__code__
+    return fc
+
+def memoize(f):
+    fc = funcode(f)
+    fn = fc.co_name
+    def ff(self, *a, **kw):
+        rv = getattr(self, '_' + fn, None)
+        if rv == None:
+            rv = f(self, *a, **kw)
+            setattr(self, '_' + fn, rv)
+        return rv
+    return ff
+
+def umask():
+    return os.umask(0)
+
+def entry2pb(e):
+    return e.rsplit('/', 1)
+
+def gauxpfx():
+    return _CL_AUX_GFID_PFX
+
+def md5hex(s):
+    return md5(s).hexdigest()
+
+def selfkill(sig=SIGTERM):
+    os.kill(os.getpid(), sig)
+
+def errno_wrap(call, arg=[], errnos=[]):
+    """ wrapper around calls resilient to errnos.
+    retry in case of ESTALE
+    """
+    while True:
+        try:
+            return call(*arg)
+        except OSError:
+            ex = sys.exc_info()[1]
+            if ex.errno in errnos:
+                return ex.errno
+            if not ex.errno == ESTALE:
+                raise
+            time.sleep(0.5)  # retry the call

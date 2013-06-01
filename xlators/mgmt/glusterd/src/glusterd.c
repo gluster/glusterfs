@@ -633,8 +633,18 @@ configure_syncdaemon (glusterd_conf_t *conf)
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_args (&runner,
                          "gluster-log-file",
-                         DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/${mastervol}/${eSlave}.gluster.log",
+                         DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/${mastervol}/${eSlave}${local_id}.gluster.log",
                          ".", ".", NULL);
+        RUN_GSYNCD_CMD;
+
+        /* ignore-deletes */
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_args (&runner, "ignore-deletes", "true", ".", ".", NULL);
+        RUN_GSYNCD_CMD;
+
+        /* special-sync-mode */
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_args (&runner, "special-sync-mode", "partial", ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
         /************

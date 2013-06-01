@@ -1,1 +1,1 @@
-EXTRA_DIST = S29CTDBsetup.sh S30samba-start.sh S30samba-stop.sh S30samba-set.sh
+EXTRA_DIST = S29CTDBsetup.sh S30samba-start.sh S30samba-stop.sh S30samba-set.sh Sglusterd-geo-rep-create-post.sh

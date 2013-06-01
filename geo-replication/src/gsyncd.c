@@ -285,6 +285,46 @@ invoke_rsync (int argc, char **argv)
         return 1;
 }
 
+static int
+invoke_gluster (int argc, char **argv)
+{
+        int i = 0;
+        int j = 0;
+        int optsover = 0;
+        char *ov = NULL;
+
+        for (i = 1; i < argc; i++) {
+                ov = strtail (argv[i], "--");
+                if (ov && !optsover) {
+                        if (*ov == '\0')
+                                optsover = 1;
+                        continue;
+                }
+                switch (++j) {
+                case 1:
+                        if (strcmp (argv[i], "volume") != 0)
+                                goto error;
+                        break;
+                case 2:
+                        if (strcmp (argv[i], "info") != 0)
+                                goto error;
+                        break;
+                case 3:
+                        break;
+                default:
+                        goto error;
+                }
+        }
+
+        argv[0] = "gluster";
+        execvp (SBIN_DIR"/gluster", argv);
+        fprintf (stderr, "exec of gluster failed\n");
+        return 127;
+
+ error:
+        fprintf (stderr, "disallowed gluster invocation\n");
+        return 1;
+}
 
 struct invocable {
         char *name;
@@ -292,8 +332,9 @@ struct invocable {
 };
 
 struct invocable invocables[] = {
-        { "rsync",  invoke_rsync  },
-        { "gsyncd", invoke_gsyncd },
+        { "rsync",   invoke_rsync  },
+        { "gsyncd",  invoke_gsyncd },
+        { "gluster", invoke_gluster },
         { NULL, NULL}
 };
 

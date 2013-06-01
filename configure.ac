@@ -29,6 +29,7 @@ AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile
                 libglusterfs/Makefile
                 libglusterfs/src/Makefile
+                geo-replication/src/peer_gsec_create
                 glusterfsd/Makefile
                 glusterfsd/src/Makefile
                 rpc/Makefile
@@ -149,6 +150,7 @@ AC_CONFIG_FILES([Makefile
                 extras/ocf/glusterd
                 extras/ocf/volume
                 extras/LinuxRPM/Makefile
+                extras/geo-rep/Makefile
                 contrib/fuse-util/Makefile
                 contrib/uuid/uuid_types.h
                 glusterfs-api.pc
