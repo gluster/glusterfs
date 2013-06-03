@@ -190,11 +190,13 @@ nfs_add_all_initiators (struct nfs_state *nfs)
                 }
         }
 
-        ret = nfs_add_initer (&nfs->versions, acl3svc_init);
-        if (ret == -1) {
-                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add protocol"
-                        " initializer");
-                goto ret;
+        if (nfs->enable_acl == _gf_true) {
+                ret = nfs_add_initer (&nfs->versions, acl3svc_init);
+                if (ret == -1) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add "
+                                "ACL protocol initializer");
+                        goto ret;
+                }
         }
 
         ret = 0;
@@ -602,6 +604,13 @@ nfs_init_state (xlator_t *this)
                         gf_log (GF_NFS, GF_LOG_INFO, "NLM is manually disabled");
                         nfs->enable_nlm = _gf_false;
                 }
+        }
+
+        nfs->enable_acl = _gf_true;
+        ret = dict_get_str_boolean (this->options, "nfs.acl", _gf_true);
+        if (ret == _gf_false) {
+                gf_log (GF_NFS, GF_LOG_INFO, "ACL is manually disabled");
+                nfs->enable_acl = _gf_false;
         }
 
         nfs->enable_ino32 = 0;
@@ -1300,7 +1309,11 @@ struct volume_options options[] = {
           .description = "Number of seconds to cache auxiliary-GID data, when "
                          OPT_SERVER_AUX_GIDS " is set."
         },
-
+        { .key = {"nfs.acl"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "on",
+          .description = "This option is used to control ACL support for NFS."
+        },
         { .key  = {NULL} },
 };
 

@@ -70,6 +70,9 @@
 #define NLMV4_VERSION       4
 #define NLMV1_VERSION       1
 
+#define ACL_PROGRAM         100227
+#define ACLV3_VERSION       3
+
 #define CEILING_POS(X) (((X)-(int)(X)) > 0 ? (int)((X)+1) : (int)(X))
 
 static glusterd_lock_t lock;
@@ -3677,6 +3680,10 @@ glusterd_nfs_pmap_deregister ()
         else
                 gf_log ("", GF_LOG_ERROR, "De-registration of NLM v1 failed");
 
+        if (pmap_unset (ACL_PROGRAM, ACLV3_VERSION))
+                gf_log ("", GF_LOG_INFO, "De-registered ACL v3 successfully");
+        else
+                gf_log ("", GF_LOG_ERROR, "De-registration of ACL v3 failed");
 }
 
 int
