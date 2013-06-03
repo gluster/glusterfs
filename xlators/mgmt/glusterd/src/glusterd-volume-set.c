@@ -1146,6 +1146,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = GLOBAL_DOC,
           .op_version  = 1
         },
+        { .key         = "nfs.acl",
+          .voltype     = "nfs/server",
+          .option      = "nfs.acl",
+          .type        = GLOBAL_DOC,
+          .op_version  = 2
+        },
         { .key         = "nfs.mount-udp",
           .voltype     = "nfs/server",
           .option      = "nfs.mount-udp",

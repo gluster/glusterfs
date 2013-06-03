@@ -86,6 +86,7 @@ struct nfs_state {
         unsigned int            override_portnum;
         int                     allow_insecure;
         int                     enable_nlm;
+        int                     enable_acl;
         int                     mount_udp;
         struct rpc_clnt         *rpc_clnt;
         gf_boolean_t            server_aux_gids;
