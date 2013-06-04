@@ -452,6 +452,9 @@ int glfs_fallocate(glfs_fd_t *fd, int keep_size, off_t offset, size_t len);
 
 int glfs_discard(glfs_fd_t *fd, off_t offset, size_t len);
 
+int glfs_discard_async (glfs_fd_t *fd, off_t length, size_t lent,
+			glfs_io_cbk fn, void *data);
+
 char *glfs_getcwd (glfs_t *fs, char *buf, size_t size);
 
 int glfs_chdir (glfs_t *fs, const char *path);

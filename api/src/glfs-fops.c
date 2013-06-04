@@ -592,6 +592,9 @@ glfs_io_async_task (void *data)
 		else
 			ret = glfs_fsync (gio->glfd);
 		break;
+	case GF_FOP_DISCARD:
+		ret = glfs_discard (gio->glfd, gio->offset, gio->count);
+		break;
 	}
 
 	return (int) ret;
@@ -1740,6 +1743,38 @@ glfs_seekdir (struct glfs_fd *fd, long offset)
 	/* could not find entry at requested offset in the cache.
 	   next readdir_r() will result in glfd_entry_refresh()
 	*/
+}
+
+int
+glfs_discard_async (struct glfs_fd *glfd, off_t offset, size_t len,
+		      glfs_io_cbk fn, void *data)
+{
+	struct glfs_io *gio = NULL;
+	int             ret = 0;
+
+	gio = GF_CALLOC (1, sizeof (*gio), glfs_mt_glfs_io_t);
+	if (!gio) {
+		errno = ENOMEM;
+		return -1;
+	}
+
+	gio->op     = GF_FOP_DISCARD;
+	gio->glfd   = glfd;
+	gio->offset = offset;
+	gio->count  = len;
+	gio->fn     = fn;
+	gio->data   = data;
+
+	ret = synctask_new (glfs_from_glfd (glfd)->ctx->env,
+			    glfs_io_async_task, glfs_io_async_cbk,
+			    NULL, gio);
+
+	if (ret) {
+		GF_FREE (gio->iov);
+		GF_FREE (gio);
+	}
+
+	return ret;
 }
 
 
