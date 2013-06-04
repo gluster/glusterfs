@@ -186,8 +186,10 @@ struct gf_sock_incoming {
 
 typedef enum {
         OT_IDLE,        /* Uninitialized or termination complete. */
-        OT_ALIVE,       /* Past pthread_create, no error/disconnect. */
-        OT_DYING,       /* Disconnect in progress. */
+        OT_SPAWNING,    /* Past pthread_create but not in thread yet. */
+        OT_RUNNING,     /* Poller thread running normally. */
+        OT_CALLBACK,    /* Poller thread in the middle of a callback. */
+        OT_PLEASE_DIE,  /* Poller termination requested. */
 } ot_state_t;
 
 typedef struct {
@@ -229,7 +231,8 @@ typedef struct {
 	int                    pipe[2];
 	gf_boolean_t           own_thread;
         ot_state_t             ot_state;
-        pthread_cond_t         ot_event;
+        uint32_t               ot_gen;
+        gf_boolean_t           is_server;
 } socket_private_t;
 
 
