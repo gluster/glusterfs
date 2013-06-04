@@ -1240,6 +1240,32 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .value       = "0",
           .op_version  = 2
         },
+        /* changelog translator - global tunables */
+        { .key         = "changelog.changelog",
+          .voltype     = "features/changelog",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "changelog.changelog-dir",
+          .voltype     = "features/changelog",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "changelog.encoding",
+          .voltype     = "features/changelog",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "changelog.rollover-time",
+          .voltype     = "features/changelog",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "changelog.fsync-interval",
+          .voltype     = "features/changelog",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
         { .key         = NULL
         }
 };

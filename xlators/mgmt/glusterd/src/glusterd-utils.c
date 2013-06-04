@@ -11,7 +11,6 @@
 #define _CONFIG_H
 #include "config.h"
 #endif
-#include <openssl/md5.h>
 #include <inttypes.h>
 
 #include "globals.h"
@@ -88,16 +87,6 @@ gd_peer_uuid_str (glusterd_peerinfo_t *peerinfo)
         return peerinfo->uuid_str;
 }
 
-static void
-md5_wrapper(const unsigned char *data, size_t len, char *md5)
-{
-        unsigned short i = 0;
-        unsigned short lim = MD5_DIGEST_LENGTH*2+1;
-        unsigned char scratch[MD5_DIGEST_LENGTH] = {0,};
-        MD5(data, len, scratch);
-        for (; i < MD5_DIGEST_LENGTH; i++)
-                snprintf(md5 + i * 2, lim-i*2, "%02x", scratch[i]);
-}
 
 int32_t
 glusterd_get_lock_owner (uuid_t *uuid)

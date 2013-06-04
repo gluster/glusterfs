@@ -1,7 +1,7 @@
 EXTRA_DIST = autogen.sh \
 	COPYING-GPLV2 COPYING-LGPLV3 \
 	INSTALL README AUTHORS THANKS NEWS \
-	glusterfs.spec glusterfs-api.pc.in \
+	glusterfs.spec glusterfs-api.pc.in libgfchangelog.pc.in \
 	error-codes.json gf-error-codes.h.template \
 	gen-headers.py
 
@@ -9,7 +9,7 @@ SUBDIRS = argp-standalone libglusterfs rpc api xlators glusterfsd \
 	$(FUSERMOUNT_SUBDIR) doc extras cli
 
 pkgconfigdir = @pkgconfigdir@
-pkgconfig_DATA = glusterfs-api.pc
+pkgconfig_DATA = glusterfs-api.pc libgfchangelog.pc
 
 CLEANFILES =
 

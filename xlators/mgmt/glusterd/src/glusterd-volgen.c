@@ -1422,6 +1422,7 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char     *vgname                  = NULL;
         char     *vg                      = NULL;
         glusterd_brickinfo_t *brickinfo   = NULL;
+        char changelog_basepath[PATH_MAX] = {0,};
 
         brickinfo = param;
         path      = brickinfo->path;
@@ -1481,6 +1482,25 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 if (ret)
                         return -1;
         }
+
+        xl = volgen_graph_add (graph, "features/changelog", volname);
+        if (!xl)
+                return -1;
+
+        ret = xlator_set_option (xl, "changelog-brick", path);
+        if (ret)
+                return -1;
+
+        snprintf (changelog_basepath, sizeof (changelog_basepath),
+                  "%s/%s", path, ".glusterfs/changelogs");
+        ret = xlator_set_option (xl, "changelog-dir", changelog_basepath);
+        if (ret)
+                return -1;
+
+        ret = check_and_add_debug_xl (graph, set_dict, volname, "changelog");
+        if (ret)
+                return -1;
+
         xl = volgen_graph_add (graph, "features/access-control", volname);
         if (!xl)
                 return -1;

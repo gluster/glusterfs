@@ -95,6 +95,10 @@ AC_CONFIG_FILES([Makefile
                 xlators/protocol/server/Makefile
                 xlators/protocol/server/src/Makefile
                 xlators/features/Makefile
+		xlators/features/changelog/Makefile
+		xlators/features/changelog/src/Makefile
+		xlators/features/changelog/lib/Makefile
+		xlators/features/changelog/lib/src/Makefile
                 xlators/features/glupy/Makefile
                 xlators/features/glupy/src/Makefile
                 xlators/features/locks/Makefile
@@ -151,6 +155,7 @@ AC_CONFIG_FILES([Makefile
                 contrib/fuse-util/Makefile
                 contrib/uuid/uuid_types.h
                 glusterfs-api.pc
+                libgfchangelog.pc
                 api/Makefile
                 api/src/Makefile
                 glusterfs.spec])
