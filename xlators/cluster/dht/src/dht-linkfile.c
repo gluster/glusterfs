@@ -30,12 +30,12 @@ dht_linkfile_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t  *local         = NULL;
         call_frame_t *prev          = NULL;
 
-        if (!op_ret)
-                goto out;
-
         local = frame->local;
         prev = cookie;
         conf = this->private;
+
+        if (op_ret)
+                goto out;
 
         is_linkfile = check_is_linkfile (inode, stbuf, xattr,
                                          conf->link_xattr_name);
