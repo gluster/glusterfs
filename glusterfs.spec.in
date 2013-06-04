@@ -622,6 +622,7 @@ fi
 
 %files api-devel
 %{_libdir}/pkgconfig/glusterfs-api.pc
+%{_libdir}/pkgconfig/libgfchangelog.pc
 %{_libdir}/libgfapi.so
 %{_includedir}/glusterfs/api/*
 

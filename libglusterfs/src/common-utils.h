@@ -23,6 +23,7 @@
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
+#include <openssl/md5.h>
 #ifndef GF_BSD_HOST_OS
 #include <alloca.h>
 #endif
@@ -584,5 +585,6 @@ gf_boolean_t gf_ports_reserved (char *blocked_port, gf_boolean_t *ports);
 int gf_get_hostname_from_ip (char *client_ip, char **hostname);
 gf_boolean_t gf_is_local_addr (char *hostname);
 gf_boolean_t gf_is_same_address (char *host1, char *host2);
+void md5_wrapper(const unsigned char *data, size_t len, char *md5);
 
 #endif /* _COMMON_UTILS_H */
