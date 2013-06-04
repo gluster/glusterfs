@@ -799,6 +799,8 @@ dht_migration_complete_check_task (void *data)
         local->cached_subvol = dst_node;
         ret = 0;
 
+        if (!local->fd)
+                goto out;
         /* once we detect the migration complete, the fd-ctx is no more
            required.. delete the ctx, and do one extra 'fd_unref' for open fd */
         ret = fd_ctx_del (local->fd, this, NULL);
