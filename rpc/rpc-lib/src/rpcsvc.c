@@ -2116,6 +2116,9 @@ rpcsvc_auth_check (dict_t *options, char *volname,
         char   *hostname                       = NULL;
         char   *ip                             = NULL;
         char    client_ip[RPCSVC_PEER_STRLEN]  = {0};
+        char   *allow_str                      = NULL;
+        char   *reject_str                     = NULL;
+        char   *srchstr                        = NULL;
 
         if (!options || !volname || !trans)
                 return ret;
@@ -2127,12 +2130,52 @@ rpcsvc_auth_check (dict_t *options, char *volname,
                 return RPCSVC_AUTH_REJECT;
         }
 
-        get_host_name (client_ip, &ip);
+        /* Accept if its the default case: Allow all, Reject none
+         * The default volfile always contains a 'allow *' rule
+         * for each volume. If allow rule is missing (which implies
+         * there is some bad volfile generating code doing this), we
+         * assume no one is allowed mounts, and thus, we reject mounts.
+         */
+        ret = gf_asprintf (&srchstr, "rpc-auth.addr.%s.allow", volname);
+        if (ret == -1) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "asprintf failed");
+                return RPCSVC_AUTH_REJECT;
+        }
+
+        ret = dict_get_str (options, srchstr, &allow_str);
+        GF_FREE (srchstr);
+        if (ret < 0)
+                return RPCSVC_AUTH_REJECT;
+
+        ret = gf_asprintf (&srchstr, "rpc-auth.addr.%s.reject", volname);
+        if (ret == -1) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "asprintf failed");
+                return RPCSVC_AUTH_REJECT;
+        }
+
+        ret = dict_get_str (options, srchstr, &reject_str);
+        GF_FREE (srchstr);
+        if (reject_str == NULL && !strcmp ("*", allow_str))
+                return RPCSVC_AUTH_ACCEPT;
+
+        /* Non-default rule, authenticate */
+        if (!get_host_name (client_ip, &ip))
+                ip = client_ip;
 
         /* addr-namelookup disabled by default */
         ret = dict_get_str_boolean (options, "rpc-auth.addr.namelookup", 0);
-        if (ret == _gf_true)
-                gf_get_hostname_from_ip (ip, &hostname);
+        if (ret == _gf_true) {
+                ret = gf_get_hostname_from_ip (ip, &hostname);
+                if (ret) {
+                        if (hostname)
+                                GF_FREE (hostname);
+                        /* failed to get hostname, but hostname auth
+                         * is enabled, so authentication will not be
+                         * 100% correct. reject mounts
+                         */
+                        return RPCSVC_AUTH_REJECT;
+                }
+        }
 
         accept = rpcsvc_transport_peer_check_allow (options, volname,
                                                     ip, hostname);
@@ -2140,6 +2183,8 @@ rpcsvc_auth_check (dict_t *options, char *volname,
         reject = rpcsvc_transport_peer_check_reject (options, volname,
                                                      ip, hostname);
 
+        if (hostname)
+                GF_FREE (hostname);
         return rpcsvc_combine_allow_reject_volume_check (accept, reject);
 }
 
