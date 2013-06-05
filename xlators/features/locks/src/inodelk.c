@@ -683,29 +683,50 @@ pl_finodelk (call_frame_t *frame, xlator_t *this,
 
 }
 
+static inline int32_t
+__get_inodelk_dom_count (pl_dom_list_t *dom)
+{
+        pl_inode_lock_t     *lock   = NULL;
+        int32_t             count   = 0;
 
+        list_for_each_entry (lock, &dom->inodelk_list, list) {
+                count++;
+        }
+        list_for_each_entry (lock, &dom->blocked_inodelks, blocked_locks) {
+                count++;
+        }
+        return count;
+}
+
+/* Returns the no. of locks (blocked/granted) held on a given domain name
+ * If @domname is NULL, returns the no. of locks in all the domains present.
+ * If @domname is non-NULL and non-existent, returns 0 */
 int32_t
-__get_inodelk_count (xlator_t *this, pl_inode_t *pl_inode)
+__get_inodelk_count (xlator_t *this, pl_inode_t *pl_inode, char *domname)
 {
         int32_t            count  = 0;
-        pl_inode_lock_t   *lock   = NULL;
         pl_dom_list_t     *dom    = NULL;
 
         list_for_each_entry (dom, &pl_inode->dom_list, inode_list) {
-                list_for_each_entry (lock, &dom->inodelk_list, list) {
-                        count++;
-                }
-                list_for_each_entry (lock, &dom->blocked_inodelks, blocked_locks) {
-                        count++;
-                }
+                if (domname) {
+                        if (strcmp (domname, dom->domain) == 0) {
+                                count = __get_inodelk_dom_count (dom);
+                                goto out;
+                        }
 
+                } else {
+                    /* Counting locks from all domains */
+                        count += __get_inodelk_dom_count (dom);
+
+                }
         }
 
+out:
         return count;
 }
 
 int32_t
-get_inodelk_count (xlator_t *this, inode_t *inode)
+get_inodelk_count (xlator_t *this, inode_t *inode, char *domname)
 {
         pl_inode_t   *pl_inode = NULL;
         uint64_t      tmp_pl_inode = 0;
@@ -721,7 +742,7 @@ get_inodelk_count (xlator_t *this, inode_t *inode)
 
         pthread_mutex_lock (&pl_inode->mutex);
         {
-                count = __get_inodelk_count (this, pl_inode);
+                count = __get_inodelk_count (this, pl_inode, domname);
         }
         pthread_mutex_unlock (&pl_inode->mutex);
 

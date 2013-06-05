@@ -1946,19 +1946,34 @@ pl_entrylk_xattr_fill (xlator_t *this, inode_t *inode,
 }
 
 void
-pl_inodelk_xattr_fill (xlator_t *this, inode_t *inode,
-                       dict_t *dict)
+pl_inodelk_xattr_fill (xlator_t *this, inode_t *inode, dict_t *dict,
+                       gf_boolean_t per_dom)
 {
         int32_t     count = 0;
         int         ret   = -1;
+        char        *domname = NULL;
 
-        count = get_inodelk_count (this, inode);
-        ret = dict_set_int32 (dict, GLUSTERFS_INODELK_COUNT, count);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        " dict_set failed on key %s", GLUSTERFS_INODELK_COUNT);
+
+        if (per_dom){
+                ret = dict_get_str (dict, GLUSTERFS_INODELK_DOM_COUNT,
+                                    &domname);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                                "value for key %s",GLUSTERFS_INODELK_DOM_COUNT);
+                        goto out;
+                }
         }
 
+        count = get_inodelk_count (this, inode, domname);
+
+        ret = dict_set_int32 (dict, GLUSTERFS_INODELK_COUNT, count);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG, "Failed to set count for "
+                        "key %s", GLUSTERFS_INODELK_COUNT);
+        }
+
+out:
+        return;
 }
 
 void
@@ -2003,7 +2018,9 @@ pl_lookup_cbk (call_frame_t *frame,
         if (local->entrylk_count_req)
                 pl_entrylk_xattr_fill (this, inode, xdata);
         if (local->inodelk_count_req)
-                pl_inodelk_xattr_fill (this, inode, xdata);
+                pl_inodelk_xattr_fill (this, inode, xdata, _gf_false);
+        if (local->inodelk_dom_count_req)
+                pl_inodelk_xattr_fill (this, inode, xdata, _gf_true);
         if (local->posixlk_count_req)
                 pl_posixlk_xattr_fill (this, inode, xdata);
 
@@ -2050,6 +2067,8 @@ pl_lookup (call_frame_t *frame,
                         local->entrylk_count_req = 1;
                 if (dict_get (xdata, GLUSTERFS_INODELK_COUNT))
                         local->inodelk_count_req = 1;
+                if (dict_get (xdata, GLUSTERFS_INODELK_DOM_COUNT))
+                        local->inodelk_dom_count_req = 1;
                 if (dict_get (xdata, GLUSTERFS_POSIXLK_COUNT))
                         local->posixlk_count_req = 1;
                 if (dict_get (xdata, GLUSTERFS_PARENT_ENTRYLK))
@@ -2088,7 +2107,11 @@ pl_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (local->entrylk_count_req)
                         pl_entrylk_xattr_fill (this, entry->inode, entry->dict);
                 if (local->inodelk_count_req)
-                        pl_inodelk_xattr_fill (this, entry->inode, entry->dict);
+                        pl_inodelk_xattr_fill (this, entry->inode, entry->dict,
+                                               _gf_false);
+                if (local->inodelk_dom_count_req)
+                        pl_inodelk_xattr_fill (this, entry->inode, entry->dict,
+                                               _gf_true);
                 if (local->posixlk_count_req)
                         pl_posixlk_xattr_fill (this, entry->inode, entry->dict);
         }
@@ -2117,6 +2140,8 @@ pl_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                         local->entrylk_count_req = 1;
                 if (dict_get (dict, GLUSTERFS_INODELK_COUNT))
                         local->inodelk_count_req = 1;
+                if (dict_get (dict, GLUSTERFS_INODELK_DOM_COUNT))
+                        local->inodelk_dom_count_req = 1;
                 if (dict_get (dict, GLUSTERFS_POSIXLK_COUNT))
                         local->posixlk_count_req = 1;
         }
@@ -2433,7 +2458,7 @@ unlock:
                         __dump_entrylks (pl_inode);
                 }
 
-                count = __get_inodelk_count (this, pl_inode);
+                count = __get_inodelk_count (this, pl_inode, NULL);
                 if (count) {
                         gf_proc_dump_write("inodelk-count", "%d", count);
                         __dump_inodelks (pl_inode);

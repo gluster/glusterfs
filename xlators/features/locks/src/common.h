@@ -78,9 +78,9 @@ grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 void pl_update_refkeeper (xlator_t *this, inode_t *inode);
 
 int32_t
-__get_inodelk_count (xlator_t *this, pl_inode_t *pl_inode);
+__get_inodelk_count (xlator_t *this, pl_inode_t *pl_inode, char *domname);
 int32_t
-get_inodelk_count (xlator_t *this, inode_t *inode);
+get_inodelk_count (xlator_t *this, inode_t *inode, char *domname);
 
 int32_t
 __get_entrylk_count (xlator_t *this, pl_inode_t *pl_inode);
