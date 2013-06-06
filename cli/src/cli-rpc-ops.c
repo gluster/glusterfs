@@ -993,6 +993,88 @@ out:
 }
 
 int
+gf_cli3_1_uuid_get_cbk (struct rpc_req *req, struct iovec *iov,
+                        int count, void *myframe)
+{
+        char                    *uuid_str = NULL;
+        gf_cli_rsp              rsp   = {0,};
+        int                     ret   = -1;
+        cli_local_t             *local = NULL;
+        call_frame_t            *frame = NULL;
+        dict_t                  *dict = NULL;
+
+        if (-1 == req->rpc_status)
+                goto out;
+
+        frame = myframe;
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
+        if (ret < 0) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
+                goto out;
+        }
+
+        local = frame->local;
+        frame->local = NULL;
+
+        gf_log ("cli", GF_LOG_INFO, "Received resp to uuid get");
+
+        dict = dict_new ();
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len,
+                                &dict);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to unserialize "
+                        "response for uuid get");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "uuid", &uuid_str);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get uuid "
+                        "from dictionary");
+                goto out;
+        }
+
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_dict ("uuidGenerate", dict, rsp.op_ret,
+                                           rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+
+        if (rsp.op_ret) {
+                if (strcmp (rsp.op_errstr, "") == 0)
+                        cli_err ("Get uuid was unsuccessful");
+                else
+                        cli_err ("%s", rsp.op_errstr);
+
+        } else {
+                cli_out ("UUID: %s", uuid_str);
+
+        }
+        ret = rsp.op_ret;
+
+out:
+        cli_cmd_broadcast_response (ret);
+        cli_local_wipe (local);
+        if (rsp.dict.dict_val)
+                free (rsp.dict.dict_val);
+        if (dict)
+                dict_unref (dict);
+
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        return ret;
+}
+
+int
 gf_cli3_1_uuid_reset_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
@@ -2886,6 +2968,29 @@ out:
 
         GF_FREE (req.dict.dict_val);
 
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
+gf_cli3_1_uuid_get (call_frame_t *frame, xlator_t *this,
+                      void *data)
+{
+        gf_cli_req                      req = {{0,}};
+        int                             ret = 0;
+        dict_t                          *dict = NULL;
+
+        if (!frame || !this || !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+        ret = cli_to_glusterd (&req, frame, gf_cli3_1_uuid_get_cbk,
+                               (xdrproc_t)xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_UUID_GET, this, cli_rpc_prog,
+                               NULL);
+out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -6762,6 +6867,7 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_DEPROBE]          = {"DEPROBE_QUERY", gf_cli_deprobe},
         [GLUSTER_CLI_LIST_FRIENDS]     = {"LIST_FRIENDS", gf_cli_list_friends},
         [GLUSTER_CLI_UUID_RESET]       = {"UUID_RESET", gf_cli3_1_uuid_reset},
+        [GLUSTER_CLI_UUID_GET]       = {"UUID_GET", gf_cli3_1_uuid_get},
         [GLUSTER_CLI_CREATE_VOLUME]    = {"CREATE_VOLUME", gf_cli_create_volume},
         [GLUSTER_CLI_DELETE_VOLUME]    = {"DELETE_VOLUME", gf_cli_delete_volume},
         [GLUSTER_CLI_START_VOLUME]     = {"START_VOLUME", gf_cli_start_volume},
