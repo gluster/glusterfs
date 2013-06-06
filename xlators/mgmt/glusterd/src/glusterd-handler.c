@@ -1228,6 +1228,104 @@ glusterd_handle_cli_uuid_reset (rpcsvc_request_t *req)
 }
 
 int
+__glusterd_handle_cli_uuid_get (rpcsvc_request_t *req)
+{
+        int                     ret         = -1;
+        dict_t                  *dict       = NULL;
+        dict_t                  *rsp_dict   = NULL;
+        xlator_t                *this       = NULL;
+        glusterd_conf_t         *priv       = NULL;
+        gf_cli_rsp              rsp         = {0,};
+        gf_cli_req              cli_req     = {{0,}};
+        char                    msg_str[2048] = {0,};
+        char                    uuid_str[64] = {0,};
+
+        GF_ASSERT (req);
+
+        this = THIS;
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
+        if (ret < 0) {
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        gf_log ("glusterd", GF_LOG_DEBUG, "Received uuid get req");
+
+        if (cli_req.dict.dict_len) {
+                dict  = dict_new ();
+                if (!dict) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        snprintf (msg_str, sizeof (msg_str), "Unable to decode "
+                                  "the buffer");
+                        goto out;
+
+                } else {
+                        dict->extra_stdfree = cli_req.dict.dict_val;
+
+                }
+        }
+
+        rsp_dict = dict_new ();
+        if (!rsp_dict) {
+                ret = -1;
+                goto out;
+        }
+
+        uuid_utoa_r (MY_UUID, uuid_str);
+        ret = dict_set_str (rsp_dict, "uuid", uuid_str);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set uuid in "
+                        "dictionary.");
+                goto out;
+        }
+
+        ret = dict_allocate_and_serialize (rsp_dict, &rsp.dict.dict_val,
+                                           &rsp.dict.dict_len);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to serialize "
+                        "dictionary.");
+                goto out;
+        }
+        ret = 0;
+out:
+        if (ret) {
+                rsp.op_ret = -1;
+                if (msg_str[0] == '\0')
+                        snprintf (msg_str, sizeof (msg_str), "Operation "
+                                  "failed");
+                rsp.op_errstr = msg_str;
+
+        } else {
+                rsp.op_errstr = "";
+
+        }
+
+        glusterd_to_cli (req, &rsp, NULL, 0, NULL,
+                         (xdrproc_t)xdr_gf_cli_rsp, dict);
+
+        return 0;
+}
+int
+glusterd_handle_cli_uuid_get (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_cli_uuid_get);
+}
+
+int
 __glusterd_handle_cli_list_volume (rpcsvc_request_t *req)
 {
         int                     ret = -1;
@@ -3544,6 +3642,7 @@ rpcsvc_actor_t gd_svc_cli_actors[] = {
         [GLUSTER_CLI_DEPROBE]       = { "FRIEND_REMOVE", GLUSTER_CLI_DEPROBE, glusterd_handle_cli_deprobe, NULL, 0},
         [GLUSTER_CLI_LIST_FRIENDS]  = { "LIST_FRIENDS", GLUSTER_CLI_LIST_FRIENDS, glusterd_handle_cli_list_friends, NULL, 0},
         [GLUSTER_CLI_UUID_RESET]    = { "UUID_RESET", GLUSTER_CLI_UUID_RESET, glusterd_handle_cli_uuid_reset, NULL, 0},
+        [GLUSTER_CLI_UUID_GET]    = { "UUID_GET", GLUSTER_CLI_UUID_GET, glusterd_handle_cli_uuid_get, NULL, 0},
         [GLUSTER_CLI_START_VOLUME]  = { "START_VOLUME", GLUSTER_CLI_START_VOLUME, glusterd_handle_cli_start_volume, NULL, 0},
         [GLUSTER_CLI_STOP_VOLUME]   = { "STOP_VOLUME", GLUSTER_CLI_STOP_VOLUME, glusterd_handle_cli_stop_volume, NULL, 0},
         [GLUSTER_CLI_DELETE_VOLUME] = { "DELETE_VOLUME", GLUSTER_CLI_DELETE_VOLUME, glusterd_handle_cli_delete_volume, NULL, 0},
