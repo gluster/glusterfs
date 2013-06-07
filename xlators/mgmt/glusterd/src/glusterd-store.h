@@ -74,6 +74,7 @@ typedef enum glusterd_store_ver_ac_{
                 if (dir) {\
                         entry = readdir (dir);\
                         while (entry && (!strcmp (entry->d_name, ".") ||\
+                            !fnmatch ("*.tmp", entry->d_name, 0) ||\
                             !strcmp (entry->d_name, ".."))) {\
                                 entry = readdir (dir);\
                         }\
