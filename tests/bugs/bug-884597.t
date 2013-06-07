@@ -149,3 +149,4 @@ BACKEND_UID=`stat --printf=%u $B0/${V0}$cached/user_file$i`;
 BACKEND_GID=`stat --printf=%g $B0/${V0}$cached/user_file$i`;
 
 EXPECT "0" uid_gid_compare $NEW_UID $NEW_GID $BACKEND_UID $BACKEND_GID
+cleanup;
