@@ -1,5 +1,10 @@
 
+%global _hardened_build 1
+
 %global _for_fedora_koji_builds 0
+
+# uncomment and add '%' to use the prereltag for pre-releases
+# global prereltag beta2
 
 # if you wish to compile an rpm without rdma support, compile like this...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without rdma
@@ -14,9 +19,9 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without epoll
 %{?_without_epoll:%global _without_epoll --disable-epoll}
 
-# if you wish to compile an rpm with fusermount...
-# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with fusermount
-%{?_with_fusermount:%global _with_fusermount --enable-fusermount}
+# if you wish to compile an rpm without fusermount...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without fusermount
+%{?_without_fusermount:%global _without_fusermount --disable-fusermount}
 
 # if you wish to compile an rpm without geo-replication support, compile like this...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without georeplication
@@ -26,66 +31,45 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without ocf
 %{?_without_ocf:%global _without_ocf --without-ocf}
 
-# if you wish to build rpms without UFO, compile like this
-# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@tar.gz --without ufo
-%{?_without_ufo:%global _without_ufo true}
-
-%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
-%global           SWIFTVER 1.8.0
-%if 0%{_for_fedora_koji_builds}
-%global           UFOVER 1.1
-%else
-%global           UFOVER @PACKAGE_VERSION@
-%endif
-%if ! 0%{?_without_ufo:1}
-%global           _with_ufo true
-%endif
-%endif
-
 %if ( 0%{?fedora} && 0%{?fedora} > 16 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
 %global           _with_systemd true
 %endif
 
 Summary:          Cluster File System
-%if 0%{_for_fedora_koji_builds}
+%if ( 0%{_for_fedora_koji_builds} )
 Name:             glusterfs
-Version:          3.3.1
-Release:          10%{?dist}
+Version:          3.4.0
+Release:          0.5%{?prereltag:.%{prereltag}}%{?dist}
+Vendor:           Fedora Project
 %else
 Name:             @PACKAGE_NAME@
 Version:          @PACKAGE_VERSION@
 Release:          1%{?dist}
+Vendor:           glusterfs.org
 %endif
-License:          GPLv3+ and (GPLv2 or LGPLv3+)
+License:          GPLv2 or LGPLv3+
 Group:            System Environment/Base
-%if 0%{_for_fedora_koji_builds}
-Vendor:           Red Hat
-%endif
-URL:              http://www.gluster.org//docs/index.php/GlusterFS
-%if 0%{_for_fedora_koji_builds}
-Source0:          http://bits.gluster.com/pub/gluster/glusterfs/src/glusterfs-%{version}.tar.gz
-%else
-Source0:          @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz
-%endif
+URL:              http://www.gluster.org/docs/index.php/GlusterFS
+%if ( 0%{_for_fedora_koji_builds} )
+Source0:          http://download.gluster.org/pub/gluster/glusterfs/qa-releases/%{PACKAGE_VERSION}%{?prereltag}/glusterfs-%{version}%{?prereltag}.tar.gz
 Source1:          glusterd.sysconfig
 Source2:          glusterfsd.sysconfig
 Source3:          umount.glusterfs
 Source4:          glusterfs-fuse.logrotate
 Source5:          glusterd.logrotate
 Source6:          glusterfsd.logrotate
+Source7:          rhel5-load-fuse-modules
+Source11:         glusterfsd.service
+Source13:         glusterfsd.init
 Patch0:           %{name}-3.2.5.configure.ac.patch
 Patch1:           %{name}-3.3.0.libglusterfs.Makefile.patch
+%else
+Source0:          @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz
+%endif
 
 BuildRoot:        %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
-Source10:         glusterd.service
-Source11:         glusterfsd.service
-Source12:         glusterd.init
-Source13:         glusterfsd.init
-
-%if 0%{?_with_systemd:1}
-%global glusterd_service %{S:%{SOURCE10}}
-%global glusterfsd_service %{S:%{SOURCE11}}
+%if ( 0%{?_with_systemd:1} )
 BuildRequires:    systemd-units
 Requires(post):   systemd-units
 Requires(preun):  systemd-units
@@ -94,19 +78,10 @@ Requires(postun): systemd-units
 %define _init_disable() /bin/systemctl disable %1.service ;
 %define _init_restart() /bin/systemctl try-restart %1.service ;
 %define _init_stop()    /bin/systemctl stop %1.service ;
-%define _init_install() %{__install} -D -p -m 0644 %1 %{buildroot}%{_unitdir}/%2.service ;
 # can't seem to make a generic macro that works
 %define _init_glusterd   %{_unitdir}/glusterd.service
 %define _init_glusterfsd %{_unitdir}/glusterfsd.service
-%define _init_gluster_swift_account   %{_unitdir}/gluster-swift-account.service
-%define _init_gluster_swift_container %{_unitdir}/gluster-swift-container.service
-%define _init_gluster_swift_object    %{_unitdir}/gluster-swift-object.service
-%define _init_gluster_swift_proxy     %{_unitdir}/gluster-swift-proxy.service
 %else
-%if 0%{_for_fedora_koji_builds}
-%global glusterd_service %{S:%{SOURCE12}}
-%global glusterfsd_service %{S:%{SOURCE13}}
-%endif
 Requires(post):   /sbin/chkconfig
 Requires(preun):  /sbin/service
 Requires(preun):  /sbin/chkconfig
@@ -115,14 +90,9 @@ Requires(postun): /sbin/service
 %define _init_disable() /sbin/chkconfig --del %1 ;
 %define _init_restart() /sbin/service %1 condrestart &>/dev/null ;
 %define _init_stop()    /sbin/service %1 stop &>/dev/null ;
-%define _init_install() %{__install} -D -p -m 0755 %1 %{buildroot}%{_sysconfdir}/init.d/%2 ;
 # can't seem to make a generic macro that works
 %define _init_glusterd   %{_sysconfdir}/init.d/glusterd
 %define _init_glusterfsd %{_sysconfdir}/init.d/glusterfsd
-%define _init_gluster_swift_account   %{_sysconfdir}/init.d/gluster-swift-account
-%define _init_gluster_swift_container %{_sysconfdir}/init.d/gluster-swift-container
-%define _init_gluster_swift_object    %{_sysconfdir}/init.d/gluster-swift-object
-%define _init_gluster_swift_proxy     %{_sysconfdir}/init.d/gluster-swift-proxy
 %endif
 
 BuildRequires:    bison flex
@@ -130,11 +100,11 @@ BuildRequires:    gcc make automake libtool
 BuildRequires:    ncurses-devel readline-devel
 BuildRequires:    libxml2-devel openssl-devel
 BuildRequires:    libaio-devel
-#BuildRequires:    systemtap-sdt-devel lvm2-devel # glusterfs-3.4.x
-%if 0%{?suse_version}
+BuildRequires:    systemtap-sdt-devel
 BuildRequires:    python-devel
-%else
 BuildRequires:    python-ctypes
+%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
+BuildRequires:    lvm2-devel
 %endif
 
 Obsoletes:        hekafs <= 0.7
@@ -145,6 +115,20 @@ Provides:         %{name}-libs = %{version}-%{release}
 Provides:         %{name}-common = %{version}-%{release}
 Provides:         %{name}-core = %{version}-%{release}
 
+# We do not want to generate useless provides and requires for xlator .so files
+# Filter all generated:
+#
+# TODO: RHEL5 does not have a convenient solution
+%if ( 0%{?rhel} == 6 )
+    # filter_setup exists in RHEL6 only
+    %filter_provides_in %{_libdir}/glusterfs/%{version}/
+    %global __filter_from_req %{?__filter_from_req} | %{__grep} -v -P '^(?!lib).*\.so.*$'
+    %filter_setup
+%else
+    # modern rpm and current Fedora do not generate requires when the
+    # provides are filtered
+    %global __provides_exclude_from ^%{_libdir}/glusterfs/%{version}/.*$
+%endif
 
 %description
 GlusterFS is a clustered file-system capable of scaling to several
@@ -159,7 +143,7 @@ This package includes the glusterfs binary, the glusterfsd daemon and the
 gluster command line, libglusterfs and glusterfs translator modules common to
 both GlusterFS server and client framework.
 
-%if 0%{!?_without_rdma:1}
+%if ( 0%{!?_without_rdma:1} )
 %package rdma
 Summary:          GlusterFS rdma support for ib-verbs
 Group:            Applications/File
@@ -179,7 +163,7 @@ is in user space and easily manageable.
 This package provides support to ib-verbs library.
 %endif
 
-%if 0%{!?_without_georeplication:1}
+%if ( 0%{!?_without_georeplication:1} )
 %package geo-replication
 Summary:          GlusterFS Geo-replication
 Group:            Applications/File
@@ -225,7 +209,11 @@ License:          GPLv3+
 Group:            System Environment/Daemons
 Requires:         %{name} = %{version}-%{release}
 Requires:         %{name}-fuse = %{version}-%{release}
+%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
 Requires:         rpcbind
+%else
+Requires:         portmap
+%endif
 
 %description server
 GlusterFS is a clustered file-system capable of scaling to several
@@ -238,15 +226,33 @@ is in user space and easily manageable.
 
 This package provides the glusterfs server daemon.
 
-%if 0%{!?_without_ocf:1}
+%package api
+Summary:          Clustered file-system api library
+License:          GPLv2 or LGPLv3+
+Group:            System Environment/Daemons
+Requires:         %{name} = %{version}-%{release}
+
+%description api
+GlusterFS is a clustered file-system capable of scaling to several
+petabytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file systems in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in user space and easily manageable.
+
+This package provides the glusterfs libgfapi library
+
+%if ( 0%{!?_without_ocf:1} )
 %package resource-agents
 Summary:          OCF Resource Agents for GlusterFS
 License:          GPLv3+
-%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
+%if ( ! ( 0%{?rhel} && 0%{?rhel} < 6 ) )
+# EL5 does not support noarch sub-packages
 BuildArch:        noarch
 %endif
 # this Group handling comes from the Fedora resource-agents package
-%if 0%{?fedora} || 0%{?centos_version} || 0%{?rhel}
+%if ( 0%{?fedora} || 0%{?centos_version} || 0%{?rhel} )
 Group:            System Environment/Base
 %else
 Group:            Productivity/Clustering/HA
@@ -287,291 +293,40 @@ is in user space and easily manageable.
 
 This package provides the development libraries.
 
-%if 0%{?_with_ufo:1}
-%if ( 0%{?fedora} && 0%{?fedora} < 19 ) || ( 0%{?rhel} && 0%{?rhel} < 7 )
-%package swift
 
-Summary:          GlusterFS OpenStack Object Storage
-Group:            Applications/System
-License:          ASL 2.0
-BuildArch:        noarch
-
-%if 0%{_for_fedora_koji_builds}
-Source20:         http://launchpad.net/swift/folsom/%{SWIFTVER}/+download/swift-%{SWIFTVER}.tar.gz
-%else
-Source20:         swift-%{SWIFTVER}.tar.gz
-%endif
-
-Source30:         gluster-swift-account.service
-Source31:         gluster-swift-container.service
-Source32:         gluster-swift-object.service
-Source33:         gluster-swift-proxy.service
-Source34:         gluster-swift-account@.service
-Source35:         gluster-swift-container@.service
-Source36:         gluster-swift-object@.service
-Source37:         gluster-swift.tmpfs
-Source40:         gluster-swift-account.init
-Source41:         gluster-swift-container.init
-Source42:         gluster-swift-object.init
-Source43:         gluster-swift-proxy.init
-Source44:         gluster-swift-functions
-# these first appeared in openstack-swift-1.7.4-2.fc19
-Source50:         gluster-swift-account-replicator.service
-Source51:         gluster-swift-account-replicator@.service
-Source52:         gluster-swift-account-auditor.service
-Source53:         gluster-swift-account-auditor@.service
-Source54:         gluster-swift-account-reaper.service
-Source55:         gluster-swift-account-reaper@.service
-Source56:         gluster-swift-container-replicator.service
-Source57:         gluster-swift-container-replicator@.service
-Source58:         gluster-swift-container-auditor.service
-Source59:         gluster-swift-container-auditor@.service
-Source60:         gluster-swift-container-updater.service
-Source61:         gluster-swift-container-updater@.service
-Source62:         gluster-swift-object-replicator.service
-Source63:         gluster-swift-object-replicator@.service
-Source64:         gluster-swift-object-auditor.service
-Source65:         gluster-swift-object-auditor@.service
-Source66:         gluster-swift-object-updater.service
-Source67:         gluster-swift-object-updater@.service
-Source68:         gluster-swift-object-expirer.service
-Source69:         gluster-swift-object-expirer@.service
-# these first appeared in openstack-swift-1.7.4-1.fc18 and -1.7.4-2.el6
-Source70:         account-server.conf
-Source71:         container-server.conf
-Source72:         object-server.conf
-Source73:         proxy-server.conf
-Source74:         swift.conf
-Source75:         object-expirer.conf
-
-Patch20:          0001-Use-updated-parallel-install-versions-of-epel-packag.patch
-Patch21:          0002-Add-fixes-for-building-the-doc-package.patch
-Patch22:          glusterfs-3.3.1.swift.constraints.backport-1.7.4.patch
-Patch23:          glusterfs-3.4.0.swift.egginfo-grizzly.patch
-Patch24:          0002-Add-fixes-for-building-the-doc-package.patch.180
-#BuildRoot:        %(mktemp -ud %{_tmppath}/swift-%{SWIFTVER}-%{release}-XXXXXX)
-
-%if 0%{?_with_systemd:1}
-%global glusterswiftaccount_service %{S:%{SOURCE30}}
-%global glusterswiftcontainer_service %{S:%{SOURCE31}}
-%global glusterswiftobject_service %{S:%{SOURCE32}}
-%global glusterswiftproxy_service %{S:%{SOURCE33}}
-%else
-%global glusterswiftaccount_service %{S:%{SOURCE40}}
-%global glusterswiftcontainer_service %{S:%{SOURCE41}}
-%global glusterswiftobject_service %{S:%{SOURCE42}}
-%global glusterswiftproxy_service %{S:%{SOURCE43}}
-%endif
-
-BuildRequires:    python-devel
-BuildRequires:    python-setuptools
-BuildRequires:    python-netifaces
-%if ( 0%{?rhel} && 0%{?rhel} < 7 )
-BuildRequires:    python-webob1.0
-BuildRequires:    python-paste-deploy1.5
-Requires:         python-webob1.0
-Requires:         python-paste-deploy1.5
-%else
-BuildRequires:    python-webob
-BuildRequires:    python-paste-deploy
-Requires:         python-webob
-Requires:         python-paste-deploy
-%endif
+%package api-devel
+Summary:          Development Libraries
+License:          GPLv2 or LGPLv3+
+Group:            Development/Libraries
 Requires:         %{name} = %{version}-%{release}
-Requires:         python-configobj
-Requires:         python-eventlet >= 0.9.8
-Requires:         python-greenlet >= 0.3.1
-Requires:         python-simplejson
-Requires:         pyxattr
-Requires:         python-setuptools
-Requires:         python-netifaces
-%if "%{SWIFTVER}" != "1.7.4"
-Requires:         python-swiftclient
-%endif
 
-%if ( 0%{?fedora} && 0%{?fedora} < 19 ) || ( 0%{?rhel} && 0%{?rhel} < 7 )
-Conflicts:        openstack-swift
-%endif
+%description api-devel
+GlusterFS is a clustered file-system capable of scaling to several
+petabytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file systems in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in user space and easily manageable.
 
-%description swift
-
-OpenStack Object Storage (swift) aggregates commodity servers to work together
-in clusters for reliable, redundant, and large-scale storage of static objects.
-Objects are written to multiple hardware devices in the data center, with the
-OpenStack software responsible for ensuring data replication and integrity
-across the cluster. Storage clusters can scale horizontally by adding new nodes,
-which are automatically configured. Should a node fail, OpenStack works to
-replicate its content from other active nodes. Because OpenStack uses software
-logic to ensure data replication and distribution across different devices,
-inexpensive commodity hard drives and servers can be used in lieu of more
-expensive equipment.
-
-
-%package swift-account
-Summary:          A swift account server
-Group:            Applications/System
-License:          ASL 2.0
-BuildArch:        noarch
-Requires:         %{name}-swift = %{version}-%{release}
-
-%description swift-account
-OpenStack Object Storage (swift) aggregates commodity servers to work together
-in clusters for reliable, redundant, and large-scale storage of static objects.
-
-This package contains the %{name}-swift account server.
-
-
-%package swift-container
-Summary:          A swift container server
-Group:            Applications/System
-License:          ASL 2.0
-BuildArch:        noarch
-Requires:         %{name}-swift = %{version}-%{release}
-
-%description swift-container
-OpenStack Object Storage (swift) aggregates commodity servers to work together
-in clusters for reliable, redundant, and large-scale storage of static objects.
-
-This package contains the %{name}-swift container server.
-
-%package swift-object
-Summary:          A swift object server
-Group:            Applications/System
-License:          ASL 2.0
-BuildArch:        noarch
-Requires:         %{name}-swift = %{version}-%{release}
-Requires:         rsync >= 3.0
-
-%description swift-object
-OpenStack Object Storage (swift) aggregates commodity servers to work together
-in clusters for reliable, redundant, and large-scale storage of static objects.
-
-This package contains the %{name}-swift object server.
-
-%package swift-proxy
-Summary:          A swift proxy server
-Group:            Applications/System
-License:          ASL 2.0
-BuildArch:        noarch
-Requires:         %{name}-swift = %{version}-%{release}
-
-%description swift-proxy
-OpenStack Object Storage (swift) aggregates commodity servers to work together
-in clusters for reliable, redundant, and large-scale storage of static objects.
-
-This package contains the %{name}-swift proxy server.
-
-
-%package swift-doc
-Summary:          Documentation for %{name}
-Group:            Documentation
-BuildArch:        noarch
-# Required for generating docs
-BuildRequires:    python-eventlet
-BuildRequires:    python-simplejson
-%if ( 0%{?rhel} && 0%{?rhel} < 7 )
-BuildRequires:    python-webob1.0
-BuildRequires:    python-sphinx10
-%else
-BuildRequires:    python-webob
-BuildRequires:    python-sphinx
-%endif
-BuildRequires:    pyxattr
-
-%description swift-doc
-OpenStack Object Storage (swift) aggregates commodity servers to work together
-in clusters for reliable, redundant, and large-scale storage of static objects.
-
-This package contains documentation files for %{name}-swift.
-
-%endif
-
-%package ufo
-Summary:          GlusterFS Unified File and Object Storage.
-Group:            Applications/System
-License:          ASL 2.0
-BuildArch:        noarch
-%if ( 0%{?fedora} && 0%{?fedora} < 19 ) || ( 0%{?rhel} && 0%{?rhel} < 7 )
-Requires:         %{name}-swift = %{version}-%{release}
-%else
-Requires:         openstack-swift = %{SWIFTVER}
-%endif
-Requires:         memcached
-Requires:         openssl
-Requires:         python
-Obsoletes:        glusterfs-swift-plugin < 3.3.1-4
-Obsoletes:        glusterfs-swift-ufo <= 3.3.1-4
-
-%if 0%{_for_fedora_koji_builds}
-Source15:         http://download.gluster.org/pub/gluster/glusterfs/3.3/3.3.1/UFO/gluster-swift-ufo-%{UFOVER}.tar.gz
-%else
-Source15:         gluster-swift-ufo-@PACKAGE_VERSION@.tar.gz
-%endif
-Patch15:          %{name}-3.3.1.ufo.gluster.swift.common.DiskFile-1.7.4.patch
-
-%description ufo
-Gluster Unified File and Object Storage unifies NAS and object storage
-technology. This provides a system for data storage that enables users to access
-the same data as an object and as a file, simplifying management and controlling
-storage costs.
-
-%endif
+This package provides the api include files.
 
 %prep
-%setup -q -n %{name}-%{version}
-%if 0%{?_with_ufo:1}
-# unpack swift-1.x.y
-%setup -q -T -D -n %{name}-%{version} -a 20
-# unpack gluster ufo
-%setup -q -T -D -n %{name}-%{version} -a 15
-%if 0%{_for_fedora_koji_builds}
+%setup -q -n %{name}-%{version}%{?prereltag}
+%if ( 0%{_for_fedora_koji_builds} )
 #%patch0 -p0
-%patch1 -p0
-%endif
-cd swift-%{SWIFTVER}
-%if ( 0%{?rhel} && 0%{?rhel} < 7 )
-%patch20 -p1
-%if "%{SWIFTVER}" == "1.7.4"
-%patch21 -p1
-%else
-%patch24 -p1
-%endif
-%endif
-%if "%{SWIFTVER}" == "1.7.4"
-%patch22 -p1
-%else
-%patch23 -p1
-%endif
-%if 0%{_for_fedora_koji_builds}
-%if "%{UFOVER}" == "1.1"
-cd ../ufo
-%patch15 -p1
-%endif
-%endif
+%patch1 -p0 -F4
 %endif
 
 %build
 ./autogen.sh
-%configure %{?_without_rdma} %{?_without_epoll} %{?_with_fusermount} %{?_without_georeplication} %{?_without_ocf}
+%configure %{?_without_rdma} %{?_without_epoll} %{?_without_fusermount} %{?_without_georeplication} %{?_without_ocf}
 
 # Remove rpath
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
 sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
 
 %{__make} %{?_smp_mflags}
-
-%if 0%{?_with_ufo:1}
-cd swift-%{SWIFTVER}
-%{__python} setup.py build
-%{__mkdir_p} doc/build
-%if ( 0%{?fedora} )
-%{__python} setup.py build_sphinx
-%endif
-cd ..
-cd ufo
-%{__python} setup.py build
-cd ..
-%endif
 
 %install
 %{__rm} -rf %{buildroot}
@@ -591,7 +346,7 @@ cd ..
 %{__mkdir_p} %{buildroot}%{_includedir}/glusterfs/server
 %{__install} -p -m 0644 xlators/protocol/server/src/*.h \
     %{buildroot}%{_includedir}/glusterfs/server/
-%if 0%{_for_fedora_koji_builds}
+%if ( 0%{_for_fedora_koji_builds} )
 %{__install} -D -p -m 0644 %{SOURCE1} \
     %{buildroot}%{_sysconfdir}/sysconfig/glusterd
 %{__install} -D -p -m 0644 %{SOURCE2} \
@@ -600,14 +355,12 @@ cd ..
 %{__install} -D -p -m 0644 extras/glusterd-sysconfig \
     %{buildroot}%{_sysconfdir}/sysconfig/glusterd
 %endif
-# We'll use our init.d
-%if 0%{?_with_systemd:1}
-%{__rm} -f %{buildroot}%{_sysconfdir}/init.d/glusterd
-%endif
 
-%if 0%{?rhel} && 0%{?rhel} <= 5
-%{__install} -D -p -m 0755 extras/init.d/rhel5-load-fuse.modules \
+%if ( 0%{_for_fedora_koji_builds} )
+%if ( 0%{?rhel} && 0%{?rhel} <= 5 )
+%{__install} -D -p -m 0755 %{SOURCE7} \
     %{buildroot}%{_sysconfdir}/sysconfig/modules/glusterfs-fuse.modules
+%endif
 %endif
 
 %{__mkdir_p} %{buildroot}%{_localstatedir}/log/glusterd
@@ -619,8 +372,9 @@ cd ..
 find %{buildroot}%{_libdir} -name '*.a' -delete
 find %{buildroot}%{_libdir} -name '*.la' -delete
 
-# Remove installed docs, we include them ourselves as %%doc
+# Remove installed docs, they're included by %%doc
 %{__rm} -rf %{buildroot}%{_datadir}/doc/glusterfs/
+%{__bzip2} ChangeLog
 
 # Remove benchmarking and other unpackaged files
 %{__rm} -rf %{buildroot}/benchmarking
@@ -634,13 +388,7 @@ find %{buildroot}%{_libdir} -name '*.la' -delete
 sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sharedstatedir}/glusterd|g' \
     %{buildroot}%{_sysconfdir}/glusterfs/glusterd.vol
 
-# Install systemd .service files. `make install` will install the init files
-%if ( 0%{?_with_systemd:1} ) || ( 0%{_for_fedora_koji_builds} )
-%_init_install %{glusterd_service} glusterd
-%_init_install %{glusterfsd_service} glusterfsd
-%endif
-
-%if 0%{_for_fedora_koji_builds}
+%if ( 0%{_for_fedora_koji_builds} )
 # Install wrapper umount script
 %{__install} -D -p -m 0755 %{SOURCE3} \
     %{buildroot}/sbin/umount.glusterfs
@@ -659,7 +407,7 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
     %{buildroot}%{_sysconfdir}/logrotate.d/glusterfs
 %endif
 
-%if 0%{!?_without_georeplication:1}
+%if ( 0%{!?_without_georeplication:1} )
 # geo-rep ghosts
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/geo-replication
 touch %{buildroot}%{_sharedstatedir}/glusterd/geo-replication/gsyncd.conf
@@ -699,100 +447,6 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/options
 touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/nfs-server.vol
 touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
-%if 0%{?_with_ufo:1}
-cd swift-%{SWIFTVER}
-%{__python} setup.py install -O1 --skip-build --root %{buildroot}
-# common swift .service or .init files
-%_init_install %{glusterswiftaccount_service} gluster-swift-account
-%_init_install %{glusterswiftcontainer_service} gluster-swift-container
-%_init_install %{glusterswiftobject_service} gluster-swift-object
-%_init_install %{glusterswiftproxy_service} gluster-swift-proxy
-%if 0%{?_with_systemd:1}
-# extra systemd .service files
-%_init_install %{SOURCE34} gluster-swift-account@
-%_init_install %{SOURCE35} gluster-swift-container@
-%_init_install %{SOURCE36} gluster-swift-object@
-%if ( 0%{?fedora} && 0%{?fedora} > 18 )
-# more extra systemd .service files in f19
-%_init_install %{SOURCE50} gluster-swift-account-replicator
-%_init_install %{SOURCE51} gluster-swift-account-replicator@
-%_init_install %{SOURCE52} gluster-swift-account-auditor
-%_init_install %{SOURCE53} gluster-swift-account-auditor@
-%_init_install %{SOURCE54} gluster-swift-account-reaper
-%_init_install %{SOURCE55} gluster-swift-account-reaper@
-%_init_install %{SOURCE56} gluster-swift-container-replicator
-%_init_install %{SOURCE57} gluster-swift-container-replicator@
-%_init_install %{SOURCE58} gluster-swift-container-auditor
-%_init_install %{SOURCE59} gluster-swift-container-auditor@
-%_init_install %{SOURCE60} gluster-swift-container-updater
-%_init_install %{SOURCE61} gluster-swift-container-updater@
-%_init_install %{SOURCE62} gluster-swift-object-replicator
-%_init_install %{SOURCE63} gluster-swift-object-replicator@
-%_init_install %{SOURCE64} gluster-swift-object-auditor
-%_init_install %{SOURCE65} gluster-swift-object-auditor@
-%_init_install %{SOURCE66} gluster-swift-object-updater
-%_init_install %{SOURCE67} gluster-swift-object-updater@
-%_init_install %{SOURCE68} gluster-swift-object-expirer
-%_init_install %{SOURCE69} gluster-swift-object-expirer@
-%endif
-%else
-# Init helper functions
-%{__install} -p -D -m 644 %{SOURCE44} %{buildroot}%{_datarootdir}/gluster-swift/functions
-# Init scripts
-%_init_install %{glusterswiftaccount_service} gluster-swift-account
-%_init_install %{glusterswiftcontainer_service} gluster-swift-container
-%_init_install %{glusterswiftobject_service} gluster-swift-object
-%_init_install %{glusterswiftproxy_service} gluster-swift-proxy
-%endif
-# Misc other
-%{__install} -d -m 755 %{buildroot}%{_sysconfdir}/swift
-%{__install} -d -m 755 %{buildroot}%{_sysconfdir}/swift/account-server
-%{__install} -d -m 755 %{buildroot}%{_sysconfdir}/swift/container-server
-%{__install} -d -m 755 %{buildroot}%{_sysconfdir}/swift/object-server
-%{__install} -d -m 755 %{buildroot}%{_sysconfdir}/swift/proxy-server
-# Config files
-#%if ( 0%{?fedora} && 0%{?fedora} > 17 )
-# these first appeared in openstack-swift-1.7.4-1.fc18
-#install -p -D -m 660 %{SOURCE70} %{buildroot}%{_sysconfdir}/swift/account-server.conf
-#install -p -D -m 660 %{SOURCE71} %{buildroot}%{_sysconfdir}/swift/container-server.conf
-#install -p -D -m 660 %{SOURCE72} %{buildroot}%{_sysconfdir}/swift/object-server.conf
-#install -p -D -m 660 %{SOURCE73} %{buildroot}%{_sysconfdir}/swift/proxy-server.conf
-#install -p -D -m 660 %{SOURCE74} %{buildroot}%{_sysconfdir}/swift/swift.conf
-#install -p -D -m 660 %{SOURCE75} %{buildroot}%{_sysconfdir}/swift/object-expirer.conf
-#%endif
-# Install pid directory
-%{__install} -d -m 755 %{buildroot}%{_localstatedir}/run/swift
-%{__install} -d -m 755 %{buildroot}%{_localstatedir}/run/swift/account-server
-%{__install} -d -m 755 %{buildroot}%{_localstatedir}/run/swift/container-server
-%{__install} -d -m 755 %{buildroot}%{_localstatedir}/run/swift/object-server
-%{__install} -d -m 755 %{buildroot}%{_localstatedir}/run/swift/proxy-server
-%if 0%{?_with_systemd:1}
-# Swift run directories
-%{__mkdir_p} %{buildroot}%{_sysconfdir}/tmpfiles.d
-install -p -m 0644 %{SOURCE37} %{buildroot}%{_sysconfdir}/tmpfiles.d/gluster-swift.conf
-%endif
-# Install recon directory
-install -d -m 755 %{buildroot}%{_localstatedir}/cache/swift
-# man pages
-install -d -m 755 %{buildroot}%{_mandir}/man5
-for m in doc/manpages/*.5; do
-  install -p -m 0644 $m %{buildroot}%{_mandir}/man5
-done
-install -d -m 755 %{buildroot}%{_mandir}/man1
-for m in doc/manpages/*.1; do
-  install -p -m 0644 $m %{buildroot}%{_mandir}/man1
-done
-cd ..
-cd ufo
-%{__python} setup.py install -O1 --skip-build --root %{buildroot}
-cd ..
-%{__mkdir_p} %{buildroot}%{_sysconfdir}/swift
-cp -r ufo/etc/* %{buildroot}%{_sysconfdir}/swift/
-%{__mkdir_p} %{buildroot}%{_bindir}
-cp ufo/bin/gluster-swift-gen-builders %{buildroot}%{_bindir}/
-%endif
-# Remove tests
-%{__rm} -rf %{buildroot}/%{python_sitelib}/test
 %clean
 %{__rm} -rf %{buildroot}
 
@@ -804,9 +458,10 @@ cp ufo/bin/gluster-swift-gen-builders %{buildroot}%{_bindir}/
 
 %files
 %defattr(-,root,root,-)
-%doc ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL README THANKS
+%doc ChangeLog.bz2 COPYING-GPLV2 COPYING-LGPLV3 INSTALL README THANKS
 %config(noreplace) %{_sysconfdir}/logrotate.d/*
 %config(noreplace) %{_sysconfdir}/sysconfig/*
+%exclude %{_libdir}/libgfapi.*
 %{_libdir}/glusterfs
 %{_libdir}/*.so.*
 %{_sbindir}/glusterfs*
@@ -815,24 +470,24 @@ cp ufo/bin/gluster-swift-gen-builders %{buildroot}%{_bindir}/
 %dir %{_localstatedir}/log/glusterfs
 %dir %{_localstatedir}/run/gluster
 %dir %{_sharedstatedir}/glusterd
-%if 0%{!?_without_rdma:1}
-%exclude %{_libdir}/glusterfs/%{version}/rpc-transport/rdma*
+%if ( 0%{!?_without_rdma:1} )
+%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/rpc-transport/rdma*
 %endif
-%exclude %{_libdir}/glusterfs/%{version}/xlator/mount/fuse*
-%exclude %{_libdir}/glusterfs/%{version}/xlator/storage*
-%exclude %{_libdir}/glusterfs/%{version}/xlator/features/posix*
-%exclude %{_libdir}/glusterfs/%{version}/xlator/protocol/server*
-%exclude %{_libdir}/glusterfs/%{version}/xlator/mgmt*
-%exclude %{_libdir}/glusterfs/%{version}/xlator/nfs*
+%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/fuse*
+%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage*
+%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/posix*
+%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server*
+%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt*
+%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs*
 
 
-%if 0%{!?_without_rdma:1}
+%if ( 0%{!?_without_rdma:1} )
 %files rdma
 %defattr(-,root,root,-)
-%{_libdir}/glusterfs/%{version}/rpc-transport/rdma*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/rpc-transport/rdma*
 %endif
 
-%if 0%{!?_without_georeplication:1}
+%if ( 0%{!?_without_georeplication:1} )
 %post geo-replication
 #restart glusterd.
 if [ $1 -ge 1 ]; then
@@ -849,47 +504,49 @@ fi
 
 %files fuse
 %defattr(-,root,root,-)
-%if 0%{_for_fedora_koji_builds}
+%if ( 0%{_for_fedora_koji_builds} )
 %config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs-fuse
 %endif
-%{_libdir}/glusterfs/%{version}/xlator/mount/fuse*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/fuse*
 /sbin/mount.glusterfs
-%if 0%{_for_fedora_koji_builds}
+%if ( 0%{_for_fedora_koji_builds} )
 /sbin/umount.glusterfs
 %endif
-%if 0%{?_with_fusermount:1}
+%if ( 0%{!?_without_fusermount:1} )
 %{_bindir}/fusermount-glusterfs
 %endif
-%if 0%{?rhel} && 0%{?rhel} <= 5
+%if ( 0%{_for_fedora_koji_builds} )
+%if ( 0%{?rhel} && 0%{?rhel} <= 5 )
 %{_sysconfdir}/sysconfig/modules/glusterfs-fuse.modules
+%endif
 %endif
 
 %files server
 %defattr(-,root,root,-)
 %doc extras/clear_xattrs.sh
-%if 0%{_for_fedora_koji_builds}
+%if ( 0%{_for_fedora_koji_builds} )
 %config(noreplace) %{_sysconfdir}/logrotate.d/glusterd
 %endif
 %config(noreplace) %{_sysconfdir}/sysconfig/glusterd
 %config(noreplace) %{_sysconfdir}/glusterfs
 # Legacy configs
-%if 0%{_for_fedora_koji_builds}
+%if ( 0%{_for_fedora_koji_builds} )
 %config(noreplace) %{_sysconfdir}/logrotate.d/glusterfsd
 %config(noreplace) %{_sysconfdir}/sysconfig/glusterfsd
 %endif
 # init files
 %_init_glusterd
-%if ( 0%{?_with_systemd:1} ) || ( 0%{_for_fedora_koji_builds} )
+%if ( 0%{_for_fedora_koji_builds} && 0%{?_with_systemd:1} )
 %_init_glusterfsd
 %endif
 # binaries
 %{_sbindir}/gluster
 %{_sbindir}/glusterd
-%{_libdir}/glusterfs/%{version}/xlator/storage*
-%{_libdir}/glusterfs/%{version}/xlator/features/posix*
-%{_libdir}/glusterfs/%{version}/xlator/protocol/server*
-%{_libdir}/glusterfs/%{version}/xlator/mgmt*
-%{_libdir}/glusterfs/%{version}/xlator/nfs*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/posix*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs*
 %ghost %attr(0644,-,-) %{_sharedstatedir}/glusterd/glusterd.info
 %ghost %attr(0600,-,-) %{_sharedstatedir}/glusterd/options
 # This is really ugly, but I have no idea how to mark these directories in an
@@ -927,7 +584,11 @@ fi
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs/run
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
-%if 0%{!?_without_ocf:1}
+%files api
+%exclude %{_libdir}/*.so
+%{_libdir}/libgfapi.*
+
+%if ( 0%{!?_without_ocf:1} )
 %files resource-agents
 %defattr(-,root,root)
 # /usr/lib is the standard for OCF, also on x86_64
@@ -937,161 +598,15 @@ fi
 %files devel
 %defattr(-,root,root,-)
 %{_includedir}/glusterfs
-%{_libdir}/pkgconfig/glusterfs-api.pc
 %exclude %{_includedir}/glusterfs/y.tab.h
+%exclude %{_includedir}/glusterfs/api
+%exclude %{_libdir}/libgfapi.so
 %{_libdir}/*.so
 
-%if 0%{?_with_ufo:1}
-%files swift
-%defattr(-,root,root,-)
-%doc swift-%{SWIFTVER}/AUTHORS
-%doc swift-%{SWIFTVER}/LICENSE
-%doc swift-%{SWIFTVER}/README*
-%doc swift-%{SWIFTVER}/etc/dispersion.conf-sample
-%doc swift-%{SWIFTVER}/etc/drive-audit.conf-sample
-%doc swift-%{SWIFTVER}/etc/object-expirer.conf-sample
-%doc swift-%{SWIFTVER}/etc/swift.conf-sample
-%{_mandir}/man5/dispersion.conf.5*
-%{_mandir}/man1/swift*.1*
-%if 0%{?_with_systemd:1}
-%config(noreplace) %{_sysconfdir}/tmpfiles.d/gluster-swift.conf
-%else
-%dir %{_datarootdir}/gluster-swift/functions
-%endif
-%dir %{_sysconfdir}/swift
-#%if ( 0%{?fedora} && 0%{?fedora} > 17 )
-#%config(noreplace) %attr(660, root, swift) %{_sysconfdir}/swift/swift.conf
-#%endif
-%dir %attr(0755, swift, swift) %{_localstatedir}/run/swift
-%dir %{python_sitelib}/swift
-%{_bindir}/swift-account-audit
-%{_bindir}/swift-bench
-%{_bindir}/swift-bench-client
-%{_bindir}/swift-drive-audit
-%{_bindir}/swift-get-nodes
-%{_bindir}/swift-init
-%{_bindir}/swift-ring-builder
-%{_bindir}/swift-dispersion-populate
-%{_bindir}/swift-dispersion-report
-%{_bindir}/swift-recon*
-%{_bindir}/swift-object-expirer
-%{_bindir}/swift-oldies
-%{_bindir}/swift-orphans
-%{_bindir}/swift-form-signature
-%{_bindir}/swift-temp-url
-%{python_sitelib}/swift/*.py*
-%{python_sitelib}/swift/common
-%{python_sitelib}/swift-%{SWIFTVER}-*.egg-info
-
-%files swift-account
-%defattr(-,root,root,-)
-%doc swift-%{SWIFTVER}/etc/account-server.conf-sample
-%{_mandir}/man5/account-server.conf.5*
-%{_mandir}/man1/swift-account-auditor.1*
-%{_mandir}/man1/swift-account-reaper.1*
-%{_mandir}/man1/swift-account-replicator.1*
-%{_mandir}/man1/swift-account-server.1*
-%_init_gluster_swift_account
-%if 0%{?_with_systemd:1}
-%{_unitdir}/gluster-swift-account@.service
-%if ( 0%{?fedora} && 0%{?fedora} > 18 )
-%{_unitdir}/gluster-swift-account-*.service
-%endif
-%endif
-%dir %attr(0755, swift, swift) %{_localstatedir}/run/swift/account-server
-%dir %{_sysconfdir}/swift/account-server
-%{_bindir}/swift-account-auditor
-%{_bindir}/swift-account-reaper
-%{_bindir}/swift-account-replicator
-%{_bindir}/swift-account-server
-%{python_sitelib}/swift/account
-
-%files swift-container
-%defattr(-,root,root,-)
-%doc swift-%{SWIFTVER}/etc/container-server.conf-sample
-%{_mandir}/man5/container-server.conf.5*
-%{_mandir}/man1/swift-container-auditor.1*
-%{_mandir}/man1/swift-container-replicator.1*
-%{_mandir}/man1/swift-container-server.1*
-%{_mandir}/man1/swift-container-sync.1*
-%{_mandir}/man1/swift-container-updater.1*
-%_init_gluster_swift_container
-%if 0%{?_with_systemd:1}
-%{_unitdir}/gluster-swift-container@.service
-%if ( 0%{?fedora} && 0%{?fedora} > 18 )
-%{_unitdir}/gluster-swift-container-*.service
-%endif
-%endif
-%dir %attr(0755, swift, swift) %{_localstatedir}/run/swift/container-server
-%dir %attr(0755, swift, swift) %{_localstatedir}/cache/swift
-%dir %{_sysconfdir}/swift/container-server
-%{_bindir}/swift-container-auditor
-%{_bindir}/swift-container-server
-%{_bindir}/swift-container-replicator
-%{_bindir}/swift-container-updater
-%{_bindir}/swift-container-sync
-%{python_sitelib}/swift/container
-
-%files swift-object
-%defattr(-,root,root,-)
-%doc swift-%{SWIFTVER}/etc/object-server.conf-sample
-%doc swift-%{SWIFTVER}/etc/rsyncd.conf-sample
-%{_mandir}/man5/object-server.conf.5*
-%{_mandir}/man1/swift-object-auditor.1*
-%{_mandir}/man1/swift-object-info.1*
-%{_mandir}/man1/swift-object-replicator.1*
-%{_mandir}/man1/swift-object-server.1*
-%{_mandir}/man1/swift-object-updater.1*
-%_init_gluster_swift_object
-%if 0%{?_with_systemd:1}
-%{_unitdir}/gluster-swift-object@.service
-%if ( 0%{?fedora} && 0%{?fedora} > 18 )
-%{_unitdir}/gluster-swift-object-*.service
-%exclude %{_unitdir}/gluster-swift-object-expirer*.service
-%endif
-%endif
-%dir %attr(0755, swift, swift) %{_localstatedir}/run/swift/object-server
-%dir %attr(0755, swift, swift) %{_localstatedir}/cache/swift
-%dir %{_sysconfdir}/swift/object-server
-%{_bindir}/swift-object-auditor
-%{_bindir}/swift-object-info
-%{_bindir}/swift-object-replicator
-%{_bindir}/swift-object-server
-%{_bindir}/swift-object-updater
-%{python_sitelib}/swift/obj
-
-%files swift-proxy
-%defattr(-,root,root,-)
-%doc swift-%{SWIFTVER}/etc/proxy-server.conf-sample
-%doc swift-%{SWIFTVER}/etc/object-expirer.conf-sample
-%{_mandir}/man5/object-expirer.conf.5*
-%{_mandir}/man5/proxy-server.conf.5*
-%{_mandir}/man1/swift-object-expirer.1*
-%{_mandir}/man1/swift-proxy-server.1*
-%_init_gluster_swift_proxy
-%if ( 0%{?fedora} && 0%{?fedora} > 18 )
-%{_unitdir}/gluster-swift-object-expirer*.service
-%endif
-%dir %attr(0755, swift, swift) %{_localstatedir}/run/swift/proxy-server
-%dir %attr(0755, swift, swift) %{_localstatedir}/cache/swift
-%dir %{_sysconfdir}/swift/proxy-server
-%{_bindir}/swift-object-expirer
-%{_bindir}/swift-proxy-server
-%{python_sitelib}/swift/proxy
-
-%files swift-doc
-%defattr(-,root,root,-)
-%doc swift-%{SWIFTVER}/LICENSE
-
-%files ufo
-%defattr(-,root,root,-)
-%{python_sitelib}/gluster
-%{python_sitelib}/gluster_swift_ufo-*-*.egg-info
-%{_bindir}/gluster-swift-gen-builders
-%{_sysconfdir}/swift/*-gluster
-%{_sysconfdir}/swift/*/1.conf-gluster
-%endif
-
+%files api-devel
+%{_libdir}/pkgconfig/glusterfs-api.pc
+%{_libdir}/libgfapi.so
+%{_includedir}/glusterfs/api/*
 
 %post server
 # Legacy server
@@ -1156,186 +671,10 @@ if [ $1 -ge 1 ]; then
     %_init_restart glusterd
 fi
 
-
-%if 0%{?_with_ufo:1}
-%pre swift
-getent group swift >/dev/null || groupadd -r swift -g 160
-getent passwd swift >/dev/null || \
-useradd -r -g swift -u 160 -d %{_sharedstatedir}/swift -s /sbin/nologin \
--c "OpenStack Swift Daemons" swift
-exit 0
-
-%pre swift-account
-
-if [ -f /etc/swift/account-server/1.conf ]; then
-    echo "warning: /etc/swift/account-server/1.conf saved as /etc/swift/account-server/1.conf.rpmsave"
-    cp /etc/swift/account-server/1.conf /etc/swift/account-server/1.conf.rpmsave
-fi
-
-
-%post swift-account
-%_init_enable gluster-swift-account
-%if ( 0%{?fedora} && 0%{?fedora} > 18 )
-%_init_enable gluster-swift-account-replicator
-%_init_enable gluster-swift-account-auditor
-%_init_enable gluster-swift-account-reaper
-%endif
-
-
-%preun swift-account
-if [ $1 = 0 ] ; then
-    %_init_stop gluster-swift-account
-%if ( 0%{?fedora} && 0%{?fedora} > 18 )
-    %_init_disable gluster-swift-account
-    %_init_stop gluster-swift-account-replicator
-    %_init_disable gluster-swift-account-replicator
-    %_init_stop gluster-swift-account-auditor
-    %_init_disable gluster-swift-account-auditor
-    %_init_stop gluster-swift-account-reaper
-    %_init_disable gluster-swift-account-reaper
-%endif
-fi
-
-
-%postun swift-account
-if [ $1 -ge 1 ] ; then
-    %_init_restart gluster-swift-account
-%if ( 0%{?fedora} && 0%{?fedora} > 18 )
-    %_init_restart gluster-swift-account-replicator
-    %_init_restart gluster-swift-account-auditor
-    %_init_restart gluster-swift-account-reaper
-%endif
-fi
-
-
-%pre swift-container
-
-if [ -f /etc/swift/container-server/1.conf ]; then
-    echo "warning: /etc/swift/container-server/1.conf saved as /etc/swift/container-server/1.conf.rpmsave"
-    cp /etc/swift/container-server/1.conf /etc/swift/container-server/1.conf.rpmsave
-fi
-
-
-%post swift-container
-%_init_enable gluster-swift-container
-%if ( 0%{?fedora} && 0%{?fedora} > 18 )
-%_init_enable gluster-swift-container-replicator
-%_init_enable gluster-swift-container-auditor
-%_init_enable gluster-swift-container-updater
-%endif
-
-
-%preun swift-container
-if [ $1 = 0 ] ; then
-    %_init_stop gluster-swift-container
-    %_init_disable gluster-swift-container
-%if ( 0%{?fedora} && 0%{?fedora} > 18 )
-    %_init_stop gluster-swift-container-replicator
-    %_init_disable gluster-swift-container-replicator
-    %_init_stop gluster-swift-container-auditor
-    %_init_disable gluster-swift-container-auditor
-    %_init_stop gluster-swift-container-updater
-    %_init_disable gluster-swift-container-updater
-%endif
-fi
-
-
-%postun swift-container
-if [ $1 -ge 1 ] ; then
-    %_init_restart gluster-swift-container
-%if ( 0%{?fedora} && 0%{?fedora} > 18 )
-    %_init_restart gluster-swift-container-replicator
-    %_init_restart gluster-swift-container-auditor
-    %_init_restart gluster-swift-container-updator
-%endif
-fi
-
-
-%pre swift-object
-
-if [ -f /etc/swift/object-server/1.conf ]; then
-    echo "warning: /etc/swift/object-server/1.conf saved as /etc/swift/object-server/1.conf.rpmsave"
-    cp /etc/swift/object-server/1.conf /etc/swift/object-server/1.conf.rpmsave
-fi
-
-
-%post swift-object
-%_init_enable gluster-swift-object
-%if ( 0%{?fedora} && 0%{?fedora} > 18 )
-%_init_enable gluster-swift-object-replicator
-%_init_enable gluster-swift-object-auditor
-%_init_enable gluster-swift-object-updater
-%endif
-
-
-%preun swift-object
-if [ $1 = 0 ] ; then
-    %_init_stop gluster-swift-object
-    %_init_disable gluster-swift-object
-%if ( 0%{?fedora} && 0%{?fedora} > 18 )
-    %_init_stop gluster-swift-object-replicator
-    %_init_disable gluster-swift-object-replicator
-    %_init_stop gluster-swift-object-auditor
-    %_init_disable gluster-swift-object-auditor
-    %_init_stop gluster-swift-object-updater
-    %_init_disable gluster-swift-object-updater
-%endif
-fi
-
-
-%postun swift-object
-if [ $1 -ge 1 ] ; then
-    %_init_restart gluster-swift-object
-%if ( 0%{?fedora} && 0%{?fedora} > 18 )
-    %_init_restart gluster-swift-object-replicator
-    %_init_restart gluster-swift-object-auditor
-    %_init_restart gluster-swift-object-updater
-%endif
-fi
-
-
-%pre swift-proxy
-
-if [ -f /etc/swift/proxy-server.conf ]; then
-    echo "warning: /etc/swift/proxy-server.conf saved as /etc/swift/proxy-server.conf.rpmsave"
-    cp /etc/swift/proxy-server.conf /etc/swift/proxy-server.conf.rpmsave
-fi
-%if ( 0%{?fedora} && 0%{?fedora} > 18 )
-if [ -f /etc/swift/object-expirer.conf ]; then
-    echo "warning: /etc/swift/object-expirer.conf saved as /etc/swift/object-expirer.conf.rpmsave"
-    cp /etc/swift/object-expirer.conf /etc/swift/object-expirer.conf.rpmsave
-fi
-%endif
-
-
-%post swift-proxy
-%_init_enable gluster-swift-proxy
-%if ( 0%{?fedora} && 0%{?fedora} > 18 )
-%_init_enable gluster-swift-object-expirer
-%endif
-
-
-%preun swift-proxy
-if [ $1 = 0 ] ; then
-    %_init_stop gluster-swift-proxy
-    %_init_disable gluster-swift-proxy
-%if ( 0%{?fedora} && 0%{?fedora} > 18 )
-    %_init_stop gluster-swift-object-expirer
-    %_init_disable gluster-swift-object-expirer
-%endif
-fi
-
-
-%postun swift-proxy
-if [ $1 -ge 1 ] ; then
-    %_init_restart gluster-swift-proxy
-%if ( 0%{?fedora} && 0%{?fedora} > 18 )
-    %_init_restart gluster-swift-object-expirer
-%endif
-fi
-%endif
-
 %changelog
+* Fri Jun 7 2013 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- Sync with Fedora glusterfs.spec, remove G4S/UFO and Swift
+
 * Mon Mar 4 2013 Niels de Vos <ndevos@redhat.com>
 - Package /var/run/gluster so that statedumps can be created
 
