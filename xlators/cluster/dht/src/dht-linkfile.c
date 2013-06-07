@@ -302,6 +302,8 @@ dht_linkfile_attr_heal (call_frame_t *frame, xlator_t *this)
              is_equal (frame->root->gid, local->stbuf.ia_gid)))
                 return 0;
 
+        uuid_copy (local->loc.gfid, local->stbuf.ia_gfid);
+
         copy = copy_frame (frame);
 
         if (!copy)
