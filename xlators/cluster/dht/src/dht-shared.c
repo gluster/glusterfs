@@ -262,6 +262,28 @@ out:
         return ret;
 }
 
+
+int
+dht_decommissioned_remove (xlator_t *this, dht_conf_t *conf)
+{
+        int         i  = 0;
+        int         ret  = -1;
+
+        if (!conf)
+                goto out;
+
+        for (i = 0; i < conf->subvolume_cnt; i++) {
+                if (conf->decommissioned_bricks[i]) {
+                        conf->decommissioned_bricks[i] = NULL;
+                        conf->decommission_subvols_cnt--;
+                }
+        }
+
+        ret = 0;
+out:
+
+        return ret;
+}
 void
 dht_init_regex (xlator_t *this, dict_t *odict, char *name,
                 regex_t *re, gf_boolean_t *re_valid)
@@ -356,6 +378,10 @@ dht_reconfigure (xlator_t *this, dict_t *options)
 
         if (dict_get_str (options, "decommissioned-bricks", &temp_str) == 0) {
                 ret = dht_parse_decommissioned_bricks (this, conf, temp_str);
+                if (ret == -1)
+                        goto out;
+        } else {
+                ret = dht_decommissioned_remove (this, conf);
                 if (ret == -1)
                         goto out;
         }
