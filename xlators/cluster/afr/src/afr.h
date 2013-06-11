@@ -172,7 +172,21 @@ typedef struct _afr_private {
         uint64_t               sh_readdir_size;
 } afr_private_t;
 
+typedef enum {
+        AFR_SELF_HEAL_NOT_ATTEMPTED,
+        AFR_SELF_HEAL_STARTED,
+        AFR_SELF_HEAL_FAILED,
+} afr_self_heal_status;
+
 typedef struct {
+        afr_self_heal_status gfid_or_missing_entry_self_heal;
+        afr_self_heal_status metadata_self_heal;
+        afr_self_heal_status data_self_heal;
+        afr_self_heal_status entry_self_heal;
+} afr_sh_status_for_all_type;
+
+
+struct afr_self_heal_ {
         /* External interface: These are variables (some optional) that
            are set by whoever has triggered self-heal */
 
@@ -249,7 +263,6 @@ typedef struct {
         const char *linkname;
         gf_boolean_t entries_skipped;
 
-        int   op_failed;
         gf_boolean_t actual_sh_started;
         gf_boolean_t sync_done;
         gf_boolean_t data_lock_held;
@@ -264,13 +277,15 @@ typedef struct {
         afr_post_remove_call_t post_remove_call;
 
         loc_t parent_loc;
-
         call_frame_t *orig_frame;
         call_frame_t *old_loop_frame;
         gf_boolean_t unwound;
 
         afr_sh_algo_private_t *private;
+        afr_sh_status_for_all_type  afr_all_sh_status;
 
+	void (*afr_set_self_heal_status) (struct afr_self_heal_ *sh,
+                                          afr_self_heal_status status);
         struct afr_sh_algorithm  *algo;
         afr_lock_cbk_t data_lock_success_handler;
         afr_lock_cbk_t data_lock_failure_handler;
@@ -282,7 +297,9 @@ typedef struct {
         void (*gfid_sh_success_cbk) (call_frame_t *sh_frame, xlator_t *this);
 
         call_frame_t *sh_frame;
-} afr_self_heal_t;
+};
+
+typedef struct afr_self_heal_ afr_self_heal_t;
 
 typedef enum {
         AFR_DATA_TRANSACTION,          /* truncate, write, ... */
@@ -408,7 +425,7 @@ typedef struct _afr_local {
         unsigned int enoent_count;
 
 
-        unsigned int govinda_gOvinda;
+        unsigned int unhealable;
 
         unsigned int read_child_index;
         unsigned char read_child_returned;

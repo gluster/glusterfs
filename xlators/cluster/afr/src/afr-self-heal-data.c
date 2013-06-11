@@ -335,7 +335,7 @@ afr_sh_data_fail (call_frame_t *frame, xlator_t *this)
         gf_log (this->name, GF_LOG_DEBUG,
                 "finishing failed data selfheal of %s", local->loc.path);
 
-        sh->op_failed = 1;
+        sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
         if (sh->data_lock_held)
                 afr_sh_data_unlock (frame, this, afr_sh_data_close);
         else
@@ -362,13 +362,13 @@ afr_sh_data_erase_pending_cbk (call_frame_t *frame, void *cookie,
                         "log failed on %s for subvol %s, reason: %s",
                         local->loc.path, priv->children[child_index]->name,
                         strerror (op_errno));
-                sh->op_failed = 1;
+                sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
         }
 
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
-                if (sh->op_failed) {
+                if (is_self_heal_failed (sh)) {
                         if (sh->old_loop_frame)
                                 sh_loop_finish (sh->old_loop_frame, this);
                         sh->old_loop_frame = NULL;
@@ -418,7 +418,7 @@ afr_sh_data_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         priv->children[child_index]->name, strerror (op_errno));
                 LOCK (&frame->lock);
                 {
-                        sh->op_failed = 1;
+                        sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
                 }
                 UNLOCK (&frame->lock);
                 if (sh->old_loop_frame)
@@ -428,7 +428,7 @@ afr_sh_data_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         call_count = afr_frame_return (frame);
         if (call_count == 0) {
-                if (sh->op_failed)
+                if (is_self_heal_failed (sh))
                         afr_sh_data_fail (frame, this);
                 else
                         afr_sh_data_erase_pending (frame, this);
@@ -604,7 +604,7 @@ afr_sh_data_trim_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 local->loc.path,
                                 priv->children[child_index]->name,
                                 strerror (op_errno));
-                        sh->op_failed = 1;
+                        sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
                 } else {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "ftruncate of %s on subvolume %s completed",
@@ -617,7 +617,7 @@ afr_sh_data_trim_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
-                if (sh->op_failed)
+                if (is_self_heal_failed (sh))
                         afr_sh_data_fail (frame, this);
                 else
                         afr_sh_data_sync_prepare (frame, this);
@@ -718,7 +718,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 
         if (sh->background && sh->unwind && !sh->unwound) {
                 sh->unwind (sh->orig_frame, this, sh->op_ret, sh->op_errno,
-                            sh->op_failed);
+                            is_self_heal_failed (sh));
                 sh->unwound = _gf_true;
         }
 
@@ -1342,7 +1342,7 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 local->loc.path,
                                 priv->children[child_index]->name,
                                 strerror (op_errno));
-                        sh->op_failed = 1;
+                        sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
                 } else {
                         gf_log (this->name, GF_LOG_TRACE,
                                 "open of %s succeeded on child %s",
@@ -1355,7 +1355,7 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
-                if (sh->op_failed) {
+                if (is_self_heal_failed (sh)) {
                         afr_sh_data_fail (frame, this);
                         return 0;
                 }
@@ -1364,11 +1364,12 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "fd for %s opened, commencing sync",
                         local->loc.path);
 
-		/*
-		 * The read and write self-heal trigger codepaths do not provide
-		 * an unwind callback. We run a trylock in these codepaths
-		 * because we are sensitive to locking latency.
-		 */
+                /*
+                 * The read and write self-heal trigger codepaths do not provide
+                 * an unwind callback. We run a trylock in these codepaths
+                 * because we are sensitive to locking latency.
+                 */
+
 		block = sh->unwind ? _gf_true : _gf_false;
                 afr_sh_data_lock (frame, this, 0, 0, block,
                                   afr_sh_data_big_lock_success,
@@ -1484,7 +1485,10 @@ afr_self_heal_data (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         sh = &local->self_heal;
 
+        sh->afr_set_self_heal_status = afr_set_data_sh_status;
+
         if (afr_can_start_data_self_heal (sh, priv)) {
+                sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_STARTED);
                 if (IA_ISREG (sh->type)) {
                         afr_sh_data_open (frame, this);
                 } else {

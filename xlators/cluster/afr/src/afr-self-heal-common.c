@@ -1012,14 +1012,13 @@ afr_sh_missing_entries_done (call_frame_t *frame, xlator_t *this)
 
         afr_sh_reset (frame, this);
 
-        if (local->govinda_gOvinda) {
+        if (local->unhealable) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "split brain found, aborting selfheal of %s",
                         local->loc.path);
-                sh->op_failed = 1;
         }
 
-        if (sh->op_failed) {
+        if (is_self_heal_failed (sh)) {
                 sh->completion_cbk (frame, this);
         } else {
                 gf_log (this->name, GF_LOG_TRACE,
@@ -1251,7 +1250,7 @@ out:
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "impunge of %s failed, "
                         "reason: %s", local->loc.path, strerror (-ret));
-                sh->op_failed = 1;
+                sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
         }
         afr_sh_missing_entries_finish (frame, this);
 }
@@ -1266,7 +1265,7 @@ afr_sh_create_entry_cbk (call_frame_t *frame, xlator_t *this,
         local = frame->local;
         sh = &local->self_heal;
         if (op_ret < 0)
-                sh->op_failed = 1;
+                sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
         afr_sh_missing_entries_finish (frame, this);
         return 0;
 }
@@ -1290,7 +1289,7 @@ sh_missing_entries_create (call_frame_t *frame, xlator_t *this)
         if (!afr_valid_ia_type (type)) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "%s: unknown file type: 0%o", local->loc.path, type);
-                local->govinda_gOvinda = 1;
+                afr_set_local_for_unhealable (local);
                 afr_sh_missing_entries_finish (frame, this);
                 goto out;
         }
@@ -1323,8 +1322,9 @@ afr_sh_missing_entries_lookup_done (call_frame_t *frame, xlator_t *this,
         loc = &local->loc;
 
         if (op_ret < 0) {
-                if (op_errno == EIO)
-                        local->govinda_gOvinda = 1;
+                if (op_errno == EIO) {
+                        afr_set_local_for_unhealable (local);
+                }
                 // EIO can happen if finding the fresh parent dir failed
                 goto out;
         }
@@ -1386,7 +1386,7 @@ afr_sh_missing_entries_lookup_done (call_frame_t *frame, xlator_t *this,
         }
         return;
 out:
-        sh->op_failed = 1;
+        sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
         afr_sh_set_error (sh, op_errno);
         afr_sh_missing_entries_finish (frame, this);
         return;
@@ -1470,7 +1470,7 @@ afr_sh_remove_entry_cbk (call_frame_t *frame, xlator_t *this, int child,
                 LOCK (&frame->lock);
                 {
                         afr_sh_set_error (sh, EIO);
-                        sh->op_failed = 1;
+                        sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
                 }
                 UNLOCK (&frame->lock);
         }
@@ -1552,7 +1552,7 @@ afr_sh_purge_stale_entries_done (call_frame_t *frame, xlator_t *this)
         sh       = &local->self_heal;
         priv     = this->private;
 
-        if (sh->op_failed) {
+        if (is_self_heal_failed (sh)) {
                 afr_sh_missing_entries_finish (frame, this);
         } else {
                 if (afr_gfid_missing_count (this->name, sh->fresh_children,
@@ -1766,7 +1766,7 @@ afr_sh_children_lookup_done (call_frame_t *frame, xlator_t *this,
                                                priv->child_count, ENOENT);
         if (fresh_child_enoents == fresh_parent_count) {
                 afr_sh_set_error (sh, ENOENT);
-                sh->op_failed = 1;
+                sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
                 afr_sh_purge_entry (frame, this);
         } else if (!afr_conflicting_iattrs (sh->buf, sh->fresh_children,
                                             priv->child_count, local->loc.path,
@@ -1780,14 +1780,14 @@ afr_sh_children_lookup_done (call_frame_t *frame, xlator_t *this,
                 afr_sh_purge_stale_entry (frame, this);
         } else {
                 op_errno = EIO;
-                local->govinda_gOvinda = 1;
+                afr_set_local_for_unhealable (local);
                 goto fail;
         }
 
         return;
 
 fail:
-        sh->op_failed = 1;
+        sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
         afr_sh_set_error (sh, op_errno);
         afr_sh_missing_entries_finish (frame, this);
         return;
@@ -1858,8 +1858,8 @@ afr_sh_find_fresh_parents (call_frame_t *frame, xlator_t *this,
 
 out:
         afr_sh_set_error (sh, op_errno);
-        sh->op_failed = 1;
-        afr_sh_missing_entries_finish (frame, this);
+        sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
+	afr_sh_missing_entries_finish (frame, this);
         return;
 }
 
@@ -1962,7 +1962,7 @@ afr_sh_post_nb_entrylk_missing_entry_sh_cbk (call_frame_t *frame,
         if (int_lock->lock_op_ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
                         "Non blocking entrylks failed.");
-                sh->op_failed = -1;
+                sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
                 afr_sh_missing_entries_done (frame, this);
         } else {
 
@@ -2041,8 +2041,17 @@ out:
 static int
 afr_self_heal_missing_entries (call_frame_t *frame, xlator_t *this)
 {
+        afr_local_t     *local = NULL;
+        afr_self_heal_t *sh = NULL;
+
+        local = frame->local;
+        sh = &local->self_heal;
+
+        sh->afr_set_self_heal_status  = afr_set_gfid_or_missing_entry_sh_status;
+        sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_STARTED);
+
         afr_self_heal_parent_entrylk (frame, this,
-                                   afr_sh_post_nb_entrylk_missing_entry_sh_cbk);
+                                      afr_sh_post_nb_entrylk_missing_entry_sh_cbk);
         return 0;
 }
 
@@ -2155,31 +2164,25 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
         afr_local_t *     orig_frame_local = NULL;
         afr_self_heal_t * orig_frame_sh = NULL;
         char              sh_type_str[256] = {0,};
+        gf_loglevel_t     loglevel = 0;
 
         priv  = this->private;
         local = bgsh_frame->local;
         sh    = &local->self_heal;
 
-        if (local->govinda_gOvinda) {
+        if (local->unhealable) {
                 afr_set_split_brain (this, sh->inode, SPB, SPB);
-                sh->op_failed = 1;
         }
 
         afr_self_heal_type_str_get (sh, sh_type_str,
                                     sizeof(sh_type_str));
-        if (sh->op_failed) {
-                gf_loglevel_t     loglevel = GF_LOG_ERROR;
-                if (priv->shd.iamshd)
-                        loglevel = GF_LOG_DEBUG;
-
-                gf_log (this->name, loglevel, "background %s self-heal "
-                        "failed on %s", sh_type_str, local->loc.path);
-
+        if (is_self_heal_failed (sh) && !priv->shd.iamshd) {
+                loglevel = GF_LOG_ERROR;
         } else {
-                gf_log (this->name, GF_LOG_DEBUG, "background %s self-heal "
-                        "completed on %s", sh_type_str, local->loc.path);
-
+                loglevel = GF_LOG_DEBUG;
         }
+
+        afr_log_self_heal_completion_status (local, loglevel);
 
         FRAME_SU_UNDO (bgsh_frame, afr_local_t);
 
@@ -2188,7 +2191,7 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
                 orig_frame_sh = &orig_frame_local->self_heal;
                 orig_frame_sh->actual_sh_started = _gf_true;
                 sh->unwind (sh->orig_frame, this, sh->op_ret, sh->op_errno,
-                            sh->op_failed);
+                            is_self_heal_failed (sh));
         }
 
         if (sh->background) {
@@ -2511,9 +2514,155 @@ out:
         GF_FREE (erase_xattr);
 
         if (ret < 0) {
-                sh->op_failed = _gf_true;
+                sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
                 finish (frame, this);
         }
 
         return 0;
+}
+
+void
+afr_set_data_sh_status (afr_self_heal_t *sh, afr_self_heal_status status)
+{
+        xlator_t              *this = NULL;
+
+        this = THIS;
+
+        if (sh)
+                sh->afr_all_sh_status.data_self_heal = status;
+        else
+                gf_log_callingfn (this->name, GF_LOG_ERROR,
+                                  "Null self heal struct");
+}
+
+void
+afr_set_metadata_sh_status (afr_self_heal_t *sh, afr_self_heal_status status)
+{
+        xlator_t              *this = NULL;
+
+        this = THIS;
+
+        if (sh)
+                sh->afr_all_sh_status.metadata_self_heal = status;
+        else
+                gf_log_callingfn (this->name, GF_LOG_ERROR,
+                                  "Null self heal struct");
+}
+
+void
+afr_set_entry_sh_status (afr_self_heal_t *sh, afr_self_heal_status status)
+{
+        xlator_t              *this = NULL;
+
+        this = THIS;
+
+        if (sh)
+                sh->afr_all_sh_status.entry_self_heal = status;
+        else
+                gf_log_callingfn (this->name, GF_LOG_ERROR,
+                                  "Null self heal struct");
+}
+void
+afr_set_gfid_or_missing_entry_sh_status (afr_self_heal_t *sh,
+                                         afr_self_heal_status status)
+{
+        xlator_t              *this = NULL;
+
+        this = THIS;
+
+        if (sh)
+                sh->afr_all_sh_status.gfid_or_missing_entry_self_heal = status;
+        else
+                gf_log_callingfn (this->name, GF_LOG_ERROR,
+                                  "Null self heal struct");
+}
+
+void
+afr_set_local_for_unhealable (afr_local_t *local)
+{
+        afr_self_heal_t  *sh = NULL;
+
+        sh = &local->self_heal;
+
+        local->unhealable = 1;
+        if (sh->afr_set_self_heal_status)
+                sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
+}
+
+int
+is_self_heal_failed (afr_self_heal_t *sh)
+{
+        afr_sh_status_for_all_type  sh_status = sh->afr_all_sh_status;
+
+        int sh_failed = 0;
+        if ((sh_status.gfid_or_missing_entry_self_heal == AFR_SELF_HEAL_FAILED)
+            || (sh_status.metadata_self_heal == AFR_SELF_HEAL_FAILED)
+            || (sh_status.data_self_heal == AFR_SELF_HEAL_FAILED)
+            || (sh_status.entry_self_heal == AFR_SELF_HEAL_FAILED))
+                     sh_failed = 1;
+
+        return sh_failed;
+}
+
+char *
+get_sh_completion_status (afr_self_heal_status status)
+{
+
+        char *not_attempted       = " is not attempted";
+        char *failed              = " failed";
+        char *successfull_complt  = " is successfully completed";
+        char *result              = " has unknown status";
+
+        switch (status)
+        {
+                case AFR_SELF_HEAL_NOT_ATTEMPTED:
+                        result = not_attempted;
+                        break;
+                case AFR_SELF_HEAL_FAILED:
+                        result = failed;
+                        break;
+                case AFR_SELF_HEAL_STARTED:
+                        result = successfull_complt;
+                        break;
+        }
+
+        return result;
+
+}
+
+void
+afr_log_self_heal_completion_status (afr_local_t *local, gf_loglevel_t loglvl)
+{
+
+        char *gfid_or_missing_entry_sh = NULL;
+        char *metadata_sh              = NULL;
+        char *data_sh                  = NULL;
+        char *entry_sh                 = NULL;
+
+        afr_self_heal_t *sh            = &local->self_heal;
+        afr_sh_status_for_all_type   all_status = sh->afr_all_sh_status;
+        xlator_t      *this            = NULL;
+
+        this = THIS;
+
+        gfid_or_missing_entry_sh = get_sh_completion_status
+                                   (all_status.gfid_or_missing_entry_self_heal);
+
+        metadata_sh = get_sh_completion_status (all_status.metadata_self_heal);
+
+
+        data_sh = get_sh_completion_status (all_status.data_self_heal);
+
+        entry_sh = get_sh_completion_status (all_status.entry_self_heal);
+
+
+        gf_log (this->name, loglvl, "%s "
+                "gfid or missing entry self heal %s,"
+                " medatadata self heal %s,"
+                " data self heal %s,"
+                " entry self heal %s on  %s",
+                (sh->background ? "background" : "foreground"),
+                gfid_or_missing_entry_sh, metadata_sh, data_sh, entry_sh,
+                local->loc.path);
+
 }
