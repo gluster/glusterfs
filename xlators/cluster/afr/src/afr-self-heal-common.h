@@ -133,4 +133,26 @@ int
 afr_sh_erase_pending (call_frame_t *frame, xlator_t *this,
                       afr_transaction_type type, afr_fxattrop_cbk_t cbk,
                       int (*finish)(call_frame_t *frame, xlator_t *this));
+
+void
+afr_set_local_for_unhealable (afr_local_t *local);
+
+int
+is_self_heal_failed (afr_self_heal_t *sh);
+
+void
+afr_set_data_sh_status (afr_self_heal_t *sh, afr_self_heal_status status);
+
+void
+afr_set_metadata_sh_status (afr_self_heal_t *sh, afr_self_heal_status staus);
+
+void
+afr_set_entry_sh_status (afr_self_heal_t *sh, afr_self_heal_status status);
+
+void
+afr_set_gfid_or_missing_entry_sh_status (afr_self_heal_t *sh,
+                                         afr_self_heal_status status);
+
+void
+afr_log_self_heal_completion_status (afr_local_t *local, gf_loglevel_t  logl);
 #endif /* __AFR_SELF_HEAL_COMMON_H__ */

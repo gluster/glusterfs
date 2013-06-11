@@ -97,7 +97,7 @@ afr_sh_metadata_fail (call_frame_t *frame, xlator_t *this)
         local    = frame->local;
         sh       = &local->self_heal;
 
-        sh->op_failed = 1;
+        sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
         afr_sh_metadata_finish (frame, this);
         return 0;
 }
@@ -461,7 +461,7 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this,
         priv = this->private;
 
         if (op_ret < 0) {
-                sh->op_failed = 1;
+                sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
                 afr_sh_set_error (sh, op_errno);
                 afr_sh_metadata_finish (frame, this);
                 goto out;
@@ -618,8 +618,10 @@ afr_self_heal_metadata (call_frame_t *frame, xlator_t *this)
 
         local = frame->local;
         sh = &local->self_heal;
+        sh->afr_set_self_heal_status = afr_set_metadata_sh_status;
 
         if (afr_can_start_metadata_self_heal (sh, priv)) {
+                sh->afr_set_self_heal_status (sh, AFR_SELF_HEAL_STARTED);
                 afr_sh_metadata_lock (frame, this);
         } else {
                 afr_sh_metadata_done (frame, this);
