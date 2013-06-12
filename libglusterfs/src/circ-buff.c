@@ -50,7 +50,7 @@ __cb_add_entry_buffer (buffer_t *buffer, void *item)
                         gf_log_callingfn ("", GF_LOG_WARNING, "getting time of"
                                           "the day failed");
                 buffer->w_index++;
-                buffer->w_index %= buffer->size_buffer - 1;
+                buffer->w_index %= buffer->size_buffer;
                 //used_buffer size cannot be greater than the total buffer size
 
                 if (buffer->used_len < buffer->size_buffer)
@@ -90,21 +90,35 @@ void
 cb_buffer_dump (buffer_t *buffer, void *data,
                 int (fn) (circular_buffer_t *buffer, void *data))
 {
-        int i = 0;
+        int index = 0;
         circular_buffer_t *entry = NULL;
         int  entries = 0;
+        int ul = 0;
+        int w_ind = 0;
+        int size_buff = 0;
+        int i = 0;
+
+        ul = buffer->used_len;
+        w_ind = buffer->w_index;
+        size_buff = buffer->size_buffer;
 
         pthread_mutex_lock (&buffer->lock);
         {
                 if (buffer->use_once == _gf_false) {
-                        i = buffer->w_index;
+                        index = (size_buff + (w_ind - ul))%size_buff;
                         for (entries = 0; entries < buffer->used_len;
                              entries++) {
-                                entry = buffer->cb[i];
+                                entry = buffer->cb[index];
                                 if (entry)
                                         fn (entry, data);
-                                i++;
-                                i %= buffer->size_buffer;
+                                else
+                                        gf_log_callingfn ("", GF_LOG_WARNING,
+                                                          "Null entry in "
+                                                          "circular buffer at "
+                                                          "index %d.", index);
+
+                                index++;
+                                index %= buffer->size_buffer;
                         }
                 } else {
                         for (i = 0; i < buffer->used_len ; i++) {
