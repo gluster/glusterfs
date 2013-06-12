@@ -130,8 +130,8 @@ Provides:         %{name}-core = %{version}-%{release}
     %global __filter_from_req %{?__filter_from_req} | %{__grep} -v -P '^(?!lib).*\.so.*$'
     %filter_setup
 %else
-    # modern rpm and current Fedora
-    %global __requires_exclude -P ^(?!lib).*\.so.*$
+    # modern rpm and current Fedora do not generate requires if the provides
+    # are filtered
     %global __provides_exclude_from ^%{_libdir}/glusterfs/%{version}/.*$
 %endif
 
