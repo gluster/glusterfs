@@ -546,6 +546,72 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
         return glusterd_big_locked_handler (req, __glusterd_handle_add_brick);
 }
 
+static int
+subvol_matcher_init (int **subvols, int count)
+{
+        int ret = -1;
+
+        *subvols = GF_CALLOC (count, sizeof(int), gf_gld_mt_int);
+        if (*subvols)
+                ret = 0;
+
+        return ret;
+}
+
+static void
+subvol_matcher_update (int *subvols, glusterd_volinfo_t *volinfo,
+                       glusterd_brickinfo_t *brickinfo)
+{
+        glusterd_brickinfo_t *tmp        = NULL;
+        int32_t               sub_volume = 0;
+        int                   pos        = 0;
+
+        list_for_each_entry (tmp, &volinfo->bricks, brick_list) {
+
+                if (strcmp (tmp->hostname, brickinfo->hostname) ||
+                    strcmp (tmp->path, brickinfo->path)) {
+                        pos++;
+                        continue;
+                }
+                gf_log (THIS->name, GF_LOG_DEBUG, LOGSTR_FOUND_BRICK,
+                                        brickinfo->hostname, brickinfo->path,
+                                        volinfo->volname);
+                sub_volume = (pos / volinfo->dist_leaf_count);
+                subvols[sub_volume]++;
+                break;
+        }
+
+}
+
+static int
+subvol_matcher_verify (int *subvols, glusterd_volinfo_t *volinfo, char *err_str,
+                       size_t err_len, char *vol_type)
+{
+        int i = 0;
+        int ret = 0;
+
+       do {
+
+                if (subvols[i] % volinfo->dist_leaf_count == 0) {
+                        continue;
+                } else {
+                        ret = -1;
+                        snprintf (err_str, err_len,
+                                "Bricks not from same subvol for %s", vol_type);
+                        gf_log (THIS->name, GF_LOG_ERROR, "%s", err_str);
+                        break;
+                }
+        } while (++i < volinfo->subvol_count);
+
+        return ret;
+}
+
+static void
+subvol_matcher_destroy (int *subvols)
+{
+        GF_FREE (subvols);
+}
+
 int
 __glusterd_handle_remove_brick (rpcsvc_request_t *req)
 {
@@ -559,10 +625,7 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
         int                       i                = 1;
         glusterd_volinfo_t       *volinfo          = NULL;
         glusterd_brickinfo_t     *brickinfo        = NULL;
-        int32_t                   pos              = 0;
-        int32_t                   sub_volume       = 0;
-        int32_t                   sub_volume_start = 0;
-        int32_t                   sub_volume_end   = 0;
+        int                      *subvols          = NULL;
         glusterd_brickinfo_t     *tmp              = NULL;
         char                      err_str[2048]    = {0};
         gf_cli_rsp                rsp              = {0,};
@@ -738,6 +801,14 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
         }
 
         strcpy (brick_list, " ");
+
+        if ((volinfo->type != GF_CLUSTER_TYPE_NONE) &&
+            (volinfo->subvol_count > 1)) {
+                ret = subvol_matcher_init (&subvols, volinfo->subvol_count);
+                if (ret)
+                        goto out;
+        }
+
         while ( i <= count) {
                 snprintf (key, sizeof (key), "brick%d", i);
                 ret = dict_get_str (dict, key, &brick);
@@ -805,38 +876,18 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
                         goto out;
                 }
 
-                pos = 0;
-                list_for_each_entry (tmp, &volinfo->bricks, brick_list) {
+                /* Find which subvolume the brick belongs to */
+                subvol_matcher_update (subvols, volinfo, brickinfo);
+        }
 
-                        if (strcmp (tmp->hostname,brickinfo->hostname) ||
-                            strcmp (tmp->path, brickinfo->path)) {
-                                pos++;
-                                continue;
-                        }
-
-                        gf_log (this->name, GF_LOG_DEBUG, LOGSTR_FOUND_BRICK,
-                                brickinfo->hostname, brickinfo->path,
-                                volinfo->volname);
-                        if (!sub_volume && (volinfo->dist_leaf_count > 1)) {
-                                sub_volume = (pos / volinfo->dist_leaf_count) + 1;
-                                sub_volume_start = (volinfo->dist_leaf_count *
-                                                    (sub_volume - 1));
-                                sub_volume_end = (volinfo->dist_leaf_count *
-                                                  sub_volume) - 1;
-                        } else {
-                                if (pos < sub_volume_start ||
-                                    pos >sub_volume_end) {
-                                        ret = -1;
-                                        snprintf (err_str, sizeof (err_str),
-                                                  "Bricks not from same subvol "
-                                                  "for %s", vol_type);
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "%s", err_str);
-                                        goto out;
-                                }
-                        }
-                        break;
-                }
+        /* Check if the bricks belong to the same subvolumes.*/
+        if ((volinfo->type != GF_CLUSTER_TYPE_NONE) &&
+            (volinfo->subvol_count > 1)) {
+                ret = subvol_matcher_verify (subvols, volinfo,
+                                             err_str, sizeof(err_str),
+                                             vol_type);
+                if (ret)
+                        goto out;
         }
 
         ret = glusterd_op_begin_synctask (req, GD_OP_REMOVE_BRICK, dict);
@@ -859,6 +910,7 @@ out:
         }
 
         GF_FREE (brick_list);
+        subvol_matcher_destroy (subvols);
         free (cli_req.dict.dict_val); //its malloced by xdr
 
         return ret;
