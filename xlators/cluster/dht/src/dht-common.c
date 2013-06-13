@@ -1803,6 +1803,7 @@ dht_vgetxattr_alloc_and_fill (dht_local_t *local, dict_t *xattr, xlator_t *this,
                 }
 
                 (void) strcat (local->xattr_val, value);
+                (void) strcat (local->xattr_val, " ");
                 local->op_ret = 0;
         }
 
@@ -1826,6 +1827,8 @@ dht_vgetxattr_fill_and_set (dht_local_t *local, dict_t **dict, xlator_t *this,
         *dict = dict_new ();
         if (!*dict)
                 goto out;
+
+        local->xattr_val[strlen (local->xattr_val) - 1] = '\0';
 
         /* we would need max this many bytes to create xattr string
          * extra 40 bytes is just an estimated amount of additional
@@ -2179,8 +2182,9 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
          * NOTE: Don't trust inode here, as that may not be valid
          *       (until inode_link() happens)
          */
-        if (key && (strcmp (key, GF_XATTR_PATHINFO_KEY) == 0)
-            && DHT_IS_DIR(layout)) {
+        if (key && DHT_IS_DIR(layout) &&
+            ((strcmp (key, GF_XATTR_PATHINFO_KEY) == 0)
+             || (strcmp (key, GF_XATTR_NODE_UUID_KEY) == 0))) {
                 (void) strncpy (local->xsel, key, 256);
                 cnt = local->call_cnt = layout->cnt;
                 for (i = 0; i < cnt; i++) {
