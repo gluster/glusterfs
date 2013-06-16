@@ -451,8 +451,8 @@ glfs_preadv (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
 	     off_t offset, int flags)
 {
 	xlator_t       *subvol = NULL;
-	int             ret = -1;
-	size_t          size = -1;
+	ssize_t         ret = -1;
+	ssize_t         size = -1;
 	struct iovec   *iov = NULL;
 	int             cnt = 0;
 	struct iobref  *iobref = NULL;
@@ -489,13 +489,14 @@ glfs_preadv (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
 	if (iobref)
 		iobref_unref (iobref);
 
+	ret = size;
 out:
 	if (fd)
 		fd_unref (fd);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
-	return size;
+	return ret;
 }
 
 
