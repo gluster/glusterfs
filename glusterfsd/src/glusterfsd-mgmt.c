@@ -1366,6 +1366,15 @@ xlator_equal_rec (xlator_t *xl1, xlator_t *xl2)
                 ret = -1;
                 goto out;
         }
+
+	/* type could have changed even if xlator names match,
+	   e.g cluster/distrubte and cluster/nufa share the same
+	   xlator name
+	*/
+        if (strcmp (xl1->type, xl2->type)) {
+                ret = -1;
+                goto out;
+        }
 out :
         return ret;
 }
