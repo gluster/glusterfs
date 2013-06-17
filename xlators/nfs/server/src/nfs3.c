@@ -226,20 +226,22 @@ out:
                         uuid_unparse (handle->exportid, exportid);      \
                         uuid_unparse (handle->gfid, gfid);              \
                         trans = rpcsvc_request_transport (req);         \
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to map " \
-                                "FH to vol: client=%s, exportid=%s, gfid=%s",\
-                                trans->peerinfo.identifier, exportid,   \
-                                gfid);                                  \
-                        gf_log (GF_NFS3, GF_LOG_ERROR,                   \
-                                "Stale nfs client %s must be trying to "\
-                                "connect to a deleted volume, please "  \
-                                "unmount it.", trans->peerinfo.identifier);\
+                        GF_LOG_OCCASIONALLY (nfs3state->occ_logger,     \
+                                GF_NFS3, GF_LOG_ERROR, "Failed to map " \
+                                "FH to vol: client=%s, exportid=%s, "   \
+                                "gfid=%s", trans->peerinfo.identifier,  \
+                                exportid, gfid);                        \
+                        GF_LOG_OCCASIONALLY (nfs3state->occ_logger,     \
+                                GF_NFS3, GF_LOG_ERROR, "Stale nfs "     \
+                                "client %s must be trying to connect to"\
+                                " a deleted volume, please unmount it.",\
+                                trans->peerinfo.identifier);            \
                         status = NFS3ERR_STALE;                         \
                         goto label;                                     \
                 } else {                                                \
-                        gf_log (GF_NFS3, GF_LOG_TRACE, "FH to Volume: %s"\
-                                ,volume->name);                         \
-                        rpcsvc_request_set_private (req, volume);   \
+                        gf_log (GF_NFS3, GF_LOG_TRACE, "FH to Volume:"  \
+                                "%s", volume->name);                    \
+                        rpcsvc_request_set_private (req, volume);       \
                 }                                                       \
         } while (0);                                                    \
 

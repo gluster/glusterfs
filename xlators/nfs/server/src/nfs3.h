@@ -134,6 +134,7 @@ typedef struct nfs3_state {
         struct list_head        fdlru;
         gf_lock_t               fdlrulock;
         int                     fdcount;
+        uint32_t                occ_logger;
 } nfs3_state_t;
 
 typedef enum nfs3_lookup_type {
