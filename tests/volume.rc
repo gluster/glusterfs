@@ -105,6 +105,11 @@ function generate_shd_statedump {
         generate_statedump $(get_shd_process_pid $vol)
 }
 
+function generate_nfs_statedump {
+        local vol=$1
+        generate_statedump $(get_nfs_pid $vol)
+}
+
 function generate_brick_statedump {
         local vol=$1
         local host=$2
@@ -117,6 +122,13 @@ function afr_child_up_status_in_shd {
         #brick_id is (brick-num in volume info - 1)
         local brick_id=$2
         _afr_child_up_status $vol $brick_id generate_shd_statedump
+}
+
+function afr_child_up_status_in_nfs {
+        local vol=$1
+        #brick_id is (brick-num in volume info - 1)
+        local brick_id=$2
+        _afr_child_up_status $vol $brick_id generate_nfs_statedump
 }
 
 function nfs_up_status {
