@@ -6083,11 +6083,11 @@ char *clnt3_3_fop_names[GFS3_OP_MAXVALUE] = {
         [GFS3_OP_SETATTR]     = "SETATTR",
         [GFS3_OP_FSETATTR]    = "FSETATTR",
         [GFS3_OP_READDIRP]    = "READDIRP",
-	[GFS3_OP_FALLOCATE]   = "FALLOCATE",
-	[GFS3_OP_DISCARD]     = "DISCARD",
         [GFS3_OP_RELEASE]     = "RELEASE",
         [GFS3_OP_RELEASEDIR]  = "RELEASEDIR",
         [GFS3_OP_FREMOVEXATTR] = "FREMOVEXATTR",
+	[GFS3_OP_FALLOCATE]   = "FALLOCATE",
+	[GFS3_OP_DISCARD]     = "DISCARD",
 };
 
 rpc_clnt_prog_t clnt3_3_fop_prog = {

@@ -5987,11 +5987,11 @@ rpcsvc_actor_t glusterfs3_3_fop_actors[] = {
         [GFS3_OP_SETATTR]     = { "SETATTR",    GFS3_OP_SETATTR, server3_3_setattr, NULL, 0},
         [GFS3_OP_FSETATTR]    = { "FSETATTR",   GFS3_OP_FSETATTR, server3_3_fsetattr, NULL, 0},
         [GFS3_OP_READDIRP]    = { "READDIRP",   GFS3_OP_READDIRP, server3_3_readdirp, NULL, 0},
-	[GFS3_OP_FALLOCATE]    = { "FALLOCATE",	GFS3_OP_FALLOCATE, server3_3_fallocate, NULL, 0},
-	[GFS3_OP_DISCARD]     = { "DISCARD",	GFS3_OP_DISCARD, server3_3_discard, NULL, 0},
         [GFS3_OP_RELEASE]     = { "RELEASE",    GFS3_OP_RELEASE, server3_3_release, NULL, 0},
         [GFS3_OP_RELEASEDIR]  = { "RELEASEDIR", GFS3_OP_RELEASEDIR, server3_3_releasedir, NULL, 0},
         [GFS3_OP_FREMOVEXATTR] = { "FREMOVEXATTR", GFS3_OP_FREMOVEXATTR, server3_3_fremovexattr, NULL, 0},
+	[GFS3_OP_FALLOCATE]   = { "FALLOCATE",	GFS3_OP_FALLOCATE, server3_3_fallocate, NULL, 0},
+	[GFS3_OP_DISCARD]     = { "DISCARD",	GFS3_OP_DISCARD, server3_3_discard, NULL, 0},
 };
 
 
