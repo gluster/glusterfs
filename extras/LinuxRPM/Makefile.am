@@ -1,6 +1,5 @@
 
-GFS_TAR = ../../glusterfs-*git.tar.gz
-GFS_SPEC = ../../glusterfs.spec
+GFS_TAR = ../../glusterfs-$(VERSION).tar.gz
 
 .PHONY: all
 
@@ -12,9 +11,9 @@ all:
 glusterrpms: prep srcrpm rpms
 	-rm -rf rpmbuild
 
-prep::
-	if [ ! -e $(GFS_TAR) -a ! -e $(GFS_SPEC) ]; then \
-		$(MAKE) -c ../.. dist; \
+prep:
+	if [ ! -e $(GFS_TAR) ]; then \
+		$(MAKE) -C ../.. dist; \
 	fi
 	-mkdir -p rpmbuild/SPECS
 	-mkdir -p rpmbuild/RPMS

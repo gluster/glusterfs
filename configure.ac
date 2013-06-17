@@ -27,10 +27,10 @@ fi
 AC_CONFIG_HEADERS([config.h])
 
 AC_CONFIG_FILES([Makefile
-		libglusterfs/Makefile
-		libglusterfs/src/Makefile
-		glusterfsd/Makefile
-		glusterfsd/src/Makefile
+                libglusterfs/Makefile
+                libglusterfs/src/Makefile
+                glusterfsd/Makefile
+                glusterfsd/src/Makefile
                 rpc/Makefile
                 rpc/rpc-lib/Makefile
                 rpc/rpc-lib/src/Makefile
@@ -41,87 +41,87 @@ AC_CONFIG_FILES([Makefile
                 rpc/rpc-transport/rdma/src/Makefile
                 rpc/xdr/Makefile
                 rpc/xdr/src/Makefile
-		xlators/Makefile
-		xlators/mount/Makefile
-		xlators/mount/fuse/Makefile
-		xlators/mount/fuse/src/Makefile
-		xlators/mount/fuse/utils/mount.glusterfs
-		xlators/mount/fuse/utils/mount_glusterfs
-		xlators/mount/fuse/utils/Makefile
-		xlators/storage/Makefile
-		xlators/storage/posix/Makefile
-		xlators/storage/posix/src/Makefile
-		xlators/storage/bd_map/Makefile
-		xlators/storage/bd_map/src/Makefile
-		xlators/cluster/Makefile
-		xlators/cluster/afr/Makefile
-		xlators/cluster/afr/src/Makefile
-		xlators/cluster/stripe/Makefile
-		xlators/cluster/stripe/src/Makefile
-		xlators/cluster/dht/Makefile
-		xlators/cluster/dht/src/Makefile
-		xlators/performance/Makefile
-		xlators/performance/write-behind/Makefile
-		xlators/performance/write-behind/src/Makefile
-		xlators/performance/read-ahead/Makefile
-		xlators/performance/read-ahead/src/Makefile
-		xlators/performance/io-threads/Makefile
-		xlators/performance/io-threads/src/Makefile
-		xlators/performance/io-cache/Makefile
-		xlators/performance/io-cache/src/Makefile
-		xlators/performance/symlink-cache/Makefile
-		xlators/performance/symlink-cache/src/Makefile
-		xlators/performance/quick-read/Makefile
-		xlators/performance/quick-read/src/Makefile
-		xlators/performance/open-behind/Makefile
-		xlators/performance/open-behind/src/Makefile
+                xlators/Makefile
+                xlators/mount/Makefile
+                xlators/mount/fuse/Makefile
+                xlators/mount/fuse/src/Makefile
+                xlators/mount/fuse/utils/mount.glusterfs
+                xlators/mount/fuse/utils/mount_glusterfs
+                xlators/mount/fuse/utils/Makefile
+                xlators/storage/Makefile
+                xlators/storage/posix/Makefile
+                xlators/storage/posix/src/Makefile
+                xlators/storage/bd_map/Makefile
+                xlators/storage/bd_map/src/Makefile
+                xlators/cluster/Makefile
+                xlators/cluster/afr/Makefile
+                xlators/cluster/afr/src/Makefile
+                xlators/cluster/stripe/Makefile
+                xlators/cluster/stripe/src/Makefile
+                xlators/cluster/dht/Makefile
+                xlators/cluster/dht/src/Makefile
+                xlators/performance/Makefile
+                xlators/performance/write-behind/Makefile
+                xlators/performance/write-behind/src/Makefile
+                xlators/performance/read-ahead/Makefile
+                xlators/performance/read-ahead/src/Makefile
+                xlators/performance/io-threads/Makefile
+                xlators/performance/io-threads/src/Makefile
+                xlators/performance/io-cache/Makefile
+                xlators/performance/io-cache/src/Makefile
+                xlators/performance/symlink-cache/Makefile
+                xlators/performance/symlink-cache/src/Makefile
+                xlators/performance/quick-read/Makefile
+                xlators/performance/quick-read/src/Makefile
+                xlators/performance/open-behind/Makefile
+                xlators/performance/open-behind/src/Makefile
                 xlators/performance/md-cache/Makefile
                 xlators/performance/md-cache/src/Makefile
-		xlators/debug/Makefile
-		xlators/debug/trace/Makefile
-		xlators/debug/trace/src/Makefile
-		xlators/debug/error-gen/Makefile
-		xlators/debug/error-gen/src/Makefile
-		xlators/debug/io-stats/Makefile
-		xlators/debug/io-stats/src/Makefile
-		xlators/protocol/Makefile
-		xlators/protocol/auth/Makefile
-		xlators/protocol/auth/addr/Makefile
-		xlators/protocol/auth/addr/src/Makefile
-		xlators/protocol/auth/login/Makefile
-		xlators/protocol/auth/login/src/Makefile
-		xlators/protocol/client/Makefile
-		xlators/protocol/client/src/Makefile
-		xlators/protocol/server/Makefile
-		xlators/protocol/server/src/Makefile
-		xlators/features/Makefile
-		xlators/features/glupy/Makefile
-		xlators/features/glupy/src/Makefile
-		xlators/features/locks/Makefile
-		xlators/features/locks/src/Makefile
-		xlators/features/quota/Makefile
-		xlators/features/quota/src/Makefile
+                xlators/debug/Makefile
+                xlators/debug/trace/Makefile
+                xlators/debug/trace/src/Makefile
+                xlators/debug/error-gen/Makefile
+                xlators/debug/error-gen/src/Makefile
+                xlators/debug/io-stats/Makefile
+                xlators/debug/io-stats/src/Makefile
+                xlators/protocol/Makefile
+                xlators/protocol/auth/Makefile
+                xlators/protocol/auth/addr/Makefile
+                xlators/protocol/auth/addr/src/Makefile
+                xlators/protocol/auth/login/Makefile
+                xlators/protocol/auth/login/src/Makefile
+                xlators/protocol/client/Makefile
+                xlators/protocol/client/src/Makefile
+                xlators/protocol/server/Makefile
+                xlators/protocol/server/src/Makefile
+                xlators/features/Makefile
+                xlators/features/glupy/Makefile
+                xlators/features/glupy/src/Makefile
+                xlators/features/locks/Makefile
+                xlators/features/locks/src/Makefile
+                xlators/features/quota/Makefile
+                xlators/features/quota/src/Makefile
                 xlators/features/marker/Makefile
                 xlators/features/marker/src/Makefile
                 xlators/features/marker/utils/Makefile
                 xlators/features/marker/utils/src/Makefile
                 xlators/features/marker/utils/syncdaemon/Makefile
-		xlators/features/read-only/Makefile
-		xlators/features/read-only/src/Makefile
-		xlators/features/mac-compat/Makefile
-		xlators/features/mac-compat/src/Makefile
-		xlators/features/quiesce/Makefile
-		xlators/features/quiesce/src/Makefile
+                xlators/features/read-only/Makefile
+                xlators/features/read-only/src/Makefile
+                xlators/features/mac-compat/Makefile
+                xlators/features/mac-compat/src/Makefile
+                xlators/features/quiesce/Makefile
+                xlators/features/quiesce/src/Makefile
                 xlators/features/index/Makefile
                 xlators/features/index/src/Makefile
-		xlators/features/protect/Makefile
-		xlators/features/protect/src/Makefile
+                xlators/features/protect/Makefile
+                xlators/features/protect/src/Makefile
                 xlators/playground/Makefile
-		xlators/playground/template/Makefile
-		xlators/playground/template/src/Makefile
-		xlators/encryption/Makefile
-		xlators/encryption/rot-13/Makefile
-		xlators/encryption/rot-13/src/Makefile
+                xlators/playground/template/Makefile
+                xlators/playground/template/src/Makefile
+                xlators/encryption/Makefile
+                xlators/encryption/rot-13/Makefile
+                xlators/encryption/rot-13/src/Makefile
                 xlators/system/Makefile
                 xlators/system/posix-acl/Makefile
                 xlators/system/posix-acl/src/Makefile
@@ -133,25 +133,27 @@ AC_CONFIG_FILES([Makefile
                 xlators/mgmt/glusterd/src/Makefile
                 cli/Makefile
                 cli/src/Makefile
-		doc/Makefile
-		extras/Makefile
-		extras/init.d/Makefile
-		extras/init.d/glusterd.plist
+                doc/Makefile
+                extras/Makefile
+                extras/init.d/Makefile
+                extras/init.d/glusterd.plist
                 extras/init.d/glusterd-Debian
                 extras/init.d/glusterd-Redhat
                 extras/init.d/glusterd-SuSE
-		extras/benchmarking/Makefile
+                extras/systemd/Makefile
+                extras/systemd/glusterd.service
+                extras/benchmarking/Makefile
                 extras/hook-scripts/Makefile
-		extras/ocf/Makefile
-		extras/ocf/glusterd
-		extras/ocf/volume
-		extras/LinuxRPM/Makefile
-		contrib/fuse-util/Makefile
-		contrib/uuid/uuid_types.h
-		glusterfs-api.pc
-		api/Makefile
-		api/src/Makefile
-		glusterfs.spec])
+                extras/ocf/Makefile
+                extras/ocf/glusterd
+                extras/ocf/volume
+                extras/LinuxRPM/Makefile
+                contrib/fuse-util/Makefile
+                contrib/uuid/uuid_types.h
+                glusterfs-api.pc
+                api/Makefile
+                api/src/Makefile
+                glusterfs.spec])
 
 AC_CANONICAL_HOST
 
@@ -170,6 +172,12 @@ AC_ARG_WITH(mountutildir,
             [mountutildir=$withval],
             [mountutildir='/sbin'])
 AC_SUBST(mountutildir)
+
+AC_ARG_WITH(systemddir,
+            [  --with-systemddir=DIR systemd service files in DIR @<:@/usr/lib/systemd/system@:>@],
+            [systemddir=$withval],
+            [systemddir='/usr/lib/systemd/system'])
+AC_SUBST(systemddir)
 
 AC_ARG_WITH(initdir,
             [  --with-initdir=DIR init.d scripts in DIR @<:@/etc/init.d@:>@],
@@ -268,8 +276,8 @@ fi
 
 # FUSE section
 AC_ARG_ENABLE([fuse-client],
-	      AC_HELP_STRING([--disable-fuse-client],
-			     [Do not build the fuse client. NOTE: you cannot mount glusterfs without the client]))
+              AC_HELP_STRING([--disable-fuse-client],
+                             [Do not build the fuse client. NOTE: you cannot mount glusterfs without the client]))
 
 BUILD_FUSE_CLIENT=no
 if test "x$enable_fuse_client" != "xno"; then
@@ -308,8 +316,8 @@ AC_SUBST(FUSE_CLIENT_SUBDIR)
 
 # FUSERMOUNT section
 AC_ARG_ENABLE([fusermount],
-	      AC_HELP_STRING([--disable-fusermount],
-			     [Use system's fusermount]))
+              AC_HELP_STRING([--disable-fusermount],
+                             [Use system's fusermount]))
 
 BUILD_FUSERMOUNT="yes"
 if test "x$enable_fusermount" = "xno"; then
@@ -325,28 +333,28 @@ AC_SUBST(FUSERMOUNT_SUBDIR)
 
 # EPOLL section
 AC_ARG_ENABLE([epoll],
-	      AC_HELP_STRING([--disable-epoll],
-			     [Use poll instead of epoll.]))
+              AC_HELP_STRING([--disable-epoll],
+                             [Use poll instead of epoll.]))
 
 BUILD_EPOLL=no
 if test "x$enable_epoll" != "xno"; then
    AC_CHECK_HEADERS([sys/epoll.h],
                     [BUILD_EPOLL=yes],
-		    [BUILD_EPOLL=no])
+                    [BUILD_EPOLL=no])
 fi
 # end EPOLL section
 
 
 # IBVERBS section
 AC_ARG_ENABLE([ibverbs],
-	      AC_HELP_STRING([--disable-ibverbs],
-			     [Do not build the ibverbs transport]))
+              AC_HELP_STRING([--disable-ibverbs],
+                             [Do not build the ibverbs transport]))
 
 if test "x$enable_ibverbs" != "xno"; then
   AC_CHECK_LIB([ibverbs],
                [ibv_get_device_list],
-	       [HAVE_LIBIBVERBS="yes"],
-	       [HAVE_LIBIBVERBS="no"])
+               [HAVE_LIBIBVERBS="yes"],
+               [HAVE_LIBIBVERBS="no"])
   AC_CHECK_LIB([rdmacm], [rdma_create_id], [HAVE_RDMACM="yes"], [HAVE_RDMACM="no"]) 
 fi
 
@@ -378,8 +386,8 @@ AC_SUBST(RDMA_SUBDIR)
 
 # SYNCDAEMON section
 AC_ARG_ENABLE([georeplication],
-	      AC_HELP_STRING([--disable-georeplication],
-			     [Do not install georeplication components]))
+              AC_HELP_STRING([--disable-georeplication],
+                             [Do not install georeplication components]))
 
 BUILD_SYNCDAEMON=no
 case $host_os in
@@ -391,7 +399,7 @@ case $host_os in
        ;;
      *)
 #disabling geo replication for non-linux platforms
-	enable_georeplication=no
+        enable_georeplication=no
         ;;
 esac
 SYNCDAEMON_COMPILE=0
@@ -485,9 +493,9 @@ AC_CHECK_MEMBERS([struct stat.st_atim.tv_nsec])
 dnl FreeBSD, NetBSD
 AC_CHECK_MEMBERS([struct stat.st_atimespec.tv_nsec])
 case $host_os in
-	*netbsd*)
-	CFLAGS=-D_INCOMPLETE_XOPEN_C063
-	;;
+        *netbsd*)
+        CFLAGS=-D_INCOMPLETE_XOPEN_C063
+        ;;
 esac
 AC_CHECK_FUNC([linkat], [have_linkat=yes])
 if test "x${have_linkat}" = "xyes"; then
@@ -567,59 +575,59 @@ fi
 
 case $host_os in
      linux*)
-     dnl	GF_LINUX_HOST_OS=1
+     dnl        GF_LINUX_HOST_OS=1
         GF_HOST_OS="GF_LINUX_HOST_OS"
-	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -O0"
-	GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
-	GF_LDADD="${ARGP_STANDALONE_LDADD}"
-	GF_FUSE_CFLAGS="-DFUSERMOUNT_DIR=\\\"\$(bindir)\\\""
-	;;
+        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -O0"
+        GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
+        GF_LDADD="${ARGP_STANDALONE_LDADD}"
+        GF_FUSE_CFLAGS="-DFUSERMOUNT_DIR=\\\"\$(bindir)\\\""
+        ;;
      solaris*)
         GF_HOST_OS="GF_SOLARIS_HOST_OS"
-	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS -O0 -m64"
-	GF_LDFLAGS=""
-	GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
-	GF_LDADD="${ARGP_STANDALONE_LDADD}"
-	GF_GLUSTERFS_LIBS="-lnsl -lresolv -lsocket"
+        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS -O0 -m64"
+        GF_LDFLAGS=""
+        GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
+        GF_LDADD="${ARGP_STANDALONE_LDADD}"
+        GF_GLUSTERFS_LIBS="-lnsl -lresolv -lsocket"
         BUILD_FUSE_CLIENT=no
         FUSE_CLIENT_SUBDIR=""
-	;;
+        ;;
      *netbsd*)
-	GF_HOST_OS="GF_BSD_HOST_OS"
-	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D_INCOMPLETE_XOPEN_C063"
-	GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
-	GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_DIRNAME"
-	GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
-	GF_LDADD="${ARGP_STANDALONE_LDADD}"
-	if test "x$ac_cv_header_execinfo_h" = "xyes"; then
-	   GF_GLUSTERFS_LIBS="-lexecinfo"
-	fi
-	GF_FUSE_LDADD="-lperfuse"
-	BUILD_FUSE_CLIENT=yes
-	LEXLIB=""
-	;;
+        GF_HOST_OS="GF_BSD_HOST_OS"
+        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D_INCOMPLETE_XOPEN_C063"
+        GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
+        GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_DIRNAME"
+        GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
+        GF_LDADD="${ARGP_STANDALONE_LDADD}"
+        if test "x$ac_cv_header_execinfo_h" = "xyes"; then
+           GF_GLUSTERFS_LIBS="-lexecinfo"
+        fi
+        GF_FUSE_LDADD="-lperfuse"
+        BUILD_FUSE_CLIENT=yes
+        LEXLIB=""
+        ;;
      *bsd*)
         GF_HOST_OS="GF_BSD_HOST_OS"
-	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -O0"
-	GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
-	GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_DIRNAME"
-	GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
-	GF_LDADD="${ARGP_STANDALONE_LDADD}"
-	if test "x$ac_cv_header_execinfo_h" = "xyes"; then
-	   GF_GLUSTERFS_LIBS="-lexecinfo"
-	fi
-	BUILD_FUSE_CLIENT=no
-	;;
+        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -O0"
+        GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
+        GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_DIRNAME"
+        GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
+        GF_LDADD="${ARGP_STANDALONE_LDADD}"
+        if test "x$ac_cv_header_execinfo_h" = "xyes"; then
+           GF_GLUSTERFS_LIBS="-lexecinfo"
+        fi
+        BUILD_FUSE_CLIENT=no
+        ;;
      darwin*)
         GF_HOST_OS="GF_DARWIN_HOST_OS"
-	LIBTOOL=glibtool
-	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D__DARWIN_64_BIT_INO_T -bundle -undefined suppress -flat_namespace -D_XOPEN_SOURCE -O0"
-	GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
-	GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_DIRNAME"
-	GF_GLUSTERFS_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D__DARWIN_64_BIT_INO_T -undefined suppress -flat_namespace -O0"
-	GF_LDADD="${ARGP_STANDALONE_LDADD}"
-	GF_FUSE_CFLAGS="-I\$(CONTRIBDIR)/macfuse"
-	;;
+        LIBTOOL=glibtool
+        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D__DARWIN_64_BIT_INO_T -bundle -undefined suppress -flat_namespace -D_XOPEN_SOURCE -O0"
+        GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
+        GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_DIRNAME"
+        GF_GLUSTERFS_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D__DARWIN_64_BIT_INO_T -undefined suppress -flat_namespace -O0"
+        GF_LDADD="${ARGP_STANDALONE_LDADD}"
+        GF_FUSE_CFLAGS="-I\$(CONTRIBDIR)/macfuse"
+        ;;
 esac
 
 # enable debug section
@@ -666,8 +674,8 @@ if echo $PYTHON_VERSION | grep ^2; then
 fi
 AC_CHECK_HEADERS([python$PYTHON_VERSION/Python.h],[have_Python_h=yes],[])
 AC_ARG_ENABLE([glupy],
-	      AS_HELP_STRING([--enable-glupy],
-			     [build glupy]))
+              AS_HELP_STRING([--enable-glupy],
+                             [build glupy]))
 case x$enable_glupy in
    xyes)
       if test "x$have_python2" = "xyes" -a "x$have_Python_h" = "xyes"; then
