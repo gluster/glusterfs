@@ -1976,9 +1976,6 @@ gf_cli_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR,
                                 "remove-brick-id is not present in dict");
-                        cli_err ("volume remove-brick %s: failed: %s", cmd_str,
-                                 rsp.op_errstr);
-                        goto out;
                 }
                 break;
         case GF_OP_CMD_COMMIT:
@@ -2003,7 +2000,7 @@ gf_cli_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
         if (global_state->mode & GLUSTER_MODE_XML) {
                 ret = cli_xml_output_vol_remove_brick (_gf_false, rsp_dict,
                                                        rsp.op_ret, rsp.op_errno,
-                                                       rsp.op_errstr);
+                                                       msg);
                 if (ret)
                         gf_log ("cli", GF_LOG_ERROR,
                                 "Error outputting to xml");
@@ -2012,10 +2009,10 @@ gf_cli_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
 
         if (rsp.op_ret) {
                 cli_err ("volume remove-brick %s: failed: %s", cmd_str,
-                         rsp.op_errstr);
+                         msg);
         } else {
                 cli_out ("volume remove-brick %s: success", cmd_str);
-                if (GF_OP_CMD_START == cmd)
+                if (GF_OP_CMD_START == cmd && task_id_str != NULL)
                         cli_out ("ID: %s", task_id_str);
         }
 
