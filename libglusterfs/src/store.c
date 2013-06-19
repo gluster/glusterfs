@@ -168,8 +168,10 @@ int
 gf_store_read_and_tokenize (FILE *file, char *str, char **iter_key,
                             char **iter_val, gf_store_op_errno_t *store_errno)
 {
-        int32_t  ret = -1;
-        char *savetok = NULL;
+        int32_t     ret = -1;
+        char        *savetok = NULL;
+        char        *key = NULL;
+        char        *value = NULL;
 
         GF_ASSERT (file);
         GF_ASSERT (str);
@@ -184,20 +186,22 @@ gf_store_read_and_tokenize (FILE *file, char *str, char **iter_key,
                 goto out;
         }
 
-        *iter_key = strtok_r (str, "=", &savetok);
-        if (*iter_key == NULL) {
+        key = strtok_r (str, "=", &savetok);
+        if (!key) {
                 ret = -1;
                 *store_errno = GD_STORE_KEY_NULL;
                 goto out;
         }
 
-        *iter_val = strtok_r (NULL, "=", &savetok);
-        if (*iter_key == NULL) {
+        value = strtok_r (NULL, "=", &savetok);
+        if (!value) {
                 ret = -1;
                 *store_errno = GD_STORE_VALUE_NULL;
                 goto out;
         }
 
+        *iter_key = key;
+        *iter_val = value;
         *store_errno = GD_STORE_SUCCESS;
         ret = 0;
 out:
@@ -288,13 +292,18 @@ int32_t
 gf_store_save_value (int fd, char *key, char *value)
 {
         int32_t         ret = -1;
+        int             dup_fd = -1;
         FILE           *fp  = NULL;
 
         GF_ASSERT (fd > 0);
         GF_ASSERT (key);
         GF_ASSERT (value);
 
-        fp = fdopen (fd, "a+");
+        dup_fd = dup (fd);
+        if (dup_fd == -1)
+                goto out;
+
+        fp = fdopen (dup_fd, "a+");
         if (fp == NULL) {
                 gf_log ("", GF_LOG_WARNING, "fdopen failed.");
                 ret = -1;
@@ -321,6 +330,8 @@ gf_store_save_value (int fd, char *key, char *value)
 
         ret = 0;
 out:
+        if (fp)
+                fclose (fp);
 
         gf_log ("", GF_LOG_DEBUG, "returning: %d", ret);
         return ret;
@@ -415,44 +426,38 @@ int32_t
 gf_store_iter_new (gf_store_handle_t  *shandle, gf_store_iter_t  **iter)
 {
         int32_t                 ret = -1;
-        gf_store_iter_t        *tmp_iter = NULL;
-        int                     fd = -1;
+        FILE                    *fp = NULL;
+        gf_store_iter_t         *tmp_iter = NULL;
 
         GF_ASSERT (shandle);
         GF_ASSERT (iter);
 
-        tmp_iter = GF_CALLOC (1, sizeof (*tmp_iter),
-                             gf_common_mt_store_iter_t);
-
-        if (!tmp_iter) {
-                gf_log ("", GF_LOG_ERROR, "Out of Memory");
-                goto out;
-        }
-
-        fd = open (shandle->path, O_RDWR);
-
-        if (fd < 0) {
-                gf_log ("", GF_LOG_ERROR, "Unable to open %s, errno: %d",
-                        shandle->path, errno);
-                goto out;
-        }
-
-        tmp_iter->fd = fd;
-
-        tmp_iter->file = fdopen (tmp_iter->fd, "r");
-
-        if (!tmp_iter->file) {
+        fp = fopen (shandle->path, "r");
+        if (!fp) {
                 gf_log ("", GF_LOG_ERROR, "Unable to open file %s errno: %d",
                         shandle->path, errno);
                 goto out;
         }
 
+        tmp_iter = GF_CALLOC (1, sizeof (*tmp_iter),
+                              gf_common_mt_store_iter_t);
+        if (!tmp_iter)
+                goto out;
+
         strncpy (tmp_iter->filepath, shandle->path, sizeof (tmp_iter->filepath));
         tmp_iter->filepath[sizeof (tmp_iter->filepath) - 1] = 0;
+        tmp_iter->file = fp;
+
         *iter = tmp_iter;
+        tmp_iter = NULL;
         ret = 0;
 
 out:
+        if (ret && fp)
+                fclose (fp);
+
+        GF_FREE (tmp_iter);
+
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
 }
@@ -494,20 +499,18 @@ int32_t
 gf_store_iter_get_next (gf_store_iter_t *iter, char  **key, char **value,
                         gf_store_op_errno_t *op_errno)
 {
-        int32_t         ret = -1;
+        int32_t         ret       = -1;
         char            *scan_str = NULL;
-        char            *free_str = NULL;
         char            *iter_key = NULL;
         char            *iter_val = NULL;
         struct stat     st        = {0,};
         gf_store_op_errno_t store_errno = GD_STORE_SUCCESS;
 
         GF_ASSERT (iter);
-        GF_ASSERT (iter->file);
         GF_ASSERT (key);
         GF_ASSERT (value);
 
-        ret = fstat (iter->fd, &st);
+        ret = stat (iter->filepath, &st);
         if (ret < 0) {
                 gf_log ("", GF_LOG_WARNING, "stat on file failed");
                 ret = -1;
@@ -517,16 +520,11 @@ gf_store_iter_get_next (gf_store_iter_t *iter, char  **key, char **value,
 
         scan_str = GF_CALLOC (1, st.st_size,
                               gf_common_mt_char);
-        if (scan_str == NULL) {
+        if (!scan_str) {
                 ret = -1;
                 store_errno = GD_STORE_ENOMEM;
                 goto out;
         }
-
-        *key = NULL;
-        *value = NULL;
-
-        free_str = scan_str;
 
         ret = gf_store_read_and_tokenize (iter->file, scan_str,
                                           &iter_key, &iter_val,
@@ -535,35 +533,33 @@ gf_store_iter_get_next (gf_store_iter_t *iter, char  **key, char **value,
                 goto out;
         }
 
-
         ret = gf_store_validate_key_value (iter->filepath, iter_key,
                                            iter_val, &store_errno);
         if (ret)
                 goto out;
 
-        *value = gf_strdup (iter_val);
-
-        *key   = gf_strdup (iter_key);
-        if (!iter_key || !iter_val) {
+        *key = gf_strdup (iter_key);
+        if (!*key) {
                 ret = -1;
                 store_errno = GD_STORE_ENOMEM;
                 goto out;
         }
-
+        *value = gf_strdup (iter_val);
+        if (!*value) {
+                ret = -1;
+                store_errno = GD_STORE_ENOMEM;
+                goto out;
+        }
         ret = 0;
 
 out:
+        GF_FREE (scan_str);
         if (ret) {
-                if (*key) {
-                        GF_FREE (*key);
-                        *key = NULL;
-                }
-                if (*value) {
-                        GF_FREE (*value);
-                        *value = NULL;
-                }
+                GF_FREE (*key);
+                GF_FREE (*value);
+                *key = NULL;
+                *value = NULL;
         }
-        GF_FREE (free_str);
         if (op_errno)
                 *op_errno = store_errno;
 
@@ -602,18 +598,14 @@ gf_store_iter_destroy (gf_store_iter_t *iter)
         if (!iter)
                 return 0;
 
-        if (iter->file)
-                ret = fclose (iter->file);
-        else
-                ret = 0;
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to close fd: %d, ret: %d, "
-                        "errno: %d" ,iter->fd, ret, errno);
-        }
+        /* gf_store_iter_new will not return a valid iter object with iter->file
+         * being NULL*/
+        ret = fclose (iter->file);
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, "Unable to close file: %s, ret: %d, "
+                        "errno: %d" ,iter->filepath, ret, errno);
 
         GF_FREE (iter);
-
         return ret;
 }
 
