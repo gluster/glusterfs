@@ -26,7 +26,6 @@ struct gf_store_handle_ {
 typedef struct gf_store_handle_ gf_store_handle_t;
 
 struct gf_store_iter_ {
-        int     fd;
         FILE    *file;
         char    filepath[PATH_MAX];
 };
