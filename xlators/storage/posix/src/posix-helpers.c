@@ -901,6 +901,74 @@ unlock:
         UNLOCK (&priv->lock);
 }
 
+static int
+is_fresh_file (struct stat *stat)
+{
+        struct timeval tv;
+
+        gettimeofday (&tv, NULL);
+
+        if ((stat->st_ctime >= (tv.tv_sec - 1))
+            && (stat->st_ctime <= tv.tv_sec))
+                return 1;
+
+        return 0;
+}
+
+
+int
+posix_gfid_heal (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
+{
+        /* The purpose of this function is to prevent a race
+           where an inode creation FOP (like mkdir/mknod/create etc)
+           races with lookup in the following way:
+
+                   {create thread}       |    {lookup thread}
+                                         |
+                                         t0
+                      mkdir ("name")     |
+                                         t1
+                                         |     posix_gfid_set ("name", 2);
+                                         t2
+             posix_gfid_set ("name", 1); |
+                                         t3
+                      lstat ("name");    |     lstat ("name");
+
+          In the above case mkdir FOP would have resulted with GFID 2 while
+          it should have been GFID 1. It matters in the case where GFID would
+          have gotten set to 1 on other subvolumes of replciate/distribute
+
+          The "solution" here is that, if we detect lookup is attempting to
+          set a GFID on a file which is created very recently, but does not
+          yet have a GFID (i.e, between t1 and t2), then "fake" it as though
+          posix_gfid_heal was called at t0 instead.
+        */
+
+        uuid_t       uuid_curr;
+        int          ret = 0;
+        struct stat  stat = {0, };
+
+        if (!xattr_req)
+                goto out;
+
+        if (sys_lstat (path, &stat) != 0)
+                goto out;
+
+        ret = sys_lgetxattr (path, GFID_XATTR_KEY, uuid_curr, 16);
+        if (ret != 16) {
+                if (is_fresh_file (&stat)) {
+                        ret = -1;
+                        errno = ENOENT;
+                        goto out;
+                }
+        }
+
+        ret = posix_gfid_set (this, path, loc, xattr_req);
+out:
+        return ret;
+}
+
+
 int
 posix_acl_xattr_set (xlator_t *this, const char *path, dict_t *xattr_req)
 {
