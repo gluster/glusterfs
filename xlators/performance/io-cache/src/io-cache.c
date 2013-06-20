@@ -1912,11 +1912,11 @@ int
 ioc_inode_dump (xlator_t *this, inode_t *inode)
 {
 
-        char          *path                           = NULL;
+        char         *path                            = NULL;
         int           ret                             = -1;
         char          key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
         uint64_t      tmp_ioc_inode                   = 0;
-        ioc_inode_t   *ioc_inode                      = NULL;
+        ioc_inode_t  *ioc_inode                       = NULL;
         gf_boolean_t  section_added                   = _gf_false;
         char          uuid_str[64]                    = {0,};
 
@@ -1930,9 +1930,6 @@ ioc_inode_dump (xlator_t *this, inode_t *inode)
         if (ioc_inode == NULL)
                 goto out;
 
-        gf_proc_dump_add_section (key_prefix);
-        section_added = _gf_true;
-
         /* Similar to ioc_page_dump function its better to use
          * pthread_mutex_trylock and not to use gf_log in statedump
          * to avoid deadlocks.
@@ -1940,24 +1937,30 @@ ioc_inode_dump (xlator_t *this, inode_t *inode)
         ret = pthread_mutex_trylock (&ioc_inode->inode_lock);
         if (ret)
                 goto out;
-        else
-        {
-                gf_proc_dump_write ("inode.weight", "%d", ioc_inode->weight);
 
-                //inode_path takes blocking lock on the itable.
+        {
+                if (uuid_is_null (ioc_inode->inode->gfid))
+                        goto unlock;
+
+                gf_proc_dump_add_section (key_prefix);
+                section_added = _gf_true;
+
                 __inode_path (ioc_inode->inode, NULL, &path);
+
+                gf_proc_dump_write ("inode.weight", "%d", ioc_inode->weight);
 
                 if (path) {
                         gf_proc_dump_write ("path", "%s", path);
                         GF_FREE (path);
                 }
+
                 gf_proc_dump_write ("uuid", "%s", uuid_utoa_r
                                     (ioc_inode->inode->gfid, uuid_str));
                 __ioc_cache_dump (ioc_inode, key_prefix);
                 __ioc_inode_waitq_dump (ioc_inode, key_prefix);
-
-                pthread_mutex_unlock (&ioc_inode->inode_lock);
         }
+unlock:
+        pthread_mutex_unlock (&ioc_inode->inode_lock);
 
 out:
         if (ret && ioc_inode) {
