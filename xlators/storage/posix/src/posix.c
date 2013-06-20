@@ -129,7 +129,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
                 MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &buf);
 
                 if (uuid_is_null (loc->inode->gfid)) {
-                        posix_gfid_set (this, real_path, loc, xdata);
+                        posix_gfid_heal (this, real_path, loc, xdata);
                         MAKE_ENTRY_HANDLE (real_path, par_path, this,
                                            loc, &buf);
                 }

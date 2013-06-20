@@ -12,7 +12,6 @@ gfid1="0x8428b7193a764bf8be8046fb860b8993"
 gfid2="0x85ad91afa2f74694bf52c3326d048209"
 
 cleanup;
-
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}0 $H0:$B0/${V0}1
@@ -24,6 +23,8 @@ touch $B0/${V0}0/c $B0/${V0}1/c
 
 TEST setfattr -n trusted.gfid -v $gfid1 $B0/${V0}0/b
 TEST setfattr -n trusted.gfid -v $gfid2 $B0/${V0}1/c
+
+sleep 2
 
 cd $M0
 TEST ls -l a
