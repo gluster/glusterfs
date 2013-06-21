@@ -1164,6 +1164,18 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = NO_DOC,
           .op_version  = 2
         },
+        { .key         = "nfs.drc",
+          .voltype     = "nfs/server",
+          .option      = "nfs.drc",
+          .type        = GLOBAL_DOC,
+          .op_version  = 1
+        },
+        { .key         = "nfs.drc-size",
+          .voltype     = "nfs/server",
+          .option      = "nfs.drc-size",
+          .type        = GLOBAL_DOC,
+          .op_version  = 1
+        },
 
         /* Other options which don't fit any place above */
         { .key        = "features.read-only",

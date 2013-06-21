@@ -1039,8 +1039,10 @@ typedef struct exportnode exportnode;
 #define MOUNT3_PROC_COUNT       6
 
 #define MOUNT1_NULL             0
+#define MOUNT1_MNT              1
 #define MOUNT1_DUMP             2
 #define MOUNT1_UMNT             3
+#define MOUNT1_UMNTALL          4
 #define MOUNT1_EXPORT           5
 #define MOUNT1_PROC_COUNT       6
 /* the xdr functions */

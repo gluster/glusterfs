@@ -1939,6 +1939,50 @@ out:
         return ret;
 }
 
+/**
+ * gf_sock_union_equal_addr - check if two given gf_sock_unions have same addr
+ *
+ * @param a - first sock union
+ * @param b - second sock union
+ * @return _gf_true if a and b have same ipv{4,6} addr, _gf_false otherwise
+ */
+gf_boolean_t
+gf_sock_union_equal_addr (union gf_sock_union *a,
+                          union gf_sock_union *b)
+{
+        if (!a || !b) {
+                gf_log ("common-utils", GF_LOG_ERROR, "Invalid arguments"
+                        " to gf_sock_union_equal_addr");
+                return _gf_false;
+        }
+
+        if (a->storage.ss_family != b->storage.ss_family)
+                return _gf_false;
+
+        switch (a->storage.ss_family) {
+        case AF_INET:
+                if (a->sin.sin_addr.s_addr == b->sin.sin_addr.s_addr)
+                        return _gf_true;
+                else
+                        return _gf_false;
+
+        case AF_INET6:
+                if (memcmp ((void *)(&a->sin6.sin6_addr),
+                            (void *)(&b->sin6.sin6_addr),
+                            sizeof (a->sin6.sin6_addr)))
+                        return _gf_false;
+                else
+                        return _gf_true;
+
+        default:
+                gf_log ("common-utils", GF_LOG_DEBUG,
+                        "Unsupported/invalid address family");
+                break;
+        }
+
+        return _gf_false;
+}
+
 /*Thread safe conversion function*/
 char *
 uuid_utoa (uuid_t uuid)

@@ -809,7 +809,6 @@ get_frame_from_request (rpcsvc_request_t *req)
                 goto out;
 
         frame->root->op       = req->procnum;
-        frame->root->type     = req->type;
 
         frame->root->unique   = req->xid;
 

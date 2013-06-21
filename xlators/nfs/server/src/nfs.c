@@ -43,6 +43,7 @@
 #include "nlm4.h"
 #include "options.h"
 #include "acl3.h"
+#include "rpc-drc.h"
 
 #define STRINGIFY(val) #val
 #define TOSTRING(val) STRINGIFY(val)
@@ -798,6 +799,21 @@ free_rpcsvc:
         return nfs;
 }
 
+int
+nfs_drc_init (xlator_t *this)
+{
+        int       ret     = -1;
+        rpcsvc_t *svc     = NULL;
+
+        svc = ((struct nfs_state *)(this->private))->rpcsvc;
+        if (!svc)
+                goto out;
+
+        ret = rpcsvc_drc_init (svc, this->options);
+
+ out:
+        return ret;
+}
 
 int
 init (xlator_t *this) {
@@ -853,7 +869,9 @@ init (xlator_t *this) {
                 goto err;
         }
 
-        gf_log (GF_NFS, GF_LOG_INFO, "NFS service started");
+        ret = nfs_drc_init (this);
+        if (ret == 0)
+                gf_log (GF_NFS, GF_LOG_INFO, "NFS service started");
 err:
 
         return ret;
@@ -1008,7 +1026,22 @@ nlm_priv (xlator_t *this);
 int32_t
 nfs_priv (xlator_t *this)
 {
-        return nlm_priv (this);
+        int32_t ret = -1;
+
+        /* DRC needs the global drc structure, xl is of no use to it. */
+        ret = rpcsvc_drc_priv (((struct nfs_state *)(this->private))->rpcsvc->drc);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG, "Statedump of DRC failed");
+                goto out;
+        }
+
+        ret = nlm_priv (this);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG, "Statedump of NLM failed");
+                goto out;
+        }
+ out:
+        return ret;
 }
 
 
@@ -1314,6 +1347,18 @@ struct volume_options options[] = {
           .default_value = "on",
           .description = "This option is used to control ACL support for NFS."
         },
+        { .key  = {"nfs.drc"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = "off",
+          .description = "Enable Duplicate Request Cache in gNfs server to "
+                         "improve correctness of non-idempotent operations like "
+                         "write, delete, link, et al"
+        },
+        { .key  = {"nfs.drc-size"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "0x20000",
+          .description = "Sets the number of non-idempotent "
+                         "requests to cache in drc"
+        },
         { .key  = {NULL} },
 };
-
