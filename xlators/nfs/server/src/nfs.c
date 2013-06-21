@@ -533,10 +533,11 @@ nfs_init_state (xlator_t *this)
         if (!this)
                 return NULL;
 
-        if ((!this->children) || (!this->children->xlator)) {
-                gf_log (GF_NFS, GF_LOG_ERROR, "nfs must have at least one"
-                        " child subvolume");
-                return NULL;
+        if (!this->children) {
+                gf_log (GF_NFS, GF_LOG_INFO,
+                        "NFS is manually disabled: Exiting");
+                /* Nothing for nfs process to do, exit cleanly */
+                kill (getpid (), SIGTERM);
         }
 
         nfs = GF_CALLOC (1, sizeof (*nfs), gf_nfs_mt_nfs_state);
