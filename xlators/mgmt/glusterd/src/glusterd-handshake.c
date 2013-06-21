@@ -582,11 +582,9 @@ glusterd_mgmt_hndsk_versions_ack (rpcsvc_request_t *req)
 }
 
 rpcsvc_actor_t gluster_handshake_actors[] = {
-        [GF_HNDSK_NULL]         = {"NULL", GF_HNDSK_NULL, NULL, NULL, 0},
-        [GF_HNDSK_GETSPEC]      = {"GETSPEC", GF_HNDSK_GETSPEC,
-                                   server_getspec, NULL, 0},
-        [GF_HNDSK_EVENT_NOTIFY] = {"EVENTNOTIFY", GF_HNDSK_EVENT_NOTIFY,
-                                   server_event_notify,  NULL, 0},
+        [GF_HNDSK_NULL]         = {"NULL",        GF_HNDSK_NULL,         NULL,                NULL, 0, DRC_NA},
+        [GF_HNDSK_GETSPEC]      = {"GETSPEC",     GF_HNDSK_GETSPEC,      server_getspec,      NULL, 0, DRC_NA},
+        [GF_HNDSK_EVENT_NOTIFY] = {"EVENTNOTIFY", GF_HNDSK_EVENT_NOTIFY, server_event_notify, NULL, 0, DRC_NA},
 };
 
 

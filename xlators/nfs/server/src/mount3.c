@@ -1843,12 +1843,12 @@ out:
 }
 
 rpcsvc_actor_t  mnt3svc_actors[MOUNT3_PROC_COUNT] = {
-        {"NULL", MOUNT3_NULL, mnt3svc_null, NULL, 0},
-        {"MNT", MOUNT3_MNT, mnt3svc_mnt, NULL, 0},
-        {"DUMP", MOUNT3_DUMP, mnt3svc_dump, NULL, 0},
-        {"UMNT", MOUNT3_UMNT, mnt3svc_umnt, NULL, 0},
-        {"UMNTALL", MOUNT3_UMNTALL, mnt3svc_umntall, NULL, 0},
-        {"EXPORT", MOUNT3_EXPORT, mnt3svc_export, NULL, 0}
+        {"NULL",    MOUNT3_NULL,    mnt3svc_null,    NULL, 0, DRC_NA},
+        {"MNT",     MOUNT3_MNT,     mnt3svc_mnt,     NULL, 0, DRC_NA},
+        {"DUMP",    MOUNT3_DUMP,    mnt3svc_dump,    NULL, 0, DRC_NA},
+        {"UMNT",    MOUNT3_UMNT,    mnt3svc_umnt,    NULL, 0, DRC_NA},
+        {"UMNTALL", MOUNT3_UMNTALL, mnt3svc_umntall, NULL, 0, DRC_NA},
+        {"EXPORT",  MOUNT3_EXPORT,  mnt3svc_export,  NULL, 0, DRC_NA}
 };
 
 
@@ -1939,12 +1939,12 @@ err:
 
 
 rpcsvc_actor_t  mnt1svc_actors[MOUNT1_PROC_COUNT] = {
-        {"NULL", MOUNT1_NULL, mnt3svc_null, NULL, 0},
-        {{0, 0}, },
-        {"DUMP", MOUNT1_DUMP, mnt3svc_dump, NULL, 0},
-        {"UMNT", MOUNT1_UMNT, mnt3svc_umnt, NULL, 0},
-        {{0, 0}, },
-        {"EXPORT", MOUNT1_EXPORT, mnt3svc_export, NULL, 0}
+        {"NULL",    MOUNT1_NULL,    mnt3svc_null,   NULL, 0, DRC_NA},
+        {"MNT",     MOUNT1_MNT,     NULL,           NULL, 0, DRC_NA },
+        {"DUMP",    MOUNT1_DUMP,    mnt3svc_dump,   NULL, 0, DRC_NA},
+        {"UMNT",    MOUNT1_UMNT,    mnt3svc_umnt,   NULL, 0, DRC_NA},
+        {"UMNTALL", MOUNT1_UMNTALL, NULL,           NULL, 0, DRC_NA},
+        {"EXPORT",  MOUNT1_EXPORT,  mnt3svc_export, NULL, 0, DRC_NA}
 };
 
 rpcsvc_program_t        mnt1prog = {

@@ -749,11 +749,11 @@ fail:
 }
 
 rpcsvc_actor_t gluster_handshake_actors[] = {
-        [GF_HNDSK_NULL]       = {"NULL",      GF_HNDSK_NULL,      server_null, NULL, 0},
-        [GF_HNDSK_SETVOLUME]  = {"SETVOLUME", GF_HNDSK_SETVOLUME, server_setvolume, NULL, 0},
-        [GF_HNDSK_GETSPEC]    = {"GETSPEC",   GF_HNDSK_GETSPEC,   server_getspec, NULL, 0},
-        [GF_HNDSK_PING]       = {"PING",      GF_HNDSK_PING,      server_ping, NULL, 0},
-        [GF_HNDSK_SET_LK_VER] = {"SET_LK_VER", GF_HNDSK_SET_LK_VER, server_set_lk_version, NULL, 0},
+        [GF_HNDSK_NULL]       = {"NULL",       GF_HNDSK_NULL,       server_null,           NULL, 0, DRC_NA},
+        [GF_HNDSK_SETVOLUME]  = {"SETVOLUME",  GF_HNDSK_SETVOLUME,  server_setvolume,      NULL, 0, DRC_NA},
+        [GF_HNDSK_GETSPEC]    = {"GETSPEC",    GF_HNDSK_GETSPEC,    server_getspec,        NULL, 0, DRC_NA},
+        [GF_HNDSK_PING]       = {"PING",       GF_HNDSK_PING,       server_ping,           NULL, 0, DRC_NA},
+        [GF_HNDSK_SET_LK_VER] = {"SET_LK_VER", GF_HNDSK_SET_LK_VER, server_set_lk_version, NULL, 0, DRC_NA},
 };
 
 

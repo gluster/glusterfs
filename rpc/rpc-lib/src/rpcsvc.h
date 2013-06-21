@@ -140,6 +140,9 @@ typedef struct rpcsvc_auth_data {
 
 #define rpcsvc_auth_flavour(au)    ((au).flavour)
 
+typedef struct drc_client drc_client_t;
+typedef struct drc_cached_op drc_cached_op_t;
+
 /* The container for the RPC call handed up to an actor.
  * Dynamically allocated. Lives till the call reply is completely
  * transmitted.
@@ -241,6 +244,9 @@ struct rpcsvc_request {
 
         /* we need to ref the 'iobuf' in case of 'synctasking' it */
         struct iobuf            *hdr_iobuf;
+
+        /* pointer to cached reply for use in DRC */
+        drc_cached_op_t         *reply;
 };
 
 #define rpcsvc_request_program(req) ((rpcsvc_program_t *)((req)->prog))
@@ -314,7 +320,6 @@ typedef void *(*rpcsvc_encode_reply) (void *msg);
  */
 typedef void (*rpcsvc_deallocate_reply) (void *msg);
 
-
 #define RPCSVC_NAME_MAX            32
 /* The descriptor for each procedure/actor that runs
  * over the RPC service.
@@ -336,6 +341,7 @@ typedef struct rpcsvc_actor_desc {
 
         /* Can actor be ran on behalf an unprivileged requestor? */
         gf_boolean_t            unprivileged;
+        drc_op_type_t           op_type;
 } rpcsvc_actor_t;
 
 /* Describes a program and its version along with the function pointers
@@ -448,6 +454,13 @@ int
 rpcsvc_unregister_notify (rpcsvc_t *svc, rpcsvc_notify_t notify, void *mydata);
 
 int
+rpcsvc_transport_submit (rpc_transport_t *trans, struct iovec *rpchdr,
+                         int rpchdrcount, struct iovec *proghdr,
+                         int proghdrcount, struct iovec *progpayload,
+                         int progpayloadcount, struct iobref *iobref,
+                         void *priv);
+
+int
 rpcsvc_submit_message (rpcsvc_request_t *req, struct iovec *proghdr,
                        int hdrcount, struct iovec *payload, int payloadcount,
                        struct iobref *iobref);
@@ -558,6 +571,9 @@ int rpcsvc_callback_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
                             rpcsvc_cbk_program_t *prog, int procnum,
                             struct iovec *proghdr, int proghdrcount);
 
+rpcsvc_actor_t *
+rpcsvc_program_actor (rpcsvc_request_t *req);
+
 int
 rpcsvc_transport_unix_options_build (dict_t **options, char *filepath);
 int
@@ -571,5 +587,4 @@ rpcsvc_volume_allowed (dict_t *options, char *volname);
 rpcsvc_vector_sizer
 rpcsvc_get_program_vector_sizer (rpcsvc_t *svc, uint32_t prognum,
                                  uint32_t progver, uint32_t procnum);
-
 #endif

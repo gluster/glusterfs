@@ -1248,16 +1248,16 @@ rpc_clnt_prog_t clnt_handshake_prog = {
 };
 
 rpcsvc_actor_t glusterfs_actors[] = {
-        [GLUSTERD_BRICK_NULL]          = {"NULL", GLUSTERD_BRICK_NULL, glusterfs_handle_rpc_msg, NULL, 0},
-        [GLUSTERD_BRICK_TERMINATE]     = {"TERMINATE", GLUSTERD_BRICK_TERMINATE, glusterfs_handle_terminate, NULL, 0},
-        [GLUSTERD_BRICK_XLATOR_INFO]   = {"TRANSLATOR INFO", GLUSTERD_BRICK_XLATOR_INFO, glusterfs_handle_translator_info_get, NULL, 0},
-        [GLUSTERD_BRICK_XLATOR_OP]     = {"TRANSLATOR OP", GLUSTERD_BRICK_XLATOR_OP, glusterfs_handle_translator_op, NULL, 0},
-        [GLUSTERD_BRICK_STATUS]        = {"STATUS", GLUSTERD_BRICK_STATUS, glusterfs_handle_brick_status, NULL, 0},
-        [GLUSTERD_BRICK_XLATOR_DEFRAG] = {"TRANSLATOR DEFRAG", GLUSTERD_BRICK_XLATOR_DEFRAG, glusterfs_handle_defrag, NULL, 0},
-        [GLUSTERD_NODE_PROFILE]        = {"NFS PROFILE", GLUSTERD_NODE_PROFILE, glusterfs_handle_nfs_profile, NULL, 0},
-        [GLUSTERD_NODE_STATUS]         = {"NFS STATUS", GLUSTERD_NODE_STATUS, glusterfs_handle_node_status, NULL, 0},
+        [GLUSTERD_BRICK_NULL]          = {"NULL",              GLUSTERD_BRICK_NULL,          glusterfs_handle_rpc_msg,             NULL, 0, DRC_NA},
+        [GLUSTERD_BRICK_TERMINATE]     = {"TERMINATE",         GLUSTERD_BRICK_TERMINATE,     glusterfs_handle_terminate,           NULL, 0, DRC_NA},
+        [GLUSTERD_BRICK_XLATOR_INFO]   = {"TRANSLATOR INFO",   GLUSTERD_BRICK_XLATOR_INFO,   glusterfs_handle_translator_info_get, NULL, 0, DRC_NA},
+        [GLUSTERD_BRICK_XLATOR_OP]     = {"TRANSLATOR OP",     GLUSTERD_BRICK_XLATOR_OP,     glusterfs_handle_translator_op,       NULL, 0, DRC_NA},
+        [GLUSTERD_BRICK_STATUS]        = {"STATUS",            GLUSTERD_BRICK_STATUS,        glusterfs_handle_brick_status,        NULL, 0, DRC_NA},
+        [GLUSTERD_BRICK_XLATOR_DEFRAG] = {"TRANSLATOR DEFRAG", GLUSTERD_BRICK_XLATOR_DEFRAG, glusterfs_handle_defrag,              NULL, 0, DRC_NA},
+        [GLUSTERD_NODE_PROFILE]        = {"NFS PROFILE",       GLUSTERD_NODE_PROFILE,        glusterfs_handle_nfs_profile,         NULL, 0, DRC_NA},
+        [GLUSTERD_NODE_STATUS]         = {"NFS STATUS",        GLUSTERD_NODE_STATUS,         glusterfs_handle_node_status,         NULL, 0, DRC_NA},
 #ifdef HAVE_BD_XLATOR
-        [GLUSTERD_BRICK_BD_OP]         = {"BD OP", GLUSTERD_BRICK_BD_OP, glusterfs_handle_bd_op, NULL, 0}
+        [GLUSTERD_BRICK_BD_OP]         = {"BD OP",             GLUSTERD_BRICK_BD_OP,         glusterfs_handle_bd_op,               NULL, 0, DRC_NA}
 #endif
 };
 

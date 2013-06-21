@@ -557,6 +557,8 @@ char valid_internet_address (char *address, gf_boolean_t wildcard_acc);
 char valid_ipv4_wildcard_check (char *address);
 char valid_ipv6_wildcard_check (char *address);
 char valid_wildcard_internet_address (char *address);
+gf_boolean_t gf_sock_union_equal_addr (union gf_sock_union *a,
+                                       union gf_sock_union *b);
 
 char *uuid_utoa (uuid_t uuid);
 char *uuid_utoa_r (uuid_t uuid, char *dst);

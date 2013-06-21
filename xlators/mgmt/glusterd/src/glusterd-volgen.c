@@ -2882,6 +2882,10 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
         if (ret)
                 goto out;
 
+        ret = xlator_set_option (nfsxl, "nfs.drc", "on");
+        if (ret)
+                goto out;
+
         list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (voliter->status != GLUSTERD_STATUS_STARTED)
                         continue;

@@ -196,6 +196,7 @@ struct rpc_transport {
         dict_t                    *options;
         char                      *name;
         void                      *dnscache;
+        void                      *drc_client;
         data_t                    *buf;
         int32_t                  (*init)   (rpc_transport_t *this);
         void                     (*fini)   (rpc_transport_t *this);
