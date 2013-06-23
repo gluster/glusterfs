@@ -1,12 +1,28 @@
 #!/bin/bash
+
 #Need to be copied to hooks/<HOOKS_VER>/start/post
 
+#TODO: All gluster and samba paths are assumed for fedora like systems.
+#Some efforts are required to make it work on other distros.
+
+#The preferred way of creating a smb share of a gluster volume has changed.
+#The old method was to create a fuse mount of the volume and share the mount
+#point through samba.
+#
+#New method eliminates the requirement of fuse mount and changes in fstab.
+#glusterfs_vfs plugin for samba makes call to libgfapi to access the volume.
+#
+#This hook script automagically creates shares for volume on every volume start
+#event by adding the entries in smb.conf file and sending SIGHUP to samba.
+#
+#In smb.conf:
+#glusterfs vfs plugin has to be specified as required vfs object.
+#Path value is relative to the root of gluster volume;"/" signifies complete
+#volume.
+
 PROGNAME="Ssamba-start"
-OPTSPEC="volname:,mnt:"
+OPTSPEC="volname:"
 VOL=
-#FIXME: glusterd hook interface will eventually provide mntpt prefix as
-# command line arg
-MNT_PRE="/mnt/samba"
 
 function parse_args () {
         ARGS=$(getopt -l $OPTSPEC  -name $PROGNAME $@)
@@ -18,10 +34,6 @@ function parse_args () {
          shift
          VOL=$1
          ;;
-        --mnt)
-         shift
-         MNT_PRE=$1
-         ;;
         *)
          shift
          break
@@ -31,32 +43,47 @@ function parse_args () {
         done
 }
 
-function add_samba_export () {
+function add_samba_share () {
         volname=$1
-        mnt_pre=$2
-        mkdir -p $mnt_pre/$volname && \
-        printf "\n[gluster-$volname]\ncomment=For samba export of volume $volname\npath=$mnt_pre/$volname\nread only=no\nguest ok=yes\n" >> /etc/samba/smb.conf
-}
-
-function mount_volume () {
-        volname=$1
-        mnt_pre=$2
-        #Mount shouldn't block on glusterd to fetch volfile, hence the 'bg'
-        mount -t glusterfs `hostname`:$volname $mnt_pre/$volname &
+        STRING="\n[gluster-$volname]\n"
+        STRING+="comment = For samba share of volume $volname\n"
+        STRING+="vfs objects = glusterfs\n"
+        STRING+="glusterfs:volume = $volname\n"
+        STRING+="path = /\n"
+        STRING+="read only = no\n"
+        STRING+="guest ok = yes\n"
+        printf "$STRING"  >> /etc/samba/smb.conf
 }
 
 function sighup_samba () {
         pid=`cat /var/run/smbd.pid`
-        if [ $pid != "" ]
+        if [ "$pid" != "" ]
         then
-                kill -HUP $pid;
+                kill -HUP "$pid";
         else
                 /etc/init.d/smb condrestart
         fi
 }
 
+function get_smb () {
+        volname=$1
+        uservalue=
+
+        usercifsvalue=$(grep user.cifs /var/lib/glusterd/vols/"$volname"/info |\
+                        cut -d"=" -f2)
+        usersmbvalue=$(grep user.smb /var/lib/glusterd/vols/"$volname"/info |\
+                       cut -d"=" -f2)
+
+        if [[ $usercifsvalue = "disable" || $usersmbvalue = "disable" ]]; then
+                uservalue="disable"
+        fi
+        echo "$uservalue"
+}
 
 parse_args $@
-add_samba_export $VOL $MNT_PRE
-mount_volume $VOL $MNT_PRE
+if [ $(get_smb "$VOL") = "disable" ]; then
+        exit 0
+fi
+
+add_samba_share $VOL
 sighup_samba
