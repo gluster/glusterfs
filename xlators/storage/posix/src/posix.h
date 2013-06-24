@@ -127,6 +127,11 @@ struct posix_private {
 
         /* node-uuid in pathinfo xattr */
         gf_boolean_t  node_uuid_pathinfo;
+
+        /* seconds to sleep between health checks */
+        uint32_t        health_check_interval;
+        pthread_t       health_check;
+        gf_boolean_t    health_check_active;
 };
 
 typedef struct {
@@ -178,4 +183,5 @@ gf_boolean_t posix_special_xattr (char **pattern, char *key);
 void
 __posix_fd_set_odirect (fd_t *fd, struct posix_fd *pfd, int opflags,
 			off_t offset, size_t size);
+void posix_spawn_health_check_thread (xlator_t *this);
 #endif /* _POSIX_H */
