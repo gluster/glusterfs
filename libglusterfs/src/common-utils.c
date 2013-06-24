@@ -1784,6 +1784,14 @@ valid_host_name (char *address, int length)
                 goto out;
         }
 
+        /* Check for consecutive dots, which is invalid in a hostname and is
+         * ignored by strtok()
+         */
+        if (strstr (dup_addr, "..")) {
+                ret = 0;
+                goto out;
+        }
+
         /* gen-name */
         temp_str = strtok_r (dup_addr, ".", &save_ptr);
         do {
