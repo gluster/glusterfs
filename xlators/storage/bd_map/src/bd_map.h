@@ -30,6 +30,12 @@
 
 #define BACKEND_VG "vg"
 
+/* lvm2-2.02.79 added this in lvm2app.h, but it is available for linking in
+ * older versions already */
+#if NEED_LVM_LV_FROM_NAME_DECL
+lv_t lvm_lv_from_name(vg_t vg, const char *name);
+#endif
+
 enum gf_bd_mem_types_ {
         gf_bd_fd = gf_common_mt_end + 1,
         gf_bd_private,

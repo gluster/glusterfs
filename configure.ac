@@ -291,9 +291,18 @@ AC_ARG_ENABLE([bd-xlator],
 
 if test "x$enable_bd_xlator" != "xno"; then
   AC_CHECK_LIB([lvm2app],
-                  [lvm_init],
+                  [lvm_init,lvm_lv_from_name],
                   [HAVE_BD_LIB="yes"],
                   [HAVE_BD_LIB="no"])
+
+  if test "x$HAVE_BD_LIB" = "xyes"; then
+    # lvm_lv_from_name() has been made public with lvm2-2.02.79
+    AC_CHECK_DECLS(
+                  [lvm_lv_from_name],
+                  [NEED_LVM_LV_FROM_NAME_DECL="no"],
+                  [NEED_LVM_LV_FROM_NAME_DECL="yes"],
+                  [[#include <lvm2app.h>]])
+  fi
 fi
 
 if test "x$enable_bd_xlator" = "xyes" -a "x$HAVE_BD_LIB" = "xno"; then
@@ -306,6 +315,10 @@ if test "x${enable_bd_xlator}" != "xno" -a "x${HAVE_BD_LIB}" = "xyes"; then
   BUILD_BD_XLATOR=yes
   AC_DEFINE(HAVE_BD_XLATOR, 1, [define if lvm2app library found and bd
                   xlator enabled])
+  if test "x$NEED_LVM_LV_FROM_NAME_DECL" = "xyes"; then
+    AC_DEFINE(NEED_LVM_LV_FROM_NAME_DECL, 1, [defined if lvm_lv_from_name()
+                  was not found in the lvm2app.h header, but can be linked])
+  fi
 fi
 
 AM_CONDITIONAL([ENABLE_BD_XLATOR], [test x$BUILD_BD_XLATOR = xyes])
