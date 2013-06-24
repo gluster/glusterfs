@@ -1595,7 +1595,7 @@ unlock:
 		local->transaction.resume_stub = stub;
 		afr_changelog_post_op_safe (prev_frame, this);
 	} else if (stub) {
-		call_resume (stub);
+		AFR_CALL_RESUME (stub);
 	}
 }
 
