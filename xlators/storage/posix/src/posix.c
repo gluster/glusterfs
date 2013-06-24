@@ -23,6 +23,7 @@
 #include <pthread.h>
 #include <ftw.h>
 #include <sys/stat.h>
+#include <signal.h>
 
 #ifndef GF_BSD_HOST_OS
 #include <alloca.h>
@@ -4320,6 +4321,10 @@ reconfigure (xlator_t *this, dict_t *options)
                             " fallback to <hostname>:<export>");
         }
 
+        GF_OPTION_RECONF ("health-check-interval", priv->health_check_interval,
+                          options, uint32, out);
+        posix_spawn_health_check_thread (this);
+
 	ret = 0;
 out:
 	return ret;
@@ -4690,6 +4695,12 @@ init (xlator_t *this)
                                 " fallback to <hostname>:<export>");
         }
 
+        _private->health_check_active = _gf_false;
+        GF_OPTION_INIT ("health-check-interval",
+                        _private->health_check_interval, uint32, out);
+        if (_private->health_check_interval)
+                posix_spawn_health_check_thread (this);
+
         pthread_mutex_init (&_private->janitor_lock, NULL);
         pthread_cond_init (&_private->janitor_cond, NULL);
         INIT_LIST_HEAD (&_private->janitor_fds);
@@ -4814,6 +4825,15 @@ struct volume_options options[] = {
           .default_value = "off",
           .description = "return glusterd's node-uuid in pathinfo xattr"
                          " string instead of hostname"
+        },
+        {
+          .key = {"health-check-interval"},
+          .type = GF_OPTION_TYPE_INT,
+          .min = 0,
+          .default_value = "30",
+          .validate = GF_OPT_VALIDATE_MIN,
+          .description = "Interval in seconds for a filesystem health check, "
+                         "set to 0 to disable"
         },
         { .key  = {NULL} }
 };

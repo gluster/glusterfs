@@ -1215,6 +1215,10 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "storage/posix",
           .op_version  = 2
         },
+        { .key         = "storage.health-check-interval",
+          .voltype     = "storage/posix",
+          .op_version  = 3
+        },
         { .key        = "config.memory-accounting",
           .voltype    = "configuration",
           .option     = "!config",

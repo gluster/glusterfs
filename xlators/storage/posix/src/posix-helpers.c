@@ -22,6 +22,7 @@
 #include <pthread.h>
 #include <ftw.h>
 #include <sys/stat.h>
+#include <signal.h>
 
 #ifndef GF_BSD_HOST_OS
 #include <alloca.h>
@@ -1062,4 +1063,117 @@ posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd)
         UNLOCK (&fd->inode->lock);
 
         return ret;
+}
+
+static void *
+posix_health_check_thread_proc (void *data)
+{
+        xlator_t             *this               = NULL;
+        struct posix_private *priv               = NULL;
+        uint32_t              interval           = 0;
+        int                   ret                = -1;
+        struct stat           sb                 = {0, };
+
+        this = data;
+        priv = this->private;
+
+        /* prevent races when the interval is updated */
+        interval = priv->health_check_interval;
+        if (interval == 0)
+                goto out;
+
+        gf_log (this->name, GF_LOG_DEBUG, "health-check thread started, "
+                "interval = %d seconds", interval);
+
+        while (1) {
+                /* aborting sleep() is a request to exit this thread, sleep()
+                 * will normally not return when cancelled */
+                ret = sleep (interval);
+                if (ret > 0)
+                        break;
+
+                /* prevent thread errors while doing the health-check(s) */
+                pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
+
+                /* Do the health-check, it should be moved to its own function
+                 * in case it gets more complex. */
+                ret = stat (priv->base_path, &sb);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "stat() on %s returned: %s", priv->base_path,
+                                strerror (errno));
+                        goto abort;
+                }
+
+                pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
+        }
+
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "health-check thread exiting");
+
+        LOCK (&priv->lock);
+        {
+                priv->health_check_active = _gf_false;
+        }
+        UNLOCK (&priv->lock);
+
+        return NULL;
+
+abort:
+        /* health-check failed */
+        gf_log (this->name, GF_LOG_EMERG, "health-check failed, going down");
+        xlator_notify (this->parents->xlator, GF_EVENT_CHILD_DOWN, this);
+
+        ret = sleep (30);
+        if (ret == 0) {
+                gf_log (this->name, GF_LOG_EMERG, "still alive! -> SIGTERM");
+                kill (getpid(), SIGTERM);
+        }
+
+        ret = sleep (30);
+        if (ret == 0) {
+                gf_log (this->name, GF_LOG_EMERG, "still alive! -> SIGKILL");
+                kill (getpid(), SIGKILL);
+        }
+
+        return NULL;
+}
+
+void
+posix_spawn_health_check_thread (xlator_t *xl)
+{
+        struct posix_private *priv               = NULL;
+        int                   ret                = -1;
+
+        priv = xl->private;
+
+        LOCK (&priv->lock);
+        {
+                /* cancel the running thread  */
+                if (priv->health_check_active == _gf_true) {
+                        pthread_cancel (priv->health_check);
+                        priv->health_check_active = _gf_false;
+                }
+
+                /* prevent scheduling a check in a tight loop */
+                if (priv->health_check_interval == 0)
+                        goto unlock;
+
+                ret = pthread_create (&priv->health_check, NULL,
+                                      posix_health_check_thread_proc, xl);
+                if (ret < 0) {
+                        priv->health_check_interval = 0;
+                        priv->health_check_active = _gf_false;
+                        gf_log (xl->name, GF_LOG_ERROR,
+                                "unable to setup health-check thread: %s",
+                                strerror (errno));
+                        goto unlock;
+                }
+
+                /* run the thread detached, resources will be freed on exit */
+                pthread_detach (priv->health_check);
+                priv->health_check_active = _gf_true;
+        }
+unlock:
+        UNLOCK (&priv->lock);
 }
