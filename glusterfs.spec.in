@@ -473,6 +473,7 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 %if ( 0%{!?_without_rdma:1} )
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/rpc-transport/rdma*
 %endif
+%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/api*
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/fuse*
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage*
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/posix*
@@ -587,6 +588,7 @@ fi
 %files api
 %exclude %{_libdir}/*.so
 %{_libdir}/libgfapi.*
+%{_libdir}/glusterfs/%{version}/xlator/mount/api*
 
 %if ( 0%{!?_without_ocf:1} )
 %files resource-agents
@@ -672,6 +674,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Wed Jun 26 2013 Niels de Vos <ndevos@redhat.com>
+- move the mount/api xlator to glusterfs-api
+
 * Fri Jun 7 2013 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - Sync with Fedora glusterfs.spec, remove G4S/UFO and Swift
 
