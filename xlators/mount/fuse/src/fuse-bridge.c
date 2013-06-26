@@ -11,6 +11,7 @@
 #include <sys/wait.h>
 #include "fuse-bridge.h"
 #include "mount-gluster-compat.h"
+#include "glusterfs.h"
 
 #ifdef __NetBSD__
 #undef open /* in perfuse.h, pulled from mount-gluster-compat.h */
@@ -3161,6 +3162,8 @@ out:
 void
 fuse_getxattr_resume (fuse_state_t *state)
 {
+        char *value  = NULL;
+
         if (!state->loc.inode) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRIu64": GETXATTR %s/%"PRIu64" (%s) "
@@ -3177,6 +3180,46 @@ fuse_getxattr_resume (fuse_state_t *state)
 #ifdef GF_TEST_FFOP
         state->fd = fd_lookup (state->loc.inode, state->finh->pid);
 #endif /* GF_TEST_FFOP */
+
+        if (state->name &&
+            (strcmp (state->name, VIRTUAL_GFID_XATTR_KEY) == 0)) {
+                /* send glusterfs gfid in binary form */
+
+                value = GF_CALLOC (16 + 1, sizeof(char),
+                                   gf_common_mt_char);
+                if (!value) {
+                        send_fuse_err (state->this, state->finh, ENOMEM);
+                        goto internal_out;
+                }
+                memcpy (value, state->loc.inode->gfid, 16);
+
+                send_fuse_xattr (THIS, state->finh, value, 16, state->size);
+                GF_FREE (value);
+        internal_out:
+                free_fuse_state (state);
+                return;
+        }
+
+        if (state->name &&
+            (strcmp (state->name, VIRTUAL_GFID_XATTR_KEY_STR) == 0)) {
+                /* transform binary gfid to canonical form */
+
+                value = GF_CALLOC (UUID_CANONICAL_FORM_LEN + 1, sizeof(char),
+                                   gf_common_mt_char);
+                if (!value) {
+                        send_fuse_err (state->this, state->finh, ENOMEM);
+                        goto internal_out1;
+                }
+                uuid_utoa_r (state->loc.inode->gfid, value);
+
+                send_fuse_xattr (THIS, state->finh, value,
+                                 UUID_CANONICAL_FORM_LEN, state->size);
+                GF_FREE (value);
+        internal_out1:
+                free_fuse_state (state);
+                return;
+        }
+
 
         if (state->fd) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
