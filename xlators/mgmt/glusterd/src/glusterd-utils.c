@@ -1214,6 +1214,11 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         if (!port)
                 port = pmap_registry_alloc (THIS);
 
+        /* Build the exp_path, before starting the glusterfsd even in
+           valgrind mode. Otherwise all the glusterfsd processes start
+           writing the valgrind log to the same file.
+        */
+        GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, exp_path);
         runinit (&runner);
 
         if (priv->valgrind) {
@@ -1236,7 +1241,6 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 runner_argprintf (&runner, "--log-file=%s", valgrind_logfile);
         }
 
-        GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, exp_path);
         snprintf (volfile, PATH_MAX, "%s.%s.%s", volinfo->volname,
                   brickinfo->hostname, exp_path);
 
