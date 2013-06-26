@@ -95,7 +95,10 @@
                                        strlen (GF_XATTR_LOCKINFO_KEY)) == 0)
 
 #define GF_XATTR_LINKINFO_KEY   "trusted.distribute.linkinfo"
-#define GFID_XATTR_KEY "trusted.gfid"
+#define GFID_XATTR_KEY          "trusted.gfid"
+#define VIRTUAL_GFID_XATTR_KEY_STR  "glusterfs.gfid.string"
+#define VIRTUAL_GFID_XATTR_KEY      "glusterfs.gfid"
+#define UUID_CANONICAL_FORM_LEN 36
 
 #define GLUSTERFS_INTERNAL_FOP_KEY  "glusterfs-internal-fop"
 
