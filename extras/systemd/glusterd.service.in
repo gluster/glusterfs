@@ -6,7 +6,8 @@ After=network.target rpcbind.service
 Type=forking
 PIDFile=/run/glusterd.pid
 LimitNOFILE=65536
-ExecStart=/usr/sbin/glusterd -p /run/glusterd.pid
+ExecStart=@prefix@/sbin/glusterd -p /run/glusterd.pid
+KillMode=process
 
 [Install]
 WantedBy=multi-user.target
