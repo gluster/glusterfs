@@ -809,10 +809,10 @@ __glusterd_handle_cli_probe (rpcsvc_request_t *req)
                          &bind_name) == 0) {
                 gf_log ("glusterd", GF_LOG_DEBUG,
                         "only checking probe address vs. bind address");
-                ret = glusterd_is_same_address (bind_name, hostname);
+                ret = gf_is_same_address (bind_name, hostname);
         }
         else {
-                ret = glusterd_is_local_addr (hostname);
+                ret = gf_is_local_addr (hostname);
         }
         if (ret) {
                 glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_LOCALHOST,
@@ -1695,7 +1695,7 @@ __glusterd_handle_sync_volume (rpcsvc_request_t *req)
         gf_log (this->name, GF_LOG_INFO, "Received volume sync req "
                 "for volume %s", (flags & GF_CLI_SYNC_ALL) ? "all" : volname);
 
-        if (glusterd_is_local_addr (hostname)) {
+        if (gf_is_local_addr (hostname)) {
                 ret = -1;
                 snprintf (msg, sizeof (msg), "sync from localhost"
                           " not allowed");
