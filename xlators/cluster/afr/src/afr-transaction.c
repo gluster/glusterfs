@@ -1402,6 +1402,8 @@ afr_fd_has_witnessed_unstable_write (xlator_t *this, fd_t *fd)
 	gf_boolean_t witness = _gf_false;
 
 	fdctx = afr_fd_ctx_get (fd, this);
+        if (!fdctx)
+                return _gf_true;
 
 	LOCK(&fd->lock);
 	{
@@ -1568,7 +1570,7 @@ afr_delayed_changelog_post_op (xlator_t *this, call_frame_t *frame, fd_t *fd,
 
 	fd_ctx = afr_fd_ctx_get (fd, this);
 	if (!fd_ctx)
-		return;
+                goto out;
 
 	delta.tv_sec = priv->post_op_delay_secs;
 	delta.tv_usec = 0;
@@ -1590,6 +1592,7 @@ afr_delayed_changelog_post_op (xlator_t *this, call_frame_t *frame, fd_t *fd,
 unlock:
 	pthread_mutex_unlock (&fd_ctx->delay_lock);
 
+out:
 	if (prev_frame) {
 		local = prev_frame->local;
 		local->transaction.resume_stub = stub;
