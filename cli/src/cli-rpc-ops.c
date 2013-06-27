@@ -6335,10 +6335,10 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         if ((heal_op == GF_AFR_OP_HEAL_FULL) ||
             (heal_op == GF_AFR_OP_HEAL_INDEX)) {
-                operation = "Launching Heal operation";
+                operation = "Launching heal operation";
                 substr = "\nUse heal info commands to check status";
         } else {
-                operation = "Gathering Heal info";
+                operation = "Gathering heal info";
                 substr = "";
         }
 
