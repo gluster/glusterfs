@@ -441,7 +441,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 }
         }
 
-        if (glusterd_is_local_addr (src_brickinfo->hostname)) {
+        if (gf_is_local_addr (src_brickinfo->hostname)) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "I AM THE SOURCE HOST");
                 if (src_brickinfo->port && rsp_dict) {
@@ -518,7 +518,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
        }
 
         if (!glusterd_is_rb_ongoing (volinfo) &&
-            glusterd_is_local_addr (host)) {
+            gf_is_local_addr (host)) {
                 ret = glusterd_validate_and_create_brickpath (dst_brickinfo,
                                                   volinfo->volume_id,
                                                   op_errstr, is_force);
@@ -526,7 +526,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                         goto out;
         }
 
-        if (!glusterd_is_local_addr (host)) {
+        if (!gf_is_local_addr (host)) {
                 ret = glusterd_friend_find (NULL, host, &peerinfo);
                 if (ret) {
                         snprintf (msg, sizeof (msg), "%s, is not a friend",
@@ -553,7 +553,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         }
 
         if (replace_op == GF_REPLACE_OP_START &&
-            glusterd_is_local_addr (volinfo->rep_brick.dst_brick->hostname)) {
+            gf_is_local_addr (volinfo->rep_brick.dst_brick->hostname)) {
                 port = pmap_registry_alloc (THIS);
                 if (!port) {
                         gf_log (THIS->name, GF_LOG_CRITICAL,
@@ -1414,7 +1414,7 @@ rb_update_srcbrick_port (glusterd_brickinfo_t *src_brickinfo, dict_t *rsp_dict,
         if (src_port)
                 src_brickinfo->port = src_port;
 
-        if (glusterd_is_local_addr (src_brickinfo->hostname)) {
+        if (gf_is_local_addr (src_brickinfo->hostname)) {
                 gf_log ("", GF_LOG_INFO,
                         "adding src-brick port no");
 
@@ -1468,7 +1468,7 @@ rb_update_dstbrick_port (glusterd_brickinfo_t *dst_brickinfo, dict_t *rsp_dict,
                 dst_brickinfo->port = dst_port;
 
 
-        if (glusterd_is_local_addr (dst_brickinfo->hostname)) {
+        if (gf_is_local_addr (dst_brickinfo->hostname)) {
                 gf_log ("", GF_LOG_INFO,
                         "adding dst-brick port no");
 
@@ -1676,7 +1676,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                         uuid_parse (task_id_str, volinfo->rep_brick.rb_id);
                 }
 
-                if (glusterd_is_local_addr (dst_brickinfo->hostname)) {
+                if (gf_is_local_addr (dst_brickinfo->hostname)) {
                         gf_log (this->name, GF_LOG_INFO,
                                 "I AM THE DESTINATION HOST");
                         if (!glusterd_is_rb_paused (volinfo)) {
@@ -1696,7 +1696,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 		}
 
 
-		if (glusterd_is_local_addr (src_brickinfo->hostname)) {
+		if (gf_is_local_addr (src_brickinfo->hostname)) {
 		        ret = rb_src_brick_restart (volinfo, src_brickinfo,
 				                    1);
 		        if (ret) {
@@ -1706,7 +1706,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 			}
 		}
 
-		if (glusterd_is_local_addr (dst_brickinfo->hostname)) {
+		if (gf_is_local_addr (dst_brickinfo->hostname)) {
 			gf_log (this->name, GF_LOG_INFO,
 				"adding dst-brick port no");
 
@@ -1737,7 +1737,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                 /* fall through */
         case GF_REPLACE_OP_COMMIT_FORCE:
         {
-                if (glusterd_is_local_addr (dst_brickinfo->hostname)) {
+                if (gf_is_local_addr (dst_brickinfo->hostname)) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "I AM THE DESTINATION HOST");
                         ret = rb_kill_destination_brick (volinfo,
@@ -1818,7 +1818,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                         }
                 }
 
-                if (glusterd_is_local_addr (src_brickinfo->hostname)) {
+                if (gf_is_local_addr (src_brickinfo->hostname)) {
                         ret = rb_src_brick_restart (volinfo, src_brickinfo,
                                                     0);
                         if (ret) {
@@ -1829,7 +1829,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                         }
                 }
 
-                if (glusterd_is_local_addr (dst_brickinfo->hostname)) {
+                if (gf_is_local_addr (dst_brickinfo->hostname)) {
                         gf_log (this->name, GF_LOG_INFO,
                                 "I AM THE DESTINATION HOST");
                         ret = rb_kill_destination_brick (volinfo, dst_brickinfo);

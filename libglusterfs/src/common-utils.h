@@ -582,5 +582,7 @@ char *gf_get_reserved_ports();
 int gf_process_reserved_ports (gf_boolean_t ports[]);
 gf_boolean_t gf_ports_reserved (char *blocked_port, gf_boolean_t *ports);
 int gf_get_hostname_from_ip (char *client_ip, char **hostname);
+gf_boolean_t gf_is_local_addr (char *hostname);
+gf_boolean_t gf_is_same_address (char *host1, char *host2);
 
 #endif /* _COMMON_UTILS_H */
