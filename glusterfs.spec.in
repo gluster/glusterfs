@@ -322,9 +322,12 @@ This package provides the api include files.
 ./autogen.sh
 %configure %{?_without_rdma} %{?_without_epoll} %{?_without_fusermount} %{?_without_georeplication} %{?_without_ocf}
 
-# Remove rpath
-sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
-sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
+# fix hardening and remove rpath in shlibs
+%if ( 0%{?fedora} && 0%{?fedora} > 17 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
+%{__sed} -i 's| \\\$compiler_flags |&\\\$LDFLAGS |' libtool
+%endif
+%{__sed} -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|' libtool
+%{__sed} -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|' libtool
 
 %{__make} %{?_smp_mflags}
 
@@ -374,7 +377,12 @@ find %{buildroot}%{_libdir} -name '*.la' -delete
 
 # Remove installed docs, they're included by %%doc
 %{__rm} -rf %{buildroot}%{_datadir}/doc/glusterfs/
-%{__bzip2} ChangeLog
+head -50 ChangeLog > ChangeLog.head && mv ChangeLog.head ChangeLog
+cat << EOM >> ChangeLog
+
+More commit messages for this ChangeLog can be found at
+https://forge.gluster.org/glusterfs-core/glusterfs/commits/v%{version}%{?prereltag}
+EOM
 
 # Remove benchmarking and other unpackaged files
 %{__rm} -rf %{buildroot}/benchmarking
@@ -458,7 +466,7 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %files
 %defattr(-,root,root,-)
-%doc ChangeLog.bz2 COPYING-GPLV2 COPYING-LGPLV3 INSTALL README THANKS
+%doc ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL README THANKS
 %config(noreplace) %{_sysconfdir}/logrotate.d/*
 %config(noreplace) %{_sysconfdir}/sysconfig/*
 %exclude %{_libdir}/libgfapi.*
@@ -674,6 +682,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Thu Jun 27 2013 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- fix the hardening fix for shlibs, use %{__sed} macro, shorter ChangeLog
+
 * Wed Jun 26 2013 Niels de Vos <ndevos@redhat.com>
 - move the mount/api xlator to glusterfs-api
 
