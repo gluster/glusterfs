@@ -777,6 +777,7 @@ test_open_modes (char *filename)
                goto out;
         }
 
+#if 0 /* undefined behaviour, unable to reliably test */
         ret = creat (filename, 0644);
         close (ret);
         ret = generic_open_read_write (filename, O_TRUNC|O_RDONLY);
@@ -784,6 +785,7 @@ test_open_modes (char *filename)
                fprintf (stderr, "flag O_TRUNC|O_RDONLY failed\n");
                goto out;
         }
+#endif
 
         ret = generic_open_read_write (filename, O_CREAT|O_RDWR|O_SYNC);
         if (0 != ret) {
