@@ -482,92 +482,125 @@ same_first_part (char *str1, char term1, char *str2, char term2)
         }
 }
 
+typedef struct nufa_args {
+        xlator_t    *this;
+        char        *volname;
+        gf_boolean_t addr_match;
+} nufa_args_t;
+
+static void
+nufa_find_local_brick (xlator_t *xl, void *data)
+{
+        nufa_args_t     *args = data;
+        xlator_t        *this = args->this;
+        char            *local_volname = args->volname;
+        gf_boolean_t    addr_match = args->addr_match;
+        char            *brick_host = NULL;
+        dht_conf_t      *conf = this->private;
+        int             ret = -1;
+
+        /*This means a local subvol was already found. We pick the first brick
+         * that is local*/
+        if (conf->private)
+                return;
+
+        if (strcmp (xl->name, local_volname) == 0) {
+                conf->private = xl;
+                gf_log (this->name, GF_LOG_INFO, "Using specified subvol %s",
+                        local_volname);
+                return;
+        }
+
+        if (!addr_match)
+                return;
+
+        ret = dict_get_str (xl->options, "remote-host", &brick_host);
+        if ((ret == 0) &&
+            (gf_is_same_address (local_volname, brick_host) ||
+             gf_is_local_addr (brick_host))) {
+                conf->private = xl;
+                gf_log (this->name, GF_LOG_INFO, "Using the first local "
+                        "subvol %s", xl->name);
+                return;
+        }
+
+}
+
+int
+nufa_find_local_subvol (xlator_t *this,
+                        void (*fn) (xlator_t *each, void* data), void *data)
+{
+        int             ret = -1;
+        dht_conf_t      *conf = this->private;
+        xlator_list_t   *trav = NULL;
+        xlator_t        *parent = NULL;
+        xlator_t        *candidate = NULL;
+
+        xlator_foreach_depth_first (this, fn, data);
+        if (!conf->private) {
+                gf_log (this->name, GF_LOG_ERROR, "Couldn't find a local "
+                        "brick");
+                return -1;
+        }
+
+        candidate = conf->private;
+        trav = candidate->parents;
+        while (trav) {
+
+                parent = trav->xlator;
+                if (strcmp (parent->type, "cluster/nufa") == 0) {
+                        gf_log (this->name, GF_LOG_INFO, "Found local subvol, "
+                                "%s", candidate->name);
+                        ret = 0;
+                        conf->private = candidate;
+                        break;
+                }
+
+                candidate = parent;
+                trav = parent->parents;
+        }
+
+        return ret;
+}
+
 int
 nufa_init (xlator_t *this)
 {
-        dht_conf_t    *conf = NULL;
-        xlator_list_t *trav = NULL;
         data_t        *data = NULL;
         char          *local_volname = NULL;
         int            ret = -1;
         char           my_hostname[256];
-        xlator_t      *local_subvol = NULL;
-        char          *brick_host = NULL;
-        xlator_t      *kid = NULL;
+        gf_boolean_t   addr_match = _gf_false;
+        nufa_args_t    args = {0, };
 
         ret = dht_init(this);
         if (ret) {
                 return ret;
         }
-        conf = this->private;
 
-        local_volname = "localhost";
-        ret = gethostname (my_hostname, 256);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "could not find hostname (%s)",
-                        strerror (errno));
-        }
-
-        if (ret == 0)
-                local_volname = my_hostname;
-
-        data = dict_get (this->options, "local-volume-name");
-        if (data) {
+        if ((data = dict_get (this->options, "local-volume-name"))) {
                 local_volname = data->data;
+
+        } else {
+                addr_match = _gf_true;
+                local_volname = "localhost";
+                ret = gethostname (my_hostname, 256);
+                if (ret == 0)
+                        local_volname = my_hostname;
+
+                else
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "could not find hostname (%s)",
+                                strerror (errno));
+
         }
 
-        for (trav = this->children; trav; trav = trav->next) {
-                if (strcmp (trav->xlator->name, local_volname) == 0)
-                        break;
-                if (local_subvol) {
-                        continue;
-                }
-                kid = trav->xlator;
-                for (;;) {
-                        if (dict_get_str(trav->xlator->options,"remote-host",
-                                         &brick_host) == 0) {
-                                /* Found it. */
-                                break;
-                        }
-                        if (!kid->children) {
-                                /* Nowhere further to look. */
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "could not get remote-host");
-                                goto err;
-                        }
-                        if (kid->children->next) {
-                                /* Multiple choices, can't/shouldn't decide. */
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "NUFA found fan-out (type %s) volume",
-                                        kid->type);
-                                goto err;
-                        }
-                        /* One-to-one xlators are OK, try the next one. */
-                        kid = kid->children->xlator;
-                }
-                if (same_first_part(my_hostname,'.',brick_host,'.')) {
-                        local_subvol = trav->xlator;
-                }
-        }
-
-        if (trav) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "Using specified subvol %s", local_volname);
-                conf->private = trav->xlator;
-        }
-        else if (local_subvol) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "Using first local subvol %s", local_subvol->name);
-                conf->private = local_subvol;
-        }
-        else {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Could not find specified or local subvol");
+        args.this = this;
+        args.volname = local_volname;
+        args.addr_match = addr_match;
+        ret = nufa_find_local_subvol (this, nufa_find_local_brick, &args);
+        if (ret)
                 goto err;
-
-        }
-
         return 0;
 
 err:
