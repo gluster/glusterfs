@@ -15,13 +15,6 @@
 #define AFR_SH_MIN_PARTICIPANTS 2
 
 typedef enum {
-        AFR_SELF_HEAL_ENTRY,
-        AFR_SELF_HEAL_METADATA,
-        AFR_SELF_HEAL_DATA,
-        AFR_SELF_HEAL_INVALID = -1,
-} afr_self_heal_type;
-
-typedef enum {
         AFR_LOOKUP_FAIL_CONFLICTS = 1,
         AFR_LOOKUP_FAIL_MISSING_GFIDS = 2,
 } afr_lookup_flags_t;
@@ -138,20 +131,10 @@ void
 afr_set_local_for_unhealable (afr_local_t *local);
 
 int
-is_self_heal_failed (afr_self_heal_t *sh);
+is_self_heal_failed (afr_self_heal_t *sh, afr_sh_fail_check_type type);
 
 void
-afr_set_data_sh_status (afr_self_heal_t *sh, afr_self_heal_status status);
-
-void
-afr_set_metadata_sh_status (afr_self_heal_t *sh, afr_self_heal_status staus);
-
-void
-afr_set_entry_sh_status (afr_self_heal_t *sh, afr_self_heal_status status);
-
-void
-afr_set_gfid_or_missing_entry_sh_status (afr_self_heal_t *sh,
-                                         afr_self_heal_status status);
+afr_set_self_heal_status (afr_self_heal_t *sh, afr_self_heal_status status);
 
 void
 afr_log_self_heal_completion_status (afr_local_t *local, gf_loglevel_t  logl);
