@@ -170,6 +170,7 @@ typedef struct _afr_private {
         gf_boolean_t           did_discovery;
         gf_boolean_t           readdir_failover;
         uint64_t               sh_readdir_size;
+        gf_boolean_t           ensure_durability;
 } afr_private_t;
 
 typedef enum {
