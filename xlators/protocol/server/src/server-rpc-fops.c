@@ -1333,6 +1333,7 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req = frame->local;
         state = CALL_STATE(frame);
+        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -1487,6 +1488,7 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req = frame->local;
         state = CALL_STATE(frame);
+        conn = SERVER_CONNECTION (frame);
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
                                     rsp.xdata.xdata_len, op_errno, out);
