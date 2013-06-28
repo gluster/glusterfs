@@ -237,6 +237,26 @@ function dht_get_layout {
 	getfattr -d -e hex -n $my_xa $1 2> /dev/null | grep "$my_xa=" | cut -d= -f2
 }
 
+function afr_get_specific_changelog_xattr ()
+{
+        local path=$1
+        local key=$2
+        local type=$3
+        local specific_changelog=""
+
+        changelog_xattr=$(afr_get_changelog_xattr "$path" "$key")
+        if [ "$type" == "data" ]; then
+                specific_changelog=${changelog_xattr:2:8}
+        elif [ "$type" == "metadata" ]; then
+                specific_changelog=${changelog_xattr:10:8}
+        elif [ "$type" == "entry" ]; then
+                specific_changelog=${changelog_xattr:18:8}
+        else
+                specific_changlog="error"
+        fi
+
+        echo $specific_changelog
+}
 ##
  # query pathinfo xattr and extract POSIX pathname(s)
  ##

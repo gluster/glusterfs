@@ -185,6 +185,18 @@ typedef struct {
         afr_self_heal_status entry_self_heal;
 } afr_sh_status_for_all_type;
 
+typedef enum {
+        AFR_SELF_HEAL_ENTRY,
+        AFR_SELF_HEAL_METADATA,
+        AFR_SELF_HEAL_DATA,
+        AFR_SELF_HEAL_GFID_OR_MISSING_ENTRY,
+        AFR_SELF_HEAL_INVALID = -1,
+} afr_self_heal_type;
+
+typedef enum {
+        AFR_CHECK_ALL,
+        AFR_CHECK_SPECIFIC,
+} afr_sh_fail_check_type;
 
 struct afr_self_heal_ {
         /* External interface: These are variables (some optional) that
@@ -283,9 +295,8 @@ struct afr_self_heal_ {
 
         afr_sh_algo_private_t *private;
         afr_sh_status_for_all_type  afr_all_sh_status;
+        afr_self_heal_type       sh_type_in_action;
 
-	void (*afr_set_self_heal_status) (struct afr_self_heal_ *sh,
-                                          afr_self_heal_status status);
         struct afr_sh_algorithm  *algo;
         afr_lock_cbk_t data_lock_success_handler;
         afr_lock_cbk_t data_lock_failure_handler;
