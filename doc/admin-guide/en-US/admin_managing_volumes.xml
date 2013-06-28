@@ -114,6 +114,12 @@ Set volume successful</programlisting></para>
                 <entry>On | Off</entry>
               </row>
               <row>
+                <entry>cluster.ensure-durability</entry>
+                <entry>This option makes sure the data/metadata is durable across abrupt shutdown of the brick. </entry>
+                <entry>on</entry>
+                <entry>On | Off</entry>
+              </row>
+              <row>
                 <entry>diagnostics.brick-log-level</entry>
                 <entry>Changes the log-level of the bricks. </entry>
                 <entry>INFO </entry>

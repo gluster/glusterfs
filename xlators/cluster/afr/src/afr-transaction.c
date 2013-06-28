@@ -1495,8 +1495,10 @@ int
 afr_changelog_post_op_safe (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t    *local = NULL;
+        afr_private_t  *priv = NULL;
 
 	local = frame->local;
+        priv = this->private;
 
 	if (!local->fd || local->transaction.type != AFR_DATA_TRANSACTION) {
 		afr_changelog_post_op_now (frame, this);
@@ -1548,9 +1550,15 @@ afr_changelog_post_op_safe (call_frame_t *frame, xlator_t *this)
 		return 0;
 	}
 
-	/* Time to fsync() */
-
-	afr_changelog_fsync (frame, this);
+        /* Check whether users want durability and perform fsync/post-op
+         * accordingly.
+         */
+        if (priv->ensure_durability) {
+                /* Time to fsync() */
+                afr_changelog_fsync (frame, this);
+        } else {
+                afr_changelog_post_op_now (frame, this);
+        }
 
 	return 0;
 }
