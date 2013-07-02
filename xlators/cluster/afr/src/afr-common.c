@@ -2573,15 +2573,37 @@ afr_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+static int
+afr_flush_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
+{
+        int           i      = 0;
+        afr_local_t   *local = NULL;
+        afr_private_t *priv  = NULL;
+
+        priv = this->private;
+        local = frame->local;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->child_up[i]) {
+                        STACK_WIND_COOKIE (frame, afr_flush_cbk,
+                                           (void *) (long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->flush,
+                                           local->fd, NULL);
+                }
+        }
+
+        return 0;
+}
+
 int
 afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
         afr_private_t *priv  = NULL;
         afr_local_t   *local = NULL;
+        call_stub_t   *stub = NULL;
         int            ret        = -1;
         int            op_errno   = 0;
-	int	       call_count = -1;
-	int	       i = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -2597,23 +2619,14 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 		goto out;
 
 	local->fd = fd_ref(fd);
-        call_count = local->call_count;
-
-	afr_delayed_changelog_wake_up (this, fd);
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
-                        STACK_WIND_COOKIE (frame, afr_flush_cbk,
-                                           (void *) (long) i,
-                                           priv->children[i],
-                                           priv->children[i]->fops->flush,
-                                           local->fd, NULL);
-
-                        if (!--call_count)
-                                break;
-                }
+        stub = fop_flush_stub (frame, afr_flush_wrapper, fd, xdata);
+        if (!stub) {
+                ret = -1;
+                op_errno = ENOMEM;
+                goto out;
         }
 
+        afr_delayed_changelog_wake_resume (this, fd, stub);
 	ret = 0;
 
 out:
@@ -2689,6 +2702,16 @@ afr_release (xlator_t *this, fd_t *fd)
 /* {{{ fsync */
 
 int
+afr_fsync_unwind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                      struct iatt *postbuf, dict_t *xdata)
+{
+        AFR_STACK_UNWIND (fsync, frame, op_ret, op_errno, prebuf, postbuf,
+                          xdata);
+        return 0;
+}
+
+int
 afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                struct iatt *postbuf, dict_t *xdata)
@@ -2741,7 +2764,7 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		   post-op. This guarantee is expected by FUSE graph switching
 		   for example.
 		*/
-		stub = fop_fsync_cbk_stub (frame, default_fsync_cbk,
+		stub = fop_fsync_cbk_stub (frame, afr_fsync_unwind_cbk,
                                            local->op_ret, local->op_errno,
                                            &local->cont.fsync.prebuf,
                                            &local->cont.fsync.postbuf, xdata);
