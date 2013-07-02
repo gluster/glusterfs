@@ -67,6 +67,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/performance/write-behind/src/Makefile
                 xlators/performance/read-ahead/Makefile
                 xlators/performance/read-ahead/src/Makefile
+                xlators/performance/readdir-ahead/Makefile
+                xlators/performance/readdir-ahead/src/Makefile
                 xlators/performance/io-threads/Makefile
                 xlators/performance/io-threads/src/Makefile
                 xlators/performance/io-cache/Makefile
