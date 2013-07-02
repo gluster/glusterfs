@@ -845,6 +845,15 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .description = "enable/disable read-ahead translator in the volume.",
           .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
+        { .key         = "performance.readdir-ahead",
+          .voltype     = "performance/readdir-ahead",
+          .option      = "!perf",
+          .value       = "off",
+          .op_version  = 3,
+          .description = "enable/disable readdir-ahead translator in the volume.",
+          .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
+        },
+
         { .key         = "performance.io-cache",
           .voltype     = "performance/io-cache",
           .option      = "!perf",
