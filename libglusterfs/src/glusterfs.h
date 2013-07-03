@@ -157,6 +157,11 @@
 
 #define UUID_CANONICAL_FORM_LEN  36
 
+/* Adding this here instead of any glusterd*.h files as it is also required by
+ * cli
+ */
+#define DEFAULT_GLUSTERD_SOCKFILE             DATADIR "/run/glusterd.socket"
+
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {
         GF_FOP_NULL = 0,

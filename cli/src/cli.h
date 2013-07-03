@@ -128,6 +128,8 @@ struct cli_state {
 
         char                 *log_file;
         gf_loglevel_t         log_level;
+
+        char                 *glusterd_sock;
 };
 
 struct cli_local {

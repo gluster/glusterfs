@@ -14,7 +14,6 @@ uuid2=`uuidgen`;
 uuid3=`uuidgen`;
 
 TEST launch_cluster 2;
-cli1="gluster --remote-host=$H1"
 
 TEST $CLI_1 peer probe $H2;
 
@@ -42,7 +41,7 @@ TEST mount -t xfs $LD2 $B2/$V0
 TEST mount -t xfs $LD3 $B3/$V0
 
 #Tests without --mode=script option
-
+cli1=$(echo $CLI1 | sed 's/ --mode=script//')
 #Case 0: Parent directory of the brick is absent
 TEST ! $cli1 volume create $V0 $H1:$B1/$V0/nonexistent/b1 $H2:$B2/$V0/nonexistent/b2
 

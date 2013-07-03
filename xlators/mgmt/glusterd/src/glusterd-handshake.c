@@ -244,16 +244,22 @@ __server_getspec (rpcsvc_request_t *req)
         }
 
         trans = req->trans;
+        /* addrstr will be empty for cli socket connections */
         ret = rpcsvc_transport_peername (trans, (char *)&addrstr,
                                          sizeof (addrstr));
         if (ret)
                 goto fail;
 
-        tmp = strrchr (addrstr, ':');
-        *tmp = '\0';
+        tmp  = strrchr (addrstr, ':');
+        if (tmp)
+                *tmp = '\0';
 
-        /* we trust the local admin */
-        if (gf_is_local_addr (addrstr)) {
+        /* The trusted volfiles are given to the glusterd owned process like NFS
+         * server, self-heal daemon etc., so that they are not inadvertently
+         * blocked by a auth.{allow,reject} setting. The trusted volfile is not
+         * meant for external users.
+         */
+        if (strlen (addrstr) && gf_is_local_addr (addrstr)) {
 
                 ret = build_volfile_path (volume, filename,
                                           sizeof (filename),
@@ -597,6 +603,19 @@ struct rpcsvc_program gluster_handshake_prog = {
         .prognum   = GLUSTER_HNDSK_PROGRAM,
         .progver   = GLUSTER_HNDSK_VERSION,
         .actors    = gluster_handshake_actors,
+        .numactors = GF_HNDSK_MAXVALUE,
+};
+
+/* A minimal RPC program just for the cli getspec command */
+rpcsvc_actor_t gluster_cli_getspec_actors[] = {
+        [GF_HNDSK_GETSPEC]      = {"GETSPEC",     GF_HNDSK_GETSPEC,      server_getspec,      NULL, 0, DRC_NA},
+};
+
+struct rpcsvc_program gluster_cli_getspec_prog = {
+        .progname  = "Gluster Handshake (CLI Getspec)",
+        .prognum   = GLUSTER_HNDSK_PROGRAM,
+        .progver   = GLUSTER_HNDSK_VERSION,
+        .actors    = gluster_cli_getspec_actors,
         .numactors = GF_HNDSK_MAXVALUE,
 };
 

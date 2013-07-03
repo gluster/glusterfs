@@ -3953,3 +3953,24 @@ struct rpcsvc_program gd_svc_cli_prog = {
         .actors    = gd_svc_cli_actors,
 	.synctask  = _gf_true,
 };
+
+/* This is a minimal RPC prog, which contains only the readonly RPC procs from
+ * the cli rpcsvc
+ */
+rpcsvc_actor_t gd_svc_cli_actors_ro[] = {
+        [GLUSTER_CLI_LIST_FRIENDS]       = { "LIST_FRIENDS",      GLUSTER_CLI_LIST_FRIENDS,     glusterd_handle_cli_list_friends,      NULL, 0, DRC_NA},
+        [GLUSTER_CLI_UUID_GET]           = { "UUID_GET",          GLUSTER_CLI_UUID_GET,         glusterd_handle_cli_uuid_get,          NULL, 0, DRC_NA},
+        [GLUSTER_CLI_GET_VOLUME]         = { "GET_VOLUME",        GLUSTER_CLI_GET_VOLUME,       glusterd_handle_cli_get_volume,        NULL, 0, DRC_NA},
+        [GLUSTER_CLI_GETWD]              = { "GETWD",             GLUSTER_CLI_GETWD,            glusterd_handle_getwd,                 NULL, 1, DRC_NA},
+        [GLUSTER_CLI_STATUS_VOLUME]      = {"STATUS_VOLUME",      GLUSTER_CLI_STATUS_VOLUME,    glusterd_handle_status_volume,         NULL, 0, DRC_NA},
+        [GLUSTER_CLI_LIST_VOLUME]        = {"LIST_VOLUME",        GLUSTER_CLI_LIST_VOLUME,      glusterd_handle_cli_list_volume,       NULL, 0, DRC_NA},
+};
+
+struct rpcsvc_program gd_svc_cli_prog_ro = {
+        .progname  = "GlusterD svc cli read-only",
+        .prognum   = GLUSTER_CLI_PROGRAM,
+        .progver   = GLUSTER_CLI_VERSION,
+        .numactors = GLUSTER_CLI_MAXVALUE,
+        .actors    = gd_svc_cli_actors_ro,
+	.synctask  = _gf_true,
+};
