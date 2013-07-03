@@ -154,6 +154,7 @@ typedef struct {
         dict_t             *opts;
         synclock_t      big_lock;
         gf_boolean_t    restart_done;
+        rpcsvc_t        *uds_rpc; /* RPCSVC for the unix domain socket */
 } glusterd_conf_t;
 
 

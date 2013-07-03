@@ -44,11 +44,13 @@
 #include "glusterd-mountbroker.h"
 
 extern struct rpcsvc_program gluster_handshake_prog;
+extern struct rpcsvc_program gluster_cli_getspec_prog;
 extern struct rpcsvc_program gluster_pmap_prog;
 extern glusterd_op_info_t opinfo;
 extern struct rpcsvc_program gd_svc_mgmt_prog;
 extern struct rpcsvc_program gd_svc_peer_prog;
 extern struct rpcsvc_program gd_svc_cli_prog;
+extern struct rpcsvc_program gd_svc_cli_prog_ro;
 extern struct rpc_clnt_program gd_brick_prog;
 extern struct rpcsvc_program glusterd_mgmt_hndsk_prog;
 
@@ -58,15 +60,23 @@ rpcsvc_cbk_program_t glusterd_cbk_prog = {
         .progver   = GLUSTER_CBK_VERSION,
 };
 
-struct rpcsvc_program *all_programs[] = {
+struct rpcsvc_program *gd_inet_programs[] = {
         &gd_svc_peer_prog,
-        &gd_svc_cli_prog,
+        &gd_svc_cli_prog_ro,
         &gd_svc_mgmt_prog,
         &gluster_pmap_prog,
         &gluster_handshake_prog,
         &glusterd_mgmt_hndsk_prog,
 };
-int rpcsvc_programs_count = (sizeof (all_programs) / sizeof (all_programs[0]));
+int gd_inet_programs_count = (sizeof (gd_inet_programs) /
+                              sizeof (gd_inet_programs[0]));
+
+struct rpcsvc_program *gd_uds_programs[] = {
+        &gd_svc_cli_prog,
+        &gluster_cli_getspec_prog,
+};
+int gd_uds_programs_count = (sizeof (gd_uds_programs) /
+                             sizeof (gd_uds_programs[0]));
 
 const char *gd_op_list[GD_OP_MAX + 1] = {
         [GD_OP_NONE]                    = "Invalid op",
@@ -937,6 +947,123 @@ glusterd_launch_synctask (synctask_fn_t fn, void *opaque)
                         " and other volume related services");
 }
 
+int
+glusterd_uds_rpcsvc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
+                            void *data)
+{
+        /* glusterd_rpcsvc_notify() does stuff that calls coming in from the
+         * unix domain socket don't need. This is just an empty function to be
+         * used for the uds listener. This will be used later if required.
+         */
+        return 0;
+}
+
+/* The glusterd unix domain socket listener only listens for cli */
+rpcsvc_t *
+glusterd_init_uds_listener (xlator_t *this)
+{
+        int             ret = -1;
+        dict_t          *options = NULL;
+        rpcsvc_t        *rpc = NULL;
+        data_t          *sock_data = NULL;
+        char            sockfile[PATH_MAX+1] = {0,};
+        int             i = 0;
+
+
+        GF_ASSERT (this);
+
+        sock_data = dict_get (this->options, "glusterd-sockfile");
+        if (!sock_data) {
+                strncpy (sockfile, DEFAULT_GLUSTERD_SOCKFILE, PATH_MAX);
+        } else {
+                strncpy (sockfile, sock_data->data, PATH_MAX);
+        }
+
+        options = dict_new ();
+        if (!options)
+                goto out;
+
+        ret = rpcsvc_transport_unix_options_build (&options, sockfile);
+        if (ret)
+                goto out;
+
+        rpc = rpcsvc_init (this, this->ctx, options, 8);
+        if (rpc == NULL) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = rpcsvc_register_notify (rpc, glusterd_uds_rpcsvc_notify,
+                                      this);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Failed to register notify function");
+                goto out;
+        }
+
+        ret = rpcsvc_create_listeners (rpc, options, this->name);
+        if (ret != 1) {
+                gf_log (this->name, GF_LOG_DEBUG, "Failed to create listener");
+                goto out;
+        }
+        ret = 0;
+
+        for (i = 0; i < gd_uds_programs_count; i++) {
+                ret = glusterd_program_register (this, rpc, gd_uds_programs[i]);
+                if (ret) {
+                        i--;
+                        for (; i >= 0; i--)
+                                rpcsvc_program_unregister (rpc,
+                                                           gd_uds_programs[i]);
+
+                        goto out;
+                }
+        }
+
+out:
+        if (options)
+                dict_unref (options);
+
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to start glusterd "
+                        "unix domain socket listener.");
+                if (rpc) {
+                        GF_FREE (rpc);
+                        rpc = NULL;
+                }
+        }
+        return rpc;
+}
+
+void
+glusterd_stop_uds_listener (xlator_t *this)
+{
+        glusterd_conf_t         *conf = NULL;
+        rpcsvc_listener_t       *listener = NULL;
+        rpcsvc_listener_t       *next = NULL;
+
+        GF_ASSERT (this);
+        conf = this->private;
+
+        (void) rpcsvc_program_unregister (conf->uds_rpc, &gd_svc_cli_prog);
+        (void) rpcsvc_program_unregister (conf->uds_rpc, &gluster_handshake_prog);
+
+        list_for_each_entry_safe (listener, next, &conf->uds_rpc->listeners,
+                                  list) {
+                rpcsvc_listener_destroy (listener);
+        }
+
+        (void) rpcsvc_unregister_notify (conf->uds_rpc, glusterd_rpcsvc_notify,
+                                         this);
+
+        unlink (DEFAULT_GLUSTERD_SOCKFILE);
+
+        GF_FREE (conf->uds_rpc);
+        conf->uds_rpc = NULL;
+
+        return;
+}
+
 /*
  * init - called during glusterd initialization
  *
@@ -948,6 +1075,7 @@ init (xlator_t *this)
 {
         int32_t            ret               = -1;
         rpcsvc_t          *rpc               = NULL;
+        rpcsvc_t          *uds_rpc           = NULL;
         glusterd_conf_t   *conf              = NULL;
         data_t            *dir_data          = NULL;
         struct stat        buf               = {0,};
@@ -1099,16 +1227,27 @@ init (xlator_t *this)
                 goto out;
         }
 
-        for (i = 0; i < rpcsvc_programs_count; i++) {
-                ret = glusterd_program_register (this, rpc, all_programs[i]);
+        for (i = 0; i < gd_inet_programs_count; i++) {
+                ret = glusterd_program_register (this, rpc,
+                                                 gd_inet_programs[i]);
                 if (ret) {
                         i--;
                         for (; i >= 0; i--)
                                 rpcsvc_program_unregister (rpc,
-                                                           all_programs[i]);
+                                                           gd_inet_programs[i]);
 
                         goto out;
                 }
+        }
+
+        /* Start a unix domain socket listener just for cli commands
+         * This should prevent ports from being wasted by being in TIMED_WAIT
+         * when cli commands are done continuously
+         */
+        uds_rpc = glusterd_init_uds_listener (this);
+        if (uds_rpc == NULL) {
+                ret = -1;
+                goto out;
         }
 
         conf = GF_CALLOC (1, sizeof (glusterd_conf_t),
@@ -1125,6 +1264,7 @@ init (xlator_t *this)
         INIT_LIST_HEAD (&conf->volumes);
         pthread_mutex_init (&conf->mutex, NULL);
         conf->rpc = rpc;
+        conf->uds_rpc = uds_rpc;
         conf->gfs_mgmt = &gd_brick_prog;
         strncpy (conf->workdir, workdir, PATH_MAX);
 
@@ -1241,11 +1381,15 @@ fini (xlator_t *this)
                 goto out;
 
         conf = this->private;
+
+        glusterd_stop_uds_listener (this);
+
         FREE (conf->pmap);
         if (conf->handle)
                 gf_store_handle_destroy (conf->handle);
         glusterd_sm_tr_log_delete (&conf->op_sm_log);
         GF_FREE (conf);
+
         this->private = NULL;
 out:
         return;
@@ -1345,6 +1489,11 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_PERCENT,
           .description = "Sets the quorum percentage for the trusted "
           "storage pool."
+        },
+        { .key = {"glusterd-sockfile"},
+          .type = GF_OPTION_TYPE_PATH,
+          .description = "The socket file on which glusterd should listen for "
+                        "cli requests. Default is "DEFAULT_GLUSTERD_SOCKFILE "."
         },
         { .key   = {NULL} },
 };

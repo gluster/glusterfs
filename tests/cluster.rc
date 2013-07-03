@@ -45,8 +45,10 @@ function define_glusterds() {
 	wopt="management.working-directory=${!b}/glusterd";
 	bopt="management.transport.socket.bind-address=${!h}";
 	popt="--pid-file=${!b}/glusterd.pid";
-	eval "glusterd_$i='glusterd --xlator-option $wopt --xlator-option $bopt $popt'";
-	eval "glusterd$i='glusterd --xlator-option $wopt --xlator-option $bopt $popt'";
+        sopt="management.glusterd-sockfile=${!b}/glusterd/gd.sock"
+        lopt="--log-file=${!b}/glusterd.log"
+	eval "glusterd_$i='glusterd --xlator-option $wopt --xlator-option $bopt --xlator-option $sopt $lopt $popt'";
+	eval "glusterd$i='glusterd --xlator-option $wopt --xlator-option $bopt --xlator-option $sopt $lopt $popt'";
     done
 }
 
@@ -98,9 +100,9 @@ function define_clis() {
     local h;
 
     for i in `seq 1 $count`; do
-	h="H$i";
-	eval "CLI_$i='$CLI --remote-host=${!h}'";
-	eval "CLI$i='$CLI --remote-host=${!h}'";
+	b="B$i";
+	eval "CLI_$i='$CLI --glusterd-sock=${!b}/glusterd/gd.sock'";
+	eval "CLI$i='$CLI --glusterd-sock=${!b}/glusterd/gd.sock'";
     done
 }
 
