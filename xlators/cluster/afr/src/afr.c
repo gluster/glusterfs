@@ -388,6 +388,12 @@ init (xlator_t *this)
                 i++;
         }
 
+        ret = gf_asprintf (&priv->sh_domain, "%s-self-heal", this->name);
+        if (-1 == ret) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
         priv->last_event = GF_CALLOC (child_count, sizeof (*priv->last_event),
                                       gf_afr_mt_int32_t);
         if (!priv->last_event) {
