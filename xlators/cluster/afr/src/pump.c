@@ -2501,6 +2501,12 @@ init (xlator_t *this)
 		i++;
 	}
 
+        ret = gf_asprintf (&priv->sh_domain, "%s-self-heal", this->name);
+        if (-1 == ret) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+
         priv->first_lookup = 1;
         priv->root_inode = NULL;
 

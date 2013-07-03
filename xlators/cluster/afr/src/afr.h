@@ -30,7 +30,7 @@
 #define AFR_SH_READDIR_SIZE_KEY "self-heal-readdir-size"
 
 #define AFR_LOCKEE_COUNT_MAX    3
-#define AFR_DOM_COUNT_MAX    2
+#define AFR_DOM_COUNT_MAX    3
 
 struct _pump_private;
 
@@ -172,6 +172,7 @@ typedef struct _afr_private {
         gf_boolean_t           readdir_failover;
         uint64_t               sh_readdir_size;
         gf_boolean_t           ensure_durability;
+        char                   *sh_domain;
 } afr_private_t;
 
 typedef enum {
@@ -280,6 +281,7 @@ struct afr_self_heal_ {
         gf_boolean_t actual_sh_started;
         gf_boolean_t sync_done;
         gf_boolean_t data_lock_held;
+        gf_boolean_t sh_dom_lock_held;
         gf_boolean_t eof_reached;
         fd_t  *healing_fd;
         int   file_has_holes;
