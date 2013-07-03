@@ -579,19 +579,22 @@ int
 afr_sh_metadata_lock (call_frame_t *frame, xlator_t *this)
 {
         afr_internal_lock_t *int_lock = NULL;
+        afr_inodelk_t       *inodelk  = NULL;
         afr_local_t         *local    = NULL;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
 
+        int_lock->domain           = this->name;
+        inodelk = afr_get_inodelk (int_lock, int_lock->domain);
         int_lock->transaction_lk_type = AFR_SELFHEAL_LK;
         int_lock->selfheal_lk_type    = AFR_METADATA_SELF_HEAL_LK;
 
         afr_set_lock_number (frame, this);
 
-        int_lock->lk_flock.l_start = LLONG_MAX - 1;
-        int_lock->lk_flock.l_len   = 0;
-        int_lock->lk_flock.l_type  = F_WRLCK;
+        inodelk->flock.l_start = LLONG_MAX - 1;
+        inodelk->flock.l_len   = 0;
+        inodelk->flock.l_type  = F_WRLCK;
         int_lock->lock_cbk         = afr_sh_metadata_post_nonblocking_inodelk_cbk;
 
         afr_nonblocking_inodelk (frame, this);

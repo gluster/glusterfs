@@ -283,23 +283,33 @@ afr_sh_set_timestamps (call_frame_t *frame, xlator_t *this)
 
 //Fun fact, lock_cbk is being used for both lock & unlock
 int
-afr_sh_data_unlock (call_frame_t *frame, xlator_t *this,
+afr_sh_data_unlock (call_frame_t *frame, xlator_t *this, char *dom,
                     afr_lock_cbk_t lock_cbk)
 {
         afr_local_t         *local    = NULL;
         afr_internal_lock_t *int_lock = NULL;
         afr_self_heal_t     *sh       = NULL;
+        int                 ret       = 0;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
         sh       = &local->self_heal;
 
-        GF_ASSERT (sh->data_lock_held);
-
-        sh->data_lock_held = _gf_false;
+        if (strcmp (dom, this->name) == 0) {
+                sh->data_lock_held = _gf_false;
+        } else {
+                ret = -1;
+                goto out;
+        }
         int_lock->lock_cbk = lock_cbk;
+        int_lock->domain = dom;
         afr_unlock (frame, this);
 
+out:
+        if (ret) {
+                int_lock->lock_op_ret = -1;
+                int_lock->lock_cbk (frame, this);
+        }
         return 0;
 }
 
@@ -316,7 +326,7 @@ afr_sh_data_finish (call_frame_t *frame, xlator_t *this)
                 "finishing data selfheal of %s", local->loc.path);
 
         if (sh->data_lock_held)
-                afr_sh_data_unlock (frame, this, afr_sh_data_close);
+                afr_sh_data_unlock (frame, this, this->name, afr_sh_data_close);
         else
                 afr_sh_data_close (frame, this);
 
@@ -337,7 +347,7 @@ afr_sh_data_fail (call_frame_t *frame, xlator_t *this)
 
         afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
         if (sh->data_lock_held)
-                afr_sh_data_unlock (frame, this, afr_sh_data_close);
+                afr_sh_data_unlock (frame, this, this->name, afr_sh_data_close);
         else
                 afr_sh_data_close (frame, this);
         return 0;
@@ -380,7 +390,7 @@ afr_sh_data_erase_pending_cbk (call_frame_t *frame, void *cookie,
                         goto out;
                 }
                 GF_ASSERT (sh->old_loop_frame);
-                afr_sh_data_lock (frame, this, 0, 0, _gf_true,
+                afr_sh_data_lock (frame, this, 0, 0, _gf_true, this->name,
                                   afr_post_sh_big_lock_success,
                                   afr_post_sh_big_lock_failure);
         }
@@ -1237,9 +1247,11 @@ afr_sh_data_post_nonblocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
 }
 
 int
-afr_sh_data_lock_rec (call_frame_t *frame, xlator_t *this, off_t start, off_t len)
+afr_sh_data_lock_rec (call_frame_t *frame, xlator_t *this, char *dom,
+                      off_t start, off_t len)
 {
         afr_internal_lock_t *int_lock = NULL;
+        afr_inodelk_t       *inodelk  = NULL;
         afr_local_t         *local    = NULL;
 
         local    = frame->local;
@@ -1250,10 +1262,13 @@ afr_sh_data_lock_rec (call_frame_t *frame, xlator_t *this, off_t start, off_t le
 
         afr_set_lock_number (frame, this);
 
-        int_lock->lk_flock.l_start = start;
-        int_lock->lk_flock.l_len   = len;
-        int_lock->lk_flock.l_type  = F_WRLCK;
         int_lock->lock_cbk         = afr_sh_data_post_nonblocking_inodelk_cbk;
+
+        int_lock->domain = dom;
+        inodelk = afr_get_inodelk (int_lock, int_lock->domain);
+        inodelk->flock.l_start = start;
+        inodelk->flock.l_len   = len;
+        inodelk->flock.l_type  = F_WRLCK;
 
         afr_nonblocking_inodelk (frame, this);
 
@@ -1298,7 +1313,7 @@ afr_post_sh_big_lock_failure (call_frame_t *frame, xlator_t *this)
 int
 afr_sh_data_lock (call_frame_t *frame, xlator_t *this,
                   off_t start, off_t len, gf_boolean_t block,
-                  afr_lock_cbk_t success_handler,
+                  char *dom, afr_lock_cbk_t success_handler,
                   afr_lock_cbk_t failure_handler)
 {
         afr_local_t *   local = NULL;
@@ -1310,7 +1325,7 @@ afr_sh_data_lock (call_frame_t *frame, xlator_t *this,
         sh->data_lock_success_handler = success_handler;
         sh->data_lock_failure_handler = failure_handler;
 	sh->data_lock_block = block;
-        return afr_sh_data_lock_rec (frame, this, start, len);
+        return afr_sh_data_lock_rec (frame, this, dom, start, len);
 }
 
 int
@@ -1371,7 +1386,7 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  */
 
 		block = sh->unwind ? _gf_true : _gf_false;
-                afr_sh_data_lock (frame, this, 0, 0, block,
+                afr_sh_data_lock (frame, this, 0, 0, block, this->name,
                                   afr_sh_data_big_lock_success,
                                   afr_sh_data_fail);
         }
@@ -1493,6 +1508,7 @@ afr_self_heal_data (call_frame_t *frame, xlator_t *this)
                         afr_sh_data_open (frame, this);
                 } else {
                         afr_sh_data_lock (frame, this, 0, 0, _gf_true,
+                                          this->name,
                                           afr_sh_non_reg_lock_success,
                                           afr_sh_data_fail);
                 }

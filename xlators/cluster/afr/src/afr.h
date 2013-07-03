@@ -30,6 +30,7 @@
 #define AFR_SH_READDIR_SIZE_KEY "self-heal-readdir-size"
 
 #define AFR_LOCKEE_COUNT_MAX    3
+#define AFR_DOM_COUNT_MAX    2
 
 struct _pump_private;
 
@@ -385,12 +386,19 @@ int
 afr_entry_lockee_cmp (const void *l1, const void *l2);
 
 typedef struct {
+        char    *domain; /* Domain on which inodelk is taken */
+        struct gf_flock flock;
+        unsigned char *locked_nodes;
+        int32_t lock_count;
+} afr_inodelk_t;
+
+typedef struct {
         loc_t *lk_loc;
-        struct gf_flock lk_flock;
 
         int                     lockee_count;
         afr_entry_lockee_t      lockee[AFR_LOCKEE_COUNT_MAX];
 
+        afr_inodelk_t       inodelk[AFR_DOM_COUNT_MAX];
         const char *lk_basename;
         const char *lower_basename;
         const char *higher_basename;
@@ -399,13 +407,11 @@ typedef struct {
 
         unsigned char *locked_nodes;
         unsigned char *lower_locked_nodes;
-        unsigned char *inode_locked_nodes;
 
         selfheal_lk_type_t selfheal_lk_type;
         transaction_lk_type_t transaction_lk_type;
 
         int32_t lock_count;
-        int32_t inodelk_lock_count;
         int32_t entrylk_lock_count;
 
         uint64_t lock_number;
@@ -416,6 +422,7 @@ typedef struct {
         int32_t lock_op_ret;
         int32_t lock_op_errno;
         afr_lock_cbk_t lock_cbk;
+        char *domain; /* Domain on which inode/entry lock/unlock in progress.*/
 } afr_internal_lock_t;
 
 typedef struct _afr_locked_fd {
@@ -869,8 +876,8 @@ afr_blocking_lock (call_frame_t *frame, xlator_t *this);
 int
 afr_internal_lock_finish (call_frame_t *frame, xlator_t *this);
 
-void
-afr_lk_transfer_datalock (call_frame_t *dst, call_frame_t *src,
+int
+afr_lk_transfer_datalock (call_frame_t *dst, call_frame_t *src, char *dom,
                           unsigned int child_count);
 
 int pump_start (call_frame_t *frame, xlator_t *this);
@@ -1157,5 +1164,8 @@ afr_fd_has_witnessed_unstable_write (xlator_t *this, fd_t *fd);
 
 void
 afr_delayed_changelog_wake_resume (xlator_t *this, fd_t *fd, call_stub_t *stub);
+
+int
+afr_inodelk_init (afr_inodelk_t *lk, char *dom, size_t child_count);
 
 #endif /* __AFR_H__ */

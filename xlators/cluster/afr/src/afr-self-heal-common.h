@@ -91,13 +91,13 @@ int
 afr_sh_entry_impunge_create (call_frame_t *impunge_frame, xlator_t *this,
                              int child_index);
 int
-afr_sh_data_unlock (call_frame_t *frame, xlator_t *this,
+afr_sh_data_unlock (call_frame_t *frame, xlator_t *this, char *dom,
                     afr_lock_cbk_t lock_cbk);
 afr_local_t *
-afr_local_copy (afr_local_t *l, xlator_t *this);
+afr_self_heal_local_init (afr_local_t *l, xlator_t *this);
 int
 afr_sh_data_lock (call_frame_t *frame, xlator_t *this,
-                  off_t start, off_t len, gf_boolean_t block,
+                  off_t start, off_t len, gf_boolean_t block, char *dom,
                   afr_lock_cbk_t success_handler,
                   afr_lock_cbk_t failure_handler);
 void

@@ -380,8 +380,6 @@ init (xlator_t *this)
                                    AFR_XATTR_PREFIX,
                                    trav->xlator->name);
                 if (-1 == ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "asprintf failed to set pending key");
                         ret = -ENOMEM;
                         goto out;
                 }
