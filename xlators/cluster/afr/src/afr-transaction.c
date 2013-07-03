@@ -79,7 +79,7 @@ afr_save_lk_owner (call_frame_t *frame)
 
         local = frame->local;
 
-	local->saved_lk_owner = frame->root->lk_owner;
+        local->saved_lk_owner = frame->root->lk_owner;
 }
 
 
@@ -90,9 +90,8 @@ afr_restore_lk_owner (call_frame_t *frame)
 
         local = frame->local;
 
-	frame->root->lk_owner = local->saved_lk_owner;
+        frame->root->lk_owner = local->saved_lk_owner;
 }
-
 
 static void
 __mark_all_pending (int32_t *pending[], int child_count,
@@ -443,14 +442,30 @@ out:
         return;
 }
 
+afr_inodelk_t*
+afr_get_inodelk (afr_internal_lock_t *int_lock, char *dom)
+{
+        afr_inodelk_t *inodelk = NULL;
+        int           i = 0;
+
+        for (i = 0; int_lock->inodelk[i].domain; i++) {
+                inodelk = &int_lock->inodelk[i];
+                if (strcmp (dom, inodelk->domain) == 0)
+                        return inodelk;
+        }
+        return NULL;
+}
+
 unsigned char*
 afr_locked_nodes_get (afr_transaction_type type, afr_internal_lock_t *int_lock)
 {
         unsigned char *locked_nodes = NULL;
+        afr_inodelk_t *inodelk = NULL;
         switch (type) {
         case AFR_DATA_TRANSACTION:
         case AFR_METADATA_TRANSACTION:
-                locked_nodes = int_lock->inode_locked_nodes;
+                inodelk = afr_get_inodelk (int_lock, int_lock->domain);
+                locked_nodes = inodelk->locked_nodes;
         break;
 
         case AFR_ENTRY_TRANSACTION:
@@ -553,22 +568,22 @@ afr_set_postop_dict (afr_local_t *local, xlator_t *this, dict_t *xattr,
 gf_boolean_t
 afr_txn_nothing_failed (call_frame_t *frame, xlator_t *this)
 {
-	afr_private_t *priv = NULL;
-	afr_local_t *local = NULL;
-	int index = -1;
-	int i = 0;
+        afr_private_t *priv = NULL;
+        afr_local_t *local = NULL;
+        int index = -1;
+        int i = 0;
 
-	local = frame->local;
-	priv = this->private;
+        local = frame->local;
+        priv = this->private;
 
         index = afr_index_for_transaction_type (local->transaction.type);
 
-	for (i = 0; i < priv->child_count; i++) {
+        for (i = 0; i < priv->child_count; i++) {
                 if (local->pending[i][index] == 0)
-			return _gf_false;
+                        return _gf_false;
         }
 
-	return _gf_true;
+        return _gf_true;
 }
 
 
@@ -619,7 +634,7 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
                 goto out;
         }
 
-	nothing_failed = afr_txn_nothing_failed (frame, this);
+        nothing_failed = afr_txn_nothing_failed (frame, this);
 
         afr_compute_txn_changelog (local , priv);
 
@@ -645,14 +660,14 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
                                 break;
                         }
 
-			/* local->transaction.postop_piggybacked[] was
-			   precomputed in is_piggyback_postop() when called from
-			   afr_changelog_post_op_safe()
-			*/
+                        /* local->transaction.postop_piggybacked[] was
+                           precomputed in is_piggyback_postop() when called from
+                           afr_changelog_post_op_safe()
+                        */
 
-			piggyback = 0;
-			if (local->transaction.postop_piggybacked[i])
-				piggyback = 1;
+                        piggyback = 0;
+                        if (local->transaction.postop_piggybacked[i])
+                                piggyback = 1;
 
                         afr_set_postop_dict (local, this, xattr[i],
                                              piggyback, i);
@@ -906,7 +921,7 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                         }
                         UNLOCK (&local->fd->lock);
 
-			afr_set_delayed_post_op (frame, this);
+                        afr_set_delayed_post_op (frame, this);
 
                         if (piggyback)
                                 afr_changelog_pre_op_cbk (frame, (void *)(long)i,
@@ -1179,12 +1194,14 @@ int
 afr_set_transaction_flock (afr_local_t *local)
 {
         afr_internal_lock_t *int_lock = NULL;
+        afr_inodelk_t       *inodelk  = NULL;
 
         int_lock = &local->internal_lock;
+        inodelk = afr_get_inodelk (int_lock, int_lock->domain);
 
-        int_lock->lk_flock.l_len   = local->transaction.len;
-        int_lock->lk_flock.l_start = local->transaction.start;
-        int_lock->lk_flock.l_type  = F_WRLCK;
+        inodelk->flock.l_len   = local->transaction.len;
+        inodelk->flock.l_start = local->transaction.start;
+        inodelk->flock.l_type  = F_WRLCK;
 
         return 0;
 }
@@ -1199,6 +1216,7 @@ afr_lock_rec (call_frame_t *frame, xlator_t *this)
         int_lock = &local->internal_lock;
 
         int_lock->transaction_lk_type = AFR_TRANSACTION_LK;
+        int_lock->domain = this->name;
 
         switch (local->transaction.type) {
         case AFR_DATA_TRANSACTION:
@@ -1259,69 +1277,69 @@ afr_internal_lock_finish (call_frame_t *frame, xlator_t *this)
 void
 afr_set_delayed_post_op (call_frame_t *frame, xlator_t *this)
 {
-	afr_local_t    *local = NULL;
-	afr_private_t  *priv = NULL;
+        afr_local_t    *local = NULL;
+        afr_private_t  *priv = NULL;
 
-	/* call this function from any of the related optimizations
-	   which benefit from delaying post op are enabled, namely:
+        /* call this function from any of the related optimizations
+           which benefit from delaying post op are enabled, namely:
 
-	   - changelog piggybacking
-	   - eager locking
-	*/
+           - changelog piggybacking
+           - eager locking
+        */
 
-	priv = this->private;
-	if (!priv)
-		return;
+        priv = this->private;
+        if (!priv)
+                return;
 
-	if (!priv->post_op_delay_secs)
-		return;
+        if (!priv->post_op_delay_secs)
+                return;
 
         local = frame->local;
         if (!local->transaction.eager_lock_on)
                 return;
 
-	if (!local)
-		return;
+        if (!local)
+                return;
 
-	if (!local->fd)
-		return;
+        if (!local->fd)
+                return;
 
-	if (local->op == GF_FOP_WRITE)
-		local->delayed_post_op = _gf_true;
+        if (local->op == GF_FOP_WRITE)
+                local->delayed_post_op = _gf_true;
 }
 
 
 gf_boolean_t
 is_afr_delayed_changelog_post_op_needed (call_frame_t *frame, xlator_t *this)
 {
-	afr_local_t      *local = NULL;
-	gf_boolean_t      res = _gf_false;
+        afr_local_t      *local = NULL;
+        gf_boolean_t      res = _gf_false;
 
-	local = frame->local;
-	if (!local)
-		goto out;
+        local = frame->local;
+        if (!local)
+                goto out;
 
-	if (!local->delayed_post_op)
-		goto out;
+        if (!local->delayed_post_op)
+                goto out;
 
-	res = _gf_true;
+        res = _gf_true;
 out:
-	return res;
+        return res;
 }
 
 
 void
 afr_delayed_changelog_post_op (xlator_t *this, call_frame_t *frame, fd_t *fd,
-			       call_stub_t *stub);
+                               call_stub_t *stub);
 
 void
 afr_delayed_changelog_wake_up_cbk (void *data)
 {
-	fd_t           *fd = NULL;
+        fd_t           *fd = NULL;
 
-	fd = data;
+        fd = data;
 
-	afr_delayed_changelog_wake_up (THIS, fd);
+        afr_delayed_changelog_wake_up (THIS, fd);
 }
 
 
@@ -1332,39 +1350,39 @@ afr_delayed_changelog_wake_up_cbk (void *data)
 static gf_boolean_t
 is_piggyback_post_op (call_frame_t *frame, fd_t *fd)
 {
-	afr_fd_ctx_t *fdctx = NULL;
-	afr_local_t *local = NULL;
-	gf_boolean_t piggyback = _gf_true;
-	afr_private_t *priv = NULL;
-	int i = 0;
+        afr_fd_ctx_t *fdctx = NULL;
+        afr_local_t *local = NULL;
+        gf_boolean_t piggyback = _gf_true;
+        afr_private_t *priv = NULL;
+        int i = 0;
 
-	priv = frame->this->private;
-	local = frame->local;
-	fdctx = afr_fd_ctx_get (fd, frame->this);
+        priv = frame->this->private;
+        local = frame->local;
+        fdctx = afr_fd_ctx_get (fd, frame->this);
 
-	LOCK(&fd->lock);
-	{
-		piggyback = _gf_true;
+        LOCK(&fd->lock);
+        {
+                piggyback = _gf_true;
 
-		for (i = 0; i < priv->child_count; i++) {
-			if (!local->transaction.pre_op[i])
-				continue;
-			if (fdctx->pre_op_piggyback[i]) {
-				fdctx->pre_op_piggyback[i]--;
-				local->transaction.postop_piggybacked[i] = 1;
-			} else {
-				/* For at least _one_ subvolume we cannot
-				   piggyback on the changelog, and have to
-				   perform a hard POST-OP and therefore fsync
-				   if necesssary
-				*/
-				piggyback = _gf_false;
+                for (i = 0; i < priv->child_count; i++) {
+                        if (!local->transaction.pre_op[i])
+                                continue;
+                        if (fdctx->pre_op_piggyback[i]) {
+                                fdctx->pre_op_piggyback[i]--;
+                                local->transaction.postop_piggybacked[i] = 1;
+                        } else {
+                                /* For at least _one_ subvolume we cannot
+                                   piggyback on the changelog, and have to
+                                   perform a hard POST-OP and therefore fsync
+                                   if necesssary
+                                */
+                                piggyback = _gf_false;
                                 GF_ASSERT (fdctx->pre_op_done[i]);
                                 fdctx->pre_op_done[i]--;
-			}
-		}
-	}
-	UNLOCK(&fd->lock);
+                        }
+                }
+        }
+        UNLOCK(&fd->lock);
 
         if (!afr_txn_nothing_failed (frame, frame->this)) {
                 /* something failed in this transaction,
@@ -1381,117 +1399,117 @@ is_piggyback_post_op (call_frame_t *frame, fd_t *fd)
 int
 afr_fd_report_unstable_write (xlator_t *this, fd_t *fd)
 {
-	afr_fd_ctx_t *fdctx = NULL;
+        afr_fd_ctx_t *fdctx = NULL;
 
-	fdctx = afr_fd_ctx_get (fd, this);
+        fdctx = afr_fd_ctx_get (fd, this);
 
-	LOCK(&fd->lock);
-	{
-		fdctx->witnessed_unstable_write = _gf_true;
-	}
-	UNLOCK(&fd->lock);
+        LOCK(&fd->lock);
+        {
+                fdctx->witnessed_unstable_write = _gf_true;
+        }
+        UNLOCK(&fd->lock);
 
-	return 0;
+        return 0;
 }
 
 /* TEST and CLEAR operation */
 gf_boolean_t
 afr_fd_has_witnessed_unstable_write (xlator_t *this, fd_t *fd)
 {
-	afr_fd_ctx_t *fdctx = NULL;
-	gf_boolean_t witness = _gf_false;
+        afr_fd_ctx_t *fdctx = NULL;
+        gf_boolean_t witness = _gf_false;
 
 	fdctx = afr_fd_ctx_get (fd, this);
         if (!fdctx)
                 return _gf_true;
 
-	LOCK(&fd->lock);
-	{
-		if (fdctx->witnessed_unstable_write) {
-			witness = _gf_true;
-			fdctx->witnessed_unstable_write = _gf_false;
-		}
-	}
-	UNLOCK (&fd->lock);
+        LOCK(&fd->lock);
+        {
+                if (fdctx->witnessed_unstable_write) {
+                        witness = _gf_true;
+                        fdctx->witnessed_unstable_write = _gf_false;
+                }
+        }
+        UNLOCK (&fd->lock);
 
-	return witness;
+        return witness;
 }
 
 
 int
 afr_changelog_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			 int op_ret, int op_errno, struct iatt *pre,
-			 struct iatt *post, dict_t *xdata)
+                         int op_ret, int op_errno, struct iatt *pre,
+                         struct iatt *post, dict_t *xdata)
 {
-	afr_private_t *priv = NULL;
+        afr_private_t *priv = NULL;
         int child_index = (long) cookie;
-	int call_count = -1;
-	afr_local_t *local = NULL;
+        int call_count = -1;
+        afr_local_t *local = NULL;
 
-	priv = this->private;
-	local = frame->local;
+        priv = this->private;
+        local = frame->local;
 
-	if (afr_fop_failed (op_ret, op_errno)) {
-		/* Failure of fsync() is as good as failure of previous
-		   write(). So treat it like one.
-		*/
-		gf_log (this->name, GF_LOG_WARNING,
-			"fsync(%s) failed on subvolume %s. Transaction was %s",
-			uuid_utoa (local->fd->inode->gfid),
-			priv->children[child_index]->name,
-			gf_fop_list[local->op]);
+        if (afr_fop_failed (op_ret, op_errno)) {
+                /* Failure of fsync() is as good as failure of previous
+                   write(). So treat it like one.
+                */
+                gf_log (this->name, GF_LOG_WARNING,
+                        "fsync(%s) failed on subvolume %s. Transaction was %s",
+                        uuid_utoa (local->fd->inode->gfid),
+                        priv->children[child_index]->name,
+                        gf_fop_list[local->op]);
 
-		afr_transaction_fop_failed (frame, this, child_index);
-	}
+                afr_transaction_fop_failed (frame, this, child_index);
+        }
 
         call_count = afr_frame_return (frame);
 
         if (call_count == 0)
-		afr_changelog_post_op_now (frame, this);
+                afr_changelog_post_op_now (frame, this);
 
-	return 0;
+        return 0;
 }
 
 
 int
 afr_changelog_fsync (call_frame_t *frame, xlator_t *this)
 {
-	afr_local_t *local = NULL;
-	int i = 0;
-	int call_count = 0;
-	afr_private_t *priv = NULL;
+        afr_local_t *local = NULL;
+        int i = 0;
+        int call_count = 0;
+        afr_private_t *priv = NULL;
 
-	local = frame->local;
-	priv = this->private;
+        local = frame->local;
+        priv = this->private;
 
         call_count = afr_pre_op_done_children_count (local->transaction.pre_op,
                                                      priv->child_count);
 
-	if (!call_count) {
-		/* will go straight to unlock */
-		afr_changelog_post_op_now (frame, this);
-		return 0;
-	}
+        if (!call_count) {
+                /* will go straight to unlock */
+                afr_changelog_post_op_now (frame, this);
+                return 0;
+        }
 
-	local->call_count = call_count;
+        local->call_count = call_count;
 
-	for (i = 0; i < priv->child_count; i++) {
-		if (!local->transaction.pre_op[i])
-			continue;
+        for (i = 0; i < priv->child_count; i++) {
+                if (!local->transaction.pre_op[i])
+                        continue;
 
-		STACK_WIND_COOKIE (frame, afr_changelog_fsync_cbk,
-				   (void *) (long) i, priv->children[i],
-				   priv->children[i]->fops->fsync, local->fd,
-				   1, NULL);
-		if (!--call_count)
-			break;
-	}
+                STACK_WIND_COOKIE (frame, afr_changelog_fsync_cbk,
+                                (void *) (long) i, priv->children[i],
+                                priv->children[i]->fops->fsync, local->fd,
+                                1, NULL);
+                if (!--call_count)
+                        break;
+        }
 
-	return 0;
+        return 0;
 }
 
 
-int
+        int
 afr_changelog_post_op_safe (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t    *local = NULL;
@@ -1500,55 +1518,55 @@ afr_changelog_post_op_safe (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
         priv = this->private;
 
-	if (!local->fd || local->transaction.type != AFR_DATA_TRANSACTION) {
-		afr_changelog_post_op_now (frame, this);
-		return 0;
-	}
+        if (!local->fd || local->transaction.type != AFR_DATA_TRANSACTION) {
+                afr_changelog_post_op_now (frame, this);
+                return 0;
+        }
 
-	if (is_piggyback_post_op (frame, local->fd)) {
-		/* just detected that this post-op is about to
-		   be optimized away as a new write() has
-		   already piggybacked on this frame's changelog.
-		*/
-		afr_changelog_post_op_now (frame, this);
-		return 0;
-	}
+        if (is_piggyback_post_op (frame, local->fd)) {
+                /* just detected that this post-op is about to
+                   be optimized away as a new write() has
+                   already piggybacked on this frame's changelog.
+                   */
+                afr_changelog_post_op_now (frame, this);
+                return 0;
+        }
 
-	/* Calling afr_changelog_post_op_now() now will result in
-	   issuing ->[f]xattrop().
+        /* Calling afr_changelog_post_op_now() now will result in
+           issuing ->[f]xattrop().
 
-	   Performing a hard POST-OP (->[f]xattrop() FOP) is a more
-	   responsible operation that what it might appear on the surface.
+           Performing a hard POST-OP (->[f]xattrop() FOP) is a more
+           responsible operation that what it might appear on the surface.
 
-	   The changelog of a file (in the xattr of the file on the server)
-	   stores information (pending count) about the state of the file
-	   on the OTHER server. This changelog is blindly trusted, and must
-	   therefore be updated in such a way it remains trustworthy. This
-	   implies that decrementing the pending count (essentially "clearing
-	   the dirty flag") must be done STRICTLY after we are sure that the
-	   operation on the other server has reached stable storage.
+           The changelog of a file (in the xattr of the file on the server)
+           stores information (pending count) about the state of the file
+           on the OTHER server. This changelog is blindly trusted, and must
+           therefore be updated in such a way it remains trustworthy. This
+           implies that decrementing the pending count (essentially "clearing
+           the dirty flag") must be done STRICTLY after we are sure that the
+           operation on the other server has reached stable storage.
 
-	   While the backend filesystem on that server will eventually flush
-	   it to stable storage, we (being in userspace) have no mechanism
-	   to get notified when the write became "stable".
+           While the backend filesystem on that server will eventually flush
+           it to stable storage, we (being in userspace) have no mechanism
+           to get notified when the write became "stable".
 
-	   This means we need take matter into our own hands and issue an
-	   fsync() EVEN IF THE APPLICATION WAS PERFORMING UNSTABLE WRITES,
-	   and get an acknowledgement for it. And we need to wait for the
-	   fsync() acknowledgement before initiating the hard POST-OP.
+           This means we need take matter into our own hands and issue an
+           fsync() EVEN IF THE APPLICATION WAS PERFORMING UNSTABLE WRITES,
+           and get an acknowledgement for it. And we need to wait for the
+           fsync() acknowledgement before initiating the hard POST-OP.
 
-	   However if the FD itself was opened in O_SYNC or O_DSYNC then
-	   we are already guaranteed that the writes were made stable as
-	   part of the FOP itself. The same holds true for NFS stable
-	   writes which happen on an anonymous FD with O_DSYNC or O_SYNC
-	   flag set in the writev() @flags param. For all other write types,
-	   mark a flag in the fdctx whenever an unstable write is witnessed.
-	*/
+           However if the FD itself was opened in O_SYNC or O_DSYNC then
+           we are already guaranteed that the writes were made stable as
+           part of the FOP itself. The same holds true for NFS stable
+           writes which happen on an anonymous FD with O_DSYNC or O_SYNC
+           flag set in the writev() @flags param. For all other write types,
+           mark a flag in the fdctx whenever an unstable write is witnessed.
+           */
 
-	if (!afr_fd_has_witnessed_unstable_write (this, local->fd)) {
-		afr_changelog_post_op_now (frame, this);
-		return 0;
-	}
+        if (!afr_fd_has_witnessed_unstable_write (this, local->fd)) {
+                afr_changelog_post_op_now (frame, this);
+                return 0;
+        }
 
         /* Check whether users want durability and perform fsync/post-op
          * accordingly.
@@ -1560,13 +1578,13 @@ afr_changelog_post_op_safe (call_frame_t *frame, xlator_t *this)
                 afr_changelog_post_op_now (frame, this);
         }
 
-	return 0;
+        return 0;
 }
 
 
-void
+        void
 afr_delayed_changelog_post_op (xlator_t *this, call_frame_t *frame, fd_t *fd,
-			       call_stub_t *stub)
+                call_stub_t *stub)
 {
 	afr_fd_ctx_t      *fd_ctx = NULL;
 	call_frame_t      *prev_frame = NULL;
@@ -1611,17 +1629,17 @@ out:
 }
 
 
-void
+        void
 afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 {
-	afr_local_t  *local = NULL;
+        afr_local_t  *local = NULL;
 
-	local = frame->local;
+        local = frame->local;
 
-	if (is_afr_delayed_changelog_post_op_needed (frame, this))
-		afr_delayed_changelog_post_op (this, frame, local->fd, NULL);
-	else
-		afr_changelog_post_op_safe (frame, this);
+        if (is_afr_delayed_changelog_post_op_needed (frame, this))
+                afr_delayed_changelog_post_op (this, frame, local->fd, NULL);
+        else
+                afr_changelog_post_op_safe (frame, this);
 }
 
 
@@ -1632,22 +1650,22 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 
    The @stub gets saved in @local and gets resumed in
    afr_local_cleanup()
-*/
-void
+   */
+        void
 afr_delayed_changelog_wake_resume (xlator_t *this, fd_t *fd, call_stub_t *stub)
 {
-	afr_delayed_changelog_post_op (this, NULL, fd, stub);
+        afr_delayed_changelog_post_op (this, NULL, fd, stub);
 }
 
 
-void
+        void
 afr_delayed_changelog_wake_up (xlator_t *this, fd_t *fd)
 {
-	afr_delayed_changelog_post_op (this, NULL, fd, NULL);
+        afr_delayed_changelog_post_op (this, NULL, fd, NULL);
 }
 
 
-int
+        int
 afr_transaction_resume (call_frame_t *frame, xlator_t *this)
 {
         afr_internal_lock_t *int_lock = NULL;
@@ -1658,18 +1676,18 @@ afr_transaction_resume (call_frame_t *frame, xlator_t *this)
         int_lock = &local->internal_lock;
         priv     = this->private;
 
-	if (local->transaction.eager_lock_on) {
-		/* We don't need to retain "local" in the
-		   fd list anymore, writes to all subvols
-		   are finished by now */
-		LOCK (&local->fd->lock);
-		{
-			list_del_init (&local->transaction.eager_locked);
-		}
-		UNLOCK (&local->fd->lock);
-	}
+        if (local->transaction.eager_lock_on) {
+                /* We don't need to retain "local" in the
+                   fd list anymore, writes to all subvols
+                   are finished by now */
+                LOCK (&local->fd->lock);
+                {
+                        list_del_init (&local->transaction.eager_locked);
+                }
+                UNLOCK (&local->fd->lock);
+        }
 
-	afr_restore_lk_owner (frame);
+        afr_restore_lk_owner (frame);
 
         if (__fop_changelog_needed (frame, this)) {
                 afr_changelog_post_op (frame, this);
@@ -1690,7 +1708,7 @@ afr_transaction_resume (call_frame_t *frame, xlator_t *this)
  * afr_transaction_fop_failed - inform that an fop failed
  */
 
-void
+        void
 afr_transaction_fop_failed (call_frame_t *frame, xlator_t *this, int child_index)
 {
         afr_local_t *   local = NULL;
@@ -1700,54 +1718,54 @@ afr_transaction_fop_failed (call_frame_t *frame, xlator_t *this, int child_index
         priv  = this->private;
 
         __mark_child_dead (local->pending, priv->child_count,
-                           child_index, local->transaction.type);
+                        child_index, local->transaction.type);
 }
 
 
 
-static gf_boolean_t
+        static gf_boolean_t
 afr_locals_overlap (afr_local_t *local1, afr_local_t *local2)
 {
-	uint64_t start1 = local1->transaction.start;
-	uint64_t start2 = local2->transaction.start;
-	uint64_t end1 = 0;
-	uint64_t end2 = 0;
+        uint64_t start1 = local1->transaction.start;
+        uint64_t start2 = local2->transaction.start;
+        uint64_t end1 = 0;
+        uint64_t end2 = 0;
 
-	if (local1->transaction.len)
-		end1 = start1 + local1->transaction.len - 1;
-	else
-		end1 = ULLONG_MAX;
+        if (local1->transaction.len)
+                end1 = start1 + local1->transaction.len - 1;
+        else
+                end1 = ULLONG_MAX;
 
-	if (local2->transaction.len)
-		end2 = start2 + local2->transaction.len - 1;
-	else
-		end2 = ULLONG_MAX;
+        if (local2->transaction.len)
+                end2 = start2 + local2->transaction.len - 1;
+        else
+                end2 = ULLONG_MAX;
 
-	return ((end1 >= start2) && (end2 >= start1));
+        return ((end1 >= start2) && (end2 >= start1));
 }
 
 
-void
+        void
 afr_transaction_eager_lock_init (afr_local_t *local, xlator_t *this)
 {
-	afr_private_t *priv = NULL;
-	afr_fd_ctx_t  *fdctx = NULL;
-	afr_local_t   *each = NULL;
+        afr_private_t *priv = NULL;
+        afr_fd_ctx_t  *fdctx = NULL;
+        afr_local_t   *each = NULL;
 
-	priv = this->private;
+        priv = this->private;
 
-	if (!local->fd)
-		return;
+        if (!local->fd)
+                return;
 
-	if (local->transaction.type != AFR_DATA_TRANSACTION)
-		return;
+        if (local->transaction.type != AFR_DATA_TRANSACTION)
+                return;
 
-	if (!priv->eager_lock)
-		return;
+        if (!priv->eager_lock)
+                return;
 
-	fdctx = afr_fd_ctx_get (local->fd, this);
-	if (!fdctx)
-		return;
+        fdctx = afr_fd_ctx_get (local->fd, this);
+        if (!fdctx)
+                return;
 
         /*
          * Once full file lock is acquired in eager-lock phase, overlapping
@@ -1766,22 +1784,22 @@ afr_transaction_eager_lock_init (afr_local_t *local, xlator_t *this)
          * This check makes sure the locks are not transferred for
          * overlapping writes.
          */
-	LOCK (&local->fd->lock);
-	{
-		list_for_each_entry (each, &fdctx->eager_locked,
-				     transaction.eager_locked) {
-			if (afr_locals_overlap (each, local)) {
-				local->transaction.eager_lock_on = _gf_false;
-				goto unlock;
-			}
-		}
+        LOCK (&local->fd->lock);
+        {
+                list_for_each_entry (each, &fdctx->eager_locked,
+                                     transaction.eager_locked) {
+                        if (afr_locals_overlap (each, local)) {
+                                local->transaction.eager_lock_on = _gf_false;
+                                goto unlock;
+                        }
+                }
 
-		local->transaction.eager_lock_on = _gf_true;
-		list_add_tail (&local->transaction.eager_locked,
-			       &fdctx->eager_locked);
-	}
+                local->transaction.eager_lock_on = _gf_true;
+                list_add_tail (&local->transaction.eager_locked,
+                               &fdctx->eager_locked);
+        }
 unlock:
-	UNLOCK (&local->fd->lock);
+        UNLOCK (&local->fd->lock);
 }
 
 
@@ -1800,11 +1818,10 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
         local->transaction.type   = type;
 
         ret = afr_transaction_local_init (local, this);
-        if (ret < 0) {
+        if (ret < 0)
             goto out;
-        }
 
-	afr_transaction_eager_lock_init (local, this);
+        afr_transaction_eager_lock_init (local, this);
 
         if (local->fd && local->transaction.eager_lock_on)
                 afr_set_lk_owner (frame, this, local->fd);

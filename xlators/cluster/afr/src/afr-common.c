@@ -826,7 +826,8 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
 void
 afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
 {
-        afr_private_t * priv = NULL;
+        afr_private_t *priv    = NULL;
+        int           i        = 0;
 
         priv = this->private;
 
@@ -836,7 +837,9 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
 
         GF_FREE (local->internal_lock.locked_nodes);
 
-        GF_FREE (local->internal_lock.inode_locked_nodes);
+        for (i = 0; local->internal_lock.inodelk[i].domain; i++) {
+                GF_FREE (local->internal_lock.inodelk[i].locked_nodes);
+        }
 
         GF_FREE (local->internal_lock.lower_locked_nodes);
 
@@ -4480,11 +4483,6 @@ afr_internal_lock_init (afr_internal_lock_t *lk, size_t child_count,
 {
         int             ret = -ENOMEM;
 
-        lk->inode_locked_nodes = GF_CALLOC (sizeof (*lk->inode_locked_nodes),
-                                            child_count, gf_afr_mt_char);
-        if (NULL == lk->inode_locked_nodes)
-                goto out;
-
         lk->locked_nodes = GF_CALLOC (sizeof (*lk->locked_nodes),
                                       child_count, gf_afr_mt_char);
         if (NULL == lk->locked_nodes)
@@ -4543,6 +4541,21 @@ out:
 }
 
 int
+afr_inodelk_init (afr_inodelk_t *lk, char *dom, size_t child_count)
+{
+        int             ret = -ENOMEM;
+
+        lk->domain = dom;
+        lk->locked_nodes = GF_CALLOC (sizeof (*lk->locked_nodes),
+                                      child_count, gf_afr_mt_char);
+        if (NULL == lk->locked_nodes)
+                goto out;
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 afr_transaction_local_init (afr_local_t *local, xlator_t *this)
 {
         int            child_up_count = 0;
@@ -4554,6 +4567,14 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
                                       AFR_TRANSACTION_LK);
         if (ret < 0)
                 goto out;
+
+        if ((local->transaction.type == AFR_DATA_TRANSACTION) ||
+            (local->transaction.type == AFR_METADATA_TRANSACTION)) {
+                ret = afr_inodelk_init (&local->internal_lock.inodelk[0],
+                                        this->name, priv->child_count);
+                if (ret < 0)
+                        goto out;
+        }
 
         ret = -ENOMEM;
         child_up_count = afr_up_children_count (local->child_up,

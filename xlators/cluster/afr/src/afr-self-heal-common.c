@@ -1997,6 +1997,7 @@ afr_sh_entrylk (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int_lock->lk_basename = base_name;
         int_lock->lk_loc      = loc;
         int_lock->lock_cbk    = lock_cbk;
+        int_lock->domain      = this->name;
 
         int_lock->lockee_count = 0;
         afr_init_entry_lockee (&int_lock->lockee[0], local, loc,
@@ -2057,13 +2058,13 @@ afr_self_heal_missing_entries (call_frame_t *frame, xlator_t *this)
 }
 
 afr_local_t*
-afr_local_copy (afr_local_t *l, xlator_t *this)
+afr_self_heal_local_init (afr_local_t *l, xlator_t *this)
 {
-        afr_private_t *priv = NULL;
-        afr_local_t   *lc     = NULL;
-        afr_self_heal_t *sh = NULL;
-        afr_self_heal_t *shc = NULL;
-        int              i   = 0;
+        afr_private_t   *priv  = NULL;
+        afr_local_t     *lc    = NULL;
+        afr_self_heal_t *sh    = NULL;
+        afr_self_heal_t *shc   = NULL;
+        int             ret    = 0;
 
         priv = this->private;
 
@@ -2088,11 +2089,19 @@ afr_local_copy (afr_local_t *l, xlator_t *this)
         shc->type = sh->type;
 
         uuid_copy (shc->sh_gfid_req, sh->sh_gfid_req);
-        if (l->loc.path)
-                loc_copy (&lc->loc, &l->loc);
+        if (l->loc.path) {
+                ret = loc_copy (&lc->loc, &l->loc);
+                if (ret < 0)
+                        goto out;
+        }
 
         lc->child_up  = memdup (l->child_up,
                                 sizeof (*lc->child_up) * priv->child_count);
+        if (!lc->child_up) {
+                ret = -1;
+                goto out;
+        }
+
         if (l->xattr_req)
                 lc->xattr_req = dict_ref (l->xattr_req);
 
@@ -2100,59 +2109,25 @@ afr_local_copy (afr_local_t *l, xlator_t *this)
                 lc->cont.lookup.inode = inode_ref (l->cont.lookup.inode);
         if (l->cont.lookup.xattr)
                 lc->cont.lookup.xattr = dict_ref (l->cont.lookup.xattr);
-        if (l->internal_lock.inode_locked_nodes)
-                lc->internal_lock.inode_locked_nodes =
-                        memdup (l->internal_lock.inode_locked_nodes,
-                                sizeof (*lc->internal_lock.inode_locked_nodes) * priv->child_count);
-        else
-                lc->internal_lock.inode_locked_nodes =
-                        GF_CALLOC (sizeof (*l->internal_lock.inode_locked_nodes),
-                                   priv->child_count,
-                                   gf_afr_mt_char);
 
-        if (l->internal_lock.locked_nodes)
-                lc->internal_lock.locked_nodes =
-                        memdup (l->internal_lock.locked_nodes,
-                                sizeof (*lc->internal_lock.locked_nodes) * priv->child_count);
-        else
-                lc->internal_lock.locked_nodes =
-                        GF_CALLOC (sizeof (*l->internal_lock.locked_nodes),
-                                   priv->child_count,
-                                   gf_afr_mt_char);
-
-        for (i = 0; i < l->internal_lock.lockee_count; i++) {
-                loc_copy (&lc->internal_lock.lockee[i].loc,
-                          &l->internal_lock.lockee[i].loc);
-
-                lc->internal_lock.lockee[i].locked_count =
-                        l->internal_lock.lockee[i].locked_count;
-
-                if (l->internal_lock.lockee[i].basename)
-                        lc->internal_lock.lockee[i].basename =
-                                gf_strdup (l->internal_lock.lockee[i].basename);
-
-                if (l->internal_lock.lockee[i].locked_nodes) {
-                        lc->internal_lock.lockee[i].locked_nodes =
-                                memdup (l->internal_lock.lockee[i].locked_nodes,
-                                        sizeof (*lc->internal_lock.lockee[i].locked_nodes) *
-                                        priv->child_count);
-                } else {
-                        lc->internal_lock.lockee[i].locked_nodes =
-                                GF_CALLOC (priv->child_count,
-                                           sizeof (*lc->internal_lock.lockee[i].locked_nodes),
-                                           gf_afr_mt_char);
-                }
-
+        lc->internal_lock.locked_nodes =
+                             GF_CALLOC (sizeof (*l->internal_lock.locked_nodes),
+                                        priv->child_count, gf_afr_mt_char);
+        if (!lc->internal_lock.locked_nodes) {
+                ret = -1;
+                goto out;
         }
-        lc->internal_lock.lockee_count = l->internal_lock.lockee_count;
 
-        lc->internal_lock.inodelk_lock_count =
-                l->internal_lock.inodelk_lock_count;
-        lc->internal_lock.entrylk_lock_count =
-                l->internal_lock.entrylk_lock_count;
-
+        ret = afr_inodelk_init (&lc->internal_lock.inodelk[0],
+                                this->name, priv->child_count);
+        if (ret)
+                goto out;
 
 out:
+        if (ret) {
+                afr_local_cleanup (lc, this);
+                lc = NULL;
+        }
         return lc;
 }
 
@@ -2241,7 +2216,7 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
         afr_set_lk_owner (sh_frame, this, sh_frame->root);
         afr_set_low_priority (sh_frame);
 
-        sh_local        = afr_local_copy (local, this);
+        sh_local        = afr_self_heal_local_init (local, this);
         if (!sh_local)
                 goto out;
         sh_frame->local = sh_local;

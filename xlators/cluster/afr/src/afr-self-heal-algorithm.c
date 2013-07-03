@@ -143,7 +143,7 @@ sh_loop_finish (call_frame_t *loop_frame, xlator_t *this)
         }
 
         if (loop_sh && loop_sh->data_lock_held) {
-                afr_sh_data_unlock (loop_frame, this,
+                afr_sh_data_unlock (loop_frame, this, this->name,
                                     sh_destroy_frame);
         } else {
                 sh_destroy_frame (loop_frame, this);
@@ -214,7 +214,7 @@ sh_loop_frame_create (call_frame_t *sh_frame, xlator_t *this,
                 goto out;
         //We want the frame to have same lk_owner as sh_frame
         //so that locks translator allows conflicting locks
-        new_loop_local = afr_local_copy (local, this);
+        new_loop_local = afr_self_heal_local_init (local, this);
         if (!new_loop_local)
                 goto out;
         new_loop_frame->local = new_loop_local;
@@ -273,7 +273,7 @@ sh_loop_start (call_frame_t *sh_frame, xlator_t *this, off_t offset,
         new_loop_sh->offset = offset;
         new_loop_sh->block_size = sh->block_size;
         afr_sh_data_lock (new_loop_frame, this, offset, new_loop_sh->block_size,
-                          _gf_true, sh_loop_lock_success, sh_loop_lock_failure);
+                          _gf_true, this->name, sh_loop_lock_success, sh_loop_lock_failure);
         return 0;
 out:
         afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
@@ -754,14 +754,15 @@ out:
         return sh_priv;
 }
 
-void
-afr_sh_transfer_lock (call_frame_t *dst, call_frame_t *src,
+int
+afr_sh_transfer_lock (call_frame_t *dst, call_frame_t *src, char *dom,
                       unsigned int child_count)
 {
         afr_local_t             *dst_local   = NULL;
         afr_self_heal_t         *dst_sh      = NULL;
         afr_local_t             *src_local   = NULL;
         afr_self_heal_t         *src_sh      = NULL;
+        int                     ret          = -1;
 
         dst_local = dst->local;
         dst_sh = &dst_local->self_heal;
@@ -769,9 +770,12 @@ afr_sh_transfer_lock (call_frame_t *dst, call_frame_t *src,
         src_sh = &src_local->self_heal;
         GF_ASSERT (src_sh->data_lock_held);
         GF_ASSERT (!dst_sh->data_lock_held);
-        afr_lk_transfer_datalock (dst, src, child_count);
+        ret = afr_lk_transfer_datalock (dst, src, dom, child_count);
+        if (ret)
+                return ret;
         src_sh->data_lock_held = _gf_false;
         dst_sh->data_lock_held = _gf_true;
+        return 0;
 }
 
 int
@@ -793,7 +797,10 @@ afr_sh_start_loops (call_frame_t *sh_frame, xlator_t *this,
         ret = sh_loop_frame_create (sh_frame, this, NULL, &first_loop_frame);
         if (ret)
                 goto out;
-        afr_sh_transfer_lock (first_loop_frame, sh_frame, priv->child_count);
+        ret = afr_sh_transfer_lock (first_loop_frame, sh_frame, this->name,
+                                    priv->child_count);
+        if (ret)
+                goto out;
         sh->private = afr_sh_priv_init ();
         if (!sh->private) {
                 ret = -1;

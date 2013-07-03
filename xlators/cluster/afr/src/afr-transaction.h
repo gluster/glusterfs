@@ -23,6 +23,9 @@ afr_transaction_fop_failed (call_frame_t *frame, xlator_t *this,
 int
 afr_lock_server_count (afr_private_t *priv, afr_transaction_type type);
 
+afr_inodelk_t*
+afr_get_inodelk (afr_internal_lock_t *int_lock, char *dom);
+
 int32_t
 afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type);
 
