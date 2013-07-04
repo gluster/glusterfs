@@ -6290,6 +6290,7 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
         gf_xl_afr_op_t          heal_op = GF_AFR_OP_INVALID;
         char                    *operation = NULL;
         char                    *substr = NULL;
+        char                    *heal_op_str = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -6332,12 +6333,36 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to heal volume");
 
+        switch (heal_op) {
+                case    GF_AFR_OP_HEAL_INDEX:
+                        heal_op_str = "to perform index self heal";
+                        break;
+                case    GF_AFR_OP_HEAL_FULL:
+                        heal_op_str = "to perform full self heal";
+                        break;
+                case    GF_AFR_OP_INDEX_SUMMARY:
+                        heal_op_str = "list of entries to be healed";
+                        break;
+                case    GF_AFR_OP_HEALED_FILES:
+                        heal_op_str = "list of healed entries";
+                        break;
+                case    GF_AFR_OP_HEAL_FAILED_FILES:
+                        heal_op_str = "list of heal failed entries";
+                        break;
+                case    GF_AFR_OP_SPLIT_BRAIN_FILES:
+                        heal_op_str = "list of split brain entries";
+                        break;
+                case    GF_AFR_OP_INVALID:
+                        heal_op_str = "invalid heal op";
+                        break;
+        }
+
         if ((heal_op == GF_AFR_OP_HEAL_FULL) ||
             (heal_op == GF_AFR_OP_HEAL_INDEX)) {
                 operation = "Launching heal operation";
                 substr = "\nUse heal info commands to check status";
         } else {
-                operation = "Gathering heal info";
+                operation = "Gathering";
                 substr = "";
         }
 
@@ -6345,15 +6370,15 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 if (strcmp (rsp.op_errstr, "")) {
                         cli_err ("%s", rsp.op_errstr);
                 } else {
-                        cli_err ("%s on volume %s has been unsuccessful",
-                                 operation, volname);
+                        cli_err ("%s %s on volume %s has been unsuccessful",
+                                 operation, heal_op_str, volname);
                 }
 
                 ret = rsp.op_ret;
                 goto out;
         } else {
-                cli_out ("%s on volume %s has been successful%s", operation,
-                         volname, substr);
+                cli_out ("%s %s on volume %s has been successful %s", operation,
+                         heal_op_str, volname, substr);
         }
 
         ret = rsp.op_ret;
