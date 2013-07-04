@@ -507,7 +507,7 @@ dnl FreeBSD, NetBSD
 AC_CHECK_MEMBERS([struct stat.st_atimespec.tv_nsec])
 case $host_os in
         *netbsd*)
-        CFLAGS=-D_INCOMPLETE_XOPEN_C063
+        CFLAGS+=" -D_INCOMPLETE_XOPEN_C063"
         ;;
 esac
 AC_CHECK_FUNC([linkat], [have_linkat=yes])
