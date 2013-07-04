@@ -20,7 +20,7 @@
 /* Gluster versions - OP-VERSION mapping
  *
  * 3.3.0                - 1
- * 3.3.Next/3.Next      - 2
+ * 3.4.0                - 2
  *
  * TODO: Change above comment once gluster version is finalised
  * TODO: Finalize the op-version ranges
