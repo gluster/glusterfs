@@ -213,11 +213,7 @@ wb_fd_err (fd_t *fd, xlator_t *this, int32_t *op_errno)
         int32_t      tmp   = 0;
 
 	if (fd_ctx_get (fd, this, &value) == 0) {
-                if (value != EBADF) {
-                        fd_ctx_set (fd, this, EBADF);
-                }
-
-                if (op_errno != NULL) {
+                if (op_errno) {
                         tmp = value;
                         *op_errno = tmp;
                 }
