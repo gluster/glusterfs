@@ -1560,6 +1560,8 @@ is_server_debug_xlator (void *myframe)
                 key = *words;
                 words++;
                 value = *words;
+                if (value == NULL)
+                        break;
                 if (strstr (value, "client")) {
                         words++;
                         continue;
