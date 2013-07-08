@@ -376,7 +376,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .key        = "cluster.readdir-optimize",
           .voltype    = "cluster/distribute",
-          .op_version = 2,
+          .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
         { .key        = "cluster.nufa",
@@ -518,7 +518,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key        = "cluster.stripe-coalesce",
           .voltype    = "cluster/stripe",
           .option     = "coalesce",
-          .op_version = 2,
+          .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
 
@@ -620,11 +620,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .key         = "performance.enable-least-priority",
           .voltype     = "performance/io-threads",
-          .op_version  = 2
+          .op_version  = 1
         },
         { .key         = "performance.least-rate-limit",
           .voltype     = "performance/io-threads",
-          .op_version  = 1
+          .op_version  = 2
         },
 
         /* Other perf xlators' options */
@@ -708,7 +708,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key        = "network.remote-dio",
           .voltype    = "protocol/client",
           .option     = "filter-O_DIRECT",
-          .op_version = 1,
+          .op_version = 2,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
 
@@ -1107,7 +1107,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype    = "features/read-only",
           .option     = "!read-only",
           .value      = "off",
-          .op_version = 2,
+          .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
         { .key        = "features.worm",
@@ -1119,17 +1119,17 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .key         = "storage.linux-aio",
           .voltype     = "storage/posix",
-          .op_version  = 2
+          .op_version  = 1
         },
         { .key         = "storage.owner-uid",
           .voltype     = "storage/posix",
           .option      = "brick-uid",
-          .op_version  = 2
+          .op_version  = 1
         },
         { .key         = "storage.owner-gid",
           .voltype     = "storage/posix",
           .option      = "brick-gid",
-          .op_version  = 2
+          .op_version  = 1
         },
         { .key        = "config.memory-accounting",
           .voltype    = "configuration",
