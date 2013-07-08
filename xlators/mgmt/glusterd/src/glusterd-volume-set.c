@@ -376,7 +376,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .key        = "cluster.readdir-optimize",
           .voltype    = "cluster/distribute",
-          .op_version = 2,
+          .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
         { .key        = "cluster.nufa",
@@ -389,20 +389,20 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key        = "cluster.rsync-hash-regex",
           .voltype    = "cluster/distribute",
           .type       = NO_DOC,
-          .op_version = 2,
+          .op_version = 3,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
         { .key        = "cluster.extra-hash-regex",
           .voltype    = "cluster/distribute",
           .type       = NO_DOC,
-          .op_version = 2,
+          .op_version = 3,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
         { .key        = "cluster.dht-xattr-name",
           .voltype    = "cluster/distribute",
           .option     = "xattr-name",
           .type       = NO_DOC,
-          .op_version = 2,
+          .op_version = 3,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
 
@@ -526,7 +526,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .key        = "cluster.ensure-durability",
           .voltype    = "cluster/replicate",
-          .op_version = 2,
+          .op_version = 3,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
 
@@ -541,7 +541,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key        = "cluster.stripe-coalesce",
           .voltype    = "cluster/stripe",
           .option     = "coalesce",
-          .op_version = 2,
+          .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
 
@@ -643,11 +643,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .key         = "performance.enable-least-priority",
           .voltype     = "performance/io-threads",
-          .op_version  = 2
+          .op_version  = 1
         },
         { .key         = "performance.least-rate-limit",
           .voltype     = "performance/io-threads",
-          .op_version  = 1
+          .op_version  = 2
         },
 
         /* Other perf xlators' options */
@@ -683,7 +683,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key        = "performance.lazy-open",
           .voltype    = "performance/open-behind",
           .option     = "lazy-open",
-          .op_version = 2,
+          .op_version = 3,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
         { .key        = "performance.read-ahead-page-count",
@@ -737,7 +737,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key        = "network.remote-dio",
           .voltype    = "protocol/client",
           .option     = "filter-O_DIRECT",
-          .op_version = 1,
+          .op_version = 2,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
 
@@ -940,7 +940,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "deem-statfs",
           .value       = "off",
           .type        = DOC,
-          .op_version  = 2,
+          .op_version  = 3,
           .validate_fn = validate_quota,
           .flags       = OPT_FLAG_CLIENT_OPT
         },
@@ -1016,25 +1016,25 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "debug/error-gen",
           .option      = "failure",
           .type        = NO_DOC,
-          .op_version  = 2
+          .op_version  = 3
         },
         { .key         = "debug.error-number",
           .voltype     = "debug/error-gen",
           .option      = "error-no",
           .type        = NO_DOC,
-          .op_version  = 2
+          .op_version  = 3
         },
         { .key         = "debug.random-failure",
           .voltype     = "debug/error-gen",
           .option      = "random-failure",
           .type        = NO_DOC,
-          .op_version  = 2
+          .op_version  = 3
         },
         { .key         = "debug.error-fops",
           .voltype     = "debug/error-gen",
           .option      = "enable",
           .type        = NO_DOC,
-          .op_version  = 2
+          .op_version  = 3
         },
 
 
@@ -1155,7 +1155,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "nfs/server",
           .option      = "nfs.acl",
           .type        = GLOBAL_DOC,
-          .op_version  = 2
+          .op_version  = 3
         },
         { .key         = "nfs.mount-udp",
           .voltype     = "nfs/server",
@@ -1173,13 +1173,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "nfs/server",
           .option      = "nfs.drc",
           .type        = GLOBAL_DOC,
-          .op_version  = 1
+          .op_version  = 3
         },
         { .key         = "nfs.drc-size",
           .voltype     = "nfs/server",
           .option      = "nfs.drc-size",
           .type        = GLOBAL_DOC,
-          .op_version  = 1
+          .op_version  = 3
         },
 
         /* Other options which don't fit any place above */
@@ -1187,7 +1187,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype    = "features/read-only",
           .option     = "!read-only",
           .value      = "off",
-          .op_version = 2,
+          .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
         { .key        = "features.worm",
@@ -1199,21 +1199,21 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .key         = "storage.linux-aio",
           .voltype     = "storage/posix",
-          .op_version  = 2
+          .op_version  = 1
         },
         { .key         = "storage.owner-uid",
           .voltype     = "storage/posix",
           .option      = "brick-uid",
-          .op_version  = 2
+          .op_version  = 1
         },
         { .key         = "storage.owner-gid",
           .voltype     = "storage/posix",
           .option      = "brick-gid",
-          .op_version  = 2
+          .op_version  = 1
         },
         { .key         = "storage.node-uuid-pathinfo",
           .voltype     = "storage/posix",
-          .op_version  = 2
+          .op_version  = 3
         },
         { .key         = "storage.health-check-interval",
           .voltype     = "storage/posix",
