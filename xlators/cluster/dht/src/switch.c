@@ -437,7 +437,8 @@ switch_create (call_frame_t *frame, xlator_t *this,
         avail_subvol = get_switch_matching_subvol (loc->path, conf, subvol);
         if (dht_is_subvol_filled (this, avail_subvol)) {
                 avail_subvol =
-                        dht_free_disk_available_subvol (this, avail_subvol);
+                        dht_free_disk_available_subvol (this, avail_subvol,
+                                                        local);
         }
 
         if (subvol != avail_subvol) {
@@ -536,7 +537,8 @@ switch_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         avail_subvol = get_switch_matching_subvol (loc->path, conf, subvol);
         if (dht_is_subvol_filled (this, avail_subvol)) {
                 avail_subvol =
-                        dht_free_disk_available_subvol (this, avail_subvol);
+                        dht_free_disk_available_subvol (this, avail_subvol,
+                                                        local);
         }
 
         if (avail_subvol != subvol) {
