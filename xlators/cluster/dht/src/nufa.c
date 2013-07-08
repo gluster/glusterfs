@@ -323,7 +323,8 @@ nufa_create (call_frame_t *frame, xlator_t *this,
         if (dht_is_subvol_filled (this, (xlator_t *)conf->private)) {
                 avail_subvol =
                         dht_free_disk_available_subvol (this,
-                                                        (xlator_t *)conf->private);
+                                                        (xlator_t *)conf->private,
+                                                        local);
         }
 
         if (subvol != avail_subvol) {
@@ -427,7 +428,8 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
         if (dht_is_subvol_filled (this, (xlator_t *)conf->private)) {
                 avail_subvol =
                         dht_free_disk_available_subvol (this,
-                                                        (xlator_t *)conf->private);
+                                                        (xlator_t *)conf->private,
+                                                        local);
         }
 
         if (avail_subvol != subvol) {

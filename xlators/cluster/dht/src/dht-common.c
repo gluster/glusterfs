@@ -3567,7 +3567,9 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
                                    subvol, subvol->fops->mknod, loc, mode,
                                    rdev, umask, params);
         } else {
-                avail_subvol = dht_free_disk_available_subvol (this, subvol);
+
+                avail_subvol = dht_free_disk_available_subvol (this, subvol,
+                                                               local);
                 if (avail_subvol != subvol) {
                         /* Choose the minimum filled volume, and create the
                            files there */
@@ -3988,7 +3990,7 @@ dht_create (call_frame_t *frame, xlator_t *this,
         }
         /* Choose the minimum filled volume, and create the
            files there */
-        avail_subvol = dht_free_disk_available_subvol (this, subvol);
+        avail_subvol = dht_free_disk_available_subvol (this, subvol, local);
         if (avail_subvol != subvol) {
                 local->params = dict_ref (params);
                 local->flags = flags;
