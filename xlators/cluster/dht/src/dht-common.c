@@ -208,9 +208,16 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
                         goto out;
                 }
                 if (ret != 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "normalizing failed on %s "
                                 "(overlaps/holes present)", local->loc.path);
+                        /* We may need to do the lookup again */
+                        /* in discover call, parent is not know, and basename
+                         * of entry is also not available. Without which we
+                         * cannot build a layout correctly to heal it. Hence
+                         * returning ESTALE */
+                        op_errno = ESTALE;
+                        goto out;
                 }
 
                 if (local->inode)
