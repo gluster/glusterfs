@@ -1578,7 +1578,11 @@ cli_xml_output_vol_status (cli_local_t *local, dict_t *dict)
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
 
-        if ((cmd & GF_CLI_STATUS_MASK) == GF_CLI_STATUS_NONE) {
+        /* Tasks are only present when a normal volume status call is done on a
+         * single volume or on all volumes
+         */
+        if (((cmd & GF_CLI_STATUS_MASK) == GF_CLI_STATUS_NONE) &&
+            (cmd & (GF_CLI_STATUS_VOL|GF_CLI_STATUS_ALL))) {
                 ret = cli_xml_output_vol_status_tasks (local, dict);
                 if (ret)
                         goto out;
