@@ -37,7 +37,7 @@
 
 #define _GLUSTERD_CALLED_ "_GLUSTERD_CALLED_"
 #define _GSYNCD_DISPATCHED_ "_GSYNCD_DISPATCHED_"
-#define GSYNCD_CONF "geo-replication/gsyncd.conf"
+#define GSYNCD_CONF_TEMPLATE "geo-replication/gsyncd_template.conf"
 #define GSYNCD_PY "gsyncd.py"
 #define RSYNC "rsync"
 
@@ -127,11 +127,11 @@ invoke_gsyncd (int argc, char **argv)
                         gluster_workdir_len = len - 1;
 
                 if (gluster_workdir_len) {
-                        if (gluster_workdir_len + 1 + strlen (GSYNCD_CONF) + 1 >
+                        if (gluster_workdir_len + 1 + strlen (GSYNCD_CONF_TEMPLATE) + 1 >
                             PATH_MAX)
                                 goto error;
                         config_file[gluster_workdir_len] = '/';
-                        strcat (config_file, GSYNCD_CONF);
+                        strcat (config_file, GSYNCD_CONF_TEMPLATE);
                 } else
                         goto error;
 

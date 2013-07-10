@@ -39,7 +39,7 @@ The config file format matches the following syntax:
       <option2>: <value2>
       # comment
 
-By default (unless specified by the option `-c`), gsyncd looks for config file at _conf/gsyncd.conf_
+By default (unless specified by the option `-c`), gsyncd looks for config file at _conf/gsyncd_template.conf_
 in the source tree.
 
 USAGE

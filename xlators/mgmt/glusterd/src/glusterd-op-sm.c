@@ -2504,12 +2504,13 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                         }
                         break;
 
+                case GD_OP_GSYNC_CREATE:
                 case GD_OP_GSYNC_SET:
                         {
                                 ret = glusterd_op_gsync_args_get (dict,
                                                                   &errstr,
                                                                   &volname,
-                                                                  NULL);
+                                                                  NULL, NULL);
                                 if (ret == 0) {
                                         ret = glusterd_dict_set_volid
                                                 (dict, volname, op_errstr);
@@ -2621,6 +2622,18 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                                 dict_copy (dict, req_dict);
                         }
                         break;
+
+                case GD_OP_COPY_FILE:
+                        {
+                                dict_copy (dict, req_dict);
+                                break;
+                        }
+
+                case GD_OP_SYS_EXEC:
+                        {
+                                dict_copy (dict, req_dict);
+                                break;
+                        }
 
                 default:
                         break;
@@ -3755,6 +3768,10 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         ret = glusterd_op_stage_sync_volume (dict, op_errstr);
                         break;
 
+                case GD_OP_GSYNC_CREATE:
+                        ret = glusterd_op_stage_gsync_create (dict, op_errstr);
+                        break;
+
                 case GD_OP_GSYNC_SET:
                         ret = glusterd_op_stage_gsync_set (dict, op_errstr);
                         break;
@@ -3793,13 +3810,21 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         ret = glusterd_op_stage_bd (dict, op_errstr);
                         break;
 #endif
+
+                case GD_OP_COPY_FILE:
+                        ret = glusterd_op_stage_copy_file (dict, op_errstr);
+                        break;
+
+                case GD_OP_SYS_EXEC:
+                        ret = glusterd_op_stage_sys_exec (dict, op_errstr);
+                        break;
+
                 default:
                         gf_log (this->name, GF_LOG_ERROR, "Unknown op %s",
                                 gd_op_list[op]);
         }
 
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
-
+        gf_log (this->name, GF_LOG_DEBUG, "OP = %d. Returning %d", op, ret);
         return ret;
 }
 
@@ -3857,6 +3882,11 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         ret = glusterd_op_sync_volume (dict, op_errstr, rsp_dict);
                         break;
 
+                case GD_OP_GSYNC_CREATE:
+                        ret = glusterd_op_gsync_create (dict, op_errstr,
+                                                        rsp_dict);
+                        break;
+
                 case GD_OP_GSYNC_SET:
                         ret = glusterd_op_gsync_set (dict, op_errstr, rsp_dict);
                         break;
@@ -3896,6 +3926,15 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         ret = 0;
                         break;
 #endif
+
+                case GD_OP_COPY_FILE:
+                        ret = glusterd_op_copy_file (dict, op_errstr);
+                        break;
+
+                case GD_OP_SYS_EXEC:
+                        ret = glusterd_op_sys_exec (dict, op_errstr, rsp_dict);
+                        break;
+
                 default:
                         gf_log (this->name, GF_LOG_ERROR, "Unknown op %s",
                                 gd_op_list[op]);
@@ -3904,8 +3943,8 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
 
         if (ret == 0)
             glusterd_op_commit_hook (op, dict, GD_COMMIT_HOOK_POST);
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
 
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 

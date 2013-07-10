@@ -30,6 +30,7 @@ AC_CONFIG_FILES([Makefile
                 libglusterfs/Makefile
                 libglusterfs/src/Makefile
                 geo-replication/src/peer_gsec_create
+                geo-replication/src/peer_add_secret_pub
                 glusterfsd/Makefile
                 glusterfsd/src/Makefile
                 rpc/Makefile

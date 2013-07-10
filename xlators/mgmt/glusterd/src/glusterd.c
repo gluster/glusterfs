@@ -94,6 +94,9 @@ const char *gd_op_list[GD_OP_MAX + 1] = {
         [GD_OP_LIST_VOLUME]             = "Lists",
         [GD_OP_CLEARLOCKS_VOLUME]       = "Clear locks",
         [GD_OP_DEFRAG_BRICK_VOLUME]     = "Rebalance",
+        [GD_OP_COPY_FILE]               = "Copy File",
+        [GD_OP_SYS_EXEC]                = "Execute system commands",
+        [GD_OP_GSYNC_CREATE]            = "Geo-replication Create",
         [GD_OP_MAX]                     = "Invalid op"
 };
 
@@ -519,7 +522,7 @@ runinit_gsyncd_setrx (runner_t *runner, glusterd_conf_t *conf)
 {
         runinit (runner);
         runner_add_args (runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
-        runner_argprintf (runner, "%s/"GSYNC_CONF,conf->workdir);
+        runner_argprintf (runner, "%s/"GSYNC_CONF_TEMPLATE, conf->workdir);
         runner_add_arg (runner, "--config-set-rx");
 }
 
@@ -581,7 +584,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
         /* gluster-params */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_args (&runner, "gluster-params",
-                         "xlator-option=*-dht.assert-no-child-down=true",
+                         "aux-gfid-mount xlator-option=*-dht.assert-no-child-down=true",
                          ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
@@ -598,14 +601,30 @@ configure_syncdaemon (glusterd_conf_t *conf)
         /* pid-file */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_arg (&runner, "pid-file");
-        runner_argprintf (&runner, "%s/${mastervol}/${eSlave}.pid", georepdir);
+        runner_argprintf (&runner, "%s/${mastervol}-${slavevol}/${eSlave}.pid", georepdir);
         runner_add_args (&runner, ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
         /* state-file */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_arg (&runner, "state-file");
-        runner_argprintf (&runner, "%s/${mastervol}/${eSlave}.status", georepdir);
+        runner_argprintf (&runner, "%s/${mastervol}-${slavevol}/${eSlave}.status", georepdir);
+        runner_add_args (&runner, ".", ".", NULL);
+        RUN_GSYNCD_CMD;
+
+        /* state-detail-file */
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_arg (&runner, "state-detail-file");
+        runner_argprintf (&runner, "%s/${mastervol}-${slavevol}/${eSlave}-detail.status",
+                          georepdir);
+        runner_add_args (&runner, ".", ".", NULL);
+        RUN_GSYNCD_CMD;
+
+        /* state-detail-file */
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_arg (&runner, "state-detail-file");
+        runner_argprintf (&runner, "%s/${mastervol}-${slavevol}/${eSlave}-detail.status",
+                          georepdir);
         runner_add_args (&runner, ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
@@ -647,6 +666,18 @@ configure_syncdaemon (glusterd_conf_t *conf)
         runner_add_args (&runner, "special-sync-mode", "partial", ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
+        /* change-detector == changelog */
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_args(&runner, "change-detector", "changelog", ".", ".", NULL);
+        RUN_GSYNCD_CMD;
+
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_arg(&runner, "working-dir");
+        runner_argprintf(&runner, "%s/${mastervol}/${eSlave}",
+                         DEFAULT_VAR_RUN_DIRECTORY);
+        runner_add_args (&runner, ".", ".", NULL);
+        RUN_GSYNCD_CMD;
+
         /************
          * slave pre-configuration
          ************/
@@ -660,7 +691,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
         /* gluster-params */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_args (&runner, "gluster-params",
-                         "xlator-option=*-dht.assert-no-child-down=true",
+                         "aux-gfid-mount xlator-option=*-dht.assert-no-child-down=true",
                          ".", NULL);
         RUN_GSYNCD_CMD;
 
@@ -967,6 +998,7 @@ init (xlator_t *this)
                 first_time = 1;
         }
 
+        setenv ("GLUSTERD_WORKING_DIR", workdir, 1);
         gf_log (this->name, GF_LOG_INFO, "Using %s as working directory",
                 workdir);
 

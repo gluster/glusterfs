@@ -346,10 +346,9 @@ def main_i():
             for name in rmap[x]:
                 for j in range(3):
                     namedict[mods[j](name)] = pa[j][i]
-                if x.scheme == 'gluster':
-                    namedict[name + 'vol'] = x.volume
+                namedict[name + 'vol'] = x.volume
     if not 'config_file' in rconf:
-        rconf['config_file'] = os.path.join(os.path.dirname(sys.argv[0]), "conf/gsyncd.conf")
+        rconf['config_file'] = os.path.join(os.path.dirname(sys.argv[0]), "conf/gsyncd_template.conf")
     gcnf = GConffile(rconf['config_file'], canon_peers, defaults.__dict__, opts.__dict__, namedict)
 
     checkpoint_change = False
@@ -398,6 +397,8 @@ def main_i():
 
         if getattr(gconf, 'state_socket_unencoded', None):
             cleanup_paths.append(gconf.state_socket_unencoded)
+
+        cleanup_paths.append(rconf['config_file'][:-11] + "*");
 
         # Cleanup changelog working dirs
         if getattr(gconf, 'working_dir', None):

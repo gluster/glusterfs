@@ -3922,6 +3922,8 @@ rpcsvc_actor_t gd_svc_cli_actors[] = {
 #ifdef HAVE_BD_XLATOR
         [GLUSTER_CLI_BD_OP]              = {"BD_OP",              GLUSTER_CLI_BD_OP,            glusterd_handle_cli_bd_op,             NULL, 0, DRC_NA},
 #endif
+        [GLUSTER_CLI_COPY_FILE]     = {"COPY_FILE", GLUSTER_CLI_COPY_FILE, glusterd_handle_copy_file, NULL, 0, DRC_NA},
+        [GLUSTER_CLI_SYS_EXEC]      = {"SYS_EXEC", GLUSTER_CLI_SYS_EXEC, glusterd_handle_sys_exec, NULL, 0, DRC_NA},
 };
 
 struct rpcsvc_program gd_svc_cli_prog = {

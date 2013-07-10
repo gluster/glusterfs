@@ -49,6 +49,7 @@ char glusterd_hook_dirnames[GD_OP_MAX][256] =
         [GD_OP_RESET_VOLUME]            = EMPTY,
         [GD_OP_SYNC_VOLUME]             = EMPTY,
         [GD_OP_LOG_ROTATE]              = EMPTY,
+        [GD_OP_GSYNC_CREATE]            = "gsync-create",
         [GD_OP_GSYNC_SET]               = EMPTY,
         [GD_OP_PROFILE_VOLUME]          = EMPTY,
         [GD_OP_QUOTA]                   = EMPTY,
@@ -185,6 +186,7 @@ static int
 glusterd_hooks_add_op_args (runner_t *runner, glusterd_op_t op,
                             dict_t *op_ctx, glusterd_commit_hook_type_t type)
 {
+        char                   *hooks_args       = NULL;
         int                     vol_count        = 0;
         gf_boolean_t            truth            = _gf_false;
         glusterd_volinfo_t      *voliter         = NULL;
@@ -234,6 +236,18 @@ glusterd_hooks_add_op_args (runner_t *runner, glusterd_op_t op,
 
                 case GD_OP_SET_VOLUME:
                         ret = glusterd_hooks_set_volume_args (op_ctx, runner);
+                        break;
+
+                case GD_OP_GSYNC_CREATE:
+                        ret = dict_get_str (op_ctx, "hooks_args", &hooks_args);
+                        if (ret)
+                                gf_log ("", GF_LOG_DEBUG,
+                                        "No Hooks Arguments.");
+                        else
+                                gf_log ("", GF_LOG_DEBUG,
+                                        "Hooks Args = %s", hooks_args);
+                        if (hooks_args)
+                                runner_argprintf (runner, "%s", hooks_args);
                         break;
 
                 default:
