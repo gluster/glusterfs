@@ -431,7 +431,7 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
 %if ( 0%{!?_without_georeplication:1} )
 # geo-rep ghosts
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/geo-replication
-touch %{buildroot}%{_sharedstatedir}/glusterd/geo-replication/gsyncd.conf
+touch %{buildroot}%{_sharedstatedir}/glusterd/geo-replication/gsyncd_template.conf
 %endif
 
 # the rest of the ghosts
@@ -460,6 +460,12 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/options
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/delete
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/delete/post
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/delete/pre
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/copy-file
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/copy-file/post
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/copy-file/pre
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/gsync-create
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/gsync-create/post
+%{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/gsync-create/pre
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/glustershd
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/peers
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/vols
@@ -521,8 +527,10 @@ fi
 %{_libexecdir}/glusterfs/gsyncd
 %{_libexecdir}/glusterfs/python/syncdaemon/*
 %{_libexecdir}/glusterfs/gverify.sh
+%{_libexecdir}/glusterfs/peer_add_secret_pub
+%{_libexecdir}/glusterfs/peer_gsec_create
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/geo-replication
-%ghost %attr(0644,-,-) %{_sharedstatedir}/glusterd/geo-replication/gsyncd.conf
+%ghost %attr(0644,-,-) %{_sharedstatedir}/glusterd/geo-replication/gsyncd_template.conf
 %endif
 
 %files fuse
@@ -697,6 +705,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Thu Jul 25 2013 Csaba Henk <csaba@redhat.com>
+- Added peer_add_secret_pub and peer_gsec_create to %{_libexecdir}/glusterfs
+
 * Thu Jul 25 2013 Aravinda VK <avishwan@redhat.com>
 - Added gverify.sh to %{_libexecdir}/glusterfs directory.
 

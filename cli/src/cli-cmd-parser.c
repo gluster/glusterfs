@@ -1595,22 +1595,161 @@ gsyncd_glob_check (const char *w)
         return !!strpbrk (w, "*?[");
 }
 
+static int
+config_parse (const char **words, int wordcount, dict_t *dict,
+              unsigned cmdi, unsigned glob)
+{
+        int32_t            ret     = -1;
+        int32_t            i       = -1;
+        char               *append_str = NULL;
+        size_t             append_len = 0;
+        char               *subop = NULL;
+
+        switch ((wordcount - 1) - cmdi) {
+        case 0:
+                subop = gf_strdup ("get-all");
+                break;
+        case 1:
+                if (words[cmdi + 1][0] == '!') {
+                        (words[cmdi + 1])++;
+                        if (gf_asprintf (&subop, "del%s",
+                                         glob ? "-glob" : "") == -1)
+                                subop = NULL;
+                } else
+                        subop = gf_strdup ("get");
+
+                ret = dict_set_str (dict, "op_name", ((char *)words[cmdi + 1]));
+                if (ret < 0)
+                        goto out;
+                break;
+        default:
+                if (gf_asprintf (&subop, "set%s", glob ? "-glob" : "") == -1)
+                        subop = NULL;
+
+                ret = dict_set_str (dict, "op_name", ((char *)words[cmdi + 1]));
+                if (ret < 0)
+                        goto out;
+
+                /* join the varargs by spaces to get the op_value */
+
+                for (i = cmdi + 2; i < wordcount; i++)
+                        append_len += (strlen (words[i]) + 1);
+                /* trailing strcat will add two bytes, make space for that */
+                append_len++;
+
+                append_str = GF_CALLOC (1, append_len, cli_mt_append_str);
+                if (!append_str) {
+                        ret = -1;
+                        goto out;
+                }
+
+                for (i = cmdi + 2; i < wordcount; i++) {
+                        strcat (append_str, words[i]);
+                        strcat (append_str, " ");
+                }
+                append_str[append_len - 2] = '\0';
+                /* "checkpoint now" is special: we resolve that "now" */
+                if (strcmp (words[cmdi + 1], "checkpoint") == 0 &&
+                    strcmp (append_str, "now") == 0) {
+                        struct timeval tv = {0,};
+
+                        ret = gettimeofday (&tv, NULL);
+                        if (ret == -1)
+                                goto out; /* FIXME: free append_str? */
+
+                        GF_FREE (append_str);
+                        append_str = GF_CALLOC (1, 300, cli_mt_append_str);
+                        if (!append_str) {
+                                ret = -1;
+                                goto out;
+                        }
+                        strcpy (append_str, "as of ");
+                        gf_time_fmt (append_str + strlen ("as of "),
+                                     300 - strlen ("as of "),
+                                     tv.tv_sec, gf_timefmt_FT);
+                }
+
+                ret = dict_set_dynstr (dict, "op_value", append_str);
+        }
+
+        ret = -1;
+        if (subop) {
+                ret = dict_set_dynstr (dict, "subop", subop);
+                if (!ret)
+                      subop = NULL;
+        }
+
+out:
+        if (ret && append_str)
+                GF_FREE (append_str);
+
+        GF_FREE (subop);
+
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+static int32_t
+force_push_pem_parse (const char **words, int wordcount,
+                      dict_t *dict, unsigned *cmdi)
+{
+        int32_t            ret     = 0;
+
+        if (!strcmp ((char *)words[wordcount-1], "force")) {
+                if ((strcmp ((char *)words[wordcount-2], "start")) &&
+                    (strcmp ((char *)words[wordcount-2], "stop")) &&
+                    (strcmp ((char *)words[wordcount-2], "create")) &&
+                    (strcmp ((char *)words[wordcount-2], "push-pem"))) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = dict_set_uint32 (dict, "force",
+                                       _gf_true);
+                if (ret)
+                        goto out;
+                (*cmdi)++;
+
+                if (!strcmp ((char *)words[wordcount-2], "push-pem")) {
+                        if (strcmp ((char *)words[wordcount-3], "create")) {
+                                ret = -1;
+                                goto out;
+                        }
+                        ret = dict_set_int32 (dict, "push_pem", 1);
+                        if (ret)
+                                goto out;
+                        (*cmdi)++;
+                }
+        } else if (!strcmp ((char *)words[wordcount-1], "push-pem")) {
+                if (strcmp ((char *)words[wordcount-2], "create")) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = dict_set_int32 (dict, "push_pem", 1);
+                if (ret)
+                        goto out;
+                (*cmdi)++;
+        }
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+
 int32_t
 cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
 {
         int32_t            ret     = -1;
         dict_t             *dict   = NULL;
         gf1_cli_gsync_set  type    = GF_GSYNC_OPTION_TYPE_NONE;
-        char               *append_str = NULL;
-        size_t             append_len = 0;
-        char               *subop = NULL;
         int                i       = 0;
         unsigned           masteri = 0;
         unsigned           slavei  = 0;
         unsigned           glob    = 0;
         unsigned           cmdi    = 0;
-        char               *opwords[] = { "status", "start", "stop", "config",
-                                          "log-rotate", NULL };
+        char               *opwords[] = { "create", "status", "start", "stop",
+                                          "config", "force", "delete",
+                                          "push-pem", NULL };
         char               *w = NULL;
 
         GF_ASSERT (words);
@@ -1622,10 +1761,11 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
 
         /* new syntax:
          *
+         * volume geo-replication $m $s create [push-pem] [force]
          * volume geo-replication [$m [$s]] status
          * volume geo-replication [$m] $s config [[!]$opt [$val]]
-         * volume geo-replication $m $s start|stop
-         * volume geo-replication $m [$s] log-rotate
+         * volume geo-replication $m $s start|stop [force]
+         * volume geo-replication $m $s delete
          */
 
         if (wordcount < 3)
@@ -1682,7 +1822,12 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
         if (!w)
                 goto out;
 
-        if (strcmp (w, "status") == 0) {
+        if (strcmp (w, "create") == 0) {
+                type = GF_GSYNC_OPTION_TYPE_CREATE;
+
+                if (!masteri || !slavei)
+                        goto out;
+        } else if (strcmp (w, "status") == 0) {
                 type = GF_GSYNC_OPTION_TYPE_STATUS;
 
                 if (slavei && !masteri)
@@ -1702,13 +1847,17 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
 
                 if (!masteri || !slavei)
                         goto out;
-        } else if (strcmp(w, "log-rotate") == 0) {
-                type = GF_GSYNC_OPTION_TYPE_ROTATE;
+        } else if (strcmp (w, "delete") == 0) {
+                type = GF_GSYNC_OPTION_TYPE_DELETE;
 
-                if (slavei && !masteri)
+                if (!masteri || !slavei)
                         goto out;
         } else
                 GF_ASSERT (!"opword mismatch");
+
+        ret = force_push_pem_parse (words, wordcount, dict, &cmdi);
+        if (ret)
+                goto out;
 
         if (type != GF_GSYNC_OPTION_TYPE_CONFIG &&
             (cmdi < wordcount - 1 || glob))
@@ -1718,97 +1867,26 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
 
         ret = 0;
 
-        if (masteri)
+        if (masteri) {
                 ret = dict_set_str (dict, "master", (char *)words[masteri]);
+                if (!ret)
+                        ret = dict_set_str (dict, "volname",
+                                            (char *)words[masteri]);
+        }
         if (!ret && slavei)
                 ret = dict_set_str (dict, "slave", (char *)words[slavei]);
         if (!ret)
                 ret = dict_set_int32 (dict, "type", type);
-        if (!ret && type == GF_GSYNC_OPTION_TYPE_CONFIG) {
-                switch ((wordcount - 1) - cmdi) {
-                case 0:
-                        subop = gf_strdup ("get-all");
-                        break;
-                case 1:
-                        if (words[cmdi + 1][0] == '!') {
-                                (words[cmdi + 1])++;
-                                if (gf_asprintf (&subop, "del%s", glob ? "-glob" : "") == -1)
-                                        subop = NULL;
-                        } else
-                                subop = gf_strdup ("get");
-
-                        ret = dict_set_str (dict, "op_name", ((char *)words[cmdi + 1]));
-                        if (ret < 0)
-                                goto out;
-                        break;
-                default:
-                        if (gf_asprintf (&subop, "set%s", glob ? "-glob" : "") == -1)
-                                subop = NULL;
-
-                        ret = dict_set_str (dict, "op_name", ((char *)words[cmdi + 1]));
-                        if (ret < 0)
-                                goto out;
-
-                        /* join the varargs by spaces to get the op_value */
-
-                        for (i = cmdi + 2; i < wordcount; i++)
-                                append_len += (strlen (words[i]) + 1);
-                        /* trailing strcat will add two bytes, make space for that */
-                        append_len++;
-
-                        append_str = GF_CALLOC (1, append_len, cli_mt_append_str);
-                        if (!append_str) {
-                                ret = -1;
-                                goto out;
-                        }
-
-                        for (i = cmdi + 2; i < wordcount; i++) {
-                                strcat (append_str, words[i]);
-                                strcat (append_str, " ");
-                        }
-                        append_str[append_len - 2] = '\0';
-
-                        /* "checkpoint now" is special: we resolve that "now" */
-                        if (strcmp (words[cmdi + 1], "checkpoint") == 0 &&
-                            strcmp (append_str, "now") == 0) {
-                                struct timeval tv = {0,};
-
-                                ret = gettimeofday (&tv, NULL);
-                                if (ret == -1)
-                                         goto out; /* FIXME: free append_str? */
-
-                                GF_FREE (append_str);
-                                append_str = GF_CALLOC (1, 300, cli_mt_append_str);
-                                if (!append_str) {
-                                        ret = -1;
-                                        goto out;
-                                }
-                                strcpy (append_str, "as of ");
-                                gf_time_fmt (append_str + strlen ("as of "),
-                                             300 - strlen ("as of "),
-                                             tv.tv_sec, gf_timefmt_FT);
-                        }
-
-                        ret = dict_set_dynstr (dict, "op_value", append_str);
-                }
-
-                ret = -1;
-                if (subop) {
-                        ret = dict_set_dynstr (dict, "subop", subop);
-                        if (!ret)
-                                subop = NULL;
-                }
-        }
+        if (!ret && type == GF_GSYNC_OPTION_TYPE_CONFIG)
+                ret = config_parse (words, wordcount, dict, cmdi, glob);
 
 out:
         if (ret) {
                 if (dict)
                         dict_destroy (dict);
-                GF_FREE (append_str);
         } else
                 *options = dict;
 
-        GF_FREE (subop);
 
         return ret;
 }

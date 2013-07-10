@@ -32,14 +32,77 @@ gd_synctask_barrier_wait (struct syncargs *args, int count)
 
 static void
 gd_collate_errors (struct syncargs *args, int op_ret, int op_errno,
-                   char *op_errstr)
+                   char *op_errstr, int op_code,
+                   glusterd_peerinfo_t *peerinfo, u_char *uuid)
 {
-        if (args->op_ret)
-                return;
-        args->op_ret = op_ret;
-        args->op_errno = op_errno;
-        if (op_ret && op_errstr && strcmp (op_errstr, ""))
-                args->errstr = gf_strdup (op_errstr);
+        char     err_str[PATH_MAX] = "Please check log file for details.";
+        char     op_err[PATH_MAX] = "";
+        int      len               = -1;
+        char    *peer_str      = NULL;
+
+        if (op_ret) {
+                args->op_ret = op_ret;
+                args->op_errno = op_errno;
+
+                if (peerinfo)
+                        peer_str = peerinfo->hostname;
+                else
+                        peer_str = uuid_utoa (uuid);
+
+                if (op_errstr && strcmp (op_errstr, "")) {
+                        len = snprintf (err_str, sizeof(err_str) - 1,
+                                        "Error: %s", op_errstr);
+                        err_str[len] = '\0';
+                }
+
+                switch (op_code){
+                        case GLUSTERD_MGMT_CLUSTER_LOCK :
+                        {
+                                len = snprintf (op_err, sizeof(op_err) - 1,
+                                                "Locking failed on %s. %s",
+                                                peer_str, err_str);
+                                break;
+                        }
+                        case GLUSTERD_MGMT_CLUSTER_UNLOCK :
+                        {
+                                len = snprintf (op_err, sizeof(op_err) - 1,
+                                                "Unlocking failed on %s. %s",
+                                                peer_str, err_str);
+                                break;
+                        }
+                        case GLUSTERD_MGMT_STAGE_OP :
+                        {
+                                len = snprintf (op_err, sizeof(op_err) - 1,
+                                                "Staging failed on %s. %s",
+                                                peer_str, err_str);
+                                break;
+                        }
+                        case GLUSTERD_MGMT_COMMIT_OP :
+                        {
+                                len = snprintf (op_err, sizeof(op_err) - 1,
+                                                "Commit failed on %s. %s",
+                                                peer_str, err_str);
+                                break;
+                        }
+                }
+                op_err[len] = '\0';
+
+                if (args->errstr) {
+                        len = snprintf (err_str, sizeof(err_str) - 1,
+                                        "%s\n%s", args->errstr,
+                                        op_err);
+                        GF_FREE (args->errstr);
+                        args->errstr = NULL;
+                } else
+                        len = snprintf (err_str, sizeof(err_str) - 1,
+                                        "%s", op_err);
+                err_str[len] = '\0';
+
+                gf_log ("", GF_LOG_ERROR, "%s", op_err);
+                args->errstr = gf_strdup (err_str);
+        }
+
+        return;
 }
 
 static void
@@ -169,6 +232,9 @@ glusterd_syncop_aggr_rsp_dict (glusterd_op_t op, dict_t *aggr, dict_t *rsp)
                         goto out;
         break;
 
+        case GD_OP_GSYNC_CREATE:
+        break;
+
         case GD_OP_GSYNC_SET:
                 ret = glusterd_gsync_use_rsp_dict (aggr, rsp, NULL);
                 if (ret)
@@ -201,6 +267,12 @@ glusterd_syncop_aggr_rsp_dict (glusterd_op_t op, dict_t *aggr, dict_t *rsp)
                 if (ret)
                         goto out;
 
+        break;
+
+        case GD_OP_SYS_EXEC:
+                ret = glusterd_sys_exec_output_rsp_dict (aggr, rsp);
+                if (ret)
+                        goto out;
         break;
 
         default:
@@ -246,7 +318,8 @@ _gd_syncop_mgmt_lock_cbk (struct rpc_req *req, struct iovec *iov,
         op_ret = rsp.op_ret;
         op_errno = rsp.op_errno;
 out:
-        gd_collate_errors (args, op_ret, op_errno, NULL);
+        gd_collate_errors (args, op_ret, op_errno, NULL,
+                           GLUSTERD_MGMT_CLUSTER_LOCK, peerinfo, rsp.uuid);
         STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
         return 0;
@@ -312,7 +385,8 @@ _gd_syncop_mgmt_unlock_cbk (struct rpc_req *req, struct iovec *iov,
         op_ret = rsp.op_ret;
         op_errno = rsp.op_errno;
 out:
-        gd_collate_errors (args, op_ret, op_errno, NULL);
+        gd_collate_errors (args, op_ret, op_errno, NULL,
+                           GLUSTERD_MGMT_CLUSTER_UNLOCK, peerinfo, rsp.uuid);
         STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
         return 0;
@@ -356,6 +430,7 @@ _gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         xlator_t                    *this       = NULL;
         dict_t                      *rsp_dict   = NULL;
         call_frame_t                *frame      = NULL;
+        glusterd_peerinfo_t         *peerinfo   = NULL;
         int                         op_ret      = -1;
         int                         op_errno    = -1;
 
@@ -389,6 +464,15 @@ _gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                 }
         }
 
+        ret = glusterd_friend_find (rsp.uuid, NULL, &peerinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_CRITICAL, "Staging response "
+                        "for 'Volume %s' received from unknown "
+                        "peer: %s", gd_op_list[rsp.op],
+                        uuid_utoa (rsp.uuid));
+                goto out;
+        }
+
         uuid_copy (args->uuid, rsp.uuid);
         if (rsp.op == GD_OP_REPLACE_BRICK) {
                 pthread_mutex_lock (&args->lock_dict);
@@ -407,7 +491,9 @@ _gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         op_errno = rsp.op_errno;
 
 out:
-        gd_collate_errors (args, op_ret, op_errno, rsp.op_errstr);
+        gd_collate_errors (args, op_ret, op_errno, rsp.op_errstr,
+                           GLUSTERD_MGMT_STAGE_OP, peerinfo, rsp.uuid);
+
         if (rsp_dict)
                 dict_unref (rsp_dict);
 
@@ -588,14 +674,15 @@ int32_t
 _gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe)
 {
-        int                         ret         = -1;
-        gd1_mgmt_commit_op_rsp      rsp         = {{0},};
-        struct syncargs             *args       = NULL;
-        xlator_t                    *this       = NULL;
-        dict_t                      *rsp_dict   = NULL;
-        call_frame_t                *frame      = NULL;
-        int                         op_ret      = -1;
-        int                         op_errno    = -1;
+        int                          ret           = -1;
+        gd1_mgmt_commit_op_rsp       rsp           = {{0},};
+        struct syncargs             *args          = NULL;
+        xlator_t                    *this          = NULL;
+        dict_t                      *rsp_dict      = NULL;
+        call_frame_t                *frame         = NULL;
+        glusterd_peerinfo_t         *peerinfo      = NULL;
+        int                          op_ret        = -1;
+        int                          op_errno      = -1;
 
         this  = THIS;
         frame = myframe;
@@ -628,6 +715,15 @@ _gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 }
         }
 
+        ret = glusterd_friend_find (rsp.uuid, NULL, &peerinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_CRITICAL, "Commit response "
+                        "for 'Volume %s' received from unknown "
+                        "peer: %s", gd_op_list[rsp.op],
+                        uuid_utoa (rsp.uuid));
+                goto out;
+        }
+
         uuid_copy (args->uuid, rsp.uuid);
         pthread_mutex_lock (&args->lock_dict);
         {
@@ -642,8 +738,10 @@ _gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
 
         op_ret = rsp.op_ret;
         op_errno = rsp.op_errno;
+
 out:
-        gd_collate_errors (args, op_ret, op_errno, rsp.op_errstr);
+        gd_collate_errors (args, op_ret, op_errno, rsp.op_errstr,
+                           GLUSTERD_MGMT_COMMIT_OP, peerinfo, rsp.uuid);
         if (rsp_dict)
                 dict_unref (rsp_dict);
 
@@ -816,12 +914,16 @@ stage_done:
                 peer_cnt++;
         }
         gd_synctask_barrier_wait((&args), peer_cnt);
-        ret = args.op_ret;
-        if (dict_get_str (op_ctx, "errstr", &errstr) == 0)
-                *op_errstr = gf_strdup (errstr);
-        else if (args.errstr)
-                *op_errstr = gf_strdup (args.errstr);
 
+        if (args.errstr)
+                 *op_errstr = gf_strdup (args.errstr);
+        else if (dict_get_str (op_ctx, "errstr", &errstr) == 0)
+                *op_errstr = gf_strdup (errstr);
+
+        ret = args.op_ret;
+
+        gf_log (this->name, GF_LOG_DEBUG, "Sent stage op req for 'Volume %s' "
+                "to %d peers", gd_op_list[op], peer_cnt);
 out:
         if (rsp_dict)
                 dict_unref (rsp_dict);
@@ -881,6 +983,7 @@ commit_done:
                 ret = 0;
                 goto out;
         }
+
         gd_syncargs_init (&args, op_ctx);
         synctask_barrier_init((&args));
         peer_cnt = 0;
@@ -892,17 +995,23 @@ commit_done:
         }
         gd_synctask_barrier_wait((&args), peer_cnt);
         ret = args.op_ret;
-        if (dict_get_str (op_ctx, "errstr", &errstr) == 0)
+        if (args.errstr)
+                 *op_errstr = gf_strdup (args.errstr);
+        else if (dict_get_str (op_ctx, "errstr", &errstr) == 0)
                 *op_errstr = gf_strdup (errstr);
-        else if (args.errstr)
-                *op_errstr = gf_strdup (args.errstr);
 
+        gf_log (this->name, GF_LOG_DEBUG, "Sent commit op req for 'Volume %s' "
+                "to %d peers", gd_op_list[op], peer_cnt);
 out:
         if (!ret)
                 glusterd_op_modify_op_ctx (op, op_ctx);
 
         if (rsp_dict)
                 dict_unref (rsp_dict);
+
+        GF_FREE (args.errstr);
+        args.errstr = NULL;
+
         return ret;
 }
 
@@ -1108,8 +1217,10 @@ out:
         if (req_dict)
                 dict_unref (req_dict);
 
-        if (op_errstr)
+        if (op_errstr) {
                 GF_FREE (op_errstr);
+                op_errstr = NULL;
+        }
 
         return;
 }

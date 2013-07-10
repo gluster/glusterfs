@@ -3969,10 +3969,13 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
 int
 _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
 {
+        char                        *path_list = NULL;
         char                        *slave = NULL;
         int                          uuid_len = 0;
+        int                          ret = 0;
         char                         uuid_str[64] = {0};
         glusterd_volinfo_t           *volinfo = NULL;
+        char                         *conf_path = NULL;
 
         volinfo = data;
         GF_ASSERT (volinfo);
@@ -3984,9 +3987,24 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         uuid_len = (slave - value->data - 1);
 
         strncpy (uuid_str, (char*)value->data, uuid_len);
-        glusterd_start_gsync (volinfo, slave, uuid_str, NULL);
 
-        return 0;
+        ret = glusterd_get_local_brickpaths (volinfo, &path_list);
+
+        ret = dict_get_str (this, "conf_path", &conf_path);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Unable to fetch conf file path.");
+                goto out;
+        }
+
+        glusterd_start_gsync (volinfo, slave, path_list, conf_path,
+                              uuid_str, NULL);
+
+        GF_FREE (path_list);
+        path_list = NULL;
+
+out:
+        return ret;
 }
 
 int
@@ -5425,12 +5443,92 @@ glusterd_delete_all_bricks (glusterd_volinfo_t* volinfo)
 }
 
 int
+glusterd_get_local_brickpaths (glusterd_volinfo_t *volinfo, char **pathlist)
+{
+        char                 **path_tokens  = NULL;
+        char                  *tmp_path_list = NULL;
+        char                   path[PATH_MAX] = "";
+        int32_t                count          = 0;
+        int32_t                pathlen        = 0;
+        int32_t                total_len      = 0;
+        int32_t                ret            = 0;
+        int                    i              = 0;
+        glusterd_brickinfo_t  *brickinfo      = NULL;
+
+        if ((!volinfo) || (!pathlist))
+            goto out;
+
+        path_tokens = GF_CALLOC (sizeof(char*), volinfo->brick_count,
+                                 gf_gld_mt_charptr);
+        if (!path_tokens) {
+                gf_log ("", GF_LOG_DEBUG, "Could not allocate memory.");
+                ret = -1;
+                goto out;
+        }
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (uuid_compare (brickinfo->uuid, MY_UUID))
+                        continue;
+
+                 pathlen = snprintf (path, sizeof(path),
+                                     "--path=%s ", brickinfo->path);
+                 if (pathlen < sizeof(path))
+                        path[pathlen] = '\0';
+                 else
+                        path[sizeof(path)-1] = '\0';
+                 path_tokens[count] = gf_strdup (path);
+                 if (!path_tokens[count]) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Could not allocate memory.");
+                        ret = -1;
+                        goto out;
+                 }
+                 count++;
+                 total_len += pathlen;
+        }
+
+        tmp_path_list = GF_CALLOC (sizeof(char), total_len + 1,
+                                   gf_gld_mt_char);
+        if (!tmp_path_list) {
+                gf_log ("", GF_LOG_DEBUG, "Could not allocate memory.");
+                ret = -1;
+                goto out;
+        }
+
+        for (i = 0; i < count; i++)
+                strcat (tmp_path_list, path_tokens[i]);
+
+        if (count)
+                *pathlist = tmp_path_list;
+
+        ret = count;
+out:
+        for (i = 0; i < count; i++) {
+                GF_FREE (path_tokens[i]);
+                path_tokens[i] = NULL;
+        }
+
+        GF_FREE (path_tokens);
+        path_tokens = NULL;
+
+        if (ret == 0) {
+                gf_log ("", GF_LOG_DEBUG, "No Local Bricks Present.");
+                GF_FREE (tmp_path_list);
+                tmp_path_list = NULL;
+        }
+
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
 glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
-                      char *glusterd_uuid_str, char **op_errstr)
+                      char *path_list, char *conf_path,
+                      char *glusterd_uuid_str,
+                      char **op_errstr)
 {
         int32_t         ret     = 0;
         int32_t         status  = 0;
-        char            buf[PATH_MAX]   = {0,};
         char            uuid_str [64] = {0};
         runner_t        runner = {0,};
         xlator_t        *this = NULL;
@@ -5443,32 +5541,23 @@ glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
         GF_ASSERT (priv);
 
         uuid_utoa_r (MY_UUID, uuid_str);
-        if (strcmp (uuid_str, glusterd_uuid_str))
-                goto out;
 
-        ret = gsync_status (master_vol->volname, slave, &status);
+        if (!path_list) {
+                ret = 0;
+                gf_log ("", GF_LOG_DEBUG, "No Bricks in this node."
+                        " Not starting gsyncd.");
+                goto out;
+        }
+
+        ret = gsync_status (master_vol->volname, slave, conf_path, &status);
         if (status == 0)
                 goto out;
 
-        snprintf (buf, PATH_MAX, "%s/"GEOREP"/%s", priv->workdir, master_vol->volname);
-        ret = mkdir_p (buf, 0777, _gf_true);
-        if (ret) {
-                errcode = -1;
-                goto out;
-        }
-
-        snprintf (buf, PATH_MAX, DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/%s",
-                  master_vol->volname);
-        ret = mkdir_p (buf, 0777, _gf_true);
-        if (ret) {
-                errcode = -1;
-                goto out;
-        }
-
         uuid_utoa_r (master_vol->volume_id, uuid_str);
         runinit (&runner);
-        runner_add_args  (&runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
-        runner_argprintf (&runner, "%s/"GSYNC_CONF, priv->workdir);
+        runner_add_args  (&runner, GSYNCD_PREFIX"/gsyncd",
+                          path_list, "-c", NULL);
+        runner_argprintf (&runner, "%s", conf_path);
         runner_argprintf (&runner, ":%s", master_vol->volname);
         runner_add_args  (&runner, slave, "--config-set", "session-owner",
                           uuid_str, NULL);
@@ -5481,9 +5570,12 @@ glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
         }
 
         runinit (&runner);
-        runner_add_args  (&runner, GSYNCD_PREFIX"/gsyncd", "--monitor", "-c", NULL);
-        runner_argprintf (&runner, "%s/"GSYNC_CONF, priv->workdir);
+        runner_add_args  (&runner, GSYNCD_PREFIX"/gsyncd",
+                          path_list, "--monitor", "-c", NULL);
+        runner_argprintf (&runner, "%s", conf_path);
         runner_argprintf (&runner, ":%s", master_vol->volname);
+        runner_argprintf (&runner, "--glusterd-uuid=%s",
+                          uuid_utoa (priv->uuid));
         runner_add_arg   (&runner, slave);
         synclock_unlock (&priv->big_lock);
         ret = runner_run (&runner);
@@ -5499,7 +5591,7 @@ glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
 out:
         if ((ret != 0) && errcode == -1) {
                 if (op_errstr)
-                        *op_errstr = gf_strdup ("internal error, cannot start"
+                        *op_errstr = gf_strdup ("internal error, cannot start "
                                                 "the " GEOREP " session");
         }
 
@@ -6853,6 +6945,61 @@ out:
 }
 
 int
+glusterd_sys_exec_output_rsp_dict (dict_t *dst, dict_t *src)
+{
+        char           output_name[PATH_MAX] = "";
+        char          *output = NULL;
+        int            ret      = 0;
+        int            i      = 0;
+        int            len    = 0;
+        int            src_output_count      = 0;
+        int            dst_output_count      = 0;
+
+        if (!dst || !src) {
+                gf_log ("", GF_LOG_ERROR, "Source or Destination "
+                        "dict is empty.");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dst, "output_count", &dst_output_count);
+
+        ret = dict_get_int32 (src, "output_count", &src_output_count);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "No output from source");
+                ret = 0;
+                goto out;
+        }
+
+        for (i = 1; i <= src_output_count; i++) {
+                len = snprintf (output_name, sizeof(output_name) - 1,
+                                "output_%d", i);
+                output_name[len] = '\0';
+                ret = dict_get_str (src, output_name, &output);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to fetch %s",
+                                output_name);
+                        goto out;
+                }
+
+                len = snprintf (output_name, sizeof(output_name) - 1,
+                                "output_%d", i+dst_output_count);
+                output_name[len] = '\0';
+                ret = dict_set_dynstr (dst, output_name, gf_strdup (output));
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to set %s",
+                                output_name);
+                        goto out;
+                }
+        }
+
+        ret = dict_set_int32 (dst, "output_count",
+                              dst_output_count+src_output_count);
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
 glusterd_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 {
         int            ret      = 0;
@@ -7403,4 +7550,40 @@ gd_is_remove_brick_committed (glusterd_volinfo_t *volinfo)
                         return _gf_false;
 
         return _gf_true;
+}
+
+gf_boolean_t
+glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
+                               struct list_head *peers,
+                               char **down_peerstr)
+{
+        glusterd_peerinfo_t   *peerinfo  = NULL;
+        glusterd_brickinfo_t  *brickinfo = NULL;
+        gf_boolean_t           ret       = _gf_false;
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (!uuid_compare (brickinfo->uuid, MY_UUID))
+                        continue;
+
+                list_for_each_entry (peerinfo, peers, uuid_list) {
+                        if (uuid_compare (peerinfo->uuid, brickinfo->uuid))
+                                continue;
+
+                        /*Found peer who owns the brick, return false
+                         * if peer is not connected or not friend */
+                        if (!(peerinfo->connected) ||
+                           (peerinfo->state.state !=
+                             GD_FRIEND_STATE_BEFRIENDED)) {
+                                *down_peerstr = gf_strdup (peerinfo->hostname);
+                                gf_log ("", GF_LOG_DEBUG, "Peer %s is down. ",
+                                        peerinfo->hostname);
+                                goto out;
+                        }
+                }
+       }
+
+        ret = _gf_true;
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
 }

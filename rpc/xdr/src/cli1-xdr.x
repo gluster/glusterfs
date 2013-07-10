@@ -51,7 +51,8 @@ enum gf_quota_type {
 };
 
 enum gf1_cli_friends_list {
-        GF_CLI_LIST_ALL = 1
+        GF_CLI_LIST_PEERS = 1,
+        GF_CLI_LIST_POOL_NODES = 2
 } ;
 
 enum gf1_cli_get_volume {
@@ -74,7 +75,9 @@ enum gf1_cli_gsync_set {
         GF_GSYNC_OPTION_TYPE_STOP,
         GF_GSYNC_OPTION_TYPE_CONFIG,
         GF_GSYNC_OPTION_TYPE_STATUS,
-        GF_GSYNC_OPTION_TYPE_ROTATE
+        GF_GSYNC_OPTION_TYPE_ROTATE,
+        GF_GSYNC_OPTION_TYPE_DELETE,
+        GF_GSYNC_OPTION_TYPE_CREATE
 };
 
 enum gf1_cli_stats_op {

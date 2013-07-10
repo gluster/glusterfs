@@ -41,3 +41,4 @@ glusterfsd/src/glusterfsd
 libglusterfs/src/spec.lex.c
 libglusterfs/src/y.tab.c
 libglusterfs/src/y.tab.h
+libgfchangelog.pc

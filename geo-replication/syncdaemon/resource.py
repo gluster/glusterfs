@@ -1056,6 +1056,7 @@ class SSH(AbstractUrl, SlaveRemote):
         self.remote_addr, inner_url = sup(self, path,
                                           '^((?:%s@)?%s):(.+)' % tuple([ r.pattern for r in (UserRX, HostRX) ]))
         self.inner_rsc = parse_url(inner_url)
+        self.volume = inner_url[1:]
 
     @staticmethod
     def parse_ssh_address(addr):

@@ -84,6 +84,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 }
                 break;
         }
+        case GD_OP_GSYNC_CREATE:
         case GD_OP_GSYNC_SET:
         {
                if (ctx) {
@@ -145,6 +146,21 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         {
                 /*nothing specific to be done*/
                 break;
+        }
+        case GD_OP_COPY_FILE:
+        {
+               if (ctx)
+                        ret = dict_get_str (ctx, "errstr", &errstr);
+               break;
+        }
+        case GD_OP_SYS_EXEC:
+        {
+               if (ctx) {
+                        ret = dict_get_str (ctx, "errstr", &errstr);
+                        ret = dict_set_str (ctx, "glusterd_workdir",
+                                            conf->workdir);
+               }
+               break;
         }
         }
 

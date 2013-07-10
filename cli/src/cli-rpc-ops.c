@@ -13,10 +13,6 @@
 #include "config.h"
 #endif
 
-#ifndef GSYNC_CONF
-#define GSYNC_CONF GEOREP"/gsyncd.conf"
-#endif
-
 /* Widths of various columns in top read/write-perf output
  * Total width of top read/write-perf should be 80 chars
  * including one space between column
@@ -3745,6 +3741,54 @@ out:
         return ret;
 }
 
+static int
+gf_cli_get_slave_volname (char *slave, char **slave_vol)
+{
+        char     *tmp       = NULL;
+        char     *buf       = NULL;
+        char     *save_ptr  = NULL;
+        char     *slave_buf = NULL;
+        int32_t   ret       = -1;
+
+        GF_ASSERT (slave);
+
+        slave_buf = gf_strdup(slave);
+        if (!slave_buf) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Failed to gf_strdup");
+                ret = -1;
+                goto out;
+        }
+
+        tmp  = strtok_r (slave_buf, ":", &save_ptr);
+        while (tmp) {
+                buf = tmp;
+                tmp  = strtok_r (NULL, ":", &save_ptr);
+        }
+
+        if (buf) {
+                *slave_vol = gf_strdup (buf);
+                if (!*slave_vol) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Failed to gf_strdup");
+                        ret = -1;
+                        goto out;
+                }
+                gf_log ("", GF_LOG_DEBUG, "Slave Vol : %s", *slave_vol);
+                ret = 0;
+         } else {
+                gf_log ("", GF_LOG_ERROR, "Invalid slave name");
+                goto out;
+         }
+
+out:
+        if (slave_buf)
+                GF_FREE(slave_buf);
+
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
 int
 gf_cli_gsync_config_command (dict_t *dict)
 {
@@ -3752,8 +3796,11 @@ gf_cli_gsync_config_command (dict_t *dict)
         char *subop         = NULL;
         char *gwd           = NULL;
         char *slave         = NULL;
+        char *slave_vol     = NULL;
         char *master        = NULL;
         char *op_name       = NULL;
+        int   ret           = -1;
+        char  conf_path[PATH_MAX] = "";
 
         if (dict_get_str (dict, "subop", &subop) != 0)
                 return -1;
@@ -3772,9 +3819,21 @@ gf_cli_gsync_config_command (dict_t *dict)
         if (dict_get_str (dict, "op_name", &op_name) != 0)
                 op_name = NULL;
 
+        ret = gf_cli_get_slave_volname (slave, &slave_vol);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Unable to fetch slave volume name.");
+                return -1;
+        }
+
+        ret = snprintf (conf_path, sizeof(conf_path) - 1,
+                        "%s/"GEOREP"/%s-%s/gsyncd.conf",
+                        gwd, master, slave_vol);
+        conf_path[ret] = '\0';
+
         runinit (&runner);
         runner_add_args (&runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
-        runner_argprintf (&runner, "%s/"GSYNC_CONF, gwd);
+        runner_argprintf (&runner, "%s", conf_path);
         if (master)
                 runner_argprintf (&runner, ":%s", master);
         runner_add_arg (&runner, slave);
@@ -3785,68 +3844,450 @@ gf_cli_gsync_config_command (dict_t *dict)
         return runner_run (&runner);
 }
 
+static int
+gf_cli_fetch_gsyncd_health_uptime (char *status, char **health, char **uptime)
+{
+        char     *tmp      = NULL;
+        char     *save_ptr = NULL;
+        int32_t   ret      = -1;
+        char     *key      = NULL;
+        char     *value    = NULL;
+
+        if (!health || !uptime || !status) {
+                gf_log ("", GF_LOG_ERROR, "health or uptime or status is null");
+                goto out;
+        }
+
+        tmp = strtok_r (status, "\n", &save_ptr);
+
+        if (tmp)
+                *health = gf_strdup (tmp);
+
+        while (tmp) {
+                key = strtok_r (tmp, "=", &value);
+                if ((key) && (!strcmp(key, "Uptime"))) {
+                    *uptime = gf_strdup (value);
+                    break;
+                }
+                tmp = strtok_r (NULL, ";", &save_ptr);
+        }
+
+        if (*health)
+                ret = 0;
+
+        if (!*uptime)
+                *uptime = gf_strdup ("N/A");
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d.", ret);
+        return ret;
+}
+
 int
 gf_cli_gsync_out_status (dict_t *dict)
 {
-        int   gsync_count              = 0;
-        int   i                        = 0;
-        int   ret                      = 0;
-        char             mst[PATH_MAX] = {0, };
-        char             slv[PATH_MAX] = {0, };
-        char             sts[PATH_MAX] = {0, };
-        char             nds[PATH_MAX] = {0, };
-        char             hyphens[100]  = {0, };
-        char *mst_val                  = NULL;
-        char *slv_val                  = NULL;
-        char *sts_val                  = NULL;
-        char *nds_val                  = NULL;
+        char    mst[PATH_MAX]  = {0, };
+        char    slv[PATH_MAX]  = {0, };
+        char    sts[PATH_MAX]  = {0, };
+        char    nds[PATH_MAX]  = {0, };
+        char    errmsg[1024]   = "";
+        char   *sts_val        = NULL;
+        char   *master         = NULL;
+        char   *slave          = NULL;
+        char  **output_values  = NULL;
+        char  **dict_values    = NULL;
+        char   *hyphens        = NULL;
+        char   *title_values[] = {"NODE", "MASTER", "SLAVE",
+                                  "HEALTH", "UPTIME"};
+        int     gsync_count    = 0;
+        int     i              = 0;
+        int     j              = 0;
+        int     dict_val_count = 0;
+        int     ret            = 0;
+        int     spacing[5]     = {0, 0, 0, 0, 10};
+        int     total_spacing  = 0;
 
-        cli_out ("%-20s %-20s %-50s %-10s", "NODE", "MASTER", "SLAVE", "STATUS");
-
-        for (i=0; i<sizeof(hyphens)-1; i++)
-                hyphens[i] = '-';
-
-        cli_out ("%s", hyphens);
-
-
+        /* Checks if any session is active or not */
         ret = dict_get_int32 (dict, "gsync-count", &gsync_count);
         if (ret) {
-                gf_log ("cli", GF_LOG_INFO, "No active geo-replication sessions"
-                        "present for the selected");
+                ret = dict_get_str (dict, "master", &master);
+
+                ret = dict_get_str (dict, "slave", &slave);
+
+                if (master) {
+                        if (slave)
+                                snprintf (errmsg, sizeof(errmsg), "No active "
+                                          "geo-replication sessions between %s"
+                                          " and %s", master, slave);
+                        else
+                                snprintf (errmsg, sizeof(errmsg), "No active "
+                                          "geo-replication sessions for %s",
+                                          master);
+                } else
+                        snprintf (errmsg, sizeof(errmsg), "No active "
+                                  "geo-replication sessions");
+
+                gf_log ("cli", GF_LOG_INFO, "%s", errmsg);
+                cli_out ("%s", errmsg);
                 ret = 0;
                 goto out;
         }
 
-        for (i = 1; i <= gsync_count; i++) {
+        /* (gsync_count = number of nodes reporting output *
+           5 = number of fields) = total number of values to
+           be fetched from dict */
+        dict_values = GF_CALLOC (gsync_count * 5, sizeof (char *),
+                                 gf_common_mt_char);
+        if (!dict_values) {
+                gf_log ("cli", GF_LOG_ERROR, "Out Of Memory");
+                ret = -1;
+                goto out;
+        }
+
+        for (i = 1, j = 0; i <= gsync_count; i++) {
                 snprintf (nds, sizeof(nds), "node%d", i);
                 snprintf (mst, sizeof(mst), "master%d", i);
                 snprintf (slv, sizeof(slv), "slave%d", i);
                 snprintf (sts, sizeof(sts), "status%d", i);
 
-                ret = dict_get_str (dict, nds, &nds_val);
+                /* Fetching the values from dict, and calculating
+                   the max length for each field */
+                ret = dict_get_str (dict, nds, &dict_values[j]);
                 if (ret)
                         goto out;
+                if (strlen (dict_values[j]) > spacing [0])
+                        spacing[0] = strlen (dict_values[j]);
+                j++;
 
-                ret = dict_get_str (dict, mst, &mst_val);
+                ret = dict_get_str (dict, mst, &dict_values[j]);
                 if (ret)
                         goto out;
+                if (strlen (dict_values[j]) > spacing [1])
+                        spacing[1] = strlen (dict_values[j]);
+                j++;
 
-                ret = dict_get_str (dict, slv, &slv_val);
+                ret = dict_get_str (dict, slv, &dict_values[j]);
                 if (ret)
                         goto out;
+                if (strlen (dict_values[j]) > spacing [2])
+                        spacing[2] = strlen (dict_values[j]);
+                j++;
 
                 ret = dict_get_str (dict, sts, &sts_val);
                 if (ret)
                         goto out;
 
-                cli_out ("%-20s %-20s %-50s %-10s", nds_val, mst_val,
-                         slv_val, sts_val);
+                /* Fetching health and uptime from sts_val */
+                ret = gf_cli_fetch_gsyncd_health_uptime (sts_val,
+                                                         &dict_values[j],
+                                                         &dict_values[j+1]);
+                if (ret)
+                        goto out;
 
+                if (strlen (dict_values[j]) > spacing [3])
+                        spacing[3] = strlen (dict_values[j]);
+                j++;
+
+                if (strlen (dict_values[j]) > spacing [4])
+                        spacing[4] = strlen (dict_values[j]);
+                j++;
         }
 
- out:
-        return ret;
+        /* calculating spacing for hyphens */
+        for (i = 0; i < 5; i++) {
+                spacing[i] += 3; /* Adding extra space to
+                                    distinguish between fields */
+                total_spacing += spacing[i];
+        }
+        total_spacing += 4; /* For the spacing between the fields */
 
+        /* char pointers for each field */
+        output_values = GF_CALLOC (5, sizeof (char *), gf_common_mt_char);
+        if (!output_values)
+                ret = -1;
+        for (i = 0; i < 5; i++) {
+                output_values[i] = GF_CALLOC (spacing[i] + 1, sizeof (char),
+                                              gf_common_mt_char);
+                if (!output_values[i])
+                        ret = -1;
+        }
+
+        hyphens = GF_CALLOC (total_spacing + 1, sizeof (char),
+                             gf_common_mt_char);
+        if (!hyphens)
+                ret = -1;
+
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Out Of Memory");
+                ret = -1;
+                goto out;
+        }
+
+        /* setting the title "NODE", "MASTER", etc. from title_values[]
+           and printing the same */
+        for (j = 0; j < 5; j++) {
+                memset (output_values[j], ' ', spacing[j]);
+                memcpy (output_values[j], title_values[j],
+                        strlen(title_values[j]));
+                output_values[j][spacing[j]] = '\0';
+        }
+        cli_out ("%s %s %s %s %s", output_values[0], output_values[1],
+                 output_values[2], output_values[3], output_values[4]);
+
+        /* setting and printing the hyphens */
+        memset (hyphens, '-', total_spacing);
+        hyphens[total_spacing] = '\0';
+        cli_out ("%s", hyphens);
+
+        for (i = 1, dict_val_count = 0; i <= gsync_count; i++) {
+                /* Setting the field values for each row */
+                for (j = 0; j < 5; j++) {
+                        memset (output_values[j], ' ', spacing[j]);
+                        memcpy (output_values[j], dict_values[dict_val_count],
+                                strlen(dict_values[dict_val_count]));
+                        output_values[j][spacing[j]] = '\0';
+                        dict_val_count++;
+                }
+                cli_out ("%s %s %s %s %s", output_values[0], output_values[1],
+                         output_values[2], output_values[3], output_values[4]);
+        }
+out:
+        if (output_values) {
+                for (i = 0; i < 5; i++) {
+                        if (output_values[i])
+                                GF_FREE (output_values[i]);
+                }
+                GF_FREE (output_values);
+        }
+
+        if (dict_values)
+                GF_FREE (dict_values);
+
+        if (hyphens)
+                GF_FREE (hyphens);
+
+        return ret;
+}
+
+static int32_t
+write_contents_to_common_pem_file (dict_t *dict, int output_count)
+{
+        char            *workdir                   = NULL;
+        char             common_pem_file[PATH_MAX] = "";
+        char            *output                    = NULL;
+        char             output_name[PATH_MAX]     = "";
+        int              bytes_writen              = 0;
+        int              fd                        = -1;
+        int              ret                       = -1;
+        int              i                         = -1;
+
+        ret = dict_get_str (dict, "glusterd_workdir", &workdir);
+        if (ret || !workdir) {
+                gf_log ("", GF_LOG_ERROR, "Unable to fetch workdir");
+                ret = -1;
+                goto out;
+        }
+
+        snprintf (common_pem_file, sizeof(common_pem_file),
+                  "%s/geo-replication/common_secret.pem.pub",
+                  workdir);
+
+        unlink (common_pem_file);
+
+        fd = open (common_pem_file, O_WRONLY | O_CREAT, 0600);
+        if (fd == -1) {
+                gf_log ("", GF_LOG_ERROR, "Failed to open %s"
+                        " Error : %s", common_pem_file,
+                        strerror (errno));
+                ret = -1;
+                goto out;
+        }
+
+        for (i = 1; i <= output_count; i++) {
+                memset (output_name, '\0', sizeof (output_name));
+                snprintf (output_name, sizeof (output_name),
+                          "output_%d", i);
+                ret = dict_get_str (dict, output_name, &output);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Failed to get %s.",
+                                output_name);
+                        cli_out ("Unable to fetch output.");
+                }
+                if (output) {
+                        bytes_writen = write (fd, output, strlen(output));
+                        if (bytes_writen != strlen(output)) {
+                                gf_log ("", GF_LOG_ERROR, "Failed to write "
+                                        "to %s", common_pem_file);
+                                ret = -1;
+                                goto out;
+                        }
+                        /* Adding the new line character */
+                        bytes_writen = write (fd, "\n", strlen("\n"));
+                        if (bytes_writen != strlen("\n")) {
+                                gf_log ("", GF_LOG_ERROR,
+                                        "Failed to add new line char");
+                                ret = -1;
+                                goto out;
+                        }
+                        output = NULL;
+                }
+        }
+
+        cli_out ("Common secret pub file present at %s", common_pem_file);
+        ret = 0;
+out:
+        if (fd)
+                close (fd);
+
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
+gf_cli_sys_exec_cbk (struct rpc_req *req, struct iovec *iov,
+                     int count, void *myframe)
+{
+        int                     ret     = -1;
+        int                     output_count     = -1;
+        int                     i     = -1;
+        char                   *output  = NULL;
+        char                   *command = NULL;
+        char                    output_name[PATH_MAX] = "";
+        gf_cli_rsp              rsp     = {0, };
+        dict_t                  *dict   = NULL;
+        call_frame_t            *frame  = NULL;
+
+        if (req->rpc_status == -1) {
+                ret = -1;
+                goto out;
+        }
+
+        frame = myframe;
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
+        if (ret < 0) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
+                goto out;
+       }
+
+        dict = dict_new ();
+
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len, &dict);
+
+        if (ret)
+                goto out;
+
+        if (rsp.op_ret) {
+                cli_err ("%s", rsp.op_errstr ? rsp.op_errstr :
+                         "Command failed.");
+                ret = rsp.op_ret;
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "output_count", &output_count);
+        if (ret) {
+                cli_out ("Command executed successfully.");
+                ret = 0;
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "command", &command);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Unable to get command from dict");
+                goto out;
+        }
+
+        if (!strcmp (command, "gsec_create")) {
+                ret = write_contents_to_common_pem_file (dict, output_count);
+                if (!ret)
+                        goto out;
+        }
+
+        for (i = 1; i <= output_count; i++) {
+                memset (output_name, '\0', sizeof (output_name));
+                snprintf (output_name, sizeof (output_name),
+                          "output_%d", i);
+                ret = dict_get_str (dict, output_name, &output);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Failed to get %s.",
+                                output_name);
+                        cli_out ("Unable to fetch output.");
+                }
+                if (output) {
+                        cli_out ("%s", output);
+                        output = NULL;
+                }
+        }
+
+        ret = 0;
+out:
+        if (dict)
+                dict_unref (dict);
+        cli_cmd_broadcast_response (ret);
+
+        free (rsp.dict.dict_val);
+
+        return ret;
+}
+
+int
+gf_cli_copy_file_cbk (struct rpc_req *req, struct iovec *iov,
+                      int count, void *myframe)
+{
+        int                     ret     = -1;
+        gf_cli_rsp              rsp     = {0, };
+        dict_t                  *dict   = NULL;
+        call_frame_t            *frame  = NULL;
+
+        if (req->rpc_status == -1) {
+                ret = -1;
+                goto out;
+        }
+
+        frame = myframe;
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
+        if (ret < 0) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
+                goto out;
+       }
+
+        dict = dict_new ();
+
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len, &dict);
+
+       if (ret)
+                goto out;
+
+        if (rsp.op_ret) {
+                cli_err ("%s", rsp.op_errstr ? rsp.op_errstr :
+                         "Copy unsuccessful");
+                ret = rsp.op_ret;
+                goto out;
+        }
+
+        cli_out ("Successfully copied file.");
+
+out:
+        if (dict)
+                dict_unref (dict);
+        cli_cmd_broadcast_response (ret);
+
+        free (rsp.dict.dict_val);
+
+        return ret;
 }
 
 int
@@ -3861,6 +4302,8 @@ gf_cli_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
         char                    *slave  = NULL;
         int32_t                  type   = 0;
         call_frame_t            *frame  = NULL;
+        gf_boolean_t             is_force = _gf_false;
+
 
         if (req->rpc_status == -1) {
                 ret = -1;
@@ -3897,7 +4340,9 @@ gf_cli_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        if (rsp.op_ret) {
+        is_force = dict_get_str_boolean (dict, "force", _gf_false);
+
+        if (rsp.op_ret && !is_force) {
                 cli_err ("%s", rsp.op_errstr ? rsp.op_errstr :
                          GEOREP" command unsuccessful");
                 ret = rsp.op_ret;
@@ -3937,7 +4382,26 @@ gf_cli_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
 
                 case GF_GSYNC_OPTION_TYPE_STATUS:
                         ret = gf_cli_gsync_out_status (dict);
-                        goto out;
+                break;
+
+                case GF_GSYNC_OPTION_TYPE_DELETE:
+                        if (dict_get_str (dict, "master", &master) != 0)
+                                master = "???";
+                        if (dict_get_str (dict, "slave", &slave) != 0)
+                                slave = "???";
+                        cli_out ("Deleting " GEOREP " session between %s & %s"
+                                 " has been successful", master, slave);
+                break;
+
+                case GF_GSYNC_OPTION_TYPE_CREATE:
+                        if (dict_get_str (dict, "master", &master) != 0)
+                                master = "???";
+                        if (dict_get_str (dict, "slave", &slave) != 0)
+                                slave = "???";
+                        cli_out ("Creating " GEOREP " session between %s & %s"
+                                 " has been successful", master, slave);
+                break;
+
                 default:
                         cli_out (GEOREP" command executed successfully");
         }
@@ -3949,6 +4413,54 @@ out:
 
         free (rsp.dict.dict_val);
 
+        return ret;
+}
+
+int32_t
+gf_cli_sys_exec (call_frame_t *frame, xlator_t *this, void *data)
+{
+        int                      ret    = 0;
+        dict_t                  *dict   = NULL;
+        gf_cli_req               req = {{0,}};
+
+        if (!frame || !this || !data) {
+                ret = -1;
+                gf_log ("cli", GF_LOG_ERROR, "Invalid data");
+                goto out;
+        }
+
+        dict = data;
+
+        ret = cli_to_glusterd (&req, frame, gf_cli_sys_exec_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_SYS_EXEC, this, cli_rpc_prog,
+                               NULL);
+out:
+        GF_FREE (req.dict.dict_val);
+        return ret;
+}
+
+int32_t
+gf_cli_copy_file (call_frame_t *frame, xlator_t *this, void *data)
+{
+        int                      ret    = 0;
+        dict_t                  *dict   = NULL;
+        gf_cli_req               req = {{0,}};
+
+        if (!frame || !this || !data) {
+                ret = -1;
+                gf_log ("cli", GF_LOG_ERROR, "Invalid data");
+                goto out;
+        }
+
+        dict = data;
+
+        ret = cli_to_glusterd (&req, frame, gf_cli_copy_file_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_COPY_FILE, this, cli_rpc_prog,
+                               NULL);
+out:
+        GF_FREE (req.dict.dict_val);
         return ret;
 }
 
@@ -6822,6 +7334,8 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_STATEDUMP_VOLUME] = {"STATEDUMP_VOLUME", gf_cli_statedump_volume},
         [GLUSTER_CLI_LIST_VOLUME]      = {"LIST_VOLUME", gf_cli_list_volume},
         [GLUSTER_CLI_CLRLOCKS_VOLUME]  = {"CLEARLOCKS_VOLUME", gf_cli_clearlocks_volume},
+        [GLUSTER_CLI_COPY_FILE]        = {"COPY_FILE", gf_cli_copy_file},
+        [GLUSTER_CLI_SYS_EXEC]         = {"SYS_EXEC", gf_cli_sys_exec},
 #ifdef HAVE_BD_XLATOR
         [GLUSTER_CLI_BD_OP]            = {"BD_OP", gf_cli_bd_op},
 #endif

@@ -15,8 +15,8 @@
 #include "config.h"
 #endif
 
-#ifndef GSYNC_CONF
-#define GSYNC_CONF GEOREP"/gsyncd.conf"
+#ifndef GSYNC_CONF_TEMPLATE
+#define GSYNC_CONF_TEMPLATE GEOREP"/gsyncd_template.conf"
 #endif
 
 #include <pthread.h>
@@ -270,7 +270,7 @@ glusterd_are_all_volumes_stopped ();
 int
 glusterd_stop_bricks (glusterd_volinfo_t *volinfo);
 int
-gsync_status (char *master, char *slave, int *status);
+gsync_status (char *master, char *slave, char *conf_path, int *status);
 
 int
 glusterd_check_gsync_running (glusterd_volinfo_t *volinfo, gf_boolean_t *flag);
