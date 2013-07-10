@@ -2149,7 +2149,11 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
         }
 
         /* Active tasks */
+        /* Tasks are added only for normal volume status request for either a
+         * single volume or all volumes, and only by the origin glusterd
+         */
         if (((cmd & GF_CLI_STATUS_MASK) != GF_CLI_STATUS_NONE) ||
+            !(cmd & (GF_CLI_STATUS_VOL | GF_CLI_STATUS_ALL)) ||
             !origin_glusterd)
                 goto out;
 
