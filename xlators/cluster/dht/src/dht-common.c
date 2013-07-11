@@ -1645,7 +1645,8 @@ dht_unlink_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         LOCK (&frame->lock);
         {
-                if ((op_ret == -1) && (op_errno != ENOENT)) {
+                if ((op_ret == -1) && !((op_errno == ENOENT) ||
+                                        (op_errno == ENOTCONN))) {
                         local->op_errno = op_errno;
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "subvolume %s returned -1 (%s)",
