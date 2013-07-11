@@ -505,7 +505,36 @@ out:
         return next;
 }
 
+/* This func wraps around, if prev is actually the last subvol.
+ */
+xlator_t *
+dht_subvol_next_available (xlator_t *this, xlator_t *prev)
+{
+        dht_conf_t *conf = NULL;
+        int         i = 0;
+        xlator_t   *next = NULL;
 
+        conf = this->private;
+        if (!conf)
+                goto out;
+
+        for (i = 0; i < conf->subvolume_cnt; i++) {
+                if (conf->subvolumes[i] == prev) {
+                        /* if prev is last in conf->subvolumes, then wrap
+                         * around.
+                         */
+                        if ((i + 1) < conf->subvolume_cnt) {
+                                next = conf->subvolumes[i + 1];
+                        } else {
+                                next = conf->subvolumes[0];
+                        }
+                        break;
+                }
+        }
+
+out:
+        return next;
+}
 int
 dht_subvol_cnt (xlator_t *this, xlator_t *subvol)
 {

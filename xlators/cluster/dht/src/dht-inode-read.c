@@ -501,17 +501,26 @@ dht_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int          ret = -1;
         dht_local_t *local = NULL;
         xlator_t    *subvol = NULL;
+        call_frame_t *prev = NULL;
 
         local = frame->local;
+        prev = cookie;
 
+        if (!prev || !prev->this)
+                goto out;
         if (local->call_cnt != 1)
                 goto out;
         if ((op_ret == -1) && (op_errno == ENOTCONN) &&
             IA_ISDIR(local->loc.inode->ia_type)) {
 
-                subvol = dht_first_up_subvol (this);
+                subvol = dht_subvol_next_available (this, prev->this);
                 if (!subvol)
                         goto out;
+
+                /* check if we are done with visiting every node */
+                if (subvol == local->cached_subvol) {
+                        goto out;
+                }
 
                 STACK_WIND (frame, dht_access_cbk, subvol, subvol->fops->access,
                             &local->loc, local->rebalance.flags, NULL);
