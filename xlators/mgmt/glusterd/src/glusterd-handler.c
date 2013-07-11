@@ -1167,6 +1167,8 @@ __glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
         char                      *hostname = NULL;
         int                            port = 0;
         int                           flags = 0;
+        glusterd_volinfo_t         *volinfo = NULL;
+        glusterd_volinfo_t             *tmp = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1207,7 +1209,6 @@ __glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
                 gf_log (this->name, GF_LOG_ERROR, "Failed to get port");
                 goto out;
         }
-
         ret = dict_get_int32 (dict, "flags", &flags);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to get flags");
@@ -1227,22 +1228,30 @@ __glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
         }
 
         if (!(flags & GF_CLI_FLAG_OP_FORCE)) {
-                if (!uuid_is_null (uuid)) {
-                        /* Check if peers are connected, except peer being detached*/
-                        if (!glusterd_chk_peers_connected_befriended (uuid)) {
-                                ret = -1;
-                                op_errno = GF_DEPROBE_FRIEND_DOWN;
-                                goto out;
-                        }
-                        ret = glusterd_all_volume_cond_check (
-                                                 glusterd_friend_brick_belongs,
-                                                 -1, &uuid);
-                        if (ret) {
-                                op_errno = GF_DEPROBE_BRICK_EXIST;
-                                goto out;
-                        }
+                /* Check if peers are connected, except peer being
+                * detached*/
+                if (!glusterd_chk_peers_connected_befriended (uuid)) {
+                        ret = -1;
+                        op_errno = GF_DEPROBE_FRIEND_DOWN;
+                        goto out;
                 }
+        }
 
+        /* Check for if volumes exist with some bricks on the peer being
+        * detached. It's not a problem if a volume contains none or all
+        * of its bricks on the peer being detached
+        */
+        list_for_each_entry_safe (volinfo, tmp, &priv->volumes,
+                                  vol_list) {
+                ret = glusterd_friend_contains_vol_bricks (volinfo,
+                                                           uuid);
+                if (ret == 1) {
+                        op_errno = GF_DEPROBE_BRICK_EXIST;
+                        goto out;
+                }
+        }
+
+        if (!(flags & GF_CLI_FLAG_OP_FORCE)) {
                 if (glusterd_is_any_volume_in_server_quorum (this) &&
                     !does_gd_meet_server_quorum (this)) {
                         gf_log (this->name, GF_LOG_ERROR, "Quorum does not "

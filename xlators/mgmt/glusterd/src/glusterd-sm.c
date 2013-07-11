@@ -527,6 +527,9 @@ out:
         return ret;
 }
 
+/* Clean up stale volumes on the peer being detached. The volumes which have
+ * bricks on other peers are stale with respect to the detached peer.
+ */
 static int
 glusterd_peer_detach_cleanup (glusterd_conf_t *priv)
 {
@@ -538,6 +541,12 @@ glusterd_peer_detach_cleanup (glusterd_conf_t *priv)
 
         list_for_each_entry_safe (volinfo,tmp_volinfo,
                                   &priv->volumes, vol_list) {
+                /* The peer detach checks make sure that, at this point in the
+                 * detach process, there are only volumes contained completely
+                 * within or completely outside the detached peer.
+                 * The only stale volumes at this point are the ones
+                 * completely outside the peer and can be safely deleted.
+                 */
                 if (!glusterd_friend_contains_vol_bricks (volinfo,
                                                           MY_UUID)) {
                         gf_log (THIS->name, GF_LOG_INFO,
