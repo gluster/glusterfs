@@ -198,6 +198,9 @@ static struct argp_option gf_options[] = {
          "Enable internal memory accounting"},
         {"fuse-mountopts", ARGP_FUSE_MOUNTOPTS_KEY, "OPTIONS", OPTION_HIDDEN,
          "Extra mount options to pass to FUSE"},
+        {"use-readdirp", ARGP_FUSE_USE_READDIRP_KEY, "BOOL", OPTION_ARG_OPTIONAL,
+         "Use readdirp mode in fuse kernel module"
+         " [default: \"off\"]"},
         {0, 0, 0, 0, "Miscellaneous Options:"},
         {0, }
 };
@@ -437,6 +440,16 @@ set_fuse_mount_options (glusterfs_ctx_t *ctx, dict_t *options)
                 if (ret < 0) {
                         gf_log ("glusterfsd", GF_LOG_ERROR,
                                 "failed to set dict value for key sync-mtab");
+                        goto err;
+                }
+        }
+
+        if (cmd_args->use_readdirp) {
+                ret = dict_set_str (options, "use-readdirp",
+                                    cmd_args->use_readdirp);
+                if (ret < 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR, "failed to set dict"
+                                " value for key use-readdirp");
                         goto err;
                 }
         }
@@ -949,6 +962,25 @@ parse_opts (int key, char *arg, struct argp_state *state)
         case ARGP_FUSE_MOUNTOPTS_KEY:
                 cmd_args->fuse_mountopts = gf_strdup (arg);
                 break;
+
+        case ARGP_FUSE_USE_READDIRP_KEY:
+                if (!arg)
+                        arg = "no";
+
+                if (gf_string2boolean (arg, &b) == 0) {
+                        if (b) {
+                                cmd_args->use_readdirp = "yes";
+                        } else {
+                                cmd_args->use_readdirp = "no";
+                        }
+
+                        break;
+                }
+
+                argp_failure (state, -1, 0,
+                              "unknown use-readdirp setting \"%s\"", arg);
+                break;
+
 	}
 
         return 0;

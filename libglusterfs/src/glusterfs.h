@@ -321,6 +321,7 @@ struct _cmd_args {
 
 	/* fuse options */
 	int              fuse_direct_io_mode;
+	char             *use_readdirp;
         int              volfile_check;
 	double           fuse_entry_timeout;
 	double           fuse_negative_timeout;

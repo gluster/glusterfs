@@ -119,6 +119,9 @@ struct fuse_private {
         /* for fuse queue length and congestion threshold */
         int background_qlen;
         int congestion_threshold;
+
+        /* for using fuse-kernel readdirp*/
+        gf_boolean_t use_readdirp;
 };
 typedef struct fuse_private fuse_private_t;
 

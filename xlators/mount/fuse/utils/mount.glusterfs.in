@@ -135,6 +135,10 @@ start_glusterfs ()
 	cmd_line=$(echo "$cmd_line --direct-io-mode=$direct_io_mode");
     fi
 
+    if [ -n "$use_readdirp" ]; then
+	cmd_line=$(echo "$cmd_line --use-readdirp=$use_readdirp");
+    fi
+
     if [ -n "$volume_name" ]; then
         cmd_line=$(echo "$cmd_line --volume-name=$volume_name");
     fi
@@ -376,6 +380,7 @@ main ()
 			    "congestion-threshold")	cong_threshold=$value ;;
 			    "xlator-option")	xlator_option=$xlator_option" "$pair ;;
 			    "fuse-mountopts")	fuse_mountopts=$value ;;
+                            "use-readdirp") use_readdirp=$value ;;
                             *)
                                 # Passthru
                                 [ -z "$fuse_mountopts" ] || fuse_mountopts="$fuse_mountopts,"
