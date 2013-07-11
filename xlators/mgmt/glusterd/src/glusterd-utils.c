@@ -1353,6 +1353,7 @@ int32_t
 glusterd_brick_disconnect (glusterd_brickinfo_t *brickinfo)
 {
         rpc_clnt_t              *rpc = NULL;
+        glusterd_conf_t         *priv = THIS->private;
 
         GF_ASSERT (brickinfo);
 
@@ -1364,8 +1365,11 @@ glusterd_brick_disconnect (glusterd_brickinfo_t *brickinfo)
         rpc            = brickinfo->rpc;
         brickinfo->rpc = NULL;
 
-        if (rpc)
+        if (rpc) {
+                synclock_unlock (&priv->big_lock);
                 rpc_clnt_unref (rpc);
+                synclock_lock (&priv->big_lock);
+        }
 
         return 0;
 }
