@@ -453,7 +453,7 @@ glusterd_is_volume_replicate (glusterd_volinfo_t *volinfo);
 gf_boolean_t
 glusterd_is_brick_decommissioned (glusterd_volinfo_t *volinfo, char *hostname,
                                   char *path);
-gf_boolean_t
+int
 glusterd_friend_contains_vol_bricks (glusterd_volinfo_t *volinfo,
                                      uuid_t friend_uuid);
 int

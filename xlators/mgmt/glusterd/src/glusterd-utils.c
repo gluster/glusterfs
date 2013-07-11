@@ -7387,29 +7387,41 @@ out:
         return ret;
 }
 
-/* Checks if the given peer contains all the bricks belonging to the
- * given volume. Returns true if it does else returns false
+/* Checks if the given peer contains bricks belonging to the given volume.
+ * Returns,
+ *   2 - if peer contains all the bricks
+ *   1 - if peer contains at least 1 brick
+ *   0 - if peer contains no bricks
  */
-gf_boolean_t
+int
 glusterd_friend_contains_vol_bricks (glusterd_volinfo_t *volinfo,
                                      uuid_t friend_uuid)
 {
-        gf_boolean_t            ret = _gf_true;
+        int                     ret = 0;
         glusterd_brickinfo_t    *brickinfo = NULL;
+        int                     count = 0;
 
         GF_ASSERT (volinfo);
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (uuid_compare (friend_uuid, brickinfo->uuid)) {
-                        ret = _gf_false;
-                        break;
+                if (!uuid_compare (brickinfo->uuid, friend_uuid)) {
+                        count++;
                 }
+        }
+
+        if (count) {
+                if (count == volinfo->brick_count)
+                        ret = 2;
+                else
+                        ret = 1;
         }
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
-/* Remove all volumes which completely belong to given friend
+/* Cleanup the stale volumes left behind in the cluster. The volumes which are
+ * contained completely within the detached peer are stale with respect to the
+ * cluster.
  */
 int
 glusterd_friend_remove_cleanup_vols (uuid_t uuid)
@@ -7424,7 +7436,7 @@ glusterd_friend_remove_cleanup_vols (uuid_t uuid)
 
         list_for_each_entry_safe (volinfo, tmp_volinfo,
                                   &priv->volumes, vol_list) {
-                if (glusterd_friend_contains_vol_bricks (volinfo, uuid)) {
+                if (glusterd_friend_contains_vol_bricks (volinfo, uuid) == 2) {
                         gf_log (THIS->name, GF_LOG_INFO,
                                 "Deleting stale volume %s", volinfo->volname);
                         ret = glusterd_delete_volume (volinfo);
