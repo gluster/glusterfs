@@ -823,6 +823,23 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 goto out;
         }
 
+       /* Free up the data blocks on the source node, as the whole
+           file is migrated */
+        ret = syncop_ftruncate (from, src_fd, 0);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: failed to perform truncate on %s (%s)",
+                        loc->path, from->name, strerror (errno));
+        }
+
+        /* remove the 'linkto' xattr from the destination */
+        ret = syncop_fremovexattr (to, dst_fd, conf->link_xattr_name);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: failed to perform removexattr on %s (%s)",
+                        loc->path, to->name, strerror (errno));
+        }
+
         /* Do a stat and check the gfid before unlink */
         ret = syncop_stat (from, loc, &empty_iatt);
         if (ret) {
@@ -841,23 +858,6 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                                 loc->path, from->name, strerror (errno));
                         goto out;
                 }
-        }
-
-        /* Free up the data blocks on the source node, as the whole
-           file is migrated */
-        ret = syncop_ftruncate (from, src_fd, 0);
-        if (ret) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s: failed to perform truncate on %s (%s)",
-                        loc->path, from->name, strerror (errno));
-        }
-
-        /* remove the 'linkto' xattr from the destination */
-        ret = syncop_fremovexattr (to, dst_fd, conf->link_xattr_name);
-        if (ret) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s: failed to perform removexattr on %s (%s)",
-                        loc->path, to->name, strerror (errno));
         }
 
         ret = syncop_lookup (this, loc, NULL, NULL, NULL, NULL);
