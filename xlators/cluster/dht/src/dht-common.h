@@ -445,6 +445,7 @@ int dht_iatt_merge (xlator_t                 *this, struct iatt *to, struct iatt
 xlator_t *dht_subvol_get_hashed (xlator_t *this, loc_t *loc);
 xlator_t *dht_subvol_get_cached (xlator_t *this, inode_t *inode);
 xlator_t *dht_subvol_next (xlator_t *this, xlator_t *prev);
+xlator_t *dht_subvol_next_available (xlator_t *this, xlator_t *prev);
 int       dht_subvol_cnt (xlator_t *this, xlator_t *subvol);
 
 int dht_hash_compute (xlator_t *this, int type, const char *name, uint32_t *hash_p);
