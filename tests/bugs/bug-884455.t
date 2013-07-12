@@ -80,3 +80,5 @@ EXPECT "0" get_layout $B0/${V0}0/dir7 $B0/${V0}1/dir7 $B0/${V0}2/dir7
 EXPECT "0" get_layout $B0/${V0}0/dir8 $B0/${V0}1/dir8 $B0/${V0}2/dir8
 EXPECT "0" get_layout $B0/${V0}0/dir9 $B0/${V0}1/dir9 $B0/${V0}2/dir9
 EXPECT "0" get_layout $B0/${V0}0/dir10 $B0/${V0}1/dir10 $B0/${V0}2/dir10
+
+cleanup;

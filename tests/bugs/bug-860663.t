@@ -47,3 +47,5 @@ sleep 5;
 NEW_FILE_COUNT=`ls -l $M0 | wc -l`;
 
 EXPECT "0" file_count $ORIG_FILE_COUNT $NEW_FILE_COUNT
+
+cleanup;
