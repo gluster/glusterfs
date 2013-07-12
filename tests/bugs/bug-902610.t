@@ -56,3 +56,4 @@ mkdir $M0/dir1 2>/dev/null
 get_layout $B0/${V0}0/dir1 $B0/${V0}1/dir1
 EXPECT "0" echo $?
 
+cleanup;

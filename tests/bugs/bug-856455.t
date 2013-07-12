@@ -38,3 +38,5 @@ EXPECT $BRICK_COUNT query_pathinfo $M0/f00d;
 kill -9 `cat /var/lib/glusterd/vols/$V0/run/$H0-d-backends-${V0}1.pid`;
 
 EXPECT `expr $BRICK_COUNT - 1` query_pathinfo $M0/f00d;
+
+cleanup;

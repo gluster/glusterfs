@@ -25,4 +25,5 @@ EXPECT '2' brick_count $V0
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}3;
 EXPECT '1' brick_count $V0
 
+cleanup;
 

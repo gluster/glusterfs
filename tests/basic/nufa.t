@@ -28,3 +28,5 @@ sleep 5;
 
 ## Mount NFS
 TEST mount -t nfs -o nolock,soft,intr $H0:/$V0 $N0;
+
+cleanup;
