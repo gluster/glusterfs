@@ -56,6 +56,7 @@ struct _inode_table {
         struct mem_pool   *inode_pool;  /* memory pool for inodes */
         struct mem_pool   *dentry_pool; /* memory pool for dentrys */
         struct mem_pool   *fd_mem_pool; /* memory pool for fd_t */
+        int                ctxcount;    /* number of slots in inode->ctx */
 };
 
 

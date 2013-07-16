@@ -6,6 +6,9 @@ noinst_HEADERS_common = $(CONTRIBDIR)/fuse-include/fuse-mount.h\
 	$(CONTRIBDIR)/fuse-include/fuse-misc.h fuse-mem-types.h \
 	fuse-bridge.h
 
+fuse_HEADERS = glfs-fuse-bridge.h
+fusedir = $(includedir)/glusterfs/
+
 if GF_DARWIN_HOST_OS
     noinst_HEADERS = $(noinst_HEADERS_common) $(noinst_HEADERS_darwin)
 else

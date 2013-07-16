@@ -30,6 +30,7 @@
 #include "defaults.h"
 #include "common-utils.h"
 #include "statedump.h"
+#include "glfs-fuse-bridge.h"
 
 #ifdef GF_DARWIN_HOST_OS
 /* This is MacFUSE's marker for MacFUSE-specific code */
@@ -50,12 +51,26 @@
 #if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
 #define FUSE_OP_HIGH (FUSE_READDIRPLUS + 1)
 #endif
+
 #ifdef GF_DARWIN_HOST_OS
 #define FUSE_OP_HIGH (FUSE_DESTROY + 1)
 #endif
 #define GLUSTERFS_XATTR_LEN_MAX  65536
 
 #define MAX_FUSE_PROC_DELAY 1
+#define GF_GFID_KEY "GLUSTERFS_GFID"
+#define GF_GFID_DIR ".gfid"
+#define GF_AUX_GFID 0xd
+
+typedef enum {
+        GF_FUSE_PATH_NAMESPACE,
+        GF_FUSE_GFID_NAMESPACE
+} gf_lookup_namespace_t;
+
+typedef struct {
+        inode_t *inode_path_ns;
+        inode_t *inode_gfid_ns;
+} gf_fuse_nodeid_t;
 
 typedef struct fuse_in_header fuse_in_header_t;
 typedef void (fuse_handler_t) (xlator_t *this, fuse_in_header_t *finh,
@@ -122,6 +137,14 @@ struct fuse_private {
 
         /* for using fuse-kernel readdirp*/
         gf_boolean_t use_readdirp;
+
+        gf_boolean_t aux_gfid_mount;
+        /* root inode's stbuf */
+        struct iatt root_stbuf;
+        struct iatt gfiddir_stbuf;
+        struct mem_pool *fuse_nodeid_pool;
+        struct mem_pool *auxgfid_newfile_args_pool;
+        struct mem_pool *auxgfid_heal_args_pool;
 };
 typedef struct fuse_private fuse_private_t;
 
@@ -509,7 +532,8 @@ void gf_fuse_stat2attr (struct iatt *st, struct fuse_attr *fa,
                         gf_boolean_t enable_ino32);
 void gf_fuse_fill_dirent (gf_dirent_t *entry, struct fuse_dirent *fde,
                           gf_boolean_t enable_ino32);
-uint64_t inode_to_fuse_nodeid (inode_t *inode);
+uint64_t
+inode_to_fuse_nodeid (xlator_t *this, inode_t *inode, gf_lookup_namespace_t ns);
 xlator_t *fuse_active_subvol (xlator_t *fuse);
 inode_t *fuse_ino_to_inode (uint64_t ino, xlator_t *fuse);
 int send_fuse_err (xlator_t *this, fuse_in_header_t *finh, int error);

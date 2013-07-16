@@ -102,6 +102,7 @@
 #define UUID_CANONICAL_FORM_LEN 36
 
 #define GLUSTERFS_INTERNAL_FOP_KEY  "glusterfs-internal-fop"
+#define GLUSTERFS_CREATE_MODE_KEY "glusterfs-create-mode"
 
 #define ZR_FILE_CONTENT_STR     "glusterfs.file."
 #define ZR_FILE_CONTENT_STRLEN 15
@@ -320,6 +321,7 @@ struct _cmd_args {
         int              mac_compat;
 	int		 fopen_keep_cache;
 	int		 gid_timeout;
+        int              aux_gfid_mount;
 	struct list_head xlator_options;  /* list of xlator_option_t */
 
 	/* fuse options */
@@ -348,6 +350,7 @@ struct _cmd_args {
         int             brick_port;
         char           *brick_name;
         int             brick_port2;
+
 };
 typedef struct _cmd_args cmd_args_t;
 
