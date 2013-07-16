@@ -1526,14 +1526,17 @@ retrynew:
 	if (ret && errno != ENOENT && newloc.parent)
 		goto out;
 
-	if ((oldiatt.ia_type == IA_IFDIR) != (newiatt.ia_type == IA_IFDIR)) {
-		/* Either both old and new must be dirs, or both must be
-		   non-dirs. Else, fail.
-		*/
-		ret = -1;
-		errno = EISDIR;
-		goto out;
-	}
+	if (newiatt.ia_type != IA_INVAL) {
+                if ((oldiatt.ia_type == IA_IFDIR) !=
+                    (newiatt.ia_type == IA_IFDIR)) {
+                       /* Either both old and new must be dirs,
+                        * or both must be non-dirs. Else, fail.
+                        */
+                       ret = -1;
+                       errno = EISDIR;
+                       goto out;
+                }
+        }
 
 	/* TODO: check if new or old is a prefix of the other, and fail EINVAL */
 
