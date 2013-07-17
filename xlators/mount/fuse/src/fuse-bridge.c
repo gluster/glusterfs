@@ -464,6 +464,13 @@ fuse_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == -1 && state->is_revalidate == 1) {
                 itable = state->itable;
+		/*
+		 * A stale mapping might exist for a dentry/inode that has been
+		 * removed from another client.
+		 */
+		if (op_errno == ENOENT)
+			inode_unlink(state->loc.inode, state->loc.parent,
+				     state->loc.name);
                 inode_unref (state->loc.inode);
                 state->loc.inode = inode_new (itable);
                 state->is_revalidate = 2;
