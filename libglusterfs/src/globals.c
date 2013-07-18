@@ -123,8 +123,6 @@ __glusterfs_this_location ()
 
                 ret = pthread_setspecific (this_xlator_key, this_location);
                 if (ret != 0) {
-                        gf_log ("", GF_LOG_WARNING, "pthread setspecific failed");
-
                         FREE (this_location);
                         this_location = NULL;
                         goto out;
