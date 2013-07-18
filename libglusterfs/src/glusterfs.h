@@ -32,6 +32,7 @@
 #include <arpa/inet.h>
 #include <sys/poll.h>
 #include <pthread.h>
+#include <limits.h> /* For PATH_MAX */
 
 #include "list.h"
 #include "logging.h"
