@@ -37,7 +37,7 @@
 #include "syncop.h"
 #include "xlator.h"
 
-static char is_mgmt_rpc_reconnect;
+static gf_boolean_t is_mgmt_rpc_reconnect = _gf_false;
 
 int glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx);
 int glusterfs_volfile_fetch (glusterfs_ctx_t *ctx);
@@ -1618,7 +1618,7 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         memcpy (oldvolfile, rsp.spec, size);
         if (!is_mgmt_rpc_reconnect) {
                 glusterfs_mgmt_pmap_signin (ctx);
-                is_mgmt_rpc_reconnect = 1;
+                is_mgmt_rpc_reconnect =  _gf_true;
         }
 
 out:
