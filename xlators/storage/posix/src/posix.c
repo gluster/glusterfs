@@ -2417,6 +2417,33 @@ out:
 }
 
 
+int
+posix_batch_fsync (call_frame_t *frame, xlator_t *this,
+		     fd_t *fd, int datasync, dict_t *xdata)
+{
+	call_stub_t *stub = NULL;
+	struct posix_private *priv = NULL;
+
+	priv = this->private;
+
+	stub = fop_fsync_stub (frame, default_fsync, fd, datasync, xdata);
+	if (!stub) {
+		STACK_UNWIND_STRICT (fsync, frame, -1, ENOMEM, 0, 0, 0);
+		return 0;
+	}
+
+	pthread_mutex_lock (&priv->fsync_mutex);
+	{
+		list_add_tail (&stub->list, &priv->fsyncs);
+		priv->fsync_queue_count++;
+		pthread_cond_signal (&priv->fsync_cond);
+	}
+	pthread_mutex_unlock (&priv->fsync_mutex);
+
+	return 0;
+}
+
+
 int32_t
 posix_fsync (call_frame_t *frame, xlator_t *this,
              fd_t *fd, int32_t datasync, dict_t *xdata)
@@ -2428,6 +2455,7 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
         int               ret      = -1;
         struct iatt       preop = {0,};
         struct iatt       postop = {0,};
+        struct posix_private *priv = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -2442,6 +2470,12 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
         goto out;
 #endif
+
+	priv = this->private;
+	if (priv->batch_fsync_mode && xdata && dict_get (xdata, "batch-fsync")) {
+		posix_batch_fsync (frame, this, fd, datasync, xdata);
+		return 0;
+	}
 
         ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
@@ -4303,6 +4337,27 @@ posix_set_owner (xlator_t *this, uid_t uid, gid_t gid)
         return ret;
 }
 
+
+static int
+set_batch_fsync_mode (struct posix_private *priv, const char *str)
+{
+	if (strcmp (str, "none") == 0)
+		priv->batch_fsync_mode = BATCH_NONE;
+	else if (strcmp (str, "syncfs") == 0)
+		priv->batch_fsync_mode = BATCH_SYNCFS;
+	else if (strcmp (str, "syncfs-single-fsync") == 0)
+		priv->batch_fsync_mode = BATCH_SYNCFS_SINGLE_FSYNC;
+	else if (strcmp (str, "syncfs-reverse-fsync") == 0)
+		priv->batch_fsync_mode = BATCH_SYNCFS_REVERSE_FSYNC;
+	else if (strcmp (str, "reverse-fsync") == 0)
+		priv->batch_fsync_mode = BATCH_REVERSE_FSYNC;
+	else
+		return -1;
+
+	return 0;
+}
+
+
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
@@ -4310,12 +4365,25 @@ reconfigure (xlator_t *this, dict_t *options)
 	struct posix_private *priv = NULL;
         uid_t                 uid = -1;
         gid_t                 gid = -1;
+	char                 *batch_fsync_mode_str = NULL;
 
 	priv = this->private;
 
         GF_OPTION_RECONF ("brick-uid", uid, options, uint32, out);
         GF_OPTION_RECONF ("brick-gid", gid, options, uint32, out);
         posix_set_owner (this, uid, gid);
+
+	GF_OPTION_RECONF ("batch-fsync-delay-usec", priv->batch_fsync_delay_usec,
+			  options, uint32, out);
+
+	GF_OPTION_RECONF ("batch-fsync-mode", batch_fsync_mode_str,
+			  options, str, out);
+
+	if (set_batch_fsync_mode (priv, batch_fsync_mode_str) != 0) {
+		gf_log (this->name, GF_LOG_ERROR, "Unknown mode string: %s",
+			batch_fsync_mode_str);
+		goto out;
+	}
 
 	GF_OPTION_RECONF ("linux-aio", priv->aio_configured,
 			  options, bool, out);
@@ -4368,6 +4436,7 @@ init (xlator_t *this)
         char                 *guuid         = NULL;
         uid_t                 uid           = -1;
         gid_t                 gid           = -1;
+	char                 *batch_fsync_mode_str;
 
         dir_data = dict_get (this->options, "directory");
 
@@ -4720,6 +4789,28 @@ init (xlator_t *this)
         INIT_LIST_HEAD (&_private->janitor_fds);
 
         posix_spawn_janitor_thread (this);
+
+	pthread_mutex_init (&_private->fsync_mutex, NULL);
+	pthread_cond_init (&_private->fsync_cond, NULL);
+	INIT_LIST_HEAD (&_private->fsyncs);
+
+	ret = pthread_create (&_private->fsyncer, NULL, posix_fsyncer, this);
+	if (ret) {
+		gf_log (this->name, GF_LOG_ERROR, "fsyncer thread"
+			" creation failed (%s)", strerror (errno));
+		goto out;
+	}
+
+	GF_OPTION_INIT ("batch-fsync-mode", batch_fsync_mode_str, str, out);
+
+	if (set_batch_fsync_mode (_private, batch_fsync_mode_str) != 0) {
+		gf_log (this->name, GF_LOG_ERROR, "Unknown mode string: %s",
+			batch_fsync_mode_str);
+		goto out;
+	}
+
+	GF_OPTION_INIT ("batch-fsync-delay-usec", _private->batch_fsync_delay_usec,
+			uint32, out);
 out:
         return ret;
 }
@@ -4849,5 +4940,25 @@ struct volume_options options[] = {
           .description = "Interval in seconds for a filesystem health check, "
                          "set to 0 to disable"
         },
+	{ .key = {"batch-fsync-mode"},
+	  .type = GF_OPTION_TYPE_STR,
+	  .default_value = "reverse-fsync",
+	  .description = "Possible values:\n"
+	  "\t- syncfs: Perform one syncfs() on behalf oa batch"
+	  "of fsyncs.\n"
+	  "\t- syncfs-single-fsync: Perform one syncfs() on behalf of a batch"
+	  " of fsyncs and one fsync() per batch.\n"
+	  "\t- syncfs-reverse-fsync: Preform one syncfs() on behalf of a batch"
+	  " of fsyncs and fsync() each file in the batch in reverse order.\n"
+	  " in reverse order.\n"
+	  "\t- reverse-fsync: Perform fsync() of each file in the batch in"
+	  " reverse order."
+	},
+	{ .key = {"batch-fsync-delay-usec"},
+	  .type = GF_OPTION_TYPE_INT,
+	  .default_value = "1000000",
+	  .description = "Num of usecs to wait for aggregating fsync"
+	  " requests",
+	},
         { .key  = {NULL} }
 };
