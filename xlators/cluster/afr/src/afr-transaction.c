@@ -1478,6 +1478,8 @@ afr_changelog_fsync (call_frame_t *frame, xlator_t *this)
         int i = 0;
         int call_count = 0;
         afr_private_t *priv = NULL;
+ 	dict_t *xdata = NULL;
+ 	GF_UNUSED int ret = -1;
 
         local = frame->local;
         priv = this->private;
@@ -1493,6 +1495,10 @@ afr_changelog_fsync (call_frame_t *frame, xlator_t *this)
 
         local->call_count = call_count;
 
+	xdata = dict_new();
+	if (xdata)
+		ret = dict_set_int32 (xdata, "batch-fsync", 1);
+
         for (i = 0; i < priv->child_count; i++) {
                 if (!local->transaction.pre_op[i])
                         continue;
@@ -1500,10 +1506,13 @@ afr_changelog_fsync (call_frame_t *frame, xlator_t *this)
                 STACK_WIND_COOKIE (frame, afr_changelog_fsync_cbk,
                                 (void *) (long) i, priv->children[i],
                                 priv->children[i]->fops->fsync, local->fd,
-                                1, NULL);
+                                1, xdata);
                 if (!--call_count)
                         break;
         }
+
+	if (xdata)
+		dict_unref (xdata);
 
         return 0;
 }

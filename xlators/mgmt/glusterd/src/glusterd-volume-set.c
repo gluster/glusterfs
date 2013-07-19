@@ -1201,6 +1201,14 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "storage/posix",
           .op_version  = 1
         },
+        { .key         = "storage.batch-fsync-mode",
+          .voltype     = "storage/posix",
+          .op_version  = 3
+        },
+        { .key         = "storage.batch-fsync-delay-usec",
+          .voltype     = "storage/posix",
+          .op_version  = 3
+        },
         { .key         = "storage.owner-uid",
           .voltype     = "storage/posix",
           .option      = "brick-uid",
