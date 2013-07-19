@@ -744,17 +744,6 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 goto out;
 	}
 
-        /*Do not allow remove-brick if the volume is a replicate volume*/
-        if ((volinfo->type == GF_CLUSTER_TYPE_REPLICATE) &&
-            (volinfo->brick_count == volinfo->replica_count)) {
-                snprintf (err_str, sizeof(err_str),
-                          "Removing brick from a replicate volume "
-                           "is not allowed");
-                gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
-                ret = -1;
-                goto out;
-        }
-
 	if (!replica_count &&
             (volinfo->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) &&
             (volinfo->brick_count == volinfo->dist_leaf_count)) {
@@ -1371,6 +1360,7 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
         glusterd_volinfo_t *volinfo     = NULL;
         char               *errstr      = NULL;
         int32_t             brick_count = 0;
+        int32_t             replica_cnt = 0;
         char                msg[2048]   = {0,};
         int32_t             flag        = 0;
         gf1_op_commands     cmd         = GF_OP_CMD_NONE;
@@ -1426,6 +1416,16 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
 
         case GF_OP_CMD_START:
         {
+                if ((volinfo->type == GF_CLUSTER_TYPE_REPLICATE) &&
+                    !dict_get_int32 (dict, "replica-count", &replica_cnt)) {
+                        snprintf (msg, sizeof(msg), "Rebalancing not needed "
+                                  "when reducing replica count. Try without "
+                                  "the 'start' option");
+                        errstr = gf_strdup (msg);
+                        gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                        goto out;
+                }
+
                 if (GLUSTERD_STATUS_STARTED != volinfo->status) {
                         snprintf (msg, sizeof (msg), "Volume %s needs to be "
                                   "started before remove-brick (you can use "
