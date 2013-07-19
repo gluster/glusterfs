@@ -1144,7 +1144,6 @@ set_log_file_path (cmd_args_t *cmd_args)
         int   j = 0;
         int   ret = 0;
         int   port = 0;
-        char *tmp_ptr = NULL;
         char  tmp_str[1024] = {0,};
 
         if (cmd_args->mount_point) {
@@ -1181,17 +1180,15 @@ set_log_file_path (cmd_args_t *cmd_args)
         }
 
         if (cmd_args->volfile_server) {
-                port = 1;
-                tmp_ptr = "default";
+                port = GF_DEFAULT_BASE_PORT;
 
                 if (cmd_args->volfile_server_port)
                         port = cmd_args->volfile_server_port;
-                if (cmd_args->volfile_id)
-                        tmp_ptr = cmd_args->volfile_id;
 
                 ret = gf_asprintf (&cmd_args->log_file,
                                    DEFAULT_LOG_FILE_DIRECTORY "/%s-%s-%d.log",
-                                   cmd_args->volfile_server, tmp_ptr, port);
+                                   cmd_args->volfile_server,
+                                   cmd_args->volfile_id, port);
         }
 done:
         return ret;
