@@ -12,7 +12,7 @@ TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume set $V0 performance.quick-read off
 TEST $CLI volume set $V0 performance.open-behind off
 TEST $CLI volume set $V0 performance.io-cache off
-TEST $CLI volume set $V0 performance.write-behind off
+TEST $CLI volume set $V0 performance.write-behind on
 TEST $CLI volume set $V0 performance.stat-prefetch off
 TEST $CLI volume set $V0 performance.read-ahead off
 TEST $CLI volume set $V0 cluster.background-self-heal-count 0
