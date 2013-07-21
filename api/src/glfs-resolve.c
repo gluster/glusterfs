@@ -797,6 +797,9 @@ glfs_subvol_done (struct glfs *fs, xlator_t *subvol)
 	int ref = 0;
 	xlator_t *active_subvol = NULL;
 
+	if (!subvol)
+		return;
+
 	glfs_lock (fs);
 	{
 		ref = (--subvol->winds);
