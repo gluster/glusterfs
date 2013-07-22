@@ -1211,6 +1211,7 @@ glfs_readlink (struct glfs *fs, const char *path, char *buf, size_t bufsiz)
 	loc_t            loc = {0, };
 	struct iatt      iatt = {0, };
 	int              reval = 0;
+	char            *linkval = NULL;
 
 	__glfs_entry_fs (fs);
 
@@ -1234,7 +1235,11 @@ retry:
 		goto out;
 	}
 
-	ret = syncop_readlink (subvol, &loc, &buf, bufsiz);
+	ret = syncop_readlink (subvol, &loc, &linkval, bufsiz);
+	if (ret > 0) {
+		memcpy (buf, linkval, ret);
+		GF_FREE (linkval);
+	}
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 out:
