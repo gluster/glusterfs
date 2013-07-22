@@ -394,8 +394,12 @@ retry:
 		goto out;
 	}
 
-	ret = syncop_create (subvol, &loc, flags, mode, glfd->fd,
-			     xattr_req, &iatt);
+	if (ret == 0) {
+		ret = syncop_open (subvol, &loc, flags, glfd->fd);
+	} else {
+		ret = syncop_create (subvol, &loc, flags, mode, glfd->fd,
+				     xattr_req, &iatt);
+	}
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
