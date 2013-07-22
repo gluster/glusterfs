@@ -1256,6 +1256,35 @@ afr_sh_entry_impunge_mknod (call_frame_t *impunge_frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_INFO, "%s: gfid set failed",
                         impunge_local->loc.path);
 
+        /*
+         * Reason for adding GLUSTERFS_INTERNAL_FOP_KEY :
+         *
+         * Problem:
+         * While a brick is down in a replica pair, lets say the user creates
+         * one file(file-A) and a hard link to that file(h-file-A). After the
+         * brick comes back up, entry self-heal is attempted on parent dir of
+         * these two files. As part of readdir in self-heal it reads both the
+         * entries file-A and h-file-A for both of them it does name less lookup
+         * to check if there are any hardlinks already present in the
+         * destination brick. It finds that there are no hard links already
+         * present for files file-A, h-file-A. Self-heal does mknods for both
+         * file-A and h-file-A. This leads to file-A and h-file-A not being
+         * hardlinks anymore.
+         *
+         * Fix: (More like shrinking of race-window, the race itself is still
+         * present in posix-mknod).
+         * If mknod comes with the presence of GLUSTERFS_INTERNAL_FOP_KEY then
+         * posix_mknod checks if there are already any gfid-links and does
+         * link() instead of mknod. There still can be a race where two
+         * posix_mknods same gfid see that
+         * gfid-link file is not present and proceeds with mknods and result in
+         * two different files with same gfid.
+         */
+        ret = dict_set_str (dict, GLUSTERFS_INTERNAL_FOP_KEY, "yes");
+        if (ret)
+                gf_log (this->name, GF_LOG_INFO, "%s: %s set failed",
+                        impunge_local->loc.path, GLUSTERFS_INTERNAL_FOP_KEY);
+
         STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_newfile_cbk,
                            (void *) (long) child_index,
                            priv->children[child_index],
