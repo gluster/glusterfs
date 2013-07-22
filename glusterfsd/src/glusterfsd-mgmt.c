@@ -1391,7 +1391,7 @@ out:
 
 
 /* XXX: move these into @ctx */
-static char oldvolfile[131072];
+static char *oldvolfile = NULL;
 static int oldvollen = 0;
 
 static int
@@ -1552,6 +1552,7 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         int                      ret   = 0;
         ssize_t                  size = 0;
         FILE                    *tmpfp = NULL;
+        char                    *volfilebuf = NULL;
 
         frame = myframe;
         ctx = frame->this->ctx;
@@ -1609,6 +1610,15 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         if (ret == 0) {
                 gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
                         "No need to re-load volfile, reconfigure done");
+                if (oldvolfile)
+                        volfilebuf = GF_REALLOC (oldvolfile, size);
+                else
+                        volfilebuf = GF_CALLOC (1, size, gf_common_mt_char);
+                if (!volfilebuf) {
+                        ret = -1;
+                        goto out;
+                }
+                oldvolfile = volfilebuf;
                 oldvollen = size;
                 memcpy (oldvolfile, rsp.spec, size);
                 goto out;
@@ -1625,6 +1635,15 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         if (ret)
                 goto out;
 
+        if (oldvolfile)
+                volfilebuf = GF_REALLOC (oldvolfile, size);
+        else
+                volfilebuf = GF_CALLOC (1, size, gf_common_mt_char);
+        if (!volfilebuf) {
+                ret = -1;
+                goto out;
+        }
+        oldvolfile = volfilebuf;
         oldvollen = size;
         memcpy (oldvolfile, rsp.spec, size);
         if (!is_mgmt_rpc_reconnect) {
