@@ -30,7 +30,7 @@
 #define CLI_GLUSTERD_PORT                  24007
 #define CLI_DEFAULT_CONN_TIMEOUT             120
 #define CLI_DEFAULT_CMD_TIMEOUT              120
-#define CLI_TOP_CMD_TIMEOUT                  600 //Longer timeout for volume top
+#define CLI_TEN_MINUTES_TIMEOUT              600 //Longer timeout for volume top
 #define DEFAULT_CLI_LOG_FILE_DIRECTORY     DATADIR "/log/glusterfs"
 #define DEFAULT_LOG_FILE_DIRECTORY         DATADIR "/log/glusterfs"
 #define DEFAULT_VAR_RUN_DIRECTORY          DATADIR "/run/gluster"
