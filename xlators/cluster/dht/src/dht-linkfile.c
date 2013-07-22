@@ -148,6 +148,15 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
                 goto out;
         }
 
+	ret = dict_set_uint32 (dict, GLUSTERFS_CREATE_MODE_KEY,
+			       DHT_LINKFILE_MODE);
+	if (ret < 0) {
+		gf_log (frame->this->name, GF_LOG_WARNING,
+			"%s: failed to set mode in xdata",
+			loc->path);
+		goto out;
+	}
+
         local->link_subvol = fromvol;
         /* Always create as root:root. dht_linkfile_attr_heal fixes the
          * ownsership */
