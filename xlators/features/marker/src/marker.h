@@ -110,6 +110,7 @@ struct marker_local{
         inode_contribution_t *contri;
 
         int xflag;
+        dict_t *xdata;
 };
 typedef struct marker_local marker_local_t;
 

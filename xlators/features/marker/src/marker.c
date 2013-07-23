@@ -185,6 +185,8 @@ marker_local_unref (marker_local_t *local)
 
         loc_wipe (&local->loc);
         loc_wipe (&local->parent_loc);
+        if (local->xdata)
+                dict_unref (local->xdata);
 
         if (local->oplocal) {
                 marker_local_unref (local->oplocal);
@@ -833,7 +835,7 @@ marker_unlink_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         STACK_WIND (frame, marker_unlink_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->unlink, &local->loc, local->xflag,
-                    NULL);
+                    local->xdata);
         return 0;
 err:
         frame->local = NULL;
@@ -858,6 +860,8 @@ marker_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
 
         local = mem_get0 (this->local_pool);
         local->xflag = xflag;
+        if (xdata)
+                local->xdata = dict_ref (xdata);
         MARKER_INIT_LOCAL (frame, local);
 
         ret = loc_copy (&local->loc, loc);
