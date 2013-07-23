@@ -8,6 +8,7 @@ TEST glusterd
 TEST pidof glusterd
 
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1}
+TEST $CLI volume set $V0 ensure-durability off
 TEST $CLI volume set $V0 performance.write-behind off
 TEST $CLI volume set $V0 cluster.eager-lock off
 TEST $CLI volume start $V0
