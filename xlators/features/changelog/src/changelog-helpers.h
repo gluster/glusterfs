@@ -373,9 +373,18 @@ changelog_forget (xlator_t *this, inode_t *inode);
 #define CHANGELOG_INIT_NOCHECK(this, local, inode, gfid, xrec)          \
         local = changelog_local_init (this, inode, gfid, xrec, _gf_true)
 
-#define CHANGELOG_NOT_ACTIVE_THEN_GOTO(priv, label) do {        \
+#define CHANGELOG_NOT_ACTIVE_THEN_GOTO(frame, priv, label) do { \
                 if (!priv->active)                              \
                         goto label;                             \
+                /* ignore rebalance process's activity. */      \
+                if (frame->root->pid == GF_CLIENT_PID_DEFRAG)   \
+                        goto label;                             \
+        } while (0)
+
+/* ignore internal fops */
+#define CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO(dict, label) do {           \
+                if (dict && dict_get (dict, GLUSTERFS_INTERNAL_FOP_KEY)) \
+                        goto label;                                     \
         } while (0)
 
 #define CHANGELOG_COND_GOTO(priv, cond, label) do {                    \

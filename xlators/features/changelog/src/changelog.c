@@ -90,7 +90,7 @@ changelog_rmdir (call_frame_t *frame, xlator_t *this,
         changelog_opt_t  *co       = NULL;
 
         priv = this->private;
-        CHANGELOG_NOT_ACTIVE_THEN_GOTO (priv, wind);
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         CHANGELOG_INIT_NOCHECK (this, frame->local,
                                 NULL, loc->inode->gfid, 2);
@@ -146,7 +146,8 @@ changelog_unlink (call_frame_t *frame, xlator_t *this,
         changelog_opt_t  *co       = NULL;
 
         priv = this->private;
-        CHANGELOG_NOT_ACTIVE_THEN_GOTO (priv, wind);
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
+        CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO (xdata, wind);
 
         CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, loc->inode->gfid, 2);
 
@@ -207,7 +208,7 @@ changelog_rename (call_frame_t *frame, xlator_t *this,
         changelog_opt_t  *co        = NULL;
 
         priv = this->private;
-        CHANGELOG_NOT_ACTIVE_THEN_GOTO (priv, wind);
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         /* 3 == fop + oldloc + newloc */
         CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, null_uuid, 3);
@@ -270,7 +271,9 @@ changelog_link (call_frame_t *frame,
         changelog_opt_t  *co       = NULL;
 
         priv = this->private;
-        CHANGELOG_NOT_ACTIVE_THEN_GOTO (priv, wind);
+
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
+        CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO (xdata, wind);
 
         CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, oldloc->gfid, 2);
 
@@ -330,7 +333,7 @@ changelog_mkdir (call_frame_t *frame, xlator_t *this,
         changelog_opt_t  *co       = NULL;
 
         priv = this->private;
-        CHANGELOG_NOT_ACTIVE_THEN_GOTO (priv, wind);
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
         if (ret) {
@@ -399,7 +402,7 @@ changelog_symlink (call_frame_t *frame, xlator_t *this,
         changelog_opt_t  *co       = NULL;
 
         priv = this->private;
-        CHANGELOG_NOT_ACTIVE_THEN_GOTO (priv, wind);
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
         if (ret) {
@@ -468,7 +471,7 @@ changelog_mknod (call_frame_t *frame,
         changelog_opt_t  *co       = NULL;
 
         priv = this->private;
-        CHANGELOG_NOT_ACTIVE_THEN_GOTO (priv, wind);
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
         if (ret) {
@@ -539,7 +542,7 @@ changelog_create (call_frame_t *frame, xlator_t *this,
         size_t            xtra_len = 0;
 
         priv = this->private;
-        CHANGELOG_NOT_ACTIVE_THEN_GOTO (priv, wind);
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
         if (ret) {
@@ -615,7 +618,7 @@ changelog_fsetattr (call_frame_t *frame,
         changelog_priv_t *priv = NULL;
 
         priv = this->private;
-        CHANGELOG_NOT_ACTIVE_THEN_GOTO (priv, wind);
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         CHANGELOG_INIT (this, frame->local,
                         fd->inode, fd->inode->gfid, 0);
@@ -660,7 +663,7 @@ changelog_setattr (call_frame_t *frame,
         changelog_priv_t *priv = NULL;
 
         priv = this->private;
-        CHANGELOG_NOT_ACTIVE_THEN_GOTO (priv, wind);
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         CHANGELOG_INIT (this, frame->local,
                         loc->inode, loc->inode->gfid, 0);
@@ -702,7 +705,7 @@ changelog_fremovexattr (call_frame_t *frame, xlator_t *this,
         changelog_priv_t *priv = NULL;
 
         priv = this->private;
-        CHANGELOG_NOT_ACTIVE_THEN_GOTO (priv, wind);
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         CHANGELOG_INIT (this, frame->local,
                         fd->inode, fd->inode->gfid, 0);
@@ -742,7 +745,7 @@ changelog_removexattr (call_frame_t *frame, xlator_t *this,
         changelog_priv_t *priv = NULL;
 
         priv = this->private;
-        CHANGELOG_NOT_ACTIVE_THEN_GOTO (priv, wind);
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         CHANGELOG_INIT (this, frame->local,
                         loc->inode, loc->inode->gfid, 0);
@@ -785,7 +788,7 @@ changelog_setxattr (call_frame_t *frame,
         changelog_priv_t *priv = NULL;
 
         priv = this->private;
-        CHANGELOG_NOT_ACTIVE_THEN_GOTO (priv, wind);
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         CHANGELOG_INIT (this, frame->local,
                         loc->inode, loc->inode->gfid, 0);
@@ -826,7 +829,7 @@ changelog_fsetxattr (call_frame_t *frame,
         changelog_priv_t *priv = NULL;
 
         priv = this->private;
-        CHANGELOG_NOT_ACTIVE_THEN_GOTO (priv, wind);
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         CHANGELOG_INIT (this, frame->local,
                         fd->inode, fd->inode->gfid, 0);
@@ -876,7 +879,7 @@ changelog_truncate (call_frame_t *frame,
         changelog_priv_t *priv = NULL;
 
         priv = this->private;
-        CHANGELOG_NOT_ACTIVE_THEN_GOTO (priv, wind);
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         CHANGELOG_INIT (this, frame->local,
                         loc->inode, loc->inode->gfid, 0);
@@ -917,7 +920,7 @@ changelog_ftruncate (call_frame_t *frame,
         changelog_priv_t *priv = NULL;
 
         priv = this->private;
-        CHANGELOG_NOT_ACTIVE_THEN_GOTO (priv, wind);
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         CHANGELOG_INIT (this, frame->local,
                         fd->inode, fd->inode->gfid, 0);
@@ -962,7 +965,7 @@ changelog_writev (call_frame_t *frame,
         changelog_priv_t *priv = NULL;
 
         priv = this->private;
-        CHANGELOG_NOT_ACTIVE_THEN_GOTO (priv, wind);
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         CHANGELOG_INIT (this, frame->local,
                         fd->inode, fd->inode->gfid, 0);
@@ -1146,6 +1149,14 @@ changelog_init (xlator_t *this, changelog_priv_t *priv)
         priv->maps[CHANGELOG_TYPE_METADATA] = "M ";
         priv->maps[CHANGELOG_TYPE_ENTRY]    = "E ";
 
+        for (; i < CHANGELOG_MAX_TYPE; i++) {
+                /* start with version 1 */
+                priv->slice.changelog_version[i] = 1;
+        }
+
+        if (!priv->active)
+                return ret;
+
         /* spawn the notifier thread */
         ret = changelog_spawn_notifier (this, priv);
         if (ret)
@@ -1162,11 +1173,6 @@ changelog_init (xlator_t *this, changelog_priv_t *priv)
 
         LOCK (&priv->lock);
         {
-                for (; i < CHANGELOG_MAX_TYPE; i++) {
-                        /* start with version 1 */
-                        priv->slice.changelog_version[i] = 1;
-                }
-
                 ret = changelog_inject_single_event (this, priv, &cld);
         }
         UNLOCK (&priv->lock);
@@ -1226,6 +1232,8 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("op-mode", tmp, options, str, out);
         changelog_assign_opmode (priv, tmp);
+
+        tmp = NULL;
 
         GF_OPTION_RECONF ("encoding", tmp, options, str, out);
         changelog_assign_encoding (priv, tmp);
@@ -1342,10 +1350,6 @@ init (xlator_t *this)
                 goto out;
 
         GF_OPTION_INIT ("changelog", priv->active, bool, out);
-        if (!priv->active) {
-                ret = 0;
-                goto out;
-        }
 
         GF_OPTION_INIT ("op-mode", tmp, str, out);
         changelog_assign_opmode (priv, tmp);
@@ -1371,8 +1375,7 @@ init (xlator_t *this)
                 goto out;
 
         priv->changelog_fd = -1;
-        if (priv->active)
-                ret = changelog_init (this, priv);
+        ret = changelog_init (this, priv);
         if (ret)
                 goto out;
 
