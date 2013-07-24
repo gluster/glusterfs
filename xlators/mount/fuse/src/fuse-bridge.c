@@ -761,9 +761,11 @@ fuse_handle_gfiddir_op (xlator_t *this, fuse_state_t *state, void *msg,
 
         case GF_FOP_LINK:
                 ret = fuse_handle_gfiddir_entry_op (state, fop);
+                break;
 
         case GF_FOP_UNLINK:
                 ret = fuse_handle_gfiddir_entry_op (state, fop);
+                break;
 
         default:
                 break;
@@ -4168,6 +4170,7 @@ fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         fuse_state_t            *state    = NULL;
         struct fuse_private     *priv     = NULL;
         int                      rv       = 0;
+        int                     op_errno  = EINVAL;
         char                    *newkey   = NULL;
 
         priv = this->private;
@@ -4187,9 +4190,8 @@ fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         "%"PRIu64": GETXATTR %s/%"PRIu64" (%s):"
                         "refusing positioned getxattr",
                         finh->unique, state->loc.path, finh->nodeid, name);
-                send_fuse_err (this, finh, EINVAL);
-                FREE (finh);
-                return;
+                op_errno = EINVAL;
+                goto err;
         }
 #endif
 
@@ -4202,17 +4204,15 @@ fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         if (!priv->acl) {
                 if ((strcmp (name, "system.posix_acl_access") == 0) ||
                     (strcmp (name, "system.posix_acl_default") == 0)) {
-                        send_fuse_err (this, finh, ENOTSUP);
-                        GF_FREE (finh);
-                        return;
+                        op_errno = ENOTSUP;
+                        goto err;
                 }
         }
 
         if (!priv->selinux) {
                 if (strncmp (name, "security.", 9) == 0) {
-                        send_fuse_err (this, finh, ENODATA);
-                        GF_FREE (finh);
-                        return;
+                        op_errno = ENODATA;
+                        goto err;
                 }
         }
 
@@ -4220,16 +4220,19 @@ fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         rv = fuse_flip_xattr_ns (priv, name, &newkey);
         if (rv) {
-                send_fuse_err (this, finh, ENOMEM);
-                free_fuse_state (state);
-                goto out;
+                op_errno = ENOMEM;
+                goto err;
         }
 
         state->size = fgxi->size;
         state->name = newkey;
 
         fuse_resolve_and_resume (state, fuse_getxattr_resume);
- out:
+
+        return;
+ err:
+        send_fuse_err (this, finh, op_errno);
+        free_fuse_state (state);
         return;
 }
 
