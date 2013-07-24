@@ -294,6 +294,11 @@ struct _xlator_cmdline_option {
 };
 typedef struct _xlator_cmdline_option xlator_cmdline_option_t;
 
+struct _server_cmdline {
+        struct list_head  list;
+        char              *volfile_server;
+};
+typedef struct _server_cmdline server_cmdline_t;
 
 #define GF_OPTION_ENABLE   _gf_true
 #define GF_OPTION_DISABLE  _gf_false
@@ -301,9 +306,12 @@ typedef struct _xlator_cmdline_option xlator_cmdline_option_t;
 
 struct _cmd_args {
         /* basic options */
-        char            *volfile_server;
-        char            *volfile;
-        char            *log_server;
+        char             *volfile_server;
+        server_cmdline_t *curr_server;
+        /* List of backup volfile servers, including original */
+        struct list_head volfile_servers;
+        char             *volfile;
+        char             *log_server;
         gf_loglevel_t    log_level;
         char            *log_file;
         int32_t          max_connect_attempts;
@@ -322,14 +330,14 @@ struct _cmd_args {
         int              enable_ino32;
         int              worm;
         int              mac_compat;
-	int		 fopen_keep_cache;
-	int		 gid_timeout;
+        int              fopen_keep_cache;
+        int              gid_timeout;
         int              aux_gfid_mount;
-	struct list_head xlator_options;  /* list of xlator_option_t */
+        struct list_head xlator_options;  /* list of xlator_option_t */
 
-	/* fuse options */
-	int              fuse_direct_io_mode;
-	char             *use_readdirp;
+        /* fuse options */
+        int              fuse_direct_io_mode;
+        char             *use_readdirp;
         int              volfile_check;
         double           fuse_entry_timeout;
         double           fuse_negative_timeout;
@@ -343,7 +351,7 @@ struct _cmd_args {
         unsigned         uid_map_root;
         int              background_qlen;
         int              congestion_threshold;
-        char            *fuse_mountopts;
+        char             *fuse_mountopts;
 
         /* key args */
         char            *mount_point;
@@ -353,7 +361,6 @@ struct _cmd_args {
         int             brick_port;
         char           *brick_name;
         int             brick_port2;
-
 };
 typedef struct _cmd_args cmd_args_t;
 
