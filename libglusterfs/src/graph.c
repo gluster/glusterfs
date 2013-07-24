@@ -537,6 +537,184 @@ glusterfs_graph_activate (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 
 
 int
+xlator_equal_rec (xlator_t *xl1, xlator_t *xl2)
+{
+        xlator_list_t *trav1 = NULL;
+        xlator_list_t *trav2 = NULL;
+        int            ret   = 0;
+
+        if (xl1 == NULL || xl2 == NULL) {
+                gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
+                return -1;
+        }
+
+        trav1 = xl1->children;
+        trav2 = xl2->children;
+
+        while (trav1 && trav2) {
+                ret = xlator_equal_rec (trav1->xlator, trav2->xlator);
+                if (ret) {
+                        gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
+                                "xlators children not equal");
+                        goto out;
+                }
+
+                trav1 = trav1->next;
+                trav2 = trav2->next;
+        }
+
+        if (trav1 || trav2) {
+                ret = -1;
+                goto out;
+        }
+
+        if (strcmp (xl1->name, xl2->name)) {
+                ret = -1;
+                goto out;
+        }
+
+	/* type could have changed even if xlator names match,
+	   e.g cluster/distrubte and cluster/nufa share the same
+	   xlator name
+	*/
+        if (strcmp (xl1->type, xl2->type)) {
+                ret = -1;
+                goto out;
+        }
+out :
+        return ret;
+}
+
+
+gf_boolean_t
+is_graph_topology_equal (glusterfs_graph_t *graph1, glusterfs_graph_t *graph2)
+{
+        xlator_t    *trav1    = NULL;
+        xlator_t    *trav2    = NULL;
+        gf_boolean_t ret      = _gf_true;
+
+        trav1 = graph1->first;
+        trav2 = graph2->first;
+
+        ret = xlator_equal_rec (trav1, trav2);
+
+        if (ret) {
+                gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
+                        "graphs are not equal");
+                ret = _gf_false;
+                goto out;
+        }
+
+        ret = _gf_true;
+        gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
+                "graphs are equal");
+
+out:
+        return ret;
+}
+
+
+/* Function has 3types of return value 0, -ve , 1
+ *   return 0          =======> reconfiguration of options has succeeded
+ *   return 1          =======> the graph has to be reconstructed and all the xlators should be inited
+ *   return -1(or -ve) =======> Some Internal Error occurred during the operation
+ */
+int
+glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
+                               glusterfs_ctx_t *ctx, const char *oldvolfile)
+{
+        glusterfs_graph_t *oldvolfile_graph = NULL;
+        glusterfs_graph_t *newvolfile_graph = NULL;
+        FILE              *oldvolfile_fp    = NULL;
+        gf_boolean_t      active_graph_found = _gf_true;
+
+        int ret = -1;
+
+        if (!oldvollen) {
+                ret = 1; // Has to call INIT for the whole graph
+                goto out;
+        }
+
+        if (!ctx) {
+                gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
+			"ctx is NULL");
+		goto out;
+	}
+
+        oldvolfile_graph = ctx->active;
+        if (!oldvolfile_graph) {
+                active_graph_found = _gf_false;
+                gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
+                        "glusterfs_ctx->active is NULL");
+
+                oldvolfile_fp = tmpfile ();
+                if (!oldvolfile_fp) {
+                        gf_log ("glusterfsd-mgmt", GF_LOG_ERROR, "Unable to "
+                                "create temporary volfile: (%s)",
+                                strerror (errno));
+                        goto out;
+                }
+
+                fwrite (oldvolfile, oldvollen, 1, oldvolfile_fp);
+                fflush (oldvolfile_fp);
+                if (ferror (oldvolfile_fp)) {
+                        goto out;
+                }
+
+                oldvolfile_graph = glusterfs_graph_construct (oldvolfile_fp);
+                if (!oldvolfile_graph)
+                        goto out;
+        }
+
+        newvolfile_graph = glusterfs_graph_construct (newvolfile_fp);
+        if (!newvolfile_graph) {
+                goto out;
+        }
+
+        if (!is_graph_topology_equal (oldvolfile_graph,
+                                      newvolfile_graph)) {
+
+                ret = 1;
+                gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
+                        "Graph topology not equal(should call INIT)");
+                goto out;
+        }
+
+        gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
+                "Only options have changed in the new "
+                "graph");
+
+        /* */
+        ret = glusterfs_graph_reconfigure (oldvolfile_graph,
+                                           newvolfile_graph);
+        if (ret) {
+                gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
+                        "Could not reconfigure new options in old graph");
+                goto out;
+        }
+
+        ret = 0;
+out:
+        if (oldvolfile_fp)
+                fclose (oldvolfile_fp);
+
+        /*  Do not simply destroy the old graph here. If the oldgraph
+            is constructed here in this function itself instead of getting
+            it from ctx->active (which happens only of ctx->active is NULL),
+            then destroy the old graph. If some i/o is still happening in
+            the old graph and the old graph is obtained from ctx->active,
+            then destroying the graph will cause problems.
+        */
+        if (!active_graph_found && oldvolfile_graph)
+                glusterfs_graph_destroy (oldvolfile_graph);
+        if (newvolfile_graph)
+                glusterfs_graph_destroy (newvolfile_graph);
+
+        return ret;
+}
+
+
+int
 glusterfs_graph_reconfigure (glusterfs_graph_t *oldgraph,
                              glusterfs_graph_t *newgraph)
 {
@@ -562,5 +740,12 @@ glusterfs_graph_reconfigure (glusterfs_graph_t *oldgraph,
 int
 glusterfs_graph_destroy (glusterfs_graph_t *graph)
 {
+        xlator_tree_free (graph->first);
+
+        if (graph) {
+                list_del_init (&graph->list);
+                GF_FREE (graph);
+        }
+
         return 0;
 }

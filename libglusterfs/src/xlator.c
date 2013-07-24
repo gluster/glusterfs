@@ -538,10 +538,26 @@ out:
         return;
 }
 
+int
+xlator_list_destroy (xlator_list_t *list)
+{
+        xlator_list_t *next = NULL;
+
+        while (list) {
+                next = list->next;
+                GF_FREE (list);
+                list = next;
+        }
+
+        return 0;
+}
+
 
 int
 xlator_tree_free (xlator_t *tree)
 {
+        volume_opt_list_t *vol_opt = NULL;
+        volume_opt_list_t *tmp     = NULL;
         xlator_t *trav = tree;
         xlator_t *prev = tree;
 
@@ -552,9 +568,19 @@ xlator_tree_free (xlator_t *tree)
 
         while (prev) {
                 trav = prev->next;
-                dict_destroy (prev->options);
+                if (prev->dlhandle)
+                        dlclose (prev->dlhandle);
+                dict_unref (prev->options);
                 GF_FREE (prev->name);
                 GF_FREE (prev->type);
+                xlator_list_destroy (prev->children);
+                xlator_list_destroy (prev->parents);
+
+                list_for_each_entry_safe (vol_opt, tmp, &prev->volume_options,
+                                          list) {
+                        list_del_init (&vol_opt->list);
+                        GF_FREE (vol_opt);
+                }
                 GF_FREE (prev);
                 prev = trav;
         }
@@ -694,21 +720,6 @@ loc_is_root (loc_t *loc)
         }
         return _gf_false;
 }
-
-int
-xlator_list_destroy (xlator_list_t *list)
-{
-        xlator_list_t *next = NULL;
-
-        while (list) {
-                next = list->next;
-                GF_FREE (list);
-                list = next;
-        }
-
-        return 0;
-}
-
 
 int
 xlator_destroy (xlator_t *xl)
