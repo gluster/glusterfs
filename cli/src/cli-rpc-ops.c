@@ -1894,9 +1894,12 @@ xml_output:
                 }
 
                 size_str = gf_uint64_2human_readable(size);
-                cli_out ("%40s %16"PRIu64 " %13s" " %13"PRIu64 " %13"PRIu64
-                         " %14s %16.2f", node_uuid, files, size_str, lookup,
-                         failures, status, elapsed);
+                
+		if (strcmp (status, "not started")) {
+			cli_out ("%40s %16"PRIu64 " %13s" " %13"PRIu64 " %13"
+				PRIu64 " %14s %16.2f", node_uuid, files, 
+				size_str, lookup, failures, status, elapsed);
+		}
                 GF_FREE(size_str);
 
                 i++;
