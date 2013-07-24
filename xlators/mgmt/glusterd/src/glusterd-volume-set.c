@@ -379,13 +379,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key        = "cluster.nufa",
-          .voltype    = "cluster/distribute",
-          .option     = "!nufa",
-          .type       = NO_DOC,
-          .op_version = 2,
-          .flags      = OPT_FLAG_CLIENT_OPT
-        },
         { .key        = "cluster.rsync-hash-regex",
           .voltype    = "cluster/distribute",
           .type       = NO_DOC,
@@ -401,6 +394,38 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key        = "cluster.dht-xattr-name",
           .voltype    = "cluster/distribute",
           .option     = "xattr-name",
+          .type       = NO_DOC,
+          .op_version = 3,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+
+        /* NUFA xlator options (Distribute special case) */
+        { .key        = "cluster.nufa",
+          .voltype    = "cluster/distribute",
+          .option     = "!nufa",
+          .type       = NO_DOC,
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "cluster.local-volume-name",
+          .voltype    = "cluster/nufa",
+          .option     = "local-volume-name",
+          .type       = NO_DOC,
+          .op_version = 3,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+
+        /* Switch xlator options (Distribute special case) */
+        { .key        = "cluster.switch",
+          .voltype    = "cluster/distribute",
+          .option     = "!switch",
+          .type       = NO_DOC,
+          .op_version = 3,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "cluster.switch-pattern",
+          .voltype    = "cluster/switch",
+          .option     = "pattern.switch.case",
           .type       = NO_DOC,
           .op_version = 3,
           .flags      = OPT_FLAG_CLIENT_OPT

@@ -2316,22 +2316,33 @@ volgen_graph_build_dht_cluster (volgen_graph_t *graph,
         int                     ret                      = -1;
         char                    *decommissioned_children = NULL;
         xlator_t                *dht                     = NULL;
-        char                    *optstr                  = NULL;
-        gf_boolean_t             use_nufa                = _gf_false;
+        char                    *voltype                 = "cluster/distribute";
 
-        if (dict_get_str(volinfo->dict,"cluster.nufa",&optstr) == 0) {
-                /* Keep static analyzers quiet by "using" the value. */
-                ret = gf_string2boolean(optstr,&use_nufa);
+        /* NUFA and Switch section */
+        if (dict_get_str_boolean (volinfo->dict, "cluster.nufa", 0) &&
+            dict_get_str_boolean (volinfo->dict, "cluster.switch", 0)) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "nufa and switch cannot be set together");
+                ret = -1;
+                goto out;
         }
 
+        /* Check for NUFA volume option, and change the voltype */
+        if (dict_get_str_boolean (volinfo->dict, "cluster.nufa", 0))
+                voltype = "cluster/nufa";
+
+        /* Check for switch volume option, and change the voltype */
+        if (dict_get_str_boolean (volinfo->dict, "cluster.switch", 0))
+                voltype = "cluster/switch";
+
         clusters = volgen_graph_build_clusters (graph,  volinfo,
-                                                use_nufa
-                                                        ? "cluster/nufa"
-                                                        : "cluster/distribute",
+                                                voltype,
                                                 "%s-dht",
-                                                child_count, child_count);
+                                                child_count,
+                                                child_count);
         if (clusters < 0)
                 goto out;
+
         dht = first_of (graph);
         ret = _graph_get_decommissioned_children (dht, volinfo,
                                                   &decommissioned_children);
@@ -2425,7 +2436,7 @@ build_distribute:
 
         ret = volgen_graph_build_dht_cluster (graph, volinfo,
                                               dist_count);
-        if (ret)
+        if (ret == -1)
                 goto out;
 
         ret = 0;
@@ -2448,7 +2459,7 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 goto out;
 
         ret = volume_volgen_graph_build_clusters (graph, volinfo);
-        if (ret)
+        if (ret == -1)
                 goto out;
 
         ret = glusterd_volinfo_get_boolean (volinfo, VKEY_FEATURES_QUOTA);
