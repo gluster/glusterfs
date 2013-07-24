@@ -27,6 +27,8 @@ _init ()
     LOG_DEBUG=DEBUG;
     LOG_TRACE=TRACE;
 
+    HOST_NAME_MAX=64;
+
     prefix="@prefix@";
     exec_prefix=@exec_prefix@;
     cmd_line=$(echo "@sbindir@/glusterfs");
@@ -53,51 +55,69 @@ _init ()
     UPDATEDBCONF=/etc/updatedb.conf
 }
 
+parse_backup_volfile_servers ()
+{
+    local server_list=$1
+    local servers=""
+    local new_servers=""
+
+    servers=$(echo ${server_list} | sed 's/\:/ /g')
+    for server in ${servers}; do
+        length=$(echo $server | wc -c)
+        if [ ${length} -gt ${HOST_NAME_MAX} ]; then
+            echo "Hostname:${server} provided is too long.. skipping"
+            continue
+        fi
+        new_servers=$(echo "$new_servers $server")
+    done
+    echo ${new_servers}
+}
+
 start_glusterfs ()
 {
     # lets the comparsion be case insensitive for all strings
 
     if [ -n "$log_level_str" ]; then
-	case "$( echo $log_level_str | tr '[a-z]' '[A-Z]')" in
-	    "ERROR")
-		log_level=$LOG_ERROR;
-		;;
+        case "$( echo $log_level_str | tr '[a-z]' '[A-Z]')" in
+            "ERROR")
+                log_level=$LOG_ERROR;
+                ;;
             "INFO")
                 log_level=$LOG_INFO
                 ;;
-	    "DEBUG")
-		log_level=$LOG_DEBUG;
-		;;
-	    "CRITICAL")
-		log_level=$LOG_CRITICAL;
-		;;
-	    "WARNING")
-		log_level=$LOG_WARNING;
-		;;
-	    "TRACE")
-		log_level=$LOG_TRACE;
-		;;
-	    "NONE")
-		log_level=$LOG_NONE;
-		;;
-	    *)
-		echo "invalid log level $log_level_str, using INFO";
-		log_level=$LOG_INFO;
-		;;
-	esac
+            "DEBUG")
+                log_level=$LOG_DEBUG;
+                ;;
+            "CRITICAL")
+                log_level=$LOG_CRITICAL;
+                ;;
+            "WARNING")
+                log_level=$LOG_WARNING;
+                ;;
+            "TRACE")
+                log_level=$LOG_TRACE;
+                ;;
+            "NONE")
+                log_level=$LOG_NONE;
+                ;;
+            *)
+                echo "invalid log level $log_level_str, using INFO";
+                log_level=$LOG_INFO;
+                ;;
+        esac
     fi
 
 #options without values start here
     if [ -n "$read_only" ]; then
-	cmd_line=$(echo "$cmd_line --read-only");
+        cmd_line=$(echo "$cmd_line --read-only");
     fi
 
     if [ -n "$acl" ]; then
-	cmd_line=$(echo "$cmd_line --acl");
+        cmd_line=$(echo "$cmd_line --acl");
     fi
 
     if [ -n "$selinux" ]; then
-	cmd_line=$(echo "$cmd_line --selinux");
+        cmd_line=$(echo "$cmd_line --selinux");
     fi
 
     if [ -n "$enable_ino32" ]; then
@@ -109,11 +129,11 @@ start_glusterfs ()
     fi
 
     if [ -n "$fopen_keep_cache" ]; then
-	cmd_line=$(echo "$cmd_line --fopen-keep-cache");
+        cmd_line=$(echo "$cmd_line --fopen-keep-cache");
     fi
 
     if [ -n "$volfile_check" ]; then
-	cmd_line=$(echo "$cmd_line --volfile-check");
+        cmd_line=$(echo "$cmd_line --volfile-check");
     fi
 
     if [ -n "$mem_accounting" ]; then
@@ -130,15 +150,15 @@ start_glusterfs ()
     fi
 
     if [ -n "$log_file" ]; then
-	cmd_line=$(echo "$cmd_line --log-file=$log_file");
+        cmd_line=$(echo "$cmd_line --log-file=$log_file");
     fi
 
     if [ -n "$direct_io_mode" ]; then
-	cmd_line=$(echo "$cmd_line --direct-io-mode=$direct_io_mode");
+        cmd_line=$(echo "$cmd_line --direct-io-mode=$direct_io_mode");
     fi
 
     if [ -n "$use_readdirp" ]; then
-	cmd_line=$(echo "$cmd_line --use-readdirp=$use_readdirp");
+        cmd_line=$(echo "$cmd_line --use-readdirp=$use_readdirp");
     fi
 
     if [ -n "$volume_name" ]; then
@@ -158,19 +178,19 @@ start_glusterfs ()
     fi
 
     if [ -n "$gid_timeout" ]; then
-	cmd_line=$(echo "$cmd_line --gid-timeout=$gid_timeout");
+        cmd_line=$(echo "$cmd_line --gid-timeout=$gid_timeout");
     fi
 
     if [ -n "$bg_qlen" ]; then
-	cmd_line=$(echo "$cmd_line --background-qlen=$bg_qlen");
+        cmd_line=$(echo "$cmd_line --background-qlen=$bg_qlen");
     fi
 
     if [ -n "$cong_threshold" ]; then
-	cmd_line=$(echo "$cmd_line --congestion-threshold=$cong_threshold");
+        cmd_line=$(echo "$cmd_line --congestion-threshold=$cong_threshold");
     fi
 
     if [ -n "$fuse_mountopts" ]; then
-	cmd_line=$(echo "$cmd_line --fuse-mountopts=$fuse_mountopts");
+        cmd_line=$(echo "$cmd_line --fuse-mountopts=$fuse_mountopts");
     fi
 
     if [ -n "$xlator_option" ]; then
@@ -184,36 +204,40 @@ start_glusterfs ()
 
     if [ -z "$volfile_loc" ]; then
         if  [ -n "$server_ip" ]; then
+
+            cmd_line=$(echo "$cmd_line --volfile-server=$server_ip");
+
+            if [ -n "$backup_volfile_servers" ]; then
+                servers=$(parse_backup_volfile_servers ${backup_volfile_servers})
+                for i in $(echo ${servers}); do
+                    cmd_line=$(echo "$cmd_line --volfile-server=$i");
+                done
+            fi
+
             if [ -n "$server_port" ]; then
                 cmd_line=$(echo "$cmd_line --volfile-server-port=$server_port");
             fi
-	    if [ -n "$transport" ]; then
+
+            if [ -n "$transport" ]; then
                 cmd_line=$(echo "$cmd_line --volfile-server-transport=$transport");
                 if [ "$transport" = "rdma" ]; then
                     volume_id_rdma=".rdma";
                 fi
             fi
+
             if [ -n "$volume_id" ]; then
                 if [ -n "$volume_id_rdma" ]; then
                     volume_id="$volume_id$volume_id_rdma";
                 fi
                 cmd_line=$(echo "$cmd_line --volfile-id=$volume_id");
             fi
-
-            if [ -n "$backupvolfile_server" ]; then
-                cmd_line1=$(echo "$cmd_line --volfile-server=$backupvolfile_server");
-            fi
-            if [ -n "$volfile_max_fetch_attempts" ]; then
-                cmd_line=$(echo "$cmd_line --volfile-max-fetch-attempts=$volfile_max_fetch_attempts");
-            fi
-	    cmd_line=$(echo "$cmd_line --volfile-server=$server_ip");
         fi
     else
         cmd_line=$(echo "$cmd_line --volfile=$volfile_loc");
     fi
 
     if [ -n "$fuse_mountopts" ]; then
-	cmd_line=$(echo "$cmd_line --fuse-mountopts=$fuse_mountopts");
+        cmd_line=$(echo "$cmd_line --fuse-mountopts=$fuse_mountopts");
     fi
 
     cmd_line=$(echo "$cmd_line $mount_point");
@@ -228,24 +252,8 @@ start_glusterfs ()
         inode="0";
     fi
 
-    # retry the failover
-    # if [ $? != "0" ]; then # <--- TODO: Once glusterfs returns proper error code, change it.
     if [ $inode -ne 1 ]; then
         err=1;
-        if [ -n "$cmd_line1" ]; then
-            cmd_line1=$(echo "$cmd_line1 $mount_point");
-            $cmd_line1;
-            err=0;
-
-            inode=$( ${getinode} $mount_point 2>/dev/null);
-            # this is required if the stat returns error
-            if [ -z "$inode" ]; then
-                inode="0";
-            fi
-            if [ $inode -ne 1 ]; then
-                err=1;
-            fi
-        fi
     fi
 
     if [ $err -eq "1" ]; then
@@ -346,7 +354,7 @@ main ()
                     "acl")              acl=1 ;;
                     "selinux")          selinux=1 ;;
                     "worm")             worm=1 ;;
-		    "fopen-keep-cache")	fopen_keep_cache=1 ;;
+                    "fopen-keep-cache") fopen_keep_cache=1 ;;
                     "enable-ino32")     enable_ino32=1 ;;
                     "mem-accounting")   mem_accounting=1;;
                     "aux-gfid-mount")
@@ -373,19 +381,16 @@ main ()
                             "volume-id")        volume_id=$value ;;
                             "volfile-check")    volfile_check=$value ;;
                             "server-port")      server_port=$value ;;
-                            "fetch-attempts")
-                                volfile_max_fetch_attempts=$value ;;
-                            "backupvolfile-server")
-                                backupvolfile_server=$value ;;
                             "attribute-timeout")
                                 attribute_timeout=$value ;;
                             "entry-timeout")    entry_timeout=$value ;;
                             "negative-timeout")    negative_timeout=$value ;;
-			    "gid-timeout")	gid_timeout=$value ;;
-			    "background-qlen")	bg_qlen=$value ;;
-			    "congestion-threshold")	cong_threshold=$value ;;
-			    "xlator-option")	xlator_option=$xlator_option" "$pair ;;
-			    "fuse-mountopts")	fuse_mountopts=$value ;;
+                            "gid-timeout")   gid_timeout=$value ;;
+                            "background-qlen") bg_qlen=$value ;;
+                            "backup-volfile-servers") backup_volfile_servers=$value ;;
+                            "congestion-threshold")  cong_threshold=$value ;;
+                            "xlator-option")  xlator_option=$xlator_option" "$pair ;;
+                            "fuse-mountopts")  fuse_mountopts=$value ;;
                             "use-readdirp") use_readdirp=$value ;;
                             *)
                                 # Passthru
@@ -418,7 +423,7 @@ main ()
         [ -n "$test_str" ] && {
             volume_id="$test_str";
         }
-	volfile_loc="";
+        volfile_loc="";
     }
 
     #

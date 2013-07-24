@@ -98,10 +98,6 @@ static struct argp_option gf_options[] = {
         {"volfile-server", ARGP_VOLFILE_SERVER_KEY, "SERVER", 0,
          "Server to get the volume file from.  This option overrides "
          "--volfile option"},
-        {"volfile-max-fetch-attempts", ARGP_VOLFILE_MAX_FETCH_ATTEMPTS,
-         "MAX-ATTEMPTS", 0, "Maximum number of connect attempts to server. "
-         "This option should be provided with --volfile-server option"
-         "[default: 1]"},
         {"volfile", ARGP_VOLUME_FILE_KEY, "VOLFILE", 0,
          "File to use as VOLUME_FILE"},
         {"spec-file", ARGP_VOLUME_FILE_KEY, "VOLFILE", OPTION_HIDDEN,
@@ -582,7 +578,58 @@ get_volfp (glusterfs_ctx_t *ctx)
 }
 
 static int
-gf_remember_xlator_option (struct list_head *options, char *arg)
+gf_remember_backup_volfile_server (char *arg)
+{
+        glusterfs_ctx_t         *ctx = NULL;
+        cmd_args_t              *cmd_args = NULL;
+        int                      ret = -1;
+        server_cmdline_t        *server = NULL;
+
+        ctx = glusterfsd_ctx;
+        if (!ctx)
+                goto out;
+        cmd_args = &ctx->cmd_args;
+
+        if(!cmd_args)
+                goto out;
+
+        server = GF_CALLOC (1, sizeof (server_cmdline_t),
+                            gfd_mt_server_cmdline_t);
+        if (!server)
+                goto out;
+
+        INIT_LIST_HEAD(&server->list);
+
+        server->volfile_server = gf_strdup(arg);
+
+        if (!cmd_args->volfile_server) {
+                cmd_args->volfile_server = server->volfile_server;
+                cmd_args->curr_server = server;
+        }
+
+        if (!server->volfile_server) {
+                gf_log ("", GF_LOG_WARNING,
+                        "xlator option %s is invalid", arg);
+                goto out;
+        }
+
+        list_add_tail (&server->list, &cmd_args->volfile_servers);
+
+        ret = 0;
+out:
+        if (ret == -1) {
+                if (server) {
+                        GF_FREE (server->volfile_server);
+                        GF_FREE (server);
+                }
+        }
+
+        return ret;
+
+}
+
+static int
+gf_remember_xlator_option (char *arg)
 {
         glusterfs_ctx_t         *ctx = NULL;
         cmd_args_t              *cmd_args  = NULL;
@@ -673,19 +720,8 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
         switch (key) {
         case ARGP_VOLFILE_SERVER_KEY:
-                cmd_args->volfile_server = gf_strdup (arg);
-                break;
+                gf_remember_backup_volfile_server (arg);
 
-        case ARGP_VOLFILE_MAX_FETCH_ATTEMPTS:
-                n = 0;
-
-                if (gf_string2uint_base10 (arg, &n) == 0) {
-                        cmd_args->max_connect_attempts = n;
-                        break;
-                }
-
-                argp_failure (state, -1, 0,
-                              "Invalid limit on connect attempts %s", arg);
                 break;
 
         case ARGP_READ_ONLY_KEY:
@@ -694,14 +730,12 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
         case ARGP_ACL_KEY:
                 cmd_args->acl = 1;
-		gf_remember_xlator_option (&cmd_args->xlator_options,
-					   "*-md-cache.cache-posix-acl=true");
+                gf_remember_xlator_option ("*-md-cache.cache-posix-acl=true");
                 break;
 
         case ARGP_SELINUX_KEY:
                 cmd_args->selinux = 1;
-		gf_remember_xlator_option (&cmd_args->xlator_options,
-					   "*-md-cache.cache-selinux=true");
+                gf_remember_xlator_option ("*-md-cache.cache-selinux=true");
                 break;
 
         case ARGP_AUX_GFID_MOUNT_KEY:
@@ -906,8 +940,9 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 break;
 
         case ARGP_XLATOR_OPTION_KEY:
-                if (gf_remember_xlator_option (&cmd_args->xlator_options, arg))
-                        argp_failure (state, -1, 0, "invalid xlator option  %s", arg);
+                if (gf_remember_xlator_option (arg))
+                        argp_failure (state, -1, 0, "invalid xlator option  %s",
+                                      arg);
 
                 break;
 
@@ -1297,6 +1332,7 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         cmd_args->fuse_entry_timeout = -1;
 
         INIT_LIST_HEAD (&cmd_args->xlator_options);
+        INIT_LIST_HEAD (&cmd_args->volfile_servers);
 
         lim.rlim_cur = RLIM_INFINITY;
         lim.rlim_max = RLIM_INFINITY;

@@ -2162,8 +2162,6 @@ socket_connect_finish (rpc_transport_t *this)
                                 priv->connect_finish_log = 1;
                         }
                         __socket_disconnect (this);
-                        notify_rpc = 1;
-                        event = RPC_TRANSPORT_DISCONNECT;
                         goto unlock;
                 }
 
