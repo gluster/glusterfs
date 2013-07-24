@@ -1260,11 +1260,14 @@ posix_fsyncer_syncfs (xlator_t *this, struct list_head *head)
 	*/
 #include <sys/syscall.h>
 #include <unistd.h>
+#ifdef SYS_syncfs
 	syscall (SYS_syncfs, pfd->fd);
 #else
 	sync();
 #endif
-
+#else
+        sync();
+#endif
 }
 
 
