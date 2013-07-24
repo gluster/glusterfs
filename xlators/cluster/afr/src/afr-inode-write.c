@@ -139,6 +139,7 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int read_child  = 0;
         int      ret = 0;
         uint32_t open_fd_count = 0;
+        uint32_t write_is_append = 0;
 
         local = frame->local;
 
@@ -173,6 +174,13 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         local->open_fd_count = open_fd_count;
                                         local->update_open_fd_count = _gf_true;
                                 }
+
+				write_is_append = 0;
+                                ret = dict_get_uint32 (xdata,
+                                                       GLUSTERFS_WRITE_IS_APPEND,
+                                                       &write_is_append);
+                                if (ret || !write_is_append)
+					local->append_write = _gf_false;
                         }
 
 			if ((local->success_count == 0) ||
@@ -192,7 +200,13 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (local->update_open_fd_count)
                         afr_handle_open_fd_count (frame, this);
 
-                if (!local->stable_write)
+                if (!local->stable_write && !local->append_write)
+			/* An appended write removes the necessity to
+			   fsync() the file. This is because self-heal
+			   has the logic to check for larger file when
+			   the xattrs are not reliably pointing at
+			   a stale file.
+			*/
                         afr_fd_report_unstable_write (this, local->fd);
 
                 afr_writev_handle_short_writes (frame, this);
@@ -251,6 +265,13 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
         if (xdata) {
                 ret = dict_set_uint32 (xdata, GLUSTERFS_OPEN_FD_COUNT,
                                        sizeof (uint32_t));
+		ret = dict_set_uint32 (xdata, GLUSTERFS_WRITE_IS_APPEND,
+				       0);
+		/* Set append_write to be true speculatively. If on any
+		   server it turns not be true, we unset it in the
+		   callback.
+		*/
+		local->append_write = _gf_true;
         }
 
         for (i = 0; i < priv->child_count; i++) {

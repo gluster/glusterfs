@@ -4487,6 +4487,8 @@ afr_local_init (afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
                 goto out;
         }
 
+	local->append_write = _gf_false;
+
         ret = 0;
 out:
         return ret;

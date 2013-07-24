@@ -496,6 +496,11 @@ typedef struct _afr_local {
 	*/
 	gf_boolean_t      stable_write;
 
+	/* This write appended to the file. Nnot necessarily O_APPEND,
+	   just means the offset of write was at the end of file.
+	*/
+	gf_boolean_t      append_write;
+
         /*
           This struct contains the arguments for the "continuation"
           (scheme-like) of fops
