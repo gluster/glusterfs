@@ -2901,12 +2901,12 @@ glusterd_import_friend_volume (dict_t *vols, size_t count)
                 (void) glusterd_start_bricks (new_volinfo);
         }
 
+        gd_update_volume_op_versions (new_volinfo);
+
         ret = glusterd_store_volinfo (new_volinfo, GLUSTERD_VOLINFO_VER_AC_NONE);
         ret = glusterd_create_volfiles_and_notify_services (new_volinfo);
         if (ret)
                 goto out;
-
-        gd_update_volume_op_versions (new_volinfo);
 
         list_add_tail (&new_volinfo->vol_list, &priv->volumes);
 out:

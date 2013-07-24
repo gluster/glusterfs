@@ -1696,16 +1696,11 @@ static int
 perfxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
                        void *param)
 {
-        char *volname = NULL;
         gf_boolean_t enabled = _gf_false;
-        xlator_t *this = NULL;
-        glusterd_conf_t *conf = NULL;
+        glusterd_volinfo_t *volinfo = NULL;
 
-        this = THIS;
-        GF_ASSERT (this);
-        conf = this->private;
-
-        volname = param;
+        GF_ASSERT (param);
+        volinfo = param;
 
         if (strcmp (vme->option, "!perf") != 0)
                 return 0;
@@ -1718,10 +1713,10 @@ perfxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
         /* Check op-version before adding the 'open-behind' xlator in the graph
          */
         if (!strcmp (vme->key, "performance.open-behind") &&
-            (vme->op_version > conf->op_version))
+            (vme->op_version > volinfo->client_op_version))
                 return 0;
 
-        if (volgen_graph_add (graph, vme->voltype, volname))
+        if (volgen_graph_add (graph, vme->voltype, volinfo->volname))
                 return 0;
         else
                 return -1;
@@ -2472,7 +2467,7 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
            default for a volume */
         tmp_data = dict_get (set_dict, "nfs-volume-file");
         if (!tmp_data)
-                ret = volgen_graph_set_options_generic (graph, set_dict, volname,
+                ret = volgen_graph_set_options_generic (graph, set_dict, volinfo,
                                                         &perfxl_option_handler);
         else
                 ret = volgen_graph_set_options_generic (graph, set_dict, volname,
