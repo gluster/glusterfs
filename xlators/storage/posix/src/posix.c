@@ -2199,7 +2199,7 @@ err:
 }
 
 dict_t*
-_fill_open_fd_count (fd_t *fd, dict_t *xdata, xlator_t *this)
+_fill_writev_xdata (fd_t *fd, dict_t *xdata, xlator_t *this, int is_append)
 {
         dict_t  *rsp_xdata = NULL;
         int32_t ret = 0;
@@ -2229,6 +2229,14 @@ _fill_open_fd_count (fd_t *fd, dict_t *xdata, xlator_t *this)
                         "dictionary value for %s", uuid_utoa (fd->inode->gfid),
                         GLUSTERFS_OPEN_FD_COUNT);
         }
+
+        ret = dict_set_uint32 (rsp_xdata, GLUSTERFS_WRITE_IS_APPEND,
+                               is_append);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING, "%s: Failed to set "
+                        "dictionary value for %s", uuid_utoa (fd->inode->gfid),
+                        GLUSTERFS_WRITE_IS_APPEND);
+        }
 out:
         return rsp_xdata;
 }
@@ -2247,6 +2255,8 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         struct iatt            postop    = {0,};
         int                      ret      = -1;
         dict_t                *rsp_xdata = NULL;
+	int                    is_append = 0;
+	gf_boolean_t           locked = _gf_false;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -2268,6 +2278,17 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         _fd = pfd->fd;
 
+	if (xdata && dict_get (xdata, GLUSTERFS_WRITE_IS_APPEND)) {
+		/* The write_is_append check and write must happen
+		   atomically. Else another write can overtake this
+		   write after the check and get written earlier.
+
+		   So lock before preop-stat and unlock after write.
+		*/
+		locked = _gf_true;
+		LOCK(&fd->inode->lock);
+	}
+
         op_ret = posix_fdstat (this, _fd, &preop);
         if (op_ret == -1) {
                 op_errno = errno;
@@ -2277,8 +2298,19 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto out;
         }
 
+	if (locked) {
+		if (preop.ia_size == offset || (fd->flags & O_APPEND))
+			is_append = 1;
+	}
+
         op_ret = __posix_writev (_fd, vector, count, offset,
                                  (pfd->flags & O_DIRECT));
+
+	if (locked) {
+		UNLOCK (&fd->inode->lock);
+		locked = _gf_false;
+	}
+
         if (op_ret < 0) {
                 op_errno = -op_ret;
                 op_ret = -1;
@@ -2294,7 +2326,7 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         UNLOCK (&priv->lock);
 
         if (op_ret >= 0) {
-                rsp_xdata = _fill_open_fd_count (fd, xdata, this);
+                rsp_xdata = _fill_writev_xdata (fd, xdata, this, is_append);
                 /* wiretv successful, we also need to get the stat of
                  * the file we wrote to
                  */
@@ -2323,6 +2355,11 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
 
 out:
+
+	if (locked) {
+		UNLOCK (&fd->inode->lock);
+		locked = _gf_false;
+	}
 
         STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, &preop, &postop,
                              rsp_xdata);
