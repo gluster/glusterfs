@@ -2592,9 +2592,11 @@ afr_flush_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         int           i      = 0;
         afr_local_t   *local = NULL;
         afr_private_t *priv  = NULL;
+        int call_count       = -1;
 
         priv = this->private;
         local = frame->local;
+        call_count = local->call_count;
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
@@ -2603,6 +2605,9 @@ afr_flush_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
                                            priv->children[i],
                                            priv->children[i]->fops->flush,
                                            local->fd, NULL);
+                        if (!--call_count)
+                                break;
+
                 }
         }
 
