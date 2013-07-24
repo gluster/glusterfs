@@ -932,5 +932,9 @@ enum gf_hdsk_event_notify_op {
         GF_EN_DEFRAG_STATUS,
         GF_EN_MAX,
 };
-
+gf_boolean_t
+is_graph_topology_equal (glusterfs_graph_t *graph1, glusterfs_graph_t *graph2);
+int
+glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
+                               glusterfs_ctx_t *ctx, const char *oldvolfile);
 #endif /* _XLATOR_H */

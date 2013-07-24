@@ -482,6 +482,7 @@ preprocess (FILE *srcfp, FILE *dstfp)
 					cmd_buf_size *= 2;
 					cmd = GF_REALLOC (cmd, cmd_buf_size);
                                         if (cmd == NULL) {
+                                                GF_FREE (result);
                                                 return -1;
                                         }
 
@@ -523,6 +524,7 @@ preprocess (FILE *srcfp, FILE *dstfp)
 out:
 	fseek (srcfp, 0L, SEEK_SET);
 	fseek (dstfp, 0L, SEEK_SET);
+
 	GF_FREE (cmd);
 	GF_FREE (result);
 
