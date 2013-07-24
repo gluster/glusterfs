@@ -1154,8 +1154,9 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
                 _delete_reconfig_opt (volinfo->dict, key, value, is_force);
         }
 
-        ret = glusterd_create_volfiles_and_notify_services (volinfo);
+        gd_update_volume_op_versions (volinfo);
 
+        ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to create volfile for"
                         " 'volume set'");
@@ -1327,8 +1328,6 @@ glusterd_op_reset_volume (dict_t *dict, char **op_errstr)
                 gf_asprintf(op_errstr, "'%s' is protected. To reset use 'force'.",
                             key);
         }
-
-        gd_update_volume_op_versions (volinfo);
 
 out:
         GF_FREE (key_fixed);
@@ -1633,6 +1632,7 @@ glusterd_op_set_volume (dict_t *dict)
         }
 
         if (!global_opt) {
+                gd_update_volume_op_versions (volinfo);
                 ret = glusterd_create_volfiles_and_notify_services (volinfo);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -1654,11 +1654,11 @@ glusterd_op_set_volume (dict_t *dict)
                                 goto out;
                         }
                 }
-                gd_update_volume_op_versions (volinfo);
 
         } else {
                 list_for_each_entry (voliter, &priv->volumes, vol_list) {
                         volinfo = voliter;
+                        gd_update_volume_op_versions (volinfo);
                         ret = glusterd_create_volfiles_and_notify_services (volinfo);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -1681,7 +1681,6 @@ glusterd_op_set_volume (dict_t *dict)
                                         goto out;
                                 }
                         }
-                        gd_update_volume_op_versions (volinfo);
                 }
         }
 
