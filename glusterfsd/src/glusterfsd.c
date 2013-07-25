@@ -108,7 +108,7 @@ static struct argp_option gf_options[] = {
 
         {"log-level", ARGP_LOG_LEVEL_KEY, "LOGLEVEL", 0,
          "Logging severity.  Valid options are DEBUG, INFO, WARNING, ERROR, "
-         "CRITICAL and NONE [default: INFO]"},
+         "CRITICAL, TRACE and NONE [default: INFO]"},
         {"log-file", ARGP_LOG_FILE_KEY, "LOGFILE", 0,
          "File to use for logging [default: "
          DEFAULT_LOG_FILE_DIRECTORY "/" PACKAGE_NAME ".log" "]"},
