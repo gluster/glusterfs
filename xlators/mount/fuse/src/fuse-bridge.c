@@ -450,7 +450,7 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": %s() %s => %"PRId64,
+                        "%"PRIu64": %s() %s => %"PRIu64,
                         frame->root->unique, gf_fop_list[frame->root->op],
                         state->loc.path, buf->ia_ino);
 
@@ -987,7 +987,7 @@ fuse_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": %s() %s => %"PRId64, frame->root->unique,
+                        "%"PRIu64": %s() %s => %"PRIu64, frame->root->unique,
                         gf_fop_list[frame->root->op],
                         state->loc.path ? state->loc.path : "ERR",
                         prebuf->ia_ino);
@@ -1042,7 +1042,7 @@ fuse_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    state->loc.inode ? uuid_utoa (state->loc.inode->gfid) : "");
         if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": %s() %s => %"PRId64, frame->root->unique,
+                        "%"PRIu64": %s() %s => %"PRIu64, frame->root->unique,
                         gf_fop_list[frame->root->op],
                         state->loc.path ? state->loc.path : "ERR",
                         buf->ia_ino);
@@ -1350,7 +1350,7 @@ fuse_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": %s() %s => %"PRId64, frame->root->unique,
+                        "%"PRIu64": %s() %s => %"PRIu64, frame->root->unique,
                         gf_fop_list[frame->root->op],
                         state->loc.path ? state->loc.path : "ERR",
                         statpost->ia_ino);
@@ -1771,7 +1771,7 @@ fuse_mknod_resume (fuse_state_t *state)
 
         if (!state->loc.parent) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                        "MKNOD %"PRId64"/%s (%s/%s) resolution failed",
+                        "MKNOD %"PRIu64"/%s (%s/%s) resolution failed",
                         state->finh->nodeid, state->resolve.bname,
                         uuid_utoa (state->resolve.gfid), state->resolve.bname);
                 send_fuse_err (state->this, state->finh, ENOENT);
@@ -1860,7 +1860,7 @@ fuse_mkdir_resume (fuse_state_t *state)
 {
         if (!state->loc.parent) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                        "MKDIR %"PRId64" (%s/%s) resolution failed",
+                        "MKDIR %"PRIu64" (%s/%s) resolution failed",
                         state->finh->nodeid, uuid_utoa (state->resolve.gfid),
                         state->resolve.bname);
                 send_fuse_err (state->this, state->finh, ENOENT);
@@ -1922,7 +1922,7 @@ fuse_unlink_resume (fuse_state_t *state)
 {
         if (!state->loc.parent || !state->loc.inode) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                        "UNLINK %"PRId64" (%s/%s) resolution failed",
+                        "UNLINK %"PRIu64" (%s/%s) resolution failed",
                         state->finh->nodeid, uuid_utoa (state->resolve.gfid),
                         state->resolve.bname);
                 send_fuse_err (state->this, state->finh, ENOENT);
@@ -1967,7 +1967,7 @@ fuse_rmdir_resume (fuse_state_t *state)
 {
         if (!state->loc.parent || !state->loc.inode) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                        "RMDIR %"PRId64" (%s/%s) resolution failed",
+                        "RMDIR %"PRIu64" (%s/%s) resolution failed",
                         state->finh->nodeid, uuid_utoa (state->resolve.gfid),
                         state->resolve.bname);
                 send_fuse_err (state->this, state->finh, ENOENT);
@@ -2013,7 +2013,7 @@ fuse_symlink_resume (fuse_state_t *state)
 {
         if (!state->loc.parent) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                        "SYMLINK %"PRId64" (%s/%s) -> %s resolution failed",
+                        "SYMLINK %"PRIu64" (%s/%s) -> %s resolution failed",
                         state->finh->nodeid, uuid_utoa (state->resolve.gfid),
                         state->resolve.bname, state->name);
                 send_fuse_err (state->this, state->finh, ENOENT);
@@ -2088,7 +2088,7 @@ fuse_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": %s -> %s => 0 (buf->ia_ino=%"PRId64")",
+                        "%"PRIu64": %s -> %s => 0 (buf->ia_ino=%"PRIu64")",
                         frame->root->unique, state->loc.path, state->loc2.path,
                         buf->ia_ino);
 
@@ -2281,7 +2281,7 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         foo.open_flags |= FOPEN_DIRECT_IO;
 
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": %s() %s => %p (ino=%"PRId64")",
+                        "%"PRIu64": %s() %s => %p (ino=%"PRIu64")",
                         frame->root->unique, gf_fop_list[frame->root->op],
                         state->loc.path, fd, buf->ia_ino);
 
@@ -2540,7 +2540,7 @@ fuse_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret >= 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": READ => %d/%"GF_PRI_SIZET",%"PRId64"/%"PRId64,
+                        "%"PRIu64": READ => %d/%"GF_PRI_SIZET",%"PRId64"/%"PRIu64,
                         frame->root->unique,
                         op_ret, state->size, state->off, stbuf->ia_size);
 
@@ -2626,7 +2626,7 @@ fuse_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret >= 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": WRITE => %d/%"GF_PRI_SIZET",%"PRId64"/%"PRId64,
+                        "%"PRIu64": WRITE => %d/%"GF_PRI_SIZET",%"PRId64"/%"PRIu64,
                         frame->root->unique,
                         op_ret, state->size, state->off, stbuf->ia_size);
 
@@ -2668,7 +2668,7 @@ fuse_write_resume (fuse_state_t *state)
         iobref_add (iobref, iobuf);
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                "%"PRIu64": WRITE (%p, size=%"PRId64", offset=%"PRId64")",
+                "%"PRIu64": WRITE (%p, size=%"GF_PRI_SIZET", offset=%"PRId64")",
                 state->finh->unique, state->fd, state->size, state->off);
 
         FUSE_FOP (state, fuse_writev_cbk, GF_FOP_WRITE, writev, state->fd,
@@ -3017,7 +3017,7 @@ void
 fuse_readdir_resume (fuse_state_t *state)
 {
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                "%"PRIu64": READDIR (%p, size=%zu, offset=%"PRId64")",
+                "%"PRIu64": READDIR (%p, size=%"GF_PRI_SIZET", offset=%"PRId64")",
                 state->finh->unique, state->fd, state->size, state->off);
 
         FUSE_FOP (state, fuse_readdir_cbk, GF_FOP_READDIR,
@@ -3155,7 +3155,7 @@ void
 fuse_readdirp_resume (fuse_state_t *state)
 {
 	gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-		"%"PRIu64": READDIRP (%p, size=%zu, offset=%"PRId64")",
+		"%"PRIu64": READDIRP (%p, size=%"GF_PRI_SIZET", offset=%"PRId64")",
 		state->finh->unique, state->fd, state->size, state->off);
 
 	FUSE_FOP (state, fuse_readdirp_cbk, GF_FOP_READDIRP,
