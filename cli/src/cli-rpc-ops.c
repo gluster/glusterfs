@@ -4302,8 +4302,6 @@ gf_cli_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
         char                    *slave  = NULL;
         int32_t                  type   = 0;
         call_frame_t            *frame  = NULL;
-        gf_boolean_t             is_force = _gf_false;
-
 
         if (req->rpc_status == -1) {
                 ret = -1;
@@ -4340,9 +4338,7 @@ gf_cli_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        is_force = dict_get_str_boolean (dict, "force", _gf_false);
-
-        if (rsp.op_ret && !is_force) {
+        if (rsp.op_ret) {
                 cli_err ("%s", rsp.op_errstr ? rsp.op_errstr :
                          GEOREP" command unsuccessful");
                 ret = rsp.op_ret;
