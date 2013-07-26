@@ -871,23 +871,115 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                                             __glusterd_handle_remove_brick);
 }
 
+static int
+_glusterd_restart_gsync_session (dict_t *this, char *key,
+                                 data_t *value, void *data)
+{
+        char                          *slave      = NULL;
+        char                          *slave_buf  = NULL;
+        char                          *path_list  = NULL;
+        char                          *slave_vol  = NULL;
+        char                          *slave_ip   = NULL;
+        char                          *conf_path  = NULL;
+        int                            ret        = -1;
+        glusterd_gsync_status_temp_t  *param      = NULL;
+        gf_boolean_t                   is_running = _gf_false;
+
+        param = (glusterd_gsync_status_temp_t *)data;
+
+        GF_ASSERT (param);
+        GF_ASSERT (param->volinfo);
+
+        slave = strchr(value->data, ':');
+        if (slave) {
+                slave++;
+                slave_buf = gf_strdup (slave);
+                if (!slave_buf) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Failed to gf_strdup");
+                        ret = -1;
+                        goto out;
+                }
+        }
+        else
+                return 0;
+
+        ret = dict_set_dynstr (param->rsp_dict, "slave", slave_buf);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Unable to store slave");
+                if (slave_buf)
+                        GF_FREE(slave_buf);
+                goto out;
+        }
+
+        ret = glusterd_get_slave_details_confpath (param->volinfo,
+                                                   param->rsp_dict,
+                                                   &slave_ip, &slave_vol,
+                                                   &conf_path);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Unable to fetch slave or confpath details.");
+                goto out;
+        }
+
+        /* In cases that gsyncd is not running, we will not invoke it
+         * because of add-brick. */
+        ret = glusterd_check_gsync_running_local (param->volinfo->volname,
+                                                  slave, conf_path,
+                                                  &is_running);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "gsync running validation failed.");
+                goto out;
+        }
+        if (_gf_false == is_running) {
+                gf_log ("", GF_LOG_DEBUG, "gsync session for %s and %s is"
+                        " not running on this node. Hence not restarting.",
+                        param->volinfo->volname, slave);
+                ret = 0;
+                goto out;
+        }
+
+        ret = glusterd_get_local_brickpaths (param->volinfo, &path_list);
+        if (!path_list) {
+                gf_log ("", GF_LOG_DEBUG, "This node not being part of"
+                        " volume should not be running gsyncd. Hence"
+                        " no gsyncd process to restart.");
+                ret = 0;
+                goto out;
+        }
+
+        ret = glusterd_check_restart_gsync_session (param->volinfo, slave,
+                                                    param->rsp_dict, path_list,
+                                                    conf_path, 0);
+        if (ret)
+                gf_log ("", GF_LOG_ERROR,
+                        "Unable to restart gsync session.");
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d.", ret);
+        return ret;
+}
+
 /* op-sm */
 
 int
 glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                                 char  *bricks, dict_t *dict)
 {
-        glusterd_brickinfo_t *brickinfo     = NULL;
-        char                 *brick         = NULL;
-        int32_t               i             = 1;
-        char                 *brick_list    = NULL;
-        char                 *free_ptr1     = NULL;
-        char                 *free_ptr2     = NULL;
-        char                 *saveptr       = NULL;
-        int32_t               ret           = -1;
-        int32_t               stripe_count  = 0;
-        int32_t               replica_count = 0;
-        int32_t               type          = 0;
+        char                         *brick          = NULL;
+        int32_t                       i              = 1;
+        char                         *brick_list     = NULL;
+        char                         *free_ptr1      = NULL;
+        char                         *free_ptr2      = NULL;
+        char                         *saveptr        = NULL;
+        int32_t                       ret            = -1;
+        int32_t                       stripe_count   = 0;
+        int32_t                       replica_count  = 0;
+        int32_t                       type           = 0;
+        glusterd_brickinfo_t         *brickinfo      = NULL;
+        glusterd_gsync_status_temp_t  param          = {0, };
+        gf_boolean_t                  restart_needed = 0;
 
         GF_ASSERT (volinfo);
 
@@ -970,11 +1062,19 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                 brick = strtok_r (brick_list+1, " \n", &saveptr);
 
         while (i <= count) {
-
                 ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
                                                               &brickinfo);
                 if (ret)
                         goto out;
+
+                if (uuid_is_null (brickinfo->uuid)) {
+                        ret = glusterd_resolve_brick (brickinfo);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR, FMTSTR_RESOLVE_BRICK,
+                                        brickinfo->hostname, brickinfo->path);
+                                goto out;
+                        }
+                }
 
                 ret = glusterd_brick_start (volinfo, brickinfo,
                                             _gf_true);
@@ -982,6 +1082,25 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                         goto out;
                 i++;
                 brick = strtok_r (NULL, " \n", &saveptr);
+
+                /* Check if the brick is added in this node, and set
+                 * the restart_needed flag. */
+                if ((!uuid_compare (brickinfo->uuid, MY_UUID)) &&
+                    !restart_needed) {
+                        restart_needed = 1;
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Restart gsyncd session, if it's already "
+                                "running.");
+                }
+        }
+
+        /* If the restart_needed flag is set, restart gsyncd sessions for that
+         * particular master with all the slaves. */
+        if (restart_needed) {
+                param.rsp_dict = dict;
+                param.volinfo = volinfo;
+                dict_foreach (volinfo->gsync_slaves,
+                              _glusterd_restart_gsync_session, &param);
         }
 
 out:
