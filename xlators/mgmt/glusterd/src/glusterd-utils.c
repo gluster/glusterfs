@@ -6154,6 +6154,7 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
         uint64_t                        lookup = 0;
         gf_defrag_status_t              status = GF_DEFRAG_STATUS_NOT_STARTED;
         uint64_t                        failures = 0;
+        uint64_t                        skipped = 0;
         xlator_t                       *this = NULL;
         double                          run_time = 0;
 
@@ -6184,6 +6185,11 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
                 gf_log (this->name, GF_LOG_TRACE,
                         "failed to get failure count");
 
+        ret = dict_get_uint64 (rsp_dict, "skipped", &skipped);
+        if (ret)
+                gf_log (this->name, GF_LOG_TRACE,
+                        "failed to get skipped count");
+
         ret = dict_get_double (rsp_dict, "run-time", &run_time);
         if (ret)
                 gf_log (this->name, GF_LOG_TRACE,
@@ -6199,6 +6205,8 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
                 volinfo->rebal.defrag_status = status;
         if (failures)
                 volinfo->rebal.rebalance_failures = failures;
+        if (skipped)
+                volinfo->rebal.skipped_files = skipped;
         if (run_time)
                 volinfo->rebal.rebalance_time = run_time;
 
@@ -6930,6 +6938,18 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         }
 
         memset (key, 0, 256);
+        snprintf (key, 256, "skipped-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "skipped-%d", current_index);
+                ret = dict_set_uint64 (ctx_dict, key, value);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set skipped count");
+                }
+        }
+        memset (key, 0, 256);
         snprintf (key, 256, "run-time-%d", index);
         ret = dict_get_double (rsp_dict, key, &elapsed_time);
         if (!ret) {
@@ -7346,6 +7366,13 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
         if (ret)
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "failed to set failure count");
+
+        memset (key, 0 , 256);
+        snprintf (key, 256, "skipped-%d", i);
+        ret = dict_set_uint64 (op_ctx, key, volinfo->rebal.skipped_files);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to set skipped count");
 
         memset (key, 0, 256);
         snprintf (key, 256, "run-time-%d", i);

@@ -1101,6 +1101,7 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         struct timeval           end            = {0,};
         double                   elapsed        = {0,};
         struct timeval           start          = {0,};
+        int32_t                  err            = 0;
 
         gf_log (this->name, GF_LOG_INFO, "migrate data called on %s",
                 loc->path);
@@ -1258,9 +1259,21 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         ret = syncop_setxattr (this, &entry_loc, migrate_data,
                                                0);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR, "migrate-data"
-                                        " failed for %s", entry_loc.path);
-                                defrag->total_failures +=1;
+                                err = op_errno;
+                                /* errno is overloaded. See
+                                 * rebalance_task_completion () */
+                                if (err != ENOSPC) {
+                                        gf_log (this->name, GF_LOG_DEBUG,
+                                                "migrate-data skipped for %s"
+                                                " due to space constraints",
+                                                entry_loc.path);
+                                        defrag->skipped +=1;
+                                } else{
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "migrate-data failed for %s",
+                                                entry_loc.path);
+                                        defrag->total_failures +=1;
+                                }
                         }
 
                         if (ret == -1) {
@@ -1659,6 +1672,7 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
         uint64_t size   = 0;
         uint64_t lookup = 0;
         uint64_t failures = 0;
+        uint64_t skipped = 0;
         char     *status = "";
         double   elapsed = 0;
         struct timeval end = {0,};
@@ -1675,6 +1689,7 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
         size   = defrag->total_data;
         lookup = defrag->num_files_lookedup;
         failures = defrag->total_failures;
+        skipped = defrag->skipped;
 
         gettimeofday (&end, NULL);
 
@@ -1698,6 +1713,7 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
                 gf_log (THIS->name, GF_LOG_WARNING,
                         "failed to set lookedup file count");
 
+
         ret = dict_set_int32 (dict, "status", defrag->defrag_status);
         if (ret)
                 gf_log (THIS->name, GF_LOG_WARNING,
@@ -1710,6 +1726,14 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
         }
 
         ret = dict_set_uint64 (dict, "failures", failures);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "failed to set failure count");
+
+        ret = dict_set_uint64 (dict, "skipped", skipped);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "failed to set skipped file count");
 log:
         switch (defrag->defrag_status) {
         case GF_DEFRAG_STATUS_NOT_STARTED:
@@ -1732,8 +1756,8 @@ log:
         gf_log (THIS->name, GF_LOG_INFO, "Rebalance is %s. Time taken is %.2f "
                 "secs", status, elapsed);
         gf_log (THIS->name, GF_LOG_INFO, "Files migrated: %"PRIu64", size: %"
-                PRIu64", lookups: %"PRIu64", failures: %"PRIu64, files, size,
-                lookup, failures);
+                PRIu64", lookups: %"PRIu64", failures: %"PRIu64", skipped: "
+                "%"PRIu64, files, size, lookup, failures, skipped);
 
 
 out:
