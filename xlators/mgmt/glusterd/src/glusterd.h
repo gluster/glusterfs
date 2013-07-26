@@ -237,6 +237,7 @@ struct glusterd_rebalance_ {
         uint64_t                rebalance_files;
         uint64_t                rebalance_data;
         uint64_t                lookedup_files;
+        uint64_t                skipped_files;
         glusterd_defrag_info_t  *defrag;
         gf_cli_defrag_type      defrag_cmd;
         uint64_t                rebalance_failures;

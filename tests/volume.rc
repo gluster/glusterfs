@@ -27,11 +27,11 @@ function volume_option()
 }
 
 function rebalance_status_field {
-        $CLI volume rebalance $1 status | awk '{print $6}' | sed -n 3p
+        $CLI volume rebalance $1 status | awk '{print $7}' | sed -n 3p
 }
 
 function remove_brick_status_completed_field {
-        $CLI volume remove-brick $V0 $H0:$B0/r2d2_{4,5} status | awk '{print $6}' | sed -n 3p
+        $CLI volume remove-brick $V0 $H0:$B0/r2d2_{4,5} status | awk '{print $7}' | sed -n 3p
 }
 
 function get_mount_process_pid {

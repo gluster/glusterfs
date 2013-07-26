@@ -227,6 +227,7 @@ struct gf_defrag_info_ {
         uint64_t                     total_data;
         uint64_t                     num_files_lookedup;
         uint64_t                     total_failures;
+        uint64_t                     skipped;
         gf_lock_t                    lock;
         int                          cmd;
         pthread_t                    th;
