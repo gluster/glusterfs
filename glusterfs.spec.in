@@ -35,6 +35,10 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@tar.gz --without syslog
 %{?_without_syslog:%global _without_syslog --disable-syslog}
 
+# if you wish to compile an rpm without the BD map support...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without bd
+%{?_without_bd:%global _without_bd --disable-bd-xlator}
+
 %if ( 0%{?fedora} && 0%{?fedora} > 16 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
 %global           _with_systemd true
 %endif
@@ -111,7 +115,9 @@ BuildRequires:    systemtap-sdt-devel
 BuildRequires:    python-devel
 BuildRequires:    python-ctypes
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
+%if ( 0%{!?_without_bd:1} )
 BuildRequires:    lvm2-devel
+%endif
 %endif
 
 Obsoletes:        hekafs <= 0.7
@@ -327,7 +333,7 @@ This package provides the api include files.
 
 %build
 ./autogen.sh
-%configure %{?_without_rdma} %{?_without_epoll} %{?_without_fusermount} %{?_without_georeplication} %{?_without_ocf} %{?_without_syslog}
+%configure %{?_without_rdma} %{?_without_epoll} %{?_without_fusermount} %{?_without_georeplication} %{?_without_ocf} %{?_without_syslog} %{?_without_bd}
 
 # fix hardening and remove rpath in shlibs
 %if ( 0%{?fedora} && 0%{?fedora} > 17 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
@@ -690,6 +696,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Thu Jul 25 2013 Harshavardhana <fharshav@redhat.com>
+- Allow to build with '--without bd' to disable 'bd' xlator
+
 * Thu Jun 27 2013 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - fix the hardening fix for shlibs, use %{__sed} macro, shorter ChangeLog
 
