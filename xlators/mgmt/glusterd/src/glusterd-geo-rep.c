@@ -33,11 +33,6 @@ glusterd_get_statefile_name (glusterd_volinfo_t *volinfo, char *slave,
                              char *conf_path, char **statefile);
 
 static int
-glusterd_get_slave_details_confpath (glusterd_volinfo_t *volinfo, dict_t *dict,
-                                     char **slave_ip, char **slave_vol,
-                                     char **conf_path);
-
-static int
 glusterd_get_slave_info (dict_t *dict, char **slave_ip, char **slave_vol);
 
 static int
@@ -1031,7 +1026,7 @@ glusterd_gsync_get_uuid (char *slave, glusterd_volinfo_t *vol,
         return ret;
 }
 
-static int
+int
 glusterd_check_gsync_running_local (char *master, char *slave,
                                     char *conf_path,
                                     gf_boolean_t *is_run)
@@ -2159,11 +2154,6 @@ out:
 }
 
 static int
-glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave,
-                                      dict_t *resp_dict, char *path_list,
-                                      char *conf_path, gf_boolean_t is_force);
-
-static int
 glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
                           char *path_list, dict_t *dict,
                           dict_t *resp_dict, char **op_errstr)
@@ -2569,7 +2559,7 @@ glusterd_read_status_file (glusterd_volinfo_t *volinfo, char *slave,
         return 0;
 }
 
-static int
+int
 glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave,
                                       dict_t *resp_dict, char *path_list,
                                       char *conf_path, gf_boolean_t is_force)
@@ -3394,7 +3384,7 @@ out:
         return ret;
 }
 
-static int
+int
 glusterd_get_slave_details_confpath (glusterd_volinfo_t *volinfo, dict_t *dict,
                                      char **slave_ip, char **slave_vol,
                                      char **conf_path)

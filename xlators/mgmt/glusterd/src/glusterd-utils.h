@@ -549,4 +549,20 @@ gf_boolean_t
 glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
                                struct list_head *peers,
                                char **down_peerstr);
+
+int
+glusterd_get_slave_details_confpath (glusterd_volinfo_t *volinfo, dict_t *dict,
+                                     char **slave_ip, char **slave_vol,
+                                     char **conf_path);
+
+int
+glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave,
+                                      dict_t *resp_dict, char *path_list,
+                                      char *conf_path, gf_boolean_t is_force);
+
+int
+glusterd_check_gsync_running_local (char *master, char *slave,
+                                    char *conf_path,
+                                    gf_boolean_t *is_run);
+
 #endif
