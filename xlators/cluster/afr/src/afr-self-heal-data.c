@@ -727,6 +727,64 @@ out:
         return ret;
 }
 
+char*
+afr_get_sizes_str (struct iatt *bufs, xlator_t *this)
+{
+        afr_private_t *priv = NULL;
+        int           i     = 0;
+        char          num[128] = {0};
+        size_t        len = 0;
+        char          *sizes_str = NULL;
+        size_t        off = 0;
+        char          *fmt_str = "%llu ";
+
+        priv = this->private;
+        for (i = 0; i < priv->child_count; i++) {
+                len += snprintf (num, sizeof (num), fmt_str,
+                                 (unsigned long long) bufs[i].ia_size);
+        }
+
+        len++;//for '\0'
+        sizes_str = GF_CALLOC (len, sizeof (char), gf_common_mt_char);
+        if (!sizes_str)
+                return NULL;
+
+        for (i = 0; i < priv->child_count; i++) {
+                off += snprintf (sizes_str + off, len - off, fmt_str,
+                                 (unsigned long long) bufs[i].ia_size);
+        }
+        return sizes_str;
+}
+
+void
+afr_set_data_sh_info_str (afr_self_heal_t *sh, xlator_t *this)
+{
+        char            *pending_matrix_str = NULL;
+        char            *sizes_str = NULL;
+        afr_private_t   *priv = NULL;
+
+        priv = this->private;
+
+        pending_matrix_str = afr_get_pending_matrix_str (sh->pending_matrix,
+                                                         this);
+        if (!pending_matrix_str)
+                pending_matrix_str = "";
+
+        sizes_str = afr_get_sizes_str (sh->buf, this);
+        if (!sizes_str)
+                sizes_str = "";
+
+        gf_asprintf (&sh->data_sh_info, " from %s with %s sizes %s",
+                     priv->children[sh->source]->name, sizes_str,
+                     pending_matrix_str);
+
+        if (pending_matrix_str && strcmp (pending_matrix_str, ""))
+                GF_FREE (pending_matrix_str);
+
+        if (sizes_str && strcmp (sizes_str, ""))
+                GF_FREE (sizes_str);
+}
+
 void
 afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 {
@@ -847,6 +905,7 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
                 }
                 afr_sh_data_setattr (frame, this, &sh->buf[tstamp_source]);
         } else {
+                afr_set_data_sh_info_str (sh, this);
                 if (nsources == 0) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "No self-heal needed for %s",

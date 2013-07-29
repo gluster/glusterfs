@@ -779,6 +779,9 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
         sh = &local->self_heal;
         priv = this->private;
 
+        if (sh->data_sh_info && strcmp (sh->data_sh_info, ""))
+                GF_FREE (sh->data_sh_info);
+
         GF_FREE (sh->buf);
 
         GF_FREE (sh->parentbufs);
