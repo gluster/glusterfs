@@ -1947,7 +1947,13 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        is_force = dict_get_str_boolean (dict, "force", _gf_false);
+
+        /* Allowing stop force to bypass the statefile check
+         * as this command acts as a fail safe method to stop geo-rep
+         * session. */
         if ((type == GF_GSYNC_OPTION_TYPE_CONFIG) ||
+            ((type == GF_GSYNC_OPTION_TYPE_STOP) && !is_force) ||
             (type == GF_GSYNC_OPTION_TYPE_DELETE)) {
                 ret = lstat (statefile, &stbuf);
                 if (ret) {
@@ -1961,8 +1967,6 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                         goto out;
                 }
         }
-
-        is_force = dict_get_str_boolean (dict, "force", _gf_false);
 
         /* Check if all peers that are a part of the volume are up or not */
         if ((type == GF_GSYNC_OPTION_TYPE_DELETE) ||
