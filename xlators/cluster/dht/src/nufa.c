@@ -528,6 +528,17 @@ nufa_find_local_brick (xlator_t *xl, void *data)
 
 }
 
+static void
+nufa_to_dht (xlator_t *this)
+{
+        GF_ASSERT (this);
+        GF_ASSERT (this->fops);
+
+        this->fops->lookup = dht_lookup;
+        this->fops->create = dht_create;
+        this->fops->mknod  = dht_mknod;
+}
+
 int
 nufa_find_local_subvol (xlator_t *this,
                         void (*fn) (xlator_t *each, void* data), void *data)
@@ -601,13 +612,13 @@ nufa_init (xlator_t *this)
         args.volname = local_volname;
         args.addr_match = addr_match;
         ret = nufa_find_local_subvol (this, nufa_find_local_brick, &args);
-        if (ret)
-                goto err;
+        if (ret) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "Unable to find local subvolume, switching "
+                        "to dht mode");
+                nufa_to_dht (this);
+        }
         return 0;
-
-err:
-        dht_fini(this);
-        return -1;
 }
 
 
