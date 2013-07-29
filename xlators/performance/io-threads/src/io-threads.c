@@ -323,9 +323,9 @@ iot_schedule (call_frame_t *frame, xlator_t *this, call_stub_t *stub)
                 break;
         }
 out:
-        ret = do_iot_schedule (this->private, stub, pri);
         gf_log (this->name, GF_LOG_DEBUG, "%s scheduled as %s fop",
                 gf_fop_list[stub->fop], iot_get_pri_meaning (pri));
+        ret = do_iot_schedule (this->private, stub, pri);
         return ret;
 }
 
