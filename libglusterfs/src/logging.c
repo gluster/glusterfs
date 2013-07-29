@@ -278,7 +278,7 @@ gf_syslog (int error_code, int facility_priority, char *format, ...)
 {
         char       *msg = NULL;
         char        json_msg[GF_JSON_MSG_LENGTH];
-        char       *p = NULL;
+        GF_UNUSED char       *p = NULL;
         const char *error_message = NULL;
         char        json_error_message[GF_JSON_MSG_LENGTH];
         va_list     ap;
