@@ -292,6 +292,7 @@ struct afr_self_heal_ {
         uint8_t *checksum;
         afr_post_remove_call_t post_remove_call;
 
+        char    *data_sh_info;
         loc_t parent_loc;
         call_frame_t *orig_frame;
         call_frame_t *old_loop_frame;

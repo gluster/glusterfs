@@ -18,6 +18,16 @@
 #include "afr-self-heal.h"
 #include "pump.h"
 
+#define ADD_FMT_STRING(msg, off, sh_str, status)                            \
+        do {                                                                \
+                if (AFR_SELF_HEAL_NOT_ATTEMPTED != status) {                \
+                        off += snprintf (msg + off, sizeof (msg) - off,     \
+                                         " "sh_str" self heal %s,",         \
+                                         get_sh_completion_status (status));\
+                }                                                           \
+        } while (0)
+
+
 void
 afr_sh_reset (call_frame_t *frame, xlator_t *this)
 {
@@ -141,9 +151,8 @@ afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
         GF_FREE (buf);
 }
 
-void
-afr_sh_print_split_brain_log (int32_t *pending_matrix[], xlator_t *this,
-                              const char *loc)
+char*
+afr_get_pending_matrix_str (int32_t *pending_matrix[], xlator_t *this)
 {
         afr_private_t *  priv = this->private;
         char            *buf  = NULL;
@@ -173,10 +182,8 @@ afr_sh_print_split_brain_log (int32_t *pending_matrix[], xlator_t *this,
                         + (child_count * child_count * pending_entry_strlen);
 
         buf = GF_CALLOC (1, 1 + strlen (msg) + string_length , gf_afr_mt_char);
-        if (!buf) {
-                buf = "";
+        if (!buf)
                 goto out;
-        }
 
         ptr = buf;
         ptr += sprintf (ptr, "%s", msg);
@@ -192,11 +199,27 @@ afr_sh_print_split_brain_log (int32_t *pending_matrix[], xlator_t *this,
         ptr += sprintf (ptr, "%s", matrix_end);
 
 out:
+        return buf;
+}
+
+void
+afr_sh_print_split_brain_log (int32_t *pending_matrix[], xlator_t *this,
+                              const char *loc)
+{
+        char *buf      = NULL;
+        char *free_ptr = NULL;
+
+        buf = afr_get_pending_matrix_str (pending_matrix, this);
+        if (buf)
+                free_ptr = buf;
+        else
+                buf = "";
+
+
         gf_log (this->name, GF_LOG_ERROR, "Unable to self-heal contents of '%s'"
                 " (possible split-brain). Please delete the file from all but "
                 "the preferred subvolume.%s", loc, buf);
-        if (buf)
-                GF_FREE (buf);
+        GF_FREE (free_ptr);
         return;
 }
 
@@ -2087,6 +2110,7 @@ afr_self_heal_local_init (afr_local_t *l, xlator_t *this)
         shc->forced_merge = sh->forced_merge;
         shc->background = sh->background;
         shc->type = sh->type;
+        shc->data_sh_info = "";
 
         uuid_copy (shc->sh_gfid_req, sh->sh_gfid_req);
         if (l->loc.path) {
@@ -2154,6 +2178,8 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
                                     sizeof(sh_type_str));
         if (is_self_heal_failed (sh, AFR_CHECK_ALL) && !priv->shd.iamshd) {
                 loglevel = GF_LOG_ERROR;
+        } else if (!is_self_heal_failed (sh, AFR_CHECK_ALL)) {
+                loglevel = GF_LOG_INFO;
         } else {
                 loglevel = GF_LOG_DEBUG;
         }
@@ -2628,35 +2654,31 @@ void
 afr_log_self_heal_completion_status (afr_local_t *local, gf_loglevel_t loglvl)
 {
 
-        char *gfid_or_missing_entry_sh = NULL;
-        char *metadata_sh              = NULL;
-        char *data_sh                  = NULL;
-        char *entry_sh                 = NULL;
-
+        char sh_log[4096]              = {0};
         afr_self_heal_t *sh            = &local->self_heal;
         afr_sh_status_for_all_type   all_status = sh->afr_all_sh_status;
         xlator_t      *this            = NULL;
+        size_t        off              = 0;
 
         this = THIS;
 
-        gfid_or_missing_entry_sh = get_sh_completion_status
-                                   (all_status.gfid_or_missing_entry_self_heal);
+        ADD_FMT_STRING (sh_log, off, "gfid or missing entry",
+                        all_status.gfid_or_missing_entry_self_heal);
+        ADD_FMT_STRING (sh_log, off, "metadata", all_status.metadata_self_heal);
+        if (sh->background) {
+                ADD_FMT_STRING (sh_log, off, "backgroung data",
+                                all_status.data_self_heal);
+        } else {
+                ADD_FMT_STRING (sh_log, off, "foreground data",
+                                all_status.data_self_heal);
+        }
+        ADD_FMT_STRING (sh_log, off, "entry", all_status.entry_self_heal);
 
-        metadata_sh = get_sh_completion_status (all_status.metadata_self_heal);
-
-
-        data_sh = get_sh_completion_status (all_status.data_self_heal);
-
-        entry_sh = get_sh_completion_status (all_status.entry_self_heal);
-
-
-        gf_log (this->name, loglvl, "%s "
-                "gfid or missing entry self heal %s,"
-                " medatadata self heal %s,"
-                " data self heal %s,"
-                " entry self heal %s on  %s",
-                (sh->background ? "background" : "foreground"),
-                gfid_or_missing_entry_sh, metadata_sh, data_sh, entry_sh,
-                local->loc.path);
-
+        if (AFR_SELF_HEAL_STARTED == all_status.data_self_heal) {
+                gf_log (this->name, loglvl, "%s %s on %s", sh_log,
+                        sh->data_sh_info, local->loc.path);
+        } else {
+                gf_log (this->name, loglvl, "%s on %s", sh_log,
+                        local->loc.path);
+        }
 }
