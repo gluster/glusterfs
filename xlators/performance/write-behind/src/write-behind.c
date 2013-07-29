@@ -745,7 +745,7 @@ wb_fulfill_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	} while (0)
 
 
-void
+int
 wb_fulfill_head (wb_inode_t *wb_inode, wb_request_t *head)
 {
 	struct iovec  vector[MAX_VECTOR_COUNT];
@@ -795,22 +795,23 @@ wb_fulfill_head (wb_inode_t *wb_inode, wb_request_t *head)
 		    head->stub->args.flags,
 		    head->stub->args.iobref, NULL);
 
-	return;
+	return 0;
 err:
         if (!fderr) {
                 /* frame creation failure */
-                wb_fulfill_err (head, ENOMEM);
+                fderr = ENOMEM;
+                wb_fulfill_err (head, fderr);
         }
 
 	wb_head_done (head);
 
-	return;
+	return fderr;
 }
 
 
 #define NEXT_HEAD(head, req) do {					\
 		if (head)						\
-			wb_fulfill_head (wb_inode, head);		\
+			ret |= wb_fulfill_head (wb_inode, head);	\
 		head = req;						\
 		expected_offset = req->stub->args.offset +		\
 			req->write_size;				\
@@ -819,7 +820,7 @@ err:
 	} while (0)
 
 
-void
+int
 wb_fulfill (wb_inode_t *wb_inode, list_head_t *liabilities)
 {
 	wb_request_t  *req     = NULL;
@@ -829,6 +830,7 @@ wb_fulfill (wb_inode_t *wb_inode, list_head_t *liabilities)
 	off_t          expected_offset = 0;
 	size_t         curr_aggregate = 0;
 	size_t         vector_count = 0;
+        int            ret          = 0;
 
 	conf = wb_inode->this->private;
 
@@ -872,8 +874,9 @@ wb_fulfill (wb_inode_t *wb_inode, list_head_t *liabilities)
 	}
 
 	if (head)
-		wb_fulfill_head (wb_inode, head);
-	return;
+		ret |= wb_fulfill_head (wb_inode, head);
+
+	return ret;
 }
 
 
@@ -1158,27 +1161,35 @@ wb_process_queue (wb_inode_t *wb_inode)
         list_head_t tasks  = {0, };
 	list_head_t lies = {0, };
 	list_head_t liabilities = {0, };
+        int         retry       = 0;
 
         INIT_LIST_HEAD (&tasks);
         INIT_LIST_HEAD (&lies);
         INIT_LIST_HEAD (&liabilities);
 
-        LOCK (&wb_inode->lock);
-        {
-		__wb_preprocess_winds (wb_inode);
+        do {
+                LOCK (&wb_inode->lock);
+                {
+                        __wb_preprocess_winds (wb_inode);
 
-		__wb_pick_winds (wb_inode, &tasks, &liabilities);
+                        __wb_pick_winds (wb_inode, &tasks, &liabilities);
 
-                __wb_pick_unwinds (wb_inode, &lies);
+                        __wb_pick_unwinds (wb_inode, &lies);
 
-        }
-        UNLOCK (&wb_inode->lock);
+                }
+                UNLOCK (&wb_inode->lock);
 
-	wb_do_unwinds (wb_inode, &lies);
+                wb_do_unwinds (wb_inode, &lies);
 
-	wb_do_winds (wb_inode, &tasks);
+                wb_do_winds (wb_inode, &tasks);
 
-	wb_fulfill (wb_inode, &liabilities);
+                /* fd might've been marked bad due to previous errors.
+                 * Since, caller of wb_process_queue might be the last fop on
+                 * inode, make sure we keep processing request queue, till there
+                 * are no requests left.
+                 */
+                retry = wb_fulfill (wb_inode, &liabilities);
+        } while (retry);
 
         return;
 }
@@ -1409,7 +1420,7 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 	if (!wb_enqueue (wb_inode, stub))
 		goto unwind;
 
-	wb_process_queue (wb_inode);
+        wb_process_queue (wb_inode);
 
         return 0;
 
