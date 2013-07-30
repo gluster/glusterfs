@@ -2198,6 +2198,40 @@ err:
         return op_ret;
 }
 
+dict_t*
+_fill_open_fd_count (fd_t *fd, dict_t *xdata, xlator_t *this)
+{
+        dict_t  *rsp_xdata = NULL;
+        int32_t ret = 0;
+        inode_t *inode = NULL;
+
+        if (fd)
+                inode = fd->inode;
+
+        if (!fd || !fd->inode || uuid_is_null (fd->inode->gfid)) {
+                gf_log_callingfn (this->name, GF_LOG_ERROR, "Invalid Args: "
+                                  "fd: %p inode: %p gfid:%s", fd, inode?inode:0,
+                                  inode?uuid_utoa(inode->gfid):"N/A");
+                goto out;
+        }
+
+        if (!xdata || !dict_get (xdata, GLUSTERFS_OPEN_FD_COUNT))
+                goto out;
+
+        rsp_xdata = dict_new();
+        if (!rsp_xdata)
+                goto out;
+
+        ret = dict_set_uint32 (rsp_xdata, GLUSTERFS_OPEN_FD_COUNT,
+                               fd->inode->fd_count);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING, "%s: Failed to set "
+                        "dictionary value for %s", uuid_utoa (fd->inode->gfid),
+                        GLUSTERFS_OPEN_FD_COUNT);
+        }
+out:
+        return rsp_xdata;
+}
 
 int32_t
 posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
@@ -2212,6 +2246,7 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         struct iatt            preop    = {0,};
         struct iatt            postop    = {0,};
         int                      ret      = -1;
+        dict_t                *rsp_xdata = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -2259,6 +2294,7 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         UNLOCK (&priv->lock);
 
         if (op_ret >= 0) {
+                rsp_xdata = _fill_open_fd_count (fd, xdata, this);
                 /* wiretv successful, we also need to get the stat of
                  * the file we wrote to
                  */
@@ -2289,8 +2325,10 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 out:
 
         STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, &preop, &postop,
-                             NULL);
+                             rsp_xdata);
 
+        if (rsp_xdata)
+                dict_unref (rsp_xdata);
         return 0;
 }
 
