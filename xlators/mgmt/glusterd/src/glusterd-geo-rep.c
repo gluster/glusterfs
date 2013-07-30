@@ -1391,6 +1391,22 @@ glusterd_op_stage_sys_exec (dict_t *dict, char **op_errstr)
         char             command_path[PATH_MAX]    = "";
         struct stat      st                        = {0,};
         int              ret                       = -1;
+        glusterd_conf_t *conf                      = NULL;
+        xlator_t        *this                      = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        if (conf->op_version < 2) {
+                gf_log ("", GF_LOG_ERROR, "Op Version not supported.");
+                snprintf (errmsg, sizeof(errmsg), "One or more nodes do not"
+                          " support the required op version.");
+                *op_errstr = gf_strdup (errmsg);
+                ret = -1;
+                goto out;
+        }
 
         ret = dict_get_str (dict, "command", &command);
         if (ret) {
@@ -1446,6 +1462,15 @@ glusterd_op_stage_copy_file (dict_t *dict, char **op_errstr)
         if (priv == NULL) {
                 gf_log ("", GF_LOG_ERROR, "priv of glusterd not present");
                 *op_errstr = gf_strdup ("glusterd defunct");
+                goto out;
+        }
+
+        if (priv->op_version < 2) {
+                gf_log ("", GF_LOG_ERROR, "Op Version not supported.");
+                snprintf (errmsg, sizeof(errmsg), "One or more nodes do not"
+                          " support the required op version.");
+                *op_errstr = gf_strdup (errmsg);
+                ret = -1;
                 goto out;
         }
 
@@ -1785,6 +1810,15 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                 return -1;
         }
 
+        if (conf->op_version < 2) {
+                gf_log ("", GF_LOG_ERROR, "Op Version not supported.");
+                snprintf (errmsg, sizeof(errmsg), "One or more nodes do not"
+                          " support the required op version.");
+                *op_errstr = gf_strdup (errmsg);
+                ret = -1;
+                goto out;
+        }
+
         exists = glusterd_check_volume_exists (volname);
         ret = glusterd_volinfo_find (volname, &volinfo);
         if ((ret) || (!exists)) {
@@ -2007,6 +2041,15 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                                           &volname, &slave, &host_uuid);
         if (ret)
                 goto out;
+
+        if (conf->op_version < 2) {
+                gf_log ("", GF_LOG_ERROR, "Op Version not supported.");
+                snprintf (errmsg, sizeof(errmsg), "One or more nodes do not"
+                          " support the required op version.");
+               *op_errstr = gf_strdup (errmsg);
+                ret = -1;
+                goto out;
+        }
 
         exists = glusterd_check_volume_exists (volname);
         ret = glusterd_volinfo_find (volname, &volinfo);
