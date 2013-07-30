@@ -1308,6 +1308,34 @@ afr_set_delayed_post_op (call_frame_t *frame, xlator_t *this)
                 local->delayed_post_op = _gf_true;
 }
 
+gf_boolean_t
+afr_are_multiple_fds_opened (inode_t *inode, xlator_t *this)
+{
+        afr_inode_ctx_t *ictx = NULL;
+
+        if (!inode) {
+                /* If false is returned, it may keep on taking eager-lock
+                 * which may lead to starvation, so return true to avoid that.
+                 */
+                gf_log_callingfn (this->name, GF_LOG_ERROR, "Invalid inode");
+                return _gf_true;
+        }
+        /* Lets say mount1 has eager-lock(full-lock) and after the eager-lock
+         * is taken mount2 opened the same file, it won't be able to
+         * perform any data operations until mount1 releases eager-lock.
+         * To avoid such scenario do not enable eager-lock for this transaction
+         * if open-fd-count is > 1
+         */
+
+        ictx = afr_inode_ctx_get (inode, this);
+        if (!ictx)
+                return _gf_true;
+
+        if (ictx->open_fd_count > 1)
+                return _gf_true;
+
+        return _gf_false;
+}
 
 gf_boolean_t
 is_afr_delayed_changelog_post_op_needed (call_frame_t *frame, xlator_t *this)
@@ -1320,6 +1348,9 @@ is_afr_delayed_changelog_post_op_needed (call_frame_t *frame, xlator_t *this)
                 goto out;
 
         if (!local->delayed_post_op)
+                goto out;
+
+        if (local->fd && afr_are_multiple_fds_opened (local->fd->inode, this))
                 goto out;
 
         res = _gf_true;
@@ -1753,8 +1784,7 @@ afr_locals_overlap (afr_local_t *local1, afr_local_t *local2)
         return ((end1 >= start2) && (end2 >= start1));
 }
 
-
-        void
+void
 afr_transaction_eager_lock_init (afr_local_t *local, xlator_t *this)
 {
         afr_private_t *priv = NULL;
@@ -1776,6 +1806,8 @@ afr_transaction_eager_lock_init (afr_local_t *local, xlator_t *this)
         if (!fdctx)
                 return;
 
+        if (afr_are_multiple_fds_opened (local->fd->inode, this))
+                return;
         /*
          * Once full file lock is acquired in eager-lock phase, overlapping
          * writes do not compete for inode-locks, instead are transferred to the

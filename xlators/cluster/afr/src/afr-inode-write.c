@@ -137,6 +137,8 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int child_index = (long) cookie;
         int call_count  = -1;
         int read_child  = 0;
+        int      ret = 0;
+        uint32_t open_fd_count = 0;
 
         local = frame->local;
 
@@ -162,6 +164,17 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 
 		if (op_ret != -1) {
+                        if (xdata) {
+                                ret = dict_get_uint32 (xdata,
+                                                       GLUSTERFS_OPEN_FD_COUNT,
+                                                       &open_fd_count);
+                                if ((ret == 0) &&
+                                    (open_fd_count > local->open_fd_count)) {
+                                        local->open_fd_count = open_fd_count;
+                                        local->update_open_fd_count = _gf_true;
+                                }
+                        }
+
 			if ((local->success_count == 0) ||
 			    (child_index == read_child)) {
 				local->cont.writev.prebuf  = *prebuf;
@@ -176,8 +189,11 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (call_count == 0) {
 
-		if (!local->stable_write)
-			afr_fd_report_unstable_write (this, local->fd);
+                if (local->update_open_fd_count)
+                        afr_handle_open_fd_count (frame, this);
+
+                if (!local->stable_write)
+                        afr_fd_report_unstable_write (this, local->fd);
 
                 afr_writev_handle_short_writes (frame, this);
                 /*
@@ -206,6 +222,8 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
         afr_private_t *priv = NULL;
         int i = 0;
         int call_count = -1;
+        dict_t *xdata = NULL;
+        GF_UNUSED int     ret = 0;
 
         local = frame->local;
         priv = this->private;
@@ -229,6 +247,12 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
 		return 0;
 	}
 
+        xdata = dict_new ();
+        if (xdata) {
+                ret = dict_set_uint32 (xdata, GLUSTERFS_OPEN_FD_COUNT,
+                                       sizeof (uint32_t));
+        }
+
         for (i = 0; i < priv->child_count; i++) {
                 if (local->transaction.pre_op[i]) {
                         STACK_WIND_COOKIE (frame, afr_writev_wind_cbk,
@@ -241,12 +265,15 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this)
                                            local->cont.writev.offset,
                                            local->cont.writev.flags,
                                            local->cont.writev.iobref,
-                                           NULL);
+                                           xdata);
 
                         if (!--call_count)
                                 break;
                 }
         }
+
+        if (xdata)
+                dict_unref (xdata);
 
         return 0;
 }

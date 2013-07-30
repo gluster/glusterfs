@@ -4890,3 +4890,28 @@ afr_is_fd_fixable (fd_t *fd)
 
         return _gf_true;
 }
+
+void
+afr_handle_open_fd_count (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t     *local = NULL;
+        inode_t         *inode = NULL;
+        afr_inode_ctx_t *ctx   = NULL;
+
+        local = frame->local;
+
+        if (local->fd)
+                inode = local->fd->inode;
+        else
+                inode = local->loc.inode;
+
+        if (!inode)
+                return;
+
+        LOCK (&inode->lock);
+        {
+                ctx = __afr_inode_ctx_get (inode, this);
+                ctx->open_fd_count = local->open_fd_count;
+        }
+        UNLOCK (&inode->lock);
+}
