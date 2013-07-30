@@ -297,9 +297,7 @@ dht_linkfile_attr_heal (call_frame_t *frame, xlator_t *this)
         GF_VALIDATE_OR_GOTO ("dht", local, out);
         GF_VALIDATE_OR_GOTO ("dht", local->link_subvol, out);
 
-        if ((local->stbuf.ia_type == IA_INVAL) ||
-            (is_equal (frame->root->uid, local->stbuf.ia_uid) &&
-             is_equal (frame->root->gid, local->stbuf.ia_gid)))
+        if (local->stbuf.ia_type == IA_INVAL)
                 return 0;
 
         uuid_copy (local->loc.gfid, local->stbuf.ia_gfid);
