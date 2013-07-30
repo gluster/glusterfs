@@ -39,6 +39,10 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without bd
 %{?_without_bd:%global _without_bd --disable-bd-xlator}
 
+%if ( 0%{?rhel} && 0%{?rhel} < 6 )
+%define _without_bd true
+%endif
+
 %if ( 0%{?fedora} && 0%{?fedora} > 16 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
 %global           _with_systemd true
 %endif
@@ -59,18 +63,18 @@ License:          GPLv2 or LGPLv3+
 Group:            System Environment/Base
 URL:              http://www.gluster.org/docs/index.php/GlusterFS
 %if ( 0%{_for_fedora_koji_builds} )
-Source0:          http://download.gluster.org/pub/gluster/glusterfs/qa-releases/%{PACKAGE_VERSION}%{?prereltag}/glusterfs-%{version}%{?prereltag}.tar.gz
+Source0:          http://download.gluster.org/pub/gluster/glusterfs/3.4/%{version}%{?prereltag}/glusterfs-%{version}%{?prereltag}.tar.gz
 Source1:          glusterd.sysconfig
 Source2:          glusterfsd.sysconfig
-Source3:          umount.glusterfs
-Source4:          glusterfs-fuse.logrotate
-Source5:          glusterd.logrotate
-Source6:          glusterfsd.logrotate
-Source7:          rhel5-load-fuse-modules
+Source3:          glusterfs-fuse.logrotate
+Source4:          glusterd.logrotate
+Source5:          glusterfsd.logrotate
+Source6:          rhel5-load-fuse-modules
 Source11:         glusterfsd.service
 Source13:         glusterfsd.init
 Patch0:           %{name}-3.2.5.configure.ac.patch
 Patch1:           %{name}-3.3.0.libglusterfs.Makefile.patch
+Patch2:           %{name}-3.3.1.rpc.rpcxprt.rdma.name.c.patch
 %else
 Source0:          @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz
 %endif
@@ -81,6 +85,9 @@ BuildRoot:        %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 BuildRequires:    python-simplejson
 %endif
 %if ( 0%{?_with_systemd:1} )
+%if ( 0%{_for_fedora_koji_builds} )
+%global glusterfsd_service %{S:%{SOURCE11}}
+%endif
 BuildRequires:    systemd-units
 Requires(post):   systemd-units
 Requires(preun):  systemd-units
@@ -89,10 +96,14 @@ Requires(postun): systemd-units
 %define _init_disable() /bin/systemctl disable %1.service ;
 %define _init_restart() /bin/systemctl try-restart %1.service ;
 %define _init_stop()    /bin/systemctl stop %1.service ;
+%define _init_install() %{__install} -D -p -m 0644 %1 %{buildroot}%{_unitdir}/%2.service ;
 # can't seem to make a generic macro that works
 %define _init_glusterd   %{_unitdir}/glusterd.service
 %define _init_glusterfsd %{_unitdir}/glusterfsd.service
 %else
+%if ( 0%{_for_fedora_koji_builds} )
+%global glusterfsd_service %{S:%{SOURCE13}}
+%endif
 Requires(post):   /sbin/chkconfig
 Requires(preun):  /sbin/service
 Requires(preun):  /sbin/chkconfig
@@ -101,6 +112,7 @@ Requires(postun): /sbin/service
 %define _init_disable() /sbin/chkconfig --del %1 ;
 %define _init_restart() /sbin/service %1 condrestart &>/dev/null ;
 %define _init_stop()    /sbin/service %1 stop &>/dev/null ;
+%define _init_install() %{__install} -D -p -m 0755 %1 %{buildroot}%{_sysconfdir}/init.d/%2 ;
 # can't seem to make a generic macro that works
 %define _init_glusterd   %{_sysconfdir}/init.d/glusterd
 %define _init_glusterfsd %{_sysconfdir}/init.d/glusterfsd
@@ -155,6 +167,21 @@ is in user space and easily manageable.
 This package includes the glusterfs binary, the glusterfsd daemon and the
 gluster command line, libglusterfs and glusterfs translator modules common to
 both GlusterFS server and client framework.
+
+%package libs
+Summary:          GlusterFS common libraries
+Group:            Applications/File
+
+%description libs
+GlusterFS is a clustered file-system capable of scaling to several
+petabytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file systems in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in user space and easily manageable.
+
+This package provides the base GlusterFS libraries
 
 %if ( 0%{!?_without_rdma:1} )
 %package rdma
@@ -218,9 +245,10 @@ This package provides support to FUSE based clients.
 
 %package server
 Summary:          Clustered file-system server
-License:          GPLv3+
+License:          GPLv2 or LGPLv3+
 Group:            System Environment/Daemons
 Requires:         %{name} = %{version}-%{release}
+Requires:         %{name}-libs = %{version}-%{release}
 Requires:         %{name}-fuse = %{version}-%{release}
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
 Requires:         rpcbind
@@ -304,7 +332,7 @@ terms of features and extensibility.  It borrows a powerful concept
 called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in user space and easily manageable.
 
-This package provides the development libraries.
+This package provides the development libraries and include files.
 
 
 %package api-devel
@@ -329,6 +357,9 @@ This package provides the api include files.
 %if ( 0%{_for_fedora_koji_builds} )
 #%patch0 -p0
 %patch1 -p0 -F4
+%if ( "%{version}" == "3.3.1" )
+%patch2 -p1
+%endif
 %endif
 
 %build
@@ -374,7 +405,7 @@ This package provides the api include files.
 
 %if ( 0%{_for_fedora_koji_builds} )
 %if ( 0%{?rhel} && 0%{?rhel} <= 5 )
-%{__install} -D -p -m 0755 %{SOURCE7} \
+%{__install} -D -p -m 0755 %{SOURCE6} \
     %{buildroot}%{_sysconfdir}/sysconfig/modules/glusterfs-fuse.modules
 %endif
 %endif
@@ -409,19 +440,23 @@ EOM
 sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sharedstatedir}/glusterd|g' \
     %{buildroot}%{_sysconfdir}/glusterfs/glusterd.vol
 
+# Install glusterfsd .service or init.d file
+%if ( 0%{?_with_systemd:1} )
 %if ( 0%{_for_fedora_koji_builds} )
-# Install wrapper umount script
-%{__install} -D -p -m 0755 %{SOURCE3} \
-    %{buildroot}/sbin/umount.glusterfs
+%_init_install %{glusterfsd_service} glusterfsd
+%endif
+%endif
+
+%if ( 0%{_for_fedora_koji_builds} )
 # Client logrotate entry
-%{__install} -D -p -m 0644 %{SOURCE4} \
+%{__install} -D -p -m 0644 %{SOURCE3} \
     %{buildroot}%{_sysconfdir}/logrotate.d/glusterfs-fuse
 
 # Server logrotate entry
-%{__install} -D -p -m 0644 %{SOURCE5} \
+%{__install} -D -p -m 0644 %{SOURCE4} \
     %{buildroot}%{_sysconfdir}/logrotate.d/glusterd
 # Legacy server logrotate entry
-%{__install} -D -p -m 0644 %{SOURCE6} \
+%{__install} -D -p -m 0644 %{SOURCE5} \
     %{buildroot}%{_sysconfdir}/logrotate.d/glusterfsd
 %else
 %{__install} -D -p -m 0644 extras/glusterfs-logrotate \
@@ -488,11 +523,8 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 %doc ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL README THANKS
 %config(noreplace) %{_sysconfdir}/logrotate.d/*
 %config(noreplace) %{_sysconfdir}/sysconfig/*
-%exclude %{_libdir}/libgfapi.*
 %{_libdir}/glusterfs
-%{_libdir}/*.so.*
 %{_sbindir}/glusterfs*
-%{_libexecdir}/glusterfs
 %{_mandir}/man8/*gluster*.8*
 %dir %{_localstatedir}/log/glusterfs
 %dir %{_localstatedir}/run/gluster
@@ -500,6 +532,7 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 %if ( 0%{!?_without_rdma:1} )
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/rpc-transport/rdma*
 %endif
+# server-side, etc., xlators in other RPMs
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/api*
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/fuse*
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage*
@@ -507,7 +540,20 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server*
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt*
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs*
+# sample xlators not generally used or usable
+%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/rot-13*
+%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/mac-compat*
+%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance/symlink-cache*
 
+%post libs
+/sbin/ldconfig
+
+%postun libs
+/sbin/ldconfig
+
+%files libs
+%{_libdir}/*.so.*
+%exclude %{_libdir}/libgfapi.*
 
 %if ( 0%{!?_without_rdma:1} )
 %files rdma
@@ -540,9 +586,6 @@ fi
 %endif
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/fuse*
 /sbin/mount.glusterfs
-%if ( 0%{_for_fedora_koji_builds} )
-/sbin/umount.glusterfs
-%endif
 %if ( 0%{!?_without_fusermount:1} )
 %{_bindir}/fusermount-glusterfs
 %endif
@@ -578,6 +621,7 @@ fi
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs*
+%config(noreplace) %{_sharedstatedir}/glusterd/glusterd.info
 %ghost %attr(0644,-,-) %{_sharedstatedir}/glusterd/glusterd.info
 %ghost %attr(0600,-,-) %{_sharedstatedir}/glusterd/options
 # This is really ugly, but I have no idea how to mark these directories in an
@@ -615,10 +659,16 @@ fi
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs/run
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
+%post api
+/sbin/ldconfig
+
+%postun api
+/sbin/ldconfig
+
 %files api
 %exclude %{_libdir}/*.so
 %{_libdir}/libgfapi.*
-%{_libdir}/glusterfs/%{version}/xlator/mount/api*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/api*
 
 %if ( 0%{!?_without_ocf:1} )
 %files resource-agents
@@ -651,17 +701,17 @@ fi
 # to /var/lib. (N.B. Starting with 3.3.0 all gluster files are in /var/lib
 # in gluster.org RPMs.) Be careful to copy them on the off chance that
 # /etc and /var/lib are on separate file systems
-if [ -d /etc/glusterd -a ! -h /var/lib/glusterd ]; then
-    %{__mkdir_p} /var/lib/glusterd
-    cp -a /etc/glusterd /var/lib/glusterd
+if [ -d /etc/glusterd -a ! -h %{sharedstatedir}/glusterd ]; then
+    %{__mkdir_p} %{sharedstatedir}/glusterd
+    cp -a /etc/glusterd %{sharedstatedir}/glusterd
     rm -rf /etc/glusterd
-    ln -sf /var/lib/glusterd /etc/glusterd
+    ln -sf %{sharedstatedir}/glusterd /etc/glusterd
 fi
 
 # Rename old volfiles in an RPM-standard way.  These aren't actually
 # considered package config files, so %config doesn't work for them.
-if [ -d /var/lib/glusterd/vols ]; then
-    for file in $(find /var/lib/glusterd/vols -name '*.vol'); do
+if [ -d %{sharedstatedir}/glusterd/vols ]; then
+    for file in $(find %{sharedstatedir}/glusterd/vols -name '*.vol'); do
         newfile=${file}.rpmsave
         echo "warning: ${file} saved as ${newfile}"
         cp ${file} ${newfile}
@@ -705,6 +755,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Tue Jul 30 2013 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- Sync with Fedora glusterfs.spec, add glusterfs-libs RPM for oVirt/qemu-kvm
+
 * Thu Jul 25 2013 Csaba Henk <csaba@redhat.com>
 - Added peer_add_secret_pub and peer_gsec_create to %{_libexecdir}/glusterfs
 
@@ -715,7 +768,7 @@ fi
 - Allow to build with '--without bd' to disable 'bd' xlator
 
 * Thu Jun 27 2013 Kaleb S. KEITHLEY <kkeithle@redhat.com>
-- fix the hardening fix for shlibs, use %{__sed} macro, shorter ChangeLog
+- fix the hardening fix for shlibs, use %%{__sed} macro, shorter ChangeLog
 
 * Wed Jun 26 2013 Niels de Vos <ndevos@redhat.com>
 - move the mount/api xlator to glusterfs-api
@@ -957,7 +1010,7 @@ fi
 
 * Wed Nov 21 2007 Matthias Saou <http://freshrpms.net/> 1.3.7-1
 - Major spec file cleanup.
-- Add misssing %%clean section.
+- Add missing %%clean section.
 - Fix ldconfig calls (weren't set for the proper sub-package).
 
 * Sat Aug 4 2007 Matt Paine <matt@mattsoftware.com> - 1.3.pre7
