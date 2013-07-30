@@ -87,6 +87,7 @@ typedef struct afr_inode_ctx_ {
         int32_t  *fresh_children;//increasing order of latency
         afr_spb_state_t mdata_spb;
         afr_spb_state_t data_spb;
+        uint32_t        open_fd_count;
 } afr_inode_ctx_t;
 
 typedef enum {
@@ -445,6 +446,8 @@ typedef struct _afr_local {
         unsigned int call_count;
         unsigned int success_count;
         unsigned int enoent_count;
+        uint32_t     open_fd_count;
+        gf_boolean_t update_open_fd_count;
 
 
         unsigned int unhealable;
@@ -1170,5 +1173,11 @@ afr_delayed_changelog_wake_resume (xlator_t *this, fd_t *fd, call_stub_t *stub);
 
 int
 afr_inodelk_init (afr_inodelk_t *lk, char *dom, size_t child_count);
+
+void
+afr_handle_open_fd_count (call_frame_t *frame, xlator_t *this);
+
+afr_inode_ctx_t*
+afr_inode_ctx_get (inode_t *inode, xlator_t *this);
 
 #endif /* __AFR_H__ */
