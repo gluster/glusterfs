@@ -1348,7 +1348,7 @@ glusterd_restore_op_version (xlator_t *this)
                 if ((op_version < GD_OP_VERSION_MIN) ||
                     (op_version > GD_OP_VERSION_MAX)) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "wrong op-version (%d) retreived", op_version);
+                                "wrong op-version (%d) retrieved", op_version);
                         ret = -1;
                         goto out;
                 }
