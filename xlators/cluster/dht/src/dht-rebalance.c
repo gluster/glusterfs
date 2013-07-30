@@ -620,6 +620,15 @@ migrate_special_files (xlator_t *this, xlator_t *from, xlator_t *to, loc_t *loc,
         }
 
 done:
+        ret = syncop_setattr (to, loc, buf,
+                              (GF_SET_ATTR_UID | GF_SET_ATTR_GID |
+                               GF_SET_ATTR_MODE), NULL, NULL);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: failed to perform setattr on %s (%s)",
+                        loc->path, to->name, strerror (errno));
+        }
+
         ret = syncop_unlink (from, loc);
         if (ret)
                 gf_log (this->name, GF_LOG_WARNING, "%s: unlink failed (%s)",
