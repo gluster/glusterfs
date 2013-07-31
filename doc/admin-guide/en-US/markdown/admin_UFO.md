@@ -888,7 +888,7 @@ turn on listings, use the .`rlistings` directive. Also, `.r`
 designations are not allowed in headers whose names include the word
 write.
 
-For example, to set all the objects access rights to "public‟ inside the
+For example, to set all the objects access rights to "public" inside the
 container using cURL (for the above example), run the following command:
 
     curl -v -X POST -H 'X-Auth-Token:
@@ -1089,7 +1089,7 @@ object.
         AUTH_tkde3ad38b087b49bbbac0494f7600a554'
         https://example.storage.com:443/v1/AUTH_test/images/cat -k
 
-    The status code of 200 (Ok) indicates the object‟s data is displayed
+    The status code of 200 (Ok) indicates the object's data is displayed
     successfully. If that object does not exist, the status code 404
     (Not Found) is displayed.
 
@@ -1132,14 +1132,14 @@ example), run the following command:
     AUTH_tkde3ad38b087b49bbbac0494f7600a554'
     https://example.storage.com:443/v1/AUTH_test/images/cat -k
 
-The status code of 204 (No Content) indicates the object‟s metadata is
+The status code of 204 (No Content) indicates the object's metadata is
 displayed successfully. If that object does not exist, the status code
 404 (Not Found) is displayed.
 
 ### Updating Object Metadata
 
 You can issue POST command on an object name only to set or overwrite
-arbitrary key metadata. You cannot change the object‟s other headers
+arbitrary key metadata. You cannot change the object's other headers
 such as Content-Type, ETag and others using POST operation. The POST
 command will delete all the existing metadata and replace it with the
 new arbitrary key metadata.
@@ -1177,7 +1177,7 @@ You must prefix **X-Object-Meta-** to the key names.
         Meta-Zoo: Lion' -H 'X-Object-Meta-Home: Dog' -k
 
     The status code of 202 (Accepted) indicates that you have
-    successfully updated the object‟s metadata. If that object does not
+    successfully updated the object's metadata. If that object does not
     exist, the status code 404 (Not Found) is displayed.
 
 ### Deleting Object
