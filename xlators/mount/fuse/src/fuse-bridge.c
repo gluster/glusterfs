@@ -941,12 +941,23 @@ fuse_xlator_forget (xlator_t *this, inode_t *inode)
         return 0;
 }
 
+static inline void
+do_forget(xlator_t *this, uint64_t unique, uint64_t nodeid, uint64_t nlookup)
+{
+	inode_t *fuse_inode = fuse_ino_to_inode(nodeid, this);
+
+	fuse_log_eh(this, "%"PRIu64": FORGET %"PRIu64"/%"PRIu64" gfid: (%s)",
+		    unique, nodeid, nlookup, uuid_utoa(fuse_inode->gfid));
+
+	inode_forget(fuse_inode, nlookup);
+	inode_unref(fuse_inode);
+}
+
 static void
 fuse_forget (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
 {
         struct fuse_forget_in *ffi        = msg;
-        inode_t               *fuse_inode = NULL;
 
         if (finh->nodeid == 1) {
                 GF_FREE (finh);
@@ -957,16 +968,26 @@ fuse_forget (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 "%"PRIu64": FORGET %"PRIu64"/%"PRIu64,
                 finh->unique, finh->nodeid, ffi->nlookup);
 
-        fuse_inode = fuse_ino_to_inode (finh->nodeid, this);
-
-        fuse_log_eh (this, "%"PRIu64": FORGET %"PRIu64"/%"PRIu64" gfid: (%s)",
-                     finh->unique, finh->nodeid, ffi->nlookup,
-                     uuid_utoa (fuse_inode->gfid));
-
-        inode_forget (fuse_inode, ffi->nlookup);
-        inode_unref (fuse_inode);
+	do_forget(this, finh->unique, finh->nodeid, ffi->nlookup);
 
         GF_FREE (finh);
+}
+
+static void
+fuse_batch_forget(xlator_t *this, fuse_in_header_t *finh, void *msg)
+{
+	struct fuse_batch_forget_in *fbfi = msg;
+	struct fuse_forget_one *ffo = (struct fuse_forget_one *) (fbfi + 1);
+	int i;
+
+	gf_log("glusterfs-fuse", GF_LOG_TRACE,
+		"%"PRIu64": BATCH_FORGET %"PRIu64"/%"PRIu32,
+		finh->unique, finh->nodeid, fbfi->count);
+
+	for (i = 0; i < fbfi->count; i++)
+		do_forget(this, finh->unique, ffo[i].nodeid, ffo[i].nlookup);
+
+	GF_FREE(finh);
 }
 
 static int
@@ -5868,7 +5889,7 @@ static fuse_handler_t *fuse_std_ops[FUSE_OP_HIGH] = {
      /* [FUSE_IOCTL] */
      /* [FUSE_POLL] */
      /* [FUSE_NOTIFY_REPLY] */
-     /* [FUSE_BATCH_FORGET] */
+	[FUSE_BATCH_FORGET]= fuse_batch_forget,
 	[FUSE_FALLOCATE]   = fuse_fallocate,
 	[FUSE_READDIRPLUS] = fuse_readdirp,
 };
