@@ -6058,6 +6058,7 @@ glusterd_volinfo_reset_defrag_stats (glusterd_volinfo_t *volinfo)
         rebal->lookedup_files = 0;
         rebal->rebalance_failures = 0;
         rebal->rebalance_time = 0;
+        rebal->skipped_files = 0;
 
 }
 
