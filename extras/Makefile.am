@@ -8,9 +8,12 @@ confdir = $(sysconfdir)/glusterfs
 conf_DATA = glusterfs-logrotate gluster-rsyslog-7.2.conf gluster-rsyslog-5.8.conf \
 	logger.conf.example
 
+voldir = $(sysconfdir)/glusterfs
+vol_DATA = glusterd.vol
+
 EXTRA_DIST = specgen.scm MacOSX/Portfile glusterfs-mode.el glusterfs.vim  \
 	migrate-unify-to-distribute.sh backend-xattr-sanitize.sh          \
 	backend-cleanup.sh disk_usage_sync.sh quota-remove-xattr.sh       \
 	quota-metadata-cleanup.sh glusterfs-logrotate clear_xattrs.sh     \
 	group-virt.example glusterd-sysconfig gluster-rsyslog-7.2.conf    \
-	gluster-rsyslog-5.8.conf logger.conf.example
+	gluster-rsyslog-5.8.conf logger.conf.example glusterd.vol
