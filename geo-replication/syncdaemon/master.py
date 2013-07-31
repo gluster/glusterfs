@@ -147,6 +147,7 @@ class NormalMixin(object):
 
     def set_slave_xtime(self, path, mark):
         self.slave.server.set_xtime(path, self.uuid, mark)
+        self.slave.server.set_xtime_remote(path, self.uuid, mark)
 
 class PartialMixin(NormalMixin):
     """a variant tuned towards operation with a master
