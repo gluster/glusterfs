@@ -601,8 +601,7 @@ dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
 
 
 int
-dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout,
-                      uint32_t *missing_p)
+dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 {
         int          ret   = 0;
         int          i = 0;
@@ -614,7 +613,6 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout,
 
         ret = dht_layout_sort (layout);
         if (ret == -1) {
-                /* defensive coding; this can't happen currently */
                 gf_log (this->name, GF_LOG_WARNING,
                         "sort failed?! how the ....");
                 goto out;
@@ -624,26 +622,23 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout,
                                     &holes, &overlaps,
                                     &missing, &down, &misc, NULL);
         if (ret == -1) {
-                /* defensive coding; this can't happen currently */
                 gf_log (this->name, GF_LOG_WARNING,
                         "error while finding anomalies in %s -- not good news",
                         loc->path);
                 goto out;
         }
 
-        ret = holes + overlaps;
-        if (ret) {
+        if (holes || overlaps) {
                 if (missing == layout->cnt) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "directory %s looked up first time",
                                 loc->path);
                 } else {
                         gf_log (this->name, GF_LOG_INFO,
-                                "found anomalies in %s. holes=%d overlaps=%d"
-                                " missing=%d down=%d misc=%d",
-                                loc->path, holes, overlaps, missing, down,
-                                misc);
+                                "found anomalies in %s. holes=%d overlaps=%d",
+                                loc->path, holes, overlaps);
                 }
+                ret = -1;
         }
 
         for (i = 0; i < layout->cnt; i++) {
@@ -658,14 +653,14 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout,
                                           (layout->list[i].xlator ?
                                            layout->list[i].xlator->name
                                            : "<>"));
+                        if ((layout->list[i].err == ENOENT) && (ret >= 0)) {
+                                ret++;
+                        }
                 }
         }
 
 
 out:
-        if (missing_p) {
-                *missing_p = missing;
-        }
         return ret;
 }
 

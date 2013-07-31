@@ -400,26 +400,18 @@ typedef enum {
         } while (0)
 
 #define is_greater_time(a, an, b, bn) (((a) < (b)) || (((a) == (b)) && ((an) < (bn))))
-
-dht_layout_t    *dht_layout_new         (xlator_t *this, int cnt);
-dht_layout_t    *dht_layout_get         (xlator_t *this, inode_t *inode);
-dht_layout_t    *dht_layout_for_subvol  (xlator_t *this, xlator_t *subvol);
-xlator_t        *dht_layout_search      (xlator_t *this, dht_layout_t *layout,
-                                         const char *name);
-int             dht_layout_normalize    (xlator_t *this, loc_t *loc,
-                                         dht_layout_t *layout,
-                                         uint32_t *missing_p);
-int             dht_layout_anomalies    (xlator_t *this, loc_t *loc,
-                                         dht_layout_t *layout,
-                                         uint32_t *holes_p,
-                                         uint32_t *overlaps_p,
-                                         uint32_t *missing_p,
-                                         uint32_t *down_p,
-                                         uint32_t *misc_p,
-                                         uint32_t *no_space_p);
-int             dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout,
-                                         xlator_t *subvol, loc_t *loc,
-                                         dict_t *xattr);
+dht_layout_t                            *dht_layout_new (xlator_t *this, int cnt);
+dht_layout_t                            *dht_layout_get (xlator_t *this, inode_t *inode);
+dht_layout_t                            *dht_layout_for_subvol (xlator_t *this, xlator_t *subvol);
+xlator_t *dht_layout_search (xlator_t   *this, dht_layout_t *layout,
+                             const char *name);
+int                                      dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout);
+int dht_layout_anomalies (xlator_t      *this, loc_t *loc, dht_layout_t *layout,
+                          uint32_t      *holes_p, uint32_t *overlaps_p,
+                          uint32_t      *missing_p, uint32_t *down_p,
+                          uint32_t      *misc_p, uint32_t *no_space_p);
+int dht_layout_dir_mismatch (xlator_t   *this, dht_layout_t *layout,
+                             xlator_t   *subvol, loc_t *loc, dict_t *xattr);
 
 xlator_t *dht_linkfile_subvol (xlator_t *this, inode_t *inode,
                                struct iatt *buf, dict_t *xattr);
