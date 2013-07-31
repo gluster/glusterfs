@@ -17,6 +17,10 @@ libgfapi_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 
 xlator_LTLIBRARIES = api.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/mount
+# workaround for broken parallel install support in automake with LTLIBRARIES
+# http://debbugs.gnu.org/cgi/bugreport.cgi?bug=7328
+install_xlatorLTLIBRARIES = install-xlatorLTLIBRARIES
+$(install_xlatorLTLIBRARIES): install-libLTLIBRARIES
 
 api_la_SOURCES = glfs-master.c
 api_la_DEPENDENCIES = libgfapi.la
