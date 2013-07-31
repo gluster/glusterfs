@@ -203,7 +203,6 @@ changelog_rename (call_frame_t *frame, xlator_t *this,
                   loc_t *oldloc, loc_t *newloc, dict_t *xdata)
 {
         size_t            xtra_len  = 0;
-        uuid_t            null_uuid = {0,};
         changelog_priv_t *priv      = NULL;
         changelog_opt_t  *co        = NULL;
 
@@ -211,7 +210,8 @@ changelog_rename (call_frame_t *frame, xlator_t *this,
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         /* 3 == fop + oldloc + newloc */
-        CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, null_uuid, 3);
+        CHANGELOG_INIT_NOCHECK (this, frame->local,
+                                NULL, oldloc->inode->gfid, 3);
 
         co = changelog_get_usable_buffer (frame->local);
         if (!co)

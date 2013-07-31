@@ -21,7 +21,7 @@ from repce import RepceServer, RepceClient
 from  master import gmaster_builder
 import syncdutils
 from syncdutils import GsyncdError, select, privileged, boolify, funcode
-from syncdutils import umask, entry2pb, gauxpfx, errno_wrap
+from syncdutils import umask, entry2pb, gauxpfx, errno_wrap, lstat
 
 UrlRX  = re.compile('\A(\w+)://([^ *?[]*)\Z')
 HostRX = re.compile('[a-z\d](?:[a-z\d.-]*[a-z\d])?', re.I)
@@ -514,12 +514,20 @@ class Server(object):
             elif op == 'MKDIR':
                 blob = entry_pack_mkdir(gfid, bname, e['stat'])
             elif op == 'LINK':
-                errno_wrap(os.link, [os.path.join(pfx, gfid), entry], [ENOENT, EEXIST])
+                st = lstat(entry)
+                if isinstance(st, int):
+                    blob = entry_pack_reg(gfid, bname, e['stat'])
+                else:
+                    errno_wrap(os.link, [os.path.join(pfx, gfid), entry], [ENOENT, EEXIST])
             elif op == 'SYMLINK':
                 blob = entry_pack_symlink(gfid, bname, e['link'], e['stat'])
             elif op == 'RENAME':
                 en = e['entry1']
-                errno_wrap(os.rename, [entry, en], [ENOENT, EEXIST])
+                st = lstat(entry)
+                if isinstance(st, int):
+                    blob = entry_pack_reg(gfid, bname, e['stat'])
+                else:
+                    errno_wrap(os.rename, [entry, en], [ENOENT, EEXIST])
             if blob:
                 errno_wrap(Xattr.lsetxattr_l, [pg, 'glusterfs.gfid.newfile', blob], [ENOENT, EEXIST])
 
