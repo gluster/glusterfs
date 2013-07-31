@@ -432,6 +432,18 @@ class Server(object):
         Xattr.lsetxattr(path, '.'.join([cls.GX_NSPACE, uuid, 'xtime']), struct.pack('!II', *mark))
 
     @classmethod
+    @_pathguard
+    def set_xtime_remote(cls, path, uuid, mark):
+        """
+        set @mark as xtime for @uuid on @path
+        the difference b/w this and set_xtime() being
+        set_xtime() being overloaded to set the xtime
+        on the brick (this method sets xtime on the
+        remote slave)
+        """
+        Xattr.lsetxattr(path, '.'.join([cls.GX_NSPACE, uuid, 'xtime']), struct.pack('!II', *mark))
+
+    @classmethod
     def set_xtime_vec(cls, path, mark_dct):
         """vectored (or dictered) version of set_xtime
 
