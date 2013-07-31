@@ -419,3 +419,13 @@ def errno_wrap(call, arg=[], errnos=[]):
             if not ex.errno == ESTALE:
                 raise
             time.sleep(0.5)  # retry the call
+
+def lstat(e):
+    try:
+        return os.lstat(e)
+    except (IOError, OSError):
+        ex = sys.exc_info()[1]
+        if ex.errno == ENOENT:
+            return ex.errno
+        else:
+            raise
