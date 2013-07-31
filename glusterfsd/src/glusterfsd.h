@@ -85,6 +85,7 @@ enum argp_option_keys {
         ARGP_INODE32_KEY                  = 163,
 	ARGP_FUSE_MOUNTOPTS_KEY		  = 164,
         ARGP_FUSE_USE_READDIRP_KEY        = 165,
+	ARGP_AUX_GFID_MOUNT_KEY		  = 166,
 };
 
 struct _gfd_vol_top_priv_t {
