@@ -44,7 +44,7 @@ location:
   Storage     
   ------------------------------------------------------------------------
 
-  [ Virtualized Cloud Environments ]: images/640px-GlusterFS_3.2_Architecture.png
+  [ Virtualized Cloud Environments ]: images/640px-GlusterFS_Architecture.png
   []: http://docs.redhat.com/docs/en-US/Red_Hat_Storage_Software_Appliance/index.html
   [1]: http://docs.redhat.com/docs/en-US/Red_Hat_Virtual_Storage_Appliance/index.html
   [2]: http://docs.redhat.com/docs/en-US/Red_Hat_Storage/index.html
