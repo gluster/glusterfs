@@ -325,6 +325,7 @@ struct _cmd_args {
         int              mac_compat;
 	int		 fopen_keep_cache;
 	int		 gid_timeout;
+        int              aux_gfid_mount;
 	struct list_head xlator_options;  /* list of xlator_option_t */
 
 	/* fuse options */
@@ -353,6 +354,7 @@ struct _cmd_args {
         int             brick_port;
         char           *brick_name;
         int             brick_port2;
+
 };
 typedef struct _cmd_args cmd_args_t;
 

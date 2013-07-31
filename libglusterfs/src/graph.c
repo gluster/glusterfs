@@ -213,6 +213,21 @@ glusterfs_graph_mac_compat (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
         return ret;
 }
 
+int
+glusterfs_graph_gfid_access (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
+{
+        int ret = 0;
+        cmd_args_t      *cmd_args = NULL;
+
+        cmd_args = &ctx->cmd_args;
+
+        if (!cmd_args->aux_gfid_mount)
+                return 0;
+
+        ret = glusterfs_graph_insert (graph, ctx, "features/gfid-access",
+                                      "gfid-access-autoload", 1);
+        return ret;
+}
 
 static void
 gf_add_cmdline_options (glusterfs_graph_t *graph, cmd_args_t *cmd_args)
@@ -438,6 +453,14 @@ glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
         ret = glusterfs_graph_mac_compat (graph, ctx);
         if (ret) {
                 gf_log ("graph", GF_LOG_ERROR, "glusterfs graph mac compat failed");
+                return -1;
+        }
+
+        /* XXX: gfid-access */
+        ret = glusterfs_graph_gfid_access (graph, ctx);
+        if (ret) {
+                gf_log ("graph", GF_LOG_ERROR,
+                        "glusterfs graph 'gfid-access' failed");
                 return -1;
         }
 
