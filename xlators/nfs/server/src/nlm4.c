@@ -956,7 +956,7 @@ nlm4_establish_callback (void *csarg)
         case AF_INET:
                 inet_ntop (AF_INET, &sock_union.sin.sin_addr, peerip,
                            INET6_ADDRSTRLEN+1);
-                inet_ntop (AF_INET, &(((struct sockaddr_in *)&cs->req->trans->myinfo.sockaddr)->sin_addr),
+                inet_ntop (AF_INET, &(((struct sockaddr_in *)&cs->trans->myinfo.sockaddr)->sin_addr),
                            myip, INET6_ADDRSTRLEN + 1);
 
                 break;
