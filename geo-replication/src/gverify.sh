@@ -61,10 +61,11 @@ exit 1;
 fi;
 cd \$d;
 available_size=\$(df \$d | tail -1 | awk "{print \\\$4}");
+no_of_files=\$(find  \$d -maxdepth 0 -empty);
 umount -l \$d;
 rmdir \$d;
 ver=\$(gluster --version | head -1 | cut -f2 -d " ");
-echo \$available_size:\$ver;
+echo \$available_size:\$ver:\$no_of_files:;
 };
 cd /tmp;
 [ x$VOL != x ] && do_verify $VOL;
@@ -102,7 +103,9 @@ function main()
     slave_size=$(echo $slave_data | cut -f1 -d':');
     master_version=$(echo $master_data | cut -f2 -d':');
     slave_version=$(echo $slave_data | cut -f2 -d':');
+    slave_no_of_files=$(echo $slave_data | cut -f3 -d':');
     log_file=$4
+    > $log_file
 
     if [[ "x$master_size" = "x" || "x$master_version" = "x" || "$master_size" -eq "0" ]]; then
 	echo "Unable to fetch master volume details." > $log_file;
@@ -119,20 +122,19 @@ function main()
 	exit 1;
     fi;
 
-    if [ $slave_size -ge $(($master_size - $BUFFER_SIZE )) ]; then
-	echo "Total size of master is lesser than available size of slave." > $log_file;
-    else
-	echo "Total size of master is greater than available size of slave." > $log_file;
+    if [ ! $slave_size -ge $(($master_size - $BUFFER_SIZE )) ]; then
+	echo "Total size of master is greater than available size of slave." >> $log_file;
 	ERRORS=$(($ERRORS + 1));
-	exit $ERRORS;
     fi;
 
-    if [[ $master_version < $slave_version || $master_version == $slave_version ]]; then
-	echo "Gluster version of master and slave matches." > $log_file;
-    else
-	echo "Gluster version mismatch between master and slave." > $log_file;
+    if [ -z $slave_no_of_files ]; then
+        echo "$2::$3 is not empty. Please delete existing files in $2::$3 and retry, or use force to continue without deleting the existing files." >> $log_file;
+        ERRORS=$(($ERRORS + 1));
+    fi;
+ 
+    if [[ $master_version > $slave_version ]]; then
+	echo "Gluster version mismatch between master and slave." >> $log_file;
 	ERRORS=$(($ERRORS + 1));
-	exit $ERRORS;
     fi;
 
     exit $ERRORS;
