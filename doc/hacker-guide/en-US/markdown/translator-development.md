@@ -24,27 +24,27 @@ shared-object file, as follow (from `xlator.c`):
 
 ```
 if (!(xl->fops = dlsym (handle, "fops"))) {
-	gf_log ("xlator", GF_LOG_WARNING, "dlsym(fops) on %s",
-		dlerror ());
-	goto out;
+    gf_log ("xlator", GF_LOG_WARNING, "dlsym(fops) on %s",
+        dlerror ());
+    goto out;
 }
 
 if (!(xl->cbks = dlsym (handle, "cbks"))) {
-	gf_log ("xlator", GF_LOG_WARNING, "dlsym(cbks) on %s",
-		dlerror ());
-	goto out;
+    gf_log ("xlator", GF_LOG_WARNING, "dlsym(cbks) on %s",
+        dlerror ());
+    goto out;
 }
 
 if (!(xl->init = dlsym (handle, "init"))) {
-	gf_log ("xlator", GF_LOG_WARNING, "dlsym(init) on %s",
-		dlerror ());
-	goto out;
+    gf_log ("xlator", GF_LOG_WARNING, "dlsym(init) on %s",
+        dlerror ());
+    goto out;
 }
 
 if (!(xl->fini = dlsym (handle, "fini"))) {
-	gf_log ("xlator", GF_LOG_WARNING, "dlsym(fini) on %s",
-		dlerror ());
-	goto out;
+    gf_log ("xlator", GF_LOG_WARNING, "dlsym(fini) on %s",
+        dlerror ());
+    goto out;
 }
 ```
 
@@ -61,21 +61,21 @@ translator just for fun, so in this case you'd look in `rot-13.c` to see this:
 
 ```
 struct xlator_fops fops = {
-	.readv        = rot13_readv,
-	.writev       = rot13_writev
+    .readv          = rot13_readv,
+    .writev         = rot13_writev
 };
 
 struct xlator_cbks cbks = {
 };
 
 struct volume_options options[] = {
-{ .key  = {"encrypt-write"},
+{ .key    = {"encrypt-write"},
   .type = GF_OPTION_TYPE_BOOL
 },
-{ .key  = {"decrypt-read"},
+{ .key    = {"decrypt-read"},
   .type = GF_OPTION_TYPE_BOOL
 },
-{ .key  = {NULL} },
+{ .key    = {NULL} },
 };
 ```
 
@@ -123,10 +123,10 @@ then come back to `rot-13`.
   .type = GF_OPTION_TYPE_STR,
   .default_value = "",
   .description   = "Select between \"full\", \"diff\". The "
-		   "\"full\" algorithm copies the entire file from "
-		   "source to sink. The \"diff\" algorithm copies to "
-		   "sink only those blocks whose checksums don't match "
-		   "with those of source.",
+           "\"full\" algorithm copies the entire file from "
+           "source to sink. The \"diff\" algorithm copies to "
+           "sink only those blocks whose checksums don't match "
+           "with those of source.",
   .value = { "diff", "full", "" }
 },
 { .key  = {"data-self-heal-window-size"},
@@ -134,8 +134,8 @@ then come back to `rot-13`.
   .min  = 1,
   .max  = 1024,
   .default_value = "1",
-  .description = "Maximum number blocks per file for which self-heal "
-		 "process would be applied simultaneously."
+  .description = "Maximum number blocks per file for which "
+         "self-heal process would be applied simultaneously."
 },
 ```
 
@@ -152,11 +152,12 @@ priv->encrypt_write = 1;
 
 data = dict_get (this->options, "encrypt-write");
 if (data) {
-	if (gf_string2boolean (data->data, &priv->encrypt_write) == -1) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"encrypt-write takes only boolean options");
-		return -1;
-	}
+    if (gf_string2boolean (data->data, &priv->encrypt_write
+        == -1) {
+        gf_log (this->name, GF_LOG_ERROR,
+            "encrypt-write takes only boolean options");
+        return -1;
+    }
 }
 ```
 
@@ -202,23 +203,23 @@ function that we just barely touched on last time.
 int32_t
 init (xlator_t *this)
 {
-        data_t *data = NULL;
-        rot_13_private_t *priv = NULL;
+    data_t *data = NULL;
+    rot_13_private_t *priv = NULL;
 
-        if (!this->children || this->children->next) {
-                gf_log ("rot13", GF_LOG_ERROR,
-                        "FATAL: rot13 should have exactly one child");
-                return -1;
-        }
+    if (!this->children || this->children->next) {
+        gf_log ("rot13", GF_LOG_ERROR,
+            "FATAL: rot13 should have exactly one child");
+        return -1;
+    }
 
-        if (!this->parents) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "dangling volume. check volfile ");
-        }
+    if (!this->parents) {
+        gf_log (this->name, GF_LOG_WARNING,
+            "dangling volume. check volfile ");
+    }
 
-        priv = GF_CALLOC (sizeof (rot_13_private_t), 1, 0);
-        if (!priv)
-                return -1;
+    priv = GF_CALLOC (sizeof (rot_13_private_t), 1, 0);
+    if (!priv)
+        return -1;
 ```
 
 At the very top, we see the function signature -- we get a pointer to the
@@ -273,20 +274,20 @@ To finish our tour of standard initialization/termination, let's look at the
 end of `init` and the beginning of `fini`:
 
 ```
-        this->private = priv;
-        gf_log ("rot13", GF_LOG_DEBUG, "rot13 xlator loaded");
-        return 0;
+    this->private = priv;
+    gf_log ("rot13", GF_LOG_DEBUG, "rot13 xlator loaded");
+    return 0;
 }
 
 void
 fini (xlator_t *this)
 {
-        rot_13_private_t *priv = this->private;
+    rot_13_private_t *priv = this->private;
 
-        if (!priv)
-                return;
-        this->private = NULL;
-        GF_FREE (priv);
+    if (!priv)
+        return;
+    this->private = NULL;
+    GF_FREE (priv);
 ```
 
 At the end of init we're just storing our private-data pointer in the `priv`
@@ -336,20 +337,21 @@ TARGET  = rot-13.so
 OBJECTS = rot-13.o
 
 # Change these to match your environment.
-GLFS_SRC = /play/glusterfs
-GLFS_LIB = /opt/glusterfs/3git/lib64
+GLFS_SRC = /srv/glusterfs
+GLFS_LIB = /usr/lib64
 HOST_OS  = GF_LINUX_HOST_OS
 
 # You shouldn't need to change anything below here.
 
 CFLAGS  = -fPIC -Wall -O0 -g \
-          -DHAVE_CONFIG_H -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(HOST_OS) \
-          -I$(GLFS_SRC) -I$(GLFS_SRC)/libglusterfs/src \
-          -I$(GLFS_SRC)/contrib/uuid
-LDFLAGS = -shared -nostartfiles -L$(GLFS_LIB) -lglusterfs -lpthread
+      -DHAVE_CONFIG_H -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE \
+      -D$(HOST_OS) -I$(GLFS_SRC) -I$(GLFS_SRC)/contrib/uuid \
+      -I$(GLFS_SRC)/libglusterfs/src
+LDFLAGS = -shared -nostartfiles -L$(GLFS_LIB) -lglusterfs \
+      -lpthread
 
 $(TARGET): $(OBJECTS)
-        $(CC) $(OBJECTS) $(LDFLAGS) -o $(TARGET)
+    $(CC) $(OBJECTS) $(LDFLAGS) -o $(TARGET)
 ```
 
 Yes, it's still Linux-specific. Mea culpa. As you can see, we're sticking with
@@ -358,7 +360,7 @@ the `rot-13` example, so you can just copy the files from
 `make` and you should be rewarded with a nice little `.so` file.
 
 ```
-[jeff@gfs-i8c-01 xlator_example]$ ls -l rot-13.so
+xlator_example$ ls -l rot-13.so
 -rwxr-xr-x. 1 jeff jeff 40784 Nov 16 16:41 rot-13.so
 ```
 
@@ -369,9 +371,11 @@ on our system, so that it doesn't stomp on the installed version (not that
 you'd ever want to use that anyway).
 
 ```
-[root@gfs-i8c-01 xlator_example]# ls /opt/glusterfs/3git/lib64/glusterfs/3git/xlator/encryption/
-crypt.so  crypt.so.0  crypt.so.0.0.0  rot-13.so  rot-13.so.0  rot-13.so.0.0.0
-[root@gfs-i8c-01 xlator_example]# cp rot-13.so /opt/glusterfs/3git/lib64/glusterfs/3git/xlator/encryption/my-rot-13.so
+xlator_example# ls /usr/lib64/glusterfs/3git/xlator/encryption/
+crypt.so crypt.so.0 crypt.so.0.0.0 rot-13.so rot-13.so.0
+rot-13.so.0.0.0
+xlator_example# cp rot-13.so \
+    /usr/lib64/glusterfs/3git/xlator/encryption/my-rot-13.so
 ```
 
 These paths represent the current Gluster filesystem layout, which is likely to
@@ -384,7 +388,7 @@ volfile. Here's just about the simplest volfile you'll ever see.
 ```
 volume my-posix
     type storage/posix
-    option directory /play/export
+    option directory /srv/export
 end-volume
 
 volume my-rot13
@@ -393,7 +397,7 @@ volume my-rot13
 end-volume
 ```
 
-All we have here is a basic brick using `/play/export` for its data, and then
+All we have here is a basic brick using `/srv/export` for its data, and then
 an instance of our translator layered on top -- no client or server is
 necessary for what we're doing, and the system will automatically push a
 mount/fuse translator on top if there's no server translator. To try this out,
@@ -401,7 +405,7 @@ all we need is the following command (assuming the directories involved already
  exist).
 
 ```
-[jeff@gfs-i8c-01 xlator_example]$ glusterfs --debug -f my.vol /play/import
+xlator_example$ glusterfs --debug -f my.vol /srv/import
 ```
 
 You should be rewarded with a whole lot of log output, including the text of
@@ -410,18 +414,18 @@ go to another window on the same machine, you can see that you have a new
 filesystem mounted.
 
 ```
-[jeff@gfs-i8c-01 ~]$ df /play/import
-Filesystem           1K-blocks      Used Available Use% Mounted on
-/play/xlator_example/my.vol
-                     114506240   2706176 105983488   3% /play/import
+~$ df /srv/import
+Filesystem   1K-blocks     Used    Available Use% Mounted on
+/srv/xlator_example/my.vol
+             114506240     2706176 105983488   3% /srv/import
 ```
 
-Just for fun, write something into a file in `/play/import`, then look at the
-corresponding file in `/play/export` to see it all `rot-13`'ed for you.
+Just for fun, write something into a file in `/srv/import`, then look at the
+corresponding file in `/srv/export` to see it all `rot-13`'ed for you.
 
 ```
-[jeff@gfs-i8c-01 ~]$ echo hello > /play/import/a_file
-[jeff@gfs-i8c-01 ~]$ cat /play/export/a_file
+~$ echo hello > /srv/import/a_file
+~$ cat /srv/export/a_file
 uryyb
 ```
 
@@ -440,26 +444,28 @@ time to run one and actually watch it work. The best way to do this is good
 old-fashioned `gdb`, as follows (using some of the examples from last time).
 
 ```
-[root@gfs-i8c-01 xlator_example]# gdb glusterfs
+xlator_example# gdb glusterfs
 GNU gdb (GDB) Red Hat Enterprise Linux (7.2-50.el6)
 ...
-(gdb) r --debug -f my.vol /play/import
-Starting program: /usr/sbin/glusterfs --debug -f my.vol /play/import
+(gdb) r --debug -f my.vol /srv/import
+Starting program: /usr/sbin/glusterfs --debug -f my.vol /srv/import
 ...
-[2011-11-23 11:23:16.495516] I [fuse-bridge.c:2971:fuse_init] 0-glusterfs-fuse: FUSE inited with protocol versions: glusterfs 7.13 kernel 7.13
+[2011-11-23 11:23:16.495516] I [fuse-bridge.c:2971:fuse_init]
+    0-glusterfs-fuse: FUSE inited with protocol versions:
+    glusterfs 7.13 kernel 7.13
 ```
 
 If you get to this point, your glusterfs client process is already running. You
 can go to another window to see the mountpoint, do file operations, etc.
 
 ```
-[root@gfs-i8c-01 ~]# df /play/import
-Filesystem           1K-blocks      Used Available Use% Mounted on
+~# df /srv/import
+Filesystem   1K-blocks     Used    Available Use% Mounted on
 /root/xlator_example/my.vol
-                     114506240   2643968 106045568   3% /play/import
-[root@gfs-i8c-01 ~]# ls /play/import
+             114506240     2643968 106045568   3% /srv/import
+~# ls /srv/import
 a_file
-[root@gfs-i8c-01 ~]# cat /play/import/a_file
+~# cat /srv/import/a_file
 hello
 ```
 
@@ -468,15 +474,24 @@ Now let's interrupt the process and see where we are.
 ```
 ^C
 Program received signal SIGINT, Interrupt.
-0x0000003a0060b3dc in pthread_cond_wait@@GLIBC_2.3.2 () from /lib64/libpthread.so.0
+0x0000003a0060b3dc in pthread_cond_wait@@GLIBC_2.3.2 ()
+                   from /lib64/libpthread.so.0
 (gdb) info threads
-  5 Thread 0x7fffeffff700 (LWP 27206)  0x0000003a002dd8c7 in readv ()
-   from /lib64/libc.so.6
-  4 Thread 0x7ffff50e3700 (LWP 27205)  0x0000003a0060b75b in pthread_cond_timedwait@@GLIBC_2.3.2 () from /lib64/libpthread.so.0
-  3 Thread 0x7ffff5f02700 (LWP 27204)  0x0000003a0060b3dc in pthread_cond_wait@@GLIBC_2.3.2 () from /lib64/libpthread.so.0
-  2 Thread 0x7ffff6903700 (LWP 27203)  0x0000003a0060f245 in sigwait ()
-   from /lib64/libpthread.so.0
-* 1 Thread 0x7ffff7957700 (LWP 27196)  0x0000003a0060b3dc in pthread_cond_wait@@GLIBC_2.3.2 () from /lib64/libpthread.so.0
+  5 Thread 0x7fffeffff700 (LWP 27206)  0x0000003a002dd8c7
+    in readv ()
+    from /lib64/libc.so.6
+  4 Thread 0x7ffff50e3700 (LWP 27205)  0x0000003a0060b75b
+    in pthread_cond_timedwait@@GLIBC_2.3.2 ()
+    from /lib64/libpthread.so.0
+  3 Thread 0x7ffff5f02700 (LWP 27204)  0x0000003a0060b3dc
+    in pthread_cond_wait@@GLIBC_2.3.2 ()
+    from /lib64/libpthread.so.0
+  2 Thread 0x7ffff6903700 (LWP 27203)  0x0000003a0060f245
+    in sigwait ()
+    from /lib64/libpthread.so.0
+* 1 Thread 0x7ffff7957700 (LWP 27196)  0x0000003a0060b3dc
+    in pthread_cond_wait@@GLIBC_2.3.2 ()
+    from /lib64/libpthread.so.0
 ```
 
 Like any non-toy server, this one has multiple threads. What are they all
@@ -504,13 +519,14 @@ Continuing.
 At this point we go into our other window and do something that will involve a write.
 
 ```
-[root@gfs-i8c-01 ~]# echo goodbye > /play/import/another_file
+~# echo goodbye > /srv/import/another_file
 (back to the first window)
 [Switching to Thread 0x7fffeffff700 (LWP 27206)]
 
-Breakpoint 1, rot13_writev (frame=0x7ffff6e4402c, this=0x638440, fd=0x7ffff409802c,
-    vector=0x7fffe8000cd8, count=1, offset=0, iobref=0x7fffe8001070) at rot-13.c:119
-119             rot_13_private_t *priv = (rot_13_private_t *)this->private;
+Breakpoint 1, rot13_writev (frame=0x7ffff6e4402c, this=0x638440,
+    fd=0x7ffff409802c, vector=0x7fffe8000cd8, count=1, offset=0,
+    iobref=0x7fffe8001070) at rot-13.c:119
+119   rot_13_private_t *priv = (rot_13_private_t *)this->private;
 ```
 
 Remember how we built with debugging symbols enabled and no optimization? That
@@ -542,7 +558,7 @@ written, like this.
 (gdb) p vector[0]
 $2 = {iov_base = 0x7ffff7936000, iov_len = 8}
 (gdb) x/s 0x7ffff7936000
-0x7ffff7936000:  "goodbye\n"
+0x7ffff7936000:     "goodbye\n"
 ```
 
 It's not always safe to view this data as a string, because it might just as
@@ -551,21 +567,21 @@ and convenient. With that knowledge, let's step through things a bit.
 
 ```
 (gdb) s
-120             if (priv->encrypt_write)
+120        if (priv->encrypt_write)
 (gdb)
-121                     rot13_iovec (vector, count);
+121            rot13_iovec (vector, count);
 (gdb)
 rot13_iovec (vector=0x7fffe8000cd8, count=1) at rot-13.c:57
-57              for (i = 0; i < count; i++) {
+57        for (i = 0; i < count; i++) {
 (gdb)
-58                      rot13 (vector[i].iov_base, vector[i].iov_len);
+58            rot13 (vector[i].iov_base, vector[i].iov_len);
 (gdb)
 rot13 (buf=0x7ffff7936000 "goodbye\n", len=8) at rot-13.c:45
-45              for (i = 0; i < len; i++) {
+45        for (i = 0; i < len; i++) {
 (gdb)
-46                      if (buf[i] >= 'a' && buf[i] <= 'z')
+46            if (buf[i] >= 'a' && buf[i] <= 'z')
 (gdb)
-47                              buf[i] = 'a' + ((buf[i] - 'a' + 13) % 26);
+47                buf[i] = 'a' + ((buf[i] - 'a' + 13) % 26);
 ```
 
 Here we've stepped into `rot13_iovec`, which iterates through our vector
@@ -575,14 +591,17 @@ stuff, so  let's skip to the next interesting bit.
 
 ```
 (gdb) fin
-Run till exit from #0  rot13 (buf=0x7ffff7936000 "goodbye\n", len=8) at rot-13.c:47
+Run till exit from #0  rot13 (buf=0x7ffff7936000 "goodbye\n",
+    len=8) at rot-13.c:47
 rot13_iovec (vector=0x7fffe8000cd8, count=1) at rot-13.c:57
-57              for (i = 0; i < count; i++) {
+57        for (i = 0; i < count; i++) {
 (gdb) fin
-Run till exit from #0  rot13_iovec (vector=0x7fffe8000cd8, count=1) at rot-13.c:57
-rot13_writev (frame=0x7ffff6e4402c, this=0x638440, fd=0x7ffff409802c,
-    vector=0x7fffe8000cd8, count=1, offset=0, iobref=0x7fffe8001070) at rot-13.c:123
-123             STACK_WIND (frame,
+Run till exit from #0  rot13_iovec (vector=0x7fffe8000cd8,
+    count=1) at rot-13.c:57
+rot13_writev (frame=0x7ffff6e4402c, this=0x638440,
+    fd=0x7ffff409802c, vector=0x7fffe8000cd8, count=1,
+    offset=0, iobref=0x7fffe8001070) at rot-13.c:123
+123        STACK_WIND (frame,
 (gdb) b 129
 Breakpoint 2 at 0x7ffff50e4f35: file rot-13.c, line 129.
 (gdb) b rot13_writev_cbk
@@ -594,21 +613,25 @@ So we've set breakpoints on both the callback and the statement following the
 `STACK_WIND`. Which one will we hit first?
 
 ```
-Breakpoint 3, rot13_writev_cbk (frame=0x7ffff6e4402c, cookie=0x7ffff6e440d8,
-    this=0x638440, op_ret=8, op_errno=0, prebuf=0x7fffefffeca0,
-    postbuf=0x7fffefffec30) at rot-13.c:106
-106             STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
+Breakpoint 3, rot13_writev_cbk (frame=0x7ffff6e4402c,
+    cookie=0x7ffff6e440d8, this=0x638440, op_ret=8, op_errno=0,
+    prebuf=0x7fffefffeca0, postbuf=0x7fffefffec30)
+    at rot-13.c:106
+106  STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno,
+                          prebuf, postbuf);
 (gdb) bt
-#0  rot13_writev_cbk (frame=0x7ffff6e4402c, cookie=0x7ffff6e440d8, this=0x638440,
-    op_ret=8, op_errno=0, prebuf=0x7fffefffeca0, postbuf=0x7fffefffec30)
+#0  rot13_writev_cbk (frame=0x7ffff6e4402c,
+    cookie=0x7ffff6e440d8, this=0x638440, op_ret=8, op_errno=0,
+    prebuf=0x7fffefffeca0, postbuf=0x7fffefffec30)
     at rot-13.c:106
 #1  0x00007ffff52f1b37 in posix_writev (frame=0x7ffff6e440d8,
     this=<value optimized out>, fd=<value optimized out>,
-    vector=<value optimized out>, count=1, offset=<value optimized out>,
-    iobref=0x7fffe8001070) at posix.c:2217
-#2  0x00007ffff50e513e in rot13_writev (frame=0x7ffff6e4402c, this=0x638440,
-    fd=0x7ffff409802c, vector=0x7fffe8000cd8, count=1, offset=0,
-    iobref=0x7fffe8001070) at rot-13.c:123
+    vector=<value optimized out>, count=1,
+    offset=<value optimized out>, iobref=0x7fffe8001070)
+    at posix.c:2217
+#2  0x00007ffff50e513e in rot13_writev (frame=0x7ffff6e4402c,
+    this=0x638440, fd=0x7ffff409802c, vector=0x7fffe8000cd8,
+    count=1, offset=0, iobref=0x7fffe8001070) at rot-13.c:123
 ```
 
 Surprise! We're in `rot13_writev_cbk` now, called (indirectly) while we're
