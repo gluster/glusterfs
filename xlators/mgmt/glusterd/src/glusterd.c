@@ -601,21 +601,21 @@ configure_syncdaemon (glusterd_conf_t *conf)
         /* pid-file */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_arg (&runner, "pid-file");
-        runner_argprintf (&runner, "%s/${mastervol}-${slavevol}/${eSlave}.pid", georepdir);
+        runner_argprintf (&runner, "%s/${mastervol}_${remotehost}_${slavevol}/${eSlave}.pid", georepdir);
         runner_add_args (&runner, ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
         /* state-file */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_arg (&runner, "state-file");
-        runner_argprintf (&runner, "%s/${mastervol}-${slavevol}/${eSlave}.status", georepdir);
+        runner_argprintf (&runner, "%s/${mastervol}_${remotehost}_${slavevol}/${eSlave}.status", georepdir);
         runner_add_args (&runner, ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
         /* state-detail-file */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_arg (&runner, "state-detail-file");
-        runner_argprintf (&runner, "%s/${mastervol}-${slavevol}/${eSlave}-detail.status",
+        runner_argprintf (&runner, "%s/${mastervol}_${remotehost}_${slavevol}/${eSlave}-detail.status",
                           georepdir);
         runner_add_args (&runner, ".", ".", NULL);
         RUN_GSYNCD_CMD;
@@ -623,7 +623,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
         /* state-detail-file */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_arg (&runner, "state-detail-file");
-        runner_argprintf (&runner, "%s/${mastervol}-${slavevol}/${eSlave}-detail.status",
+        runner_argprintf (&runner, "%s/${mastervol}_${remotehost}_${slavevol}/${eSlave}-detail.status",
                           georepdir);
         runner_add_args (&runner, ".", ".", NULL);
         RUN_GSYNCD_CMD;

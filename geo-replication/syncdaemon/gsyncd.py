@@ -347,6 +347,8 @@ def main_i():
                 for j in range(3):
                     namedict[mods[j](name)] = pa[j][i]
                 namedict[name + 'vol'] = x.volume
+                if name == 'remote':
+                    namedict['remotehost'] = x.remotehost
     if not 'config_file' in rconf:
         rconf['config_file'] = os.path.join(os.path.dirname(sys.argv[0]), "conf/gsyncd_template.conf")
     gcnf = GConffile(rconf['config_file'], canon_peers, defaults.__dict__, opts.__dict__, namedict)

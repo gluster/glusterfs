@@ -1059,16 +1059,17 @@ class SSH(AbstractUrl, SlaveRemote):
         self.volume = inner_url[1:]
 
     @staticmethod
-    def parse_ssh_address(addr):
-        m = re.match('([^@]+)@(.+)', addr)
+    def parse_ssh_address(self):
+        m = re.match('([^@]+)@(.+)', self.remote_addr)
         if m:
             u, h = m.groups()
         else:
-            u, h = syncdutils.getusername(), addr
+            u, h = syncdutils.getusername(), self.remote_addr
+        self.remotehost = h
         return {'user': u, 'host': h}
 
     def canonical_path(self):
-        rap = self.parse_ssh_address(self.remote_addr)
+        rap = self.parse_ssh_address(self)
         remote_addr = '@'.join([rap['user'], gethostbyname(rap['host'])])
         return ':'.join([remote_addr, self.inner_rsc.get_url(canonical=True)])
 

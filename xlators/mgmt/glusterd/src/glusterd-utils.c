@@ -6495,6 +6495,7 @@ glusterd_gsync_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict, char *op_errstr)
 {
         dict_t             *ctx = NULL;
         int                ret = 0;
+        char               *conf_path = NULL;
 
         if (aggr) {
                 ctx = aggr;
@@ -6516,6 +6517,17 @@ glusterd_gsync_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict, char *op_errstr)
                 ret = glusterd_append_gsync_status (ctx, rsp_dict);
                 if (ret)
                         goto out;
+
+                ret = dict_get_str (rsp_dict, "conf_path", &conf_path);
+                if (!ret && conf_path) {
+                        ret = dict_set_dynstr (ctx, "conf_path",
+                                            gf_strdup(conf_path));
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR,
+                                        "Unable to store conf path.");
+                                goto out;
+                        }
+                }
         }
         if ((op_errstr) && (strcmp ("", op_errstr))) {
                 ret = dict_set_dynstr (ctx, "errstr", gf_strdup(op_errstr));
