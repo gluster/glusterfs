@@ -265,7 +265,7 @@ __glusterd_handle_gsync_set (rpcsvc_request_t *req)
 
         ret = dict_get_str (dict, "slave", &slave);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_INFO, "slave not found, while"
+                gf_log (this->name, GF_LOG_INFO, "slave not found, while "
                         "handling "GEOREP" options");
                 slave = "(No Slave)";
         }
