@@ -240,7 +240,7 @@ def distribute(*resources):
     else:
         slavenodes = set(b['host'] for b in sbricks)
         if isinstance(slave, SSH) and not gconf.isolated_slave:
-            rap = SSH.parse_ssh_address(slave.remote_addr)
+            rap = SSH.parse_ssh_address(slave)
             slaves = [ 'ssh://' + rap['user'] + '@' + h + ':' + si.url for h in slavenodes ]
         else:
             slavevols = [ h + ':' + si.volume for h in slavenodes ]

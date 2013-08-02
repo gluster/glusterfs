@@ -3757,54 +3757,6 @@ out:
         return ret;
 }
 
-static int
-gf_cli_get_slave_volname (char *slave, char **slave_vol)
-{
-        char     *tmp       = NULL;
-        char     *buf       = NULL;
-        char     *save_ptr  = NULL;
-        char     *slave_buf = NULL;
-        int32_t   ret       = -1;
-
-        GF_ASSERT (slave);
-
-        slave_buf = gf_strdup(slave);
-        if (!slave_buf) {
-                gf_log ("", GF_LOG_ERROR,
-                        "Failed to gf_strdup");
-                ret = -1;
-                goto out;
-        }
-
-        tmp  = strtok_r (slave_buf, ":", &save_ptr);
-        while (tmp) {
-                buf = tmp;
-                tmp  = strtok_r (NULL, ":", &save_ptr);
-        }
-
-        if (buf) {
-                *slave_vol = gf_strdup (buf);
-                if (!*slave_vol) {
-                        gf_log ("", GF_LOG_ERROR,
-                                "Failed to gf_strdup");
-                        ret = -1;
-                        goto out;
-                }
-                gf_log ("", GF_LOG_DEBUG, "Slave Vol : %s", *slave_vol);
-                ret = 0;
-         } else {
-                gf_log ("", GF_LOG_ERROR, "Invalid slave name");
-                goto out;
-         }
-
-out:
-        if (slave_buf)
-                GF_FREE(slave_buf);
-
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
-}
-
 int
 gf_cli_gsync_config_command (dict_t *dict)
 {
@@ -3812,7 +3764,7 @@ gf_cli_gsync_config_command (dict_t *dict)
         char *subop         = NULL;
         char *gwd           = NULL;
         char *slave         = NULL;
-        char *slave_vol     = NULL;
+        char *confpath      = NULL;
         char *master        = NULL;
         char *op_name       = NULL;
         int   ret           = -1;
@@ -3835,21 +3787,17 @@ gf_cli_gsync_config_command (dict_t *dict)
         if (dict_get_str (dict, "op_name", &op_name) != 0)
                 op_name = NULL;
 
-        ret = gf_cli_get_slave_volname (slave, &slave_vol);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR,
-                        "Unable to fetch slave volume name.");
-                return -1;
+        ret = dict_get_str (dict, "conf_path", &confpath);
+        if (!confpath) {
+                ret = snprintf (conf_path, sizeof(conf_path) - 1,
+                                "%s/"GEOREP"/gsyncd_template.conf", gwd);
+                conf_path[ret] = '\0';
+                confpath = conf_path;
         }
-
-        ret = snprintf (conf_path, sizeof(conf_path) - 1,
-                        "%s/"GEOREP"/%s-%s/gsyncd.conf",
-                        gwd, master, slave_vol);
-        conf_path[ret] = '\0';
 
         runinit (&runner);
         runner_add_args (&runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
-        runner_argprintf (&runner, "%s", conf_path);
+        runner_argprintf (&runner, "%s", confpath);
         if (master)
                 runner_argprintf (&runner, ":%s", master);
         runner_add_arg (&runner, slave);
