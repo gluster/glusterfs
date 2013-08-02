@@ -59,7 +59,7 @@ This log framework can be disabled either at compile time or run time
 
 - for compile time by passing '--disable-syslog' to ./configure or
    '--without syslog' to rpmbuild (or)
-- for run time by having a file /var/log/glusterd/logger.conf and
+- for run time by having a file /var/lib/glusterd/logger.conf and
   restarting gluster services
 
 Currently all gluster logs are sent with error code GF_ERR_DEV.
