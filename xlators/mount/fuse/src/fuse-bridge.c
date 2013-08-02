@@ -586,8 +586,11 @@ fuse_batch_forget(xlator_t *this, fuse_in_header_t *finh, void *msg)
 		"%"PRIu64": BATCH_FORGET %"PRIu64"/%"PRIu32,
 		finh->unique, finh->nodeid, fbfi->count);
 
-	for (i = 0; i < fbfi->count; i++)
+	for (i = 0; i < fbfi->count; i++) {
+                if (ffo[i].nodeid == 1)
+                        continue;
 		do_forget(this, finh->unique, ffo[i].nodeid, ffo[i].nlookup);
+        }
 
 	GF_FREE(finh);
 }
