@@ -4633,6 +4633,10 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
         fino.max_readahead = 1 << 17;
         fino.max_write = 1 << 17;
         fino.flags = FUSE_ASYNC_READ | FUSE_POSIX_LOCKS;
+#if FUSE_KERNEL_MINOR_VERSION >= 17
+	if (fini->minor >= 17)
+		fino.flags |= FUSE_FLOCK_LOCKS;
+#endif
 #if FUSE_KERNEL_MINOR_VERSION >= 12
         if (fini->minor >= 12) {
             /* let fuse leave the umask processing to us, so that it does not
