@@ -734,6 +734,8 @@ ob_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
 	fd = fd_lookup (loc->inode, 0);
 
 	open_and_resume (this, fd, stub);
+        if (fd)
+                fd_unref (fd);
 
 	return 0;
 err:
@@ -758,6 +760,8 @@ ob_rename (call_frame_t *frame, xlator_t *this, loc_t *src, loc_t *dst,
 		fd = fd_lookup (dst->inode, 0);
 
 	open_and_resume (this, fd, stub);
+        if (fd)
+                fd_unref (fd);
 
 	return 0;
 err:
