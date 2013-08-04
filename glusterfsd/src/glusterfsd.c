@@ -146,10 +146,6 @@ static struct argp_option gf_options[] = {
          "Mount the filesystem with POSIX ACL support"},
         {"selinux", ARGP_SELINUX_KEY, 0, 0,
          "Enable SELinux label (extened attributes) support on inodes"},
-#ifdef GF_LINUX_HOST_OS
-        {"aux-gfid-mount", ARGP_AUX_GFID_MOUNT_KEY, 0, 0,
-         "Enable access to filesystem through gfid directly"},
-#endif
         {"enable-ino32", ARGP_INODE32_KEY, "BOOL", OPTION_ARG_OPTIONAL,
          "Use 32-bit inodes when mounting to workaround broken applications"
          "that don't support 64-bit inodes"},
@@ -350,17 +346,6 @@ set_fuse_mount_options (glusterfs_ctx_t *ctx, dict_t *options)
                 if (ret < 0) {
                         gf_log ("glusterfsd", GF_LOG_ERROR,
                                 "failed to set dict value for key selinux");
-                        goto err;
-                }
-        }
-
-        if (cmd_args->aux_gfid_mount) {
-                ret = dict_set_static_ptr (options, "auxiliary-gfid-mount",
-                                           "on");
-                if (ret < 0) {
-                        gf_log ("glusterfsd", GF_LOG_ERROR,
-                                "failed to set dict value for key "
-                                "aux-gfid-mount");
                         goto err;
                 }
         }
@@ -702,10 +687,6 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 cmd_args->selinux = 1;
 		gf_remember_xlator_option (&cmd_args->xlator_options,
 					   "*-md-cache.cache-selinux=true");
-                break;
-
-        case ARGP_AUX_GFID_MOUNT_KEY:
-                cmd_args->aux_gfid_mount = 1;
                 break;
 
         case ARGP_INODE32_KEY:

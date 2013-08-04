@@ -842,7 +842,6 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         struct iatt           preparent = {0,};
         struct iatt           postparent = {0,};
         void *                uuid_req  = NULL;
-        mode_t                st_mode   = 0;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -917,19 +916,6 @@ real_op:
                                 "mknod on %s failed: %s", real_path,
                                 strerror (op_errno));
                         goto out;
-                }
-        } else {
-                op_ret = dict_get_uint32 (xdata, GLUSTERFS_CREATE_MODE_KEY,
-                                          &st_mode);
-
-                if (op_ret >= 0) {
-                        op_ret = chmod (real_path, st_mode);
-                        if (op_ret < 0) {
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "chmod failed (%s)", strerror (errno));
-                        }
-
-                        dict_del (xdata, GLUSTERFS_CREATE_MODE_KEY);
                 }
         }
 
