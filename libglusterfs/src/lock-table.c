@@ -97,7 +97,12 @@ gf_del_locker (struct _lock_table *table, const char *volume,
                             strcmp (locker->volume, volume))
                                 continue;
 
-                        if (locker->fd && fd && (locker->fd == fd))
+                        /*
+                         * It is possible for inodelk lock to come on anon-fd
+                         * and inodelk unlock to come on normal fd in case of
+                         * client re-opens. So don't check for fds to be equal.
+                         */
+                        if (locker->fd && fd)
                                 list_move_tail (&locker->lockers, &del);
                         else if (locker->loc.inode && loc &&
                                  (locker->loc.inode == loc->inode))
