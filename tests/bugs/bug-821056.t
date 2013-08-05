@@ -8,6 +8,7 @@ TEST glusterd
 TEST pidof glusterd
 
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1}
+TEST $CLI volume set $V0 eager-lock off
 TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume set $V0 performance.quick-read off
 TEST $CLI volume set $V0 performance.open-behind off
@@ -46,4 +47,6 @@ EXPECT_WITHIN 20 "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $B0/${V0}0
 #close the fd
 exec 5>&-
 
+#Check that anon-fd based file is not leaking.
+EXPECT_WITHIN 20 "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 "$realpath"
 cleanup;
