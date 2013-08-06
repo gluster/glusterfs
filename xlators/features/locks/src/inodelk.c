@@ -547,6 +547,37 @@ new_inode_lock (struct gf_flock *flock, void *transport, pid_t client_pid,
         return lock;
 }
 
+int32_t
+_pl_convert_volume (const char *volume, char **res)
+{
+        char    *mdata_vol = NULL;
+        int     ret = 0;
+
+        mdata_vol = strrchr (volume, ':');
+        //if the volume already ends with :metadata don't bother
+        if (mdata_vol && (strcmp (mdata_vol, ":metadata") == 0))
+                return 0;
+
+        ret = gf_asprintf (res, "%s:metadata", volume);
+        if (ret <= 0)
+                return ENOMEM;
+        return 0;
+}
+
+int32_t
+_pl_convert_volume_for_special_range (struct gf_flock *flock,
+                                      const char *volume, char **res)
+{
+        int32_t     ret = 0;
+
+        if ((flock->l_start == LLONG_MAX -1) &&
+            (flock->l_len == 0)) {
+                ret = _pl_convert_volume (volume, res);
+        }
+
+        return ret;
+}
+
 /* Common inodelk code called from pl_inodelk and pl_finodelk */
 int
 pl_common_inodelk (call_frame_t *frame, xlator_t *this,
@@ -562,6 +593,8 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
         pl_inode_t *      pinode     = NULL;
         pl_inode_lock_t * reqlock    = NULL;
         pl_dom_list_t *   dom        = NULL;
+        char             *res        = NULL;
+        char             *res1       = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (inode, unwind);
@@ -571,6 +604,12 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
                 op_errno = EINVAL;
                 goto unwind;
         }
+
+        op_errno = _pl_convert_volume_for_special_range (flock, volume, &res);
+        if (op_errno)
+                goto unwind;
+        if (res)
+                volume = res;
 
         pl_trace_in (this, frame, fd, loc, cmd, flock, volume);
 
@@ -598,6 +637,13 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
                         "Releasing all locks from transport %p", transport);
 
                 release_inode_locks_of_transport (this, dom, inode, transport);
+                _pl_convert_volume (volume, &res1);
+                if (res1) {
+                        dom = get_domain (pinode, res1);
+                        if (dom)
+                                release_inode_locks_of_transport (this, dom,
+                                                        inode, transport);
+                }
 
                 op_ret = 0;
                 goto unwind;
@@ -659,6 +705,8 @@ unwind:
 
         STACK_UNWIND_STRICT (inodelk, frame, op_ret, op_errno, NULL);
 out:
+        GF_FREE (res);
+        GF_FREE (res1);
         return 0;
 }
 
