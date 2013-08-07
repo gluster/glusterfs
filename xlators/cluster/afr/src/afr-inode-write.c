@@ -578,14 +578,11 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        struct iatt *postbuf, dict_t *xdata)
 {
         afr_local_t *   local = NULL;
-        afr_private_t * priv  = NULL;
         int child_index = (long) cookie;
         int read_child  = 0;
         int call_count  = -1;
-        int need_unwind = 0;
 
         local = frame->local;
-        priv  = this->private;
 
         read_child = afr_inode_get_read_ctx (this, local->loc.inode, NULL);
 
@@ -611,18 +608,10 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         }
 
                         local->success_count++;
-
-                        if ((local->success_count >= priv->wait_count)
-                            && local->read_child_returned) {
-                                need_unwind = 1;
-                        }
                 }
                 local->op_errno = op_errno;
         }
         UNLOCK (&frame->lock);
-
-        if (need_unwind)
-                local->transaction.unwind (frame, this);
 
         call_count = afr_frame_return (frame);
 
@@ -788,14 +777,11 @@ afr_ftruncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         struct iatt *postbuf, dict_t *xdata)
 {
         afr_local_t *   local = NULL;
-        afr_private_t * priv  = NULL;
         int child_index = (long) cookie;
         int call_count  = -1;
-        int need_unwind = 0;
         int read_child  = 0;
 
         local = frame->local;
-        priv  = this->private;
 
         read_child = afr_inode_get_read_ctx (this, local->fd->inode, NULL);
 
@@ -821,18 +807,10 @@ afr_ftruncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         }
 
                         local->success_count++;
-
-                        if ((local->success_count >= priv->wait_count)
-                            && local->read_child_returned) {
-                                need_unwind = 1;
-                        }
                 }
                 local->op_errno = op_errno;
         }
         UNLOCK (&frame->lock);
-
-        if (need_unwind)
-                local->transaction.unwind (frame, this);
 
         call_count = afr_frame_return (frame);
 
