@@ -1689,7 +1689,7 @@ mdc_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
 	if (ret != 0)
 		goto uncached;
 
-	if (!xattr || dict_get (xattr, (char *)key)) {
+	if (!xattr || !dict_get (xattr, (char *)key)) {
 		ret = -1;
 		op_errno = ENODATA;
 	}
@@ -1751,7 +1751,7 @@ mdc_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
 	if (ret != 0)
 		goto uncached;
 
-	if (!xattr || dict_get (xattr, (char *)key)) {
+	if (!xattr || !dict_get (xattr, (char *)key)) {
 		ret = -1;
 		op_errno = ENODATA;
 	}
