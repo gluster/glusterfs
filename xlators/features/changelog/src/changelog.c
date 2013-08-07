@@ -1385,10 +1385,12 @@ init (xlator_t *this)
         if (ret) {
                 if (this->local_pool)
                         mem_pool_destroy (this->local_pool);
-                ret = priv->cb->dtor (this, &priv->cd);
-                if (ret)
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "error in cleanup during init()");
+                if (priv->cb) {
+                        ret = priv->cb->dtor (this, &priv->cd);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "error in cleanup during init()");
+                }
                 GF_FREE (priv->changelog_brick);
                 GF_FREE (priv->changelog_dir);
                 GF_FREE (priv);
