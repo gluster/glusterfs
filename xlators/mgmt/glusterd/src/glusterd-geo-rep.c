@@ -1608,7 +1608,7 @@ out:
 
 static int
 glusterd_verify_slave (char *volname, char *slave_ip, char *slave,
-                       char **op_errstr)
+                       char **op_errstr, int slave_vol_test)
 {
         int32_t         ret     = -1;
         runner_t        runner    = {0,};
@@ -1636,6 +1636,8 @@ glusterd_verify_slave (char *volname, char *slave_ip, char *slave,
         runner_argprintf (&runner, "%s", slave_ip);
         runner_argprintf (&runner, "%s", slave);
         runner_argprintf (&runner, "%s", log_file_path);
+        if (slave_vol_test)
+                runner_add_args  (&runner, "slave_vol_test", NULL);
         runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
         synclock_unlock (&priv->big_lock);
         ret = runner_run (&runner);
@@ -1656,6 +1658,52 @@ glusterd_verify_slave (char *volname, char *slave_ip, char *slave,
         ret = 0;
 out:
         unlink (log_file_path);
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_validate_slave_ip_vol (dict_t *dict, char *volname,
+                                char *host_uuid, char **op_errstr)
+{
+        int                 ret                       = -1;
+        char                uuid_str [64]             = "";
+        char               *slave                     = NULL;
+        char               *slave_ip                  = NULL;
+        char               *slave_vol                 = NULL;
+
+        uuid_utoa_r (MY_UUID, uuid_str);
+        if (strcmp (uuid_str, host_uuid)) {
+                ret = 0;
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "slave", &slave);
+        if (ret || !slave) {
+                gf_log ("", GF_LOG_ERROR, "Unable to fetch slave from dict");
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_get_slave_info (slave, &slave_ip, &slave_vol);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Unable to fetch slave details.");
+                ret = -1;
+                goto out;
+        }
+
+        /* Checking if slave ip is pingable and slave volume is
+         * valid. Fail even with failure in case of force */
+        ret = glusterd_verify_slave (volname, slave_ip, slave_vol,
+                                     op_errstr, 1);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "%s", *op_errstr);
+                ret = -1;
+                goto out;
+        }
+
+out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -1748,8 +1796,10 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                                 volinfo->volname, slave);
                 }
 
+                /* Checking if slave vol is empty, and if it has enough memory
+                 * available, and bypass in case of force */
                 ret = glusterd_verify_slave (volname, slave_ip, slave_vol,
-                                             op_errstr);
+                                             op_errstr, 0);
                 if ((ret) && !is_force) {
                         gf_log ("", GF_LOG_ERROR,
                                 "%s is not a valid slave volume. Error: %s",
@@ -1798,6 +1848,13 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
 
         ret = glusterd_get_statefile_name (volinfo, slave, conf_path, &statefile);
         if (ret) {
+                ret = glusterd_validate_slave_ip_vol (dict, volname,
+                                                      host_uuid, op_errstr);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Slave validation failed.");
+                        goto out;
+                }
+
                 if (!strstr(slave, "::"))
                         snprintf (errmsg, sizeof (errmsg),
                                   "%s is not a valid slave url.", slave);
@@ -1805,6 +1862,7 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                         snprintf (errmsg, sizeof (errmsg), "Please check gsync "
                                   "config file. Unable to get statefile's name");
                 gf_log ("", GF_LOG_ERROR, "%s", errmsg);
+                ret = -1;
                 goto out;
         }
 
@@ -1889,7 +1947,7 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         }
 
         ret = glusterd_op_gsync_args_get (dict, op_errstr,
-                                          &volname, &slave, NULL);
+                                          &volname, &slave, &host_uuid);
         if (ret)
                 goto out;
 
@@ -1916,6 +1974,13 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
 
         ret = glusterd_get_statefile_name (volinfo, slave, conf_path, &statefile);
         if (ret) {
+                ret = glusterd_validate_slave_ip_vol (dict, volname,
+                                                      host_uuid, op_errstr);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Slave validation failed.");
+                        goto out;
+                }
+
                 if (!strstr(slave, "::"))
                         snprintf (errmsg, sizeof (errmsg),
                                   "%s is not a valid slave url.", slave);
@@ -1958,11 +2023,6 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         /* Check if all peers that are a part of the volume are up or not */
         if ((type == GF_GSYNC_OPTION_TYPE_DELETE) ||
             ((type == GF_GSYNC_OPTION_TYPE_STOP) && !is_force)) {
-                ret = dict_get_str (dict, "host-uuid", &host_uuid);
-                if (ret < 0)
-                        goto out;
-
-                uuid_utoa_r (MY_UUID, uuid_str);
                 if (!strcmp (uuid_str, host_uuid)) {
                         ret = glusterd_are_vol_all_peers_up (volinfo,
                                                              &conf->peers,
