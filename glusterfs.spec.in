@@ -4,7 +4,7 @@
 %global _for_fedora_koji_builds 0
 
 # uncomment and add '%' to use the prereltag for pre-releases
-# global prereltag beta2
+# global prereltag beta4
 
 # if you wish to compile an rpm without rdma support, compile like this...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without rdma
@@ -35,12 +35,15 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@tar.gz --without syslog
 %{?_without_syslog:%global _without_syslog --disable-syslog}
 
+# there is no systemtap support! Perhaps some day there will be
+%global _without_systemtap --enable-systemtap=no
+
 # if you wish to compile an rpm without the BD map support...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without bd
 %{?_without_bd:%global _without_bd --disable-bd-xlator}
 
 %if ( 0%{?rhel} && 0%{?rhel} < 6 )
-%define _without_bd true
+%define _without_bd --disable-bd-xlator
 %endif
 
 %if ( 0%{?fedora} && 0%{?fedora} > 16 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
@@ -51,7 +54,7 @@ Summary:          Cluster File System
 %if ( 0%{_for_fedora_koji_builds} )
 Name:             glusterfs
 Version:          3.4.0
-Release:          0.5%{?prereltag:.%{prereltag}}%{?dist}
+Release:          8%{?prereltag:.%{prereltag}}%{?dist}
 Vendor:           Fedora Project
 %else
 Name:             @PACKAGE_NAME@
@@ -118,18 +121,19 @@ Requires(postun): /sbin/service
 %define _init_glusterfsd %{_sysconfdir}/init.d/glusterfsd
 %endif
 
+Requires:         %{name}-libs = %{version}-%{release}
 BuildRequires:    bison flex
 BuildRequires:    gcc make automake libtool
 BuildRequires:    ncurses-devel readline-devel
 BuildRequires:    libxml2-devel openssl-devel
 BuildRequires:    libaio-devel
-BuildRequires:    systemtap-sdt-devel
 BuildRequires:    python-devel
 BuildRequires:    python-ctypes
-%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
+%if ( 0%{!?_without_systemtap:1} )
+BuildRequires:    systemtap-sdt-devel
+%endif
 %if ( 0%{!?_without_bd:1} )
 BuildRequires:    lvm2-devel
-%endif
 %endif
 
 Obsoletes:        hekafs <= 0.7
@@ -182,6 +186,22 @@ called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in user space and easily manageable.
 
 This package provides the base GlusterFS libraries
+
+%package cli
+Summary:          GlusterFS CLI
+Group:            Applications/File
+Requires:         %{name}-libs = %{version}-%{release}
+
+%description cli
+GlusterFS is a clustered file-system capable of scaling to several
+petabytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file systems in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in user space and easily manageable.
+
+This package provides the GlusterFS CLI application and its man page
 
 %if ( 0%{!?_without_rdma:1} )
 %package rdma
@@ -245,9 +265,9 @@ This package provides support to FUSE based clients.
 
 %package server
 Summary:          Clustered file-system server
-License:          GPLv2 or LGPLv3+
 Group:            System Environment/Daemons
 Requires:         %{name} = %{version}-%{release}
+Requires:         %{name}-cli = %{version}-%{release}
 Requires:         %{name}-libs = %{version}-%{release}
 Requires:         %{name}-fuse = %{version}-%{release}
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
@@ -269,7 +289,6 @@ This package provides the glusterfs server daemon.
 
 %package api
 Summary:          Clustered file-system api library
-License:          GPLv2 or LGPLv3+
 Group:            System Environment/Daemons
 Requires:         %{name} = %{version}-%{release}
 
@@ -319,7 +338,6 @@ like Pacemaker.
 
 %package devel
 Summary:          Development Libraries
-License:          GPLv2 or LGPLv3+
 Group:            Development/Libraries
 Requires:         %{name} = %{version}-%{release}
 
@@ -334,10 +352,8 @@ is in user space and easily manageable.
 
 This package provides the development libraries and include files.
 
-
 %package api-devel
 Summary:          Development Libraries
-License:          GPLv2 or LGPLv3+
 Group:            Development/Libraries
 Requires:         %{name} = %{version}-%{release}
 
@@ -364,7 +380,7 @@ This package provides the api include files.
 
 %build
 ./autogen.sh
-%configure %{?_without_rdma} %{?_without_epoll} %{?_without_fusermount} %{?_without_georeplication} %{?_without_ocf} %{?_without_syslog} %{?_without_bd}
+%configure %{?_without_rdma} %{?_without_epoll} %{?_without_fusermount} %{?_without_georeplication} %{?_without_ocf} %{?_without_syslog} %{?_without_bd} %{?_without_systemtap}
 
 # fix hardening and remove rpath in shlibs
 %if ( 0%{?fedora} && 0%{?fedora} > 17 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
@@ -526,6 +542,7 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 %{_libdir}/glusterfs
 %{_sbindir}/glusterfs*
 %{_mandir}/man8/*gluster*.8*
+%exclude %{_mandir}/man8/gluster.8*
 %dir %{_localstatedir}/log/glusterfs
 %dir %{_localstatedir}/run/gluster
 %dir %{_sharedstatedir}/glusterd
@@ -554,6 +571,10 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 %files libs
 %{_libdir}/*.so.*
 %exclude %{_libdir}/libgfapi.*
+
+%files cli
+%{_sbindir}/gluster
+%{_mandir}/man8/gluster.8*
 
 %if ( 0%{!?_without_rdma:1} )
 %files rdma
@@ -614,7 +635,6 @@ fi
 %_init_glusterfsd
 %endif
 # binaries
-%{_sbindir}/gluster
 %{_sbindir}/glusterd
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/posix*
@@ -701,17 +721,17 @@ fi
 # to /var/lib. (N.B. Starting with 3.3.0 all gluster files are in /var/lib
 # in gluster.org RPMs.) Be careful to copy them on the off chance that
 # /etc and /var/lib are on separate file systems
-if [ -d /etc/glusterd -a ! -h %{sharedstatedir}/glusterd ]; then
-    %{__mkdir_p} %{sharedstatedir}/glusterd
-    cp -a /etc/glusterd %{sharedstatedir}/glusterd
+if [ -d /etc/glusterd -a ! -h %{_sharedstatedir}/glusterd ]; then
+    %{__mkdir_p} %{_sharedstatedir}/glusterd
+    cp -a /etc/glusterd %{_sharedstatedir}/glusterd
     rm -rf /etc/glusterd
-    ln -sf %{sharedstatedir}/glusterd /etc/glusterd
+    ln -sf %{_sharedstatedir}/glusterd /etc/glusterd
 fi
 
 # Rename old volfiles in an RPM-standard way.  These aren't actually
 # considered package config files, so %config doesn't work for them.
-if [ -d %{sharedstatedir}/glusterd/vols ]; then
-    for file in $(find %{sharedstatedir}/glusterd/vols -name '*.vol'); do
+if [ -d %{_sharedstatedir}/glusterd/vols ]; then
+    for file in $(find %{_sharedstatedir}/glusterd/vols -name '*.vol'); do
         newfile=${file}.rpmsave
         echo "warning: ${file} saved as ${newfile}"
         cp ${file} ${newfile}
@@ -735,7 +755,6 @@ else
     glusterd --xlator-option *.upgrade=on -N
 fi
 
-
 %preun server
 if [ $1 -eq 0 ]; then
     if [ -f %_init_glusterfsd ]; then
@@ -755,6 +774,12 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Wed Aug 7 2013 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- Sync with Fedora glusterfs.spec
+-  add Requires
+-  add -cli subpackage,
+-  fix other minor differences with Fedora glusterfs.spec
+
 * Tue Jul 30 2013 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - Sync with Fedora glusterfs.spec, add glusterfs-libs RPM for oVirt/qemu-kvm
 
