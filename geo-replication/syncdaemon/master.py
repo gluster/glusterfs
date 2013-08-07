@@ -157,6 +157,23 @@ class PartialMixin(NormalMixin):
     def xtime_reversion_hook(self, path, xtl, xtr):
         pass
 
+class RecoverMixin(NormalMixin):
+    """a variant that differs from normal in terms
+       of ignoring non-indexed files"""
+
+    @staticmethod
+    def make_xtime_opts(is_master, opts):
+        if not 'create' in opts:
+            opts['create'] = False
+        if not 'default_xtime' in opts:
+            opts['default_xtime'] = URXTIME
+
+    def keepalive_payload_hook(self, timo, gap):
+        return (None, gap)
+
+    def volinfo_hook(self):
+        return _volinfo_hook_relax_foreign(self)
+
 # Further mixins for certain tunable behaviors
 
 class SendmarkNormalMixin(object):
@@ -797,7 +814,7 @@ class GMasterChangelogMixin(GMasterCommon):
             self.turns += 1
 
     def upd_stime(self, stime):
-        if stime:
+        if not stime == URXTIME:
             self.sendmark(self.FLAT_DIR_HIERARCHY, stime)
 
     def crawl(self):
