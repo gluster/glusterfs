@@ -893,7 +893,7 @@ class GMasterChangelogMixin(GMasterCommon):
                     entries.append(edct(ty, stat=st, entry=en, gfid=gfid, link=os.readlink(en)))
                 elif ty == 'RENAME':
                     e2 = unescape(os.path.join(pfx, ec[self.POS_ENTRY2]))
-                    entries.append(edct(ty, gfid=gfid, entry=en, entry1=e2))
+                    entries.append(edct(ty, gfid=gfid, entry=en, entry1=e2, stat=st))
                 else:
                     pass
             elif et in self.TYPE_GFID:
