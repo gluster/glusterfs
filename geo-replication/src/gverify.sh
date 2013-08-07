@@ -96,6 +96,15 @@ function slave_stats()
 
 function main()
 {
+    log_file=$4
+    > $log_file
+
+    ping -w 5 $2;
+    if [ $? -ne 0 ]; then
+        echo "$2 not reachable." > $log_file
+        exit 1;
+    fi;
+
     ERRORS=0;
     master_data=$(master_stats $1);
     slave_data=$(slave_stats $2 $3);
@@ -104,23 +113,21 @@ function main()
     master_version=$(echo $master_data | cut -f2 -d':');
     slave_version=$(echo $slave_data | cut -f2 -d':');
     slave_no_of_files=$(echo $slave_data | cut -f3 -d':');
-    log_file=$4
-    > $log_file
+    slave_vol_test=$5
 
     if [[ "x$master_size" = "x" || "x$master_version" = "x" || "$master_size" -eq "0" ]]; then
-	echo "Unable to fetch master volume details." > $log_file;
+	echo "Unable to fetch master volume details. Please check the master cluster and master volume." > $log_file;
 	exit 1;
     fi;
 
     if [[ "x$slave_size" = "x" || "x$slave_version" = "x" || "$slave_size" -eq "0" ]]; then
-        ping -w 5 $2;
-        if [ $? -ne 0 ]; then
-            echo "$2 not reachable." > $log_file
-            exit 1;
-        fi;
-	echo "Unable to fetch slave volume details." > $log_file;
+	echo "Unable to fetch slave volume details. Please check the slave cluster and slave volume." > $log_file;
 	exit 1;
     fi;
+
+    if [ ! -z $slave_vol_test ]; then
+        exit $ERRORS;
+    fi
 
     if [ ! $slave_size -ge $(($master_size - $BUFFER_SIZE )) ]; then
 	echo "Total size of master is greater than available size of slave." >> $log_file;

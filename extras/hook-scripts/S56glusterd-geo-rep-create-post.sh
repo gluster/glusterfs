@@ -22,6 +22,7 @@ if [ "$val" == "" ]; then
     exit;
 fi
 pub_file=`echo $val`
+pub_file_tmp=`echo $val`_tmp
 
 key=`echo $key_val_pair3 | cut -d '=' -f 1`
 val=`echo $key_val_pair3 | cut -d '=' -f 2`
@@ -34,8 +35,8 @@ fi
 slave_ip=`echo $val`
 
 if [ -f $pub_file ]; then
-    ssh $slave_ip "\rm -rf $pub_file"
-    scp $pub_file $slave_ip:$pub_file &> /dev/null
+    scp $pub_file $slave_ip:$pub_file_tmp
+    ssh $slave_ip "mv $pub_file_tmp $pub_file"
     ssh $slave_ip "gluster system:: copy file /geo-replication/common_secret.pem.pub > /dev/null"
     ssh $slave_ip "gluster system:: execute add_secret_pub > /dev/null"
 fi
