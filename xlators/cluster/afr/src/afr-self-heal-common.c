@@ -489,6 +489,8 @@ afr_find_biggest_witness_among_fools (int32_t *witnesses,
 {
         int i               = 0;
         int biggest_witness = -1;
+        int biggest_witness_idx = -1;
+        int biggest_witness_cnt = -1;
 
         GF_ASSERT (witnesses);
         GF_ASSERT (characters);
@@ -498,10 +500,21 @@ afr_find_biggest_witness_among_fools (int32_t *witnesses,
                 if (characters[i].type != AFR_NODE_FOOL)
                         continue;
 
-                if (biggest_witness < witnesses[i])
+                if (biggest_witness < witnesses[i]) {
                         biggest_witness = witnesses[i];
+			biggest_witness_idx = i;
+			biggest_witness_cnt = 1;
+			continue;
+		}
+
+		if (biggest_witness == witnesses[i])
+			biggest_witness_cnt++;
         }
-        return biggest_witness;
+
+	if (biggest_witness_cnt != 1)
+		return -1;
+
+        return biggest_witness_idx;
 }
 
 int
@@ -529,16 +542,82 @@ afr_mark_fool_as_source_by_witness (int32_t *sources, int32_t *witnesses,
         return nsources;
 }
 
+
+int
+afr_mark_fool_as_source_by_idx (int32_t *sources, int child_count, int idx)
+{
+	if (idx >= 0 && idx < child_count) {
+		sources[idx] = 1;
+		return 1;
+	}
+	return 0;
+}
+
+
+static int
+afr_find_largest_file_size (struct iatt *bufs, int32_t *success_children,
+			    int child_count)
+{
+	int idx = -1;
+	int i = -1;
+	int child = -1;
+	uint64_t max_size = 0;
+
+	for (i = 0; i < child_count; i++) {
+		if (success_children[i] == -1)
+			break;
+
+		child = success_children[i];
+		if (bufs[child].ia_size > max_size) {
+			max_size = bufs[child].ia_size;
+			idx = child;
+		}
+	}
+
+	return idx;
+}
+
+
+static int
+afr_find_newest_file (struct iatt *bufs, int32_t *success_children,
+		      int child_count)
+{
+	int idx = -1;
+	int i = -1;
+	int child = -1;
+	uint64_t max_ctime = 0;
+
+	for (i = 0; i < child_count; i++) {
+		if (success_children[i] == -1)
+			break;
+
+		child = success_children[i];
+		if (bufs[child].ia_ctime > max_ctime) {
+			max_ctime = bufs[child].ia_ctime;
+			idx = child;
+		}
+	}
+
+	return idx;
+}
+
+
 static int
 afr_mark_biggest_of_fools_as_source (int32_t *sources, int32_t **pending_matrix,
                                      afr_node_character *characters,
-                                     int child_count)
+				     int32_t *success_children,
+                                     int child_count, struct iatt *bufs)
 {
         int32_t       biggest_witness = 0;
         int           nsources        = 0;
         int32_t       *witnesses      = NULL;
 
         GF_ASSERT (child_count > 0);
+
+	biggest_witness = afr_find_largest_file_size (bufs, success_children,
+						      child_count);
+	if (biggest_witness != -1)
+		goto found;
 
         witnesses = GF_CALLOC (child_count, sizeof (*witnesses),
                                gf_afr_mt_int32_t);
@@ -552,9 +631,15 @@ afr_mark_biggest_of_fools_as_source (int32_t *sources, int32_t **pending_matrix,
         biggest_witness = afr_find_biggest_witness_among_fools (witnesses,
                                                                 characters,
                                                                 child_count);
-        nsources = afr_mark_fool_as_source_by_witness (sources, witnesses,
-                                                       characters, child_count,
-                                                       biggest_witness);
+	if (biggest_witness != -1)
+		goto found;
+
+	biggest_witness = afr_find_newest_file (bufs, success_children,
+						child_count);
+
+found:
+	nsources = afr_mark_fool_as_source_by_idx (sources, child_count,
+						   biggest_witness);
 out:
         GF_FREE (witnesses);
         return nsources;
@@ -898,7 +983,8 @@ afr_mark_sources (xlator_t *this, int32_t *sources, int32_t **pending_matrix,
                 nsources = afr_mark_biggest_of_fools_as_source (sources,
                                                                 pending_matrix,
                                                                 characters,
-                                                                child_count);
+								success_children,
+                                                                child_count, bufs);
         }
 
 out:
