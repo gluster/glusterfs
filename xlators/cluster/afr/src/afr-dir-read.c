@@ -253,7 +253,7 @@ unlock:
                         goto out;
 
                 if (!afr_is_opendir_done (this, local->fd->inode) &&
-                    up_children_count > 1) {
+                    up_children_count > 1 && priv->entry_self_heal) {
 
                         /*
                          * This is the first opendir on this inode. We need
