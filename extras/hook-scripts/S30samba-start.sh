@@ -85,5 +85,7 @@ if [ $(get_smb "$VOL") = "disable" ]; then
         exit 0
 fi
 
-add_samba_share $VOL
-sighup_samba
+if ! grep --quiet "gluster-$VOL" /etc/samba/smb.conf ; then
+        add_samba_share $VOL
+        sighup_samba
+fi
