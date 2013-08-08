@@ -410,9 +410,9 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie,
 
         local = frame->local;
         afr_readdir_filter_trash_dir (entries, local->fd);
-        AFR_STACK_UNWIND (readdir, frame, op_ret, op_errno, entries, NULL);
 
 out:
+        AFR_STACK_UNWIND (readdir, frame, op_ret, op_errno, entries, NULL);
         return 0;
 }
 
@@ -429,9 +429,9 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
         afr_readdir_filter_trash_dir (entries, local->fd);
-        AFR_STACK_UNWIND (readdirp, frame, op_ret, op_errno, entries, NULL);
 
 out:
+        AFR_STACK_UNWIND (readdirp, frame, op_ret, op_errno, entries, NULL);
         return 0;
 }
 
