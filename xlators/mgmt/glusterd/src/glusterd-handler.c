@@ -3713,10 +3713,12 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                                 "%s:%s", brickinfo->hostname, brickinfo->path);
 
                 glusterd_set_brick_status (brickinfo, GF_BRICK_STOPPED);
-                if (rpc_clnt_is_disabled (rpc))
-                        GF_FREE (brickid);
                 break;
 
+        case RPC_CLNT_DESTROY:
+                GF_FREE (mydata);
+                mydata = NULL;
+                break;
         default:
                 gf_log (this->name, GF_LOG_TRACE,
                         "got some other RPC event %d", event);
