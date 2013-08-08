@@ -152,7 +152,7 @@ __glusterd_defrag_notify (struct rpc_clnt *rpc, void *mydata,
                 glusterd_store_perform_node_state_store (volinfo);
 
                 if (defrag->rpc) {
-                        rpc_clnt_unref (defrag->rpc);
+                        glusterd_rpc_clnt_unref (priv, defrag->rpc);
                         defrag->rpc = NULL;
                 }
                 if (defrag->cbk_fn)

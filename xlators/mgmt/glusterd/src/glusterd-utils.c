@@ -1054,7 +1054,7 @@ glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
 
                 peerctx = peerinfo->rpc->mydata;
                 peerinfo->rpc->mydata = NULL;
-                peerinfo->rpc = rpc_clnt_unref (peerinfo->rpc);
+                peerinfo->rpc = glusterd_rpc_clnt_unref (priv, peerinfo->rpc);
                 peerinfo->rpc = NULL;
                 if (peerctx) {
                         GF_FREE (peerctx->errstr);
@@ -1466,9 +1466,7 @@ glusterd_brick_disconnect (glusterd_brickinfo_t *brickinfo)
         brickinfo->rpc = NULL;
 
         if (rpc) {
-                synclock_unlock (&priv->big_lock);
-                rpc_clnt_unref (rpc);
-                synclock_lock (&priv->big_lock);
+                glusterd_rpc_clnt_unref (priv, rpc);
         }
 
         return 0;
@@ -3894,12 +3892,13 @@ int32_t
 glusterd_nodesvc_disconnect (char *server)
 {
         struct rpc_clnt         *rpc = NULL;
+        glusterd_conf_t         *priv = THIS->private;
 
         rpc = glusterd_nodesvc_get_rpc (server);
         (void)glusterd_nodesvc_set_rpc (server, NULL);
 
         if (rpc)
-                rpc_clnt_unref (rpc);
+                glusterd_rpc_clnt_unref (priv, rpc);
 
         return 0;
 }
@@ -9357,3 +9356,18 @@ out:
 
         return ret;
 }
+
+rpc_clnt_t *
+glusterd_rpc_clnt_unref (glusterd_conf_t *conf, rpc_clnt_t *rpc)
+{
+        rpc_clnt_t *ret = NULL;
+
+        GF_ASSERT (conf);
+        GF_ASSERT (rpc);
+        synclock_unlock (&conf->big_lock);
+        ret = rpc_clnt_unref (rpc);
+        synclock_lock (&conf->big_lock);
+
+        return ret;
+}
+

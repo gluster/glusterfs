@@ -635,4 +635,7 @@ glusterd_status_has_tasks (int cmd);
 
 int
 gd_stop_rebalance_process (glusterd_volinfo_t *volinfo);
+
+rpc_clnt_t *
+glusterd_rpc_clnt_unref (glusterd_conf_t *conf, rpc_clnt_t *rpc);
 #endif

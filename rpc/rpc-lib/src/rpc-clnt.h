@@ -19,7 +19,8 @@
 typedef enum {
         RPC_CLNT_CONNECT,
         RPC_CLNT_DISCONNECT,
-        RPC_CLNT_MSG
+        RPC_CLNT_MSG,
+        RPC_CLNT_DESTROY
 } rpc_clnt_event_t;
 
 

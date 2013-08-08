@@ -416,7 +416,7 @@ rpc_clnt_reconnect (void *trans_ptr)
                                               conn->reconnect);
                 conn->reconnect = 0;
 
-                if (conn->connected == 0) {
+                if ((conn->connected == 0) && !clnt->disabled) {
                         ts.tv_sec = 3;
                         ts.tv_nsec = 0;
 
@@ -834,6 +834,7 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
         rpc_request_info_t     *req_info    = NULL;
         rpc_transport_pollin_t *pollin      = NULL;
         struct timespec         ts          = {0, };
+        void                   *clnt_mydata = NULL;
 
         conn = mydata;
         if (conn == NULL) {
@@ -870,6 +871,12 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
         }
 
         case RPC_TRANSPORT_CLEANUP:
+                if (clnt->notifyfn) {
+                        clnt_mydata = clnt->mydata;
+                        clnt->mydata = NULL;
+                        ret = clnt->notifyfn (clnt, clnt_mydata,
+                                              RPC_CLNT_DESTROY, NULL);
+                }
                 rpc_clnt_destroy (clnt);
                 ret = 0;
                 break;

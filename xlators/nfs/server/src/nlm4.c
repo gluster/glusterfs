@@ -918,6 +918,8 @@ nlm_rpcclnt_notify (struct rpc_clnt *rpc_clnt, void *mydata,
         case RPC_CLNT_DISCONNECT:
                 nlm_unset_rpc_clnt (rpc_clnt);
                 break;
+        default:
+                break;
         }
 
  err:
