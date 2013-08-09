@@ -1617,6 +1617,15 @@ retrynew:
 		goto out;
 	}
 
+        /* Filling the inode of the hard link to be same as that of the
+           original file
+        */
+	if (newloc.inode) {
+		inode_unref (newloc.inode);
+		newloc.inode = NULL;
+	}
+        newloc.inode = inode_ref (oldloc.inode);
+
 	ret = syncop_link (subvol, &oldloc, &newloc);
 
 	if (ret == -1 && errno == ESTALE) {
