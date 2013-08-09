@@ -60,7 +60,7 @@ disabled by passing '--disable-syslog' to ./configure or '--without
 syslog' to rpmbuild
 
 Even though its enabled at compile time, its required to have
-/var/lib/glusterd/logger.conf file to make it into effect before
-starting gluster services
+/etc/glusterfs/logger.conf file to make it into effect before starting
+gluster services
 
 Currently all gluster logs are sent with error code GF_ERR_DEV.

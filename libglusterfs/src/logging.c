@@ -31,7 +31,7 @@
 #define GF_JSON_MSG_LENGTH      8192
 #define GF_SYSLOG_CEE_FORMAT    \
         "@cee: {\"msg\": \"%s\", \"gf_code\": \"%u\", \"gf_message\": \"%s\"}"
-#define GF_LOG_CONTROL_FILE     "/var/lib/glusterd/logger.conf"
+#define GF_LOG_CONTROL_FILE     "/etc/glusterfs/logger.conf"
 #endif /* GF_USE_SYSLOG */
 
 #include "xlator.h"
@@ -130,7 +130,7 @@ gf_get_error_message (int error_code) {
 
 /**
  * gf_openlog -function to open syslog specific to gluster based on
- *             existent of file /var/lib/glusterd/logger.conf
+ *             existence of file /etc/glusterfs/logger.conf
  * @ident:    optional identification string similar to openlog()
  * @option:   optional value to option to openlog().  Passing -1 uses
  *            'LOG_PID | LOG_NDELAY' as default
