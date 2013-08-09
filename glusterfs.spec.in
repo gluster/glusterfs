@@ -35,6 +35,11 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@tar.gz --without syslog
 %{?_without_syslog:%global _without_syslog --disable-syslog}
 
+# disable syslog forcefully as rhel < 6 doesn't have rsyslog
+%if ( 0%{?rhel} && 0%{?rhel} < 6 )
+%global _without_syslog --disable-syslog
+%endif
+
 # there is no systemtap support! Perhaps some day there will be
 %global _without_systemtap --enable-systemtap=no
 
@@ -175,6 +180,12 @@ both GlusterFS server and client framework.
 %package libs
 Summary:          GlusterFS common libraries
 Group:            Applications/File
+%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
+Requires:         rsyslog-mmjsonparse
+%endif
+%if ( 0%{?rhel} && 0%{?rhel} == 6 )
+Requires:         rsyslog-mmcount
+%endif
 
 %description libs
 GlusterFS is a clustered file-system capable of scaling to several
@@ -485,6 +496,16 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
 touch %{buildroot}%{_sharedstatedir}/glusterd/geo-replication/gsyncd_template.conf
 %endif
 
+%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
+%{__install} -D -p -m 0644 extras/gluster-rsyslog-7.2.conf \
+    %{buildroot}%{_sysconfdir}/rsyslog.d/gluster.conf
+%endif
+
+%if ( 0%{?rhel} && 0%{?rhel} == 6 )
+%{__install} -D -p -m 0644 extras/gluster-rsyslog-5.8.conf \
+    %{buildroot}%{_sysconfdir}/rsyslog.d/gluster.conf
+%endif
+
 # the rest of the ghosts
 touch %{buildroot}%{_sharedstatedir}/glusterd/glusterd.info
 touch %{buildroot}%{_sharedstatedir}/glusterd/options
@@ -564,12 +585,21 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %post libs
 /sbin/ldconfig
+%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
+%_init_restart rsyslog
+%endif
 
 %postun libs
 /sbin/ldconfig
+%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
+%_init_restart rsyslog
+%endif
 
 %files libs
 %{_libdir}/*.so.*
+%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
+%{_sysconfdir}/rsyslog.d/gluster.conf
+%endif
 %exclude %{_libdir}/libgfapi.*
 
 %files cli
