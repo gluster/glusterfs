@@ -39,7 +39,7 @@
 #include "nfs-mem-types.h"
 #include "nfs.h"
 #include "common-utils.h"
-
+#include "store.h"
 
 #include <errno.h>
 #include <sys/socket.h>
@@ -221,14 +221,278 @@ mnt3svc_set_mountres3 (mountstat3 stat, struct nfs3_fh *fh, int *authflavor,
         return res;
 }
 
+/* Read the rmtab from the store_handle and append (or not) the entries to the
+ * mountlist.
+ *
+ * Requires the store_handle to be locked.
+ */
+static int
+__mount_read_rmtab (gf_store_handle_t *sh, struct list_head *mountlist,
+                    gf_boolean_t append)
+{
+        int                     ret = 0;
+        unsigned int            idx = 0;
+        struct mountentry       *me = NULL, *tmp = NULL;
+                                /* me->hostname is a char[MNTPATHLEN] */
+        char                    key[MNTPATHLEN + 11];
 
+        GF_ASSERT (sh && mountlist);
+
+        if (!gf_store_locked_local (sh)) {
+                gf_log (GF_MNT, GF_LOG_WARNING, "Not reading unlocked %s",
+                        sh->path);
+                return -1;
+        }
+
+        if (!append) {
+                list_for_each_entry_safe (me, tmp, mountlist, mlist) {
+                        list_del (&me->mlist);
+                        GF_FREE (me);
+                }
+                me = NULL;
+        }
+
+        for (;;) {
+                char *value = NULL;
+
+                if (me && append) {
+                        /* do not add duplicates */
+                        list_for_each_entry (tmp, mountlist, mlist) {
+                                if (!strcmp(tmp->hostname, me->hostname) &&
+                                    !strcmp(tmp->exname, me->exname)) {
+                                        GF_FREE (me);
+                                        goto dont_add;
+                                }
+                        }
+                        list_add_tail (&me->mlist, mountlist);
+                } else if (me) {
+                        list_add_tail (&me->mlist, mountlist);
+                }
+
+dont_add:
+                me = GF_CALLOC (1, sizeof (*me), gf_nfs_mt_mountentry);
+                if (!me) {
+                        gf_log (GF_MNT, GF_LOG_ERROR, "Out of memory");
+                        ret = -1;
+                        goto out;
+                }
+
+                INIT_LIST_HEAD (&me->mlist);
+
+                snprintf (key, 9 + MNTPATHLEN, "hostname-%d", idx);
+                ret = gf_store_retrieve_value (sh, key, &value);
+                if (ret)
+                        break;
+                strncpy (me->hostname, value, MNTPATHLEN);
+                GF_FREE (value);
+
+                snprintf (key, 11 + MNTPATHLEN, "mountpoint-%d", idx);
+                ret = gf_store_retrieve_value (sh, key, &value);
+                if (ret)
+                        break;
+                strncpy (me->exname, value, MNTPATHLEN);
+                GF_FREE (value);
+
+                idx++;
+                gf_log (GF_MNT, GF_LOG_TRACE, "Read entries %s:%s", me->hostname, me->exname);
+        }
+        gf_log (GF_MNT, GF_LOG_DEBUG, "Read %d entries from '%s'", idx, sh->path);
+        GF_FREE (me);
+out:
+        return ret;
+}
+
+/* Overwrite the contents of the rwtab with te in-memory client list.
+ * Fail gracefully if the stora_handle is not locked.
+ */
+static void
+__mount_rewrite_rmtab(struct mount3_state *ms, gf_store_handle_t *sh)
+{
+        struct mountentry       *me = NULL;
+        char                    key[16];
+        int                     fd, ret;
+        unsigned int            idx = 0;
+
+        if (!gf_store_locked_local (sh)) {
+                gf_log (GF_MNT, GF_LOG_WARNING, "Not modifying unlocked %s",
+                        sh->path);
+                return;
+        }
+
+        fd = gf_store_mkstemp (sh);
+        if (fd == -1) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to open %s", sh->path);
+                return;
+        }
+
+        list_for_each_entry (me, &ms->mountlist, mlist) {
+                snprintf (key, 16, "hostname-%d", idx);
+                ret = gf_store_save_value (fd, key, me->hostname);
+                if (ret)
+                        goto fail;
+
+                snprintf (key, 16, "mountpoint-%d", idx);
+                ret = gf_store_save_value (fd, key, me->exname);
+                if (ret)
+                        goto fail;
+
+                idx++;
+        }
+
+        gf_log (GF_MNT, GF_LOG_DEBUG, "Updated rmtab with %d entries", idx);
+
+        close (fd);
+        if (gf_store_rename_tmppath (sh))
+                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to overwrite rwtab %s",
+                        sh->path);
+
+        return;
+
+fail:
+        gf_log (GF_MNT, GF_LOG_ERROR, "Failed to update %s", sh->path);
+        close (fd);
+        gf_store_unlink_tmppath (sh);
+}
+
+/* Read the rmtab into a clean ms->mountlist.
+ */
+static void
+mount_read_rmtab (struct mount3_state *ms)
+{
+        gf_store_handle_t       *sh = NULL;
+        struct nfs_state        *nfs = NULL;
+        int                     ret;
+
+        nfs = (struct nfs_state *)ms->nfsx->private;
+
+        ret = gf_store_handle_new (nfs->rmtab, &sh);
+        if (ret) {
+                gf_log (GF_MNT, GF_LOG_WARNING, "Failed to open '%s'",
+                        nfs->rmtab);
+                return;
+        }
+
+        if (gf_store_lock (sh)) {
+                gf_log (GF_MNT, GF_LOG_WARNING, "Failed to lock '%s'",
+                        nfs->rmtab);
+                goto out;
+        }
+
+        __mount_read_rmtab (sh, &ms->mountlist, _gf_false);
+        gf_store_unlock (sh);
+
+out:
+        gf_store_handle_destroy (sh);
+}
+
+/* Write the ms->mountlist to the rmtab.
+ *
+ * The rmtab could be empty, or it can exists and have been updated by a
+ * different storage server without our knowing.
+ *
+ * 1. takes the store_handle lock on the current rmtab
+ *    - blocks if an other storage server rewrites the rmtab at the same time
+ * 2. [if new_rmtab] takes the store_handle lock on the new rmtab
+ * 3. reads/merges the entries from the current rmtab
+ * 4. [if new_rmtab] reads/merges the entries from the new rmtab
+ * 5. [if new_rmtab] writes the new rmtab
+ * 6. [if not new_rmtab] writes the current rmtab
+ * 7  [if new_rmtab] replaces nfs->rmtab to point to the new location
+ * 8. [if new_rmtab] releases the store_handle lock of the new rmtab
+ * 9. releases the store_handle lock of the old rmtab
+ */
+void
+mount_rewrite_rmtab (struct mount3_state *ms, char *new_rmtab)
+{
+        gf_store_handle_t       *sh = NULL, *nsh = NULL;
+        struct nfs_state        *nfs = NULL;
+        int                     ret;
+        char                    *rmtab = NULL;
+
+        nfs = (struct nfs_state *)ms->nfsx->private;
+
+        ret = gf_store_handle_new (nfs->rmtab, &sh);
+        if (ret) {
+                gf_log (GF_MNT, GF_LOG_WARNING, "Failed to open '%s'",
+                        nfs->rmtab);
+                return;
+        }
+
+        if (gf_store_lock (sh)) {
+                gf_log (GF_MNT, GF_LOG_WARNING, "Not rewriting '%s'",
+                        nfs->rmtab);
+                goto free_sh;
+        }
+
+        if (new_rmtab) {
+                ret = gf_store_handle_new (new_rmtab, &nsh);
+                if (ret) {
+                        gf_log (GF_MNT, GF_LOG_WARNING, "Failed to open '%s'",
+                                new_rmtab);
+                        goto unlock_sh;
+                }
+
+                if (gf_store_lock (nsh)) {
+                        gf_log (GF_MNT, GF_LOG_WARNING, "Not rewriting '%s'",
+                                new_rmtab);
+                        goto free_nsh;
+                }
+        }
+
+        /* always read the currently used rmtab */
+        __mount_read_rmtab (sh, &ms->mountlist, _gf_true);
+
+        if (new_rmtab) {
+                /* read the new rmtab and write changes to the new location */
+                __mount_read_rmtab (nsh, &ms->mountlist, _gf_true);
+                __mount_rewrite_rmtab (ms, nsh);
+
+                /* replace the nfs->rmtab reference to the new rmtab */
+                rmtab = gf_strdup(new_rmtab);
+                if (rmtab == NULL) {
+                        gf_log (GF_MNT, GF_LOG_ERROR, "Out of memory, keeping "
+                                "%s as rmtab", nfs->rmtab);
+                } else {
+                        GF_FREE (nfs->rmtab);
+                        nfs->rmtab = new_rmtab;
+                }
+
+                gf_store_unlock (nsh);
+        } else {
+                /* rewrite the current (unchanged location) rmtab */
+                __mount_rewrite_rmtab (ms, sh);
+        }
+
+free_nsh:
+        if (new_rmtab)
+                gf_store_handle_destroy (nsh);
+unlock_sh:
+        gf_store_unlock (sh);
+free_sh:
+        gf_store_handle_destroy (sh);
+}
+
+/* Add a new NFS-client to the ms->mountlist and update the rmtab if we can.
+ *
+ * A NFS-client will only be removed from the ms->mountlist in case the
+ * NFS-client sends a unmount request. It is possible that a NFS-client
+ * crashed/rebooted had network loss or something else prevented the NFS-client
+ * to unmount cleanly. In this case, a duplicate entry would be added to the
+ * ms->mountlist, which is wrong and we should prevent.
+ *
+ * It is fully acceptible that the ms->mountlist is not 100% correct, this is a
+ * common issue for all(?) NFS-servers.
+ */
 int
 mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
                           char  *expname)
 {
         struct mountentry       *me = NULL;
+        struct mountentry       *cur = NULL;
         int                     ret = -1;
         char                    *colon = NULL;
+        struct nfs_state        *nfs = NULL;
+        gf_store_handle_t       *sh = NULL;
 
         if ((!ms) || (!req) || (!expname))
                 return -1;
@@ -238,6 +502,15 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
         if (!me)
                 return -1;
 
+        nfs = (struct nfs_state *)ms->nfsx->private;
+
+        ret = gf_store_handle_new (nfs->rmtab, &sh);
+        if (ret) {
+                gf_log (GF_MNT, GF_LOG_WARNING, "Failed to open '%s'",
+                        nfs->rmtab);
+                goto free_err;
+        }
+
         strcpy (me->exname, expname);
         INIT_LIST_HEAD (&me->mlist);
         /* Must get the IP or hostname of the client so we
@@ -245,7 +518,7 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
          */
         ret = rpcsvc_transport_peername (req->trans, me->hostname, MNTPATHLEN);
         if (ret == -1)
-                goto free_err;
+                goto free_err2;
 
         colon = strrchr (me->hostname, ':');
         if (colon) {
@@ -253,9 +526,36 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
         }
         LOCK (&ms->mountlock);
         {
+                /* in case locking fails, we just don't write the rmtab */
+                if (gf_store_lock (sh)) {
+                        gf_log (GF_MNT, GF_LOG_WARNING, "Failed to lock '%s'"
+                                ", changes will not be written", nfs->rmtab);
+                } else {
+                        __mount_read_rmtab (sh, &ms->mountlist, _gf_false);
+                }
+
+                /* do not add duplicates */
+                list_for_each_entry (cur, &ms->mountlist, mlist) {
+                        if (!strcmp(cur->hostname, me->hostname) &&
+                            !strcmp(cur->exname, me->exname)) {
+                                GF_FREE (me);
+                                goto dont_add;
+                        }
+                }
                 list_add_tail (&me->mlist, &ms->mountlist);
+
+                /* only write the rmtab in case it was locked */
+                if (gf_store_locked_local (sh))
+                        __mount_rewrite_rmtab (ms, sh);
         }
+dont_add:
+        if (gf_store_locked_local (sh))
+                gf_store_unlock (sh);
+
         UNLOCK (&ms->mountlock);
+
+free_err2:
+        gf_store_handle_destroy (sh);
 
 free_err:
         if (ret == -1)
@@ -304,7 +604,7 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
         rpcsvc_t                *svc = NULL;
         xlator_t                *mntxl = NULL;
         uuid_t                  volumeid = {0, };
-        char                    fhstr[1024];
+        char                    fhstr[1024], *path = NULL;
 
         req = (rpcsvc_request_t *)frame->local;
 
@@ -326,7 +626,15 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
         if (status != MNT3_OK)
                 goto xmit_res;
 
-        mnt3svc_update_mountlist (ms, req, mntxl->name);
+        path = GF_CALLOC (PATH_MAX, sizeof (char), gf_nfs_mt_char);
+        if (!path) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Out of memory");
+                goto xmit_res;
+        }
+
+        snprintf (path, PATH_MAX, "/%s", mntxl->name);
+        mnt3svc_update_mountlist (ms, req, path);
+        GF_FREE (path);
         if (gf_nfs_dvm_off (nfs_state (ms->nfsx))) {
                 fh = nfs3_fh_build_indexed_root_fh (ms->nfsx->children, mntxl);
                 goto xmit_res;
@@ -587,6 +895,7 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_t                *svc = NULL;
         mountres3               res = {0, };
         xlator_t                *mntxl = NULL;
+        char                    *path = NULL;
 
         mres = frame->local;
         mntxl = (xlator_t *)cookie;
@@ -604,15 +913,23 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (strlen (mres->remainingdir) <= 0) {
                 op_ret = -1;
                 mntstat = MNT3_OK;
+                path = GF_CALLOC (PATH_MAX, sizeof (char), gf_nfs_mt_char);
+                if (!path) {
+                        gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation "
+                                "failed");
+                        goto err;
+                }
+                snprintf (path, PATH_MAX, "/%s%s", mres->exp->vol->name,
+                         mres->resolveloc.path);
                 mnt3svc_update_mountlist (mres->mstate, mres->req,
-                                          mres->exp->expname);
-                goto err;
+                                          path);
+                GF_FREE (path);
+        } else {
+                mres->parentfh = fh;
+                op_ret = __mnt3_resolve_export_subdir_comp (mres);
+                if (op_ret < 0)
+                        mntstat = mnt3svc_errno_to_mnterr (-op_ret);
         }
-
-        mres->parentfh = fh;
-        op_ret = __mnt3_resolve_export_subdir_comp (mres);
-        if (op_ret < 0)
-                mntstat = mnt3svc_errno_to_mnterr (-op_ret);
 err:
         if (op_ret == -1) {
                 gf_log (GF_MNT, GF_LOG_DEBUG, "Mount reply status: %d",
@@ -1145,6 +1462,9 @@ __build_mountlist (struct mount3_state *ms, int *count)
         if ((!ms) || (!count))
                 return NULL;
 
+        /* read rmtab, other peers might have updated it */
+        mount_read_rmtab(ms);
+
         *count = 0;
         gf_log (GF_MNT, GF_LOG_DEBUG, "Building mount list:");
         list_for_each_entry (me, &ms->mountlist, mlist) {
@@ -1164,8 +1484,7 @@ __build_mountlist (struct mount3_state *ms, int *count)
                         goto free_list;
                 }
 
-                strcpy (mlist->ml_directory, "/");
-                strcat (mlist->ml_directory, me->exname);
+                strcpy (mlist->ml_directory, me->exname);
 
                 namelen = strlen (me->hostname);
                 mlist->ml_hostname = GF_CALLOC (namelen + 2, sizeof (char),
@@ -1265,67 +1584,71 @@ rpcerr:
 
 
 int
-__mnt3svc_umount (struct mount3_state *ms, char *dirpath, char *hostname)
-{
-        struct mountentry       *me = NULL;
-        char                    *exname = NULL;
-        int                     ret = -1;
-
-        if ((!ms) || (!dirpath) || (!hostname))
-                return -1;
-
-        if (list_empty (&ms->mountlist))
-                return 0;
-
-        if (dirpath[0] == '/')
-                exname = dirpath+1;
-        else
-                exname = dirpath;
-
-        list_for_each_entry (me, &ms->mountlist, mlist) {
-               if ((strcmp (me->exname, exname) == 0) &&
-                    (strcmp (me->hostname, hostname) == 0)) {
-                       ret = 0;
-                       break;
-               }
-        }
-
-        /* Need this check here because at the end of the search me might still
-         * be pointing to the last entry, which may not be the one we're
-         * looking for.
-         */
-        if (ret == -1)  {/* Not found in list. */
-                gf_log (GF_MNT, GF_LOG_DEBUG, "Export not found");
-                goto ret;
-        }
-
-        if (!me)
-                goto ret;
-
-        gf_log (GF_MNT, GF_LOG_DEBUG, "Unmounting: dir %s, host: %s",
-                me->exname, me->hostname);
-        list_del (&me->mlist);
-        GF_FREE (me);
-        ret = 0;
-ret:
-        return ret;
-}
-
-
-
-int
 mnt3svc_umount (struct mount3_state *ms, char *dirpath, char *hostname)
 {
-        int ret = -1;
+        struct mountentry       *me = NULL;
+        int                     ret = -1;
+        gf_store_handle_t       *sh = NULL;
+        struct nfs_state        *nfs = NULL;
+
         if ((!ms) || (!dirpath) || (!hostname))
                 return -1;
+
+        nfs = (struct nfs_state *)ms->nfsx->private;
+
+        ret = gf_store_handle_new (nfs->rmtab, &sh);
+        if (ret) {
+                gf_log (GF_MNT, GF_LOG_WARNING, "Failed to open '%s'",
+                        nfs->rmtab);
+                return 0;
+        }
+
+        ret = gf_store_lock (sh);
+        if (ret) {
+                goto out_free;
+        }
 
         LOCK (&ms->mountlock);
         {
-               ret = __mnt3svc_umount (ms, dirpath, hostname);
-        }
-        UNLOCK (&ms->mountlock);
+                __mount_read_rmtab (sh, &ms->mountlist, _gf_false);
+                if (list_empty (&ms->mountlist)) {
+                        ret = 0;
+                        goto out_unlock;
+                }
 
+                ret = -1;
+                list_for_each_entry (me, &ms->mountlist, mlist) {
+                       if ((strcmp (me->exname, dirpath) == 0) &&
+                            (strcmp (me->hostname, hostname) == 0)) {
+                               ret = 0;
+                               break;
+                       }
+                }
+
+                /* Need this check here because at the end of the search me
+                 * might still be pointing to the last entry, which may not be
+                 * the one we're looking for.
+                 */
+                if (ret == -1)  {/* Not found in list. */
+                        gf_log (GF_MNT, GF_LOG_TRACE, "Export not found");
+                        goto out_unlock;
+                }
+
+                if (!me)
+                        goto out_unlock;
+
+                gf_log (GF_MNT, GF_LOG_DEBUG, "Unmounting: dir %s, host: %s",
+                        me->exname, me->hostname);
+
+                list_del (&me->mlist);
+                GF_FREE (me);
+                __mount_rewrite_rmtab (ms, sh);
+        }
+out_unlock:
+        UNLOCK (&ms->mountlock);
+        gf_store_unlock (sh);
+out_free:
+        gf_store_handle_destroy (sh);
         return ret;
 }
 
@@ -1639,6 +1962,7 @@ mount3udp_add_mountlist (char *host, dirpath *expname)
         LOCK (&ms->mountlock);
         {
                 list_add_tail (&me->mlist, &ms->mountlist);
+                mount_rewrite_rmtab(ms, NULL);
         }
         UNLOCK (&ms->mountlock);
         return 0;
@@ -1654,7 +1978,7 @@ mount3udp_delete_mountlist (char *hostname, dirpath *expname)
         export = (char *)expname;
         while (*export == '/')
                 export++;
-        __mnt3svc_umount (ms, export, hostname);
+        mnt3svc_umount (ms, export, hostname);
         return 0;
 }
 

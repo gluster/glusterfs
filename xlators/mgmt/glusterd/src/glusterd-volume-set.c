@@ -1188,6 +1188,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = GLOBAL_DOC,
           .op_version  = 1
         },
+        { .key         = "nfs.mount-rmtab",
+          .voltype     = "nfs/server",
+          .option      = "nfs.mount-rmtab",
+          .type        = GLOBAL_DOC,
+          .op_version  = 1
+        },
         { .key         = "nfs.server-aux-gids",
           .voltype     = "nfs/server",
           .option      = "nfs.server-aux-gids",

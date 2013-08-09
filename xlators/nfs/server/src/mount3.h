@@ -53,6 +53,9 @@ mnt1svc_init (xlator_t *nfsx);
 extern int
 mount_init_state (xlator_t *nfsx);
 
+void
+mount_rewrite_rmtab (struct mount3_state *ms, char *new_rmtab);
+
 /* Data structure used to store the list of mounts points currently
  * in use by NFS clients.
  */
