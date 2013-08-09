@@ -477,7 +477,8 @@ glfs_set_logging (struct glfs *fs, const char *logfile, int loglevel)
 	int  ret = 0;
 
 	if (logfile) {
-		ret = gf_log_init (fs->ctx, logfile);
+                /* passing ident as NULL means to use default ident for syslog */
+		ret = gf_log_init (fs->ctx, logfile, NULL);
 		if (ret)
 			return ret;
 	}

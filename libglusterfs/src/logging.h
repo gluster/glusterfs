@@ -74,12 +74,13 @@ typedef struct gf_log_handle_ {
         FILE            *cmdlogfile;
 #ifdef GF_USE_SYSLOG
         int              log_control_file_found;
+        char            *ident;
 #endif /* GF_USE_SYSLOG */
 
 } gf_log_handle_t;
 
 void gf_log_globals_init (void *ctx);
-int gf_log_init (void *data, const char *filename);
+int gf_log_init (void *data, const char *filename, const char *ident);
 
 void gf_log_logrotate (int signum);
 

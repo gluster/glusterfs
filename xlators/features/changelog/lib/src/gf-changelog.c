@@ -467,7 +467,8 @@ gf_changelog_register (char *brick_path, char *scratch_dir,
                 goto cleanup;
         }
 
-        if (gf_log_init (this->ctx, log_file))
+        /* passing ident as NULL means to use default ident for syslog */
+        if (gf_log_init (this->ctx, log_file, NULL))
                 goto cleanup;
 
         gf_log_set_loglevel ((log_level == -1) ? GF_LOG_INFO :

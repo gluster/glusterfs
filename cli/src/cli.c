@@ -168,7 +168,8 @@ logging_init (glusterfs_ctx_t *ctx, struct cli_state *state)
         char *log_file = state->log_file ? state->log_file :
                          DEFAULT_CLI_LOG_FILE_DIRECTORY "/cli.log";
 
-        if (gf_log_init (ctx, log_file) == -1) {
+        /* passing ident as NULL means to use default ident for syslog */
+        if (gf_log_init (ctx, log_file, NULL) == -1) {
                 fprintf (stderr, "ERROR: failed to open logfile %s\n",
                          log_file);
                 return -1;

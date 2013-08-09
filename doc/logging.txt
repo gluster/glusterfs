@@ -55,11 +55,12 @@ gf_syslog (GF_ERR_DEV, LOG_ERR, "error reading configuration file");
 The logs are sent in CEE format (http://cee.mitre.org/) to syslog.
 Its targeted to rsyslog syslog server.
 
-This log framework can be disabled either at compile time or run time
+This log framework is enabled at compile time by default.  This can be
+disabled by passing '--disable-syslog' to ./configure or '--without
+syslog' to rpmbuild
 
-- for compile time by passing '--disable-syslog' to ./configure or
-   '--without syslog' to rpmbuild (or)
-- for run time by having a file /var/lib/glusterd/logger.conf and
-  restarting gluster services
+Even though its enabled at compile time, its required to have
+/var/lib/glusterd/logger.conf file to make it into effect before
+starting gluster services
 
 Currently all gluster logs are sent with error code GF_ERR_DEV.
