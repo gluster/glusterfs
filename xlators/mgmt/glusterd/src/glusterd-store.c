@@ -1302,7 +1302,7 @@ glusterd_retrieve_op_version (xlator_t *this, int *op_version)
                 ret = gf_store_handle_retrieve (path, &handle);
 
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to get store "
+                        gf_log ("", GF_LOG_DEBUG, "Unable to get store "
                                 "handle!");
                         goto out;
                 }
@@ -1403,7 +1403,7 @@ glusterd_retrieve_uuid ()
                 ret = gf_store_handle_retrieve (path, &handle);
 
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to get store "
+                        gf_log ("", GF_LOG_DEBUG, "Unable to get store"
                                 "handle!");
                         goto out;
                 }
@@ -1415,7 +1415,7 @@ glusterd_retrieve_uuid ()
                                        &uuid_str);
 
         if (ret) {
-                gf_log ("", GF_LOG_INFO, "No previous uuid is present");
+                gf_log ("", GF_LOG_DEBUG, "No previous uuid is present");
                 goto out;
         }
 

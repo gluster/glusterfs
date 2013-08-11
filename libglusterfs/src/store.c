@@ -403,8 +403,9 @@ gf_store_handle_retrieve (char *path, gf_store_handle_t **handle)
 
         ret = stat (path, &statbuf);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to retrieve store handle "
-                        "%s, error: %s", path, strerror (errno));
+                gf_log ("", GF_LOG_ERROR, "Path corresponding to "
+                        "%s, returned error: (%s)",
+                        path, strerror (errno));
                 goto out;
         }
         ret =  gf_store_handle_new (path, handle);
