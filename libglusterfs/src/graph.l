@@ -70,10 +70,10 @@ TYPE   [t][y][p][e]
                               yyunput (0, NULL);
                        }
                        BEGIN (INITIAL);
-                       yylval = text;
+                       graphyylval = text;
                        return STRING_TOK;
        }
 }
-[^ \t\r\n\"\\]+ {    yylval = gf_strdup (yytext) ; return ID; }
+[^ \t\r\n\"\\]+ {    graphyylval = gf_strdup (yytext) ; return ID; }
 [ \t\r\n]+             ;
 %%

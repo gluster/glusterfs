@@ -47,11 +47,11 @@ noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h \
 EXTRA_DIST = graph.l graph.y
 
 graph.lex.c: graph.l y.tab.h
-	$(LEX) -t $(srcdir)/graph.l > $@
+	$(LEX) -Pgraphyy -t $(srcdir)/graph.l > $@
 
 y.tab.c: y.tab.h
 y.tab.h: graph.y
-	$(YACC) -d $(srcdir)/graph.y
+	$(YACC) -p graphyy -d $(srcdir)/graph.y
 
 CLEANFILES = graph.lex.c y.tab.c y.tab.h
 CONFIG_CLEAN_FILES = $(CONTRIB_BUILDDIR)/uuid/uuid_types.h
