@@ -147,6 +147,18 @@ struct cli_local {
 #endif
 };
 
+struct gf_cli_gsync_detailed_status_ {
+        char *node;
+        char *master;
+        char *slave;
+        char *health;
+        char *uptime;
+        char *files_syncd;
+        char *files_pending;
+        char *bytes_pending;
+        char *deletes_pending;
+};
+
 struct cli_volume_status {
         int            port;
         int            online;
@@ -164,6 +176,8 @@ struct cli_volume_status {
         char          *inode_size;
 #endif
 };
+
+typedef struct gf_cli_gsync_detailed_status_ gf_cli_gsync_status_t;
 
 typedef struct cli_volume_status cli_volume_status_t;
 

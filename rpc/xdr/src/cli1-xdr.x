@@ -76,8 +76,8 @@ enum gf1_cli_gsync_set {
         GF_GSYNC_OPTION_TYPE_CONFIG,
         GF_GSYNC_OPTION_TYPE_STATUS,
         GF_GSYNC_OPTION_TYPE_ROTATE,
-        GF_GSYNC_OPTION_TYPE_DELETE,
-        GF_GSYNC_OPTION_TYPE_CREATE
+        GF_GSYNC_OPTION_TYPE_CREATE,
+        GF_GSYNC_OPTION_TYPE_DELETE
 };
 
 enum gf1_cli_stats_op {
