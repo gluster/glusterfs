@@ -28,8 +28,9 @@
 #define TIMESTAMP_FILE      "timestamp-file"
 
 enum {
-        GF_QUOTA=1,
-        GF_XTIME=2
+        GF_QUOTA             = 1,
+        GF_XTIME             = 2,
+        GF_XTIME_GSYNC_FORCE = 4,
 };
 
 /*initialize the local variable*/
