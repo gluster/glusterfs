@@ -23,6 +23,7 @@
 #define VKEY_DIAG_LAT_MEASUREMENT "diagnostics.latency-measurement"
 #define VKEY_FEATURES_LIMIT_USAGE "features.limit-usage"
 #define VKEY_MARKER_XTIME         GEOREP".indexing"
+#define VKEY_MARKER_XTIME_FORCE   GEOREP".ignore-pid-check"
 #define VKEY_CHANGELOG            "changelog.changelog"
 #define VKEY_FEATURES_QUOTA       "features.quota"
 

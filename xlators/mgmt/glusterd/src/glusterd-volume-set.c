@@ -1007,6 +1007,22 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .flags       = OPT_FLAG_FORCE,
           .op_version  = 1
         },
+        { .key         = VKEY_MARKER_XTIME_FORCE,
+          .voltype     = "features/marker",
+          .option      = "gsync-force-xtime",
+          .value       = "off",
+          .type        = NO_DOC,
+          .flags       = OPT_FLAG_FORCE,
+          .op_version  = 2
+        },
+        { .key         = VKEY_MARKER_XTIME_FORCE,
+          .voltype     = "features/marker",
+          .option      = "!gsync-force-xtime",
+          .value       = "off",
+          .type        = NO_DOC,
+          .flags       = OPT_FLAG_FORCE,
+          .op_version  = 2
+        },
         { .key         = VKEY_FEATURES_QUOTA,
           .voltype     = "features/marker",
           .option      = "quota",

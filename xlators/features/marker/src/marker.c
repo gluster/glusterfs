@@ -468,11 +468,16 @@ marker_create_frame (xlator_t *this, marker_local_t *local)
 int32_t
 marker_xtime_update_marks (xlator_t *this, marker_local_t *local)
 {
+        marker_conf_t *priv = NULL;
+
         GF_VALIDATE_OR_GOTO ("marker", this, out);
         GF_VALIDATE_OR_GOTO (this->name, local, out);
 
-        if ((local->pid == GF_CLIENT_PID_GSYNCD) ||
-            (local->pid == GF_CLIENT_PID_DEFRAG))
+        priv = this->private;
+
+        if ((local->pid == GF_CLIENT_PID_GSYNCD
+             && !(priv->feature_enabled & GF_XTIME_GSYNC_FORCE))
+            || (local->pid == GF_CLIENT_PID_DEFRAG))
                 goto out;
 
         marker_gettimeofday (local);
@@ -2593,7 +2598,7 @@ out:
 int32_t
 reconfigure (xlator_t *this, dict_t *options)
 {
-        int32_t         ret     = -1;
+        int32_t         ret     = 0;
         data_t         *data    = NULL;
         gf_boolean_t    flag    = _gf_false;
         marker_conf_t  *priv    = NULL;
@@ -2634,11 +2639,17 @@ reconfigure (xlator_t *this, dict_t *options)
                                         "xtime updation will fail");
                         } else {
                                 priv->feature_enabled |= GF_XTIME;
+                                data = dict_get (options, "gsync-force-xtime");
+                                if (!data)
+                                        goto out;
+                                ret = gf_string2boolean (data->data, &flag);
+                                if (ret == 0 && flag)
+                                        priv->feature_enabled |= GF_XTIME_GSYNC_FORCE;
                         }
                 }
         }
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -2694,9 +2705,16 @@ init (xlator_t *this)
                                 goto err;
 
                         priv->feature_enabled |= GF_XTIME;
+                        data = dict_get (options, "gsync-force-xtime");
+                        if (!data)
+                                goto cont;
+                        ret = gf_string2boolean (data->data, &flag);
+                        if (ret == 0 && flag)
+                                priv->feature_enabled |= GF_XTIME_GSYNC_FORCE;
                 }
         }
 
+ cont:
         this->local_pool = mem_pool_new (marker_local_t, 128);
         if (!this->local_pool) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -2771,5 +2789,6 @@ struct volume_options options[] = {
         {.key = {"timestamp-file"}},
         {.key = {"quota"}},
         {.key = {"xtime"}},
+        {.key = {"gsync-force-xtime"}},
         {.key = {NULL}}
 };
