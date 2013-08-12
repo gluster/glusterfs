@@ -3065,7 +3065,7 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         list_for_each_entry (orig_entry, (&orig_entries->list), list) {
                 next_offset = orig_entry->d_off;
                 if (check_is_dir (NULL, (&orig_entry->d_stat), NULL) &&
-                    (prev->this != dht_first_up_subvol (this))) {
+                    (prev->this != local->first_up_subvol)) {
                         continue;
                 }
                 if (check_is_linkfile (NULL, (&orig_entry->d_stat),
@@ -3147,13 +3147,16 @@ done:
                 }
 
 		if (conf->readdir_optimize == _gf_true) {
-                        if (next_subvol != dht_first_up_subvol (this)) {
+                        if (next_subvol != local->first_up_subvol) {
                                 ret = dict_set_int32 (local->xattr,
                                                       GF_READDIR_SKIP_DIRS, 1);
                                 if (ret)
                                         gf_log (this->name, GF_LOG_ERROR,
 					         "dict set failed");
-		        }
+		        } else {
+                                 dict_del (local->xattr,
+                                           GF_READDIR_SKIP_DIRS);
+                        }
                 }
 
                 STACK_WIND (frame, dht_readdirp_cbk,
@@ -3299,6 +3302,7 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         local->fd = fd_ref (fd);
         local->size = size;
         local->xattr_req = (dict)? dict_ref (dict) : NULL;
+        local->first_up_subvol = dht_first_up_subvol (this);
 
         dht_deitransform (this, yoff, &xvol, (uint64_t *)&xoff);
 
@@ -3317,13 +3321,16 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                         "failed to set '%s' key",
                                         conf->link_xattr_name);
 			if (conf->readdir_optimize == _gf_true) {
-                                if (xvol != dht_first_up_subvol (this)) {
+                                if (xvol != local->first_up_subvol) {
 				        ret = dict_set_int32 (local->xattr,
 			                               GF_READDIR_SKIP_DIRS, 1);
 				        if (ret)
 					        gf_log (this->name,
                                                         GF_LOG_ERROR,
 						        "Dict set failed");
+                                } else {
+                                        dict_del (local->xattr,
+                                                  GF_READDIR_SKIP_DIRS);
                                 }
 			}
                 }
