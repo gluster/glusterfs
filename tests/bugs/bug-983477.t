@@ -32,10 +32,10 @@ EXPECT_WITHIN 20 "0" get_use_readdirp_value $V0
 TEST cd -
 TEST umount $M0
 
-#By default it is disabled.
+#By default it is enabled.
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
 TEST cd $M0
-EXPECT_WITHIN 20 "0" get_use_readdirp_value $V0
+EXPECT_WITHIN 20 "1" get_use_readdirp_value $V0
 TEST cd -
 TEST umount $M0
 
