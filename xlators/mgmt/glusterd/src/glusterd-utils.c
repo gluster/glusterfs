@@ -1916,6 +1916,17 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                 i++;
         }
 
+        /* Add volume op-versions to dict. This prevents volume inconsistencies
+         * in the cluster
+         */
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.op-version", count);
+        ret = dict_set_int32 (dict, key, volinfo->op_version);
+        if (ret)
+                goto out;
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.client-op-version", count);
+        ret = dict_set_int32 (dict, key, volinfo->client_op_version);
 
 out:
         GF_FREE (volume_id_str);
@@ -2506,6 +2517,8 @@ glusterd_import_volinfo (dict_t *vols, int count,
         int                rb_status         = 0;
         char               *rebalance_id_str = NULL;
         char               *rb_id_str        = NULL;
+        int                op_version        = 0;
+        int                client_op_version = 0;
 
         GF_ASSERT (vols);
         GF_ASSERT (volinfo);
@@ -2732,6 +2745,40 @@ glusterd_import_volinfo (dict_t *vols, int count,
         ret = glusterd_import_friend_volume_opts (vols, count, new_volinfo);
         if (ret)
                 goto out;
+
+        /* Import the volume's op-versions if available else set it to 1.
+         * Not having op-versions implies this informtation was obtained from a
+         * op-version 1 friend (gluster-3.3), ergo the cluster is at op-version
+         * 1 and all volumes are at op-versions 1.
+         *
+         * Either both the volume op-versions should be absent or both should be
+         * present. Only one being present is a failure
+         */
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.op-version", count);
+        ret = dict_get_int32 (vols, key, &op_version);
+        if (ret)
+                ret = 0;
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.client-op-version", count);
+        ret = dict_get_int32 (vols, key, &client_op_version);
+        if (ret)
+                ret = 0;
+
+        if (op_version && client_op_version) {
+                new_volinfo->op_version = op_version;
+                new_volinfo->client_op_version = client_op_version;
+        } else if (((op_version == 0) && (client_op_version != 0)) ||
+                   ((op_version != 0) && (client_op_version == 0))) {
+                ret = -1;
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "Only one volume op-version found");
+                goto out;
+        } else {
+                new_volinfo->op_version = 1;
+                new_volinfo->client_op_version = 1;
+        }
+
         ret = glusterd_import_bricks (vols, count, new_volinfo);
         if (ret)
                 goto out;
@@ -2898,8 +2945,6 @@ glusterd_import_friend_volume (dict_t *vols, size_t count)
         if (glusterd_is_volume_started (new_volinfo)) {
                 (void) glusterd_start_bricks (new_volinfo);
         }
-
-        gd_update_volume_op_versions (new_volinfo);
 
         ret = glusterd_store_volinfo (new_volinfo, GLUSTERD_VOLINFO_VER_AC_NONE);
         ret = glusterd_create_volfiles_and_notify_services (new_volinfo);

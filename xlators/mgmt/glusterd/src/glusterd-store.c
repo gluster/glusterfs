@@ -579,6 +579,17 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
                         goto out;
         }
 
+        snprintf (buf, sizeof (buf), "%d", volinfo->op_version);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_OP_VERSION, buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->client_op_version);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_CLIENT_OP_VERSION,
+                                   buf);
+        if (ret)
+                goto out;
+
 out:
         if (ret)
                 gf_log (THIS->name, GF_LOG_ERROR, "Unable to write volume "
@@ -1765,7 +1776,6 @@ glusterd_store_retrieve_volume (char    *volname)
         gf_store_op_errno_t       op_errno              = GD_STORE_SUCCESS;
 
         ret = glusterd_volinfo_new (&volinfo);
-
         if (ret)
                 goto out;
 
@@ -1778,12 +1788,10 @@ glusterd_store_retrieve_volume (char    *volname)
                   GLUSTERD_VOLUME_INFO_FILE);
 
         ret = gf_store_handle_retrieve (path, &volinfo->shandle);
-
         if (ret)
                 goto out;
 
         ret = gf_store_iter_new (volinfo->shandle, &iter);
-
         if (ret)
                 goto out;
 
@@ -1854,6 +1862,12 @@ glusterd_store_retrieve_volume (char    *volname)
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_BACKEND,
                                      strlen (GLUSTERD_STORE_KEY_VOL_BACKEND))) {
                         volinfo->backend = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_OP_VERSION,
+                                strlen (GLUSTERD_STORE_KEY_VOL_OP_VERSION))) {
+                        volinfo->op_version = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_CLIENT_OP_VERSION,
+                                strlen (GLUSTERD_STORE_KEY_VOL_CLIENT_OP_VERSION))) {
+                        volinfo->client_op_version = atoi (value);
                 } else {
 
                         if (is_key_glusterd_hooks_friendly (key)) {
@@ -1932,6 +1946,9 @@ glusterd_store_retrieve_volume (char    *volname)
                 volinfo->subvol_count = (volinfo->brick_count /
                                          volinfo->dist_leaf_count);
 
+                /* Only calculate volume op-versions if they are not found */
+                if (!volinfo->op_version && !volinfo->client_op_version)
+                        gd_update_volume_op_versions (volinfo);
         }
 
         if (op_errno != GD_STORE_EOF)
@@ -1950,7 +1967,6 @@ glusterd_store_retrieve_volume (char    *volname)
         if (ret)
                 goto out;
 
-        gd_update_volume_op_versions (volinfo);
 
         list_add_tail (&volinfo->vol_list, &priv->volumes);
 

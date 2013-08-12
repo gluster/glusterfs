@@ -56,6 +56,8 @@ typedef enum glusterd_store_ver_ac_{
 #define GLUSTERD_STORE_KEY_DEFRAG_OP      "rebalance_op"
 #define GLUSTERD_STORE_KEY_USERNAME       "username"
 #define GLUSTERD_STORE_KEY_PASSWORD       "password"
+#define GLUSTERD_STORE_KEY_VOL_OP_VERSION "op-version"
+#define GLUSTERD_STORE_KEY_VOL_CLIENT_OP_VERSION "client-op-version"
 
 #define GLUSTERD_STORE_KEY_BRICK_HOSTNAME "hostname"
 #define GLUSTERD_STORE_KEY_BRICK_PATH     "path"
