@@ -506,6 +506,11 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/geo-replication/gsyncd_template.co
     %{buildroot}%{_sysconfdir}/rsyslog.d/gluster.conf
 %endif
 
+%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
+%{__install} -D -p -m 0644 extras/logger.conf.example \
+    %{buildroot}%{_sysconfdir}/glusterfs/logger.conf.example
+%endif
+
 # the rest of the ghosts
 touch %{buildroot}%{_sharedstatedir}/glusterd/glusterd.info
 touch %{buildroot}%{_sharedstatedir}/glusterd/options
