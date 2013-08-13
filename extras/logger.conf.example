@@ -1,0 +1,10 @@
+#
+# Sample logger.conf file to configure enhanced Logging in RHS
+#
+# To enable enhanced logging capabilities, rename this file to 
+#
+# /etc/glusterfs/logger.conf
+#
+# This change requires restart of all gluster services/volumes.
+#
+#
