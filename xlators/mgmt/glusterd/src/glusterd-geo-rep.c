@@ -2832,6 +2832,15 @@ glusterd_set_gsync_confs (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
+        /**
+         * enable ignore-pid-check blindly as it could be needed for
+         * cascading setups.
+         */
+        ret = glusterd_set_gsync_knob (volinfo, VKEY_MARKER_XTIME_FORCE,
+                                       &volfile_changed);
+        if (ret)
+                goto out;
+
         ret = glusterd_set_gsync_knob (volinfo,
                                        VKEY_CHANGELOG, &volfile_changed);
         if (ret)
