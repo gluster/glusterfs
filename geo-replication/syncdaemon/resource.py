@@ -398,7 +398,7 @@ class Server(object):
 
     @classmethod
     def gfid(cls, gfidpath):
-        return errno_wrap(Xattr.lgetxattr, [gfidpath, 'glusterfs.gfid', cls.GX_GFID_CANONICAL_LEN], [ENOENT])
+        return errno_wrap(Xattr.lgetxattr, [gfidpath, 'glusterfs.gfid.string', cls.GX_GFID_CANONICAL_LEN], [ENOENT])
 
     @classmethod
     def node_uuid(cls, path='.'):
