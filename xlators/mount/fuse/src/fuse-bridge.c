@@ -4943,6 +4943,7 @@ fuse_migrate_fd_open (xlator_t *this, fd_t *basefd, fd_t *oldfd,
                 goto out;
         }
 
+        newfd->flags = basefd->flags;
 	if (newfd->lk_ctx)
 		fd_lk_ctx_unref (newfd->lk_ctx);
 
