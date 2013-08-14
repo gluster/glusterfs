@@ -5583,10 +5583,10 @@ struct volume_options options[] = {
         },
 	{ .key = {"coalesce"},
 	  .type = GF_OPTION_TYPE_BOOL,
-	  .default_value = "false",
-	  .description = "Enable coalesce mode to flatten striped files as "
-			 "stored on the server (i.e., eliminate holes caused "
-			 "by the traditional format)."
+	  .default_value = "true",
+	  .description = "Enable/Disable coalesce mode to flatten striped "
+			 "files as stored on the server (i.e., eliminate holes "
+			 "caused by the traditional format)."
 	},
         { .key  = {NULL} },
 };
