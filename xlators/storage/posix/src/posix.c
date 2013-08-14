@@ -629,7 +629,7 @@ _posix_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t keep_siz
 
 	ret = posix_do_fallocate(frame, this, fd, flags, offset, len,
 				 &statpre, &statpost);
-	if (ret < 0) 
+	if (ret < 0)
 		goto err;
 
 	STACK_UNWIND_STRICT(fallocate, frame, 0, 0, &statpre, &statpost, NULL);
@@ -651,7 +651,7 @@ posix_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
 	ret = posix_do_fallocate(frame, this, fd, flags, offset, len,
 				 &statpre, &statpost);
-	if (ret < 0) 
+	if (ret < 0)
 		goto err;
 
 	STACK_UNWIND_STRICT(discard, frame, 0, 0, &statpre, &statpost, NULL);
@@ -4994,7 +4994,7 @@ struct volume_options options[] = {
 	},
 	{ .key = {"batch-fsync-delay-usec"},
 	  .type = GF_OPTION_TYPE_INT,
-	  .default_value = "1000000",
+	  .default_value = "0",
 	  .description = "Num of usecs to wait for aggregating fsync"
 	  " requests",
 	},
