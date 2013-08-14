@@ -85,12 +85,12 @@ assert_diverge()
 
 main()
 {
+    set_hooks_commit_msg;
+
     if [ -e "$1" ]; then
         editor_mode "$@";
         return;
     fi
-
-    set_hooks_commit_msg;
 
     rebase_changes;
 
