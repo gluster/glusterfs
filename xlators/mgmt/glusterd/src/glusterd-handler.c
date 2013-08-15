@@ -2496,8 +2496,10 @@ __glusterd_handle_mount (rpcsvc_request_t *req)
         gf1_cli_mount_rsp rsp     = {0,};
         dict_t *dict              = NULL;
         int ret                   = 0;
+        glusterd_conf_t     *priv   = NULL;
 
         GF_ASSERT (req);
+	priv = THIS->private;
 
         ret = xdr_to_generic (req->msg[0], &mnt_req,
                               (xdrproc_t)xdr_gf1_cli_mount_req);
@@ -2530,8 +2532,10 @@ __glusterd_handle_mount (rpcsvc_request_t *req)
                 }
         }
 
+	synclock_unlock (&priv->big_lock);
         rsp.op_ret = glusterd_do_mount (mnt_req.label, dict,
                                         &rsp.path, &rsp.op_errno);
+	synclock_lock (&priv->big_lock);
 
  out:
         if (!rsp.path)
