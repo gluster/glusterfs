@@ -43,4 +43,6 @@ afr_delayed_changelog_wake_up (xlator_t *this, fd_t *fd);
 void
 __mark_all_success (int32_t *pending[], int child_count,
                     afr_transaction_type type);
+gf_boolean_t
+afr_any_fops_failed (afr_local_t *local, afr_private_t *priv);
 #endif /* __TRANSACTION_H__ */

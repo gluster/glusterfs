@@ -1338,16 +1338,31 @@ afr_are_multiple_fds_opened (inode_t *inode, xlator_t *this)
 }
 
 gf_boolean_t
+afr_any_fops_failed (afr_local_t *local, afr_private_t *priv)
+{
+        if (local->success_count != priv->child_count)
+                return _gf_true;
+        return _gf_false;
+}
+
+gf_boolean_t
 is_afr_delayed_changelog_post_op_needed (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t      *local = NULL;
         gf_boolean_t      res = _gf_false;
+        afr_private_t    *priv  = NULL;
+
+        priv  = this->private;
 
         local = frame->local;
         if (!local)
                 goto out;
 
         if (!local->delayed_post_op)
+                goto out;
+
+        //Mark pending changelog ASAP
+        if (afr_any_fops_failed (local, priv))
                 goto out;
 
         if (local->fd && afr_are_multiple_fds_opened (local->fd->inode, this))
@@ -1622,9 +1637,9 @@ afr_changelog_post_op_safe (call_frame_t *frame, xlator_t *this)
 }
 
 
-        void
+void
 afr_delayed_changelog_post_op (xlator_t *this, call_frame_t *frame, fd_t *fd,
-                call_stub_t *stub)
+                               call_stub_t *stub)
 {
 	afr_fd_ctx_t      *fd_ctx = NULL;
 	call_frame_t      *prev_frame = NULL;
@@ -1669,7 +1684,7 @@ out:
 }
 
 
-        void
+void
 afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t  *local = NULL;
@@ -1691,14 +1706,14 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
    The @stub gets saved in @local and gets resumed in
    afr_local_cleanup()
    */
-        void
+void
 afr_delayed_changelog_wake_resume (xlator_t *this, fd_t *fd, call_stub_t *stub)
 {
         afr_delayed_changelog_post_op (this, NULL, fd, stub);
 }
 
 
-        void
+void
 afr_delayed_changelog_wake_up (xlator_t *this, fd_t *fd)
 {
         afr_delayed_changelog_post_op (this, NULL, fd, NULL);
@@ -1748,8 +1763,9 @@ afr_transaction_resume (call_frame_t *frame, xlator_t *this)
  * afr_transaction_fop_failed - inform that an fop failed
  */
 
-        void
-afr_transaction_fop_failed (call_frame_t *frame, xlator_t *this, int child_index)
+void
+afr_transaction_fop_failed (call_frame_t *frame, xlator_t *this,
+                            int child_index)
 {
         afr_local_t *   local = NULL;
         afr_private_t * priv  = NULL;
