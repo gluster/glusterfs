@@ -374,7 +374,7 @@ gf_log_init (void *data, const char *file, const char *ident)
 
         if (strcmp (file, "-") == 0) {
                 ctx->log.gf_log_logfile = stderr;
-
+                ctx->log.logfile = stderr;
                 return 0;
         }
 
