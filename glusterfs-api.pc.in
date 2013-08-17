@@ -3,10 +3,9 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 
-
 Name: glusterfs-api
 Description: GlusterFS API
 /* This is the API version, NOT package version */
-Version: 6
+Version: @GFAPI_VERSION@
 Libs: -L${libdir} -lgfapi -lglusterfs -lgfrpc -lgfxdr
 Cflags: -I${includedir}/glusterfs -D_FILE_OFFSET_BITS=64 -D__USE_FILE_OFFSET64

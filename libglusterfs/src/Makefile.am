@@ -7,6 +7,7 @@ libglusterfs_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-I$(top_srcdir)/rpc/rpc-lib/src/ -I$(CONTRIBDIR)/rbtree
 
 libglusterfs_la_LIBADD = @LEXLIB@
+libglusterfs_la_LDFLAGS = -version-info $(LIBGLUSTERFS_LT_VERSION)
 
 lib_LTLIBRARIES = libglusterfs.la
 

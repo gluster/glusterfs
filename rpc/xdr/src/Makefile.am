@@ -8,6 +8,8 @@ libgfxdr_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 libgfxdr_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 		$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la
 
+libgfxdr_la_LDFLAGS = -version-info $(LIBGFXDR_LT_VERSION)
+
 libgfxdr_la_SOURCES =  xdr-generic.c rpc-common-xdr.c \
 			glusterfs3-xdr.c \
 			cli1-xdr.c \
