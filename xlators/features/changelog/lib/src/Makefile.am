@@ -9,7 +9,7 @@ libgfchangelog_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 -fpic \
 libgfchangelog_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 			$(GF_GLUSTERFS_LIBS)
 
-libgfchangelog_la_LDFLAGS = $(GF_LDFLAGS)
+libgfchangelog_la_LDFLAGS = $(GF_LDFLAGS) -version-info $(LIBGFCHANGELOG_LT_VERSION)
 
 libgfchangelogdir = $(includedir)/glusterfs/gfchangelog
 lib_LTLIBRARIES = libgfchangelog.la

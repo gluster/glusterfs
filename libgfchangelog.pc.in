@@ -6,6 +6,6 @@ includedir=@includedir@
 
 Name: libgfchangelog
 Description: GlusterFS Changelog Consumer Library
-Version: @VERSION@
+Version: @LIBGFCHANGELOG_VERSION@
 Libs: -L${libdir} -lgfchangelog -lglusterfs
 Cflags: -I${includedir}/glusterfs/gfchangelog -D_FILE_OFFSET_BITS=64 -D__USE_FILE_OFFSET64
