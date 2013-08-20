@@ -120,17 +120,17 @@ nfs3_fh_is_root_fh (struct nfs3_fh *fh)
 
 
 void
-nfs3_fh_to_str (struct nfs3_fh *fh, char *str)
+nfs3_fh_to_str (struct nfs3_fh *fh, char *str, size_t len)
 {
-        char            gfid[512];
-        char            exportid[512];
+        char            gfid[GF_UUID_BUF_SIZE];
+        char            exportid[GF_UUID_BUF_SIZE];
 
         if ((!fh) || (!str))
                 return;
 
-        sprintf (str, "FH: exportid %s, gfid %s",
-                 uuid_utoa_r (fh->exportid, exportid),
-                 uuid_utoa_r (fh->gfid, gfid));
+        snprintf (str, len, "FH: exportid %s, gfid %s",
+                  uuid_utoa_r (fh->exportid, exportid),
+                  uuid_utoa_r (fh->gfid, gfid));
 }
 
 void

@@ -511,7 +511,8 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
                 goto free_err;
         }
 
-        strcpy (me->exname, expname);
+        strncpy (me->exname, expname, MNTPATHLEN);
+
         INIT_LIST_HEAD (&me->mlist);
         /* Must get the IP or hostname of the client so we
          * can map it into the mount entry.
@@ -644,7 +645,7 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
         fh = nfs3_fh_build_uuid_root_fh (volumeid);
 
 xmit_res:
-        nfs3_fh_to_str (&fh, fhstr);
+        nfs3_fh_to_str (&fh, fhstr, sizeof (fhstr));
         gf_log (GF_MNT, GF_LOG_DEBUG, "MNT reply: fh %s, status: %d", fhstr,
                 status);
         if (op_ret == 0) {
@@ -808,8 +809,8 @@ mnt3_resolve_state_wipe (mnt3_resolve_t *mres)
 /* Sets up the component argument to contain the next component in the path and
  * sets up path as an absolute path starting from the next component.
  */
-char *
-__setup_next_component (char *path, char *component)
+static char *
+setup_next_component (char *path, size_t plen, char *component, size_t clen)
 {
         char    *comp = NULL;
         char    *nextcomp = NULL;
@@ -817,7 +818,7 @@ __setup_next_component (char *path, char *component)
         if ((!path) || (!component))
                 return NULL;
 
-        strcpy (component, path);
+        strncpy (component, path, clen);
         comp = index (component, (int)'/');
         if (!comp)
                 goto err;
@@ -825,7 +826,7 @@ __setup_next_component (char *path, char *component)
         comp++;
         nextcomp = index (comp, (int)'/');
         if (nextcomp) {
-                strcpy (path, nextcomp);
+                strncpy (path, nextcomp, plen);
                 *nextcomp = '\0';
         } else
                 path[0] = '\0';
@@ -855,7 +856,9 @@ __mnt3_resolve_export_subdir_comp (mnt3_resolve_t *mres)
         if (!mres)
                 return ret;
 
-        nextcomp = __setup_next_component (mres->remainingdir, dupsubdir);
+        nextcomp = setup_next_component (mres->remainingdir,
+                                         sizeof (mres->remainingdir),
+                                         dupsubdir, sizeof (dupsubdir));
         if (!nextcomp)
                 goto err;
 
@@ -972,7 +975,9 @@ __mnt3_resolve_subdir (mnt3_resolve_t *mres)
         if (!mres)
                 return ret;
 
-        firstcomp = __setup_next_component (mres->remainingdir, dupsubdir);
+        firstcomp = setup_next_component (mres->remainingdir,
+                                          sizeof (mres->remainingdir),
+                                          dupsubdir, sizeof (dupsubdir));
         if (!firstcomp)
                 goto err;
 
@@ -1151,7 +1156,7 @@ mnt3_resolve_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
         mres->exp = exp;
         mres->mstate = ms;
         mres->req = req;
-        strcpy (mres->remainingdir, subdir);
+        strncpy (mres->remainingdir, subdir, MNTPATHLEN);
         if (gf_nfs_dvm_off (nfs_state (ms->nfsx)))
                 pfh = nfs3_fh_build_indexed_root_fh (mres->mstate->nfsx->children, mres->exp->vol);
         else
@@ -1475,6 +1480,8 @@ __build_mountlist (struct mount3_state *ms, int *count)
                                 " failed");
                         goto free_list;
                 }
+                if (!first)
+                        first = mlist;
 
                 mlist->ml_directory = GF_CALLOC (namelen + 2, sizeof (char),
                                                  gf_nfs_mt_char);
@@ -1504,9 +1511,6 @@ __build_mountlist (struct mount3_state *ms, int *count)
                         prev = mlist;
                 } else
                         prev = mlist;
-
-                if (!first)
-                        first = mlist;
 
                 (*count)++;
         }
@@ -1811,7 +1815,8 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, struct mount3_state *ms)
                                 " failed");
                         goto free_list;
                 }
-
+                 if (!first)
+                         first = elist;
                 elist->ex_dir = GF_CALLOC (namelen + 2, sizeof (char),
                                            gf_nfs_mt_char);
                 if (!elist->ex_dir) {
@@ -1819,16 +1824,10 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, struct mount3_state *ms)
                                 " failed");
                         goto free_list;
                 }
-
                 strcpy (elist->ex_dir, ent->expname);
 
                 addrstr = rpcsvc_volume_allowed (svc->options,
                                                  ent->vol->name);
-                if (addrstr)
-                        addrstr = gf_strdup (addrstr);
-                else
-                        addrstr = gf_strdup ("No Access");
-
                 elist->ex_groups = GF_CALLOC (1, sizeof (struct groupnode),
                                               gf_nfs_mt_groupnode);
                 if (!elist->ex_groups) {
@@ -1836,16 +1835,23 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, struct mount3_state *ms)
                                 " failed");
                         goto free_list;
                 }
+                /*This check has to be done after checking
+                 * elist->ex_groups allocation check to avoid resource leak;
+                */
+                if (addrstr)
+                        addrstr = gf_strdup (addrstr);
+                else
+                        addrstr = gf_strdup ("No Access");
 
+                if (!addrstr) {
+                        goto free_list;
+                }
                 elist->ex_groups->gr_name = addrstr;
                 if (prev) {
                         prev->ex_next = elist;
                         prev = elist;
                 } else
                         prev = elist;
-
-                if (!first)
-                        first = elist;
         }
 
         ret = 0;
@@ -1956,8 +1962,8 @@ mount3udp_add_mountlist (char *host, dirpath *expname)
         while (*export == '/')
                 export++;
 
-        strcpy (me->exname, export);
-        strcpy (me->hostname, host);
+        strncpy (me->exname, export, MNTPATHLEN);
+        strncpy (me->hostname, host, MNTPATHLEN);
         INIT_LIST_HEAD (&me->mlist);
         LOCK (&ms->mountlock);
         {
@@ -2363,8 +2369,11 @@ __mnt3_init_volume_export (struct mount3_state *ms, dict_t *opts)
                 goto err;
         }
 
-        gf_string2boolean (optstr, &boolt);
-        ret = 0;
+        ret = gf_string2boolean (optstr, &boolt);
+        if (ret < 0) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to convert"
+                        " string to boolean");
+        }
 
 err:
         if (boolt == _gf_false) {
@@ -2403,8 +2412,11 @@ __mnt3_init_dir_export (struct mount3_state *ms, dict_t *opts)
                 goto err;
         }
 
-        gf_string2boolean (optstr, &boolt);
-        ret = 0;
+        ret = gf_string2boolean (optstr, &boolt);
+        if (ret < 0) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to convert"
+                        " string to boolean");
+         }
 
 err:
         if (boolt == _gf_false) {
@@ -2581,7 +2593,7 @@ mnt3svc_init (xlator_t *nfsx)
                 }
         }
 
-        rpcsvc_create_listeners (nfs->rpcsvc, options, nfsx->name);
+        ret= rpcsvc_create_listeners (nfs->rpcsvc, options, nfsx->name);
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "Unable to create listeners");
                 dict_unref (options);
@@ -2669,7 +2681,7 @@ mnt1svc_init (xlator_t *nfsx)
                 }
         }
 
-        rpcsvc_create_listeners (nfs->rpcsvc, options, nfsx->name);
+        ret = rpcsvc_create_listeners (nfs->rpcsvc, options, nfsx->name);
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "Unable to create listeners");
                 dict_unref (options);

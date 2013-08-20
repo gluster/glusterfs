@@ -97,7 +97,7 @@ extern void
 nfs3_log_fh (struct nfs3_fh *fh);
 
 extern void
-nfs3_fh_to_str (struct nfs3_fh *fh, char *str);
+nfs3_fh_to_str (struct nfs3_fh *fh, char *str, size_t len);
 
 extern int
 nfs3_fh_build_parent_fh (struct nfs3_fh *child, struct iatt *newstat,

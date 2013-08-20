@@ -94,7 +94,7 @@ nfs_mntpath_to_xlator (xlator_list_t *cl, char *path)
         if ((!cl) || (!path))
                 return NULL;
 
-        strcpy (volname, path);
+        strncpy (volname, path, MNTPATHLEN);
         pathlen = strlen (volname);
         gf_log (GF_NFS, GF_LOG_TRACE, "Subvolume search: %s", path);
         if (volname[0] == '/')
