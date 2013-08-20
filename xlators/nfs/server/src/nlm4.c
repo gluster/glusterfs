@@ -149,8 +149,10 @@ nfs3_fh_to_xlator (struct nfs3_state *nfs3, struct nfs3_fh *fh);
                         xlatorp = nfs3_fh_to_xlator (cst->nfs3state,    \
                                                      &cst->resolvefh);  \
                         uuid_unparse (cst->resolvefh.gfid, gfid);       \
-                        sprintf (buf, "(%s) %s : %s", trans->peerinfo.identifier,\
-                        xlatorp ? xlatorp->name : "ERR", gfid);         \
+                        snprintf (buf, sizeof (buf), "(%s) %s : %s",             \
+                                  trans->peerinfo.identifier,           \
+                                  xlatorp ? xlatorp->name : "ERR",      \
+                                  gfid);                                \
                         gf_log (GF_NLM, GF_LOG_ERROR, "Unable to resolve FH"\
                                 ": %s", buf);                           \
                         nfstat = nlm4_errno_to_nlm4stat (cst->resolve_errno);\
@@ -235,7 +237,7 @@ nlm_is_oh_same_lkowner (gf_lkowner_t *a, netobj *b)
                 !memcmp (a->data, b->n_bytes, a->len));
 }
 
-nfsstat3
+nlm4_stats
 nlm4_errno_to_nlm4stat (int errnum)
 {
         nlm4_stats        stat = nlm4_denied;
@@ -1814,7 +1816,7 @@ nlm4_add_share_to_inode (nlm_share_t *share)
         inode = share->inode;
         ret = inode_ctx_get (inode, this, &ctx);
 
-        if (ret || !head) {
+        if (ret == -1) {
                 ictx = GF_CALLOC (1, sizeof (struct nfs_inode_ctx),
                                   gf_nfs_mt_inode_ctx);
                 if (!ictx ) {
@@ -2397,7 +2399,7 @@ nlm4svc_init(xlator_t *nfsx)
                 goto err;
         }
 
-        rpcsvc_create_listeners (nfs->rpcsvc, options, "NLM");
+        ret = rpcsvc_create_listeners (nfs->rpcsvc, options, "NLM");
         if (ret == -1) {
                 gf_log (GF_NLM, GF_LOG_ERROR, "Unable to create listeners");
                 dict_unref (options);

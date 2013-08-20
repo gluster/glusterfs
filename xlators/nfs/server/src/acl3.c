@@ -113,8 +113,10 @@ nfs3_fh_to_xlator (struct nfs3_state *nfs3, struct nfs3_fh *fh);
                         xlatorp = nfs3_fh_to_xlator (cst->nfs3state,    \
                                                      &cst->resolvefh);  \
                         uuid_unparse (cst->resolvefh.gfid, gfid);       \
-                        sprintf (buf, "(%s) %s : %s", trans->peerinfo.identifier,\
-                        xlatorp ? xlatorp->name : "ERR", gfid);         \
+                        snprintf (buf, sizeof (buf), "(%s) %s : %s",             \
+                                  trans->peerinfo.identifier,           \
+                                  xlatorp ? xlatorp->name : "ERR",      \
+                                  gfid);                                \
                         gf_log (GF_ACL, GF_LOG_ERROR, "Unable to resolve FH"\
                                 ": %s", buf);                           \
                         nfstat = nfs3_errno_to_nfsstat3 (cst->resolve_errno);\
@@ -228,10 +230,13 @@ acl3_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int                             i = 0;
         getaclreply                     *getaclreply = NULL;
 
+        if (!frame->local) {
+                gf_log (GF_ACL, GF_LOG_ERROR, "Invalid argument,"
+                       " frame->local NULL");
+                return  EINVAL;
+        }
         cs = frame->local;
-        if (cs)
-                getaclreply = &cs->args.getaclreply;
-
+        getaclreply = &cs->args.getaclreply;
         if (op_ret == -1) {
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto err;
@@ -291,9 +296,14 @@ acl3_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int                             ret = -1;
         nfs_user_t                      nfu = {0, };
 
+        if (!frame->local) {
+                gf_log (GF_ACL, GF_LOG_ERROR, "Invalid argument,"
+                       " frame->local NULL");
+                return EINVAL;
+        }
+
         cs = frame->local;
-        if (cs)
-                getaclreply = &cs->args.getaclreply;
+        getaclreply = &cs->args.getaclreply;
 
         if (op_ret == -1) {
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
@@ -428,7 +438,6 @@ acl3_setacl_resume (void *carg)
 
         if (!carg)
                 return ret;
-
         cs = (nfs3_call_state_t *)carg;
         acl3_check_fh_resolve_status (cs, stat, acl3err);
         nfs_request_user_init (&nfu, cs->req);
@@ -470,12 +479,22 @@ acl3svc_setacl (rpcsvc_request_t *req)
         struct nfs3_fh                  fh;
         struct nfs3_fh                 *fhp = NULL;
         setaclargs                      setaclargs;
-        aclentry                        aclentry[NFS_ACL_MAX_ENTRIES];
-        struct aclentry                 daclentry[NFS_ACL_MAX_ENTRIES];
+        aclentry                        *aclentry = NULL;
+        struct aclentry                 *daclentry = NULL;
         int                             *p = NULL, i = 0;
 
         if (!req)
                 return ret;
+        aclentry =  GF_CALLOC (NFS_ACL_MAX_ENTRIES, sizeof(*aclentry),
+                               gf_nfs_mt_arr);
+        if (!aclentry) {
+                goto rpcerr;
+        }
+        daclentry = GF_CALLOC (NFS_ACL_MAX_ENTRIES, sizeof(*daclentry),
+                               gf_nfs_mt_arr);
+        if (!daclentry) {
+                goto rpcerr;
+        }
 
         acl3_validate_nfs3_state (req, nfs3, stat, rpcerr, ret);
         nfs = nfs_state (nfs3->nfsx);
@@ -532,16 +551,20 @@ acl3err:
                 acl3svc_submit_reply (cs->req, (void *)&cs->args.setaclreply,
                                       (acl3_serializer)xdr_serialize_setaclreply);
                 nfs3_call_state_wipe (cs);
+                GF_FREE(aclentry);
+                GF_FREE(daclentry);
                 return 0;
         }
 
 rpcerr:
         if (ret < 0)
                 nfs3_call_state_wipe (cs);
-
+        if (aclentry)
+                GF_FREE (aclentry);
+        if (daclentry)
+                GF_FREE (daclentry);
         return ret;
 }
-
 
 
 
@@ -614,7 +637,7 @@ acl3svc_init(xlator_t *nfsx)
                 goto err;
         }
 
-        rpcsvc_create_listeners (nfs->rpcsvc, options, "ACL");
+        ret = rpcsvc_create_listeners (nfs->rpcsvc, options, "ACL");
         if (ret == -1) {
                 gf_log (GF_ACL, GF_LOG_ERROR, "Unable to create listeners");
                 dict_unref (options);
