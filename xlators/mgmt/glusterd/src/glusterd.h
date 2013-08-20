@@ -48,6 +48,7 @@
 #define GLUSTERD_QUORUM_RATIO_KEY       "cluster.server-quorum-ratio"
 #define GLUSTERD_GLOBAL_OPT_VERSION     "global-option-version"
 #define GLUSTERD_COMMON_PEM_PUB_FILE    "/geo-replication/common_secret.pem.pub"
+#define GEO_CONF_MAX_OPT_VALS           5
 #define GLUSTERD_CREATE_HOOK_SCRIPT     "/hooks/1/gsync-create/post/" \
                                         "S56glusterd-geo-rep-create-post.sh"
 
@@ -324,6 +325,12 @@ typedef struct glusterd_pending_node_ {
         gd_node_type type;
         int32_t index;
 } glusterd_pending_node_t;
+
+struct gsync_config_opt_vals_ {
+        char  *op_name;
+        int    no_of_pos_vals;
+        char  *values[GEO_CONF_MAX_OPT_VALS];
+};
 
 enum glusterd_op_ret {
         GLUSTERD_CONNECTION_AWAITED = 100,
