@@ -39,6 +39,19 @@ glusterd_get_slave_info (char *slave, char **slave_ip,
 static int
 glusterd_gsync_read_frm_status (char *path, char *buf, size_t blen);
 
+struct gsync_config_opt_vals_ gsync_confopt_vals[] = {
+        {.op_name        = "change_detector",
+         .no_of_pos_vals = 2,
+         .values         = {"xsync", "changelog"},
+        },
+        {.op_name        = "special_sync_mode",
+         .no_of_pos_vals = 2,
+         .values         = {"partial", "recover"}
+        },
+        {.op_name = NULL,
+        },
+};
+
 static char *gsync_reserved_opts[] = {
         "gluster-command-dir",
         "pid-file",
@@ -782,15 +795,19 @@ out:
 static int
 gsync_verify_config_options (dict_t *dict, char **op_errstr, char *volname)
 {
-        char  **resopt    = NULL;
-        int     i         = 0;
-        int     ret       = -1;
-        char   *subop     = NULL;
-        char   *slave     = NULL;
-        char   *op_name   = NULL;
-        char   *op_value  = NULL;
-        char   *t         = NULL;
-        gf_boolean_t banned = _gf_true;
+        char                         **resopt           = NULL;
+        int                            i                = 0;
+        int                            ret              = -1;
+        char                          *subop            = NULL;
+        char                          *slave            = NULL;
+        char                          *op_name          = NULL;
+        char                          *op_value         = NULL;
+        char                          *t                = NULL;
+        char                           errmsg[PATH_MAX] = "";
+        gf_boolean_t                   banned           = _gf_true;
+        gf_boolean_t                   op_match         = _gf_true;
+        gf_boolean_t                   val_match        = _gf_true;
+        struct gsync_config_opt_vals_ *conf_vals        = NULL;
 
         if (dict_get_str (dict, "subop", &subop) != 0) {
                 gf_log ("", GF_LOG_WARNING, "missing subop");
@@ -861,6 +878,37 @@ gsync_verify_config_options (dict_t *dict, char **op_errstr, char *volname)
 
                         return -1;
                         break;
+                }
+        }
+
+        /* Check options in gsync_confopt_vals for invalid values */
+        for (conf_vals = gsync_confopt_vals; conf_vals->op_name; conf_vals++) {
+                op_match = _gf_true;
+                for (i = 0; conf_vals->op_name[i] && op_name[i]; i++) {
+                        if (conf_vals->op_name[i] == op_name[i] ||
+                            (conf_vals->op_name[i] == '_' && op_name[i] == '-'))
+                                continue;
+                        op_match = _gf_false;
+                }
+
+                if (op_match) {
+                        val_match = _gf_false;
+                        for (i = 0; i < conf_vals->no_of_pos_vals; i++) {
+                                if (!strcmp (conf_vals->values[i], op_value))
+                                        val_match = _gf_true;
+                        }
+
+                        if (!val_match) {
+                                ret = snprintf (errmsg, sizeof(errmsg) - 1,
+                                                "Invalid values (%s) for"
+                                                " option %s", op_value,
+                                                op_name);
+                                errmsg[ret] = '\0';
+
+                                gf_log ("", GF_LOG_ERROR, "%s", errmsg);
+                                *op_errstr = gf_strdup (errmsg);
+                                return -1;
+                        }
                 }
         }
 
