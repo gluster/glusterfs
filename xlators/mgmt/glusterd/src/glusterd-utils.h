@@ -553,7 +553,7 @@ glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
 int
 glusterd_get_slave_details_confpath (glusterd_volinfo_t *volinfo, dict_t *dict,
                                      char **slave_ip, char **slave_vol,
-                                     char **conf_path);
+                                     char **conf_path, char **op_errstr);
 
 int
 glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave,

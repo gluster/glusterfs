@@ -33,7 +33,8 @@ glusterd_get_statefile_name (glusterd_volinfo_t *volinfo, char *slave,
                              char *conf_path, char **statefile);
 
 static int
-glusterd_get_slave_info (char *slave, char **slave_ip, char **slave_vol);
+glusterd_get_slave_info (char *slave, char **slave_ip,
+                         char **slave_vol, char **op_errstr);
 
 static int
 glusterd_gsync_read_frm_status (char *path, char *buf, size_t blen);
@@ -879,6 +880,7 @@ _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
         char                          *slave_buf = NULL;
         char                          *slave_ip  = NULL;
         char                          *slave_vol = NULL;
+        char                         **errmsg    = NULL;
         char                           conf_path[PATH_MAX] = "";
         int                           ret = -1;
         glusterd_conf_t              *priv = NULL;
@@ -900,7 +902,7 @@ _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
                 return 0;
         slave++;
 
-        ret = glusterd_get_slave_info (slave, &slave_ip, &slave_vol);
+        ret = glusterd_get_slave_info (slave, &slave_ip, &slave_vol, errmsg);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
                         "Unable to fetch slave details.");
@@ -1324,11 +1326,11 @@ glusterd_verify_gsync_status_opts (dict_t *dict, char **op_errstr)
         }
 
         ret = glusterd_get_slave_details_confpath (volinfo, dict, &slave_ip,
-                                                   &slave_vol, &conf_path);
+                                                   &slave_vol, &conf_path,
+                                                   op_errstr);
         if (ret) {
-                snprintf (errmsg, sizeof (errmsg),
-                          "Unable to fetch slave  or confpath details.");
-                gf_log ("", GF_LOG_ERROR, "%s", errmsg);
+                gf_log ("", GF_LOG_ERROR,
+                        "Unable to fetch slave  or confpath details.");
                 ret = -1;
                 goto out;
         }
@@ -1336,7 +1338,6 @@ glusterd_verify_gsync_status_opts (dict_t *dict, char **op_errstr)
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
-
 }
 
 
@@ -1685,7 +1686,7 @@ glusterd_validate_slave_ip_vol (dict_t *dict, char *volname,
                 goto out;
         }
 
-        ret = glusterd_get_slave_info (slave, &slave_ip, &slave_vol);
+        ret = glusterd_get_slave_info (slave, &slave_ip, &slave_vol, op_errstr);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
                         "Unable to fetch slave details.");
@@ -1703,6 +1704,71 @@ glusterd_validate_slave_ip_vol (dict_t *dict, char *volname,
                 goto out;
         }
 
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_mountbroker_check (char **slave_ip, char **op_errstr)
+{
+        int   ret             = -1;
+        char *tmp             = NULL;
+        char *save_ptr        = NULL;
+        char *username        = NULL;
+        char *host            = NULL;
+        char errmsg[PATH_MAX] = "";
+
+        GF_ASSERT (slave_ip);
+        GF_ASSERT (*slave_ip);
+        GF_ASSERT (op_errstr);
+
+        /* Checking if hostname has user specified */
+        host = strstr (*slave_ip, "@");
+        if (!host) {
+                gf_log ("", GF_LOG_DEBUG, "No username provided.");
+                ret = 0;
+                goto out;
+        } else {
+                /* Moving the host past the '@' and checking if the
+                 * actual hostname also has '@' */
+                host++;
+                if (strstr (host, "@")) {
+                        gf_log ("", GF_LOG_DEBUG, "host = %s", host);
+                        ret = snprintf (errmsg, sizeof(errmsg) - 1,
+                                        "Invalid Hostname (%s).", host);
+                        errmsg[ret] = '\0';
+                        gf_log ("", GF_LOG_ERROR, "%s", errmsg);
+                        ret = -1;
+                        *op_errstr = gf_strdup (errmsg);
+                        goto out;
+                }
+
+                /* Fetching the username and hostname
+                 * and checking if the username is non-root */
+                username = strtok_r (*slave_ip, "@", &save_ptr);
+                tmp = strtok_r (NULL, "@", &save_ptr);
+                if (strcmp (username, "root")) {
+                        ret = snprintf (errmsg, sizeof(errmsg) - 1,
+                                        "Non-root username (%s@%s) not allowed.",
+                                        username, tmp);
+                        errmsg[ret] = '\0';
+                        *op_errstr = gf_strdup (errmsg);
+                        gf_log ("", GF_LOG_ERROR,
+                                "Non-Root username not allowed.");
+                        ret = -1;
+                        goto out;
+                }
+
+                *slave_ip = gf_strdup (tmp);
+                if (!*slave_ip) {
+                        gf_log ("", GF_LOG_ERROR, "Out of memory");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        ret = 0;
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -1756,11 +1822,11 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
         }
 
         ret = glusterd_get_slave_details_confpath (volinfo, dict, &slave_ip,
-                                                   &slave_vol, &conf_path);
+                                                   &slave_vol, &conf_path,
+                                                   op_errstr);
         if (ret) {
-                snprintf (errmsg, sizeof (errmsg),
-                          "Unable to fetch slave  or confpath details.");
-                gf_log ("", GF_LOG_ERROR, "%s", errmsg);
+                gf_log ("", GF_LOG_ERROR,
+                        "Unable to fetch slave or confpath details.");
                 ret = -1;
                 goto out;
         }
@@ -1963,11 +2029,11 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         }
 
         ret = glusterd_get_slave_details_confpath (volinfo, dict, &slave_ip,
-                                                   &slave_vol, &conf_path);
+                                                   &slave_vol, &conf_path,
+                                                   op_errstr);
         if (ret) {
-                snprintf (errmsg, sizeof (errmsg),
-                          "Unable to fetch slave or confpath details.");
-                gf_log ("", GF_LOG_ERROR, "%s", errmsg);
+                gf_log ("", GF_LOG_ERROR,
+                        "Unable to fetch slave or confpath details.");
                 ret = -1;
                 goto out;
         }
@@ -3462,7 +3528,7 @@ out:
 int
 glusterd_get_slave_details_confpath (glusterd_volinfo_t *volinfo, dict_t *dict,
                                      char **slave_ip, char **slave_vol,
-                                     char **conf_path)
+                                     char **conf_path, char **op_errstr)
 {
         int                ret                = -1;
         char               confpath[PATH_MAX] = "";
@@ -3480,7 +3546,7 @@ glusterd_get_slave_details_confpath (glusterd_volinfo_t *volinfo, dict_t *dict,
                 goto out;
         }
 
-        ret = glusterd_get_slave_info (slave, slave_ip, slave_vol);
+        ret = glusterd_get_slave_info (slave, slave_ip, slave_vol, op_errstr);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
                         "Unable to fetch slave details.");
@@ -3529,16 +3595,22 @@ out:
 }
 
 static int
-glusterd_get_slave_info (char *slave, char **slave_ip, char **slave_vol)
+glusterd_get_slave_info (char *slave, char **slave_ip,
+                         char **slave_vol, char **op_errstr)
 {
-        char     *tmp       = NULL;
-        char     *save_ptr  = NULL;
-        char    **linearr   = NULL;
-        int32_t   ret       = -1;
+        char     *tmp              = NULL;
+        char     *save_ptr         = NULL;
+        char    **linearr          = NULL;
+        int32_t   ret              = -1;
+        char      errmsg[PATH_MAX] = "";
 
         ret = glusterd_urltransform_single (slave, "normalize",
                                             &linearr);
         if (ret == -1) {
+                ret = snprintf (errmsg, sizeof(errmsg) - 1,
+                                "Invalid Url: %s", slave);
+                errmsg[ret] = '\0';
+                *op_errstr = gf_strdup (errmsg);
                 gf_log ("", GF_LOG_ERROR, "Failed to normalize url");
                 goto out;
         }
@@ -3547,6 +3619,13 @@ glusterd_get_slave_info (char *slave, char **slave_ip, char **slave_vol)
         tmp = strtok_r (NULL, "/", &save_ptr);
         slave = strtok_r (tmp, ":", &save_ptr);
         if (slave) {
+                ret = glusterd_mountbroker_check (&slave, op_errstr);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Invalid slave url: %s", *op_errstr);
+                        goto out;
+                }
+
                 *slave_ip = gf_strdup (slave);
                 if (!*slave_ip) {
                         gf_log ("", GF_LOG_ERROR,
