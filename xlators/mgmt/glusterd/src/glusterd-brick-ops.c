@@ -922,6 +922,7 @@ _glusterd_restart_gsync_session (dict_t *this, char *key,
         char                          *slave_vol  = NULL;
         char                          *slave_ip   = NULL;
         char                          *conf_path  = NULL;
+        char                         **errmsg     = NULL;
         int                            ret        = -1;
         glusterd_gsync_status_temp_t  *param      = NULL;
         gf_boolean_t                   is_running = _gf_false;
@@ -957,10 +958,13 @@ _glusterd_restart_gsync_session (dict_t *this, char *key,
         ret = glusterd_get_slave_details_confpath (param->volinfo,
                                                    param->rsp_dict,
                                                    &slave_ip, &slave_vol,
-                                                   &conf_path);
+                                                   &conf_path, errmsg);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR,
-                        "Unable to fetch slave or confpath details.");
+                if (*errmsg)
+                        gf_log ("", GF_LOG_ERROR, "%s", *errmsg);
+                else
+                        gf_log ("", GF_LOG_ERROR,
+                                "Unable to fetch slave or confpath details.");
                 goto out;
         }
 
