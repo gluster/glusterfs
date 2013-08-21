@@ -12,6 +12,7 @@ from signal import signal, SIGTERM, SIGKILL
 from time import sleep
 import select as oselect
 from os import waitpid as owaitpid
+
 try:
     from cPickle import PickleError
 except ImportError:
@@ -77,6 +78,38 @@ def update_file(path, updater, merger = lambda f: True):
         for fx in (fr, fw):
             if fx:
                 fx.close()
+
+def create_manifest(fname, content):
+    """
+    Create manifest file for SSH Control Path
+    """
+    fd = None
+    try:
+        fd = os.open(fname, os.O_CREAT|os.O_RDWR)
+        try:
+            os.write(fd, content)
+        except:
+            os.close(fd)
+            raise
+    finally:
+        if fd != None:
+            os.close(fd)
+
+def setup_ssh_ctl(ctld, remote_addr, resource_url):
+    """
+    Setup GConf ssh control path parameters
+    """
+    gconf.ssh_ctl_dir = ctld
+    content = "SLAVE_HOST=%s\nSLAVE_RESOURCE_URL=%s" % (remote_addr,
+                                                            resource_url)
+    content_md5 = md5hex(content)
+    fname = os.path.join(gconf.ssh_ctl_dir,
+                         "%s.mft" % content_md5)
+
+    create_manifest(fname, content)
+    ssh_ctl_path = os.path.join(gconf.ssh_ctl_dir,
+                                "%s.sock" % content_md5)
+    gconf.ssh_ctl_args = ["-oControlMaster=auto", "-S", ssh_ctl_path]
 
 def grabfile(fname, content=None):
     """open @fname + contest for its fcntl lock

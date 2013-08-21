@@ -1115,9 +1115,15 @@ class SSH(AbstractUrl, SlaveRemote):
         """
         if go_daemon == 'done':
             return self.start_fd_client(*self.fd_pair)
-        gconf.setup_ssh_ctl(tempfile.mkdtemp(prefix='gsyncd-aux-ssh-'))
+
+        syncdutils.setup_ssh_ctl(tempfile.mkdtemp(prefix='gsyncd-aux-ssh-'),
+                                 self.remote_addr,
+                                 self.inner_rsc.url)
+
         deferred = go_daemon == 'postconn'
-        ret = sup(self, gconf.ssh_command.split() + gconf.ssh_ctl_args + [self.remote_addr], slave=self.inner_rsc.url, deferred=deferred)
+        ret = sup(self, gconf.ssh_command.split() + gconf.ssh_ctl_args + [self.remote_addr],
+                  slave=self.inner_rsc.url, deferred=deferred)
+
         if deferred:
             # send a message to peer so that we can wait for
             # the answer from which we know connection is
