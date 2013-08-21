@@ -99,9 +99,18 @@ function main()
     log_file=$4
     > $log_file
 
+    # Use FORCE_BLOCKER flag in the error message to differentiate
+    # between the errors which the force command should bypass
+
     ping -w 5 $2;
     if [ $? -ne 0 ]; then
-        echo "$2 not reachable." > $log_file
+        echo "FORCE_BLOCKER|$2 not reachable." > $log_file
+        exit 1;
+    fi;
+
+    ssh -oNumberOfPasswordPrompts=0 $2 "echo Testing_Passwordless_SSH";
+    if [ $? -ne 0 ]; then
+        echo "FORCE_BLOCKER|Passwordless ssh login has not been setup with $2." > $log_file
         exit 1;
     fi;
 
@@ -113,21 +122,20 @@ function main()
     master_version=$(echo $master_data | cut -f2 -d':');
     slave_version=$(echo $slave_data | cut -f2 -d':');
     slave_no_of_files=$(echo $slave_data | cut -f3 -d':');
-    slave_vol_test=$5
 
     if [[ "x$master_size" = "x" || "x$master_version" = "x" || "$master_size" -eq "0" ]]; then
-	echo "Unable to fetch master volume details. Please check the master cluster and master volume." > $log_file;
+	echo "FORCE_BLOCKER|Unable to fetch master volume details. Please check the master cluster and master volume." > $log_file;
 	exit 1;
     fi;
 
     if [[ "x$slave_size" = "x" || "x$slave_version" = "x" || "$slave_size" -eq "0" ]]; then
-	echo "Unable to fetch slave volume details. Please check the slave cluster and slave volume." > $log_file;
+	echo "FORCE_BLOCKER|Unable to fetch slave volume details. Please check the slave cluster and slave volume." > $log_file;
 	exit 1;
     fi;
 
-    if [ ! -z $slave_vol_test ]; then
-        exit $ERRORS;
-    fi
+    # The above checks are mandatory and force command should be blocked
+    # if they fail. The checks below can be bypassed if force option is
+    # provided hence no FORCE_BLOCKER flag.
 
     if [ ! $slave_size -ge $(($master_size - $BUFFER_SIZE )) ]; then
 	echo "Total size of master is greater than available size of slave." >> $log_file;
