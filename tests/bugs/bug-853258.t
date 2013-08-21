@@ -38,7 +38,7 @@ for i in $(seq 0 3); do
 	xattrs="$xattrs $(dht_get_layout $B0/${V0}$i)"
 done
 
-overlap=$($(dirname $0)/overlap.py $xattrs)
+overlap=$(python2 $(dirname $0)/overlap.py $xattrs)
 # 2863311531 = 0xaaaaaaab = 2/3 overlap
 TEST [ "$overlap" -ge 2863311531 ]
 
