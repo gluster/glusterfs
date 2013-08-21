@@ -102,7 +102,6 @@
 #define UUID_CANONICAL_FORM_LEN 36
 
 #define GLUSTERFS_INTERNAL_FOP_KEY  "glusterfs-internal-fop"
-#define GLUSTERFS_CREATE_MODE_KEY "glusterfs-create-mode"
 
 #define ZR_FILE_CONTENT_STR     "glusterfs.file."
 #define ZR_FILE_CONTENT_STRLEN 15
