@@ -1609,13 +1609,15 @@ out:
 
 static int
 glusterd_verify_slave (char *volname, char *slave_ip, char *slave,
-                       char **op_errstr, int slave_vol_test)
+                       char **op_errstr, gf_boolean_t *is_force_blocker)
 {
-        int32_t         ret     = -1;
-        runner_t        runner    = {0,};
-        glusterd_conf_t *priv   = NULL;
-        char            log_file_path[PATH_MAX] = "";
-        char            buf[PATH_MAX]           = "";
+        int32_t          ret                     = -1;
+        runner_t         runner                  = {0,};
+        char             log_file_path[PATH_MAX] = "";
+        char             buf[PATH_MAX]           = "";
+        char            *tmp                     = NULL;
+        char            *save_ptr                = NULL;
+        glusterd_conf_t *priv                    = NULL;
 
         GF_ASSERT (volname);
         GF_ASSERT (slave_ip);
@@ -1637,8 +1639,6 @@ glusterd_verify_slave (char *volname, char *slave_ip, char *slave,
         runner_argprintf (&runner, "%s", slave_ip);
         runner_argprintf (&runner, "%s", slave);
         runner_argprintf (&runner, "%s", log_file_path);
-        if (slave_vol_test)
-                runner_add_args  (&runner, "slave_vol_test", NULL);
         runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
         synclock_unlock (&priv->big_lock);
         ret = runner_run (&runner);
@@ -1652,59 +1652,32 @@ glusterd_verify_slave (char *volname, char *slave_ip, char *slave,
                                 log_file_path);
                         goto out;
                 }
-                *op_errstr = gf_strdup (buf);
+
+                /* Tokenize the error message from gverify.sh to figure out
+                 * if the error is a force blocker or not. */
+                tmp = strtok_r (buf, "|", &save_ptr);
+                if (!strcmp (tmp, "FORCE_BLOCKER"))
+                        *is_force_blocker = 1;
+                else {
+                        /* No FORCE_BLOCKER flag present so all that is
+                         * present is the error message. */
+                        *is_force_blocker = 0;
+                        if (tmp)
+                                *op_errstr = gf_strdup (tmp);
+                        ret = -1;
+                        goto out;
+                }
+
+                /* Copy rest of the error message to op_errstr */
+                tmp = strtok_r (NULL, "|", &save_ptr);
+                if (tmp)
+                        *op_errstr = gf_strdup (tmp);
                 ret = -1;
                 goto out;
         }
         ret = 0;
 out:
         unlink (log_file_path);
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
-}
-
-int
-glusterd_validate_slave_ip_vol (dict_t *dict, char *volname,
-                                char *host_uuid, char **op_errstr)
-{
-        int                 ret                       = -1;
-        char                uuid_str [64]             = "";
-        char               *slave                     = NULL;
-        char               *slave_ip                  = NULL;
-        char               *slave_vol                 = NULL;
-
-        uuid_utoa_r (MY_UUID, uuid_str);
-        if (strcmp (uuid_str, host_uuid)) {
-                ret = 0;
-                goto out;
-        }
-
-        ret = dict_get_str (dict, "slave", &slave);
-        if (ret || !slave) {
-                gf_log ("", GF_LOG_ERROR, "Unable to fetch slave from dict");
-                ret = -1;
-                goto out;
-        }
-
-        ret = glusterd_get_slave_info (slave, &slave_ip, &slave_vol, op_errstr);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR,
-                        "Unable to fetch slave details.");
-                ret = -1;
-                goto out;
-        }
-
-        /* Checking if slave ip is pingable and slave volume is
-         * valid. Fail even with failure in case of force */
-        ret = glusterd_verify_slave (volname, slave_ip, slave_vol,
-                                     op_errstr, 1);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "%s", *op_errstr);
-                ret = -1;
-                goto out;
-        }
-
-out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -1787,10 +1760,12 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
         char               *conf_path                 = NULL;
         char                errmsg[PATH_MAX]          = "";
         char                common_pem_file[PATH_MAX] = "";
+        char                hook_script[PATH_MAX]     = "";
         char                uuid_str [64]             = "";
         int                 ret                       = -1;
         int                 is_pem_push               = -1;
         gf_boolean_t        is_force                  = -1;
+        gf_boolean_t        is_force_blocker          = -1;
         gf_boolean_t        exists                    = _gf_false;
         glusterd_conf_t    *conf                      = NULL;
         glusterd_volinfo_t *volinfo                   = NULL;
@@ -1862,21 +1837,25 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                                 volinfo->volname, slave);
                 }
 
-                /* Checking if slave vol is empty, and if it has enough memory
-                 * available, and bypass in case of force */
+                /* Checking if slave host is pingable, has proper passwordless
+                 * ssh login setup, slave volume is created, slave vol is empty,
+                 * and if it has enough memory and bypass in case of force if
+                 * the error is not a force blocker */
                 ret = glusterd_verify_slave (volname, slave_ip, slave_vol,
-                                             op_errstr, 0);
-                if ((ret) && !is_force) {
-                        gf_log ("", GF_LOG_ERROR,
-                                "%s is not a valid slave volume. Error: %s",
-                                slave, *op_errstr);
-                        ret = -1;
-                        goto out;
-                } else if (ret)
-                        gf_log ("", GF_LOG_INFO, "%s is not a valid slave"
-                                " volume. Error: %s. Force creating geo-rep"
-                                " session.", slave, *op_errstr);
-
+                                             op_errstr, &is_force_blocker);
+                if (ret) {
+                        if (is_force && !is_force_blocker) {
+                                gf_log ("", GF_LOG_INFO, "%s is not a valid slave"
+                                        " volume. Error: %s. Force creating geo-rep"
+                                        " session.", slave, *op_errstr);
+                        } else {
+                                gf_log ("", GF_LOG_ERROR,
+                                        "%s is not a valid slave volume. Error: %s",
+                                        slave, *op_errstr);
+                                ret = -1;
+                                goto out;
+                        }
+                }
 
                 ret = dict_get_int32 (dict, "push_pem", &is_pem_push);
                 if (!ret && is_pem_push) {
@@ -1886,6 +1865,11 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                                         conf->workdir);
                         common_pem_file[ret] = '\0';
 
+                        ret = snprintf (hook_script, sizeof(hook_script) - 1,
+                                        "%s"GLUSTERD_CREATE_HOOK_SCRIPT,
+                                        conf->workdir);
+                        hook_script[ret] = '\0';
+
                         ret = lstat (common_pem_file, &stbuf);
                         if (ret) {
                                 snprintf (errmsg, sizeof (errmsg), "%s"
@@ -1893,6 +1877,19 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                                           " not present. Please run"
                                           " \"gluster system:: execute"
                                           " gsec_create\"", common_pem_file);
+                                gf_log ("", GF_LOG_ERROR, "%s", errmsg);
+                                *op_errstr = gf_strdup (errmsg);
+                                ret = -1;
+                                goto out;
+                        }
+
+                        ret = lstat (hook_script, &stbuf);
+                        if (ret) {
+                                snprintf (errmsg, sizeof (errmsg),
+                                          "The hook-script (%s) required "
+                                          "for push-pem is not present. "
+                                          "Please install the hook-script "
+                                          "and retry", hook_script);
                                 gf_log ("", GF_LOG_ERROR, "%s", errmsg);
                                 *op_errstr = gf_strdup (errmsg);
                                 ret = -1;
@@ -1914,13 +1911,6 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
 
         ret = glusterd_get_statefile_name (volinfo, slave, conf_path, &statefile);
         if (ret) {
-                ret = glusterd_validate_slave_ip_vol (dict, volname,
-                                                      host_uuid, op_errstr);
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Slave validation failed.");
-                        goto out;
-                }
-
                 if (!strstr(slave, "::"))
                         snprintf (errmsg, sizeof (errmsg),
                                   "%s is not a valid slave url.", slave);
@@ -1987,6 +1977,7 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         char                    errmsg[PATH_MAX] = {0,};
         dict_t                  *ctx = NULL;
         gf_boolean_t            is_force = 0;
+        gf_boolean_t            is_force_blocker = -1;
         gf_boolean_t            is_running = _gf_false;
         uuid_t                  uuid = {0};
         char                    uuid_str [64] = {0};
@@ -2040,10 +2031,14 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
 
         ret = glusterd_get_statefile_name (volinfo, slave, conf_path, &statefile);
         if (ret) {
-                ret = glusterd_validate_slave_ip_vol (dict, volname,
-                                                      host_uuid, op_errstr);
+                /* Checking if slave host is pingable, has proper passwordless
+                 * ssh login setup */
+                ret = glusterd_verify_slave (volname, slave_ip, slave_vol,
+                                             op_errstr, &is_force_blocker);
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Slave validation failed.");
+                        gf_log ("", GF_LOG_ERROR,
+                                "%s is not a valid slave volume. Error: %s",
+                                slave, *op_errstr);
                         goto out;
                 }
 

@@ -48,6 +48,9 @@
 #define GLUSTERD_QUORUM_RATIO_KEY       "cluster.server-quorum-ratio"
 #define GLUSTERD_GLOBAL_OPT_VERSION     "global-option-version"
 #define GLUSTERD_COMMON_PEM_PUB_FILE    "/geo-replication/common_secret.pem.pub"
+#define GLUSTERD_CREATE_HOOK_SCRIPT     "/hooks/1/gsync-create/post/" \
+                                        "S56glusterd-geo-rep-create-post.sh"
+
 
 #define GLUSTERD_SERVER_QUORUM "server"
 
