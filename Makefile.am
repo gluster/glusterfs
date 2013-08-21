@@ -1,3 +1,5 @@
+include $(top_srcdir)/tests.mk
+
 EXTRA_DIST = autogen.sh \
 	COPYING-GPLV2 COPYING-LGPLV3 \
 	INSTALL README AUTHORS THANKS NEWS \
