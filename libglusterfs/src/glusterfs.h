@@ -392,7 +392,7 @@ struct _glusterfs_ctx {
         char                fin;
         void               *timer;
         void               *ib;
-        void               *pool;
+        struct call_pool   *pool;
         void               *event_pool;
         void               *iobuf_pool;
         pthread_mutex_t     lock;
@@ -430,7 +430,8 @@ struct _glusterfs_ctx {
 
         int                 daemon_pipe[2];
 
-        struct _clienttable *clienttable;
+        struct client_disconnect *client_disconnect;
+        struct clienttable *clienttable;
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 

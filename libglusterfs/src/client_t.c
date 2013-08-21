@@ -11,9 +11,9 @@
 #include "glusterfs.h"
 #include "dict.h"
 #include "statedump.h"
-#include "lock-table.h"
-#include "rpcsvc.h"
 #include "client_t.h"
+#include "list.h"
+#include "rpcsvc.h"
 
 
 #ifndef _CONFIG_H
@@ -103,7 +103,7 @@ gf_clienttable_alloc (void)
         clienttable_t *clienttable = NULL;
 
         clienttable =
-                GF_CALLOC (1, sizeof (*clienttable), gf_common_mt_clienttable_t);
+                GF_CALLOC (1, sizeof (clienttable_t), gf_common_mt_clienttable_t);
         if (!clienttable)
                 return NULL;
 
@@ -116,13 +116,10 @@ gf_clienttable_alloc (void)
 void
 gf_client_clienttable_destroy (clienttable_t *clienttable)
 {
-        struct list_head  list          = {0, };
         client_t         *client        = NULL;
         cliententry_t    *cliententries = NULL;
         uint32_t          client_count  = 0;
         int32_t           i             = 0;
-
-        INIT_LIST_HEAD (&list);
 
         if (!clienttable) {
                 gf_log_callingfn ("client_t", GF_LOG_WARNING, "!clienttable");
@@ -152,9 +149,8 @@ gf_client_clienttable_destroy (clienttable_t *clienttable)
         }
 }
 
-
 client_t *
-gf_client_get (xlator_t *this, rpcsvc_auth_data_t *cred, char *client_uid)
+gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
 {
         client_t      *client      = NULL;
         cliententry_t *cliententry = NULL;
@@ -181,13 +177,13 @@ gf_client_get (xlator_t *this, rpcsvc_auth_data_t *cred, char *client_uid)
                          * look for matching client_uid, _and_
                          * if auth was used, matching auth flavour and data
                          */
-                        if (strcmp (client_uid, client->server_ctx.client_uid) == 0 &&
+                        if (strcmp (client_uid, client->client_uid) == 0 &&
                                 (cred->flavour != AUTH_NONE &&
-                                        (cred->flavour == client->server_ctx.auth.flavour &&
-                                        (size_t) cred->datalen == client->server_ctx.auth.len &&
+                                        (cred->flavour == client->auth.flavour &&
+                                        (size_t) cred->datalen == client->auth.len &&
                                         memcmp (cred->authdata,
-                                                client->server_ctx.auth.data,
-                                                client->server_ctx.auth.len) == 0))) {
+                                                client->auth.data,
+                                                client->auth.len) == 0))) {
 #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)
                                 __sync_add_and_fetch(&client->ref.bind, 1);
 #else
@@ -211,58 +207,49 @@ gf_client_get (xlator_t *this, rpcsvc_auth_data_t *cred, char *client_uid)
                 }
 
                 client->this = this;
-             /* client->server_ctx.lk_version = 0; redundant */
 
-                LOCK_INIT (&client->server_ctx.fdtable_lock);
-                LOCK_INIT (&client->locks_ctx.ltable_lock);
                 LOCK_INIT (&client->scratch_ctx.lock);
                 LOCK_INIT (&client->ref.lock);
 
-                client->server_ctx.client_uid = gf_strdup (client_uid);
-                if (client->server_ctx.client_uid == NULL) {
-                        errno = ENOMEM;
+                client->client_uid = gf_strdup (client_uid);
+                if (client->client_uid == NULL) {
                         GF_FREE (client);
                         client = NULL;
+                        errno = ENOMEM;
                         goto unlock;
                 }
-                client->server_ctx.fdtable = gf_fd_fdtable_alloc ();
-                if (client->server_ctx.fdtable == NULL) {
-                        errno = ENOMEM;
-                        GF_FREE (client->server_ctx.client_uid);
+                client->scratch_ctx.count = GF_CLIENTCTX_INITIAL_SIZE;
+                client->scratch_ctx.ctx =
+                        GF_CALLOC (GF_CLIENTCTX_INITIAL_SIZE,
+                                   sizeof (struct client_ctx),
+                                   gf_common_mt_client_ctx);
+                if (client->scratch_ctx.ctx == NULL) {
+                        GF_FREE (client->client_uid);
                         GF_FREE (client);
                         client = NULL;
-                        goto unlock;
-                }
-
-                client->locks_ctx.ltable = gf_lock_table_new ();
-                if (client->locks_ctx.ltable == NULL) {
                         errno = ENOMEM;
-                        GF_FREE (client->server_ctx.fdtable);
-                        GF_FREE (client->server_ctx.client_uid);
-                        GF_FREE (client);
-                        client = NULL;
                         goto unlock;
                 }
 
                 /* no need to do these atomically here */
                 client->ref.bind = client->ref.count = 1;
 
-                client->server_ctx.auth.flavour = cred->flavour;
+                client->auth.flavour = cred->flavour;
                 if (cred->flavour != AUTH_NONE) {
-                        client->server_ctx.auth.data =
-                                GF_CALLOC (1, cred->datalen, gf_common_mt_client_t);
-                        if (client->server_ctx.auth.data == NULL) {
-                                errno = ENOMEM;
-                                GF_FREE (client->locks_ctx.ltable);
-                                GF_FREE (client->server_ctx.fdtable);
-                                GF_FREE (client->server_ctx.client_uid);
+                        client->auth.data =
+                                GF_CALLOC (1, cred->datalen,
+                                           gf_common_mt_client_t);
+                        if (client->auth.data == NULL) {
+                                GF_FREE (client->scratch_ctx.ctx);
+                                GF_FREE (client->client_uid);
                                 GF_FREE (client);
                                 client = NULL;
+                                errno = ENOMEM;
                                 goto unlock;
                         }
-                        memcpy (client->server_ctx.auth.data, cred->authdata,
+                        memcpy (client->auth.data, cred->authdata,
                                 cred->datalen);
-                        client->server_ctx.auth.len = cred->datalen;
+                        client->auth.len = cred->datalen;
                 }
 
                 client->tbl_index = clienttable->first_free;
@@ -301,7 +288,7 @@ gf_client_put (client_t *client, gf_boolean_t *detached)
 
         if (unref) {
                 gf_log (THIS->name, GF_LOG_INFO, "Shutting down connection %s",
-                        client->server_ctx.client_uid);
+                        client->client_uid);
                 if (detached)
                         *detached = _gf_true;
                 gf_client_unref (client);
@@ -333,7 +320,9 @@ gf_client_ref (client_t *client)
 static void
 client_destroy (client_t *client)
 {
-        clienttable_t *clienttable = NULL;
+        clienttable_t     *clienttable = NULL;
+        glusterfs_graph_t *gtrav       = NULL;
+        xlator_t          *xtrav       = NULL;
 
         if (client == NULL){
                 gf_log_callingfn ("xlator", GF_LOG_ERROR, "invalid argument");
@@ -342,8 +331,6 @@ client_destroy (client_t *client)
 
         clienttable = client->this->ctx->clienttable;
 
-        LOCK_DESTROY (&client->server_ctx.fdtable_lock);
-        LOCK_DESTROY (&client->locks_ctx.ltable_lock);
         LOCK_DESTROY (&client->scratch_ctx.lock);
         LOCK_DESTROY (&client->ref.lock);
 
@@ -356,14 +343,41 @@ client_destroy (client_t *client)
         }
         UNLOCK (&clienttable->lock);
 
-        GF_FREE (client->server_ctx.auth.data);
+        list_for_each_entry (gtrav, &client->this->ctx->graphs, list) {
+                xtrav = gtrav->top;
+                while (xtrav != NULL) {
+                        if (xtrav->cbks->client_destroy != NULL)
+                                xtrav->cbks->client_destroy (xtrav, client);
+                        xtrav = xtrav->next;
+                }
+        }
+        GF_FREE (client->auth.data);
         GF_FREE (client->scratch_ctx.ctx);
-        GF_FREE (client->locks_ctx.ltable);
-        GF_FREE (client->server_ctx.fdtable);
-        GF_FREE (client->server_ctx.client_uid);
+        GF_FREE (client->client_uid);
         GF_FREE (client);
 out:
         return;
+}
+
+
+int
+gf_client_disconnect (client_t *client)
+{
+        int                ret   = 0;
+        glusterfs_graph_t *gtrav = NULL;
+        xlator_t          *xtrav = NULL;
+
+        list_for_each_entry (gtrav, &client->this->ctx->graphs, list) {
+                xtrav = gtrav->top;
+                while (xtrav != NULL) {
+                        if (xtrav->cbks->client_disconnect != NULL)
+                                if (xtrav->cbks->client_disconnect (xtrav, client) != 0)
+                                        ret = -1;
+                        xtrav = xtrav->next;
+                }
+        }
+
+        return ret;
 }
 
 
@@ -392,37 +406,33 @@ gf_client_unref (client_t *client)
 }
 
 
-int
-__client_ctx_set (client_t *client, xlator_t *xlator, uint64_t value)
+static int
+client_ctx_set_int (client_t *client, void *key, void *value)
 {
         int index   = 0;
         int ret     = 0;
         int set_idx = -1;
 
-        if (!client || !xlator)
-                return -1;
-
         for (index = 0; index < client->scratch_ctx.count; index++) {
-                if (!client->scratch_ctx.ctx[index].key) {
+                if (!client->scratch_ctx.ctx[index].ctx_key) {
                         if (set_idx == -1)
                                 set_idx = index;
                         /* dont break, to check if key already exists
                            further on */
                 }
-                if (client->scratch_ctx.ctx[index].xl_key == xlator) {
+                if (client->scratch_ctx.ctx[index].ctx_key == key) {
                         set_idx = index;
                         break;
                 }
         }
 
         if (set_idx == -1) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "%p %s", client, xlator->name);
                 ret = -1;
                 goto out;
         }
 
-        client->scratch_ctx.ctx[set_idx].xl_key = xlator;
-        client->scratch_ctx.ctx[set_idx].value  = value;
+        client->scratch_ctx.ctx[set_idx].ctx_key = key;
+        client->scratch_ctx.ctx[set_idx].ctx_value  = value;
 
 out:
         return ret;
@@ -430,18 +440,16 @@ out:
 
 
 int
-client_ctx_set (client_t *client, xlator_t *xlator, uint64_t value)
+client_ctx_set (client_t *client, void *key, void *value)
 {
         int ret = 0;
 
-        if (!client || !xlator) {
-                gf_log_callingfn ("", GF_LOG_WARNING, "%p %p", client, xlator);
+        if (!client || !key)
                 return -1;
-        }
 
         LOCK (&client->scratch_ctx.lock);
         {
-                ret = __client_ctx_set (client, xlator, value);
+                ret = client_ctx_set_int (client, key, value);
         }
         UNLOCK (&client->scratch_ctx.lock);
 
@@ -449,17 +457,14 @@ client_ctx_set (client_t *client, xlator_t *xlator, uint64_t value)
 }
 
 
-int
-__client_ctx_get (client_t *client, xlator_t *xlator, uint64_t *value)
+static int
+client_ctx_get_int (client_t *client, void *key, void **value)
 {
         int index = 0;
         int ret   = 0;
 
-        if (!client || !xlator)
-                return -1;
-
         for (index = 0; index < client->scratch_ctx.count; index++) {
-                if (client->scratch_ctx.ctx[index].xl_key == xlator)
+                if (client->scratch_ctx.ctx[index].ctx_key == key)
                         break;
         }
 
@@ -469,7 +474,7 @@ __client_ctx_get (client_t *client, xlator_t *xlator, uint64_t *value)
         }
 
         if (value)
-                *value = client->scratch_ctx.ctx[index].value;
+                *value = client->scratch_ctx.ctx[index].ctx_value;
 
 out:
         return ret;
@@ -477,16 +482,16 @@ out:
 
 
 int
-client_ctx_get (client_t *client, xlator_t *xlator, uint64_t *value)
+client_ctx_get (client_t *client, void *key, void **value)
 {
         int ret = 0;
 
-        if (!client || !xlator)
+        if (!client || !key)
                 return -1;
 
         LOCK (&client->scratch_ctx.lock);
         {
-                ret = __client_ctx_get (client, xlator, value);
+                ret = client_ctx_get_int (client, key, value);
         }
         UNLOCK (&client->scratch_ctx.lock);
 
@@ -494,17 +499,14 @@ client_ctx_get (client_t *client, xlator_t *xlator, uint64_t *value)
 }
 
 
-int
-__client_ctx_del (client_t *client, xlator_t *xlator, uint64_t *value)
+static int
+client_ctx_del_int (client_t *client, void *key, void **value)
 {
         int index = 0;
         int ret   = 0;
 
-        if (!client || !xlator)
-                return -1;
-
         for (index = 0; index < client->scratch_ctx.count; index++) {
-                if (client->scratch_ctx.ctx[index].xl_key == xlator)
+                if (client->scratch_ctx.ctx[index].ctx_key == key)
                         break;
         }
 
@@ -514,10 +516,10 @@ __client_ctx_del (client_t *client, xlator_t *xlator, uint64_t *value)
         }
 
         if (value)
-                *value = client->scratch_ctx.ctx[index].value;
+                *value = client->scratch_ctx.ctx[index].ctx_value;
 
-        client->scratch_ctx.ctx[index].key   = 0;
-        client->scratch_ctx.ctx[index].value = 0;
+        client->scratch_ctx.ctx[index].ctx_key   = 0;
+        client->scratch_ctx.ctx[index].ctx_value = 0;
 
 out:
         return ret;
@@ -525,16 +527,16 @@ out:
 
 
 int
-client_ctx_del (client_t *client, xlator_t *xlator, uint64_t *value)
+client_ctx_del (client_t *client, void *key, void **value)
 {
         int ret = 0;
 
-        if (!client || !xlator)
+        if (!client || !key)
                 return -1;
 
         LOCK (&client->scratch_ctx.lock);
         {
-                ret = __client_ctx_del (client, xlator, value);
+                ret = client_ctx_del_int (client, key, value);
         }
         UNLOCK (&client->scratch_ctx.lock);
 
@@ -659,11 +661,13 @@ out:
 int
 gf_client_dump_fdtables_to_dict (xlator_t *this, dict_t *dict)
 {
-        client_t       *client      = NULL;
         clienttable_t  *clienttable = NULL;
         int             count       = 0;
         int             ret         = -1;
+#ifdef NOTYET
+        client_t       *client      = NULL;
         char            key[GF_DUMP_MAX_BUF_LEN] = {0,};
+#endif
 
         GF_VALIDATE_OR_GOTO (THIS->name, this, out);
         GF_VALIDATE_OR_GOTO (this->name, dict, out);
@@ -673,6 +677,7 @@ gf_client_dump_fdtables_to_dict (xlator_t *this, dict_t *dict)
         if (!clienttable)
                 return -1;
 
+#ifdef NOTYET
         ret = TRY_LOCK (&clienttable->lock);
         {
                 if (ret) {
@@ -692,6 +697,7 @@ gf_client_dump_fdtables_to_dict (xlator_t *this, dict_t *dict)
                 }
         }
         UNLOCK(&clienttable->lock);
+#endif
 
         ret = dict_set_int32 (dict, "conncount", count);
 out:
@@ -729,11 +735,11 @@ gf_client_dump_fdtables (xlator_t *this)
                                 continue;
                         client = clienttable->cliententries[count].client;
                         memset(key, 0, sizeof key);
-                        if (client->server_ctx.client_uid) {
+                        if (client->client_uid) {
                                 gf_proc_dump_build_key (key, "conn",
                                                         "%d.id", count);
                                 gf_proc_dump_write (key, "%s",
-                                                    client->server_ctx.client_uid);
+                                                    client->client_uid);
                         }
 
                         gf_proc_dump_build_key (key, "conn", "%d.ref",
@@ -746,8 +752,10 @@ gf_client_dump_fdtables (xlator_t *this)
                                                     client->bound_xl->name);
                         }
 
+#ifdef NOTYET
                         gf_proc_dump_build_key (key, "conn","%d.id", count);
                         fdtable_dump (client->server_ctx.fdtable, key);
+#endif
                 }
         }
 
@@ -836,14 +844,14 @@ gf_client_dump_inodes (xlator_t *this)
         clienttable = this->ctx->clienttable;
 
         if (!clienttable)
-                return -1;
+                goto out;
 
         ret = TRY_LOCK (&clienttable->lock);
         {
                 if (ret) {
                         gf_log ("client_t", GF_LOG_WARNING,
                                 "Unable to acquire lock");
-                        return -1;
+                        goto out;
                 }
 
                 for ( ; count < clienttable->max_clients; count++) {
@@ -879,3 +887,4 @@ gf_client_dump_inodes (xlator_t *this)
 out:
         return ret;
 }
+

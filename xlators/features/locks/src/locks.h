@@ -19,10 +19,10 @@
 #include "stack.h"
 #include "call-stub.h"
 #include "locks-mem-types.h"
+#include "client_t.h"
 
 #include "lkowner.h"
 
-#define POSIX_LOCKS "posix-locks"
 struct __pl_fd;
 
 struct __posix_lock {
@@ -33,7 +33,7 @@ struct __posix_lock {
         off_t              fl_end;
 
         short              blocked;    /* waiting to acquire */
-        struct gf_flock       user_flock; /* the flock supplied by the user */
+        struct gf_flock    user_flock; /* the flock supplied by the user */
         xlator_t          *this;       /* required for blocked locks */
         unsigned long      fd_num;
 
@@ -46,7 +46,7 @@ struct __posix_lock {
         /* These two together serve to uniquely identify each process
            across nodes */
 
-        void              *transport;     /* to identify client node */
+        void              *client;     /* to identify client node */
         gf_lkowner_t       owner;
         pid_t              client_pid;    /* pid of client process */
 };
@@ -63,7 +63,7 @@ struct __pl_inode_lock {
 
         const char        *volume;
 
-        struct gf_flock       user_flock; /* the flock supplied by the user */
+        struct gf_flock    user_flock; /* the flock supplied by the user */
         xlator_t          *this;       /* required for blocked locks */
         fd_t              *fd;
 
@@ -75,7 +75,7 @@ struct __pl_inode_lock {
         /* These two together serve to uniquely identify each process
            across nodes */
 
-        void              *transport;     /* to identify client node */
+        void              *client;     /* to identify client node */
         gf_lkowner_t       owner;
         pid_t              client_pid;    /* pid of client process */
 
@@ -156,6 +156,7 @@ typedef struct {
         char           *brickname;
 } posix_locks_private_t;
 
+
 typedef struct {
         gf_boolean_t   entrylk_count_req;
         gf_boolean_t   inodelk_count_req;
@@ -171,8 +172,21 @@ typedef struct {
         enum {TRUNCATE, FTRUNCATE} op;
 } pl_local_t;
 
+
 typedef struct {
         struct list_head locks_list;
 } pl_fdctx_t;
+
+
+typedef struct _locks_ctx {
+        gf_lock_t            ltable_lock; /* only for replace, 
+                                             ltable has its own internal 
+                                             lock for operations */
+        struct _lock_table  *ltable;
+} pl_ctx_t;
+
+
+pl_ctx_t *
+pl_ctx_get (client_t *client, xlator_t *xlator);
 
 #endif /* __POSIX_LOCKS_H__ */
