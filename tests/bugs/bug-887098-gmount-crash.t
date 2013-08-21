@@ -27,7 +27,7 @@ TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
 TEST glusterfs -s $H0 --volfile-id=$V0 --acl $M0
-MOUNT_PID=`ps ax |grep "glusterfs -s $H0 --volfile-id=$V0 --acl $M0" | awk '{print $1}' | head -1`
+MOUNT_PID=`ps ax |grep "glusterfs -s $H0 --volfile-id=$V0 --acl $M0" | grep -v grep | awk '{print $1}' | head -1`
 
 for i in {1..25};
 do
