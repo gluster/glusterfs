@@ -685,7 +685,10 @@ class GMasterChangelogMixin(GMasterCommon):
                 go = os.path.join(pfx, gfid)
                 st = lstat(go)
                 if isinstance(st, int):
-                    logging.debug('file %s got purged in the interim' % go)
+		    if ty == 'RENAME':
+                        entries.append(edct('UNLINK', gfid=gfid, entry=en))
+		    else:
+                        logging.debug('file %s got purged in the interim' % go)
                     continue
                 entry_update(go, st.st_size, st.st_mode)
                 if ty in ['CREATE', 'MKDIR', 'MKNOD']:
