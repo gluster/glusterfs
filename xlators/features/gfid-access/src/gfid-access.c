@@ -337,6 +337,7 @@ ga_new_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
         ga_newfile_args_t *args      = NULL;
         loc_t              tmp_loc   = {0,};
         call_frame_t      *new_frame = NULL;
+        mode_t             mode      = 0;
 
         args = ga_newfile_parse_args (this, data);
         if (!args)
@@ -369,21 +370,13 @@ ga_new_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
                             args->args.symlink.linkpath,
                             &tmp_loc, 0, xdata);
         } else {
-                if (S_ISREG (args->st_mode)) {
-                        ret = dict_set_uint32 (xdata,
-                                               GLUSTERFS_CREATE_MODE_KEY,
-                                               args->args.mknod.mode);
-                        if (ret < 0) {
-                                gf_log (THIS->name, GF_LOG_ERROR,
-                                        "failed to set the create-mode-key");
-                                goto out;
-                        }
-                        args->args.mknod.mode = IA_IFREG;
-                }
+                /* use 07777 (4 7s) for considering the Sticky bits etc) */
+                mode = (S_IFMT & args->st_mode) |
+                        (07777 | args->args.mknod.mode);;
 
                 STACK_WIND (new_frame, ga_newentry_cbk,
                             FIRST_CHILD(this), FIRST_CHILD(this)->fops->mknod,
-                            &tmp_loc, args->args.mknod.mode,
+                            &tmp_loc, mode,
                             args->args.mknod.rdev, args->args.mknod.umask,
                             xdata);
         }
