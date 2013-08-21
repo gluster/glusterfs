@@ -15,7 +15,6 @@
 
 #include "server.h"
 #include "server-helpers.h"
-#include "client_t.h"
 
 
 int
@@ -148,7 +147,8 @@ resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     (char **) &resolve_loc->path);
 
         STACK_WIND (frame, resolve_gfid_entry_cbk,
-                    BOUND_XL (frame), BOUND_XL (frame)->fops->lookup,
+                    frame->root->client->bound_xl,
+                    frame->root->client->bound_xl->fops->lookup,
                     &resolve->resolve_loc, NULL);
         return 0;
 out:
@@ -180,7 +180,8 @@ resolve_gfid (call_frame_t *frame)
         ret = loc_path (resolve_loc, NULL);
 
         STACK_WIND (frame, resolve_gfid_cbk,
-                    BOUND_XL (frame), BOUND_XL (frame)->fops->lookup,
+                    frame->root->client->bound_xl,
+                    frame->root->client->bound_xl->fops->lookup,
                     &resolve->resolve_loc, NULL);
         return 0;
 }
@@ -450,9 +451,11 @@ server_resolve_anonfd (call_frame_t *frame)
 int
 server_resolve_fd (call_frame_t *frame)
 {
-        server_state_t       *state = NULL;
-        server_resolve_t     *resolve = NULL;
-        uint64_t              fd_no = -1;
+        server_ctx_t         *serv_ctx = NULL;
+        server_state_t       *state    = NULL;
+        client_t             *client   = NULL;
+        server_resolve_t     *resolve  = NULL;
+        uint64_t              fd_no    = -1;
 
         state = CALL_STATE (frame);
         resolve = state->resolve_now;
@@ -464,7 +467,18 @@ server_resolve_fd (call_frame_t *frame)
                 return 0;
         }
 
-        state->fd = gf_fd_fdptr_get (state->client->server_ctx.fdtable, fd_no);
+        client = frame->root->client;
+
+        serv_ctx = server_ctx_get (client, client->this);
+
+        if (serv_ctx == NULL) {
+                gf_log ("", GF_LOG_INFO, "server_ctx_get() failed");
+                resolve->op_ret   = -1;
+                resolve->op_errno = ENOMEM;
+                return 0;
+        }
+
+        state->fd = gf_fd_fdptr_get (serv_ctx->fdtable, fd_no);
 
         if (!state->fd) {
                 gf_log ("", GF_LOG_INFO, "fd not found in context");
@@ -519,14 +533,12 @@ int
 server_resolve_done (call_frame_t *frame)
 {
         server_state_t    *state = NULL;
-        xlator_t          *bound_xl = NULL;
 
         state = CALL_STATE (frame);
-        bound_xl = BOUND_XL (frame);
 
         server_print_request (frame);
 
-        state->resume_fn (frame, bound_xl);
+        state->resume_fn (frame, frame->root->client->bound_xl);
 
         return 0;
 }

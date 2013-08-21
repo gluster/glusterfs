@@ -14,7 +14,7 @@
 /*dump locks format strings */
 #define RANGE_FMT               "type=%s, whence=%hd, start=%llu, len=%llu"
 #define ENTRY_FMT               "type=%s on basename=%s"
-#define DUMP_GEN_FMT            "pid = %llu, owner=%s, transport=%p"
+#define DUMP_GEN_FMT            "pid = %llu, owner=%s, client=%p"
 #define GRNTD_AT                "granted at %s"
 #define BLKD_AT                 "blocked at %s"
 #define CONN_ID                 "connection-id=%s"
@@ -31,8 +31,24 @@
 #define RANGE_BLKD_GRNTD_FMT    RANGE_FMT", "DUMP_BLKD_GRNTD_FMT
 
 #define SET_FLOCK_PID(flock, lock) ((flock)->l_pid = lock->client_pid)
+
+struct _locker {
+        struct list_head  lockers;
+        char             *volume;
+        loc_t             loc;
+        fd_t             *fd;
+        gf_lkowner_t      owner;
+        pid_t             pid;
+};
+
+struct _lock_table {
+        struct list_head  inodelk_lockers;
+        struct list_head  entrylk_lockers;
+        gf_lock_t         lock;
+};
+
 posix_lock_t *
-new_posix_lock (struct gf_flock *flock, void *transport, pid_t client_pid,
+new_posix_lock (struct gf_flock *flock, client_t *client, pid_t client_pid,
                 gf_lkowner_t *owner, fd_t *fd);
 
 pl_inode_t *
@@ -146,6 +162,26 @@ pl_verify_reservelk (xlator_t *this, pl_inode_t *pl_inode,
                      posix_lock_t *lock, int can_block);
 int
 pl_reserve_unlock (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *reqlock);
+
 uint32_t
 check_entrylk_on_basename (xlator_t *this, inode_t *parent, char *basename);
+
+int32_t
+pl_add_locker (struct _lock_table *table, const char *volume,
+               loc_t *loc,
+               fd_t *fd,
+               pid_t pid,
+               gf_lkowner_t *owner,
+               glusterfs_fop_t type);
+
+int32_t
+pl_del_locker (struct _lock_table *table, const char *volume,
+               loc_t *loc,
+               fd_t *fd,
+               gf_lkowner_t *owner,
+               glusterfs_fop_t type);
+
+struct _lock_table *
+pl_lock_table_new (void);
+
 #endif /* __COMMON_H__ */

@@ -1203,10 +1203,9 @@ gf_get_process_mode (char *exec_name)
 static int
 glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 {
-        cmd_args_t    *cmd_args = NULL;
-        struct rlimit  lim = {0, };
-        call_pool_t   *pool = NULL;
-        int            ret = -1;
+        cmd_args_t          *cmd_args = NULL;
+        struct rlimit        lim      = {0, };
+        int                  ret      = -1;
 
         xlator_mem_acct_init (THIS, gfd_mt_end);
 
@@ -1233,24 +1232,26 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
                 goto out;
         }
 
-        pool = GF_CALLOC (1, sizeof (call_pool_t),
-                          gfd_mt_call_pool_t);
-        if (!pool) {
+        ctx->pool = GF_CALLOC (1, sizeof (call_pool_t), gfd_mt_call_pool_t);
+        if (!ctx->pool) {
                 gf_log ("", GF_LOG_CRITICAL,
                         "ERROR: glusterfs call pool creation failed");
                 goto out;
         }
 
+        INIT_LIST_HEAD (&ctx->pool->all_frames);
+        LOCK_INIT (&ctx->pool->lock);
+
         /* frame_mem_pool size 112 * 4k */
-        pool->frame_mem_pool = mem_pool_new (call_frame_t, 4096);
-        if (!pool->frame_mem_pool) {
+        ctx->pool->frame_mem_pool = mem_pool_new (call_frame_t, 4096);
+        if (!ctx->pool->frame_mem_pool) {
                 gf_log ("", GF_LOG_CRITICAL,
                         "ERROR: glusterfs frame pool creation failed");
                 goto out;
         }
         /* stack_mem_pool size 256 * 1024 */
-        pool->stack_mem_pool = mem_pool_new (call_stack_t, 1024);
-        if (!pool->stack_mem_pool) {
+        ctx->pool->stack_mem_pool = mem_pool_new (call_stack_t, 1024);
+        if (!ctx->pool->stack_mem_pool) {
                 gf_log ("", GF_LOG_CRITICAL,
                         "ERROR: glusterfs stack pool creation failed");
                 goto out;
@@ -1265,24 +1266,22 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 
         ctx->dict_pool = mem_pool_new (dict_t, GF_MEMPOOL_COUNT_OF_DICT_T);
         if (!ctx->dict_pool)
-                return -1;
+                goto out;
 
         ctx->dict_pair_pool = mem_pool_new (data_pair_t,
                                             GF_MEMPOOL_COUNT_OF_DATA_PAIR_T);
         if (!ctx->dict_pair_pool)
-                return -1;
+                goto out;
 
         ctx->dict_data_pool = mem_pool_new (data_t, GF_MEMPOOL_COUNT_OF_DATA_T);
         if (!ctx->dict_data_pool)
-                return -1;
-
-        INIT_LIST_HEAD (&pool->all_frames);
-        LOCK_INIT (&pool->lock);
-        ctx->pool = pool;
+                goto out;
 
         pthread_mutex_init (&(ctx->lock), NULL);
 
         ctx->clienttable = gf_clienttable_alloc();
+        if (!ctx->clienttable)
+                goto out;
 
         cmd_args = &ctx->cmd_args;
 
@@ -1312,29 +1311,16 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         ret = 0;
 out:
 
-        if (ret && pool) {
-
-                if (pool->frame_mem_pool)
-                        mem_pool_destroy (pool->frame_mem_pool);
-
-                if (pool->stack_mem_pool)
-                        mem_pool_destroy (pool->stack_mem_pool);
-
-                GF_FREE (pool);
-        }
-
         if (ret && ctx) {
-                if (ctx->stub_mem_pool)
-                        mem_pool_destroy (ctx->stub_mem_pool);
-
-                if (ctx->dict_pool)
-                        mem_pool_destroy (ctx->dict_pool);
-
-                if (ctx->dict_data_pool)
-                        mem_pool_destroy (ctx->dict_data_pool);
-
-                if (ctx->dict_pair_pool)
-                        mem_pool_destroy (ctx->dict_pair_pool);
+                if (ctx->pool) {
+                        mem_pool_destroy (ctx->pool->frame_mem_pool);
+                        mem_pool_destroy (ctx->pool->stack_mem_pool);
+                }
+                GF_FREE (ctx->pool);
+                mem_pool_destroy (ctx->stub_mem_pool);
+                mem_pool_destroy (ctx->dict_pool);
+                mem_pool_destroy (ctx->dict_data_pool);
+                mem_pool_destroy (ctx->dict_pair_pool);
         }
 
         return ret;

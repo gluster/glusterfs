@@ -66,6 +66,7 @@ typedef int32_t (*event_notify_fn_t) (xlator_t *this, int32_t event, void *data,
 #include "globals.h"
 #include "iatt.h"
 #include "options.h"
+#include "client_t.h"
 
 
 struct _loc {
@@ -766,11 +767,15 @@ typedef int32_t (*cbk_release_t) (xlator_t *this,
 
 typedef int32_t (*cbk_invalidate_t)(xlator_t *this, inode_t *inode);
 
+typedef int32_t (*cbk_client_t)(xlator_t *this, client_t *client);
+
 struct xlator_cbks {
-        cbk_forget_t    forget;
-        cbk_release_t   release;
-        cbk_release_t   releasedir;
-	cbk_invalidate_t invalidate;
+        cbk_forget_t             forget;
+        cbk_release_t            release;
+        cbk_release_t            releasedir;
+	cbk_invalidate_t         invalidate;
+        cbk_client_t             client_destroy;
+        cbk_client_t             client_disconnect;
 };
 
 typedef int32_t (*dumpop_priv_t) (xlator_t *this);

@@ -15,8 +15,6 @@
 
 #define CALL_STATE(frame)   ((server_state_t *)frame->root->state)
 
-#define BOUND_XL(frame)     ((xlator_t *) CALL_STATE(frame)->client->bound_xl)
-
 #define XPRT_FROM_FRAME(frame) ((rpc_transport_t *) CALL_STATE(frame)->xprt)
 
 #define SERVER_CONF(frame)                                              \
@@ -55,5 +53,7 @@ int serialize_rsp_dirent (gf_dirent_t *entries, gfs3_readdir_rsp *rsp);
 int serialize_rsp_direntp (gf_dirent_t *entries, gfs3_readdirp_rsp *rsp);
 int readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp);
 int readdir_rsp_cleanup (gfs3_readdir_rsp *rsp);
+
+server_ctx_t *server_ctx_get (client_t *client, xlator_t *xlator);
 
 #endif /* !_SERVER_HELPERS_H */
