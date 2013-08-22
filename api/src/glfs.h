@@ -304,6 +304,29 @@ glfs_t *glfs_from_glfd (glfs_fd_t *fd);
 int glfs_set_xlator_option (glfs_t *fs, const char *xlator, const char *key,
 			    const char *value);
 
+/*
+
+  glfs_io_cbk
+
+  The following is the function type definition of the callback
+  function pointer which has to be provided by the caller to the
+  *_async() versions of the IO calls.
+
+  The callback function is called on completion of the requested
+  IO, and the appropriate return value is returned in @ret.
+
+  In case of an error in completing the IO, @ret will be -1 and
+  @errno will be set with the appropriate error.
+
+  @ret will be same as the return value of the non _async() variant
+  of the particular call
+
+  @data is the same context pointer provided by the caller at the
+  time of issuing the async IO call. This can be used by the
+  caller to differentiate different instances of the async requests
+  in a common callback function.
+*/
+
 typedef void (*glfs_io_cbk) (glfs_fd_t *fd, ssize_t ret, void *data);
 
 // glfs_{read,write}[_async]
