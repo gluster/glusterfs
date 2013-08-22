@@ -809,6 +809,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Thu Aug 22 2013 Niels de Vos <ndevos@redhat.com>
+- Correct the day/date for some entries in this changelog (#1000019)
+
 * Wed Aug 7 2013 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - Sync with Fedora glusterfs.spec
 -  add Requires
@@ -891,13 +894,13 @@ fi
 * Wed Jul 13 2011 Joe Julian <me@joejulian.name> - 3.2.1-2
 - fix hardcoded path to gsyncd in source to match the actual file location
 
-* Mon Jun 21 2011 Joe Julian <me@joejulian.name> - 3.2.1
+* Tue Jun 21 2011 Joe Julian <me@joejulian.name> - 3.2.1
 - Update to 3.2.1
 
 * Mon Jun 20 2011 Joe Julian <me@joejulian.name> - 3.1.5
 - Update to 3.1.5
 
-* Mon May 31 2011 Joe Julian <me@joejulian.name> - 3.1.5-qa1.4
+* Tue May 31 2011 Joe Julian <me@joejulian.name> - 3.1.5-qa1.4
 - Current git
 
 * Sun May 29 2011 Joe Julian <me@joejulian.name> - 3.1.5-qa1.2
@@ -910,7 +913,7 @@ fi
 - Add patch to remove forced 64 bit compile
 - Obsolete glusterfs-core to allow for upgrading from gluster packaging
 
-* Sun Mar 19 2011 Jonathan Steffan <jsteffan@fedoraproject.org> - 3.1.3-1
+* Sat Mar 19 2011 Jonathan Steffan <jsteffan@fedoraproject.org> - 3.1.3-1
 - Update to 3.1.3
 - Merge in more upstream SPEC changes
 - Remove patches from GlusterFS bugzilla #2309 and #2311
@@ -919,7 +922,7 @@ fi
 * Sun Feb 06 2011 Jonathan Steffan <jsteffan@fedoraproject.org> - 3.1.2-3
 - Add back in legacy SPEC elements to support older branches
 
-* Tue Feb 03 2011 Jonathan Steffan <jsteffan@fedoraproject.org> - 3.1.2-2
+* Thu Feb 03 2011 Jonathan Steffan <jsteffan@fedoraproject.org> - 3.1.2-2
 - Add patches from CloudFS project
 
 * Tue Jan 25 2011 Jonathan Steffan <jsteffan@fedoraproject.org> - 3.1.2-1
@@ -955,7 +958,7 @@ fi
 * Sat Jan 2 2010 Jonathan Steffan <jsteffan@fedoraproject.org> - 2.0.9-1
 - Update to 2.0.9
 
-* Sat Nov 8 2009 Jonathan Steffan <jsteffan@fedoraproject.org> - 2.0.8-1
+* Sun Nov 8 2009 Jonathan Steffan <jsteffan@fedoraproject.org> - 2.0.8-1
 - Update to 2.0.8
 - Remove install of glusterfs-volgen, it's properly added to
   automake upstream now
@@ -1023,10 +1026,10 @@ fi
 * Fri May  9 2008 Matthias Saou <http://freshrpms.net/> 1.3.8-1
 - Update to 1.3.8 final.
 
-* Tue Apr 23 2008 Matthias Saou <http://freshrpms.net/> 1.3.8-0.10
+* Wed Apr 23 2008 Matthias Saou <http://freshrpms.net/> 1.3.8-0.10
 - Include short patch to include fixes from latest TLA 751.
 
-* Mon Apr 22 2008 Matthias Saou <http://freshrpms.net/> 1.3.8-0.9
+* Tue Apr 22 2008 Matthias Saou <http://freshrpms.net/> 1.3.8-0.9
 - Update to 1.3.8pre6.
 - Include glusterfs binary in both the client and server packages, now that
   glusterfsd is a symlink to it instead of a separate binary.
