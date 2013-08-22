@@ -34,7 +34,7 @@ xdr_to_rpc_call (char *msgbuf, size_t len, struct rpc_msg *call,
                  struct iovec *payload, char *credbytes, char *verfbytes)
 {
         XDR                     xdr;
-        char                    opaquebytes[MAX_AUTH_BYTES];
+        char                    opaquebytes[GF_MAX_AUTH_BYTES];
         struct opaque_auth      *oa = NULL;
         int ret = -1;
 
