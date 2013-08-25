@@ -416,6 +416,7 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"failed to get the 'volume file' from server");
 		ret = -1;
+                errno = rsp.op_errno;
 		goto out;
 	}
 
@@ -481,6 +482,7 @@ out:
         if (ENOTSUP == ret) {
                 gf_log ("mgmt", GF_LOG_ERROR, "Server is operating at an "
                         "op-version which is not supported");
+                errno = ENOTSUP;
                 glfs_init_done (fs, -1);
         }
 
@@ -491,8 +493,11 @@ out:
 		gf_log ("glfs-mgmt", GF_LOG_ERROR,
 			"failed to fetch volume file (key:%s)",
 			ctx->cmd_args.volfile_id);
-		if (!need_retry)
+		if (!need_retry) {
+                        if (!errno)
+                                errno = EINVAL;
 			glfs_init_done (fs, -1);
+                }
 	}
 
 	if (tmpfp)
@@ -583,9 +588,10 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 			gf_log ("glfs-mgmt", GF_LOG_INFO,
 				"%d connect attempts left",
 				cmd_args->max_connect_attempts);
-			if (0 >= cmd_args->max_connect_attempts)
+			if (0 >= cmd_args->max_connect_attempts) {
+                                errno = ENOTCONN;
 				glfs_init_done (fs, -1);
-				break;
+                        }
 		}
 		break;
 	case RPC_CLNT_CONNECT:
@@ -594,10 +600,11 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 		ret = glfs_volfile_fetch (fs);
 		if (ret && ctx && (ctx->active == NULL)) {
 			/* Do it only for the first time */
-			/* Exit the process.. there is some wrong options */
+			/* Exit the process.. there are some wrong options */
 			gf_log ("glfs-mgmt", GF_LOG_ERROR,
 				"failed to fetch volume file (key:%s)",
 				ctx->cmd_args.volfile_id);
+                        errno = EINVAL;
 			glfs_init_done (fs, -1);
 		}
 
