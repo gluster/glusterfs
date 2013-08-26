@@ -1,0 +1,24 @@
+[DEFAULT]
+devices = /srv/1/node
+mount_check = false
+bind_port = 6011
+user = root
+log_facility = LOG_LOCAL2
+
+[pipeline:main]
+pipeline = gluster container-server
+
+[app:container-server]
+use = egg:swift#container
+
+[filter:gluster]
+use = egg:swift#gluster
+
+[container-replicator]
+vm_test_mode = yes
+
+[container-updater]
+
+[container-auditor]
+
+[container-sync]
