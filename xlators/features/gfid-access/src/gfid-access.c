@@ -68,8 +68,12 @@ ga_newfile_parse_args (xlator_t *this, data_t *data)
 
         min_len = sizeof (args->uid) + sizeof (args->gid) + sizeof (args->gfid)
                 + sizeof (args->st_mode) + 2 + 2;
-        if (blob_len < min_len)
+        if (blob_len < min_len) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Invalid length: Total length is less "
+                        "than minimum length.");
                 goto err;
+        }
 
         args = mem_get0 (priv->newfile_args_pool);
         if (args == NULL)
@@ -93,7 +97,12 @@ ga_newfile_parse_args (xlator_t *this, data_t *data)
 
         len = strnlen (blob, blob_len);
         if (len == blob_len)
+        if (len == blob_len) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "gfid: %s. No null byte present.",
+                        args->gfid);
                 goto err;
+        }
 
         args->bname = GF_CALLOC (1, (len + 1), gf_common_mt_char);
         if (args->bname == NULL)
@@ -104,25 +113,39 @@ ga_newfile_parse_args (xlator_t *this, data_t *data)
         blob_len -= (len + 1);
 
         if (S_ISDIR (args->st_mode)) {
-                if (blob_len < sizeof (uint32_t))
+                if (blob_len < sizeof (uint32_t)) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "gfid: %s. Invalid length",
+                                args->gfid);
                         goto err;
+                }
                 args->args.mkdir.mode = ntoh32 (*(uint32_t *)blob);
                 blob += sizeof (uint32_t);
                 blob_len -= sizeof (uint32_t);
 
-                if (blob_len < sizeof (uint32_t))
+                if (blob_len < sizeof (uint32_t)) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "gfid: %s. Invalid length",
+                                args->gfid);
                         goto err;
+                }
                 args->args.mkdir.umask = ntoh32 (*(uint32_t *)blob);
                 blob += sizeof (uint32_t);
                 blob_len -= sizeof (uint32_t);
-                if (blob_len < 0)
+                if (blob_len < 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "gfid: %s. Invalid length",
+                                args->gfid);
                         goto err;
-
+                }
         } else if (S_ISLNK (args->st_mode)) {
                 len = strnlen (blob, blob_len);
-                if (len == blob_len)
+                if (len == blob_len) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "gfid: %s. Invalid length",
+                                args->gfid);
                         goto err;
-
+                }
                 args->args.symlink.linkpath = GF_CALLOC (1, len + 1,
                                                          gf_common_mt_char);
                 if (args->args.symlink.linkpath == NULL)
@@ -132,27 +155,43 @@ ga_newfile_parse_args (xlator_t *this, data_t *data)
                 blob += (len + 1);
                 blob_len -= (len + 1);
         } else {
-                if (blob_len < sizeof (uint32_t))
+                if (blob_len < sizeof (uint32_t)) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "gfid: %s. Invalid length",
+                                args->gfid);
                         goto err;
+                }
                 args->args.mknod.mode = ntoh32 (*(uint32_t *)blob);
                 blob += sizeof (uint32_t);
                 blob_len -= sizeof (uint32_t);
 
-                if (blob_len < sizeof (uint32_t))
+                if (blob_len < sizeof (uint32_t)) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "gfid: %s. Invalid length",
+                                args->gfid);
                         goto err;
+                }
                 args->args.mknod.rdev = ntoh32 (*(uint32_t *)blob);
                 blob += sizeof (uint32_t);
                 blob_len -= sizeof (uint32_t);
 
-                if (blob_len < sizeof (uint32_t))
+                if (blob_len < sizeof (uint32_t)) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "gfid: %s. Invalid length",
+                                args->gfid);
                         goto err;
+                }
                 args->args.mknod.umask = ntoh32 (*(uint32_t *)blob);
                 blob += sizeof (uint32_t);
                 blob_len -= sizeof (uint32_t);
         }
 
-        if (blob_len)
+        if (blob_len) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "gfid: %s. Invalid length",
+                        args->gfid);
                 goto err;
+        }
 
         return args;
 
