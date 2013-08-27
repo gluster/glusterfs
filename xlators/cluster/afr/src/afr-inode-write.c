@@ -607,6 +607,9 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 if (op_ret != -1) {
+			if (prebuf->ia_size != postbuf->ia_size)
+				local->stable_write = _gf_false;
+
                         if (local->success_count == 0) {
                                 local->op_ret = op_ret;
                                 local->cont.truncate.prebuf  = *prebuf;
@@ -627,6 +630,9 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
+		if (local->stable_write && afr_txn_nothing_failed (frame, this))
+			local->transaction.unwind (frame, this);
+
                 local->transaction.resume (frame, this);
         }
 
@@ -654,6 +660,7 @@ afr_truncate_wind (call_frame_t *frame, xlator_t *this)
         }
 
         local->call_count = call_count;
+	local->stable_write = _gf_true;
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->transaction.pre_op[i]) {
@@ -808,6 +815,9 @@ afr_ftruncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 if (op_ret != -1) {
+			if (prebuf->ia_size != postbuf->ia_size)
+				local->stable_write = _gf_false;
+
                         if (local->success_count == 0) {
                                 local->op_ret = op_ret;
                                 local->cont.ftruncate.prebuf  = *prebuf;
@@ -828,6 +838,9 @@ afr_ftruncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
+		if (local->stable_write && afr_txn_nothing_failed (frame, this))
+			local->transaction.unwind (frame, this);
+
                 local->transaction.resume (frame, this);
         }
 
@@ -855,6 +868,7 @@ afr_ftruncate_wind (call_frame_t *frame, xlator_t *this)
         }
 
         local->call_count = call_count;
+	local->stable_write = _gf_true;
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->transaction.pre_op[i]) {

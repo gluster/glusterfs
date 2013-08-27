@@ -45,4 +45,7 @@ __mark_all_success (int32_t *pending[], int child_count,
                     afr_transaction_type type);
 gf_boolean_t
 afr_any_fops_failed (afr_local_t *local, afr_private_t *priv);
+
+gf_boolean_t
+afr_txn_nothing_failed (call_frame_t *frame, xlator_t *this);
 #endif /* __TRANSACTION_H__ */
