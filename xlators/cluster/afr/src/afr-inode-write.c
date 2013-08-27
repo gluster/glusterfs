@@ -157,8 +157,10 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		local->replies[child_index].op_ret = op_ret;
 		local->replies[child_index].op_errno = op_errno;
 
-                if (afr_fop_failed (op_ret, op_errno))
+                if (afr_fop_failed (op_ret, op_errno)) {
                         afr_transaction_fop_failed (frame, this, child_index);
+                        local->child_errno[child_index] = op_errno;
+                }
 
 		/* stage the best case return value for unwind */
                 if ((local->success_count == 0) || (op_ret > local->op_ret)) {
@@ -599,8 +601,10 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->read_child_returned = _gf_true;
                 }
 
-                if (afr_fop_failed (op_ret, op_errno) && op_errno != EFBIG)
+                if (afr_fop_failed (op_ret, op_errno) && op_errno != EFBIG) {
                         afr_transaction_fop_failed (frame, this, child_index);
+                        local->child_errno[child_index] = op_errno;
+                }
 
                 if (op_ret != -1) {
                         if (local->success_count == 0) {
@@ -798,8 +802,10 @@ afr_ftruncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->read_child_returned = _gf_true;
                 }
 
-                if (afr_fop_failed (op_ret, op_errno))
+                if (afr_fop_failed (op_ret, op_errno)) {
                         afr_transaction_fop_failed (frame, this, child_index);
+                        local->child_errno[child_index] = op_errno;
+                }
 
                 if (op_ret != -1) {
                         if (local->success_count == 0) {
