@@ -18,7 +18,7 @@ from gconf import gconf
 from tempfile import mkdtemp, NamedTemporaryFile
 from syncdutils import FreeObject, Thread, GsyncdError, boolify, escape, \
                        unescape, select, gauxpfx, md5hex, selfkill, entry2pb, \
-                       lstat
+                       lstat, errno_wrap
 
 URXTIME = (-1, 0)
 
@@ -696,7 +696,10 @@ class GMasterChangelogMixin(GMasterCommon):
                 elif ty == 'LINK':
                     entries.append(edct(ty, stat=st, entry=en, gfid=gfid))
                 elif ty == 'SYMLINK':
-                    entries.append(edct(ty, stat=st, entry=en, gfid=gfid, link=os.readlink(en)))
+                    rl = errno_wrap(os.readlink, [en], [ENOENT])
+                    if isinstance(rl, int):
+                        continue
+                    entries.append(edct(ty, stat=st, entry=en, gfid=gfid, link=rl))
                 elif ty == 'RENAME':
                     e2 = unescape(os.path.join(pfx, ec[self.POS_ENTRY2]))
                     entries.append(edct(ty, gfid=gfid, entry=en, entry1=e2, stat=st))
