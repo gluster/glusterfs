@@ -586,6 +586,59 @@ afr_txn_nothing_failed (call_frame_t *frame, xlator_t *this)
         return _gf_true;
 }
 
+static void
+afr_dir_fop_handle_all_fop_failures (call_frame_t *frame)
+{
+        xlator_t        *this = NULL;
+        afr_local_t     *local = NULL;
+        afr_private_t   *priv = NULL;
+
+        this = frame->this;
+        local = frame->local;
+        priv = this->private;
+
+        if ((local->transaction.type != AFR_ENTRY_TRANSACTION) &&
+            (local->transaction.type != AFR_ENTRY_RENAME_TRANSACTION))
+                return;
+
+        if (local->op_ret >= 0)
+                goto out;
+
+        __mark_all_success (local->pending, priv->child_count,
+                            local->transaction.type);
+out:
+        return;
+}
+
+static void
+afr_data_handle_quota_errors (call_frame_t *frame, xlator_t *this)
+{
+        int     i = 0;
+        afr_private_t *priv = NULL;
+        afr_local_t   *local = NULL;
+        gf_boolean_t  all_quota_failures = _gf_false;
+
+        local = frame->local;
+        priv  = this->private;
+        if (local->transaction.type != AFR_DATA_TRANSACTION)
+                return;
+        /*
+         * Idea is to not leave the file in FOOL-FOOL scenario in case on
+         * all the bricks data transaction failed with EDQUOT to avoid
+         * increasing un-necessary load of self-heals in the system.
+         */
+        all_quota_failures = _gf_true;
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->transaction.pre_op[i] &&
+                    (local->child_errno[i] != EDQUOT)) {
+                        all_quota_failures = _gf_false;
+                        break;
+                }
+        }
+        if (all_quota_failures)
+                __mark_all_success (local->pending, priv->child_count,
+                                    local->transaction.type);
+}
 
 int
 afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
@@ -607,6 +660,9 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
         __mark_non_participant_children (local->pending, priv->child_count,
                                          local->transaction.pre_op,
                                          local->transaction.type);
+
+        afr_data_handle_quota_errors (frame, this);
+        afr_dir_fop_handle_all_fop_failures (frame);
 
         if (local->fd)
                 afr_transaction_rm_stale_children (frame, this,

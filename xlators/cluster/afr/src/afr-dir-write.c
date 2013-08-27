@@ -235,26 +235,6 @@ out:
 }
 
 void
-afr_dir_fop_handle_all_fop_failures (call_frame_t *frame)
-{
-        xlator_t        *this = NULL;
-        afr_local_t     *local = NULL;
-        afr_private_t   *priv = NULL;
-
-        this = frame->this;
-        local = frame->local;
-        priv = this->private;
-
-        if (local->op_ret >= 0)
-                goto out;
-
-        __mark_all_success (local->pending, priv->child_count,
-                            local->transaction.type);
-out:
-        return;
-}
-
-void
 afr_dir_fop_done (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t     *local          = NULL;
@@ -273,7 +253,6 @@ afr_dir_fop_done (call_frame_t *frame, xlator_t *this)
 done:
         local->transaction.unwind (frame, this);
         afr_dir_fop_mark_entry_pending_changelog (frame, this);
-        afr_dir_fop_handle_all_fop_failures (frame);
         local->transaction.resume (frame, this);
 }
 
