@@ -248,11 +248,20 @@ def distribute(*resources):
                 slaves = [ 'ssh://' + rap.remote_addr + ':' + v for v in slavevols ]
             else:
                 slaves = slavevols
+
+    # get the proper index of local bricks in master volume,
+    # and setup the geo replication with appropriate slave node
+    mbricks = [ b['dir'] for b in mvol.bricks ]
+    mbricks.sort()
     locmbricks.sort()
     slaves.sort()
     workerspex = []
-    for i in range(len(locmbricks)):
-        workerspex.append((locmbricks[i], slaves[i % len(slaves)]))
+
+    locbidx = 0
+    for idx, brick in enumerate(mbricks):
+        if brick == locmbricks[locbidx]:
+            workerspex.append((locmbricks[locbidx], slaves[idx % len(slaves)]))
+            locbidx += 1
     logging.info('worker specs: ' + repr(workerspex))
     return workerspex, suuid
 
