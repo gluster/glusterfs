@@ -580,6 +580,9 @@ class GMasterChangelogMixin(GMasterCommon):
     # flat directory heirarchy for gfid based access
     FLAT_DIR_HIERARCHY = '.'
 
+    # maximum retries per changelog before giving up
+    MAX_RETRIES = 10
+
     def fallback_xsync(self):
         logging.info('falling back to xsync mode')
         gconf.configinterface.set('change-detector', 'xsync')
@@ -734,6 +737,7 @@ class GMasterChangelogMixin(GMasterCommon):
 
     def process(self, changes, done=1):
         for change in changes:
+            tries = 0
             retry = False
             while True:
                 logging.debug('processing change %s' % change)
@@ -741,6 +745,13 @@ class GMasterChangelogMixin(GMasterCommon):
                     self.sync_done()
                     break
                 retry = True
+                tries += 1
+                if tries == self.MAX_RETRIES:
+                    logging.warn('changelog %s could not be processed - moving on...' % os.path.basename(change))
+                    self.sync_done()
+                    if done:
+                        self.master.server.changelog_done(change)
+                    break
                 # it's either entry_ops() or Rsync that failed to do it's
                 # job. Mostly it's entry_ops() [which currently has a problem
                 # of failing to create an entry but failing to return an errno]
