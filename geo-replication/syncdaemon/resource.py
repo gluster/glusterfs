@@ -514,11 +514,12 @@ class Server(object):
             elif op == 'MKDIR':
                 blob = entry_pack_mkdir(gfid, bname, e['stat'])
             elif op == 'LINK':
-                st = lstat(entry)
+                slink = os.path.join(pfx, gfid)
+                st = lstat(slink)
                 if isinstance(st, int):
                     blob = entry_pack_reg(gfid, bname, e['stat'])
                 else:
-                    errno_wrap(os.link, [os.path.join(pfx, gfid), entry], [ENOENT, EEXIST])
+                    errno_wrap(os.link, [slink, entry], [ENOENT, EEXIST])
             elif op == 'SYMLINK':
                 blob = entry_pack_symlink(gfid, bname, e['link'], e['stat'])
             elif op == 'RENAME':
