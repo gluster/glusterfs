@@ -305,7 +305,8 @@ __find_most_matching_lock (pl_dom_list_t *dom, const char *basename)
 
 int
 __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
-             call_frame_t *frame, pl_dom_list_t *dom, xlator_t *this, int nonblock)
+             call_frame_t *frame, pl_dom_list_t *dom, xlator_t *this,
+             int nonblock, char *conn_id)
 {
         pl_entry_lock_t *lock       = NULL;
         pl_entry_lock_t *conf       = NULL;
@@ -327,10 +328,15 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
         lock->this    = this;
         lock->trans   = trans;
 
+        if (conn_id) {
+                lock->connection_id = gf_strdup (conn_id);
+        }
+
         conf = __lock_grantable (dom, basename, type);
         if (conf) {
                 ret = -EAGAIN;
                 if (nonblock){
+                        GF_FREE (lock->connection_id);
                         GF_FREE ((char *)lock->basename);
                         GF_FREE (lock);
                         goto out;
@@ -350,6 +356,7 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
         if ( __blocked_lock_conflict (dom, basename, type) && !(__owner_has_lock (dom, lock))) {
                 ret = -EAGAIN;
                 if (nonblock) {
+                        GF_FREE (lock->connection_id);
                         GF_FREE ((char *) lock->basename);
                         GF_FREE (lock);
                         goto out;
@@ -480,13 +487,15 @@ __grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
                         pl_inode, bl->basename);
 
                 bl_ret = __lock_name (pl_inode, bl->basename, bl->type,
-                                      bl->frame, dom, bl->this, 0);
+                                      bl->frame, dom, bl->this, 0,
+                                      bl->connection_id);
 
                 if (bl_ret == 0) {
                         list_add (&bl->blocked_locks, granted);
                 } else {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "should never happen");
+                        GF_FREE (bl->connection_id);
                         GF_FREE ((char *)bl->basename);
                         GF_FREE (bl);
                 }
@@ -507,7 +516,8 @@ grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 
         pthread_mutex_lock (&pl_inode->mutex);
         {
-                __grant_blocked_entry_locks (this, pl_inode, dom, &granted_list);
+                __grant_blocked_entry_locks (this, pl_inode, dom,
+                                             &granted_list);
         }
         pthread_mutex_unlock (&pl_inode->mutex);
 
@@ -520,11 +530,13 @@ grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 
                 STACK_UNWIND_STRICT (entrylk, lock->frame, 0, 0, NULL);
 
+                GF_FREE (lock->connection_id);
 		GF_FREE ((char *)lock->basename);
 		GF_FREE (lock);
         }
 
         GF_FREE ((char *)unlocked->basename);
+        GF_FREE (unlocked->connection_id);
         GF_FREE (unlocked);
 
         return;
@@ -576,6 +588,7 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
                                 "{transport=%p}",trans);
 
                         GF_FREE ((char *)lock->basename);
+                        GF_FREE (lock->connection_id);
                         GF_FREE (lock);
                 }
 
@@ -591,6 +604,7 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
                 STACK_UNWIND_STRICT (entrylk, lock->frame, -1, EAGAIN, NULL);
 
                 GF_FREE ((char *)lock->basename);
+                GF_FREE (lock->connection_id);
                 GF_FREE (lock);
 
         }
@@ -601,6 +615,7 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
                 STACK_UNWIND_STRICT (entrylk, lock->frame, 0, 0, NULL);
 
                 GF_FREE ((char *)lock->basename);
+                GF_FREE (lock->connection_id);
                 GF_FREE (lock);
         }
 
@@ -611,7 +626,9 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
 int
 pl_common_entrylk (call_frame_t *frame, xlator_t *this,
                    const char *volume, inode_t *inode, const char *basename,
-                   entrylk_cmd cmd, entrylk_type type, loc_t *loc, fd_t *fd)
+                   entrylk_cmd cmd, entrylk_type type, loc_t *loc, fd_t *fd,
+                   dict_t *xdata)
+
 {
         int32_t  op_ret   = -1;
         int32_t  op_errno = 0;
@@ -624,6 +641,11 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
         char             unwind   = 1;
 
         pl_dom_list_t          *dom = NULL;
+        char            *conn_id  = NULL;
+        GF_UNUSED int    dict_ret = -1;
+
+        if (xdata)
+                dict_ret = dict_get_str (xdata, "connection-id", &conn_id);
 
         pinode = pl_inode_get (this, inode);
         if (!pinode) {
@@ -650,7 +672,8 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_TRACE,
                         "Releasing locks for transport %p", transport);
 
-                release_entry_locks_for_transport (this, pinode, dom, transport);
+                release_entry_locks_for_transport (this, pinode, dom,
+                                                   transport);
                 op_ret = 0;
 
                 goto out;
@@ -661,7 +684,7 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
                 pthread_mutex_lock (&pinode->mutex);
                 {
                         ret = __lock_name (pinode, basename, type,
-                                           frame, dom, this, 0);
+                                           frame, dom, this, 0, conn_id);
                 }
                 pthread_mutex_unlock (&pinode->mutex);
 
@@ -686,7 +709,7 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
                 pthread_mutex_lock (&pinode->mutex);
                 {
                         ret = __lock_name (pinode, basename, type,
-                                           frame, dom, this, 1);
+                                           frame, dom, this, 1, conn_id);
                 }
                 pthread_mutex_unlock (&pinode->mutex);
 
@@ -742,10 +765,11 @@ out:
 int
 pl_entrylk (call_frame_t *frame, xlator_t *this,
             const char *volume, loc_t *loc, const char *basename,
-            entrylk_cmd cmd, entrylk_type type)
+            entrylk_cmd cmd, entrylk_type type, dict_t *xdata)
 {
 
-        pl_common_entrylk (frame, this, volume, loc->inode, basename, cmd, type, loc, NULL);
+        pl_common_entrylk (frame, this, volume, loc->inode, basename, cmd,
+                           type, loc, NULL, xdata);
 
         return 0;
 }
@@ -760,10 +784,11 @@ pl_entrylk (call_frame_t *frame, xlator_t *this,
 int
 pl_fentrylk (call_frame_t *frame, xlator_t *this,
              const char *volume, fd_t *fd, const char *basename,
-             entrylk_cmd cmd, entrylk_type type)
+             entrylk_cmd cmd, entrylk_type type, dict_t *xdata)
 {
 
-        pl_common_entrylk (frame, this, volume, fd->inode, basename, cmd, type, NULL, fd);
+        pl_common_entrylk (frame, this, volume, fd->inode, basename, cmd,
+                           type, NULL, fd, xdata);
 
         return 0;
 }

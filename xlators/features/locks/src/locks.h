@@ -78,6 +78,8 @@ struct __pl_inode_lock {
         void              *transport;     /* to identify client node */
         gf_lkowner_t       owner;
         pid_t              client_pid;    /* pid of client process */
+
+        char              *connection_id; /* stores the client connection id */
 };
 typedef struct __pl_inode_lock pl_inode_lock_t;
 
@@ -115,7 +117,9 @@ struct __entry_lock {
 
         void             *trans;
         gf_lkowner_t      owner;
-        pid_t             client_pid;    /* pid of client process */
+	pid_t             client_pid;    /* pid of client process */
+
+        char             *connection_id; /* stores the client connection id */
 };
 typedef struct __entry_lock pl_entry_lock_t;
 

@@ -1764,6 +1764,7 @@ pl_forget (xlator_t *this,
                                         list_del_init (&entry_l->domain_list);
 
                                         GF_FREE ((char *)entry_l->basename);
+                                        GF_FREE (entry_l->connection_id);
                                         GF_FREE (entry_l);
                                 }
 
@@ -1797,6 +1798,7 @@ pl_forget (xlator_t *this,
 
                 STACK_UNWIND_STRICT (entrylk, entry_l->frame, -1, 0, NULL);
                 GF_FREE ((char *)entry_l->basename);
+                GF_FREE (entry_l->connection_id);
                 GF_FREE (entry_l);
 
         }
@@ -2161,8 +2163,8 @@ out:
 
 void
 pl_dump_lock (char *str, int size, struct gf_flock *flock,
-              gf_lkowner_t *owner, void *trans, time_t *granted_time,
-              time_t *blkd_time, gf_boolean_t active)
+              gf_lkowner_t *owner, void *trans, char *conn_id,
+              time_t *granted_time, time_t *blkd_time, gf_boolean_t active)
 {
         char  *type_str    = NULL;
         char   granted[32] = {0,};
@@ -2190,7 +2192,7 @@ pl_dump_lock (char *str, int size, struct gf_flock *flock,
                                   (unsigned long long) flock->l_start,
                                   (unsigned long long) flock->l_len,
                                   (unsigned long long) flock->l_pid,
-                                  lkowner_utoa (owner), trans,
+                                  lkowner_utoa (owner), trans, conn_id,
                                   ctime_r (granted_time, granted));
                 } else {
                         snprintf (str, size, RANGE_BLKD_GRNTD_FMT,
@@ -2198,7 +2200,7 @@ pl_dump_lock (char *str, int size, struct gf_flock *flock,
                                   (unsigned long long) flock->l_start,
                                   (unsigned long long) flock->l_len,
                                   (unsigned long long) flock->l_pid,
-                                  lkowner_utoa (owner), trans,
+                                  lkowner_utoa (owner), trans, conn_id,
                                   ctime_r (blkd_time, blocked),
                                   ctime_r (granted_time, granted));
                 }
@@ -2209,7 +2211,7 @@ pl_dump_lock (char *str, int size, struct gf_flock *flock,
                           (unsigned long long) flock->l_start,
                           (unsigned long long) flock->l_len,
                           (unsigned long long) flock->l_pid,
-                          lkowner_utoa (owner), trans,
+                          lkowner_utoa (owner), trans, conn_id,
                           ctime_r (blkd_time, blocked));
         }
 
@@ -2247,6 +2249,7 @@ __dump_entrylks (pl_inode_t *pl_inode)
                                           "ENTRYLK_WRLCK", lock->basename,
                                           (unsigned long long) lock->client_pid,
                                           lkowner_utoa (&lock->owner), lock->trans,
+                                          lock->connection_id,
                                           ctime_r (&lock->granted_time.tv_sec, granted));
                         } else {
                                 snprintf (tmp, 256, ENTRY_BLKD_GRNTD_FMT,
@@ -2254,6 +2257,7 @@ __dump_entrylks (pl_inode_t *pl_inode)
                                           "ENTRYLK_WRLCK", lock->basename,
                                           (unsigned long long) lock->client_pid,
                                           lkowner_utoa (&lock->owner), lock->trans,
+                                          lock->connection_id,
                                           ctime_r (&lock->blkd_time.tv_sec, blocked),
                                           ctime_r (&lock->granted_time.tv_sec, granted));
                         }
@@ -2273,6 +2277,7 @@ __dump_entrylks (pl_inode_t *pl_inode)
                                   "ENTRYLK_WRLCK", lock->basename,
                                   (unsigned long long) lock->client_pid,
                                   lkowner_utoa (&lock->owner), lock->trans,
+                                  lock->connection_id,
                                   ctime_r (&lock->blkd_time.tv_sec, blocked));
 
                         gf_proc_dump_write(key, tmp);
@@ -2323,7 +2328,7 @@ __dump_inodelks (pl_inode_t *pl_inode)
                         SET_FLOCK_PID (&lock->user_flock, lock);
                         pl_dump_lock (tmp, 256, &lock->user_flock,
                                       &lock->owner,
-                                      lock->transport,
+                                      lock->transport, lock->connection_id,
                                       &lock->granted_time.tv_sec,
                                       &lock->blkd_time.tv_sec,
                                       _gf_true);
@@ -2340,7 +2345,7 @@ __dump_inodelks (pl_inode_t *pl_inode)
                         SET_FLOCK_PID (&lock->user_flock, lock);
                         pl_dump_lock (tmp, 256, &lock->user_flock,
                                       &lock->owner,
-                                      lock->transport,
+                                      lock->transport, lock->connection_id,
                                       0, &lock->blkd_time.tv_sec,
                                       _gf_false);
                         gf_proc_dump_write(key, tmp);
@@ -2381,7 +2386,7 @@ __dump_posixlks (pl_inode_t *pl_inode)
                                      count,
                                      lock->blocked ? "BLOCKED" : "ACTIVE");
               pl_dump_lock (tmp, 256, &lock->user_flock,
-                            &lock->owner, lock->transport,
+                            &lock->owner, lock->transport, NULL,
                             &lock->granted_time.tv_sec, &lock->blkd_time.tv_sec,
                             (lock->blocked)? _gf_false: _gf_true);
               gf_proc_dump_write(key, tmp);

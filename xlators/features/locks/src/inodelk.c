@@ -39,8 +39,10 @@ inline void
 __pl_inodelk_unref (pl_inode_lock_t *lock)
 {
         lock->ref--;
-        if (!lock->ref)
+        if (!lock->ref) {
+                GF_FREE (lock->connection_id);
                 GF_FREE (lock);
+        }
 }
 
 /* Check if 2 inodelks are conflicting on type. Only 2 shared locks don't conflict */
@@ -333,7 +335,8 @@ __grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode,
 
 /* Grant all inodelks blocked on a lock */
 void
-grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t *dom)
+grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode,
+                           pl_dom_list_t *dom)
 {
         struct list_head granted;
         pl_inode_lock_t *lock;
@@ -516,7 +519,8 @@ out:
 /* Create a new inode_lock_t */
 pl_inode_lock_t *
 new_inode_lock (struct gf_flock *flock, void *transport, pid_t client_pid,
-                gf_lkowner_t *owner, const char *volume)
+                call_frame_t *frame, xlator_t *this, const char *volume,
+                char *conn_id)
 
 {
         pl_inode_lock_t *lock = NULL;
@@ -538,7 +542,13 @@ new_inode_lock (struct gf_flock *flock, void *transport, pid_t client_pid,
         lock->transport  = transport;
         lock->client_pid = client_pid;
         lock->volume     = volume;
-        lock->owner      = *owner;
+        lock->owner      = frame->root->lk_owner;
+        lock->frame      = frame;
+        lock->this       = this;
+
+        if (conn_id) {
+                lock->connection_id = gf_strdup (conn_id);
+        }
 
         INIT_LIST_HEAD (&lock->list);
         INIT_LIST_HEAD (&lock->blocked_locks);
@@ -582,11 +592,12 @@ _pl_convert_volume_for_special_range (struct gf_flock *flock,
 int
 pl_common_inodelk (call_frame_t *frame, xlator_t *this,
                    const char *volume, inode_t *inode, int32_t cmd,
-                   struct gf_flock *flock, loc_t *loc, fd_t *fd)
+                   struct gf_flock *flock, loc_t *loc, fd_t *fd, dict_t *xdata)
 {
         int32_t           op_ret     = -1;
         int32_t           op_errno   = 0;
         int               ret        = -1;
+        GF_UNUSED int     dict_ret   = -1;
         int               can_block  = 0;
         pid_t             client_pid = -1;
         void *            transport  = NULL;
@@ -595,6 +606,10 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
         pl_dom_list_t *   dom        = NULL;
         char             *res        = NULL;
         char             *res1       = NULL;
+        char             *conn_id     = NULL;
+
+        if (xdata)
+                dict_ret = dict_get_str (xdata, "connection-id", &conn_id);
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (inode, unwind);
@@ -650,7 +665,7 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
         }
 
         reqlock = new_inode_lock (flock, transport, client_pid,
-                                  &frame->root->lk_owner, volume);
+                                  frame, this, volume, conn_id);
 
         if (!reqlock) {
                 op_ret = -1;
@@ -658,14 +673,10 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
-        reqlock->frame = frame;
-        reqlock->this  = this;
 
         switch (cmd) {
         case F_SETLKW:
                 can_block = 1;
-                reqlock->frame = frame;
-                reqlock->this  = this;
 
                 /* fall through */
 
@@ -712,20 +723,24 @@ out:
 
 int
 pl_inodelk (call_frame_t *frame, xlator_t *this,
-            const char *volume, loc_t *loc, int32_t cmd, struct gf_flock *flock)
+            const char *volume, loc_t *loc, int32_t cmd, struct gf_flock *flock,
+            dict_t *xdata)
 {
 
-        pl_common_inodelk (frame, this, volume, loc->inode, cmd, flock, loc, NULL);
+        pl_common_inodelk (frame, this, volume, loc->inode, cmd, flock, loc, NULL,
+                           xdata);
 
         return 0;
 }
 
 int
 pl_finodelk (call_frame_t *frame, xlator_t *this,
-             const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *flock)
+             const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *flock,
+             dict_t *xdata)
 {
 
-        pl_common_inodelk (frame, this, volume, fd->inode, cmd, flock, NULL, fd);
+        pl_common_inodelk (frame, this, volume, fd->inode, cmd, flock, NULL, fd,
+                           xdata);
 
         return 0;
 

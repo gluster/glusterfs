@@ -339,6 +339,7 @@ blkd:
                                    -1, EAGAIN);
                 STACK_UNWIND_STRICT (entrylk, elock->frame, -1, EAGAIN, NULL);
                 GF_FREE ((char *) elock->basename);
+                GF_FREE (elock->connection_id);
                 GF_FREE (elock);
         }
 
@@ -379,8 +380,8 @@ out:
 
 int
 clrlk_clear_lks_in_all_domains (xlator_t *this, pl_inode_t *pl_inode,
-                          clrlk_args *args, int *blkd, int *granted,
-                          int *op_errno)
+                                clrlk_args *args, int *blkd, int *granted,
+                                int *op_errno)
 {
         pl_dom_list_t   *dom            = NULL;
         int             ret             = -1;
