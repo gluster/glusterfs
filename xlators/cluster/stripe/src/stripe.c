@@ -5199,10 +5199,10 @@ stripe_vgetxattr_cbk (call_frame_t *frame, void *cookie,
 
                         xattr->pos = cky;
                         xattr->xattr_value = gf_memdup (xattr_val,
-                                                        xattr->xattr_value,
                                                         xattr->xattr_len);
 
-                        local->xattr_total_len += xattr->xattr_len + 1;
+                        if (xattr->xattr_value != NULL)
+                                local->xattr_total_len += xattr->xattr_len + 1;
                 }
         }
  out:
