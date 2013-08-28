@@ -408,12 +408,16 @@ gd_validate_cluster_op_version (xlator_t *this, int cluster_op_version,
                 goto out;
         }
 
-        if (cluster_op_version < conf->op_version) {
+        /* The peer can only reduce its op-version when it doesn't have any
+         * volumes. Reducing op-version when it already contains volumes can
+         * lead to inconsistencies in the cluster
+         */
+        if ((cluster_op_version < conf->op_version) &&
+            !list_empty (&conf->volumes)) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "operating version %d is less than the currently "
-                        "running version (%d) on the machine (as per peer "
-                        "request from %s)", cluster_op_version,
-                        conf->op_version, peerid);
+                        "cannot reduce operating version to %d from current "
+                        "version %d as volumes exist (as per peer request from "
+                        "%s)", cluster_op_version, conf->op_version, peerid);
                 goto out;
         }
 
@@ -728,16 +732,6 @@ gd_validate_peer_op_version (xlator_t *this, glusterd_peerinfo_t *peerinfo,
         if ((peer_max_op_version < conf->op_version) ||
             (peer_min_op_version > conf->op_version)) {
                 ret = gf_asprintf (errstr, "Peer %s does not support required "
-                                   "op-version", peerinfo->hostname);
-                ret = -1;
-                goto out;
-        }
-
-        /* If peer is already operating at a higher op_version reject it.
-         * Cluster cannot be moved to higher op_version to accomodate a peer.
-         */
-        if (peer_op_version > conf->op_version) {
-                ret = gf_asprintf (errstr, "Peer %s is already at a higher "
                                    "op-version", peerinfo->hostname);
                 ret = -1;
                 goto out;
