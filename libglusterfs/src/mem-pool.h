@@ -148,7 +148,7 @@ char * gf_strdup (const char *src)
 }
 
 static inline void *
-gf_memdup (const void *src, void *dst, size_t size)
+gf_memdup (const void *src, size_t size)
 {
         void *dup_mem = NULL;
 
