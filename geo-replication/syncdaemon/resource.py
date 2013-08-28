@@ -517,6 +517,7 @@ class Server(object):
                 slink = os.path.join(pfx, gfid)
                 st = lstat(slink)
                 if isinstance(st, int):
+                    (pg, bname) = entry2pb(entry)
                     blob = entry_pack_reg(gfid, bname, e['stat'])
                 else:
                     errno_wrap(os.link, [slink, entry], [ENOENT, EEXIST])
