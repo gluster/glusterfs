@@ -406,6 +406,140 @@ afr_sh_metadata_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+static void
+afr_set_metadata_sh_info_str (afr_local_t *local, afr_self_heal_t *sh,
+                              xlator_t *this)
+{
+        afr_private_t    *priv = NULL;
+        int              i = 0;
+        char             num[1024] = {0};
+        size_t           len = 0;
+        char             *string = NULL;
+        size_t           off = 0;
+        char             *source_child =  " from source %s to";
+        char             *format = " %s, ";
+        char             *string_msg = " metadata self heal";
+        char             *pending_matrix_str = NULL;
+        int              down_child_present = 0;
+        int              unknown_child_present = 0;
+        char             *down_subvol_1 = " down subvolume is ";
+        char             *unknown_subvol_1 = " unknown subvolume is";
+        char             *down_subvol_2 = " down subvolumes are ";
+        char             *unknown_subvol_2 = " unknown subvolumes are ";
+        int              down_count = 0;
+        int              unknown_count = 0;
+
+        priv = this->private;
+
+        pending_matrix_str = afr_get_pending_matrix_str (sh->pending_matrix,
+                                                         this);
+
+        if (!pending_matrix_str)
+                pending_matrix_str = "";
+
+        len += snprintf (num, sizeof (num), "%s", string_msg);
+
+        for (i = 0; i < priv->child_count; i++) {
+                if ((sh->source == i) && (local->child_up[i] == 1)) {
+                        len += snprintf (num, sizeof (num), source_child,
+                                         priv->children[i]->name);
+                } else if ((local->child_up[i] == 1) && (sh->sources[i] == 0)) {
+                        len += snprintf (num, sizeof (num), format,
+                                         priv->children[i]->name);
+                } else if (local->child_up[i] == 0) {
+                        len += snprintf (num, sizeof (num), format,
+                                         priv->children[i]->name);
+                        if (!down_child_present)
+                                down_child_present = 1;
+                        down_count++;
+                } else if (local->child_up[i] == -1) {
+                        len += snprintf (num, sizeof (num), format,
+                                         priv->children[i]->name);
+                        if (!unknown_child_present)
+                                unknown_child_present = 1;
+                        unknown_count++;
+                }
+        }
+
+        if (down_child_present) {
+                if (down_count > 1) {
+                        len += snprintf (num, sizeof (num), "%s",
+                                         down_subvol_2);
+                } else {
+                        len += snprintf (num, sizeof (num), "%s",
+                                         down_subvol_1);
+                }
+        }
+        if (unknown_child_present) {
+                if (unknown_count > 1) {
+                        len += snprintf (num, sizeof (num), "%s",
+                                         unknown_subvol_2);
+                } else {
+                        len += snprintf (num, sizeof (num), "%s",
+                                         unknown_subvol_1);
+                }
+        }
+
+        len ++;
+
+        string = GF_CALLOC (len, sizeof (char), gf_common_mt_char);
+        if (!string)
+                return;
+
+        off += snprintf (string + off, len - off, "%s", string_msg);
+        for (i=0; i < priv->child_count; i++) {
+                if ((sh->source == i) && (local->child_up[i] == 1))
+                        off += snprintf (string + off, len - off, source_child,
+                                         priv->children[i]->name);
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                if ((local->child_up[i] == 1)&& (sh->sources[i] == 0))
+                        off += snprintf (string + off, len - off, format,
+                                         priv->children[i]->name);
+        }
+
+        if (down_child_present) {
+                if (down_count > 1) {
+                        off += snprintf (string + off, len - off, "%s",
+                                         down_subvol_2);
+                } else {
+                        off += snprintf (string + off, len - off, "%s",
+                                         down_subvol_1);
+                }
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->child_up[i] == 0)
+                        off += snprintf (string + off, len - off, format,
+                                         priv->children[i]->name);
+        }
+
+        if (unknown_child_present) {
+                if (unknown_count > 1) {
+                        off += snprintf (string + off, len - off, "%s",
+                                 unknown_subvol_2);
+                } else {
+                        off += snprintf (string + off, len - off, "%s",
+                                         unknown_subvol_1);
+                }
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->child_up[i] == -1)
+                        off += snprintf (string + off, len - off, format,
+                                         priv->children[i]->name);
+        }
+
+        gf_asprintf (&sh->metadata_sh_info, "%s metadata %s,", string,
+                     pending_matrix_str);
+
+        if (pending_matrix_str && strcmp (pending_matrix_str, ""))
+                GF_FREE (pending_matrix_str);
+
+        if (string && strcmp (string, ""))
+                GF_FREE (string);
+}
 
 int
 afr_sh_metadata_sync_prepare (call_frame_t *frame, xlator_t *this)
@@ -436,6 +570,8 @@ afr_sh_metadata_sync_prepare (call_frame_t *frame, xlator_t *this)
                 sh->active_sinks);
 
         sh->actual_sh_started = _gf_true;
+        afr_set_self_heal_status (sh, AFR_SELF_HEAL_SYNC_BEGIN);
+        afr_set_metadata_sh_info_str (local, sh, this);
         STACK_WIND (frame, afr_sh_metadata_getxattr_cbk,
                     priv->children[source],
                     priv->children[source]->fops->getxattr,

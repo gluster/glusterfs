@@ -782,6 +782,9 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
         if (sh->data_sh_info && strcmp (sh->data_sh_info, ""))
                 GF_FREE (sh->data_sh_info);
 
+        if (sh->metadata_sh_info && strcmp (sh->metadata_sh_info, ""))
+                GF_FREE (sh->metadata_sh_info);
+
         GF_FREE (sh->buf);
 
         GF_FREE (sh->parentbufs);

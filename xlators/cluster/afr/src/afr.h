@@ -180,6 +180,7 @@ typedef enum {
         AFR_SELF_HEAL_NOT_ATTEMPTED,
         AFR_SELF_HEAL_STARTED,
         AFR_SELF_HEAL_FAILED,
+        AFR_SELF_HEAL_SYNC_BEGIN,
 } afr_self_heal_status;
 
 typedef struct {
@@ -294,6 +295,8 @@ struct afr_self_heal_ {
         afr_post_remove_call_t post_remove_call;
 
         char    *data_sh_info;
+        char    *metadata_sh_info;
+
         loc_t parent_loc;
         call_frame_t *orig_frame;
         call_frame_t *old_loop_frame;

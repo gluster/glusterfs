@@ -18,12 +18,24 @@
 #include "afr-self-heal.h"
 #include "pump.h"
 
-#define ADD_FMT_STRING(msg, off, sh_str, status)                            \
+#define ADD_FMT_STRING(msg, off, sh_str, status, print_log)                 \
         do {                                                                \
                 if (AFR_SELF_HEAL_NOT_ATTEMPTED != status) {                \
                         off += snprintf (msg + off, sizeof (msg) - off,     \
                                          " "sh_str" self heal %s,",         \
                                          get_sh_completion_status (status));\
+                        print_log = 1;                                      \
+                }                                                           \
+        } while (0)
+
+#define ADD_FMT_STRING_SYNC(msg, off, sh_str, status, print_log)            \
+        do {                                                                \
+                if (AFR_SELF_HEAL_SYNC_BEGIN == status ||                   \
+                    AFR_SELF_HEAL_FAILED == status)  {                      \
+                        off += snprintf (msg + off, sizeof (msg) - off,     \
+                                         " "sh_str" self heal %s,",         \
+                                         get_sh_completion_status (status));\
+                        print_log = 1;                                      \
                 }                                                           \
         } while (0)
 
@@ -2197,6 +2209,7 @@ afr_self_heal_local_init (afr_local_t *l, xlator_t *this)
         shc->background = sh->background;
         shc->type = sh->type;
         shc->data_sh_info = "";
+        shc->metadata_sh_info =  "";
 
         uuid_copy (shc->sh_gfid_req, sh->sh_gfid_req);
         if (l->loc.path) {
@@ -2716,7 +2729,8 @@ get_sh_completion_status (afr_self_heal_status status)
 
         char *not_attempted       = " is not attempted";
         char *failed              = " failed";
-        char *successfull_complt  = " is successfully completed";
+        char *started             = " is started";
+        char *sync_begin          = " is successfully completed";
         char *result              = " has unknown status";
 
         switch (status)
@@ -2728,7 +2742,10 @@ get_sh_completion_status (afr_self_heal_status status)
                         result = failed;
                         break;
                 case AFR_SELF_HEAL_STARTED:
-                        result = successfull_complt;
+                        result = started;
+                        break;
+                case AFR_SELF_HEAL_SYNC_BEGIN:
+                        result = sync_begin;
                         break;
         }
 
@@ -2745,26 +2762,38 @@ afr_log_self_heal_completion_status (afr_local_t *local, gf_loglevel_t loglvl)
         afr_sh_status_for_all_type   all_status = sh->afr_all_sh_status;
         xlator_t      *this            = NULL;
         size_t        off              = 0;
+        int           data_sh          = 0;
+        int           metadata_sh      = 0;
+        int           print_log        = 0;
 
         this = THIS;
 
         ADD_FMT_STRING (sh_log, off, "gfid or missing entry",
-                        all_status.gfid_or_missing_entry_self_heal);
-        ADD_FMT_STRING (sh_log, off, "metadata", all_status.metadata_self_heal);
+                        all_status.gfid_or_missing_entry_self_heal, print_log);
+        ADD_FMT_STRING_SYNC (sh_log, off, "metadata",
+                             all_status.metadata_self_heal, print_log);
         if (sh->background) {
-                ADD_FMT_STRING (sh_log, off, "backgroung data",
-                                all_status.data_self_heal);
+                ADD_FMT_STRING_SYNC (sh_log, off, "backgroung data",
+                                all_status.data_self_heal, print_log);
         } else {
-                ADD_FMT_STRING (sh_log, off, "foreground data",
-                                all_status.data_self_heal);
+                ADD_FMT_STRING_SYNC (sh_log, off, "foreground data",
+                                all_status.data_self_heal, print_log);
         }
-        ADD_FMT_STRING (sh_log, off, "entry", all_status.entry_self_heal);
+        ADD_FMT_STRING_SYNC (sh_log, off, "entry", all_status.entry_self_heal,
+                             print_log);
 
-        if (AFR_SELF_HEAL_STARTED == all_status.data_self_heal) {
-                gf_log (this->name, loglvl, "%s %s on %s", sh_log,
-                        sh->data_sh_info, local->loc.path);
-        } else {
-                gf_log (this->name, loglvl, "%s on %s", sh_log,
-                        local->loc.path);
-        }
+        if (AFR_SELF_HEAL_SYNC_BEGIN == all_status.data_self_heal &&
+	    strcmp (sh->data_sh_info, "") && sh->data_sh_info )
+                data_sh = 1;
+        if (AFR_SELF_HEAL_SYNC_BEGIN == all_status.metadata_self_heal &&
+	    strcmp (sh->metadata_sh_info, "") && sh->metadata_sh_info)
+                metadata_sh = 1;
+
+        if (!print_log)
+                return;
+
+        gf_log (this->name, loglvl, "%s %s %s on %s", sh_log,
+                ((data_sh == 1) ? sh->data_sh_info : ""),
+                ((metadata_sh == 1) ? sh->metadata_sh_info : ""),
+                local->loc.path);
 }

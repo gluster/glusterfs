@@ -2240,6 +2240,7 @@ afr_sh_entry_sync_prepare (call_frame_t *frame, xlator_t *this)
                         local->loc.path);
 
         sh->actual_sh_started = _gf_true;
+        afr_set_self_heal_status (sh, AFR_SELF_HEAL_SYNC_BEGIN);
         afr_sh_entry_open (frame, this);
 
         return 0;
