@@ -14,12 +14,14 @@
 /*dump locks format strings */
 #define RANGE_FMT               "type=%s, whence=%hd, start=%llu, len=%llu"
 #define ENTRY_FMT               "type=%s on basename=%s"
-#define DUMP_GEN_FMT            "pid = %llu, owner=%s, transport=%p, "
+#define DUMP_GEN_FMT            "pid = %llu, owner=%s, transport=%p"
 #define GRNTD_AT                "granted at %s"
 #define BLKD_AT                 "blocked at %s"
-#define DUMP_BLKD_FMT           DUMP_GEN_FMT", "BLKD_AT
-#define DUMP_GRNTD_FMT          DUMP_GEN_FMT", "GRNTD_AT
-#define DUMP_BLKD_GRNTD_FMT     DUMP_GEN_FMT", "BLKD_AT", "GRNTD_AT
+#define CONN_ID                 "connection-id=%s"
+#define DUMP_BLKD_FMT           DUMP_GEN_FMT", "CONN_ID", "BLKD_AT
+#define DUMP_GRNTD_FMT          DUMP_GEN_FMT", "CONN_ID", "GRNTD_AT
+#define DUMP_BLKD_GRNTD_FMT     DUMP_GEN_FMT", "CONN_ID", "BLKD_AT", "GRNTD_AT
+
 #define ENTRY_BLKD_FMT          ENTRY_FMT", "DUMP_BLKD_FMT
 #define ENTRY_GRNTD_FMT         ENTRY_FMT", "DUMP_GRNTD_FMT
 #define ENTRY_BLKD_GRNTD_FMT    ENTRY_FMT", "DUMP_BLKD_GRNTD_FMT
@@ -63,7 +65,8 @@ pl_dom_list_t *
 get_domain (pl_inode_t *pl_inode, const char *volume);
 
 void
-grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t *dom);
+grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode,
+                           pl_dom_list_t *dom);
 
 void
 __delete_inode_lock (pl_inode_lock_t *lock);

@@ -2206,12 +2206,20 @@ err:
 int
 server_fentrylk_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
+        GF_UNUSED  int  ret   = -1;
         server_state_t *state = NULL;
 
         state = CALL_STATE (frame);
 
         if (state->resolve.op_ret != 0)
                 goto err;
+
+        if (!state->xdata)
+                state->xdata = dict_new ();
+
+        if (state->xdata)
+                ret = dict_set_str (state->xdata, "connection-id",
+                                    state->client->server_ctx.client_uid);
 
         STACK_WIND (frame, server_fentrylk_cbk, bound_xl,
                     bound_xl->fops->fentrylk,
@@ -2229,12 +2237,20 @@ err:
 int
 server_entrylk_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
+        GF_UNUSED int   ret   = -1;
         server_state_t *state = NULL;
 
         state = CALL_STATE (frame);
 
         if (state->resolve.op_ret != 0)
                 goto err;
+
+        if (!state->xdata)
+                state->xdata = dict_new ();
+
+        if (state->xdata)
+                ret = dict_set_str (state->xdata, "connection-id",
+                                    state->client->server_ctx.client_uid);
 
         STACK_WIND (frame, server_entrylk_cbk,
                     bound_xl, bound_xl->fops->entrylk,
@@ -2251,12 +2267,20 @@ err:
 int
 server_finodelk_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
+        GF_UNUSED int   ret   = -1;
         server_state_t *state = NULL;
 
         state = CALL_STATE (frame);
 
         if (state->resolve.op_ret != 0)
                 goto err;
+
+        if (!state->xdata)
+                state->xdata = dict_new ();
+
+        if (state->xdata)
+                ret = dict_set_str (state->xdata, "connection-id",
+                                    state->client->server_ctx.client_uid);
 
         STACK_WIND (frame, server_finodelk_cbk, bound_xl,
                     bound_xl->fops->finodelk, state->volume, state->fd,
@@ -2273,12 +2297,20 @@ err:
 int
 server_inodelk_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
+        GF_UNUSED int   ret   = -1;
         server_state_t *state = NULL;
 
         state = CALL_STATE (frame);
 
         if (state->resolve.op_ret != 0)
                 goto err;
+
+        if (!state->xdata)
+                state->xdata = dict_new ();
+
+        if (state->xdata)
+                ret = dict_set_str (state->xdata, "connection-id",
+                                    state->client->server_ctx.client_uid);
 
         STACK_WIND (frame, server_inodelk_cbk, bound_xl,
                     bound_xl->fops->inodelk, state->volume, &state->loc,
