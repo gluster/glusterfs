@@ -728,39 +728,170 @@ out:
 }
 
 char*
-afr_get_sizes_str (struct iatt *bufs, xlator_t *this)
+afr_get_sizes_str (afr_local_t *local, struct iatt *bufs, xlator_t *this)
 {
         afr_private_t *priv = NULL;
         int           i     = 0;
-        char          num[128] = {0};
+        char          num[1024] = {0};
         size_t        len = 0;
         char          *sizes_str = NULL;
         size_t        off = 0;
-        char          *fmt_str = "%llu ";
+        char          *fmt_str = "%llu bytes on %s, ";
+        char          *child_down =  " %s,";
+        char          *child_unknown = " %s,";
+        int           down_child_present = 0;
+        int           down_count = 0;
+        int           unknown_count = 0;
+        int           unknown_child_present = 0;
+        char          *down_subvol_1 = " down subvolume is ";
+        char          *unknown_subvol_1 = " unknown subvolume is ";
+        char          *down_subvol_2 = " down subvolumes are ";
+        char          *unknown_subvol_2 = " unknown subvolumes are ";
 
         priv = this->private;
+
         for (i = 0; i < priv->child_count; i++) {
-                len += snprintf (num, sizeof (num), fmt_str,
-                                 (unsigned long long) bufs[i].ia_size);
+                if (local->child_up[i] == 1) {
+                        len += snprintf (num, sizeof (num), fmt_str,
+                                         (unsigned long long) bufs[i].ia_size,
+                                         priv->children[i]->name);
+                } else if (local->child_up[i] == 0) {
+                        len += snprintf (num, sizeof (num), child_down,
+                                         priv->children[i]->name);
+                        if (!down_child_present)
+                                down_child_present = 1;
+                        down_count ++;
+                } else if (local->child_up[i] == -1) {
+                        len += snprintf (num, sizeof (num), child_unknown,
+                                         priv->children[i]->name);
+                        if (!unknown_child_present)
+                                unknown_child_present = 1;
+                        unknown_count++;
+                }
+
+        }
+
+        if (down_child_present) {
+                if (down_count > 1)
+                        len += snprintf (num, sizeof (num), "%s",
+                                         down_subvol_2);
+                else
+                        len += snprintf (num, sizeof (num), "%s",
+                                        down_subvol_1);
+        }
+        if (unknown_child_present) {
+                if (unknown_count > 1)
+                        len += snprintf (num, sizeof (num), "%s",
+                                         unknown_subvol_2);
+                else
+                        len += snprintf (num, sizeof (num), "%s",
+                                         unknown_subvol_1);
         }
 
         len++;//for '\0'
+
         sizes_str = GF_CALLOC (len, sizeof (char), gf_common_mt_char);
+
         if (!sizes_str)
                 return NULL;
 
         for (i = 0; i < priv->child_count; i++) {
-                off += snprintf (sizes_str + off, len - off, fmt_str,
-                                 (unsigned long long) bufs[i].ia_size);
+                if (local->child_up[i] == 1) {
+                        off += snprintf (sizes_str + off, len - off, fmt_str,
+                                         (unsigned long long) bufs[i].ia_size,
+                                         priv->children[i]->name);
+                }
         }
+
+        if (down_child_present) {
+                if (down_count > 1) {
+                        off += snprintf (sizes_str + off, len - off, "%s",
+                                         down_subvol_2);
+                } else {
+                        off += snprintf (sizes_str + off, len - off, "%s",
+                                         down_subvol_1);
+                }
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->child_up[i] == 0) {
+                        off += snprintf (sizes_str + off, len - off, child_down,
+                                         priv->children[i]->name);
+                }
+        }
+
+        if (unknown_child_present) {
+                if (unknown_count > 1) {
+                        off += snprintf (sizes_str + off, len - off, "%s",
+                                        unknown_subvol_2);
+                } else {
+                        off += snprintf (sizes_str + off, len - off, "%s",
+                                         unknown_subvol_1);
+                }
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->child_up[i] == -1) {
+                        off += snprintf (sizes_str + off, len - off,
+                                         child_unknown,
+                                         priv->children[i]->name);
+
+                }
+        }
+
         return sizes_str;
 }
 
+char*
+afr_get_sinks_str (xlator_t *this, afr_local_t *local, afr_self_heal_t *sh)
+{
+        afr_private_t   *priv = NULL;
+        int             i = 0;
+        char            num[1024] = {0};
+        size_t          len = 0;
+        char            *sinks_str = NULL;
+        char            *temp_str = " to sinks ";
+        char            *str_format = " %s,";
+        char            off = 0;
+
+        priv = this->private;
+
+        len += snprintf (num, sizeof (num), "%s", temp_str);
+        for (i = 0; i < priv->child_count; i++) {
+                if ((sh->sources[i] == 0) && (local->child_up[i] == 1)) {
+                        len += snprintf (num, sizeof (num), str_format,
+                                         priv->children[i]->name);
+                }
+        }
+
+        len ++;
+
+        sinks_str = GF_CALLOC (len, sizeof (char), gf_common_mt_char);
+
+        if (!sinks_str)
+                return NULL;
+
+        off += snprintf (sinks_str + off, len - off, "%s", temp_str);
+
+        for (i = 0; i < priv->child_count; i++) {
+                if ((sh->sources[i] == 0) && (local->child_up[i] == 1)) {
+                        off += snprintf (sinks_str + off, len - off,
+                                         str_format,
+                                         priv->children[i]->name);
+                }
+        }
+
+        return sinks_str;
+
+}
+
+
 void
-afr_set_data_sh_info_str (afr_self_heal_t *sh, xlator_t *this)
+afr_set_data_sh_info_str (afr_local_t *local, afr_self_heal_t *sh, xlator_t *this)
 {
         char            *pending_matrix_str = NULL;
         char            *sizes_str = NULL;
+        char            *sinks_str = NULL;
         afr_private_t   *priv = NULL;
 
         priv = this->private;
@@ -770,13 +901,17 @@ afr_set_data_sh_info_str (afr_self_heal_t *sh, xlator_t *this)
         if (!pending_matrix_str)
                 pending_matrix_str = "";
 
-        sizes_str = afr_get_sizes_str (sh->buf, this);
+        sizes_str = afr_get_sizes_str (local, sh->buf, this);
         if (!sizes_str)
                 sizes_str = "";
 
-        gf_asprintf (&sh->data_sh_info, " from %s with %s sizes %s",
-                     priv->children[sh->source]->name, sizes_str,
-                     pending_matrix_str);
+        sinks_str = afr_get_sinks_str (this, local, sh);
+        if (!sinks_str)
+                sinks_str = "";
+
+        gf_asprintf (&sh->data_sh_info, " data self heal from %s %s with "
+                     "%s data %s", priv->children[sh->source]->name, sinks_str,
+                     sizes_str, pending_matrix_str);
 
         if (pending_matrix_str && strcmp (pending_matrix_str, ""))
                 GF_FREE (pending_matrix_str);
@@ -825,6 +960,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
                 sh->active_sinks);
 
         sh->actual_sh_started = _gf_true;
+        afr_set_self_heal_status (sh, AFR_SELF_HEAL_SYNC_BEGIN);
         afr_sh_data_trim_sinks (frame, this);
 }
 
@@ -905,7 +1041,7 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
                 }
                 afr_sh_data_setattr (frame, this, &sh->buf[tstamp_source]);
         } else {
-                afr_set_data_sh_info_str (sh, this);
+                afr_set_data_sh_info_str (local, sh, this);
                 if (nsources == 0) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "No self-heal needed for %s",
