@@ -583,6 +583,15 @@ glfs_migrate_fd_safe (struct glfs *fs, xlator_t *newsubvol, fd_t *oldfd)
 
 	loc.inode = inode_ref (newinode);
 
+        ret = inode_path (oldfd->inode, NULL, (char **)&loc.path);
+        if (ret < 0) {
+                gf_log (fs->volname, GF_LOG_INFO, "inode_path failed");
+                goto out;
+        }
+
+        uuid_copy (loc.gfid, oldinode->gfid);
+
+
 	if (IA_ISDIR (oldinode->ia_type))
 		ret = syncop_opendir (newsubvol, &loc, newfd);
 	else
