@@ -18,6 +18,7 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <pthread.h>
 
 #define RELAX_POISONING
 
@@ -557,6 +558,7 @@ glusterfs_graph_construct (FILE *fp)
         glusterfs_graph_t *graph = NULL;
         FILE              *tmp_file = NULL;
         char               template[PATH_MAX] = {0};
+	static pthread_mutex_t graph_mutex = PTHREAD_MUTEX_INITIALIZER;
 
         graph = glusterfs_graph_new ();
         if (!graph)
@@ -583,10 +585,14 @@ glusterfs_graph_construct (FILE *fp)
                 goto err;
         }
 
-        yyin = tmp_file;
-        construct = graph;
-        ret = yyparse ();
-        construct = NULL;
+	pthread_mutex_lock (&graph_mutex);
+	{
+		yyin = tmp_file;
+		construct = graph;
+		ret = yyparse ();
+		construct = NULL;
+	}
+	pthread_mutex_unlock (&graph_mutex);
 
         if (ret == 1) {
                 gf_log ("parser", GF_LOG_DEBUG,
