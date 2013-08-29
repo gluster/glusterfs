@@ -158,6 +158,11 @@ glfs_close (struct glfs_fd *glfd)
 	__glfs_entry_fd (glfd);
 
 	subvol = glfs_active_subvol (glfd->fs);
+        if (!subvol) {
+                ret = -1;
+                errno = EIO;
+                goto out;
+        }
 
 	fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
 	if (!fd) {
