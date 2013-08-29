@@ -218,6 +218,36 @@ int glfs_set_logging (glfs_t *fs, const char *logfile, int loglevel);
 int glfs_init (glfs_t *fs);
 
 
+/*
+  SYNOPSIS
+
+  glfs_fini: Cleanup and destroy the 'virtual mount'
+
+  DESCRIPTION
+
+  This function attempts to gracefully destroy glfs_t object. An attempt is
+  made to wait for all background processing to complete before returning.
+
+  glfs_fini() must be called after all operations on glfs_t is finished.
+
+  IMPORTANT
+
+  IT IS NECESSARY TO CALL glfs_fini() ON ALL THE INITIALIZED glfs_t
+  OBJECTS BEFORE TERMINATING THE PROGRAM. THERE MAY BE CACHED AND
+  UNWRITTEN / INCOMPLETE OPERATIONS STILL IN PROGRESS EVEN THOUGH THE
+  API CALLS HAVE RETURNED. glfs_fini() WILL WAIT FOR BACKGROUND OPERATIONS
+  TO COMPLETE BEFORE RETURNING, THEREBY MAKING IT SAFE FOR THE PROGRAM TO
+  EXIT.
+
+  PARAMETERS
+
+  @fs: The 'virtual mount' object to be destroyed.
+
+  RETURN VALUES
+
+   0 : Success.
+*/
+
 int glfs_fini (glfs_t *fs);
 
 /*
