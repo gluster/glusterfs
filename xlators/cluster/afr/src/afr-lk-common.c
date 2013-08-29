@@ -568,11 +568,14 @@ initialize_inodelk_variables (call_frame_t *frame, xlator_t *this)
         inodelk = afr_get_inodelk (int_lock, int_lock->domain);
 
         inodelk->lock_count    = 0;
+        int_lock->lk_attempted_count = 0;
         int_lock->lock_op_ret   = -1;
         int_lock->lock_op_errno = 0;
 
         memset (inodelk->locked_nodes, 0,
                 sizeof (*inodelk->locked_nodes) * priv->child_count);
+        memset (int_lock->locked_nodes, 0,
+                sizeof (*int_lock->locked_nodes) * priv->child_count);
 
         return 0;
 }
