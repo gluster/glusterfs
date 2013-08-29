@@ -1329,6 +1329,7 @@ afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
                         local->op_errno         = EINVAL;
                         int_lock->lock_op_errno = EINVAL;
 
+			afr_unlock (frame, this);
                         return -1;
                 }
 
@@ -1524,6 +1525,7 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
                         local->op_errno         = EINVAL;
                         int_lock->lock_op_errno = EINVAL;
 
+			afr_unlock (frame, this);
                         ret = -1;
                         goto out;
                 }
