@@ -564,9 +564,33 @@ dht_get_layout_count (xlator_t *this, dht_layout_t *layout, int new_layout)
 
         for (i = 0; i < layout->cnt; i++) {
                 err = layout->list[i].err;
-                if (err == -1 || err == 0) {
-                        layout->list[i].err = -1;
+                if (err == -1 || err == 0 || err == ENOENT) {
+			/* Setting list[i].err = -1 is an indication for
+			   dht_selfheal_layout_new_directory() to assign
+			   a range. We set it to -1 based on any one of
+			   the three criteria:
+
+			   - err == -1 already, which means directory
+			     existed but layout was not set on it.
+
+			   - err == 0, which means directory exists and
+			     has an old layout piece which will be
+			     overwritten now.
+
+			   - err == ENOENT, which means directory does
+			     not exist (possibly racing with mkdir or
+			     finishing half done mkdir). The missing
+			     directory will be attempted to be recreated.
+
+			     It is important to note that it is safe
+			     to race with mkdir() as self-heal and
+			     mkdir are idempotent operations. Both will
+			     strive to set the directory and layouts to
+			     the same final state.
+			*/
                         count++;
+			if (!err)
+				layout->list[i].err = -1;
                 }
         }
 
@@ -776,7 +800,7 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
         DHT_RESET_LAYOUT_RANGE (layout);
         for (i = start_subvol; i < layout->cnt; i++) {
                 err = layout->list[i].err;
-                if (err == -1) {
+                if (err == -1 || err == ENOENT) {
                         DHT_SET_LAYOUT_RANGE(layout, i, start, chunk,
                                              cnt, loc->path);
                         if (--cnt == 0) {
@@ -789,7 +813,7 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
 
         for (i = 0; i < start_subvol; i++) {
                 err = layout->list[i].err;
-                if (err == -1) {
+                if (err == -1 || err == ENOENT) {
                         DHT_SET_LAYOUT_RANGE(layout, i, start, chunk,
                                              cnt, loc->path);
                         if (--cnt == 0) {
