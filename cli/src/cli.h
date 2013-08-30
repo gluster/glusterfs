@@ -66,6 +66,7 @@ struct cli_cmd;
 
 extern char *cli_vol_type_str[];
 extern char *cli_vol_status_str[];
+extern char *cli_vol_task_status_str[];
 
 typedef int (cli_cmd_cbk_t)(struct cli_state *state,
                             struct cli_cmd_word *word,

@@ -1436,6 +1436,21 @@ cli_xml_output_vol_status_tasks (cli_local_t *local, dict_t *dict) {
                                                        "%d", status);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
+                if (!strcmp (task_type, "Replace brick")) {
+                    if (status) {
+                        status = GF_DEFRAG_STATUS_COMPLETE;
+                    } else {
+                        status = GF_DEFRAG_STATUS_STARTED;
+                    }
+                }
+
+                ret = xmlTextWriterWriteFormatElement (local->writer,
+                                                       (xmlChar *)"statusStr",
+                                                       "%s",
+                                             cli_vol_task_status_str[status]);
+
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
                 /* </task> */
                 ret = xmlTextWriterEndElement (local->writer);
                 XML_RET_CHECK_AND_GOTO (ret, out);
@@ -2966,6 +2981,12 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict)
                 ret = xmlTextWriterWriteFormatElement (writer,
                                                        (xmlChar *)"status",
                                                        "%d", status_rcd);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"statusStr",
+                                                       "%s",
+                                         cli_vol_task_status_str[status_rcd]);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 /* </node> */
