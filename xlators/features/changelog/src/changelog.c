@@ -36,20 +36,6 @@ cb_bootstrap[] = {
         },
 };
 
-static struct changelog_encoder
-cb_encoder[] = {
-        [CHANGELOG_ENCODE_BINARY] =
-        {
-                .encoder = CHANGELOG_ENCODE_BINARY,
-                .encode = changelog_encode_binary,
-        },
-        [CHANGELOG_ENCODE_ASCII] =
-        {
-                .encoder = CHANGELOG_ENCODE_ASCII,
-                .encode = changelog_encode_ascii,
-        },
-};
-
 /* Entry operations - TYPE III */
 
 /**
@@ -1363,8 +1349,7 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("fsync-interval", priv->fsync_interval, int32, out);
 
-        GF_ASSERT (cb_encoder[priv->encode_mode].encoder == priv->encode_mode);
-        priv->ce = &cb_encoder[priv->encode_mode];
+        changelog_encode_change(priv);
 
         GF_ASSERT (cb_bootstrap[priv->op_mode].mode == priv->op_mode);
         priv->cb = &cb_bootstrap[priv->op_mode];

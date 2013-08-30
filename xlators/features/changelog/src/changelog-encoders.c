@@ -154,3 +154,23 @@ changelog_encode_binary (xlator_t *this, changelog_log_data_t *cld)
 
         return changelog_write_change (priv, buffer, off);
 }
+
+static struct changelog_encoder
+cb_encoder[] = {
+        [CHANGELOG_ENCODE_BINARY] =
+        {
+                .encoder = CHANGELOG_ENCODE_BINARY,
+                .encode = changelog_encode_binary,
+        },
+        [CHANGELOG_ENCODE_ASCII] =
+        {
+                .encoder = CHANGELOG_ENCODE_ASCII,
+                .encode = changelog_encode_ascii,
+        },
+};
+
+void
+changelog_encode_change( changelog_priv_t * priv)
+{
+        priv->ce = &cb_encoder[priv->encode_mode];
+}
