@@ -62,6 +62,13 @@ char *cli_volume_backend[] = {"",
                            "Volume Group",
 };
 
+char *cli_vol_task_status_str[] = {"not started",
+                                   "in progress",
+                                   "stopped",
+                                   "completed",
+                                   "failed",
+};
+
 int32_t
 gf_cli_get_volume (call_frame_t *frame, xlator_t *this,
                       void *data);
@@ -1388,24 +1395,7 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         gf_log (frame->this->name, GF_LOG_TRACE,
                                 "failed to get run-time");
 
-                switch (status_rcd) {
-                case GF_DEFRAG_STATUS_NOT_STARTED:
-                        status = "not started";
-                        break;
-                case GF_DEFRAG_STATUS_STARTED:
-                        status = "in progress";
-                        break;
-                case GF_DEFRAG_STATUS_STOPPED:
-                        status = "stopped";
-                        break;
-                case GF_DEFRAG_STATUS_COMPLETE:
-                        status = "completed";
-                        break;
-                case GF_DEFRAG_STATUS_FAILED:
-                        status = "failed";
-                        break;
-                }
-
+                status = cli_vol_task_status_str[status_rcd];
                 size_str = gf_uint64_2human_readable(size);
                 cli_out ("%40s %16"PRIu64 " %13s" " %13"PRIu64 " %13"PRIu64
                          " %13"PRIu64 " %14s %16.2f", node_uuid, files,
@@ -6347,7 +6337,20 @@ cli_print_volume_tasks (dict_t *dict) {
                 if (ret)
                         return;
 
-                cli_out ("%15s%40s%15d", op, task_id_str, status);
+                /*
+                   Replace brick only has two states - In progress and Complete
+                   Ref: xlators/mgmt/glusterd/src/glusterd-replace-brick.c
+                */
+                if (!strcmp (op, "Replace brick")) {
+                    if (status) {
+                        status = GF_DEFRAG_STATUS_COMPLETE;
+                    } else {
+                        status = GF_DEFRAG_STATUS_STARTED;
+                    }
+                }
+
+                cli_out ("%15s%40s%15s", op, task_id_str,
+                         cli_vol_task_status_str[status]);
         }
 
 }
