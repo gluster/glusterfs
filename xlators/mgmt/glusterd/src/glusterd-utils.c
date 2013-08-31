@@ -827,7 +827,7 @@ glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
 
         ret = glusterd_check_and_set_brick_xattr (brickinfo->hostname,
                                                   brickinfo->path, volume_id,
-                                                  op_errstr);
+                                                  op_errstr, is_force);
         if (ret)
                 goto out;
 
@@ -5105,11 +5105,12 @@ out:
 
 int
 glusterd_check_and_set_brick_xattr (char *host, char *path, uuid_t uuid,
-                                    char **op_errstr)
+                                    char **op_errstr, gf_boolean_t is_force)
 {
         int             ret             = -1;
         char            msg[2048]       = {0,};
         gf_boolean_t    in_use          = _gf_false;
+        int             flags           = 0;
 
         /* Check for xattr support in backend fs */
         ret = sys_lsetxattr (path, "trusted.glusterfs.test",
@@ -5129,13 +5130,17 @@ glusterd_check_and_set_brick_xattr (char *host, char *path, uuid_t uuid,
         if (ret)
                 goto out;
 
-        if (in_use) {
+        if (in_use && !is_force) {
                 ret = -1;
                 goto out;
         }
 
+
+        if (!is_force)
+                flags = XATTR_CREATE;
+
         ret = sys_lsetxattr (path, GF_XATTR_VOL_ID_KEY, uuid, 16,
-                             XATTR_CREATE);
+                             flags);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Failed to set extended "
                           "attributes %s, reason: %s",
