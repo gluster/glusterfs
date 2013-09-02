@@ -201,7 +201,7 @@ fuse_mount_sys (const char *mountpoint, char *fsname,
 
                         goto out;
                 }
-                ret = mount (source, mountpoint, fstype, 0,
+                ret = mount (source, mountpoint, fstype, mountflags,
                              mnt_param_mnt);
         }
         if (ret == -1)
