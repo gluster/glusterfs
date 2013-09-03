@@ -1,0 +1,851 @@
+
+... GlusterFS autogen ...
+
+Generate gf-error-codes.h ...
+`gf-error-codes.h' -> `libglusterfs/src/gf-error-codes.h'
+Running aclocal...
+Running autoheader...
+Running libtoolize...
+Running autoconf...
+Running automake...
+
+Please proceed with configuring, compiling, and installing.
+./autogen.sh completed...
+checking for a BSD-compatible install... /bin/install -c
+checking whether build environment is sane... yes
+checking for a thread-safe mkdir -p... /bin/mkdir -p
+checking for gawk... gawk
+checking whether make sets $(MAKE)... yes
+checking whether make supports nested variables... yes
+checking build system type... x86_64-unknown-linux-gnu
+checking host system type... x86_64-unknown-linux-gnu
+checking for gcc... gcc
+checking whether the C compiler works... yes
+checking for C compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether we are using the GNU C compiler... yes
+checking whether gcc accepts -g... yes
+checking for gcc option to accept ISO C89... none needed
+checking for style of include used by make... GNU
+checking dependency style of gcc... gcc3
+checking how to print strings... printf
+checking for a sed that does not truncate output... /bin/sed
+checking for grep that handles long lines and -e... /bin/grep
+checking for egrep... /bin/grep -E
+checking for fgrep... /bin/grep -F
+checking for ld used by gcc... /bin/ld
+checking if the linker (/bin/ld) is GNU ld... yes
+checking for BSD- or MS-compatible name lister (nm)... /bin/nm -B
+checking the name lister (/bin/nm -B) interface... BSD nm
+checking whether ln -s works... yes
+checking the maximum length of command line arguments... 1572864
+checking whether the shell understands some XSI constructs... yes
+checking whether the shell understands "+="... yes
+checking how to convert x86_64-unknown-linux-gnu file names to x86_64-unknown-linux-gnu format... func_convert_file_noop
+checking how to convert x86_64-unknown-linux-gnu file names to toolchain format... func_convert_file_noop
+checking for /bin/ld option to reload object files... -r
+checking for objdump... objdump
+checking how to recognize dependent libraries... pass_all
+checking for dlltool... no
+checking how to associate runtime and link libraries... printf %s\n
+checking for ar... ar
+checking for archiver @FILE support... @
+checking for strip... strip
+checking for ranlib... ranlib
+checking command to parse /bin/nm -B output from gcc object... ok
+checking for sysroot... no
+checking for mt... no
+checking if : is a manifest tool... no
+checking how to run the C preprocessor... gcc -E
+checking for ANSI C header files... yes
+checking for sys/types.h... yes
+checking for sys/stat.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for memory.h... yes
+checking for strings.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for unistd.h... yes
+checking for dlfcn.h... yes
+checking for objdir... .libs
+checking if gcc supports -fno-rtti -fno-exceptions... no
+checking for gcc option to produce PIC... -fPIC -DPIC
+checking if gcc PIC flag -fPIC -DPIC works... yes
+checking if gcc static flag -static works... no
+checking if gcc supports -c -o file.o... yes
+checking if gcc supports -c -o file.o... (cached) yes
+checking whether the gcc linker (/bin/ld -m elf_x86_64) supports shared libraries... yes
+checking whether -lc should be explicitly linked in... no
+checking dynamic linker characteristics... GNU/Linux ld.so
+checking how to hardcode library paths into programs... immediate
+checking whether stripping libraries is possible... yes
+checking if libtool supports shared libraries... yes
+checking whether to build shared libraries... yes
+checking whether to build static libraries... no
+checking for flex... flex
+checking lex output file root... lex.yy
+checking lex library... none needed
+checking whether yytext is a pointer... no
+checking size of short... 2
+checking size of int... 4
+checking size of long... 8
+checking size of long long... 8
+checking for bison... bison -y
+checking for ld... /bin/ld -m elf_x86_64
+checking for MD5 in -lcrypto... yes
+checking for pthread_mutex_init in -lpthread... yes
+checking for dlopen... no
+checking for dlopen in -ldl... yes
+checking sys/xattr.h usability... yes
+checking sys/xattr.h presence... yes
+checking for sys/xattr.h... yes
+checking sys/extattr.h usability... no
+checking sys/extattr.h presence... no
+checking for sys/extattr.h... no
+checking openssl/md5.h usability... yes
+checking openssl/md5.h presence... yes
+checking for openssl/md5.h... yes
+checking linux/falloc.h usability... yes
+checking linux/falloc.h presence... yes
+checking for linux/falloc.h... yes
+checking for pthread_spin_init... yes
+checking for strnlen... yes
+checking for setfsuid... yes
+checking for setfsgid... yes
+checking for lvm_init,lvm_lv_from_name in -llvm2app... no
+checking sys/epoll.h usability... yes
+checking sys/epoll.h presence... yes
+checking for sys/epoll.h... yes
+checking for ibv_get_device_list in -libverbs... yes
+checking for rdma_create_id in -lrdmacm... no
+checking for a Python interpreter with version >= 2.4... python
+checking for python... /bin/python
+checking for python version... 2.7
+checking for python platform... linux2
+checking for python script directory... ${prefix}/lib/python2.7/site-packages
+checking for python extension module directory... ${exec_prefix}/lib64/python2.7/site-packages
+checking if python is python 2.x... 2.7
+checking if python has ctypes support... yes
+checking whether to include systemtap tracing support... def
+checking for dtrace... yes
+checking sys/sdt.h usability... yes
+checking sys/sdt.h presence... yes
+checking for sys/sdt.h... yes
+checking x"yes"xy"yes"y... checking for xml2-config... /bin/xml2-config
+checking for libxml - version >= 2.6.19... yes (version 2.7.8)
+checking execinfo.h usability... yes
+checking execinfo.h presence... yes
+checking for execinfo.h... yes
+checking for malloc_stats... yes
+checking for struct stat.st_atim.tv_nsec... yes
+checking for struct stat.st_atimespec.tv_nsec... no
+checking for linkat... yes
+checking argp.h usability... yes
+checking argp.h presence... yes
+checking for argp.h... yes
+checking malloc.h usability... yes
+checking malloc.h presence... yes
+checking for malloc.h... yes
+checking for llistxattr... yes
+checking for fdatasync... yes
+checking for fallocate... yes
+checking for posix_fallocate... yes
+checking for /etc/debian_version... no
+checking for /etc/SuSE-release... no
+checking for /etc/redhat-release... yes
+checking whether gcc accepts -Werror=format-security... yes
+checking whether gcc accepts -Werror=implicit-function-declaration... yes
+checking for readline in -lreadline -lcurses... yes
+checking for readline in -lreadline -ltermcap... yes
+checking for readline in -lreadline -lncurses... yes
+checking for io_setup in -laio... no
+checking for python version... (cached) 2.7
+checking for python platform... (cached) linux2
+checking for python script directory... (cached) ${prefix}/lib/python2.7/site-packages
+checking for python extension module directory... (cached) ${exec_prefix}/lib64/python2.7/site-packages
+2.7
+checking python2.7/Python.h usability... yes
+checking python2.7/Python.h presence... yes
+checking for python2.7/Python.h... yes
+building glupy with -isystem /usr/include/python2.7 -l python2.7
+configure: creating ./config.status
+config.status: creating Makefile
+config.status: creating libglusterfs/Makefile
+config.status: creating libglusterfs/src/Makefile
+config.status: creating geo-replication/src/peer_gsec_create
+config.status: creating geo-replication/src/peer_add_secret_pub
+config.status: creating glusterfsd/Makefile
+config.status: creating glusterfsd/src/Makefile
+config.status: creating rpc/Makefile
+config.status: creating rpc/rpc-lib/Makefile
+config.status: creating rpc/rpc-lib/src/Makefile
+config.status: creating rpc/rpc-transport/Makefile
+config.status: creating rpc/rpc-transport/socket/Makefile
+config.status: creating rpc/rpc-transport/socket/src/Makefile
+config.status: creating rpc/rpc-transport/rdma/Makefile
+config.status: creating rpc/rpc-transport/rdma/src/Makefile
+config.status: creating rpc/xdr/Makefile
+config.status: creating rpc/xdr/src/Makefile
+config.status: creating xlators/Makefile
+config.status: creating xlators/mount/Makefile
+config.status: creating xlators/mount/fuse/Makefile
+config.status: creating xlators/mount/fuse/src/Makefile
+config.status: creating xlators/mount/fuse/utils/mount.glusterfs
+config.status: creating xlators/mount/fuse/utils/mount_glusterfs
+config.status: creating xlators/mount/fuse/utils/Makefile
+config.status: creating xlators/storage/Makefile
+config.status: creating xlators/storage/posix/Makefile
+config.status: creating xlators/storage/posix/src/Makefile
+config.status: creating xlators/storage/bd_map/Makefile
+config.status: creating xlators/storage/bd_map/src/Makefile
+config.status: creating xlators/cluster/Makefile
+config.status: creating xlators/cluster/afr/Makefile
+config.status: creating xlators/cluster/afr/src/Makefile
+config.status: creating xlators/cluster/stripe/Makefile
+config.status: creating xlators/cluster/stripe/src/Makefile
+config.status: creating xlators/cluster/dht/Makefile
+config.status: creating xlators/cluster/dht/src/Makefile
+config.status: creating xlators/performance/Makefile
+config.status: creating xlators/performance/write-behind/Makefile
+config.status: creating xlators/performance/write-behind/src/Makefile
+config.status: creating xlators/performance/read-ahead/Makefile
+config.status: creating xlators/performance/read-ahead/src/Makefile
+config.status: creating xlators/performance/io-threads/Makefile
+config.status: creating xlators/performance/io-threads/src/Makefile
+config.status: creating xlators/performance/io-cache/Makefile
+config.status: creating xlators/performance/io-cache/src/Makefile
+config.status: creating xlators/performance/symlink-cache/Makefile
+config.status: creating xlators/performance/symlink-cache/src/Makefile
+config.status: creating xlators/performance/quick-read/Makefile
+config.status: creating xlators/performance/quick-read/src/Makefile
+config.status: creating xlators/performance/open-behind/Makefile
+config.status: creating xlators/performance/open-behind/src/Makefile
+config.status: creating xlators/performance/md-cache/Makefile
+config.status: creating xlators/performance/md-cache/src/Makefile
+config.status: creating xlators/debug/Makefile
+config.status: creating xlators/debug/trace/Makefile
+config.status: creating xlators/debug/trace/src/Makefile
+config.status: creating xlators/debug/error-gen/Makefile
+config.status: creating xlators/debug/error-gen/src/Makefile
+config.status: creating xlators/debug/io-stats/Makefile
+config.status: creating xlators/debug/io-stats/src/Makefile
+config.status: creating xlators/protocol/Makefile
+config.status: creating xlators/protocol/auth/Makefile
+config.status: creating xlators/protocol/auth/addr/Makefile
+config.status: creating xlators/protocol/auth/addr/src/Makefile
+config.status: creating xlators/protocol/auth/login/Makefile
+config.status: creating xlators/protocol/auth/login/src/Makefile
+config.status: creating xlators/protocol/client/Makefile
+config.status: creating xlators/protocol/client/src/Makefile
+config.status: creating xlators/protocol/server/Makefile
+config.status: creating xlators/protocol/server/src/Makefile
+config.status: creating xlators/features/Makefile
+config.status: creating xlators/features/changelog/Makefile
+config.status: creating xlators/features/changelog/src/Makefile
+config.status: creating xlators/features/changelog/lib/Makefile
+config.status: creating xlators/features/changelog/lib/src/Makefile
+config.status: creating xlators/features/glupy/Makefile
+config.status: creating xlators/features/glupy/src/Makefile
+config.status: creating xlators/features/locks/Makefile
+config.status: creating xlators/features/locks/src/Makefile
+config.status: creating xlators/features/quota/Makefile
+config.status: creating xlators/features/quota/src/Makefile
+config.status: creating xlators/features/marker/Makefile
+config.status: creating xlators/features/marker/src/Makefile
+config.status: creating xlators/features/read-only/Makefile
+config.status: creating xlators/features/read-only/src/Makefile
+config.status: creating xlators/features/mac-compat/Makefile
+config.status: creating xlators/features/mac-compat/src/Makefile
+config.status: creating xlators/features/quiesce/Makefile
+config.status: creating xlators/features/quiesce/src/Makefile
+config.status: creating xlators/features/index/Makefile
+config.status: creating xlators/features/index/src/Makefile
+config.status: creating xlators/features/protect/Makefile
+config.status: creating xlators/features/protect/src/Makefile
+config.status: creating xlators/features/gfid-access/Makefile
+config.status: creating xlators/features/gfid-access/src/Makefile
+config.status: creating xlators/playground/Makefile
+config.status: creating xlators/playground/template/Makefile
+config.status: creating xlators/playground/template/src/Makefile
+config.status: creating xlators/encryption/Makefile
+config.status: creating xlators/encryption/rot-13/Makefile
+config.status: creating xlators/encryption/rot-13/src/Makefile
+config.status: creating xlators/system/Makefile
+config.status: creating xlators/system/posix-acl/Makefile
+config.status: creating xlators/system/posix-acl/src/Makefile
+config.status: creating xlators/nfs/Makefile
+config.status: creating xlators/nfs/server/Makefile
+config.status: creating xlators/nfs/server/src/Makefile
+config.status: creating xlators/mgmt/Makefile
+config.status: creating xlators/mgmt/glusterd/Makefile
+config.status: creating xlators/mgmt/glusterd/src/Makefile
+config.status: creating cli/Makefile
+config.status: creating cli/src/Makefile
+config.status: creating doc/Makefile
+config.status: creating extras/Makefile
+config.status: creating extras/init.d/Makefile
+config.status: creating extras/init.d/glusterd.plist
+config.status: creating extras/init.d/glusterd-Debian
+config.status: creating extras/init.d/glusterd-Redhat
+config.status: creating extras/init.d/glusterd-SuSE
+config.status: creating extras/systemd/Makefile
+config.status: creating extras/systemd/glusterd.service
+config.status: creating extras/benchmarking/Makefile
+config.status: creating extras/hook-scripts/Makefile
+config.status: creating extras/ocf/Makefile
+config.status: creating extras/ocf/glusterd
+config.status: creating extras/ocf/volume
+config.status: creating extras/LinuxRPM/Makefile
+config.status: creating extras/geo-rep/Makefile
+config.status: creating contrib/fuse-util/Makefile
+config.status: creating contrib/uuid/uuid_types.h
+config.status: creating glusterfs-api.pc
+config.status: creating libgfchangelog.pc
+config.status: creating api/Makefile
+config.status: creating api/src/Makefile
+config.status: creating geo-replication/Makefile
+config.status: creating geo-replication/src/Makefile
+config.status: creating geo-replication/syncdaemon/Makefile
+config.status: creating glusterfs.spec
+config.status: creating config.h
+config.status: config.h is unchanged
+config.status: executing depfiles commands
+config.status: executing libtool commands
+=== configuring in argp-standalone (/home/spandit/jenkin_gluster/glusterfs/argp-standalone)
+configure: running /bin/sh ./configure --disable-option-checking '--prefix=/usr/local'  '--enable-debug' --cache-file=/dev/null --srcdir=.
+checking for a BSD-compatible install... /bin/install -c
+checking whether build environment is sane... yes
+checking for a thread-safe mkdir -p... /bin/mkdir -p
+checking for gawk... gawk
+checking whether make sets $(MAKE)... yes
+checking whether make supports nested variables... yes
+checking for style of include used by make... GNU
+checking for gcc... gcc
+checking whether the C compiler works... yes
+checking for C compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether we are using the GNU C compiler... yes
+checking whether gcc accepts -g... yes
+checking for gcc option to accept ISO C89... none needed
+checking dependency style of gcc... gcc3
+checking how to run the C preprocessor... gcc -E
+checking for grep that handles long lines and -e... /bin/grep
+checking for egrep... /bin/grep -E
+checking for ANSI C header files... yes
+checking for sys/types.h... yes
+checking for sys/stat.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for memory.h... yes
+checking for strings.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for unistd.h... yes
+checking minix/config.h usability... no
+checking minix/config.h presence... no
+checking for minix/config.h... no
+checking whether it is safe to define __EXTENSIONS__... yes
+checking for gcc... (cached) gcc
+checking whether we are using the GNU C compiler... (cached) yes
+checking whether gcc accepts -g... (cached) yes
+checking for gcc option to accept ISO C89... (cached) none needed
+checking dependency style of gcc... (cached) gcc3
+checking whether make sets $(MAKE)... (cached) yes
+checking for ranlib... ranlib
+checking for gcc... (cached) gcc
+checking whether we are using the GNU C compiler... (cached) yes
+checking whether gcc accepts -g... (cached) yes
+checking for gcc option to accept ISO C89... (cached) none needed
+checking dependency style of gcc... (cached) gcc3
+checking for ANSI C header files... (cached) yes
+checking limits.h usability... yes
+checking limits.h presence... yes
+checking for limits.h... yes
+checking malloc.h usability... yes
+checking malloc.h presence... yes
+checking for malloc.h... yes
+checking for unistd.h... (cached) yes
+checking sysexits.h usability... yes
+checking sysexits.h presence... yes
+checking for sysexits.h... yes
+checking stdarg.h usability... yes
+checking stdarg.h presence... yes
+checking for stdarg.h... yes
+checking for an ANSI C-conforming const... yes
+checking for inline... inline
+checking for size_t... yes
+checking for __attribute__... no
+checking for working alloca.h... yes
+checking for alloca... yes
+checking for vprintf... yes
+checking for _doprnt... no
+checking for strerror... yes
+checking for sleep... yes
+checking for getpid... yes
+checking for snprintf... yes
+checking for mempcpy... yes
+checking for strndup... yes
+checking for strchrnul... yes
+checking for strcasecmp... yes
+checking for vsnprintf... yes
+checking for putc_unlocked('x', stdout)... yes
+checking for flockfile... yes
+checking for fputs_unlocked... yes
+checking for fwrite_unlocked... yes
+checking for strdup... yes
+checking for asprintf... yes
+checking whether program_invocation_name is declared... yes
+checking whether program_invocation_short_name is declared... yes
+configure: creating ./config.status
+config.status: creating Makefile
+config.status: creating config.h
+config.status: config.h is unchanged
+config.status: executing depfiles commands
+
+GlusterFS configure summary
+===========================
+FUSE client          : yes
+Infiniband verbs     : no
+epoll IO multiplex   : yes
+argp-standalone      : no
+fusermount           : yes
+readline             : yes
+georeplication       : yes
+Linux-AIO            : no
+Enable Debug         : yes
+systemtap            : yes
+Block Device backend : no
+glupy                : yes
+Use syslog           : yes
+XML output           : yes
+
+./configure completed
+make --no-print-directory --quiet all-recursive
+Making all in argp-standalone
+Making all in .
+Making all in libglusterfs
+Making all in src
+  CC     libglusterfs_la-logging.lo
+  CCLD   libglusterfs.la
+Making all in rpc
+Making all in rpc-lib
+Making all in src
+  CCLD   libgfrpc.la
+Making all in rpc-transport
+Making all in socket
+Making all in src
+  CCLD   socket.la
+Making all in xdr
+Making all in src
+  CCLD   libgfxdr.la
+Making all in api
+Making all in src
+  CCLD   libgfapi.la
+  CCLD   api.la
+Making all in xlators
+Making all in cluster
+Making all in stripe
+Making all in src
+  CCLD   stripe.la
+Making all in afr
+Making all in src
+  CCLD   afr.la
+  CCLD   pump.la
+Making all in dht
+Making all in src
+  CCLD   dht.la
+  CCLD   nufa.la
+  CCLD   switch.la
+Making all in storage
+Making all in posix
+Making all in src
+  CCLD   posix.la
+Making all in protocol
+Making all in auth
+Making all in addr
+Making all in src
+  CCLD   addr.la
+Making all in login
+Making all in src
+  CCLD   login.la
+Making all in client
+Making all in src
+  CCLD   client.la
+Making all in server
+Making all in src
+  CCLD   server.la
+Making all in performance
+Making all in write-behind
+Making all in src
+  CCLD   write-behind.la
+Making all in read-ahead
+Making all in src
+  CCLD   read-ahead.la
+Making all in io-threads
+Making all in src
+  CCLD   io-threads.la
+Making all in io-cache
+Making all in src
+  CCLD   io-cache.la
+Making all in symlink-cache
+Making all in src
+  CCLD   symlink-cache.la
+Making all in quick-read
+Making all in src
+  CCLD   quick-read.la
+Making all in md-cache
+Making all in src
+  CCLD   md-cache.la
+Making all in open-behind
+Making all in src
+  CCLD   open-behind.la
+Making all in debug
+Making all in trace
+Making all in src
+  CCLD   trace.la
+Making all in error-gen
+Making all in src
+  CCLD   error-gen.la
+Making all in io-stats
+Making all in src
+  CCLD   io-stats.la
+Making all in features
+Making all in locks
+Making all in src
+  CCLD   locks.la
+Making all in quota
+Making all in src
+  CCLD   quota.la
+Making all in read-only
+Making all in src
+  CCLD   read-only.la
+  CCLD   worm.la
+Making all in mac-compat
+Making all in src
+  CCLD   mac-compat.la
+Making all in quiesce
+Making all in src
+  CCLD   quiesce.la
+Making all in marker
+Making all in src
+  CCLD   marker.la
+Making all in index
+Making all in src
+  CCLD   index.la
+Making all in protect
+Making all in src
+  CCLD   prot_dht.la
+  CCLD   prot_client.la
+  CCLD   prot_server.la
+Making all in changelog
+Making all in src
+  CCLD   changelog.la
+Making all in lib
+Making all in src
+  CCLD   libgfchangelog.la
+Making all in gfid-access
+Making all in src
+  CCLD   gfid-access.la
+Making all in glupy
+Making all in src
+  CCLD   glupy.la
+Making all in encryption
+Making all in rot-13
+Making all in src
+  CCLD   rot-13.la
+Making all in mount
+Making all in fuse
+Making all in src
+Making all in utils
+Making all in nfs
+Making all in server
+Making all in src
+  CCLD   server.la
+Making all in mgmt
+Making all in glusterd
+Making all in src
+  CCLD   glusterd.la
+Making all in system
+Making all in posix-acl
+Making all in src
+  CCLD   posix-acl.la
+Making all in playground
+Making all in template
+Making all in src
+  CCLD   template.la
+Making all in glusterfsd
+Making all in src
+  CCLD   glusterfsd
+Making all in contrib/fuse-util
+Making all in doc
+Making all in extras
+Making all in init.d
+Making all in systemd
+Making all in benchmarking
+Making all in hook-scripts
+Making all in ocf
+Making all in LinuxRPM
+To build RPMS run 'make glusterrpms'
+Making all in geo-rep
+Making all in cli
+Making all in src
+  CCLD   gluster
+Making all in geo-replication
+Making all in syncdaemon
+Making all in src
+  CCLD   gsyncd
+make completed
+installing make
+Making install in argp-standalone
+Making install in .
+Making install in libglusterfs
+Making install in src
+ /bin/mkdir -p '/usr/local/lib'
+ /bin/sh ../../libtool --quiet  --mode=install /bin/install -c   libglusterfs.la '/usr/local/lib'
+Making install in rpc
+Making install in rpc-lib
+Making install in src
+ /bin/mkdir -p '/usr/local/lib'
+ /bin/sh ../../../libtool --quiet  --mode=install /bin/install -c   libgfrpc.la '/usr/local/lib'
+Making install in rpc-transport
+Making install in socket
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/rpc-transport'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   socket.la '/usr/local/lib/glusterfs/3git/rpc-transport'
+Making install in xdr
+Making install in src
+ /bin/mkdir -p '/usr/local/lib'
+ /bin/sh ../../../libtool --quiet  --mode=install /bin/install -c   libgfxdr.la '/usr/local/lib'
+Making install in api
+Making install in src
+ /bin/mkdir -p '/usr/local/lib'
+ /bin/sh ../../libtool --quiet  --mode=install /bin/install -c   libgfapi.la '/usr/local/lib'
+ /bin/mkdir -p '/usr/local/include/glusterfs/api'
+ /bin/install -c -m 644 glfs.h '/usr/local/include/glusterfs/api'
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/mount'
+ /bin/sh ../../libtool --quiet  --mode=install /bin/install -c   api.la '/usr/local/lib/glusterfs/3git/xlator/mount'
+Making install in xlators
+Making install in cluster
+Making install in stripe
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/cluster'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   stripe.la '/usr/local/lib/glusterfs/3git/xlator/cluster'
+Making install in afr
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/cluster'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   afr.la pump.la '/usr/local/lib/glusterfs/3git/xlator/cluster'
+Making install in dht
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/cluster'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   dht.la nufa.la switch.la '/usr/local/lib/glusterfs/3git/xlator/cluster'
+Making install in storage
+Making install in posix
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/storage'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   posix.la '/usr/local/lib/glusterfs/3git/xlator/storage'
+Making install in protocol
+Making install in auth
+Making install in addr
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/auth'
+ /bin/sh ../../../../../libtool --quiet  --mode=install /bin/install -c   addr.la '/usr/local/lib/glusterfs/3git/auth'
+Making install in login
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/auth'
+ /bin/sh ../../../../../libtool --quiet  --mode=install /bin/install -c   login.la '/usr/local/lib/glusterfs/3git/auth'
+Making install in client
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/protocol'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   client.la '/usr/local/lib/glusterfs/3git/xlator/protocol'
+Making install in server
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/protocol'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   server.la '/usr/local/lib/glusterfs/3git/xlator/protocol'
+Making install in performance
+Making install in write-behind
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/performance'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   write-behind.la '/usr/local/lib/glusterfs/3git/xlator/performance'
+Making install in read-ahead
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/performance'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   read-ahead.la '/usr/local/lib/glusterfs/3git/xlator/performance'
+Making install in io-threads
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/performance'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   io-threads.la '/usr/local/lib/glusterfs/3git/xlator/performance'
+Making install in io-cache
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/performance'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   io-cache.la '/usr/local/lib/glusterfs/3git/xlator/performance'
+Making install in symlink-cache
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/testing/performance'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   symlink-cache.la '/usr/local/lib/glusterfs/3git/xlator/testing/performance'
+Making install in quick-read
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/performance'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   quick-read.la '/usr/local/lib/glusterfs/3git/xlator/performance'
+Making install in md-cache
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/performance'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   md-cache.la '/usr/local/lib/glusterfs/3git/xlator/performance'
+Making install in open-behind
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/performance'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   open-behind.la '/usr/local/lib/glusterfs/3git/xlator/performance'
+Making install in debug
+Making install in trace
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/debug'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   trace.la '/usr/local/lib/glusterfs/3git/xlator/debug'
+Making install in error-gen
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/debug'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   error-gen.la '/usr/local/lib/glusterfs/3git/xlator/debug'
+Making install in io-stats
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/debug'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   io-stats.la '/usr/local/lib/glusterfs/3git/xlator/debug'
+Making install in features
+Making install in locks
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/features'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   locks.la '/usr/local/lib/glusterfs/3git/xlator/features'
+Making install in quota
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/features'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   quota.la '/usr/local/lib/glusterfs/3git/xlator/features'
+Making install in read-only
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/features'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   read-only.la worm.la '/usr/local/lib/glusterfs/3git/xlator/features'
+Making install in mac-compat
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/features'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   mac-compat.la '/usr/local/lib/glusterfs/3git/xlator/features'
+Making install in quiesce
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/features'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   quiesce.la '/usr/local/lib/glusterfs/3git/xlator/features'
+Making install in marker
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/features'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   marker.la '/usr/local/lib/glusterfs/3git/xlator/features'
+Making install in index
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/features'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   index.la '/usr/local/lib/glusterfs/3git/xlator/features'
+Making install in protect
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/features'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   prot_dht.la prot_client.la prot_server.la '/usr/local/lib/glusterfs/3git/xlator/features'
+Making install in changelog
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/features'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   changelog.la '/usr/local/lib/glusterfs/3git/xlator/features'
+Making install in lib
+Making install in src
+ /bin/mkdir -p '/usr/local/lib'
+ /bin/sh ../../../../../libtool --quiet  --mode=install /bin/install -c   libgfchangelog.la '/usr/local/lib'
+ /bin/mkdir -p '/usr/local/include/glusterfs/gfchangelog'
+ /bin/install -c -m 644 changelog.h '/usr/local/include/glusterfs/gfchangelog'
+Making install in gfid-access
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/features'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   gfid-access.la '/usr/local/lib/glusterfs/3git/xlator/features'
+Making install in glupy
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/features/glupy'
+ /bin/install -c -m 644 gluster.py negative.py helloworld.py debug-trace.py '/usr/local/lib/glusterfs/3git/xlator/features/glupy'
+Byte-compiling python modules...
+gluster.pynegative.pyhelloworld.pydebug-trace.py
+Byte-compiling python modules (optimized versions) ...
+gluster.pynegative.pyhelloworld.pydebug-trace.py
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/features'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   glupy.la '/usr/local/lib/glusterfs/3git/xlator/features'
+Making install in encryption
+Making install in rot-13
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/encryption'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   rot-13.la '/usr/local/lib/glusterfs/3git/xlator/encryption'
+Making install in mount
+Making install in fuse
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/mount'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   fuse.la '/usr/local/lib/glusterfs/3git/xlator/mount'
+Making install in utils
+ /bin/mkdir -p '/sbin'
+ /bin/install -c mount.glusterfs '/sbin'
+Making install in nfs
+Making install in server
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/nfs'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   server.la '/usr/local/lib/glusterfs/3git/xlator/nfs'
+Making install in mgmt
+Making install in glusterd
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/mgmt'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   glusterd.la '/usr/local/lib/glusterfs/3git/xlator/mgmt'
+Making install in system
+Making install in posix-acl
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/system'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   posix-acl.la '/usr/local/lib/glusterfs/3git/xlator/system'
+Making install in playground
+Making install in template
+Making install in src
+ /bin/mkdir -p '/usr/local/lib/glusterfs/3git/xlator/testing/features'
+ /bin/sh ../../../../libtool --quiet  --mode=install /bin/install -c   template.la '/usr/local/lib/glusterfs/3git/xlator/testing/features'
+Making install in glusterfsd
+Making install in src
+ /bin/mkdir -p '/usr/local/sbin'
+  /bin/sh ../../libtool --quiet  --mode=install /bin/install -c glusterfsd '/usr/local/sbin'
+Making install in contrib/fuse-util
+ /bin/mkdir -p '/usr/local/bin'
+  /bin/sh ../../libtool --quiet  --mode=install /bin/install -c fusermount-glusterfs '/usr/local/bin'
+Making install in doc
+ /bin/mkdir -p '/usr/local/share/man/man8'
+ /bin/install -c -m 644 glusterfs.8 mount.glusterfs.8 gluster.8 glusterd.8 glusterfsd.8 '/usr/local/share/man/man8'
+Making install in extras
+Making install in init.d
+Making install in systemd
+Making install in benchmarking
+ /bin/mkdir -p '/usr/local/share/doc/glusterfs/benchmarking'
+ /bin/install -c -m 644 rdd.c glfs-bm.c README launch-script.sh local-script.sh '/usr/local/share/doc/glusterfs/benchmarking'
+Making install in hook-scripts
+Making install in ocf
+ /bin/mkdir -p '/usr/local/lib/ocf/resource.d/glusterfs'
+ /bin/install -c glusterd volume '/usr/local/lib/ocf/resource.d/glusterfs'
+Making install in LinuxRPM
+Making install in geo-rep
+ /bin/mkdir -p '/usr/local/share/doc/glusterfs'
+ /bin/install -c -m 644 glusterfs-mode.el glusterfs.vim '/usr/local/share/doc/glusterfs'
+ /bin/mkdir -p '/usr/local/etc/glusterfs'
+ /bin/install -c -m 644 glusterfs-logrotate gluster-rsyslog-7.2.conf gluster-rsyslog-5.8.conf logger.conf.example '/usr/local/etc/glusterfs'
+ /bin/mkdir -p '/usr/local/etc/glusterfs'
+ /bin/install -c -m 644 glusterd.vol '/usr/local/etc/glusterfs'
+Making install in cli
+Making install in src
+ /bin/mkdir -p '/usr/local/sbin'
+  /bin/sh ../../libtool --quiet  --mode=install /bin/install -c gluster '/usr/local/sbin'
+Making install in geo-replication
+Making install in syncdaemon
+ /bin/mkdir -p '/usr/local/libexec/glusterfs/python/syncdaemon'
+ /bin/install -c -m 644 gconf.py gsyncd.py __init__.py master.py README.md repce.py resource.py configinterface.py syncdutils.py monitor.py libcxattr.py ../../contrib/ipaddr-py/ipaddr.py libgfchangelog.py '/usr/local/libexec/glusterfs/python/syncdaemon'
+Byte-compiling python modules...
+gconf.pygsyncd.py__init__.pymaster.pyrepce.pyresource.pyconfiginterface.pysyncdutils.pymonitor.pylibcxattr.pyipaddr.pylibgfchangelog.py
+Byte-compiling python modules (optimized versions) ...
+gconf.pygsyncd.py__init__.pymaster.pyrepce.pyresource.pyconfiginterface.pysyncdutils.pymonitor.pylibcxattr.pyipaddr.pylibgfchangelog.py
+Making install in src
+ /bin/mkdir -p '/usr/local/libexec/glusterfs'
+  /bin/sh ../../libtool --quiet  --mode=install /bin/install -c gsyncd '/usr/local/libexec/glusterfs'
+ /bin/mkdir -p '/usr/local/libexec/glusterfs'
+ /bin/install -c gverify.sh peer_add_secret_pub peer_gsec_create '/usr/local/libexec/glusterfs'
+ /bin/mkdir -p '/usr/local/lib/pkgconfig'
+ /bin/install -c -m 644 glusterfs-api.pc libgfchangelog.pc '/usr/local/lib/pkgconfig'

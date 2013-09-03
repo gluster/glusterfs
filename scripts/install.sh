@@ -10,5 +10,6 @@ echo "./configure completed"
 make -j4 CFLAGS="-ggdb -O0"
 echo "make completed"
 
+echo "installing make"
 sudo make install
-echo "installing make"                 
+               
