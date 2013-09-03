@@ -14,6 +14,8 @@
 
 #include "xlator.h"
 
+#define GLFS_SYMLINK_MAX_FOLLOW 2048
+
 struct glfs;
 
 typedef int (*glfs_init_cbk) (struct glfs *fs, int ret);
