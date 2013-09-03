@@ -6,6 +6,6 @@ then
 	echo "Build not successful"
 else
 	echo "Successful"
-	echo "The build has been successful" | mail -s "Build Result" sachinspandits@gmail.com 
+	echo "The build has been successful" | mail -s "Build Result" spandit@redhat.com
 	echo "Mail has been sent to sachinspandits@gmail.com"
 fi
