@@ -574,6 +574,8 @@ afr_find_largest_file_size (struct iatt *bufs, int32_t *success_children,
 	int i = -1;
 	int child = -1;
 	uint64_t max_size = 0;
+        uint64_t min_size = 0;
+        int      num_children = 0;
 
 	for (i = 0; i < child_count; i++) {
 		if (success_children[i] == -1)
@@ -584,8 +586,19 @@ afr_find_largest_file_size (struct iatt *bufs, int32_t *success_children,
 			max_size = bufs[child].ia_size;
 			idx = child;
 		}
+
+                if ((num_children == 0) || (bufs[child].ia_size < min_size)) {
+                        min_size = bufs[child].ia_size;
+                }
+
+                num_children++;
 	}
 
+        /* If sizes are same for all of them, finding sources will have to
+         * happen with pending changelog. So return -1
+         */
+        if ((num_children > 1) && (min_size == max_size))
+                return -1;
 	return idx;
 }
 
