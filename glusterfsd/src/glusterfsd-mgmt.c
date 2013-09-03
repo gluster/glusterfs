@@ -1200,7 +1200,7 @@ glusterfs_handle_rpc_msg (rpcsvc_request_t *req)
         return ret;
 }
 
-rpcclnt_cb_actor_t gluster_cbk_actors[] = {
+rpcclnt_cb_actor_t mgmt_cbk_actors[] = {
         [GF_CBK_FETCHSPEC] = {"FETCHSPEC", GF_CBK_FETCHSPEC, mgmt_cbk_spec },
         [GF_CBK_EVENT_NOTIFY] = {"EVENTNOTIFY", GF_CBK_EVENT_NOTIFY,
                                  mgmt_cbk_event},
@@ -1211,7 +1211,7 @@ struct rpcclnt_cb_program mgmt_cbk_prog = {
         .progname  = "GlusterFS Callback",
         .prognum   = GLUSTER_CBK_PROGRAM,
         .progver   = GLUSTER_CBK_VERSION,
-        .actors    = gluster_cbk_actors,
+        .actors    = mgmt_cbk_actors,
         .numactors = GF_CBK_MAXVALUE,
 };
 
