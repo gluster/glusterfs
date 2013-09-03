@@ -454,12 +454,19 @@ dht_layout_entry_cmp (dht_layout_t *layout, int i, int j)
 {
         int64_t diff = 0;
 
+        /* swap zero'ed out layouts to front, if needed */
+        if (!layout->list[j].start && !layout->list[j].stop) {
+                diff = (int64_t) layout->list[i].stop
+                       - (int64_t) layout->list[j].stop;
+                       goto out;
+        }
         if (layout->list[i].err || layout->list[j].err)
                 diff = layout->list[i].err - layout->list[j].err;
         else
                 diff = (int64_t) layout->list[i].start
                         - (int64_t) layout->list[j].start;
 
+out:
         return diff;
 }
 
@@ -534,13 +541,13 @@ dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
                 case -1:
                 case ENOENT:
                         missing++;
-                        break;
+                        continue;
                 case ENOTCONN:
                         down++;
-                        break;
+                        continue;
                 case ENOSPC:
                         no_space++;
-                        break;
+                        continue;
                 case 0:
                         /* if err == 0 and start == stop, then it is a non misc++;
                          * participating subvolume(spread-cnt). Then, do not
@@ -552,6 +559,7 @@ dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
                         break;
                 default:
                         misc++;
+                        continue;
                  }
 
                 is_virgin = 0;
