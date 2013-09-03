@@ -368,6 +368,16 @@ glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 			char *lpath = NULL;
 			loc_t sym_loc = {0,};
 
+			if (follow > GLFS_SYMLINK_MAX_FOLLOW) {
+				errno = ELOOP;
+				ret = -1;
+				if (inode) {
+					inode_unref (inode);
+					inode = NULL;
+				}
+				break;
+			}
+
 			ret = glfs_resolve_symlink (fs, subvol, inode, &lpath);
 			inode_unref (inode);
 			inode = NULL;
@@ -383,7 +393,7 @@ glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 					       /* always recurisvely follow while
 						  following symlink
 					       */
-					       1, reval);
+					       follow + 1, reval);
 			if (ret == 0)
 				inode = inode_ref (sym_loc.inode);
 			loc_wipe (&sym_loc);
