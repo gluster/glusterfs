@@ -3228,7 +3228,7 @@ enumerate_transport_reqs (gf_transport_type type, char **types)
         }
 }
 
-static int
+int
 generate_client_volfiles (glusterd_volinfo_t *volinfo,
                           glusterd_client_type_t client_type)
 {

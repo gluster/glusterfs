@@ -5604,17 +5604,38 @@ out:
 }
 
 int32_t
-glusterd_recreate_bricks (glusterd_conf_t *conf)
+glusterd_recreate_volfiles (glusterd_conf_t *conf)
 {
 
         glusterd_volinfo_t      *volinfo = NULL;
         int                      ret = 0;
+        int                      op_ret = 0;
 
         GF_ASSERT (conf);
         list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 ret = generate_brick_volfiles (volinfo);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_ERROR, "Failed to "
+                                "regenerate brick volfiles for %s",
+                                volinfo->volname);
+                        op_ret = ret;
+                }
+                ret = generate_client_volfiles (volinfo, GF_CLIENT_TRUSTED);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_ERROR, "Failed to "
+                                "regenerate trusted client volfiles for %s",
+                                volinfo->volname);
+                        op_ret = ret;
+                }
+                ret = generate_client_volfiles (volinfo, GF_CLIENT_OTHER);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_ERROR, "Failed to "
+                                "regenerate client volfiles for %s",
+                                volinfo->volname);
+                        op_ret = ret;
+                }
         }
-        return ret;
+        return op_ret;
 }
 
 int32_t
@@ -5624,7 +5645,7 @@ glusterd_handle_upgrade_downgrade (dict_t *options, glusterd_conf_t *conf)
         char            *type                           = NULL;
         gf_boolean_t     upgrade                        = _gf_false;
         gf_boolean_t     downgrade                      = _gf_false;
-        gf_boolean_t     regenerate_brick_volfiles      = _gf_false;
+        gf_boolean_t     regenerate_volfiles            = _gf_false;
         gf_boolean_t     terminate                      = _gf_false;
 
         ret = dict_get_str (options, "upgrade", &type);
@@ -5637,7 +5658,7 @@ glusterd_handle_upgrade_downgrade (dict_t *options, glusterd_conf_t *conf)
                         goto out;
                 }
                 if (_gf_true == upgrade)
-                        regenerate_brick_volfiles = _gf_true;
+                        regenerate_volfiles = _gf_true;
         }
 
         ret = dict_get_str (options, "downgrade", &type);
@@ -5662,8 +5683,8 @@ glusterd_handle_upgrade_downgrade (dict_t *options, glusterd_conf_t *conf)
                 ret = 0;
         else
                 terminate = _gf_true;
-        if (regenerate_brick_volfiles) {
-                ret = glusterd_recreate_bricks (conf);
+        if (regenerate_volfiles) {
+                ret = glusterd_recreate_volfiles (conf);
         }
 out:
         if (terminate && (ret == 0))
