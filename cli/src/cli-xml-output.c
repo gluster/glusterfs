@@ -1383,6 +1383,86 @@ out:
 
 #if (HAVE_LIB_XML)
 int
+cli_xml_output_remove_brick_task_params (xmlTextWriterPtr writer, dict_t *dict,
+                                         char *prefix)
+{
+        int             ret = -1;
+        char            key[1024] = {0,};
+        int             count = 0;
+        int             i = 0;
+        char            *brick = NULL;
+
+        /* <params> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"params");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        snprintf (key, sizeof (key), "%s.count", prefix);
+        ret = dict_get_int32 (dict, key, &count);
+        if (ret)
+                goto out;
+
+        for (i = 1; i <= count; i++) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.brick%d", prefix, i);
+                ret = dict_get_str (dict, key, &brick);
+                if (ret)
+                        goto out;
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"brick",
+                                                       "%s", brick);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+                brick = NULL;
+        }
+
+        /* </param> */
+        ret = xmlTextWriterEndElement (writer);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
+cli_xml_output_replace_brick_task_params (xmlTextWriterPtr writer, dict_t *dict,
+                                          char *prefix)
+{
+
+        int             ret = -1;
+        char            key[1024] = {0,};
+        char            *brick = NULL;
+
+        /* <params> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"params");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        snprintf (key, sizeof (key), "%s.src-brick", prefix);
+        ret = dict_get_str (dict, key, &brick);
+        if (ret)
+                goto out;
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"srcBrick",
+                                               "%s", brick);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.dst-brick", prefix);
+        ret = dict_get_str (dict, key, &brick);
+        if (ret)
+                goto out;
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"dstBrick",
+                                               "%s", brick);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+
+        /* </param> */
+        ret = xmlTextWriterEndElement (writer);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
 cli_xml_output_vol_status_tasks (cli_local_t *local, dict_t *dict) {
         int                     ret = -1;
         char                    *task_type = NULL;
@@ -1451,6 +1531,21 @@ cli_xml_output_vol_status_tasks (cli_local_t *local, dict_t *dict) {
 
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "task%d", i);
+                if (!strcmp (task_type, "Replace brick")) {
+                        ret = cli_xml_output_replace_brick_task_params
+                                (local->writer, dict, key);
+                        if (ret)
+                                goto out;
+                } else if (!strcmp (task_type, "Remove brick")) {
+                        ret = cli_xml_output_remove_brick_task_params
+                                (local->writer, dict, key);
+                        if (ret)
+                                goto out;
+                }
+
+
                 /* </task> */
                 ret = xmlTextWriterEndElement (local->writer);
                 XML_RET_CHECK_AND_GOTO (ret, out);
@@ -1458,7 +1553,6 @@ cli_xml_output_vol_status_tasks (cli_local_t *local, dict_t *dict) {
 
         /* </tasks> */
         ret = xmlTextWriterEndElement (local->writer);
-
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
