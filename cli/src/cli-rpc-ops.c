@@ -6406,10 +6406,12 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
                                   "status information.");
 
                 if (global_state->mode & GLUSTER_MODE_XML) {
-                       cli_xml_output_str ("volStatus", msg, rsp.op_ret,
-                                           rsp.op_errno, rsp.op_errstr);
-                       ret = 0;
-                       goto out;
+                        if (!local->all)
+                                cli_xml_output_str ("volStatus", msg,
+                                                    rsp.op_ret, rsp.op_errno,
+                                                    rsp.op_errstr);
+                        ret = 0;
+                        goto out;
                 }
 
                 cli_err ("%s", msg);
@@ -6677,12 +6679,6 @@ gf_cli_status_volume_all (call_frame_t *frame, xlator_t *this, void *data)
                 goto out;
         }
 
-        if (vol_count == 0) {
-                cli_err ("No volumes present");
-                ret = 0;
-                goto out;
-        }
-
         /* remove the "all" flag in cmd */
         cmd &= ~GF_CLI_STATUS_ALL;
         cmd |= GF_CLI_STATUS_VOL;
@@ -6695,6 +6691,12 @@ gf_cli_status_volume_all (call_frame_t *frame, xlator_t *this, void *data)
                                 "Error outputting to xml");
                         goto out;
                 }
+        }
+
+        if (vol_count == 0 && !(global_state->mode & GLUSTER_MODE_XML)) {
+                cli_err ("No volumes present");
+                ret = 0;
+                goto out;
         }
 
         for (i = 0; i < vol_count; i++) {
