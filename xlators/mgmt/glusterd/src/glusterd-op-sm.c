@@ -861,35 +861,36 @@ out:
 static int
 glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
 {
-        int                             ret                     = -1;
-        char                            *volname                = NULL;
-        int                             exists                  = 0;
-        char                            *key                    = NULL;
-        char                            *key_fixed              = NULL;
-        char                            *value                  = NULL;
-        char                            *val_dup                = NULL;
-        char                            str[100]                = {0, };
-        char                            *trash_path             = NULL;
-        int                             trash_path_len          = 0;
-        int                             count                   = 0;
-        int                             dict_count              = 0;
-        char                            errstr[PATH_MAX]        = {0, };
-        glusterd_volinfo_t              *volinfo                = NULL;
-        glusterd_brickinfo_t            *brickinfo              = NULL;
-        dict_t                          *val_dict               = NULL;
-        gf_boolean_t                    global_opt              = _gf_false;
-        glusterd_volinfo_t              *voliter                = NULL;
-        glusterd_conf_t                 *priv                   = NULL;
-        xlator_t                        *this                   = NULL;
-        uint32_t                        new_op_version          = 0;
-        uint32_t                        local_new_op_version    = 0;
-        uint32_t                        key_op_version          = 0;
-        uint32_t                        local_key_op_version    = 0;
-        gf_boolean_t                    origin_glusterd         = _gf_true;
-        gf_boolean_t                    check_op_version        = _gf_true;
-        gf_boolean_t                    trash_enabled           = _gf_false;
-        gf_boolean_t                    all_vol                 = _gf_false;
-        struct          stat            stbuf                   = {0, };
+        int                   ret                         = -1;
+        char                 *volname                     = NULL;
+        int                   exists                      = 0;
+        char                 *key                         = NULL;
+        char                 *key_fixed                   = NULL;
+        char                 *value                       = NULL;
+        char                 *val_dup                     = NULL;
+        char                  str[100]                    = {0, };
+        char                 *trash_path                  = NULL;
+        int                   trash_path_len              = 0;
+        int                   count                       = 0;
+        int                   dict_count                  = 0;
+        char                  errstr[PATH_MAX]            = {0, };
+        glusterd_volinfo_t   *volinfo                     = NULL;
+        glusterd_brickinfo_t *brickinfo                   = NULL;
+        dict_t               *val_dict                    = NULL;
+        gf_boolean_t          global_opt                  = _gf_false;
+        glusterd_volinfo_t   *voliter                     = NULL;
+        glusterd_conf_t      *priv                        = NULL;
+        xlator_t             *this                        = NULL;
+        uint32_t              new_op_version              = GD_OP_VERSION_MIN;
+        uint32_t              local_new_op_version        = GD_OP_VERSION_MIN;
+        uint32_t              local_new_client_op_version = GD_OP_VERSION_MIN;
+        uint32_t              key_op_version              = GD_OP_VERSION_MIN;
+        uint32_t              local_key_op_version        = GD_OP_VERSION_MIN;
+        gf_boolean_t          origin_glusterd             = _gf_true;
+        gf_boolean_t          check_op_version            = _gf_true;
+        gf_boolean_t          trash_enabled               = _gf_false;
+        gf_boolean_t          all_vol                     = _gf_false;
+        struct stat           stbuf                       = {0, };
 
         GF_ASSERT (dict);
         this = THIS;
@@ -1003,11 +1004,13 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 ret = glusterd_validate_volume_id (dict, volinfo);
                 if (ret)
                         goto out;
+
+                local_new_op_version = volinfo->op_version;
+                local_new_client_op_version = volinfo->client_op_version;
+
         } else {
                 all_vol = _gf_true;
         }
-
-        local_new_op_version = priv->op_version;
 
         for ( count = 1; ret != 1 ; count++ ) {
                 global_opt = _gf_false;
@@ -1166,6 +1169,9 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 local_key_op_version = glusterd_get_op_version_for_key (key);
                 if (local_key_op_version > local_new_op_version)
                         local_new_op_version = local_key_op_version;
+                if (gd_is_client_option (key) &&
+                    (local_key_op_version > local_new_client_op_version))
+                        local_new_client_op_version = local_key_op_version;
 
                 sprintf (str, "op-version%d", count);
                 if (origin_glusterd) {
@@ -1346,10 +1352,10 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 }
         }
 
-        // Check if all the connected clients support the new op-version
-        ret = glusterd_check_client_op_version_support (volname,
-                                                        local_new_op_version,
-                                                        op_errstr);
+        /* Check if all the connected clients support the new client-op-version
+         */
+        ret = glusterd_check_client_op_version_support
+                (volname, local_new_client_op_version, op_errstr);
         if (ret)
                 goto out;
 
