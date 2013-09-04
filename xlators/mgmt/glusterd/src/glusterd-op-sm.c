@@ -1901,6 +1901,105 @@ out:
 }
 
 static int
+_add_brick_name_to_dict (dict_t *dict, char *key, glusterd_brickinfo_t *brick)
+{
+        int     ret = -1;
+        char    tmp[1024] = {0,};
+        char    *brickname = NULL;
+        xlator_t *this = NULL;
+
+        GF_ASSERT (dict);
+        GF_ASSERT (key);
+        GF_ASSERT (brick);
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        snprintf (tmp, sizeof (tmp), "%s:%s", brick->hostname, brick->path);
+        brickname = gf_strdup (tmp);
+        if (!brickname) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to dup brick name");
+                goto out;
+        }
+
+        ret = dict_set_dynstr (dict, key, brickname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to add brick name to dict");
+                goto out;
+        }
+        brickname = NULL;
+out:
+        if (brickname)
+                GF_FREE (brickname);
+        return ret;
+}
+
+static int
+_add_remove_bricks_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo,
+                            char *prefix)
+{
+        int             ret = -1;
+        int             count = 0;
+        int             i = 0;
+        char            brick_key[1024] = {0,};
+        char            dict_key[1024] ={0,};
+        char            *brick = NULL;
+        xlator_t        *this = NULL;
+
+        GF_ASSERT (dict);
+        GF_ASSERT (volinfo);
+        GF_ASSERT (prefix);
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        ret = dict_get_int32 (volinfo->rebal.dict, "count", &count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to get brick count");
+                goto out;
+        }
+
+        snprintf (dict_key, sizeof (dict_key), "%s.count", prefix);
+        ret = dict_set_int32 (dict, dict_key, count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set brick count in dict");
+                goto out;
+        }
+
+        for (i = 1; i <= count; i++) {
+                memset (brick_key, 0, sizeof (brick_key));
+                snprintf (brick_key, sizeof (brick_key), "brick%d", i);
+
+                ret = dict_get_str (volinfo->rebal.dict, brick_key, &brick);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to get %s", brick_key);
+                        goto out;
+                }
+
+                memset (dict_key, 0, sizeof (dict_key));
+                snprintf (dict_key, sizeof (dict_key), "%s.%s", prefix,
+                          brick_key);
+                ret = dict_set_str (dict, dict_key, brick);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to add brick to dict");
+                        goto out;
+                }
+                brick = NULL;
+        }
+
+out:
+        return ret;
+}
+
+/* This adds the respective task-id and all available parameters of a task into
+ * a dictionary
+ */
+static int
 _add_task_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo, int op, int index)
 {
 
@@ -1917,13 +2016,34 @@ _add_task_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo, int op, int index)
         GF_ASSERT (this);
 
         switch (op) {
-        case GD_OP_REBALANCE:
         case GD_OP_REMOVE_BRICK:
+                snprintf (key, sizeof (key), "task%d", index);
+                ret = _add_remove_bricks_to_dict (dict, volinfo, key);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to add remove bricks to dict");
+                        goto out;
+                }
+        case GD_OP_REBALANCE:
                 uuid_str = gf_strdup (uuid_utoa (volinfo->rebal.rebalance_id));
                 status = volinfo->rebal.defrag_status;
                 break;
 
         case GD_OP_REPLACE_BRICK:
+                snprintf (key, sizeof (key), "task%d.src-brick", index);
+                ret = _add_brick_name_to_dict (dict, key,
+                                               volinfo->rep_brick.src_brick);
+                if (ret)
+                        goto out;
+                memset (key, 0, sizeof (key));
+
+                snprintf (key, sizeof (key), "task%d.dst-brick", index);
+                ret = _add_brick_name_to_dict (dict, key,
+                                               volinfo->rep_brick.dst_brick);
+                if (ret)
+                        goto out;
+                memset (key, 0, sizeof (key));
+
                 uuid_str = gf_strdup (uuid_utoa (volinfo->rep_brick.rb_id));
                 status = volinfo->rep_brick.rb_status;
                 break;
@@ -1936,8 +2056,7 @@ _add_task_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo, int op, int index)
         }
 
         snprintf (key, sizeof (key), "task%d.type", index);
-        ret = dict_set_str (dict, key,
-                            (char *)gd_op_list[op]);
+        ret = dict_set_str (dict, key, (char *)gd_op_list[op]);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Error setting task type in dict");
@@ -1946,7 +2065,6 @@ _add_task_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo, int op, int index)
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "task%d.id", index);
-
 
         if (!uuid_str)
                 goto out;

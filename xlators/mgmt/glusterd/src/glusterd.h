@@ -247,6 +247,8 @@ struct glusterd_rebalance_ {
         uuid_t                  rebalance_id;
         double                  rebalance_time;
         glusterd_op_t           op;
+        dict_t                  *dict; /* Dict to store misc information
+                                        * like list of bricks being removed */
 };
 
 typedef struct glusterd_rebalance_ glusterd_rebalance_t;
