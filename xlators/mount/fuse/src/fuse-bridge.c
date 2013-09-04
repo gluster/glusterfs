@@ -3836,6 +3836,40 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         fino.flags |= FUSE_DO_READDIRPLUS;
         }
 
+	if (priv->fopen_keep_cache == 2) {
+		/* If user did not explicitly set --fopen-keep-cache[=off],
+		   then check if kernel support FUSE_AUTO_INVAL_DATA and ...
+		*/
+		if (fini->flags & FUSE_AUTO_INVAL_DATA) {
+			/* ... enable fopen_keep_cache mode if supported.
+			*/
+			gf_log ("glusterfs-fuse", GF_LOG_DEBUG, "Detected "
+				"support for FUSE_AUTO_INVAL_DATA. Enabling "
+				"fopen_keep_cache automatically.");
+			fino.flags |= FUSE_AUTO_INVAL_DATA;
+			priv->fopen_keep_cache = 1;
+		} else {
+			gf_log ("glusterfs-fuse", GF_LOG_DEBUG, "No support "
+				"for FUSE_AUTO_INVAL_DATA. Disabling "
+				"fopen_keep_cache.");
+			/* ... else disable. */
+			priv->fopen_keep_cache = 0;
+		}
+	} else if (priv->fopen_keep_cache == 1) {
+		/* If user explicitly set --fopen-keep-cache[=on],
+		   then enable FUSE_AUTO_INVAL_DATA if possible.
+		*/
+		if (fini->flags & FUSE_AUTO_INVAL_DATA) {
+			gf_log ("glusterfs-fuse", GF_LOG_DEBUG, "fopen_keep_cache "
+				"is explicitly set. Enabling FUSE_AUTO_INVAL_DATA");
+			fino.flags |= FUSE_AUTO_INVAL_DATA;
+		} else {
+			gf_log ("glusterfs-fuse", GF_LOG_WARNING, "fopen_keep_cache "
+				"is explicitly set. Support for "
+				"FUSE_AUTO_INVAL_DATA is missing");
+		}
+	}
+
 	if (fini->flags & FUSE_ASYNC_DIO)
 		fino.flags |= FUSE_ASYNC_DIO;
 
@@ -5080,6 +5114,7 @@ init (xlator_t *this_xl)
         int                fsname_allocated = 0;
         glusterfs_ctx_t   *ctx = NULL;
         gf_boolean_t       sync_to_mount = _gf_false;
+        gf_boolean_t       fopen_keep_cache = _gf_false;
         unsigned long      mntflags = 0;
         char              *mnt_args = NULL;
         eh_t              *event = NULL;
@@ -5225,8 +5260,12 @@ init (xlator_t *this_xl)
                 GF_ASSERT (ret == 0);
         }
 
-        GF_OPTION_INIT("fopen-keep-cache", priv->fopen_keep_cache, bool,
-                cleanup_exit);
+	priv->fopen_keep_cache = 2;
+	if (dict_get (options, "fopen-keep-cache")) {
+		GF_OPTION_INIT("fopen-keep-cache", fopen_keep_cache, bool,
+			       cleanup_exit);
+		priv->fopen_keep_cache = fopen_keep_cache;
+	}
 
         GF_OPTION_INIT("gid-timeout", priv->gid_cache_timeout, int32,
                 cleanup_exit);

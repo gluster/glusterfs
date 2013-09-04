@@ -101,7 +101,7 @@ struct fuse_private {
         gf_boolean_t         acl;
         gf_boolean_t         selinux;
         gf_boolean_t         read_only;
-	gf_boolean_t	     fopen_keep_cache;
+	int32_t	             fopen_keep_cache;
 	int32_t		     gid_cache_timeout;
         gf_boolean_t         enable_ino32;
         fdtable_t           *fdtable;
