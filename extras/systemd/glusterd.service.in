@@ -1,6 +1,7 @@
 [Unit]
 Description=GlusterFS, a clustered file-system server
 After=network.target rpcbind.service
+Before=network-online.target
 
 [Service]
 Type=forking
