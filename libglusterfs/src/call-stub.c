@@ -2487,6 +2487,7 @@ call_resume_unwind (call_stub_t *stub)
         case GF_FOP_FTRUNCATE:
 		STUB_UNWIND (stub, ftruncate, &stub->args_cbk.prestat,
 			     &stub->args_cbk.poststat, stub->args_cbk.xdata);
+                break;
         case GF_FOP_FSTAT:
 		STUB_UNWIND (stub, fstat, &stub->args_cbk.stat,
 			     stub->args_cbk.xdata);
