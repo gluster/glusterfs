@@ -632,6 +632,7 @@ glfs_migrate_fd_safe (struct glfs *fs, xlator_t *newsubvol, fd_t *oldfd)
 		goto out;
 	}
 
+        newfd->flags = oldfd->flags;
 	fd_bind (newfd);
 out:
 	if (newinode)
