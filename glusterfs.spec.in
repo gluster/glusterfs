@@ -686,8 +686,7 @@ fi
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs*
-%config(noreplace) %{_sharedstatedir}/glusterd/glusterd.info
-%ghost %attr(0644,-,-) %{_sharedstatedir}/glusterd/glusterd.info
+%ghost %attr(0644,-,-) %config(noreplace) %{_sharedstatedir}/glusterd/glusterd.info
 %ghost %attr(0600,-,-) %{_sharedstatedir}/glusterd/options
 # This is really ugly, but I have no idea how to mark these directories in an
 # other way. They should belong to the glusterfs-server package, but don't
