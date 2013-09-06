@@ -346,16 +346,15 @@ ga_heal_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-static int
-ga_newentry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno,
-                 inode_t *inode, struct iatt *buf,
-                 struct iatt *preparent, struct iatt *postparent,
-                 dict_t *xdata)
+static int32_t
+ga_newentry_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, struct iatt *statpre,
+                         struct iatt *statpost,
+                         dict_t *xdata)
 {
-        call_frame_t *orig_frame = NULL;
+        ga_local_t *local = NULL;
 
-        orig_frame = frame->local;
+        local = frame->local;
         frame->local = NULL;
 
         /* don't worry about inode linking and other stuff. They'll happen on
@@ -363,7 +362,51 @@ ga_newentry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          */
         STACK_DESTROY (frame->root);
 
-        STACK_UNWIND_STRICT (setxattr, orig_frame, op_ret, op_errno, xdata);
+        STACK_UNWIND_STRICT (setxattr, local->orig_frame, op_ret,
+                             op_errno, xdata);
+
+        loc_wipe (&local->loc);
+        mem_put (local);
+
+        return 0;
+}
+
+static int
+ga_newentry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno,
+                 inode_t *inode, struct iatt *buf,
+                 struct iatt *preparent, struct iatt *postparent,
+                 dict_t *xdata)
+{
+        ga_local_t *local = NULL;
+        struct iatt temp_stat = {0,};
+
+        local = frame->local;
+
+        if (!local->uid && !local->gid)
+                goto done;
+
+        temp_stat.ia_uid = local->uid;
+        temp_stat.ia_gid = local->gid;
+
+        STACK_WIND (frame, ga_newentry_setattr_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->setattr, &local->loc, &temp_stat,
+                    (GF_SET_ATTR_UID | GF_SET_ATTR_GID), xdata);
+
+        return 0;
+
+done:
+        /* don't worry about inode linking and other stuff. They'll happen on
+         * the next lookup.
+         */
+        frame->local = NULL;
+        STACK_DESTROY (frame->root);
+
+        STACK_UNWIND_STRICT (setxattr, local->orig_frame, op_ret,
+                             op_errno, xdata);
+
+        loc_wipe (&local->loc);
+        mem_put (local);
 
         return 0;
 }
@@ -377,6 +420,7 @@ ga_new_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
         loc_t              tmp_loc   = {0,};
         call_frame_t      *new_frame = NULL;
         mode_t             mode      = 0;
+        ga_local_t        *local     = NULL;
 
         args = ga_newfile_parse_args (this, data);
         if (!args)
@@ -393,10 +437,16 @@ ga_new_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
         new_frame = copy_frame (frame);
         if (!new_frame)
                 goto out;
-        new_frame->local = (void *)frame;
 
-        new_frame->root->uid = args->uid;
-        new_frame->root->gid = args->gid;
+        local = mem_get0 (this->local_pool);
+        local->orig_frame = frame;
+
+        local->uid = args->uid;
+        local->gid = args->gid;
+
+        loc_copy (&local->loc, &tmp_loc);
+
+        new_frame->local = local;
 
         if (S_ISDIR (args->st_mode)) {
                 STACK_WIND (new_frame, ga_newentry_cbk,
@@ -411,7 +461,7 @@ ga_new_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
         } else {
                 /* use 07777 (4 7s) for considering the Sticky bits etc) */
                 mode = (S_IFMT & args->st_mode) |
-                        (07777 | args->args.mknod.mode);;
+                        (07777 & args->args.mknod.mode);;
 
                 STACK_WIND (new_frame, ga_newentry_cbk,
                             FIRST_CHILD(this), FIRST_CHILD(this)->fops->mknod,
@@ -1105,6 +1155,13 @@ init (xlator_t *this)
         priv->heal_args_pool = mem_pool_new (ga_heal_args_t, 512);
         if (!priv->heal_args_pool)
                 goto out;
+
+        this->local_pool = mem_pool_new (ga_local_t, 16);
+        if (!this->local_pool) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to create local_t's memory pool");
+                goto out;
+        }
 
         this->private = priv;
 
