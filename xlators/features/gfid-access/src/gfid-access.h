@@ -125,4 +125,12 @@ struct ga_private {
 };
 typedef struct ga_private ga_private_t;
 
+struct __ga_local {
+        call_frame_t *orig_frame;
+        unsigned int uid;
+        unsigned int gid;
+        loc_t loc;
+};
+typedef struct __ga_local ga_local_t;
+
 #endif /* __GFID_ACCESS_H__ */
