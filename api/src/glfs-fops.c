@@ -137,6 +137,7 @@ out:
 		glfs_fd_destroy (glfd);
 		glfd = NULL;
 	} else if (glfd) {
+                glfd->fd->flags = flags;
 		fd_bind (glfd->fd);
 		glfs_fd_bind (glfd);
 	}
@@ -414,6 +415,7 @@ out:
 		glfs_fd_destroy (glfd);
 		glfd = NULL;
 	} else if (glfd) {
+                glfd->fd->flags = flags;
 		fd_bind (glfd->fd);
 		glfs_fd_bind (glfd);
 	}
