@@ -885,7 +885,10 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                 self.write_entry_change("E", [gfid, 'MKDIR', escape(os.path.join(pargfid, bname))])
                 self.crawl(e, xtr)
             elif stat.S_ISLNK(mo):
-                self.write_entry_change("E", [gfid, 'SYMLINK', escape(os.path.join(pargfid, bname))])
+                rl = errno_wrap(os.readlink, [en], [ENOENT])
+                if isinstance(rl, int):
+                    continue
+                self.write_entry_change("E", [gfid, 'SYMLINK', escape(os.path.join(pargfid, bname)), rl])
             else:
                 # if a file has a hardlink, create a Changelog entry as 'LINK' so the slave
                 # side will decide if to create the new entry, or to create link.
