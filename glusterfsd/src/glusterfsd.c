@@ -1020,7 +1020,7 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
         case ARGP_FUSE_USE_READDIRP_KEY:
                 if (!arg)
-                        arg = "no";
+                        arg = "yes";
 
                 if (gf_string2boolean (arg, &b) == 0) {
                         if (b) {
