@@ -1644,15 +1644,6 @@ glusterd_op_add_brick (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        /* Need to reset the defrag/rebalance status accordingly */
-        switch (volinfo->rebal.defrag_status) {
-        case GF_DEFRAG_STATUS_FAILED:
-        case GF_DEFRAG_STATUS_COMPLETE:
-                volinfo->rebal.defrag_status = 0;
-        default:
-                break;
-        }
-
         ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret)
                 goto out;
