@@ -176,7 +176,7 @@ __mdc_inode_ctx_set (xlator_t *this, inode_t *inode, struct md_cache *mdc)
         uint64_t         mdc_int = 0;
 
 	mdc_int = (long) mdc;
-	ret = __inode_ctx_set2 (inode, this, &mdc_int, 0);
+	ret = __inode_ctx_set (inode, this, &mdc_int);
 
 	return ret;
 }
