@@ -2042,6 +2042,8 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         if (ret)
                 goto out;
 
+        uuid_utoa_r (MY_UUID, uuid_str);
+
         if (conf->op_version < 2) {
                 gf_log ("", GF_LOG_ERROR, "Op Version not supported.");
                 snprintf (errmsg, sizeof(errmsg), "One or more nodes do not"
