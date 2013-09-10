@@ -1810,6 +1810,13 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                 if (slavei == 3)
                         masteri = 2;
         } else if (i <= 3) {
+                if (!strcmp ((char *)words[wordcount-1], "detail")) {
+                        /* For status detail it is mandatory to provide
+                         * both master and slave */
+                        ret = -1;
+                        goto out;
+                }
+
                 /* no $s, can only be status cmd
                  * (with either a single $m before it or nothing)
                  * -- these conditions imply that i <= 3 after

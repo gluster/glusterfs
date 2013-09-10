@@ -928,7 +928,7 @@ _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
         char                          *slave_buf = NULL;
         char                          *slave_ip  = NULL;
         char                          *slave_vol = NULL;
-        char                         **errmsg    = NULL;
+        char                          *errmsg    = NULL;
         char                           conf_path[PATH_MAX] = "";
         int                           ret = -1;
         glusterd_conf_t              *priv = NULL;
@@ -950,10 +950,14 @@ _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
                 return 0;
         slave++;
 
-        ret = glusterd_get_slave_info (slave, &slave_ip, &slave_vol, errmsg);
+        ret = glusterd_get_slave_info (slave, &slave_ip, &slave_vol, &errmsg);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR,
-                        "Unable to fetch slave details.");
+                if (errmsg)
+                        gf_log ("", GF_LOG_ERROR, "Unable to fetch "
+                                "slave details. Error: %s", errmsg);
+                else
+                        gf_log ("", GF_LOG_ERROR,
+                                "Unable to fetch slave details.");
                 ret = -1;
                 goto out;
         }
@@ -1767,7 +1771,6 @@ glusterd_mountbroker_check (char **slave_ip, char **op_errstr)
 
         GF_ASSERT (slave_ip);
         GF_ASSERT (*slave_ip);
-        GF_ASSERT (op_errstr);
 
         /* Checking if hostname has user specified */
         host = strstr (*slave_ip, "@");
@@ -1786,7 +1789,8 @@ glusterd_mountbroker_check (char **slave_ip, char **op_errstr)
                         errmsg[ret] = '\0';
                         gf_log ("", GF_LOG_ERROR, "%s", errmsg);
                         ret = -1;
-                        *op_errstr = gf_strdup (errmsg);
+                        if (op_errstr)
+                                *op_errstr = gf_strdup (errmsg);
                         goto out;
                 }
 
@@ -1799,7 +1803,8 @@ glusterd_mountbroker_check (char **slave_ip, char **op_errstr)
                                         "Non-root username (%s@%s) not allowed.",
                                         username, tmp);
                         errmsg[ret] = '\0';
-                        *op_errstr = gf_strdup (errmsg);
+                        if (op_errstr)
+                                *op_errstr = gf_strdup (errmsg);
                         gf_log ("", GF_LOG_ERROR,
                                 "Non-Root username not allowed.");
                         ret = -1;
