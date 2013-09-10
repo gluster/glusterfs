@@ -73,10 +73,12 @@ struct _inode_ctx {
                 uint64_t    key;
                 xlator_t   *xl_key;
         };
+        /* if value1 is 0, then field is not set.. */
         union {
                 uint64_t    value1;
                 void       *ptr1;
         };
+        /* if value2 is 0, then field is not set.. */
         union {
                 uint64_t    value2;
                 void       *ptr2;
@@ -159,6 +161,11 @@ __inode_path (inode_t *inode, const char *name, char **bufp);
 inode_t *
 inode_from_path (inode_table_t *table, const char *path);
 
+inode_t *
+inode_resolve (inode_table_t *table, char *path);
+
+/* deal with inode ctx's both values */
+
 int
 inode_ctx_set2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
                 uint64_t *value2);
@@ -177,29 +184,66 @@ int
 inode_ctx_del2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
                 uint64_t *value2);
 
-inode_t *
-inode_resolve (inode_table_t *table, char *path);
+int
+inode_ctx_reset2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
+                  uint64_t *value2);
 
-#define __inode_ctx_set(i,x,v_p) __inode_ctx_set2(i,x,v_p,0)
-#define inode_ctx_set(i,x,v_p) inode_ctx_set2(i,x,v_p,0)
+/* deal with inode ctx's 1st value */
+
+int
+inode_ctx_set0 (inode_t *inode, xlator_t *xlator, uint64_t *value1);
+
+int
+__inode_ctx_set0 (inode_t *inode, xlator_t *xlator, uint64_t *value1);
+
+int
+inode_ctx_get0 (inode_t *inode, xlator_t *xlator, uint64_t *value1);
+int
+__inode_ctx_get0 (inode_t *inode, xlator_t *xlator, uint64_t *value1);
+
+int
+inode_ctx_reset0 (inode_t *inode, xlator_t *xlator, uint64_t *value1);
+
+/* deal with inode ctx's 2st value */
+
+int
+inode_ctx_set1 (inode_t *inode, xlator_t *xlator, uint64_t *value2);
+
+int
+__inode_ctx_set1 (inode_t *inode, xlator_t *xlator, uint64_t *value2);
+
+int
+inode_ctx_get1 (inode_t *inode, xlator_t *xlator, uint64_t *value2);
+int
+__inode_ctx_get1 (inode_t *inode, xlator_t *xlator, uint64_t *value2);
+
+int
+inode_ctx_reset1 (inode_t *inode, xlator_t *xlator, uint64_t *value2);
+
 
 static inline int
 __inode_ctx_put(inode_t *inode, xlator_t *this, uint64_t v)
 {
-        return __inode_ctx_set2 (inode, this, &v, 0);
+        return __inode_ctx_set0 (inode, this, &v);
 }
 
 static inline int
 inode_ctx_put(inode_t *inode, xlator_t *this, uint64_t v)
 {
-        return inode_ctx_set2(inode, this, &v, 0);
+        return inode_ctx_set0 (inode, this, &v);
 }
 
-#define __inode_ctx_get(i,x,v) __inode_ctx_get2(i,x,v,0)
-#define inode_ctx_get(i,x,v) inode_ctx_get2(i,x,v,0)
+#define __inode_ctx_set(i,x,v_p) __inode_ctx_set0(i,x,v_p)
+
+#define inode_ctx_set(i,x,v_p) inode_ctx_set0(i,x,v_p)
+
+#define inode_ctx_reset(i,x,v) inode_ctx_reset0(i,x,v)
+
+#define __inode_ctx_get(i,x,v) __inode_ctx_get0(i,x,v)
+
+#define inode_ctx_get(i,x,v) inode_ctx_get0(i,x,v)
 
 #define inode_ctx_del(i,x,v) inode_ctx_del2(i,x,v,0)
-
 
 gf_boolean_t
 __is_root_gfid (uuid_t gfid);
