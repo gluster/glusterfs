@@ -18,6 +18,28 @@
 #include "xlator.h"
 #include "dht-common.h"
 
+static inline int
+dht_inode_ctx_set1 (xlator_t *this, inode_t *inode, xlator_t *subvol)
+{
+        uint64_t tmp_subvol = 0;
+
+        tmp_subvol = (long)subvol;
+        return inode_ctx_set1 (inode, this, &tmp_subvol);
+}
+
+int
+dht_inode_ctx_get1 (xlator_t *this, inode_t *inode, xlator_t **subvol)
+{
+        int ret = -1;
+        uint64_t tmp_subvol = 0;
+
+        ret =  inode_ctx_get1 (inode, this, &tmp_subvol);
+        if (tmp_subvol && subvol)
+                *subvol = (xlator_t *)tmp_subvol;
+
+        return ret;
+}
+
 
 int
 dht_frame_return (call_frame_t *frame)
@@ -339,20 +361,6 @@ out:
         }
         return local;
 }
-
-
-char *
-basestr (const char *str)
-{
-        char *basestr = NULL;
-
-        basestr = strrchr (str, '/');
-        if (basestr)
-                basestr ++;
-
-        return basestr;
-}
-
 
 xlator_t *
 dht_first_up_subvol (xlator_t *this)
@@ -727,6 +735,10 @@ dht_migration_complete_check_task (void *data)
         loc_t         tmp_loc  = {0,};
         char         *path     = NULL;
         dht_conf_t   *conf     = NULL;
+        inode_t      *inode    = NULL;
+        fd_t         *iter_fd  = NULL;
+        uint64_t      tmp_subvol = 0;
+        int           open_failed = 0;
 
         this  = THIS;
         frame = data;
@@ -737,6 +749,8 @@ dht_migration_complete_check_task (void *data)
 
         if (!local->loc.inode && !local->fd)
                 goto out;
+
+        inode = (!local->fd) ? local->loc.inode : local->fd->inode;
 
         /* getxattr on cached_subvol for 'linkto' value. Do path based getxattr
          * as root:root. If a fd is already open, access check wont be done*/
@@ -800,10 +814,7 @@ dht_migration_complete_check_task (void *data)
         /* update inode ctx (the layout) */
         dht_layout_unref (this, local->layout);
 
-        if (!local->loc.inode)
-                ret = dht_layout_preset (this, dst_node, local->fd->inode);
-        else
-                ret = dht_layout_preset (this, dst_node, local->loc.inode);
+        ret = dht_layout_preset (this, dst_node, inode);
         if (ret != 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "%s: could not set preset layout for subvol %s",
@@ -821,10 +832,7 @@ dht_migration_complete_check_task (void *data)
                 goto out;
         }
 
-        if (!local->loc.inode)
-                ret = dht_layout_set (this, local->fd->inode, layout);
-        else
-                ret = dht_layout_set (this, local->loc.inode, layout);
+        ret = dht_layout_set (this, inode, layout);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "%s: failed to set the new layout",
@@ -835,41 +843,46 @@ dht_migration_complete_check_task (void *data)
         local->cached_subvol = dst_node;
         ret = 0;
 
-        if (!local->fd)
+        /* once we detect the migration complete, the inode-ctx2 is no more
+           required.. delete the ctx and also, it means, open() already
+           done on all the fd of inode */
+        ret = inode_ctx_reset1 (inode, this, &tmp_subvol);
+        if (tmp_subvol)
                 goto out;
-        /* once we detect the migration complete, the fd-ctx is no more
-           required.. delete the ctx */
-        ret = fd_ctx_del (local->fd, this, NULL);
-        if (!ret)
+
+        if (list_empty (&inode->fd_list))
                 goto out;
 
         /* perform open as root:root. There is window between linkfile
          * creation(root:root) and setattr with the correct uid/gid
          */
         SYNCTASK_SETID(0, 0);
-        /* if 'local->fd' (ie, fd based operation), send a 'open()' on
-           destination if not already done */
-        if (local->loc.inode) {
-                ret = syncop_open (dst_node, &local->loc,
-                                   local->fd->flags, local->fd);
-        } else {
-                tmp_loc.inode = local->fd->inode;
-                inode_path (local->fd->inode, NULL, &path);
-                if (path)
-                        tmp_loc.path = path;
-                ret = syncop_open (dst_node, &tmp_loc,
-                                   local->fd->flags, local->fd);
-                GF_FREE (path);
 
+        /* perform 'open()' on all the fd's present on the inode */
+        tmp_loc.inode = inode;
+        inode_path (inode, NULL, &path);
+        if (path)
+                tmp_loc.path = path;
+        list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
+                if (fd_is_anonymous (iter_fd))
+                        continue;
+
+                ret = syncop_open (dst_node, &tmp_loc,
+                                   iter_fd->flags, iter_fd);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR, "failed to open "
+                                "the fd (%p, flags=0%o) on file %s @ %s",
+                                iter_fd, iter_fd->flags, path, dst_node->name);
+                        open_failed = 1;
+                }
         }
+        GF_FREE (path);
+
         SYNCTASK_SETID (frame->root->uid, frame->root->gid);
-        if (ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "%s: failed to send open() on target file at %s",
-                        local->loc.path, dst_node->name);
+        if (open_failed) {
+                ret = -1;
                 goto out;
         }
-
         ret = 0;
 out:
 
@@ -914,6 +927,9 @@ dht_rebalance_inprogress_task (void *data)
         struct iatt   stbuf    = {0,};
         loc_t         tmp_loc  = {0,};
         dht_conf_t   *conf     = NULL;
+        inode_t      *inode    = NULL;
+        fd_t         *iter_fd  = NULL;
+        int           open_failed = 0;
 
         this  = THIS;
         frame = data;
@@ -924,6 +940,8 @@ dht_rebalance_inprogress_task (void *data)
 
         if (!local->loc.inode && !local->fd)
                 goto out;
+
+        inode = (!local->fd) ? local->loc.inode : local->fd->inode;
 
         /* getxattr on cached_subvol for 'linkto' value. Do path based getxattr
          * as root:root. If a fd is already open, access check wont be done*/
@@ -976,35 +994,47 @@ dht_rebalance_inprogress_task (void *data)
         }
 
         ret = 0;
+
+        if (list_empty (&inode->fd_list))
+                goto done;
+
         /* perform open as root:root. There is window between linkfile
          * creation(root:root) and setattr with the correct uid/gid
          */
         SYNCTASK_SETID (0, 0);
-        if (local->loc.inode) {
-                ret = syncop_open (dst_node, &local->loc,
-                                   local->fd->flags, local->fd);
-        } else {
-                tmp_loc.inode = local->fd->inode;
-                inode_path (local->fd->inode, NULL, &path);
-                if (path)
-                        tmp_loc.path = path;
-                ret = syncop_open (dst_node, &tmp_loc,
-                                   local->fd->flags, local->fd);
-                GF_FREE (path);
-        }
 
-        if (ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "%s: failed to send open() on target file at %s",
-                        local->loc.path, dst_node->name);
+        tmp_loc.inode = inode;
+        inode_path (inode, NULL, &path);
+        if (path)
+                tmp_loc.path = path;
+
+        list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
+                if (fd_is_anonymous (iter_fd))
+                        continue;
+
+                ret = syncop_open (dst_node, &tmp_loc,
+                                   iter_fd->flags, iter_fd);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR, "failed to send open "
+                                "the fd (%p, flags=0%o) on file %s @ %s",
+                                iter_fd, iter_fd->flags, path, dst_node->name);
+                        open_failed = 1;
+                }
+        }
+        GF_FREE (path);
+
+        SYNCTASK_SETID (frame->root->uid, frame->root->gid);
+
+        if (open_failed) {
+                ret = -1;
                 goto out;
         }
 
-        SYNCTASK_SETID (frame->root->uid, frame->root->gid);
-        ret = fd_ctx_set (local->fd, this, (uint64_t)(long)dst_node);
+done:
+        ret = dht_inode_ctx_set1 (this, inode, dst_node);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "%s: failed to set fd-ctx target file at %s",
+                        "%s: failed to set inode-ctx target file at %s",
                         local->loc.path, dst_node->name);
                 goto out;
         }

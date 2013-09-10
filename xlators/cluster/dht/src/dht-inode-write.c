@@ -30,6 +30,7 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         dht_local_t *local = NULL;
         int          ret   = -1;
+        xlator_t    *subvol = NULL;
 
         if (op_ret == -1 && (op_errno != ENOENT)) {
                 goto out;
@@ -66,8 +67,8 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
                 dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
 
-                ret = fd_ctx_get (local->fd, this, NULL);
-                if (!ret) {
+                ret = dht_inode_ctx_get1 (this, local->fd->inode, &subvol);
+                if (subvol) {
                         dht_writev2 (this, frame, 0);
                         return 0;
                 }
@@ -91,14 +92,10 @@ dht_writev2 (xlator_t *this, call_frame_t *frame, int op_ret)
 {
         dht_local_t  *local  = NULL;
         xlator_t     *subvol = NULL;
-        uint64_t      tmp_subvol = 0;
-        int           ret = -1;
 
         local = frame->local;
 
-        ret = fd_ctx_get (local->fd, this, &tmp_subvol);
-        if (!ret)
-                subvol = (xlator_t *)(long)tmp_subvol;
+        dht_inode_ctx_get1 (this, local->fd->inode, &subvol);
 
         if (!subvol)
                 subvol = local->cached_subvol;
@@ -173,6 +170,8 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t  *local = NULL;
         call_frame_t *prev = NULL;
         int           ret = -1;
+        xlator_t    *subvol = NULL;
+        inode_t      *inode = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -214,8 +213,9 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
                 dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
                 dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
-                ret = fd_ctx_get (local->fd, this, NULL);
-                if (!ret || !local->fd) {
+                inode = (local->fd) ? local->fd->inode : local->loc.inode;
+                dht_inode_ctx_get1 (this, inode, &subvol);
+                if (subvol) {
                         dht_truncate2 (this, frame, 0);
                         return 0;
                 }
@@ -239,16 +239,13 @@ dht_truncate2 (xlator_t *this, call_frame_t *frame, int op_ret)
 {
         dht_local_t  *local  = NULL;
         xlator_t     *subvol = NULL;
-        uint64_t      tmp_subvol = 0;
-        int           ret = -1;
+        inode_t      *inode = NULL;
 
         local = frame->local;
 
-        if (local->fd)
-                ret = fd_ctx_get (local->fd, this, &tmp_subvol);
-        if (!ret)
-                subvol = (xlator_t *)(long)tmp_subvol;
+        inode = local->fd ? local->fd->inode : local->loc.inode;
 
+        dht_inode_ctx_get1 (this, inode, &subvol);
         if (!subvol)
                 subvol = local->cached_subvol;
 
@@ -360,6 +357,7 @@ dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t  *local = NULL;
         call_frame_t *prev = NULL;
         int           ret = -1;
+        xlator_t    *subvol = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -399,8 +397,8 @@ dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
                 dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
                 dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
-                ret = fd_ctx_get (local->fd, this, NULL);
-                if (!ret) {
+                dht_inode_ctx_get1 (this, local->fd->inode, &subvol);
+                if (subvol) {
                         dht_fallocate2 (this, frame, 0);
                         return 0;
                 }
@@ -423,15 +421,10 @@ dht_fallocate2(xlator_t *this, call_frame_t *frame, int op_ret)
 {
         dht_local_t  *local  = NULL;
         xlator_t     *subvol = NULL;
-        uint64_t      tmp_subvol = 0;
-        int           ret = -1;
 
         local = frame->local;
 
-        if (local->fd)
-                ret = fd_ctx_get (local->fd, this, &tmp_subvol);
-        if (!ret)
-                subvol = (xlator_t *)(long)tmp_subvol;
+        dht_inode_ctx_get1 (this, local->fd->inode, &subvol);
 
         if (!subvol)
                 subvol = local->cached_subvol;
@@ -498,6 +491,7 @@ dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t  *local = NULL;
         call_frame_t *prev = NULL;
         int           ret = -1;
+        xlator_t    *subvol = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -537,8 +531,8 @@ dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
                 dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
                 dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
-                ret = fd_ctx_get (local->fd, this, NULL);
-                if (!ret) {
+                dht_inode_ctx_get1 (this, local->fd->inode, &subvol);
+                if (subvol) {
                         dht_discard2 (this, frame, 0);
                         return 0;
                 }
@@ -561,15 +555,10 @@ dht_discard2(xlator_t *this, call_frame_t *frame, int op_ret)
 {
         dht_local_t  *local  = NULL;
         xlator_t     *subvol = NULL;
-        uint64_t      tmp_subvol = 0;
-        int           ret = -1;
 
         local = frame->local;
 
-        if (local->fd)
-                ret = fd_ctx_get (local->fd, this, &tmp_subvol);
-        if (!ret)
-                subvol = (xlator_t *)(long)tmp_subvol;
+        dht_inode_ctx_get1 (this, local->fd->inode, &subvol);
 
         if (!subvol)
                 subvol = local->cached_subvol;
@@ -811,15 +800,13 @@ dht_setattr2 (xlator_t *this, call_frame_t *frame, int op_ret)
 {
         dht_local_t  *local  = NULL;
         xlator_t     *subvol = NULL;
-        uint64_t      tmp_subvol = 0;
-        int           ret = -1;
+        inode_t      *inode = NULL;
 
         local = frame->local;
 
-        if (local->fd)
-                ret = fd_ctx_get (local->fd, this, &tmp_subvol);
-        if (!ret)
-                subvol = (xlator_t *)(long)tmp_subvol;
+        inode = (local->fd) ? local->fd->inode : local->loc.inode;
+
+        dht_inode_ctx_get1 (this, inode, &subvol);
 
         if (!subvol)
                 subvol = local->cached_subvol;
