@@ -51,6 +51,15 @@
 %define _without_bd --disable-bd-xlator
 %endif
 
+# if you wish to compile an rpm without the qemu-block support...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without qemu-block
+%{?_without_qemu_block:%global _without_qemu_block --disable-qemu-block}
+
+%if ( 0%{?rhel} && 0%{?rhel} < 6 )
+# xlators/features/qemu-block fails to build on RHEL5, disable it
+%define _without_qemu_block --disable-qemu-block
+%endif
+
 %if ( 0%{?fedora} && 0%{?fedora} > 16 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
 %global           _with_systemd true
 %endif
@@ -139,6 +148,9 @@ BuildRequires:    systemtap-sdt-devel
 %endif
 %if ( 0%{!?_without_bd:1} )
 BuildRequires:    lvm2-devel
+%endif
+%if ( 0%{!?_without_qemu_block:1} )
+BuildRequires:    glib2-devel
 %endif
 
 Obsoletes:        hekafs <= 0.7
@@ -393,7 +405,16 @@ This package provides the api include files.
 
 %build
 ./autogen.sh
-%configure %{?_without_rdma} %{?_without_epoll} %{?_without_fusermount} %{?_without_georeplication} %{?_without_ocf} %{?_without_syslog} %{?_without_bd} %{?_without_systemtap}
+%configure \
+        %{?_without_rdma} \
+        %{?_without_epoll} \
+        %{?_without_fusermount} \
+        %{?_without_georeplication} \
+        %{?_without_ocf} \
+        %{?_without_syslog} \
+        %{?_without_bd} \
+        %{?_without_qemu_block} \
+        %{?_without_systemtap}
 
 # fix hardening and remove rpath in shlibs
 %if ( 0%{?fedora} && 0%{?fedora} > 17 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )

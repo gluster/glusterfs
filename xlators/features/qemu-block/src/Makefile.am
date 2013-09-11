@@ -74,6 +74,7 @@ noinst_HEADERS_qemu = \
 	$(CONTRIBDIR)/qemu/qmp-commands.h \
 	$(CONTRIBDIR)/qemu/trace/generated-tracers.h \
 	$(CONTRIBDIR)/qemu/include/config.h \
+	$(CONTRIBDIR)/qemu/include/glib-compat.h \
 	$(CONTRIBDIR)/qemu/include/qemu-common.h \
 	$(CONTRIBDIR)/qemu/include/trace.h \
 	$(CONTRIBDIR)/qemu/include/block/coroutine.h \
@@ -83,8 +84,13 @@ noinst_HEADERS_qemu = \
 	$(CONTRIBDIR)/qemu/include/block/blockjob.h \
 	$(CONTRIBDIR)/qemu/include/block/coroutine.h \
 	$(CONTRIBDIR)/qemu/include/block/coroutine_int.h \
+	$(CONTRIBDIR)/qemu/include/block/snapshot.h \
+	$(CONTRIBDIR)/qemu/include/exec/cpu-common.h \
+	$(CONTRIBDIR)/qemu/include/exec/hwaddr.h \
+	$(CONTRIBDIR)/qemu/include/exec/poison.h \
 	$(CONTRIBDIR)/qemu/include/fpu/softfloat.h \
 	$(CONTRIBDIR)/qemu/include/migration/migration.h \
+	$(CONTRIBDIR)/qemu/include/migration/qemu-file.h \
 	$(CONTRIBDIR)/qemu/include/migration/vmstate.h \
 	$(CONTRIBDIR)/qemu/include/monitor/monitor.h \
 	$(CONTRIBDIR)/qemu/include/monitor/readline.h \
@@ -97,6 +103,7 @@ noinst_HEADERS_qemu = \
 	$(CONTRIBDIR)/qemu/include/qapi/qmp/qerror.h \
 	$(CONTRIBDIR)/qemu/include/qapi/qmp/qfloat.h \
 	$(CONTRIBDIR)/qemu/include/qapi/qmp/qint.h \
+	$(CONTRIBDIR)/qemu/include/qapi/qmp/qjson.h \
 	$(CONTRIBDIR)/qemu/include/qapi/qmp/qlist.h \
 	$(CONTRIBDIR)/qemu/include/qapi/qmp/qobject.h \
 	$(CONTRIBDIR)/qemu/include/qapi/qmp/qstring.h \
@@ -117,6 +124,7 @@ noinst_HEADERS_qemu = \
 	$(CONTRIBDIR)/qemu/include/qemu/notify.h \
 	$(CONTRIBDIR)/qemu/include/qemu/option.h \
 	$(CONTRIBDIR)/qemu/include/qemu/option_int.h \
+	$(CONTRIBDIR)/qemu/include/qemu/osdep.h \
 	$(CONTRIBDIR)/qemu/include/qemu/queue.h \
 	$(CONTRIBDIR)/qemu/include/qemu/sockets.h \
 	$(CONTRIBDIR)/qemu/include/qemu/thread-posix.h \
