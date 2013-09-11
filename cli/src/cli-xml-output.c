@@ -2993,6 +2993,7 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict)
         uint64_t                total_failures = 0;
         char                    key[1024] = {0,};
         int                     i = 0;
+        int                     overall_status = -1;
 
         if (!dict) {
                 ret = 0;
@@ -3081,6 +3082,12 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict)
                                                        (xmlChar *)"statusStr",
                                                        "%s",
                                          cli_vol_task_status_str[status_rcd]);
+                if (-1 == overall_status)
+                        overall_status = status_rcd;
+                else if ((GF_DEFRAG_STATUS_COMPLETE == overall_status ||
+                          status_rcd > overall_status) &&
+                         (status_rcd != GF_DEFRAG_STATUS_COMPLETE))
+                        overall_status = status_rcd;
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 /* </node> */
@@ -3109,7 +3116,14 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict)
                                                "%"PRIu64, total_failures);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        // TODO : Aggregate status
+        ret = xmlTextWriterWriteFormatElement (writer,(xmlChar *)"status",
+                                               "%d", overall_status);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (writer,(xmlChar *)"statusStr",
+                                               "%s",
+                                      cli_vol_task_status_str[overall_status]);
+        XML_RET_CHECK_AND_GOTO (ret, out);
 
         /* </aggregate> */
         ret = xmlTextWriterEndElement (writer);
