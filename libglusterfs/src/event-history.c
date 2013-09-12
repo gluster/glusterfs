@@ -11,7 +11,8 @@
 #include "event-history.h"
 
 eh_t *
-eh_new (size_t buffer_size, gf_boolean_t use_buffer_once)
+eh_new (size_t buffer_size, gf_boolean_t use_buffer_once,
+        void (*destroy_buffer_data) (void *data))
 {
         eh_t *history = NULL;
         buffer_t *buffer = NULL;
@@ -22,7 +23,8 @@ eh_new (size_t buffer_size, gf_boolean_t use_buffer_once)
                 goto out;
         }
 
-        buffer = cb_buffer_new (buffer_size, use_buffer_once);
+        buffer = cb_buffer_new (buffer_size, use_buffer_once,
+                                destroy_buffer_data);
         if (!buffer) {
                 gf_log ("", GF_LOG_ERROR, "allocating circular buffer failed");
                 GF_FREE (history);

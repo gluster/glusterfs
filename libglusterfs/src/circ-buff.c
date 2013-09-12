@@ -10,6 +10,17 @@
 
 #include "circ-buff.h"
 
+void
+cb_destroy_data (circular_buffer_t *cb,
+                 void (*destroy_buffer_data) (void *data))
+{
+        if (destroy_buffer_data)
+                destroy_buffer_data (cb->data);
+        GF_FREE (cb->data);
+        return;
+}
+
+
 /* hold lock while calling this function */
 int
 __cb_add_entry_buffer (buffer_t *buffer, void *item)
@@ -29,7 +40,8 @@ __cb_add_entry_buffer (buffer_t *buffer, void *item)
                         if (buffer->cb[buffer->w_index]) {
                                 ptr = buffer->cb[buffer->w_index];
                                 if (ptr->data) {
-                                        GF_FREE (ptr->data);
+                                        cb_destroy_data (ptr,
+                                                   buffer->destroy_buffer_data);
                                         ptr->data = NULL;
                                         GF_FREE (ptr);
                                 }
@@ -131,7 +143,8 @@ cb_buffer_dump (buffer_t *buffer, void *data,
 }
 
 buffer_t *
-cb_buffer_new (size_t buffer_size, gf_boolean_t use_once)
+cb_buffer_new (size_t buffer_size, gf_boolean_t use_once,
+               void (*destroy_buffer_data) (void *data))
 {
         buffer_t    *buffer = NULL;
 
@@ -157,6 +170,7 @@ cb_buffer_new (size_t buffer_size, gf_boolean_t use_once)
         buffer->size_buffer = buffer_size;
         buffer->use_once = use_once;
         buffer->used_len = 0;
+        buffer->destroy_buffer_data = destroy_buffer_data;
         pthread_mutex_init (&buffer->lock, NULL);
 
 out:
@@ -166,12 +180,18 @@ out:
 void
 cb_buffer_destroy (buffer_t *buffer)
 {
-        int i = 0;
-
+        int                     i = 0;
+        circular_buffer_t       *ptr = NULL;
         if (buffer) {
                 if (buffer->cb) {
                         for (i = 0; i < buffer->used_len ; i++) {
-                                GF_FREE (buffer->cb[i]);
+                                ptr = buffer->cb[i];
+                                if (ptr->data) {
+                                        cb_destroy_data (ptr,
+                                                   buffer->destroy_buffer_data);
+                                        ptr->data = NULL;
+                                        GF_FREE (ptr);
+                                }
                         }
                         GF_FREE (buffer->cb);
                 }

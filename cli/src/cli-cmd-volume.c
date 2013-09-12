@@ -1918,7 +1918,7 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_status_cbk,
           "display status of all or specified volume(s)/brick"},
 
-        { "volume heal <VOLNAME> [{full | info {healed | heal-failed | split-brain}}]",
+        { "volume heal <VOLNAME> [{full | statistics |info {healed | heal-failed | split-brain}}]",
           cli_cmd_volume_heal_cbk,
           "self-heal commands on volume specified by <VOLNAME>"},
 

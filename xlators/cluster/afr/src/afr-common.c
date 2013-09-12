@@ -51,7 +51,7 @@
 
 #define AFR_ICTX_OPENDIR_DONE_MASK     0x0000000100000000ULL
 #define AFR_ICTX_READ_CHILD_MASK       0x00000000FFFFFFFFULL
-
+#define AFR_STATISTICS_HISTORY_SIZE    50
 int
 afr_lookup_done_success_action (call_frame_t *frame, xlator_t *this,
                                 gf_boolean_t fail_conflict);
@@ -1832,7 +1832,8 @@ afr_lookup_perform_self_heal (call_frame_t *frame, xlator_t *this,
 
         afr_lookup_set_self_heal_params (local, this);
         if (afr_can_self_heal_proceed (&local->self_heal, priv)) {
-                if  (afr_is_transaction_running (local))
+                if  (afr_is_transaction_running (local) &&
+                     (!local->allow_sh_for_running_transaction))
                         goto out;
 
                 reason = "lookup detected pending operations";
@@ -2427,7 +2428,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         int               call_count     = 0;
         uint64_t          ctx            = 0;
         int32_t           op_errno       = 0;
-
+        int               allow_sh       = 0;
         priv = this->private;
 
         AFR_LOCAL_ALLOC_OR_GOTO (local, out);
@@ -2498,6 +2499,11 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 
         /* By default assume ENOTCONN. On success it will be set to 0. */
         local->op_errno = ENOTCONN;
+
+        ret = dict_get_int32 (xattr_req, "allow-sh-for-running-transaction",
+                              &allow_sh);
+        dict_del (xattr_req, "allow-sh-for-running-transaction");
+        local->allow_sh_for_running_transaction = allow_sh;
 
         ret = afr_lookup_xattr_req_prepare (local, this, xattr_req, &local->loc,
                                             &gfid_req);
@@ -4425,6 +4431,16 @@ afr_priv_destroy (afr_private_t *priv)
         if (priv->shd.split_brain)
                 eh_destroy (priv->shd.split_brain);
 
+        for (i = 0; i < priv->child_count; i++)
+        {
+                if (priv->shd.statistics[i])
+                        eh_destroy (priv->shd.statistics[i]);
+        }
+
+        GF_FREE (priv->shd.statistics);
+
+        GF_FREE (priv->shd.crawl_events);
+
         GF_FREE (priv->last_event);
         if (priv->pending_key) {
                 for (i = 0; i < priv->child_count; i++)
@@ -4527,4 +4543,49 @@ afr_handle_open_fd_count (call_frame_t *frame, xlator_t *this)
                 ctx->open_fd_count = local->open_fd_count;
         }
         UNLOCK (&inode->lock);
+}
+
+int
+afr_initialise_statistics (xlator_t *this)
+{
+        afr_private_t       *priv = NULL;
+        int                 ret = -1;
+        int                 i = 0;
+        int                 child_count = 0;
+        eh_t                *stats_per_brick = NULL;
+        shd_crawl_event_t   ***shd_crawl_events = NULL;
+        priv = this->private;
+
+        priv->shd.statistics = GF_CALLOC (sizeof(eh_t *), priv->child_count,
+                                          gf_common_mt_eh_t);
+        if (!priv->shd.statistics) {
+                ret = -1;
+                goto out;
+        }
+        child_count = priv->child_count;
+        for (i=0; i < child_count ; i++) {
+                stats_per_brick = eh_new (AFR_STATISTICS_HISTORY_SIZE,
+                                          _gf_false,
+                                          _destroy_crawl_event_data);
+                if (!stats_per_brick) {
+                        ret = -1;
+                        goto out;
+                }
+                priv->shd.statistics[i] = stats_per_brick;
+
+        }
+
+        shd_crawl_events = (shd_crawl_event_t***)(&priv->shd.crawl_events);
+        *shd_crawl_events  = GF_CALLOC (sizeof(shd_crawl_event_t*),
+                                        priv->child_count,
+                                        gf_afr_mt_shd_crawl_event_t);
+
+        if (!priv->shd.crawl_events) {
+                ret = -1;
+                goto out;
+        }
+        ret = 0;
+out:
+        return ret;
+
 }

@@ -84,6 +84,33 @@ _loc_assign_gfid_path (loc_t *loc)
 }
 
 void
+_destroy_crawl_event_data (void *data)
+{
+        shd_crawl_event_t        *crawl_event = NULL;
+
+        if (!data)
+                goto out;
+
+        crawl_event = (shd_crawl_event_t *)data;
+        GF_FREE (crawl_event->start_time_str);
+        GF_FREE (crawl_event->end_time_str);
+
+out:
+        return;
+}
+
+void
+_destroy_shd_event_data (void *data)
+{
+        shd_event_t             *event = NULL;
+        if (!data)
+                goto out;
+        event = (shd_event_t*)data;
+        GF_FREE (event->path);
+out:
+        return;
+}
+void
 shd_cleanup_event (void *event)
 {
         shd_event_t *shd_event = event;
@@ -124,6 +151,123 @@ _build_index_loc (xlator_t *this, loc_t *loc, char *name, loc_t *parent)
                 loc_wipe (loc);
                 ret = -1;
         }
+        return ret;
+}
+
+int
+_add_crawl_stats_to_dict (xlator_t *this, dict_t *output, int child,
+                          shd_crawl_event_t *shd_event, struct timeval *tv)
+{
+        int             ret = 0;
+        uint64_t        count = 0;
+        char            key[256] = {0};
+        int             xl_id = 0;
+        uint64_t        healed_count = 0;
+        uint64_t        split_brain_count = 0;
+        uint64_t        heal_failed_count = 0;
+        char            *start_time_str = NULL;
+        char            *end_time_str = NULL;
+        char            *crawl_type = NULL;
+        int             progress = -1;
+
+        healed_count = shd_event->healed_count;
+        split_brain_count = shd_event->split_brain_count;
+        heal_failed_count = shd_event->heal_failed_count;
+        start_time_str = shd_event->start_time_str;
+        end_time_str = shd_event->end_time_str;
+        crawl_type = shd_event->crawl_type;
+
+        if (!start_time_str) {
+                ret = -1;
+                goto out;
+        }
+
+
+        ret = dict_get_int32 (output, this->name, &xl_id);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "xl does not have id");
+                goto out;
+        }
+
+        snprintf (key, sizeof (key), "statistics-%d-%d-count", xl_id, child);
+        ret = dict_get_uint64 (output, key, &count);
+
+        snprintf (key, sizeof (key), "statistics_healed_cnt-%d-%d-%"PRIu64,
+                  xl_id, child, count);
+        ret = dict_set_uint64(output, key, healed_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Could not add statistics_"
+                        "healed_count to outout");
+                goto out;
+         }
+        snprintf (key, sizeof (key), "statistics_sb_cnt-%d-%d-%"PRIu64,
+                  xl_id, child, count);
+        ret = dict_set_uint64 (output, key, split_brain_count);
+         if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Could not add statistics_"
+                        "split_brain_count to outout");
+                goto out;
+        }
+        snprintf (key, sizeof (key), "statistics_crawl_type-%d-%d-%"PRIu64,
+                  xl_id, child, count);
+        ret = dict_set_dynstr (output, key, gf_strdup (crawl_type));
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Could not add statistics_"
+                        "crawl_type to output");
+                goto out;
+        }
+        snprintf (key, sizeof (key), "statistics_heal_failed_cnt-%d-%d-%"PRIu64,
+                  xl_id, child, count);
+        ret = dict_set_uint64 (output, key, heal_failed_count);
+         if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Could not add statistics_"
+                        "healed_failed_count to outout");
+                goto out;
+        }
+        snprintf (key, sizeof (key), "statistics_strt_time-%d-%d-%"PRIu64,
+                  xl_id, child, count);
+        ret = dict_set_dynstr (output, key, gf_strdup(start_time_str));
+
+         if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Could not add statistics_"
+                        "crawl_start_time to outout");
+                goto out;
+        }
+
+        snprintf (key, sizeof (key), "statistics_end_time-%d-%d-%"PRIu64,
+                  xl_id, child, count);
+
+        if (!end_time_str)
+                end_time_str = "Could not determine the end time";
+        ret = dict_set_dynstr (output, key, gf_strdup(end_time_str));
+         if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Could not add statistics_"
+                        "crawl_end_time to outout");
+                goto out;
+        }
+        snprintf (key, sizeof (key), "statistics_inprogress-%d-%d-%"PRIu64,
+                  xl_id, child, count);
+
+        if (shd_event->crawl_inprogress == _gf_true)
+                progress = 1;
+        else
+                progress = 0;
+
+        ret = dict_set_int32 (output, key, progress);
+         if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Could not add statistics_"
+                        "inprogress to outout");
+                goto out;
+        }
+
+         snprintf (key, sizeof (key), "statistics-%d-%d-count",xl_id, child);
+         ret = dict_set_uint64 (output, key, count + 1);
+         if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Could not increment the "
+                        "counter.");
+                goto out;
+         }
+out:
         return ret;
 }
 
@@ -233,6 +377,20 @@ out:
 }
 
 int
+_add_crawl_event_statistics_to_dict (circular_buffer_t *cb, void *data)
+{
+        int               ret = 0;
+        shd_dump_t        *dump_data = NULL;
+        shd_crawl_event_t *shd_event = NULL;
+
+        dump_data = data;
+        shd_event = cb->data;
+        ret = _add_crawl_stats_to_dict (dump_data->this, dump_data->dict,
+                                        dump_data->child, shd_event, &cb->tv);
+        return ret;
+}
+
+int
 _add_eh_to_dict (xlator_t *this, eh_t *eh, dict_t *dict, int child)
 {
         shd_dump_t dump_data = {0};
@@ -242,6 +400,26 @@ _add_eh_to_dict (xlator_t *this, eh_t *eh, dict_t *dict, int child)
         dump_data.child = child;
         eh_dump (eh, &dump_data, _add_event_to_dict);
         return 0;
+}
+
+
+int
+_add_statistics_to_dict (xlator_t *this, dict_t *dict, int child)
+{
+        shd_dump_t              dump_data = {0};
+        afr_private_t           *priv  = NULL;
+        afr_self_heald_t        *shd = NULL;
+
+        priv = this->private;
+        shd = &priv->shd;
+
+        dump_data.this = this;
+        dump_data.dict = dict;
+        dump_data.child = child;
+        eh_dump (shd->statistics[child], &dump_data,
+                 _add_crawl_event_statistics_to_dict);
+        return 0;
+
 }
 
 void
@@ -307,16 +485,18 @@ _crawl_post_sh_action (xlator_t *this, loc_t *parent, loc_t *child,
                        int32_t op_ret, int32_t op_errno, dict_t *xattr_rsp,
                        afr_crawl_data_t *crawl_data)
 {
-        int              ret = 0;
-        afr_private_t    *priv = NULL;
-        afr_self_heald_t *shd = NULL;
-        eh_t             *eh = NULL;
-        char             *path = NULL;
-        char             gfid_str[64] = {0};
-        shd_event_t      *event = NULL;
-        int32_t          sh_failed = 0;
-        gf_boolean_t     split_brain = 0;
-        int32_t          actual_sh_done = 0;
+        int                ret = 0;
+        afr_private_t      *priv = NULL;
+        afr_self_heald_t   *shd = NULL;
+        eh_t               *eh = NULL;
+        char               *path = NULL;
+        char               gfid_str[64] = {0};
+        shd_event_t        *event = NULL;
+        int32_t            sh_failed = 0;
+        gf_boolean_t       split_brain = 0;
+        int32_t            actual_sh_done = 0;
+        shd_crawl_event_t  **shd_crawl_event = NULL;
+
         priv = this->private;
         shd  = &priv->shd;
         if (crawl_data->crawl == INDEX) {
@@ -343,16 +523,19 @@ _crawl_post_sh_action (xlator_t *this, loc_t *parent, loc_t *child,
                 ret = dict_get_int32 (xattr_rsp, "actual-sh-done", &actual_sh_done);
         }
 
-        split_brain = afr_is_split_brain (this, child->inode);
+        shd_crawl_event = (shd_crawl_event_t**)(shd->crawl_events);
 
+        split_brain = afr_is_split_brain (this, child->inode);
         if ((op_ret < 0 && op_errno == EIO) || split_brain) {
                 eh = shd->split_brain;
+                shd_crawl_event[crawl_data->child]->split_brain_count += 1;
         } else if ((op_ret < 0) || sh_failed) {
                 eh = shd->heal_failed;
+                shd_crawl_event[crawl_data->child]->heal_failed_count += 1;
         } else if (actual_sh_done == 1) {
-                      eh = shd->healed;
+                eh = shd->healed;
+                shd_crawl_event[crawl_data->child]->healed_count += 1;
         }
-
         ret = -1;
 
         if (eh != NULL) {
@@ -408,10 +591,20 @@ _self_heal_entry (xlator_t *this, afr_crawl_data_t *crawl_data, gf_dirent_t *ent
         struct iatt      parentbuf = {0};
         int              ret = 0;
         dict_t           *xattr_rsp = NULL;
+        dict_t           *xattr_req = NULL;
+
+        xattr_req = dict_new ();
+        if (!xattr_req) {
+                errno = ENOMEM;
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_int32 (xattr_req, "allow-sh-for-running-transaction", 1);
 
         gf_log (this->name, GF_LOG_DEBUG, "lookup %s", child->path);
 
-        ret = syncop_lookup (this, child, NULL,
+        ret = syncop_lookup (this, child, xattr_req,
                              iattr, &xattr_rsp, &parentbuf);
         _crawl_post_sh_action (this, parent, child, ret, errno, xattr_rsp,
                                crawl_data);
@@ -420,6 +613,9 @@ _self_heal_entry (xlator_t *this, afr_crawl_data_t *crawl_data, gf_dirent_t *ent
         if (ret == 0)
                 ret = _link_inode_update_loc (this, child, iattr);
 
+out:
+        if (xattr_req)
+                dict_unref(xattr_req);
         return ret;
 }
 
@@ -567,8 +763,103 @@ _get_index_summary_on_local_subvols (xlator_t *this, dict_t *output)
         return _do_crawl_op_on_local_subvols (this, INDEX, INFO, output);
 }
 
+void
+afr_fill_completed_crawl_statistics_to_dict (xlator_t *this, dict_t *dict)
+{
+        afr_private_t           *priv  = NULL;
+        afr_self_heald_t        *shd = NULL;
+        int                     i = 0;
+        priv = this->private;
+        shd= &priv->shd;
+        for (i = 0; i < priv->child_count; i++) {
+                if (shd->pos[i] != AFR_POS_LOCAL)
+                        continue;
+                _add_statistics_to_dict (this, dict, i);
+        }
+
+        return ;
+}
+
+static void
+reset_crawl_event (shd_crawl_event_t *crawl_event)
+{
+    crawl_event->healed_count = 0;
+    crawl_event->split_brain_count = 0;
+    crawl_event->heal_failed_count = 0;
+    GF_FREE (crawl_event->start_time_str);
+    crawl_event->start_time_str = NULL;
+    crawl_event->end_time_str = NULL;
+    crawl_event->crawl_type = NULL;
+    crawl_event->crawl_inprogress = _gf_false;
+    return;
+}
+
+static void
+afr_copy_crawl_event_struct (shd_crawl_event_t *src, shd_crawl_event_t *dst)
+{
+        dst->healed_count = src->healed_count;
+        dst->split_brain_count = src->split_brain_count;
+        dst->heal_failed_count = src->heal_failed_count;
+        dst->start_time_str = gf_strdup (src->start_time_str);
+        dst->end_time_str = "Crawl is already in progress";
+        dst->crawl_type = src->crawl_type;
+        dst->crawl_inprogress = _gf_true;
+        return;
+}
+
+static int
+afr_fill_crawl_statistics_of_running_crawl(xlator_t *this, dict_t *dict)
+{
+        shd_crawl_event_t       *evnt = NULL;
+        int                     ret = 0;
+        afr_private_t           *priv = NULL;
+        afr_self_heald_t        *shd = NULL;
+        int                     i = 0;
+        priv = this->private;
+        shd = &priv->shd;
+
+        evnt = GF_CALLOC (1, sizeof (shd_crawl_event_t),
+                          gf_afr_mt_shd_crawl_event_t);
+        if (!evnt) {
+                ret = -1;
+                goto out;
+        }
+        LOCK (&priv->lock);
+        {
+                for (i = 0; i < priv->child_count; i++) {
+                        if (shd->pos[i] != AFR_POS_LOCAL)
+                                continue;
+
+                        reset_crawl_event (evnt);
+
+                        if (!shd->crawl_events[i]) {
+                                continue;
+                        }
+
+                        afr_copy_crawl_event_struct (shd->crawl_events[i],
+                                                     evnt);
+                        _add_crawl_stats_to_dict (this, dict, i, evnt, NULL);
+
+                }
+        }
+        UNLOCK (&priv->lock);
+        reset_crawl_event (evnt);
+        GF_FREE (evnt);
+
+out:
+        return ret;
+}
+
+static int
+_add_local_subvols_crawl_statistics_to_dict (xlator_t *this, dict_t *dict)
+{
+        int ret = 0;
+        afr_fill_completed_crawl_statistics_to_dict (this, dict);
+        ret = afr_fill_crawl_statistics_of_running_crawl (this, dict);
+        return ret;
+}
 int
-_add_all_subvols_eh_to_dict (xlator_t *this, eh_t *eh, dict_t *dict)
+_add_local_subvols_eh_to_dict (xlator_t *this, eh_t *eh, dict_t *dict)
 {
         afr_private_t           *priv = NULL;
         afr_self_heald_t        *shd = NULL;
@@ -618,15 +909,18 @@ afr_xl_op (xlator_t *this, dict_t *input, dict_t *output)
                 ret = 0;
                 break;
         case GF_AFR_OP_HEALED_FILES:
-                ret = _add_all_subvols_eh_to_dict (this, shd->healed, output);
+                ret = _add_local_subvols_eh_to_dict (this, shd->healed, output);
                 break;
         case GF_AFR_OP_HEAL_FAILED_FILES:
-                ret = _add_all_subvols_eh_to_dict (this, shd->heal_failed,
+                ret = _add_local_subvols_eh_to_dict (this, shd->heal_failed,
                                                    output);
                 break;
         case GF_AFR_OP_SPLIT_BRAIN_FILES:
-                ret = _add_all_subvols_eh_to_dict (this, shd->split_brain,
+                ret = _add_local_subvols_eh_to_dict (this, shd->split_brain,
                                                    output);
+                break;
+        case GF_AFR_OP_STATISTICS:
+                ret = _add_local_subvols_crawl_statistics_to_dict (this, output);
                 break;
         default:
                 gf_log (this->name, GF_LOG_ERROR, "Unknown set op %d", op);
@@ -1147,6 +1441,95 @@ out:
         return ret;
 }
 
+char *
+get_crawl_type_in_string (afr_crawl_type_t crawl)
+{
+        char    *index = "INDEX";
+        char    *full  = "FULL";
+        char    *crawl_type = NULL;
+
+        if (crawl == INDEX){
+                crawl_type = index;
+        } else if (crawl == FULL) {
+                crawl_type = full;
+        }
+
+        return  crawl_type;
+}
+
+static int
+afr_allocate_crawl_event (xlator_t *this, int child, afr_crawl_type_t crawl)
+{
+        afr_private_t           *priv = NULL;
+        afr_self_heald_t        *shd = NULL;
+        int                     ret = 0;
+        shd_crawl_event_t       *crawl_event = NULL;
+        time_t                  get_time = 0;
+
+        priv = this->private;
+        shd = &priv->shd;
+
+        crawl_event = GF_CALLOC (sizeof (shd_crawl_event_t), 1,
+                                 gf_afr_mt_shd_crawl_event_t);
+        if (!crawl_event) {
+                ret = -1;
+                goto out;
+        }
+
+        get_time =  time(NULL);
+        if (get_time == ((time_t)-1)) {
+                 ret = -1;
+                goto out;
+        }
+
+        crawl_event->start_time_str = gf_strdup (ctime(&get_time));
+
+        crawl_event->crawl_type = get_crawl_type_in_string (crawl);
+        if (!crawl_event->crawl_type) {
+                ret = -1;
+                goto out;
+        }
+        LOCK (&priv->lock);
+        {
+                shd->crawl_events[child] = crawl_event;
+        }
+        UNLOCK (&priv->lock);
+        ret = 0;
+out:
+        return ret;
+
+}
+
+static int
+afr_put_crawl_event_in_eh (xlator_t *this, int child)
+{
+        afr_private_t           *priv = NULL;
+        afr_self_heald_t        *shd = NULL;
+        int                     ret = 0;
+        time_t                  get_time = 0;
+        shd_crawl_event_t       **crawl_event = NULL;
+
+        priv = this->private;
+        shd = &priv->shd;
+
+        get_time = time(NULL);
+        if (get_time == ((time_t)-1)) {
+                ret = -1;
+                goto out;
+        }
+        crawl_event = (shd_crawl_event_t**)shd->crawl_events;
+        LOCK (&priv->lock);
+        {
+                crawl_event[child]->end_time_str = gf_strdup (ctime(&get_time));
+                ret = eh_save_history (shd->statistics[child],
+                                       crawl_event[child]);
+                crawl_event[child] = NULL;
+        }
+        UNLOCK (&priv->lock);
+out:
+        return ret;
+}
+
 static int
 afr_dir_exclusive_crawl (void *data)
 {
@@ -1182,7 +1565,15 @@ afr_dir_exclusive_crawl (void *data)
         }
 
         do {
+                ret = afr_allocate_crawl_event (this, child, crawl_data->crawl);
+                if (ret)
+                        goto out;
                 afr_dir_crawl (data);
+
+                ret = afr_put_crawl_event_in_eh (this, child);
+                if (ret < 0)
+                        goto out;
+
                 LOCK (&priv->lock);
                 {
                         if (shd->pending[child] != NONE) {

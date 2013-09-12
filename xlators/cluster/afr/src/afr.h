@@ -98,17 +98,19 @@ typedef enum {
 } afr_crawl_type_t;
 
 typedef struct afr_self_heald_ {
-        gf_boolean_t     enabled;
-        gf_boolean_t     iamshd;
-        afr_crawl_type_t *pending;
-        gf_boolean_t     *inprogress;
-        afr_child_pos_t  *pos;
-        gf_timer_t       **timer;
-        eh_t             *healed;
-        eh_t             *heal_failed;
-        eh_t             *split_brain;
-        char             *node_uuid;
-        int              timeout;
+        gf_boolean_t            enabled;
+        gf_boolean_t            iamshd;
+        afr_crawl_type_t        *pending;
+        gf_boolean_t            *inprogress;
+        afr_child_pos_t         *pos;
+        gf_timer_t              **timer;
+        eh_t                    *healed;
+        eh_t                    *heal_failed;
+        eh_t                    *split_brain;
+        eh_t                    **statistics;
+        void                    **crawl_events;
+        char                    *node_uuid;
+        int                     timeout;
 } afr_self_heald_t;
 
 typedef struct _afr_private {
@@ -494,20 +496,23 @@ typedef struct _afr_local {
         int      optimistic_change_log;
 	gf_boolean_t      delayed_post_op;
 
+
 	/* Is the current writev() going to perform a stable write?
 	   i.e, is fd->flags or @flags writev param have O_SYNC or
 	   O_DSYNC?
 	*/
-	gf_boolean_t      stable_write;
+        gf_boolean_t      stable_write;
 
-	/* This write appended to the file. Nnot necessarily O_APPEND,
-	   just means the offset of write was at the end of file.
-	*/
-	gf_boolean_t      append_write;
+        /* This write appended to the file. Nnot necessarily O_APPEND,
+           just means the offset of write was at the end of file.
+        */
+        gf_boolean_t      append_write;
 
-        /*
-          This struct contains the arguments for the "continuation"
-          (scheme-like) of fops
+        int allow_sh_for_running_transaction;
+
+
+        /* This struct contains the arguments for the "continuation"
+           (scheme-like) of fops
         */
 
         int   op;

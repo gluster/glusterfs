@@ -4215,6 +4215,7 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
         return ret;
 }
 
+
 static int
 glusterd_bricks_select_stop_volume (dict_t *dict, char **op_errstr,
                                     struct list_head *selected)

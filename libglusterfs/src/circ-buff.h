@@ -38,7 +38,7 @@ struct _buffer {
         /* indicates the amount of circular buffer used. */
 
         circular_buffer_t **cb;
-
+        void (*destroy_buffer_data) (void *data);
         pthread_mutex_t   lock;
 };
 
@@ -51,7 +51,8 @@ void
 cb_buffer_show (buffer_t *buffer);
 
 buffer_t *
-cb_buffer_new (size_t buffer_size,gf_boolean_t use_buffer_once);
+cb_buffer_new (size_t buffer_size,gf_boolean_t use_buffer_once,
+               void (*destroy_data) (void *data));
 
 void
 cb_buffer_destroy (buffer_t *buffer);

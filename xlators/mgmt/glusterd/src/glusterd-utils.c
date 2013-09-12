@@ -7279,6 +7279,77 @@ out:
 }
 
 int
+_heal_volume_add_shd_rsp_of_statistics (dict_t *this, char *key, data_t
+                                             *value, void *data)
+{
+        char                            new_key[256] = {0,};
+        char                            int_str[16] = {0,};
+        char                            key_begin_string[128] = {0,};
+        data_t                          *new_value = NULL;
+        char                            *rxl_end = NULL;
+        char                            *rxl_child_end = NULL;
+        glusterd_volinfo_t              *volinfo = NULL;
+        char                            *key_begin_str = NULL;
+        int                             rxl_id = 0;
+        int                             rxl_child_id = 0;
+        int                             brick_id = 0;
+        int                             int_len = 0;
+        int                             ret = 0;
+        glusterd_heal_rsp_conv_t        *rsp_ctx = NULL;
+        glusterd_brickinfo_t            *brickinfo = NULL;
+
+        rsp_ctx = data;
+        key_begin_str = strchr (key, '-');
+        if (!key_begin_str)
+                goto out;
+
+        int_len = strlen (key) - strlen (key_begin_str);
+        strncpy (key_begin_string, key, int_len);
+        key_begin_string[int_len] = '\0';
+
+        rxl_end = strchr (key_begin_str + 1, '-');
+        if (!rxl_end)
+                goto out;
+
+        int_len = strlen (key_begin_str) - strlen (rxl_end) - 1;
+        strncpy (int_str, key_begin_str + 1, int_len);
+        int_str[int_len] = '\0';
+        ret = gf_string2int (int_str, &rxl_id);
+        if (ret)
+                goto out;
+
+
+        rxl_child_end = strchr (rxl_end + 1, '-');
+        if (!rxl_child_end)
+                goto out;
+
+        int_len = strlen (rxl_end) - strlen (rxl_child_end) - 1;
+        strncpy (int_str, rxl_end + 1, int_len);
+        int_str[int_len] = '\0';
+        ret = gf_string2int (int_str, &rxl_child_id);
+        if (ret)
+                goto out;
+
+        volinfo = rsp_ctx->volinfo;
+        brick_id = rxl_id * volinfo->replica_count + rxl_child_id;
+
+        brickinfo = glusterd_get_brickinfo_by_position (volinfo, brick_id);
+        if (!brickinfo)
+                goto out;
+        if (!glusterd_is_local_brick (rsp_ctx->this, volinfo, brickinfo))
+                goto out;
+
+        new_value = data_copy (value);
+        snprintf (new_key, sizeof (new_key), "%s-%d%s", key_begin_string,
+                  brick_id, rxl_child_end);
+        dict_set (rsp_ctx->dict, new_key, new_value);
+
+out:
+        return 0;
+
+}
+
+int
 glusterd_heal_volume_brick_rsp (dict_t *req_dict, dict_t *rsp_dict,
                                 dict_t *op_ctx, char **op_errstr)
 {
@@ -7286,6 +7357,7 @@ glusterd_heal_volume_brick_rsp (dict_t *req_dict, dict_t *rsp_dict,
         glusterd_heal_rsp_conv_t        rsp_ctx = {0};
         char                            *volname = NULL;
         glusterd_volinfo_t              *volinfo = NULL;
+        int                             heal_op = -1;
 
         GF_ASSERT (rsp_dict);
         GF_ASSERT (op_ctx);
@@ -7297,6 +7369,13 @@ glusterd_heal_volume_brick_rsp (dict_t *req_dict, dict_t *rsp_dict,
                 goto out;
         }
 
+        ret = dict_get_int32 (req_dict, "heal-op", &heal_op);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get heal_op");
+                goto out;
+        }
+
+
         ret  = glusterd_volinfo_find (volname, &volinfo);
 
         if (ret)
@@ -7305,7 +7384,11 @@ glusterd_heal_volume_brick_rsp (dict_t *req_dict, dict_t *rsp_dict,
         rsp_ctx.dict = op_ctx;
         rsp_ctx.volinfo = volinfo;
         rsp_ctx.this = THIS;
-        dict_foreach (rsp_dict, _heal_volume_add_shd_rsp, &rsp_ctx);
+        if (heal_op == GF_AFR_OP_STATISTICS)
+                dict_foreach (rsp_dict, _heal_volume_add_shd_rsp_of_statistics,
+                              &rsp_ctx);
+        else
+                dict_foreach (rsp_dict, _heal_volume_add_shd_rsp, &rsp_ctx);
 
 out:
         return ret;
