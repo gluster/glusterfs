@@ -2509,6 +2509,11 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
                         ret = dict_set_int32 (dict, "heal-op",
                                               GF_AFR_OP_HEAL_FULL);
                         goto done;
+                } else if (!strcmp (words[3], "statistics")) {
+                        ret = dict_set_int32 (dict, "heal-op",
+                                              GF_AFR_OP_STATISTICS);
+                        goto done;
+
                 } else if (!strcmp (words[3], "info")) {
                         ret = dict_set_int32 (dict, "heal-op",
                                               GF_AFR_OP_INDEX_SUMMARY);

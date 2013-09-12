@@ -29,6 +29,19 @@ typedef struct afr_crawl_data_ {
                               struct iatt *iattr);
 } afr_crawl_data_t;
 
+typedef struct crawl_event_stats_ {
+        uint64_t healed_count;
+        uint64_t split_brain_count;
+        uint64_t heal_failed_count;
+        char     *start_time_str;
+        char     *end_time_str;
+        char     *crawl_type;
+        gf_boolean_t crawl_inprogress;
+} shd_crawl_event_t;
+
+void _destroy_crawl_event_data (void *data);
+void _destroy_shd_event_data (void *data);
+
 typedef int (*process_entry_cbk_t) (xlator_t *this, afr_crawl_data_t *crawl_data,
                               gf_dirent_t *entry, loc_t *child, loc_t *parent,
                               struct iatt *iattr);

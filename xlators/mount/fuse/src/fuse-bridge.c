@@ -5355,7 +5355,7 @@ init (xlator_t *this_xl)
         if (priv->fd == -1)
                 goto cleanup_exit;
 
-        event = eh_new (FUSE_EVENT_HISTORY_SIZE, _gf_false);
+        event = eh_new (FUSE_EVENT_HISTORY_SIZE, _gf_false, NULL);
         if (!event) {
                 gf_log (this_xl->name, GF_LOG_ERROR,
                         "could not create a new event history");

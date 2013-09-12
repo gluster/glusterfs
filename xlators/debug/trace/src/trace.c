@@ -3134,7 +3134,7 @@ init (xlator_t *this)
         gf_log (this->name, GF_LOG_DEBUG, "logging to history %s",
                 (conf->log_history == _gf_true)?"enabled":"disabled");
 
-        history = eh_new (history_size, _gf_false);
+        history = eh_new (history_size, _gf_false, NULL);
         if (!history) {
                 gf_log (this->name, GF_LOG_ERROR, "event history cannot be "
                         "initialized");

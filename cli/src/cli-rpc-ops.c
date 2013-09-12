@@ -6953,6 +6953,97 @@ gf_cli_umount (call_frame_t *frame, xlator_t *this, void *data)
 }
 
 void
+cmd_heal_volume_statistics_out (dict_t *dict, int  brick)
+{
+
+        uint64_t        num_entries = 0;
+        int             ret = 0;
+        char            key[256] = {0};
+        char            *hostname = NULL;
+        uint64_t        i = 0;
+        uint64_t        healed_count = 0;
+        uint64_t        split_brain_count = 0;
+        uint64_t        heal_failed_count = 0;
+        char            *start_time_str = NULL;
+        char            *end_time_str = NULL;
+        char            *crawl_type = NULL;
+        int             progress = -1;
+
+        snprintf (key, sizeof key, "%d-hostname", brick);
+        ret = dict_get_str (dict, key, &hostname);
+        if (ret)
+                goto out;
+        cli_out ("------------------------------------------------");
+        cli_out ("\nCrawl statistics for brick no %d", brick);
+        cli_out ("Hostname of brick %s", hostname);
+
+        snprintf (key, sizeof key, "statistics-%d-count", brick);
+        ret = dict_get_uint64 (dict, key, &num_entries);
+        if (ret)
+                goto out;
+
+        for (i = 0; i < num_entries; i++)
+        {
+                snprintf (key, sizeof key, "statistics_crawl_type-%d-%"PRIu64,
+                          brick, i);
+                ret = dict_get_str (dict, key, &crawl_type);
+                if (ret)
+                        goto out;
+
+                snprintf (key, sizeof key, "statistics_healed_cnt-%d-%"PRIu64,
+                          brick,i);
+                ret = dict_get_uint64 (dict, key, &healed_count);
+                if (ret)
+                        goto out;
+
+                snprintf (key, sizeof key, "statistics_sb_cnt-%d-%"PRIu64,
+                          brick, i);
+                ret = dict_get_uint64 (dict, key, &split_brain_count);
+                if (ret)
+                        goto out;
+                snprintf (key, sizeof key, "statistics_heal_failed_cnt-%d-%"PRIu64,
+                          brick, i);
+                ret = dict_get_uint64 (dict, key, &heal_failed_count);
+                if (ret)
+                        goto out;
+                snprintf (key, sizeof key, "statistics_strt_time-%d-%"PRIu64,
+                          brick, i);
+                ret = dict_get_str (dict, key,  &start_time_str);
+                if (ret)
+                        goto out;
+                snprintf (key, sizeof key, "statistics_end_time-%d-%"PRIu64,
+                          brick, i);
+                ret = dict_get_str (dict, key, &end_time_str);
+                if (ret)
+                        goto out;
+                snprintf (key, sizeof key, "statistics_inprogress-%d-%"PRIu64,
+                          brick, i);
+                ret = dict_get_int32 (dict, key, &progress);
+                if (ret)
+                        goto out;
+
+                cli_out ("\nStarting time of crawl: %s", start_time_str);
+                if (progress == 1)
+                        cli_out ("Crawl is in progress");
+                else
+                        cli_out ("Ending time of crawl: %s", end_time_str);
+
+                cli_out ("Type of crawl: %s", crawl_type);
+                cli_out ("No. of entries healed: %"PRIu64,
+                         healed_count);
+                cli_out ("No. of entries in split-brain: %"PRIu64,
+                        split_brain_count);
+                cli_out ("No. of heal failed entries: %"PRIu64,
+                         heal_failed_count);
+
+        }
+
+
+out:
+        return;
+}
+
+void
 cmd_heal_volume_brick_out (dict_t *dict, int brick)
 {
         uint64_t        num_entries = 0;
@@ -7096,6 +7187,9 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 case    GF_AFR_OP_SPLIT_BRAIN_FILES:
                         heal_op_str = "list of split brain entries";
                         break;
+                case    GF_AFR_OP_STATISTICS:
+                        heal_op_str =  "crawl statistics";
+                        break;
                 case    GF_AFR_OP_INVALID:
                         heal_op_str = "invalid heal op";
                         break;
@@ -7156,8 +7250,22 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        for (i = 0; i < brick_count; i++)
-                cmd_heal_volume_brick_out (dict, i);
+        switch (heal_op) {
+                case GF_AFR_OP_STATISTICS:
+                        for (i = 0; i < brick_count; i++)
+                                cmd_heal_volume_statistics_out (dict, i);
+                        break;
+                case GF_AFR_OP_INDEX_SUMMARY:
+                case GF_AFR_OP_HEALED_FILES:
+                case GF_AFR_OP_HEAL_FAILED_FILES:
+                case GF_AFR_OP_SPLIT_BRAIN_FILES:
+                        for (i = 0; i < brick_count; i++)
+                                cmd_heal_volume_brick_out (dict, i);
+                        break;
+                default:
+                        break;
+        }
+
         ret = rsp.op_ret;
 
 out:
