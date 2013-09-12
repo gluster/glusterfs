@@ -281,6 +281,8 @@ rpcsvc_request_destroy (rpcsvc_request_t *req)
 
         rpc_transport_unref (req->trans);
 
+	GF_FREE (req->auxgidlarge);
+
         mem_put (req);
 
 out:

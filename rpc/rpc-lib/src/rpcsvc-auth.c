@@ -327,6 +327,9 @@ rpcsvc_auth_request_init (rpcsvc_request_t *req)
         if (!auth->authops->request_init)
                 ret = auth->authops->request_init (req, auth->authprivate);
 
+	req->auxgids = req->auxgidsmall; /* reset to auxgidlarge during
+					    unsersialize if necessary */
+	req->auxgidlarge = NULL;
 err:
         return ret;
 }
