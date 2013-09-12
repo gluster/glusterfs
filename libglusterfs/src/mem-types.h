@@ -115,6 +115,7 @@ enum gf_common_mem_types_ {
         gf_common_mt_client_ctx           = 99,
         gf_common_mt_lock_table           = 100,
         gf_common_mt_locker               = 101,
-        gf_common_mt_end                  = 102 
+	gf_common_mt_auxgids              = 102,
+        gf_common_mt_end                  = 103
 };
 #endif
