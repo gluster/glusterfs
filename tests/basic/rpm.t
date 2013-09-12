@@ -1,14 +1,29 @@
 #!/bin/bash
+#
+# This test will run mock and rebuild the srpm for the latest two EPEL version.
+# By default, the results and the chroots are deleted.
+#
+# When debugging is needed, make sure to set DEBUG=1 in the environment or this
+# script. When debugging is enabled, the resulting log files and chroots are
+# kept. With debugging enabled, this test will fail the regression test, and
+# all output is saved to rpmbuild-mock.log. Tests are run in parallel, so the
+# logfile may be difficult to read.
+#
+# chroots are configured in /etc/mock/*.cfg, with site-defaults.cfg as main
+# configuration file. The default for chroots is /var/lib/mock, but this
+# depends on the 'basedir' configuration option set in the mentioned files.
+#
 
 . $(dirname $0)/../include.rc
-
-RESULT_DIR=$(mktemp -d -p /var/tmp rpm-tests.XXXXXXXX)
 
 # enable some extra debugging
 if [ -n "${DEBUG}" -a "${DEBUG}" != "0" ]
 then
-	exec &> ${RESULT_DIR}/log
+	exec &> rpmbuild-mock.log
 	set -x
+        MOCK_CLEANUP='--no-cleanup-after'
+else
+        MOCK_CLEANUP='--cleanup-after'
 fi
 
 # detect the branch we're based off
@@ -35,7 +50,6 @@ if [ -z "${CHANGED_FILES}" -a -z "${SELFTEST}" ]
 then
         # nothing affecting packaging changed, no need to retest rpmbuild
         SKIP_TESTS
-	rm -rf ${RESULT_DIR}
         cleanup
         exit 0
 fi
@@ -43,8 +57,8 @@ fi
 # checkout the sources to a new directory to execute ./configure and all
 REPO=${PWD}
 COMMIT=$(git describe)
-mkdir ${RESULT_DIR}/sources
-cd ${RESULT_DIR}/sources
+mkdir rpmbuild-mock.d
+pushd rpmbuild-mock.d 2>/dev/null
 git clone -q -s file://${REPO} .
 git checkout -q -b rpm-test ${COMMIT}
 
@@ -57,38 +71,29 @@ TEST make dist
 ls extras
 TEST make -C extras/LinuxRPM testsrpm
 
-chmod 0777 ${RESULT_DIR}
-chown :mock ${RESULT_DIR}
-
 # build for the last two Fedora EPEL releases (x86_64 only)
 for MOCK_CONF in $(ls -x1 /etc/mock/*.cfg | egrep -e 'epel-[0-9]+-x86_64.cfg$' | tail -n2)
 do
 	EPEL_RELEASE=$(basename ${MOCK_CONF} .cfg)
-	mkdir ${RESULT_DIR}/${EPEL_RELEASE}
-	chmod g=rwx ${RESULT_DIR}/${EPEL_RELEASE}
-	chown :mock ${RESULT_DIR}/${EPEL_RELEASE}
 	# expand the mock command line
-	MOCK_CMD="/usr/bin/mock --cleanup-after \
-		--resultdir=${RESULT_DIR}/${EPEL_RELEASE} \
+	MOCK_CMD="/usr/bin/mock ${MOCK_CLEANUP} \
 		-r ${EPEL_RELEASE} --rebuild ${PWD}/*.src.rpm"
 
 	# write the mock command to a file, so that its easier to execute
-	cat << EOF > ${RESULT_DIR}/${EPEL_RELEASE}/mock.sh
+	cat << EOF > mock-${EPEL_RELEASE}.sh
 #!/bin/sh
 ${MOCK_CMD}
 EOF
-	chmod +x ${RESULT_DIR}/${EPEL_RELEASE}/mock.sh
+	chmod +x mock-${EPEL_RELEASE}.sh
 
 	# root can not run 'mock', it needs to drop priviledges
 	if (groups | grep -q mock)
 	then
 		# the current user is in group 'mock'
-		${RESULT_DIR}/${EPEL_RELEASE}/mock.sh &
+		${PWD}/mock-${EPEL_RELEASE}.sh &
 	else
-		# switch to the user called 'mock'
-		chown mock:mock ${RESULT_DIR}/${EPEL_RELEASE}
 		# "su" might not work, using sudo instead
-		sudo -u mock -E ${RESULT_DIR}/${EPEL_RELEASE}/mock.sh &
+		sudo -u mock -E ${PWD}/mock-${EPEL_RELEASE}.sh &
 	fi
 	sleep 5
 done
@@ -104,7 +109,8 @@ done
 # possible on EPEL-5/6 installations, Fedora 17 and newer have unmet
 # dependencies on the build-server :-/
 
-# only remove ${RESULT_DIR} if we're not debugging
-[ "${DEBUG}" = "0" ] && rm -rf ${RESULT_DIR}
+popd 2>/dev/null
+# only remove rpmbuild-mock.d if we're not debugging
+[ "${DEBUG}" = "0" ] && rm -rf rpmbuild-mock.d
 
 cleanup
