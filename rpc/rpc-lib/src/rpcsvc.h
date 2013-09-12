@@ -181,7 +181,9 @@ struct rpcsvc_request {
         /* Might want to move this to AUTH_UNIX specific state since this array
          * is not available for every authentication scheme.
          */
-        gid_t                   auxgids[GF_MAX_AUX_GROUPS];
+        gid_t                   *auxgids;
+        gid_t                   auxgidsmall[SMALL_GROUP_COUNT];
+        gid_t                   *auxgidlarge;
         int                     auxgidcount;
 
 

@@ -42,6 +42,7 @@ int auth_unix_authenticate (rpcsvc_request_t *req, void *priv)
         if (!req)
                 return ret;
 
+	req->auxgids = req->auxgidsmall;
         ret = xdr_to_auth_unix_cred (req->cred.authdata, req->cred.datalen,
                                      &aup, machname, req->auxgids);
         if (ret == -1) {
