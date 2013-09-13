@@ -176,7 +176,9 @@ int glfs_set_volfile_server (glfs_t *fs, const char *transport,
   @fs: The 'virtual mount' object to be configured with the logging parameters.
 
   @logfile: The logfile to be used for logging. Will be created if it does not
-            already exist (provided system permissions allow.)
+            already exist (provided system permissions allow). If NULL, a new
+            logfile will be created in default log directory associated with
+            the glusterfs installation.
 
   @loglevel: Numerical value specifying the degree of verbosity. Higher the
              value, more verbose the logging.

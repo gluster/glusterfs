@@ -112,6 +112,7 @@ in_addr_t gf_resolve_ip (const char *hostname, void **dnscache);
 
 void gf_log_dump_graph (FILE *specfp, glusterfs_graph_t *graph);
 void gf_print_trace (int32_t signal, glusterfs_ctx_t *ctx);
+int  gf_set_log_file_path (cmd_args_t *cmd_args);
 
 #define VECTORSIZE(count) (count * (sizeof (struct iovec)))
 
