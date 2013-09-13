@@ -1,0 +1,48 @@
+#
+# This is the email aliases file, mapping secondary addresses onto a single,
+# canonical address. This file should probably match the contents of .mailmap
+# in the root of the git repository.
+#
+# Format: <alias> <real>
+
+amar@gluster.com	amarts@redhat.com
+amar@del.gluster.com	amarts@redhat.com
+avati@amp.gluster.com	avati@redhat.com
+avati@blackhole.gluster.com	avati@redhat.com
+avati@dev.gluster.com	avati@redhat.com
+avati@gluster.com	avati@redhat.com
+wheelear@gmail.com      awheeler@redhat.com
+anush@gluster.com	ashetty@redhat.com
+csaba@gluster.com	csaba@redhat.com
+csaba@lowlife.hu	csaba@redhat.com
+csaba@zresearch.com	csaba@redhat.com
+harsha@gluster.com	fharshav@redhat.com
+harsha@zresearch.com	fharshav@redhat.com
+harsha@dev.gluster.com	fharshav@redhat.com
+harsha@harshavardhana.net	fharshav@redhat.com
+kkeithle@f16node1.kkeithle.usersys.redhat.com	kkeithle@redhat.com
+kaushal@gluster.com	kaushal@redhat.com
+kaushikbv@gluster.com	kbudiger@redhat.com
+krishna@gluster.com	ksriniva@redhat.com
+krishna@zresearch.com	ksriniva@redhat.com
+krishna@guest-laptop	ksriniva@redhat.com
+kp@gluster.com	kparthas@redhat.com
+me@louiszuckerman.com	louiszuckerman@gmail.com
+msvbhat@gmail.com	vbhat@redhat.com
+vishwanath@gluster.com	vbhat@redhat.com
+pavan@dev.gluster.com	pavan@gluster.com
+zaitcev@yahoo.com	zaitcev@kotori.zaitcev.us
+pranithk@gluster.com	pkarampu@redhat.com
+raghavendrabhat@gluster.com	raghavendra@redhat.com
+raghavendra@gluster.com	rgowdapp@redhat.com
+raghavendra@zresearch.com	rgowdapp@redhat.com
+rahulcssjce@gmail.com	rahulcs@redhat.com
+rajesh@gluster.com	rajesh@redhat.com
+rajesh.amaravathi@gmail.com	rajesh@redhat.com
+shehjart@zresearch.com	shehjart@gluster.com
+venky@gluster.com	vshankar@redhat.com
+vijay@gluster.com	vbellur@redhat.com
+vijay@dev.gluster.com	vbellur@redhat.com
+vijaykumar.koppad@gmail.com	vkoppad@redhat.com
+vikas@zresearch.com	vikas@gluster.com
+shishirng@gluster.com	sgowda@redhat.com

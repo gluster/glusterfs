@@ -25,6 +25,7 @@ stamp-h1
 ufo/.tox
 ufo/test/unit/.coverage
 contrib/uuid/uuid_types.h
+extras/who-wrote-glusterfs/gitdm
 extras/init.d/glusterd.plist
 extras/init.d/glusterd-Debian
 extras/init.d/glusterd-Redhat
