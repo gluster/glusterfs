@@ -67,6 +67,10 @@ char *cli_vol_task_status_str[] = {"not started",
                                    "stopped",
                                    "completed",
                                    "failed",
+                                   "fix-layout in progress",
+                                   "fix-layout stopped",
+                                   "fix-layout completed",
+                                   "fix-layout failed",
 };
 
 int32_t
@@ -1334,10 +1338,10 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        cli_out ("%40s %16s %13s %13s %13s %13s %14s %s", "Node",
+        cli_out ("%40s %16s %13s %13s %13s %13s %20s %18s", "Node",
                  "Rebalanced-files", "size", "scanned", "failures", "skipped",
                  "status", "run time in secs");
-        cli_out ("%40s %16s %13s %13s %13s %13s %14s %16s", "---------",
+        cli_out ("%40s %16s %13s %13s %13s %13s %20s %18s", "---------",
                  "-----------", "-----------", "-----------", "-----------",
                  "-----------", "------------", "--------------");
         do {
@@ -1398,7 +1402,7 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 status = cli_vol_task_status_str[status_rcd];
                 size_str = gf_uint64_2human_readable(size);
                 cli_out ("%40s %16"PRIu64 " %13s" " %13"PRIu64 " %13"PRIu64
-                         " %13"PRIu64 " %14s %16.2f", node_uuid, files,
+                         " %13"PRIu64 " %20s %18.2f", node_uuid, files,
                          size_str, lookup, failures, skipped, status, elapsed);
                 GF_FREE(size_str);
 
@@ -1891,6 +1895,8 @@ xml_output:
                         break;
                 case GF_DEFRAG_STATUS_FAILED:
                         status = "failed";
+                        break;
+                default:
                         break;
                 }
 

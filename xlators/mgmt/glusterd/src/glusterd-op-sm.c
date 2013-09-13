@@ -3072,6 +3072,97 @@ out:
         return ret;
 }
 
+static int
+reassign_defrag_status (dict_t *dict, char *key, gf_defrag_status_t *status)
+{
+        int ret = 0;
+
+        if (!*status)
+                return ret;
+
+        switch (*status) {
+        case GF_DEFRAG_STATUS_STARTED:
+                *status = GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED;
+                break;
+
+        case GF_DEFRAG_STATUS_STOPPED:
+                *status = GF_DEFRAG_STATUS_LAYOUT_FIX_STOPPED;
+                break;
+
+        case GF_DEFRAG_STATUS_COMPLETE:
+                *status = GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE;
+                break;
+
+        case GF_DEFRAG_STATUS_FAILED:
+                *status = GF_DEFRAG_STATUS_LAYOUT_FIX_FAILED;
+                break;
+        default:
+                break;
+         }
+
+        ret = dict_set_int32(dict, key, *status);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "failed to reset defrag %s in dict", key);
+
+        return ret;
+}
+
+/* Check and reassign the defrag_status enum got from the rebalance process
+ * of all peers so that the rebalance-status CLI command can display if a
+ * full-rebalance or just a fix-layout was carried out.
+ */
+static int
+glusterd_op_check_peer_defrag_status (dict_t *dict, int count)
+{
+        glusterd_volinfo_t *volinfo  = NULL;
+        gf_defrag_status_t status    = GF_DEFRAG_STATUS_NOT_STARTED;
+        char               key[256]  = {0,};
+        char               *volname  = NULL;
+        int                ret       = -1;
+        int                i         = 1;
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_WARNING, "Unable to get volume name");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_WARNING, FMTSTR_CHECK_VOL_EXISTS,
+                        volname);
+                goto out;
+        }
+
+        if (volinfo->rebal.defrag_cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX) {
+                /* Fix layout was not issued; we don't need to reassign
+                   the status */
+                ret = 0;
+                goto out;
+        }
+
+        do {
+                memset (key, 0, 256);
+                snprintf (key, 256, "status-%d", i);
+                ret = dict_get_int32 (dict, key, (int32_t *)&status);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "failed to get defrag %s", key);
+                        goto out;
+                }
+                ret = reassign_defrag_status (dict, key, &status);
+                if (ret)
+                        goto out;
+                i++;
+        } while (i <= count);
+
+        ret = 0;
+out:
+        return ret;
+
+}
+
 /* This function is used to modify the op_ctx dict before sending it back
  * to cli. This is useful in situations like changing the peer uuids to
  * hostnames etc.
@@ -3181,6 +3272,11 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                 if (ret)
                         gf_log (this->name, GF_LOG_WARNING,
                                 "Failed uuid to hostname conversion");
+
+                ret = glusterd_op_check_peer_defrag_status (op_ctx, count);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to reset defrag status for fix-layout");
                 break;
 
         default:

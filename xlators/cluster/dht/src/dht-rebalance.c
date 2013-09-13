@@ -1760,6 +1760,8 @@ log:
         case GF_DEFRAG_STATUS_FAILED:
                 status = "failed";
                 break;
+        default:
+                break;
         }
 
         gf_log (THIS->name, GF_LOG_INFO, "Rebalance is %s. Time taken is %.2f "
