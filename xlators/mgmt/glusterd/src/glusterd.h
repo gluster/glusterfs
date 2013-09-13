@@ -40,7 +40,6 @@
 #include "store.h"
 
 #define GLUSTERD_MAX_VOLUME_NAME        1000
-#define DEFAULT_LOG_FILE_DIRECTORY      DATADIR "/log/glusterfs"
 #define GLUSTERD_TR_LOG_SIZE            50
 #define GLUSTERD_NAME                   "glusterd"
 #define GLUSTERD_SOCKET_LISTEN_BACKLOG  128
