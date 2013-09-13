@@ -1200,65 +1200,6 @@ gf_get_process_mode (char *exec_name)
 }
 
 
-
-static int
-set_log_file_path (cmd_args_t *cmd_args)
-{
-        int   i = 0;
-        int   j = 0;
-        int   ret = 0;
-        int   port = 0;
-        char  tmp_str[1024] = {0,};
-
-        if (cmd_args->mount_point) {
-                j = 0;
-                i = 0;
-                if (cmd_args->mount_point[0] == '/')
-                        i = 1;
-                for (; i < strlen (cmd_args->mount_point); i++,j++) {
-                        tmp_str[j] = cmd_args->mount_point[i];
-                        if (cmd_args->mount_point[i] == '/')
-                                tmp_str[j] = '-';
-                }
-
-                ret = gf_asprintf (&cmd_args->log_file,
-                                   DEFAULT_LOG_FILE_DIRECTORY "/%s.log",
-                                   tmp_str);
-                goto done;
-        }
-
-        if (cmd_args->volfile) {
-                j = 0;
-                i = 0;
-                if (cmd_args->volfile[0] == '/')
-                        i = 1;
-                for (; i < strlen (cmd_args->volfile); i++,j++) {
-                        tmp_str[j] = cmd_args->volfile[i];
-                        if (cmd_args->volfile[i] == '/')
-                                tmp_str[j] = '-';
-                }
-                ret = gf_asprintf (&cmd_args->log_file,
-                                   DEFAULT_LOG_FILE_DIRECTORY "/%s.log",
-                                   tmp_str);
-                goto done;
-        }
-
-        if (cmd_args->volfile_server) {
-                port = GF_DEFAULT_BASE_PORT;
-
-                if (cmd_args->volfile_server_port)
-                        port = cmd_args->volfile_server_port;
-
-                ret = gf_asprintf (&cmd_args->log_file,
-                                   DEFAULT_LOG_FILE_DIRECTORY "/%s-%s-%d.log",
-                                   cmd_args->volfile_server,
-                                   cmd_args->volfile_id, port);
-        }
-done:
-        return ret;
-}
-
-
 static int
 glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 {
@@ -1411,7 +1352,7 @@ logging_init (glusterfs_ctx_t *ctx, const char *progpath)
         cmd_args = &ctx->cmd_args;
 
         if (cmd_args->log_file == NULL) {
-                ret = set_log_file_path (cmd_args);
+                ret = gf_set_log_file_path (cmd_args);
                 if (ret == -1) {
                         fprintf (stderr, "ERROR: failed to set the log file path\n");
                         return -1;

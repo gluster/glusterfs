@@ -475,17 +475,25 @@ int
 glfs_set_logging (struct glfs *fs, const char *logfile, int loglevel)
 {
 	int  ret = 0;
+        char *tmplog = NULL;
 
-	if (logfile) {
-                /* passing ident as NULL means to use default ident for syslog */
-		ret = gf_log_init (fs->ctx, logfile, NULL);
-		if (ret)
-			return ret;
-	}
+        if (!logfile) {
+                ret = gf_set_log_file_path (&fs->ctx->cmd_args);
+                if (ret)
+                        goto out;
+                tmplog = fs->ctx->cmd_args.log_file;
+        } else {
+                tmplog = (char *)logfile;
+        }
+
+        ret = gf_log_init (fs->ctx, tmplog, NULL);
+        if (ret)
+                goto out;
 
 	if (loglevel >= 0)
 		gf_log_set_loglevel (loglevel);
 
+out:
 	return ret;
 }
 

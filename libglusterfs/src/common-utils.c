@@ -2807,3 +2807,64 @@ out:
 
 }
 
+/* Sets log file path from user provided arguments */
+int
+gf_set_log_file_path (cmd_args_t *cmd_args)
+{
+        int   i = 0;
+        int   j = 0;
+        int   ret = 0;
+        char  tmp_str[1024] = {0,};
+
+        if (!cmd_args)
+                goto done;
+
+        if (cmd_args->mount_point) {
+                j = 0;
+                i = 0;
+                if (cmd_args->mount_point[0] == '/')
+                        i = 1;
+                for (; i < strlen (cmd_args->mount_point); i++,j++) {
+                        tmp_str[j] = cmd_args->mount_point[i];
+                        if (cmd_args->mount_point[i] == '/')
+                                tmp_str[j] = '-';
+                }
+
+                ret = gf_asprintf (&cmd_args->log_file,
+                                   DEFAULT_LOG_FILE_DIRECTORY "/%s.log",
+                                   tmp_str);
+                if (ret > 0)
+                        ret = 0;
+                goto done;
+        }
+
+        if (cmd_args->volfile) {
+                j = 0;
+                i = 0;
+                if (cmd_args->volfile[0] == '/')
+                        i = 1;
+                for (; i < strlen (cmd_args->volfile); i++,j++) {
+                        tmp_str[j] = cmd_args->volfile[i];
+                        if (cmd_args->volfile[i] == '/')
+                                tmp_str[j] = '-';
+                }
+                ret = gf_asprintf (&cmd_args->log_file,
+                                   DEFAULT_LOG_FILE_DIRECTORY "/%s.log",
+                                   tmp_str);
+                if (ret > 0)
+                        ret = 0;
+                goto done;
+        }
+
+        if (cmd_args->volfile_server) {
+
+                ret = gf_asprintf (&cmd_args->log_file,
+                                   DEFAULT_LOG_FILE_DIRECTORY "/%s-%s-%d.log",
+                                   cmd_args->volfile_server,
+                                   cmd_args->volfile_id, getpid());
+                if (ret > 0)
+                        ret = 0;
+        }
+done:
+        return ret;
+}
