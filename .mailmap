@@ -1,0 +1,31 @@
+# .mailmap, see 'git short-log --help' for details
+#
+# Listing of contributors that filed patches with different email addresses.
+# Format: <name> <main-email> <alias> [<alias> ...]
+#
+
+Amar Tumballi <amarts@redhat.com> <amar@gluster.com> <amar@del.gluster.com>
+Anand Avati <avati@redhat.com> <avati@gluster.com> <avati@dev.gluster.com> <avati@amp.gluster.com> <avati@blackhole.gluster.com>
+Anush Shetty <ashetty@redhat.com> <anush@gluster.com>
+Csaba Henk <csaba@redhat.com> <csaba@gluster.com> <csaba@lowlife.hu> <csaba@zresearch.com>
+Harshavardhana <fharshav@redhat.com> <harsha@gluster.com> <harsha@zresearch.com> <harsha@dev.gluster.com> <harsha@harshavardhana.net>
+Kaleb S. KEITHLEY <kkeithle@redhat.com> <kkeithle@f16node1.kkeithle.usersys.redhat.com>
+Kaushal M <kaushal@redhat.com> <kaushal@gluster.com>
+Kaushik BV <kbudiger@redhat.com> <kaushikbv@gluster.com>
+Krishna Srinivas <ksriniva@redhat.com> <krishna@gluster.com> <krishna@zresearch.com> <krishna@guest-laptop>
+Krishnan Parthasarathi <kparthas@redhat.com> <kp@gluster.com>
+Louis Zuckerman <louiszuckerman@gmail.com> <me@louiszuckerman.com>
+M S Vishwanath Bhat <vbhat@redhat.com> <msvbhat@gmail.com> <vishwanath@gluster.com>
+Pavan Sondur <pavan@gluster.com> <pavan@dev.gluster.com>
+Pete Zaitcev <zaitcev@kotori.zaitcev.us> <zaitcev@yahoo.com>
+Pranith Kumar K <pkarampu@redhat.com> <pranithk@gluster.com>
+Raghavendra Bhat <raghavendra@redhat.com> <raghavendrabhat@gluster.com>
+Raghavendra G <rgowdapp@redhat.com> <raghavendra@gluster.com> <raghavendra@zresearch.com>
+Rahul C S <rahulcs@redhat.com> <rahulcssjce@gmail.com>
+Rajesh Amaravathi <rajesh@redhat.com> <rajesh@gluster.com> <rajesh.amaravathi@gmail.com>
+Shehjar Tikoo <shehjart@gluster.com> <shehjart@zresearch.com>
+Venky Shankar <vshankar@redhat.com> <venky@gluster.com>
+Vijay Bellur <vbellur@redhat.com> <vijay@gluster.com> <vijay@dev.gluster.com>
+Vijaykumar Koppad <vkoppad@redhat.com> <vijaykumar.koppad@gmail.com>
+Vikas Gorur <vikas@gluster.com> <vikas@zresearch.com>
+shishir gowda <sgowda@redhat.com> <shishirng@gluster.com>
