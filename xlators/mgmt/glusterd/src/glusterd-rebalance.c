@@ -146,8 +146,6 @@ __glusterd_defrag_notify (struct rpc_clnt *rpc, void *mydata,
                                                 GF_DEFRAG_STATUS_STARTED) {
                                 volinfo->rebal.defrag_status =
                                                    GF_DEFRAG_STATUS_FAILED;
-                        } else {
-                                volinfo->rebal.defrag_cmd = 0;
                         }
                  }
 
@@ -219,6 +217,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
 
         defrag->cmd = cmd;
 
+        volinfo->rebal.defrag_cmd = cmd;
         volinfo->rebal.op = op;
 
         LOCK_INIT (&defrag->lock);
