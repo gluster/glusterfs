@@ -1,4 +1,4 @@
-.\"  Copyright (c) 2008-2012 Red Hat, Inc. <http://www.redhat.com>
+.\"  Copyright (c) 2008-2013 Red Hat, Inc. <http://www.redhat.com>
 .\"  This file is part of GlusterFS.
 .\"
 .\"  This file is licensed to you under your choice of the GNU Lesser
@@ -8,21 +8,24 @@
 .\"
 .\"
 .\"
-.TH GlusterFS 8 "Cluster Filesystem" "18 March 2010" "Gluster Inc."
+.TH GlusterFS 8 "Cluster Filesystem" "14 September 2013" "Red Hat, Inc."
 .SH NAME
-mount.glusterfs - script to mount native GlusterFS volume
+.B mount.glusterfs - script to mount native GlusterFS volume
 .SH SYNOPSIS
-.B mount -t glusterfs
-.I [-o <options>] <volumeserver>:<volumeid> <mountpoint>
+.B mount -t glusterfs [-o <options>] <volumeserver>:/<volume>
+.B         <mountpoint>
 .TP
-.B mount -t glusterfs
-.I [-o <options>] <path/to/volumefile> <mountpoint>
+.B mount -t glusterfs [-o <options>] <server1>,<server2>,
+.B        <server3>,..<serverN>:/<volname> <mount_point>
+.TP
+.TP
+.B mount -t glusterfs [-o <options>] <path/to/volumefile> <mountpoint>
 .PP
 .SH DESCRIPTION
 This tool is part of \fBglusterfs\fR(8) package, which is used to mount using
 GlusterFS native binary.
 
-\fBmount.glusterfs\fR  is meant to be used by the mount(8) command for mounting
+\fBmount.glusterfs\fR is meant to be used by the mount(8) command for mounting
 native GlusterFS client. This subcommand, however, can also be used as a
 standalone command with limited functionality.
 
@@ -38,17 +41,46 @@ File to use for logging [default:/var/log/glusterfs/glusterfs.log]
 Logging severity.  Valid options are TRACE, DEBUG, WARNING, ERROR, CRITICAL
 INFO and NONE [default: INFO]
 .TP
+\fBacl
+Mount the filesystem with POSIX ACL support
+.TP
+\fBfopen\-keep\-cache
+Do not purge the cache on file open
+.TP
+\fBselinux
+Enable SELinux label (extened attributes) support on inodes
+.TP
+\fBworm
+Mount the filesystem in 'worm' mode
+.TP
+\fBaux\-gfid\-mount
+Enable access to filesystem through gfid directly
+.TP
 \fBro\fR
 Mount the filesystem read-only
+.TP
+\fBenable\-ino32=\fRBOOL
+Use 32-bit inodes when mounting to workaround broken applications that don't
+support 64-bit inodes
+
 .PP
 .SS "Advanced options"
 .PP
 .TP
-\fBvolfile\-id=\fRKEY
-Volume key or name of the volume file to be fetched from server
+\fBattribute\-timeout=\fRSECONDS
+Set attribute timeout to SECONDS for inodes in fuse kernel module [default: 1]
 .TP
-\fBtransport=\fRTRANSPORT-TYPE
-Transport type to get volume file from server [default: tcp]
+\fBentry\-timeout=\fRSECONDS
+Set entry timeout to SECONDS in fuse kernel module [default: 1]
+.TP
+\fBbackground\-qlen=\fRN
+Set fuse module's background queue length to N [default: 64]
+.TP
+\fBgid\-timeout=\fRSECONDS
+Set auxilary group list timeout to SECONDS for fuse translator [default: 0]
+.TP
+\fBnegative\-timeout=\fRSECONDS
+Set negative timeout to SECONDS in fuse kernel module [default: 0]
 .TP
 \fBvolume\-name=\fRVOLUME-NAME
 Volume name to be used for MOUNT-POINT [default: top most volume in
@@ -57,22 +89,41 @@ VOLUME-FILE]
 \fBdirect\-io\-mode=\fRdisable
 Disable direct I/O mode in fuse kernel module
 .TP
+\fBcongestion\-threshold=\fRN
+Set fuse module's congestion threshold to N [default: 48]
+.TP
+.TP
+\fBbackup\-volfile\-servers=\fRSERVERLIST
+Provide list of backup volfile servers in the following format [default: None]
+
+\fB$ mount -t glusterfs -obackup-volfile-servers=<server2>:\fR
+\fB       <server3>:...:<serverN> <server1>:/<volname> <mount_point>\fR
+
+.TP
+.TP
+\fBbackupvolfile\-server=\fRSERVER
+Provide list of backup volfile servers in the following format [default: None]
+
+\fB $ mount -t glusterfs -obackupvolfile-server=<server2>
+\fB         <server1>:/<volname> <mount_point>
+
+.TP
 .PP
 .SH FILES
 .TP
 .I /etc/fstab
 A typical GlusterFS entry in /etc/fstab looks like below
 
-server1.gluster.com:mirror  /mnt/mirror  glusterfs  log-file=/var/log/mirror.vol,ro,defaults   0  0
+\fBserver1:/mirror  /mnt/mirror  glusterfs log-file=/var/log/mirror.log,acl,selinux   0  0\fR
 
 .TP
-.I /etc/mtab
-An example entry of a GlusterFS mountpoint in /etc/mtab looks like below
+.I /proc/mounts
+An example entry of a GlusterFS mountpoint in /proc/mounts looks like below
 
-mirror.vol /mnt/glusterfs fuse.glusterfs rw,allow_other,default_permissions,max_read=131072 0 0
+\fBserver1:/mirror /mnt/glusterfs fuse.glusterfs rw,allow_other,default_permissions,max_read=131072 0 0\fR
 
 .SH SEE ALSO
 \fBglusterfs\fR(8), \fBmount\fR(8), \fBgluster\fR(8)
 
 .SH COPYRIGHT
-Copyright(c) 2006-2011   Gluster, Inc.   <http://www.gluster.com>
+Copyright(c) 2006-2013   Red Hat, Inc.   <http://www.redhat.com>
