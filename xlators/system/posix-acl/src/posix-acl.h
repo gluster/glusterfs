@@ -17,6 +17,7 @@
 #include "common-utils.h"
 #include "byte-order.h"
 
+#define POSIX_ACL_MINIMAL_ACE_COUNT 3
 
 #define POSIX_ACL_READ                (0x04)
 #define POSIX_ACL_WRITE               (0x02)
