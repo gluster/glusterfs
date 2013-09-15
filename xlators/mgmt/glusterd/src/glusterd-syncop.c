@@ -1018,7 +1018,7 @@ out:
 int
 gd_unlock_op_phase (struct list_head *peers, glusterd_op_t op, int op_ret,
                     rpcsvc_request_t *req, dict_t *op_ctx, char *op_errstr,
-                    int npeers)
+                    int npeers, gf_boolean_t is_locked)
 {
         glusterd_peerinfo_t *peerinfo   = NULL;
         glusterd_peerinfo_t *tmp        = NULL;
@@ -1032,6 +1032,11 @@ gd_unlock_op_phase (struct list_head *peers, glusterd_op_t op, int op_ret,
                 ret = 0;
                 goto out;
         }
+
+        /* If the lock has not been held during this
+         * transaction, do not send unlock requests */
+        if (!is_locked)
+                goto out;
 
         this = THIS;
         synctask_barrier_init((&args));
@@ -1056,7 +1061,8 @@ gd_unlock_op_phase (struct list_head *peers, glusterd_op_t op, int op_ret,
 out:
         glusterd_op_send_cli_response (op, op_ret, 0, req, op_ctx, op_errstr);
         glusterd_op_clear_op (op);
-        glusterd_unlock (MY_UUID);
+        if (is_locked)
+                glusterd_unlock (MY_UUID);
 
         return 0;
 }
@@ -1153,6 +1159,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         int32_t                     tmp_op          = 0;
         char                        *op_errstr      = NULL;
         xlator_t                    *this           = NULL;
+        gf_boolean_t                is_locked       = _gf_false;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1174,6 +1181,8 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
                              "Please try again after sometime.");
                 goto out;
         }
+
+        is_locked = _gf_true;
 
         /* storing op globally to access in synctask code paths
          * This is still acceptable, as we are performing this under
@@ -1212,7 +1221,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         ret = 0;
 out:
         (void) gd_unlock_op_phase (&conf->xaction_peers, op, ret, req,
-                                   op_ctx, op_errstr, npeers);
+                                   op_ctx, op_errstr, npeers, is_locked);
 
         if (req_dict)
                 dict_unref (req_dict);
