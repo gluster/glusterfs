@@ -186,7 +186,7 @@ acl_permits (call_frame_t *frame, inode_t *inode, int want)
 
         ace = acl->entries;
 
-        if (acl->count > 3)
+        if (acl->count > POSIX_ACL_MINIMAL_ACE_COUNT)
                 acl_present = 1;
 
         for (i = 0; i < acl->count; i++) {
@@ -663,7 +663,12 @@ int
 posix_acl_ctx_update (inode_t *inode, xlator_t *this, struct iatt *buf)
 {
         struct posix_acl_ctx *ctx = NULL;
+	struct posix_acl     *acl = NULL;
+	struct posix_ace     *ace = NULL;
+	struct posix_ace     *mask_ce = NULL;
+	struct posix_ace     *group_ce = NULL;
         int                   ret = 0;
+	int                   i = 0;
 
         ctx = posix_acl_ctx_get (inode, this);
         if (!ctx) {
@@ -676,7 +681,46 @@ posix_acl_ctx_update (inode_t *inode, xlator_t *this, struct iatt *buf)
                 ctx->uid   = buf->ia_uid;
                 ctx->gid   = buf->ia_gid;
                 ctx->perm  = st_mode_from_ia (buf->ia_prot, buf->ia_type);
+
+		acl = ctx->acl_access;
+		if (!acl || !(acl->count > POSIX_ACL_MINIMAL_ACE_COUNT))
+			goto unlock;
+
+		/* This is an extended ACL (not minimal acl). In case we
+		   are only refreshing from iatt and not ACL xattrs (for
+		   e.g. from postattributes of setattr() call, we need to
+		   update the corresponding ACEs as well.
+		*/
+		ace = acl->entries;
+		for (i = 0; i < acl->count; i++) {
+			switch (ace->tag) {
+			case POSIX_ACL_USER_OBJ:
+				ace->perm = (ctx->perm & S_IRWXU) >> 6;
+				break;
+			case POSIX_ACL_USER:
+			case POSIX_ACL_GROUP:
+				break;
+			case POSIX_ACL_GROUP_OBJ:
+				group_ce = ace;
+				break;
+			case POSIX_ACL_MASK:
+				mask_ce = ace;
+				break;
+			case POSIX_ACL_OTHER:
+				ace->perm = (ctx->perm & S_IRWXO);
+				break;
+			}
+			ace++;
+		}
+
+		if (mask_ce)
+			mask_ce->perm = (ctx->perm & S_IRWXG) >> 3;
+		else if (group_ce)
+			group_ce->perm = (ctx->perm & S_IRWXG) >> 3;
+		else
+			ret = -1;
         }
+unlock:
         UNLOCK(&inode->lock);
 out:
         return ret;
