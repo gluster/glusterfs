@@ -35,6 +35,7 @@ except ImportError:
 
 # auxillary gfid based access prefix
 _CL_AUX_GFID_PFX = ".gfid/"
+GF_OP_RETRIES = 20
 
 def escape(s):
     """the chosen flavor of string escaping, used all over
@@ -405,10 +406,11 @@ def md5hex(s):
 def selfkill(sig=SIGTERM):
     os.kill(os.getpid(), sig)
 
-def errno_wrap(call, arg=[], errnos=[]):
+def errno_wrap(call, arg=[], errnos=[], retry_errnos=[ESTALE]):
     """ wrapper around calls resilient to errnos.
-    retry in case of ESTALE
+    retry in case of ESTALE by default.
     """
+    nr_tries = 0
     while True:
         try:
             return call(*arg)
@@ -416,9 +418,14 @@ def errno_wrap(call, arg=[], errnos=[]):
             ex = sys.exc_info()[1]
             if ex.errno in errnos:
                 return ex.errno
-            if not ex.errno == ESTALE:
+            if not ex.errno in retry_errnos:
                 raise
-            time.sleep(0.5)  # retry the call
+            nr_tries += 1
+            if nr_tries == GF_OP_RETRIES:
+                # probably a screwed state, cannot do much...
+                logging.warn('reached maximum retries (%s)...' % repr(arg))
+                return
+            time.sleep(0.250)  # retry the call
 
 def lstat(e):
     try:
