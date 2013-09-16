@@ -191,7 +191,7 @@ out:
 }
 
 
-void
+int
 glfs_resolve_base (struct glfs *fs, xlator_t *subvol, inode_t *inode,
 		   struct iatt *iatt)
 {
@@ -210,6 +210,8 @@ glfs_resolve_base (struct glfs *fs, xlator_t *subvol, inode_t *inode,
 	ret = syncop_lookup (subvol, &loc, NULL, iatt, NULL, NULL);
 out:
 	loc_wipe (&loc);
+
+	return ret;
 }
 
 
@@ -356,7 +358,8 @@ glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 						   component, as the caller
 						   wants proper iatt filled
 						*/
-						(reval || !next_component));
+						(reval || (!next_component &&
+						iatt)));
 		if (!inode)
 			break;
 
@@ -899,4 +902,64 @@ glfs_cwd_get (struct glfs *fs)
 	glfs_unlock (fs);
 
 	return cwd;
+}
+
+inode_t *
+__glfs_resolve_inode (struct glfs *fs, xlator_t *subvol,
+		    struct glfs_object *object)
+{
+	inode_t *inode = NULL;
+
+	if (object->inode->table->xl == subvol)
+		return inode_ref (object->inode);
+
+	inode = __glfs_refresh_inode (fs, fs->active_subvol,
+					object->inode);
+	if (!inode)
+		return NULL;
+
+	if (subvol == fs->active_subvol) {
+		inode_unref (object->inode);
+		object->inode = inode_ref (inode);
+	}
+
+	return inode;
+}
+
+inode_t *
+glfs_resolve_inode (struct glfs *fs, xlator_t *subvol,
+		    struct glfs_object *object)
+{
+	inode_t *inode = NULL;
+
+	glfs_lock (fs);
+	{
+		inode = __glfs_resolve_inode(fs, subvol, object);
+	}
+	glfs_unlock (fs);
+
+	return inode;
+}
+
+int
+glfs_create_object (loc_t *loc, struct glfs_object **retobject)
+{
+	struct glfs_object *object = NULL;
+
+	object = GF_CALLOC (1, sizeof(struct glfs_object),
+			    glfs_mt_glfs_object_t);
+	if (object == NULL) {
+		errno = ENOMEM;
+		return -1;
+	}
+
+	object->inode = loc->inode;
+	uuid_copy (object->gfid, object->inode->gfid);
+
+	/* we hold the reference */
+	loc->inode = NULL;
+
+	*retobject = object;
+
+	return 0;
 }

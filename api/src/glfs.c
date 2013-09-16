@@ -317,6 +317,20 @@ enomem:
 	return -1;
 }
 
+int glfs_setfsuid (uid_t fsuid)
+{
+	return syncopctx_setfsuid (&fsuid);
+}
+
+int glfs_setfsgid (gid_t fsgid)
+{
+	return syncopctx_setfsgid (&fsgid);
+}
+
+int glfs_setfsgroups (size_t size, const gid_t *list)
+{
+	return syncopctx_setfsgroups(size, list);
+}
 
 struct glfs *
 glfs_from_glfd (struct glfs_fd *glfd)

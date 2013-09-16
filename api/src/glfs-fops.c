@@ -14,20 +14,8 @@
 #include "syncop.h"
 #include "glfs.h"
 
-#define DEFAULT_REVAL_COUNT 1
 
-#define ESTALE_RETRY(ret,errno,reval,loc,label) do {	\
-	if (ret == -1 && errno == ESTALE) {	        \
-		if (reval < DEFAULT_REVAL_COUNT) {	\
-			reval++;			\
-			loc_wipe (loc);			\
-			goto label;			\
-		}					\
-	}						\
-	} while (0)
-
-
-static int
+int
 glfs_loc_link (loc_t *loc, struct iatt *iatt)
 {
 	int ret = -1;
@@ -52,7 +40,7 @@ glfs_loc_link (loc_t *loc, struct iatt *iatt)
 }
 
 
-static void
+void
 glfs_iatt_to_stat (struct glfs *fs, struct iatt *iatt, struct stat *stat)
 {
 	iatt_to_stat (iatt, stat);
@@ -60,7 +48,7 @@ glfs_iatt_to_stat (struct glfs *fs, struct iatt *iatt, struct stat *stat)
 }
 
 
-static int
+int
 glfs_loc_unlink (loc_t *loc)
 {
 	inode_unlink (loc->inode, loc->parent, loc->name);

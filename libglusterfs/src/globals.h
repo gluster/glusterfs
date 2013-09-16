@@ -41,6 +41,10 @@ xlator_t **__glusterfs_this_location ();
 xlator_t *glusterfs_this_get ();
 int glusterfs_this_set (xlator_t *);
 
+/* syncopctx */
+void *syncopctx_getctx ();
+int syncopctx_setctx (void *ctx);
+
 /* task */
 void *synctask_get ();
 int synctask_set (void *);
