@@ -509,7 +509,7 @@ class Server(object):
                         time.sleep(1)
                     else:
                         break
-            elif op == 'CREATE':
+            elif op in ['CREATE', 'MKNOD']:
                 blob = entry_pack_reg(gfid, bname, e['stat'])
             elif op == 'MKDIR':
                 blob = entry_pack_mkdir(gfid, bname, e['stat'])
