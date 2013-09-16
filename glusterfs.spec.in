@@ -588,6 +588,8 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/options
 touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/nfs-server.vol
 touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
+find ./tests ./run-tests.sh -type f | cpio -pd %{buildroot}%{_prefix}/share/glusterfs
+
 %clean
 %{__rm} -rf %{buildroot}
 
@@ -790,8 +792,8 @@ fi
 
 %files regression-tests
 %defattr(-,root,root,-)
-%{_datarootdir}/glusterfs/*
-%exclude %{_datarootdir}/glusterfs/tests/basic/rpm.t
+%{_prefix}/share/glusterfs/*
+%exclude %{_prefix}/share/glusterfs/tests/basic/rpm.t
 
 %post server
 # Legacy server

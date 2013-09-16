@@ -167,8 +167,7 @@ AC_CONFIG_FILES([Makefile
 		geo-replication/Makefile
 		geo-replication/src/Makefile
 		geo-replication/syncdaemon/Makefile
-                glusterfs.spec
-                run-tests.sh])
+                glusterfs.spec])
 
 AC_CANONICAL_HOST
 

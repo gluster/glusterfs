@@ -4,9 +4,8 @@
 
 function _init()
 {
-    prefix="@prefix@";
-    exec_prefix="@exec_prefix@";
-    regression_testsdir="@datarootdir@/glusterfs";
+    regression_testsdir=$(dirname $0);
+
     if [ ! -f ${regression_testsdir}/tests/include.rc ]; then
         echo "Seems like GlusterFS quality tests are corrupted..aborting!!"
         exit 1
