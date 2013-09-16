@@ -112,6 +112,7 @@ struct marker_local{
 
         int xflag;
         dict_t *xdata;
+        gf_boolean_t skip_txn;
 };
 typedef struct marker_local marker_local_t;
 

@@ -154,15 +154,17 @@ out:
 
 
 inode_contribution_t *
-__mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc)
+__mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx,
+                                loc_t *loc)
 {
-        int32_t ret = 0;
+        int32_t               ret          = 0;
         inode_contribution_t *contribution = NULL;
 
         if (!loc->parent) {
                 if (!uuid_is_null (loc->pargfid))
                         loc->parent = inode_find (loc->inode->table,
                                                   loc->pargfid);
+
                 if (!loc->parent)
                         loc->parent = inode_parent (loc->inode, loc->pargfid,
                                                     loc->name);
@@ -170,9 +172,10 @@ __mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *l
                         goto out;
         }
 
-        list_for_each_entry (contribution, &ctx->contribution_head, contri_list) {
+        list_for_each_entry (contribution, &ctx->contribution_head,
+                             contri_list) {
                 if (loc->parent &&
-                     uuid_compare (contribution->gfid, loc->parent->gfid) == 0) {
+                    uuid_compare (contribution->gfid, loc->parent->gfid) == 0) {
                         goto out;
                 }
         }
@@ -196,14 +199,16 @@ out:
 
 
 inode_contribution_t *
-mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc)
+mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx,
+                              loc_t *loc)
 {
         inode_contribution_t *contribution = NULL;
 
         if ((ctx == NULL) || (loc == NULL))
                 return NULL;
 
-        if (strcmp (loc->path, "/") == 0)
+        if (((loc->path) && (strcmp (loc->path, "/") == 0))
+            || (!loc->path && uuid_is_null (loc->pargfid)))
                 return NULL;
 
         LOCK (&ctx->lock);
@@ -226,12 +231,16 @@ mq_dict_set_contribution (xlator_t *this, dict_t *dict,
         GF_VALIDATE_OR_GOTO ("marker", this, out);
         GF_VALIDATE_OR_GOTO ("marker", dict, out);
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
-        GF_VALIDATE_OR_GOTO ("marker", loc->parent, out);
 
-        GET_CONTRI_KEY (contri_key, loc->parent->gfid, ret);
-        if (ret < 0) {
-                ret = -1;
-                goto out;
+        if (loc->parent) {
+                GET_CONTRI_KEY (contri_key, loc->parent->gfid, ret);
+                if (ret < 0) {
+                        ret = -1;
+                        goto out;
+                }
+        } else {
+                /* nameless lookup, fetch contributions to all parents */
+                GET_CONTRI_KEY (contri_key, NULL, ret);
         }
 
         ret = dict_set_int64 (dict, contri_key, 0);

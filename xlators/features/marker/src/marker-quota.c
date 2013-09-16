@@ -30,7 +30,8 @@ mq_loc_copy (loc_t *dst, loc_t *src)
         GF_VALIDATE_OR_GOTO ("marker", src, out);
 
         if (src->inode == NULL ||
-            src->path == NULL) {
+            ((src->parent == NULL) && (uuid_is_null (src->pargfid))
+             && !__is_root_gfid (src->inode->gfid))) {
                 gf_log ("marker", GF_LOG_WARNING,
                         "src loc is not valid");
                 goto out;
@@ -1038,7 +1039,11 @@ mq_create_xattr (xlator_t *this, call_frame_t *frame)
                         goto free_size;
         }
 
-        if (strcmp (local->loc.path, "/") != 0) {
+        if ((local->loc.path && strcmp (local->loc.path, "/") != 0)
+            || (local->loc.inode && !uuid_is_null (local->loc.inode->gfid) &&
+                !__is_root_gfid (local->loc.inode->gfid))
+            || (!uuid_is_null (local->loc.gfid)
+                && !__is_root_gfid (local->loc.gfid))) {
                 contri = mq_add_new_contribution_node (this, ctx, &local->loc);
                 if (contri == NULL)
                         goto err;
@@ -1107,7 +1112,12 @@ mq_check_n_set_inode_xattr (call_frame_t *frame, void *cookie,
                 goto create_xattr;
 
         //check contribution xattr if not root
-        if (strcmp (local->loc.path, "/") != 0) {
+        if ((local->loc.path && strcmp (local->loc.path, "/") != 0)
+            || (!uuid_is_null (local->loc.gfid)
+                && !__is_root_gfid (local->loc.gfid))
+            || (local->loc.inode
+                && !uuid_is_null (local->loc.inode->gfid)
+                && !__is_root_gfid (local->loc.inode->gfid))) {
                 GET_CONTRI_KEY (contri_key, local->loc.parent->gfid, ret);
                 if (ret < 0)
                         goto out;
@@ -1234,6 +1244,7 @@ mq_get_parent_inode_local (xlator_t *this, quota_local_t *local)
 {
         int32_t            ret = -1;
         quota_inode_ctx_t *ctx = NULL;
+        inode_contribution_t *contribution = NULL;
 
         GF_VALIDATE_OR_GOTO ("marker", this, out);
         GF_VALIDATE_OR_GOTO ("marker", local, out);
@@ -1263,7 +1274,7 @@ mq_get_parent_inode_local (xlator_t *this, quota_local_t *local)
         ret = mq_inode_ctx_get (local->loc.inode, this, &ctx);
         if (ret < 0) {
                 gf_log_callingfn (this->name, GF_LOG_WARNING,
-                        "inode ctx get failed");
+                                  "inode ctx get failed");
                 goto out;
         }
 
@@ -1277,7 +1288,31 @@ mq_get_parent_inode_local (xlator_t *this, quota_local_t *local)
                 goto out;
         }
 
-        local->contri = (inode_contribution_t *) ctx->contribution_head.next;
+        /* Earlier we used to get the next entry in the list maintained
+           by the context. In a good situation it works. i.e the next
+           parent in the directory hierarchy for this path is obtained.
+
+           But consider the below situation:
+           mount-point: /mnt/point
+           quota enabled directories within mount point: /a, /b, /c
+
+           Now when some file (file1) in the directory /c is written some data,
+           then to update the directories, marker has to get the contribution
+           object for the parent inode, i.e /c.
+           Beefore, it was being done by
+           local->contri = (inode_contribution_t *) ctx->contribution_head.next;
+           It works in the normal situations. But suppose /c is moved to /b.
+           Now /b's contribution object is added to the end of the list of
+           parents that the file file1 within /b/c is maintaining. Now if
+           the file /b/c/file1 is copied to /b/c/new, to update the parent in
+           the order c, b and / we cannot go to the next element in the list,
+           as in this case the next contribution object would be / and /b's
+           contribution will be at the end of the list. So get the proper
+           parent's contribution, by searching the entire list.
+        */
+        contribution = mq_get_contribution_node (local->loc.parent, ctx);
+        GF_ASSERT (contribution != NULL);
+        local->contri = contribution;
 
         ret = 0;
 out:
@@ -1521,9 +1556,10 @@ mq_update_parent_size (call_frame_t *frame,
         }
         UNLOCK (&local->contri->lock);
 
-        gf_log (this->name, GF_LOG_DEBUG, "%s %"PRId64 "%"PRId64,
-                local->loc.path, local->ctx->size,
-                local->contri->contribution);
+        gf_log_callingfn (this->name, GF_LOG_DEBUG, "path: %s size: %"PRId64
+                          " contribution:%"PRId64,
+                          local->loc.path, local->ctx->size,
+                          local->contri->contribution);
 
         if (dict == NULL) {
                 op_errno = EINVAL;
@@ -1730,7 +1766,8 @@ mq_fetch_child_size_and_contri (call_frame_t *frame, void *cookie,
         VALIDATE_OR_GOTO (local->ctx, err);
         VALIDATE_OR_GOTO (local->contri, err);
 
-        gf_log (this->name, GF_LOG_DEBUG, "%s marked dirty", local->parent_loc.path);
+        gf_log (this->name, GF_LOG_DEBUG, "%s marked dirty",
+                local->parent_loc.path);
 
         //update parent ctx
         ret = mq_inode_ctx_get (local->parent_loc.inode, this, &ctx);
@@ -1901,15 +1938,18 @@ fr_destroy:
         return -1;
 }
 
-
 int
-mq_start_quota_txn (xlator_t *this, loc_t *loc,
-                    quota_inode_ctx_t *ctx,
-                    inode_contribution_t *contri)
+mq_prepare_txn_frame (xlator_t *this, loc_t *loc,
+                      quota_inode_ctx_t *ctx,
+                      inode_contribution_t *contri,
+                      call_frame_t **new_frame)
 {
-        int32_t        ret      = -1;
-        call_frame_t  *frame    = NULL;
-        quota_local_t *local    = NULL;
+        call_frame_t    *frame = NULL;
+        int              ret   = -1;
+        quota_local_t   *local = NULL;
+
+        if (!this || !loc || !new_frame)
+                goto err;
 
         frame = create_frame (this, this->ctx->pool);
         if (frame == NULL)
@@ -1935,14 +1975,36 @@ mq_start_quota_txn (xlator_t *this, loc_t *loc,
         local->ctx = ctx;
         local->contri = contri;
 
+        ret = 0;
+        *new_frame = frame;
+
+        return ret;
+
+fr_destroy:
+        QUOTA_STACK_DESTROY (frame, this);
+err:
+        return ret;
+}
+
+int
+mq_start_quota_txn (xlator_t *this, loc_t *loc,
+                    quota_inode_ctx_t *ctx,
+                    inode_contribution_t *contri)
+{
+        int32_t        ret      = -1;
+        call_frame_t  *frame    = NULL;
+
+        ret = mq_prepare_txn_frame (this, loc, ctx,
+                                    contri, &frame);
+        if (ret)
+                goto err;
+
         ret = mq_get_lock_on_parent (frame, this);
         if (ret == -1)
                 goto err;
 
         return 0;
 
-fr_destroy:
-        QUOTA_STACK_DESTROY (frame, this);
 err:
         mq_set_ctx_updation_status (ctx, _gf_false);
 
@@ -1970,11 +2032,46 @@ mq_initiate_quota_txn (xlator_t *this, loc_t *loc)
                 goto out;
         }
 
+        /* Create the contribution node if its absent. Is it right to
+           assume that if the contribution node is not there, then
+           create one and proceed instead of returning?
+           Reason for this assumption is for hard links. Suppose
+           hard link for a file f1 present in a directory d1 is
+           created in the directory d2 (as f2). Now, since d2's
+           contribution is not there in f1's inode ctx, d2's
+           contribution xattr wont be created and will create problems
+           for quota operations.
+        */
         contribution = mq_get_contribution_node (loc->parent, ctx);
-        if (contribution == NULL)
-                goto out;
+        if (!contribution) {
+                if ((loc->path && strcmp (loc->path, "/"))
+                    || (!uuid_is_null (loc->gfid)
+                        && !__is_root_gfid (loc->gfid))
+                    || (loc->inode && !uuid_is_null (loc->inode->gfid)
+                        && !__is_root_gfid (loc->inode->gfid)))
+                        gf_log_callingfn (this->name, GF_LOG_TRACE,
+                                          "contribution node for the "
+                                          "path (%s) with parent (%s) "
+                                          "not found", loc->path,
+                                          loc->parent?
+                                          uuid_utoa (loc->parent->gfid):
+                                          NULL);
 
-        /* To improve performance, donot start another transaction
+                contribution = mq_add_new_contribution_node (this, ctx, loc);
+                if (!contribution) {
+                        if(loc->path && strcmp (loc->path, "/"))
+                                gf_log_callingfn (this->name, GF_LOG_WARNING,
+                                                  "could not allocate "
+                                                  " contribution node for (%s) "
+                                                  "parent: (%s)", loc->path,
+                                                  loc->parent?
+                                                  uuid_utoa (loc->parent->gfid):
+                                                  NULL);
+                        goto out;
+                }
+        }
+
+        /* To improve performance, do not start another transaction
          * if one is already in progress for same inode
          */
         status = _gf_true;
@@ -1993,16 +2090,7 @@ out:
 }
 
 
-/* int32_t */
-/* validate_inode_size_contribution (xlator_t *this, loc_t *loc, int64_t size, */
-/*                                int64_t contribution) */
-/* { */
-/*   if (size != contribution) { */
-/*     mq_initiate_quota_txn (this, loc); */
-/*   } */
 
-/*   return 0; */
-/* } */
 
 
 int32_t
@@ -2031,12 +2119,13 @@ mq_inspect_directory_xattr (xlator_t *this,
                 }
         }
 
-        if (strcmp (loc->path, "/") != 0) {
+        if (!loc->path || (loc->path && strcmp (loc->path, "/") != 0)) {
                 contribution = mq_add_new_contribution_node (this, ctx, loc);
                 if (contribution == NULL) {
                         if (!uuid_is_null (loc->inode->gfid))
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "cannot add a new contribution node");
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "cannot add a new contribution node "
+                                        "(%s)", uuid_utoa (loc->inode->gfid));
                         ret = -1;
                         goto err;
                 }
@@ -2050,7 +2139,10 @@ mq_inspect_directory_xattr (xlator_t *this,
         if (ret < 0)
                 goto out;
 
-        if (strcmp (loc->path, "/") != 0) {
+        if ((loc->path && strcmp (loc->path, "/") != 0)
+            || (!uuid_is_null (loc->gfid) && !__is_root_gfid (loc->gfid))
+            || (loc->inode && !uuid_is_null (loc->inode->gfid) &&
+                !__is_root_gfid (loc->inode->gfid))) {
                 not_root = _gf_true;
 
                 GET_CONTRI_KEY (contri_key, contribution->gfid, ret);
@@ -2122,8 +2214,11 @@ mq_inspect_file_xattr (xlator_t *this,
         }
 
         contribution = mq_add_new_contribution_node (this, ctx, loc);
-        if (contribution == NULL)
+        if (contribution == NULL) {
+                gf_log_callingfn (this->name, GF_LOG_DEBUG, "cannot allocate "
+                                  "contribution node (path:%s)", loc->path);
                 goto out;
+        }
 
         LOCK (&ctx->lock);
         {
@@ -2155,8 +2250,12 @@ mq_inspect_file_xattr (xlator_t *this,
                         if (size != contri_int) {
                                 mq_initiate_quota_txn (this, loc);
                         }
-                } else
-                        mq_initiate_quota_txn (this, loc);
+                } else {
+                        if (size)
+                                mq_initiate_quota_txn (this, loc);
+                        else
+                                mq_set_inode_xattr (this, loc);
+                }
         }
 
 out:
@@ -2192,7 +2291,7 @@ mq_req_xattr (xlator_t *this,
                 goto set_size;
 
         //if not "/" then request contribution
-        if (strcmp (loc->path, "/") == 0)
+        if (loc->path && strcmp (loc->path, "/") == 0)
                 goto set_size;
 
         ret = mq_dict_set_contribution (this, dict, loc);
@@ -2235,6 +2334,12 @@ _mq_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
         int32_t        ret                = 0;
         char           contri_key [512]   = {0, };
         quota_local_t *local              = NULL;
+        inode_t       *inode              = NULL;
+        dentry_t      *tmp                = NULL;
+        gf_boolean_t  last_dentry         = _gf_true;
+        loc_t         loc                 = {0, };
+        dentry_t      *other_dentry       = NULL;
+        gf_boolean_t  remove              = _gf_false;
 
         local = (quota_local_t *) frame->local;
 
@@ -2245,16 +2350,83 @@ _mq_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
 
         frame->local = NULL;
 
-        if (local->hl_count > 1) {
-                GET_CONTRI_KEY (contri_key, local->contri->gfid, ret);
+        GET_CONTRI_KEY (contri_key, local->contri->gfid, ret);
 
-                STACK_WIND (frame, mq_removexattr_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->removexattr,
-                            &local->loc, contri_key, NULL);
-                ret = 0;
-        } else {
-                mq_removexattr_cbk (frame, NULL, this, 0, 0, NULL);
+        if (!local->loc.inode)
+                inode = inode_grep (local->loc.parent->table, local->loc.parent,
+                                    local->loc.name);
+        else
+                inode = inode_ref (local->loc.inode);
+
+        /* Suppose there are 2 directories dir1 and dir2. Quota limit is set on
+           both the directories. There is a file (f1) in dir1. A hark link is
+           created for that file inside the directory dir2 (say f2). Now one
+           more xattr is set in the inode as a new hard link is created in a
+           separate directory.
+           i.e trusted.glusterfs.quota.<gfid of dir2>.contri=<contribution>
+
+           Now when the hardlink f2 is removed, then the new xattr added (i.e
+           the xattr indicating its contribution to ITS parent directory) should
+           be removed (IFF there is not another hardlink for that file in the
+           same directory).
+
+           To do that upon getting unlink first check whether any other hard
+           links for the same inode exists in the same directory. If so do not
+           do anything and proceed for quota transaction.
+           Otherwise, if the removed entry was the only link for that inode
+           within that directory, then get another dentry for the inode
+           (by traversing the list of dentries for the inode) and using the
+           the dentry's parent and name, send removexattr so that the xattr
+           is removed.
+
+           If it is not done, then if the volume is restarted or the brick
+           process is restarted, then wrong quota usage will be shown for the
+           directory dir2.
+        */
+        if (inode) {
+                tmp = NULL;
+                list_for_each_entry (tmp, &inode->dentry_list, inode_list) {
+                        if (local->loc.parent == tmp->parent) {
+                                if (strcmp (local->loc.name, local->loc.name)) {
+                                        last_dentry = _gf_false;
+                                        break;
+                                }
+                        }
+                }
+                remove = last_dentry;
         }
+
+        if (remove) {
+                if (!other_dentry)    {
+                        list_for_each_entry (tmp, &inode->dentry_list,
+                                             inode_list) {
+                                if (local->loc.parent != tmp->parent) {
+                                        other_dentry = tmp;
+                                        break;
+                                }
+                        }
+                }
+
+                if (!other_dentry)
+                        mq_removexattr_cbk (frame, NULL, this, 0, 0, NULL);
+                else {
+                        loc.parent = inode_ref (other_dentry->parent);
+                        loc.name = gf_strdup (other_dentry->name);
+                        uuid_copy (loc.pargfid , other_dentry->parent->gfid);
+                        loc.inode = inode_ref (inode);
+                        uuid_copy (loc.gfid, inode->gfid);
+                        inode_path (other_dentry->parent, other_dentry->name,
+                                    (char **)&loc.path);
+
+                        STACK_WIND (frame, mq_removexattr_cbk,
+                                    FIRST_CHILD(this),
+                                    FIRST_CHILD(this)->fops->removexattr,
+                                    &loc, contri_key, NULL);
+                }
+        } else
+                mq_removexattr_cbk (frame, NULL, this, 0, 0, NULL);
+
+        ret = 0;
 
         if (strcmp (local->parent_loc.path, "/") != 0) {
                 ret = mq_get_parent_inode_local (this, local);
@@ -2266,6 +2438,8 @@ _mq_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
 out:
         mq_local_unref (this, local);
 
+        loc_wipe (&loc);
+        inode_unref (inode);
         return 0;
 }
 
@@ -2392,8 +2566,11 @@ mq_reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
                 goto out;
 
         contribution = mq_get_contribution_node (loc->parent, ctx);
-        if (contribution == NULL)
+        if (contribution == NULL) {
+                gf_log_callingfn (this->name, GF_LOG_WARNING, "contribution for"
+                                  " the node %s is NULL", loc->path);
                 goto out;
+        }
 
         local = mq_local_new ();
         if (local == NULL) {
@@ -2412,6 +2589,8 @@ mq_reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
         }
 
         if (local->size == 0) {
+                gf_log_callingfn (this->name, GF_LOG_TRACE,
+                                  "local->size is 0 " "path: (%s)", loc->path);
                 ret = 0;
                 goto out;
         }
@@ -2424,8 +2603,12 @@ mq_reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
         local->contri = contribution;
 
         ret = mq_inode_loc_fill (NULL, loc->parent, &local->parent_loc);
-        if (ret < 0)
+        if (ret < 0) {
+                gf_log_callingfn (this->name, GF_LOG_INFO, "building parent loc"
+                                  " failed. (gfid: %s)",
+                                  uuid_utoa (loc->parent->gfid));
                 goto out;
+        }
 
         frame = create_frame (this, this->ctx->pool);
         if (!frame) {

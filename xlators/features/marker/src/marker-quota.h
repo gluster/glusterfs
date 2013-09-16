@@ -42,8 +42,6 @@
                 var = GF_CALLOC (sizeof (type), 1,      \
                                  gf_marker_mt_##type);  \
                 if (!var) {                             \
-                        gf_log ("", GF_LOG_ERROR,       \
-                                "out of memory");       \
                         ret = -1;                       \
                 }                                       \
         } while (0);
@@ -61,13 +59,20 @@
                 ret = 0;                                \
         } while (0);
 
-#define GET_CONTRI_KEY(var, _gfid, _ret)        \
-        do {                                    \
-                char _gfid_unparsed[40];        \
-                uuid_unparse (_gfid, _gfid_unparsed); \
-                _ret = snprintf (var, CONTRI_KEY_MAX, QUOTA_XATTR_PREFIX \
-                                 ".%s.%s." CONTRIBUTION, "quota", \
-                                 _gfid_unparsed); \
+#define GET_CONTRI_KEY(var, _gfid, _ret)              \
+        do {                                          \
+                if (_gfid != NULL) {                  \
+                        char _gfid_unparsed[40];      \
+                        uuid_unparse (_gfid, _gfid_unparsed);           \
+                        _ret = snprintf (var, CONTRI_KEY_MAX,           \
+                                         QUOTA_XATTR_PREFIX             \
+                                         ".%s.%s." CONTRIBUTION, "quota", \
+                                         _gfid_unparsed);               \
+                } else {                                                \
+                        _ret = snprintf (var, CONTRI_KEY_MAX,           \
+                                         QUOTA_XATTR_PREFIX             \
+                                         ".%s.." CONTRIBUTION, "quota"); \
+                }                                                       \
         } while (0);
 
 #define QUOTA_SAFE_INCREMENT(lock, var)         \
