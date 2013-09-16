@@ -214,6 +214,8 @@ function _TEST_IN_LOOP()
 function cleanup()
 {
 	killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;
+        # allow completion of signal handlers for SIGTERM before issue SIGKILL
+        sleep 1
 	killall -9 glusterfs glusterfsd glusterd 2>/dev/null || true;
 
         MOUNTPOINTS=`mount | grep "$B0/" | awk '{print $3}'`

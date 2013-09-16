@@ -142,6 +142,9 @@ inode_rename (inode_table_t *table, inode_t *olddir, const char *oldname,
 	      inode_t *newdir, const char *newname,
 	      inode_t *inode, struct iatt *stbuf);
 
+dentry_t *
+__dentry_grep (inode_table_t *table, inode_t *parent, const char *name);
+
 inode_t *
 inode_grep (inode_table_t *table, inode_t *parent, const char *name);
 

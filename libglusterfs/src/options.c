@@ -1110,7 +1110,7 @@ DEFINE_INIT_OPT(gf_boolean_t, bool, gf_string2boolean);
 DEFINE_INIT_OPT(xlator_t *, xlator, xl_by_name);
 DEFINE_INIT_OPT(char *, path, pass);
 DEFINE_INIT_OPT(double, double, gf_string2double);
-
+DEFINE_INIT_OPT(uint32_t, time, gf_string2time);
 
 
 DEFINE_RECONF_OPT(char *, str, pass);
@@ -1125,3 +1125,4 @@ DEFINE_RECONF_OPT(gf_boolean_t, bool, gf_string2boolean);
 DEFINE_RECONF_OPT(xlator_t *, xlator, xl_by_name);
 DEFINE_RECONF_OPT(char *, path, pass);
 DEFINE_RECONF_OPT(double, double, gf_string2double);
+DEFINE_RECONF_OPT(uint32_t, time, gf_string2time);

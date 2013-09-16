@@ -1086,6 +1086,20 @@ dict_null_foreach_fn (dict_t *d, char *k,
 }
 
 int
+dict_remove_foreach_fn (dict_t *d, char *k,
+                        data_t *v, void *_tmp)
+{
+        if (!d || !k) {
+                gf_log ("glusterfs", GF_LOG_WARNING, "%s is NULL",
+                        d?"key":"dictionary");
+                return -1;
+        }
+
+        dict_del (d, k);
+        return 0;
+}
+
+int
 dict_foreach (dict_t *dict,
               int (*fn)(dict_t *this,
                         char *key,
