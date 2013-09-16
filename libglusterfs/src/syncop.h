@@ -25,6 +25,13 @@
 #define SYNCENV_PROC_MIN 2
 #define SYNCPROC_IDLE_TIME 600
 
+/*
+ * Flags for syncopctx valid elements
+ */
+#define SYNCOPCTX_UID    0x00000001
+#define SYNCOPCTX_GID    0x00000002
+#define SYNCOPCTX_GROUPS 0x00000004
+
 struct synctask;
 struct syncproc;
 struct syncenv;
@@ -150,6 +157,14 @@ struct syncargs {
 	int                 done;
 };
 
+struct syncopctx {
+        unsigned int valid;  /* valid flags for elements that are set */
+        uid_t        uid;
+        gid_t        gid;
+        int          grpsize;
+        int          ngrps;
+        gid_t       *groups;
+};
 
 #define __yawn(args) do {                                       \
         args->task = synctask_get ();                           \
@@ -242,34 +257,63 @@ void synctask_waitfor (struct synctask *task, int count);
 int synctask_setid (struct synctask *task, uid_t uid, gid_t gid);
 #define SYNCTASK_SETID(uid, gid) synctask_setid (synctask_get(), uid, gid);
 
+int syncopctx_setfsuid (void *uid);
+int syncopctx_setfsgid (void *gid);
+int syncopctx_setfsgroups (int count, const void *groups);
 
 static inline call_frame_t *
 syncop_create_frame (xlator_t *this)
 {
-	call_frame_t  *frame = NULL;
-	int            ngrps = -1;
+	call_frame_t     *frame = NULL;
+	int               ngrps = -1;
+	struct syncopctx *opctx = NULL;
 
 	frame = create_frame (this, this->ctx->pool);
 	if (!frame)
 		return NULL;
 
-	frame->root->pid = getpid();
-	frame->root->uid = geteuid ();
-	frame->root->gid = getegid ();
-        ngrps = getgroups (0, 0);
-	if (ngrps < 0) {
-		STACK_DESTROY (frame->root);
-		return NULL;
-	}
+	frame->root->pid = getpid ();
 
-	if (call_stack_alloc_groups (frame->root, ngrps) != 0) {
-		STACK_DESTROY (frame->root);
-		return NULL;
-	}
+	opctx = syncopctx_getctx ();
+	if (opctx && (opctx->valid & SYNCOPCTX_UID))
+		frame->root->uid = opctx->uid;
+	else
+		frame->root->uid = geteuid ();
 
-	if (getgroups (ngrps, frame->root->groups) < 0) {
-		STACK_DESTROY (frame->root);
-		return NULL;
+	if (opctx && (opctx->valid & SYNCOPCTX_GID))
+		frame->root->gid = opctx->gid;
+	else
+		frame->root->gid = getegid ();
+
+	if (opctx && (opctx->valid & SYNCOPCTX_GROUPS)) {
+		ngrps = opctx->ngrps;
+
+		if (ngrps != 0 && opctx->groups != NULL) {
+			if (call_stack_alloc_groups (frame->root, ngrps) != 0) {
+				STACK_DESTROY (frame->root);
+				return NULL;
+			}
+
+			memcpy (frame->root->groups, opctx->groups,
+				(sizeof (gid_t) * ngrps));
+		}
+	}
+	else {
+		ngrps = getgroups (0, 0);
+		if (ngrps < 0) {
+			STACK_DESTROY (frame->root);
+			return NULL;
+		}
+
+		if (call_stack_alloc_groups (frame->root, ngrps) != 0) {
+			STACK_DESTROY (frame->root);
+			return NULL;
+		}
+
+		if (getgroups (ngrps, frame->root->groups) < 0) {
+			STACK_DESTROY (frame->root);
+			return NULL;
+		}
 	}
 
 	return frame;

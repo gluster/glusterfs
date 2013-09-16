@@ -271,6 +271,32 @@ int glfs_fini (glfs_t *fs);
 struct glfs_fd;
 typedef struct glfs_fd glfs_fd_t;
 
+/*
+ * PER THREAD IDENTITY MODIFIERS
+ *
+ * The following operations enable to set a per thread identity context
+ * for the glfs APIs to perform operations as. The calls here are kept as close
+ * to POSIX equivalents as possible.
+ *
+ * NOTES:
+ *
+ *  - setgroups is a per thread setting, hence this is named as fsgroups to be
+ *    close in naming to the fs(u/g)id APIs
+ *  - Typical mode of operation is to set the IDs as required, with the
+ *    supplementary groups being optionally set, make the glfs call and post the
+ *    glfs operation set them back to eu/gid or uid/gid as appropriate to the
+ *    caller
+ *  - The groups once set, need to be unset by setting the size to 0 (in which
+ *    case the list argument is a do not care)
+ *  - Once a process for a thread of operation choses to set the IDs, all glfs
+ *    calls made from that thread would default to the IDs set for the thread.
+ *    As a result use these APIs with care and ensure that the set IDs are
+ *    reverted to global process defaults as required.
+ *
+ */
+int glfs_setfsuid (uid_t fsuid);
+int glfs_setfsgid (gid_t fsgid);
+int glfs_setfsgroups (size_t size, const gid_t *list);
 
 /*
   SYNOPSIS

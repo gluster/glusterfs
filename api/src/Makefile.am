@@ -1,9 +1,10 @@
 lib_LTLIBRARIES = libgfapi.la
 noinst_HEADERS = glfs-mem-types.h glfs-internal.h
-libgfapi_HEADERS = glfs.h
+libgfapi_HEADERS = glfs.h glfs-handles.h
 libgfapidir = $(includedir)/glusterfs/api
 
-libgfapi_la_SOURCES = glfs.c glfs-mgmt.c glfs-fops.c glfs-resolve.c
+libgfapi_la_SOURCES = glfs.c glfs-mgmt.c glfs-fops.c glfs-resolve.c \
+	glfs-handleops.c
 libgfapi_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
 	$(top_builddir)/rpc/xdr/src/libgfxdr.la \
