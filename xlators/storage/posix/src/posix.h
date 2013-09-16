@@ -52,6 +52,12 @@
 
 #define VECTOR_SIZE 64 * 1024 /* vector size 64KB*/
 #define MAX_NO_VECT 1024
+
+#define POSIX_GFID_HANDLE_SIZE(base_path_len) (base_path_len + SLEN("/") \
+                                               + SLEN(HANDLE_PFX) + SLEN("/") \
+                                               + SLEN("00/")            \
+                                               + SLEN("00/") + SLEN(UUID0_STR) + 1) /* '\0' */;
+
 /**
  * posix_fd - internal structure common to file and directory fd's
  */
@@ -146,6 +152,7 @@ struct posix_private {
 	}               batch_fsync_mode;
 
 	uint32_t        batch_fsync_delay_usec;
+        gf_boolean_t    update_pgfid_nlinks;
 
         /* seconds to sleep between health checks */
         uint32_t        health_check_interval;
@@ -205,4 +212,8 @@ __posix_fd_set_odirect (fd_t *fd, struct posix_fd *pfd, int opflags,
 void posix_spawn_health_check_thread (xlator_t *this);
 
 void *posix_fsyncer (void *);
+int
+posix_get_ancestry (xlator_t *this, inode_t *leaf_inode,
+                    gf_dirent_t *head, char **path, int type, int32_t *op_errno,
+                    dict_t *xdata);
 #endif /* _POSIX_H */

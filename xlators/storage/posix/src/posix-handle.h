@@ -17,16 +17,92 @@
 
 #include <sys/types.h>
 #include "xlator.h"
+#include "gf-dirent.h"
+
+#define HANDLE_PFX ".glusterfs"
+#define TRASH_DIR "landfill"
+
+#define UUID0_STR "00000000-0000-0000-0000-000000000000"
+#define SLEN(str) (sizeof(str) - 1)
+
+#define LOC_HAS_ABSPATH(loc) (loc && (loc->path) && (loc->path[0] == '/'))
+
+#define MAKE_PGFID_XATTR_KEY(var, prefix, pgfid) do {                   \
+        var = alloca (strlen (prefix) + UUID_CANONICAL_FORM_LEN + 1);   \
+        strcpy (var, prefix);                                           \
+        strcat (var, uuid_utoa (pgfid));                                \
+        } while (0)
+
+#define SET_PGFID_XATTR(path, key, value, flags, op_ret, this, label) do {    \
+        value = hton32 (value);                                         \
+        op_ret = sys_lsetxattr (path, key, &value, sizeof (value),      \
+                                flags);                                 \
+        if (op_ret == -1) {                                             \
+                op_errno = errno;                                       \
+                gf_log (this->name, GF_LOG_WARNING,                     \
+                        "setting xattr failed on %s: key = %s (%s)",    \
+                        path, key, strerror (op_errno));                \
+                goto label;                                             \
+        }                                                               \
+        } while (0)
 
 
-#define LOC_HAS_ABSPATH(loc) ((loc) && (loc->path) && (loc->path[0] == '/'))
+#define REMOVE_PGFID_XATTR(path, key, op_ret, this, label) do {               \
+       op_ret = sys_lremovexattr (path, key);                           \
+       if (op_ret == -1) {                                              \
+               op_errno = errno;                                        \
+               gf_log (this->name, GF_LOG_WARNING, "removing xattr "    \
+                       "failed on %s: key = %s (%s)", path, key,        \
+                       strerror (op_errno));                            \
+               goto label;                                              \
+       }                                                                \
+       } while (0)
+
+/* should be invoked holding a lock */
+#define LINK_MODIFY_PGFID_XATTR(path, key, value, flags, op_ret, this, label) do { \
+       op_ret = sys_lgetxattr (path, key, &value, sizeof (value));  \
+       if (op_ret == -1) {                                              \
+               op_errno = errno;                                        \
+               if (op_errno == ENOATTR) {                               \
+                       value = 1;                                       \
+               } else {                                                 \
+                       gf_log (this->name, GF_LOG_WARNING,"getting xattr " \
+                               "failed on %s: key = %s (%s)", path, key, \
+                               strerror (op_errno));                    \
+                       goto label;                                      \
+               }                                                        \
+       } else {                                                         \
+               value = ntoh32 (value);                                  \
+               value++;                                                 \
+       }                                                                \
+       SET_PGFID_XATTR (path, key, value, flags, op_ret, this, label);  \
+       } while (0)
+
+/* should be invoked holding a lock */
+#define UNLINK_MODIFY_PGFID_XATTR(path, key, value, flags, op_ret, this, label) do { \
+       op_ret = sys_lgetxattr (path, key, &value, sizeof (value));  \
+       if (op_ret == -1) {                                              \
+               op_errno = errno;                                        \
+               gf_log (this->name, GF_LOG_WARNING, "getting xattr failed on " \
+                       "%s: key = %s (%s)", path, key, strerror (op_errno)); \
+               goto label;                                              \
+       } else {                                                         \
+               value = ntoh32 (value);                                  \
+               value--;                                                 \
+               if (value > 0) {                                         \
+                       SET_PGFID_XATTR (path, key, value, flags, op_ret, \
+                                        this, label);                   \
+               } else {                                                 \
+                       REMOVE_PGFID_XATTR (path, key, op_ret, this, label); \
+               }                                                        \
+       }                                                                \
+    } while (0)
 
 #define MAKE_REAL_PATH(var, this, path) do {                            \
         var = alloca (strlen (path) + POSIX_BASE_PATH_LEN(this) + 2);   \
         strcpy (var, POSIX_BASE_PATH(this));                            \
         strcpy (&var[POSIX_BASE_PATH_LEN(this)], path);                 \
         } while (0)
-
 
 #define MAKE_HANDLE_PATH(var, this, gfid, base) do {                    \
         int __len;                                                      \
@@ -61,12 +137,12 @@
 #define MAKE_INODE_HANDLE(rpath, this, loc, iatt_p) do {                \
         if (uuid_is_null (loc->gfid)) {                                 \
                 gf_log (this->name, GF_LOG_ERROR,                       \
-                        "null gfid for path %s", loc->path);            \
+                        "null gfid for path %s", (loc)->path);          \
                 break;                                                  \
         }                                                               \
         if (LOC_HAS_ABSPATH (loc)) {                                    \
-                MAKE_REAL_PATH (rpath, this, loc->path);                \
-                op_ret = posix_pstat (this, loc->gfid, rpath, iatt_p);  \
+                MAKE_REAL_PATH (rpath, this, (loc)->path);              \
+                op_ret = posix_pstat (this, (loc)->gfid, rpath, iatt_p); \
                 break;                                                  \
         }                                                               \
         errno = 0;                                                      \
@@ -107,10 +183,20 @@
         } while (0)
 
 
+#define POSIX_ANCESTRY_PATH (1 << 0)
+#define POSIX_ANCESTRY_DENTRY (1 << 1)
 
 int
 posix_handle_path (xlator_t *this, uuid_t gfid, const char *basename, char *buf,
                    size_t len);
+
+int
+posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
+                             gf_dirent_t *head, int type, uuid_t gfid,
+                             const size_t handle_size,
+                             const char *priv_base_path,
+                             inode_table_t *table, inode_t **parent,
+                             dict_t *xdata);
 int
 posix_handle_path_safe (xlator_t *this, uuid_t gfid, const char *basename,
                         char *buf, size_t len);

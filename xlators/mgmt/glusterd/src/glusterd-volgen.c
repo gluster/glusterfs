@@ -1404,25 +1404,27 @@ static int
 server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
 {
-        char     *volname                 = NULL;
-        char     *path                    = NULL;
-        int       pump                    = 0;
-        xlator_t *xl                      = NULL;
-        xlator_t *txl                     = NULL;
-        xlator_t *rbxl                    = NULL;
-        char      transt[16]              = {0,};
-        char     *ptranst                 = NULL;
-        char      volume_id[64]           = {0,};
-        char      tstamp_file[PATH_MAX]   = {0,};
-        int       ret                     = 0;
-        char     *xlator                  = NULL;
-        char     *loglevel                = NULL;
-        char     *username                = NULL;
-        char     *password                = NULL;
-        char     index_basepath[PATH_MAX] = {0};
-        char     key[1024]                = {0};
-        glusterd_brickinfo_t *brickinfo   = NULL;
-        char changelog_basepath[PATH_MAX] = {0,};
+        char                 *volname       = NULL;
+        char                 *path          = NULL;
+        int                   pump          = 0;
+        xlator_t             *xl            = NULL;
+        xlator_t             *txl           = NULL;
+        xlator_t             *rbxl          = NULL;
+        char      transt[16]                = {0,};
+        char                 *ptranst       = NULL;
+        char      volume_id[64]             = {0,};
+        char      tstamp_file[PATH_MAX]     = {0,};
+        int                   ret           = 0;
+        char                 *xlator        = NULL;
+        char                 *loglevel      = NULL;
+        char                 *username      = NULL;
+        char                 *password      = NULL;
+        char     index_basepath[PATH_MAX]   = {0};
+        char     key[1024]                  = {0};
+        glusterd_brickinfo_t *brickinfo     = NULL;
+        char changelog_basepath[PATH_MAX]   = {0,};
+        gf_boolean_t          quota_enabled = _gf_true;
+        char                 *value         = NULL;
 
         brickinfo = param;
         path      = brickinfo->path;
@@ -1441,6 +1443,13 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 }
         }
 
+        ret = glusterd_volinfo_get (volinfo, VKEY_FEATURES_QUOTA, &value);
+        if (value) {
+                ret = gf_string2boolean (value, &quota_enabled);
+                if (ret)
+                        goto out;
+        }
+
         xl = volgen_graph_add (graph, "storage/posix", volname);
         if (!xl)
                 return -1;
@@ -1453,6 +1462,10 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                  uuid_utoa (volinfo->volume_id));
         if (ret)
                 return -1;
+
+        if (quota_enabled)
+                xlator_set_option (xl, "update-link-count-parent",
+                                   value);
 
         ret = check_and_add_debug_xl (graph, set_dict, volname,
                                       "posix");

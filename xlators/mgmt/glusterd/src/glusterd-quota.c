@@ -260,6 +260,7 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname)
         runner_add_args (&runner, SBIN_DIR"/glusterfs",
                          "-s", "localhost",
                          "--volfile-id", volname,
+			 "--use-readdirp=no",
                          "-l", DEFAULT_LOG_FILE_DIRECTORY"/quota-crawl.log",
                          mountdir, NULL);
 

@@ -101,9 +101,13 @@
 
 #define GF_XATTR_LINKINFO_KEY   "trusted.distribute.linkinfo"
 #define GFID_XATTR_KEY          "trusted.gfid"
+#define PGFID_XATTR_KEY_PREFIX  "trusted.pgfid."
 #define VIRTUAL_GFID_XATTR_KEY_STR  "glusterfs.gfid.string"
 #define VIRTUAL_GFID_XATTR_KEY      "glusterfs.gfid"
 #define UUID_CANONICAL_FORM_LEN 36
+
+#define GET_ANCESTRY_PATH_KEY "glusterfs.ancestry.path"
+#define GET_ANCESTRY_DENTRY_KEY "glusterfs.ancestry.dentry"
 
 #define GLUSTERFS_INTERNAL_FOP_KEY  "glusterfs-internal-fop"
 
