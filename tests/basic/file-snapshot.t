@@ -27,6 +27,7 @@ TEST touch $M0/big-file;
 
 TEST setfattr -n trusted.glusterfs.block-format -v qcow2:10GB $M0/big-file;
 
+TEST ls -al $M0 # test readdirplus
 TEST [ `stat -c '%s' $M0/big-file` = 10737418240 ]
 
 echo 'ABCDEFGHIJ' > $M0/data-file1

@@ -651,6 +651,63 @@ enomem:
 	return 0;
 }
 
+static int32_t
+qb_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+		int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
+		dict_t *xdata)
+{
+	qb_conf_t *conf = this->private;
+	gf_dirent_t *entry;
+	char *format;
+
+	list_for_each_entry(entry, &entries->list, list) {
+		if (!entry->inode || !entry->dict)
+			continue;
+
+		format = NULL;
+		if (dict_get_str(entry->dict, conf->qb_xattr_key, &format))
+			continue;
+
+		if (!format) {
+			qb_inode_cleanup(this, entry->inode, 1);
+			continue;
+		}
+
+		if (qb_format_extract(this, format, entry->inode))
+			continue;
+
+		qb_iatt_fixup(this, entry->inode, &entry->d_stat);
+	}
+
+	STACK_UNWIND_STRICT(readdirp, frame, op_ret, op_errno, entries, xdata);
+	return 0;
+}
+
+static int32_t
+qb_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+	    off_t off, dict_t *xdata)
+{
+	qb_conf_t *conf = this->private;
+
+	xdata = xdata ? dict_ref(xdata) : dict_new();
+	if (!xdata)
+		goto enomem;
+
+	if (dict_set_int32 (xdata, conf->qb_xattr_key, 0))
+		goto enomem;
+
+	STACK_WIND(frame, qb_readdirp_cbk, FIRST_CHILD(this),
+		   FIRST_CHILD(this)->fops->readdirp, fd, size, off, xdata);
+
+	dict_unref(xdata);
+	return 0;
+
+enomem:
+	QB_STACK_UNWIND(readdirp, frame, -1, ENOMEM, NULL, NULL);
+	if (xdata)
+		dict_unref(xdata);
+	return 0;
+}
 
 int
 qb_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
@@ -1005,6 +1062,7 @@ struct xlator_fops fops = {
 	.getxattr    = qb_getxattr,
 	.fgetxattr   = qb_fgetxattr
 */
+	.readdirp    = qb_readdirp,
 };
 
 
