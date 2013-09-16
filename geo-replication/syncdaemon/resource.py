@@ -12,7 +12,7 @@ import logging
 import tempfile
 import threading
 import subprocess
-from errno import EEXIST, ENOENT, ENODATA, ENOTDIR, ELOOP, EISDIR, ENOTEMPTY
+from errno import EEXIST, ENOENT, ENODATA, ENOTDIR, ELOOP, EISDIR, ENOTEMPTY, ESTALE, EINVAL
 from select import error as SelectError
 
 from gconf import gconf
@@ -532,7 +532,7 @@ class Server(object):
                 else:
                     errno_wrap(os.rename, [entry, en], [ENOENT, EEXIST])
             if blob:
-                errno_wrap(Xattr.lsetxattr_l, [pg, 'glusterfs.gfid.newfile', blob], [ENOENT, EEXIST])
+                errno_wrap(Xattr.lsetxattr_l, [pg, 'glusterfs.gfid.newfile', blob], [EEXIST], [ENOENT, ESTALE, EINVAL])
 
     @classmethod
     def changelog_register(cls, cl_brick, cl_dir, cl_log, cl_level, retries = 0):
