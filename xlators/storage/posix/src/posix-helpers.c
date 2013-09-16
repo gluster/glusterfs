@@ -102,14 +102,54 @@ out:
 }
 
 static int
+_posix_xattr_get_set_from_backend (posix_xattr_filler_t *filler, char *key)
+{
+        ssize_t  xattr_size = -1;
+        int      ret        = 0;
+        char    *value      = NULL;
+
+        xattr_size = sys_lgetxattr (filler->real_path, key, NULL, 0);
+
+        if (xattr_size > 0) {
+                value = GF_CALLOC (1, xattr_size + 1,
+                                   gf_posix_mt_char);
+                if (!value)
+                        goto out;
+
+                xattr_size = sys_lgetxattr (filler->real_path, key, value,
+                                            xattr_size);
+                if (xattr_size <= 0) {
+                        gf_log (filler->this->name, GF_LOG_WARNING,
+                                "getxattr failed. path: %s, key: %s",
+                                filler->real_path, key);
+                        GF_FREE (value);
+                        goto out;
+                }
+
+                value[xattr_size] = '\0';
+                ret = dict_set_bin (filler->xattr, key,
+                                    value, xattr_size);
+                if (ret < 0) {
+                        gf_log (filler->this->name, GF_LOG_DEBUG,
+                                "dict set failed. path: %s, key: %s",
+                                filler->real_path, key);
+                        GF_FREE (value);
+                        goto out;
+                }
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
+
+static int
 _posix_xattr_get_set (dict_t *xattr_req,
                       char *key,
                       data_t *data,
                       void *xattrargs)
 {
         posix_xattr_filler_t *filler = xattrargs;
-        char     *value      = NULL;
-        ssize_t   xattr_size = -1;
         int       ret      = -1;
         char     *databuf  = NULL;
         int       _fd      = -1;
@@ -183,35 +223,24 @@ _posix_xattr_get_set (dict_t *xattr_req,
                                         "Failed to set dictionary value for %s",
                                         key);
                 }
-        } else {
-                xattr_size = sys_lgetxattr (filler->real_path, key, NULL, 0);
-
-                if (xattr_size > 0) {
-                        value = GF_CALLOC (1, xattr_size + 1,
-                                           gf_posix_mt_char);
-                        if (!value)
-                                return -1;
-
-                        xattr_size = sys_lgetxattr (filler->real_path, key, value,
-                                                    xattr_size);
-                        if (xattr_size <= 0) {
-                                gf_log (filler->this->name, GF_LOG_WARNING,
-                                        "getxattr failed. path: %s, key: %s",
-                                        filler->real_path, key);
-                                GF_FREE (value);
-                                return -1;
-                        }
-
-                        value[xattr_size] = '\0';
-                        ret = dict_set_bin (filler->xattr, key,
-                                            value, xattr_size);
-                        if (ret < 0) {
-                                gf_log (filler->this->name, GF_LOG_DEBUG,
-                                        "dict set failed. path: %s, key: %s",
-                                        filler->real_path, key);
-                                GF_FREE (value);
-                        }
+        } else if (!strcmp (key, GET_ANCESTRY_PATH_KEY)) {
+                char *path = NULL;
+                ret = posix_get_ancestry (filler->this, filler->loc->inode,
+                                          NULL, &path, POSIX_ANCESTRY_PATH,
+                                          &filler->op_errno, xattr_req);
+                if (ret < 0) {
+                        goto out;
                 }
+
+                ret = dict_set_dynstr (filler->xattr, GET_ANCESTRY_PATH_KEY,
+                                       path);
+                if (ret < 0) {
+                        GF_FREE (path);
+                        goto out;
+                }
+
+        } else {
+                ret = _posix_xattr_get_set_from_backend (filler, key);
         }
 out:
         return 0;
