@@ -239,7 +239,7 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         UNLOCK (&ctx->lock);
 
-        quota_check_limit (frame, local->validate_loc.inode, this, NULL, NULL);
+        quota_check_limit (frame, local->validate_loc.inode, this, NULL, NULL) ;
         return 0;
 
 unwind:

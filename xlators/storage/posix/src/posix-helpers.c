@@ -52,6 +52,8 @@ char *marker_xattrs[] = {"trusted.glusterfs.quota.*",
                          "trusted.glusterfs.*.xtime",
                          NULL};
 
+char *marker_contri_key = "trusted.*.*.contri";
+
 static char* posix_ignore_xattrs[] = {
         "gfid-req",
         GLUSTERFS_ENTRYLK_COUNT,
@@ -142,6 +144,94 @@ out:
         return ret;
 }
 
+static int gf_posix_xattr_enotsup_log;
+
+static int
+_posix_get_marker_all_contributions (posix_xattr_filler_t *filler)
+{
+        ssize_t  size = -1, remaining_size = -1, list_offset = 0;
+        int      ret  = -1;
+        char    *list = NULL, key[4096] = {0, };
+
+        size = sys_llistxattr (filler->real_path, NULL, 0);
+        if (size == -1) {
+                if ((errno == ENOTSUP) || (errno == ENOSYS)) {
+                        GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
+                                             THIS->name, GF_LOG_WARNING,
+                                             "Extended attributes not "
+                                             "supported (try remounting brick"
+                                             " with 'user_xattr' flag)");
+
+                } else {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "listxattr failed on %s: %s",
+                                filler->real_path, strerror (errno));
+
+                }
+
+                goto out;
+        }
+
+        if (size == 0) {
+                ret = 0;
+                goto out;
+        }
+
+        list = alloca (size + 1);
+        if (!list) {
+                goto out;
+        }
+
+        size = sys_llistxattr (filler->real_path, list, size);
+        if (size <= 0) {
+                ret = size;
+                goto out;
+        }
+
+        remaining_size = size;
+        list_offset = 0;
+
+        while (remaining_size > 0) {
+                if (*(list + list_offset) == '\0')
+                        break;
+                strcpy (key, list + list_offset);
+                if (fnmatch (marker_contri_key, key, 0) == 0) {
+                        ret = _posix_xattr_get_set_from_backend (filler, key);
+                }
+
+                remaining_size -= strlen (key) + 1;
+                list_offset += strlen (key) + 1;
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
+_posix_get_marker_quota_contributions (posix_xattr_filler_t *filler, char *key)
+{
+        char *saveptr = NULL, *token = NULL, *tmp_key = NULL;
+        char *ptr     = NULL;
+        int   i       = 0, ret = 0;
+
+        tmp_key = ptr = gf_strdup (key);
+        for (i = 0; i < 4; i++) {
+                token = strtok_r (tmp_key, ".", &saveptr);
+                tmp_key = NULL;
+        }
+
+        if (strncmp (token, "contri", strlen ("contri")) == 0) {
+                ret = _posix_get_marker_all_contributions (filler);
+        } else {
+                ret = _posix_xattr_get_set_from_backend (filler, key);
+        }
+
+        GF_FREE (ptr);
+
+        return ret;
+}
 
 static int
 _posix_xattr_get_set (dict_t *xattr_req,
@@ -239,6 +329,8 @@ _posix_xattr_get_set (dict_t *xattr_req,
                         goto out;
                 }
 
+        } else if (fnmatch (marker_contri_key, key, 0) == 0) {
+                ret = _posix_get_marker_quota_contributions (filler, key);
         } else {
                 ret = _posix_xattr_get_set_from_backend (filler, key);
         }
