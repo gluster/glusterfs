@@ -51,6 +51,13 @@ fuse_invalidate(xlator_t *this, inode_t *inode)
         return 0;
 }
 
+static int32_t
+fuse_forget_cbk (xlator_t *this, inode_t *inode)
+{
+        //Nothing to free in inode ctx, hence return.
+        return 0;
+}
+
 void
 fuse_inode_set_need_lookup (inode_t *inode, xlator_t *this)
 {
@@ -5266,6 +5273,7 @@ struct xlator_fops fops;
 
 struct xlator_cbks cbks = {
         .invalidate = fuse_invalidate,
+        .forget     = fuse_forget_cbk,
 };
 
 
