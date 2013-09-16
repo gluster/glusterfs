@@ -114,6 +114,7 @@ DECLARE_INIT_OPT(gf_boolean_t, bool);
 DECLARE_INIT_OPT(xlator_t *, xlator);
 DECLARE_INIT_OPT(char *, path);
 DECLARE_INIT_OPT(double, double);
+DECLARE_INIT_OPT(uint32_t, time);
 
 
 #define DEFINE_INIT_OPT(type_t, type, conv)                             \
@@ -194,6 +195,7 @@ DECLARE_RECONF_OPT(gf_boolean_t, bool);
 DECLARE_RECONF_OPT(xlator_t *, xlator);
 DECLARE_RECONF_OPT(char *, path);
 DECLARE_RECONF_OPT(double, double);
+DECLARE_RECONF_OPT(uint32_t, time);
 
 
 #define DEFINE_RECONF_OPT(type_t, type, conv)                            \

@@ -2248,6 +2248,18 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
+        if (key && !strcmp (GF_XATTR_QUOTA_LIMIT_LIST, key)) {
+                /* quota hardlimit and aggregated size of a directory is stored
+                 * in inode contexts of each brick. Hence its good enough that
+                 * we send getxattr for this key to any brick.
+                 */
+                local->call_cnt = 1;
+                subvol = dht_first_up_subvol (this);
+                STACK_WIND (frame, dht_getxattr_cbk, subvol,
+                            subvol->fops->getxattr, loc, key, xdata);
+                return 0;
+        }
+
         if (key && *conf->vol_uuid) {
                 if ((match_uuid_local (key, conf->vol_uuid) == 0) &&
                     (GF_CLIENT_PID_GSYNCD == frame->root->pid)) {
@@ -2861,11 +2873,16 @@ int
 dht_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int op_ret, int op_errno, struct statvfs *statvfs, dict_t *xdata)
 {
-        dht_local_t *local         = NULL;
-        int          this_call_cnt = 0;
-        int          bsize         = 0;
-        int          frsize        = 0;
+        dht_local_t *local              = NULL;
+        int          this_call_cnt      = 0;
+        int          bsize              = 0;
+        int          frsize             = 0;
+        int8_t       quota_deem_statfs  = 0;
+        GF_UNUSED int     ret           = 0;
+        unsigned long     new_usage     = 0;
+        unsigned long     cur_usage     = 0;
 
+        ret = dict_get_int8 (xdata, "quota-deem-statfs", &quota_deem_statfs);
 
         local = frame->local;
 
@@ -2875,7 +2892,21 @@ dht_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->op_errno = op_errno;
                         goto unlock;
                 }
+                if (!statvfs) {
+                        op_errno = EINVAL;
+                        local->op_ret = -1;
+                        goto unlock;
+                }
                 local->op_ret = 0;
+
+                if (quota_deem_statfs) {
+                        new_usage = statvfs->f_blocks - statvfs->f_bfree;
+                        cur_usage = local->statvfs.f_blocks - local->statvfs.f_bfree;
+                        /* We take the maximux of the usage from the subvols */
+                        if (new_usage >= cur_usage)
+                                local->statvfs = *statvfs;
+                        goto unlock;
+                }
 
                 if (local->statvfs.f_bsize != 0) {
                         bsize = max(local->statvfs.f_bsize, statvfs->f_bsize);
@@ -2896,6 +2927,7 @@ dht_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->statvfs.f_fsid     = statvfs->f_fsid;
                 local->statvfs.f_flag     = statvfs->f_flag;
                 local->statvfs.f_namemax  = statvfs->f_namemax;
+
 
         }
 unlock:

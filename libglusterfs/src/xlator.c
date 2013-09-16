@@ -659,7 +659,6 @@ loc_copy (loc_t *dst, loc_t *src)
 
         uuid_copy (dst->gfid, src->gfid);
         uuid_copy (dst->pargfid, src->pargfid);
-        uuid_copy (dst->gfid, src->gfid);
 
         if (src->inode)
                 dst->inode = inode_ref (src->inode);

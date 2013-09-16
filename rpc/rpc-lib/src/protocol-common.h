@@ -82,6 +82,13 @@ enum gf_pmap_procnum {
         GF_PMAP_MAXVALUE,
 };
 
+enum gf_aggregator_procnum {
+        GF_AGGREGATOR_NULL = 0,
+        GF_AGGREGATOR_LOOKUP,
+        GF_AGGREGATOR_GETLIMIT,
+        GF_AGGREGATOR_MAXVALUE,
+};
+
 enum gf_pmap_port_type {
         GF_PMAP_PORT_FREE = 0,
         GF_PMAP_PORT_FOREIGN,
@@ -226,6 +233,10 @@ typedef enum {
 #define GLUSTER_FOP_PROGRAM   1298437 /* Completely random */
 #define GLUSTER_FOP_VERSION   330 /* 3.3.0 */
 #define GLUSTER_FOP_PROCCNT   GFS3_OP_MAXVALUE
+
+/* Aggregator */
+#define GLUSTER_AGGREGATOR_PROGRAM 29852134 /* Completely random */
+#define GLUSTER_AGGREGATOR_VERSION 1
 
 /* Second version */
 #define GD_MGMT_PROGRAM          1238433 /* Completely random */

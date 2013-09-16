@@ -81,6 +81,11 @@ void trap (void);
 #define GF_NFS3_PORT    2049
 #define GF_CLIENT_PORT_CEILING 1024
 
+#define GF_MINUTE_IN_SECONDS 60
+#define GF_HOUR_IN_SECONDS (60*60)
+#define GF_DAY_IN_SECONDS (24*60*60)
+#define GF_WEEK_IN_SECONDS (7*24*60*60)
+
 enum _gf_boolean
 {
 	_gf_false = 0,
@@ -174,6 +179,18 @@ int  gf_set_log_file_path (cmd_args_t *cmd_args);
                         if (string[i-1] == '/')                         \
                                 string[i-1] = '-';                      \
                 }                                                       \
+        } while (0)
+
+#define GF_REMOVE_INTERNAL_XATTR(pattern, dict)                         \
+        do {                                                            \
+                if (!dict) {                                            \
+                        gf_log (this->name, GF_LOG_ERROR,               \
+                                "dict is null");                        \
+                        break;                                          \
+                }                                                       \
+                dict_foreach_fnmatch (dict, pattern,                    \
+                                      dict_remove_foreach_fn,           \
+                                      NULL);                            \
         } while (0)
 
 #define GF_IF_INTERNAL_XATTR_GOTO(pattern, dict, op_errno, label)       \
@@ -594,5 +611,8 @@ int gf_thread_create (pthread_t *thread, const pthread_attr_t *attr,
 size_t backtrace(void **, size_t);
 char **backtrace_symbols(void *const *, size_t);
 #endif
+
+int gf_get_soft_limit (char *limit, char **soft_limit);
+int gf_get_hard_limit (char *limit, char **hard_limit);
 
 #endif /* _COMMON_UTILS_H */

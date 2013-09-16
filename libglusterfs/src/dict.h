@@ -179,7 +179,8 @@ int dict_foreach_fnmatch (dict_t *dict, char *pattern,
 
 int dict_null_foreach_fn (dict_t *d, char *k,
                           data_t *v, void *tmp);
-
+int dict_remove_foreach_fn (dict_t *d, char *k,
+                            data_t *v, void *tmp);
 dict_t *dict_copy (dict_t *this, dict_t *new);
 int dict_keys_join (void *value, int size, dict_t *dict,
                     int (*filter_fn)(char *key));
