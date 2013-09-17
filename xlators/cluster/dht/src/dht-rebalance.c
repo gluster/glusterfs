@@ -332,8 +332,8 @@ out:
 }
 
 static inline int
-__dht_check_free_space_and_inodes (xlator_t *to, xlator_t *from, loc_t *loc,
-                                   struct iatt *stbuf, int flag)
+__dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
+                        struct iatt *stbuf, int flag)
 {
         struct statvfs  src_statfs = {0,};
         struct statvfs  dst_statfs = {0,};
@@ -379,27 +379,9 @@ __dht_check_free_space_and_inodes (xlator_t *to, xlator_t *from, loc_t *loc,
                 goto out;
         }
 
-        /* NOTE:
-           For dynamically allocated inode filesystems since we have no
-           awareness on inodes, this logic fits well so that distribute
-           rebalance has nothing to worry about total inodes rather let the
-           files be `rebalanced` on the basis of hashing.
-        */
-        if (dst_statfs.f_files && src_statfs.f_files) {
-                if (dst_statfs.f_ffree < src_statfs.f_ffree) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "data movement attempted from node (%s) with"
-                                " plenty free inodes to a node (%s) with "
-                                "scanty free inodes (%s)",
-                                from->name, to->name, loc->path);
-                        ret = 1;
-                        goto out;
-                }
-        }
-
 check_avail_space:
         if (((dst_statfs.f_bavail * dst_statfs.f_bsize) /
-             GF_DISK_SECTOR_SIZE) < stbuf->ia_blocks) {
+              GF_DISK_SECTOR_SIZE) < stbuf->ia_blocks) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "data movement attempted from node (%s) with "
                         "to node (%s) which does not have required free space"
@@ -407,6 +389,7 @@ check_avail_space:
                 ret = 1;
                 goto out;
         }
+
         ret = 0;
 out:
         return ret;
@@ -731,7 +714,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         if (ret)
                 goto out;
 
-        ret = __dht_check_free_space_and_inodes (to, from, loc, &stbuf, flag);
+        ret = __dht_check_free_space (to, from, loc, &stbuf, flag);
         if (ret) {
                 goto out;
         }
