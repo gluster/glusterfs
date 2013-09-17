@@ -9,11 +9,14 @@ conf_DATA = glusterfs-logrotate gluster-rsyslog-7.2.conf gluster-rsyslog-5.8.con
 
 voldir = $(sysconfdir)/glusterfs
 vol_DATA = glusterd.vol
+scriptsdir = $(datadir)/glusterfs/scripts
+scripts_DATA = post-upgrade-script-for-quota.sh pre-upgrade-script-for-quota.sh
 
 EXTRA_DIST = $(conf_DATA) specgen.scm MacOSX/Portfile glusterfs-mode.el        \
 	glusterfs.vim migrate-unify-to-distribute.sh backend-xattr-sanitize.sh \
 	backend-cleanup.sh disk_usage_sync.sh clear_xattrs.sh                  \
-	glusterd-sysconfig glusterd.vol
+	glusterd-sysconfig glusterd.vol post-upgrade-script-for-quota.sh       \
+	pre-upgrade-script-for-quota.sh
 
 install-data-local:
 	$(mkdir_p) $(DESTDIR)$(localstatedir)/lib/glusterd/groups
