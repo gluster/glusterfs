@@ -2467,7 +2467,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                                 goto unlock;
                         }
 
-                        if (priv->nodelay) {
+                        if (priv->nodelay && (new_sockaddr.ss_family != AF_UNIX)) {
                                 ret = __socket_nodelay (new_sock);
                                 if (ret == -1) {
                                         gf_log (this->name, GF_LOG_WARNING,
@@ -2751,7 +2751,7 @@ socket_connect (rpc_transport_t *this, int port)
                         }
                 }
 
-                if (priv->nodelay) {
+                if (priv->nodelay && (sa_family != AF_UNIX)) {
                         ret = __socket_nodelay (priv->sock);
 
                         if (ret == -1) {
@@ -2965,7 +2965,7 @@ socket_listen (rpc_transport_t *this)
                         }
                 }
 
-                if (priv->nodelay) {
+                if (priv->nodelay && (sa_family != AF_UNIX)) {
                         ret = __socket_nodelay (priv->sock);
                         if (ret == -1) {
                                 gf_log (this->name, GF_LOG_ERROR,
