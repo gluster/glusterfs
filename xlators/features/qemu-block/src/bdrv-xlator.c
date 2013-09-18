@@ -69,10 +69,13 @@ static int
 qemu_gluster_open (BlockDriverState *bs, QDict *options, int bdrv_flags)
 {
 	inode_t *inode = NULL;
-	BDRVGlusterState *s = NULL;
+	BDRVGlusterState *s = bs->opaque;
 	QemuOpts *opts = NULL;
 	Error *local_err = NULL;
 	const char *filename = NULL;
+	char gfid_str[128];
+	int ret;
+	qb_conf_t *conf = THIS->private;
 
 	opts = qemu_opts_create_nofail(&runtime_opts);
 	qemu_opts_absorb_qdict(opts, options, &local_err);
@@ -84,12 +87,40 @@ qemu_gluster_open (BlockDriverState *bs, QDict *options, int bdrv_flags)
 
 	filename = qemu_opt_get(opts, "filename");
 
-	inode = qb_inode_from_filename (filename);
-	if (!inode)
-		return -EINVAL;
+	/*
+	 * gfid:<gfid> format means we're opening a backing image.
+	 */
+	ret = sscanf(filename, "gluster://gfid:%s", gfid_str);
+	if (ret) {
+		loc_t loc = {0,};
+		struct iatt buf = {0,};
+		uuid_t gfid;
 
-	s = bs->opaque;
-	s->inode = inode_ref (inode);
+		uuid_parse(gfid_str, gfid);
+
+		loc.inode = inode_find(conf->root_inode->table, gfid);
+		if (!loc.inode) {
+			loc.inode = inode_new(conf->root_inode->table);
+			uuid_copy(loc.inode->gfid, gfid);
+		}
+
+		uuid_copy(loc.gfid, loc.inode->gfid);
+		ret = syncop_lookup(FIRST_CHILD(THIS), &loc, NULL, &buf, NULL,
+				    NULL);
+		if (ret) {
+			loc_wipe(&loc);
+			return -errno;
+		}
+
+		s->inode = inode_ref(loc.inode);
+		loc_wipe(&loc);
+	} else {
+		inode = qb_inode_from_filename (filename);
+		if (!inode)
+			return -EINVAL;
+
+		s->inode = inode_ref(inode);
+	}
 
 	return 0;
 }
