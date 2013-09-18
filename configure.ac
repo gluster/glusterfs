@@ -409,7 +409,7 @@ if test "x$enable_ibverbs" != "xno"; then
                [ibv_get_device_list],
                [HAVE_LIBIBVERBS="yes"],
                [HAVE_LIBIBVERBS="no"])
-  AC_CHECK_LIB([rdmacm], [rdma_create_id], [HAVE_RDMACM="yes"], [HAVE_RDMACM="no"]) 
+  AC_CHECK_LIB([rdmacm], [rdma_create_id], [HAVE_RDMACM="yes"], [HAVE_RDMACM="no"])
 fi
 
 if test "x$enable_ibverbs" = "xyes"; then
@@ -521,11 +521,11 @@ AC_ARG_ENABLE([xml-output],
 BUILD_XML_OUTPUT="yes"
 if test "x$enable_xml_output" != "xno"; then
     #check if libxml is present if so enable HAVE_LIB_XML
-    AM_PATH_XML2([2.6.19])
-
+    m4_ifdef([AM_PATH_XML2],[AM_PATH_XML2([2.6.19])], [no_xml=yes])
     if test "x${no_xml}" = "x"; then
         AC_DEFINE([HAVE_LIB_XML], [1], [Define to 1 if using libxml2.])
     else
+        AC_MSG_WARN([libxml2 devel libraries not found disabling XML support])
         BUILD_XML_OUTPUT="no"
     fi
 else
@@ -571,7 +571,7 @@ dnl Check for argp
 AC_CHECK_HEADER([argp.h], AC_DEFINE(HAVE_ARGP, 1, [have argp]))
 AC_CONFIG_SUBDIRS(argp-standalone)
 BUILD_ARGP_STANDALONE=no
-if test "x${ac_cv_header_argp_h}" = "xno"; then 
+if test "x${ac_cv_header_argp_h}" = "xno"; then
    BUILD_ARGP_STANDALONE=yes
    ARGP_STANDALONE_CPPFLAGS='-I${top_srcdir}/argp-standalone'
    ARGP_STANDALONE_LDADD='${top_builddir}/argp-standalone/libargp.a'
@@ -603,7 +603,7 @@ if test "x${have_posix_fallocate}" = "xyes"; then
 fi
 
 
-# Check the distribution where you are compiling glusterfs on 
+# Check the distribution where you are compiling glusterfs on
 
 GF_DISTRIBUTION=
 AC_CHECK_FILE([/etc/debian_version])
