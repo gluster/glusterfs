@@ -1248,6 +1248,24 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = GLOBAL_DOC,
           .op_version  = 3
         },
+        { .key         = "nfs.read-size",
+          .voltype     = "nfs/server",
+          .option      = "nfs3.read-size",
+          .type        = GLOBAL_DOC,
+          .op_version  = 3
+        },
+        { .key         = "nfs.write-size",
+          .voltype     = "nfs/server",
+          .option      = "nfs3.write-size",
+          .type        = GLOBAL_DOC,
+          .op_version  = 3
+        },
+        { .key         = "nfs.readdir-size",
+          .voltype     = "nfs/server",
+          .option      = "nfs3.readdir-size",
+          .type        = GLOBAL_DOC,
+          .op_version  = 3
+        },
 
         /* Other options which don't fit any place above */
         { .key        = "features.read-only",

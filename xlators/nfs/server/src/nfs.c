@@ -1121,23 +1121,31 @@ struct xlator_dumpops dumpops = {
 struct volume_options options[] = {
         { .key  = {"nfs3.read-size"},
           .type = GF_OPTION_TYPE_SIZET,
+          .min  = GF_NFS3_RTMIN,
+          .max  = GF_NFS3_RTMAX,
           .default_value = TOSTRING(GF_NFS3_RTPREF),
           .description = "Size in which the client should issue read requests"
                          " to the Gluster NFSv3 server. Must be a multiple of"
-                         " 4KB."
+                         " 4KB. Max supported value is 1MB(1048576)."
         },
         { .key  = {"nfs3.write-size"},
           .type = GF_OPTION_TYPE_SIZET,
+          .min  = GF_NFS3_WTMIN,
+          .max  = GF_NFS3_WTMAX,
           .default_value = TOSTRING(GF_NFS3_WTPREF),
           .description = "Size in which the client should issue write requests"
                          " to the Gluster NFSv3 server. Must be a multiple of"
-                         " 4KB."
+                         " 4KB. Max supported value is 1MB(1048576)."
         },
         { .key  = {"nfs3.readdir-size"},
           .type = GF_OPTION_TYPE_SIZET,
+          .min  = GF_NFS3_DTMIN,
+          .max  = GF_NFS3_DTMAX,
           .default_value = TOSTRING(GF_NFS3_DTPREF),
-          .description = "Size in which the client should issue directory "
-                         " reading requests."
+          .description = "Size in which the client should issue directory"
+                         " reading requests to Gluster NFSv3 server. Must"
+                         " be a multiple of 4KB. Max supported value is"
+                         " 1MB(1048576)."
         },
         { .key  = {"nfs3.*.volume-access"},
           .type = GF_OPTION_TYPE_STR,

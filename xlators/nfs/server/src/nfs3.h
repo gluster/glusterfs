@@ -48,16 +48,36 @@
 
 
 /* Static values used for FSINFO
-FIXME: This should be configurable */
-#define GF_NFS3_RTMAX      (64 * GF_UNIT_KB)
-#define GF_NFS3_RTPREF     (64 * GF_UNIT_KB)
-#define GF_NFS3_RTMULT     (4 * GF_UNIT_KB)
-#define GF_NFS3_WTMAX      (64 * GF_UNIT_KB)
-#define GF_NFS3_WTPREF     (64 * GF_UNIT_KB)
-#define GF_NFS3_WTMULT     (4 * GF_UNIT_KB)
-#define GF_NFS3_DTMIN      (4 * GF_UNIT_KB)
-#define GF_NFS3_DTPREF     (64 * GF_UNIT_KB)
-#define GF_NFS3_MAXFILE    (1 * GF_UNIT_PB)
+ * To change the maximum rsize and wsize supported by the NFS client,
+ * adjust GF_NFS3_FILE_IO_SIZE_MAX. The Gluster NFS server defaults to
+ * 64KB(65536) which is reasonable for 1GE and 10GE. But for better
+ * performance on 10GE, rsize/wsize can be raised to 1MB(1048576).
+ * rsize and wsize can be tuned through nfs.read-size and
+ * nfs.write-size respectively.
+ *
+ * NB: For Kernel-NFS, NFS_MAX_FILE_IO_SIZE is 1048576U (1MB).
+ */
+#define GF_NFS3_FILE_IO_SIZE_MAX     (1  * GF_UNIT_MB) /* 1048576 */
+#define GF_NFS3_FILE_IO_SIZE_DEF     (64 * GF_UNIT_KB) /* 65536 */
+#define GF_NFS3_FILE_IO_SIZE_MIN     (4  * GF_UNIT_KB) /* 4096 */
+
+#define GF_NFS3_RTMAX          GF_NFS3_FILE_IO_SIZE_MAX
+#define GF_NFS3_RTMIN          GF_NFS3_FILE_IO_SIZE_MIN
+#define GF_NFS3_RTPREF         GF_NFS3_FILE_IO_SIZE_DEF
+#define GF_NFS3_RTMULT         GF_NFS3_FILE_IO_SIZE_MIN
+
+#define GF_NFS3_WTMAX          GF_NFS3_FILE_IO_SIZE_MAX
+#define GF_NFS3_WTMIN          GF_NFS3_FILE_IO_SIZE_MIN
+#define GF_NFS3_WTPREF         GF_NFS3_FILE_IO_SIZE_DEF
+#define GF_NFS3_WTMULT         GF_NFS3_FILE_IO_SIZE_MIN
+
+/* This can be tuned through nfs.readdir-size */
+#define GF_NFS3_DTMAX          GF_NFS3_FILE_IO_SIZE_MAX
+#define GF_NFS3_DTMIN          GF_NFS3_FILE_IO_SIZE_MIN
+#define GF_NFS3_DTPREF         GF_NFS3_FILE_IO_SIZE_DEF
+
+#define GF_NFS3_MAXFILESIZE    (1 * GF_UNIT_PB)
+
 /* FIXME: Handle time resolutions */
 #define GF_NFS3_TIMEDELTA_SECS     {1,0}
 #define GF_NFS3_TIMEDELTA_NSECS    {0,1}
