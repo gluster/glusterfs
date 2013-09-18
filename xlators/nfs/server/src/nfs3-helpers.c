@@ -496,7 +496,7 @@ nfs3_fill_fsinfo3res (struct nfs3_state *nfs3, fsinfo3res *res,
         resok.wtpref = nfs3->writesize;
         resok.wtmult = GF_NFS3_WTMULT;
         resok.dtpref = nfs3->readdirsize;
-        resok.maxfilesize = GF_NFS3_MAXFILE;
+        resok.maxfilesize = GF_NFS3_MAXFILESIZE;
         resok.time_delta = tdelta;
         resok.properties = GF_NFS3_FS_PROP;
 
