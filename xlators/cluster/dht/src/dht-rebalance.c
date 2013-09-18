@@ -340,6 +340,9 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
         int             ret        = -1;
         xlator_t       *this       = NULL;
 
+        uint64_t        src_statfs_blocks = 1;
+        uint64_t        dst_statfs_blocks = 1;
+
         this = THIS;
 
         ret = syncop_statfs (from, loc, &src_statfs);
@@ -363,22 +366,34 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
         if (flag != GF_DHT_MIGRATE_DATA)
                 goto check_avail_space;
 
-        if (((dst_statfs.f_bavail *
-              dst_statfs.f_bsize) / GF_DISK_SECTOR_SIZE) <
-            (((src_statfs.f_bavail * src_statfs.f_bsize) /
-              GF_DISK_SECTOR_SIZE) - stbuf->ia_blocks)) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "data movement attempted from node (%s) with"
-                        " higher disk space to a node (%s) with "
-                        "lesser disk space (%s)", from->name,
-                        to->name, loc->path);
+        /* Check:
+           During rebalance `migrate-data` - Destination subvol experiences
+           a `reduction` in 'blocks' of free space, at the same time source
+           subvol gains certain 'blocks' of free space. A valid check is
+           necessary here to avoid errorneous move to destination where
+           the space could be scantily available.
+         */
+        if (stbuf) {
+                dst_statfs_blocks = ((dst_statfs.f_bavail *
+                                      dst_statfs.f_bsize) /
+                                     GF_DISK_SECTOR_SIZE);
+                src_statfs_blocks = ((src_statfs.f_bavail *
+                                      src_statfs.f_bsize) /
+                                     GF_DISK_SECTOR_SIZE);
+                if ((dst_statfs_blocks - stbuf->ia_blocks) <
+                    (src_statfs_blocks + stbuf->ia_blocks)) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "data movement attempted from node (%s) with"
+                                " higher disk space to a node (%s) with "
+                                "lesser disk space (%s)", from->name,
+                                to->name, loc->path);
 
-                /* this is not a 'failure', but we don't want to
-                   consider this as 'success' too :-/ */
-                ret = 1;
-                goto out;
+                        /* this is not a 'failure', but we don't want to
+                           consider this as 'success' too :-/ */
+                        ret = 1;
+                        goto out;
+                }
         }
-
 check_avail_space:
         if (((dst_statfs.f_bavail * dst_statfs.f_bsize) /
               GF_DISK_SECTOR_SIZE) < stbuf->ia_blocks) {
