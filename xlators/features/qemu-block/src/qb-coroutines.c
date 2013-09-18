@@ -35,6 +35,8 @@ qb_format_and_resume (void *opaque)
 	call_stub_t *stub = NULL;
 	inode_t *inode = NULL;
 	char filename[64];
+	char base_filename[128];
+	int use_base = 0;
 	qb_inode_t *qb_inode = NULL;
 	Error *local_err = NULL;
 	fd_t *fd = NULL;
@@ -54,8 +56,62 @@ qb_format_and_resume (void *opaque)
 
 	qb_inode = qb_inode_ctx_get (frame->this, inode);
 
-	bdrv_img_create (filename, qb_inode->fmt, 0, 0,
-			 0, qb_inode->size, 0, &local_err, true);
+	/*
+	 * See if the caller specified a backing image.
+	 */
+	if (!uuid_is_null(qb_inode->backing_gfid) || qb_inode->backing_fname) {
+		loc_t loc = {0,};
+		char gfid_str[64];
+		struct iatt buf;
+
+		if (!uuid_is_null(qb_inode->backing_gfid)) {
+			loc.inode = inode_find(qb_conf->root_inode->table,
+					qb_inode->backing_gfid);
+			if (!loc.inode) {
+				loc.inode = inode_new(qb_conf->root_inode->table);
+				uuid_copy(loc.inode->gfid,
+					qb_inode->backing_gfid);
+			}
+			uuid_copy(loc.gfid, loc.inode->gfid);
+		} else if (qb_inode->backing_fname) {
+			loc.inode = inode_new(qb_conf->root_inode->table);
+			loc.name = qb_inode->backing_fname;
+			loc.parent = inode_parent(inode, NULL, NULL);
+			loc_path(&loc, loc.name);
+		}
+
+		/*
+		 * Lookup the backing image. Verify existence and/or get the
+		 * gfid if we don't already have it.
+		 */
+		ret = syncop_lookup(FIRST_CHILD(frame->this), &loc, NULL, &buf,
+				    NULL, NULL);
+		GF_FREE(qb_inode->backing_fname);
+		if (ret) {
+			loc_wipe(&loc);
+			ret = errno;
+			goto err;
+		}
+
+		uuid_copy(qb_inode->backing_gfid, buf.ia_gfid);
+		loc_wipe(&loc);
+
+		/*
+		 * We pass the filename of the backing image into the qemu block
+		 * subsystem as the associated gfid. This is embedded into the
+		 * clone image and passed along to the gluster bdrv backend when
+		 * the block subsystem needs to operate on the backing image on
+		 * behalf of the clone.
+		 */
+		uuid_unparse(qb_inode->backing_gfid, gfid_str);
+		snprintf(base_filename, sizeof(base_filename),
+			 "gluster://gfid:%s", gfid_str);
+		use_base = 1;
+	}
+
+	bdrv_img_create (filename, qb_inode->fmt,
+			 use_base ? base_filename : NULL, 0, 0, qb_inode->size,
+			 0, &local_err, true);
 
 	if (error_is_set (&local_err)) {
 		gf_log (frame->this->name, GF_LOG_ERROR, "%s",
@@ -112,6 +168,10 @@ qb_format_and_resume (void *opaque)
 
 	QB_STUB_UNWIND (stub, 0, 0);
 
+	return 0;
+
+err:
+	QB_STUB_UNWIND(stub, -1, ret);
 	return 0;
 }
 
