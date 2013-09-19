@@ -6,7 +6,7 @@ SUBDIRS = init.d systemd benchmarking hook-scripts $(OCF_SUBDIR) LinuxRPM geo-re
 
 confdir = $(sysconfdir)/glusterfs
 conf_DATA = glusterfs-logrotate gluster-rsyslog-7.2.conf gluster-rsyslog-5.8.conf \
-	logger.conf.example
+	logger.conf.example glusterfs-georep-logrotate
 
 voldir = $(sysconfdir)/glusterfs
 vol_DATA = glusterd.vol
@@ -16,4 +16,5 @@ EXTRA_DIST = specgen.scm MacOSX/Portfile glusterfs-mode.el glusterfs.vim  \
 	backend-cleanup.sh disk_usage_sync.sh quota-remove-xattr.sh       \
 	quota-metadata-cleanup.sh glusterfs-logrotate clear_xattrs.sh     \
 	group-virt.example glusterd-sysconfig gluster-rsyslog-7.2.conf    \
-	gluster-rsyslog-5.8.conf logger.conf.example glusterd.vol
+	gluster-rsyslog-5.8.conf logger.conf.example glusterd.vol         \
+	glusterfs-georep-logrotate

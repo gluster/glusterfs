@@ -545,6 +545,8 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
 # geo-rep ghosts
 %{__mkdir_p} %{buildroot}%{_sharedstatedir}/glusterd/geo-replication
 touch %{buildroot}%{_sharedstatedir}/glusterd/geo-replication/gsyncd_template.conf
+%{__install} -D -p -m 0644 extras/glusterfs-georep-logrotate \
+    %{buildroot}%{_sysconfdir}/logrotate.d/glusterfs-georep
 %endif
 
 %if ( 0%{!?_without_syslog:1} )

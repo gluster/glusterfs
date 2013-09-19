@@ -176,19 +176,6 @@ class Monitor(object):
         return ret
 
     def multiplex(self, wspx, suuid):
-        def sigcont_handler(*a):
-            """
-            Re-init logging and send group kill signal
-            """
-            md = gconf.log_metadata
-            logging.shutdown()
-            lcls = logging.getLoggerClass()
-            lcls.setup(label=md.get('saved_label'), **md)
-            pid = os.getpid()
-            os.kill(-pid, signal.SIGUSR1)
-        signal.signal(signal.SIGUSR1, lambda *a: ())
-        signal.signal(signal.SIGCONT, sigcont_handler)
-
         argv = sys.argv[:]
         for o in ('-N', '--no-daemon', '--monitor'):
             while o in argv:
