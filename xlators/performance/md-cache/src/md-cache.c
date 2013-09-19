@@ -18,6 +18,7 @@
 #include "dict.h"
 #include "xlator.h"
 #include "md-cache-mem-types.h"
+#include "glusterfs-acl.h"
 #include <assert.h>
 #include <sys/time.h>
 
@@ -42,12 +43,12 @@ static struct mdc_key {
 	int         check;
 } mdc_keys[] = {
 	{
-		.name = "system.posix_acl_access",
+		.name = POSIX_ACL_ACCESS_XATTR,
 		.load = 0,
 		.check = 1,
 	},
 	{
-		.name = "system.posix_acl_default",
+		.name = POSIX_ACL_DEFAULT_XATTR,
 		.load = 0,
 		.check = 1,
 	},

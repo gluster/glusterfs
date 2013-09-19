@@ -22,6 +22,7 @@
 #include "dht-common.h"
 #include "defaults.h"
 #include "byte-order.h"
+#include "glusterfs-acl.h"
 
 #include <sys/time.h>
 #include <libgen.h>

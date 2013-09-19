@@ -11,24 +11,10 @@
 #ifndef _POSIX_ACL_XATTR_H
 #define _POSIX_ACL_XATTR_H
 
-#include <stdint.h>
-
 #include "common-utils.h"
 #include "posix-acl.h"
 #include "glusterfs.h"
-
-#define POSIX_ACL_VERSION 2
-
-struct posix_acl_xattr_entry {
-        uint16_t            tag;
-        uint16_t            perm;
-        uint32_t            id;
-};
-
-struct posix_acl_xattr_header {
-        uint32_t                        version;
-        struct posix_acl_xattr_entry    entries[];
-};
+#include "glusterfs-acl.h"
 
 struct posix_acl *posix_acl_from_xattr (xlator_t *this, const char *buf, int size);
 
