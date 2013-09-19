@@ -45,6 +45,7 @@
 #include "timer.h"
 #include "glusterfs3-xdr.h"
 #include "hashfn.h"
+#include "glusterfs-acl.h"
 #include <fnmatch.h>
 
 char *marker_xattrs[] = {"trusted.glusterfs.quota.*",
@@ -982,17 +983,17 @@ posix_acl_xattr_set (xlator_t *this, const char *path, dict_t *xattr_req)
         if (sys_lstat (path, &stat) != 0)
                 goto out;
 
-        data = dict_get (xattr_req, "system.posix_acl_access");
+        data = dict_get (xattr_req, POSIX_ACL_ACCESS_XATTR);
         if (data) {
-                ret = sys_lsetxattr (path, "system.posix_acl_access",
+                ret = sys_lsetxattr (path, POSIX_ACL_ACCESS_XATTR,
                                      data->data, data->len, 0);
                 if (ret != 0)
                         goto out;
         }
 
-        data = dict_get (xattr_req, "system.posix_acl_default");
+        data = dict_get (xattr_req, POSIX_ACL_DEFAULT_XATTR);
         if (data) {
-                ret = sys_lsetxattr (path, "system.posix_acl_default",
+                ret = sys_lsetxattr (path, POSIX_ACL_DEFAULT_XATTR,
                                      data->data, data->len, 0);
                 if (ret != 0)
                         goto out;
@@ -1013,8 +1014,8 @@ _handle_entry_create_keyvalue_pair (dict_t *d, char *k, data_t *v,
 
         if (!strcmp (GFID_XATTR_KEY, k) ||
             !strcmp ("gfid-req", k) ||
-            !strcmp ("system.posix_acl_default", k) ||
-            !strcmp ("system.posix_acl_access", k) ||
+            !strcmp (POSIX_ACL_DEFAULT_XATTR, k) ||
+            !strcmp (POSIX_ACL_ACCESS_XATTR, k) ||
             ZR_FILE_CONTENT_REQUEST(k)) {
                 return 0;
         }

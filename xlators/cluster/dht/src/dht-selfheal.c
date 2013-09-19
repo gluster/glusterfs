@@ -17,6 +17,7 @@
 #include "glusterfs.h"
 #include "xlator.h"
 #include "dht-common.h"
+#include "glusterfs-acl.h"
 
 #define DHT_SET_LAYOUT_RANGE(layout,i,srt,chunk,cnt,path)    do {       \
                 layout->list[i].start = srt;                            \

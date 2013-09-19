@@ -11,18 +11,19 @@
 #ifndef _ACL3_H
 #define _ACL3_H
 
+#include "glusterfs-acl.h"
+
 #define GF_ACL3_PORT            38469
 #define GF_ACL                  GF_NFS"-ACL"
 
-#define ACL_PROGRAM 100227
-#define ACL_V3 3
+/*
+ * NFSv3, identifies the default ACL by NFS_ACL_DEFAULT. Gluster
+ * NFS needs to mask it OFF before sending it upto POSIX layer
+ * or File system layer.
+ */
+#define NFS_ACL_DEFAULT             0x1000
 
-#define ACL_USER_OBJ 0x1
-#define ACL_GROUP_OBJ 0x4
-#define ACL_OTHER_OBJ 0x20
-
-#define POSIX_ACL_XATTR_VERSION 0x0002
-#define NFS_ACL_MAX_ENTRIES     1024
+#define NFS_ACL_MAX_ENTRIES         1024
 
 rpcsvc_program_t *
 acl3svc_init(xlator_t *nfsx);

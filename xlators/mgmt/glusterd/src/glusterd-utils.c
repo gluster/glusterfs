@@ -35,6 +35,7 @@
 #include "glusterd-store.h"
 #include "glusterd-volgen.h"
 #include "glusterd-pmap.h"
+#include "glusterfs-acl.h"
 
 #include "xdr-generic.h"
 #include <sys/resource.h>
@@ -67,9 +68,6 @@
 #define NLM_PROGRAM         100021
 #define NLMV4_VERSION       4
 #define NLMV1_VERSION       1
-
-#define ACL_PROGRAM         100227
-#define ACLV3_VERSION       3
 
 #define CEILING_POS(X) (((X)-(int)(X)) > 0 ? (int)((X)+1) : (int)(X))
 

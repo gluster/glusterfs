@@ -246,9 +246,9 @@ acl3_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         getaclreply->daclentry.daclentry_val = cs->daclentry;
 
         /* FIXME: use posix_acl_from_xattr() */
-        data = dict_get (dict, "system.posix_acl_access");
+        data = dict_get (dict, POSIX_ACL_ACCESS_XATTR);
         if (data && (p = data_to_bin (data))) {
-                /* POSIX_ACL_XATTR_VERSION */
+                /* POSIX_ACL_VERSION */
                 p++;
                 while ((char *)p < (data->data + data->len)) {
                         getaclreply->aclentry.aclentry_val[i].type = *(*(short **)&p)++;
@@ -260,9 +260,9 @@ acl3_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         i = 0;
 
-        data = dict_get (dict, "system.posix_acl_default");
+        data = dict_get (dict, POSIX_ACL_DEFAULT_XATTR);
         if (data && (p = data_to_bin (data))) {
-                /* POSIX_ACL_XATTR_VERSION */
+                /* POSIX_ACL_VERSION */
                 p++;
                 while ((char *)p < (data->data + data->len)) {
                         getaclreply->daclentry.daclentry_val[i].type = *(*(short **)&p)++;
@@ -443,11 +443,11 @@ acl3_setacl_resume (void *carg)
         nfs_request_user_init (&nfu, cs->req);
         xattr = dict_new();
         if (cs->aclcount)
-        ret = dict_set_static_bin (xattr, "system.posix_acl_access", cs->aclxattr,
+        ret = dict_set_static_bin (xattr, POSIX_ACL_ACCESS_XATTR, cs->aclxattr,
                                    cs->aclcount * 8 + 4);
         if (cs->daclcount)
-        ret = dict_set_static_bin (xattr, "system.posix_acl_default", cs->daclxattr,
-                                   cs->daclcount * 8 + 4);
+        ret = dict_set_static_bin (xattr, POSIX_ACL_DEFAULT_XATTR,
+                                   cs->daclxattr, cs->daclcount * 8 + 4);
 
         ret = nfs_setxattr (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc, xattr,
                             0, NULL, acl3_setacl_cbk, cs);
@@ -481,7 +481,9 @@ acl3svc_setacl (rpcsvc_request_t *req)
         setaclargs                      setaclargs;
         aclentry                        *aclentry = NULL;
         struct aclentry                 *daclentry = NULL;
-        int                             *p = NULL, i = 0;
+        int                             i = 0;
+        struct posix_acl_xattr_header   *bufheader = NULL;
+        struct posix_acl_xattr_entry    *bufentry  = NULL;
 
         if (!req)
                 return ret;
@@ -525,19 +527,58 @@ acl3svc_setacl (rpcsvc_request_t *req)
                         (cs->daclcount > NFS_ACL_MAX_ENTRIES))
                 goto acl3err;
         /* FIXME: use posix_acl_to_xattr() */
-        p = (int *)cs->aclxattr;
-        *(*(int **)&p)++ = POSIX_ACL_XATTR_VERSION;
+        /* Populate xattr buffer for user ACL */
+        bufheader = (struct posix_acl_xattr_header *)(cs->aclxattr);
+        bufheader->version = htole32(POSIX_ACL_VERSION);
+        bufentry  = bufheader->entries;
         for (i = 0; i < cs->aclcount; i++) {
-                *(*(short **)&p)++ = aclentry[i].type;
-                *(*(short **)&p)++ = aclentry[i].perm;
-                *(*(int **)&p)++ = aclentry[i].uid;
+                int uaceuid;
+                const struct aclentry *uace = &aclentry[i];
+                switch (uace->type) {
+                    case POSIX_ACL_USER:
+                    case POSIX_ACL_GROUP:
+                        uaceuid = uace->uid;
+                        break;
+                    default:
+                        uaceuid = POSIX_ACL_UNDEFINED_ID;
+                        break;
+                }
+                bufentry->tag  = htole16(uace->type);
+                bufentry->perm = htole16(uace->perm);
+                bufentry->id   = htole32(uaceuid);
+
+                bufentry++;
         }
-        p = (int *)cs->daclxattr;
-        *(*(int **)&p)++ = POSIX_ACL_XATTR_VERSION;
+
+        /* Populate xattr buffer for Default ACL */
+        bufheader = (struct posix_acl_xattr_header *)(cs->aclxattr);
+        bufheader->version = htole32(POSIX_ACL_VERSION);
+        bufentry  = bufheader->entries;
         for (i = 0; i < cs->daclcount; i++) {
-                *(*(short **)&p)++ = daclentry[i].type;
-                *(*(short **)&p)++ = daclentry[i].perm;
-                *(*(int **)&p)++ = daclentry[i].uid;
+                int daceuid;
+                int dacetype;
+                const struct aclentry *dace = &daclentry[i];
+                /*
+                 * For "default ACL", NFSv3 handles the 'type' differently
+                 * i.e. by logical OR'ing 'type' with NFS_ACL_DEFAULT.
+                 * Which the backend File system does not understand and
+                 * that needs to be masked OFF.
+                 */
+                dacetype = (dace->type & ~(NFS_ACL_DEFAULT));
+                switch (dacetype) {
+                    case POSIX_ACL_USER:
+                    case POSIX_ACL_GROUP:
+                        daceuid = dace->uid;
+                        break;
+                    default:
+                        daceuid = POSIX_ACL_UNDEFINED_ID;
+                        break;
+                }
+                bufentry->tag  = htole16(dacetype);
+                bufentry->perm = htole16(dace->perm);
+                bufentry->id   = htole32(daceuid);
+
+                bufentry++;
         }
 
 
@@ -577,7 +618,7 @@ rpcsvc_actor_t  acl3svc_actors[ACL3_PROC_COUNT] = {
 rpcsvc_program_t        acl3prog = {
         .progname       = "ACL3",
         .prognum        = ACL_PROGRAM,
-        .progver        = ACL_V3,
+        .progver        = ACLV3_VERSION,
         .progport       = GF_NFS3_PORT,
         .actors         = acl3svc_actors,
         .numactors      = ACL3_PROC_COUNT,

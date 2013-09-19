@@ -51,6 +51,7 @@
 #include "glusterfs3-xdr.h"
 #include "hashfn.h"
 #include "posix-aio.h"
+#include "glusterfs-acl.h"
 
 extern char *marker_xattrs[];
 #define ALIGN_SIZE 4096
@@ -4650,7 +4651,7 @@ init (xlator_t *this)
                 }
         }
 
-        size = sys_lgetxattr (dir_data->data, "system.posix_acl_access",
+        size = sys_lgetxattr (dir_data->data, POSIX_ACL_ACCESS_XATTR,
                               NULL, 0);
         if ((size < 0) && (errno == ENOTSUP))
                 gf_log (this->name, GF_LOG_WARNING,

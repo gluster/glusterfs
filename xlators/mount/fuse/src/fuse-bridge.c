@@ -12,6 +12,7 @@
 #include "fuse-bridge.h"
 #include "mount-gluster-compat.h"
 #include "glusterfs.h"
+#include "glusterfs-acl.h"
 
 #ifdef __NetBSD__
 #undef open /* in perfuse.h, pulled from mount-gluster-compat.h */
@@ -3011,8 +3012,8 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
 
         if (!priv->acl) {
-                if ((strcmp (name, "system.posix_acl_access") == 0) ||
-                    (strcmp (name, "system.posix_acl_default") == 0)) {
+                if ((strcmp (name, POSIX_ACL_ACCESS_XATTR) == 0) ||
+                    (strcmp (name, POSIX_ACL_DEFAULT_XATTR) == 0)) {
                         send_fuse_err (this, finh, EOPNOTSUPP);
                         GF_FREE (finh);
                         return;
@@ -3347,8 +3348,8 @@ fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 #endif
 
         if (!priv->acl) {
-                if ((strcmp (name, "system.posix_acl_access") == 0) ||
-                    (strcmp (name, "system.posix_acl_default") == 0)) {
+                if ((strcmp (name, POSIX_ACL_ACCESS_XATTR) == 0) ||
+                    (strcmp (name, POSIX_ACL_DEFAULT_XATTR) == 0)) {
                         op_errno = ENOTSUP;
                         goto err;
                 }

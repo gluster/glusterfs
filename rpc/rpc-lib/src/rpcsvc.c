@@ -42,8 +42,7 @@
 #include <stdio.h>
 
 #include "xdr-rpcclnt.h"
-
-#define ACL_PROGRAM 100227
+#include "glusterfs-acl.h"
 
 struct rpcsvc_program gluster_dump_prog;
 
