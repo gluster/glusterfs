@@ -1,0 +1,18 @@
+
+rotate 52
+missingok
+
+compress
+delaycompress
+notifempty
+
+/var/log/glusterfs/geo-replication/*/*.log {
+}
+
+
+/var/log/glusterfs/geo-replication-slaves/*.log {
+}
+
+
+/var/log/glusterfs/geo-replication-slaves/*/*.log {
+}

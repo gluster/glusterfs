@@ -12,7 +12,7 @@ import optparse
 import fcntl
 import fnmatch
 from optparse import OptionParser, SUPPRESS_HELP
-from logging import Logger
+from logging import Logger, handlers
 from errno import EEXIST, ENOENT
 
 from ipaddr import IPAddress, IPNetwork
@@ -58,7 +58,24 @@ class GLogger(Logger):
         logging.root = cls("root", lvl)
         logging.setLoggerClass(cls)
         logging.getLogger().handlers = []
-        logging.basicConfig(**lprm)
+        logging.getLogger().setLevel(lprm['level'])
+
+        if 'filename' in lprm:
+            try:
+                logging_handler = handlers.WatchedFileHandler(lprm['filename'])
+                formatter = logging.Formatter(fmt=lprm['format'],
+                datefmt=lprm['datefmt'])
+                logging_handler.setFormatter(formatter)
+                logging.getLogger().addHandler(logging_handler)
+            except AttributeError:
+                # Python version < 2.6 will not have WatchedFileHandler
+                # so fallback to logging without any handler.
+                # Note: logrotate will not work if Python version is < 2.6
+                logging.basicConfig(**lprm)
+        else:
+            # If filename not passed(not available in lprm) then it may be
+            # streaming.(Ex: {"stream": "/dev/stdout"})
+            logging.basicConfig(**lprm)
 
     @classmethod
     def _gsyncd_loginit(cls, **kw):
