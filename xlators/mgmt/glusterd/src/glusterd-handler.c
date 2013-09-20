@@ -3059,9 +3059,13 @@ glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *myhostname,
 }
 
 static void
-get_probe_error_str (int op_ret, int op_errno, char *errstr, size_t len,
-                     char *hostname, int port)
+set_probe_error_str (int op_ret, int op_errno, char *op_errstr, char *errstr,
+                     size_t len, char *hostname, int port)
 {
+        if ((op_errstr) && (strcmp (op_errstr, ""))) {
+                snprintf (errstr, len, "%s", op_errstr);
+                return;
+        }
 
         if (!op_ret) {
                 switch (op_errno) {
@@ -3141,11 +3145,8 @@ glusterd_xfer_cli_probe_resp (rpcsvc_request_t *req, int32_t op_ret,
         GF_ASSERT (req);
         GF_ASSERT (this);
 
-        if (op_errstr == NULL)
-                (void) get_probe_error_str (op_ret, op_errno, errstr,
-                                            sizeof (errstr), hostname, port);
-        else
-                snprintf (errstr, sizeof (errstr), "%s", op_errstr);
+        (void) set_probe_error_str (op_ret, op_errno, op_errstr, errstr,
+                                    sizeof (errstr), hostname, port);
 
         if (dict) {
                 ret = dict_get_str (dict, "cmd-str", &cmd_str);
@@ -3174,9 +3175,14 @@ glusterd_xfer_cli_probe_resp (rpcsvc_request_t *req, int32_t op_ret,
 }
 
 static void
-get_deprobe_error_str (int op_ret, int op_errno, char *errstr, size_t len,
-                       char *hostname)
+set_deprobe_error_str (int op_ret, int op_errno, char *op_errstr, char *errstr,
+                       size_t len, char *hostname)
 {
+        if ((op_errstr) && (strcmp (op_errstr, ""))) {
+                snprintf (errstr, len, "%s", op_errstr);
+                return;
+        }
+
         if (op_ret) {
                 switch (op_errno) {
                         case GF_DEPROBE_LOCALHOST:
@@ -3228,8 +3234,8 @@ glusterd_xfer_cli_deprobe_resp (rpcsvc_request_t *req, int32_t op_ret,
 
         GF_ASSERT (req);
 
-        (void) get_deprobe_error_str (op_ret, op_errno, errstr, sizeof (errstr),
-                                      hostname);
+        (void) set_deprobe_error_str (op_ret, op_errno, op_errstr, errstr,
+                                      sizeof (errstr), hostname);
 
         if (dict) {
                 ret = dict_get_str (dict, "cmd-str", &cmd_str);
