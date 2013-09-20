@@ -1239,6 +1239,7 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
         char                     key[256] = {0,};
         int32_t                  i = 1;
         uint64_t                 failures = 0;
+        uint64_t                 skipped = 0;
         double                   elapsed = 0;
         char                    *size_str = NULL;
         char                    *task_id_str = NULL;
@@ -1354,11 +1355,12 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        cli_out ("%40s %16s %13s %13s %13s %14s %s", "Node", "Rebalanced-files",
-                 "size", "scanned", "failures", "status", "run time in secs");
-        cli_out ("%40s %16s %13s %13s %13s %14s %16s", "---------",
+        cli_out ("%40s %16s %13s %13s %13s %13s %14s %s", "Node",
+                 "Rebalanced-files", "size", "scanned", "failures", "skipped",
+                 "status", "run time in secs");
+        cli_out ("%40s %16s %13s %13s %13s %13s %14s %16s", "---------",
                  "-----------", "-----------", "-----------", "-----------",
-                 "------------", "--------------");
+                 "-----------", "------------", "--------------");
         do {
                 snprintf (key, 256, "node-uuid-%d", i);
                 ret = dict_get_str (dict, key, &node_uuid);
@@ -1402,6 +1404,12 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                 "failed to get failures count");
 
                 memset (key, 0, 256);
+                snprintf (key, 256, "skipped-%d", i);
+                ret = dict_get_uint64 (dict, key, &skipped);
+                if (ret)
+                        gf_log (frame->this->name, GF_LOG_TRACE,
+                                "failed to get skipped count");
+                memset (key, 0, 256);
                 snprintf (key, 256, "run-time-%d", i);
                 ret = dict_get_double (dict, key, &elapsed);
                 if (ret)
@@ -1411,8 +1419,8 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 status = cli_vol_task_status_str[status_rcd];
                 size_str = gf_uint64_2human_readable(size);
                 cli_out ("%40s %16"PRIu64 " %13s" " %13"PRIu64 " %13"PRIu64
-                         " %14s %16.2f", node_uuid, files, size_str, lookup,
-                         failures, status, elapsed);
+                         " %13"PRIu64 " %14s %16.2f", node_uuid, files,
+                         size_str, lookup, failures, skipped, status, elapsed);
                 GF_FREE(size_str);
 
                 i++;
@@ -1724,6 +1732,7 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
         char                    *node_uuid = 0;
         gf_defrag_status_t       status_rcd = GF_DEFRAG_STATUS_NOT_STARTED;
         uint64_t                 failures = 0;
+        uint64_t                 skipped = 0;
         double                   elapsed = 0;
         char                    *size_str = NULL;
 
@@ -1798,11 +1807,12 @@ xml_output:
         }
 
 
-        cli_out ("%40s %16s %13s %13s %13s %14s %s", "Node", "Rebalanced-files",
-                 "size", "scanned", "failures", "status", "run-time in secs");
-        cli_out ("%40s %16s %13s %13s %13s %14s %16s", "---------",
+        cli_out ("%40s %16s %13s %13s %13s %13s %14s %s", "Node",
+                 "Rebalanced-files", "size", "scanned", "failures", "skipped",
+                 "status", "run-time in secs");
+        cli_out ("%40s %16s %13s %13s %13s %13s %14s %16s", "---------",
                  "-----------", "-----------", "-----------", "-----------",
-                 "------------", "--------------");
+                  "-----------","------------", "--------------");
 
         do {
                 snprintf (key, 256, "node-uuid-%d", i);
@@ -1845,6 +1855,11 @@ xml_output:
                         gf_log (THIS->name, GF_LOG_TRACE,
                                 "Failed to get failure on files");
 
+                snprintf (key, 256, "failures-%d", i);
+                ret = dict_get_uint64 (dict, key, &skipped);
+                if (ret)
+                        gf_log (THIS->name, GF_LOG_TRACE,
+                                "Failed to get skipped files");
                 memset (key, 0, 256);
                 snprintf (key, 256, "run-time-%d", i);
                 ret = dict_get_double (dict, key, &elapsed);
