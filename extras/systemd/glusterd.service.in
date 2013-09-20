@@ -1,5 +1,5 @@
 [Unit]
-Description=GlusterFS an clustered file-system server
+Description=GlusterFS, a clustered file-system server
 After=network.target rpcbind.service
 
 [Service]
