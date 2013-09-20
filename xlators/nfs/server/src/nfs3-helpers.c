@@ -275,6 +275,9 @@ nfs3_stat_to_fattr3 (struct iatt *buf)
 {
         fattr3          fa = {0, };
 
+        if (buf == NULL)
+                goto out;
+
         if (IA_ISDIR (buf->ia_type))
                 fa.type = NF3DIR;
         else if (IA_ISREG (buf->ia_type))
@@ -344,6 +347,7 @@ nfs3_stat_to_fattr3 (struct iatt *buf)
         fa.mtime.seconds = buf->ia_mtime;
         fa.mtime.nseconds = buf->ia_mtime_nsec;
 
+out:
         return fa;
 }
 

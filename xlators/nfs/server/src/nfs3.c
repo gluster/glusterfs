@@ -64,6 +64,19 @@
         } while (0);                                                    \
 
 
+/*
+ * Special case: If op_ret is -1, it's very unusual op_errno being
+ * 0 which means something came wrong from upper layer(s). If it
+ * happens by any means, then set NFS3 status to NFS3ERR_SERVERFAULT.
+ */
+static inline nfsstat3 nfs3_cbk_errno_status (int32_t op_ret, int32_t op_errno)
+{
+        if ((op_ret == -1) && (op_errno == 0)){
+                return NFS3ERR_SERVERFAULT;
+        }
+        return nfs3_errno_to_nfsstat3 (op_errno);
+}
+
 struct nfs3_export *
 __nfs3_get_export_by_index (struct nfs3_state *nfs3, uuid_t exportid)
 {
@@ -704,7 +717,7 @@ nfs3svc_getattr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                status = nfs3_errno_to_nfsstat3 (op_errno);
+                status = nfs3_cbk_errno_status (op_ret, op_errno);
         }
         else {
                 nfs_fix_generation(this,inode);
@@ -734,7 +747,7 @@ nfs3svc_getattr_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                status = nfs3_errno_to_nfsstat3 (op_errno);
+                status = nfs3_cbk_errno_status (op_ret, op_errno);
         }
 
         nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_GETATTR,
@@ -918,7 +931,7 @@ nfs3svc_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
@@ -958,7 +971,7 @@ nfs3svc_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
@@ -1014,7 +1027,7 @@ nfs3svc_setattr_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
@@ -1228,7 +1241,7 @@ nfs3svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         (op_errno == ENOENT ? GF_LOG_TRACE : GF_LOG_WARNING),
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                status = nfs3_errno_to_nfsstat3 (op_errno);
+                status = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto xmit_res;
         }
 
@@ -1272,7 +1285,7 @@ nfs3svc_lookup_parentdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                status = nfs3_errno_to_nfsstat3 (op_errno);
+                status = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto xmit_res;
         }
 
@@ -1530,7 +1543,7 @@ nfs3svc_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                status = nfs3_errno_to_nfsstat3 (op_errno);
+                status = nfs3_cbk_errno_status (op_ret, op_errno);
         }
         nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_ACCESS, status,
                              op_errno);
@@ -1670,7 +1683,7 @@ nfs3svc_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
@@ -1837,7 +1850,7 @@ nfs3svc_read_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto err;
         } else
                 stat = NFS3_OK;
@@ -2023,7 +2036,7 @@ nfs3svc_write_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
         } else
                 stat = NFS3_OK;
 
@@ -2083,7 +2096,7 @@ nfs3svc_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto err;
         }
 
@@ -2335,7 +2348,7 @@ nfs3svc_create_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
@@ -2368,7 +2381,7 @@ nfs3svc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
@@ -2473,7 +2486,7 @@ nfs3svc_create_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
                 ret = -op_errno;
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
@@ -2688,7 +2701,7 @@ nfs3svc_mkdir_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
@@ -2720,7 +2733,7 @@ nfs3svc_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
@@ -2898,7 +2911,7 @@ nfs3svc_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
@@ -3060,7 +3073,7 @@ nfs3svc_mknod_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
@@ -3092,7 +3105,7 @@ nfs3svc_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
@@ -3350,7 +3363,7 @@ nfs3svc_remove_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
         }
 
         if (op_ret == 0)
@@ -3516,7 +3529,7 @@ nfs3svc_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
         } else {
                 stat = NFS3_OK;
         }
@@ -3671,7 +3684,7 @@ nfs3svc_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "%x: rename %s -> %s => -1 (%s)",
                         rpcsvc_request_xid (cs->req), cs->oploc.path,
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
@@ -3876,7 +3889,7 @@ nfs3svc_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "%x: link %s <- %s => -1 (%s)",
                         rpcsvc_request_xid (cs->req), cs->oploc.path,
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
         } else
                 stat = NFS3_OK;
 
@@ -4086,7 +4099,7 @@ nfs3svc_readdir_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
@@ -4141,7 +4154,7 @@ nfs3svc_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto err;
         }
 
@@ -4465,7 +4478,7 @@ nfs3_fsstat_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
         } else
                 stat = NFS3_OK;
 
@@ -4493,7 +4506,7 @@ nfs3_fsstat_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
                 ret = -op_errno;
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto err;
         }
 
@@ -4652,7 +4665,7 @@ nfs3svc_fsinfo_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                status = nfs3_errno_to_nfsstat3 (op_errno);
+                status = nfs3_cbk_errno_status (op_ret, op_errno);
         }else
                 status = NFS3_OK;
 
@@ -4794,7 +4807,7 @@ nfs3svc_pathconf_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
         } else {
                 /* If stat fop failed, we can still send the other components
                  * in a pathconf reply.
@@ -4938,7 +4951,7 @@ nfs3svc_commit_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS, GF_LOG_WARNING,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
         } else
                 stat = NFS3_OK;
 
