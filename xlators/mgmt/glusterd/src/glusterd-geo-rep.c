@@ -42,11 +42,18 @@ glusterd_gsync_read_frm_status (char *path, char *buf, size_t blen);
 struct gsync_config_opt_vals_ gsync_confopt_vals[] = {
         {.op_name        = "change_detector",
          .no_of_pos_vals = 2,
+         .case_sensitive = _gf_true,
          .values         = {"xsync", "changelog"},
         },
         {.op_name        = "special_sync_mode",
          .no_of_pos_vals = 2,
+         .case_sensitive = _gf_true,
          .values         = {"partial", "recover"}
+        },
+        {.op_name        = "log-level",
+         .no_of_pos_vals = 5,
+         .case_sensitive = _gf_false,
+         .values         = {"critical", "error", "warning", "info", "debug"}
         },
         {.op_name = NULL,
         },
@@ -894,8 +901,13 @@ gsync_verify_config_options (dict_t *dict, char **op_errstr, char *volname)
                 if (op_match) {
                         val_match = _gf_false;
                         for (i = 0; i < conf_vals->no_of_pos_vals; i++) {
-                                if (!strcmp (conf_vals->values[i], op_value))
-                                        val_match = _gf_true;
+                                if(conf_vals->case_sensitive){
+                                        if (!strcmp (conf_vals->values[i], op_value))
+                                                val_match = _gf_true;
+                                } else {
+                                        if (!strcasecmp (conf_vals->values[i], op_value))
+                                                val_match = _gf_true;
+                                }
                         }
 
                         if (!val_match) {
