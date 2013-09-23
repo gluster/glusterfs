@@ -326,9 +326,10 @@ typedef struct glusterd_pending_node_ {
 } glusterd_pending_node_t;
 
 struct gsync_config_opt_vals_ {
-        char  *op_name;
-        int    no_of_pos_vals;
-        char  *values[GEO_CONF_MAX_OPT_VALS];
+        char            *op_name;
+        int             no_of_pos_vals;
+        gf_boolean_t    case_sensitive;
+        char            *values[GEO_CONF_MAX_OPT_VALS];
 };
 
 enum glusterd_op_ret {
