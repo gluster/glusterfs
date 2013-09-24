@@ -3003,6 +3003,8 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
         char                    key[1024] = {0,};
         int                     i = 0;
         int                     overall_status = -1;
+        double                  elapsed = 0;
+        double                  overall_elapsed = 0;
 
         if (!dict) {
                 ret = 0;
@@ -3112,6 +3114,21 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
                                                        (xmlChar *)"statusStr",
                                                        "%s",
                                          cli_vol_task_status_str[status_rcd]);
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "run-time-%d", i);
+                ret = dict_get_double (dict, key, &elapsed);
+                if (ret)
+                        goto out;
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"runtime",
+                                                       "%.2f", elapsed);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                if (elapsed > overall_elapsed) {
+                    overall_elapsed = elapsed;
+                }
+
                 if (-1 == overall_status)
                         overall_status = status_rcd;
                 else if ((GF_DEFRAG_STATUS_COMPLETE == overall_status ||
@@ -3157,6 +3174,10 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
         ret = xmlTextWriterWriteFormatElement (writer,(xmlChar *)"statusStr",
                                                "%s",
                                       cli_vol_task_status_str[overall_status]);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (writer,(xmlChar *)"runtime",
+                                               "%.2f", overall_elapsed);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         /* </aggregate> */
