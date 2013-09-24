@@ -1078,7 +1078,7 @@ init (xlator_t *this)
         INIT_LIST_HEAD (&priv->callstubs);
 
         this->private = priv;
-        ret = pthread_create (&thread, &w_attr, index_worker, this);
+        ret = gf_thread_create (&thread, &w_attr, index_worker, this);
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING, "Failed to create "
                         "worker thread, aborting");

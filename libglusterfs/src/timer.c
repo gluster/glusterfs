@@ -213,7 +213,7 @@ gf_timer_registry_init (glusterfs_ctx_t *ctx)
                 reg->stale.prev = &reg->stale;
 
                 ctx->timer = reg;
-                pthread_create (&reg->th, NULL, gf_timer_proc, ctx);
+                gf_thread_create (&reg->th, NULL, gf_timer_proc, ctx);
         }
 out:
         return ctx->timer;

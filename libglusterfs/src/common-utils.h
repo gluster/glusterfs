@@ -588,4 +588,7 @@ gf_boolean_t gf_is_local_addr (char *hostname);
 gf_boolean_t gf_is_same_address (char *host1, char *host2);
 void md5_wrapper(const unsigned char *data, size_t len, char *md5);
 
+int gf_thread_create (pthread_t *thread, const pthread_attr_t *attr,
+		      void *(*start_routine)(void *), void *arg);
+
 #endif /* _COMMON_UTILS_H */

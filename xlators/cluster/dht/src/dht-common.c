@@ -5172,8 +5172,8 @@ unlock:
                  * not need to handle CHILD_DOWN event here.
                  */
                 if (conf->defrag) {
-                        ret = pthread_create (&conf->defrag->th, NULL,
-                                              gf_defrag_start, this);
+                        ret = gf_thread_create (&conf->defrag->th, NULL,
+						gf_defrag_start, this);
                         if (ret) {
                                 conf->defrag = NULL;
                                 GF_FREE (conf->defrag);

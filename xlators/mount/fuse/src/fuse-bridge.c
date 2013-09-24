@@ -3798,8 +3798,8 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 }
                 priv->revchan_in  = pfd[0];
                 priv->revchan_out = pfd[1];
-                ret = pthread_create (&messenger, NULL, notify_kernel_loop,
-                                      this);
+                ret = gf_thread_create (&messenger, NULL, notify_kernel_loop,
+					this);
                 if (ret != 0) {
                         gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                                 "failed to start messenger daemon (%s)",
@@ -4973,8 +4973,8 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 if (!private->fuse_thread_started) {
                         private->fuse_thread_started = 1;
 
-                        ret = pthread_create (&private->fuse_thread, NULL,
-                                              fuse_thread_proc, this);
+                        ret = gf_thread_create (&private->fuse_thread, NULL,
+						fuse_thread_proc, this);
                         if (ret != 0) {
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "pthread_create() failed (%s)",
