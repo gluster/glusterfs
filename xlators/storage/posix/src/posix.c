@@ -4855,7 +4855,7 @@ init (xlator_t *this)
 	pthread_cond_init (&_private->fsync_cond, NULL);
 	INIT_LIST_HEAD (&_private->fsyncs);
 
-	ret = pthread_create (&_private->fsyncer, NULL, posix_fsyncer, this);
+	ret = gf_thread_create (&_private->fsyncer, NULL, posix_fsyncer, this);
 	if (ret) {
 		gf_log (this->name, GF_LOG_ERROR, "fsyncer thread"
 			" creation failed (%s)", strerror (errno));

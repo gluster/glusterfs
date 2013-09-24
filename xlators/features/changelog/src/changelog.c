@@ -1030,15 +1030,15 @@ changelog_spawn_helper_threads (xlator_t *this, changelog_priv_t *priv)
         int ret = 0;
 
         priv->cr.this = this;
-        ret = pthread_create (&priv->cr.rollover_th,
-                              NULL, changelog_rollover, priv);
+        ret = gf_thread_create (&priv->cr.rollover_th,
+				NULL, changelog_rollover, priv);
         if (ret)
                 goto out;
 
         if (priv->fsync_interval) {
                 priv->cf.this = this;
-                ret = pthread_create (&priv->cf.fsync_th,
-                                      NULL, changelog_fsync_thread, priv);
+                ret = gf_thread_create (&priv->cf.fsync_th,
+					NULL, changelog_fsync_thread, priv);
         }
 
         if (ret)
@@ -1102,8 +1102,8 @@ changelog_spawn_notifier (xlator_t *this, changelog_priv_t *priv)
         priv->cn.this = this;
         priv->cn.rfd  = pipe_fd[0];
 
-        ret = pthread_create (&priv->cn.notify_th,
-                              NULL, changelog_notifier, priv);
+        ret = gf_thread_create (&priv->cn.notify_th,
+				NULL, changelog_notifier, priv);
 
  out:
         return ret;

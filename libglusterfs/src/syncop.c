@@ -453,8 +453,8 @@ syncenv_scale (struct syncenv *env)
                         }
 
                         env->proc[i].env = env;
-                        ret = pthread_create (&env->proc[i].processor, NULL,
-                                              syncenv_processor, &env->proc[i]);
+                        ret = gf_thread_create (&env->proc[i].processor, NULL,
+						syncenv_processor, &env->proc[i]);
                         if (ret)
                                 break;
                         env->procs++;
@@ -507,8 +507,8 @@ syncenv_new (size_t stacksize, int procmin, int procmax)
 
         for (i = 0; i < newenv->procmin; i++) {
                 newenv->proc[i].env = newenv;
-                ret = pthread_create (&newenv->proc[i].processor, NULL,
-                                      syncenv_processor, &newenv->proc[i]);
+                ret = gf_thread_create (&newenv->proc[i].processor, NULL,
+					syncenv_processor, &newenv->proc[i]);
                 if (ret)
                         break;
                 newenv->procs++;

@@ -2423,7 +2423,7 @@ socket_spawn (rpc_transport_t *this)
         gf_log (this->name, GF_LOG_TRACE,
                 "spawning %p with gen %u", this, priv->ot_gen);
 
-        if (pthread_create(&priv->thread,NULL,socket_poller,this) != 0) {
+        if (gf_thread_create(&priv->thread,NULL,socket_poller,this) != 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "could not create poll thread");
         }

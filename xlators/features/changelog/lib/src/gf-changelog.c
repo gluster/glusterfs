@@ -483,8 +483,8 @@ gf_changelog_register (char *brick_path, char *scratch_dir,
                 goto cleanup;
         }
 
-        ret = pthread_create (&gfc->gfc_changelog_processor,
-                              NULL, gf_changelog_process, gfc);
+        ret = gf_thread_create (&gfc->gfc_changelog_processor,
+				NULL, gf_changelog_process, gfc);
         if (ret) {
                 errn = errno;
                 gf_log (this->name, GF_LOG_ERROR,

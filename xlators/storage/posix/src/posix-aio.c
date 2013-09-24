@@ -490,8 +490,8 @@ posix_aio_init (xlator_t *this)
                 goto out;
 	}
 
-        ret = pthread_create (&priv->aiothread, NULL,
-                              posix_aio_thread, this);
+        ret = gf_thread_create (&priv->aiothread, NULL,
+				posix_aio_thread, this);
         if (ret != 0) {
                 io_destroy (priv->ctxp);
                 goto out;

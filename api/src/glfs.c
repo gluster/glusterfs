@@ -559,7 +559,7 @@ glfs_init_common (struct glfs *fs)
 	if (ret)
 		return ret;
 
-	ret = pthread_create (&fs->poller, NULL, glfs_poller, fs);
+	ret = gf_thread_create (&fs->poller, NULL, glfs_poller, fs);
 	if (ret)
 		return ret;
 

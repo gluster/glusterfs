@@ -2534,7 +2534,7 @@ __iot_workers_scale (iot_conf_t *conf)
         while (diff) {
                 diff --;
 
-                ret = pthread_create (&thread, &conf->w_attr, iot_worker, conf);
+                ret = gf_thread_create (&thread, &conf->w_attr, iot_worker, conf);
                 if (ret == 0) {
                         conf->curr_count++;
                         gf_log (conf->this->name, GF_LOG_DEBUG,

@@ -619,10 +619,9 @@ gf_rdma_get_device (rpc_transport_t *this, struct ibv_context *ibctx,
                 }
 
                 /* completion threads */
-                ret = pthread_create (&trav->send_thread,
-                                      NULL,
-                                      gf_rdma_send_completion_proc,
-                                      trav->send_chan);
+                ret = gf_thread_create (&trav->send_thread, NULL,
+					gf_rdma_send_completion_proc,
+					trav->send_chan);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "could not create send completion thread for "
@@ -630,10 +629,9 @@ gf_rdma_get_device (rpc_transport_t *this, struct ibv_context *ibctx,
                         goto out;
                 }
 
-                ret = pthread_create (&trav->recv_thread,
-                                      NULL,
-                                      gf_rdma_recv_completion_proc,
-                                      trav->recv_chan);
+                ret = gf_thread_create (&trav->recv_thread, NULL,
+					 gf_rdma_recv_completion_proc,
+					 trav->recv_chan);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "could not create recv completion thread "
@@ -641,10 +639,9 @@ gf_rdma_get_device (rpc_transport_t *this, struct ibv_context *ibctx,
                         return NULL;
                 }
 
-                ret = pthread_create (&trav->async_event_thread,
-                                      NULL,
-                                      gf_rdma_async_event_thread,
-                                      ibctx);
+                ret = gf_thread_create (&trav->async_event_thread, NULL,
+					 gf_rdma_async_event_thread,
+					 ibctx);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "could not create async_event_thread");
@@ -4198,9 +4195,9 @@ __gf_rdma_ctx_create (void)
                 goto out;
         }
 
-        ret = pthread_create (&rdma_ctx->rdma_cm_thread, NULL,
-                              gf_rdma_cm_event_handler,
-                              rdma_ctx->rdma_cm_event_channel);
+        ret = gf_thread_create (&rdma_ctx->rdma_cm_thread, NULL,
+				gf_rdma_cm_event_handler,
+				rdma_ctx->rdma_cm_event_channel);
         if (ret != 0) {
                 gf_log (GF_RDMA_LOG_NAME, GF_LOG_WARNING,
                         "creation of thread to handle rdma-cm events "
