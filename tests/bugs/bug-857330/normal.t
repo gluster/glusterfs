@@ -28,7 +28,7 @@ PATTERN="ID:"
 TEST check-and-store-task-id
 
 COMMAND="volume status $V0"
-PATTERN="Rebalance"
+PATTERN="ID"
 EXPECT $TASK_ID get-task-id
 
 COMMAND="volume rebalance $V0 status"
@@ -45,7 +45,7 @@ PATTERN="ID:"
 TEST check-and-store-task-id
 
 COMMAND="volume status $V0"
-PATTERN="Replace"
+PATTERN="ID"
 EXPECT $TASK_ID get-task-id
 
 COMMAND="volume replace-brick $V0 $REP_BRICK_PAIR status"
@@ -62,7 +62,7 @@ PATTERN="ID:"
 TEST check-and-store-task-id
 
 COMMAND="volume status $V0"
-PATTERN="Remove"
+PATTERN="ID"
 EXPECT $TASK_ID get-task-id
 
 COMMAND="volume remove-brick $V0 $H0:$B0/${V0}3 status"

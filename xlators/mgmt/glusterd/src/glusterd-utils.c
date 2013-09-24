@@ -6813,6 +6813,12 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
+        if ((cmd & GF_CLI_STATUS_TASKS) != 0) {
+                dict_copy (rsp_dict, aggr);
+                ret = 0;
+                goto out;
+        }
+
         ret = dict_get_int32 (rsp_dict, "count", &rsp_node_count);
         if (ret) {
                 ret = 0; //no bricks in the rsp
@@ -7694,4 +7700,27 @@ glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
+}
+
+gf_boolean_t
+glusterd_is_status_tasks_op (glusterd_op_t op, dict_t *dict)
+{
+        int           ret             = -1;
+        uint32_t      cmd             = GF_CLI_STATUS_NONE;
+        gf_boolean_t  is_status_tasks = _gf_false;
+
+        if (op != GD_OP_STATUS_VOLUME)
+                goto out;
+
+        ret = dict_get_uint32 (dict, "cmd", &cmd);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to get opcode");
+                goto out;
+        }
+
+        if (cmd & GF_CLI_STATUS_TASKS)
+                is_status_tasks = _gf_true;
+
+out:
+        return is_status_tasks;
 }

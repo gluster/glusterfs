@@ -22,7 +22,7 @@ function check-and-store-task-id()
 
 function get-task-id()
 {
-        $CLI $COMMAND | grep $PATTERN | grep -o -E "$UUID_REGEX"
+        $CLI $COMMAND | grep $PATTERN | grep -o -E "$UUID_REGEX" | tail -n1
 
 }
 
