@@ -1564,6 +1564,36 @@ out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
+
+int
+cli_xml_output_vol_status_tasks_detail (cli_local_t *local, dict_t *dict)
+{
+        int    ret     = -1;
+        char  *volname = NULL;
+
+        /*<volume>*/
+        ret = xmlTextWriterStartElement (local->writer, (xmlChar *)"volume");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret)
+                goto out;
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                               (xmlChar *)"volName", "%s",
+                                               volname);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = cli_xml_output_vol_status_tasks (local, dict);
+        if (ret)
+                goto out;
+
+        /* </volume> */
+        ret = xmlTextWriterEndElement (local->writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+out:
+        return ret;
+}
 #endif
 
 int
@@ -1683,7 +1713,6 @@ cli_xml_output_vol_status (cli_local_t *local, dict_t *dict)
                                         goto out;
                         }
                         break;
-
                 default:
                         break;
 

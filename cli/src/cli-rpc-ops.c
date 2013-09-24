@@ -6299,43 +6299,57 @@ out:
         return;
 }
 
-
 static void
-cli_print_volume_tasks (dict_t *dict) {
-        int             ret = -1;
-        int             tasks = 0;
-        char            *op = 0;
-        char            *task_id_str = NULL;
-        int             status = 0;
-        char            key[1024] = {0,};
-        int             i = 0;
+cli_print_volume_status_tasks (dict_t *dict)
+{
+        int             ret         = -1;
+        int             i           = 0;
+        int             j           = 0;
+        int             count       = 0;
+        int             task_count  = 0;
+        int             status      = 0;
+        char           *op          = NULL;
+        char           *task_id_str = NULL;
+        char           *volname     = NULL;
+        char            key[1024]   = {0,};
+        char            task[1024]  = {0,};
+        char           *brick       = NULL;
+        char           *src_brick   = NULL;
+        char           *dest_brick  = NULL;
 
-        ret = dict_get_int32 (dict, "tasks", &tasks);
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret)
+                goto out;
+
+        ret = dict_get_int32 (dict, "tasks", &task_count);
         if (ret) {
-                gf_log ("cli", GF_LOG_ERROR,
-                        "Failed to get tasks count");
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get tasks count");
                 return;
         }
 
-        if (tasks == 0) {
+        cli_out ("Task Status of Volume %s", volname);
+        cli_print_line (CLI_BRICK_STATUS_LINE_LEN);
+
+        if (task_count == 0) {
                 cli_out ("There are no active volume tasks");
+                cli_out (" ");
                 return;
         }
 
-        cli_out ("%15s%40s%15s", "Task", "ID", "Status");
-        cli_out ("%15s%40s%15s", "----", "--", "------");
-        for (i = 0; i < tasks; i++) {
+        for (i = 0; i < task_count; i++) {
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "task%d.type", i);
                 ret = dict_get_str(dict, key, &op);
                 if (ret)
                         return;
+                cli_out ("%-20s : %-20s", "Task", op);
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "task%d.id", i);
                 ret = dict_get_str (dict, key, &task_id_str);
                 if (ret)
                         return;
+                cli_out ("%-20s : %-20s", "ID", task_id_str);
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "task%d.status", i);
@@ -6343,22 +6357,63 @@ cli_print_volume_tasks (dict_t *dict) {
                 if (ret)
                         return;
 
+                snprintf (task, sizeof (task), "task%d", i);
+
                 /*
                    Replace brick only has two states - In progress and Complete
                    Ref: xlators/mgmt/glusterd/src/glusterd-replace-brick.c
                 */
-                if (!strcmp (op, "Replace brick")) {
-                    if (status) {
-                        status = GF_DEFRAG_STATUS_COMPLETE;
-                    } else {
-                        status = GF_DEFRAG_STATUS_STARTED;
-                    }
-                }
 
-                cli_out ("%15s%40s%15s", op, task_id_str,
+                if (!strcmp (op, "Replace brick")) {
+                        if (status)
+                                status = GF_DEFRAG_STATUS_COMPLETE;
+                        else
+                                status = GF_DEFRAG_STATUS_STARTED;
+
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "%s.src-brick", task);
+                        ret = dict_get_str (dict, key, &src_brick);
+                        if (ret)
+                                goto out;
+
+                        cli_out ("%-20s : %-20s", "Source Brick", src_brick);
+
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "%s.dst-brick", task);
+                        ret = dict_get_str (dict, key, &dest_brick);
+                        if (ret)
+                                goto out;
+
+                        cli_out ("%-20s : %-20s", "Destination Brick",
+                                 dest_brick);
+
+                } else if (!strcmp (op, "Remove brick")) {
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "%s.count", task);
+                        ret = dict_get_int32 (dict, key, &count);
+                        if (ret)
+                                goto out;
+
+                        cli_out ("%-20s", "Removed bricks:");
+
+                        for (j = 1; j <= count; j++) {
+                                memset (key, 0, sizeof (key));
+                                snprintf (key, sizeof (key),"%s.brick%d",
+                                          task, j);
+                                ret = dict_get_str (dict, key, &brick);
+                                if (ret)
+                                        goto out;
+
+                                cli_out ("%-20s", brick);
+                        }
+                }
+                cli_out ("%-20s : %-20s", "Status",
                          cli_vol_task_status_str[status]);
+                cli_out (" ");
         }
 
+out:
+        return;
 }
 
 static int
@@ -6462,23 +6517,6 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
         if ((cmd & GF_CLI_STATUS_NFS) || (cmd & GF_CLI_STATUS_SHD))
                 notbrick = _gf_true;
 
-        ret = dict_get_int32 (dict, "count", &count);
-        if (ret)
-                goto out;
-        if (count == 0) {
-                ret = -1;
-                goto out;
-        }
-
-        ret = dict_get_int32 (dict, "brick-index-max", &brick_index_max);
-        if (ret)
-                goto out;
-        ret = dict_get_int32 (dict, "other-count", &other_count);
-        if (ret)
-                goto out;
-
-        index_max = brick_index_max + other_count;
-
         if (global_state->mode & GLUSTER_MODE_XML) {
                 if (!local->all) {
                         ret = cli_xml_output_vol_status_begin (local,
@@ -6491,11 +6529,21 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
                                 goto out;
                         }
                 }
-                ret = cli_xml_output_vol_status (local, dict);
-                if (ret) {
-                        gf_log ("cli", GF_LOG_ERROR,
-                                "Error outputting to xml");
-                        goto out;
+                if (cmd & GF_CLI_STATUS_TASKS) {
+                        ret = cli_xml_output_vol_status_tasks_detail (local,
+                                                                      dict);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR,"Error outputting "
+                                        "to xml");
+                                goto out;
+                        }
+                } else {
+                        ret = cli_xml_output_vol_status (local, dict);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR,
+                                        "Error outputting to xml");
+                                goto out;
+                        }
                 }
 
                 if (!local->all) {
@@ -6531,6 +6579,10 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
                         cli_print_volume_status_callpool (dict, notbrick);
                         goto cont;
                         break;
+                case GF_CLI_STATUS_TASKS:
+                        cli_print_volume_status_tasks (dict);
+                        goto cont;
+                        break;
                 default:
                         break;
         }
@@ -6538,6 +6590,17 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
         ret = dict_get_str (dict, "volname", &volname);
         if (ret)
                 goto out;
+
+        ret = dict_get_int32 (dict, "brick-index-max", &brick_index_max);
+        if (ret)
+                goto out;
+
+        ret = dict_get_int32 (dict, "other-count", &other_count);
+        if (ret)
+                goto out;
+
+        index_max = brick_index_max + other_count;
+
 
         cli_out ("Status of volume: %s", volname);
 
@@ -6612,7 +6675,7 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
         cli_out (" ");
 
         if ((cmd & GF_CLI_STATUS_MASK) == GF_CLI_STATUS_NONE)
-                cli_print_volume_tasks (dict);
+                cli_print_volume_status_tasks (dict);
 cont:
         ret = rsp.op_ret;
 

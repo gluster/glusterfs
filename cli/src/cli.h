@@ -393,6 +393,8 @@ cli_xml_output_generic_volume (char *op, dict_t *dict, int op_ret, int op_errno,
 int
 cli_xml_output_vol_gsync (dict_t *dict, int op_ret, int op_errno,
                           char *op_errstr);
+int
+cli_xml_output_vol_status_tasks_detail (cli_local_t *local, dict_t *dict);
 
 char *
 is_server_debug_xlator (void *myframe);

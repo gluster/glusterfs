@@ -113,6 +113,7 @@ enum gf_cli_status_type {
         GF_CLI_STATUS_FD           = 0x0008,    /*0000000001000*/
         GF_CLI_STATUS_CALLPOOL     = 0x0010,    /*0000000010000*/
         GF_CLI_STATUS_DETAIL       = 0x0020,    /*0000000100000*/
+        GF_CLI_STATUS_TASKS        = 0x0040,    /*0000001000000*/
         GF_CLI_STATUS_MASK         = 0x00FF,    /*0000011111111 Used to get the op*/
         GF_CLI_STATUS_VOL          = 0x0100,    /*0000100000000*/
         GF_CLI_STATUS_ALL          = 0x0200,    /*0001000000000*/

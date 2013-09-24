@@ -2095,6 +2095,50 @@ out:
 }
 
 static int
+glusterd_aggregate_task_status (dict_t *rsp_dict, glusterd_volinfo_t *volinfo)
+{
+        int        ret   = -1;
+        int        tasks = 0;
+        xlator_t  *this  = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        if (!uuid_is_null (volinfo->rebal.rebalance_id)) {
+                ret = _add_task_to_dict (rsp_dict, volinfo, volinfo->rebal.op,
+                                         tasks);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to add task details to dict");
+                        goto out;
+                }
+                tasks++;
+        }
+
+        if (!uuid_is_null (volinfo->rep_brick.rb_id)) {
+                ret = _add_task_to_dict (rsp_dict, volinfo, GD_OP_REPLACE_BRICK,
+                                         tasks);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to add task details to dict");
+                        goto out;
+                }
+                tasks++;
+        }
+
+        ret = dict_set_int32 (rsp_dict, "tasks", tasks);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Error setting tasks count in dict");
+                goto out;
+        }
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
 glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                            dict_t *rsp_dict)
 {
@@ -2114,7 +2158,6 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
         gf_boolean_t            nfs_disabled    = _gf_false;
         gf_boolean_t            shd_enabled     = _gf_true;
         gf_boolean_t            origin_glusterd = _gf_false;
-        int                     tasks           = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2197,6 +2240,10 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                                                            brick_index);
                 node_count++;
 
+        } else if ((cmd & GF_CLI_STATUS_TASKS) != 0) {
+                ret = glusterd_aggregate_task_status (rsp_dict, volinfo);
+                goto out;
+
         } else {
                 list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                         brick_index++;
@@ -2278,31 +2325,10 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
             !origin_glusterd)
                 goto out;
 
-        if (!uuid_is_null (volinfo->rebal.rebalance_id)) {
-                ret = _add_task_to_dict (rsp_dict, volinfo, volinfo->rebal.op,
-                                         tasks);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to add task details to dict");
-                        goto out;
-                }
-                tasks++;
-        }
-        if (!uuid_is_null (volinfo->rep_brick.rb_id)) {
-                ret = _add_task_to_dict (rsp_dict, volinfo, GD_OP_REPLACE_BRICK,
-                                         tasks);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to add task details to dict");
-                        goto out;
-                }
-                tasks++;
-        }
-
-        ret = dict_set_int32 (rsp_dict, "tasks", tasks);
+        ret = glusterd_aggregate_task_status (rsp_dict, volinfo);
         if (ret)
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Error setting tasks count in dict");
+                goto out;
+        ret = 0;
 
 out:
         gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);

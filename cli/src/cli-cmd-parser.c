@@ -2182,7 +2182,7 @@ cli_cmd_get_statusop (const char *arg)
         uint32_t   ret       = GF_CLI_STATUS_NONE;
         char      *w         = NULL;
         char      *opwords[] = {"detail", "mem", "clients", "fd",
-                                "inode", "callpool", NULL};
+                                "inode", "callpool", "tasks", NULL};
         struct {
                 char      *opname;
                 uint32_t   opcode;
@@ -2193,6 +2193,7 @@ cli_cmd_get_statusop (const char *arg)
                 { "fd",       GF_CLI_STATUS_FD       },
                 { "inode",    GF_CLI_STATUS_INODE    },
                 { "callpool", GF_CLI_STATUS_CALLPOOL },
+                { "tasks",    GF_CLI_STATUS_TASKS    },
                 { NULL }
         };
 
@@ -2307,8 +2308,9 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
 
                 if (!strcmp (words[3], "nfs")) {
                         if (cmd == GF_CLI_STATUS_FD ||
-                            cmd == GF_CLI_STATUS_DETAIL) {
-                                cli_err ("Detail/FD status not available"
+                            cmd == GF_CLI_STATUS_DETAIL ||
+                            cmd == GF_CLI_STATUS_TASKS) {
+                                cli_err ("Detail/FD/Tasks status not available"
                                          " for NFS Servers");
                                 ret = -1;
                                 goto out;
@@ -2317,14 +2319,21 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
                 } else if (!strcmp (words[3], "shd")){
                         if (cmd == GF_CLI_STATUS_FD ||
                             cmd == GF_CLI_STATUS_CLIENTS ||
-                            cmd == GF_CLI_STATUS_DETAIL) {
-                                cli_err ("Detail/FD/Clients status not "
+                            cmd == GF_CLI_STATUS_DETAIL ||
+                            cmd == GF_CLI_STATUS_TASKS) {
+                                cli_err ("Detail/FD/Clients/Tasks status not "
                                          "available for Self-heal Daemons");
                                 ret = -1;
                                 goto out;
                         }
                         cmd |= GF_CLI_STATUS_SHD;
                 } else {
+                        if (cmd == GF_CLI_STATUS_TASKS) {
+                                cli_err ("Tasks status not available for "
+                                         "bricks");
+                                ret = -1;
+                                goto out;
+                        }
                         cmd |= GF_CLI_STATUS_BRICK;
                         ret = dict_set_str (dict, "brick", (char *)words[3]);
                 }

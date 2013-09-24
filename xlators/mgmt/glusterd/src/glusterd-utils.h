@@ -565,4 +565,6 @@ glusterd_check_gsync_running_local (char *master, char *slave,
                                     char *conf_path,
                                     gf_boolean_t *is_run);
 
+gf_boolean_t
+glusterd_is_status_tasks_op (glusterd_op_t op, dict_t *dict);
 #endif
