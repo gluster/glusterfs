@@ -572,9 +572,7 @@ nfs_inode_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         struct nfs_fop_local    *nfl = NULL;
         fop_open_cbk_t          progcbk = NULL;
 
-        if ((op_ret == -1) && (fd))
-                fd_unref (fd);
-        else
+        if (op_ret != -1)
                 fd_bind (fd);
 
         inodes_nfl_to_prog_data (nfl, progcbk, frame);
