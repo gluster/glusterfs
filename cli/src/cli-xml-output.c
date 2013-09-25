@@ -14,6 +14,12 @@
 #include "compat.h"
 #include "syscall.h"
 
+
+enum gf_task_types {
+    GF_TASK_TYPE_REBALANCE,
+    GF_TASK_TYPE_REMOVE_BRICK
+};
+
 /*
  * IMPORTANT NOTE:
  * All exported functions in this file which use libxml need use a
@@ -2977,7 +2983,8 @@ out:
 #if (HAVE_LIB_XML)
 /* Used for rebalance stop/status, remove-brick status */
 int
-cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict)
+cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
+                                     enum gf_task_types task_type)
 {
         int                     ret = -1;
         int                     count = 0;
@@ -2987,10 +2994,12 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict)
         uint64_t                lookups = 0;
         int                     status_rcd = 0;
         uint64_t                failures = 0;
+        uint64_t                skipped = 0;
         uint64_t                total_files = 0;
         uint64_t                total_size = 0;
         uint64_t                total_lookups = 0;
         uint64_t                total_failures = 0;
+        uint64_t                total_skipped = 0;
         char                    key[1024] = {0,};
         int                     i = 0;
         int                     overall_status = -1;
@@ -3068,6 +3077,27 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict)
                                                        "%"PRIu64, failures);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
+                /* skipped-%d is not available for remove brick in dict,
+                   so using failures as skipped count in case of remove-brick
+                   similar to logic used in CLI(non xml output) */
+                if (task_type == GF_TASK_TYPE_REBALANCE) {
+                    memset (key, 0, sizeof (key));
+                    snprintf (key, sizeof (key), "skipped-%d", i);
+                }
+                else {
+                    memset (key, 0, sizeof (key));
+                    snprintf (key, sizeof (key), "failures-%d", i);
+                }
+
+                ret = dict_get_uint64 (dict, key, &skipped);
+                if (ret)
+                        goto out;
+                total_skipped += skipped;
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"skipped",
+                                                       "%"PRIu64, skipped);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "status-%d", i);
                 ret = dict_get_int32 (dict, key, &status_rcd);
@@ -3114,6 +3144,10 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict)
 
         ret = xmlTextWriterWriteFormatElement (writer,(xmlChar *)"failures",
                                                "%"PRIu64, total_failures);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (writer,(xmlChar *)"skipped",
+                                               "%"PRIu64, total_skipped);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         ret = xmlTextWriterWriteFormatElement (writer,(xmlChar *)"status",
@@ -3170,7 +3204,8 @@ cli_xml_output_vol_rebalance (gf_cli_defrag_type op, dict_t *dict, int op_ret,
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         if ((GF_DEFRAG_CMD_STOP == op) || (GF_DEFRAG_CMD_STATUS == op)) {
-                ret = cli_xml_output_vol_rebalance_status (writer, dict);
+                ret = cli_xml_output_vol_rebalance_status (writer, dict,
+                                                      GF_TASK_TYPE_REBALANCE);
                 if (ret)
                         goto out;
         }
@@ -3221,7 +3256,8 @@ cli_xml_output_vol_remove_brick (gf_boolean_t status_op, dict_t *dict,
         }
 
         if (status_op) {
-                ret = cli_xml_output_vol_rebalance_status (writer, dict);
+                ret = cli_xml_output_vol_rebalance_status (writer, dict,
+                                                   GF_TASK_TYPE_REMOVE_BRICK);
                 if (ret)
                         goto out;
         }
