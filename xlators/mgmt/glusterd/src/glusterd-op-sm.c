@@ -3269,8 +3269,29 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                         goto out;
                 }
 
+                /* add 'node-name-%d' into op_ctx with value uuid_str.
+                   this will be used to convert to hostname later */
+                {
+                        char  key[1024];
+                        char *uuid_str = NULL;
+                        int   i;
+
+                        for (i = 1; i <= count; i++) {
+                                memset (key, 0, sizeof (key));
+                                snprintf (key, sizeof (key), "node-uuid-%d", i);
+                                ret = dict_get_str (op_ctx, key, &uuid_str);
+                                if (!ret) {
+                                        memset (key, 0, sizeof (key));
+                                        snprintf (key, sizeof (key),
+                                                  "node-name-%d", i);
+                                        ret = dict_set_str (op_ctx, key,
+                                                            uuid_str);
+                                }
+                        }
+                }
+
                 ret = glusterd_op_volume_dict_uuid_to_hostname (op_ctx,
-                                                                "node-uuid-%d",
+                                                                "node-name-%d",
                                                                 1, (count + 1));
                 if (ret)
                         gf_log (this->name, GF_LOG_WARNING,

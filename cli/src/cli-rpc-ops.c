@@ -1213,7 +1213,7 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
         char                     msg[1024] = {0,};
         gf_defrag_status_t       status_rcd = GF_DEFRAG_STATUS_NOT_STARTED;
         int32_t                  counter = 0;
-        char                    *node_uuid = NULL;
+        char                    *node_name = NULL;
         char                     key[256] = {0,};
         int32_t                  i = 1;
         uint64_t                 failures = 0;
@@ -1345,11 +1345,11 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                  "-----------", "-----------", "-----------", "-----------",
                  "-----------", "------------", "--------------");
         do {
-                snprintf (key, 256, "node-uuid-%d", i);
-                ret = dict_get_str (dict, key, &node_uuid);
+                snprintf (key, 256, "node-name-%d", i);
+                ret = dict_get_str (dict, key, &node_name);
                 if (ret)
                         gf_log (frame->this->name, GF_LOG_TRACE,
-                                "failed to get node-uuid");
+                                "failed to get node-name");
 
                 memset (key, 0, 256);
                 snprintf (key, 256, "files-%d", i);
@@ -1402,7 +1402,7 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 status = cli_vol_task_status_str[status_rcd];
                 size_str = gf_uint64_2human_readable(size);
                 cli_out ("%40s %16"PRIu64 " %13s" " %13"PRIu64 " %13"PRIu64
-                         " %13"PRIu64 " %20s %18.2f", node_uuid, files,
+                         " %13"PRIu64 " %20s %18.2f", node_name, files,
                          size_str, lookup, failures, skipped, status, elapsed);
                 GF_FREE(size_str);
 
@@ -1716,7 +1716,7 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
         char                     key[256] = {0,};
         int32_t                  i       = 1;
         int32_t                  counter = 0;
-        char                    *node_uuid = 0;
+        char                    *node_name = 0;
         gf_defrag_status_t       status_rcd = GF_DEFRAG_STATUS_NOT_STARTED;
         uint64_t                 failures = 0;
         uint64_t                 skipped = 0;
@@ -1828,11 +1828,11 @@ xml_output:
                   "-----------","------------", "--------------");
 
         do {
-                snprintf (key, 256, "node-uuid-%d", i);
-                ret = dict_get_str (dict, key, &node_uuid);
+                snprintf (key, 256, "node-name-%d", i);
+                ret = dict_get_str (dict, key, &node_name);
                 if (ret)
                         gf_log (frame->this->name, GF_LOG_TRACE,
-                                "failed to get node-uuid");
+                                "failed to get node-name");
 
                 memset (key, 0, 256);
                 snprintf (key, 256, "files-%d", i);
@@ -1904,7 +1904,7 @@ xml_output:
                 
 		if (strcmp (status, "not started")) {
 			cli_out ("%40s %16"PRIu64 " %13s" " %13"PRIu64 " %13"
-				PRIu64 " %13"PRIu64 " %14s %16.2f", node_uuid,
+				PRIu64 " %13"PRIu64 " %14s %16.2f", node_name,
                                 files, size_str, lookup, failures, skipped,
                                 status, elapsed);
 		}
