@@ -1475,6 +1475,7 @@ glusterd_op_set_volume (dict_t *dict)
         char                                     str[50] = {0, };
         char                                    *op_errstr = NULL;
         gf_boolean_t                             global_opt    = _gf_false;
+        gf_boolean_t                             global_opts_set = _gf_false;
         glusterd_volinfo_t                      *voliter = NULL;
         int32_t                                  dict_count = 0;
         gf_boolean_t                             check_op_version = _gf_false;
@@ -1536,7 +1537,6 @@ glusterd_op_set_volume (dict_t *dict)
 
         for (count = 1; ret != -1 ; count++) {
 
-                global_opt = _gf_false;
                 sprintf (str, "key%d", count);
                 ret = dict_get_str (dict, str, &key);
                 if (ret)
@@ -1584,8 +1584,11 @@ glusterd_op_set_volume (dict_t *dict)
                         }
                 }
 
-                if (glusterd_check_globaloption (key))
+                global_opt = _gf_false;
+                if (glusterd_check_globaloption (key)) {
                         global_opt = _gf_true;
+                        global_opts_set = _gf_true;
+                }
 
                 if (!global_opt)
                         value = gf_strdup (value);
@@ -1641,7 +1644,7 @@ glusterd_op_set_volume (dict_t *dict)
                 }
         }
 
-        if (!global_opt) {
+        if (!global_opts_set) {
                 gd_update_volume_op_versions (volinfo);
                 ret = glusterd_create_volfiles_and_notify_services (volinfo);
                 if (ret) {
