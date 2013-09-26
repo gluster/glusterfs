@@ -2977,6 +2977,7 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
         int                     ret = -1;
         int                     count = 0;
         char                    *node_name = NULL;
+        char                    *node_uuid = NULL;
         uint64_t                files = 0;
         uint64_t                size = 0;
         uint64_t                lookups = 0;
@@ -3014,13 +3015,22 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "node-uuid-%d", i);
+                snprintf (key, sizeof (key), "node-name-%d", i);
                 ret = dict_get_str (dict, key, &node_name);
                 if (ret)
                         goto out;
                 ret = xmlTextWriterWriteFormatElement (writer,
                                                        (xmlChar *)"nodeName",
                                                        "%s", node_name);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "node-uuid-%d", i);
+                ret = dict_get_str (dict, key, &node_uuid);
+                if (ret)
+                        goto out;
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"id",
+                                                       "%s", node_uuid);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 memset (key, 0, sizeof (key));
