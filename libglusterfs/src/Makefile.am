@@ -42,7 +42,7 @@ noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h \
 	$(CONTRIBDIR)/uuid/uuid.h $(CONTRIBDIR)/uuid/uuidP.h \
 	$(CONTRIB_BUILDDIR)/uuid/uuid_types.h syncop.h graph-utils.h trie.h \
 	run.h options.h lkowner.h fd-lk.h circ-buff.h event-history.h \
-	gidcache.h client_t.h lock-table.h
+	gidcache.h client_t.h lock-table.h glusterfs-acl.h
 
 EXTRA_DIST = graph.l graph.y
 
