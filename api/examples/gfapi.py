@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from ctypes import *
+from ctypes.util import find_library
 import os
 import sys
 import time
@@ -8,9 +9,9 @@ import types
 
 # Looks like ctypes is having trouble with dependencies, so just force them to
 # load with RTLD_GLOBAL until I figure that out.
-glfs = CDLL("libglusterfs.so",RTLD_GLOBAL)
-xdr = CDLL("libgfxdr.so",RTLD_GLOBAL)
-api = CDLL("libgfapi.so",RTLD_GLOBAL)
+glfs = CDLL(find_library("glusterfs"),RTLD_GLOBAL)
+xdr = CDLL(find_library("gfxdr"),RTLD_GLOBAL)
+api = CDLL(find_library("gfapi"),RTLD_GLOBAL)
 
 # Wow, the Linux kernel folks really play nasty games with this structure.  If
 # you look at the man page for stat(2) and then at this definition you'll note
@@ -98,10 +99,12 @@ class File(object):
         def write (self, data, flags=0):
                 return api.glfs_write(self.fd,data,len(data),flags)
 
-	def fallocate (self, mode, offset, len):
-		return api.glfs_fallocate(self.fd, mode, offset, len)
-	def discard (self, offset, len):
-		return api.glfs_discard(self.fd, offset, len)
+        def fallocate (self, mode, offset, len):
+            return api.glfs_fallocate(self.fd, mode, offset, len)
+
+        def discard (self, offset, len):
+            return api.glfs_discard(self.fd, offset, len)
+
 
 class Dir(object):
 
@@ -381,7 +384,7 @@ if __name__ == "__main__":
                 test_setxattr,
                 test_getxattr,
                 test_listxattr,
-		test_fallocate,
+                test_fallocate,
         )
 
         ok_to_fail = (

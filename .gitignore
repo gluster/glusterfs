@@ -22,25 +22,27 @@ Makefile
 stamp-h1
 
 # Generated files
-ufo/.tox
-ufo/test/unit/.coverage
+api/examples/__init__.py*
+api/examples/setup.py
+argp-standalone/libargp.a
 contrib/uuid/uuid_types.h
-extras/who-wrote-glusterfs/gitdm
-extras/init.d/glusterd.plist
 extras/init.d/glusterd-Debian
 extras/init.d/glusterd-Redhat
 extras/init.d/glusterd-SuSE
+extras/init.d/glusterd.plist
 extras/ocf/glusterd
 extras/ocf/volume
-glusterfs.spec
+extras/who-wrote-glusterfs/gitdm
 glusterfs-api.pc
-libtool
-xlators/mount/fuse/utils/mount.glusterfs
-xlators/mount/fuse/utils/mount_glusterfs
-argp-standalone/libargp.a
+glusterfs.spec
 glusterfsd/src/glusterfsd
+libgfchangelog.pc
 libglusterfs/src/spec.lex.c
 libglusterfs/src/y.tab.c
 libglusterfs/src/y.tab.h
-libgfchangelog.pc
+libtool
 run-tests.sh
+ufo/.tox
+ufo/test/unit/.coverage
+xlators/mount/fuse/utils/mount.glusterfs
+xlators/mount/fuse/utils/mount_glusterfs
