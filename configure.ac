@@ -164,6 +164,8 @@ AC_CONFIG_FILES([Makefile
                 libgfchangelog.pc
                 api/Makefile
                 api/src/Makefile
+                api/examples/Makefile
+                api/examples/setup.py
 		geo-replication/Makefile
 		geo-replication/src/Makefile
 		geo-replication/syncdaemon/Makefile
