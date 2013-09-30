@@ -146,6 +146,8 @@ AC_CONFIG_FILES([Makefile
                 glusterfs-api.pc
                 api/Makefile
                 api/src/Makefile
+                api/examples/Makefile
+                api/examples/setup.py
                 glusterfs.spec])
 
 AC_CANONICAL_HOST
