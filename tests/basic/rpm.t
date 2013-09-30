@@ -35,18 +35,11 @@ else
         GIT_PARENT=$(git describe --abbrev=0)
 fi
 
-# check for changed files
-CHANGED_FILES=$(git diff --name-only ${GIT_PARENT})
-# if a commit changes this test, we should not skip it
-SELFTEST=$(grep -e 'tests/basic/rpm.t' <<< "${CHANGED_FILES}")
-# filter out any files not affecting the build itself
-CHANGED_FILES=$(grep -E -v \
-        -e '\.c$' \
-        -e '\.h$' \
-        -e '\.py$' \
-        -e '^tests/' \
-        <<< "${CHANGED_FILES}")
-if [ -z "${CHANGED_FILES}" -a -z "${SELFTEST}" ]
+# Filter out everything and what remains needs to be built
+BUILD_FILES=$(git diff --name-status ${GIT_PARENT} | grep -Ev '^M.*\.(c|h|py)' | awk {'print $2'})
+SELFTEST=$(grep -e 'tests/basic/rpm.t' <<< "${BUILD_FILES}")
+BUILD_FILES=$(grep -Ev '^tests/' <<< "${BUILD_FILES}")
+if [ -z "${BUILD_FILES}" -a -z "${SELFTEST}"]
 then
         # nothing affecting packaging changed, no need to retest rpmbuild
         SKIP_TESTS
