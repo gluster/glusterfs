@@ -156,8 +156,7 @@ out:
 
 
 static int
-do_lock_table_cleanup (xlator_t *this, client_t *client, call_frame_t *frame,
-                       struct _lock_table *ltable)
+do_lock_table_cleanup (xlator_t *this, client_t *client, struct _lock_table *ltable)
 {
         call_frame_t      *tmp_frame = NULL;
         xlator_t          *bound_xl  = NULL;
@@ -168,7 +167,6 @@ do_lock_table_cleanup (xlator_t *this, client_t *client, call_frame_t *frame,
         struct list_head   inodelk_lockers, entrylk_lockers;
 
         GF_VALIDATE_OR_GOTO ("server", this, out);
-        GF_VALIDATE_OR_GOTO ("server", frame, out);
         GF_VALIDATE_OR_GOTO ("server", ltable, out);
 
         bound_xl = client->bound_xl;
@@ -185,7 +183,7 @@ do_lock_table_cleanup (xlator_t *this, client_t *client, call_frame_t *frame,
         flock.l_start = 0;
         flock.l_len   = 0;
         list_for_each_entry_safe (locker, tmp, &inodelk_lockers, lockers) {
-                tmp_frame = copy_frame (frame);
+                tmp_frame = create_frame (this, this->ctx->pool);
                 if (tmp_frame == NULL) {
                         goto out;
                 }
@@ -240,7 +238,10 @@ do_lock_table_cleanup (xlator_t *this, client_t *client, call_frame_t *frame,
         tmp = NULL;
         locker = NULL;
         list_for_each_entry_safe (locker, tmp, &entrylk_lockers, lockers) {
-                tmp_frame = copy_frame (frame);
+                tmp_frame = create_frame (this, this->ctx->pool);
+                if (tmp_frame == NULL) {
+                        goto out;
+                }
 
                 tmp_frame->root->pid = 0;
                 gf_client_ref (client);
@@ -322,8 +323,7 @@ out:
 
 
 static int
-do_fd_cleanup (xlator_t *this, client_t* client, call_frame_t *frame,
-               fdentry_t *fdentries, int fd_count)
+do_fd_cleanup (xlator_t *this, client_t* client, fdentry_t *fdentries, int fd_count)
 {
         fd_t               *fd = NULL;
         int                 i = 0, ret = -1;
@@ -332,7 +332,6 @@ do_fd_cleanup (xlator_t *this, client_t* client, call_frame_t *frame,
         char               *path     = NULL;
 
         GF_VALIDATE_OR_GOTO ("server", this, out);
-        GF_VALIDATE_OR_GOTO ("server", frame, out);
         GF_VALIDATE_OR_GOTO ("server", fdentries, out);
 
         bound_xl = client->bound_xl;
@@ -340,7 +339,7 @@ do_fd_cleanup (xlator_t *this, client_t* client, call_frame_t *frame,
                 fd = fdentries[i].fd;
 
                 if (fd != NULL) {
-                        tmp_frame = copy_frame (frame);
+                        tmp_frame = create_frame (this, this->ctx->pool);
                         if (tmp_frame == NULL) {
                                 goto out;
                         }
@@ -389,30 +388,17 @@ do_connection_cleanup (xlator_t *this, client_t *client,
 {
         int              ret = 0;
         int              saved_ret = 0;
-        call_frame_t    *frame = NULL;
-        server_state_t  *state = NULL;
 
         GF_VALIDATE_OR_GOTO ("server", this, out);
 
         if (!ltable && !fdentries)
                 goto out;
 
-        frame = create_frame (this, this->ctx->pool);
-        if (frame == NULL) {
-                goto out;
-        }
-
         if (ltable)
-                saved_ret = do_lock_table_cleanup (this, client, frame, ltable);
+                saved_ret = do_lock_table_cleanup (this, client, ltable);
 
-        if (fdentries != NULL) {
-                ret = do_fd_cleanup (this, client, frame, fdentries, fd_count);
-        }
-
-        state = CALL_STATE (frame);
-        GF_FREE (state);
-
-        STACK_DESTROY (frame->root);
+        if (fdentries != NULL)
+                ret = do_fd_cleanup (this, client, fdentries, fd_count);
 
         if (saved_ret || ret) {
                 ret = -1;
