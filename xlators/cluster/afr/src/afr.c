@@ -674,7 +674,17 @@ struct volume_options options[] = {
         },
         { .key = {"eager-lock"},
           .type = GF_OPTION_TYPE_BOOL,
+#ifdef __NetBSD__
+	/*
+	 * eager-locks are broken on NetBSD, and cause spurious
+	 * split brain with all NULL pending matrix, as described
+	 * in https://bugzilla.redhat.com/show_bug.cgi?id=1005526
+	 * We therefore disable them for now
+	 */
+          .default_value = "off",
+#else
           .default_value = "on",
+#endif
           .description = "Lock phase of a transaction has two sub-phases. "
                          "First is an attempt to acquire locks in parallel by "
                          "broadcasting non-blocking lock requests. If lock "
