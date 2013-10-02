@@ -982,6 +982,7 @@ init (xlator_t *this)
 {
         qb_conf_t *conf    = NULL;
         int32_t    ret     = -1;
+	static int bdrv_inited = 0;
 
         if (!this->children || this->children->next) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1018,7 +1019,10 @@ init (xlator_t *this)
 
 	cur_mon = (void *) 1;
 
-	bdrv_init ();
+	if (!bdrv_inited) {
+		bdrv_init ();
+		bdrv_inited = 1;
+	}
 
 out:
         if (ret)
