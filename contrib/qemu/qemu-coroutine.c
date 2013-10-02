@@ -20,7 +20,7 @@
 
 enum {
     /* Maximum free pool size prevents holding too many freed coroutines */
-    POOL_MAX_SIZE = 64,
+    POOL_MAX_SIZE = 0,
 };
 
 /** Free list to speed up creation */
