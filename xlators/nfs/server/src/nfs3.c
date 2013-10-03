@@ -558,23 +558,18 @@ nfs3svc_submit_reply (rpcsvc_request_t *req, void *arg, nfs3_serializer sfunc)
 
         iobref = iobref_new ();
         if (!iobref) {
-                iobuf_unref (iob);
                 gf_log (GF_NFS3, GF_LOG_ERROR, "failed on iobref_new()");
                 goto ret;
         }
 
-        iobref_add (iobref, iob);
+        ret = iobref_add (iobref, iob);
+        if (ret) {
+                gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to add iob to iobref");
+                goto ret;
+        }
 
         /* Then, submit the message for transmission. */
         ret = rpcsvc_submit_message (req, &outmsg, 1, NULL, 0, iobref);
-
-        /* Now that we've done our job of handing the message to the RPC layer
-         * we can safely unref the iob in the hope that RPC layer must have
-         * ref'ed the iob on receiving into the txlist.
-         */
-        iobuf_unref (iob);
-        iobref_unref (iobref);
-
         if (ret == -1) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "Reply submission failed");
                 goto ret;
@@ -582,6 +577,14 @@ nfs3svc_submit_reply (rpcsvc_request_t *req, void *arg, nfs3_serializer sfunc)
 
         ret = 0;
 ret:
+        /* Now that we've done our job of handing the message to the RPC layer
+         * we can safely unref the iob in the hope that RPC layer must have
+         * ref'ed the iob on receiving into the txlist.
+         */
+        if (NULL != iob)
+                iobuf_unref (iob);
+        if (NULL != iobref)
+                iobref_unref (iobref);
         return ret;
 }
 
@@ -613,19 +616,14 @@ nfs3svc_submit_vector_reply (rpcsvc_request_t *req, void *arg,
                 new_iobref = 1;
         }
 
-        iobref_add (iobref, iob);
+        ret = iobref_add (iobref, iob);
+        if (ret) {
+                gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to add iob to iobref");
+                goto ret;
+        }
 
         /* Then, submit the message for transmission. */
         ret = rpcsvc_submit_message (req, &outmsg, 1, payload, vcount, iobref);
-
-        /* Now that we've done our job of handing the message to the RPC layer
-         * we can safely unref the iob in the hope that RPC layer must have
-         * ref'ed the iob on receiving into the txlist.
-         */
-        iobuf_unref (iob);
-        if (new_iobref)
-                iobref_unref (iobref);
-
         if (ret == -1) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "Reply submission failed");
                 goto ret;
@@ -633,6 +631,14 @@ nfs3svc_submit_vector_reply (rpcsvc_request_t *req, void *arg,
 
         ret = 0;
 ret:
+        /* Now that we've done our job of handing the message to the RPC layer
+         * we can safely unref the iob in the hope that RPC layer must have
+         * ref'ed the iob on receiving into the txlist.
+         */
+        if (NULL != iob)
+                iobuf_unref (iob);
+        if (new_iobref)
+                iobref_unref (iobref);
         return ret;
 }
 

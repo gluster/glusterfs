@@ -140,10 +140,11 @@ nfs3_fh_to_xlator (struct nfs3_state *nfs3, struct nfs3_fh *fh);
 int
 acl3svc_submit_reply (rpcsvc_request_t *req, void *arg, acl3_serializer sfunc)
 {
-        struct iovec            outmsg = {0, };
-        struct iobuf            *iob = NULL;
-        struct nfs3_state       *nfs3 = NULL;
-        int                     ret = -1;
+        struct iovec            outmsg  = {0, };
+        struct iobuf            *iob    = NULL;
+        struct nfs3_state       *nfs3   = NULL;
+        int                     ret     = -1;
+        ssize_t                 msglen  = 0;
         struct iobref           *iobref = NULL;
 
         if (!req)
@@ -168,7 +169,12 @@ acl3svc_submit_reply (rpcsvc_request_t *req, void *arg, acl3_serializer sfunc)
         /* Use the given serializer to translate the give C structure in arg
          * to XDR format which will be written into the buffer in outmsg.
          */
-        outmsg.iov_len = sfunc (outmsg, arg);
+        msglen = sfunc (outmsg, arg);
+        if (msglen < 0) {
+                gf_log (GF_ACL, GF_LOG_ERROR, "Failed to encode message");
+                goto ret;
+        }
+        outmsg.iov_len = msglen;
 
         iobref = iobref_new ();
         if (iobref == NULL) {
@@ -176,7 +182,11 @@ acl3svc_submit_reply (rpcsvc_request_t *req, void *arg, acl3_serializer sfunc)
                 goto ret;
         }
 
-        iobref_add (iobref, iob);
+        ret = iobref_add (iobref, iob);
+        if (ret) {
+                gf_log (GF_ACL, GF_LOG_ERROR, "Failed to add iob to iobref");
+                goto ret;
+        }
 
         /* Then, submit the message for transmission. */
         ret = rpcsvc_submit_message (req, &outmsg, 1, NULL, 0, iobref);
