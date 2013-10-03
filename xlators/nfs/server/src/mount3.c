@@ -88,10 +88,11 @@ mount3udp_thread (void *argv);
 int
 mnt3svc_submit_reply (rpcsvc_request_t *req, void *arg, mnt3_serializer sfunc)
 {
-        struct iovec            outmsg = {0, };
-        struct iobuf            *iob = NULL;
-        struct mount3_state     *ms = NULL;
-        int                     ret = -1;
+        struct iovec            outmsg  = {0, };
+        struct iobuf            *iob    = NULL;
+        struct mount3_state     *ms     = NULL;
+        int                     ret     = -1;
+        ssize_t                 msglen  = 0;
         struct iobref           *iobref = NULL;
 
         if (!req)
@@ -117,7 +118,12 @@ mnt3svc_submit_reply (rpcsvc_request_t *req, void *arg, mnt3_serializer sfunc)
         /* Use the given serializer to translate the give C structure in arg
          * to XDR format which will be written into the buffer in outmsg.
          */
-        outmsg.iov_len = sfunc (outmsg, arg);
+        msglen = sfunc (outmsg, arg);
+        if (msglen < 0) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to encode message");
+                goto ret;
+        }
+        outmsg.iov_len = msglen;
 
         iobref = iobref_new ();
         if (iobref == NULL) {
@@ -125,12 +131,14 @@ mnt3svc_submit_reply (rpcsvc_request_t *req, void *arg, mnt3_serializer sfunc)
                 goto ret;
         }
 
-        iobref_add (iobref, iob);
+        ret = iobref_add (iobref, iob);
+        if (ret) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to add iob to iobref");
+                goto ret;
+        }
 
         /* Then, submit the message for transmission. */
         ret = rpcsvc_submit_message (req, &outmsg, 1, NULL, 0, iobref);
-        iobuf_unref (iob);
-        iobref_unref (iobref);
         if (ret == -1) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Reply submission failed");
                 goto ret;
@@ -138,6 +146,11 @@ mnt3svc_submit_reply (rpcsvc_request_t *req, void *arg, mnt3_serializer sfunc)
 
         ret = 0;
 ret:
+        if (NULL != iob)
+                iobuf_unref (iob);
+        if (NULL != iobref)
+                iobref_unref (iobref);
+
         return ret;
 }
 
