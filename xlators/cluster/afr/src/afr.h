@@ -28,6 +28,7 @@
 #define AFR_XATTR_PREFIX "trusted.afr"
 #define AFR_PATHINFO_HEADER "REPLICATE:"
 #define AFR_SH_READDIR_SIZE_KEY "self-heal-readdir-size"
+#define AFR_SH_DATA_DOMAIN_FMT "%s:self-heal"
 
 #define AFR_LOCKEE_COUNT_MAX    3
 #define AFR_DOM_COUNT_MAX    3

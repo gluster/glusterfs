@@ -388,7 +388,8 @@ init (xlator_t *this)
                 i++;
         }
 
-        ret = gf_asprintf (&priv->sh_domain, "%s-self-heal", this->name);
+        ret = gf_asprintf (&priv->sh_domain, AFR_SH_DATA_DOMAIN_FMT,
+                           this->name);
         if (-1 == ret) {
                 ret = -ENOMEM;
                 goto out;
