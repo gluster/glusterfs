@@ -191,8 +191,13 @@ quota_local_new ()
 {
         quota_local_t *local = NULL;
         local = mem_get0 (THIS->local_pool);
-        if (local)
-                LOCK_INIT (&local->lock);
+        if (local == NULL)
+                goto out;
+
+        LOCK_INIT (&local->lock);
+        local->space_available = -1;
+
+out:
         return local;
 }
 
@@ -342,7 +347,7 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         UNLOCK (&ctx->lock);
 
-        quota_check_limit (frame, local->validate_loc.inode, this, NULL, NULL) ;
+        quota_check_limit (frame, local->validate_loc.inode, this, NULL, NULL);
         return 0;
 
 unwind:
@@ -653,6 +658,7 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
         char               need_validate       = 0;
         gf_boolean_t       hard_limit_exceeded = 0;
         int64_t            delta               = 0, wouldbe_size = 0;
+        int64_t            space_available     = 0;
         uint64_t           value               = 0;
         char               just_validated      = 0;
         uuid_t             trav_uuid           = {0,};
@@ -742,10 +748,22 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                         }
 
                         if (hard_limit_exceeded) {
-                                op_errno = EDQUOT;
-                                goto err;
-                        }
+                                local->op_ret = -1;
+                                local->op_errno = EDQUOT;
 
+                                space_available = ctx->hard_lim - ctx->size;
+
+                                if (space_available < 0)
+                                        space_available = 0;
+
+                                if ((local->space_available < 0)
+                                    || (local->space_available
+                                        > space_available)){
+                                        local->space_available
+                                                = space_available;
+
+                                }
+                        }
                 }
 
                 if (__is_root_gfid (_inode->gfid)) {
@@ -1139,9 +1157,11 @@ quota_writev_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                      struct iovec *vector, int32_t count, off_t off,
                      uint32_t flags, struct iobref *iobref, dict_t *xdata)
 {
-        quota_local_t *local    = NULL;
-        int32_t        op_errno = EINVAL;
-        quota_priv_t  *priv     = NULL;
+        quota_local_t *local      = NULL;
+        int32_t        op_errno   = EINVAL;
+        quota_priv_t  *priv       = NULL;
+        struct iovec  *new_vector = NULL;
+        int32_t        new_count  = 0;
 
         priv = this->private;
 
@@ -1153,13 +1173,39 @@ quota_writev_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         if (local->op_ret == -1) {
                 op_errno = local->op_errno;
-                goto unwind;
+
+                if ((op_errno == EDQUOT) && (local->space_available > 0)) {
+                        new_count = iov_subset (vector, count, 0,
+                                                local->space_available, NULL);
+
+                        new_vector = GF_CALLOC (new_count,
+                                                sizeof (struct iovec),
+                                                gf_common_mt_iovec);
+                        if (new_vector == NULL) {
+                                local->op_ret = -1;
+                                local->op_errno = ENOMEM;
+                                goto unwind;
+                        }
+
+                        new_count = iov_subset (vector, count, 0,
+                                                local->space_available,
+                                                new_vector);
+
+                        vector = new_vector;
+                        count = new_count;
+                } else {
+                        goto unwind;
+                }
         }
 
         STACK_WIND (frame,
                     priv->is_quota_on? quota_writev_cbk: default_writev_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->writev, fd,
                     vector, count, off, flags, iobref, xdata);
+
+        if (new_vector != NULL)
+                GF_FREE (new_vector);
+
         return 0;
 
 unwind:

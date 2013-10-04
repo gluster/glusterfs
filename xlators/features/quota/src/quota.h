@@ -176,6 +176,7 @@ struct quota_local {
         call_stub_t        *stub;
         struct iobref      *iobref;
         quota_limit_t       limit;
+        int64_t             space_available;
 };
 typedef struct quota_local  quota_local_t;
 
