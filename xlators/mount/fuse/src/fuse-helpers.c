@@ -7,6 +7,10 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
+#ifdef __NetBSD__
+#define _KMEMUSER
+#endif
+
 #include "fuse-bridge.h"
 #if defined(GF_SOLARIS_HOST_OS)
 #include <sys/procfs.h>
