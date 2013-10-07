@@ -52,14 +52,12 @@ function find_config_info () {
 
 function del_samba_share () {
         volname=$1
-        cp ${CONFIGFILE} /tmp/smb.conf
-        sed -i "/gluster-$volname/,/^$/d" /tmp/smb.conf &&\
-                cp /tmp/smb.conf ${CONFIGFILE}
+        sed -i "/\[gluster-$volname\]/,/^$/d" ${CONFIGFILE}
 }
 
 function sighup_samba () {
         pid=`cat ${PIDDIR}/smbd.pid`
-        if [ $pid != "" ]
+        if [ "x$pid" != "x" ]
         then
                 kill -HUP $pid;
         else
