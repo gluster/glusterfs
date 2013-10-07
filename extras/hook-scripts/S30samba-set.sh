@@ -73,7 +73,7 @@ function add_samba_share () {
 
 function sighup_samba () {
         pid=`cat /var/run/smbd.pid`
-        if [ "$pid" != "" ]
+        if [ "x$pid" != "x" ]
         then
                 kill -HUP "$pid";
         else
@@ -83,9 +83,7 @@ function sighup_samba () {
 
 function del_samba_share () {
         volname=$1
-        cp /etc/samba/smb.conf /tmp/smb.conf
-        sed -i "/gluster-$volname/,/^$/d" /tmp/smb.conf &&\
-                cp /tmp/smb.conf /etc/samba/smb.conf
+        sed -i "/\[gluster-$volname\]/,/^$/d" /etc/samba/smb.conf
 }
 
 function is_volume_started () {
@@ -100,8 +98,10 @@ if [ "0" = $(is_volume_started "$VOL") ]; then
 fi
 
 if [ "$enable_smb" = "enable" ]; then
-    add_samba_share $VOL
-    sighup_samba
+    if ! grep --quiet "\[gluster-$VOL\]" /etc/samba/smb.conf ; then
+            add_samba_share $VOL
+            sighup_samba
+    fi
 
 elif [ "$enable_smb" = "disable" ]; then
     del_samba_share $VOL

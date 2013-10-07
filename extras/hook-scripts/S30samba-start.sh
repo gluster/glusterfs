@@ -73,7 +73,7 @@ function add_samba_share () {
 
 function sighup_samba () {
         pid=`cat ${PIDDIR}/smbd.pid`
-        if [ "$pid" != "" ]
+        if [ "x$pid" != "x" ]
         then
                 kill -HUP "$pid";
         else
@@ -104,7 +104,7 @@ fi
 #Find smb.conf, smbd pid directory and smbd logfile path
 find_config_info
 
-if ! grep --quiet "gluster-$VOL" ${CONFIGFILE} ; then
+if ! grep --quiet "\[gluster-$VOL\]" ${CONFIGFILE} ; then
         add_samba_share $VOL
         sighup_samba
 fi
