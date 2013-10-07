@@ -1687,7 +1687,7 @@ unlock:
         }
         UNLOCK (&contribution->lock);
 
-        gf_log (this->name, GF_LOG_DEBUG, "%s %"PRId64 "%"PRId64,
+        gf_log (this->name, GF_LOG_DEBUG, "%s %"PRId64 " %"PRId64,
                 local->loc.path, size_int, contri_int);
 
         local->delta = size_int - contri_int;

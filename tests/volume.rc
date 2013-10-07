@@ -272,3 +272,10 @@ function get_backend_paths {
 
        getfattr -m . -n trusted.glusterfs.pathinfo $path | tr ' ' '\n' | sed -n 's/<POSIX.*:.*:\(.*\)>.*/\1/p'
 }
+
+#Gets the xattr value in hex, also removed 0x in front of the value
+function get_hex_xattr {
+        local key=$1
+        local path=$2
+        getfattr -d -m. -e hex $2 2>/dev/null | grep $1 | cut -f2 -d'=' | cut -f2 -d'x'
+}
