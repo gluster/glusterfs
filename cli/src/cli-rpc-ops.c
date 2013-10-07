@@ -7109,6 +7109,53 @@ out:
         return;
 }
 
+
+void
+cmd_heal_volume_statistics_heal_count_out (dict_t *dict, int brick)
+{
+        uint64_t        num_entries = 0;
+        int             ret = 0;
+        char            key[256] = {0};
+        char           *hostname = NULL;
+        char           *path = NULL;
+        char           *status = NULL;
+        char            *shd_status = NULL;
+
+        snprintf (key, sizeof key, "%d-hostname", brick);
+        ret = dict_get_str (dict, key, &hostname);
+        if (ret)
+                goto out;
+        snprintf (key, sizeof key, "%d-path", brick);
+        ret = dict_get_str (dict, key, &path);
+        if (ret)
+                goto out;
+        cli_out ("\nBrick %s:%s", hostname, path);
+
+        snprintf (key, sizeof key, "%d-status", brick);
+        ret = dict_get_str (dict, key, &status);
+        if (status && strlen (status))
+                cli_out ("Status: %s", status);
+
+        snprintf (key, sizeof key, "%d-shd-status",brick);
+        ret = dict_get_str (dict, key, &shd_status);
+
+        if(!shd_status)
+        {
+                snprintf (key, sizeof key, "%d-hardlinks", brick);
+                ret = dict_get_uint64 (dict, key, &num_entries);
+                if (ret)
+                        cli_out ("No gathered input for this brick");
+                else
+                        cli_out ("Number of entries: %"PRIu64, num_entries);
+
+
+        }
+
+out:
+        return;
+}
+
+
 int
 gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
@@ -7190,6 +7237,12 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 case    GF_AFR_OP_STATISTICS:
                         heal_op_str =  "crawl statistics";
                         break;
+                case    GF_AFR_OP_STATISTICS_HEAL_COUNT:
+                        heal_op_str = "count of entries to be healed";
+                        break;
+                case    GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
+                        heal_op_str = "count of entries to be healed per replica";
+                        break;
                 case    GF_AFR_OP_INVALID:
                         heal_op_str = "invalid heal op";
                         break;
@@ -7254,6 +7307,12 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 case GF_AFR_OP_STATISTICS:
                         for (i = 0; i < brick_count; i++)
                                 cmd_heal_volume_statistics_out (dict, i);
+                        break;
+                case GF_AFR_OP_STATISTICS_HEAL_COUNT:
+                case GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
+                        for (i = 0; i < brick_count; i++)
+                                cmd_heal_volume_statistics_heal_count_out (dict,
+                                                                           i);
                         break;
                 case GF_AFR_OP_INDEX_SUMMARY:
                 case GF_AFR_OP_HEALED_FILES:

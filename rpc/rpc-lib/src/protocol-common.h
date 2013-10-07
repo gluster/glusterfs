@@ -211,6 +211,8 @@ typedef enum {
         GF_AFR_OP_HEAL_FAILED_FILES,
         GF_AFR_OP_SPLIT_BRAIN_FILES,
         GF_AFR_OP_STATISTICS,
+        GF_AFR_OP_STATISTICS_HEAL_COUNT,
+        GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA,
 } gf_xl_afr_op_t ;
 
 typedef enum {

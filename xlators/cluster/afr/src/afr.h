@@ -94,6 +94,7 @@ typedef struct afr_inode_ctx_ {
 typedef enum {
         NONE,
         INDEX,
+        INDEX_TO_BE_HEALED,
         FULL,
 } afr_crawl_type_t;
 

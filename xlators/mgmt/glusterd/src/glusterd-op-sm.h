@@ -162,6 +162,12 @@ typedef struct glusterd_gsync_status_temp {
         glusterd_volinfo_t *volinfo;
         char *node;
 }glusterd_gsync_status_temp_t;
+
+typedef enum cli_cmd_type_ {
+        PER_REPLICA,
+        ALL_REPLICA,
+ } cli_cmd_type;
+
 int
 glusterd_op_sm_new_event (glusterd_op_sm_event_type_t event_type,
                           glusterd_op_sm_event_t **new_event);
