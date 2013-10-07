@@ -281,15 +281,65 @@ marker_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *dict,
                      dict_t *xdata)
 {
+        int            ret    = 0;
+        char           *src   = NULL;
+        char           *dst   = NULL;
+        int            len    = 0;
+        marker_local_t *local = NULL;
+
+        local = frame->local;
+
+
         if (cookie) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Filtering the quota extended attributes");
 
-                dict_foreach_fnmatch (dict, "trusted.glusterfs.quota*",
-                                      marker_filter_quota_xattr, NULL);
+                /* If the getxattr is from a non special client, then do not
+                   copy the quota related xattrs (except the quota limit key
+                   i.e trusted.glusterfs.quota.limit-set which has been set by
+                   glusterd on the directory on which quota limit is set.) for
+                   directories. Let the healing of xattrs happen upon lookup.
+                   NOTE: setting of trusted.glusterfs.quota.limit-set as of now
+                   happens from glusterd. It should be moved to quotad. Also
+                   trusted.glusterfs.quota.limit-set is set on directory which
+                   is permanent till quota is removed on that directory or limit
+                   is changed. So let that xattr be healed by other xlators
+                   properly whenever directory healing is done.
+                */
+                ret = dict_get_ptr_and_len (dict, QUOTA_LIMIT_KEY,
+                                            (void **)&src, &len);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_DEBUG, "dict_get on %s "
+                                "failed", QUOTA_LIMIT_KEY);
+                } else {
+                        dst = GF_CALLOC (len, sizeof (char), gf_common_mt_char);
+                        if (dst)
+                                memcpy (dst, src, len);
+                }
+
+                /*
+                 * Except limit-set xattr, rest of the xattrs are maintained
+                 * by quota xlator. Don't expose them to other xlators.
+                 * This filter makes sure quota xattrs are not healed as part of
+                 * metadata self-heal
+                 */
+                GF_REMOVE_INTERNAL_XATTR ("trusted.glusterfs.quota*", dict);
+                if (!ret && IA_ISDIR (local->loc.inode->ia_type) && dst) {
+                        ret = dict_set_dynptr (dict, QUOTA_LIMIT_KEY,
+                                               dst, len);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_WARNING, "setting "
+                                        "key %s failed", QUOTA_LIMIT_KEY);
+                        else
+                                dst = NULL;
+                }
         }
 
+        GF_FREE (dst);
+
+        frame->local = NULL;
         STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict, xdata);
+        marker_local_unref (local);
         return 0;
 }
 
@@ -300,8 +350,20 @@ marker_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         gf_boolean_t   ret    = _gf_false;
         marker_conf_t *priv   = NULL;
         unsigned long  cookie = 0;
+        marker_local_t *local = NULL;
 
         priv = this->private;
+
+        frame->local = mem_get0 (this->local_pool);
+        local = frame->local;
+        if (local == NULL)
+                goto out;
+
+        MARKER_INIT_LOCAL (frame, local);
+
+        ret = loc_copy (&local->loc, loc);
+        if (ret < 0)
+                goto out;
 
         gf_log (this->name, GF_LOG_DEBUG, "USER:PID = %d", frame->root->pid);
 
@@ -323,6 +385,11 @@ marker_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                                    name, xdata);
         }
 
+        return 0;
+out:
+        frame->local = NULL;
+        STACK_UNWIND_STRICT (getxattr, frame, -1, ENOMEM, NULL, NULL);
+        marker_local_unref (local);
         return 0;
 }
 
