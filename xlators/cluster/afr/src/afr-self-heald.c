@@ -25,7 +25,8 @@ typedef enum {
 
 typedef enum {
         HEAL = 1,
-        INFO
+        INFO,
+        STATISTICS_TO_BE_HEALED,
 } shd_crawl_op;
 
 typedef struct shd_dump {
@@ -447,6 +448,46 @@ out:
 }
 
 int
+_count_hard_links_under_base_indices_dir (xlator_t *this,
+                                           afr_crawl_data_t *crawl_data,
+                                           gf_dirent_t *entry, loc_t *childloc,
+                                           loc_t *parentloc, struct iatt *iattr)
+{
+        xlator_t                *readdir_xl = crawl_data->readdir_xl;
+        struct iatt             parent = {0};
+        int                     ret = 0;
+        dict_t                  *output = NULL;
+        int                     xl_id =  0;
+        char                    key[256] = {0};
+        int                     child  = -1;
+        uint64_t                     hardlinks = 0;
+
+        output = crawl_data->op_data;
+        child = crawl_data->child;
+
+        ret = syncop_lookup (readdir_xl, childloc, NULL, iattr, NULL, &parent);
+        if (ret)
+                goto out;
+
+        ret = dict_get_int32 (output, this->name, &xl_id);
+        if (ret)
+                goto out;
+
+        snprintf (key, sizeof (key), "%d-%d-hardlinks", xl_id, child);
+        ret =  dict_get_uint64 (output, key, &hardlinks);
+
+        /*Removing the count of base_entry under indices/base_indicies and
+         * entry under indices/xattrop */
+        hardlinks = hardlinks + iattr->ia_nlink - 2;
+        ret = dict_set_uint64 (output, key, hardlinks);
+        if (ret)
+                goto out;
+
+out:
+        return ret;
+}
+
+int
 _add_summary_to_dict (xlator_t *this, afr_crawl_data_t *crawl_data,
                       gf_dirent_t *entry,
                       loc_t *childloc, loc_t *parentloc, struct iatt *iattr)
@@ -724,12 +765,20 @@ _do_crawl_op_on_local_subvols (xlator_t *this, afr_crawl_type_t crawl,
                                         status = "Started self-heal";
                                         _do_self_heal_on_subvol (this, i,
                                                                  crawl);
-                                } else if (output) {
+                                } else if (output && (op == INFO)) {
                                         status = "";
                                         afr_start_crawl (this, i, INDEX,
                                                          _add_summary_to_dict,
                                                          output, _gf_false, 0,
                                                          NULL);
+                                } else if (output &&
+                                           (op == STATISTICS_TO_BE_HEALED)) {
+                                            status = "";
+                                            afr_start_crawl (this, i,
+                                                             INDEX_TO_BE_HEALED,
+                                       _count_hard_links_under_base_indices_dir,
+                                                             output, _gf_false,
+                                                             0, NULL);
                                 }
                         }
                         if (output) {
@@ -922,6 +971,12 @@ afr_xl_op (xlator_t *this, dict_t *input, dict_t *output)
         case GF_AFR_OP_STATISTICS:
                 ret = _add_local_subvols_crawl_statistics_to_dict (this, output);
                 break;
+        case GF_AFR_OP_STATISTICS_HEAL_COUNT:
+        case GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
+                ret = _do_crawl_op_on_local_subvols (this, INDEX_TO_BE_HEALED,
+                                                     STATISTICS_TO_BE_HEALED,
+                                                     output);
+                break;
         default:
                 gf_log (this->name, GF_LOG_ERROR, "Unknown set op %d", op);
                 break;
@@ -1094,6 +1149,7 @@ afr_crawl_build_start_loc (xlator_t *this, afr_crawl_data_t *crawl_data,
         afr_private_t *priv = NULL;
         dict_t        *xattr = NULL;
         void          *index_gfid = NULL;
+        void          *base_indices_holder_vgfid = NULL;
         loc_t         rootloc = {0};
         struct iatt   iattr = {0};
         struct iatt   parent = {0};
@@ -1103,7 +1159,7 @@ afr_crawl_build_start_loc (xlator_t *this, afr_crawl_data_t *crawl_data,
         priv = this->private;
         if (crawl_data->crawl == FULL) {
                 afr_build_root_loc (this, dirloc);
-        } else {
+        } else if (crawl_data->crawl == INDEX) {
                 afr_build_root_loc (this, &rootloc);
                 ret = syncop_getxattr (readdir_xl, &rootloc, &xattr,
                                        GF_XATTROP_INDEX_GFID);
@@ -1131,6 +1187,47 @@ afr_crawl_build_start_loc (xlator_t *this, afr_crawl_data_t *crawl_data,
                                 gf_log (this->name, GF_LOG_ERROR, "lookup "
                                         "failed on index dir on %s - (%s)",
                                         readdir_xl->name, strerror (errno));
+                        }
+                        goto out;
+                }
+                ret = _link_inode_update_loc (this, dirloc, &iattr);
+                if (ret)
+                        goto out;
+        } else if (crawl_data->crawl == INDEX_TO_BE_HEALED) {
+                afr_build_root_loc (this, &rootloc);
+                ret = syncop_getxattr (readdir_xl, &rootloc, &xattr,
+                                       GF_BASE_INDICES_HOLDER_GFID);
+                if (ret < 0)
+                        goto out;
+                ret = dict_get_ptr (xattr, GF_BASE_INDICES_HOLDER_GFID,
+                                    &base_indices_holder_vgfid);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "index gfid empty "
+                                "on %s", readdir_xl->name);
+                        ret = -1;
+                        goto out;
+                }
+                if (!base_indices_holder_vgfid) {
+                        gf_log (this->name, GF_LOG_ERROR, "Base indices holder"
+                                "virtual gfid is null on %s", readdir_xl->name);
+                        ret = -1;
+                        goto out;
+                }
+                uuid_copy (dirloc->gfid,  base_indices_holder_vgfid);
+                dirloc->path = "";
+                dirloc->inode = inode_new (priv->root_inode->table);
+                ret = syncop_lookup (readdir_xl, dirloc, NULL, &iattr, NULL,
+                                     &parent);
+                if (ret < 0) {
+                        if (errno != ENOENT) {
+                                gf_log (this->name, GF_LOG_ERROR, "lookup "
+                                        "failed for base_indices_holder dir"
+                                        " on %s - (%s)", readdir_xl->name,
+                                        strerror (errno));
+
+                        } else {
+                                gf_log (this->name, GF_LOG_ERROR, "base_indices"
+                                        "_holder is not yet created.");
                         }
                         goto out;
                 }
@@ -1201,6 +1298,16 @@ afr_crawl_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent,
         priv = this->private;
         if (crawl_data->crawl == FULL) {
                 ret = afr_build_child_loc (this, child, parent, entry->d_name);
+        } else if (crawl_data->crawl == INDEX_TO_BE_HEALED) {
+                ret = _build_index_loc (this, child, entry->d_name, parent);
+                if (ret)
+                        goto out;
+                child->inode = inode_new (priv->root_inode->table);
+                if (!child->inode) {
+                        ret = -1;
+                        goto out;
+                }
+                child->path = NULL;
         } else {
                 child->inode = inode_new (priv->root_inode->table);
                 if (!child->inode)
@@ -1250,10 +1357,14 @@ _process_entries (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
                 ret = crawl_data->process_entry (this, crawl_data, entry,
                                                  &entry_loc, parentloc, &iattr);
 
-                if (ret)
+                if (crawl_data->crawl == INDEX_TO_BE_HEALED && ret) {
+                       goto out;
+                } else if (ret) {
                         continue;
+                }
 
-                if (crawl_data->crawl == INDEX)
+                if ((crawl_data->crawl == INDEX) ||
+                    (crawl_data->crawl == INDEX_TO_BE_HEALED))
                         continue;
 
                 if (!IA_ISDIR (iattr.ia_type))
@@ -1268,6 +1379,10 @@ _process_entries (xlator_t *this, loc_t *parentloc, gf_dirent_t *entries,
         }
         ret = 0;
 out:
+        if ((crawl_data->crawl == INDEX_TO_BE_HEALED)  && ret) {
+                gf_log (this->name, GF_LOG_ERROR,"Failed to get the hardlink "
+                        "count");
+        }
         loc_wipe (&entry_loc);
         return ret;
 }
@@ -1315,6 +1430,9 @@ _crawl_directory (fd_t *fd, loc_t *loc, afr_crawl_data_t *crawl_data)
 
                 ret = _process_entries (this, loc, &entries, &offset,
                                         crawl_data);
+                if ((ret < 0) && (crawl_data->crawl == INDEX_TO_BE_HEALED)) {
+                        goto out;
+                }
                 gf_dirent_free (&entries);
                 free_entries = _gf_false;
         }
@@ -1420,8 +1538,13 @@ afr_dir_crawl (void *data)
                 goto out;
 
         ret = afr_crawl_opendir (this, crawl_data, &fd, &dirloc);
-        if (ret)
+        if (ret) {
+                if (crawl_data->crawl == INDEX_TO_BE_HEALED) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to open base_"
+                                "indices_holder");
+                }
                 goto out;
+        }
 
         ret = _crawl_directory (fd, &dirloc, crawl_data);
         if (ret)
@@ -1435,7 +1558,8 @@ afr_dir_crawl (void *data)
 out:
         if (fd)
                 fd_unref (fd);
-        if (crawl_data->crawl == INDEX)
+        if ((crawl_data->crawl == INDEX) ||
+            (crawl_data->crawl == INDEX_TO_BE_HEALED ))
                 dirloc.path = NULL;
         loc_wipe (&dirloc);
         return ret;

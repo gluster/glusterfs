@@ -1211,14 +1211,22 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        if ((heal_op != GF_AFR_OP_INDEX_SUMMARY) &&
-            !glusterd_is_nodesvc_online ("glustershd")) {
-                ret = -1;
-                *op_errstr = gf_strdup ("Self-heal daemon is not running."
-                                        " Check self-heal daemon log file.");
-                gf_log (this->name, GF_LOG_WARNING, "%s", "Self-heal daemon is "
-                        "not running. Check self-heal daemon log file.");
-                goto out;
+        switch (heal_op) {
+                case GF_AFR_OP_INDEX_SUMMARY:
+                case GF_AFR_OP_STATISTICS_HEAL_COUNT:
+                case GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
+                        break;
+                default:
+                        if (!glusterd_is_nodesvc_online("glustershd")){
+                                ret = -1;
+                                *op_errstr = gf_strdup ("Self-heal daemon is "
+                                                "not running. Check self-heal "
+                                                "daemon log file.");
+                                gf_log (this->name, GF_LOG_WARNING, "%s",
+                                        "Self-heal daemon is not running."
+                                        "Check self-heal daemon log file.");
+                                goto out;
+                        }
         }
 
         ret = 0;
