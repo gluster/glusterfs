@@ -1080,6 +1080,88 @@ afr_update_loc_gfids (loc_t *loc, struct iatt *buf, struct iatt *postparent)
                 uuid_copy (loc->pargfid, postparent->ia_gfid);
 }
 
+/*
+ * Quota size xattrs are not maintained by afr. There is a
+ * possibility that they differ even when both the directory changelog xattrs
+ * suggest everything is fine. So if there is at least one 'source' check among
+ * the sources which has the maximum quota size. Otherwise check among all the
+ * available ones for maximum quota size. This way if there is a source and
+ * stale copies it always votes for the 'source'.
+ * */
+
+static void
+afr_handle_quota_size (afr_local_t *local, xlator_t *this,
+                       dict_t *rsp_dict)
+{
+        int32_t       *sources       = NULL;
+        dict_t        *xattr         = NULL;
+        data_t        *max_data      = NULL;
+        int64_t       max_quota_size = -1;
+        data_t        *data          = NULL;
+        int64_t       *size          = NULL;
+        int64_t       quota_size     = -1;
+        afr_private_t *priv          = NULL;
+        int           i              = 0;
+        int           ret            = -1;
+        gf_boolean_t  source_present = _gf_false;
+
+        priv    = this->private;
+        sources = local->cont.lookup.sources;
+
+        if (rsp_dict == NULL) {
+                gf_log_callingfn (this->name, GF_LOG_ERROR, "%s: Invalid "
+                                  "response dictionary", local->loc.path);
+                return;
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (sources[i]) {
+                        source_present = _gf_true;
+                        break;
+                }
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                /*
+                 * If there is at least one source lets check
+                 * for maximum quota sizes among sources, otherwise take the
+                 * maximum of the ones present to be on the safer side.
+                 */
+                if (source_present && !sources[i])
+                        continue;
+
+                xattr = local->cont.lookup.xattrs[i];
+                if (!xattr)
+                        continue;
+
+                data = dict_get (xattr, QUOTA_SIZE_KEY);
+                if (!data)
+                        continue;
+
+                size = (int64_t*)data->data;
+                quota_size = ntoh64(*size);
+                gf_log (this->name, GF_LOG_DEBUG, "%s: %d, size: %"PRId64,
+                        local->loc.path, i, quota_size);
+                if (quota_size > max_quota_size) {
+                        if (max_data)
+                                data_unref (max_data);
+
+                        max_quota_size = quota_size;
+                        max_data = data_ref (data);
+                }
+        }
+
+        if (max_data) {
+                ret = dict_set (rsp_dict, QUOTA_SIZE_KEY, max_data);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "%s: Failed to set "
+                                "max quota size", local->loc.path);
+                }
+
+                data_unref (max_data);
+        }
+}
+
 int
 afr_lookup_build_response_params (afr_local_t *local, xlator_t *this)
 {
@@ -1124,12 +1206,17 @@ afr_lookup_build_response_params (afr_local_t *local, xlator_t *this)
                 ret = -1;
                 goto out;
         }
+
         gf_log (this->name, GF_LOG_DEBUG, "Building lookup response from %d",
                 read_child);
         if (!*xattr)
                 *xattr = dict_ref (local->cont.lookup.xattrs[read_child]);
+
         *buf = local->cont.lookup.bufs[read_child];
         *postparent = local->cont.lookup.postparents[read_child];
+
+        if (dict_get (local->xattr_req, QUOTA_SIZE_KEY))
+                afr_handle_quota_size (local, this, *xattr);
 
         if (IA_INVAL == local->cont.lookup.inode->ia_type) {
                 /* fix for RT #602 */
