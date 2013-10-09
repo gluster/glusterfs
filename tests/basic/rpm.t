@@ -39,7 +39,7 @@ fi
 BUILD_FILES=$(git diff --name-status ${GIT_PARENT} | grep -Ev '^M.*\.(c|h|py)' | awk {'print $2'})
 SELFTEST=$(grep -e 'tests/basic/rpm.t' <<< "${BUILD_FILES}")
 BUILD_FILES=$(grep -Ev '^tests/' <<< "${BUILD_FILES}")
-if [ -z "${BUILD_FILES}" -a -z "${SELFTEST}"]
+if [ -z "${BUILD_FILES}" -a -z "${SELFTEST}" ]
 then
         # nothing affecting packaging changed, no need to retest rpmbuild
         SKIP_TESTS
