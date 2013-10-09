@@ -388,6 +388,7 @@ This package provides the development libraries and include files.
 Summary:          Development Libraries
 Group:            Development/Libraries
 Requires:         %{name} = %{version}-%{release}
+Requires:         %{name}-devel = %{version}-%{release}
 
 %description api-devel
 GlusterFS is a clustered file-system capable of scaling to several
@@ -877,6 +878,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Wed Oct 9 2013 Niels de Vos <ndevos@redhat.com>
+- glusterfs-api-devel requires glusterfs-devel (#1016938, #1017094)
+
 * Thu Sep 30 2013 Niels de Vos <ndevos@redhat.com>
 - Package gfapi.py into the Python site-packages path (#1005146)
 
