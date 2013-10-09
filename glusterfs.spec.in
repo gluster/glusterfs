@@ -72,8 +72,8 @@
 Summary:          Cluster File System
 %if ( 0%{_for_fedora_koji_builds} )
 Name:             glusterfs
-Version:          3.4.0
-Release:          8%{?prereltag:.%{prereltag}}%{?dist}
+Version:          3.4.1
+Release:          3%{?prereltag:.%{prereltag}}%{?dist}
 Vendor:           Fedora Project
 %else
 Name:             @PACKAGE_NAME@
@@ -321,6 +321,7 @@ This package provides the glusterfs server daemon.
 Summary:          Clustered file-system api library
 Group:            System Environment/Daemons
 Requires:         %{name} = %{version}-%{release}
+Requires:         %{name}-devel = %{version}-%{release}
 # we provide the Python package/namespace 'gluster'
 Provides:         python-gluster = %{version}-%{release}
 
@@ -520,10 +521,8 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
     %{buildroot}%{_sysconfdir}/glusterfs/glusterd.vol
 
 # Install glusterfsd .service or init.d file
-%if ( 0%{?_with_systemd:1} )
 %if ( 0%{_for_fedora_koji_builds} )
 %_init_install %{glusterfsd_service} glusterfsd
-%endif
 %endif
 
 %if ( 0%{_for_fedora_koji_builds} )
@@ -730,7 +729,7 @@ fi
 %endif
 # init files
 %_init_glusterd
-%if ( 0%{_for_fedora_koji_builds} && 0%{?_with_systemd:1} )
+%if ( 0%{_for_fedora_koji_builds} )
 %_init_glusterfsd
 %endif
 # binaries
@@ -878,10 +877,13 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Wed Oct 9 2013 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- Sync with Fedora glusterfs.spec 3.4.1-2+
+
 * Wed Oct 9 2013 Niels de Vos <ndevos@redhat.com>
 - glusterfs-api-devel requires glusterfs-devel (#1016938, #1017094)
 
-* Thu Sep 30 2013 Niels de Vos <ndevos@redhat.com>
+* Mon Sep 30 2013 Niels de Vos <ndevos@redhat.com>
 - Package gfapi.py into the Python site-packages path (#1005146)
 
 * Tue Sep 17 2013 Harshavardhana <fharshav@redhat.com>
