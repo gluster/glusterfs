@@ -181,6 +181,11 @@ Provides:         %{name}-core = %{version}-%{release}
     %global __provides_exclude_from ^%{_libdir}/glusterfs/%{version}/.*$
 %endif
 
+%if ( 0%{?rhel} <= 5 )
+   # _sharedstatedir is not provided by RHEL5
+   %define %_sharedstatedir /var/lib
+%endif
+
 %description
 GlusterFS is a clustered file-system capable of scaling to several
 petabytes. It aggregates various storage bricks over Infiniband RDMA
@@ -877,6 +882,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Wed Oct 11 2013 Harshavardhana <fharshav@redhat.com>
+- Add '_sharedstatedir' macro to `/var/lib` on <= RHEL5 (#1003184)
+
 * Wed Oct 9 2013 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - Sync with Fedora glusterfs.spec 3.4.1-2+
 
