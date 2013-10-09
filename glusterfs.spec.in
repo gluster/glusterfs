@@ -49,8 +49,8 @@
 Summary:          Cluster File System
 %if ( 0%{_for_fedora_koji_builds} )
 Name:             glusterfs
-Version:          3.4.0
-Release:          8%{?prereltag:.%{prereltag}}%{?dist}
+Version:          3.4.1
+Release:          3%{?prereltag:.%{prereltag}}%{?dist}
 Vendor:           Fedora Project
 %else
 Name:             @PACKAGE_NAME@
@@ -349,6 +349,7 @@ This package provides the development libraries and include files.
 Summary:          Development Libraries
 Group:            Development/Libraries
 Requires:         %{name} = %{version}-%{release}
+Requires:         %{name}-devel = %{version}-%{release}
 
 %description api-devel
 GlusterFS is a clustered file-system capable of scaling to several
@@ -411,6 +412,10 @@ This package provides the api include files.
 %{__install} -D -p -m 0644 extras/glusterd-sysconfig \
     %{buildroot}%{_sysconfdir}/sysconfig/glusterd
 %endif
+%if ( 0%{?rhel} && 0%{?rhel} > 5 )
+%{__mkdir_p} %{buildroot}%{python_sitelib}/gluster
+touch %{buildroot}%{python_sitelib}/gluster/__init__.py
+%endif
 
 %if ( 0%{_for_fedora_koji_builds} )
 %if ( 0%{?rhel} && 0%{?rhel} <= 5 )
@@ -450,10 +455,8 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
     %{buildroot}%{_sysconfdir}/glusterfs/glusterd.vol
 
 # Install glusterfsd .service or init.d file
-%if ( 0%{?_with_systemd:1} )
 %if ( 0%{_for_fedora_koji_builds} )
 %_init_install %{glusterfsd_service} glusterfsd
-%endif
 %endif
 
 %if ( 0%{_for_fedora_koji_builds} )
@@ -615,7 +618,7 @@ fi
 %endif
 # init files
 %_init_glusterd
-%if ( 0%{_for_fedora_koji_builds} && 0%{?_with_systemd:1} )
+%if ( 0%{_for_fedora_koji_builds} )
 %_init_glusterfsd
 %endif
 # binaries
@@ -673,6 +676,9 @@ fi
 %exclude %{_libdir}/*.so
 %{_libdir}/libgfapi.*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/api*
+%if ( 0%{?rhel} && 0%{?rhel} > 5 )
+%{python_sitelib}/gluster/__init__.p*
+%endif
 
 %if ( 0%{!?_without_ocf:1} )
 %files resource-agents
@@ -757,6 +763,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Wed Oct 9 2013 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- Sync with Fedora glusterfs.spec 3.4.1-2+
+
 * Wed Aug 7 2013 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - Sync with Fedora glusterfs.spec
 -  add Requires
