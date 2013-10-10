@@ -1699,7 +1699,7 @@ afr_delayed_changelog_post_op (xlator_t *this, call_frame_t *frame, fd_t *fd,
 {
 	afr_fd_ctx_t      *fd_ctx = NULL;
 	call_frame_t      *prev_frame = NULL;
-	struct timeval     delta = {0, };
+	struct timespec    delta = {0, };
 	afr_private_t     *priv = NULL;
 	afr_local_t       *local = NULL;
 
@@ -1710,7 +1710,7 @@ afr_delayed_changelog_post_op (xlator_t *this, call_frame_t *frame, fd_t *fd,
                 goto out;
 
 	delta.tv_sec = priv->post_op_delay_secs;
-	delta.tv_usec = 0;
+	delta.tv_nsec = 0;
 
 	pthread_mutex_lock (&fd_ctx->delay_lock);
 	{

@@ -25,7 +25,7 @@ typedef void (*gf_timer_cbk_t) (void *);
 
 struct _gf_timer {
         struct _gf_timer *next, *prev;
-        struct timeval    at;
+        struct timespec    at;
         gf_timer_cbk_t    callbk;
         void             *data;
         xlator_t         *xl;
@@ -44,7 +44,7 @@ typedef struct _gf_timer_registry gf_timer_registry_t;
 
 gf_timer_t *
 gf_timer_call_after (glusterfs_ctx_t *ctx,
-                     struct timeval delta,
+                     struct timespec delta,
                      gf_timer_cbk_t cbk,
                      void *data);
 

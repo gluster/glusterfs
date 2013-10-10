@@ -111,7 +111,7 @@ void
 gf_quiesce_enqueue (xlator_t *this, call_stub_t *stub)
 {
         quiesce_priv_t *priv    = NULL;
-        struct timeval  timeout = {0,};
+        struct timespec timeout = {0,};
 
         priv = this->private;
         if (!priv) {
@@ -129,7 +129,7 @@ gf_quiesce_enqueue (xlator_t *this, call_stub_t *stub)
 
         if (!priv->timer) {
                 timeout.tv_sec = 20;
-                timeout.tv_usec = 0;
+                timeout.tv_nsec = 0;
 
                 priv->timer = gf_timer_call_after (this->ctx,
                                                    timeout,
@@ -2492,7 +2492,7 @@ notify (xlator_t *this, int event, void *data, ...)
 {
         int             ret     = 0;
         quiesce_priv_t *priv    = NULL;
-        struct timeval  timeout = {0,};
+        struct timespec timeout = {0,};
 
         priv = this->private;
         if (!priv)
@@ -2525,7 +2525,7 @@ notify (xlator_t *this, int event, void *data, ...)
                 if (priv->timer)
                         break;
                 timeout.tv_sec = 20;
-                timeout.tv_usec = 0;
+                timeout.tv_nsec = 0;
 
                 priv->timer = gf_timer_call_after (this->ctx,
                                                    timeout,

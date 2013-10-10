@@ -569,9 +569,13 @@ if test "x${have_linkat}" = "xyes"; then
 fi
 AC_SUBST(HAVE_LINKAT)
 
+dnl check for Monotonic clock
+AC_CHECK_FUNC([clock_gettime], [has_monotonic_clock=yes], AC_CHECK_LIB([rt], [clock_gettime], , AC_MSG_WARN([System doesn't have monotonic clock using contrib])))
+
 dnl Check for argp
 AC_CHECK_HEADER([argp.h], AC_DEFINE(HAVE_ARGP, 1, [have argp]))
 AC_CONFIG_SUBDIRS(argp-standalone)
+
 BUILD_ARGP_STANDALONE=no
 if test "x${ac_cv_header_argp_h}" = "xno"; then
    BUILD_ARGP_STANDALONE=yes
@@ -653,7 +657,6 @@ fi
 
 case $host_os in
      linux*)
-     dnl        GF_LINUX_HOST_OS=1
         GF_HOST_OS="GF_LINUX_HOST_OS"
         GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -O0"
         GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"

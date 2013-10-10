@@ -3002,7 +3002,7 @@ static int32_t
 glusterd_op_start_rb_timer (dict_t *dict)
 {
         int32_t         op = 0;
-        struct timeval  timeout = {0, };
+        struct timespec timeout = {0, };
         glusterd_conf_t *priv = NULL;
         int32_t         ret = -1;
         dict_t          *rb_ctx = NULL;
@@ -3023,7 +3023,7 @@ glusterd_op_start_rb_timer (dict_t *dict)
         }
 
         timeout.tv_sec  = 5;
-        timeout.tv_usec = 0;
+        timeout.tv_nsec = 0;
 
 
         rb_ctx = dict_copy (dict, rb_ctx);
@@ -5893,4 +5893,3 @@ glusterd_op_sm_init ()
         pthread_mutex_init (&gd_op_sm_lock, NULL);
         return 0;
 }
-

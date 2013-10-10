@@ -53,7 +53,7 @@ rpc_client_ping_timer_expired (void *data)
         rpc_clnt_connection_t   *conn               = NULL;
         int                      disconnect         = 0;
         int                      transport_activity = 0;
-        struct timeval           timeout            = {0, };
+        struct timespec          timeout            = {0, };
         struct timeval           current            = {0, };
         struct rpc_clnt         *clnt               = NULL;
         xlator_t                *this               = NULL;
@@ -101,7 +101,7 @@ rpc_client_ping_timer_expired (void *data)
                                 "ping timer expired but transport activity "
                                 "detected - not bailing transport");
                         timeout.tv_sec = conf->opt.ping_timeout;
-                        timeout.tv_usec = 0;
+                        timeout.tv_nsec = 0;
 
                         conn->ping_timer =
                                 gf_timer_call_after (this->ctx, timeout,
@@ -140,7 +140,7 @@ client_start_ping (void *data)
         clnt_conf_t             *conf        = NULL;
         rpc_clnt_connection_t   *conn        = NULL;
         int32_t                  ret         = -1;
-        struct timeval           timeout     = {0, };
+        struct timespec          timeout     = {0, };
         call_frame_t            *frame       = NULL;
         int                      frame_count = 0;
 
@@ -196,7 +196,7 @@ client_start_ping (void *data)
                 }
 
                 timeout.tv_sec = conf->opt.ping_timeout;
-                timeout.tv_usec = 0;
+                timeout.tv_nsec = 0;
 
                 conn->ping_timer =
                         gf_timer_call_after (this->ctx, timeout,
@@ -241,7 +241,7 @@ client_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
 {
         xlator_t              *this    = NULL;
         rpc_clnt_connection_t *conn    = NULL;
-        struct timeval         timeout = {0, };
+        struct timespec        timeout = {0, };
         call_frame_t          *frame   = NULL;
         clnt_conf_t           *conf    = NULL;
 
@@ -281,7 +281,7 @@ client_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 
                 timeout.tv_sec  = conf->opt.ping_timeout;
-                timeout.tv_usec = 0;
+                timeout.tv_nsec = 0;
 
                 gf_timer_call_cancel (this->ctx,
                                       conn->ping_timer);
