@@ -1500,6 +1500,12 @@ gf_string2percent_or_bytesize (const char *str,
                         return -1;
         }
 
+        /* Error out if we cannot store the value in uint64 */
+        if (value > UINT64_MAX) {
+                errno = EOVERFLOW;
+                return -1;
+        }
+
         *n = (uint64_t) value;
 
         return 0;
