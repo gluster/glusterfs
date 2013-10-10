@@ -2365,7 +2365,7 @@ nlm4svc_init(xlator_t *nfsx)
         int ret = -1;
         char *portstr = NULL;
         pthread_t thr;
-        struct timeval timeout = {0,};
+        struct timespec timeout = {0,};
         FILE   *pidfile = NULL;
         pid_t   pid     = -1;
 
@@ -2469,6 +2469,8 @@ nlm4svc_init(xlator_t *nfsx)
         pthread_create (&thr, NULL, nsm_thread, (void*)NULL);
 
         timeout.tv_sec = nlm_grace_period;
+        timeout.tv_nsec = 0;
+
         gf_timer_call_after (nfsx->ctx, timeout, nlm_grace_period_over, NULL);
         return &nlm4prog;
 err:

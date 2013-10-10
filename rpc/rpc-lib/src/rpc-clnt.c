@@ -145,7 +145,7 @@ call_bail (void *data)
         struct saved_frame    *trav = NULL;
         struct saved_frame    *tmp = NULL;
         char                   frame_sent[256] = {0,};
-        struct timeval         timeout = {0,};
+        struct timespec        timeout = {0,};
         struct iovec           iov = {0,};
 
         GF_VALIDATE_OR_GOTO ("client", data, out);
@@ -163,7 +163,7 @@ call_bail (void *data)
                    call-once timer */
                 if (conn->timer) {
                         timeout.tv_sec = 10;
-                        timeout.tv_usec = 0;
+                        timeout.tv_nsec = 0;
 
                         gf_timer_call_cancel (clnt->ctx, conn->timer);
                         conn->timer = gf_timer_call_after (clnt->ctx,
@@ -226,7 +226,7 @@ __save_frame (struct rpc_clnt *rpc_clnt, call_frame_t *frame,
               struct rpc_req *rpcreq)
 {
         rpc_clnt_connection_t *conn        = NULL;
-        struct timeval         timeout     = {0, };
+        struct timespec        timeout     = {0, };
         struct saved_frame    *saved_frame = NULL;
 
         conn = &rpc_clnt->conn;
@@ -240,7 +240,7 @@ __save_frame (struct rpc_clnt *rpc_clnt, call_frame_t *frame,
         /* TODO: make timeout configurable */
         if (conn->timer == NULL) {
                 timeout.tv_sec  = 10;
-                timeout.tv_usec = 0;
+                timeout.tv_nsec = 0;
                 conn->timer = gf_timer_call_after (rpc_clnt->ctx,
                                                    timeout,
                                                    call_bail,
@@ -397,7 +397,7 @@ rpc_clnt_reconnect (void *trans_ptr)
 {
         rpc_transport_t         *trans = NULL;
         rpc_clnt_connection_t   *conn  = NULL;
-        struct timeval           tv    = {0, 0};
+        struct timespec          ts    = {0, 0};
         int32_t                  ret   = 0;
         struct rpc_clnt         *clnt  = NULL;
 
@@ -416,14 +416,15 @@ rpc_clnt_reconnect (void *trans_ptr)
                 conn->reconnect = 0;
 
                 if (conn->connected == 0) {
-                        tv.tv_sec = 3;
+                        ts.tv_sec = 3;
+                        ts.tv_nsec = 0;
 
                         gf_log (trans->name, GF_LOG_TRACE,
                                 "attempting reconnect");
                         ret = rpc_transport_connect (trans,
                                                      conn->config.remote_port);
                         conn->reconnect =
-                                gf_timer_call_after (clnt->ctx, tv,
+                                gf_timer_call_after (clnt->ctx, ts,
                                                      rpc_clnt_reconnect,
                                                      trans);
                 } else {
@@ -831,7 +832,7 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
         int                     ret         = -1;
         rpc_request_info_t     *req_info    = NULL;
         rpc_transport_pollin_t *pollin      = NULL;
-        struct timeval          tv          = {0, };
+        struct timespec         ts          = {0, };
 
         conn = mydata;
         if (conn == NULL) {
@@ -850,10 +851,11 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
                 {
                         if (!conn->rpc_clnt->disabled
                             && (conn->reconnect == NULL)) {
-                                tv.tv_sec = 10;
+                                ts.tv_sec = 10;
+                                ts.tv_nsec = 0;
 
                                 conn->reconnect =
-                                        gf_timer_call_after (clnt->ctx, tv,
+                                        gf_timer_call_after (clnt->ctx, ts,
                                                              rpc_clnt_reconnect,
                                                              conn->trans);
                         }
@@ -1695,4 +1697,3 @@ rpc_clnt_reconfig (struct rpc_clnt *rpc, struct rpc_clnt_config *config)
                 rpc->conn.config.remote_host = gf_strdup (config->remote_host);
         }
 }
-

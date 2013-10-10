@@ -17,19 +17,18 @@
 #include "logging.h"
 #include "common-utils.h"
 #include "globals.h"
-
-#define TS(tv) ((((unsigned long long) tv.tv_sec) * 1000000) + (tv.tv_usec))
+#include "timespec.h"
 
 gf_timer_t *
 gf_timer_call_after (glusterfs_ctx_t *ctx,
-                     struct timeval delta,
+                     struct timespec delta,
                      gf_timer_cbk_t callbk,
                      void *data)
 {
         gf_timer_registry_t *reg = NULL;
         gf_timer_t *event = NULL;
         gf_timer_t *trav = NULL;
-        unsigned long long at = 0L;
+        uint64_t at = 0;
 
         if (ctx == NULL)
         {
@@ -48,10 +47,8 @@ gf_timer_call_after (glusterfs_ctx_t *ctx,
         if (!event) {
                 return NULL;
         }
-        gettimeofday (&event->at, NULL);
-        event->at.tv_usec = ((event->at.tv_usec + delta.tv_usec) % 1000000);
-        event->at.tv_sec += ((event->at.tv_usec + delta.tv_usec) / 1000000);
-        event->at.tv_sec += delta.tv_sec;
+        timespec_now (&event->at);
+        timespec_adjust_delta (event->at, delta);
         at = TS (event->at);
         event->callbk = callbk;
         event->data = data;
@@ -127,7 +124,7 @@ void *
 gf_timer_proc (void *ctx)
 {
         gf_timer_registry_t *reg = NULL;
-	const struct timespec sleepts = {.tv_sec = 1, .tv_nsec = 0, };
+        const struct timespec sleepts = {.tv_sec = 1, .tv_nsec = 0, };
 
         if (ctx == NULL)
         {
@@ -142,14 +139,14 @@ gf_timer_proc (void *ctx)
         }
 
         while (!reg->fin) {
-                unsigned long long now;
-                struct timeval now_tv;
+                uint64_t now;
+                struct timespec now_ts;
                 gf_timer_t *event = NULL;
 
-                gettimeofday (&now_tv, NULL);
-                now = TS (now_tv);
+                timespec_now (&now_ts);
+                now = TS (now_ts);
                 while (1) {
-                        unsigned long long at;
+                        uint64_t at;
                         char need_cbk = 0;
 
                         pthread_mutex_lock (&reg->lock);

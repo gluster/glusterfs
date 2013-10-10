@@ -991,7 +991,7 @@ afr_poll_self_heal (void *data)
 {
         afr_private_t    *priv = NULL;
         afr_self_heald_t *shd = NULL;
-        struct timeval   timeout = {0};
+        struct timespec  timeout = {0};
         xlator_t         *this = NULL;
         long             child = (long)data;
         gf_timer_t       *old_timer = NULL;
@@ -1015,7 +1015,7 @@ afr_poll_self_heal (void *data)
         if (shd->enabled && (shd->pos[child] == AFR_POS_LOCAL))
                 _do_self_heal_on_subvol (this, child, INDEX);
         timeout.tv_sec = shd->timeout;
-        timeout.tv_usec = 0;
+        timeout.tv_nsec = 0;
         //notify and previous timer should be synchronized.
         LOCK (&priv->lock);
         {
@@ -1785,4 +1785,3 @@ afr_set_root_gfid (dict_t *dict)
 
         return ret;
 }
-

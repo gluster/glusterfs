@@ -15,7 +15,7 @@ CONTRIB_BUILDDIR = $(top_builddir)/contrib
 libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	hashfn.c defaults.c common-utils.c timer.c inode.c call-stub.c \
 	compat.c fd.c compat-errno.c event.c mem-pool.c gf-dirent.c syscall.c \
-	iobuf.c globals.c statedump.c stack.c checksum.c daemon.c \
+	iobuf.c globals.c statedump.c stack.c checksum.c daemon.c timespec.c \
 	$(CONTRIBDIR)/rbtree/rb.c rbthash.c store.c latency.c \
 	graph.c $(CONTRIBDIR)/uuid/clear.c $(CONTRIBDIR)/uuid/copy.c \
 	$(CONTRIBDIR)/uuid/gen_uuid.c $(CONTRIBDIR)/uuid/pack.c \
@@ -33,7 +33,7 @@ nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c gf-error-codes.h
 
 BUILT_SOURCES = graph.lex.c
 
-noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h \
+noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h timespec.h \
 	logging.h xlator.h stack.h timer.h list.h inode.h call-stub.h compat.h \
 	fd.h revision.h compat-errno.h event.h mem-pool.h byte-order.h \
 	gf-dirent.h locking.h syscall.h iobuf.h globals.h statedump.h \

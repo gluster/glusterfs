@@ -130,7 +130,7 @@ client_register_grace_timer (xlator_t *this, clnt_conf_t *conf)
 
                         conf->grace_timer =
                                 gf_timer_call_after (this->ctx,
-                                                     conf->grace_tv,
+                                                     conf->grace_ts,
                                                      client_grace_timeout,
                                                      conf->rpc);
                 }
@@ -2414,14 +2414,14 @@ client_init_grace_timer (xlator_t *this, dict_t *options,
 
         ret = dict_get_int32 (options, "grace-timeout", &grace_timeout);
         if (!ret)
-                conf->grace_tv.tv_sec = grace_timeout;
+                conf->grace_ts.tv_sec = grace_timeout;
         else
-                conf->grace_tv.tv_sec = 10;
+                conf->grace_ts.tv_sec = 10;
 
-        conf->grace_tv.tv_usec  = 0;
+        conf->grace_ts.tv_nsec  = 0;
 
         gf_log (this->name, GF_LOG_DEBUG, "Client grace timeout "
-                "value = %"PRIu64, conf->grace_tv.tv_sec);
+                "value = %"PRIu64, conf->grace_ts.tv_sec);
 
         ret = 0;
 out:

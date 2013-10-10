@@ -51,7 +51,7 @@ struct server_conf {
                                             heal is on else off. */
         char                   *conf_dir;
         struct _volfile_ctx    *volfile;
-        struct timeval          grace_tv;
+        struct timespec         grace_ts;
         dict_t                 *auth_modules;
         pthread_mutex_t         mutex;
         struct list_head        xprt_list;
