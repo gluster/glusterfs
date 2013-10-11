@@ -495,13 +495,13 @@ glfs_preadv (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
 
 	glfd->offset = (offset + size);
 
-	if (iov)
-		GF_FREE (iov);
-	if (iobref)
-		iobref_unref (iobref);
-
 	ret = size;
 out:
+        if (iov)
+                GF_FREE (iov);
+        if (iobref)
+                iobref_unref (iobref);
+
 	if (fd)
 		fd_unref (fd);
 
