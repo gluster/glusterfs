@@ -166,6 +166,19 @@ out:
 
 
 
+int rpc_transport_lib_path (char **name, char *type)
+{
+        int                ret = -1;
+        char               *libdir_env = getenv ("GLUSTER_LIBDIR");
+
+        ret = libdir_env == NULL
+            ? gf_asprintf (name, "%s/%s.so", RPC_TRANSPORTDIR, type)
+            : gf_asprintf (name, "%s/rpc-transport/%s.so", libdir_env, type);
+        return ret;
+}
+
+
+
 rpc_transport_t *
 rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 {
@@ -274,7 +287,7 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 		goto fail;
 	}
 
-	ret = gf_asprintf (&name, "%s/%s.so", RPC_TRANSPORTDIR, type);
+        ret = rpc_transport_lib_path (&name, type);
         if (-1 == ret) {
                 goto fail;
         }
