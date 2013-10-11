@@ -2072,11 +2072,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
         }
 
         /* Hack to notify higher layers of EOF. */
-        if (stbuf.ia_size == 0)
-                op_errno = ENOENT;
-        else if ((offset + vec.iov_len) == stbuf.ia_size)
-                op_errno = ENOENT;
-        else if (offset > stbuf.ia_size)
+        if (!stbuf.ia_size || (offset + vec.iov_len) >= stbuf.ia_size)
                 op_errno = ENOENT;
 
         op_ret = vec.iov_len;
