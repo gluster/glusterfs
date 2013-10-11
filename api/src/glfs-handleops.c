@@ -680,7 +680,7 @@ glfs_h_unlink (struct glfs *fs, struct glfs_object *parent, const char *path)
 			goto out;
 		}
 	} else {
-		ret = syncop_rmdir (subvol, &loc);
+		ret = syncop_rmdir (subvol, &loc, 0);
 		if (ret != 0) {
 			goto out;
 		}

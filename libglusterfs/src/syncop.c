@@ -1702,12 +1702,12 @@ syncop_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
-syncop_rmdir (xlator_t *subvol, loc_t *loc)
+syncop_rmdir (xlator_t *subvol, loc_t *loc, int flags)
 {
         struct syncargs args = {0, };
 
         SYNCOP (subvol, (&args), syncop_rmdir_cbk, subvol->fops->rmdir, loc,
-                0, NULL);
+                flags, NULL);
 
         errno = args.op_errno;
         return args.op_ret;

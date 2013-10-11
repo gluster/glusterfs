@@ -1563,7 +1563,7 @@ retry:
 		goto out;
 	}
 
-	ret = syncop_rmdir (subvol, &loc);
+	ret = syncop_rmdir (subvol, &loc, 0);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
