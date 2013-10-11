@@ -441,7 +441,7 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         op_ret, op_errno, xattr);
 
                 if (op_ret == -1) {
-                        local->op_errno = ENOENT;
+                        local->op_errno = op_errno;
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "lookup of %s on %s returned error (%s)",
                                 local->loc.path, prev->this->name,
