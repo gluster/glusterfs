@@ -65,8 +65,6 @@ int
 test_chdir (glfs_t *fs)
 {
 	int ret = -1;
-	ino_t ino = 0;
-	struct stat st;
 	char *topdir = "/topdir";
 	char *linkdir = "/linkdir";
 	char *subdir = "./subdir";
@@ -342,7 +340,7 @@ out:
 void
 test_h_getsetattrs (void)
 {
-	char               *my_dir = "attrdir", *full_dir_path="/testdir/attrdir";
+	char               *my_dir = "attrdir";
 	char               *my_file = "attrfile.txt";
 	struct glfs_object *parent = NULL, *leaf = NULL, *dir = NULL;
 	struct stat         sb, retsb;
@@ -440,7 +438,7 @@ test_h_truncate (void)
 	char               *my_dir = "truncatedir";
 	char               *my_file = "file.txt";
 	struct glfs_object *root = NULL, *parent = NULL, *leaf = NULL;
-	struct stat         sb, retsb;
+	struct stat         sb;
 	glfs_fd_t          *fd = NULL;
 	char                buf[32];
 	off_t               offset = 0;
@@ -571,7 +569,7 @@ out:
 void
 test_h_links (void)
 {
-	char               *my_dir = "linkdir", *full_dir_path="/testdir/linkdir";
+	char               *my_dir = "linkdir";
 	char               *my_file = "file.txt";
 	char               *my_symlnk = "slnk.txt";
 	char               *my_lnk = "lnk.txt";
@@ -580,8 +578,8 @@ test_h_links (void)
 	struct glfs_object *root = NULL, *parent = NULL, *leaf = NULL,
 	                   *dirsrc = NULL, *dirtgt = NULL, *dleaf = NULL;
 	struct glfs_object *ln1 = NULL;
-	struct stat         sb, retsb;
-	int                 ret, valid;
+	struct stat         sb;
+	int                 ret;
 	char               *buf = NULL;
 
 	printf("glfs_h_link(s) tests: In Progress\n");
@@ -719,15 +717,14 @@ out:
 void
 test_h_rename (void)
 {
-	char               *my_dir = "renamedir",
-	                   *full_dir_path="/testdir/renamedir";
+	char               *my_dir = "renamedir";
 	char               *my_file = "file.txt";
 	char               *src_dir = "dir1";
 	char               *tgt_dir = "dir2";
 	struct glfs_object *root = NULL, *parent = NULL, *leaf = NULL,
 	                   *dirsrc = NULL, *dirtgt = NULL, *dleaf = NULL;
-	struct stat         sb, retsb;
-	int                 ret, valid;
+	struct stat         sb;
+	int                 ret;
 
 	printf("glfs_h_rename tests: In Progress\n");
 
@@ -898,8 +895,8 @@ test_h_performance (void)
 	                   *full_dir_path="/testdir/perftest";
 	char               *my_file = "file_", my_file_name[MAXPATHNAME];
 	struct glfs_object *parent = NULL, *leaf = NULL, *dir = NULL;
-	struct stat         sb, retsb;
-	int                 ret, valid, i;
+	struct stat         sb;
+	int                 ret, i;
 	struct glfs_fd     *fd;
 	struct timespec     c_ts = {0, 0}, c_ts_st, c_ts_ed;
 	struct timespec     o_ts = {0, 0}, o_ts_st, o_ts_ed;
@@ -982,9 +979,9 @@ test_h_performance (void)
 
 	printf ("Creation performance (handle based):\n\t# empty files:%d\n",
 		MAX_FILES_CREATE);
-	printf ("\tOverall time:\n\t\tSecs:%d\n\t\tnSecs:%d\n",
+	printf ("\tOverall time:\n\t\tSecs:%ld\n\t\tnSecs:%ld\n",
 		o_ts.tv_sec, o_ts.tv_nsec);
-	printf ("\tcreate call time time:\n\t\tSecs:%d\n\t\tnSecs:%d\n",
+	printf ("\tcreate call time time:\n\t\tSecs:%ld\n\t\tnSecs:%ld\n",
 		c_ts.tv_sec, c_ts.tv_nsec);
 
 	/* create using path */
@@ -1058,9 +1055,9 @@ test_h_performance (void)
 
 	printf ("Creation performance (path based):\n\t# empty files:%d\n",
 		MAX_FILES_CREATE);
-	printf ("\tOverall time:\n\t\tSecs:%d\n\t\tnSecs:%d\n",
+	printf ("\tOverall time:\n\t\tSecs:%ld\n\t\tnSecs:%ld\n",
 		o_ts.tv_sec, o_ts.tv_nsec);
-	printf ("\tcreate call time time:\n\t\tSecs:%d\n\t\tnSecs:%d\n",
+	printf ("\tcreate call time time:\n\t\tSecs:%ld\n\t\tnSecs:%ld\n",
 		c_ts.tv_sec, c_ts.tv_nsec);
 out:
 	return;
