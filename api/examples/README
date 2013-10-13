@@ -17,3 +17,20 @@ install glusterfs-api RPM.
 Make sure your LDFLAGS includes -L/path/to/lib where libgfapi.so is
 installed and -I/path/to/include/glusterfs where the 'api' directory
 containing the headers are available.
+
+glfsxmp.c
+=========
+
+glfsxmp.c is an example application which uses libgfapi
+
+Compilation Steps For glfsxmp.c
+===============================
+
+1. $./autogen.sh
+2. $./configure
+
+Note: Before running ./configure , as mentioned above, you need to
+      take care of #1 or #2 i.e. pkg-config path or LDFLAGS and
+      -I/<path> with correct values.
+
+3. $make glfsxmp
