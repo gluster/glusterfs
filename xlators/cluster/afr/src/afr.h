@@ -1162,6 +1162,27 @@ afr_xattr_array_destroy (dict_t **xattr, unsigned int child_count);
 } while (0);
 
 
+#define AFR_SBRAIN_MSG "Failed on %s as split-brain is seen. Returning EIO."
+
+#define AFR_SBRAIN_CHECK_FD(fd, label) do {                              \
+        if (fd->inode && afr_is_split_brain (this, fd->inode)) {        \
+                op_errno = EIO;                                         \
+                gf_log (this->name, GF_LOG_WARNING,                     \
+                        AFR_SBRAIN_MSG ,uuid_utoa (fd->inode->gfid));   \
+                goto label;                                             \
+        }                                                               \
+} while (0)
+
+#define AFR_SBRAIN_CHECK_LOC(loc, label) do {                           \
+        if (loc->inode && afr_is_split_brain (this, loc->inode)) {      \
+                op_errno = EIO;                                         \
+                loc_path (loc, NULL);                                   \
+                gf_log (this->name, GF_LOG_WARNING,                     \
+                        AFR_SBRAIN_MSG , loc->path);                    \
+                goto label;                                             \
+        }                                                               \
+} while (0)
+
 int
 afr_fd_report_unstable_write (xlator_t *this, fd_t *fd);
 
