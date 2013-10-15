@@ -173,7 +173,8 @@ call_bail (void *data)
 
                         if (conn->timer == NULL) {
                                 gf_log (conn->trans->name, GF_LOG_WARNING,
-                                        "Cannot create bailout timer");
+                                        "Cannot create bailout timer for %s",
+                                        conn->trans->peerinfo.identifier);
                         }
                 }
 
@@ -198,13 +199,13 @@ call_bail (void *data)
 
 		gf_log (conn->trans->name, GF_LOG_ERROR,
 			"bailing out frame type(%s) op(%s(%d)) xid = 0x%x "
-                        "sent = %s. timeout = %d",
+                        "sent = %s. timeout = %d for %s",
 			trav->rpcreq->prog->progname,
                         (trav->rpcreq->prog->procnames) ?
                         trav->rpcreq->prog->procnames[trav->rpcreq->procnum] :
                         "--",
                         trav->rpcreq->procnum, trav->rpcreq->xid, frame_sent,
-                        conn->frame_timeout);
+                        conn->frame_timeout, conn->trans->peerinfo.identifier);
 
                 clnt = rpc_clnt_ref (clnt);
                 trav->rpcreq->rpc_status = -1;
