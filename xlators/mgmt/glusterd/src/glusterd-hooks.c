@@ -143,6 +143,24 @@ glusterd_hooks_get_hooks_cmd_subdir (glusterd_op_t op)
         return glusterd_hook_dirnames[op];
 }
 
+void
+glusterd_hooks_add_working_dir (runner_t *runner, glusterd_conf_t *priv)
+{
+        runner_argprintf (runner, "--gd-workdir=%s", priv->workdir);
+}
+
+void
+glusterd_hooks_add_op (runner_t *runner, char *op)
+{
+        runner_argprintf (runner, "--volume-op=%s", op);
+}
+
+void
+glusterd_hooks_add_hooks_version (runner_t* runner)
+{
+        runner_argprintf (runner, "--version=%d", GLUSTERD_HOOK_VER);
+}
+
 int
 glusterd_hooks_set_volume_args (dict_t *dict, runner_t *runner)
 {
@@ -216,6 +234,11 @@ glusterd_hooks_add_op_args (runner_t *runner, glusterd_op_t op,
 
                         runner_argprintf (runner, "--first=%s",
                                           truth? "yes":"no");
+
+                        glusterd_hooks_add_hooks_version (runner);
+                        glusterd_hooks_add_op (runner, "start");
+                        glusterd_hooks_add_working_dir (runner, priv);
+
                         break;
 
                 case GD_OP_STOP_VOLUME:
@@ -249,6 +272,11 @@ glusterd_hooks_add_op_args (runner_t *runner, glusterd_op_t op,
                         if (hooks_args)
                                 runner_argprintf (runner, "%s", hooks_args);
                         break;
+
+                case GD_OP_ADD_BRICK:
+                        glusterd_hooks_add_hooks_version (runner);
+                        glusterd_hooks_add_op (runner, "add-brick");
+                        glusterd_hooks_add_working_dir (runner, priv);
 
                 default:
                         break;
