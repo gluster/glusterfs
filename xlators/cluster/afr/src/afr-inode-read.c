@@ -117,6 +117,8 @@ afr_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask,
 
         children = priv->children;
 
+        AFR_SBRAIN_CHECK_LOC (loc, out);
+
         AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
@@ -231,6 +233,8 @@ afr_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         VALIDATE_OR_GOTO (priv->children, out);
 
         children = priv->children;
+
+        AFR_SBRAIN_CHECK_LOC (loc, out);
 
         AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
@@ -348,10 +352,7 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 
         VALIDATE_OR_GOTO (fd->inode, out);
 
-        if (afr_is_split_brain (this, fd->inode)) {
-                op_errno = EIO;
-                goto out;
-        }
+        AFR_SBRAIN_CHECK_FD (fd, out);
 
         AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
@@ -471,6 +472,8 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (priv->children, out);
 
         children = priv->children;
+
+        AFR_SBRAIN_CHECK_LOC (loc, out);
 
         AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
@@ -1472,6 +1475,8 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 
         children = priv->children;
 
+        AFR_SBRAIN_CHECK_LOC (loc, out);
+
         AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
@@ -1727,10 +1732,8 @@ afr_fgetxattr (call_frame_t *frame, xlator_t *this,
 
         children = priv->children;
 
-        if (afr_is_split_brain (this, fd->inode)) {
-                op_errno = EIO;
-                goto out;
-        }
+        AFR_SBRAIN_CHECK_FD (fd, out);
+
         AFR_LOCAL_ALLOC_OR_GOTO (local, out);
         frame->local = local;
 
@@ -1886,10 +1889,7 @@ afr_readv (call_frame_t *frame, xlator_t *this,
         priv     = this->private;
         children = priv->children;
 
-        if (afr_is_split_brain (this, fd->inode)) {
-                op_errno = EIO;
-                goto out;
-        }
+        AFR_SBRAIN_CHECK_FD (fd, out);
 
         AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
