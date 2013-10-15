@@ -162,6 +162,9 @@ AC_CONFIG_FILES([Makefile
                 extras/ocf/volume
                 extras/LinuxRPM/Makefile
                 extras/geo-rep/Makefile
+                extras/hook-scripts/add-brick/Makefile
+                extras/hook-scripts/add-brick/pre/Makefile
+                extras/hook-scripts/add-brick/post/Makefile
                 contrib/fuse-util/Makefile
                 contrib/uuid/uuid_types.h
                 glusterfs-api.pc
