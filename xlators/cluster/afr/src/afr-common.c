@@ -1155,7 +1155,7 @@ afr_handle_quota_size (afr_local_t *local, xlator_t *this,
                 ret = dict_set (rsp_dict, QUOTA_SIZE_KEY, max_data);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "%s: Failed to set "
-                                "max quota size", local->loc.path);
+                                "quota size", local->loc.path);
                 }
 
                 data_unref (max_data);
