@@ -181,9 +181,9 @@ Provides:         %{name}-core = %{version}-%{release}
     %global __provides_exclude_from ^%{_libdir}/glusterfs/%{version}/.*$
 %endif
 
-%if ( 0%{?rhel} <= 5 )
+%if ( 0%{?rhel} && 0%{?rhel} < 6 )
    # _sharedstatedir is not provided by RHEL5
-   %define %_sharedstatedir /var/lib
+   %define _sharedstatedir /var/lib
 %endif
 
 %description
