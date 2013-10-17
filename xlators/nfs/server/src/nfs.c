@@ -1115,28 +1115,39 @@ struct volume_options options[] = {
           .min  = GF_NFS3_RTMIN,
           .max  = GF_NFS3_RTMAX,
           .default_value = TOSTRING(GF_NFS3_RTPREF),
-          .description = "Size in which the client should issue read requests"
-                         " to the Gluster NFSv3 server. Must be a multiple of"
-                         " 4KB. Max supported value is 1MB(1048576)."
+          .description = "Size in which the client should issue read requests "
+                         "to the Gluster NFSv3 server. Must be a multiple of "
+                         "4KB (4096). Min and Max supported values are 4KB "
+                         "(4096) and 1MB (1048576) respectively. If the "
+                         "specified value is within the supported range but "
+                         "not a multiple of 4096, it is rounded up to the "
+                         "nearest multiple of 4096."
         },
         { .key  = {"nfs3.write-size"},
           .type = GF_OPTION_TYPE_SIZET,
           .min  = GF_NFS3_WTMIN,
           .max  = GF_NFS3_WTMAX,
           .default_value = TOSTRING(GF_NFS3_WTPREF),
-          .description = "Size in which the client should issue write requests"
-                         " to the Gluster NFSv3 server. Must be a multiple of"
-                         " 4KB. Max supported value is 1MB(1048576)."
+          .description = "Size in which the client should issue write requests "
+                         "to the Gluster NFSv3 server. Must be a multiple of "
+                         "1KB (1024). Min and Max supported values are "
+                         "4KB (4096) and 1MB(1048576) respectively. If the "
+                         "specified value is within the supported range but "
+                         "not a multiple of 4096, it is rounded up to the "
+                         "nearest multiple of 4096."
         },
         { .key  = {"nfs3.readdir-size"},
           .type = GF_OPTION_TYPE_SIZET,
           .min  = GF_NFS3_DTMIN,
           .max  = GF_NFS3_DTMAX,
           .default_value = TOSTRING(GF_NFS3_DTPREF),
-          .description = "Size in which the client should issue directory"
-                         " reading requests to Gluster NFSv3 server. Must"
-                         " be a multiple of 4KB. Max supported value is"
-                         " 1MB(1048576)."
+          .description = "Size in which the client should issue directory "
+                         "reading requests to the Gluster NFSv3 server. Must "
+                         "be a multiple of 1KB (1024). Min and Max supported "
+                         "values are 4KB (4096) and 1MB (1048576) respectively."
+                         "If the specified value is within the supported range "
+                         "but not a multiple of 4096, it is rounded up to the "
+                         "nearest multiple of 4096."
         },
         { .key  = {"nfs3.*.volume-access"},
           .type = GF_OPTION_TYPE_STR,
