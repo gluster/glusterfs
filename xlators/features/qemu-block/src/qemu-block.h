@@ -15,7 +15,6 @@
 #include "call-stub.h"
 #include "block/block_int.h"
 #include "monitor/monitor.h"
-#include "coroutine-synctask.h"
 
 /* QB_XATTR_KEY_FMT is the on-disk xattr stored in the inode which
    indicates that the file must be "interpreted" by the block format
@@ -59,7 +58,6 @@ typedef struct qb_conf {
 
 
 typedef struct qb_local {
-	CoroutineSynctask  cs;
 	call_frame_t      *frame; /* backpointer */
 	call_stub_t       *stub;
 	inode_t           *inode;
@@ -67,6 +65,7 @@ typedef struct qb_local {
 	char               fmt[QB_XATTR_VAL_MAX+1];
 	char               name[256];
 	synctask_fn_t      synctask_fn;
+	struct list_head   list;
 } qb_local_t;
 
 void qb_local_free (xlator_t *this, qb_local_t *local);

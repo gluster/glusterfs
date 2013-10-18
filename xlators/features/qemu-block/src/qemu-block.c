@@ -204,6 +204,7 @@ qb_local_init (call_frame_t *frame)
 	qb_local = GF_CALLOC (1, sizeof (*qb_local), gf_qb_mt_qb_local_t);
 	if (!qb_local)
 		return -1;
+	INIT_LIST_HEAD(&qb_local->list);
 
 	qb_local->frame = frame;
 	frame->local = qb_local;
