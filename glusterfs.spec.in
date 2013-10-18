@@ -818,6 +818,12 @@ fi
     %firewalld_reload
 %endif
 
+%if ( 0%{?_with_fbextras:1} )
+if ! [ -f %{_sharedstatedir}/glusterd/glusterd.info ]; then
+  echo "UUID=$(/usr/bin/uuidgen)" >> %{_sharedstatedir}/glusterd/glusterd.info
+fi
+%endif
+
 pidof -c -o %PPID -x glusterd &> /dev/null
 if [ $? -eq 0 ]; then
     kill -9 `pgrep -f gsyncd.py` &> /dev/null
