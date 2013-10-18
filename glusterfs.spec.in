@@ -34,8 +34,8 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@tar.gz --without syslog
 %{?_without_syslog:%global _without_syslog --disable-syslog}
 
-# disable syslog forcefully as rhel < 6 doesn't have rsyslog
-%if ( 0%{?rhel} && 0%{?rhel} < 6 )
+# disable syslog forcefully as rhel <= 6 doesn't have rsyslog or rsyslog-mmcount
+%if ( 0%{?rhel} && 0%{?rhel} <= 6 )
 %global _without_syslog --disable-syslog
 %endif
 
@@ -557,12 +557,12 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/geo-replication/gsyncd_template.co
 %if ( 0%{!?_without_syslog:1} )
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
 %{__install} -D -p -m 0644 extras/gluster-rsyslog-7.2.conf \
-    %{buildroot}%{_sysconfdir}/rsyslog.d/gluster.conf
+    %{buildroot}%{_sysconfdir}/rsyslog.d/gluster.conf.example
 %endif
 
 %if ( 0%{?rhel} && 0%{?rhel} == 6 )
 %{__install} -D -p -m 0644 extras/gluster-rsyslog-5.8.conf \
-    %{buildroot}%{_sysconfdir}/rsyslog.d/gluster.conf
+    %{buildroot}%{_sysconfdir}/rsyslog.d/gluster.conf.example
 %endif
 
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
@@ -618,15 +618,30 @@ find ./tests ./run-tests.sh -type f | cpio -pd %{buildroot}%{_prefix}/share/glus
 
 %post
 /sbin/ldconfig
+%if ( 0%{!?_without_syslog:1} )
+%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
+%_init_restart rsyslog
+%endif
+%endif
 
 %postun
 /sbin/ldconfig
+%if ( 0%{!?_without_syslog:1} )
+%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
+%_init_restart rsyslog
+%endif
+%endif
 
 %files
 %defattr(-,root,root,-)
 %doc ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL README THANKS
 %config(noreplace) %{_sysconfdir}/logrotate.d/*
 %config(noreplace) %{_sysconfdir}/sysconfig/*
+%if ( 0%{!?_without_syslog:1} )
+%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
+%{_sysconfdir}/rsyslog.d/gluster.conf.example
+%endif
+%endif
 %{_libdir}/glusterfs
 %{_sbindir}/glusterfs*
 %{_mandir}/man8/*gluster*.8*
@@ -652,27 +667,12 @@ find ./tests ./run-tests.sh -type f | cpio -pd %{buildroot}%{_prefix}/share/glus
 
 %post libs
 /sbin/ldconfig
-%if ( 0%{!?_without_syslog:1} )
-%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
-%_init_restart rsyslog
-%endif
-%endif
 
 %postun libs
 /sbin/ldconfig
-%if ( 0%{!?_without_syslog:1} )
-%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
-%_init_restart rsyslog
-%endif
-%endif
 
 %files libs
 %{_libdir}/*.so.*
-%if ( 0%{!?_without_syslog:1} )
-%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
-%{_sysconfdir}/rsyslog.d/gluster.conf
-%endif
-%endif
 %exclude %{_libdir}/libgfapi.*
 
 %files cli
