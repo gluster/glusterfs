@@ -63,7 +63,7 @@ function add_samba_share () {
         STRING+="comment = For samba share of volume $volname\n"
         STRING+="vfs objects = glusterfs\n"
         STRING+="glusterfs:volume = $volname\n"
-        STRING+="glusterfs:logfile = $LOGFILEBASE/glusterfs-$volname.log\n"
+        STRING+="glusterfs:logfile = $LOGFILEBASE/glusterfs-$volname.%%M.log\n"
         STRING+="glusterfs:loglevel = 7\n"
         STRING+="path = /\n"
         STRING+="read only = no\n"
