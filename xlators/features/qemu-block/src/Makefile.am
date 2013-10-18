@@ -9,6 +9,7 @@ qemu_block_la_SOURCES_qemu = \
 	$(CONTRIBDIR)/qemu/qemu-coroutine.c \
 	$(CONTRIBDIR)/qemu/qemu-coroutine-lock.c \
 	$(CONTRIBDIR)/qemu/qemu-coroutine-sleep.c \
+	$(CONTRIBDIR)/qemu/coroutine-ucontext.c \
 	$(CONTRIBDIR)/qemu/block.c \
 	$(CONTRIBDIR)/qemu/nop-symbols.c
 
@@ -140,7 +141,6 @@ noinst_HEADERS = \
 	$(noinst_HEADERS_qemu) \
 	qemu-block.h \
 	qemu-block-memory-types.h \
-	coroutine-synctask.h \
 	qb-coroutines.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \

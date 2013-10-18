@@ -29,7 +29,6 @@
 int
 qb_format_and_resume (void *opaque)
 {
-	CoroutineSynctask *cs = NULL;
 	qb_local_t *local = NULL;
 	call_frame_t *frame = NULL;
 	call_stub_t *stub = NULL;
@@ -44,9 +43,7 @@ qb_format_and_resume (void *opaque)
 	qb_conf_t *qb_conf = NULL;
 	int ret = -1;
 
-	cs = opaque;
-
-	local = DO_UPCAST(qb_local_t, cs, cs);
+	local = opaque;
 	frame = local->frame;
 	stub = local->stub;
 	inode = local->inode;
@@ -224,16 +221,13 @@ err:
 int
 qb_co_open (void *opaque)
 {
-	CoroutineSynctask *cs = NULL;
 	qb_local_t *local = NULL;
 	call_frame_t *frame = NULL;
 	call_stub_t *stub = NULL;
 	inode_t *inode = NULL;
 	qb_inode_t *qb_inode = NULL;
 
-	cs = opaque;
-
-	local = DO_UPCAST(qb_local_t, cs, cs);
+	local = opaque;
 	frame = local->frame;
 	stub = local->stub;
 	inode = local->inode;
@@ -262,7 +256,6 @@ qb_co_open (void *opaque)
 int
 qb_co_writev (void *opaque)
 {
-	CoroutineSynctask *cs = NULL;
 	qb_local_t *local = NULL;
 	call_frame_t *frame = NULL;
 	call_stub_t *stub = NULL;
@@ -271,9 +264,7 @@ qb_co_writev (void *opaque)
 	QEMUIOVector qiov = {0, };
 	int ret = 0;
 
-	cs = opaque;
-
-	local = DO_UPCAST(qb_local_t, cs, cs);
+	local = opaque;
 	frame = local->frame;
 	stub = local->stub;
 	inode = local->inode;
@@ -309,7 +300,6 @@ qb_co_writev (void *opaque)
 int
 qb_co_readv (void *opaque)
 {
-	CoroutineSynctask *cs = NULL;
 	qb_local_t *local = NULL;
 	call_frame_t *frame = NULL;
 	call_stub_t *stub = NULL;
@@ -320,9 +310,7 @@ qb_co_readv (void *opaque)
 	struct iovec iov = {0, };
 	int ret = 0;
 
-	cs = opaque;
-
-	local = DO_UPCAST(qb_local_t, cs, cs);
+	local = opaque;
 	frame = local->frame;
 	stub = local->stub;
 	inode = local->inode;
@@ -391,7 +379,6 @@ qb_co_readv (void *opaque)
 int
 qb_co_fsync (void *opaque)
 {
-	CoroutineSynctask *cs = NULL;
 	qb_local_t *local = NULL;
 	call_frame_t *frame = NULL;
 	call_stub_t *stub = NULL;
@@ -399,9 +386,7 @@ qb_co_fsync (void *opaque)
 	qb_inode_t *qb_inode = NULL;
 	int ret = 0;
 
-	cs = opaque;
-
-	local = DO_UPCAST(qb_local_t, cs, cs);
+	local = opaque;
 	frame = local->frame;
 	stub = local->stub;
 	inode = local->inode;
@@ -461,7 +446,6 @@ qb_update_size_xattr (xlator_t *this, fd_t *fd, const char *fmt, off_t offset)
 int
 qb_co_truncate (void *opaque)
 {
-	CoroutineSynctask *cs = NULL;
 	qb_local_t *local = NULL;
 	call_frame_t *frame = NULL;
 	call_stub_t *stub = NULL;
@@ -472,9 +456,8 @@ qb_co_truncate (void *opaque)
 	xlator_t *this = NULL;
 
 	this = THIS;
-	cs = opaque;
 
-	local = DO_UPCAST(qb_local_t, cs, cs);
+	local = opaque;
 	frame = local->frame;
 	stub = local->stub;
 	inode = local->inode;
@@ -523,14 +506,13 @@ out:
 int
 qb_co_close (void *opaque)
 {
-	CoroutineSynctask *cs = NULL;
 	qb_local_t *local = NULL;
 	call_frame_t *frame = NULL;
 	inode_t *inode = NULL;
 	qb_inode_t *qb_inode = NULL;
 	BlockDriverState *bs = NULL;
 
-	local = DO_UPCAST(qb_local_t, cs, cs);
+	local = opaque;
 	inode = local->inode;
 
 	qb_inode = qb_inode_ctx_get (THIS, inode);
@@ -553,7 +535,6 @@ qb_co_close (void *opaque)
 int
 qb_snapshot_create (void *opaque)
 {
-	CoroutineSynctask *cs = NULL;
 	qb_local_t *local = NULL;
 	call_frame_t *frame = NULL;
 	call_stub_t *stub = NULL;
@@ -563,9 +544,7 @@ qb_snapshot_create (void *opaque)
 	struct timeval tv = {0, };
 	int ret = 0;
 
-	cs = opaque;
-
-	local = DO_UPCAST(qb_local_t, cs, cs);
+	local = opaque;
 	frame = local->frame;
 	stub = local->stub;
 	inode = local->inode;
@@ -604,7 +583,6 @@ qb_snapshot_create (void *opaque)
 int
 qb_snapshot_delete (void *opaque)
 {
-	CoroutineSynctask *cs = NULL;
 	qb_local_t *local = NULL;
 	call_frame_t *frame = NULL;
 	call_stub_t *stub = NULL;
@@ -612,9 +590,7 @@ qb_snapshot_delete (void *opaque)
 	qb_inode_t *qb_inode = NULL;
 	int ret = 0;
 
-	cs = opaque;
-
-	local = DO_UPCAST(qb_local_t, cs, cs);
+	local = opaque;
 	frame = local->frame;
 	stub = local->stub;
 	inode = local->inode;
@@ -648,7 +624,6 @@ qb_snapshot_delete (void *opaque)
 int
 qb_snapshot_goto (void *opaque)
 {
-	CoroutineSynctask *cs = NULL;
 	qb_local_t *local = NULL;
 	call_frame_t *frame = NULL;
 	call_stub_t *stub = NULL;
@@ -656,9 +631,7 @@ qb_snapshot_goto (void *opaque)
 	qb_inode_t *qb_inode = NULL;
 	int ret = 0;
 
-	cs = opaque;
-
-	local = DO_UPCAST(qb_local_t, cs, cs);
+	local = opaque;
 	frame = local->frame;
 	stub = local->stub;
 	inode = local->inode;

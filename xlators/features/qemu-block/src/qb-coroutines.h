@@ -15,7 +15,6 @@
 #include "call-stub.h"
 #include "block/block_int.h"
 #include "monitor/monitor.h"
-#include "coroutine-synctask.h"
 
 int qb_format_and_resume (void *opaque);
 int qb_snapshot_create (void *opaque);
