@@ -808,6 +808,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "statedump-path",
           .op_version  = 1
         },
+        { .key         = "server.outstanding-rpc-limit",
+          .voltype     = "protocol/server",
+          .option      = "rpc.outstanding-rpc-limit",
+          .type        = GLOBAL_DOC,
+          .op_version  = 3
+        },
         { .key         = "features.lock-heal",
           .voltype     = "protocol/server",
           .option      = "lk-heal",
@@ -1141,6 +1147,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "rpc.register-with-portmap",
           .type        = GLOBAL_DOC,
           .op_version  = 1
+        },
+        { .key         = "nfs.outstanding-rpc-limit",
+          .voltype     = "nfs/server",
+          .option      = "rpc.outstanding-rpc-limit",
+          .type        = GLOBAL_DOC,
+          .op_version  = 3
         },
         { .key         = "nfs.port",
           .voltype     = "nfs/server",

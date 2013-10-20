@@ -71,6 +71,9 @@ typedef struct rpcsvc_state {
         rpcsvc_notify_t          notifyfn;
         struct mem_pool         *rxpool;
         rpcsvc_drc_globals_t    *drc;
+
+	/* per-client limit of outstanding rpc requests */
+	int                      outstanding_rpc_limit;
 } rpcsvc_t;
 
 /* DRC START */

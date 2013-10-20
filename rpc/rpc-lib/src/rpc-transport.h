@@ -192,6 +192,8 @@ struct rpc_transport {
         pthread_mutex_t            lock;
         int32_t                    refcount;
 
+        int32_t                    outstanding_rpc_count;
+
         glusterfs_ctx_t           *ctx;
         dict_t                    *options;
         char                      *name;
@@ -235,6 +237,7 @@ struct rpc_transport_ops {
         int32_t (*get_myaddr)     (rpc_transport_t *this, char *peeraddr,
                                    int addrlen, struct sockaddr_storage *sa,
                                    socklen_t sasize);
+        int32_t (*throttle)       (rpc_transport_t *this, gf_boolean_t onoff);
 };
 
 
@@ -287,6 +290,9 @@ rpc_transport_get_myname (rpc_transport_t *this, char *hostname, int hostlen);
 int32_t
 rpc_transport_get_myaddr (rpc_transport_t *this, char *peeraddr, int addrlen,
                           struct sockaddr_storage *sa, size_t salen);
+
+int
+rpc_transport_throttle (rpc_transport_t *this, gf_boolean_t onoff);
 
 rpc_transport_pollin_t *
 rpc_transport_pollin_alloc (rpc_transport_t *this, struct iovec *vector,

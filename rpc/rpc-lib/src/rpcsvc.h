@@ -38,6 +38,9 @@
 #define MAX_IOVEC 16
 #endif
 
+#define RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT 64
+#define RPCSVC_MAX_OUTSTANDING_RPC_LIMIT 65536
+
 #define GF_RPCSVC       "rpc-service"
 #define RPCSVC_THREAD_STACK_SIZE ((size_t)(1024 * GF_UNIT_KB))
 

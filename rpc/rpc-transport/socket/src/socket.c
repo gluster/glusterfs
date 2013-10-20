@@ -3261,6 +3261,25 @@ out:
 }
 
 
+static int
+socket_throttle (rpc_transport_t *this, gf_boolean_t onoff)
+{
+        socket_private_t *priv = NULL;
+
+        priv = this->private;
+
+        /* The way we implement throttling is by taking off
+           POLLIN event from the polled flags. This way we
+           never get called with the POLLIN event and therefore
+           will never read() any more data until throttling
+           is turned off.
+        */
+        priv->idx = event_select_on (this->ctx->event_pool, priv->sock,
+                                     priv->idx, (int) !onoff, -1);
+        return 0;
+}
+
+
 struct rpc_transport_ops tops = {
         .listen             = socket_listen,
         .connect            = socket_connect,
@@ -3271,6 +3290,7 @@ struct rpc_transport_ops tops = {
         .get_peeraddr       = socket_getpeeraddr,
         .get_myname         = socket_getmyname,
         .get_myaddr         = socket_getmyaddr,
+	.throttle           = socket_throttle,
 };
 
 int
