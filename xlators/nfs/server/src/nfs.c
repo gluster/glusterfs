@@ -1359,6 +1359,15 @@ struct volume_options options[] = {
                          "portmap service. Use this option to turn off portmap "
                          "registration for Gluster NFS. On by default"
         },
+        { .key  = {"rpc.outstanding-rpc-limit"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = 0,
+          .max  = RPCSVC_MAX_OUTSTANDING_RPC_LIMIT,
+          .default_value = TOSTRING(RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT),
+          .description = "Parameter to throttle the number of incoming RPC "
+                         "requests from a client. 0 means no limit (can "
+                         "potentially run out of memory)"
+        },
         { .key  = {"nfs.port"},
           .type = GF_OPTION_TYPE_INT,
           .min  = 1,
