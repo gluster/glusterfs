@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2008-2012 Red Hat, Inc. <http://www.redhat.com>
+  Copyright (c) 2008-2013 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -8,8 +8,8 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _COMMON_ACL_H
-#define _COMMON_ACL_H
+#ifndef _GLUSTERFS_ACL_H
+#define _GLUSTERFS_ACL_H
 
 #include <stdint.h>
 #include <sys/types.h> /* For uid_t */
@@ -78,4 +78,4 @@ struct posix_acl_conf {
         struct posix_acl *minimal_acl;
 };
 
-#endif /* _COMMON_ACL_H */
+#endif /* _GLUSTERFS_ACL_H */
