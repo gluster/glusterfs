@@ -341,7 +341,8 @@ glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 	} else {
 		inode = inode_ref (subvol->itable->root);
 
-		glfs_resolve_base (fs, subvol, inode, &ciatt);
+		if (strcmp (path, "/") == 0)
+			glfs_resolve_base (fs, subvol, inode, &ciatt);
 	}
 
 	for (component = strtok_r (path, "/", &saveptr);
