@@ -28,6 +28,8 @@
 #include <sys/wait.h>
 #include <dlfcn.h>
 
+/* Any negative pid to make it special client */
+#define QUOTA_CRAWL_PID "-100"
 
 const char *gd_quota_op_list[GF_QUOTA_OPTION_TYPE_DEFAULT_SOFT_LIMIT+1] = {
         [GF_QUOTA_OPTION_TYPE_NONE]               = "none",
@@ -158,7 +160,8 @@ out:
 }
 
 int32_t
-glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname)
+glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
+                                  int type)
 {
         pid_t                      pid;
         int32_t                    ret              = 0;
@@ -178,6 +181,7 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname)
                          "-s", "localhost",
                          "--volfile-id", volname,
 			 "--use-readdirp=no",
+                         "--client-pid", QUOTA_CRAWL_PID,
                          "-l", DEFAULT_LOG_FILE_DIRECTORY"/quota-crawl.log",
                          mountdir, NULL);
 
@@ -210,7 +214,19 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname)
                         exit (EXIT_FAILURE);
                 }
                 runinit (&runner);
-                runner_add_args (&runner, "/usr/bin/find", "find", ".", NULL);
+
+                if (type == GF_QUOTA_OPTION_TYPE_ENABLE)
+
+                        runner_add_args (&runner, "/usr/bin/find", "find", ".",
+                                         NULL);
+
+                else if (type == GF_QUOTA_OPTION_TYPE_DISABLE)
+
+                        runner_add_args (&runner, "/usr/bin/find", ".",
+                                         "-exec", "/usr/bin/setfattr", "-n",
+                                         VIRTUAL_QUOTA_XATTR_CLEANUP_KEY, "-v",
+                                         "1", "{}", "\\", ";", NULL);
+
                 if (runner_start (&runner) == -1)
                         _exit (EXIT_FAILURE);
 
@@ -325,7 +341,8 @@ out:
 }
 
 int32_t
-glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr)
+glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr,
+                        gf_boolean_t *crawl)
 {
         int32_t    ret            = -1;
         int        i              =  0;
@@ -380,6 +397,8 @@ glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr)
         ret = glusterd_remove_auxiliary_mount (volinfo->volname);
         if (ret)
                 goto out;
+
+        *crawl = _gf_true;
 
         (void) glusterd_clean_up_quota_store (volinfo);
 
@@ -1045,7 +1064,8 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         break;
 
                 case GF_QUOTA_OPTION_TYPE_DISABLE:
-                        ret = glusterd_quota_disable (volinfo, op_errstr);
+                        ret = glusterd_quota_disable (volinfo, op_errstr,
+                                                      &start_crawl);
                         if (ret < 0)
                                 goto out;
 
@@ -1129,7 +1149,7 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         }
 
         if (rsp_dict && start_crawl == _gf_true)
-                glusterd_quota_initiate_fs_crawl (priv, volname);
+                glusterd_quota_initiate_fs_crawl (priv, volname, type);
 
         if (priv->op_version > GD_OP_VERSION_MIN) {
                 ret = glusterd_quotad_op (type);

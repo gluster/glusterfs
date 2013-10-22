@@ -21,6 +21,7 @@
 #include "marker-quota-helper.h"
 #include "marker-common.h"
 #include "byte-order.h"
+#include "syncop.h"
 
 #define _GF_UID_GID_CHANGED 1
 
@@ -2153,15 +2154,149 @@ out:
         return 0;
 }
 
+int
+remove_quota_keys (dict_t *dict, char *k, data_t *v, void *data)
+{
+	call_frame_t 	*frame = data;
+	marker_local_t 	*local = frame->local;
+	xlator_t 	*this = frame->this;
+	int 		ret = -1;
+
+	ret = syncop_removexattr (FIRST_CHILD (this), &local->loc, k);
+	if (ret) {
+		gf_log (this->name, GF_LOG_ERROR, "%s: Failed to remove "
+			"extended attribute: %s", local->loc.path, k);
+                return -1;
+	}
+	return 0;
+}
+
+int
+quota_xattr_cleaner_cbk (int ret, call_frame_t *frame, void *args)
+{
+        dict_t *xdata = args;
+        int op_ret = -1;
+        int op_errno = 0;
+	marker_local_t *local = NULL;
+
+	local = frame->local;
+	frame->local = NULL;
+
+        op_ret   = (ret < 0)? -1: 0;
+        op_errno = -ret;
+
+        STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno, xdata);
+	marker_local_unref (local);
+        return ret;
+}
+
+int
+quota_xattr_cleaner (void *args)
+{
+        struct synctask *task  = NULL;
+        call_frame_t    *frame = NULL;
+        xlator_t        *this  = NULL;
+        marker_local_t   *local = NULL;
+        dict_t          *xdata = NULL;
+        int             ret    = -1;
+
+        task = synctask_get ();
+        if (!task)
+                goto out;
+
+        frame = task->frame;
+        this  = frame->this;
+        local = frame->local;
+
+        ret = syncop_listxattr (FIRST_CHILD(this), &local->loc, &xdata);
+        if (ret == -1) {
+                ret = -errno;
+                goto out;
+        }
+
+	ret = dict_foreach_fnmatch (xdata, "trusted.glusterfs.quota.*",
+                                    remove_quota_keys, frame);
+        if (ret == -1) {
+                ret = -errno;
+                goto out;
+        }
+	ret = dict_foreach_fnmatch (xdata, PGFID_XATTR_KEY_PREFIX"*",
+                                    remove_quota_keys, frame);
+        if (ret == -1) {
+                ret = -errno;
+                goto out;
+        }
+
+        ret = 0;
+out:
+        if (xdata)
+                dict_unref (xdata);
+
+        return ret;
+}
+
+int
+marker_do_xattr_cleanup (call_frame_t *frame, xlator_t *this, dict_t *xdata,
+                        loc_t *loc)
+{
+        int           ret       = -1;
+        marker_local_t *local    = NULL;
+
+        local = mem_get0 (this->local_pool);
+	if (!local)
+		goto out;
+
+        MARKER_INIT_LOCAL (frame, local);
+
+        loc_copy (&local->loc, loc);
+        ret = synctask_new (this->ctx->env, quota_xattr_cleaner,
+			    quota_xattr_cleaner_cbk, frame, xdata);
+        if (ret) {
+		gf_log (this->name, GF_LOG_ERROR, "Failed to create synctask "
+			"for cleaning up quota extended attributes");
+                goto out;
+	}
+
+        ret = 0;
+out:
+        if (ret) {
+		frame->local = NULL;
+                STACK_UNWIND_STRICT (setxattr, frame, -1, ENOMEM, xdata);
+		marker_local_unref (local);
+        }
+        return ret;
+}
+
+static inline gf_boolean_t
+marker_xattr_cleanup_cmd (dict_t *dict)
+{
+        return (dict_get (dict, VIRTUAL_QUOTA_XATTR_CLEANUP_KEY) != NULL);
+}
+
 int32_t
 marker_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                  int32_t flags, dict_t *xdata)
 {
-        int32_t          ret   = 0;
-        marker_local_t  *local = NULL;
-        marker_conf_t   *priv  = NULL;
+        int32_t          ret            = 0;
+        marker_local_t  *local          = NULL;
+        marker_conf_t   *priv           = NULL;
+        int              op_errno       = ENOMEM;
 
         priv = this->private;
+
+        if (marker_xattr_cleanup_cmd (dict)) {
+                if (frame->root->uid != 0 || frame->root->gid != 0) {
+                        op_errno = EPERM;
+                        ret = -1;
+                        goto err;
+                }
+
+                /* The following function does the cleanup and then unwinds the
+                 * corresponding call*/
+                loc_path (loc, NULL);
+                marker_do_xattr_cleanup (frame, this, xdata, loc);
+                return 0;
+        }
 
         if (priv->feature_enabled == 0)
                 goto wind;
@@ -2183,7 +2318,7 @@ wind:
                     FIRST_CHILD(this)->fops->setxattr, loc, dict, flags, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (setxattr, frame, -1, ENOMEM, NULL);
+        STACK_UNWIND_STRICT (setxattr, frame, -1, op_errno, NULL);
 
         return 0;
 }
