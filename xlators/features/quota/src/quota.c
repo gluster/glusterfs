@@ -3561,11 +3561,9 @@ quota_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 buf->f_blocks = blocks;
 
                 avail = buf->f_blocks - usage;
-                avail = (avail >= 0) ? avail : 0;
+                avail = max (avail, 0);
 
-                if (buf->f_bfree > avail) {
-                        buf->f_bfree = avail;
-                }
+                buf->f_bfree = avail;
                 /*
                  * We have to assume that the total assigned quota
                  * won't cause us to dip into the reserved space,
