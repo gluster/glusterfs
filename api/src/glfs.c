@@ -66,7 +66,7 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 	call_pool_t   *pool = NULL;
 	int	       ret = -1;
 
-	xlator_mem_acct_init (THIS, glfs_mt_end);
+	xlator_mem_acct_init (THIS, glfs_mt_end + 1);
 
 	ctx->process_uuid = generate_glusterfs_ctx_id ();
 	if (!ctx->process_uuid) {
