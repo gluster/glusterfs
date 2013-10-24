@@ -1101,14 +1101,17 @@ _delete_reconfig_opt (dict_t *this, char *key, data_t *value, void *data)
         GF_ASSERT (data);
         is_force = (int32_t*)data;
 
-        if (*is_force != 1 &&
-            (_gf_true == glusterd_check_voloption_flags (key,
-                                                         OPT_FLAG_FORCE))) {
+        if (*is_force != 1) {
+                if (_gf_true == glusterd_check_voloption_flags (key,
+                                                         OPT_FLAG_FORCE)) {
                 /* indicate to caller that we don't set the option
                  * due to being protected
                  */
-                *is_force = -1;
-                goto out;
+                        *is_force = *is_force | GD_OP_PROTECTED;
+                        goto out;
+                } else {
+                        *is_force = *is_force | GD_OP_UNPROTECTED;
+                }
         }
 
         gf_log ("", GF_LOG_DEBUG, "deleting dict with key=%s,value=%s",
@@ -1277,7 +1280,7 @@ out:
 }
 
 static int
-glusterd_op_reset_volume (dict_t *dict, char **op_errstr)
+glusterd_op_reset_volume (dict_t *dict, char **op_rspstr)
 {
         glusterd_volinfo_t      *volinfo    = NULL;
         int                     ret         = -1;
@@ -1332,10 +1335,18 @@ glusterd_op_reset_volume (dict_t *dict, char **op_errstr)
                 quorum_action = _gf_true;
 
         ret = glusterd_options_reset (volinfo, key, &is_force);
-        if (is_force == -1) {
-                ret = -1;
-                gf_asprintf(op_errstr, "'%s' is protected. To reset use 'force'.",
-                            key);
+        if (ret == -1) {
+                gf_asprintf(op_rspstr, "Volume reset : failed");
+        } else if (is_force & GD_OP_PROTECTED) {
+                if (is_force & GD_OP_UNPROTECTED) {
+                        gf_asprintf (op_rspstr, "All unprotected fields were"
+                                     " reset. To reset the protected fields,"
+                                     " use 'force'.");
+                } else {
+                        ret = -1;
+                        gf_asprintf (op_rspstr, "'%s' is protected. To reset"
+                                     " use 'force'.", key);
+                }
         }
 
 out:
