@@ -1492,7 +1492,7 @@ gf_cli_reset_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to reset");
 
-        if (rsp.op_ret &&  strcmp (rsp.op_errstr, ""))
+        if (strcmp (rsp.op_errstr, ""))
                 snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
         else
                 snprintf (msg, sizeof (msg), "reset volume %s",
@@ -1510,7 +1510,7 @@ gf_cli_reset_volume_cbk (struct rpc_req *req, struct iovec *iov,
         if (rsp.op_ret)
                 cli_err ("volume reset: failed: %s", msg);
         else
-                cli_out ("volume reset: success");
+                cli_out ("volume reset: success: %s", msg);
 
         ret = rsp.op_ret;
 
