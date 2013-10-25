@@ -148,6 +148,7 @@ typedef struct {
         dict_t             *opts;
         synclock_t      big_lock;
         gf_boolean_t    restart_done;
+        uint32_t        base_port;
 } glusterd_conf_t;
 
 

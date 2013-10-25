@@ -916,7 +916,6 @@ init (xlator_t *this)
         int                first_time        = 0;
         char              *mountbroker_root  = NULL;
         int                i                 = 0;
-
 #ifdef DEBUG
         char              *valgrind_str      = NULL;
 #endif
@@ -1101,6 +1100,12 @@ init (xlator_t *this)
         if (ret)
                 goto out;
 
+        conf->base_port = GF_IANA_PRIV_PORTS_START;
+        if (dict_get_uint32(this->options, "base-port", &conf->base_port) == 0) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "base-port override: %d", conf->base_port);
+        }
+
         /* Set option to run bricks on valgrind if enabled in glusterd.vol */
 #ifdef DEBUG
         conf->valgrind = _gf_false;
@@ -1116,7 +1121,6 @@ init (xlator_t *this)
                 }
         }
 #endif
-
         this->private = conf;
         (void) glusterd_nodesvc_set_online_status ("glustershd", _gf_false);
 
@@ -1308,6 +1312,10 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_PERCENT,
           .description = "Sets the quorum percentage for the trusted "
           "storage pool."
+        },
+        { .key = {"base-port"},
+          .type = GF_OPTION_TYPE_INT,
+          .description = "Sets the base port for portmap query"
         },
         { .key   = {NULL} },
 };

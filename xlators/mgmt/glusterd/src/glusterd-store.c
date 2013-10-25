@@ -1484,7 +1484,7 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                                     strlen (GLUSTERD_STORE_KEY_BRICK_PORT))) {
                                 gf_string2int (value, &brickinfo->port);
 
-                                if (brickinfo->port < GF_IANA_PRIV_PORTS_START){
+                                if (brickinfo->port < priv->base_port){
                                         /* This is required to adhere to the
                                            IANA standards */
                                         brickinfo->port = 0;
@@ -1500,8 +1500,7 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                                     strlen (GLUSTERD_STORE_KEY_BRICK_RDMA_PORT))) {
                                 gf_string2int (value, &brickinfo->rdma_port);
 
-                                if (brickinfo->rdma_port <
-                                    GF_IANA_PRIV_PORTS_START){
+                                if (brickinfo->rdma_port < priv->base_port) {
                                         /* This is required to adhere to the
                                            IANA standards */
                                         brickinfo->rdma_port = 0;
