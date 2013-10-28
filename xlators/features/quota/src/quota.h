@@ -130,6 +130,9 @@
                         goto label;                             \
         } while (0)
 
+#define QUOTA_REG_OR_LNK_FILE(ia_type)  \
+    (IA_ISREG (ia_type) || IA_ISLNK (ia_type))
+
 
 
 struct quota_dentry {

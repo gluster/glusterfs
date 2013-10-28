@@ -879,8 +879,7 @@ quota_fill_inodectx (xlator_t *this, inode_t *inode, dict_t *dict,
         ctx = (quota_inode_ctx_t *)(unsigned long)value;
 
         if ((((ctx == NULL) || (ctx->hard_lim == hard_lim))
-             && (hard_lim < 0) && !((IA_ISREG (buf->ia_type))
-                                    || (IA_ISLNK (buf->ia_type))))) {
+             && (hard_lim < 0) && !QUOTA_REG_OR_LNK_FILE (buf->ia_type))) {
                 ret = 0;
                 goto out;
         }
@@ -902,7 +901,7 @@ quota_fill_inodectx (xlator_t *this, inode_t *inode, dict_t *dict,
 
                 ctx->buf = *buf;
 
-                if (!(IA_ISREG (buf->ia_type) || IA_ISLNK (buf->ia_type))) {
+                if (!QUOTA_REG_OR_LNK_FILE (buf->ia_type)) {
                         goto unlock;
                 }
 
@@ -1869,8 +1868,7 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        if (IA_ISREG (local->oldloc.inode->ia_type)
-            || IA_ISLNK (local->oldloc.inode->ia_type)) {
+        if (QUOTA_REG_OR_LNK_FILE (local->oldloc.inode->ia_type)) {
                 size = buf->ia_blocks * 512;
         }
 
@@ -1881,8 +1879,7 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                    size);
         }
 
-        if (!(IA_ISREG (local->oldloc.inode->ia_type)
-              || IA_ISLNK (local->oldloc.inode->ia_type))) {
+        if (!QUOTA_REG_OR_LNK_FILE (local->oldloc.inode->ia_type)) {
                 goto out;
         }
 
@@ -1997,6 +1994,46 @@ unwind:
 }
 
 
+static int32_t
+quota_rename_get_size_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                           int32_t op_ret, int32_t op_errno, inode_t *inode,
+                           struct iatt *buf, dict_t *xdata,
+                           struct iatt *postparent)
+{
+        quota_local_t     *local      = NULL;
+        int32_t            ret        = 0;
+        int64_t           *size       = 0;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR ("quota", this, out, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, xdata, out, op_errno,
+                                        EINVAL);
+        local = frame->local;
+        GF_ASSERT (local);
+        local->link_count = 1;
+
+        if (op_ret < 0)
+                goto out;
+
+
+        ret = dict_get_bin (xdata, QUOTA_SIZE_KEY, (void **) &size);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "size key not present in dict");
+                op_errno = EINVAL;
+                goto out;
+        }
+        local->delta = ntoh64 (*size);
+        quota_check_limit (frame, local->newloc.parent, this,
+                           NULL, NULL);
+        return 0;
+
+out:
+        quota_handle_validate_error (local, -1, op_errno);
+        return 0;
+}
+
 int32_t
 quota_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
               loc_t *newloc, dict_t *xdata)
@@ -2039,8 +2076,7 @@ quota_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         local->link_count = 1;
         local->stub = stub;
 
-        if (IA_ISREG (oldloc->inode->ia_type)
-            || IA_ISLNK (oldloc->inode->ia_type)) {
+        if (QUOTA_REG_OR_LNK_FILE (oldloc->inode->ia_type)) {
                 ret = quota_inode_ctx_get (oldloc->inode, this, &ctx, 0);
                 if (ctx == NULL) {
                         gf_log (this->name, GF_LOG_WARNING,
@@ -2050,11 +2086,32 @@ quota_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                                 oldloc->inode ? uuid_utoa (oldloc->inode->gfid)
                                 : "0");
                         local->delta = 0;
+
                 } else {
-                        local->delta = ctx->buf.ia_blocks * 512;
+
+                    /* FIXME: We need to account for the size occupied by this
+                     * inode on the target directory. To avoid double
+                     * accounting, we need to modify enforcer to perform
+                     * quota_check_limit only uptil the least common ancestor
+                     * directory inode*/
+
+                    /* FIXME: The following code assumes that regular files and
+                     *linkfiles are present, in their entirety, in a single
+                     brick. This *assumption is invalid in the case of
+                     stripe.*/
+
+                    local->delta = ctx->buf.ia_blocks * 512;
                 }
-        } else {
-                local->delta = 0;
+
+        } else if (IA_ISDIR (oldloc->inode->ia_type)) {
+                        ret = quota_validate (frame, oldloc->inode, this,
+                                              quota_rename_get_size_cbk);
+                        if (ret){
+                                op_errno = -ret;
+                                goto err;
+                        }
+
+                        return 0;
         }
 
         quota_check_limit (frame, newloc->parent, this, NULL, NULL);
