@@ -36,7 +36,7 @@
 #define GF_NFS_MAX_MEMFACTOR            30
 
 #define GF_NFS_DVM_ON                   1
-#define GF_NFS_DVM_OFF                  2
+#define GF_NFS_DVM_OFF                  0
 
 /* This corresponds to the max 16 number of group IDs that are sent through an
  * RPC request. Since NFS is the only one going to set this, we can be safe
@@ -85,6 +85,7 @@ struct nfs_state {
 	uint32_t		server_aux_gids_max_age;
 	gid_cache_t		gid_cache;
         uint32_t                generation;
+        gf_boolean_t            register_portmap;
 };
 
 struct nfs_inode_ctx {

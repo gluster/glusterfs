@@ -3834,6 +3834,11 @@ glusterd_reconfigure_nfs ()
         int             ret             = -1;
         gf_boolean_t    identical       = _gf_false;
 
+        /*
+         * Check both OLD and NEW volfiles, if they are SAME by size
+         * and cksum i.e. "character-by-character". If YES, then
+         * NOTHING has been changed, just return.
+         */
         ret = glusterd_check_nfs_volfile_identical (&identical);
         if (ret)
                 goto out;
@@ -3843,6 +3848,31 @@ glusterd_reconfigure_nfs ()
                 goto out;
         }
 
+        /*
+         * They are not identical. Find out if the topology is changed
+         * OR just the volume options. If just the options which got
+         * changed, then inform the xlator to reconfigure the options.
+         */
+        identical = _gf_false; /* RESET the FLAG */
+        ret = glusterd_check_nfs_topology_identical (&identical);
+        if (ret)
+                goto out;
+
+        /* Topology is not changed, but just the options. But write the
+         * options to NFS volfile, so that NFS will be reconfigured.
+         */
+        if (identical) {
+                ret = glusterd_create_nfs_volfile();
+                if (ret == 0) {/* Only if above PASSES */
+                        ret = glusterd_fetchspec_notify (THIS);
+                }
+                goto out;
+        }
+
+        /*
+         * NFS volfile's topology has been changed. NFS server needs
+         * to be RESTARTED to ACT on the changed volfile.
+         */
         ret = glusterd_check_generate_start_nfs ();
 
 out:
@@ -6361,6 +6391,68 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
         if (run_time)
                 volinfo->rebal.rebalance_time = run_time;
 
+        return ret;
+}
+
+int
+glusterd_check_topology_identical (const char *filename1,
+                                   const char *filename2,
+                                   gf_boolean_t *identical)
+{
+        int                     ret = -1; /* FAILURE */
+        xlator_t                *this = NULL;
+        FILE                    *fp1 = NULL;
+        FILE                    *fp2 = NULL;
+        glusterfs_graph_t       *grph1 = NULL;
+        glusterfs_graph_t       *grph2 = NULL;
+
+        if ((!filename1) || (!filename2) || (!identical))
+                goto out;
+
+        this = THIS;
+
+        errno = 0; /* RESET the errno */
+
+        /* fopen() the volfile1 to create the graph */
+        fp1 = fopen (filename1, "r");
+        if (fp1 == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "fopen() on file: %s failed "
+                        "(%s)", filename1, strerror (errno));
+                goto out;
+        }
+
+        /* fopen() the volfile2 to create the graph */
+        fp2 = fopen (filename2, "r");
+        if (fp2 == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "fopen() on file: %s failed "
+                        "(%s)", filename2, strerror (errno));
+                goto out;
+        }
+
+        /* create the graph for filename1 */
+        grph1 = glusterfs_graph_construct(fp1);
+        if (grph1 == NULL)
+                goto out;
+
+        /* create the graph for filename2 */
+        grph2 = glusterfs_graph_construct(fp2);
+        if (grph2 == NULL)
+                goto out;
+
+        /* compare the graph topology */
+        *identical = is_graph_topology_equal(grph1, grph2);
+        ret = 0; /* SUCCESS */
+out:
+        if (fp1)
+                fclose(fp1);
+        if (fp2)
+                fclose(fp2);
+        if (grph1)
+                glusterfs_graph_destroy(grph1);
+        if (grph2)
+                glusterfs_graph_destroy(grph2);
+
+        gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
 }
 

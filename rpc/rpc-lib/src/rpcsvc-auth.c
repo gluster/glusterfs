@@ -178,6 +178,29 @@ err:
 }
 
 int
+rpcsvc_set_addr_namelookup (rpcsvc_t *svc, dict_t *options)
+{
+        int             ret;
+        static char     *addrlookup_key = "rpc-auth.addr.namelookup";
+
+        if (!svc || !options)
+                return (-1);
+
+        /* By default it's disabled */
+        ret = dict_get_str_boolean (options, addrlookup_key, _gf_false);
+        if (ret < 0) {
+                svc->addr_namelookup = _gf_false;
+        } else {
+                svc->addr_namelookup = ret;
+        }
+
+        if (svc->addr_namelookup)
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "Addr-Name lookup enabled");
+
+        return (0);
+}
+
+int
 rpcsvc_set_allow_insecure (rpcsvc_t *svc, dict_t *options)
 {
         int             ret = -1;
@@ -233,6 +256,7 @@ rpcsvc_auth_init (rpcsvc_t *svc, dict_t *options)
 
         (void) rpcsvc_set_allow_insecure (svc, options);
         (void) rpcsvc_set_root_squash (svc, options);
+        (void) rpcsvc_set_addr_namelookup (svc, options);
         ret = rpcsvc_auth_add_initers (svc);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to add initers");
@@ -247,6 +271,25 @@ rpcsvc_auth_init (rpcsvc_t *svc, dict_t *options)
 
 out:
         return ret;
+}
+
+int
+rpcsvc_auth_reconf (rpcsvc_t *svc, dict_t *options)
+{
+        int ret = 0;
+
+        if ((!svc) || (!options))
+                return (-1);
+
+        ret = rpcsvc_set_allow_insecure (svc, options);
+        if (ret)
+                return (-1);
+
+        ret = rpcsvc_set_root_squash (svc, options);
+        if (ret)
+                return (-1);
+
+        return rpcsvc_set_addr_namelookup (svc, options);
 }
 
 

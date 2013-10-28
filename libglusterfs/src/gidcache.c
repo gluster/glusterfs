@@ -35,6 +35,21 @@ int gid_cache_init(gid_cache_t *cache, uint32_t timeout)
 }
 
 /*
+ * Reconfigure the cache timeout.
+ */
+int gid_cache_reconf(gid_cache_t *cache, uint32_t timeout)
+{
+        if (!cache)
+                return -1;
+
+        LOCK(&cache->gc_lock);
+        cache->gc_max_age = timeout;
+        UNLOCK(&cache->gc_lock);
+
+        return 0;
+}
+
+/*
  * Look up an ID in the cache. If found, return the actual cache entry to avoid
  * an additional allocation and memory copy. The caller should copy the data and
  * release (unlock) the cache as soon as possible.

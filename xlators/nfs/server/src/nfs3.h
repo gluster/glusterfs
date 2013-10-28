@@ -134,14 +134,14 @@ typedef struct nfs3_state {
         uint64_t                serverstart;
 
         /* NFSv3 Protocol configurables */
-        size_t                  readsize;
-        size_t                  writesize;
-        size_t                  readdirsize;
+        uint64_t                readsize;
+        uint64_t                writesize;
+        uint64_t                readdirsize;
 
         /* Size of the iobufs used, depends on the sizes of the three params
          * above.
          */
-        size_t                  iobsize;
+        uint64_t                iobsize;
 
         unsigned int            memfactor;
 
@@ -279,4 +279,7 @@ struct inode_op_queue {
 
 extern rpcsvc_program_t *
 nfs3svc_init (xlator_t *nfsx);
+
+extern int
+nfs3_reconfigure_state (xlator_t *nfsx, dict_t *options);
 #endif

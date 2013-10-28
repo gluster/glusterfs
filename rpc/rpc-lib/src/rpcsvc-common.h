@@ -52,28 +52,29 @@ typedef struct rpcsvc_state {
         dict_t                  *options;
 
         /* Allow insecure ports. */
-        int                     allow_insecure;
+        gf_boolean_t            allow_insecure;
         gf_boolean_t            register_portmap;
         gf_boolean_t            root_squash;
         glusterfs_ctx_t         *ctx;
 
         /* list of connections which will listen for incoming connections */
-        struct list_head         listeners;
+        struct list_head        listeners;
 
         /* list of programs registered with rpcsvc */
-        struct list_head         programs;
+        struct list_head        programs;
 
         /* list of notification callbacks */
-        struct list_head         notify;
-        int                      notify_count;
+        struct list_head        notify;
+        int                     notify_count;
 
         void                    *mydata; /* This is xlator */
-        rpcsvc_notify_t          notifyfn;
+        rpcsvc_notify_t         notifyfn;
         struct mem_pool         *rxpool;
         rpcsvc_drc_globals_t    *drc;
 
 	/* per-client limit of outstanding rpc requests */
-	int                      outstanding_rpc_limit;
+        int                     outstanding_rpc_limit;
+        gf_boolean_t            addr_namelookup;
 } rpcsvc_t;
 
 /* DRC START */

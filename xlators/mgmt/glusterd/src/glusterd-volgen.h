@@ -144,6 +144,8 @@ char*
 glusterd_get_trans_type_rb (gf_transport_type ttype);
 int
 glusterd_check_nfs_volfile_identical (gf_boolean_t *identical);
+int
+glusterd_check_nfs_topology_identical (gf_boolean_t *identical);
 
 uint32_t
 glusterd_get_op_version_for_key (char *key);

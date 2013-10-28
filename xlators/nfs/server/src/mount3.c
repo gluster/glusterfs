@@ -74,6 +74,17 @@ typedef ssize_t (*mnt3_serializer) (struct iovec outmsg, void *args);
 extern void *
 mount3udp_thread (void *argv);
 
+static inline void
+mnt3_export_free (struct mnt3_export *exp)
+{
+        if (!exp)
+                return;
+
+        if (exp->exptype == MNT3_EXPTYPE_DIR)
+                FREE_HOSTSPEC (exp);
+        GF_FREE (exp->expname);
+        GF_FREE (exp);
+}
 
 /* Generic reply function for MOUNTv3 specific replies. */
 int
@@ -580,6 +591,7 @@ __mnt3_get_volume_id (struct mount3_state *ms, xlator_t *mntxl,
         if ((!ms) || (!mntxl))
                 return ret;
 
+        LOCK (&ms->mountlock);
         list_for_each_entry (exp, &ms->exportlist, explist) {
                 if (exp->vol == mntxl) {
                         uuid_copy (volumeid, exp->volumeid);
@@ -589,6 +601,7 @@ __mnt3_get_volume_id (struct mount3_state *ms, xlator_t *mntxl,
         }
 
 out:
+        UNLOCK (&ms->mountlock);
         return ret;
 }
 
@@ -1235,6 +1248,7 @@ mnt3_mntpath_to_export (struct mount3_state *ms, char *dirpath)
         if ((!ms) || (!dirpath))
                 return NULL;
 
+        LOCK (&ms->mountlock);
         list_for_each_entry (exp, &ms->exportlist, explist) {
 
                 /* Search for the an exact match with the volume */
@@ -1248,6 +1262,7 @@ mnt3_mntpath_to_export (struct mount3_state *ms, char *dirpath)
 
         gf_log (GF_MNT, GF_LOG_DEBUG, "Export not found");
 foundexp:
+        UNLOCK (&ms->mountlock);
         return found;
 }
 
@@ -1276,7 +1291,7 @@ mnt3_check_client_net (struct mount3_state *ms, rpcsvc_request_t *req,
                         gai_strerror (ret));
         }
 
-        ret = rpcsvc_auth_check (svc->options, targetxl->name, trans);
+        ret = rpcsvc_auth_check (svc, targetxl->name, trans);
         if (ret == RPCSVC_AUTH_REJECT) {
                 gf_log (GF_MNT, GF_LOG_INFO, "Peer %s  not allowed", peer);
                 goto err;
@@ -1804,6 +1819,10 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, struct mount3_state *ms)
                 return NULL;
 
         nfs = (struct nfs_state *)ms->nfsx->private;
+        if (!nfs)
+                return NULL;
+
+        LOCK (&ms->mountlock);
         list_for_each_entry(ent, &ms->exportlist, explist) {
 
                 /* If volume is not started yet, do not list it for tools like
@@ -1861,6 +1880,7 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, struct mount3_state *ms)
         ret = 0;
 
 free_list:
+        UNLOCK (&ms->mountlock);
         if (ret == -1) {
                 xdr_free_exports_list (first);
                 first = NULL;
@@ -2193,8 +2213,9 @@ mnt3_init_export_ent (struct mount3_state *ms, xlator_t *xl, char *exportpath,
                 ret = snprintf (exp->expname, alloclen, "/%s", xl->name);
         }
         if (ret < 0) {
-                gf_log (xl->name, GF_LOG_WARNING,
-                        "failed to get the export name");
+                gf_log (xl->name, GF_LOG_ERROR,
+                        "Failed to set the export name");
+                goto err;
         }
         /* Just copy without discrimination, we'll determine whether to
          * actually use it when a mount request comes in and a file handle
@@ -2208,8 +2229,7 @@ mnt3_init_export_ent (struct mount3_state *ms, xlator_t *xl, char *exportpath,
 err:
         /* On failure free exp and it's members.*/
         if (NULL != exp) {
-                FREE_HOSTSPEC (exp);
-                GF_FREE (exp);
+                mnt3_export_free (exp);
                 exp = NULL;
         }
 
@@ -2695,4 +2715,45 @@ mnt1svc_init (xlator_t *nfsx)
         return &mnt1prog;
 err:
         return NULL;
+}
+
+int
+mount_reconfigure_state (xlator_t *nfsx, dict_t *options)
+{
+        int                    ret      = -1;
+        struct nfs_state       *nfs     = NULL;
+        struct mount3_state    *ms      = NULL;
+        struct mnt3_export     *exp     = NULL;
+        struct mnt3_export     *texp  = NULL;
+
+        if ((!nfsx) || (!options))
+                return (-1);
+
+        nfs = (struct nfs_state *)nfs_state (nfsx);
+        if (!nfs)
+                return (-1);
+
+        ms = nfs->mstate;
+        if (!ms)
+                return (-1);
+
+        /*
+         * Free() up the old export list. mnt3_init_options() will
+         * rebuild the export list from scratch. Do it with locking
+         * to avoid unnecessary race conditions.
+         */
+        LOCK (&ms->mountlock);
+        list_for_each_entry_safe (exp, texp, &ms->exportlist, explist) {
+                list_del (&exp->explist);
+                mnt3_export_free (exp);
+        }
+        ret = mnt3_init_options (ms, options);
+        UNLOCK (&ms->mountlock);
+
+        if (ret < 0) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Options reconfigure failed");
+                return (-1);
+        }
+
+        return (0);
 }

@@ -248,7 +248,7 @@ acl3_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs = frame->local;
         getaclreply = &cs->args.getaclreply;
         if (op_ret == -1) {
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto err;
         }
 
@@ -316,7 +316,7 @@ acl3_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         getaclreply = &cs->args.getaclreply;
 
         if (op_ret == -1) {
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto err;
         }
 
@@ -327,7 +327,7 @@ acl3_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ret = nfs_getxattr (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc, NULL, NULL,
                             acl3_getacl_cbk, cs);
         if (ret == -1) {
-                stat = nfs3_errno_to_nfsstat3 (op_errno);
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto err;
         }
         return 0;
@@ -429,7 +429,8 @@ acl3_setacl_cbk (call_frame_t *frame, void *cookie,
         nfs3_call_state_t               *cs = NULL;
         cs = frame->local;
         if (op_ret < 0) {
-                cs->args.setaclreply.status = nfs3_errno_to_nfsstat3 (op_errno);
+                nfsstat3 status = nfs3_cbk_errno_status (op_ret, op_errno);
+                cs->args.setaclreply.status = status;
         }
 
         acl3svc_submit_reply (cs->req, (void *)&cs->args.setaclreply,
@@ -643,6 +644,11 @@ acl3svc_init(xlator_t *nfsx)
         dict_t *options = NULL;
         int ret = -1;
         char *portstr = NULL;
+        static gf_boolean_t acl3_inited = _gf_false;
+
+        /* Already inited */
+        if (acl3_inited)
+                return &acl3prog;
 
         nfs = (struct nfs_state*)nfsx->private;
 
@@ -695,6 +701,7 @@ acl3svc_init(xlator_t *nfsx)
                 goto err;
         }
 
+        acl3_inited = _gf_true;
         return &acl3prog;
 err:
         return NULL;

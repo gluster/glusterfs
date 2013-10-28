@@ -3440,6 +3440,54 @@ out:
 }
 
 int
+glusterd_check_nfs_topology_identical (gf_boolean_t *identical)
+{
+        char            nfsvol[PATH_MAX]        = {0,};
+        char            tmpnfsvol[PATH_MAX]     = {0,};
+        glusterd_conf_t *conf                   = NULL;
+        xlator_t        *this                   = THIS;
+        int             ret                     = -1;
+        int             tmpclean                = 0;
+        int             tmpfd                   = -1;
+
+        if ((!identical) || (!this) || (!this->private))
+                goto out;
+
+        conf = (glusterd_conf_t *) this->private;
+
+        /* Fetch the original NFS volfile */
+        glusterd_get_nodesvc_volfile ("nfs", conf->workdir,
+                                      nfsvol, sizeof (nfsvol));
+
+        /* Create the temporary NFS volfile */
+        snprintf (tmpnfsvol, sizeof (tmpnfsvol), "/tmp/gnfs-XXXXXX");
+        tmpfd = mkstemp (tmpnfsvol);
+        if (tmpfd < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                                    "Unable to create temp file %s: (%s)",
+                                    tmpnfsvol, strerror (errno));
+                goto out;
+        }
+
+        tmpclean = 1; /* SET the flag to unlink() tmpfile */
+
+        ret = glusterd_create_global_volfile (build_nfs_graph,
+                                              tmpnfsvol, NULL);
+        if (ret)
+                goto out;
+
+        /* Compare the topology of volfiles */
+        ret = glusterd_check_topology_identical (nfsvol, tmpnfsvol,
+                                                 identical);
+out:
+        if (tmpfd >= 0)
+                close (tmpfd);
+        if (tmpclean)
+                unlink (tmpnfsvol);
+        return ret;
+}
+
+int
 glusterd_check_nfs_volfile_identical (gf_boolean_t *identical)
 {
         char            nfsvol[PATH_MAX]        = {0,};
