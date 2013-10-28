@@ -2268,8 +2268,8 @@ mq_xattr_state (xlator_t *this,
                 dict_t *dict,
                 struct iatt buf)
 {
-        if (buf.ia_type == IA_IFREG ||
-            buf.ia_type == IA_IFLNK) {
+        if (((buf.ia_type == IA_IFREG) && !dht_is_linkfile (&buf, dict))
+            || (buf.ia_type == IA_IFLNK))  {
                 mq_inspect_file_xattr (this, loc, dict, buf);
         } else if (buf.ia_type == IA_IFDIR)
                 mq_inspect_directory_xattr (this, loc, dict, buf);
