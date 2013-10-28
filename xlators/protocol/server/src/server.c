@@ -708,12 +708,6 @@ reconfigure (xlator_t *this, dict_t *options)
 
         }
 
-        /*ret = dict_get_str (options, "statedump-path", &statedump_path);
-        if (!ret) {
-                gf_path_strip_trailing_slashes (statedump_path);
-                GF_FREE (this->ctx->statedump_path);
-                this->ctx->statedump_path = gf_strdup (statedump_path);
-        }*/
         GF_OPTION_RECONF ("statedump-path", statedump_path,
                           options, path, out);
         if (!statedump_path) {
@@ -752,6 +746,7 @@ reconfigure (xlator_t *this, dict_t *options)
 
         (void) rpcsvc_set_allow_insecure (rpc_conf, options);
         (void) rpcsvc_set_root_squash (rpc_conf, options);
+        (void) rpcsvc_set_outstanding_rpc_limit (rpc_conf, options);
         list_for_each_entry (listeners, &(rpc_conf->listeners), list) {
                 if (listeners->trans != NULL) {
                         if (listeners->trans->reconfigure )

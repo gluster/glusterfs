@@ -1249,12 +1249,13 @@ rpcsvc_error_reply (rpcsvc_request_t *req)
 inline int
 rpcsvc_program_register_portmap (rpcsvc_program_t *newprog, uint32_t port)
 {
-        int                ret   = 0;
+        int                ret   = -1; /* FAIL */
 
         if (!newprog) {
                 goto out;
         }
 
+        /* pmap_set() returns 0 for FAIL and 1 for SUCCESS */
         if (!(pmap_set (newprog->prognum, newprog->progver, IPPROTO_TCP,
                         port))) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Could not register with"
@@ -1262,16 +1263,16 @@ rpcsvc_program_register_portmap (rpcsvc_program_t *newprog, uint32_t port)
                 goto out;
         }
 
-        ret = 0;
+        ret = 0; /* SUCCESS */
 out:
         return ret;
 }
 
 
-static inline int
+inline int
 rpcsvc_program_unregister_portmap (rpcsvc_program_t *prog)
 {
-        int ret = 0;
+        int ret = -1;
 
         if (!prog)
                 goto out;
@@ -1889,27 +1890,89 @@ rpcsvc_init_options (rpcsvc_t *svc, dict_t *options)
                 gf_log (GF_RPCSVC, GF_LOG_DEBUG, "Portmap registration "
                         "disabled");
 
-        svc->outstanding_rpc_limit = RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT;
-
-        if (dict_get (options, "rpc.outstanding-rpc-limit")) {
-                ret = dict_get_str (options, "rpc.oustanding-rpc-limit",
-                                    &optstr);
-                if (ret < 0) {
-                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "Value went missing");
-                        goto out;
-                }
-
-                ret = gf_string2int32 (optstr, &svc->outstanding_rpc_limit);
-                if (ret < 0) {
-                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "Invalid RPC limit %s",
-                                optstr);
-                        goto out;
-                }
-        }
-
-        ret = 0;
+        ret = rpcsvc_set_outstanding_rpc_limit (svc, options);
 out:
         return ret;
+}
+
+int
+rpcsvc_reconfigure_options (rpcsvc_t *svc, dict_t *options)
+{
+        xlator_t         *xlator    = NULL;
+        xlator_list_t    *volentry  = NULL;
+        char             *srchkey   = NULL;
+        char             *keyval    = NULL;
+        int              ret        = -1;
+
+        if ((!svc) || (!svc->options) || (!options))
+                return (-1);
+
+        /* Fetch the xlator from svc */
+        xlator = (xlator_t *) svc->mydata;
+        if (!xlator)
+                return (-1);
+
+        /* Reconfigure the volume specific rpc-auth.addr allow part */
+        volentry = xlator->children;
+        while (volentry) {
+                ret = gf_asprintf (&srchkey, "rpc-auth.addr.%s.allow",
+                                             volentry->xlator->name);
+                if (ret == -1) {
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "asprintf failed");
+                        return (-1);
+                }
+
+                /* If found the srchkey, delete old key/val pair
+                 * and set the key with new value.
+                 */
+                if (!dict_get_str (options, srchkey, &keyval)) {
+                        dict_del (svc->options, srchkey);
+                        ret = dict_set_str (svc->options, srchkey, keyval);
+                        if (ret < 0) {
+                                gf_log (GF_RPCSVC, GF_LOG_ERROR,
+                                        "dict_set_str error");
+                                GF_FREE (srchkey);
+                                return (-1);
+                        }
+                }
+
+                GF_FREE (srchkey);
+                volentry = volentry->next;
+        }
+
+        /* Reconfigure the volume specific rpc-auth.addr reject part */
+        volentry = xlator->children;
+        while (volentry) {
+                ret = gf_asprintf (&srchkey, "rpc-auth.addr.%s.reject",
+                                             volentry->xlator->name);
+                if (ret == -1) {
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "asprintf failed");
+                        return (-1);
+                }
+
+                /* If found the srchkey, delete old key/val pair
+                 * and set the key with new value.
+                 */
+                if (!dict_get_str (options, srchkey, &keyval)) {
+                        dict_del (svc->options, srchkey);
+                        ret = dict_set_str (svc->options, srchkey, keyval);
+                        if (ret < 0) {
+                                gf_log (GF_RPCSVC, GF_LOG_ERROR,
+                                        "dict_set_str error");
+                                GF_FREE (srchkey);
+                                return (-1);
+                        }
+                }
+
+                GF_FREE (srchkey);
+                volentry = volentry->next;
+        }
+
+        ret = rpcsvc_init_options (svc, options);
+        if (ret)
+                return (-1);
+
+        return rpcsvc_auth_reconf (svc, options);
 }
 
 int
@@ -1956,6 +2019,48 @@ out:
                         dict_unref (dict);
         }
         return ret;
+}
+
+/*
+ * Reconfigure() the rpc.outstanding-rpc-limit param.
+ */
+int
+rpcsvc_set_outstanding_rpc_limit (rpcsvc_t *svc, dict_t *options)
+{
+        int            ret        = -1; /* FAILURE */
+        int            rpclim     = 0;
+        static char    *rpclimkey = "rpc.outstanding-rpc-limit";
+
+        if ((!svc) || (!options))
+                return (-1);
+
+        /* Reconfigure() the rpc.outstanding-rpc-limit param */
+        ret = dict_get_int32 (options, rpclimkey, &rpclim);
+        if (ret < 0) {
+                /* Fall back to default for FAILURE */
+                rpclim = RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT;
+        } else {
+                /* SUCCESS: round off to multiple of 8.
+                 * If the input value fails Boundary check, fall back to
+                 * default i.e. RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT.
+                 * NB: value 0 is special, means its unset i.e. unlimited.
+                 */
+                rpclim = ((rpclim + 8 - 1) >> 3) * 8;
+                if (rpclim < RPCSVC_MIN_OUTSTANDING_RPC_LIMIT) {
+                        rpclim = RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT;
+                } else if (rpclim > RPCSVC_MAX_OUTSTANDING_RPC_LIMIT) {
+                        rpclim = RPCSVC_MAX_OUTSTANDING_RPC_LIMIT;
+                }
+        }
+
+        if (svc->outstanding_rpc_limit != rpclim) {
+                svc->outstanding_rpc_limit = rpclim;
+                gf_log (GF_RPCSVC, GF_LOG_INFO,
+                                   "Configured %s with value %d",
+                                   rpclimkey, rpclim);
+        }
+
+        return (0);
 }
 
 /* The global RPC service initializer.
@@ -2089,7 +2194,7 @@ err:
 }
 
 
-int
+static int
 rpcsvc_transport_peer_check_allow (dict_t *options, char *volname,
                                    char *ip, char *hostname)
 {
@@ -2118,7 +2223,7 @@ out:
         return ret;
 }
 
-int
+static int
 rpcsvc_transport_peer_check_reject (dict_t *options, char *volname,
                                     char *ip, char *hostname)
 {
@@ -2170,7 +2275,7 @@ rpcsvc_combine_allow_reject_volume_check (int allow, int reject)
 }
 
 int
-rpcsvc_auth_check (dict_t *options, char *volname,
+rpcsvc_auth_check (rpcsvc_t *svc, char *volname,
                    rpc_transport_t *trans)
 {
         int     ret                            = RPCSVC_AUTH_REJECT;
@@ -2182,8 +2287,14 @@ rpcsvc_auth_check (dict_t *options, char *volname,
         char   *allow_str                      = NULL;
         char   *reject_str                     = NULL;
         char   *srchstr                        = NULL;
+        dict_t *options                        = NULL;
 
-        if (!options || !volname || !trans)
+        if (!svc || !volname || !trans)
+                return ret;
+
+        /* Fetch the options from svc struct and validate */
+        options = svc->options;
+        if (!options)
                 return ret;
 
         ret = rpcsvc_transport_peername (trans, client_ip, RPCSVC_PEER_STRLEN);
@@ -2225,9 +2336,8 @@ rpcsvc_auth_check (dict_t *options, char *volname,
         if (!get_host_name (client_ip, &ip))
                 ip = client_ip;
 
-        /* addr-namelookup disabled by default */
-        ret = dict_get_str_boolean (options, "rpc-auth.addr.namelookup", 0);
-        if (ret == _gf_true) {
+        /* addr-namelookup check */
+        if (svc->addr_namelookup == _gf_true) {
                 ret = gf_get_hostname_from_ip (ip, &hostname);
                 if (ret) {
                         if (hostname)

@@ -456,6 +456,12 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
 int
 glusterd_check_files_identical (char *filename1, char *filename2,
                                 gf_boolean_t *identical);
+
+int
+glusterd_check_topology_identical (const char *filename1,
+                                   const char *filename2,
+                                   gf_boolean_t *identical);
+
 void
 glusterd_volinfo_reset_defrag_stats (glusterd_volinfo_t *volinfo);
 int

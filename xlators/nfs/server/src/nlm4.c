@@ -2359,6 +2359,11 @@ nlm4svc_init(xlator_t *nfsx)
         struct timespec timeout = {0,};
         FILE   *pidfile = NULL;
         pid_t   pid     = -1;
+        static gf_boolean_t nlm4_inited = _gf_false;
+
+        /* Already inited */
+        if (nlm4_inited)
+                return &nlm4prog;
 
         nfs = (struct nfs_state*)nfsx->private;
 
@@ -2463,6 +2468,7 @@ nlm4svc_init(xlator_t *nfsx)
         timeout.tv_nsec = 0;
 
         gf_timer_call_after (nfsx->ctx, timeout, nlm_grace_period_over, NULL);
+        nlm4_inited = _gf_true;
         return &nlm4prog;
 err:
         return NULL;

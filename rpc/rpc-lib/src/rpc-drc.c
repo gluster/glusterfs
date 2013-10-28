@@ -708,9 +708,14 @@ rpcsvc_drc_init (rpcsvc_t *svc, dict_t *options)
         uint32_t                    drc_size       = 0;
         uint32_t                    drc_factor     = 0;
         rpcsvc_drc_globals_t       *drc            = NULL;
+        static gf_boolean_t         drc_inited     = _gf_false;
 
         GF_ASSERT (svc);
         GF_ASSERT (options);
+
+        /* Already inited */
+        if (drc_inited)
+                return 0;
 
         if (!svc->drc) {
                 drc = GF_CALLOC (1, sizeof (rpcsvc_drc_globals_t),
@@ -732,11 +737,12 @@ rpcsvc_drc_init (rpcsvc_t *svc, dict_t *options)
 
         /* Toggle DRC on/off, when more drc types(persistent/cluster)
            are added, we shouldn't treat this as boolean */
-        ret = dict_get_str_boolean (options, "nfs.drc", _gf_false);
+        ret = dict_get_str_boolean (options, "nfs.drc", _gf_true);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_INFO, "drc user options need second look");
                 ret = _gf_true;
         }
+        drc->enable_drc = ret;
 
         if (ret == _gf_false) {
                 /* drc off */
@@ -796,6 +802,7 @@ rpcsvc_drc_init (rpcsvc_t *svc, dict_t *options)
 
         gf_log (GF_RPCSVC, GF_LOG_DEBUG, "drc init successful");
         drc->status = DRC_INITIATED;
+        drc_inited = _gf_true;
 
  out:
         UNLOCK (&drc->lock);
@@ -808,4 +815,58 @@ rpcsvc_drc_init (rpcsvc_t *svc, dict_t *options)
                 svc->drc = NULL;
         }
         return ret;
+}
+
+int
+rpcsvc_drc_reconfigure (rpcsvc_t *svc, dict_t *options)
+{
+        int                     ret        = -1;
+        gf_boolean_t            enable_drc = _gf_false;
+        rpcsvc_drc_globals_t    *drc       = NULL;
+        uint32_t                drc_size   = 0;
+
+        if ((!svc) || (!options))
+                return (-1);
+
+        drc = svc->drc;
+        /* reconfig for drc-size */
+        if (dict_get_uint32 (options, "nfs.drc-size", &drc_size))
+                drc_size = DRC_DEFAULT_CACHE_SIZE;
+
+        if (drc->global_cache_size != drc_size) {
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "nfs.drc-size size can not "
+                        "be reconfigured without NFS server restart.");
+                return (-1);
+        }
+
+        /* reconfig for nfs.drc */
+        ret = dict_get_str_boolean (options, "nfs.drc", _gf_true);
+        if (ret < 0) {
+                ret = _gf_true;
+        }
+        enable_drc = ret;
+
+        if (drc->enable_drc == enable_drc)
+                return 0;
+
+        drc->enable_drc = enable_drc;
+        if (enable_drc) {
+                if (drc == NULL)
+                        return rpcsvc_drc_init(svc, options);
+        } else {
+                if (drc == NULL)
+                        return (0);
+
+                LOCK (&drc->lock);
+                (void) rpcsvc_unregister_notify (svc, rpcsvc_drc_notify, THIS);
+                if (drc->mempool) {
+                        mem_pool_destroy (drc->mempool);
+                        drc->mempool = NULL;
+                }
+                UNLOCK (&drc->lock);
+                GF_FREE (drc);
+                svc->drc = NULL;
+        }
+
+        return (0);
 }

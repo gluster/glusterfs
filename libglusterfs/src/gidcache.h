@@ -45,6 +45,7 @@ typedef struct {
 } gid_cache_t;
 
 int gid_cache_init(gid_cache_t *, uint32_t);
+int gid_cache_reconf(gid_cache_t *, uint32_t);
 const gid_list_t *gid_cache_lookup(gid_cache_t *, uint64_t);
 void gid_cache_release(gid_cache_t *, const gid_list_t *);
 int gid_cache_add(gid_cache_t *, gid_list_t *);

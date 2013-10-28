@@ -256,6 +256,20 @@ nfs3_errno_to_nfsstat3 (int errnum)
         return stat;
 }
 
+/*
+ * Special case: If op_ret is -1, it's very unusual op_errno being
+ * 0 which means something came wrong from upper layer(s). If it
+ * happens by any means, then set NFS3 status to NFS3ERR_SERVERFAULT.
+ */
+inline nfsstat3
+nfs3_cbk_errno_status (int32_t op_ret, int32_t op_errno)
+{
+        if ((op_ret == -1) && (op_errno == 0)) {
+                return NFS3ERR_SERVERFAULT;
+        }
+
+        return nfs3_errno_to_nfsstat3 (op_errno);
+}
 
 void
 nfs3_fill_lookup3res_error (lookup3res *res, nfsstat3 stat,
