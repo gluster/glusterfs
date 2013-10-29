@@ -237,6 +237,7 @@ cli_xml_output_vol_status_common (xmlTextWriterPtr writer, dict_t *dict,
         int             ret = -1;
         char            *hostname = NULL;
         char            *path = NULL;
+        char            *uuid = NULL;
         int             port = 0;
         int             status = 0;
         int             pid = 0;
@@ -261,6 +262,15 @@ cli_xml_output_vol_status_common (xmlTextWriterPtr writer, dict_t *dict,
                 goto out;
         ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"path",
                                                "%s", path);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.peerid", brick_index);
+        ret = dict_get_str (dict, key, &uuid);
+        if (ret)
+                goto out;
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"peerid",
+                                               "%s", uuid);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         memset (key, 0, sizeof (key));
