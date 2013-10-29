@@ -3249,6 +3249,29 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
 
                 count = brick_index_max + other_count + 1;
 
+                /* add 'brick%d.peerid' into op_ctx with value of 'brick%d.path'.
+                   nfs/sshd like services have this additional uuid */
+                {
+                        char  key[1024];
+                        char *uuid_str = NULL;
+                        char *uuid = NULL;
+                        int   i;
+
+                        for (i = brick_index_max + 1; i < count; i++) {
+                                memset (key, 0, sizeof (key));
+                                snprintf (key, sizeof (key), "brick%d.path", i);
+                                ret = dict_get_str (op_ctx, key, &uuid_str);
+                                if (!ret) {
+                                        memset (key, 0, sizeof (key));
+                                        snprintf (key, sizeof (key),
+                                                  "brick%d.peerid", i);
+                                        uuid = gf_strdup (uuid_str);
+                                        ret = dict_set_dynstr (op_ctx, key,
+                                                               uuid);
+                                }
+                        }
+                }
+
                 ret = glusterd_op_volume_dict_uuid_to_hostname (op_ctx,
                                                                 "brick%d.path",
                                                                 0, count);

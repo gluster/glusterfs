@@ -4619,6 +4619,7 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
         int             ret                   = -1;
         int32_t         pid                   = -1;
         int32_t         brick_online          = -1;
+        char           *peer_id_str           = NULL;
         char            key[1024]             = {0};
         char            base_key[1024]        = {0};
         char            pidfile[PATH_MAX]     = {0};
@@ -4645,6 +4646,18 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.path", base_key);
         ret = dict_set_str (dict, key, brickinfo->path);
+        if (ret)
+                goto out;
+
+        /* add peer uuid */
+        peer_id_str = gf_strdup (uuid_utoa (brickinfo->uuid));
+        if (!peer_id_str) {
+                ret = -1;
+                goto out;
+        }
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.peerid", base_key);
+        ret = dict_set_dynstr (dict, key, peer_id_str);
         if (ret)
                 goto out;
 
