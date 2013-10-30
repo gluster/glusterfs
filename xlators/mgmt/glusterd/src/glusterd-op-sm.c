@@ -2181,7 +2181,7 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
         if (ret)
                 goto out;
 
-        if (is_origin_glusterd ()) {
+        if (origin_glusterd) {
                 ret = 0;
                 if ((cmd & GF_CLI_STATUS_ALL)) {
                         ret = glusterd_get_all_volnames (rsp_dict);
@@ -2345,11 +2345,9 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
 
         /* Active tasks */
         /* Tasks are added only for normal volume status request for either a
-         * single volume or all volumes, and only by the origin glusterd
+         * single volume or all volumes
          */
-        if (((cmd & GF_CLI_STATUS_MASK) != GF_CLI_STATUS_NONE) ||
-            !(cmd & (GF_CLI_STATUS_VOL | GF_CLI_STATUS_ALL)) ||
-            !origin_glusterd)
+        if (!glusterd_status_has_tasks (cmd))
                 goto out;
 
         ret = glusterd_aggregate_task_status (rsp_dict, volinfo);

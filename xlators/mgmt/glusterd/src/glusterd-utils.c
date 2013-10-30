@@ -7420,8 +7420,12 @@ glusterd_volume_status_add_peer_rsp (dict_t *this, char *key, data_t *value,
         int32_t                         ret = 0;
 
         /* Skip the following keys, they are already present in the ctx_dict */
+        /* Also, skip all the task related pairs. They will be added to the
+         * ctx_dict later
+         */
         if (!strcmp (key, "count") || !strcmp (key, "cmd") ||
-            !strcmp (key, "brick-index-max") || !strcmp (key, "other-count"))
+            !strcmp (key, "brick-index-max") || !strcmp (key, "other-count") ||
+            !strncmp (key, "task", 4))
                 return 0;
 
         rsp_ctx = data;
@@ -7444,6 +7448,194 @@ glusterd_volume_status_add_peer_rsp (dict_t *this, char *key, data_t *value,
                         key);
 
         return 0;
+}
+
+static int
+glusterd_volume_status_copy_tasks_to_ctx_dict (dict_t *this, char *key,
+                                               data_t *value, void *data)
+{
+        int     ret = 0;
+        dict_t  *ctx_dict = NULL;
+        data_t  *new_value = NULL;
+
+        if (strncmp (key, "task", 4))
+                return 0;
+
+        ctx_dict = data;
+        GF_ASSERT (ctx_dict);
+
+        new_value = data_copy (value);
+        GF_ASSERT (new_value);
+
+        ret = dict_set (ctx_dict, key, new_value);
+
+        return ret;
+}
+
+int
+glusterd_volume_status_aggregate_tasks_status (dict_t *ctx_dict,
+                                               dict_t *rsp_dict)
+{
+        int             ret             = -1;
+        xlator_t        *this           = NULL;
+        int             local_count     = 0;
+        int             remote_count    = 0;
+        int             i               = 0;
+        int             j               = 0;
+        char            key[128]        = {0,};
+        char            *task_type      = NULL;
+        int             local_status    = 0;
+        int             remote_status   = 0;
+        char            *local_task_id  = NULL;
+        char            *remote_task_id = NULL;
+
+        GF_ASSERT (ctx_dict);
+        GF_ASSERT (rsp_dict);
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        ret = dict_get_int32 (rsp_dict, "tasks", &remote_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to get remote task count");
+                goto out;
+        }
+        /* Local count will not be present when this is called for the first
+         * time with the origins rsp_dict
+         */
+        ret = dict_get_int32 (ctx_dict, "tasks", &local_count);
+        if (ret) {
+                ret = dict_foreach (rsp_dict,
+                                glusterd_volume_status_copy_tasks_to_ctx_dict,
+                                ctx_dict);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to copy tasks"
+                                "to ctx_dict.");
+                goto out;
+        }
+
+        if (local_count != remote_count) {
+                gf_log (this->name, GF_LOG_ERROR, "Local tasks count (%d) and "
+                        "remote tasks count (%d) do not match. Not aggregating "
+                        "tasks status.", local_count, remote_count);
+                ret = -1;
+                goto out;
+        }
+
+        /* Update the tasks statuses. For every remote tasks, search for the
+         * local task, and update the local task status based on the remote
+         * status.
+         */
+        for (i = 0; i < remote_count; i++) {
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "task%d.type", i);
+                ret = dict_get_str (rsp_dict, key, &task_type);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to get task typpe from rsp dict");
+                        goto out;
+                }
+
+                /* Skip replace-brick status as it is going to be the same on
+                 * all peers. rb_status is set by the replace brick commit
+                 * function on all peers based on the replace brick command.
+                 * We return the value of rb_status as the status for a
+                 * replace-brick task in a 'volume status' command.
+                 */
+                if (!strcmp (task_type, "Replace brick"))
+                        continue;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "task%d.status", i);
+                ret = dict_get_int32 (rsp_dict, key, &remote_status);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to get task status from rsp dict");
+                        goto out;
+                }
+                snprintf (key, sizeof (key), "task%d.id", i);
+                ret = dict_get_str (rsp_dict, key, &remote_task_id);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to get task id from rsp dict");
+                        goto out;
+                }
+                for (j = 0; j < local_count; j++) {
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "task%d.id", j);
+                        ret = dict_get_str (ctx_dict, key, &local_task_id);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to get local task-id");
+                                goto out;
+                        }
+
+                        if (strncmp (remote_task_id, local_task_id,
+                                     strlen (remote_task_id))) {
+                                /* Quit if a matching local task is not found */
+                                if (j == (local_count - 1)) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Could not find matching local "
+                                                "task for task %s",
+                                                remote_task_id);
+                                        goto out;
+                                }
+                                continue;
+                        }
+
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "task%d.status", j);
+                        ret = dict_get_int32 (ctx_dict, key, &local_status);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to get local task status");
+                                goto out;
+                        }
+
+                        /* Rebalance has 5 states,
+                         * NOT_STARTED, STARTED, STOPPED, COMPLETE, FAILED
+                         * The precedence used to determine the aggregate status
+                         * is as below,
+                         * STARTED > FAILED > STOPPED > COMPLETE > NOT_STARTED
+                         */
+                        /* TODO: Move this to a common place utilities that both
+                         * CLI and glusterd need.
+                         * Till then if the below algorithm is changed, change
+                         * it in cli_xml_output_vol_rebalance_status in
+                         * cli-xml-output.c
+                         */
+                        ret = 0;
+                        int rank[] = {
+                                [GF_DEFRAG_STATUS_STARTED] = 1,
+                                [GF_DEFRAG_STATUS_FAILED] = 2,
+                                [GF_DEFRAG_STATUS_STOPPED] = 3,
+                                [GF_DEFRAG_STATUS_COMPLETE] = 4,
+                                [GF_DEFRAG_STATUS_NOT_STARTED] = 5
+                        };
+                        if (rank[remote_status] <= rank[local_status])
+                                        ret = dict_set_int32 (ctx_dict, key,
+                                                              remote_status);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "update task status");
+                                goto out;
+                        }
+                        break;
+                }
+        }
+
+out:
+        return ret;
+}
+
+gf_boolean_t
+glusterd_status_has_tasks (int cmd) {
+        if (((cmd & GF_CLI_STATUS_MASK) == GF_CLI_STATUS_NONE) &&
+             (cmd & GF_CLI_STATUS_VOL))
+                return _gf_true;
+        return _gf_false;
 }
 
 int
@@ -7499,11 +7691,8 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        if ((cmd & GF_CLI_STATUS_TASKS) != 0) {
-                dict_copy (rsp_dict, aggr);
-                ret = 0;
-                goto out;
-        }
+        if ((cmd & GF_CLI_STATUS_TASKS) != 0)
+                goto aggregate_tasks;
 
         ret = dict_get_int32 (rsp_dict, "count", &rsp_node_count);
         if (ret) {
@@ -7548,9 +7737,22 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
 
         ret = dict_set_int32 (ctx_dict, "other-count",
                               (other_count + rsp_other_count));
-        if (ret)
+        if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "Failed to update other-count");
+                goto out;
+        }
+
+aggregate_tasks:
+        /* Tasks are only present for a normal status command for a volume or
+         * for an explicit tasks status command for a volume
+         */
+        if (!(cmd & GF_CLI_STATUS_ALL) &&
+            (((cmd & GF_CLI_STATUS_TASKS) != 0) ||
+             glusterd_status_has_tasks (cmd)))
+                ret = glusterd_volume_status_aggregate_tasks_status (ctx_dict,
+                                                                     rsp_dict);
+
 out:
         return ret;
 }
