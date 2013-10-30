@@ -13,7 +13,15 @@
 #include "glfs-mem-types.h"
 #include "syncop.h"
 #include "glfs.h"
+#include <limits.h>
 
+#ifdef NAME_MAX
+#define GF_NAME_MAX NAME_MAX
+#else
+#define GF_NAME_MAX 255
+#endif
+
+#define READDIRBUF_SIZE (sizeof(struct dirent) + GF_NAME_MAX + 1)
 
 int
 glfs_loc_link (loc_t *loc, struct iatt *iatt)
@@ -1918,7 +1926,7 @@ gf_dirent_to_dirent (gf_dirent_t *gf_dirent, struct dirent *dirent)
 	dirent->d_namlen = strlen (gf_dirent->d_name);
 #endif
 
-	strncpy (dirent->d_name, gf_dirent->d_name, 256);
+	strncpy (dirent->d_name, gf_dirent->d_name, GF_NAME_MAX + 1);
 }
 
 
@@ -2012,16 +2020,56 @@ glfd_entry_next (struct glfs_fd *glfd, int plus)
 }
 
 
+static struct dirent *
+glfs_readdirbuf_get (struct glfs_fd *glfd)
+{
+        struct dirent *buf = NULL;
+
+        LOCK (&glfd->fd->lock);
+        {
+                buf = glfd->readdirbuf;
+                if (buf) {
+                        memset (buf, 0, READDIRBUF_SIZE);
+                        goto unlock;
+                }
+
+                buf = GF_CALLOC (1, READDIRBUF_SIZE, glfs_mt_readdirbuf_t);
+                if (!buf) {
+                        errno = ENOMEM;
+                        goto unlock;
+                }
+
+                glfd->readdirbuf = buf;
+        }
+unlock:
+        UNLOCK (&glfd->fd->lock);
+
+        return buf;
+}
+
+
 int
-glfs_readdirplus_r (struct glfs_fd *glfd, struct stat *stat, struct dirent *buf,
+glfs_readdirplus_r (struct glfs_fd *glfd, struct stat *stat, struct dirent *ext,
 		    struct dirent **res)
 {
 	int              ret = 0;
 	gf_dirent_t     *entry = NULL;
+	struct dirent   *buf = NULL;
 
 	__glfs_entry_fd (glfd);
 
 	errno = 0;
+
+	if (ext)
+		buf = ext;
+	else
+		buf = glfs_readdirbuf_get (glfd);
+
+	if (!buf) {
+		errno = ENOMEM;
+		return -1;
+	}
+
 	entry = glfd_entry_next (glfd, !!stat);
 	if (errno)
 		ret = -1;
@@ -2047,6 +2095,28 @@ int
 glfs_readdir_r (struct glfs_fd *glfd, struct dirent *buf, struct dirent **res)
 {
 	return glfs_readdirplus_r (glfd, 0, buf, res);
+}
+
+
+struct dirent *
+glfs_readdirplus (struct glfs_fd *glfd, struct stat *stat)
+{
+        struct dirent *res = NULL;
+        int ret = -1;
+
+        ret = glfs_readdirplus_r (glfd, stat, NULL, &res);
+        if (ret)
+                return NULL;
+
+        return res;
+}
+
+
+
+struct dirent *
+glfs_readdir (struct glfs_fd *glfd)
+{
+        return glfs_readdirplus (glfd, NULL);
 }
 
 

@@ -95,6 +95,7 @@ struct glfs_fd {
 	fd_t              *fd; /* Currently guared by @fs->mutex. TODO: per-glfd lock */
 	struct list_head   entries;
 	gf_dirent_t       *next;
+	struct dirent     *readdirbuf;
 };
 
 /* glfs object handle introduced for the alternate gfapi implementation based
