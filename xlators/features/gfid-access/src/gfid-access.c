@@ -508,13 +508,8 @@ ga_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                 return 0;
         }
 
-        /* now, check if the setxattr() is on gfid-path */
-        if (!((loc->parent &&
-               __is_gfid_access_dir (loc->parent->gfid)) ||
-              __is_gfid_access_dir (loc->pargfid))) {
-                goto wind;
-        }
-
+        //If the inode is a virtual inode change the inode otherwise perform
+        //the operation on same inode
         GFID_ACCESS_GET_VALID_DIR_INODE (this, loc, unref, wind);
 
 wind:
