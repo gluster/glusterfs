@@ -24,6 +24,7 @@ enum glfs_mem_types_ {
 	glfs_mt_volfile_t,
 	glfs_mt_xlator_cmdline_option_t,
 	glfs_mt_glfs_object_t,
+	glfs_mt_readdirbuf_t,
 	glfs_mt_end
 
 };

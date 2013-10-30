@@ -468,11 +468,30 @@ int glfs_link (glfs_t *fs, const char *oldpath, const char *newpath);
 
 glfs_fd_t *glfs_opendir (glfs_t *fs, const char *path);
 
+/*
+ * @glfs_readdir_r and @glfs_readdirplus_r ARE thread safe AND re-entrant,
+ * but the interface has ambiguity about the size of @dirent to be allocated
+ * before calling the APIs. 512 byte buffer (for @dirent) is sufficient for
+ * all known systems which are tested againt glusterfs/gfapi, but may be
+ * insufficient in the future.
+ */
+
 int glfs_readdir_r (glfs_fd_t *fd, struct dirent *dirent,
 		    struct dirent **result);
 
 int glfs_readdirplus_r (glfs_fd_t *fd, struct stat *stat, struct dirent *dirent,
 			struct dirent **result);
+
+/*
+ * @glfs_readdir and @glfs_readdirplus are NEITHER thread safe NOR re-entrant
+ * when called on the same directory handle. However they ARE thread safe
+ * AND re-entrant when called on different directory handles (which may be
+ * referring to the same directory too.)
+ */
+
+struct dirent *glfs_readdir (glfs_fd_t *fd);
+
+struct dirent *glfs_readdirplus (glfs_fd_t *fd, struct stat *stat);
 
 long glfs_telldir (glfs_fd_t *fd);
 

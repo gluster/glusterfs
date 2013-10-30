@@ -384,6 +384,9 @@ glfs_fd_destroy (struct glfs_fd *glfd)
 
 	if (glfd->fd)
 		fd_unref (glfd->fd);
+
+	GF_FREE (glfd->readdirbuf);
+
 	GF_FREE (glfd);
 }
 
