@@ -3248,13 +3248,30 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
                     overall_elapsed = elapsed;
                 }
 
+                /* Rebalance has 5 states,
+                 * NOT_STARTED, STARTED, STOPPED, COMPLETE, FAILED
+                 * The precedence used to determine the aggregate status is as
+                 * below,
+                 * STARTED > FAILED > STOPPED > COMPLETE > NOT_STARTED
+                 */
+                /* TODO: Move this to a common place utilities that both CLI and
+                 * glusterd need.
+                 * Till then if the below algorithm is changed, change it in
+                 * glusterd_volume_status_aggregate_tasks_status in
+                 * glusterd-utils.c
+                 */
+
                 if (-1 == overall_status)
                         overall_status = status_rcd;
-                else if ((GF_DEFRAG_STATUS_COMPLETE == overall_status ||
-                          status_rcd > overall_status) &&
-                         (status_rcd != GF_DEFRAG_STATUS_COMPLETE))
+                int rank[] = {
+                        [GF_DEFRAG_STATUS_STARTED] = 1,
+                        [GF_DEFRAG_STATUS_FAILED] = 2,
+                        [GF_DEFRAG_STATUS_STOPPED] = 3,
+                        [GF_DEFRAG_STATUS_COMPLETE] = 4,
+                        [GF_DEFRAG_STATUS_NOT_STARTED] = 5
+                };
+                if (rank[status_rcd] <= rank[overall_status])
                         overall_status = status_rcd;
-                XML_RET_CHECK_AND_GOTO (ret, out);
 
                 /* </node> */
                 ret = xmlTextWriterEndElement (writer);

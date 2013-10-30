@@ -1229,12 +1229,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         glusterd_op_set_op  (op);
         INIT_LIST_HEAD (&conf->xaction_peers);
 
-        /* Make 'volume status tasks' command a local operation.
-         * This is accomplished by setting npeers to 0.
-         */
-        if (!glusterd_is_status_tasks_op (op, op_ctx))
-                npeers = gd_build_peers_list  (&conf->peers,
-                                               &conf->xaction_peers, op);
+        npeers = gd_build_peers_list  (&conf->peers, &conf->xaction_peers, op);
 
         ret = gd_lock_op_phase (&conf->xaction_peers, op, op_ctx, &op_errstr,
                                 npeers);
