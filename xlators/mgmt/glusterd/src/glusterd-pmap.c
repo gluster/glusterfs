@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2010-2012 Red Hat, Inc. <http://www.redhat.com>
+   Copyright (c) 2010-2013 Red Hat, Inc. <http://www.redhat.com>
    This file is part of GlusterFS.
 
    This file is licensed to you under your choice of the GNU Lesser
@@ -52,8 +52,8 @@ pmap_port_isfree (int port)
 }
 
 
-struct pmap_registry *
-pmap_registry_new (void)
+static struct pmap_registry *
+pmap_registry_new (xlator_t *this)
 {
         struct pmap_registry *pmap = NULL;
         int                   i = 0;
@@ -69,8 +69,8 @@ pmap_registry_new (void)
                         pmap->ports[i].type = GF_PMAP_PORT_FOREIGN;
         }
 
-        pmap->base_port = GF_IANA_PRIV_PORTS_START;
-        pmap->last_alloc = GF_IANA_PRIV_PORTS_START;
+        pmap->base_port = pmap->last_alloc =
+                ((glusterd_conf_t *)(this->private))->base_port;
 
         return pmap;
 }
@@ -86,7 +86,7 @@ pmap_registry_get (xlator_t *this)
 
         pmap = priv->pmap;
         if (!pmap) {
-                pmap = pmap_registry_new ();
+                pmap = pmap_registry_new (this);
                 if (!pmap)
                         return NULL;
                 priv->pmap = pmap;
