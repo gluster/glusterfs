@@ -319,6 +319,22 @@ err:
                                 " internal dict key for %s", local->loc.path); \
                 }                                                              \
         }while (0)
+
+#define DHT_MARKER_DONT_ACCOUNT(xattr) do {                             \
+                int tmp = -1;                                                  \
+                if (!xattr) {                                                  \
+                        xattr = dict_new ();                                   \
+                        if (!xattr)                                            \
+                                break;                                         \
+                }                                                              \
+                tmp = dict_set_str (xattr, GLUSTERFS_MARKER_DONT_ACCOUNT_KEY,  \
+                                    "yes");                                    \
+                if (tmp) {                                                     \
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to set"      \
+                                " marker dont account key for %s", local->loc.path); \
+                }                                                              \
+        }while (0)
+
 int
 dht_rename_done (call_frame_t *frame, xlator_t *this)
 {
@@ -416,21 +432,45 @@ dht_rename_cleanup (call_frame_t *frame)
         DHT_MARK_FOP_INTERNAL (xattr);
 
         if (dst_hashed != src_hashed && dst_hashed != src_cached) {
+                dict_t *xattr_new = NULL;
+
                 gf_log (this->name, GF_LOG_TRACE,
                         "unlinking linkfile %s @ %s => %s",
                         local->loc.path, dst_hashed->name, src_cached->name);
+
+                xattr_new = dict_copy_with_ref (xattr, NULL);
+
+
+                DHT_MARKER_DONT_ACCOUNT(xattr_new);
+
                 STACK_WIND (frame, dht_rename_unlink_cbk,
                             dst_hashed, dst_hashed->fops->unlink,
-                            &local->loc, 0, xattr);
+                            &local->loc, 0, xattr_new);
+
+                dict_unref (xattr_new);
+                xattr_new = NULL;
         }
 
         if (src_cached != dst_hashed) {
+                dict_t *xattr_new = NULL;
+
                 gf_log (this->name, GF_LOG_TRACE,
                         "unlinking link %s => %s (%s)", local->loc.path,
                         local->loc2.path, src_cached->name);
+
+                xattr_new = dict_copy_with_ref (xattr, NULL);
+
+                if (uuid_compare (local->loc.pargfid,
+                                  local->loc2.pargfid) == 0) {
+                        DHT_MARKER_DONT_ACCOUNT(xattr_new);
+                }
+
                 STACK_WIND (frame, dht_rename_unlink_cbk,
                             src_cached, src_cached->fops->unlink,
-                            &local->loc2, 0, xattr);
+                            &local->loc2, 0, xattr_new);
+
+                dict_unref (xattr_new);
+                xattr_new = NULL;
         }
 
         if (xattr)
@@ -586,23 +626,44 @@ err:
         DHT_MARK_FOP_INTERNAL (xattr);
 
         if (src_cached != dst_hashed && src_cached != dst_cached) {
+                dict_t *xattr_new = NULL;
+
+                xattr_new = dict_copy_with_ref (xattr, NULL);
+
                 gf_log (this->name, GF_LOG_TRACE,
                         "deleting old src datafile %s @ %s",
                         local->loc.path, src_cached->name);
 
+                if (uuid_compare (local->loc.pargfid,
+                                  local->loc2.pargfid) == 0) {
+                        DHT_MARKER_DONT_ACCOUNT(xattr_new);
+                }
+
                 STACK_WIND (frame, dht_rename_unlink_cbk,
                             src_cached, src_cached->fops->unlink,
-                            &local->loc, 0, xattr);
+                            &local->loc, 0, xattr_new);
+
+                dict_unref (xattr_new);
+                xattr_new = NULL;
         }
 
         if (src_hashed != rename_subvol && src_hashed != src_cached) {
+                dict_t *xattr_new = NULL;
+
+                xattr_new = dict_copy_with_ref (xattr, NULL);
+
                 gf_log (this->name, GF_LOG_TRACE,
                         "deleting old src linkfile %s @ %s",
                         local->loc.path, src_hashed->name);
 
+                DHT_MARKER_DONT_ACCOUNT(xattr_new);
+
                 STACK_WIND (frame, dht_rename_unlink_cbk,
                             src_hashed, src_hashed->fops->unlink,
-                            &local->loc, 0, xattr);
+                            &local->loc, 0, xattr_new);
+
+                dict_unref (xattr_new);
+                xattr_new = NULL;
         }
 
         if (dst_cached
@@ -644,12 +705,13 @@ cleanup:
 int
 dht_do_rename (call_frame_t *frame)
 {
-        dht_local_t *local = NULL;
-        xlator_t    *dst_hashed = NULL;
-        xlator_t    *src_cached = NULL;
-        xlator_t    *dst_cached = NULL;
-        xlator_t    *this = NULL;
+        dht_local_t *local         = NULL;
+        xlator_t    *dst_hashed    = NULL;
+        xlator_t    *src_cached    = NULL;
+        xlator_t    *dst_cached    = NULL;
+        xlator_t    *this          = NULL;
         xlator_t    *rename_subvol = NULL;
+        dict_t      *dict          = NULL;
 
 
         local = frame->local;
@@ -664,6 +726,10 @@ dht_do_rename (call_frame_t *frame)
         else
                 rename_subvol = dst_hashed;
 
+        if ((src_cached != dst_hashed) && (rename_subvol == dst_hashed)) {
+                DHT_MARKER_DONT_ACCOUNT(dict);
+        }
+
         gf_log (this->name, GF_LOG_TRACE,
                 "renaming %s => %s (%s)",
                 local->loc.path, local->loc2.path, rename_subvol->name);
@@ -672,7 +738,7 @@ dht_do_rename (call_frame_t *frame)
                 FRAME_SU_DO (frame, dht_local_t);
         STACK_WIND (frame, dht_rename_cbk,
                     rename_subvol, rename_subvol->fops->rename,
-                    &local->loc, &local->loc2, NULL);
+                    &local->loc, &local->loc2, dict);
 
         return 0;
 }
@@ -782,16 +848,24 @@ dht_rename_create_links (call_frame_t *frame)
         DHT_MARK_FOP_INTERNAL (xattr);
 
         if (src_cached == dst_cached) {
+                dict_t *xattr_new = NULL;
+
                 if (dst_hashed == dst_cached)
                         goto nolinks;
+
+                xattr_new = dict_copy_with_ref (xattr, NULL);
 
 		gf_log (this->name, GF_LOG_TRACE,
 			"unlinking dst linkfile %s @ %s",
 			local->loc2.path, dst_hashed->name);
 
+                DHT_MARKER_DONT_ACCOUNT(xattr_new);
+
 		STACK_WIND (frame, dht_rename_unlink_links_cbk,
 			    dst_hashed, dst_hashed->fops->unlink,
-			    &local->loc2, 0, xattr);
+			    &local->loc2, 0, xattr_new);
+
+                dict_unref (xattr_new);
                 return 0;
         }
 
@@ -813,12 +887,23 @@ dht_rename_create_links (call_frame_t *frame)
 	}
 
 	if (src_cached != dst_hashed) {
+                dict_t *xattr_new = NULL;
+
+                xattr_new = dict_copy_with_ref (xattr, NULL);
+
 		gf_log (this->name, GF_LOG_TRACE,
 			"link %s => %s (%s)", local->loc.path,
 			local->loc2.path, src_cached->name);
+                if (uuid_compare (local->loc.pargfid,
+                                  local->loc2.pargfid) == 0) {
+                        DHT_MARKER_DONT_ACCOUNT(xattr_new);
+                }
+
 		STACK_WIND (frame, dht_rename_links_cbk,
 			    src_cached, src_cached->fops->link,
-			    &local->loc, &local->loc2, xattr);
+			    &local->loc, &local->loc2, xattr_new);
+
+                dict_unref (xattr_new);
 	}
 
 nolinks:

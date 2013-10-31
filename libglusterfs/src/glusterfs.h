@@ -138,6 +138,7 @@
 #define RB_PUMP_CMD_ABORT       "glusterfs.pump.abort"
 #define RB_PUMP_CMD_STATUS      "glusterfs.pump.status"
 
+#define GLUSTERFS_MARKER_DONT_ACCOUNT_KEY "glusters.marker.dont-account"
 #define GLUSTERFS_RDMA_INLINE_THRESHOLD       (2048)
 #define GLUSTERFS_RDMA_MAX_HEADER_SIZE        (228) /* (sizeof (rdma_header_t)                 \
                                                        + RDMA_MAX_SEGMENTS \

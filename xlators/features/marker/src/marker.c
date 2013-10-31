@@ -820,37 +820,6 @@ out:
 
 
 int32_t
-marker_unlink_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, struct iatt *buf,
-                        dict_t *xdata)
-{
-        marker_local_t *local = NULL;
-
-        local = frame->local;
-        if (op_ret < 0) {
-                goto err;
-        }
-
-        if (local == NULL) {
-                op_errno = EINVAL;
-                goto err;
-        }
-
-        local->ia_nlink = buf->ia_nlink;
-
-        STACK_WIND (frame, marker_unlink_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->unlink, &local->loc, local->xflag,
-                    local->xdata);
-        return 0;
-err:
-        frame->local = NULL;
-        STACK_UNWIND_STRICT (unlink, frame, -1, op_errno, NULL, NULL, NULL);
-        marker_local_unref (local);
-        return 0;
-}
-
-
-int32_t
 marker_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
                dict_t *xdata)
 {
@@ -874,17 +843,10 @@ marker_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
         if (ret == -1)
                 goto err;
 
-        if (xdata && dict_get (xdata, GLUSTERFS_INTERNAL_FOP_KEY)) {
+        if (xdata && dict_get (xdata, GLUSTERFS_MARKER_DONT_ACCOUNT_KEY)) {
                 local->skip_txn = 1;
                 goto unlink_wind;
         }
-
-        if (uuid_is_null (loc->gfid) && loc->inode)
-                uuid_copy (loc->gfid, loc->inode->gfid);
-
-        STACK_WIND (frame, marker_unlink_stat_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->stat, loc, xdata);
-        return 0;
 
 unlink_wind:
         STACK_WIND (frame, marker_unlink_cbk, FIRST_CHILD(this),
@@ -960,7 +922,7 @@ marker_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         if (ret == -1)
                 goto err;
 
-        if (xdata && dict_get (xdata, GLUSTERFS_INTERNAL_FOP_KEY))
+        if (xdata && dict_get (xdata, GLUSTERFS_MARKER_DONT_ACCOUNT_KEY))
                 local->skip_txn = 1;
 wind:
         STACK_WIND (frame, marker_link_cbk, FIRST_CHILD(this),
