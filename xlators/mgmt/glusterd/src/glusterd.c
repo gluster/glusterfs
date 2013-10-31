@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2006-2012 Red Hat, Inc. <http://www.redhat.com>
+   Copyright (c) 2006-2013 Red Hat, Inc. <http://www.redhat.com>
    This file is part of GlusterFS.
 
    This file is licensed to you under your choice of the GNU Lesser
@@ -132,12 +132,12 @@ glusterd_uuid_init ()
         GF_ASSERT (this);
         priv = this->private;
 
-	ret = glusterd_retrieve_uuid ();
-	if (ret == 0) {
-		gf_log (this->name, GF_LOG_INFO,
-			"retrieved UUID: %s", uuid_utoa (priv->uuid));
-		return 0;
-	}
+        ret = glusterd_retrieve_uuid ();
+        if (ret == 0) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "retrieved UUID: %s", uuid_utoa (priv->uuid));
+                return 0;
+        }
 
         ret = glusterd_uuid_generate_save ();
 
@@ -1101,7 +1101,7 @@ init (xlator_t *this)
         if ((ret != 0) && (ENOENT != errno)) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "stat fails on %s, exiting. (errno = %d)",
-			workdir, errno);
+                        workdir, errno);
                 exit (1);
         }
 
@@ -1281,6 +1281,12 @@ init (xlator_t *this)
                                        GLUSTERD_TR_LOG_SIZE);
         if (ret)
                 goto out;
+
+         conf->base_port = GF_IANA_PRIV_PORTS_START;
+         if (dict_get_uint32(this->options, "base-port", &conf->base_port) == 0) {
+                 gf_log (this->name, GF_LOG_INFO,
+                         "base-port override: %d", conf->base_port);
+         }
 
         /* Set option to run bricks on valgrind if enabled in glusterd.vol */
         conf->valgrind = _gf_false;
@@ -1494,6 +1500,10 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_PATH,
           .description = "The socket file on which glusterd should listen for "
                         "cli requests. Default is "DEFAULT_GLUSTERD_SOCKFILE "."
+        },
+        { .key = {"base-port"},
+          .type = GF_OPTION_TYPE_INT,
+          .description = "Sets the base port for portmap query"
         },
         { .key   = {NULL} },
 };
