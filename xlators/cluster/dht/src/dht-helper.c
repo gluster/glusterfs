@@ -747,8 +747,10 @@ dht_migration_complete_check_task (void *data)
 
         src_node = local->cached_subvol;
 
-        if (!local->loc.inode && !local->fd)
+        if (!local->loc.inode && !local->fd) {
+                local->op_errno = EINVAL;
                 goto out;
+        }
 
         inode = (!local->fd) ? local->loc.inode : local->fd->inode;
 
@@ -770,19 +772,23 @@ dht_migration_complete_check_task (void *data)
 
         if (ret) {
                 if (!dht_inode_missing(-ret) || (!local->loc.inode)) {
+                        local->op_errno = -ret;
                         gf_log (this->name, GF_LOG_ERROR,
                                 "%s: failed to get the 'linkto' xattr %s",
                                 local->loc.path, strerror (-ret));
                         ret = -1;
                         goto out;
                 }
+
                 /* Need to do lookup on hashed subvol, then get the file */
                 ret = syncop_lookup (this, &local->loc, NULL, &stbuf, NULL,
                                      NULL);
                 if (ret) {
+                        local->op_errno = -ret;
                         ret = -1;
                         goto out;
                 }
+
                 dst_node = dht_subvol_get_cached (this, local->loc.inode);
         }
 
@@ -791,17 +797,20 @@ dht_migration_complete_check_task (void *data)
                         "%s: failed to get the destination node",
                         local->loc.path);
                 ret = -1;
+                local->op_errno = EINVAL;
                 goto out;
         }
 
         /* lookup on dst */
         if (local->loc.inode) {
-                ret = syncop_lookup (dst_node, &local->loc, NULL, &stbuf, NULL, NULL);
+                ret = syncop_lookup (dst_node, &local->loc, NULL, &stbuf, NULL,
+                                     NULL);
 
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "%s: failed to lookup the file on %s",
                                 local->loc.path, dst_node->name);
+                        local->op_errno = -ret;
                         ret = -1;
                         goto out;
                 }
@@ -811,6 +820,7 @@ dht_migration_complete_check_task (void *data)
                                 "%s: gfid different on the target file on %s",
                                 local->loc.path, dst_node->name);
                         ret = -1;
+                        local->op_errno = EIO;
                         goto out;
                 }
         }
@@ -824,6 +834,7 @@ dht_migration_complete_check_task (void *data)
                         "%s: could not set preset layout for subvol %s",
                         local->loc.path, dst_node->name);
                 ret   = -1;
+                local->op_errno = EINVAL;
                 goto out;
         }
 
@@ -833,6 +844,7 @@ dht_migration_complete_check_task (void *data)
                         "%s: no pre-set layout for subvolume %s",
                         local->loc.path, dst_node ? dst_node->name : "<nil>");
                 ret = -1;
+                local->op_errno = EINVAL;
                 goto out;
         }
 
@@ -841,6 +853,7 @@ dht_migration_complete_check_task (void *data)
                 gf_log (this->name, GF_LOG_ERROR,
                         "%s: failed to set the new layout",
                         local->loc.path);
+                local->op_errno = EINVAL;
                 goto out;
         }
 
@@ -877,13 +890,15 @@ dht_migration_complete_check_task (void *data)
                         gf_log (this->name, GF_LOG_ERROR, "failed to open "
                                 "the fd (%p, flags=0%o) on file %s @ %s",
                                 iter_fd, iter_fd->flags, path, dst_node->name);
-                        ret = -1;
                         open_failed = 1;
+                        local->op_errno = -ret;
+                        ret = -1;
                 }
         }
         GF_FREE (path);
 
         SYNCTASK_SETID (frame->root->uid, frame->root->gid);
+
         if (open_failed) {
                 ret = -1;
                 goto out;
