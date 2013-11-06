@@ -1364,7 +1364,6 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
         glusterd_volinfo_t *volinfo     = NULL;
         char               *errstr      = NULL;
         int32_t             brick_count = 0;
-        int32_t             replica_cnt = 0;
         char                msg[2048]   = {0,};
         int32_t             flag        = 0;
         gf1_op_commands     cmd         = GF_OP_CMD_NONE;
@@ -1421,10 +1420,10 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
         case GF_OP_CMD_START:
         {
                 if ((volinfo->type == GF_CLUSTER_TYPE_REPLICATE) &&
-                    !dict_get_int32 (dict, "replica-count", &replica_cnt)) {
-                        snprintf (msg, sizeof(msg), "Rebalancing not needed "
-                                  "when reducing replica count. Try without "
-                                  "the 'start' option");
+                    dict_get (dict, "replica-count")) {
+                        snprintf (msg, sizeof(msg), "Migration of data is not "
+                                  "needed when reducing replica count. Use the"
+                                  " 'force' option");
                         errstr = gf_strdup (msg);
                         gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
                         goto out;
