@@ -1383,16 +1383,20 @@ out:
 int
 glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
 {
-        int                 ret         = -1;
-        char               *volname     = NULL;
-        glusterd_volinfo_t *volinfo     = NULL;
-        char               *errstr      = NULL;
-        int32_t             brick_count = 0;
-        char                msg[2048]   = {0,};
-        int32_t             flag        = 0;
-        gf1_op_commands     cmd         = GF_OP_CMD_NONE;
-        char               *task_id_str = NULL;
-        xlator_t           *this        = NULL;
+        int                     ret         = -1;
+        char                   *volname     = NULL;
+        glusterd_volinfo_t     *volinfo     = NULL;
+        char                   *errstr      = NULL;
+        int32_t                 brick_count = 0;
+        char                    msg[2048]   = {0,};
+        int32_t                 flag        = 0;
+        gf1_op_commands         cmd         = GF_OP_CMD_NONE;
+        char                   *task_id_str = NULL;
+        xlator_t               *this        = NULL;
+        int                     i           = 1;
+        char                    key[256]    = {0,};
+        char                   *brick       = NULL;
+        glusterd_brickinfo_t   *brickinfo   = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1426,10 +1430,25 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
 
         ret = dict_get_int32 (dict, "command", &flag);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get brick count");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to get brick command");
                 goto out;
         }
         cmd = flag;
+
+        ret = dict_get_int32 (dict, "count", &brick_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get brick count");
+                goto out;
+        }
+
+        ret = 0;
+        if (volinfo->brick_count == brick_count) {
+                errstr = gf_strdup ("Deleting all the bricks of the "
+                                    "volume is not allowed");
+                ret = -1;
+                goto out;
+        }
 
         ret = -1;
         switch (cmd) {
@@ -1510,25 +1529,44 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                                             "is in progress");
                         goto out;
                 }
+
+                /* Do not allow commit if the bricks are not decommissioned */
+                for ( i = 1; i <= brick_count; i++ ) {
+                        snprintf (key, sizeof (key), "brick%d", i);
+                        ret = dict_get_str (dict, key, &brick);
+                        if (ret) {
+                                snprintf (msg, sizeof (msg),
+                                          "Unable to get %s", key);
+                                errstr = gf_strdup (msg);
+                                goto out;
+                        }
+
+                        ret =
+                        glusterd_volume_brickinfo_get_by_brick(brick, volinfo,
+                                                               &brickinfo);
+                        if (ret) {
+                                snprintf (msg, sizeof (msg), "Incorrect brick "
+                                          "%s for volume %s", brick, volname);
+                                errstr = gf_strdup (msg);
+                                goto out;
+                        }
+                        if ( !brickinfo->decommissioned ) {
+                                snprintf (msg, sizeof (msg), "Brick %s "
+                                          "is not decommissioned. "
+                                          "Use start or force option",
+                                          brick);
+                                errstr = gf_strdup (msg);
+                                ret = -1;
+                                goto out;
+                        }
+                }
+
                 break;
 
         case GF_OP_CMD_COMMIT_FORCE:
                 break;
         }
-
-        ret = dict_get_int32 (dict, "count", &brick_count);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get brick count");
-                goto out;
-        }
-
         ret = 0;
-        if (volinfo->brick_count == brick_count) {
-                errstr = gf_strdup ("Deleting all the bricks of the "
-                                    "volume is not allowed");
-                ret = -1;
-                goto out;
-        }
 
 out:
         gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
