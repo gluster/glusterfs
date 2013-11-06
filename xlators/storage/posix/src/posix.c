@@ -2760,8 +2760,9 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
 		if (ret < 0) {
 			op_ret = -1;
 			op_errno = -ret;
-			gf_log (this->name, GF_LOG_WARNING,
-				"Failed to get rea filename (%s, %s): %s",
+			gf_log (this->name, (op_errno == ENOENT) ?
+                                GF_LOG_DEBUG : GF_LOG_WARNING,
+				"Failed to get real filename (%s, %s): %s",
 				loc->path, name, strerror (op_errno));
 			goto out;
 		}
