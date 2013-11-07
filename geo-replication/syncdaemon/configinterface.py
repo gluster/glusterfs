@@ -82,6 +82,7 @@ class GConffile(object):
             if sys.exc_info()[1].errno == errno.ENOENT:
                 sres = None
 
+        self.config = ConfigParser.RawConfigParser()
         self.config.read(self.path)
         self._normconfig()
 
