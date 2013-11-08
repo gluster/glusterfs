@@ -1411,10 +1411,18 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 
 done:
-        if (rsp.op_ret)
-                cli_err ("volume rebalance: %s: failed: %s", volname, msg);
-        else
-                cli_out ("volume rebalance: %s: success: %s", volname, msg);
+        if (global_state->mode & GLUSTER_MODE_XML)
+                cli_xml_output_str ("volRebalance", msg,
+                                    rsp.op_ret, rsp.op_errno,
+                                    rsp.op_errstr);
+        else {
+                if (rsp.op_ret)
+                        cli_err ("volume rebalance: %s: failed: %s", volname,
+                                 msg);
+                else
+                        cli_out ("volume rebalance: %s: success: %s", volname,
+                                 msg);
+        }
         ret = rsp.op_ret;
 
 out:
