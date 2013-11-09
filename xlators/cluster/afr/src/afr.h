@@ -710,6 +710,14 @@ typedef struct _afr_local {
 			size_t len;
 		} discard;
 
+                struct {
+                        off_t offset;
+                        size_t len;
+                        struct iatt prebuf;
+                        struct iatt postbuf;
+                } zerofill;
+
+
         } cont;
 
         struct {

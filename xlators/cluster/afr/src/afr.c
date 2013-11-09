@@ -499,6 +499,7 @@ struct xlator_fops fops = {
         .fentrylk    = afr_fentrylk,
 	.fallocate   = afr_fallocate,
 	.discard     = afr_discard,
+        .zerofill    = afr_zerofill,
 
         /* inode read */
         .access      = afr_access,

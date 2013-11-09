@@ -255,6 +255,13 @@ int32_t default_discard(call_frame_t *frame,
 			off_t offset,
 			size_t len, dict_t *xdata);
 
+int32_t default_zerofill(call_frame_t *frame,
+                        xlator_t *this,
+                        fd_t *fd,
+                        off_t offset,
+                        size_t len, dict_t *xdata);
+
+
 /* Resume */
 int32_t default_getspec_resume (call_frame_t *frame,
                                 xlator_t *this,
@@ -477,6 +484,13 @@ int32_t default_discard_resume(call_frame_t *frame,
 			       off_t offset,
 			       size_t len, dict_t *xdata);
 
+int32_t default_zerofill_resume(call_frame_t *frame,
+                               xlator_t *this,
+                               fd_t *fd,
+                               off_t offset,
+                               size_t len, dict_t *xdata);
+
+
 /* _cbk */
 
 int32_t
@@ -694,6 +708,10 @@ int32_t default_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t default_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 			    int32_t op_ret, int32_t op_errno, struct iatt *pre,
 			    struct iatt *post, dict_t *xdata);
+
+int32_t default_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                            int32_t op_ret, int32_t op_errno, struct iatt *pre,
+                            struct iatt *post, dict_t *xdata);
 
 int32_t
 default_getspec_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
