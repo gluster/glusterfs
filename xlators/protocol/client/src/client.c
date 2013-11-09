@@ -2031,6 +2031,42 @@ out:
 }
 
 int32_t
+client_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+               size_t len, dict_t *xdata)
+{
+        int          ret              = -1;
+        clnt_conf_t *conf             = NULL;
+        rpc_clnt_procedure_t *proc    = NULL;
+        clnt_args_t  args             = {0,};
+
+        conf = this->private;
+        if (!conf || !conf->fops)
+                goto out;
+
+        args.fd = fd;
+        args.offset = offset;
+        args.size = len;
+        args.xdata = xdata;
+
+        proc = &conf->fops->proctable[GF_FOP_ZEROFILL];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_ZEROFILL]);
+                goto out;
+        }
+        if (proc->fn)
+                ret = proc->fn (frame, this, &args);
+out:
+        if (ret)
+                STACK_UNWIND_STRICT(zerofill, frame, -1, ENOTCONN,
+                                    NULL, NULL, NULL);
+
+        return 0;
+}
+
+
+int32_t
 client_getspec (call_frame_t *frame, xlator_t *this, const char *key,
                 int32_t flags)
 {
@@ -2749,6 +2785,7 @@ struct xlator_fops fops = {
         .fsetattr    = client_fsetattr,
 	.fallocate   = client_fallocate,
 	.discard     = client_discard,
+        .zerofill    = client_zerofill,
         .getspec     = client_getspec,
 };
 

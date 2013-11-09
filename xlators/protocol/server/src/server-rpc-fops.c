@@ -1993,6 +1993,46 @@ out:
         return 0;
 }
 
+int
+server_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno,
+                   struct iatt *statpre, struct iatt *statpost, dict_t *xdata)
+{
+        gfs3_zerofill_rsp  rsp    = {0,};
+        server_state_t    *state  = NULL;
+        rpcsvc_request_t  *req    = NULL;
+
+        req = frame->local;
+        state  = CALL_STATE (frame);
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "%"PRId64": ZEROFILL%"PRId64" (%s) ==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
+                        uuid_utoa (state->resolve.gfid),
+                        strerror (op_errno));
+                goto out;
+        }
+
+        gf_stat_from_iatt (&rsp.statpre, statpre);
+        gf_stat_from_iatt (&rsp.statpost, statpost);
+
+out:
+        rsp.op_ret    = op_ret;
+        rsp.op_errno  = gf_errno_to_error (op_errno);
+
+        server_submit_reply(frame, req, &rsp, NULL, 0, NULL,
+                            (xdrproc_t) xdr_gfs3_zerofill_rsp);
+
+        GF_FREE (rsp.xdata.xdata_val);
+
+        return 0;
+}
+
+
 /* Resume function section */
 
 int
@@ -3019,6 +3059,28 @@ err:
         return 0;
 }
 
+int
+server_zerofill_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+        STACK_WIND (frame, server_zerofill_cbk,
+                    bound_xl, bound_xl->fops->zerofill,
+                    state->fd, state->offset, state->size, state->xdata);
+        return 0;
+err:
+        server_zerofill_cbk(frame, NULL, frame->this, state->resolve.op_ret,
+                           state->resolve.op_errno, NULL, NULL, NULL);
+
+        return 0;
+}
+
+
 
 /* Fop section */
 
@@ -3320,6 +3382,65 @@ out:
         return ret;
 }
 
+
+int
+server3_3_zerofill(rpcsvc_request_t *req)
+{
+        server_state_t       *state      = NULL;
+        call_frame_t         *frame      = NULL;
+        gfs3_zerofill_req     args       = {{0},};
+        int                   ret        = -1;
+        int                   op_errno   = 0;
+
+        if (!req)
+                return ret;
+
+        ret = xdr_to_generic (req->msg[0], &args,
+                              (xdrproc_t)xdr_gfs3_zerofill_req);
+        if (ret < 0) {
+                /*failed to decode msg*/;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        frame = get_frame_from_request (req);
+        if (!frame) {
+                /* something wrong, mostly insufficient memory*/
+                req->rpc_err = GARBAGE_ARGS; /* TODO */
+                goto out;
+        }
+        frame->root->op = GF_FOP_ZEROFILL;
+
+        state = CALL_STATE (frame);
+        if (!frame->root->client->bound_xl) {
+                /* auth failure, request on subvolume without setvolume */
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        state->resolve.type   = RESOLVE_MUST;
+        state->resolve.fd_no  = args.fd;
+
+        state->offset = args.offset;
+        state->size = args.size;
+        memcpy(state->resolve.gfid, args.gfid, 16);
+
+        GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl, state->xdata,
+                                      (args.xdata.xdata_val),
+                                      (args.xdata.xdata_len), ret,
+                                      op_errno, out);
+
+        ret = 0;
+        resolve_and_resume (frame, server_zerofill_resume);
+
+out:
+        free (args.xdata.xdata_val);
+
+        if (op_errno)
+                req->rpc_err = GARBAGE_ARGS;
+
+        return ret;
+}
 
 int
 server3_3_readlink (rpcsvc_request_t *req)
@@ -6040,6 +6161,7 @@ rpcsvc_actor_t glusterfs3_3_fop_actors[] = {
         [GFS3_OP_FREMOVEXATTR] = {"FREMOVEXATTR", GFS3_OP_FREMOVEXATTR, server3_3_fremovexattr, NULL, 0, DRC_NA},
         [GFS3_OP_FALLOCATE]    = {"FALLOCATE",    GFS3_OP_FALLOCATE,    server3_3_fallocate,    NULL, 0, DRC_NA},
         [GFS3_OP_DISCARD]      = {"DISCARD",      GFS3_OP_DISCARD,      server3_3_discard,      NULL, 0, DRC_NA},
+        [GFS3_OP_ZEROFILL]    =  {"ZEROFILL",     GFS3_OP_ZEROFILL,     server3_3_zerofill,     NULL, 0, DRC_NA},
 };
 
 

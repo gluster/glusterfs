@@ -591,6 +591,9 @@ glfs_io_async_task (void *data)
 	case GF_FOP_DISCARD:
 		ret = glfs_discard (gio->glfd, gio->offset, gio->count);
 		break;
+        case GF_FOP_ZEROFILL:
+                ret = glfs_zerofill(gio->glfd, gio->offset, gio->count);
+                break;
 	}
 
 	return (int) ret;
@@ -1865,6 +1868,38 @@ glfs_discard_async (struct glfs_fd *glfd, off_t offset, size_t len,
 	return ret;
 }
 
+int
+glfs_zerofill_async (struct glfs_fd *glfd, off_t offset, size_t len,
+                      glfs_io_cbk fn, void *data)
+{
+        struct glfs_io *gio  = NULL;
+        int             ret  = 0;
+
+        gio = GF_CALLOC (1, sizeof (*gio), glfs_mt_glfs_io_t);
+        if (!gio) {
+                errno = ENOMEM;
+                return -1;
+        }
+
+        gio->op     = GF_FOP_ZEROFILL;
+        gio->glfd   = glfd;
+        gio->offset = offset;
+        gio->count  = len;
+        gio->fn     = fn;
+        gio->data   = data;
+
+        ret = synctask_new (glfs_from_glfd (glfd)->ctx->env,
+                            glfs_io_async_task, glfs_io_async_cbk,
+                            NULL, gio);
+
+        if (ret) {
+                GF_FREE (gio->iov);
+                GF_FREE (gio);
+        }
+
+        return ret;
+}
+
 
 void
 gf_dirent_to_dirent (gf_dirent_t *gf_dirent, struct dirent *dirent)
@@ -2821,6 +2856,36 @@ out:
 	return ret;
 }
 
+int
+glfs_zerofill (struct glfs_fd *glfd, off_t offset, size_t len)
+{
+        int               ret             = -1;
+        xlator_t         *subvol          = NULL;
+        fd_t             *fd              = NULL;
+
+        __glfs_entry_fd (glfd);
+
+        subvol = glfs_active_subvol (glfd->fs);
+        if (!subvol) {
+                errno = EIO;
+                goto out;
+        }
+
+        fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+        if (!fd) {
+                errno = EBADFD;
+                goto out;
+        }
+
+        ret = syncop_zerofill (subvol, fd, offset, len);
+out:
+        if (fd)
+                fd_unref(fd);
+
+        glfs_subvol_done (glfd->fs, subvol);
+
+        return ret;
+}
 
 int
 glfs_chdir (struct glfs *fs, const char *path)

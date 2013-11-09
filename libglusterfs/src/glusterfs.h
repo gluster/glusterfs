@@ -212,6 +212,7 @@ typedef enum {
         GF_FOP_FREMOVEXATTR,
 	GF_FOP_FALLOCATE,
 	GF_FOP_DISCARD,
+        GF_FOP_ZEROFILL,
         GF_FOP_MAXVALUE,
 } glusterfs_fop_t;
 
