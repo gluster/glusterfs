@@ -60,9 +60,9 @@ void timespec_now (struct timespec *ts)
                           ts->tv_sec, ts->tv_nsec);
 }
 
-void timespec_adjust_delta (struct timespec ts, struct timespec delta)
+void timespec_adjust_delta (struct timespec *ts, struct timespec delta)
 {
-        ts.tv_nsec = ((ts.tv_nsec + delta.tv_nsec) % 1000000000);
-        ts.tv_sec += ((ts.tv_nsec + delta.tv_nsec) / 1000000000);
-        ts.tv_sec += delta.tv_sec;
+        ts->tv_nsec = ((ts->tv_nsec + delta.tv_nsec) % 1000000000);
+        ts->tv_sec += ((ts->tv_nsec + delta.tv_nsec) / 1000000000);
+        ts->tv_sec += delta.tv_sec;
 }
