@@ -48,7 +48,7 @@ gf_timer_call_after (glusterfs_ctx_t *ctx,
                 return NULL;
         }
         timespec_now (&event->at);
-        timespec_adjust_delta (event->at, delta);
+        timespec_adjust_delta (&event->at, delta);
         at = TS (event->at);
         event->callbk = callbk;
         event->data = data;

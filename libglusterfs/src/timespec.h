@@ -19,6 +19,6 @@
 
 void tv2ts (struct timeval tv, struct timespec *ts);
 void timespec_now (struct timespec *ts);
-void timespec_adjust_delta (struct timespec ts, struct timespec delta);
+void timespec_adjust_delta (struct timespec *ts, struct timespec delta);
 
 #endif /*  __INCLUDE_TIMESPEC_H__ */
