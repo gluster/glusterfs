@@ -285,7 +285,7 @@ gf_cli_output_pool_list (dict_t *dict, int count)
                 else
                         connected_str = "Disconnected";
 
-                cli_out ("%s\t%s\t%s ", uuid_buf, hostname_buf,
+                cli_out ("%s\t%-8s\t%s ", uuid_buf, hostname_buf,
                          connected_str);
                 i++;
         }
