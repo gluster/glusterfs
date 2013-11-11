@@ -651,7 +651,8 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 state = CALL_STATE (frame);
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, (op_errno == ENOENT)?
+                        GF_LOG_DEBUG:GF_LOG_ERROR,
                         "%"PRId64": OPENDIR %s (%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.gfid), strerror (op_errno));
@@ -1508,7 +1509,8 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 state = CALL_STATE (frame);
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, (op_errno == ENOENT)?
+                        GF_LOG_DEBUG:GF_LOG_ERROR,
                         "%"PRId64": OPEN %s (%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.gfid),
@@ -1683,7 +1685,8 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret) {
                 state  = CALL_STATE (frame);
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, (op_errno == ENOENT)?
+                        GF_LOG_DEBUG:GF_LOG_ERROR,
                         "%"PRId64": STAT %s (%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.gfid),
