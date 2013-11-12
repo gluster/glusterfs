@@ -237,7 +237,8 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 if ((op_errno != ENOSYS) && (op_errno != EAGAIN)) {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_log (this->name, (op_errno == ENOENT)?
+                                GF_LOG_DEBUG:GF_LOG_ERROR,
                                 "%"PRId64": INODELK %s (%s) ==> (%s)",
                                 frame->root->unique, state->loc.path,
                                 uuid_utoa (state->resolve.gfid),
@@ -1310,10 +1311,11 @@ server_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 state = CALL_STATE (frame);
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, (op_errno == ENOENT)?
+                        GF_LOG_DEBUG:GF_LOG_ERROR,
                         "%"PRId64": FLUSH %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                         uuid_utoa (state->resolve.gfid), strerror (op_errno));
+                        uuid_utoa (state->resolve.gfid), strerror (op_errno));
                 goto out;
         }
 
