@@ -14,7 +14,7 @@ mkdir -p $B0;
 mkdir -p $M0 $M1;
 mkdir -p $N0 $N1;
 
-testcnt=`egrep '^[[:space:]]*(EXPECT|TEST|EXPECT_WITHIN|EXPECT_KEYWORD)[[:space:]]' $0 | wc -l`
+testcnt=`egrep '^[[:space:]]*(EXPECT|EXPECT_NOT|TEST|EXPECT_WITHIN|EXPECT_KEYWORD)[[:space:]]' $0 | wc -l`
 expect_tests=`egrep '^[[:space:]]*TESTS_EXPECTED_IN_LOOP[[:space:]]*' $0`
 
 x_ifs=$IFS
@@ -71,6 +71,7 @@ function test_expect_footer()
                 err="Got \"$a\" instead of \"$e\""
         fi
         [[ "x${e}" == "x${a}" ]];
+
         test_footer "$err";
 }
 
@@ -87,6 +88,35 @@ function _EXPECT()
 	a=$("$@" | tail -1)
 
 	test_expect_footer "$e" "$a";
+}
+
+function test_expect_not_footer()
+{
+        local e=$1
+        local a=$2
+        local err=""
+
+        if [ "x${e}" == "x${a}" ]; then
+                err="Got \"$a\" when not expecting it"
+        fi
+
+        [[ "x${e}" != "x${a}" ]];
+        test_footer "$err";
+}
+
+function _EXPECT_NOT()
+{
+	TESTLINE=$1;
+	shift;
+        local a=""
+
+	test_header "$@";
+
+	e="$1";
+	shift;
+	a=$("$@" | tail -1)
+
+	test_expect_not_footer "$e" "$a";
 }
 
 function _EXPECT_KEYWORD()
@@ -238,6 +268,7 @@ function process_leak_count ()
 }
 
 alias EXPECT='_EXPECT $LINENO'
+alias EXPECT_NOT='_EXPECT_NOT $LINENO'
 alias TEST='_TEST $LINENO'
 alias EXPECT_WITHIN='_EXPECT_WITHIN $LINENO'
 alias EXPECT_KEYWORD='_EXPECT_KEYWORD $LINENO'
