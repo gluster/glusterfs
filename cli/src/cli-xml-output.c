@@ -3122,6 +3122,16 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
 
         while (i < count) {
                 i++;
+                /* Getting status early, to skip nodes that don't have the
+                 * rebalance process started
+                 */
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "status-%d", i);
+                ret = dict_get_int32 (dict, key, &status_rcd);
+                if (ret)
+                        goto out;
+                if (GF_DEFRAG_STATUS_NOT_STARTED == status_rcd)
+                        continue;
 
                 /* <node> */
                 ret = xmlTextWriterStartElement (writer, (xmlChar *)"node");
@@ -3211,11 +3221,6 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%"PRIu64, skipped);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "status-%d", i);
-                ret = dict_get_int32 (dict, key, &status_rcd);
-                if (ret)
-                        goto out;
                 ret = xmlTextWriterWriteFormatElement (writer,
                                                        (xmlChar *)"status",
                                                        "%d", status_rcd);
