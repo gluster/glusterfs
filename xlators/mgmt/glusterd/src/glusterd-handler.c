@@ -335,7 +335,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         char                    *volume_id_str  = NULL;
         struct args_pack        pack = {0,};
         xlator_t                *this = NULL;
-
+        int                     caps = 0;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (volumes);
@@ -401,6 +401,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
 
 #ifdef HAVE_BD_XLATOR
         if (volinfo->caps) {
+                caps = 0;
                 snprintf (key, 256, "volume%d.xlator0", count);
                 buf = GF_MALLOC (256, gf_common_mt_char);
                 if (!buf) {
@@ -416,7 +417,8 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                 }
 
                 if (volinfo->caps & CAPS_THIN) {
-                        snprintf (key, 256, "volume%d.xlator0.caps0", count);
+                        snprintf (key, 256, "volume%d.xlator0.caps%d", count,
+                                  caps++);
                         buf = GF_MALLOC (256, gf_common_mt_char);
                         if (!buf) {
                                 ret = ENOMEM;
@@ -429,6 +431,39 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                                 goto out;
                         }
                 }
+
+                if (volinfo->caps & CAPS_OFFLOAD_COPY) {
+                        snprintf (key, 256, "volume%d.xlator0.caps%d", count,
+                                  caps++);
+                        buf = GF_MALLOC (256, gf_common_mt_char);
+                        if (!buf) {
+                                ret = ENOMEM;
+                                goto out;
+                        }
+                        snprintf (buf, 256, "offload_copy");
+                        ret = dict_set_dynstr (volumes, key, buf);
+                        if (ret) {
+                                GF_FREE (buf);
+                                goto out;
+                        }
+                }
+
+                if (volinfo->caps & CAPS_OFFLOAD_SNAPSHOT) {
+                        snprintf (key, 256, "volume%d.xlator0.caps%d", count,
+                                  caps++);
+                        buf = GF_MALLOC (256, gf_common_mt_char);
+                        if (!buf) {
+                                ret = ENOMEM;
+                                goto out;
+                        }
+                        snprintf (buf, 256, "offload_snapshot");
+                        ret = dict_set_dynstr (volumes, key, buf);
+                        if (ret)  {
+                                GF_FREE (buf);
+                                goto out;
+                        }
+                }
+
         }
 #endif
 

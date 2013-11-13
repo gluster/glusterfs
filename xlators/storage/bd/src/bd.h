@@ -40,6 +40,7 @@
 
 #define LVM_RESIZE "/sbin/lvresize"
 #define LVM_CREATE "/sbin/lvcreate"
+#define LVM_CONVERT "/sbin/lvconvert"
 
 #define VOL_TYPE "volume.type"
 #define VOL_CAPS "volume.caps"
@@ -48,6 +49,20 @@
 
 #define BD_CAPS_BD               0x01
 #define BD_CAPS_THIN             0x02
+#define BD_CAPS_OFFLOAD_COPY     0x04
+#define BD_CAPS_OFFLOAD_SNAPSHOT 0x08
+
+#define BD_CLONE "clone"
+#define BD_SNAPSHOT "snapshot"
+#define BD_MERGE "merge"
+#define BD_ORIGIN "list-origin"
+
+#define IOV_NR    4
+#define IOV_SIZE (64 * 1024)
+
+#define ALIGN_SIZE 4096
+
+#define LINKTO "trusted.glusterfs.dht.linkto"
 
 #define BD_VALIDATE_MEM_ALLOC(buff, op_errno, label)                \
         if (!buff) {                                                \
@@ -115,6 +130,13 @@ typedef struct {
         char        *type;
 } bd_attr_t;
 
+typedef enum {
+        BD_OF_NONE,
+        BD_OF_CLONE,
+        BD_OF_SNAPSHOT,
+        BD_OF_MERGE,
+} bd_offload_t;
+
 typedef struct {
         dict_t      *dict;
         bd_attr_t   *bdatt;
@@ -122,6 +144,9 @@ typedef struct {
         loc_t        loc;
         fd_t        *fd;
         data_t      *data; /* for setxattr */
+        bd_offload_t offload;
+        uint64_t     size;
+        loc_t       *dloc;
 } bd_local_t;
 
 /* Prototypes */
@@ -145,4 +170,9 @@ int bd_clone (bd_local_t *local, bd_priv_t *priv);
 int bd_merge (bd_priv_t *priv, uuid_t gfid);
 int bd_get_origin (bd_priv_t *priv, loc_t *loc, fd_t *fd, dict_t *dict);
 inline void bd_update_amtime(struct iatt *iatt, int flag);
+int bd_snapshot_create (bd_local_t *local, bd_priv_t *priv);
+int bd_clone (bd_local_t *local, bd_priv_t *priv);
+int bd_merge (bd_priv_t *priv, uuid_t gfid);
+int bd_get_origin (bd_priv_t *priv, loc_t *loc, fd_t *fd, dict_t *dict);
+
 #endif
