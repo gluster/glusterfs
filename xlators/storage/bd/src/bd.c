@@ -26,8 +26,12 @@
 #include <time.h>
 #include <linux/fs.h>
 #include <sys/ioctl.h>
+#ifdef HAVE_LIBAIO
+#include <libaio.h>
+#endif
 
 #include "bd.h"
+#include "bd-aio.h"
 #include "defaults.h"
 #include "glusterfs3-xdr.h"
 #include "run.h"
@@ -440,22 +444,6 @@ out:
         return 0;
 }
 
-static inline void
-bd_update_amtime (struct iatt *iatt, int flag)
-{
-        struct timespec ts         = {0, };
-
-        clock_gettime (CLOCK_REALTIME, &ts);
-        if (flag & GF_SET_ATTR_ATIME) {
-                iatt->ia_atime = ts.tv_sec;
-                iatt->ia_atime_nsec = ts.tv_nsec;
-        }
-        if (flag & GF_SET_ATTR_MTIME) {
-                iatt->ia_mtime = ts.tv_sec;
-                iatt->ia_mtime_nsec = ts.tv_nsec;
-        }
-}
-
 /*
  * bd_readv: If posix file, invokes posix_readv otherwise reads from the BD
  * file
@@ -680,6 +668,7 @@ bd_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         bd_fd->fd = _fd;
         bd_fd->flag = flags | O_LARGEFILE;
+
         if (fd_ctx_set (fd, this, (uint64_t)(long)bd_fd) < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "failed to set the fd context fd=%p", fd);
@@ -1918,6 +1907,25 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
+int
+reconfigure (xlator_t *this, dict_t *options)
+{
+        int   ret = -1;
+        bd_priv_t *priv = this->private;
+
+        GF_OPTION_RECONF ("bd-aio", priv->aio_configured, options,
+                          bool, out);
+
+        if (priv->aio_configured)
+                bd_aio_on (this);
+        else
+                bd_aio_off (this);
+
+        ret = 0;
+out:
+        return ret;
+}
+
 /**
  * bd xlator init - Validate configured VG
  */
@@ -1975,6 +1983,19 @@ init (xlator_t *this)
         _private->caps = BD_CAPS_BD;
         if (bd_scan_vg (this, _private))
                 goto error;
+
+        _private->aio_init_done = _gf_false;
+        _private->aio_capable = _gf_false;
+
+        GF_OPTION_INIT ("bd-aio", _private->aio_configured, bool, error);
+        if (_private->aio_configured) {
+                if (bd_aio_on (this)) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "BD AIO init failed");
+                        ret = -1;
+                        goto error;
+                }
+        }
 
         return 0;
 error:
@@ -2043,5 +2064,12 @@ struct volume_options options[] = {
         { .key = {"device"},
           .type = GF_OPTION_TYPE_STR,
           .default_value = BACKEND_VG},
+        {
+          .key  = {"bd-aio"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "Support for native Linux AIO"
+        },
+
         { .key = {NULL} }
 };

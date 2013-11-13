@@ -23,6 +23,10 @@
 #include "config.h"
 #endif
 
+#ifdef HAVE_LIBAIO
+#include <libaio.h>
+#endif
+
 #include "xlator.h"
 #include "mem-types.h"
 
@@ -83,6 +87,7 @@ enum gf_bd_mem_types_ {
 typedef struct bd_fd {
         int             fd;
         int32_t         flag;
+        int             odirect;
 } bd_fd_t;
 
 typedef struct bd_priv {
@@ -90,6 +95,13 @@ typedef struct bd_priv {
         char              *vg;
         char              *pool;
         int                caps;
+        gf_boolean_t       aio_init_done;
+        gf_boolean_t       aio_capable;
+        gf_boolean_t       aio_configured;
+#ifdef HAVE_LIBAIO
+        io_context_t       ctxp;
+        pthread_t          aiothread;
+#endif
 } bd_priv_t;
 
 
@@ -112,11 +124,6 @@ typedef struct {
         data_t      *data; /* for setxattr */
 } bd_local_t;
 
-typedef struct {
-        char            *lv;
-        struct list_head list;
-} bd_del_entry;
-
 /* Prototypes */
 int bd_inode_ctx_set (inode_t *inode, xlator_t *this, bd_attr_t *ctx);
 int bd_inode_ctx_get (inode_t *inode, xlator_t *this, bd_attr_t **ctx);
@@ -137,4 +144,5 @@ int bd_clone (bd_local_t *local, bd_priv_t *priv);
 
 int bd_merge (bd_priv_t *priv, uuid_t gfid);
 int bd_get_origin (bd_priv_t *priv, loc_t *loc, fd_t *fd, dict_t *dict);
+inline void bd_update_amtime(struct iatt *iatt, int flag);
 #endif
