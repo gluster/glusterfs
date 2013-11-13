@@ -268,13 +268,6 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-        if (volinfo->backend == GD_VOL_BK_BD) {
-                snprintf (msg, sizeof (msg), "replace brick not supported "
-                       "for Block backend volume");
-                *op_errstr = gf_strdup (msg);
-                goto out;
-        }
-
         if (GLUSTERD_STATUS_STARTED != volinfo->status) {
                 ret = -1;
                 snprintf (msg, sizeof (msg), "volume: %s is not started",

@@ -119,7 +119,4 @@ gf_answer_t
 cli_cmd_get_confirmation (struct cli_state *state, const char *question);
 int cli_cmd_sent_status_get (int *status);
 
-#ifdef HAVE_BD_XLATOR
-int cli_cmd_bd_register (struct cli_state *state);
-#endif
 #endif /* __CLI_CMD_H__ */
