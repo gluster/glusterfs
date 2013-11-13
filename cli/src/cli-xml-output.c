@@ -2497,7 +2497,8 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
         char                    key[1024] = {0,};
         int                     i = 0;
         int                     j = 1;
-
+        char                    *caps = NULL;
+        int                     k __attribute__((unused)) = 0;
 
         ret = dict_get_int32 (dict, "count", &count);
         if (ret)
@@ -2612,6 +2613,62 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                                        (xmlChar *)"transport",
                                                        "%d", transport);
                 XML_RET_CHECK_AND_GOTO (ret, out);
+
+#ifdef HAVE_BD_XLATOR
+                /* <xlators> */
+                ret = xmlTextWriterStartElement (local->writer,
+                                                 (xmlChar *)"xlators");
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                for (k = 0; ; k++) {
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key),"volume%d.xlator%d", i, k);
+                        ret = dict_get_str (dict, key, &caps);
+                        if (ret)
+                                break;
+
+                        /* <xlator> */
+                        ret = xmlTextWriterStartElement (local->writer,
+                                                         (xmlChar *)"xlator");
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+
+                        ret = xmlTextWriterWriteFormatElement
+                                (local->writer, (xmlChar *)"name", "%s", caps);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+
+                        /* <capabilities> */
+                        ret = xmlTextWriterStartElement (local->writer,
+                                                         (xmlChar *)
+                                                         "capabilities");
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+
+                        j = 0;
+                        for (j = 0; ;j++) {
+                                memset (key, 0, sizeof (key));
+                                snprintf (key, sizeof (key),
+                                          "volume%d.xlator%d.caps%d", i, k, j);
+                                ret = dict_get_str (dict, key, &caps);
+                                if (ret)
+                                        break;
+                                ret = xmlTextWriterWriteFormatElement
+                                        (local->writer, (xmlChar *)"capability",
+                                         "%s", caps);
+                                XML_RET_CHECK_AND_GOTO (ret, out);
+                        }
+                        /* </capabilities> */
+                        ret = xmlTextWriterEndElement (local->writer);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                        /* </xlator> */
+                        ret = xmlTextWriterEndElement (local->writer);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                }
+                ret = xmlTextWriterFullEndElement (local->writer);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+                /* </xlators> */
+#else
+                caps = 0; /* Avoid compiler warnings when BD not enabled */
+#endif
+                j = 1;
 
                 /* <bricks> */
                 ret = xmlTextWriterStartElement (local->writer,

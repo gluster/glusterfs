@@ -75,6 +75,7 @@ typedef enum {
         GF_XLATOR_INDEX,
         GF_XLATOR_MARKER,
         GF_XLATOR_IO_STATS,
+        GF_XLATOR_BD,
         GF_XLATOR_NONE,
 } glusterd_server_xlator_t;
 

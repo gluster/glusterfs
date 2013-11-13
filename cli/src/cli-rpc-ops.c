@@ -496,6 +496,8 @@ gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         char                       key[1024]            = {0};
         char                       err_str[2048]        = {0};
         gf_cli_rsp                 rsp                  = {0};
+        char                      *caps                 = NULL;
+        int                        k __attribute__((unused)) = 0;
 
         if (-1 == req->rpc_status)
                 goto out;
@@ -658,6 +660,40 @@ xml_output:
                 cli_out ("Volume ID: %s", volume_id_str);
                 cli_out ("Status: %s", cli_vol_status_str[status]);
 
+#ifdef HAVE_BD_XLATOR
+                k = 0;
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "volume%d.xlator%d", i, k);
+                ret = dict_get_str (dict, key, &caps);
+                if (ret)
+                        goto next;
+                do {
+                        j = 0;
+                        cli_out ("Xlator %d: %s", k + 1, caps);
+                        do {
+                                memset (key, 0, sizeof (key));
+                                snprintf (key, sizeof (key),
+                                          "volume%d.xlator%d.caps%d",
+                                          i, k, j++);
+                                ret = dict_get_str (dict, key, &caps);
+                                if (ret)
+                                        break;
+                                cli_out ("Capability %d: %s", j, caps);
+                        } while (1);
+
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key),
+                                  "volume%d.xlator%d", i, ++k);
+                        ret = dict_get_str (dict, key, &caps);
+                        if (ret)
+                                break;
+                } while (1);
+
+next:
+#else
+                caps = 0; /* Avoid compiler warnings when BD not enabled */
+#endif
+
                 if (type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) {
                         cli_out ("Number of Bricks: %d x %d x %d = %d",
                                  (brick_count / dist_count),
@@ -693,6 +729,12 @@ xml_output:
                                 goto out;
 
                         cli_out ("Brick%d: %s", j, brick);
+#ifdef HAVE_BD_XLATOR
+                        snprintf (key, 256, "volume%d.vg%d", i, j);
+                        ret = dict_get_str (dict, key, &caps);
+                        if (!ret)
+                                cli_out ("Brick%d VG: %s", j, caps);
+#endif
                         j++;
                 }
 
