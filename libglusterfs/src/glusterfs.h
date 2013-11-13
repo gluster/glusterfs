@@ -88,12 +88,16 @@
 
 #define GF_READDIR_SKIP_DIRS       "readdir-filter-directories"
 
+#define BD_XATTR_KEY             "user.glusterfs"
+
 #define XATTR_IS_PATHINFO(x)  (strncmp (x, GF_XATTR_PATHINFO_KEY,       \
                                         strlen (GF_XATTR_PATHINFO_KEY)) == 0)
 #define XATTR_IS_NODE_UUID(x) (strncmp (x, GF_XATTR_NODE_UUID_KEY,      \
                                         strlen (GF_XATTR_NODE_UUID_KEY)) == 0)
 #define XATTR_IS_LOCKINFO(x) (strncmp (x, GF_XATTR_LOCKINFO_KEY,        \
                                        strlen (GF_XATTR_LOCKINFO_KEY)) == 0)
+
+#define XATTR_IS_BD(x) (strncmp (x, BD_XATTR_KEY, strlen (BD_XATTR_KEY)) == 0)
 
 #define GF_XATTR_LINKINFO_KEY   "trusted.distribute.linkinfo"
 #define GFID_XATTR_KEY          "trusted.gfid"
