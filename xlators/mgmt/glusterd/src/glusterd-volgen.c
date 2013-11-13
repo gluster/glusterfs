@@ -594,6 +594,8 @@ get_server_xlator (char *xlator)
                 subvol = GF_XLATOR_MARKER;
         if (strcmp (xlator, "io-stats") == 0)
                 subvol = GF_XLATOR_IO_STATS;
+        if (strcmp (xlator, "bd") == 0)
+                subvol = GF_XLATOR_BD;
 
         return subvol;
 }
@@ -1456,7 +1458,26 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                       "posix");
         if (ret)
                 return -1;
+#ifdef HAVE_BD_XLATOR
+        if (*brickinfo->vg != '\0') {
+                /* Now add BD v2 xlator if volume is BD type */
+                xl = volgen_graph_add (graph, "storage/bd", volname);
+                if (!xl)
+                        return -1;
 
+                ret = xlator_set_option (xl, "device", "vg");
+                if (ret)
+                        return -1;
+                ret = xlator_set_option (xl, "export", brickinfo->vg);
+                if (ret)
+                        return -1;
+
+                ret = check_and_add_debug_xl (graph, set_dict, volname, "bd");
+                if (ret)
+                        return -1;
+
+        }
+#endif
 
         xl = volgen_graph_add (graph, "features/changelog", volname);
         if (!xl)

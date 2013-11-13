@@ -176,6 +176,8 @@ struct glusterd_brickinfo {
         gf_brick_status_t  status;
         struct rpc_clnt   *rpc;
         int                decommissioned;
+        char vg[PATH_MAX]; /* FIXME: Use max size for length of vg */
+        int     caps; /* Capability */
 };
 
 typedef struct glusterd_brickinfo glusterd_brickinfo_t;
@@ -230,6 +232,10 @@ struct _auth {
 };
 
 typedef struct _auth auth_t;
+
+/* Capabilities of xlator */
+#define CAPS_BD           0x00000001
+#define CAPS_THIN         0x00000010
 
 struct glusterd_rebalance_ {
         gf_defrag_status_t       defrag_status;
@@ -300,6 +306,7 @@ struct glusterd_volinfo_ {
         xlator_t                 *xl;
 
         gf_boolean_t              memory_accounting;
+        int                      caps; /* Capability */
 
         int                       op_version;
         int                       client_op_version;

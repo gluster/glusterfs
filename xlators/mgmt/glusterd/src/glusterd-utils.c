@@ -49,6 +49,11 @@
 #include <unistd.h>
 #include <fnmatch.h>
 #include <sys/statvfs.h>
+#include <ifaddrs.h>
+#ifdef HAVE_BD_XLATOR
+#include <lvm2app.h>
+#endif
+
 
 #ifdef GF_LINUX_HOST_OS
 #include <mntent.h>
@@ -622,6 +627,7 @@ glusterd_brickinfo_new_from_brick (char *brick,
         char                    *path = NULL;
         char                    *tmp_host = NULL;
         char                    *tmp_path = NULL;
+        char                    *vg       = NULL;
 
         GF_ASSERT (brick);
         GF_ASSERT (brickinfo);
@@ -640,6 +646,17 @@ glusterd_brickinfo_new_from_brick (char *brick,
         if (ret)
                 goto out;
 
+#ifdef HAVE_BD_XLATOR
+        vg = strchr (path, '?');
+        /* ? is used as a delimiter for vg */
+        if (vg) {
+                strncpy (new_brickinfo->vg, vg + 1, PATH_MAX - 1);
+                *vg = '\0';
+        }
+        new_brickinfo->caps = CAPS_BD;
+#else
+        vg = NULL; /* Avoid compiler warnings when BD not enabled */
+#endif
         ret = gf_canonicalize_path (path);
         if (ret)
                 goto out;
@@ -743,6 +760,62 @@ out:
         return available;
 }
 
+#ifdef HAVE_BD_XLATOR
+/*
+ * Sets the tag of the format "trusted.glusterfs.volume-id:<uuid>" in
+ * the brick VG. It is used to avoid using same VG for another brick.
+ * @volume-id - gfid, @brick - brick info, @msg - Error message returned
+ * to the caller
+ */
+int
+glusterd_bd_set_vg_tag (unsigned char *volume_id, glusterd_brickinfo_t *brick,
+                        char *msg, int msg_size)
+{
+        lvm_t        handle    = NULL;
+        vg_t         vg        = NULL;
+        char        *uuid      = NULL;
+        int          ret       = -1;
+
+        gf_asprintf (&uuid, "%s:%s", GF_XATTR_VOL_ID_KEY,
+                     uuid_utoa (volume_id));
+        if (!uuid) {
+                snprintf (msg, sizeof(*msg), "Could not allocate memory "
+                          "for tag");
+                return -1;
+        }
+
+        handle = lvm_init (NULL);
+        if (!handle) {
+                snprintf (msg, sizeof(*msg), "lvm_init failed");
+                goto out;
+        }
+
+        vg = lvm_vg_open (handle, brick->vg, "w", 0);
+        if (!vg) {
+                snprintf (msg, sizeof(*msg), "Could not open VG %s",
+                          brick->vg);
+                goto out;
+        }
+
+        if (lvm_vg_add_tag (vg, uuid) < 0) {
+                snprintf (msg, sizeof(*msg), "Could not set tag %s for "
+                          "VG %s", uuid, brick->vg);
+                goto out;
+        }
+        lvm_vg_write (vg);
+        ret = 0;
+out:
+        GF_FREE (uuid);
+
+        if (vg)
+                lvm_vg_close (vg);
+        if (handle)
+                lvm_quit (handle);
+
+        return ret;
+}
+#endif
+
 int
 glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
                                         uuid_t volume_id, char **op_errstr,
@@ -825,6 +898,14 @@ glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
                 }
         }
 
+#ifdef HAVE_BD_XLATOR
+        if (brickinfo->vg[0]) {
+                ret = glusterd_bd_set_vg_tag (volume_id, brickinfo, msg,
+                                              sizeof(msg));
+                if (ret)
+                        goto out;
+        }
+#endif
         ret = glusterd_check_and_set_brick_xattr (brickinfo->hostname,
                                                   brickinfo->path, volume_id,
                                                   op_errstr, is_force);

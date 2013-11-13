@@ -1,0 +1,562 @@
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+#include <lvm2app.h>
+
+#include "bd.h"
+#include "run.h"
+
+int
+bd_inode_ctx_set (inode_t *inode, xlator_t *this, bd_attr_t *ctx)
+{
+        int       ret  = -1;
+        uint64_t  ctx_int = 0;
+
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+        GF_VALIDATE_OR_GOTO (this->name, ctx, out);
+
+        ctx_int = (long)ctx;
+        ret = inode_ctx_set (inode, this, &ctx_int);
+out:
+        return ret;
+}
+
+int
+bd_inode_ctx_get (inode_t *inode, xlator_t *this, bd_attr_t **ctx)
+{
+        int       ret     = -1;
+        uint64_t  ctx_int = 0;
+
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+        ret = inode_ctx_get (inode, this, &ctx_int);
+        if (ret)
+                return ret;
+        if (ctx)
+                *ctx = (bd_attr_t *) ctx_int;
+out:
+        return ret;
+}
+
+void
+bd_local_free (xlator_t *this, bd_local_t *local)
+{
+        if (!local)
+                return;
+        if (local->fd)
+                fd_unref (local->fd);
+        else if (local->loc.path)
+                loc_wipe (&local->loc);
+        if (local->dict)
+                dict_unref (local->dict);
+        if (local->inode)
+                inode_unref (local->inode);
+        if (local->bdatt) {
+                GF_FREE (local->bdatt->type);
+                GF_FREE (local->bdatt);
+        }
+        mem_put (local);
+        local = NULL;
+}
+
+bd_local_t *
+bd_local_init (call_frame_t *frame, xlator_t *this)
+{
+        frame->local = mem_get0 (this->local_pool);
+        if (!frame->local)
+                return NULL;
+
+        return frame->local;
+}
+
+/*
+ * VG are set with the tag in GF_XATTR_VOL_ID_KEY:<uuid> format.
+ * This function validates this tag agains volume-uuid. Also goes
+ * through LV list to find out if a thin-pool is configured or not.
+ */
+int bd_scan_vg (xlator_t *this, bd_priv_t *priv)
+{
+        vg_t                   brick      = NULL;
+        data_t                *tmp_data   = NULL;
+        struct dm_list        *tags       = NULL;
+        int                    op_ret     = -1;
+        uuid_t                 dict_uuid  = {0, };
+        uuid_t                 vg_uuid    = {0, };
+        gf_boolean_t           uuid       = _gf_false;
+        lvm_str_list_t        *strl       = NULL;
+        struct dm_list        *lv_dm_list = NULL;
+        lv_list_t             *lv_list    = NULL;
+        struct dm_list        *dm_seglist = NULL;
+        lvseg_list_t          *seglist    = NULL;
+        lvm_property_value_t   prop       = {0, };
+        gf_boolean_t           thin       = _gf_false;
+        const char            *lv_name    = NULL;
+
+        brick = lvm_vg_open (priv->handle, priv->vg, "w", 0);
+        if (!brick) {
+                gf_log (this->name, GF_LOG_CRITICAL, "VG %s is not found",
+                        priv->vg);
+                return ENOENT;
+        }
+
+        lv_dm_list = lvm_vg_list_lvs (brick);
+        if (!lv_dm_list)
+                goto check;
+
+        dm_list_iterate_items (lv_list, lv_dm_list) {
+                dm_seglist = lvm_lv_list_lvsegs (lv_list->lv);
+                if (!dm_seglist)
+                        continue;
+                dm_list_iterate_items (seglist, dm_seglist) {
+                        prop = lvm_lvseg_get_property (seglist->lvseg,
+                                                       "segtype");
+                        if (!prop.is_valid || !prop.value.string)
+                                continue;
+                        if (!strcmp (prop.value.string, "thin-pool")) {
+                                thin = _gf_true;
+                                lv_name = lvm_lv_get_name (lv_list->lv);
+                                priv->pool = gf_strdup (lv_name);
+                                gf_log (THIS->name, GF_LOG_INFO, "Thin Pool "
+                                        "\"%s\" will be used for thin LVs",
+                                        lv_name);
+                                break;
+                        }
+                }
+        }
+
+check:
+        /* If there is no volume-id set in dict, we cant validate */
+        tmp_data = dict_get (this->options, "volume-id");
+        if (!tmp_data) {
+                op_ret = 0;
+                goto out;
+        }
+
+        op_ret = uuid_parse (tmp_data->data, dict_uuid);
+        if (op_ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "wrong volume-id (%s) set in volume file",
+                        tmp_data->data);
+                op_ret = -1;
+                goto out;
+        }
+
+        tags = lvm_vg_get_tags (brick);
+        if (!tags) { /* no tags in the VG */
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Extended attribute trusted.glusterfs."
+                        "volume-id is absent");
+                op_ret = -1;
+                goto out;
+        }
+        dm_list_iterate_items (strl, tags) {
+                if (!strncmp (strl->str, GF_XATTR_VOL_ID_KEY,
+                              strlen (GF_XATTR_VOL_ID_KEY))) {
+                        uuid = _gf_true;
+                        break;
+                }
+        }
+        /* UUID tag is not set in VG */
+        if (!uuid) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Extended attribute trusted.glusterfs."
+                        "volume-id is absent");
+                op_ret = -1;
+                goto out;
+        }
+
+        op_ret = uuid_parse (strl->str + strlen (GF_XATTR_VOL_ID_KEY) + 1,
+                             vg_uuid);
+        if (op_ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "wrong volume-id (%s) set in VG", strl->str);
+                        op_ret = -1;
+                        goto out;
+        }
+        if (uuid_compare (dict_uuid, vg_uuid)) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "mismatching volume-id (%s) received. "
+                        "already is a part of volume %s ",
+                        tmp_data->data, vg_uuid);
+                op_ret = -1;
+                goto out;
+        }
+
+        op_ret = 0;
+
+out:
+        lvm_vg_close (brick);
+
+        if (!thin)
+                gf_log (THIS->name, GF_LOG_WARNING, "No thin pool found in "
+                        "VG %s\n", priv->vg);
+        else
+                priv->caps |= BD_CAPS_THIN;
+
+        return op_ret;
+}
+
+/* FIXME: Move this code to common place, so posix and bd xlator can use */
+char *
+page_aligned_alloc (size_t size, char **aligned_buf)
+{
+        char    *alloc_buf = NULL;
+        char    *buf       = NULL;
+
+        alloc_buf = GF_CALLOC (1, (size + ALIGN_SIZE), gf_common_mt_char);
+        if (!alloc_buf)
+                return NULL;
+        /* page aligned buffer */
+        buf = GF_ALIGN_BUF (alloc_buf, ALIGN_SIZE);
+        *aligned_buf = buf;
+
+        return alloc_buf;
+}
+
+static int
+__bd_fd_ctx_get (xlator_t *this, fd_t *fd, bd_fd_t **bdfd_p)
+{
+        int         ret      = -1;
+        int         _fd      = -1;
+        char       *devpath  = NULL;
+        bd_fd_t    *bdfd     = NULL;
+        uint64_t    tmp_bdfd = 0;
+        bd_priv_t  *priv     = this->private;
+        bd_gfid_t   gfid     = {0, };
+        bd_attr_t  *bdatt    = NULL;
+
+        /* not bd file */
+        if (fd->inode->ia_type != IA_IFREG ||
+            bd_inode_ctx_get (fd->inode, this, &bdatt))
+                return 0;
+
+        ret = __fd_ctx_get (fd, this, &tmp_bdfd);
+        if (ret == 0) {
+                bdfd = (void *)(long) tmp_bdfd;
+                *bdfd_p = bdfd;
+                return 0;
+        }
+
+        uuid_utoa_r (fd->inode->gfid, gfid);
+        asprintf (&devpath, "/dev/%s/%s", priv->vg, gfid);
+        if (!devpath)
+                goto out;
+
+        _fd = open (devpath, O_RDWR | O_LARGEFILE, 0);
+        if (_fd < 0) {
+                ret = errno;
+                gf_log (this->name, GF_LOG_ERROR, "open on %s: %s", devpath,
+                        strerror (ret));
+                goto out;
+        }
+        bdfd = GF_CALLOC (1, sizeof(bd_fd_t), gf_bd_fd);
+        BD_VALIDATE_MEM_ALLOC (bdfd, ret, out);
+
+        bdfd->fd = _fd;
+        bdfd->flag = O_RDWR | O_LARGEFILE;
+        if (__fd_ctx_set (fd, this, (uint64_t)(long)bdfd) < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to set the fd context fd=%p", fd);
+                goto out;
+        }
+
+        *bdfd_p = bdfd;
+
+        ret = 0;
+out:
+        FREE (devpath);
+        if (ret) {
+                close (_fd);
+                GF_FREE (bdfd);
+        }
+        return ret;
+}
+
+int
+bd_fd_ctx_get (xlator_t *this, fd_t *fd, bd_fd_t **bdfd)
+{
+        int   ret;
+
+        /* FIXME: Is it ok to fd->lock here ? */
+        LOCK (&fd->lock);
+        {
+                ret = __bd_fd_ctx_get (this, fd, bdfd);
+        }
+        UNLOCK (&fd->lock);
+
+        return ret;
+}
+
+/*
+ * Validates if LV exists for given inode or not.
+ * Returns 0 if LV exists and size also matches.
+ * If LV does not exist -1 returned
+ * If LV size mismatches, returnes 1 also lv_size is updated with actual
+ * size
+ */
+int
+bd_validate_bd_xattr (xlator_t *this, char *bd, char **type,
+                      uint64_t *lv_size, uuid_t uuid)
+{
+        char       *path  = NULL;
+        int         ret   = -1;
+        bd_gfid_t   gfid  = {0, };
+        bd_priv_t  *priv  = this->private;
+        struct stat stbuf = {0, };
+        uint64_t    size  = 0;
+        vg_t        vg    = NULL;
+        lv_t        lv    = NULL;
+        char     *bytes = NULL;
+
+        bytes = strrchr (bd, ':');
+        if (bytes) {
+                *bytes = '\0';
+                bytes++;
+                gf_string2bytesize (bytes, &size);
+        }
+
+        if (strcmp (bd, BD_LV) && strcmp (bd, BD_THIN)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "invalid xattr %s", bd);
+                return -1;
+        }
+        *type = gf_strdup (bd);
+
+        /*
+         * Check if LV really exist, there could be a failure
+         * after setxattr and successful LV creation
+         */
+        uuid_utoa_r (uuid, gfid);
+        gf_asprintf (&path, "/dev/%s/%s", priv->vg, gfid);
+        if (!path) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "insufficient memory");
+                return 0;
+        }
+
+        /* Destination file does not exist */
+        if (stat (path, &stbuf)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "lstat failed for path %s", path);
+                return -1;
+        }
+
+        vg = lvm_vg_open (priv->handle, priv->vg, "r", 0);
+        if (!vg) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "VG %s does not exist?", priv->vg);
+                ret = -1;
+                goto out;
+        }
+
+        lv = lvm_lv_from_name (vg, gfid);
+        if (!lv) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "LV %s does not exist", gfid);
+                ret = -1;
+                goto out;
+        }
+
+        *lv_size = lvm_lv_get_size (lv);
+        if (size == *lv_size) {
+                ret = 0;
+                goto out;
+        }
+
+        ret = 1;
+
+out:
+        if (vg)
+                lvm_vg_close (vg);
+
+        GF_FREE (path);
+        return ret;
+}
+
+static int
+create_thin_lv (char *vg, char *pool, char *lv, uint64_t extent)
+{
+        int         ret    = -1;
+        runner_t    runner = {0, };
+        char       *path   = NULL;
+        struct stat stat   = {0, };
+
+        runinit (&runner);
+        runner_add_args  (&runner, LVM_CREATE, NULL);
+        runner_add_args  (&runner, "--thin", NULL);
+        runner_argprintf (&runner, "%s/%s", vg, pool);
+        runner_add_args  (&runner, "--name", NULL);
+        runner_argprintf (&runner, "%s", lv);
+        runner_add_args  (&runner, "--virtualsize", NULL);
+        runner_argprintf (&runner, "%ldB", extent);
+        runner_start (&runner);
+        runner_end (&runner);
+
+        gf_asprintf (&path, "/dev/%s/%s", vg, lv);
+        if (!path) {
+                ret = ENOMEM;
+                goto out;
+        }
+        if (lstat (path, &stat) < 0)
+                ret = EAGAIN;
+        else
+                ret = 0;
+out:
+        GF_FREE (path);
+        return ret;
+}
+
+int
+bd_create (uuid_t uuid, uint64_t size, char *type, bd_priv_t *priv)
+{
+        int       ret  = 0;
+        vg_t      vg   = NULL;
+        bd_gfid_t gfid = {0, };
+
+        uuid_utoa_r (uuid, gfid);
+
+        if (!strcmp (type, BD_THIN))
+                return create_thin_lv (priv->vg, priv->pool, gfid,
+                                       size);
+
+        vg = lvm_vg_open (priv->handle, priv->vg,  "w", 0);
+        if (!vg) {
+                gf_log (THIS->name, GF_LOG_WARNING, "opening VG %s failed",
+                        priv->vg);
+                return ENOENT;
+        }
+
+        if (!lvm_vg_create_lv_linear (vg, gfid, size)) {
+                gf_log (THIS->name, GF_LOG_WARNING, "lvm_vg_create_lv_linear "
+                        "failed");
+                ret = errno;
+        }
+
+        lvm_vg_close (vg);
+
+        return ret;
+}
+
+int32_t
+bd_resize (bd_priv_t *priv, uuid_t uuid, off_t size)
+{
+        uint64_t        new_size  = 0;
+        runner_t        runner    = {0, };
+        bd_gfid_t       gfid      = {0, };
+        int             ret       = 0;
+        vg_t            vg        = NULL;
+        lv_t            lv        = NULL;
+
+        uuid_utoa_r (uuid, gfid);
+
+        runinit (&runner);
+
+        runner_add_args  (&runner, LVM_RESIZE, NULL);
+        runner_argprintf (&runner, "%s/%s", priv->vg, gfid);
+        runner_argprintf (&runner, "-L%ldb", size);
+        runner_add_args  (&runner, "-f", NULL);
+
+        runner_start (&runner);
+        runner_end (&runner);
+
+        vg = lvm_vg_open (priv->handle, priv->vg, "w", 0);
+        if (!vg) {
+                gf_log (THIS->name, GF_LOG_WARNING, "opening VG %s failed",
+                        priv->vg);
+                return EAGAIN;
+        }
+
+        lv = lvm_lv_from_name (vg, gfid);
+        if (!lv) {
+                gf_log (THIS->name, GF_LOG_WARNING, "LV %s not found", gfid);
+                ret = EIO;
+                goto out;
+        }
+        new_size = lvm_lv_get_size (lv);
+
+        if (new_size != size) {
+                gf_log (THIS->name, GF_LOG_WARNING, "resized LV size %ld does "
+                        "not match requested size %ld", new_size, size);
+                ret = EIO;
+        }
+
+out:
+        lvm_vg_close (vg);
+        return ret;
+}
+
+uint64_t
+bd_get_default_extent (bd_priv_t *priv)
+{
+        vg_t   vg = NULL;
+        uint64_t size = 0;
+
+        vg = lvm_vg_open (priv->handle, priv->vg,  "w", 0);
+        if (!vg) {
+                gf_log (THIS->name, GF_LOG_WARNING, "opening VG %s failed",
+                        priv->vg);
+                return 0;
+        }
+
+        size = lvm_vg_get_extent_size (vg);
+
+        lvm_vg_close (vg);
+
+        return size;
+}
+
+/*
+ * Adjusts the user specified size to VG specific extent size
+ */
+uint64_t
+bd_adjust_size (bd_priv_t *priv, uint64_t size)
+{
+        uint64_t extent = 0;
+        uint64_t nr_ex  = 0;
+
+        extent = bd_get_default_extent (priv);
+        if (!extent)
+                return 0;
+
+        nr_ex = size / extent;
+        if (size % extent)
+                nr_ex++;
+
+        size = extent * nr_ex;
+
+        return size;
+}
+
+int
+bd_delete_lv (bd_priv_t *priv, const char *lv_name, int *op_errno)
+{
+        vg_t    vg  = NULL;
+        lv_t    lv  = NULL;
+        int     ret = -1;
+
+        *op_errno = 0;
+        vg = lvm_vg_open (priv->handle, priv->vg, "w", 0);
+        if (!vg) {
+                gf_log (THIS->name, GF_LOG_WARNING, "opening VG %s failed",
+                        priv->vg);
+                *op_errno = ENOENT;
+                return -1;
+        }
+        lv = lvm_lv_from_name (vg, lv_name);
+        if (!lv) {
+                gf_log (THIS->name, GF_LOG_WARNING, "No such LV %s", lv_name);
+                *op_errno = ENOENT;
+                goto out;
+        }
+        ret = lvm_vg_remove_lv (lv);
+        if (ret < 0) {
+                gf_log (THIS->name, GF_LOG_WARNING, "removing LV %s failed",
+                        lv_name);
+                *op_errno = errno;
+                goto out;
+        }
+out:
+        lvm_vg_close (vg);
+
+        return ret;
+}

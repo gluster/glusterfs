@@ -50,6 +50,10 @@
 #include "globals.h"
 #include "glusterd-syncop.h"
 
+#ifdef HAVE_BD_XLATOR
+#include <lvm2app.h>
+#endif
+
 int glusterd_big_locked_notify (struct rpc_clnt *rpc, void *mydata,
                                 rpc_clnt_event_t event,
                                 void *data, rpc_clnt_notify_t notify_fn)
@@ -395,6 +399,39 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
+#ifdef HAVE_BD_XLATOR
+        if (volinfo->caps) {
+                snprintf (key, 256, "volume%d.xlator0", count);
+                buf = GF_MALLOC (256, gf_common_mt_char);
+                if (!buf) {
+                        ret = ENOMEM;
+                        goto out;
+                }
+                if (volinfo->caps & CAPS_BD)
+                        snprintf (buf, 256, "BD");
+                ret = dict_set_dynstr (volumes, key, buf);
+                if (ret) {
+                        GF_FREE (buf);
+                        goto out;
+                }
+
+                if (volinfo->caps & CAPS_THIN) {
+                        snprintf (key, 256, "volume%d.xlator0.caps0", count);
+                        buf = GF_MALLOC (256, gf_common_mt_char);
+                        if (!buf) {
+                                ret = ENOMEM;
+                                goto out;
+                        }
+                        snprintf (buf, 256, "thin");
+                        ret = dict_set_dynstr (volumes, key, buf);
+                        if (ret) {
+                                GF_FREE (buf);
+                                goto out;
+                        }
+                }
+        }
+#endif
+
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 char    brick[1024] = {0,};
                 char    brick_uuid[64] = {0,};
@@ -414,6 +451,16 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                 if (ret)
                         goto out;
 
+#ifdef HAVE_BD_XLATOR
+                if (volinfo->caps & CAPS_BD) {
+                        snprintf (key, 256, "volume%d.vg%d", count, i);
+                        snprintf (brick, 1024, "%s", brickinfo->vg);
+                        buf = gf_strdup (brick);
+                        ret = dict_set_dynstr (volumes, key, buf);
+                        if (ret)
+                                goto out;
+                }
+#endif
                 i++;
         }
 

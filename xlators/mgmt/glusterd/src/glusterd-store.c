@@ -241,6 +241,11 @@ glusterd_store_brickinfo_write (int fd, glusterd_brickinfo_t *brickinfo)
         if (ret)
                 goto out;
 
+        if (!brickinfo->vg[0])
+                goto out;
+
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_BRICK_VGNAME,
+                                         brickinfo->vg);
 out:
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -581,6 +586,13 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
                                    buf);
         if (ret)
                 goto out;
+        if (volinfo->caps) {
+                snprintf (buf, sizeof (buf), "%d", volinfo->caps);
+                ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_CAPS,
+                                           buf);
+                if (ret)
+                        goto out;
+        }
 
 out:
         if (ret)
@@ -1538,6 +1550,11 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_DECOMMISSIONED,
                                              strlen (GLUSTERD_STORE_KEY_BRICK_DECOMMISSIONED))) {
                                 gf_string2int (value, &brickinfo->decommissioned);
+                        } else if (!strncmp (key,
+                                    GLUSTERD_STORE_KEY_BRICK_VGNAME,
+                                    strlen (GLUSTERD_STORE_KEY_BRICK_VGNAME))) {
+                                strncpy (brickinfo->vg, value,
+                                         sizeof (brickinfo->vg));
                         } else {
                                 gf_log ("", GF_LOG_ERROR, "Unknown key: %s",
                                         key);
@@ -1856,6 +1873,9 @@ glusterd_store_retrieve_volume (char    *volname)
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_CLIENT_OP_VERSION,
                                 strlen (GLUSTERD_STORE_KEY_VOL_CLIENT_OP_VERSION))) {
                         volinfo->client_op_version = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_CAPS,
+                                     strlen (GLUSTERD_STORE_KEY_VOL_CAPS))) {
+                        volinfo->caps = atoi (value);
                 } else {
 
                         if (is_key_glusterd_hooks_friendly (key)) {

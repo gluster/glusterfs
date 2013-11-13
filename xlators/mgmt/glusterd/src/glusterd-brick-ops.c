@@ -1025,6 +1025,8 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
         glusterd_brickinfo_t         *brickinfo      = NULL;
         glusterd_gsync_status_temp_t  param          = {0, };
         gf_boolean_t                  restart_needed = 0;
+        char                          msg[1024] __attribute__((unused)) = {0, };
+        int                           caps           = 0;
 
         GF_ASSERT (volinfo);
 
@@ -1105,12 +1107,30 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
 
         if (count)
                 brick = strtok_r (brick_list+1, " \n", &saveptr);
+#ifdef HAVE_BD_XLATOR
+        if (brickinfo->vg[0])
+                caps = CAPS_BD | CAPS_THIN;
+#endif
 
         while (i <= count) {
                 ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
                                                               &brickinfo);
                 if (ret)
                         goto out;
+#ifdef HAVE_BD_XLATOR
+                /* Check for VG/thin pool if its BD volume */
+                if (brickinfo->vg[0]) {
+                        ret = glusterd_is_valid_vg (brickinfo, 0, msg);
+                        if (ret) {
+                                gf_log (THIS->name, GF_LOG_CRITICAL, "%s", msg);
+                                goto out;
+                        }
+                        /* if anyone of the brick does not have thin support,
+                           disable it for entire volume */
+                        caps &= brickinfo->caps;
+                } else
+                        caps = 0;
+#endif
 
                 if (uuid_is_null (brickinfo->uuid)) {
                         ret = glusterd_resolve_brick (brickinfo);
@@ -1147,7 +1167,7 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                 dict_foreach (volinfo->gsync_slaves,
                               _glusterd_restart_gsync_session, &param);
         }
-
+        volinfo->caps = caps;
 out:
         GF_FREE (free_ptr1);
         GF_FREE (free_ptr2);
@@ -1321,6 +1341,18 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
                 }
 
                 if (!uuid_compare (brickinfo->uuid, MY_UUID)) {
+#ifdef HAVE_BD_XLATOR
+                        if (brickinfo->vg[0]) {
+                                ret = glusterd_is_valid_vg (brickinfo, 1, msg);
+                                if (ret) {
+                                        gf_log (THIS->name, GF_LOG_ERROR, "%s",
+                                                msg);
+                                        *op_errstr = gf_strdup (msg);
+                                        goto out;
+                                }
+                        }
+#endif
+
                         ret = glusterd_validate_and_create_brickpath (brickinfo,
                                                           volinfo->volume_id,
                                                           op_errstr, is_force);
