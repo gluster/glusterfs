@@ -3,6 +3,9 @@
 #include "config.h"
 #endif
 #include <lvm2app.h>
+#ifdef HAVE_LIBAIO
+#include <libaio.h>
+#endif
 
 #include "bd.h"
 #include "run.h"
@@ -559,4 +562,20 @@ out:
         lvm_vg_close (vg);
 
         return ret;
+}
+
+inline void
+bd_update_amtime(struct iatt *iatt, int flag)
+{
+        struct timespec ts = {0, };
+
+        clock_gettime (CLOCK_REALTIME, &ts);
+        if (flag & GF_SET_ATTR_ATIME) {
+                iatt->ia_atime = ts.tv_sec;
+                iatt->ia_atime_nsec = ts.tv_nsec;
+        }
+        if (flag & GF_SET_ATTR_MTIME) {
+                iatt->ia_mtime = ts.tv_sec;
+                iatt->ia_mtime_nsec = ts.tv_nsec;
+        }
 }
