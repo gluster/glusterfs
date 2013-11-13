@@ -47,9 +47,6 @@ cli_cmd_display_help (struct cli_state *state, struct cli_cmd_word *in_word,
 {
         struct cli_cmd        *cmd[] = {volume_cmds, cli_probe_cmds,
                                        cli_misc_cmds,
-#ifdef HAVE_BD_XLATOR
-                                       cli_bd_cmds,
-#endif
                                        NULL};
         struct cli_cmd        *cmd_ind = NULL;
         int                   i = 0;

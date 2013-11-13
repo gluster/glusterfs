@@ -58,10 +58,6 @@ char *cli_vol_status_str[] = {"Created",
                               "Stopped",
                              };
 
-char *cli_volume_backend[] = {"",
-                           "Volume Group",
-};
-
 char *cli_vol_task_status_str[] = {"not started",
                                    "in progress",
                                    "stopped",
@@ -500,7 +496,6 @@ gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         char                       key[1024]            = {0};
         char                       err_str[2048]        = {0};
         gf_cli_rsp                 rsp                  = {0};
-        int32_t                    backend              = 0;
 
         if (-1 == req->rpc_status)
                 goto out;
@@ -652,9 +647,6 @@ xml_output:
                 if (ret)
                         goto out;
 
-                snprintf (key, 256, "volume%d.backend", i);
-                ret = dict_get_int32 (dict, key, &backend);
-
                 vol_type = type;
 
                 // Distributed (stripe/replicate/stripe-replica) setups
@@ -665,9 +657,6 @@ xml_output:
                 cli_out ("Type: %s", cli_vol_type_str[vol_type]);
                 cli_out ("Volume ID: %s", volume_id_str);
                 cli_out ("Status: %s", cli_vol_status_str[status]);
-
-                if (backend)
-                        goto next;
 
                 if (type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) {
                         cli_out ("Number of Bricks: %d x %d x %d = %d",
@@ -689,12 +678,6 @@ xml_output:
                          ((transport == 0)?"tcp":
                           (transport == 1)?"rdma":
                           "tcp,rdma"));
-
-next:
-                if (backend) {
-                        cli_out ("Backend Type: Block, %s",
-                                 cli_volume_backend[backend]);
-                }
                 j = 1;
 
                 GF_FREE (local->get_vol.volname);
@@ -2931,142 +2914,6 @@ out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
-
-#ifdef HAVE_BD_XLATOR
-int
-gf_cli_bd_op_cbk (struct rpc_req *req, struct iovec *iov,
-                             int count, void *myframe)
-{
-        gf_cli_rsp              rsp         = {0,};
-        int                     ret         = -1;
-        cli_local_t             *local      = NULL;
-        dict_t                  *dict       = NULL;
-        dict_t                  *input_dict = NULL;
-        gf_xl_bd_op_t           bd_op       = GF_BD_OP_INVALID;
-        char                    *operation  = NULL;
-        call_frame_t            *frame      = NULL;
-
-        if (-1 == req->rpc_status)
-                goto out;
-
-        frame = myframe;
-
-        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
-        if (ret < 0) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
-                        "Failed to decode xdr response");
-                goto out;
-        }
-
-        dict = dict_new ();
-        if (!dict) {
-                ret = -1;
-                goto out;
-        }
-
-        if (frame)
-                local = frame->local;
-
-        if (local) {
-                input_dict = local->dict;
-                ret = dict_get_int32 (input_dict, "bd-op",
-                                      (int32_t *)&bd_op);
-        }
-
-        switch (bd_op) {
-        case GF_BD_OP_NEW_BD:
-                operation = gf_strdup ("create");
-                break;
-        case GF_BD_OP_DELETE_BD:
-                operation = gf_strdup ("delete");
-                break;
-        case GF_BD_OP_CLONE_BD:
-                operation = gf_strdup ("clone");
-                break;
-        case GF_BD_OP_SNAPSHOT_BD:
-                operation = gf_strdup ("snapshot");
-                break;
-        default:
-                break;
-        }
-
-        ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len, &dict);
-        if (ret)
-                goto out;
-
-        gf_log ("cli", GF_LOG_INFO, "Received resp to %s bd op", operation);
-
-        if (global_state->mode & GLUSTER_MODE_XML) {
-                ret = cli_xml_output_dict ("BdOp", dict, rsp.op_ret,
-                                           rsp.op_errno, rsp.op_errstr);
-                if (ret)
-                        gf_log ("cli", GF_LOG_ERROR,
-                                "Error outputting to xml");
-                goto out;
-        }
-
-        if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
-                cli_err ("%s", rsp.op_errstr);
-        else
-                cli_out ("BD %s has been %s", operation,
-                                (rsp.op_ret) ? "unsuccessful":
-                                "successful.");
-        ret = rsp.op_ret;
-
-out:
-        cli_cmd_broadcast_response (ret);
-
-        if (dict)
-                dict_unref (dict);
-
-        if (operation)
-                GF_FREE (operation);
-
-        if (rsp.dict.dict_val)
-                free (rsp.dict.dict_val);
-        if (rsp.op_errstr)
-                free (rsp.op_errstr);
-        return ret;
-}
-
-int32_t
-gf_cli_bd_op (call_frame_t *frame, xlator_t *this,
-                      void *data)
-{
-        gf_cli_req      req    = { {0,} };
-        int             ret    = 0;
-        dict_t          *dict  = NULL;
-
-        if (!frame || !this || !data) {
-                ret = -1;
-                goto out;
-        }
-
-        dict = dict_ref ((dict_t *)data);
-        if (!dict)
-                goto out;
-
-        ret = dict_allocate_and_serialize (dict,
-                                           &req.dict.dict_val,
-                                           &req.dict.dict_len);
-
-
-        ret = cli_to_glusterd (&req, frame, gf_cli_bd_op_cbk,
-                               (xdrproc_t)xdr_gf_cli_req, dict,
-                               GLUSTER_CLI_BD_OP, this, cli_rpc_prog,
-                               NULL);
-
-out:
-        if (dict)
-                dict_unref (dict);
-
-        if (req.dict.dict_val)
-                GF_FREE (req.dict.dict_val);
-
-        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
-}
-#endif
 
 int32_t
 gf_cli_create_volume (call_frame_t *frame, xlator_t *this,
@@ -7740,9 +7587,6 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_CLRLOCKS_VOLUME]  = {"CLEARLOCKS_VOLUME", gf_cli_clearlocks_volume},
         [GLUSTER_CLI_COPY_FILE]        = {"COPY_FILE", gf_cli_copy_file},
         [GLUSTER_CLI_SYS_EXEC]         = {"SYS_EXEC", gf_cli_sys_exec},
-#ifdef HAVE_BD_XLATOR
-        [GLUSTER_CLI_BD_OP]            = {"BD_OP", gf_cli_bd_op},
-#endif
 };
 
 struct rpc_clnt_program cli_prog = {

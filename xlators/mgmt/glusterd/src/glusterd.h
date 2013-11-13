@@ -98,7 +98,6 @@ typedef enum glusterd_op_ {
         GD_OP_LIST_VOLUME,
         GD_OP_CLEARLOCKS_VOLUME,
         GD_OP_DEFRAG_BRICK_VOLUME,
-        GD_OP_BD_OP,
         GD_OP_COPY_FILE,
         GD_OP_SYS_EXEC,
         GD_OP_GSYNC_CREATE,
@@ -232,11 +231,6 @@ struct _auth {
 
 typedef struct _auth auth_t;
 
-typedef enum glusterd_vol_backend_ {
-        GD_VOL_BK_DEFAULT = 0, /* POSIX */
-        GD_VOL_BK_BD = 1,
-} glusterd_vol_backend_t;
-
 struct glusterd_rebalance_ {
         gf_defrag_status_t       defrag_status;
         uint64_t                 rebalance_files;
@@ -306,7 +300,6 @@ struct glusterd_volinfo_ {
         xlator_t                 *xl;
 
         gf_boolean_t              memory_accounting;
-        glusterd_vol_backend_t    backend;
 
         int                       op_version;
         int                       client_op_version;
@@ -746,7 +739,6 @@ int glusterd_op_statedump_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_stage_clearlocks_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_clearlocks_volume (dict_t *dict, char **op_errstr,
                                    dict_t *rsp_dict);
-int glusterd_op_stage_bd (dict_t *dict, char **op_errstr);
 
 /* misc */
 void glusterd_do_replace_brick (void *data);

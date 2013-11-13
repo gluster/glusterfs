@@ -159,11 +159,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         int32_t index = 0;
         char    *bricks = NULL;
         int32_t brick_count = 0;
-        char    *opwords[] = { "replica", "stripe", "transport",
-#ifdef HAVE_BD_XLATOR
-                                "device",
-#endif
-                                NULL };
+        char    *opwords[] = { "replica", "stripe", "transport", NULL };
 
         char    *invalid_volnames[] = {"volume", "type", "subvolumes", "option",
                                        "end-volume", "all", "volume_not_in_ring",
@@ -172,9 +168,6 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         int      op_count = 0;
         int32_t  replica_count = 1;
         int32_t  stripe_count = 1;
-#ifdef HAVE_BD_XLATOR
-        char     *dev_type = NULL;
-#endif
         gf_boolean_t is_force = _gf_false;
         int wc = wordcount;
 
@@ -311,26 +304,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                                 goto out;
                         }
                         index += 2;
-                }
-#ifdef HAVE_BD_XLATOR
-                else if ((strcmp (w, "device")) == 0) {
-                        if (dev_type) {
-                                cli_err ("'device' option given more"
-                                         " than one time");
-                                goto out;
-                        }
-                        if ((strcasecmp (words[index+1], "vg") == 0)) {
-                                dev_type = gf_strdup ("vg");
-                        } else {
-                                gf_log ("", GF_LOG_ERROR, "incorrect"
-                                        " device type specified");
-                                ret = -1;
-                                goto out;
-                        }
-                        index += 2;
-                }
-#endif
-                else {
+                }              else {
                         GF_ASSERT (!"opword mismatch");
                         ret = -1;
                         goto out;
@@ -371,19 +345,6 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 goto out;
         }
 
-        /* BD xlator does not support multiple bricks */
-#ifdef HAVE_BD_XLATOR
-        if (brick_count > 1 && dev_type) {
-                cli_err ("Block Device backend volume does not support multiple"
-                         " bricks");
-                gf_log ("", GF_LOG_ERROR,
-                         "Block Device backend volume does not support multiple"
-                        " bricks");
-                ret = -1;
-                goto out;
-        }
-#endif
-
         if (brick_count % sub_count) {
                 if (type == GF_CLUSTER_TYPE_STRIPE)
                         cli_err ("number of bricks is not a multiple of "
@@ -416,14 +377,6 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         ret = dict_set_dynstr (dict, "bricks", bricks);
         if (ret)
                 goto out;
-
-#ifdef HAVE_BD_XLATOR
-        if (dev_type) {
-                ret = dict_set_dynstr (dict, "device", dev_type);
-                if (ret)
-                        goto out;
-        }
-#endif
 
         ret = dict_set_int32 (dict, "count", brick_count);
         if (ret)
