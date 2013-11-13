@@ -665,7 +665,7 @@ glusterd_is_valid_vg (glusterd_brickinfo_t *brick, int check_tag, char *msg)
         }
 next:
 
-        brick->caps = CAPS_BD;
+        brick->caps = CAPS_BD | CAPS_OFFLOAD_COPY | CAPS_OFFLOAD_SNAPSHOT;
 
         dm_lvlist = lvm_vg_list_lvs (vg);
         if (!dm_lvlist)
@@ -953,7 +953,6 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
                 }
         }
 
-
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret) {
@@ -1011,8 +1010,8 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
                 }
 #ifdef HAVE_BD_XLATOR
                 if (brickinfo->vg[0])
-                        caps = CAPS_BD | CAPS_THIN;
-
+                        caps = CAPS_BD | CAPS_THIN |
+                                CAPS_OFFLOAD_COPY | CAPS_OFFLOAD_SNAPSHOT;
                 /* Check for VG/thin pool if its BD volume */
                 if (brickinfo->vg[0]) {
                         ret = glusterd_is_valid_vg (brickinfo, 0, msg);
@@ -1602,7 +1601,7 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
 
         if (count)
                 brick = strtok_r (brick_list+1, " \n", &saveptr);
-        caps = CAPS_BD | CAPS_THIN;
+        caps = CAPS_BD | CAPS_THIN | CAPS_OFFLOAD_COPY | CAPS_OFFLOAD_SNAPSHOT;
 
         while ( i <= count) {
                 ret = glusterd_brickinfo_new_from_brick (brick, &brickinfo);

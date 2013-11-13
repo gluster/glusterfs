@@ -1109,7 +1109,8 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                 brick = strtok_r (brick_list+1, " \n", &saveptr);
 #ifdef HAVE_BD_XLATOR
         if (brickinfo->vg[0])
-                caps = CAPS_BD | CAPS_THIN;
+                caps = CAPS_BD | CAPS_THIN |
+                        CAPS_OFFLOAD_COPY | CAPS_OFFLOAD_SNAPSHOT;
 #endif
 
         while (i <= count) {

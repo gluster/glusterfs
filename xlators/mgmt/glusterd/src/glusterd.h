@@ -234,8 +234,10 @@ struct _auth {
 typedef struct _auth auth_t;
 
 /* Capabilities of xlator */
-#define CAPS_BD           0x00000001
-#define CAPS_THIN         0x00000010
+#define CAPS_BD               0x00000001
+#define CAPS_THIN             0x00000002
+#define CAPS_OFFLOAD_COPY     0x00000004
+#define CAPS_OFFLOAD_SNAPSHOT 0x00000008
 
 struct glusterd_rebalance_ {
         gf_defrag_status_t       defrag_status;

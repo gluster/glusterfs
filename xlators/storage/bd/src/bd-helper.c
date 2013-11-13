@@ -579,3 +579,205 @@ bd_update_amtime(struct iatt *iatt, int flag)
                 iatt->ia_mtime_nsec = ts.tv_nsec;
         }
 }
+
+int
+bd_snapshot_create (bd_local_t *local, bd_priv_t *priv)
+{
+        char       *path   = NULL;
+        bd_gfid_t   dest   = {0, };
+        bd_gfid_t   origin = {0, };
+        int         ret    = 0;
+        runner_t    runner = {0, };
+        struct stat stat   = {0, };
+
+        uuid_utoa_r (local->dloc->gfid, dest);
+        uuid_utoa_r (local->loc.gfid, origin);
+
+        gf_asprintf (&path, "/dev/%s/%s", priv->vg, dest);
+        if (!path) {
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "Insufficient memory");
+                return ENOMEM;
+        }
+
+        runinit (&runner);
+        runner_add_args  (&runner, LVM_CREATE, NULL);
+        runner_add_args  (&runner, "--snapshot", NULL);
+        runner_argprintf (&runner, "/dev/%s/%s", priv->vg, origin);
+        runner_add_args  (&runner, "--name", NULL);
+        runner_argprintf (&runner, "%s", dest);
+        if (strcmp (local->bdatt->type, BD_THIN))
+                runner_argprintf (&runner, "-L%ldB", local->size);
+        runner_start (&runner);
+        runner_end (&runner);
+
+        if (lstat (path, &stat) < 0)
+                ret = EIO;
+
+        GF_FREE (path);
+        return ret;
+}
+
+int
+bd_clone (bd_local_t *local, bd_priv_t *priv)
+{
+        int           ret          = ENOMEM;
+        int           fd1          = -1;
+        int           fd2          = -1;
+        int           i            = 0;
+        char         *buff         = NULL;
+        ssize_t       bytes        = 0;
+        char         *spath        = NULL;
+        char         *dpath        = NULL;
+        struct iovec *vec          = NULL;
+        bd_gfid_t     source       = {0, };
+        bd_gfid_t     dest         = {0, };
+        void         *bufp[IOV_NR] = {0, };
+
+        vec = GF_CALLOC (IOV_NR, sizeof (struct iovec), gf_common_mt_iovec);
+        if (!vec)
+                return ENOMEM;
+
+        for (i = 0; i < IOV_NR; i++) {
+                bufp[i] = page_aligned_alloc (IOV_SIZE, &buff);
+                if (!buff)
+                        goto out;
+                vec[i].iov_base = buff;
+                vec[i].iov_len = IOV_SIZE;
+        }
+
+        uuid_utoa_r (local->loc.gfid, source);
+        uuid_utoa_r (local->dloc->gfid, dest);
+
+        gf_asprintf (&spath, "/dev/%s/%s", priv->vg, source);
+        gf_asprintf (&dpath, "/dev/%s/%s", priv->vg, dest);
+        if (!spath || !dpath)
+                goto out;
+
+        ret = bd_create (local->dloc->gfid, local->size,
+                         local->bdatt->type,  priv);
+        if (ret)
+                goto out;
+
+        fd1 = open (spath, O_RDONLY | O_DIRECT);
+        if (fd1 < 0) {
+                ret = errno;
+                goto out;
+        }
+        fd2 = open (dpath, O_WRONLY | O_DIRECT);
+        if (fd2 < 0) {
+                ret = errno;
+                goto out;
+        }
+
+        while (1) {
+                bytes = readv (fd1, vec, IOV_NR);
+                if (bytes < 0) {
+                        ret = errno;
+                        gf_log (THIS->name, GF_LOG_WARNING, "read failed: %s",
+                                strerror (ret));
+                        goto out;
+                }
+                if (!bytes)
+                        break;
+                bytes = writev (fd2, vec, IOV_NR);
+                if (bytes < 0) {
+                        ret = errno;
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "write failed: %s", strerror (ret));
+                        goto out;
+                }
+        }
+        ret = 0;
+
+out:
+        for (i = 0; i < IOV_NR; i++)
+                GF_FREE (bufp[i]);
+        GF_FREE (vec);
+
+        if (fd1 != -1)
+                close (fd1);
+        if (fd2 != -1)
+                close (fd2);
+
+        FREE (spath);
+        FREE (dpath);
+
+        return ret;
+}
+
+/*
+ * Merges snapshot LV to origin LV and returns status
+ */
+int
+bd_merge (bd_priv_t *priv, uuid_t gfid)
+{
+        bd_gfid_t   dest   = {0, };
+        char       *path   = NULL;
+        struct stat stat   = {0, };
+        runner_t    runner = {0, };
+        int         ret    = 0;
+
+        uuid_utoa_r (gfid, dest);
+        gf_asprintf (&path, "/dev/%s/%s", priv->vg, dest);
+
+        runinit (&runner);
+        runner_add_args (&runner, LVM_CONVERT, NULL);
+        runner_add_args (&runner, "--merge", NULL);
+        runner_argprintf (&runner, "%s", path);
+        runner_start (&runner);
+        runner_end (&runner);
+
+        if (!lstat (path, &stat))
+                ret = EIO;
+
+        GF_FREE (path);
+
+        return ret;
+}
+
+int
+bd_get_origin (bd_priv_t *priv, loc_t *loc, fd_t *fd, dict_t *dict)
+{
+        vg_t                      brick      = NULL;
+        lvm_property_value_t      prop       = {0, };
+        lv_t                      lv         = NULL;
+        int                       ret        = -1;
+        bd_gfid_t                 gfid       = {0, };
+        inode_t                  *inode      = NULL;
+        char                     *origin     = NULL;
+
+        brick = lvm_vg_open (priv->handle, priv->vg, "w", 0);
+        if (!brick) {
+                gf_log (THIS->name, GF_LOG_CRITICAL, "VG %s is not found",
+                        priv->vg);
+                return ENOENT;
+        }
+
+        if (fd)
+                inode = fd->inode;
+        else
+                inode = loc->inode;
+
+        uuid_utoa_r (inode->gfid, gfid);
+        lv = lvm_lv_from_name (brick, gfid);
+        if (!lv) {
+                gf_log (THIS->name, GF_LOG_CRITICAL, "LV %s not found", gfid);
+                ret = ENOENT;
+                goto out;
+        }
+
+        prop = lvm_lv_get_property (lv, "origin");
+        if (!prop.is_valid || !prop.value.string) {
+                ret = ENODATA;
+                goto out;
+        }
+
+        origin = gf_strdup (prop.value.string);
+        ret = dict_set_dynstr (dict, BD_ORIGIN, origin);
+
+out:
+        lvm_vg_close (brick);
+        return ret;
+}
+

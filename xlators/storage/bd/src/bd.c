@@ -1063,6 +1063,278 @@ out:
         return 0;
 }
 
+int
+bd_offload_rm_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int op_ret, int op_errno, dict_t *xdata)
+{
+        bd_local_t *local = frame->local;
+
+        if (local->fd)
+                BD_STACK_UNWIND (fsetxattr, frame, -1, EIO, NULL);
+        else
+                BD_STACK_UNWIND (setxattr, frame, -1, EIO, NULL);
+
+        return 0;
+}
+
+int
+bd_offload_setx_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int op_ret, int op_errno, dict_t *xdata)
+{
+        bd_local_t *local = frame->local;
+
+        if (op_ret < 0)
+                goto out;
+
+        if (local->offload == BD_OF_SNAPSHOT)
+                op_ret = bd_snapshot_create (frame->local, this->private);
+        else
+                op_ret = bd_clone (frame->local, this->private);
+
+        if (op_ret) {
+                STACK_WIND (frame, bd_offload_rm_xattr_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->removexattr,
+                            local->dloc, BD_XATTR, NULL);
+                return 0;
+        }
+
+out:
+        if (local->fd)
+                BD_STACK_UNWIND (fsetxattr, frame, op_ret, op_errno, NULL);
+        else
+                BD_STACK_UNWIND (setxattr, frame, op_errno, op_errno, NULL);
+
+        return 0;
+}
+
+int
+bd_offload_getx_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
+{
+        char       *bd    = NULL;
+        bd_local_t *local = frame->local;
+        char       *type  = NULL;
+        char       *p     = NULL;
+
+        if (op_ret < 0)
+                goto out;
+
+        if (dict_get_str (xattr, BD_XATTR, &p)) {
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        type = gf_strdup (p);
+        BD_VALIDATE_MEM_ALLOC (type, op_errno, out);
+
+        p = strrchr (type, ':');
+        if (!p) {
+                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "source file xattr %s corrupted?", type);
+                goto out;
+        }
+
+        *p='\0';
+
+        /* For clone size is taken from source LV */
+        if (!local->size) {
+                p++;
+                gf_string2bytesize (p, &local->size);
+        }
+        gf_asprintf (&bd, "%s:%ld", type, local->size);
+        local->bdatt->type = gf_strdup (type);
+        dict_del (local->dict, BD_XATTR);
+        dict_del (local->dict, LINKTO);
+        if (dict_set_dynstr (local->dict, BD_XATTR, bd)) {
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        STACK_WIND (frame, bd_offload_setx_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->setxattr,
+                    local->dloc, local->dict, 0, NULL);
+
+        return 0;
+
+out:
+        if (local->fd)
+                BD_STACK_UNWIND (fsetxattr, frame, -1, op_errno, NULL);
+        else
+                BD_STACK_UNWIND (setxattr, frame, -1, op_errno, NULL);
+
+        GF_FREE (type);
+        GF_FREE (bd);
+
+        return 0;
+}
+
+int
+bd_offload_dest_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                            int op_ret, int op_errno,
+                            inode_t *inode, struct iatt *iatt,
+                            dict_t *xattr, struct iatt *postparent)
+{
+        bd_local_t *local  = frame->local;
+        char       *bd     = NULL;
+        int         ret    = -1;
+        char       *linkto = NULL;
+
+        if (op_ret < 0 && op_errno != ENODATA) {
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        if (!IA_ISREG (iatt->ia_type)) {
+                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING, "destination gfid is not a "
+                        "regular file");
+                goto out;
+        }
+
+        ret = dict_get_str (xattr, LINKTO, &linkto);
+        if (linkto) {
+                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING, "destination file not "
+                        "present in same brick");
+                goto out;
+        }
+
+        ret = dict_get_str (xattr, BD_XATTR, &bd);
+        if (bd) {
+                op_errno = EEXIST;
+                goto out;
+        }
+
+        local->bdatt = CALLOC (1, sizeof (bd_attr_t));
+        BD_VALIDATE_MEM_ALLOC (local->bdatt, op_errno, out);
+
+        STACK_WIND (frame, bd_offload_getx_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->getxattr,
+                    &local->loc, BD_XATTR, NULL);
+
+        return 0;
+out:
+        if (local->fd)
+                BD_STACK_UNWIND (fsetxattr, frame, -1, op_errno, NULL);
+        else
+                BD_STACK_UNWIND (setxattr, frame, -1, op_errno, NULL);
+
+        return 0;
+}
+
+int
+bd_merge_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int op_ret, int op_errno, struct iatt *preparent,
+                     struct iatt *postparent, dict_t *xdata)
+{
+        /* FIXME: if delete failed, remove xattr */
+
+        BD_STACK_UNWIND (setxattr, frame, op_ret, op_errno, NULL);
+        return 0;
+}
+
+int
+bd_do_merge(call_frame_t *frame, xlator_t *this)
+{
+        bd_local_t *local    = frame->local;
+        inode_t    *parent   = NULL;
+        char       *p        = NULL;
+        int         op_errno = 0;
+
+        op_errno = bd_merge (this->private, local->inode->gfid);
+        if (op_errno)
+                goto out;
+
+        /*
+         * posix_unlink needs loc->pargfid to be valid, but setxattr FOP does
+         * not have loc->pargfid set. Get parent's gfid by getting parents inode
+         */
+        parent = inode_parent (local->inode, NULL, NULL);
+        if (!parent) {
+                /*
+                 * FIXME: Snapshot LV already deleted.
+                 * remove xattr, instead of returning failure
+                 */
+                op_errno = EINVAL;
+                goto out;
+        }
+        uuid_copy (local->loc.pargfid, parent->gfid);
+
+        p = strrchr (local->loc.path, '/');
+        if (p)
+                p++;
+        local->loc.name = p;
+
+        STACK_WIND (frame, bd_merge_unlink_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->unlink,
+                    &local->loc, 0, NULL);
+
+        return 0;
+out:
+        BD_STACK_UNWIND (fsetxattr, frame, -1, op_errno, NULL);
+
+        return op_errno;
+}
+
+int
+bd_offload (call_frame_t *frame, xlator_t *this, loc_t *loc,
+            fd_t *fd, bd_offload_t offload)
+{
+        char       *param      = NULL;
+        char       *param_copy = NULL;
+        char       *p          = NULL;
+        char       *size       = NULL;
+        char       *gfid       = NULL;
+        int         op_errno   = 0;
+        bd_local_t *local      = frame->local;
+
+        param = GF_CALLOC (1, local->data->len + 1, gf_common_mt_char);
+        BD_VALIDATE_MEM_ALLOC (param, op_errno, out);
+        param_copy = param;
+
+        local->dict = dict_new ();
+        BD_VALIDATE_MEM_ALLOC (local->dict, op_errno, out);
+
+        local->dloc = CALLOC (1, sizeof (loc_t));
+        BD_VALIDATE_MEM_ALLOC (local->dloc, op_errno, out);
+
+        strncpy (param, local->data->data, local->data->len);
+
+        gfid = strtok_r (param, ":", &p);
+        size = strtok_r (NULL, ":", &p);
+        if (size)
+                gf_string2bytesize (size, &local->size);
+        else if (offload != BD_OF_CLONE)
+                local->size = bd_get_default_extent (this->private);
+
+        if (dict_set_int8 (local->dict, BD_XATTR, 1) < 0) {
+                op_errno = EINVAL;
+                goto out;
+        }
+        if (dict_set_int8 (local->dict, LINKTO, 1) < 0) {
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        uuid_parse (gfid, local->dloc->gfid);
+        local->offload = offload;
+
+        STACK_WIND (frame, bd_offload_dest_lookup_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->lookup, local->dloc,
+                    local->dict);
+
+        return 0;
+
+out:
+        if (fd)
+                BD_STACK_UNWIND (fsetxattr, frame, -1, op_errno, NULL);
+        else
+                BD_STACK_UNWIND (setxattr, frame, -1, op_errno, NULL);
+
+        GF_FREE (param_copy);
+        return 0;
+}
 
 /*
  * bd_setxattr: Used to create & map an LV to a posix file using
@@ -1071,51 +1343,71 @@ out:
  * bd_setx_setx_cbk -> create_lv
  * if create_lv failed, posix_removexattr -> bd_setx_rm_xattr_cbk
  */
-int32_t
+int
 bd_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
              int flags, dict_t *xdata)
 {
-        int           op_errno  = 0;
-        data_t       *data      = NULL;
-        bd_attr_t    *bdatt     = NULL;
-        bd_local_t   *local     = NULL;
+        int           op_errno = 0;
+        data_t       *data     = NULL;
+        bd_local_t   *local    = NULL;
+        bd_attr_t    *bdatt    = NULL;
+        bd_offload_t  cl_type  = BD_OF_NONE;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
-        VALIDATE_OR_GOTO (this->private, out);
-        VALIDATE_OR_GOTO (loc, out);
+
+        if ((data = dict_get (dict, BD_XATTR)))
+                cl_type = BD_OF_NONE;
+        else if ((data = dict_get (dict, BD_CLONE)))
+                cl_type = BD_OF_CLONE;
+        else if ((data = dict_get (dict, BD_SNAPSHOT)))
+                cl_type = BD_OF_SNAPSHOT;
+        else if ((data = dict_get (dict, BD_MERGE)))
+                cl_type = BD_OF_MERGE;
 
         bd_inode_ctx_get (loc->inode, this, &bdatt);
-
-        data =  dict_get (dict, BD_XATTR);
-        if (!data) {
-                /* non bd file object */
-                STACK_WIND (frame, default_setxattr_cbk, FIRST_CHILD(this),
-                                   FIRST_CHILD(this)->fops->setxattr,
-                                   loc, dict, flags, xdata);
+        if (!cl_type && !data) {
+                STACK_WIND (frame, default_setxattr_cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->setxattr, loc, dict,
+                            flags, xdata);
                 return 0;
         }
 
-        if (bdatt) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s already mapped to BD", loc->path);
-                op_errno = EEXIST;
-                goto out;
-        }
         local = bd_local_init (frame, this);
         BD_VALIDATE_MEM_ALLOC (local, op_errno, out);
 
-        local->inode = inode_ref (loc->inode);
-        loc_copy (&local->loc, loc);
         local->data = data;
+        loc_copy (&local->loc, loc);
+        local->inode = inode_ref (loc->inode);
 
-        STACK_WIND (frame, bd_setx_stat_cbk, FIRST_CHILD(this),
-                   FIRST_CHILD(this)->fops->stat, loc, xdata);
+        if (cl_type) {
+                /* For cloning/snapshot, source file must be mapped to LV */
+                if (!bdatt) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "%s not mapped to BD", loc->path);
+                        op_errno = EINVAL;
+                        goto out;
+                }
+                if (cl_type == BD_OF_MERGE)
+                        bd_do_merge (frame, this);
+                else
+                        bd_offload (frame, this, loc, NULL, cl_type);
+        } else if (data) {
+                if (bdatt) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "%s already mapped to BD", loc->path);
+                        op_errno = EEXIST;
+                        goto out;
+                }
+                STACK_WIND (frame, bd_setx_stat_cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->stat, loc, xdata);
+        }
 
         return 0;
-
 out:
-        BD_STACK_UNWIND (setxattr, frame, -1, op_errno, xdata);
+        if (op_errno)
+                STACK_UNWIND_STRICT (setxattr, frame, -1, op_errno, xdata);
+
         return 0;
 }
 
@@ -1131,10 +1423,11 @@ int32_t
 bd_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
               int flags, dict_t *xdata)
 {
-        int       op_errno = 0;
-        data_t   *data     = NULL;
-        bd_attr_t *bdatt   = NULL;
-        bd_local_t *local  = NULL;
+        int           op_errno = 0;
+        data_t       *data     = NULL;
+        bd_attr_t    *bdatt    = NULL;
+        bd_local_t   *local    = NULL;
+        bd_offload_t  cl_type  = BD_OF_NONE;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -1144,27 +1437,57 @@ bd_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
         bd_inode_ctx_get (fd->inode, this, &bdatt);
 
         data =  dict_get (dict, BD_XATTR);
-        if (data) {
+        if ((data = dict_get (dict, BD_XATTR)))
+                cl_type = BD_OF_NONE;
+        else if ((data = dict_get (dict, BD_CLONE)))
+                cl_type = BD_OF_CLONE;
+        else if ((data = dict_get (dict, BD_SNAPSHOT)))
+                cl_type = BD_OF_SNAPSHOT;
+        else if ((data = dict_get (dict, BD_MERGE))) {
+                /*
+                 * bd_merge is not supported for fsetxattr, because snapshot LV
+                 * is opened and it causes problem in snapshot merge
+                 */
+                op_errno = EOPNOTSUPP;
+                goto out;
+        }
+
+        bd_inode_ctx_get (fd->inode, this, &bdatt);
+
+        if (!cl_type && !data) {
+                /* non bd file object */
+                STACK_WIND (frame, default_fsetxattr_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fsetxattr,
+                            fd, dict, flags, xdata);
+                return 0;
+        }
+
+        local = bd_local_init (frame, this);
+        BD_VALIDATE_MEM_ALLOC (local, op_errno, out);
+
+        local->inode = inode_ref (fd->inode);
+        local->fd = fd_ref (fd);
+        local->data = data;
+
+        if (cl_type) {
+                /* For cloning/snapshot, source file must be mapped to LV */
+                if (!bdatt) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "fd %p not mapped to BD", fd);
+                        op_errno = EINVAL;
+                        goto out;
+
+                }
+                bd_offload (frame, this, NULL, fd, cl_type);
+        } else if (data) {
                 if (bdatt) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "fd %p already mapped to BD", fd);
                         op_errno = EEXIST;
                         goto out;
                 }
-                local = bd_local_init (frame, this);
-                BD_VALIDATE_MEM_ALLOC (local, op_errno, out);
-
-                local->inode = inode_ref (fd->inode);
-                local->fd = fd_ref (fd);
-                local->data = data;
-
                 STACK_WIND(frame, bd_setx_stat_cbk, FIRST_CHILD(this),
                            FIRST_CHILD(this)->fops->fstat, fd, xdata);
-        } else {
-                /* non bd file object */
-                STACK_WIND (frame, default_fsetxattr_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->fsetxattr,
-                            fd, dict, flags, xdata);
         }
 
         return 0;
@@ -1682,8 +2005,10 @@ bd_handle_special_xattrs (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         if (!strcmp (name, VOL_TYPE))
                 op_ret = dict_set_int64 (xattr, (char *)name, 1);
-        else
+        else if (!strcmp (name, VOL_CAPS))
                 op_ret = dict_set_int64 (xattr, (char *)name, priv->caps);
+        else
+                op_ret = bd_get_origin (this->private, loc, fd, xattr);
 
 out:
         if (loc)
@@ -1703,7 +2028,8 @@ int
 bd_fgetxattr (call_frame_t *frame, xlator_t *this,
               fd_t *fd, const char *name, dict_t *xdata)
 {
-        if (name && (!strcmp (name, VOL_TYPE) || !strcmp (name, VOL_CAPS)))
+        if (name && (!strcmp (name, VOL_TYPE) || !strcmp (name, VOL_CAPS)
+                     || !strcmp (name, BD_ORIGIN)))
                 bd_handle_special_xattrs (frame, this, NULL, fd, name, xdata);
         else
                 STACK_WIND (frame, default_fgetxattr_cbk, FIRST_CHILD(this),
@@ -1716,7 +2042,8 @@ int
 bd_getxattr (call_frame_t *frame, xlator_t *this,
              loc_t *loc, const char *name, dict_t *xdata)
 {
-        if (name && (!strcmp (name, VOL_TYPE) || !strcmp (name, VOL_CAPS)))
+        if (name && (!strcmp (name, VOL_TYPE) || !strcmp (name, VOL_CAPS)
+                     || !strcmp (name, BD_ORIGIN)))
                 bd_handle_special_xattrs (frame, this, loc, NULL, name, xdata);
         else
                 STACK_WIND (frame, default_getxattr_cbk, FIRST_CHILD(this),
@@ -1996,6 +2323,8 @@ init (xlator_t *this)
                         goto error;
                 }
         }
+
+        _private->caps |= BD_CAPS_OFFLOAD_COPY | BD_CAPS_OFFLOAD_SNAPSHOT;
 
         return 0;
 error:
