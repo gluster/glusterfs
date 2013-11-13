@@ -243,7 +243,7 @@ out:
 
 static inline int
 __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struct iatt *stbuf,
-                                 dict_t *dict, fd_t **dst_fd)
+                                 dict_t *dict, fd_t **dst_fd, dict_t *xattr)
 {
         xlator_t    *this = NULL;
         int          ret  = -1;
@@ -306,6 +306,12 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
                         loc->path, to->name, strerror (errno));
                 goto out;
         }
+
+        ret = syncop_fsetxattr (to, fd, xattr, 0);
+        if (ret == -1)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: failed to set xattr on %s (%s)",
+                        loc->path, to->name, strerror (errno));
 
         ret = syncop_ftruncate (to, fd, stbuf->ia_size);
         if (ret < 0)
@@ -723,9 +729,16 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 goto out;
         }
 
+        /* TODO: move all xattr related operations to fd based operations */
+        ret = syncop_listxattr (from, loc, &xattr);
+        if (ret == -1)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: failed to get xattr from %s (%s)",
+                        loc->path, from->name, strerror (errno));
+
         /* create the destination, with required modes/xattr */
         ret = __dht_rebalance_create_dst_file (to, from, loc, &stbuf,
-                                               dict, &dst_fd);
+                                               dict, &dst_fd, xattr);
         if (ret)
                 goto out;
 
@@ -741,6 +754,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         loc->path, from->name);
                 goto out;
         }
+
 
         ret = syncop_fstat (from, src_fd, &stbuf);
         if (ret) {
@@ -770,19 +784,6 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 ret = -1;
                 goto out;
         }
-
-        /* TODO: move all xattr related operations to fd based operations */
-        ret = syncop_listxattr (from, loc, &xattr);
-        if (ret == -1)
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s: failed to get xattr from %s (%s)",
-                        loc->path, from->name, strerror (errno));
-
-        ret = syncop_setxattr (to, loc, xattr, 0);
-        if (ret == -1)
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s: failed to set xattr on %s (%s)",
-                        loc->path, to->name, strerror (errno));
 
         /* TODO: Sync the locks */
 

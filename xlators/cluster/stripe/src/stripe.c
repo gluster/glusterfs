@@ -4465,6 +4465,37 @@ stripe_setxattr_cbk (call_frame_t *frame, void *cookie,
         return 0;
 }
 
+#ifdef HAVE_BD_XLATOR
+int
+stripe_is_bd (dict_t *this, char *key, data_t *value, void *data)
+{
+        gf_boolean_t *is_bd = data;
+
+        if (data == NULL)
+                return 0;
+
+        if (XATTR_IS_BD (key))
+            *is_bd = _gf_true;
+
+        return 0;
+}
+
+inline gf_boolean_t
+stripe_setxattr_is_bd (dict_t *dict)
+{
+        gf_boolean_t is_bd = _gf_false;
+
+        if (dict == NULL)
+                goto out;
+
+        dict_foreach (dict, stripe_is_bd, &is_bd);
+out:
+        return is_bd;
+}
+#else
+#define stripe_setxattr_is_bd(dict) _gf_false
+#endif
+
 int
 stripe_setxattr (call_frame_t *frame, xlator_t *this,
                  loc_t *loc, dict_t *dict, int flags, dict_t *xdata)
@@ -4474,6 +4505,7 @@ stripe_setxattr (call_frame_t *frame, xlator_t *this,
         stripe_private_t *priv     = NULL;
         stripe_local_t   *local    = NULL;
         int               i        = 0;
+        gf_boolean_t      is_bd    = _gf_false;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -4496,11 +4528,15 @@ stripe_setxattr (call_frame_t *frame, xlator_t *this,
         local->wind_count = priv->child_count;
         local->op_ret = local->op_errno = 0;
 
+        is_bd = stripe_setxattr_is_bd (dict);
+
         /**
          * Set xattrs for directories on all subvolumes. Additionally
-         * this power is only given to a special client.
+         * this power is only given to a special client. Bd xlator
+         * also needs xattrs for regular files (ie LVs)
          */
-        if ((frame->root->pid == GF_CLIENT_PID_GSYNCD) && IA_ISDIR (loc->inode->ia_type)) {
+        if (((frame->root->pid == GF_CLIENT_PID_GSYNCD) &&
+             IA_ISDIR (loc->inode->ia_type)) || is_bd) {
                 for (i = 0; i < priv->child_count; i++, trav = trav->next) {
                         STACK_WIND (frame, stripe_setxattr_cbk,
                                     trav->xlator, trav->xlator->fops->setxattr,
@@ -4531,21 +4567,21 @@ stripe_fsetxattr_cbk (call_frame_t *frame, void *cookie,
 
 
 int
-stripe_is_lockinfo (dict_t *this,
-                    char *key,
-                    data_t *value,
-                    void *data)
+stripe_is_special_key (dict_t *this,
+                       char *key,
+                       data_t *value,
+                       void *data)
 {
-        gf_boolean_t *is_lockinfo = NULL;
+        gf_boolean_t *is_special = NULL;
 
         if (data == NULL) {
                 goto out;
         }
 
-        is_lockinfo = data;
+        is_special = data;
 
-        if (XATTR_IS_LOCKINFO (key))
-                *is_lockinfo = _gf_true;
+        if (XATTR_IS_LOCKINFO (key) || XATTR_IS_BD (key))
+                *is_special = _gf_true;
 
 out:
         return 0;
@@ -4622,7 +4658,7 @@ stripe_fsetxattr_is_special (dict_t *dict)
                 goto out;
         }
 
-        dict_foreach (dict, stripe_is_lockinfo, &is_spl);
+        dict_foreach (dict, stripe_is_special_key, &is_spl);
 
 out:
         return is_spl;
