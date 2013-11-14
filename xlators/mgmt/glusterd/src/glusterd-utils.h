@@ -573,4 +573,7 @@ glusterd_check_gsync_running_local (char *master, char *slave,
 
 gf_boolean_t
 glusterd_is_status_tasks_op (glusterd_op_t op, dict_t *dict);
+
+gf_boolean_t
+gd_should_i_start_rebalance  (glusterd_volinfo_t *volinfo);
 #endif
