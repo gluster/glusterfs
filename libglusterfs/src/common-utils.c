@@ -3111,3 +3111,34 @@ out:
                 fclose (file);
         return running;
 }
+
+static inline int
+dht_is_linkfile_key (dict_t *this, char *key, data_t *value, void *data)
+{
+        gf_boolean_t *linkfile_key_found = NULL;
+
+        if (!data)
+                goto out;
+
+        linkfile_key_found = data;
+
+        *linkfile_key_found = _gf_true;
+out:
+        return 0;
+}
+
+
+inline gf_boolean_t
+dht_is_linkfile (struct iatt *buf, dict_t *dict)
+{
+        gf_boolean_t linkfile_key_found = _gf_false;
+
+        if (!IS_DHT_LINKFILE_MODE (buf))
+                return _gf_false;
+
+        dict_foreach_fnmatch (dict, "*."DHT_LINKFILE_STR, dht_is_linkfile_key,
+                              &linkfile_key_found);
+
+        return linkfile_key_found;
+}
+

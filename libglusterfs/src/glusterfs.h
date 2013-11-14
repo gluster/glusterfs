@@ -171,6 +171,16 @@
  */
 #define DEFAULT_GLUSTERD_SOCKFILE             DATADIR "/run/glusterd.socket"
 
+/* features/marker-quota also needs to have knowledge of link-files so as to
+ * exclude them from accounting.
+ */
+#define DHT_LINKFILE_MODE        (S_ISVTX)
+
+#define IS_DHT_LINKFILE_MODE(iabuf) ((st_mode_from_ia ((iabuf)->ia_prot, \
+                                                       (iabuf)->ia_type) & ~S_IFMT)\
+                                     == DHT_LINKFILE_MODE)
+#define DHT_LINKFILE_STR "linkto"
+
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {
         GF_FOP_NULL = 0,

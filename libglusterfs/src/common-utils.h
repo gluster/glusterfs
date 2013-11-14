@@ -619,4 +619,11 @@ gf_boolean_t
 gf_is_service_running (char *pidfile, int *pid);
 int
 gf_skip_header_section (int fd, int header_len);
+
+struct iatt;
+struct _dict;
+
+inline gf_boolean_t
+dht_is_linkfile (struct iatt *buf, struct _dict *dict);
+
 #endif /* _COMMON_UTILS_H */

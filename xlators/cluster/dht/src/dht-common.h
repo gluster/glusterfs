@@ -332,12 +332,7 @@ typedef enum {
 #define DHT_MIGRATION_IN_PROGRESS 1
 #define DHT_MIGRATION_COMPLETED   2
 
-#define DHT_LINKFILE_MODE        (S_ISVTX)
-
-#define check_is_linkfile(i,s,x,n) (                                      \
-                ((st_mode_from_ia ((s)->ia_prot, (s)->ia_type) & ~S_IFMT) \
-                 == DHT_LINKFILE_MODE) &&                                 \
-                dict_get (x, n))
+#define check_is_linkfile(i,s,x,n) (IS_DHT_LINKFILE_MODE (s) && dict_get (x, n))
 
 #define IS_DHT_MIGRATION_PHASE2(buf)  (                                 \
                 IA_ISREG ((buf)->ia_type) &&                            \
