@@ -1056,7 +1056,8 @@ glusterd_op_stage_stats_volume (dict_t *dict, char **op_errstr)
 
         }
         if ((GF_CLI_STATS_STOP == stats_op) ||
-            (GF_CLI_STATS_INFO == stats_op)) {
+            (GF_CLI_STATS_INFO <= stats_op &&
+             stats_op <= GF_CLI_STATS_INFO_CUMULATIVE)) {
                 if (_gf_false == glusterd_is_profile_on (volinfo)) {
                         snprintf (msg, sizeof (msg), "Profile on Volume %s is"
                                   " not started", volinfo->volname);
@@ -1066,7 +1067,8 @@ glusterd_op_stage_stats_volume (dict_t *dict, char **op_errstr)
                 }
         }
         if ((GF_CLI_STATS_TOP == stats_op) ||
-            (GF_CLI_STATS_INFO == stats_op)) {
+            (GF_CLI_STATS_INFO <= stats_op &&
+             stats_op <= GF_CLI_STATS_INFO_CUMULATIVE)) {
                 if (_gf_false == glusterd_is_volume_started (volinfo)) {
                         snprintf (msg, sizeof (msg), "Volume %s is not started.",
                                   volinfo->volname);
@@ -1868,6 +1870,8 @@ glusterd_op_stats_volume (dict_t *dict, char **op_errstr,
                 glusterd_remove_profile_volume_options (volinfo);
                 break;
         case GF_CLI_STATS_INFO:
+        case GF_CLI_STATS_INFO_INCREMENTAL:
+        case GF_CLI_STATS_INFO_CUMULATIVE:
         case GF_CLI_STATS_TOP:
                 //info is already collected in brick op.
                 //just goto out;
@@ -4440,6 +4444,8 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr,
                 goto out;
                 break;
         case GF_CLI_STATS_INFO:
+        case GF_CLI_STATS_INFO_INCREMENTAL:
+        case GF_CLI_STATS_INFO_CUMULATIVE:
                 ret = dict_get_str_boolean (dict, "nfs", _gf_false);
                 if (ret) {
                         if (!glusterd_is_nodesvc_online ("nfs")) {

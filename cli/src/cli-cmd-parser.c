@@ -1988,7 +1988,7 @@ cli_cmd_volume_profile_parse (const char **words, int wordcount,
         if (!dict)
                 goto out;
 
-        if (wordcount < 4 || wordcount >5)
+        if (wordcount < 4)
                 goto out;
 
         volname = (char *)words[2];
@@ -2002,12 +2002,30 @@ cli_cmd_volume_profile_parse (const char **words, int wordcount,
                 ret = -1;
                 goto out;
         }
+
+        if ((strcmp (w, "start") == 0 || strcmp (w, "stop") == 0) &&
+            wordcount > 5)
+                goto out;
+
+        if (strcmp (w, "info") == 0 && wordcount > 6)
+                goto out;
+
         if (strcmp (w, "start") == 0) {
                 op = GF_CLI_STATS_START;
         } else if (strcmp (w, "stop") == 0) {
                 op = GF_CLI_STATS_STOP;
         } else if (strcmp (w, "info") == 0) {
                 op = GF_CLI_STATS_INFO;
+                if (wordcount > 4) {
+                        if (strcmp (words[4], "incremental") == 0) {
+                                op = GF_CLI_STATS_INFO_INCREMENTAL;
+                        } else if (strcmp (words[4], "cumulative") == 0) {
+                                op = GF_CLI_STATS_INFO_CUMULATIVE;
+                        }
+                }
+                ret = dict_set_int32 (dict, "info-op", op);
+                if (ret)
+                        goto out;
         } else
                 GF_ASSERT (!"opword mismatch");
 
@@ -2015,12 +2033,10 @@ cli_cmd_volume_profile_parse (const char **words, int wordcount,
         if (ret)
                 goto out;
 
-        if (wordcount == 5) {
-                if (!strcmp (words[4], "nfs")) {
-                        ret = dict_set_int32 (dict, "nfs", _gf_true);
-                        if (ret)
-                                goto out;
-                }
+        if (!strcmp (words[wordcount - 1], "nfs")) {
+                ret = dict_set_int32 (dict, "nfs", _gf_true);
+                if (ret)
+                        goto out;
         }
 
         *options = dict;

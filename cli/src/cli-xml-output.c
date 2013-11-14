@@ -2260,7 +2260,7 @@ cli_xml_output_vol_profile (dict_t *dict, int op_ret, int op_errno,
                                                "%d", op);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        if (op != GF_CLI_STATS_INFO)
+        if (op < GF_CLI_STATS_INFO || GF_CLI_STATS_INFO_CUMULATIVE < op)
                 goto cont;
 
         ret = dict_get_int32 (dict, "count", &brick_count);
