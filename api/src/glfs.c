@@ -666,5 +666,8 @@ glfs_fini (struct glfs *fs)
 
         glfs_subvol_done (fs, subvol);
 
+        if (ctx->log.logfile)
+                fclose (ctx->log.logfile);
+
         return ret;
 }
