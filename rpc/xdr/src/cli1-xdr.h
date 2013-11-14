@@ -140,7 +140,9 @@ enum gf1_cli_stats_op {
 	GF_CLI_STATS_START = 1,
 	GF_CLI_STATS_STOP = 2,
 	GF_CLI_STATS_INFO = 3,
-	GF_CLI_STATS_TOP = 4,
+	GF_CLI_STATS_INFO_INCREMENTAL = 4,
+	GF_CLI_STATS_INFO_CUMULATIVE = 5,
+	GF_CLI_STATS_TOP = 6
 };
 typedef enum gf1_cli_stats_op gf1_cli_stats_op;
 

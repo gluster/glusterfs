@@ -4976,6 +4976,8 @@ gf_cli_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                  (rsp.op_ret) ? "unsuccessful": "successful");
                         break;
                 case GF_CLI_STATS_INFO:
+                case GF_CLI_STATS_INFO_INCREMENTAL:
+                case GF_CLI_STATS_INFO_CUMULATIVE:
                         break;
                 default:
                         cli_out ("volume profile on %s has been %s ",
@@ -4990,7 +4992,7 @@ gf_cli_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        if (op != GF_CLI_STATS_INFO) {
+        if (op < GF_CLI_STATS_INFO || GF_CLI_STATS_INFO_CUMULATIVE < op) {
                 ret = 0;
                 goto out;
         }
