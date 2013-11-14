@@ -6233,6 +6233,8 @@ glusterd_restart_rebalance (glusterd_conf_t *conf)
         list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 if (!volinfo->rebal.defrag_cmd)
                         continue;
+                if (!gd_should_i_start_rebalance (volinfo))
+                        continue;
                 glusterd_volume_defrag_restart (volinfo, op_errstr, 256,
                                         volinfo->rebal.defrag_cmd, NULL);
         }
@@ -7998,4 +8000,67 @@ glusterd_is_status_tasks_op (glusterd_op_t op, dict_t *dict)
 
 out:
         return is_status_tasks;
+}
+
+/* Tells if rebalance needs to be started for the given volume on the peer
+ *
+ * Rebalance should be started on a peer only if an involved brick is present on
+ * the peer.
+ *
+ * For a normal rebalance, if any one brick of the given volume is present on
+ * the peer, the rebalance process should be started.
+ *
+ * For a rebalance as part of a remove-brick operation, the rebalance process
+ * should be started only if one of the bricks being removed is present on the
+ * peer
+ */
+gf_boolean_t
+gd_should_i_start_rebalance  (glusterd_volinfo_t *volinfo) {
+        gf_boolean_t         retval     = _gf_false;
+        int                  ret        = -1;
+        glusterd_brickinfo_t *brick     = NULL;
+        int                  count      = 0;
+        int                  i          = 0;
+        char                 key[1023]  = {0,};
+        char                 *brickname = NULL;
+
+
+        switch (volinfo->rebal.op) {
+        case GD_OP_REBALANCE:
+                list_for_each_entry (brick, &volinfo->bricks, brick_list) {
+                        if (uuid_compare (MY_UUID, brick->uuid) == 0) {
+                                retval = _gf_true;
+                                break;
+                        }
+                }
+                break;
+        case GD_OP_REMOVE_BRICK:
+                ret = dict_get_int32 (volinfo->rebal.dict, "count", &count);
+                if (ret) {
+                        goto out;
+                }
+                for (i = 1; i <= count; i++) {
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "brick%d", i);
+                        ret = dict_get_str (volinfo->rebal.dict, key,
+                                            &brickname);
+                        if (ret)
+                                goto out;
+                        ret = glusterd_volume_brickinfo_get_by_brick (brickname,
+                                                                      volinfo,
+                                                                      &brick);
+                        if (ret)
+                                goto out;
+                        if (uuid_compare (MY_UUID, brick->uuid) == 0) {
+                                retval = _gf_true;
+                                break;
+                        }
+                }
+                break;
+        default:
+                break;
+        }
+
+out:
+        return retval;
 }
