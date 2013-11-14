@@ -698,6 +698,21 @@ glusterd_store_node_state_path_set (glusterd_volinfo_t *volinfo,
                   GLUSTERD_NODE_STATE_FILE);
 }
 
+static void
+glusterd_store_quota_conf_path_set (glusterd_volinfo_t *volinfo,
+                                    char *quota_conf_path, size_t len)
+{
+        char    voldirpath[PATH_MAX] = {0,};
+        GF_ASSERT (volinfo);
+        GF_ASSERT (quota_conf_path);
+        GF_ASSERT (len <= PATH_MAX);
+
+        glusterd_store_voldirpath_set (volinfo, voldirpath,
+                                       sizeof (voldirpath));
+        snprintf (quota_conf_path, len, "%s/%s", voldirpath,
+                  GLUSTERD_VOLUME_QUOTA_CONFIG);
+}
+
 int32_t
 glusterd_store_create_rbstate_shandle_on_absence (glusterd_volinfo_t *volinfo)
 {
@@ -742,6 +757,22 @@ glusterd_store_create_nodestate_sh_on_absence (glusterd_volinfo_t *volinfo)
         return ret;
 }
 
+int32_t
+glusterd_store_create_quota_conf_sh_on_absence (glusterd_volinfo_t *volinfo)
+{
+        char            quota_conf_path[PATH_MAX] = {0};
+        int32_t         ret                       = 0;
+
+        GF_ASSERT (volinfo);
+
+        glusterd_store_quota_conf_path_set (volinfo, quota_conf_path,
+                                            sizeof (quota_conf_path));
+        ret =
+          gf_store_handle_create_on_absence (&volinfo->quota_conf_shandle,
+                                             quota_conf_path);
+
+        return ret;
+}
 int32_t
 glusterd_store_brickinfos (glusterd_volinfo_t *volinfo, int vol_fd)
 {
@@ -1083,7 +1114,7 @@ glusterd_store_volinfo (glusterd_volinfo_t *volinfo, glusterd_volinfo_ver_ac_t a
                 goto out;
 
         //checksum should be computed at the end
-        ret = glusterd_volume_compute_cksum (volinfo);
+        ret = glusterd_compute_cksum (volinfo, _gf_false);
         if (ret)
                 goto out;
 
@@ -1897,6 +1928,14 @@ glusterd_store_retrieve_volume (char    *volname)
                                 break;
 
                         case 1:
+                                /*The following strcmp check is to ensure that
+                                 * glusterd does not restore the quota limits
+                                 * into volinfo->dict post upgradation from 3.3
+                                 * to 3.4 as the same limits will now be stored
+                                 * in xattrs on the respective directories.
+                                 */
+                                if (!strcmp (key, "features.limit-usage"))
+                                        break;
                                 ret = dict_set_str(volinfo->dict, key,
                                                    gf_strdup (value));
                                 if (ret) {
@@ -1971,7 +2010,23 @@ glusterd_store_retrieve_volume (char    *volname)
         if (ret)
                 goto out;
 
-        ret = glusterd_volume_compute_cksum (volinfo);
+        ret = glusterd_compute_cksum (volinfo, _gf_false);
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_retrieve_quota_version (volinfo);
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_create_quota_conf_sh_on_absence (volinfo);
+        if (ret)
+                goto out;
+
+        ret = glusterd_compute_cksum (volinfo, _gf_true);
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_save_quota_version_and_cksum (volinfo);
         if (ret)
                 goto out;
 
@@ -2563,5 +2618,108 @@ glusterd_restore ()
 
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_store_retrieve_quota_version (glusterd_volinfo_t *volinfo)
+{
+        int                 ret                  = -1;
+        uint32_t            version              = 0;
+        char                cksum_path[PATH_MAX] = {0,};
+        char                path[PATH_MAX]       = {0,};
+        char               *version_str          = NULL;
+        char               *tmp                  = NULL;
+        xlator_t           *this                 = NULL;
+        glusterd_conf_t    *conf                 = NULL;
+        gf_store_handle_t  *handle               = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        GLUSTERD_GET_VOLUME_DIR (path, volinfo, conf);
+        snprintf (cksum_path, sizeof (cksum_path), "%s/%s", path,
+                  GLUSTERD_VOL_QUOTA_CKSUM_FILE);
+
+        ret = gf_store_handle_new (cksum_path, &handle);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get store handle "
+                        "for %s", cksum_path);
+                goto out;
+        }
+
+        ret = gf_store_retrieve_value (handle, "version", &version_str);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG, "Version absent");
+                ret = 0;
+                goto out;
+        }
+
+        version = strtoul (version_str, &tmp, 10);
+         if (version < 0) {
+                 gf_log (this->name, GF_LOG_DEBUG, "Invalid version number");
+                 goto out;
+        }
+        volinfo->quota_conf_version = version;
+        ret = 0;
+
+out:
+        if (version_str)
+                GF_FREE (version_str);
+        gf_store_handle_destroy (handle);
+        return ret;
+}
+
+int
+glusterd_store_save_quota_version_and_cksum (glusterd_volinfo_t *volinfo)
+{
+        int                 ret                  = -1;
+        char                cksum_path[PATH_MAX] = {0,};
+        char                path[PATH_MAX]       = {0,};
+        xlator_t           *this                 = NULL;
+        glusterd_conf_t    *conf                 = NULL;
+        char                buf[256]             = {0,};
+        int                 fd                   = -1;
+
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        GLUSTERD_GET_VOLUME_DIR (path, volinfo, conf);
+        snprintf (cksum_path, sizeof (cksum_path), "%s/%s", path,
+                  GLUSTERD_VOL_QUOTA_CKSUM_FILE);
+
+        fd = open (cksum_path, O_RDWR | O_APPEND | O_CREAT| O_TRUNC, 0600);
+
+        if (-1 == fd) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to open %s,"
+                        "Reason: %s", cksum_path, strerror (errno));
+                ret = -1;
+                goto out;
+        }
+
+        snprintf (buf, sizeof (buf)-1, "%u", volinfo->quota_conf_cksum);
+        ret = gf_store_save_value (fd, "cksum", buf);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to store cksum");
+                goto out;
+        }
+
+        memset (buf, 0, sizeof (buf));
+        snprintf (buf, sizeof (buf)-1, "%u", volinfo->quota_conf_version);
+        ret = gf_store_save_value (fd, "version", buf);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to store version");
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        if (fd != -1)
+                close (fd);
         return ret;
 }

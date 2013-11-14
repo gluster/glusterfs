@@ -110,7 +110,7 @@ int cli_cmd_lock ();
 int cli_cmd_unlock ();
 
 int
-cli_cmd_submit (void *req, call_frame_t *frame,
+cli_cmd_submit (struct rpc_clnt *rpc, void *req, call_frame_t *frame,
                 rpc_clnt_prog_t *prog,
                 int procnum, struct iobref *iobref,
                 xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);

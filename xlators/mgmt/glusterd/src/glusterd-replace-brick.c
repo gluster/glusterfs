@@ -450,7 +450,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, src_brickinfo,
                                             priv);
                 if ((replace_op != GF_REPLACE_OP_COMMIT_FORCE) &&
-                    !glusterd_is_service_running (pidfile, NULL)) {
+                    !gf_is_service_running (pidfile, NULL)) {
                         snprintf(msg, sizeof(msg), "Source brick %s:%s "
                                  "is not online.", src_brickinfo->hostname,
                                  src_brickinfo->path);

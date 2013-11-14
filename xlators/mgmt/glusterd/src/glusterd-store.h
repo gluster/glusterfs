@@ -128,4 +128,14 @@ glusterd_store_retrieve_options (xlator_t *this);
 
 int32_t
 glusterd_store_options (xlator_t *this, dict_t *opts);
+
+int32_t
+glusterd_store_create_quota_conf_sh_on_absence (glusterd_volinfo_t *volinfo);
+
+int
+glusterd_store_retrieve_quota_version (glusterd_volinfo_t *volinfo);
+
+int
+glusterd_store_save_quota_version_and_cksum (glusterd_volinfo_t *volinfo);
+
 #endif

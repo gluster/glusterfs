@@ -45,6 +45,7 @@
 #endif
 
 #include "cli.h"
+#include "cli-quotad-client.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
 
@@ -82,6 +83,7 @@ const char *argp_program_bug_address = "<" PACKAGE_BUGREPORT ">";
 
 
 
+struct rpc_clnt *global_quotad_rpc;
 struct rpc_clnt *global_rpc;
 
 rpc_clnt_prog_t *cli_rpc_prog;
@@ -184,7 +186,7 @@ logging_init (glusterfs_ctx_t *ctx, struct cli_state *state)
 }
 
 int
-cli_submit_request (void *req, call_frame_t *frame,
+cli_submit_request (struct rpc_clnt *rpc, void *req, call_frame_t *frame,
                     rpc_clnt_prog_t *prog,
                     int procnum, struct iobref *iobref,
                     xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
@@ -229,8 +231,10 @@ cli_submit_request (void *req, call_frame_t *frame,
                 count = 1;
         }
 
+        if (!rpc)
+                rpc = global_rpc;
         /* Send the msg */
-        ret = rpc_clnt_submit (global_rpc, prog, procnum, cbkfn,
+        ret = rpc_clnt_submit (rpc, prog, procnum, cbkfn,
                                &iov, count,
                                NULL, 0, iobref, frame, NULL, 0, NULL, 0, NULL);
         ret = 0;
@@ -491,6 +495,42 @@ _cli_out (const char *fmt, ...)
 }
 
 struct rpc_clnt *
+cli_quotad_clnt_rpc_init (void)
+{
+        struct rpc_clnt *rpc = NULL;
+        dict_t          *rpc_opts = NULL;
+        int             ret = -1;
+
+        rpc_opts = dict_new ();
+        if (!rpc_opts) {
+                        ret = -1;
+                        goto out;
+                }
+
+        ret = dict_set_str (rpc_opts, "transport.address-family", "unix");
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (rpc_opts, "transport-type", "socket");
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (rpc_opts, "transport.socket.connect-path",
+                                            "/tmp/quotad.socket");
+        if (ret)
+                goto out;
+
+        rpc = cli_quotad_clnt_init (THIS, rpc_opts);
+        if (!rpc)
+                goto out;
+
+        global_quotad_rpc = rpc;
+out:
+        dict_unref (rpc_opts);
+        return rpc;
+}
+
+struct rpc_clnt *
 cli_rpc_init (struct cli_state *state)
 {
         struct rpc_clnt         *rpc = NULL;
@@ -632,6 +672,10 @@ main (int argc, char *argv[])
 
         global_rpc = cli_rpc_init (&state);
         if (!global_rpc)
+                goto out;
+
+        global_quotad_rpc = cli_quotad_clnt_rpc_init ();
+        if (!global_quotad_rpc)
                 goto out;
 
         ret = cli_cmds_register (&state);

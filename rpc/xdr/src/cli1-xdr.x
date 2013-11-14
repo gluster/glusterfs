@@ -51,7 +51,11 @@ enum gf_quota_type {
         GF_QUOTA_OPTION_TYPE_LIMIT_USAGE,
         GF_QUOTA_OPTION_TYPE_REMOVE,
         GF_QUOTA_OPTION_TYPE_LIST,
-        GF_QUOTA_OPTION_TYPE_VERSION
+        GF_QUOTA_OPTION_TYPE_VERSION,
+        GF_QUOTA_OPTION_TYPE_ALERT_TIME,
+        GF_QUOTA_OPTION_TYPE_SOFT_TIMEOUT,
+        GF_QUOTA_OPTION_TYPE_HARD_TIMEOUT,
+        GF_QUOTA_OPTION_TYPE_DEFAULT_SOFT_LIMIT
 };
 
 enum gf1_cli_friends_list {
@@ -107,19 +111,20 @@ enum gf1_cli_top_op {
    bit-wise operations which reduces complexity */
 enum gf_cli_status_type {
         GF_CLI_STATUS_NONE         = 0x0000,
-        GF_CLI_STATUS_MEM          = 0x0001,    /*0000000000001*/
-        GF_CLI_STATUS_CLIENTS      = 0x0002,    /*0000000000010*/
-        GF_CLI_STATUS_INODE        = 0x0004,    /*0000000000100*/
-        GF_CLI_STATUS_FD           = 0x0008,    /*0000000001000*/
-        GF_CLI_STATUS_CALLPOOL     = 0x0010,    /*0000000010000*/
-        GF_CLI_STATUS_DETAIL       = 0x0020,    /*0000000100000*/
+        GF_CLI_STATUS_MEM          = 0x0001,    /*00000000000001*/
+        GF_CLI_STATUS_CLIENTS      = 0x0002,    /*00000000000010*/
+        GF_CLI_STATUS_INODE        = 0x0004,    /*00000000000100*/
+        GF_CLI_STATUS_FD           = 0x0008,    /*00000000001000*/
+        GF_CLI_STATUS_CALLPOOL     = 0x0010,    /*00000000010000*/
+        GF_CLI_STATUS_DETAIL       = 0x0020,    /*00000000100000*/
         GF_CLI_STATUS_TASKS        = 0x0040,    /*0000001000000*/
-        GF_CLI_STATUS_MASK         = 0x00FF,    /*0000011111111 Used to get the op*/
-        GF_CLI_STATUS_VOL          = 0x0100,    /*0000100000000*/
-        GF_CLI_STATUS_ALL          = 0x0200,    /*0001000000000*/
-        GF_CLI_STATUS_BRICK        = 0x0400,    /*0010000000000*/
-        GF_CLI_STATUS_NFS          = 0x0800,    /*0100000000000*/
-        GF_CLI_STATUS_SHD          = 0x1000     /*1000000000000*/
+        GF_CLI_STATUS_MASK         = 0x00FF,    /*00000011111111 Used to get the op*/
+        GF_CLI_STATUS_VOL          = 0x0100,    /*00000100000000*/
+        GF_CLI_STATUS_ALL          = 0x0200,    /*00001000000000*/
+        GF_CLI_STATUS_BRICK        = 0x0400,    /*00010000000000*/
+        GF_CLI_STATUS_NFS          = 0x0800,    /*00100000000000*/
+        GF_CLI_STATUS_SHD          = 0x1000,    /*01000000000000*/
+        GF_CLI_STATUS_QUOTAD       = 0x2000     /*10000000000000*/
 };
 
  struct gf_cli_req {

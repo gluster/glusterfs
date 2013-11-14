@@ -261,13 +261,17 @@ glusterd_syncop_aggr_rsp_dict (glusterd_op_t op, dict_t *aggr, dict_t *rsp)
 
         break;
 
-        case GD_OP_QUOTA:
         case GD_OP_CLEARLOCKS_VOLUME:
                 ret = glusterd_use_rsp_dict (aggr, rsp);
                 if (ret)
                         goto out;
-
         break;
+
+        case GD_OP_QUOTA:
+                ret = glusterd_volume_quota_copy_to_op_ctx_dict (aggr, rsp);
+                if (ret)
+                        goto out;
+                break;
 
         case GD_OP_SYS_EXEC:
                 ret = glusterd_sys_exec_output_rsp_dict (aggr, rsp);
@@ -474,7 +478,7 @@ _gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         uuid_copy (args->uuid, rsp.uuid);
-        if (rsp.op == GD_OP_REPLACE_BRICK) {
+        if (rsp.op == GD_OP_REPLACE_BRICK || rsp.op == GD_OP_QUOTA) {
                 pthread_mutex_lock (&args->lock_dict);
                 {
                         ret = glusterd_syncop_aggr_rsp_dict (rsp.op, args->dict,
@@ -624,8 +628,8 @@ gd_syncop_mgmt_brick_op (struct rpc_clnt *rpc, glusterd_pending_node_t *pnode,
         args.op_errno = ENOTCONN;
 
         if ((pnode->type == GD_NODE_NFS) ||
-            ((pnode->type == GD_NODE_SHD) &&
-            (op == GD_OP_STATUS_VOLUME))) {
+            (pnode->type == GD_NODE_QUOTAD) ||
+            ((pnode->type == GD_NODE_SHD) && (op == GD_OP_STATUS_VOLUME))) {
                 ret = glusterd_node_op_build_payload
                         (op, &req, dict_out);
 
@@ -683,6 +687,7 @@ _gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         glusterd_peerinfo_t         *peerinfo      = NULL;
         int                          op_ret        = -1;
         int                          op_errno      = -1;
+        int                          type          = GF_QUOTA_OPTION_TYPE_NONE;
 
         this  = THIS;
         frame = myframe;
@@ -725,16 +730,27 @@ _gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         uuid_copy (args->uuid, rsp.uuid);
-        pthread_mutex_lock (&args->lock_dict);
-        {
-                ret = glusterd_syncop_aggr_rsp_dict (rsp.op, args->dict,
-                                                     rsp_dict);
-                if (ret)
-                        gf_log (this->name, GF_LOG_ERROR, "%s",
-                                "Failed to aggregate response from "
-                                " node/brick");
+        if (rsp.op == GD_OP_QUOTA) {
+                ret = dict_get_int32 (args->dict, "type", &type);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                                "opcode");
+                        goto out;
+                }
         }
-        pthread_mutex_unlock (&args->lock_dict);
+
+        if ((rsp.op != GD_OP_QUOTA) || (type == GF_QUOTA_OPTION_TYPE_LIST)) {
+                pthread_mutex_lock (&args->lock_dict);
+                {
+                        ret = glusterd_syncop_aggr_rsp_dict (rsp.op, args->dict,
+                                                             rsp_dict);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_ERROR, "%s",
+                                        "Failed to aggregate response from "
+                                        " node/brick");
+                }
+                pthread_mutex_unlock (&args->lock_dict);
+        }
 
         op_ret = rsp.op_ret;
         op_errno = rsp.op_errno;
@@ -878,7 +894,7 @@ gd_stage_op_phase (struct list_head *peers, glusterd_op_t op, dict_t *op_ctx,
                 goto stage_done;
         }
 
-        if ((op == GD_OP_REPLACE_BRICK)) {
+        if ((op == GD_OP_REPLACE_BRICK || op == GD_OP_QUOTA)) {
                 ret = glusterd_syncop_aggr_rsp_dict (op, op_ctx, rsp_dict);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "%s",
@@ -913,6 +929,10 @@ stage_done:
                                                op, req_dict, op_ctx);
                 peer_cnt++;
         }
+
+        gf_log (this->name, GF_LOG_DEBUG, "Sent stage op req for 'Volume %s' "
+                "to %d peers", gd_op_list[op], peer_cnt);
+
         gd_synctask_barrier_wait((&args), peer_cnt);
 
         if (args.errstr)
@@ -922,9 +942,14 @@ stage_done:
 
         ret = args.op_ret;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Sent stage op req for 'Volume %s' "
-                "to %d peers", gd_op_list[op], peer_cnt);
 out:
+        if ((ret == 0) && (op == GD_OP_QUOTA)) {
+                ret = glusterd_validate_and_set_gfid (op_ctx, req_dict,
+                                                      op_errstr);
+                if (ret)
+                        goto out;
+        }
+
         if (rsp_dict)
                 dict_unref (rsp_dict);
         return ret;
@@ -943,6 +968,7 @@ gd_commit_op_phase (struct list_head *peers, glusterd_op_t op, dict_t *op_ctx,
         uuid_t              tmp_uuid        = {0};
         char                *errstr         = NULL;
         struct syncargs     args            = {0};
+        int                 type            = GF_QUOTA_OPTION_TYPE_NONE;
 
         this = THIS;
         rsp_dict = dict_new ();
@@ -956,15 +982,28 @@ gd_commit_op_phase (struct list_head *peers, glusterd_op_t op, dict_t *op_ctx,
                 hostname = "localhost";
                 goto commit_done;
         }
-        if (op != GD_OP_SYNC_VOLUME) {
-                ret =  glusterd_syncop_aggr_rsp_dict (op, op_ctx, rsp_dict);
+
+        if (op == GD_OP_QUOTA) {
+                ret = dict_get_int32 (op_ctx, "type", &type);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "%s",
-                                "Failed to aggregate response "
-                                "from node/brick");
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                                "opcode");
                         goto out;
                 }
         }
+
+        if (((op == GD_OP_QUOTA) && (type == GF_QUOTA_OPTION_TYPE_LIST)) ||
+            ((op != GD_OP_SYNC_VOLUME) && (op != GD_OP_QUOTA))) {
+
+                ret =  glusterd_syncop_aggr_rsp_dict (op, op_ctx,
+                                                      rsp_dict);
+                if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "%s", "Failed to aggregate "
+                        "response from node/brick");
+                goto out;
+                }
+        }
+
         dict_unref (rsp_dict);
         rsp_dict = NULL;
 

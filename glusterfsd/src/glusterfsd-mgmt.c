@@ -912,6 +912,9 @@ glusterfs_handle_node_status (rpcsvc_request_t *req)
                 ret = gf_asprintf (&node_name, "%s", "nfs-server");
         else if ((cmd & GF_CLI_STATUS_SHD) != 0)
                 ret = gf_asprintf (&node_name, "%s", "glustershd");
+        else if ((cmd & GF_CLI_STATUS_QUOTAD) != 0)
+                ret = gf_asprintf (&node_name, "%s", "quotad");
+
         else {
                 ret = -1;
                 goto out;
@@ -934,6 +937,8 @@ glusterfs_handle_node_status (rpcsvc_request_t *req)
                 ret = gf_asprintf (&subvol_name, "%s", volname);
         else if ((cmd & GF_CLI_STATUS_SHD) != 0)
                 ret = gf_asprintf (&subvol_name, "%s-replicate-0", volname);
+        else if ((cmd & GF_CLI_STATUS_QUOTAD) != 0)
+                ret = gf_asprintf (&subvol_name, "%s", volname);
         else {
                 ret = -1;
                 goto out;

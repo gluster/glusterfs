@@ -122,39 +122,41 @@ typedef struct {
 } gd_global_opts_t;
 
 typedef struct {
-        struct _volfile_ctx      *volfile;
-        pthread_mutex_t           mutex;
-        struct list_head          peers;
-        struct list_head          xaction_peers;
-        gf_boolean_t              verify_volfile_checksum;
-        gf_boolean_t              trace;
-        uuid_t                    uuid;
-        char                      workdir[PATH_MAX];
-        rpcsvc_t                 *rpc;
-        nodesrv_t                *shd;
-        nodesrv_t                *nfs;
-        struct pmap_registry     *pmap;
-        struct list_head          volumes;
-        pthread_mutex_t           xprt_lock;
-        struct list_head          xprt_list;
-        gf_store_handle_t        *handle;
-        gf_timer_t               *timer;
-        glusterd_sm_tr_log_t      op_sm_log;
-        struct rpc_clnt_program  *gfs_mgmt;
+        struct _volfile_ctx     *volfile;
+        pthread_mutex_t          mutex;
+        struct list_head         peers;
+        struct list_head         xaction_peers;
+        gf_boolean_t             verify_volfile_checksum;
+        gf_boolean_t             trace;
+        uuid_t                   uuid;
+        char                     workdir[PATH_MAX];
+        rpcsvc_t                *rpc;
+        nodesrv_t               *shd;
+        nodesrv_t               *nfs;
+        nodesrv_t               *quotad;
+        struct pmap_registry    *pmap;
+        struct list_head         volumes;
+        pthread_mutex_t          xprt_lock;
+        struct list_head         xprt_list;
+        gf_store_handle_t       *handle;
+        gf_timer_t              *timer;
+        glusterd_sm_tr_log_t     op_sm_log;
+        struct rpc_clnt_program *gfs_mgmt;
 
-        struct list_head           mount_specs;
-        gf_boolean_t               valgrind;
-        pthread_t                  brick_thread;
-        void                      *hooks_priv;
+        struct list_head  mount_specs;
+        gf_boolean_t      valgrind;
+        pthread_t         brick_thread;
+        void             *hooks_priv;
+
         /* need for proper handshake_t */
-        int                        op_version; /* Starts with 1 for 3.3.0 */
-        xlator_t                  *xl;  /* Should be set to 'THIS' before creating thread */
-        gf_boolean_t               pending_quorum_action;
-        dict_t                    *opts;
-        synclock_t                 big_lock;
-        gf_boolean_t               restart_done;
-        rpcsvc_t                  *uds_rpc; /* RPCSVC for the unix domain socket */
-        uint32_t                   base_port;
+        int           op_version; /* Starts with 1 for 3.3.0 */
+        xlator_t     *xl;       /* Should be set to 'THIS' before creating thread */
+        gf_boolean_t  pending_quorum_action;
+        dict_t       *opts;
+        synclock_t    big_lock;
+        gf_boolean_t  restart_done;
+        rpcsvc_t     *uds_rpc;  /* RPCSVC for the unix domain socket */
+        uint32_t      base_port;
 } glusterd_conf_t;
 
 
@@ -281,10 +283,11 @@ struct glusterd_volinfo_ {
                                                  distribute volume */
         int                       dist_leaf_count; /* Number of bricks in one
                                                     distribute subvolume */
-        int                       port;
-        gf_store_handle_t        *shandle;
-        gf_store_handle_t        *rb_shandle;
-        gf_store_handle_t        *node_state_shandle;
+        int                     port;
+        gf_store_handle_t *shandle;
+        gf_store_handle_t *rb_shandle;
+        gf_store_handle_t *node_state_shandle;
+        gf_store_handle_t *quota_conf_shandle;
 
         /* Defrag/rebalance related */
         glusterd_rebalance_t      rebal;
@@ -292,10 +295,12 @@ struct glusterd_volinfo_ {
         /* Replace brick status */
         glusterd_replace_brick_t  rep_brick;
 
-        int                       version;
-        uint32_t                  cksum;
-        gf_transport_type         transport_type;
-        gf_transport_type         nfs_transport_type;
+        int                     version;
+        uint32_t                quota_conf_version;
+        uint32_t                cksum;
+        uint32_t                quota_conf_cksum;
+        gf_transport_type       transport_type;
+        gf_transport_type   nfs_transport_type;
 
         dict_t                   *dict;
 
@@ -321,6 +326,7 @@ typedef enum gd_node_type_ {
         GD_NODE_SHD,
         GD_NODE_REBALANCE,
         GD_NODE_NFS,
+        GD_NODE_QUOTAD,
 } gd_node_type;
 
 typedef struct glusterd_pending_node_ {
@@ -351,12 +357,14 @@ enum glusterd_vol_comp_status_ {
 #define GLUSTERD_DEFAULT_WORKDIR "/var/lib/glusterd"
 #define GLUSTERD_DEFAULT_PORT    GF_DEFAULT_BASE_PORT
 #define GLUSTERD_INFO_FILE      "glusterd.info"
+#define GLUSTERD_VOLUME_QUOTA_CONFIG "quota.conf"
 #define GLUSTERD_VOLUME_DIR_PREFIX "vols"
 #define GLUSTERD_PEER_DIR_PREFIX "peers"
 #define GLUSTERD_VOLUME_INFO_FILE "info"
 #define GLUSTERD_VOLUME_RBSTATE_FILE "rbstate"
 #define GLUSTERD_BRICK_INFO_DIR "bricks"
 #define GLUSTERD_CKSUM_FILE "cksum"
+#define GLUSTERD_VOL_QUOTA_CKSUM_FILE "quota.cksum"
 #define GLUSTERD_TRASH "trash"
 #define GLUSTERD_NODE_STATE_FILE "node_state.info"
 
@@ -383,6 +391,9 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
 #define GLUSTERD_GET_NFS_DIR(path, priv) \
         snprintf (path, PATH_MAX, "%s/nfs", priv->workdir);
 
+#define GLUSTERD_GET_QUOTAD_DIR(path, priv) \
+        snprintf (path, PATH_MAX, "%s/quotad", priv->workdir);
+
 #define GLUSTERD_REMOVE_SLASH_FROM_PATH(path,string) do {               \
                 int i = 0;                                              \
                 for (i = 1; i < strlen (path); i++) {                   \
@@ -404,6 +415,11 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
 #define GLUSTERD_GET_NFS_PIDFILE(pidfile,nfspath) {                     \
                 snprintf (pidfile, PATH_MAX, "%s/run/nfs.pid",          \
                           nfspath);                                     \
+        }
+
+#define GLUSTERD_GET_QUOTAD_PIDFILE(pidfile,quotadpath) {                     \
+                snprintf (pidfile, PATH_MAX, "%s/run/quotad.pid",          \
+                          quotadpath);                                     \
         }
 
 #define GLUSTERD_STACK_DESTROY(frame) do {\
@@ -431,6 +447,10 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                            uuid_utoa(MY_UUID));                         \
         } while (0)
 
+#define GLUSTERFS_GET_AUX_MOUNT_PIDFILE(pidfile, volname) {               \
+                snprintf (pidfile, PATH_MAX-1,                            \
+                          DEFAULT_VAR_RUN_DIRECTORY"/%s.pid", volname);   \
+        }
 
 int glusterd_uuid_init();
 
@@ -720,7 +740,7 @@ int glusterd_op_sys_exec (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
 int glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr);
 int glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
 int glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
-int glusterd_op_stage_quota (dict_t *dict, char **op_errstr);
+int glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
 int glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                                      dict_t *rsp_dict);
 int glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict);

@@ -54,6 +54,8 @@
 #include <lvm2app.h>
 #endif
 
+extern glusterd_op_info_t opinfo;
+
 int glusterd_big_locked_notify (struct rpc_clnt *rpc, void *mydata,
                                 rpc_clnt_event_t event,
                                 void *data, rpc_clnt_notify_t notify_fn)
@@ -307,10 +309,23 @@ _build_option_key (dict_t *d, char *k, data_t *v, void *tmp)
         char                    reconfig_key[256] = {0, };
         struct args_pack        *pack             = NULL;
         int                     ret               = -1;
+        xlator_t                *this             = NULL;
+        glusterd_conf_t         *priv             = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
 
         pack = tmp;
         if (strcmp (k, GLUSTERD_GLOBAL_OPT_VERSION) == 0)
                 return 0;
+
+        if (priv->op_version > GD_OP_VERSION_MIN) {
+                if ((strcmp (k, "features.limit-usage") == 0) ||
+                    (strcmp (k, "features.soft-limit") == 0))
+                        return 0;
+        }
         snprintf (reconfig_key, 256, "volume%d.option.%s",
                   pack->vol_count, k);
         ret = dict_set_str (pack->dict, reconfig_key, v->data);
@@ -3468,10 +3483,13 @@ __glusterd_handle_status_volume (rpcsvc_request_t *req)
         glusterd_op_t                   cli_op  = GD_OP_STATUS_VOLUME;
         char                            err_str[2048] = {0,};
         xlator_t                       *this = NULL;
+        glusterd_conf_t                *conf = NULL;
 
         GF_ASSERT (req);
         this = THIS;
         GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
@@ -3511,6 +3529,14 @@ __glusterd_handle_status_volume (rpcsvc_request_t *req)
                 gf_log (this->name, GF_LOG_INFO,
                         "Received status volume req for volume %s", volname);
 
+        }
+        if ((cmd & GF_CLI_STATUS_QUOTAD) &&
+            (conf->op_version == GD_OP_VERSION_MIN)) {
+                snprintf (err_str, sizeof (err_str), "The cluster is operating "
+                          "at version 1. Getting the status of quotad is not "
+                          "allowed in this state.");
+                ret = -1;
+                goto out;
         }
 
         ret = glusterd_op_begin_synctask (req, GD_OP_STATUS_VOLUME, dict);
@@ -3810,6 +3836,7 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         glusterd_peerinfo_t  *peerinfo    = NULL;
         glusterd_peerctx_t   *peerctx     = NULL;
         gf_boolean_t         quorum_action = _gf_false;
+        uuid_t               uuid;
 
         peerctx = mydata;
         if (!peerctx)
@@ -3850,6 +3877,13 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 if (peerinfo->state.state == GD_FRIEND_STATE_DEFAULT) {
                         glusterd_friend_remove_notify (peerctx);
                         goto out;
+                }
+                glusterd_get_lock_owner (&uuid);
+                if (!uuid_is_null (uuid) &&
+                    !uuid_compare (peerinfo->uuid, uuid)) {
+                        glusterd_unlock (peerinfo->uuid);
+                        if (opinfo.state.state != GD_OP_STATE_DEFAULT)
+                                opinfo.state.state = GD_OP_STATE_DEFAULT;
                 }
 
                 peerinfo->connected = 0;

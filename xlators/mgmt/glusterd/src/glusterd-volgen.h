@@ -22,6 +22,7 @@
 #define VKEY_DIAG_CNT_FOP_HITS    "diagnostics.count-fop-hits"
 #define VKEY_DIAG_LAT_MEASUREMENT "diagnostics.latency-measurement"
 #define VKEY_FEATURES_LIMIT_USAGE "features.limit-usage"
+#define VKEY_FEATURES_SOFT_LIMIT  "features.soft-limit"
 #define VKEY_MARKER_XTIME         GEOREP".indexing"
 #define VKEY_MARKER_XTIME_FORCE   GEOREP".ignore-pid-check"
 #define VKEY_CHANGELOG            "changelog.changelog"
@@ -121,6 +122,7 @@ void glusterd_get_shd_filepath (char *filename);
 
 int glusterd_create_nfs_volfile ();
 int glusterd_create_shd_volfile ();
+int glusterd_create_quotad_volfile ();
 
 int glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
                              glusterd_brickinfo_t *brickinfo);
