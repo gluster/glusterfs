@@ -92,6 +92,10 @@ enum gf_quota_type {
 	GF_QUOTA_OPTION_TYPE_REMOVE = 0 + 4,
 	GF_QUOTA_OPTION_TYPE_LIST = 0 + 5,
 	GF_QUOTA_OPTION_TYPE_VERSION = 0 + 6,
+	GF_QUOTA_OPTION_TYPE_ALERT_TIME = 0 + 7,
+	GF_QUOTA_OPTION_TYPE_SOFT_TIMEOUT = 0 + 8,
+	GF_QUOTA_OPTION_TYPE_HARD_TIMEOUT = 0 + 9,
+	GF_QUOTA_OPTION_TYPE_DEFAULT_SOFT_LIMIT = 0 + 10,
 };
 typedef enum gf_quota_type gf_quota_type;
 
@@ -166,6 +170,7 @@ enum gf_cli_status_type {
 	GF_CLI_STATUS_BRICK = 0x0400,
 	GF_CLI_STATUS_NFS = 0x0800,
 	GF_CLI_STATUS_SHD = 0x1000,
+	GF_CLI_STATUS_QUOTAD = 0x2000,
 };
 typedef enum gf_cli_status_type gf_cli_status_type;
 

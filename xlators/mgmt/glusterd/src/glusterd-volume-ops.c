@@ -527,9 +527,12 @@ __glusterd_handle_cli_statedump_volume (rpcsvc_request_t *req)
         glusterd_op_t                   cli_op = GD_OP_STATEDUMP_VOLUME;
         char                            err_str[2048] = {0,};
         xlator_t                        *this = NULL;
+        glusterd_conf_t                 *priv = NULL;
 
         this = THIS;
         GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
 
         GF_ASSERT (req);
 
@@ -578,6 +581,14 @@ __glusterd_handle_cli_statedump_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
+        if (priv->op_version == GD_OP_VERSION_MIN &&
+            strstr (options, "quotad")) {
+                snprintf (err_str, sizeof (err_str), "The cluster is operating "
+                          "at op-version 1. Taking quotad's statedump is "
+                          "disallowed in this state");
+                ret = -1;
+                goto out;
+        }
 
         gf_log (this->name, GF_LOG_INFO, "Received statedump request for "
                 "volume %s with options %s", volname, options);
@@ -1314,6 +1325,13 @@ glusterd_op_stage_statedump_volume (dict_t *dict, char **op_errstr)
         gf_boolean_t            is_running = _gf_false;
         glusterd_volinfo_t      *volinfo = NULL;
         char                    msg[2408] = {0,};
+        xlator_t                *this     = NULL;
+        glusterd_conf_t         *priv     = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
 
         ret = glusterd_op_statedump_volume_args_get (dict, &volname, &options,
                                                      &option_cnt);
@@ -1322,10 +1340,7 @@ glusterd_op_stage_statedump_volume (dict_t *dict, char **op_errstr)
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                snprintf (msg, sizeof(msg), "Volume %s does not exist",
-                          volname);
-                gf_log ("", GF_LOG_ERROR, "%s", msg);
-                *op_errstr = gf_strdup (msg);
+                snprintf (msg, sizeof(msg), FMTSTR_CHECK_VOL_EXISTS, volname);
                 goto out;
         }
 
@@ -1335,16 +1350,31 @@ glusterd_op_stage_statedump_volume (dict_t *dict, char **op_errstr)
 
         is_running = glusterd_is_volume_started (volinfo);
         if (!is_running) {
-                snprintf (msg, sizeof(msg), "Volume %s is not in a started"
+                snprintf (msg, sizeof(msg), "Volume %s is not in the started"
                           " state", volname);
-                gf_log ("", GF_LOG_ERROR, "%s", msg);
-                *op_errstr = gf_strdup (msg);
                 ret = -1;
                 goto out;
         }
 
+        if (priv->op_version == GD_OP_VERSION_MIN &&
+            strstr (options, "quotad")) {
+                snprintf (msg, sizeof (msg), "The cluster is operating "
+                          "at op-version 1. Taking quotad's statedump is "
+                          "disallowed in this state");
+                ret = -1;
+                goto out;
+        }
+        if ((strstr (options, "quotad")) &&
+            (!glusterd_is_volume_quota_enabled (volinfo))) {
+                    snprintf (msg, sizeof (msg), "Quota is not enabled on "
+                              "volume %s", volname);
+                    ret = -1;
+                    goto out;
+        }
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        if (ret && msg[0] != '\0')
+                *op_errstr = gf_strdup (msg);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -1785,6 +1815,10 @@ glusterd_op_delete_volume (dict_t *dict)
                 goto out;
         }
 
+        ret = glusterd_remove_auxiliary_mount (volname);
+        if (ret)
+                goto out;
+
         ret = glusterd_delete_volume (volinfo);
 out:
         gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
@@ -1821,6 +1855,12 @@ glusterd_op_statedump_volume (dict_t *dict, char **op_errstr)
         gf_log ("", GF_LOG_DEBUG, "Performing statedump on volume %s", volname);
         if (strstr (options, "nfs") != NULL) {
                 ret = glusterd_nfs_statedump (options, option_cnt, op_errstr);
+                if (ret)
+                        goto out;
+
+        } else if (strstr (options, "quotad")) {
+                ret = glusterd_quotad_statedump (options, option_cnt,
+                                                 op_errstr);
                 if (ret)
                         goto out;
         } else {

@@ -96,13 +96,6 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                break;
 
         }
-        case GD_OP_QUOTA:
-        {
-                if (ctx && !op_errstr) {
-                        ret = dict_get_str (ctx, "errstr", &errstr);
-                }
-                break;
-        }
         case GD_OP_PROFILE_VOLUME:
         {
                 if (ctx && dict_get_int32 (ctx, "count", &count)) {
@@ -142,6 +135,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         case GD_OP_LIST_VOLUME:
         case GD_OP_CLEARLOCKS_VOLUME:
         case GD_OP_HEAL_VOLUME:
+        case GD_OP_QUOTA:
         {
                 /*nothing specific to be done*/
                 break;
@@ -1521,8 +1515,9 @@ glusterd_brick_op (call_frame_t *frame, xlator_t *this,
                         continue;
 
                 if ((pending_node->type == GD_NODE_NFS) ||
+                    (pending_node->type == GD_NODE_QUOTAD) ||
                     ((pending_node->type == GD_NODE_SHD) &&
-                    (req_ctx->op == GD_OP_STATUS_VOLUME)))
+                     (req_ctx->op == GD_OP_STATUS_VOLUME)))
                         ret = glusterd_node_op_build_payload
                                 (req_ctx->op,
                                  (gd1_mgmt_brick_op_req **)&req,

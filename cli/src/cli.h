@@ -45,6 +45,13 @@ enum argp_option_keys {
 #define GLUSTER_MODE_SCRIPT    (1 << 0)
 #define GLUSTER_MODE_ERR_FATAL (1 << 1)
 #define GLUSTER_MODE_XML       (1 << 2)
+
+
+#define GLUSTERFS_GET_AUX_MOUNT_PIDFILE(pidfile,volname) {               \
+                snprintf (pidfile, PATH_MAX-1,                             \
+                          DEFAULT_VAR_RUN_DIRECTORY"/%s.pid", volname);  \
+        }
+
 struct cli_state;
 struct cli_cmd_word;
 struct cli_cmd_tree;
@@ -212,7 +219,7 @@ int _cli_err (const char *fmt, ...);
         } while (0)
 
 int
-cli_submit_request (void *req, call_frame_t *frame,
+cli_submit_request (struct rpc_clnt *rpc, void *req, call_frame_t *frame,
                     rpc_clnt_prog_t *prog,
                     int procnum, struct iobref *iobref,
                     xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);

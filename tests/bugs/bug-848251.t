@@ -19,6 +19,7 @@ TEST $CLI volume quota $V0 enable;
 TEST MOUNTDIR="/tmp/$RANDOM"
 TEST mkdir $MOUNTDIR
 TEST glusterfs -s $H0 --volfile-id=$V0 $MOUNTDIR
+sleep 10
 
 function set_quota(){
         mkdir "$MOUNTDIR/$name"
@@ -32,17 +33,17 @@ function quota_list(){
 TEST   name=":d1"
 #file name containing ':' in the start
 TEST   set_quota
-EXPECT "0Bytes" quota_list
+EXPECT "80%" quota_list
 
 TEST   name=":d1/d:1"
 #file name containing ':' in between
 TEST   set_quota
-EXPECT "0Bytes" quota_list
+EXPECT "80%" quota_list
 
 TEST   name=":d1/d:1/d1:"
 #file name containing ':' in the end
 TEST   set_quota
-EXPECT "0Bytes" quota_list
+EXPECT "80%" quota_list
 
 TEST   umount $MOUNTDIR
 TEST   rm -rf $MOUNTDIR

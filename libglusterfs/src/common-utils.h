@@ -615,4 +615,8 @@ char **backtrace_symbols(void *const *, size_t);
 int gf_get_soft_limit (char *limit, char **soft_limit);
 int gf_get_hard_limit (char *limit, char **hard_limit);
 
+gf_boolean_t
+gf_is_service_running (char *pidfile, int *pid);
+int
+gf_skip_header_section (int fd, int header_len);
 #endif /* _COMMON_UTILS_H */

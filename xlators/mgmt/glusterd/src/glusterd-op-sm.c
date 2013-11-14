@@ -888,18 +888,24 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
         if (cmd & GF_CLI_STATUS_ALL)
                 goto out;
 
+        if ((cmd & GF_CLI_STATUS_QUOTAD) &&
+            (priv->op_version == GD_OP_VERSION_MIN)) {
+                snprintf (msg, sizeof (msg), "The cluster is operating at "
+                          "version 1. Getting the status of quotad is not "
+                          "allowed in this state.");
+                ret = -1;
+                goto out;
+        }
+
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "Unable to get volume name");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
                 goto out;
         }
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                snprintf (msg, sizeof(msg), "Volume %s does not exist",
-                          volname);
-                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                snprintf (msg, sizeof(msg), FMTSTR_CHECK_VOL_EXISTS, volname);
                 ret = -1;
                 goto out;
         }
@@ -912,7 +918,6 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
         if (!ret) {
                 snprintf (msg, sizeof (msg), "Volume %s is not started",
                           volname);
-                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
                 ret = -1;
                 goto out;
         }
@@ -927,7 +932,6 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
                         snprintf (msg, sizeof (msg),
                                   "NFS server is disabled for volume %s",
                                   volname);
-                        gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
                         goto out;
                 }
         } else if ((cmd & GF_CLI_STATUS_SHD) != 0) {
@@ -936,7 +940,6 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
                         snprintf (msg, sizeof (msg),
                                   "Volume %s is not of type replicate",
                                   volname);
-                        gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
                         goto out;
                 }
 
@@ -948,10 +951,15 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
                         snprintf (msg, sizeof (msg),
                                   "Self-heal Daemon is disabled for volume %s",
                                   volname);
-                        gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
                         goto out;
                 }
-
+        } else if ((cmd & GF_CLI_STATUS_QUOTAD) != 0) {
+                if (!glusterd_is_volume_quota_enabled (volinfo)) {
+                        ret = -1;
+                        snprintf (msg, sizeof (msg), "Volume %s does not have "
+                                  "quota enabled", volname);
+                        goto out;
+                }
         } else if ((cmd & GF_CLI_STATUS_BRICK) != 0) {
                 ret = dict_get_str (dict, "brick", &brick);
                 if (ret)
@@ -962,8 +970,6 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
                 if (ret) {
                         snprintf (msg, sizeof(msg), "No brick %s in"
                                   " volume %s", brick, volname);
-                        gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
-
                         ret = -1;
                         goto out;
                 }
@@ -979,7 +985,7 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
                         *op_errstr = gf_strdup ("Validation Failed for Status");
         }
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning: %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning: %d", ret);
         return ret;
 }
 
@@ -2216,6 +2222,14 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                 other_count++;
                 node_count++;
 
+        } else if ((cmd & GF_CLI_STATUS_QUOTAD) != 0) {
+                ret = glusterd_add_node_to_dict ("quotad", rsp_dict, 0,
+                                                 vol_opts);
+                if (ret)
+                        goto out;
+                other_count++;
+                node_count++;
+
         } else if ((cmd & GF_CLI_STATUS_BRICK) != 0) {
                 ret = dict_get_str (dict, "brick", &brick);
                 if (ret)
@@ -2284,6 +2298,17 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                         if (glusterd_is_volume_replicate (volinfo)
                             && shd_enabled) {
                                 ret = glusterd_add_node_to_dict ("glustershd",
+                                                                 rsp_dict,
+                                                                 other_index,
+                                                                 vol_opts);
+                                if (ret)
+                                        goto out;
+                                other_count++;
+                                node_count++;
+                                other_index++;
+                        }
+                        if (glusterd_is_volume_quota_enabled (volinfo)) {
+                                ret = glusterd_add_node_to_dict ("quotad",
                                                                  rsp_dict,
                                                                  other_index,
                                                                  vol_opts);
@@ -4069,7 +4094,8 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         break;
 
                 case GD_OP_QUOTA:
-                        ret = glusterd_op_stage_quota (dict, op_errstr);
+                        ret = glusterd_op_stage_quota (dict, op_errstr,
+                                                       rsp_dict);
                         break;
 
                 case GD_OP_STATUS_VOLUME:
@@ -4942,9 +4968,6 @@ out:
         return ret;
 }
 
-
-
-
 static int
 glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                                       struct list_head *selected)
@@ -4984,6 +5007,7 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
         case GF_CLI_STATUS_CALLPOOL:
         case GF_CLI_STATUS_NFS:
         case GF_CLI_STATUS_SHD:
+        case GF_CLI_STATUS_QUOTAD:
                 break;
         default:
                 goto out;
@@ -5061,6 +5085,25 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                 }
                 pending_node->node = priv->shd;
                 pending_node->type = GD_NODE_SHD;
+                pending_node->index = 0;
+                list_add_tail (&pending_node->list, selected);
+
+                ret = 0;
+        } else if ((cmd & GF_CLI_STATUS_QUOTAD) != 0) {
+                if (!glusterd_is_nodesvc_online ("quotad")) {
+                        gf_log (this->name, GF_LOG_ERROR, "Quotad is not "
+                                "running");
+                        ret = -1;
+                        goto out;
+                }
+                pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                          gf_gld_mt_pending_node_t);
+                if (!pending_node) {
+                        ret = -1;
+                        goto out;
+                }
+                pending_node->node = priv->quotad;
+                pending_node->type = GD_NODE_QUOTAD;
                 pending_node->index = 0;
                 list_add_tail (&pending_node->list, selected);
 

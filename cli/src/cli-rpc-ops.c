@@ -37,9 +37,13 @@
 #include "syscall.h"
 #include "glusterfs3.h"
 #include "portmap-xdr.h"
+#include "byte-order.h"
 
+#include "cli-quotad-client.h"
 #include "run.h"
 
+extern struct rpc_clnt *global_quotad_rpc;
+extern rpc_clnt_prog_t cli_quotad_clnt;
 extern rpc_clnt_prog_t *cli_rpc_prog;
 extern int              cli_op_ret;
 extern int              connected;
@@ -2281,131 +2285,227 @@ out:
         return ret;
 }
 
-int32_t
-gf_cli_print_limit_list (char *volname, char *limit_list,
-                            char *op_errstr)
+static int
+print_quota_list_output (char *mountdir, char *default_sl, char *path)
 {
-        int64_t  size            = 0;
-        int64_t  limit_value     = 0;
-        int32_t  i, j;
-        int32_t  len = 0, ret    = -1;
-        char     *size_str       = NULL;
-        char     path [PATH_MAX] = {0, };
-        char     ret_str [1024]  = {0, };
-        char     value [1024]    = {0, };
-        char     mountdir []     = "/tmp/mntXXXXXX";
-        char     abspath [PATH_MAX] = {0, };
-        char     *colon_ptr      = NULL;
-        runner_t runner          = {0,};
+        uint64_t used_space       = 0;
+        uint64_t avail            = 0;
+        char    *used_str         = NULL;
+        char    *avail_str        = NULL;
+        int     ret               = -1;
+        char    *sl_final         = NULL;
+        char     percent_str[20]  = {0,};
+        char    *hl_str           = NULL;
 
-        GF_VALIDATE_OR_GOTO ("cli", volname, out);
-        GF_VALIDATE_OR_GOTO ("cli", limit_list, out);
+        struct quota_limit {
+                int64_t hl;
+                int64_t sl;
+        } __attribute__ ((__packed__)) existing_limits;
 
-        if (!connected)
-                goto out;
-
-        len = strlen (limit_list);
-        if (len == 0) {
-                cli_err ("%s", op_errstr?op_errstr:"quota limit not set ");
-                goto out;
-        }
-
-        if (mkdtemp (mountdir) == NULL) {
-                gf_log ("cli", GF_LOG_WARNING, "failed to create a temporary "
-                        "mount directory");
-                ret = -1;
+        ret = sys_lgetxattr (mountdir, "trusted.glusterfs.quota.limit-set",
+                             (void *)&existing_limits,
+                             sizeof (existing_limits));
+        if (ret < 0) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get the xattr "
+                        "trusted.glusterfs.quota.limit-set on %s. Reason : %s",
+                        mountdir, strerror (errno));
                 goto out;
         }
 
-        /* Mount a temporary client to fetch the disk usage
-         * of the directory on which the limit is set.
+        existing_limits.hl = ntoh64 (existing_limits.hl);
+        existing_limits.sl = ntoh64 (existing_limits.sl);
+
+        hl_str = gf_uint64_2human_readable (existing_limits.hl);
+
+        if (existing_limits.sl < 0) {
+                sl_final = default_sl;
+        } else {
+                snprintf (percent_str, sizeof (percent_str), "%"PRIu64"%%",
+                          existing_limits.sl);
+                sl_final = percent_str;
+        }
+
+        ret = sys_lgetxattr (mountdir, "trusted.glusterfs.quota.size",
+                             &used_space, sizeof (used_space));
+
+        if (ret < 0) {
+                cli_out ("%-40s %7s %9s %11s %7s", path, hl_str, sl_final,
+                         "N/A", "N/A");
+        } else {
+                used_space = ntoh64 (used_space);
+
+                used_str = gf_uint64_2human_readable (used_space);
+
+                if (existing_limits.hl > used_space)
+                        avail = existing_limits.hl - used_space;
+                else
+                        avail = 0;
+
+                avail_str = gf_uint64_2human_readable (avail);
+                if (used_str == NULL)
+                        cli_out ("%-40s %7s %9s %11"PRIu64
+                                                 "%9"PRIu64, path, hl_str,
+                                                 sl_final, used_space, avail);
+                else
+                        cli_out ("%-40s %7s %9s %11s %7s", path, hl_str,
+                                 sl_final, used_str, avail_str);
+        }
+
+out:
+        GF_FREE (used_str);
+        GF_FREE (avail_str);
+        GF_FREE (hl_str);
+        return ret;
+}
+
+int
+gf_cli_print_limit_list_from_dict (char *volname, dict_t *dict,
+                                   char *default_sl, int count, char *op_errstr)
+{
+        int  ret               = -1;
+        int  i                 = 0;
+        char key[1024]         = {0,};
+        char mountdir[PATH_MAX] = {0,};
+        char *path              = NULL;
+
+        if (!dict|| count <= 0)
+                goto out;
+
+        /*To-Do:
+         * Proper error reporting to handle the case where none of the given
+         * path arguments are present or have their limits set.
          */
-        ret = runcmd (SBIN_DIR"/glusterfs", "-s",
-                      "localhost", "--volfile-id", volname, "-l",
-                      DEFAULT_LOG_FILE_DIRECTORY"/quota-list.log",
-                      mountdir, NULL);
-        if (ret) {
-                gf_log ("cli", GF_LOG_WARNING, "failed to mount glusterfs client");
-                ret = -1;
-                goto rm_dir;
-        }
 
-        len = strlen (limit_list);
-        if (len == 0) {
-                cli_err ("quota limit not set ");
-                goto unmount;
-        }
+        cli_out ("                  Path                   Hard-limit "
+                 "Soft-limit   Used  Available");
+        cli_out ("-----------------------------------------------------"
+                 "---------------------------");
 
-        i = 0;
+        while (count--) {
+                snprintf (key, sizeof (key), "path%d", i++);
 
-        cli_out ("\tpath\t\t  limit_set\t     size");
-        cli_out ("-----------------------------------------------------------"
-                 "-----------------------");
-        while (i < len) {
-                j = 0;
-
-                while (limit_list [i] != ',' && limit_list [i] != '\0') {
-                        path [j++] = limit_list[i++];
-                }
-                path [j] = '\0';
-                //here path[] contains both path and limit value
-
-                colon_ptr = strrchr (path, ':');
-                *colon_ptr = '\0';
-                strcpy (value, ++colon_ptr);
-
-                snprintf (abspath, sizeof (abspath), "%s/%s", mountdir, path);
-
-                ret = sys_lgetxattr (abspath, "trusted.limit.list", (void *) ret_str, 4096);
+                ret = dict_get_str (dict, key, &path);
                 if (ret < 0) {
-                        cli_out ("%-20s %10s", path, value);
-                } else {
-                        sscanf (ret_str, "%"PRId64",%"PRId64, &size,
-                                &limit_value);
-                        size_str = gf_uint64_2human_readable ((uint64_t) size);
-                        if (size_str == NULL) {
-                                cli_out ("%-20s %10s %20"PRId64, path,
-                                         value, size);
-                        } else {
-                                cli_out ("%-20s %10s %20s", path,
-                                         value, size_str);
-                                GF_FREE (size_str);
-                        }
+                        gf_log ("cli", GF_LOG_DEBUG, "Path not present in limit"
+                                " list");
+                        continue;
                 }
-                i++;
+
+                ret = gf_canonicalize_path (path);
+                if (ret)
+                        goto out;
+                snprintf (mountdir, sizeof (mountdir), "/tmp/%s%s", volname,
+                          path);
+
+                ret = print_quota_list_output (mountdir, default_sl, path);
+
         }
-
-unmount:
-
-        runinit (&runner);
-        runner_add_args (&runner, "umount",
-#if GF_LINUX_HOST_OS
-                         "-l",
-#endif
-                         mountdir, NULL);
-        ret = runner_run_reuse (&runner);
-        if (ret)
-                runner_log (&runner, "cli", GF_LOG_WARNING, "error executing");
-        runner_end (&runner);
-
-rm_dir:
-        rmdir (mountdir);
 out:
         return ret;
 }
 
 int
-gf_cli_quota_cbk (struct rpc_req *req, struct iovec *iov,
-                     int count, void *myframe)
+print_quota_list_from_quotad (call_frame_t *frame, dict_t *rsp_dict)
 {
-        gf_cli_rsp         rsp        = {0,};
-        int                ret        = -1;
-        dict_t            *dict       = NULL;
-        char              *volname    = NULL;
-        char              *limit_list = NULL;
-        int32_t            type       = 0;
-        char               msg[1024]  = {0,};
-        call_frame_t      *frame      = NULL;
+        int64_t used_space    = 0;
+        int64_t avail         = 0;
+        int64_t *limit         = NULL;
+        char    *used_str      = NULL;
+        char    *avail_str     = NULL;
+        char    percent_str[20]= {0};
+        char    *hl_str        = NULL;
+        char    *sl_final      = NULL;
+        char    *path          = NULL;
+        char    *default_sl = NULL;
+        int     ret            = -1;
+        cli_local_t *local     = NULL;
+        dict_t *gd_rsp_dict    = NULL;
+
+        local = frame->local;
+        gd_rsp_dict = local->dict;
+
+        struct quota_limit {
+                int64_t hl;
+                int64_t sl;
+        } __attribute__ ((__packed__)) *existing_limits = NULL;
+
+        ret = dict_get_str (rsp_dict, GET_ANCESTRY_PATH_KEY, &path);
+        if (ret) {
+                gf_log ("cli", GF_LOG_WARNING, "path key is not present "
+                        "in dict");
+                goto out;
+        }
+
+        ret = dict_get_bin (rsp_dict, QUOTA_LIMIT_KEY, (void**)&limit);
+        if (ret) {
+                gf_log ("cli", GF_LOG_WARNING,
+                        "limit key not present in dict");
+                goto out;
+        }
+
+        ret = dict_get_str (gd_rsp_dict, "default-soft-limit", &default_sl);
+        if (ret) {
+                gf_log (frame->this->name, GF_LOG_ERROR, "failed to "
+                        "get default soft limit");
+                goto out;
+        }
+        existing_limits = (struct quota_limit *)limit;
+        existing_limits->hl = ntoh64 (existing_limits->hl);
+        existing_limits->sl = ntoh64 (existing_limits->sl);
+
+        hl_str = gf_uint64_2human_readable (existing_limits->hl);
+
+        if (existing_limits->sl < 0) {
+                sl_final = default_sl;
+        } else {
+                snprintf (percent_str, sizeof (percent_str), "%"PRIu64"%%",
+                          existing_limits->sl);
+                sl_final = percent_str;
+        }
+
+        ret = dict_get_bin (rsp_dict, QUOTA_SIZE_KEY, (void**)&limit);
+        if (ret < 0) {
+                gf_log ("cli", GF_LOG_WARNING,
+                        "size key not present in dict");
+                cli_out ("%-40s %7s %9s %11s %7s", path, hl_str, sl_final,
+                         "N/A", "N/A");
+        } else {
+                used_space = *limit;
+                used_space = ntoh64 (used_space);
+                used_str = gf_uint64_2human_readable (used_space);
+
+                if (existing_limits->hl > used_space)
+                        avail = existing_limits->hl - used_space;
+                else
+                        avail = 0;
+
+                avail_str = gf_uint64_2human_readable (avail);
+                if (used_str == NULL)
+                        cli_out ("%-40s %7s %9s %11"PRIu64
+                                                 "%9"PRIu64, path, hl_str,
+                                                 sl_final, used_space, avail);
+                else
+                        cli_out ("%-40s %7s %9s %11s %7s", path, hl_str,
+                                 sl_final, used_str, avail_str);
+        }
+
+        ret = 0;
+out:
+        GF_FREE (used_str);
+        GF_FREE (avail_str);
+        GF_FREE (hl_str);
+        return ret;
+}
+
+int
+cli_quotad_getlimit_cbk (struct rpc_req *req, struct iovec *iov,
+                          int count, void *myframe)
+{
+    //TODO: we need to gather the path, hard-limit, soft-limit and used space
+        gf_cli_rsp         rsp         = {0,};
+        int                ret         = -1;
+        dict_t            *dict        = NULL;
+        call_frame_t      *frame       = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -2420,15 +2520,12 @@ gf_cli_quota_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        if (rsp.op_ret &&
-            strcmp (rsp.op_errstr, "") == 0) {
-                snprintf (msg, sizeof (msg), "command unsuccessful %s",
-                          rsp.op_errstr);
-
-                if (global_state->mode & GLUSTER_MODE_XML)
-                        goto xml_output;
+        if (rsp.op_ret && strcmp (rsp.op_errstr, "") == 0) {
+                cli_err ("quota command : failed");
                 goto out;
-        }
+
+        } else if (strcmp (rsp.op_errstr, ""))
+                        cli_err ("quota command failed : %s", rsp.op_errstr);
 
         if (rsp.dict.dict_len) {
                 /* Unserialize the dictionary */
@@ -2438,27 +2535,165 @@ gf_cli_quota_cbk (struct rpc_req *req, struct iovec *iov,
                                         rsp.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        goto out;
+                }
+                print_quota_list_from_quotad (frame, dict);
+        }
+
+out:
+        cli_cmd_broadcast_response (ret);
+        if (dict)
+                dict_unref (dict);
+
+        free (rsp.dict.dict_val);
+        return ret;
+}
+
+int
+cli_quotad_getlimit (call_frame_t *frame, xlator_t *this, void *data)
+{
+        gf_cli_req          req = {{0,}};
+        int                 ret = 0;
+        dict_t             *dict = NULL;
+
+        if (!frame || !this ||  !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to serialize the data");
+
+                goto out;
+        }
+
+        ret = cli_cmd_submit (global_quotad_rpc, &req, frame, &cli_quotad_clnt,
+                              GF_AGGREGATOR_GETLIMIT, NULL,
+                              this, cli_quotad_getlimit_cbk,
+                              (xdrproc_t) xdr_gf_cli_req);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+
+
+}
+
+void
+gf_cli_quota_list (char *volname, dict_t *dict, int count, char *op_errstr,
+                   char *default_sl)
+{
+        GF_VALIDATE_OR_GOTO ("cli", volname, out);
+
+        if (!connected)
+                goto out;
+
+        if (count > 0)
+                gf_cli_print_limit_list_from_dict (volname, dict, default_sl,
+                                                   count, op_errstr);
+out:
+        return;
+}
+
+int
+gf_cli_quota_cbk (struct rpc_req *req, struct iovec *iov,
+                     int count, void *myframe)
+{
+        gf_cli_rsp         rsp         = {0,};
+        int                ret         = -1;
+        dict_t            *dict        = NULL;
+        char              *volname     = NULL;
+        int32_t            type        = 0;
+        call_frame_t      *frame       = NULL;
+        char              *default_sl  = NULL;
+        char              *limit_list  = NULL;
+        cli_local_t       *local       = NULL;
+        dict_t            *aggr        = NULL;
+        char              *default_sl_dup  = NULL;
+        int32_t            entry_count      = 0;
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        frame = myframe;
+        local = frame->local;
+        aggr  = local->dict;
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
+        if (ret < 0) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
+                goto out;
+        }
+
+        if (rsp.op_ret && strcmp (rsp.op_errstr, "") == 0) {
+                cli_err ("quota command : failed");
+
+                if (global_state->mode & GLUSTER_MODE_XML)
+                        goto xml_output;
+                goto out;
+        } else if (strcmp (rsp.op_errstr, ""))
+                        cli_err ("quota command failed : %s", rsp.op_errstr);
+
+        if (rsp.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (rsp.dict.dict_val,
+                                        rsp.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log ("cli", GF_LOG_ERROR,
                                 "failed to "
                                 "unserialize req-buffer to dictionary");
                         goto out;
                 }
         }
 
+        gf_log ("cli", GF_LOG_DEBUG, "Received resp to quota command");
+
         ret = dict_get_str (dict, "volname", &volname);
         if (ret)
-                gf_log (frame->this->name, GF_LOG_TRACE,
+                gf_log (frame->this->name, GF_LOG_ERROR,
                         "failed to get volname");
 
-        ret = dict_get_str (dict, "limit_list", &limit_list);
+        ret = dict_get_str (dict, "default-soft-limit", &default_sl);
         if (ret)
-                gf_log (frame->this->name, GF_LOG_TRACE,
-                        "failed to get limit_list");
+                gf_log (frame->this->name, GF_LOG_TRACE, "failed to get "
+                        "default soft limit");
+
+        // default-soft-limit is part of rsp_dict only iff we sent
+        // GLUSTER_CLI_QUOTA with type being GF_QUOTA_OPTION_TYPE_LIST
+        if (default_sl) {
+                default_sl_dup = gf_strdup (default_sl);
+                if (!default_sl_dup) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = dict_set_dynstr (aggr, "default-soft-limit",
+                                       default_sl_dup);
+                if (ret) {
+                        gf_log (frame->this->name, GF_LOG_TRACE,
+                                "failed to set default soft limit");
+                        GF_FREE (default_sl_dup);
+                }
+        }
 
         ret = dict_get_int32 (dict, "type", &type);
         if (ret)
                 gf_log (frame->this->name, GF_LOG_TRACE,
                         "failed to get type");
+
+        ret = dict_get_int32 (dict, "count", &entry_count);
+        if (ret)
+                gf_log (frame->this->name, GF_LOG_TRACE, "failed to get count");
 
         if (type == GF_QUOTA_OPTION_TYPE_LIST) {
                 if (global_state->mode & GLUSTER_MODE_XML) {
@@ -2469,31 +2704,15 @@ gf_cli_quota_cbk (struct rpc_req *req, struct iovec *iov,
                                 gf_log ("cli", GF_LOG_ERROR,
                                         "Error outputting to xml");
                         goto out;
-
                 }
 
-                if (limit_list) {
-                        gf_cli_print_limit_list (volname,
-                                                    limit_list,
-                                                    rsp.op_errstr);
-                } else {
-                        gf_log ("cli", GF_LOG_INFO, "Received resp to quota "
-                                "command ");
-                        if (rsp.op_errstr)
-                                snprintf (msg, sizeof (msg), "%s",
-                                          rsp.op_errstr);
-                }
-        } else {
-                gf_log ("cli", GF_LOG_INFO, "Received resp to quota command ");
-                if (rsp.op_errstr)
-                        snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
-                else
-                        snprintf (msg, sizeof (msg), "successful");
+                gf_cli_quota_list (volname, dict, entry_count, rsp.op_errstr,
+                                   default_sl);
         }
 
 xml_output:
         if (global_state->mode & GLUSTER_MODE_XML) {
-                ret = cli_xml_output_str ("volQuota", msg, rsp.op_ret,
+                ret = cli_xml_output_str ("volQuota", NULL, rsp.op_ret,
                                           rsp.op_errno, rsp.op_errstr);
                 if (ret)
                         gf_log ("cli", GF_LOG_ERROR,
@@ -2501,12 +2720,8 @@ xml_output:
                 goto out;
         }
 
-        if (strlen (msg) > 0) {
-                if (rsp.op_ret)
-                        cli_err ("%s", msg);
-                else
-                        cli_out ("%s", msg);
-        }
+        if (!rsp.op_ret && type != GF_QUOTA_OPTION_TYPE_LIST)
+                cli_out ("volume quota : success");
 
         ret = rsp.op_ret;
 out:
@@ -2700,7 +2915,7 @@ gf_cli_list_friends (call_frame_t *frame, xlator_t *this,
         flags = (long)data;
         req.flags = flags;
         frame->local = (void*)flags;
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+        ret = cli_cmd_submit (NULL, &req, frame, cli_rpc_prog,
                               GLUSTER_CLI_LIST_FRIENDS, NULL,
                               this, gf_cli_list_friends_cbk,
                               (xdrproc_t) xdr_gf1_cli_peer_list_req);
@@ -2814,7 +3029,7 @@ gf_cli_get_volume (call_frame_t *frame, xlator_t *this,
         ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
                                            &req.dict.dict_len);
 
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+        ret = cli_cmd_submit (NULL, &req, frame, cli_rpc_prog,
                               GLUSTER_CLI_GET_VOLUME, NULL,
                               this, gf_cli_get_volume_cbk,
                               (xdrproc_t) xdr_gf_cli_req);
@@ -3033,7 +3248,7 @@ gf_cli_rename_volume (call_frame_t *frame, xlator_t *this,
         }
 
 
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+        ret = cli_cmd_submit (NULL, &req, frame, cli_rpc_prog,
                               GLUSTER_CLI_RENAME_VOLUME, NULL,
                               this, gf_cli_rename_volume_cbk,
                               (xdrproc_t) xdr_gf_cli_req);
@@ -3385,7 +3600,7 @@ gf_cli_getspec (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ret = cli_cmd_submit (&req, frame, &cli_handshake_prog,
+        ret = cli_cmd_submit (NULL, &req, frame, &cli_handshake_prog,
                               GF_HNDSK_GETSPEC, NULL,
                               this, gf_cli_getspec_cbk,
                               (xdrproc_t) xdr_gf_getspec_req);
@@ -3442,7 +3657,7 @@ gf_cli_pmap_b2p (call_frame_t *frame, xlator_t *this, void *data)
         if (ret)
                 goto out;
 
-        ret = cli_cmd_submit (&req, frame, &cli_pmap_prog,
+        ret = cli_cmd_submit (NULL, &req, frame, &cli_pmap_prog,
                               GF_PMAP_PORTBYBRICK, NULL,
                               this, gf_cli_pmap_b2p_cbk,
                               (xdrproc_t) xdr_pmap_port_by_brick_req);
@@ -3557,7 +3772,7 @@ gf_cli_fsm_log (call_frame_t *frame, xlator_t *this, void *data)
         if (!frame || !this || !data)
                 goto out;
         req.name = data;
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+        ret = cli_cmd_submit (NULL, &req, frame, cli_rpc_prog,
                               GLUSTER_CLI_FSM_LOG, NULL,
                               this, gf_cli_fsm_log_cbk,
                               (xdrproc_t) xdr_gf1_cli_fsm_log_req);
@@ -5125,7 +5340,7 @@ gf_cli_getwd (call_frame_t *frame, xlator_t *this, void *data)
         if (!frame || !this)
                 goto out;
 
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+        ret = cli_cmd_submit (NULL, &req, frame, cli_rpc_prog,
                               GLUSTER_CLI_GETWD, NULL,
                               this, gf_cli_getwd_cbk,
                               (xdrproc_t) xdr_gf1_cli_getwd_req);
@@ -6329,7 +6544,8 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        if ((cmd & GF_CLI_STATUS_NFS) || (cmd & GF_CLI_STATUS_SHD))
+        if ((cmd & GF_CLI_STATUS_NFS) || (cmd & GF_CLI_STATUS_SHD) ||
+            (cmd & GF_CLI_STATUS_QUOTAD))
                 notbrick = _gf_true;
 
         if (global_state->mode & GLUSTER_MODE_XML) {
@@ -6444,7 +6660,8 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
                  */
                 memset (status.brick, 0, PATH_MAX + 255);
                 if (!strcmp (hostname, "NFS Server") ||
-                    !strcmp (hostname, "Self-heal Daemon"))
+                    !strcmp (hostname, "Self-heal Daemon") ||
+                    !strcmp (hostname, "Quota Daemon"))
                         snprintf (status.brick, PATH_MAX + 255, "%s on %s",
                                   hostname, path);
                 else
@@ -6694,7 +6911,7 @@ gf_cli_mount (call_frame_t *frame, xlator_t *this, void *data)
                 goto out;
         }
 
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+        ret = cli_cmd_submit (NULL, &req, frame, cli_rpc_prog,
                               GLUSTER_CLI_MOUNT, NULL,
                               this, gf_cli_mount_cbk,
                               (xdrproc_t)xdr_gf1_cli_mount_req);
@@ -6757,7 +6974,7 @@ gf_cli_umount (call_frame_t *frame, xlator_t *this, void *data)
                 goto out;
         }
 
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+        ret = cli_cmd_submit (NULL, &req, frame, cli_rpc_prog,
                               GLUSTER_CLI_UMOUNT, NULL,
                               this, gf_cli_umount_cbk,
                               (xdrproc_t)xdr_gf1_cli_umount_req);
@@ -7326,7 +7543,7 @@ gf_cli_list_volume (call_frame_t *frame, xlator_t *this, void *data)
         if (!frame || !this)
                 goto out;
 
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+        ret = cli_cmd_submit (NULL, &req, frame, cli_rpc_prog,
                               GLUSTER_CLI_LIST_VOLUME, NULL,
                               this, gf_cli_list_volume_cbk,
                               (xdrproc_t)xdr_gf_cli_req);
@@ -7499,7 +7716,7 @@ cli_to_glusterd (gf_cli_req *req, call_frame_t *frame,
                 goto out;
         }
 
-        ret = cli_cmd_submit (req, frame, prog, procnum, iobref, this,
+        ret = cli_cmd_submit (NULL, req, frame, prog, procnum, iobref, this,
                               cbkfn, (xdrproc_t) xdrproc);
 
 out:
@@ -7555,4 +7772,18 @@ struct rpc_clnt_program cli_prog = {
         .progver   = GLUSTER_CLI_VERSION,
         .numproc   = GLUSTER_CLI_MAXVALUE,
         .proctable = gluster_cli_actors,
+};
+
+struct rpc_clnt_procedure cli_quotad_procs[GF_AGGREGATOR_MAXVALUE] = {
+        [GF_AGGREGATOR_NULL]     = {"NULL", NULL},
+        [GF_AGGREGATOR_LOOKUP]   = {"LOOKUP", NULL},
+        [GF_AGGREGATOR_GETLIMIT]   = {"GETLIMIT", cli_quotad_getlimit},
+};
+
+struct rpc_clnt_program cli_quotad_clnt = {
+        .progname  = "CLI Quotad client",
+        .prognum   = GLUSTER_AGGREGATOR_PROGRAM,
+        .progver   = GLUSTER_AGGREGATOR_VERSION,
+        .numproc   = GF_AGGREGATOR_MAXVALUE,
+        .proctable = cli_quotad_procs,
 };
