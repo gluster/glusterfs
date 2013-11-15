@@ -1102,7 +1102,7 @@ out:
         if (local->fd)
                 BD_STACK_UNWIND (fsetxattr, frame, op_ret, op_errno, NULL);
         else
-                BD_STACK_UNWIND (setxattr, frame, op_errno, op_errno, NULL);
+                BD_STACK_UNWIND (setxattr, frame, op_ret, op_errno, NULL);
 
         return 0;
 }
@@ -2328,11 +2328,15 @@ init (xlator_t *this)
 
         return 0;
 error:
-        GF_FREE (_private->vg);
-        if (_private->handle)
-                lvm_quit (_private->handle);
+        if (_private) {
+                GF_FREE (_private->vg);
+                if (_private->handle)
+                        lvm_quit (_private->handle);
+                GF_FREE (_private);
+        }
+
         mem_pool_destroy (this->local_pool);
-        GF_FREE (_private);
+
         return -1;
 }
 
