@@ -145,9 +145,10 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
 
 #define FUSE_FOP(state, ret, op_num, fop, args ...)                     \
         do {                                                            \
-                call_frame_t *frame  = NULL;                            \
-                xlator_t     *xl     = NULL;                            \
-                int32_t       op_ret = 0, op_errno = 0;                 \
+                call_frame_t   *frame   = NULL;                         \
+                xlator_t       *xl      = NULL;                         \
+                int32_t         op_ret  = 0, op_errno = 0;              \
+                fuse_resolve_t *resolve = NULL;                         \
                                                                         \
                 frame = get_call_frame_for_req (state);                 \
                 if (!frame) {                                           \
@@ -174,14 +175,20 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
                 frame->root->op    = op_num;                            \
                 frame->op          = op_num;                            \
                                                                         \
+                if ( state->resolve_now ) {                             \
+                        resolve = state->resolve_now;                   \
+                } else {                                                \
+                        resolve = &(state->resolve);                    \
+                }                                                       \
+                                                                        \
                 xl = state->active_subvol;				\
                 if (!xl) {                                              \
                         gf_log_callingfn ("glusterfs-fuse", GF_LOG_ERROR, \
                                           "xl is NULL");                \
                         op_errno = ENOENT;                              \
                         op_ret = -1;                                    \
-                } else if (state->resolve.op_ret < 0) {                 \
-                        op_errno = state->resolve.op_errno;             \
+                } else if (resolve->op_ret < 0) {                       \
+                        op_errno = resolve->op_errno;                   \
                         op_ret = -1;                                    \
                         if (op_num == GF_FOP_LOOKUP) {                  \
                                 gf_log ("glusterfs-fuse",               \
@@ -190,7 +197,7 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
                                         "%"PRIu64": %s() %s => -1 (%s)", \
                                         frame->root->unique,            \
                                         gf_fop_list[frame->root->op],   \
-                                        state->resolve.resolve_loc.path, \
+                                        resolve->resolve_loc.path,      \
                                         strerror (op_errno));           \
                         } else {                                        \
                                 gf_log ("glusterfs-fuse",               \
@@ -199,7 +206,7 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
                                         "migration of %s failed (%s)",  \
                                         frame->root->unique,            \
                                         gf_fop_list[frame->root->op],   \
-                                        state->resolve.resolve_loc.path, \
+                                        resolve->resolve_loc.path,      \
                                         strerror (op_errno));           \
                         }                                               \
                 } else if (state->resolve2.op_ret < 0) {                \
