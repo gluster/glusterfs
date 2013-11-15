@@ -2195,6 +2195,36 @@ out:
         return 0;
 }
 
+static int
+bd_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+            off_t len, dict_t *xdata)
+{
+        int32_t ret             =  0;
+        struct  iatt statpre    = {0,};
+        struct  iatt statpost   = {0,};
+        bd_attr_t *bdatt = NULL;
+
+        /* iatt already cached */
+        if (bd_inode_ctx_get (fd->inode, this, &bdatt) < 0) {
+                STACK_WIND (frame, default_zerofill_cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->zerofill,
+                            fd, offset, len, xdata);
+                return 0;
+        }
+
+        ret = bd_do_zerofill(frame, this, fd, offset, len,
+                             &statpre, &statpost);
+        if (ret)
+                goto err;
+
+        STACK_UNWIND_STRICT(zerofill, frame, 0, 0, &statpre, &statpost, NULL);
+        return 0;
+
+err:
+        STACK_UNWIND_STRICT(zerofill, frame, -1, ret, NULL, NULL, NULL);
+        return 0;
+}
+
 /**
  * notify - when parent sends PARENT_UP, send CHILD_UP event from here
  */
@@ -2324,7 +2354,8 @@ init (xlator_t *this)
                 }
         }
 
-        _private->caps |= BD_CAPS_OFFLOAD_COPY | BD_CAPS_OFFLOAD_SNAPSHOT;
+        _private->caps |= BD_CAPS_OFFLOAD_COPY | BD_CAPS_OFFLOAD_SNAPSHOT |
+                BD_CAPS_OFFLOAD_ZERO;
 
         return 0;
 error:
@@ -2384,6 +2415,7 @@ struct xlator_fops fops = {
         .flush       = bd_flush,
         .setattr     = bd_setattr,
         .discard     = bd_discard,
+        .zerofill    = bd_zerofill,
 };
 
 struct xlator_cbks cbks = {

@@ -51,6 +51,7 @@
 #define BD_CAPS_THIN             0x02
 #define BD_CAPS_OFFLOAD_COPY     0x04
 #define BD_CAPS_OFFLOAD_SNAPSHOT 0x08
+#define BD_CAPS_OFFLOAD_ZERO     0x20
 
 #define BD_CLONE "clone"
 #define BD_SNAPSHOT "snapshot"
@@ -61,8 +62,10 @@
 #define IOV_SIZE (64 * 1024)
 
 #define ALIGN_SIZE 4096
-
 #define LINKTO "trusted.glusterfs.dht.linkto"
+
+#define MAX_NO_VECT 1024
+
 
 #define BD_VALIDATE_MEM_ALLOC(buff, op_errno, label)                \
         if (!buff) {                                                \
@@ -174,5 +177,8 @@ int bd_snapshot_create (bd_local_t *local, bd_priv_t *priv);
 int bd_clone (bd_local_t *local, bd_priv_t *priv);
 int bd_merge (bd_priv_t *priv, uuid_t gfid);
 int bd_get_origin (bd_priv_t *priv, loc_t *loc, fd_t *fd, dict_t *dict);
+int bd_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
+                   off_t offset, off_t len, struct iatt *prebuf,
+                   struct iatt *postbuf);
 
 #endif
