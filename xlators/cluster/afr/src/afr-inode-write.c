@@ -2807,7 +2807,7 @@ out:
 
 int
 afr_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
-              size_t len, dict_t *xdata)
+              off_t len, dict_t *xdata)
 {
         afr_private_t   *priv               = NULL;
         afr_local_t     *local              = NULL;

@@ -2032,7 +2032,7 @@ out:
 
 int32_t
 client_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
-               size_t len, dict_t *xdata)
+               off_t len, dict_t *xdata)
 {
         int          ret              = -1;
         clnt_conf_t *conf             = NULL;

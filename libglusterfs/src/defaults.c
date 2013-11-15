@@ -913,7 +913,7 @@ default_discard_resume(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 int32_t
 default_zerofill_resume(call_frame_t *frame, xlator_t *this, fd_t *fd,
-                       off_t offset, size_t len, dict_t *xdata)
+                       off_t offset, off_t len, dict_t *xdata)
 {
         STACK_WIND(frame, default_zerofill_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->zerofill, fd, offset, len,
@@ -1348,7 +1348,7 @@ default_discard(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 int32_t
 default_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
-                off_t offset, size_t len, dict_t *xdata)
+                off_t offset, off_t len, dict_t *xdata)
 {
         STACK_WIND_TAIL(frame, FIRST_CHILD(this),
                         FIRST_CHILD(this)->fops->zerofill, fd, offset, len,

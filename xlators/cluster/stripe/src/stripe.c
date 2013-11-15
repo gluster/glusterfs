@@ -4172,7 +4172,7 @@ out:
 
 int32_t
 stripe_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
-               size_t len, dict_t *xdata)
+               off_t len, dict_t *xdata)
 {
         stripe_local_t   *local            = NULL;
         stripe_fd_ctx_t  *fctx             = NULL;

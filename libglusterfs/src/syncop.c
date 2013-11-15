@@ -2191,7 +2191,7 @@ syncop_zerofill_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
-syncop_zerofill(xlator_t *subvol, fd_t *fd, off_t offset, size_t len)
+syncop_zerofill(xlator_t *subvol, fd_t *fd, off_t offset, off_t len)
 {
         struct syncargs args = {0, };
 

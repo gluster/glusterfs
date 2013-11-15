@@ -634,15 +634,15 @@ out:
 }
 
 static int32_t
-_posix_do_zerofill(int fd, off_t offset, size_t len, int o_direct)
+_posix_do_zerofill(int fd, off_t offset, off_t len, int o_direct)
 {
-        size_t              num_vect            = 0;
-        int32_t             num_loop            = 1;
-        int32_t             idx                 = 0;
+        off_t               num_vect            = 0;
+        off_t               num_loop            = 1;
+        off_t               idx                 = 0;
         int32_t             op_ret              = -1;
         int32_t             vect_size           = VECTOR_SIZE;
-        size_t              remain              = 0;
-        size_t              extra               = 0;
+        off_t               remain              = 0;
+        off_t               extra               = 0;
         struct iovec       *vector              = NULL;
         char               *iov_base            = NULL;
         char               *alloc_buf           = NULL;
@@ -714,7 +714,7 @@ err:
 
 static int32_t
 posix_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
-                  off_t offset, size_t len, struct iatt *statpre,
+                  off_t offset, off_t len, struct iatt *statpre,
                   struct iatt *statpost)
 {
         struct posix_fd *pfd       = NULL;
@@ -827,7 +827,7 @@ err:
 
 static int32_t
 posix_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
-                size_t len, dict_t *xdata)
+                off_t len, dict_t *xdata)
 {
         int32_t ret                      =  0;
         struct  iatt statpre             = {0,};
