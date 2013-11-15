@@ -707,7 +707,7 @@ dht_zerofill2(xlator_t *this, call_frame_t *frame, int op_ret)
 
 int
 dht_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
-            size_t len, dict_t *xdata)
+            off_t len, dict_t *xdata)
 {
         xlator_t     *subvol       = NULL;
         int           op_errno     = -1;

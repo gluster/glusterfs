@@ -677,7 +677,7 @@ typedef int32_t (*fop_zerofill_t) (call_frame_t *frame,
                                   xlator_t *this,
                                   fd_t *fd,
                                   off_t offset,
-                                  size_t len,
+                                  off_t len,
                                   dict_t *xdata);
 
 struct xlator_fops {

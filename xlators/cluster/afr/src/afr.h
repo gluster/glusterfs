@@ -712,7 +712,7 @@ typedef struct _afr_local {
 
                 struct {
                         off_t offset;
-                        size_t len;
+                        off_t len;
                         struct iatt prebuf;
                         struct iatt postbuf;
                 } zerofill;

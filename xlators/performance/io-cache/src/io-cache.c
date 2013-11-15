@@ -1461,7 +1461,7 @@ ioc_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 static int32_t
 ioc_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
-            size_t len, dict_t *xdata)
+            off_t len, dict_t *xdata)
 {
         uint64_t ioc_inode = 0;
 

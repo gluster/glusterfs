@@ -2522,7 +2522,7 @@ iot_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 iot_zerofill_wrapper(call_frame_t *frame, xlator_t *this, fd_t *fd,
-                     off_t offset, size_t len, dict_t *xdata)
+                     off_t offset, off_t len, dict_t *xdata)
 {
         STACK_WIND (frame, iot_zerofill_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->zerofill, fd, offset, len, xdata);
@@ -2531,7 +2531,7 @@ iot_zerofill_wrapper(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 int
 iot_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
-            size_t len, dict_t *xdata)
+            off_t len, dict_t *xdata)
 {
         call_stub_t     *stub     = NULL;
         int              ret      = -1;

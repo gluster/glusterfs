@@ -78,5 +78,5 @@ afr_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
 
 int
 afr_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
-             size_t len, dict_t *xdata);
+             off_t len, dict_t *xdata);
 #endif /* __INODE_WRITE_H__ */

@@ -1877,7 +1877,7 @@ glfs_discard_async (struct glfs_fd *glfd, off_t offset, size_t len,
 }
 
 int
-glfs_zerofill_async (struct glfs_fd *glfd, off_t offset, size_t len,
+glfs_zerofill_async (struct glfs_fd *glfd, off_t offset, off_t len,
                       glfs_io_cbk fn, void *data)
 {
         struct glfs_io *gio  = NULL;
@@ -2927,7 +2927,7 @@ out:
 }
 
 int
-glfs_zerofill (struct glfs_fd *glfd, off_t offset, size_t len)
+glfs_zerofill (struct glfs_fd *glfd, off_t offset, off_t len)
 {
         int               ret             = -1;
         xlator_t         *subvol          = NULL;

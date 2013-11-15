@@ -259,7 +259,7 @@ int32_t default_zerofill(call_frame_t *frame,
                         xlator_t *this,
                         fd_t *fd,
                         off_t offset,
-                        size_t len, dict_t *xdata);
+                        off_t len, dict_t *xdata);
 
 
 /* Resume */
@@ -488,7 +488,7 @@ int32_t default_zerofill_resume(call_frame_t *frame,
                                xlator_t *this,
                                fd_t *fd,
                                off_t offset,
-                               size_t len, dict_t *xdata);
+                               off_t len, dict_t *xdata);
 
 
 /* _cbk */

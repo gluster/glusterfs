@@ -2453,7 +2453,7 @@ io_stats_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
 int
 io_stats_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
-                 size_t len, dict_t *xdata)
+                 off_t len, dict_t *xdata)
 {
         START_FOP_LATENCY(frame);
 

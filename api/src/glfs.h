@@ -556,9 +556,9 @@ int glfs_discard(glfs_fd_t *fd, off_t offset, size_t len);
 int glfs_discard_async (glfs_fd_t *fd, off_t length, size_t lent,
 			glfs_io_cbk fn, void *data);
 
-int glfs_zerofill(glfs_fd_t *fd, off_t offset, size_t len);
+int glfs_zerofill(glfs_fd_t *fd, off_t offset, off_t len);
 
-int glfs_zerofill_async (glfs_fd_t *fd, off_t length, size_t len,
+int glfs_zerofill_async (glfs_fd_t *fd, off_t length, off_t len,
                         glfs_io_cbk fn, void *data);
 
 char *glfs_getcwd (glfs_t *fs, char *buf, size_t size);

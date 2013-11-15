@@ -752,7 +752,7 @@ fop_zerofill_stub(call_frame_t *frame,
                  fop_zerofill_t fn,
                  fd_t *fd,
                  off_t offset,
-                 size_t len, dict_t *xdata);
+                 off_t len, dict_t *xdata);
 
 call_stub_t *
 fop_zerofill_cbk_stub(call_frame_t *frame,

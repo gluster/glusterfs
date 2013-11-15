@@ -721,7 +721,7 @@ err:
 
 int
 ob_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
-           size_t len, dict_t *xdata)
+           off_t len, dict_t *xdata)
 {
         call_stub_t *stub;
 
