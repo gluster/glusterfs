@@ -6053,7 +6053,9 @@ client3_3_zerofill(call_frame_t *frame, xlator_t *this, void *data)
         int                op_errno    = ESTALE;
         int                ret         = 0;
 
-        if (!frame || !this || !data)
+        GF_ASSERT (frame);
+
+        if (!this || !data)
                 goto unwind;
 
         args = data;

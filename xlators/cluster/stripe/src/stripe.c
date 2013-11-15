@@ -4117,7 +4117,9 @@ stripe_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         call_frame_t   *prev       = NULL;
         call_frame_t   *mframe     = NULL;
 
-        if (!this || !frame || !frame->local || !cookie) {
+        GF_ASSERT (frame);
+
+        if (!this || !frame->local || !cookie) {
                 gf_log ("stripe", GF_LOG_DEBUG, "possible NULL deref");
                 goto out;
         }
