@@ -686,7 +686,11 @@ _posix_do_zerofill(int fd, off_t offset, off_t len, int o_direct)
                 vector[idx].iov_base = iov_base;
                 vector[idx].iov_len  = vect_size;
         }
-        lseek(fd, offset, SEEK_SET);
+        if (lseek(fd, offset, SEEK_SET) < 0) {
+                op_ret = -1;
+                goto err;
+        }
+
         for (idx = 0; idx < num_loop; idx++) {
                 op_ret = writev(fd, vector, num_vect);
                 if (op_ret < 0)
