@@ -238,6 +238,7 @@ typedef struct _auth auth_t;
 #define CAPS_THIN             0x00000002
 #define CAPS_OFFLOAD_COPY     0x00000004
 #define CAPS_OFFLOAD_SNAPSHOT 0x00000008
+#define CAPS_OFFLOAD_ZERO     0x00000020
 
 struct glusterd_rebalance_ {
         gf_defrag_status_t       defrag_status;

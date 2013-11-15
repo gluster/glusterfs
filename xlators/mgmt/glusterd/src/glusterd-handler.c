@@ -464,6 +464,22 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                         }
                 }
 
+                if (volinfo->caps & CAPS_OFFLOAD_ZERO) {
+                        snprintf (key, 256, "volume%d.xlator0.caps%d", count,
+                                  caps++);
+                        buf = GF_MALLOC (256, gf_common_mt_char);
+                        if (!buf) {
+                                ret = ENOMEM;
+                                goto out;
+                        }
+                        snprintf (buf, 256, "offload_zerofill");
+                        ret = dict_set_dynstr (volumes, key, buf);
+                        if (ret)  {
+                                GF_FREE (buf);
+                                goto out;
+                        }
+                }
+
         }
 #endif
 

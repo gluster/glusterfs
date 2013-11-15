@@ -6,7 +6,8 @@
 #ifdef HAVE_LIBAIO
 #include <libaio.h>
 #endif
-
+#include <linux/fs.h>
+#include <sys/ioctl.h>
 #include "bd.h"
 #include "run.h"
 
@@ -778,6 +779,242 @@ bd_get_origin (bd_priv_t *priv, loc_t *loc, fd_t *fd, dict_t *dict)
 
 out:
         lvm_vg_close (brick);
+        return ret;
+}
+
+#ifndef BLKZEROOUT
+
+int
+bd_do_manual_zerofill (int fd, off_t offset, off_t len, int o_direct)
+{
+        off_t           num_vect            = 0;
+        off_t           num_loop            = 1;
+        int             idx                 = 0;
+        int             op_ret              = -1;
+        int             vect_size           = IOV_SIZE;
+        off_t           remain              = 0;
+        off_t           extra               = 0;
+        struct iovec   *vector              = NULL;
+        char           *iov_base            = NULL;
+        char           *alloc_buf           = NULL;
+
+        if (len == 0)
+                return 0;
+
+        if (len < IOV_SIZE)
+                vect_size = len;
+
+        num_vect = len / (vect_size);
+        remain = len % vect_size ;
+
+        if (num_vect > MAX_NO_VECT) {
+                extra = num_vect % MAX_NO_VECT;
+                num_loop = num_vect / MAX_NO_VECT;
+                num_vect = MAX_NO_VECT;
+        }
+
+        vector = GF_CALLOC (num_vect, sizeof(struct iovec),
+                             gf_common_mt_iovec);
+        if (!vector)
+                  return -1;
+
+        if (o_direct) {
+                alloc_buf = page_aligned_alloc (vect_size, &iov_base);
+                if (!alloc_buf) {
+                        gf_log ("bd_do_manual_zerofill", GF_LOG_DEBUG,
+                                 "memory alloc failed, vect_size %d: %s",
+                                  vect_size, strerror (errno));
+                        GF_FREE (vector);
+                        return -1;
+                }
+        } else {
+                iov_base = GF_CALLOC (vect_size, sizeof(char),
+                                        gf_common_mt_char);
+                if (!iov_base) {
+                        GF_FREE (vector);
+                        return -1;
+                 }
+        }
+
+        for (idx = 0; idx < num_vect; idx++) {
+                vector[idx].iov_base = iov_base;
+                vector[idx].iov_len  = vect_size;
+        }
+
+        if (lseek (fd, offset, SEEK_SET) < 0) {
+                op_ret = -1;
+                goto err;
+        }
+
+        for (idx = 0; idx < num_loop; idx++) {
+                op_ret = writev (fd, vector, num_vect);
+                if (op_ret < 0)
+                        goto err;
+        }
+        if (extra) {
+                op_ret = writev (fd, vector, extra);
+                if (op_ret < 0)
+                        goto err;
+        }
+        if (remain) {
+                vector[0].iov_len = remain;
+                op_ret = writev (fd, vector , 1);
+                if (op_ret < 0)
+                        goto err;
+        }
+        op_ret = 0;
+err:
+        if (o_direct)
+                GF_FREE (alloc_buf);
+        else
+                GF_FREE (iov_base);
+        GF_FREE (vector);
+        return op_ret;
+}
+
+#else
+
+/*
+ * Issue Linux ZEROOUT ioctl to write '0' to a scsi device at given offset
+ * and number of bytes. Each SCSI device's maximum write same bytes are exported
+ * in sysfs file. Sending ioctl request greater than this bytes results in slow
+ * performance. Read this file to get the maximum bytes and break down single
+ * ZEROOUT request into multiple ZEROOUT request not exceeding maximum bytes.
+ * From VG & LV name of device mapper identified and sysfs file read.
+ * /sys/block/<block-device>/queue/write_same_max_bytes
+ */
+int
+bd_do_ioctl_zerofill (bd_priv_t *priv, bd_attr_t *bdatt, int fd, char *vg,
+                      off_t offset, off_t len)
+{
+        char      *dm           = NULL;
+        char       dmname[4096] = {0, };
+        char       lvname[4096] = {0, };
+        char       sysfs[4096]  = {0, };
+        bd_gfid_t  uuid         = {0, };
+        char      *p            = NULL;
+        off_t      max_bytes    = 0;
+        int        sysfd        = -1;
+        uint64_t   param[2]     = {0, 0};
+        off_t      nr_loop      = 0;
+        char       buff[16]     = {0, };
+
+        uuid_utoa_r (bdatt->iatt.ia_gfid, uuid);
+        sprintf (lvname, "/dev/%s/%s", vg, uuid);
+
+        readlink (lvname, dmname, sizeof (dmname));
+
+        p = strrchr (dmname, '/');
+        if (p)
+                dm = p + 1;
+        else
+                dm = dmname;
+
+        sprintf(sysfs, "/sys/block/%s/queue/write_same_max_bytes", dm);
+        sysfd = open (sysfs, O_RDONLY);
+        if (sysfd < 0) {
+                gf_log ("bd_do_ioctl_zerofill", GF_LOG_DEBUG,
+                        "sysfs file %s does not exist", lvname);
+                goto skip;
+        }
+
+        read (sysfd, buff, sizeof (buff));
+        close (sysfd);
+
+        max_bytes = atoll (buff);
+
+skip:
+        /*
+         * If requested len is less than write_same_max_bytes,
+         * issue single ioctl to zeroout. Otherwise split the ioctls
+         */
+        if (!max_bytes || len <= max_bytes) {
+                param[0] = offset;
+                param[1] = len;
+
+                if (ioctl (fd, BLKZEROOUT, param) < 0)
+                        return errno;
+                return 0;
+        }
+
+        /* Split ioctls to max write_same_max_bytes */
+        nr_loop = len / max_bytes;
+        for (; nr_loop; nr_loop--) {
+                param[0] = offset;
+                param[1] = max_bytes;
+
+                if (ioctl (fd, BLKZEROOUT, param) < 0)
+                        return errno;
+
+                offset += max_bytes;
+        }
+
+        if (!(len % max_bytes))
+                return 0;
+
+        param[0] = offset;
+        param[1] = len % max_bytes;
+
+        if (ioctl (fd, BLKZEROOUT, param) < 0)
+                return errno;
+
+        return 0;
+}
+#endif
+
+int
+bd_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
+               off_t offset, off_t len, struct iatt *prebuf,
+               struct iatt *postbuf)
+{
+        int          ret   = -1;
+        bd_fd_t     *bd_fd = NULL;
+        bd_priv_t   *priv  = this->private;
+        bd_attr_t   *bdatt = NULL;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (fd, out);
+        VALIDATE_OR_GOTO (priv, out);
+
+        ret = bd_fd_ctx_get (this, fd, &bd_fd);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "bd_fd is NULL from fd=%p", fd);
+                goto out;
+        }
+
+        bd_inode_ctx_get (fd->inode, this, &bdatt);
+#ifndef BLKZEROOUT
+        ret = bd_do_manual_zerofill(bd_fd->fd, offset, len,
+                                    bd_fd->flag & O_DIRECT);
+#else
+        ret = bd_do_ioctl_zerofill(priv, bdatt, bd_fd->fd, priv->vg, offset,
+                                   len);
+#endif
+        if (ret) {
+                gf_log(this->name, GF_LOG_ERROR,
+                       "zerofill failed on fd %d length %ld %s",
+                       bd_fd->fd, len, strerror (ret));
+                goto out;
+        }
+
+        if (bd_fd->flag & (O_SYNC|O_DSYNC)) {
+                ret = fsync (bd_fd->fd);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "fsync() in writev on fd %d failed: %s",
+                                bd_fd->fd, strerror (errno));
+                        return errno;
+                }
+        }
+
+        memcpy (&prebuf, &bdatt->iatt, sizeof (prebuf));
+        bd_update_amtime (&bdatt->iatt, GF_SET_ATTR_MTIME);
+        memcpy (&postbuf, &bdatt->iatt, sizeof (postbuf));
+
+out:
+
         return ret;
 }
 
