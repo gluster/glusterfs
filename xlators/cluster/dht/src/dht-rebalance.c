@@ -16,6 +16,7 @@
 
 #include "dht-common.h"
 #include "xlator.h"
+#include <signal.h>
 #include <fnmatch.h>
 
 #define GF_DISK_SECTOR_SIZE             512
