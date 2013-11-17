@@ -2729,6 +2729,7 @@ fuse_readdirp (xlator_t *this, fuse_in_header_t *finh, void *msg)
 	fuse_resolve_and_resume (state, fuse_readdirp_resume);
 }
 
+#ifdef FALLOC_FL_KEEP_SIZE
 static int
 fuse_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 		   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
@@ -2769,6 +2770,7 @@ fuse_fallocate(xlator_t *this, fuse_in_header_t *finh, void *msg)
 	fuse_resolve_fd_init(state, &state->resolve, state->fd);
 	fuse_resolve_and_resume(state, fuse_fallocate_resume);
 }
+#endif /* FALLOC_FL_KEEP_SIZE */
 
 
 static void
@@ -5063,7 +5065,9 @@ static fuse_handler_t *fuse_std_ops[FUSE_OP_HIGH] = {
      /* [FUSE_POLL] */
      /* [FUSE_NOTIFY_REPLY] */
 	[FUSE_BATCH_FORGET]= fuse_batch_forget,
+#ifdef FALLOC_FL_KEEP_SIZE
 	[FUSE_FALLOCATE]   = fuse_fallocate,
+#endif /* FALLOC_FL_KEEP_SIZE */
 	[FUSE_READDIRPLUS] = fuse_readdirp,
 };
 
