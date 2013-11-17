@@ -254,6 +254,7 @@ AC_CHECK_LIB([pthread], [pthread_mutex_init], , AC_MSG_ERROR([Posix threads libr
 
 AC_CHECK_FUNC([dlopen], [has_dlopen=yes], AC_CHECK_LIB([dl], [dlopen], , AC_MSG_ERROR([Dynamic linking library required to build glusterfs])))
 
+AC_CHECK_FUNC([gettext], [has_gettext=yes], AC_CHECK_LIB([intl], [gettext], , AC_MSG_ERROR([gettext support is required to build glusterfs])))
 
 AC_CHECK_HEADERS([sys/xattr.h])
 
