@@ -14,6 +14,7 @@
 #endif
 
 #include <regex.h>
+#include <signal.h>
 
 #include "dht-mem-types.h"
 #include "libxlator.h"
