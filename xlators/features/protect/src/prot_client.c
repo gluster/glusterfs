@@ -15,7 +15,9 @@
 #include "xlator.h"
 #include "defaults.h"
 
+#ifndef __NetBSD__
 #include <execinfo.h>
+#endif
 
 #define NUM_FRAMES 20
 
