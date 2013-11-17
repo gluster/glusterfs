@@ -31,7 +31,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <signal.h>
-#include <stdlib.h>
+#include <assert.h>
 
 #if defined GF_BSD_HOST_OS || defined GF_DARWIN_HOST_OS
 #include <sys/sysctl.h>
@@ -2906,3 +2906,56 @@ gf_thread_create (pthread_t *thread, const pthread_attr_t *attr,
 
 	return ret;
 }
+
+#ifdef __NetBSD__
+#ifdef __MACHINE_STACK_GROWS_UP
+#define BELOW >
+#else
+#define BELOW <
+#endif
+
+struct frameinfo {
+	struct frameinfo *next;
+	void *return_address;
+};
+
+size_t
+backtrace(void **trace, size_t len)
+{
+	const struct frameinfo *frame = __builtin_frame_address(0);
+	void *stack = &stack;
+	size_t i;
+
+	for (i = 0; i < len; i++) {
+		if ((void *)frame BELOW stack)
+			return i;
+		trace[i] = frame->return_address;
+		frame = frame->next;
+	}
+
+	return len;
+}
+
+char **
+backtrace_symbols(void *const *trace, size_t len)
+{
+	static const size_t slen = sizeof("0x123456789abcdef");
+	char **ptr = calloc(len, sizeof(*ptr) + slen);
+	size_t i;
+
+	if (ptr == NULL)
+		return NULL;
+
+	char *str = (void *)(ptr + len);
+	size_t cur = 0, left = len * slen;
+
+	for (i = 0; i < len; i++) {
+		ptr[i] = str + cur;
+		cur += snprintf(str + cur, left - cur, "%p", trace[i]) + 1;
+		assert(cur < left);
+	}
+
+	return ptr;
+} 
+#undef BELOW
+#endif /* __NetBSD__ */
