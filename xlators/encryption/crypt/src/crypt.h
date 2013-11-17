@@ -38,6 +38,10 @@
 #define MASTER_VOL_KEY_SIZE (32)
 #define NMTD_VOL_KEY_SIZE (16)
 
+#ifdef __NetBSD__
+typedef off_t loff_t;
+#endif
+
 struct crypt_key {
 	uint32_t len;
 	const char *label;	
