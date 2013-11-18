@@ -1575,9 +1575,12 @@ out:
         return ret;
 }
 
+#endif
+
 int
 cli_xml_output_vol_status_tasks_detail (cli_local_t *local, dict_t *dict)
 {
+#if (HAVE_LIB_XML)
         int    ret     = -1;
         char  *volname = NULL;
 
@@ -1603,8 +1606,10 @@ cli_xml_output_vol_status_tasks_detail (cli_local_t *local, dict_t *dict)
 
 out:
         return ret;
-}
+#else
+        return 0;
 #endif
+}
 
 int
 cli_xml_output_vol_status (cli_local_t *local, dict_t *dict)
