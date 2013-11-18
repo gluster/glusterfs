@@ -108,6 +108,10 @@ class NormalMixin(object):
             xt = rsc.server.xtime(path, self.uuid)
         else:
             xt = rsc.server.stime(path, self.uuid)
+            if isinstance(xt, int) and xt == ENODATA:
+                xt = rsc.server.xtime(path, self.uuid)
+                if not isinstance(xt, int):
+                    self.slave.server.set_stime(path, self.uuid, xt)
         if isinstance(xt, int) and xt != ENODATA:
             return xt
         if xt == ENODATA or xt < self.volmark:
