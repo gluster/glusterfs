@@ -1143,6 +1143,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                     # define {,set_}xtime in slave, thus preempting
                     # the call to remote, so that it takes data from
                     # the local brick
+                    slave.server.xtime = types.MethodType(lambda _self, path, uuid: brickserver.xtime(path, uuid + '.' + gconf.slave_id), slave.server)
                     slave.server.stime = types.MethodType(lambda _self, path, uuid: brickserver.stime(path, uuid + '.' + gconf.slave_id), slave.server)
                     slave.server.set_stime = types.MethodType(lambda _self, path, uuid, mark: brickserver.set_stime(path, uuid + '.' + gconf.slave_id, mark), slave.server)
                 (g1, g2) = self.gmaster_instantiate_tuple(slave)
