@@ -286,7 +286,9 @@ glusterd_check_gsync_running (glusterd_volinfo_t *volinfo, gf_boolean_t *flag);
 int
 glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
                                  dict_t *op_ctx);
+#ifdef HAVE_BD_XLATOR
 int
 glusterd_is_valid_vg (glusterd_brickinfo_t *brick, int check_tag, char *msg);
+#endif
 
 #endif

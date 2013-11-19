@@ -812,11 +812,13 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
                 }
 
                 if (!uuid_compare (brick_info->uuid, MY_UUID)) {
+#ifdef HAVE_BD_XLATOR
                         if (brick_info->vg[0]) {
                                 ret = glusterd_is_valid_vg (brick_info, 1, msg);
                                 if (ret)
                                         goto out;
                         }
+#endif
                         ret = glusterd_validate_and_create_brickpath (brick_info,
                                                           volume_uuid, op_errstr,
                                                           is_force);
