@@ -32,10 +32,19 @@
 #include <linux/limits.h>
 #include <sys/xattr.h>
 #include <endian.h>
-#ifdef HAVE_FALLOC_H
+#ifdef HAVE_LINUX_FALLOC_H
 #include <linux/falloc.h>
-#else
+#endif
+
+/*
+ * Define the fallocate flags in case we do not have the header. This also
+ * accounts for older systems that do not define FALLOC_FL_PUNCH_HOLE.
+ */
+
+#ifndef FALLOC_FL_KEEP_SIZE
 #define FALLOC_FL_KEEP_SIZE     0x01 /* default is extend size */
+#endif
+#ifndef FALLOC_FL_PUNCH_HOLE
 #define FALLOC_FL_PUNCH_HOLE    0x02 /* de-allocates range */
 #endif
 
