@@ -408,7 +408,7 @@ set_fuse_mount_options (glusterfs_ctx_t *ctx, dict_t *options)
                 break;
 	}
 
-	if (cmd_args->gid_timeout) {
+	if (cmd_args->gid_timeout_set) {
 		ret = dict_set_int32(options, "gid-timeout",
 			cmd_args->gid_timeout);
 		if (ret < 0) {
@@ -1023,8 +1023,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
 		break;
 
 	case ARGP_GID_TIMEOUT_KEY:
-		if (!gf_string2int(arg, &cmd_args->gid_timeout))
+		if (!gf_string2int(arg, &cmd_args->gid_timeout)) {
+			cmd_args->gid_timeout_set = _gf_true;
 			break;
+		}
 
 		argp_failure(state, -1, 0, "unknown group list timeout %s", arg);
 		break;
