@@ -6410,23 +6410,25 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
 }
 
 int
-glusterd_check_topology_identical (const char *filename1,
-                                   const char *filename2,
+glusterd_check_topology_identical (const char   *filename1,
+                                   const char   *filename2,
                                    gf_boolean_t *identical)
 {
-        int                     ret = -1; /* FAILURE */
-        xlator_t                *this = NULL;
-        FILE                    *fp1 = NULL;
-        FILE                    *fp2 = NULL;
+        int                     ret    = -1; /* FAILURE */
+        xlator_t                *this  = THIS;
+        FILE                    *fp1   = NULL;
+        FILE                    *fp2   = NULL;
         glusterfs_graph_t       *grph1 = NULL;
         glusterfs_graph_t       *grph2 = NULL;
 
-        if ((!filename1) || (!filename2) || (!identical))
-                goto out;
+        /* Invalid xlator, Nothing to do */
+        if (!this)
+                return (-1);
 
-        this = THIS;
-
-        errno = 0; /* RESET the errno */
+        /* Sanitize the inputs */
+        GF_VALIDATE_OR_GOTO (this->name, filename1, out);
+        GF_VALIDATE_OR_GOTO (this->name, filename2, out);
+        GF_VALIDATE_OR_GOTO (this->name, identical, out);
 
         /* fopen() the volfile1 to create the graph */
         fp1 = fopen (filename1, "r");
