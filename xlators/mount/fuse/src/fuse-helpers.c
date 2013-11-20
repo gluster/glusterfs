@@ -266,7 +266,8 @@ static void get_groups(fuse_private_t *priv, call_frame_t *frame)
 		return;
 	}
 
-	gl = gid_cache_lookup(&priv->gid_cache, frame->root->pid);
+	gl = gid_cache_lookup(&priv->gid_cache, frame->root->pid,
+			      frame->root->uid, frame->root->gid);
 	if (gl) {
 		if (call_stack_alloc_groups (frame->root, gl->gl_count) != 0)
 			return;
@@ -280,6 +281,8 @@ static void get_groups(fuse_private_t *priv, call_frame_t *frame)
 	frame_fill_groups (frame);
 
 	agl.gl_id = frame->root->pid;
+	agl.gl_uid = frame->root->uid;
+	agl.gl_gid = frame->root->gid;
 	agl.gl_count = frame->root->ngrps;
 	agl.gl_list = GF_CALLOC(frame->root->ngrps, sizeof(gid_t),
 			gf_fuse_mt_gids_t);

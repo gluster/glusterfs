@@ -47,7 +47,7 @@ nfs_fix_groups (xlator_t *this, call_stack_t *root)
                 return;
         }
 
-	agl = gid_cache_lookup(&priv->gid_cache, root->uid);
+	agl = gid_cache_lookup(&priv->gid_cache, root->uid, 0, 0);
 	if (agl) {
 		for (ngroups = 0; ngroups < agl->gl_count; ngroups++) 
 			root->groups[ngroups] = agl->gl_list[ngroups];
@@ -84,6 +84,8 @@ nfs_fix_groups (xlator_t *this, call_stack_t *root)
 	if (gl.gl_list) {
 		/* It's not fatal if the alloc failed. */
 		gl.gl_id = root->uid;
+		gl.gl_uid = 0;
+		gl.gl_gid = 0;
 		gl.gl_count = ngroups;
 		memcpy(gl.gl_list, mygroups, sizeof(gid_t) * ngroups);
 		if (gid_cache_add(&priv->gid_cache, &gl) != 1)
