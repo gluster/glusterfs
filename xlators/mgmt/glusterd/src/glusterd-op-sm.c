@@ -3291,6 +3291,12 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                                         snprintf (key, sizeof (key),
                                                   "brick%d.peerid", i);
                                         uuid = gf_strdup (uuid_str);
+                                        if (!uuid) {
+                                                gf_log (this->name, GF_LOG_DEBUG,
+                                                        "unable to create dup of"
+                                                        " uuid_str");
+                                                continue;
+                                        }
                                         ret = dict_set_dynstr (op_ctx, key,
                                                                uuid);
                                         if (ret != 0) {
@@ -3346,6 +3352,7 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                 {
                         char  key[1024];
                         char *uuid_str = NULL;
+                        char *uuid = NULL;
                         int   i;
 
                         for (i = 1; i <= count; i++) {
@@ -3356,8 +3363,18 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                                         memset (key, 0, sizeof (key));
                                         snprintf (key, sizeof (key),
                                                   "node-name-%d", i);
-                                        ret = dict_set_str (op_ctx, key,
-                                                            uuid_str);
+                                        uuid = gf_strdup (uuid_str);
+                                        if (!uuid) {
+                                                gf_log (this->name, GF_LOG_DEBUG,
+                                                        "unable to create dup of"
+                                                        " uuid_str");
+                                                continue;
+                                        }
+                                        ret = dict_set_dynstr (op_ctx, key,
+                                                               uuid);
+                                        if (ret != 0) {
+                                                GF_FREE (uuid);
+                                        }
                                 }
                         }
                 }
