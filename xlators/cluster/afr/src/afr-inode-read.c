@@ -1127,6 +1127,14 @@ afr_fgetxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
         {
                 callcnt = --local->call_count;
 
+                if (op_ret < 0) {
+                        local->op_errno = op_errno;
+                } else {
+                        local->op_ret = op_ret;
+                        if (!local->xdata_rsp && xdata)
+                                local->xdata_rsp = dict_ref (xdata);
+                }
+
                 if (!dict || (op_ret < 0))
                         goto out;
 
@@ -1204,8 +1212,8 @@ out:
                                 " key in dict");
 
         unwind:
-                AFR_STACK_UNWIND (fgetxattr, frame, op_ret, op_errno, nxattr,
-                                  xdata);
+                AFR_STACK_UNWIND (fgetxattr, frame, local->op_ret,
+                                  local->op_errno, nxattr, local->xdata_rsp);
 
                 if (nxattr)
                         dict_unref (nxattr);
@@ -1241,6 +1249,14 @@ afr_getxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
         LOCK (&frame->lock);
                 {
                         callcnt = --local->call_count;
+
+                        if (op_ret < 0) {
+                                local->op_errno = op_errno;
+                        } else {
+                                local->op_ret = op_ret;
+                                if (!local->xdata_rsp && xdata)
+                                        local->xdata_rsp = dict_ref (xdata);
+                        }
 
                         if (!dict || (op_ret < 0))
                                 goto out;
@@ -1316,8 +1332,8 @@ afr_getxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
                                 " key in dict");
 
         unwind:
-                AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, nxattr,
-                                  xdata);
+                AFR_STACK_UNWIND (getxattr, frame, local->op_ret,
+                                  local->op_errno, nxattr, local->xdata_rsp);
 
                 if (nxattr)
                         dict_unref (nxattr);
@@ -1433,18 +1449,27 @@ afr_getxattr_frm_all_children (xlator_t *this, call_frame_t *frame,
         afr_local_t     *local          = NULL;
         xlator_t        **children      = NULL;
         int             i               = 0;
+        int             call_count      = 0;
 
         priv     = this->private;
         children = priv->children;
 
         local = frame->local;
-        local->call_count = priv->child_count;
+        //local->call_count set in afr_local_init
+        call_count = local->call_count;
+
+        //If up-children count is 0, afr_local_init would have failed already
+        //and the call would have unwound so not handling it here.
 
         for (i = 0; i < priv->child_count; i++) {
-                STACK_WIND_COOKIE (frame, cbk,
-                                   (void *) (long) i,
-                                   children[i], children[i]->fops->getxattr,
-                                   loc, name, NULL);
+                if (local->child_up[i]) {
+                        STACK_WIND_COOKIE (frame, cbk,
+                                           (void *) (long) i, children[i],
+                                           children[i]->fops->getxattr,
+                                           loc, name, NULL);
+                        if (!--call_count)
+                                break;
+                }
         }
         return;
 }
@@ -1693,18 +1718,28 @@ afr_fgetxattr_frm_all_children (xlator_t *this, call_frame_t *frame,
         afr_local_t     *local          = NULL;
         xlator_t        **children      = NULL;
         int             i               = 0;
+        int             call_count      = 0;
 
         priv     = this->private;
         children = priv->children;
 
         local = frame->local;
-        local->call_count = priv->child_count;
+        //local->call_count set in afr_local_init
+        call_count = local->call_count;
+
+        //If up-children count is 0, afr_local_init would have failed already
+        //and the call would have unwound so not handling it here.
 
         for (i = 0; i < priv->child_count; i++) {
-                STACK_WIND_COOKIE (frame, cbk,
-                                   (void *) (long) i,
-                                   children[i], children[i]->fops->fgetxattr,
-                                   fd, name, NULL);
+                if (local->child_up[i]) {
+                        STACK_WIND_COOKIE (frame, cbk,
+                                           (void *) (long) i,
+                                           children[i],
+                                           children[i]->fops->fgetxattr,
+                                           fd, name, NULL);
+                        if (!--call_count)
+                                break;
+                }
         }
 
         return;
