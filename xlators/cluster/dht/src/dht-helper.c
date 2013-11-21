@@ -769,7 +769,7 @@ dht_migration_complete_check_task (void *data)
                 dst_node = dht_linkfile_subvol (this, NULL, NULL, dict);
 
         if (ret) {
-                if ((errno != ENOENT) || (!local->loc.inode)) {
+                if (!dht_inode_missing(errno) || (!local->loc.inode)) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "%s: failed to get the 'linkto' xattr %s",
                                 local->loc.path, strerror (errno));

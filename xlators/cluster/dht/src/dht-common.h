@@ -351,6 +351,8 @@ typedef enum {
                 }                                               \
         } while (0)
 
+#define dht_inode_missing(op_errno) (op_errno == ENOENT || op_errno == ESTALE)
+
 #define check_is_dir(i,s,x) (IA_ISDIR(s->ia_type))
 
 #define layout_is_sane(layout) ((layout) && (layout->cnt > 0))

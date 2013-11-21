@@ -335,7 +335,7 @@ _get_path_from_gfid_loc (xlator_t *this, xlator_t *readdir_xl, loc_t *child,
 
         ret = syncop_getxattr (readdir_xl, child, &xattr, GFID_TO_PATH_KEY);
         if (ret < 0) {
-                if ((errno == ENOENT) && missing)
+                if ((errno == ENOENT || errno == ESTALE) && missing)
                         *missing = _gf_true;
                 goto out;
         }
