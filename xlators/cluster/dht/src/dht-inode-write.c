@@ -28,7 +28,7 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t *local = NULL;
         int          ret   = -1;
 
-        if (op_ret == -1) {
+        if (op_ret == -1 && !dht_inode_missing(op_errno)) {
                 goto out;
         }
 
@@ -178,7 +178,7 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         prev = cookie;
 
-        if ((op_ret == -1) && (op_errno != ENOENT)) {
+        if ((op_ret == -1) && !dht_inode_missing(op_errno)) {
                 local->op_errno = op_errno;
                 local->op_ret = -1;
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -360,7 +360,7 @@ dht_file_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         prev = cookie;
 
         local->op_errno = op_errno;
-        if ((op_ret == -1) && (op_errno != ENOENT)) {
+        if ((op_ret == -1) && !dht_inode_missing(op_errno)) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "subvolume %s returned -1 (%s)",
                         prev->this->name, strerror (op_errno));

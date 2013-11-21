@@ -532,6 +532,7 @@ dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
                 switch (layout->list[i].err) {
                 case -1:
                 case ENOENT:
+		case ESTALE:
                         missing++;
                         break;
                 case ENOTCONN:
