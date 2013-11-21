@@ -4658,8 +4658,10 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.peerid", base_key);
         ret = dict_set_dynstr (dict, key, peer_id_str);
-        if (ret)
+        if (ret) {
+                GF_FREE (peer_id_str);
                 goto out;
+        }
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.port", base_key);

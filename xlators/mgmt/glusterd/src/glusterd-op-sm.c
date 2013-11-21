@@ -3268,6 +3268,9 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                                         uuid = gf_strdup (uuid_str);
                                         ret = dict_set_dynstr (op_ctx, key,
                                                                uuid);
+                                        if (ret != 0) {
+                                                GF_FREE (uuid);
+                                        }
                                 }
                         }
                 }
