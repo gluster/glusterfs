@@ -143,8 +143,6 @@ typedef struct nfs3_state {
          */
         uint64_t                iobsize;
 
-        unsigned int            memfactor;
-
         struct list_head        fdlru;
         gf_lock_t               fdlrulock;
         int                     fdcount;
