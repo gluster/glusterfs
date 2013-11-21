@@ -1,7 +1,9 @@
 Installation Instructions
 *************************
 
-Run ./configure after untaring the package.
+0. If you have cloned from git, run ./autogen.sh.
+
+1. Run ./configure after untaring the package.
 
  bash# ./configure
  GlusterFS configure summary
@@ -19,7 +21,7 @@ GlusterFS. Other than 'argp-standalone' if something else says 'no', that
 feature in GlusterFS will not be built. 'argp-standalone' package will only 
 be used if the system doesn't have a proper argp package installed.
 
-Now just run 'make' and later run 'make install' to install the package.
+2. Now just run 'make' and later run 'make install' to install the package.
 
  bash# make 
  bash# make install
