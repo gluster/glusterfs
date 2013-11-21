@@ -562,7 +562,7 @@ acl3svc_setacl (rpcsvc_request_t *req)
         }
 
         /* Populate xattr buffer for Default ACL */
-        bufheader = (struct posix_acl_xattr_header *)(cs->aclxattr);
+        bufheader = (struct posix_acl_xattr_header *)(cs->daclxattr);
         bufheader->version = htole32(POSIX_ACL_VERSION);
         bufentry  = bufheader->entries;
         for (i = 0; i < cs->daclcount; i++) {

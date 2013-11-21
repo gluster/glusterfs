@@ -5256,8 +5256,6 @@ nfs3_init_options (struct nfs3_state *nfs3, dict_t *options)
          * accommodate the NFS headers also in the same buffer. */
         nfs3->iobsize = nfs3->iobsize * 2;
 
-        /* mem-factor */
-        nfs3->memfactor = GF_NFS3_DEFAULT_MEMFACTOR;
         ret = 0;
 err:
         return ret;
@@ -5507,7 +5505,7 @@ nfs3_init_state (xlator_t *nfsx)
         unsigned int            localpool = 0;
         struct nfs_state        *nfs = NULL;
 
-        if (!nfsx)
+        if ((!nfsx) || (!nfsx->private))
                 return NULL;
 
         nfs3 = (struct nfs3_state *)GF_CALLOC (1, sizeof (*nfs3),
@@ -5526,7 +5524,7 @@ nfs3_init_state (xlator_t *nfsx)
 
         nfs3->iobpool = nfsx->ctx->iobuf_pool;
 
-        localpool = nfs3->memfactor * GF_NFS_CONCURRENT_OPS_MULT;
+        localpool = nfs->memfactor * GF_NFS_CONCURRENT_OPS_MULT;
         gf_log (GF_NFS3, GF_LOG_TRACE, "local pool: %d", localpool);
         nfs3->localpool = mem_pool_new (nfs3_call_state_t, localpool);
         if (!nfs3->localpool) {

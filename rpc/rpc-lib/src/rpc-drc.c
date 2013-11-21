@@ -708,14 +708,9 @@ rpcsvc_drc_init (rpcsvc_t *svc, dict_t *options)
         uint32_t                    drc_size       = 0;
         uint32_t                    drc_factor     = 0;
         rpcsvc_drc_globals_t       *drc            = NULL;
-        static gf_boolean_t         drc_inited     = _gf_false;
 
         GF_ASSERT (svc);
         GF_ASSERT (options);
-
-        /* Already inited */
-        if (drc_inited)
-                return 0;
 
         if (!svc->drc) {
                 drc = GF_CALLOC (1, sizeof (rpcsvc_drc_globals_t),
@@ -742,11 +737,10 @@ rpcsvc_drc_init (rpcsvc_t *svc, dict_t *options)
                 gf_log (GF_RPCSVC, GF_LOG_INFO, "drc user options need second look");
                 ret = _gf_true;
         }
-        drc->enable_drc = ret;
 
         if (ret == _gf_false) {
                 /* drc off */
-                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "DRC is off");
+                gf_log (GF_RPCSVC, GF_LOG_INFO, "DRC is manually turned OFF");
                 ret = 0;
                 goto out;
         }
@@ -802,8 +796,6 @@ rpcsvc_drc_init (rpcsvc_t *svc, dict_t *options)
 
         gf_log (GF_RPCSVC, GF_LOG_DEBUG, "drc init successful");
         drc->status = DRC_INITIATED;
-        drc_inited = _gf_true;
-
  out:
         UNLOCK (&drc->lock);
         if (ret == -1) {
@@ -818,6 +810,32 @@ rpcsvc_drc_init (rpcsvc_t *svc, dict_t *options)
 }
 
 int
+rpcsvc_drc_deinit (rpcsvc_t *svc)
+{
+        rpcsvc_drc_globals_t *drc  = NULL;
+
+        if (!svc)
+                return (-1);
+
+        drc = svc->drc;
+        if (!drc)
+                return (0);
+
+        LOCK (&drc->lock);
+        (void) rpcsvc_unregister_notify (svc, rpcsvc_drc_notify, THIS);
+        if (drc->mempool) {
+                mem_pool_destroy (drc->mempool);
+                drc->mempool = NULL;
+        }
+        UNLOCK (&drc->lock);
+
+        GF_FREE (drc);
+        svc->drc = NULL;
+
+        return (0);
+}
+
+int
 rpcsvc_drc_reconfigure (rpcsvc_t *svc, dict_t *options)
 {
         int                     ret        = -1;
@@ -825,48 +843,58 @@ rpcsvc_drc_reconfigure (rpcsvc_t *svc, dict_t *options)
         rpcsvc_drc_globals_t    *drc       = NULL;
         uint32_t                drc_size   = 0;
 
+        /* Input sanitization */
         if ((!svc) || (!options))
                 return (-1);
 
+        /* If DRC was not enabled before, Let rpcsvc_drc_init() to
+         * take care of DRC initialization part.
+         */
         drc = svc->drc;
-        /* reconfig for drc-size */
-        if (dict_get_uint32 (options, "nfs.drc-size", &drc_size))
-                drc_size = DRC_DEFAULT_CACHE_SIZE;
-
-        if (drc->global_cache_size != drc_size) {
-                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "nfs.drc-size size can not "
-                        "be reconfigured without NFS server restart.");
-                return (-1);
+        if (!drc) {
+                return rpcsvc_drc_init(svc, options);
         }
 
-        /* reconfig for nfs.drc */
+        /* DRC was already enabled before. Going to be reconfigured. Check
+         * if reconfigured options contain "nfs.drc" and "nfs.drc-size".
+         *
+         * NB: If DRC is "OFF", "drc-size" has no role to play.
+         *     So, "drc-size" gets evaluated IFF DRC is "ON".
+         *
+         * If DRC is reconfigured,
+         *     case 1: DRC is "ON"
+         *         sub-case 1: drc-size remains same
+         *              ACTION: Nothing to do.
+         *         sub-case 2: drc-size just changed
+         *              ACTION: rpcsvc_drc_deinit() followed by
+         *                      rpcsvc_drc_init().
+         *
+         *     case 2: DRC is "OFF"
+         *         ACTION: rpcsvc_drc_deinit()
+         */
         ret = dict_get_str_boolean (options, "nfs.drc", _gf_true);
         if (ret < 0) {
-                ret = _gf_true;
-        }
-        enable_drc = ret;
-
-        if (drc->enable_drc == enable_drc)
-                return 0;
-
-        drc->enable_drc = enable_drc;
-        if (enable_drc) {
-                if (drc == NULL)
-                        return rpcsvc_drc_init(svc, options);
+                enable_drc = _gf_true;
         } else {
-                if (drc == NULL)
+                enable_drc = ret;
+        }
+
+        /* case 1: DRC is "ON"*/
+        if (enable_drc) {
+                /* Fetch drc-size if reconfigured */
+                if (dict_get_uint32 (options, "nfs.drc-size", &drc_size))
+                        drc_size = DRC_DEFAULT_CACHE_SIZE;
+
+                /* case 1: sub-case 1*/
+                if (drc->global_cache_size == drc_size)
                         return (0);
 
-                LOCK (&drc->lock);
-                (void) rpcsvc_unregister_notify (svc, rpcsvc_drc_notify, THIS);
-                if (drc->mempool) {
-                        mem_pool_destroy (drc->mempool);
-                        drc->mempool = NULL;
-                }
-                UNLOCK (&drc->lock);
-                GF_FREE (drc);
-                svc->drc = NULL;
+                /* case 1: sub-case 2*/
+                (void) rpcsvc_drc_deinit (svc);
+                return rpcsvc_drc_init (svc, options);
         }
 
-        return (0);
+        /* case 2: DRC is "OFF" */
+        gf_log (GF_RPCSVC, GF_LOG_INFO, "DRC is manually turned OFF");
+        return rpcsvc_drc_deinit (svc);
 }

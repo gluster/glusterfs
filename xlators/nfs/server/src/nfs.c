@@ -959,7 +959,8 @@ nfs_init_state (xlator_t *this)
                 nfs->enable_nlm = _gf_false;
         }
 
-        nfs->rpcsvc =  rpcsvc_init (this, this->ctx, this->options, 0);
+        nfs->rpcsvc =  rpcsvc_init (this, this->ctx,
+                                    this->options, fopspoolsize);
         if (!nfs->rpcsvc) {
                 ret = -1;
                 gf_log (GF_NFS, GF_LOG_ERROR, "RPC service init failed");
@@ -994,6 +995,9 @@ nfs_drc_init (xlator_t *this)
 {
         int       ret     = -1;
         rpcsvc_t *svc     = NULL;
+
+        GF_VALIDATE_OR_GOTO (GF_NFS, this, out);
+        GF_VALIDATE_OR_GOTO (GF_NFS, this->private, out);
 
         svc = ((struct nfs_state *)(this->private))->rpcsvc;
         if (!svc)
@@ -1227,6 +1231,23 @@ reconfigure (xlator_t *this, dict_t *options)
         return (0);
 }
 
+/* Main init() routine for NFS server xlator. It inits NFS v3 protocol
+ * and its dependent protocols e.g. ACL, MOUNT v3 (mount3), NLM and
+ * DRC.
+ *
+ * Usage: glusterfsd:
+ *            glusterfs_process_volfp() =>
+ *              glusterfs_graph_activate() =>
+ *                glusterfs_graph_init() =>
+ *                  xlator_init () => NFS init() routine
+ *
+ * If init() routine fails, the glusterfsd cleans up the NFS process
+ * by invoking cleanup_and_exit().
+ *
+ * RETURN:
+ *       0 (SUCCESS) if all protocol specific inits PASS.
+ *      -1 (FAILURE) if any of them FAILS.
+ */
 int
 init (xlator_t *this) {
 
@@ -1234,59 +1255,52 @@ init (xlator_t *this) {
         int                     ret = -1;
 
         if (!this)
-                return -1;
+                return (-1);
 
         nfs = nfs_init_state (this);
         if (!nfs) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "Failed to init nfs option");
-                return -1;
+                return (-1);
         }
 
         ret = nfs_add_all_initiators (nfs);
-        if (ret == -1) {
+        if (ret) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add initiators");
-                goto err;
+                return (-1);
         }
 
         ret = nfs_init_subvolumes (nfs, this->children);
-        if (ret == -1) {
-                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init NFS "
-                        "exports");
-                goto err;
+        if (ret) {
+                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init NFS exports");
+                return (-1);
         }
 
         ret = mount_init_state (this);
-        if (ret == -1) {
-                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init Mount"
-                        "state");
-                goto err;
+        if (ret) {
+                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init Mount state");
+                return (-1);
         }
 
         ret = nlm4_init_state (this);
-        if (ret == -1) {
-                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init NLM"
-                        "state");
-                goto err;
+        if (ret) {
+                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init NLM state");
+                return (-1);
         }
 
         ret = nfs_init_versions (nfs, this);
-        if (ret == -1) {
-                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to initialize "
-                        "protocols");
-                /* Do not return an error on this. If we dont return
-                 * an error, the process keeps running and it helps
-                 * to point out where the log is by doing ps ax|grep gluster.
-                 */
-                ret = 0;
-                goto err;
+        if (ret) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to initialize protocols");
+                return (-1);
         }
 
         ret = nfs_drc_init (this);
-        if (ret == 0)
-                gf_log (GF_NFS, GF_LOG_INFO, "NFS service started");
-err:
+        if (ret) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to initialize DRC");
+                return (-1);
+        }
 
-        return ret;
+        gf_log (GF_NFS, GF_LOG_INFO, "NFS service started");
+        return (0); /* SUCCESS */
 }
 
 
