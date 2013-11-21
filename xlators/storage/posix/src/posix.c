@@ -165,6 +165,12 @@ parent:
                         gf_log (this->name, GF_LOG_ERROR,
                                 "post-operation lstat on parent %s failed: %s",
                                 par_path, strerror (op_errno));
+			if (op_errno == ENOENT)
+				/* If parent directory is missing in a lookup,
+				   errno should be ESTALE (bad handle) and not
+				   ENOENT (missing entry)
+				*/
+				op_errno = ESTALE;
                         goto out;
                 }
         }
