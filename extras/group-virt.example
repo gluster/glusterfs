@@ -4,3 +4,5 @@ io-cache=off
 stat-prefetch=off
 eager-lock=enable
 remote-dio=enable
+quorum-type=auto
+server-quorum-type=server
