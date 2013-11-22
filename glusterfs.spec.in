@@ -264,6 +264,7 @@ Summary:          GlusterFS Geo-replication
 Group:            Applications/File
 Requires:         %{name} = %{version}-%{release}
 Requires:         %{name}-server = %{version}-%{release}
+Requires:         python python-ctypes
 
 %description geo-replication
 GlusterFS is a clustered file-system capable of scaling to several
