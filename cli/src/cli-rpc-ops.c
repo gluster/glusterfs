@@ -71,6 +71,7 @@ char *cli_vol_task_status_str[] = {"not started",
                                    "fix-layout stopped",
                                    "fix-layout completed",
                                    "fix-layout failed",
+                                   "unknown"
 };
 
 int32_t
@@ -1321,12 +1322,23 @@ gf_cli_print_rebalance_status (dict_t *dict)
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE, "failed to get run-time");
 
+                /* Check for array bound */
+                if (status_rcd >= GF_DEFRAG_STATUS_MAX)
+                        status_rcd = GF_DEFRAG_STATUS_MAX;
+
                 status_str = cli_vol_task_status_str[status_rcd];
                 size_str = gf_uint64_2human_readable(size);
-                cli_out ("%40s %16"PRIu64 " %13s" " %13"PRIu64 " %13"PRIu64
-                         " %13"PRIu64 " %20s %18.2f", node_name, files,
-                         size_str, lookup, failures, skipped, status_str,
-                         elapsed);
+                if (size_str) {
+                        cli_out ("%40s %16"PRIu64 " %13s" " %13"PRIu64 " %13"
+                                 PRIu64" %13"PRIu64 " %20s %18.2f", node_name,
+                                 files, size_str, lookup, failures, skipped,
+                                 status_str, elapsed);
+                } else {
+                        cli_out ("%40s %16"PRIu64 " %13"PRIu64 " %13"PRIu64
+                                 " %13"PRIu64" %13"PRIu64 " %20s %18.2f",
+                                 node_name, files, size, lookup, failures,
+                                 skipped, status_str, elapsed);
+                }
                 GF_FREE(size_str);
         }
 out:

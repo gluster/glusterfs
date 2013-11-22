@@ -52,6 +52,7 @@ enum gf_defrag_status_t {
 	GF_DEFRAG_STATUS_LAYOUT_FIX_STOPPED = 6,
 	GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE = 7,
 	GF_DEFRAG_STATUS_LAYOUT_FIX_FAILED = 8,
+	GF_DEFRAG_STATUS_MAX = 9,
 };
 typedef enum gf_defrag_status_t gf_defrag_status_t;
 
