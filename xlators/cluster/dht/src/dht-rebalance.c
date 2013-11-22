@@ -1128,6 +1128,7 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         double                   elapsed        = {0,};
         struct timeval           start          = {0,};
         int32_t                  err            = 0;
+        int                      loglevel       = GF_LOG_TRACE;
 
         gf_log (this->name, GF_LOG_INFO, "migrate data called on %s",
                 loc->path);
@@ -1268,17 +1269,24 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
 
                         /* if distribute is present, it will honor this key.
-                         * -1 is returned if distribute is not present or file
-                         * doesn't have a link-file. If file has link-file, the
-                         * path of link-file will be the value, and also that
-                         * guarantees that file has to be mostly migrated */
+                         * -1, ENODATA is returned if distribute is not present
+                         * or file doesn't have a link-file. If file has
+                         * link-file, the path of link-file will be the value,
+                         * and also that guarantees that file has to be mostly
+                         * migrated */
 
                         ret = syncop_getxattr (this, &entry_loc, &dict,
                                                GF_XATTR_LINKINFO_KEY);
                         if (ret < 0) {
-                                gf_log (this->name, GF_LOG_TRACE, "failed to "
-                                        "get link-to key for %s",
-                                        entry_loc.path);
+                                if (errno != ENODATA) {
+                                        loglevel = GF_LOG_ERROR;
+                                        defrag->total_failures += 1;
+                                } else {
+                                        loglevel = GF_LOG_TRACE;
+                                }
+                                gf_log (this->name, loglevel, "%s: failed to "
+                                        "get "GF_XATTR_LINKINFO_KEY" key - %s",
+                                        entry_loc.path, strerror (errno));
                                 continue;
                         }
 
