@@ -621,4 +621,7 @@ glusterd_remove_auxiliary_mount (char *volname);
 
 gf_boolean_t
 glusterd_status_has_tasks (int cmd);
+
+int
+gd_stop_rebalance_process (glusterd_volinfo_t *volinfo);
 #endif
