@@ -4222,8 +4222,6 @@ struct volume_options options[] = {
         {.key = {"default-soft-limit"},
          .type = GF_OPTION_TYPE_PERCENT,
          .default_value = "80%",
-         .min = 0,
-         .max = LONG_MAX,
         },
         {.key = {"soft-timeout"},
          .type = GF_OPTION_TYPE_TIME,

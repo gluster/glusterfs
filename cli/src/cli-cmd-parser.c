@@ -535,6 +535,7 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
 
         w = str_getunamb (words[3], opwords);
         if (!w) {
+                cli_out ("Invalid quota option : %s", words[3]);
                 ret = - 1;
                 goto out;
         }
@@ -587,7 +588,10 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
 
                 ret = gf_string2bytesize (words[5], &value);
                 if (ret != 0) {
-                        cli_err ("Please enter a correct value");
+                        if (errno == ERANGE)
+                                cli_err ("Value too large: %s", words[5]);
+                        else
+                                cli_err ("Please enter a correct value");
                         goto out;
                 }
 

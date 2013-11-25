@@ -8829,8 +8829,7 @@ glusterd_remove_auxiliary_mount (char *volname)
                 return 0;
         }
 
-        snprintf (mountdir, sizeof (mountdir)-1, "/tmp/%s", volname);
-
+        GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (mountdir, volname, "/");
         runinit (&runner);
         runner_add_args (&runner, "umount",
 
