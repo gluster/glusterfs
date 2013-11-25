@@ -421,7 +421,12 @@ ra_frame_unwind (call_frame_t *frame)
                                 fill->count * sizeof (*vector));
 
                         copied += (fill->count * sizeof (*vector));
-                        iobref_merge (iobref, fill->iobref);
+                        if (iobref_merge (iobref, fill->iobref)) {
+				local->op_ret = -1;
+				local->op_errno = ENOMEM;
+				iobref_unref (iobref);
+				iobref = NULL;
+			}
                 }
 
                 fill->next->prev = fill->prev;
