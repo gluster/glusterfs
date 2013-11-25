@@ -615,9 +615,6 @@ size_t backtrace(void **, size_t);
 char **backtrace_symbols(void *const *, size_t);
 #endif
 
-int gf_get_soft_limit (char *limit, char **soft_limit);
-int gf_get_hard_limit (char *limit, char **hard_limit);
-
 gf_boolean_t
 gf_is_service_running (char *pidfile, int *pid);
 int

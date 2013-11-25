@@ -47,6 +47,10 @@ enum argp_option_keys {
 #define GLUSTER_MODE_XML       (1 << 2)
 
 
+#define GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH(abspath, volname, path)      \
+        snprintf (abspath, sizeof (abspath)-1,                          \
+                  DEFAULT_VAR_RUN_DIRECTORY"/%s%s", volname, path);
+
 #define GLUSTERFS_GET_AUX_MOUNT_PIDFILE(pidfile,volname) {               \
                 snprintf (pidfile, PATH_MAX-1,                             \
                           DEFAULT_VAR_RUN_DIRECTORY"/%s.pid", volname);  \
