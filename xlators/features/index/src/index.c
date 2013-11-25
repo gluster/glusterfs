@@ -1373,7 +1373,12 @@ init (xlator_t *this)
                         "worker thread, aborting");
                 goto out;
         }
+
+        ret = index_dir_create (this, XATTROP_SUBDIR);
+        if (ret < 0)
+                goto out;
         ret = 0;
+
 out:
         if (ret) {
                 if (cond_inited)
