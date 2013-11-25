@@ -855,7 +855,10 @@ ioc_frame_unwind (call_frame_t *frame)
 
                         copied += (fill->count * sizeof (*vector));
 
-                        iobref_merge (iobref, fill->iobref);
+                        if (iobref_merge (iobref, fill->iobref)) {
+				op_ret = -1;
+				op_errno = ENOMEM;
+			}
                 }
 
                 list_del (&fill->list);
