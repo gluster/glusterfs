@@ -327,7 +327,7 @@ __socket_ssl_readv (rpc_transport_t *this, struct iovec *opvector, int opcount)
 	if (priv->use_ssl) {
 		ret = ssl_read_one (this, opvector->iov_base, opvector->iov_len);
 	} else {
-		ret = readv (sock, opvector, opcount);
+		ret = readv (sock, opvector, IOV_MIN(opcount));
 	}
 
 	return ret;
@@ -477,7 +477,7 @@ __socket_rwv (rpc_transport_t *this, struct iovec *vector, int count,
 					opvector->iov_base, opvector->iov_len);
 			}
 			else {
-				ret = writev (sock, opvector, opcount);
+				ret = writev (sock, opvector, IOV_MIN(opcount));
 			}
 
                         if (ret == 0 || (ret == -1 && errno == EAGAIN)) {

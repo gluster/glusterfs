@@ -27,6 +27,7 @@
 #ifndef GF_BSD_HOST_OS
 #include <alloca.h>
 #endif
+#include <limits.h>
 
 void trap (void);
 
@@ -257,6 +258,8 @@ union gf_sock_union {
 };
 
 #define GF_HIDDEN_PATH ".glusterfs"
+
+#define IOV_MIN(n) min(IOV_MAX,n)
 
 static inline void
 iov_free (struct iovec *vector, int count)
