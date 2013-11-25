@@ -2288,8 +2288,8 @@ out:
 static int
 print_quota_list_output (char *mountdir, char *default_sl, char *path)
 {
-        uint64_t used_space       = 0;
-        uint64_t avail            = 0;
+        int64_t used_space       = 0;
+        int64_t avail            = 0;
         char    *used_str         = NULL;
         char    *avail_str        = NULL;
         int     ret               = -1;
@@ -2309,6 +2309,20 @@ print_quota_list_output (char *mountdir, char *default_sl, char *path)
                 gf_log ("cli", GF_LOG_ERROR, "Failed to get the xattr "
                         "trusted.glusterfs.quota.limit-set on %s. Reason : %s",
                         mountdir, strerror (errno));
+                switch (errno) {
+#if defined(ENODATA)
+                case ENODATA:
+#endif
+#if defined(ENOATTR) && (ENOATTR != ENODATA)
+                case ENOATTR:
+#endif
+                        cli_err ("%-40s %s", path, "Limit not set");
+                        break;
+                default:
+                        cli_err ("%-40s %s", path, strerror (errno));
+                        break;
+                }
+
                 goto out;
         }
 
@@ -2371,10 +2385,20 @@ gf_cli_print_limit_list_from_dict (char *volname, dict_t *dict,
         if (!dict|| count <= 0)
                 goto out;
 
-        /*To-Do:
-         * Proper error reporting to handle the case where none of the given
-         * path arguments are present or have their limits set.
+        /* Need to check if any quota limits are set on the volume before trying
+         * to list them
          */
+        if (!_limits_set_on_volume (volname)) {
+                ret = 0;
+                cli_out ("quota: No quota configured on volume %s", volname);
+                goto out;
+        }
+
+        /* Check if the mount is online before doing any listing */
+        if (!_quota_aux_mount_online (volname)) {
+                ret = -1;
+                goto out;
+        }
 
         cli_out ("                  Path                   Hard-limit "
                  "Soft-limit   Used  Available");
@@ -2394,9 +2418,7 @@ gf_cli_print_limit_list_from_dict (char *volname, dict_t *dict,
                 ret = gf_canonicalize_path (path);
                 if (ret)
                         goto out;
-                snprintf (mountdir, sizeof (mountdir), "/tmp/%s%s", volname,
-                          path);
-
+                GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (mountdir, volname, path);
                 ret = print_quota_list_output (mountdir, default_sl, path);
 
         }
@@ -2520,12 +2542,14 @@ cli_quotad_getlimit_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        if (rsp.op_ret && strcmp (rsp.op_errstr, "") == 0) {
-                cli_err ("quota command : failed");
-                goto out;
-
-        } else if (strcmp (rsp.op_errstr, ""))
+        if (rsp.op_ret) {
+                ret = -1;
+                if (strcmp (rsp.op_errstr, ""))
                         cli_err ("quota command failed : %s", rsp.op_errstr);
+                else
+                        cli_err ("quota command : failed");
+                goto out;
+        }
 
         if (rsp.dict.dict_len) {
                 /* Unserialize the dictionary */
@@ -2633,14 +2657,18 @@ gf_cli_quota_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        if (rsp.op_ret && strcmp (rsp.op_errstr, "") == 0) {
-                cli_err ("quota command : failed");
-
+        if (rsp.op_ret) {
+                ret = -1;
                 if (global_state->mode & GLUSTER_MODE_XML)
                         goto xml_output;
-                goto out;
-        } else if (strcmp (rsp.op_errstr, ""))
+
+                if (strcmp (rsp.op_errstr, ""))
                         cli_err ("quota command failed : %s", rsp.op_errstr);
+                else
+                        cli_err ("quota command : failed");
+
+                goto out;
+        }
 
         if (rsp.dict.dict_len) {
                 /* Unserialize the dictionary */

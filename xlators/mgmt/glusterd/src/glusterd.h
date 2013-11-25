@@ -394,6 +394,10 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
 #define GLUSTERD_GET_QUOTAD_DIR(path, priv) \
         snprintf (path, PATH_MAX, "%s/quotad", priv->workdir);
 
+#define GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH(abspath, volname, path)      \
+        snprintf (abspath, sizeof (abspath)-1,                          \
+                  DEFAULT_VAR_RUN_DIRECTORY"/%s%s", volname, path);
+
 #define GLUSTERD_REMOVE_SLASH_FROM_PATH(path,string) do {               \
                 int i = 0;                                              \
                 for (i = 1; i < strlen (path); i++) {                   \

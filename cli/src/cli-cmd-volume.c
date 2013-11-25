@@ -28,6 +28,7 @@
 #include "cli-mem-types.h"
 #include "cli1-xdr.h"
 #include "run.h"
+#include "syscall.h"
 
 extern struct rpc_clnt *global_rpc;
 extern struct rpc_clnt *global_quotad_rpc;
@@ -1026,7 +1027,7 @@ gf_cli_create_auxiliary_mount (char *volname)
                 goto out;
         }
 
-        snprintf (mountdir, sizeof (mountdir)-1, "/tmp/%s", volname);
+        GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (mountdir, volname, "/");
         ret = mkdir (mountdir, 0777);
         if (ret && errno != EEXIST) {
                 gf_log ("cli", GF_LOG_ERROR, "Failed to create auxiliary mount "
@@ -1071,8 +1072,11 @@ cli_stage_quota_op (char *volname, int op_code)
                 case GF_QUOTA_OPTION_TYPE_REMOVE:
                 case GF_QUOTA_OPTION_TYPE_LIST:
                         ret = gf_cli_create_auxiliary_mount (volname);
-                        if (ret)
+                        if (ret) {
+                                cli_err ("quota: Could not start quota "
+                                         "auxiliary mount");
                                 goto out;
+                        }
                         ret = 0;
                         break;
 
@@ -1153,6 +1157,77 @@ cli_cmd_quota_conf_skip_header (int fd)
         return gf_skip_header_section (fd, strlen (buf));
 }
 
+/* Checks if at least one limit has been set on the volume
+ *
+ * Returns true if at least one limit is set. Returns false otherwise.
+ */
+gf_boolean_t
+_limits_set_on_volume (char *volname) {
+        gf_boolean_t    limits_set = _gf_false;
+        int             ret = -1;
+        char            quota_conf_file[PATH_MAX] = {0,};
+        int             fd = -1;
+        char            buf[16] = {0,};
+
+        /* TODO: fix hardcoding; Need to perform an RPC call to glusterd
+         * to fetch working directory
+         */
+        sprintf (quota_conf_file, "/var/lib/glusterd/vols/%s/quota.conf",
+                 volname);
+        fd = open (quota_conf_file, O_RDONLY);
+        if (fd == -1)
+                goto out;
+
+        ret = cli_cmd_quota_conf_skip_header (fd);
+        if (ret)
+                goto out;
+
+        /* Try to read atleast one gfid */
+        ret = read (fd, (void *)buf, 16);
+        if (ret == 16)
+                limits_set = _gf_true;
+out:
+        if (fd != -1)
+                close (fd);
+        return limits_set;
+}
+
+/* Checks if the mount is connected to the bricks
+ *
+ * Returns true if connected and false if not
+ */
+gf_boolean_t
+_quota_aux_mount_online (char *volname)
+{
+        int         ret = 0;
+        char        mount_path[PATH_MAX + 1] = {0,};
+        struct stat buf = {0,};
+
+        GF_ASSERT (volname);
+
+        /* Try to create the aux mount before checking if bricks are online */
+        ret = gf_cli_create_auxiliary_mount (volname);
+        if (ret) {
+                cli_err ("quota: Could not start quota auxiliary mount");
+                return _gf_false;
+        }
+
+        GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (mount_path, volname, "/");
+
+        ret = sys_stat (mount_path, &buf);
+        if (ret) {
+                if (ENOTCONN == errno) {
+                        cli_err ("quota: Cannot connect to bricks. Check if "
+                                 "bricks are online.");
+                } else {
+                        cli_err ("quota: Error on quota auxiliary mount (%s).",
+                                 strerror (errno));
+                }
+                return _gf_false;
+        }
+        return _gf_true;
+}
+
 int
 cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
 {
@@ -1186,6 +1261,21 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Failed to fetch default "
                         "soft-limit");
+                goto out;
+        }
+
+        /* Check if at least one limit is set on volume. No need to check for
+         * quota enabled as cli_get_soft_limit() handles that
+         */
+        if (!_limits_set_on_volume (volname)) {
+                cli_out ("quota: No quota configured on volume %s", volname);
+                ret = 0;
+                goto out;
+        }
+
+        /* Check if the mount is online before doing any listing */
+        if (!_quota_aux_mount_online (volname)) {
+                ret = -1;
                 goto out;
         }
 
@@ -1265,22 +1355,19 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
         }
 
         if (count > 0) {
-                ret = all_failed? 0: -1;
+                ret = all_failed? -1: 0;
         } else {
                 ret = 0;
         }
 out:
-        if (count == 0) {
-                cli_out ("quota: No quota configured on volume %s", volname);
-        }
         if (fd != -1) {
                 close (fd);
         }
 
         GF_FREE (gfid_str);
         if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Couldn't fetch quota limits "
-                        "for even one of the directories configured");
+                gf_log ("cli", GF_LOG_ERROR, "Could not fetch and display quota"
+                        " limits");
         }
         CLI_STACK_DESTROY (frame);
         return ret;
