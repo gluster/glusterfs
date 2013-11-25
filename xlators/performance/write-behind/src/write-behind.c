@@ -766,8 +766,9 @@ wb_fulfill_head (wb_inode_t *wb_inode, wb_request_t *head)
 	list_for_each_entry (req, &head->winds, winds) {
 		WB_IOV_LOAD (vector, count, req, head);
 
-		iobref_merge (head->stub->args.iobref,
-			      req->stub->args.iobref);
+		if (iobref_merge (head->stub->args.iobref,
+				  req->stub->args.iobref))
+			goto err;
 	}
 
         if (wb_fd_err (head->fd, this, NULL)) {
