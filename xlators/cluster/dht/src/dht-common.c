@@ -2349,6 +2349,7 @@ dht_fgetxattr (call_frame_t *frame, xlator_t *this,
         }
 
         if ((fd->inode->ia_type == IA_IFDIR)
+	    && key
             && (strncmp (key, GF_XATTR_LOCKINFO_KEY,
                          strlen (GF_XATTR_LOCKINFO_KEY) != 0))) {
                 cnt = local->call_cnt = layout->cnt;
