@@ -14,6 +14,8 @@ function set_tail ()
         vol=$1;
         tail_success="volume create $vol $H0:$B0/${vol}1 $H0:$B0/${vol}2 : SUCCESS"
         tail_failure="volume create $vol $H0:$B0/${vol}1 $H0:$B0/${vol}2 : FAILED : Volume $vol already exists"
+        tail_success_force="volume create $vol $H0:$B0/${vol}1 $H0:$B0/${vol}2 force : SUCCESS"
+        tail_failure_force="volume create $vol $H0:$B0/${vol}1 $H0:$B0/${vol}2 force : FAILED : Volume $vol already exists"
 }
 
 set_tail $V0;
@@ -27,12 +29,12 @@ tail=`tail --lines=1 $logdir/.cmd_log_history | cut -d " " -f 5-`
 TEST [[ \"$tail\" == \"$tail_failure\" ]]
 
 set_tail $V1;
-TEST gluster volume create $V1 $H0:$B0/${V1}{1,2};
+TEST gluster volume create $V1 $H0:$B0/${V1}{1,2} force;
 tail=`tail --lines=1 $logdir/.cmd_log_history | cut -d " " -f 5-`
-TEST [[ \"$tail\" == \"$tail_success\" ]]
+TEST [[ \"$tail\" == \"$tail_success_force\" ]]
 
-TEST ! gluster volume create $V1 $H0:$B0/${V1}{1,2};
+TEST ! gluster volume create $V1 $H0:$B0/${V1}{1,2} force;
 tail=`tail --lines=1 $logdir/.cmd_log_history | cut -d " " -f 5-`
-TEST [[ \"$tail\" == \"$tail_failure\" ]]
+TEST [[ \"$tail\" == \"$tail_failure_force\" ]]
 
 cleanup;
