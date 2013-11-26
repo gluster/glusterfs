@@ -2943,6 +2943,7 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
 
         op_ret = -1;
         dict_del (dict, GFID_XATTR_KEY);
+        dict_del (dict, GF_XATTR_VOL_ID_KEY);
 
         filler.real_path = real_path;
         filler.this = this;
@@ -3667,6 +3668,7 @@ done:
 
         if (dict) {
                 dict_del (dict, GFID_XATTR_KEY);
+                dict_del (dict, GF_XATTR_VOL_ID_KEY);
         }
 
 out:
@@ -3852,6 +3854,7 @@ done:
 
         if (dict) {
                 dict_del (dict, GFID_XATTR_KEY);
+                dict_del (dict, GF_XATTR_VOL_ID_KEY);
                 dict_ref (dict);
         }
 
@@ -3908,6 +3911,7 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
         _fd = pfd->fd;
 
         dict_del (dict, GFID_XATTR_KEY);
+        dict_del (dict, GF_XATTR_VOL_ID_KEY);
 
         filler.fd = _fd;
         filler.this = this;
@@ -3967,6 +3971,12 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
                 op_ret = -1;
                 goto out;
         }
+        if (!strcmp (GF_XATTR_VOL_ID_KEY, name)) {
+                gf_log (this->name, GF_LOG_WARNING, "Remove xattr called"
+                        " on volume-id for file %s", real_path);
+                op_ret = -1;
+                goto out;
+        }
 
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
@@ -4021,6 +4031,11 @@ posix_fremovexattr (call_frame_t *frame, xlator_t *this,
         if (!strcmp (GFID_XATTR_KEY, name)) {
                 gf_log (this->name, GF_LOG_WARNING, "Remove xattr called"
                         " on gfid for file");
+                goto out;
+        }
+        if (!strcmp (GF_XATTR_VOL_ID_KEY, name)) {
+                gf_log (this->name, GF_LOG_WARNING, "Remove xattr called"
+                        " on volume-id for file");
                 goto out;
         }
 
