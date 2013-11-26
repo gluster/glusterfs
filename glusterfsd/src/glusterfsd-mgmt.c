@@ -1456,7 +1456,12 @@ glusterfs_volfile_fetch (glusterfs_ctx_t *ctx)
         ret = mgmt_submit_request (&req, frame, ctx, &clnt_handshake_prog,
                                    GF_HNDSK_GETSPEC, mgmt_getspec_cbk,
                                    (xdrproc_t)xdr_gf_getspec_req);
+
 out:
+        GF_FREE (req.xdata.xdata_val);
+        if (dict)
+                dict_unref (dict);
+
         return ret;
 }
 
