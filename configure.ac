@@ -751,16 +751,6 @@ AC_ARG_ENABLE([debug],
               AC_HELP_STRING([--enable-debug],
                              [Enable debug build options.]))
 
-BUILD_DEBUG=no
-if test "x$enable_debug" = "xyes"; then
-   BUILD_DEBUG=yes
-   CFLAGS=`echo $CFLAGS | sed -e s/O2/O0/`
-else
-   BUILD_DEBUG=no
-fi
-AC_SUBST(CFLAGS)
-# end enable debug section
-
 # syslog section
 AC_ARG_ENABLE([syslog],
 	      AC_HELP_STRING([--disable-syslog],
@@ -857,6 +847,18 @@ if test "x$BUILD_GLUPY" = "xyes"; then
    AC_SUBST(GLUPY_SUBDIR_SRC_MAKEFILE)
 fi
 # end glupy section
+
+# Other stuff (most notably the glupy section) might have injected another -O2
+# into CFLAGS, so *do this last*.
+BUILD_DEBUG=no
+if test "x$enable_debug" = "xyes"; then
+   BUILD_DEBUG=yes
+   CFLAGS=`echo $CFLAGS | sed -e s/O2/O0/g`
+else
+   BUILD_DEBUG=no
+fi
+AC_SUBST(CFLAGS)
+# end enable debug section
 
 AC_SUBST(GF_HOST_OS)
 AC_SUBST([GF_GLUSTERFS_LIBS])
