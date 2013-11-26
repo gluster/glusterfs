@@ -3048,7 +3048,7 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
-        if (!strcmp (GFID_XATTR_KEY, name)) {
+        if (!strcmp (GFID_XATTR_KEY, name) || !strcmp (GF_XATTR_VOL_ID_KEY, name)) {
                 send_fuse_err (this, finh, EPERM);
                 GF_FREE (finh);
                 return;
@@ -3488,7 +3488,7 @@ fuse_removexattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         int32_t       ret = -1;
         char *newkey = NULL;
 
-        if (!strcmp (GFID_XATTR_KEY, name)) {
+        if (!strcmp (GFID_XATTR_KEY, name) || !strcmp (GF_XATTR_VOL_ID_KEY, name)) {
                 send_fuse_err (this, finh, EPERM);
                 GF_FREE (finh);
                 return;
