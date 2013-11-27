@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 Red Hat, Inc. <http://www.redhat.com>
+ * Copyright (c) 2012-2013 Red Hat, Inc. <http://www.redhat.com>
  * This file is part of GlusterFS.
  *
  * This file is licensed to you under your choice of the GNU Lesser
@@ -28,7 +28,15 @@
 #include "nfs3-fh.h"
 #include "nfs-generics.h"
 #include "acl3.h"
+#include "byte-order.h"
 
+static int
+acl3_nfs_acl_to_xattr (aclentry *ace, void *xattrbuf,
+                       int aclcount, int defacl);
+
+static int
+acl3_nfs_acl_from_xattr (aclentry *ace, void *xattrbuf,
+                         int bufsize, int defacl);
 
 typedef ssize_t (*acl3_serializer) (struct iovec outmsg, void *args);
 
@@ -233,12 +241,12 @@ acl3_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, dict_t *dict,
                  dict_t *xdata)
 {
-        nfsstat3                        stat = NFS3ERR_SERVERFAULT;
-        nfs3_call_state_t              *cs = NULL;
-        data_t                         *data = NULL;
-        int                            *p = NULL;
-        int                             i = 0;
-        getaclreply                     *getaclreply = NULL;
+        nfsstat3                 stat = NFS3ERR_SERVERFAULT;
+        nfs3_call_state_t        *cs = NULL;
+        data_t                   *data = NULL;
+        getaclreply              *getaclreply = NULL;
+        int                      aclcount = 0;
+        int                      defacl = 1; /* DEFAULT ACL */
 
         if (!frame->local) {
                 gf_log (GF_ACL, GF_LOG_ERROR, "Invalid argument,"
@@ -255,32 +263,40 @@ acl3_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         getaclreply->aclentry.aclentry_val = cs->aclentry;
         getaclreply->daclentry.daclentry_val = cs->daclentry;
 
-        /* FIXME: use posix_acl_from_xattr() */
+        /* getfacl: NFS USER ACL */
         data = dict_get (dict, POSIX_ACL_ACCESS_XATTR);
-        if (data && (p = data_to_bin (data))) {
-                /* POSIX_ACL_VERSION */
-                p++;
-                while ((char *)p < (data->data + data->len)) {
-                        getaclreply->aclentry.aclentry_val[i].type = *(*(short **)&p)++;
-                        getaclreply->aclentry.aclentry_val[i].perm = *(*(short **)&p)++;
-                        getaclreply->aclentry.aclentry_val[i].uid = *(*(int **)&p)++;
-                        i++;
+        if (data && data->data) {
+                aclcount = acl3_nfs_acl_from_xattr (cs->aclentry,
+                                                    data->data,
+                                                    data->len,
+                                                    !defacl);
+                if (aclcount < 0) {
+                        gf_log (GF_ACL, GF_LOG_ERROR,
+                                "Failed to get USER ACL");
+                        stat = nfs3_errno_to_nfsstat3 (-aclcount);
+                        goto err;
                 }
-                getaclreply->aclcount = getaclreply->aclentry.aclentry_len = i;
-        }
-        i = 0;
 
+                getaclreply->aclcount = aclcount;
+                getaclreply->aclentry.aclentry_len = aclcount;
+        }
+
+        /* getfacl: NFS DEFAULT ACL */
         data = dict_get (dict, POSIX_ACL_DEFAULT_XATTR);
-        if (data && (p = data_to_bin (data))) {
-                /* POSIX_ACL_VERSION */
-                p++;
-                while ((char *)p < (data->data + data->len)) {
-                        getaclreply->daclentry.daclentry_val[i].type = *(*(short **)&p)++;
-                        getaclreply->daclentry.daclentry_val[i].perm = *(*(short **)&p)++;
-                        getaclreply->daclentry.daclentry_val[i].uid = *(*(int **)&p)++;
-                        i++;
+        if (data && data->data) {
+                aclcount = acl3_nfs_acl_from_xattr (cs->daclentry,
+                                                    data->data,
+                                                    data->len,
+                                                    defacl);
+                if (aclcount < 0) {
+                        gf_log (GF_ACL, GF_LOG_ERROR,
+                                "Failed to get DEFAULT ACL");
+                        stat = nfs3_errno_to_nfsstat3 (-aclcount);
+                        goto err;
                 }
-                getaclreply->daclcount = getaclreply->daclentry.daclentry_len = i;
+
+                getaclreply->daclcount = aclcount;
+                getaclreply->daclentry.daclentry_len = aclcount;
         }
 
         acl3_getacl_reply (cs, getaclreply);
@@ -481,20 +497,19 @@ acl3err:
 int
 acl3svc_setacl (rpcsvc_request_t *req)
 {
-        xlator_t                        *vol = NULL;
+        xlator_t                       *vol = NULL;
         struct nfs_state               *nfs = NULL;
         nfs3_state_t                   *nfs3 = NULL;
-        nfs3_call_state_t               *cs = NULL;
-        int                             ret = RPCSVC_ACTOR_ERROR;
-        nfsstat3                        stat = NFS3ERR_SERVERFAULT;
-        struct nfs3_fh                  fh;
+        nfs3_call_state_t              *cs = NULL;
+        int                            ret = RPCSVC_ACTOR_ERROR;
+        nfsstat3                       stat = NFS3ERR_SERVERFAULT;
+        struct nfs3_fh                 fh;
         struct nfs3_fh                 *fhp = NULL;
-        setaclargs                      setaclargs;
-        aclentry                        *aclentry = NULL;
-        struct aclentry                 *daclentry = NULL;
-        int                             i = 0;
-        struct posix_acl_xattr_header   *bufheader = NULL;
-        struct posix_acl_xattr_entry    *bufentry  = NULL;
+        setaclargs                     setaclargs;
+        aclentry                       *aclentry = NULL;
+        struct aclentry                *daclentry = NULL;
+        int                            aclerrno = 0;
+        int                            defacl = 1;
 
         if (!req)
                 return ret;
@@ -534,64 +549,27 @@ acl3svc_setacl (rpcsvc_request_t *req)
         cs->aclcount = setaclargs.aclcount;
         cs->daclcount = setaclargs.daclcount;
 
-        if ((cs->aclcount > NFS_ACL_MAX_ENTRIES) ||
-                        (cs->daclcount > NFS_ACL_MAX_ENTRIES))
+        /* setfacl: NFS USER ACL */
+        aclerrno = acl3_nfs_acl_to_xattr (aclentry,
+                                          cs->aclxattr,
+                                          cs->aclcount,
+                                          !defacl);
+        if (aclerrno < 0) {
+                gf_log (GF_ACL, GF_LOG_ERROR, "Failed to set USER ACL");
+                stat = nfs3_errno_to_nfsstat3 (-aclerrno);
                 goto acl3err;
-        /* FIXME: use posix_acl_to_xattr() */
-        /* Populate xattr buffer for user ACL */
-        bufheader = (struct posix_acl_xattr_header *)(cs->aclxattr);
-        bufheader->version = htole32(POSIX_ACL_VERSION);
-        bufentry  = bufheader->entries;
-        for (i = 0; i < cs->aclcount; i++) {
-                int uaceuid;
-                const struct aclentry *uace = &aclentry[i];
-                switch (uace->type) {
-                    case POSIX_ACL_USER:
-                    case POSIX_ACL_GROUP:
-                        uaceuid = uace->uid;
-                        break;
-                    default:
-                        uaceuid = POSIX_ACL_UNDEFINED_ID;
-                        break;
-                }
-                bufentry->tag  = htole16(uace->type);
-                bufentry->perm = htole16(uace->perm);
-                bufentry->id   = htole32(uaceuid);
-
-                bufentry++;
         }
 
-        /* Populate xattr buffer for Default ACL */
-        bufheader = (struct posix_acl_xattr_header *)(cs->daclxattr);
-        bufheader->version = htole32(POSIX_ACL_VERSION);
-        bufentry  = bufheader->entries;
-        for (i = 0; i < cs->daclcount; i++) {
-                int daceuid;
-                int dacetype;
-                const struct aclentry *dace = &daclentry[i];
-                /*
-                 * For "default ACL", NFSv3 handles the 'type' differently
-                 * i.e. by logical OR'ing 'type' with NFS_ACL_DEFAULT.
-                 * Which the backend File system does not understand and
-                 * that needs to be masked OFF.
-                 */
-                dacetype = (dace->type & ~(NFS_ACL_DEFAULT));
-                switch (dacetype) {
-                    case POSIX_ACL_USER:
-                    case POSIX_ACL_GROUP:
-                        daceuid = dace->uid;
-                        break;
-                    default:
-                        daceuid = POSIX_ACL_UNDEFINED_ID;
-                        break;
-                }
-                bufentry->tag  = htole16(dacetype);
-                bufentry->perm = htole16(dace->perm);
-                bufentry->id   = htole32(daceuid);
-
-                bufentry++;
+        /* setfacl: NFS DEFAULT ACL */
+        aclerrno = acl3_nfs_acl_to_xattr (daclentry,
+                                          cs->daclxattr,
+                                          cs->daclcount,
+                                          defacl);
+        if (aclerrno < 0) {
+                gf_log (GF_ACL, GF_LOG_ERROR, "Failed to set DEFAULT ACL");
+                stat = nfs3_errno_to_nfsstat3 (-aclerrno);
+                goto acl3err;
         }
-
 
         ret = nfs3_fh_resolve_and_resume (cs, fhp,
                                           NULL, acl3_setacl_resume);
@@ -705,4 +683,134 @@ acl3svc_init(xlator_t *nfsx)
         return &acl3prog;
 err:
         return NULL;
+}
+
+static int
+acl3_nfs_acl_to_xattr (aclentry *ace,      /* ACL entries to be read */
+                       void     *xattrbuf, /* XATTR buf to be populated */
+                       int      aclcount,  /* No of ACLs to be read */
+                       int      defacl)    /* 1 if DEFAULT ACL */
+{
+        int                       idx      = 0;
+        posix_acl_xattr_header    *xheader = NULL;
+        posix_acl_xattr_entry     *xentry  = NULL;
+
+        if ((!ace) || (!xattrbuf))
+                return (-EINVAL);
+
+        /* ACL count is ZERO, nothing to do */
+        if (!aclcount)
+                return (0);
+
+        if ((aclcount < 0) || (aclcount > NFS_ACL_MAX_ENTRIES))
+                return (-EINVAL);
+
+        xheader = (posix_acl_xattr_header *) (xattrbuf);
+        xentry  = (posix_acl_xattr_entry  *) (xheader + 1);
+
+        /*
+         * For "default ACL", NFSv3 handles the 'type' differently
+         * i.e. by logical OR'ing 'type' with NFS_ACL_DEFAULT.
+         * Which the backend File system does not understand and
+         * that needs to be masked OFF.
+         */
+        xheader->version = POSIX_ACL_XATTR_VERSION;
+
+        for (idx = 0; idx < aclcount; idx++) {
+                xentry->tag  = ace->type;
+                if (defacl)
+                        xentry->tag &= ~NFS_ACL_DEFAULT;
+                xentry->perm = ace->perm;
+
+                switch (xentry->tag) {
+                case POSIX_ACL_USER:
+                case POSIX_ACL_GROUP:
+                        if (xentry->perm & ~S_IRWXO)
+                                return (-EINVAL);
+                        xentry->id = ace->uid;
+                        break;
+                case POSIX_ACL_USER_OBJ:
+                case POSIX_ACL_GROUP_OBJ:
+                case POSIX_ACL_OTHER:
+                        if (xentry->perm & ~S_IRWXO)
+                                return (-EINVAL);
+                        xentry->id = POSIX_ACL_UNDEFINED_ID;
+                        break;
+                case POSIX_ACL_MASK:
+                        /* Solaris sometimes sets additional bits in
+                         * the mask.
+                         */
+                        xentry->perm &= S_IRWXO;
+                        xentry->id = POSIX_ACL_UNDEFINED_ID;
+                        break;
+                default:
+                        return (-EINVAL);
+                }
+
+                xentry++;
+                ace++;
+        }
+
+        /* SUCCESS */
+        return (0);
+}
+
+static int
+acl3_nfs_acl_from_xattr (aclentry  *ace,      /* ACL entries to be filled */
+                         void      *xattrbuf, /* XATTR buf to be read */
+                         int       bufsize,   /* Size of XATTR buffer */
+                         int       defacl)    /*  1 if DEFAULT ACL */
+{
+        int                       idx       = 0;
+        ssize_t                   aclcount  = 0;
+        posix_acl_xattr_header    *xheader  = NULL;
+        posix_acl_xattr_entry     *xentry   = NULL;
+
+        if ((!xattrbuf) || (!ace))
+                return (-EINVAL);
+
+        aclcount = posix_acl_xattr_count (bufsize);
+        if ((aclcount < 0) || (aclcount > NFS_ACL_MAX_ENTRIES))
+                return (-EINVAL);
+
+        xheader = (posix_acl_xattr_header *) (xattrbuf);
+        xentry  = (posix_acl_xattr_entry  *) (xheader + 1);
+
+        /* Check for supported POSIX ACL xattr version */
+        if (xheader->version != POSIX_ACL_XATTR_VERSION)
+                return (-ENOSYS);
+
+        for (idx = 0; idx < (int)aclcount; idx++) {
+                ace->type = xentry->tag;
+                if (defacl) {
+                        /*
+                         * SET the NFS_ACL_DEFAULT flag for default
+                         * ACL which was masked OFF during setfacl().
+                         */
+                        ace->type |= NFS_ACL_DEFAULT;
+                }
+                ace->perm = (xentry->perm & S_IRWXO);
+
+                switch (xentry->tag) {
+                case POSIX_ACL_USER:
+                case POSIX_ACL_GROUP:
+                        ace->uid = xentry->id;
+                        break;
+                case POSIX_ACL_USER_OBJ:
+                case POSIX_ACL_GROUP_OBJ:
+                case POSIX_ACL_MASK:
+                case POSIX_ACL_OTHER:
+                        ace->uid = POSIX_ACL_UNDEFINED_ID;
+                        break;
+                default:
+                        return (-EINVAL);
+                }
+
+
+                xentry++;
+                ace++;
+        }
+
+        /* SUCCESS: ACL count */
+        return aclcount;
 }
