@@ -225,10 +225,11 @@ glusterd_get_uuid (uuid_t *uuid)
 }
 
 int
-glusterd_submit_request (struct rpc_clnt *rpc, void *req,
-                         call_frame_t *frame, rpc_clnt_prog_t *prog,
-                         int procnum, struct iobref *iobref,
-                         xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
+glusterd_submit_request_unlocked (struct rpc_clnt *rpc, void *req,
+				  call_frame_t *frame, rpc_clnt_prog_t *prog,
+				  int procnum, struct iobref *iobref,
+				  xlator_t *this, fop_cbk_fn_t cbkfn,
+				  xdrproc_t xdrproc)
 {
         int                     ret         = -1;
         struct iobuf            *iobuf      = NULL;
@@ -298,6 +299,28 @@ out:
 
         return ret;
 }
+
+
+int
+glusterd_submit_request (struct rpc_clnt *rpc, void *req,
+                         call_frame_t *frame, rpc_clnt_prog_t *prog,
+                         int procnum, struct iobref *iobref,
+                         xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
+{
+        glusterd_conf_t         *priv = THIS->private;
+	int ret = -1;
+
+	synclock_unlock (&priv->big_lock);
+	{
+		ret = glusterd_submit_request_unlocked (rpc, req, frame, prog,
+							procnum, iobref, this,
+							cbkfn, xdrproc);
+	}
+	synclock_lock (&priv->big_lock);
+
+	return ret;
+}
+
 
 struct iobuf *
 glusterd_serialize_reply (rpcsvc_request_t *req, void *arg,
