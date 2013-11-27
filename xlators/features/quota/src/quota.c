@@ -979,7 +979,7 @@ quota_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (!xattr_req)
                 goto err;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -996,14 +996,8 @@ quota_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto err;
         }
 
-wind:
-        /* TODO: check with vshastry@redhat.com to cleanup the ugliness of
-         * checking priv->is_quota_on here by using STACK_WIND_TAIL macro
-         */
-        STACK_WIND (frame,
-                    priv->is_quota_on ? quota_lookup_cbk : default_lookup_cbk,
-                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->lookup, loc,
-                    xattr_req);
+        STACK_WIND (frame, quota_lookup_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
 
         ret = 0;
 
@@ -1016,6 +1010,11 @@ err:
                                     NULL, NULL, NULL, NULL);
         }
 
+        return 0;
+
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
         return 0;
 }
 
@@ -1203,8 +1202,7 @@ quota_writev_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 }
         }
 
-        STACK_WIND (frame,
-                    priv->is_quota_on? quota_writev_cbk: default_writev_cbk,
+        STACK_WIND (frame, quota_writev_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->writev, fd,
                     vector, count, off, flags, iobref, xdata);
 
@@ -1236,7 +1234,7 @@ quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         INIT_LIST_HEAD (&head);
 
@@ -1307,10 +1305,10 @@ unwind:
         QUOTA_STACK_UNWIND (writev, frame, -1, op_errno, NULL, NULL, NULL);
         return 0;
 
-wind:
-        STACK_WIND (frame, default_writev_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->writev, fd,
-                    vector, count, off, flags, iobref, xdata);
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->writev, fd,
+                         vector, count, off, flags, iobref, xdata);
         return 0;
 }
 
@@ -1346,8 +1344,7 @@ quota_mkdir_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto unwind;
         }
 
-        STACK_WIND (frame,
-                    quota_mkdir_cbk,
+        STACK_WIND (frame, quota_mkdir_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->mkdir, loc,
                     mode, umask, xdata);
 
@@ -1371,7 +1368,7 @@ quota_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -1408,11 +1405,10 @@ err:
 
         return 0;
 
-wind:
-        STACK_WIND (frame,
-                    priv->is_quota_on? quota_mkdir_cbk: default_mkdir_cbk,
-                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->mkdir, loc,
-                    mode, umask, xdata);
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->mkdir,
+                         loc, mode, umask, xdata);
 
         return 0;
 }
@@ -1494,8 +1490,7 @@ quota_create_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
 
 
-        STACK_WIND (frame,
-                    priv->is_quota_on? quota_create_cbk: default_create_cbk,
+        STACK_WIND (frame, quota_create_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->create, loc,
                     flags, mode, umask, fd, xdata);
         return 0;
@@ -1519,7 +1514,7 @@ quota_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -1554,11 +1549,10 @@ err:
 
         return 0;
 
-wind:
-        STACK_WIND (frame,
-                    priv->is_quota_on? quota_create_cbk: default_create_cbk,
-                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->create, loc,
-                    flags, mode, umask, fd, xdata);
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                         FIRST_CHILD (this)->fops->create, loc,
+                         flags, mode, umask, fd, xdata);
         return 0;
 }
 
@@ -1628,7 +1622,7 @@ quota_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -1647,11 +1641,8 @@ quota_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
                 goto err;
         }
 
-wind:
-        STACK_WIND (frame,
-                    priv->is_quota_on? quota_unlink_cbk: default_unlink_cbk,
-                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->unlink, loc,
-                    xflag, xdata);
+        STACK_WIND (frame, quota_unlink_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
 
         ret = 0;
 
@@ -1660,6 +1651,11 @@ err:
                 QUOTA_STACK_UNWIND (unlink, frame, -1, 0, NULL, NULL, NULL);
         }
 
+        return 0;
+
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
         return 0;
 }
 
@@ -1764,7 +1760,7 @@ quota_link_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                 goto unwind;
         }
 
-        STACK_WIND (frame, priv->is_quota_on? quota_link_cbk: default_link_cbk,
+        STACK_WIND (frame, quota_link_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->link, oldloc,
                     newloc, xdata);
         return 0;
@@ -1788,7 +1784,11 @@ quota_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
+
+        if (xdata && dict_get (xdata, GLUSTERFS_INTERNAL_FOP_KEY)) {
+                goto off;
+        }
 
         quota_inode_ctx_get (oldloc->inode, this, &ctx, 0);
         if (ctx == NULL) {
@@ -1806,10 +1806,6 @@ quota_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 
         frame->local = (void *) local;
 
-        if (xdata && dict_get (xdata, GLUSTERFS_INTERNAL_FOP_KEY)) {
-                local->skip_check = _gf_true;
-                goto wind;
-        }
 
         ret = loc_copy (&local->loc, newloc);
         if (ret == -1) {
@@ -1832,13 +1828,12 @@ quota_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 err:
         QUOTA_STACK_UNWIND (link, frame, -1, op_errno, NULL, NULL,
                             NULL, NULL, NULL);
-
         return 0;
 
-wind:
-        STACK_WIND (frame, default_link_cbk,
-                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->link, oldloc,
-                    newloc, xdata);
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->link, oldloc,
+                         newloc, xdata);
         return 0;
 }
 
@@ -1983,8 +1978,7 @@ quota_rename_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                 goto unwind;
         }
 
-        STACK_WIND (frame,
-                    priv->is_quota_on? quota_rename_cbk: default_rename_cbk,
+        STACK_WIND (frame, quota_rename_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->rename, oldloc,
                     newloc, xdata);
 
@@ -2009,7 +2003,7 @@ quota_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -2065,10 +2059,10 @@ err:
                             NULL, NULL, NULL, NULL, NULL);
         return 0;
 
-wind:
-        STACK_WIND (frame, default_rename_cbk,
-                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->rename, oldloc,
-                    newloc, xdata);
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->rename, oldloc,
+                         newloc, xdata);
 
         return 0;
 }
@@ -2151,8 +2145,7 @@ quota_symlink_helper (call_frame_t *frame, xlator_t *this, const char *linkpath,
                 goto unwind;
         }
 
-        STACK_WIND (frame,
-                    priv->is_quota_on? quota_symlink_cbk: default_symlink_cbk,
+        STACK_WIND (frame, quota_symlink_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->symlink,
                     linkpath, loc, umask, xdata);
         return 0;
@@ -2176,7 +2169,7 @@ quota_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -2210,11 +2203,10 @@ err:
 
         return 0;
 
-wind:
-        STACK_WIND (frame,
-                    priv->is_quota_on? quota_symlink_cbk: default_symlink_cbk,
-                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->symlink,
-                    linkpath, loc, umask, xdata);
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->symlink,
+                         linkpath, loc, umask, xdata);
         return 0;
 }
 
@@ -2275,8 +2267,7 @@ quota_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
-
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -2291,16 +2282,18 @@ quota_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                 goto err;
         }
 
-wind:
-        STACK_WIND (frame,
-                    priv->is_quota_on? quota_truncate_cbk: default_truncate_cbk,
-                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->truncate, loc,
-                    offset, xdata);
+        STACK_WIND (frame, quota_truncate_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
 
         return 0;
+
 err:
         QUOTA_STACK_UNWIND (truncate, frame, -1, ENOMEM, NULL, NULL, NULL);
 
+        return 0;
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
         return 0;
 }
 
@@ -2360,7 +2353,7 @@ quota_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         local = quota_local_new ();
         if (local == NULL)
@@ -2370,9 +2363,7 @@ quota_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
         local->loc.inode = inode_ref (fd->inode);
 
-wind:
-        STACK_WIND (frame, priv->is_quota_on?
-                    quota_ftruncate_cbk: default_ftruncate_cbk,
+        STACK_WIND (frame, quota_ftruncate_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->ftruncate, fd,
                     offset, xdata);
 
@@ -2380,6 +2371,12 @@ wind:
 err:
         QUOTA_STACK_UNWIND (ftruncate, frame, -1, ENOMEM, NULL, NULL, NULL);
 
+        return 0;
+
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->ftruncate, fd,
+                         offset, xdata);
         return 0;
 }
 
@@ -2524,8 +2521,7 @@ quota_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
-
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -2539,14 +2535,19 @@ quota_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 goto unwind;
         }
 
-wind:
-        STACK_WIND (frame, priv->is_quota_on? quota_stat_cbk: default_stat_cbk,
-                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->stat, loc,
+        STACK_WIND (frame, quota_stat_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->stat, loc,
                     xdata);
         return 0;
 
 unwind:
         QUOTA_STACK_UNWIND (stat, frame, -1, ENOMEM, NULL, NULL);
+        return 0;
+
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->stat, loc,
+                         xdata);
         return 0;
 }
 
@@ -2604,7 +2605,7 @@ quota_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -2615,15 +2616,19 @@ quota_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 
         local->loc.inode = inode_ref (fd->inode);
 
-wind:
-        STACK_WIND (frame,
-                    priv->is_quota_on? quota_fstat_cbk: default_fstat_cbk,
+        STACK_WIND (frame, quota_fstat_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->fstat, fd,
                     xdata);
         return 0;
 
 unwind:
         QUOTA_STACK_UNWIND (fstat, frame, -1, ENOMEM, NULL, NULL);
+        return 0;
+
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->fstat, fd,
+                         xdata);
         return 0;
 }
 
@@ -2679,7 +2684,7 @@ quota_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -2694,15 +2699,19 @@ quota_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
                 goto unwind;
         }
 
-wind:
-        STACK_WIND (frame, priv->is_quota_on?
-                    quota_readlink_cbk: default_readlink_cbk,
+        STACK_WIND (frame, quota_readlink_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->readlink, loc,
                     size, xdata);
         return 0;
 
 unwind:
         QUOTA_STACK_UNWIND (readlink, frame, -1, ENOMEM, NULL, NULL, NULL);
+        return 0;
+
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->readlink, loc,
+                         size, xdata);
         return 0;
 }
 
@@ -2758,7 +2767,7 @@ quota_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -2769,9 +2778,7 @@ quota_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         local->loc.inode = inode_ref (fd->inode);
 
-wind:
-        STACK_WIND (frame,
-                    priv->is_quota_on? quota_readv_cbk: default_readv_cbk,
+        STACK_WIND (frame, quota_readv_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->readv, fd,
                     size, offset, flags, xdata);
         return 0;
@@ -2779,6 +2786,12 @@ wind:
 unwind:
         QUOTA_STACK_UNWIND (readv, frame, -1, ENOMEM, NULL, -1, NULL, NULL,
                             NULL);
+        return 0;
+
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->readv, fd,
+                         size, offset, flags, xdata);
         return 0;
 }
 
@@ -2833,7 +2846,7 @@ quota_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -2844,10 +2857,8 @@ quota_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
 
         frame->local = local;
 
-wind:
-        STACK_WIND (frame,
-                    priv->is_quota_on? quota_fsync_cbk: default_fsync_cbk,
-                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->fsync, fd,
+        STACK_WIND (frame, quota_fsync_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fsync, fd,
                     flags, xdata);
         return 0;
 
@@ -2855,6 +2866,11 @@ unwind:
         QUOTA_STACK_UNWIND (fsync, frame, -1, ENOMEM, NULL, NULL, NULL);
         return 0;
 
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->fsync, fd,
+                         flags, xdata);
+        return 0;
 }
 
 
@@ -2913,7 +2929,7 @@ quota_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -2928,15 +2944,19 @@ quota_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto unwind;
         }
 
-wind:
-        STACK_WIND (frame,
-                    priv->is_quota_on? quota_setattr_cbk: default_setattr_cbk,
-                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->setattr, loc,
+        STACK_WIND (frame, quota_setattr_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->setattr, loc,
                     stbuf, valid, xdata);
         return 0;
 
 unwind:
         QUOTA_STACK_UNWIND (setattr, frame, -1, ENOMEM, NULL, NULL, NULL);
+        return 0;
+
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                         FIRST_CHILD (this)->fops->setattr, loc,
+                         stbuf, valid, xdata);
         return 0;
 }
 
@@ -2994,8 +3014,7 @@ quota_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
-
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -3006,15 +3025,19 @@ quota_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         local->loc.inode = inode_ref (fd->inode);
 
-wind:
-        STACK_WIND (frame,
-                    priv->is_quota_on? quota_fsetattr_cbk: default_fsetattr_cbk,
+        STACK_WIND (frame, quota_fsetattr_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->fsetattr, fd,
                     stbuf, valid, xdata);
         return 0;
 
 unwind:
         QUOTA_STACK_UNWIND (fsetattr, frame, -1, ENOMEM, NULL, NULL, NULL);
+        return 0;
+
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                         FIRST_CHILD (this)->fops->fsetattr, fd,
+                         stbuf, valid, xdata);
         return 0;
 }
 
@@ -3091,8 +3114,7 @@ quota_mknod_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto unwind;
         }
 
-        STACK_WIND (frame,
-                    priv->is_quota_on? quota_mknod_cbk: default_mknod_cbk,
+        STACK_WIND (frame, quota_mknod_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->mknod, loc,
                     mode, rdev, umask, xdata);
 
@@ -3116,7 +3138,7 @@ quota_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -3143,20 +3165,17 @@ quota_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         quota_check_limit (frame, loc->parent, this, NULL, NULL);
         return 0;
+
 err:
         QUOTA_STACK_UNWIND (mknod, frame, -1, ENOMEM, NULL, NULL, NULL, NULL,
                             NULL);
-
         return 0;
 
-wind:
-        STACK_WIND (frame,
-                    priv->is_quota_on? quota_mknod_cbk: default_mknod_cbk,
-                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->mknod, loc,
-                    mode, rdev, umask, xdata);
-
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->mknod, loc,
+                         mode, rdev, umask, xdata);
         return 0;
-
 }
 
 int
@@ -3205,7 +3224,7 @@ quota_setxattr (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -3252,14 +3271,18 @@ quota_setxattr (call_frame_t *frame, xlator_t *this,
                 local->limit.soft_lim_percent = soft_lim;
         }
 
-wind:
-        STACK_WIND (frame,
-                    priv->is_quota_on? quota_setxattr_cbk: default_setxattr_cbk,
+        STACK_WIND (frame, quota_setxattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->setxattr, loc,
                     dict, flags, xdata);
         return 0;
 err:
         QUOTA_STACK_UNWIND (setxattr, frame, op_ret, op_errno, NULL);
+        return 0;
+
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->setxattr, loc,
+                         dict, flags, xdata);
         return 0;
 }
 
@@ -3304,7 +3327,7 @@ quota_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -3325,14 +3348,18 @@ quota_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 local->limit.soft_lim_percent = soft_lim;
         }
 
-wind:
-        STACK_WIND (frame, priv->is_quota_on?
-                    quota_fsetxattr_cbk: default_fsetxattr_cbk,
+        STACK_WIND (frame, quota_fsetxattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->fsetxattr, fd,
                     dict, flags, xdata);
         return 0;
- err:
+err:
         QUOTA_STACK_UNWIND (fsetxattr, frame, op_ret, op_errno, NULL);
+        return 0;
+
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->fsetxattr, fd,
+                         dict, flags, xdata);
         return 0;
 }
 
@@ -3354,7 +3381,7 @@ quota_removexattr (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         VALIDATE_OR_GOTO (this, err);
 
@@ -3367,14 +3394,19 @@ quota_removexattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (loc, err);
 
-wind:
-        STACK_WIND (frame, priv->is_quota_on?
-                    quota_removexattr_cbk: default_removexattr_cbk,
+        STACK_WIND (frame, quota_removexattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->removexattr,
                     loc, name, xdata);
         return 0;
+
 err:
         QUOTA_STACK_UNWIND (removexattr, frame, -1,  op_errno, NULL);
+        return 0;
+
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->removexattr,
+                         loc, name, xdata);
         return 0;
 }
 
@@ -3397,7 +3429,7 @@ quota_fremovexattr (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -3406,14 +3438,18 @@ quota_fremovexattr (call_frame_t *frame, xlator_t *this,
         GF_IF_NATIVE_XATTR_GOTO ("trusted.quota*",
                                  name, op_errno, err);
 
-wind:
-        STACK_WIND (frame, priv->is_quota_on?
-                    quota_fremovexattr_cbk: default_fremovexattr_cbk,
+        STACK_WIND (frame, quota_fremovexattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->fremovexattr,
                     fd, name, xdata);
         return 0;
- err:
+err:
         QUOTA_STACK_UNWIND (fremovexattr, frame, op_ret, op_errno, NULL);
+        return 0;
+
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->fremovexattr,
+                         fd, name, xdata);
         return 0;
 }
 
@@ -3600,7 +3636,7 @@ quota_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
 	if (priv->consider_statfs && loc->inode) {
                 local = quota_local_new ();
@@ -3629,25 +3665,27 @@ quota_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 }
 
                 quota_resume_fop_if_validation_done (local);
+
+                return 0;
 	}
-	else {
-		/*
-		 * We have to make sure that we never get to quota_statfs_cbk
-		 * with a cookie that points to something other than an inode,
-		 * which is exactly what would happen with STACK_UNWIND using
-		 * that as a callback.  Therefore, use default_statfs_cbk in
-		 * this case instead.
-                 *
-                 * Also if the option deem-statfs is not set to "on" don't
-                 * bother calculating quota limit on / in statfs_cbk.
-		 */
-                if (priv->consider_statfs)
-                        gf_log(this->name,GF_LOG_WARNING,
-                               "missing inode, cannot adjust for quota");
-wind:
-		STACK_WIND (frame, default_statfs_cbk, FIRST_CHILD(this),
-			    FIRST_CHILD(this)->fops->statfs, loc, xdata);
-	}
+
+        /*
+         * We have to make sure that we never get to quota_statfs_cbk
+         * with a cookie that points to something other than an inode,
+         * which is exactly what would happen with STACK_UNWIND using
+         * that as a callback.  Therefore, use default_statfs_cbk in
+         * this case instead.
+         *
+         * Also if the option deem-statfs is not set to "on" don't
+         * bother calculating quota limit on / in statfs_cbk.
+         */
+        if (priv->consider_statfs)
+                gf_log (this->name,GF_LOG_WARNING,
+                        "missing inode, cannot adjust for quota");
+
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->statfs, loc, xdata);
         return 0;
 
 err:
@@ -3706,7 +3744,7 @@ quota_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         priv = this->private;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         local = quota_local_new ();
 
@@ -3732,9 +3770,7 @@ quota_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 }
         }
 
-wind:
-        STACK_WIND (frame,
-                    priv->is_quota_on? quota_readdirp_cbk: default_readdirp_cbk,
+        STACK_WIND (frame, quota_readdirp_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->readdirp, fd,
                     size, offset, dict);
 
@@ -3750,6 +3786,12 @@ err:
                 dict_unref (dict);
         }
 
+        return 0;
+
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->readdirp, fd,
+                         size, offset, dict);
         return 0;
 }
 
@@ -3828,8 +3870,7 @@ quota_fallocate_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto unwind;
         }
 
-        STACK_WIND (frame, priv->is_quota_on?
-                    quota_fallocate_cbk: default_fallocate_cbk,
+        STACK_WIND (frame, quota_fallocate_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fallocate, fd, mode, offset, len,
 		    xdata);
@@ -3856,7 +3897,7 @@ quota_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
         priv = this->private;
         GF_VALIDATE_OR_GOTO (this->name, priv, unwind);
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, wind);
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO ("quota", this, unwind);
@@ -3924,12 +3965,10 @@ unwind:
         QUOTA_STACK_UNWIND (fallocate, frame, -1, op_errno, NULL, NULL, NULL);
         return 0;
 
-wind:
-        STACK_WIND (frame, priv->is_quota_on?
-                    quota_fallocate_cbk: default_fallocate_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fallocate, fd, mode, offset, len,
-		    xdata);
+off:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->fallocate, fd, mode, offset,
+                         len, xdata);
         return 0;
 }
 
