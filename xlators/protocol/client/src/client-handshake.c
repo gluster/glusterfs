@@ -1475,6 +1475,7 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
                 gf_log (this->name, GF_LOG_INFO, "Server and Client "
                         "lk-version numbers are same, no need to "
                         "reopen the fds");
+                client_notify_parents_child_up (frame->this);
         }
 
 out:
