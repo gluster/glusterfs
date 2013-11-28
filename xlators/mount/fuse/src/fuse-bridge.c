@@ -2317,6 +2317,16 @@ fuse_flush (xlator_t *this, fuse_in_header_t *finh, void *msg)
         return;
 }
 
+int
+fuse_internal_release (xlator_t *this, fd_t *fd)
+{
+        //This is a place holder function to prevent "xlator does not implement
+        //release_cbk" Warning log.
+        //Actual release happens as part of fuse_release which gets executed
+        //when kernel fuse sends it.
+        return 0;
+}
+
 static void
 fuse_release (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
@@ -5442,6 +5452,7 @@ struct xlator_fops fops;
 struct xlator_cbks cbks = {
         .invalidate = fuse_invalidate,
         .forget     = fuse_forget_cbk,
+        .release    = fuse_internal_release
 };
 
 
