@@ -80,7 +80,7 @@ then
 fi
 
 ## Is quota enabled?
-FLAG=`cat $GLUSTERD_WORKING_DIR/vols/$VOL_NAME/info | grep "^features.quota" \
+FLAG=`cat $GLUSTERD_WORKING_DIR/vols/$VOL_NAME/info | grep "^features.quota=" \
       | awk -F'=' '{print $NF}'`;
 if [ "$FLAG" != "on" ]
 then
@@ -88,7 +88,7 @@ then
 fi
 
 ## Is volume started?
-FLAG=`cat $GLUSTERD_WORKING_DIR/vols/$VOL_NAME/info | grep "^status" \
+FLAG=`cat $GLUSTERD_WORKING_DIR/vols/$VOL_NAME/info | grep "^status=" \
       | awk -F'=' '{print $NF}'`;
 if [ "$FLAG" != "1" ]
 then
