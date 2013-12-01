@@ -719,7 +719,8 @@ struct volume_options options[] = {
           .default_value = "off",
           .description = "This option applies to only self-heal-daemon. "
                          "Index directory crawl and automatic healing of files"
-                         "will not be performed if this option is turned off."
+                         " will not be performed if this option is turned"
+                         " off."
         },
         { .key = {"iam-self-heal-daemon"},
           .type = GF_OPTION_TYPE_BOOL,
