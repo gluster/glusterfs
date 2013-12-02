@@ -45,6 +45,7 @@ enum argp_option_keys {
 #define GLUSTER_MODE_SCRIPT    (1 << 0)
 #define GLUSTER_MODE_ERR_FATAL (1 << 1)
 #define GLUSTER_MODE_XML       (1 << 2)
+#define GLUSTER_MODE_WIGNORE   (1 << 3)
 
 
 #define GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH(abspath, volname, path)      \

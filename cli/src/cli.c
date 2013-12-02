@@ -326,14 +326,21 @@ cli_opt_parse (char *opt, struct cli_state *state)
                 return 0;
         }
 
+        if (strcmp (opt, "wignore") == 0) {
+                state->mode |= GLUSTER_MODE_WIGNORE;
+                return 0;
+        }
+
         oarg = strtail (opt, "mode=");
         if (oarg) {
                 if (strcmp (oarg, "script") == 0) {
                         state->mode |= GLUSTER_MODE_SCRIPT;
                         return 0;
                 }
+
                 if (strcmp (oarg, "interactive") == 0)
                         return 0;
+
                 return -1;
         }
 

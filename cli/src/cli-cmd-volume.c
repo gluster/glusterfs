@@ -395,7 +395,7 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 }
         }
 
-        if (state->mode & GLUSTER_MODE_SCRIPT) {
+        if (state->mode & GLUSTER_MODE_WIGNORE) {
                 ret = dict_set_int32 (options, "force", _gf_true);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Failed to set force "
@@ -981,7 +981,7 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
                 }
         }
 
-        if (state->mode & GLUSTER_MODE_SCRIPT) {
+        if (state->mode & GLUSTER_MODE_WIGNORE) {
                 ret = dict_set_int32 (options, "force", _gf_true);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Failed to set force "
@@ -1552,7 +1552,7 @@ cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
                 goto out;
         }
 
-        if (state->mode & GLUSTER_MODE_SCRIPT) {
+        if (state->mode & GLUSTER_MODE_WIGNORE) {
                 ret = dict_set_int32 (options, "force", _gf_true);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Failed to set force"
