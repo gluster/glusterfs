@@ -3128,8 +3128,11 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "status-%d", i);
                 ret = dict_get_int32 (dict, key, &status_rcd);
+
+                /* If glusterd is down it fails to get the status, try
+                 getting status from other nodes */
                 if (ret)
-                        goto out;
+                    continue;
                 if (GF_DEFRAG_STATUS_NOT_STARTED == status_rcd)
                         continue;
 
