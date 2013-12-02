@@ -221,6 +221,23 @@ typedef enum {
         GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA,
 } gf_xl_afr_op_t ;
 
+struct gf_gsync_detailed_status_ {
+        char node[NAME_MAX];
+        char master[NAME_MAX];
+        char brick[NAME_MAX];
+        char slave_node[NAME_MAX];
+        char worker_status[NAME_MAX];
+        char checkpoint_status[NAME_MAX];
+        char crawl_status[NAME_MAX];
+        char files_syncd[NAME_MAX];
+        char files_remaining[NAME_MAX];
+        char bytes_remaining[NAME_MAX];
+        char purges_remaining[NAME_MAX];
+        char total_files_skipped[NAME_MAX];
+};
+
+typedef struct gf_gsync_detailed_status_ gf_gsync_status_t;
+
 #define GLUSTER_HNDSK_PROGRAM    14398633 /* Completely random */
 #define GLUSTER_HNDSK_VERSION    2   /* 0.0.2 */
 

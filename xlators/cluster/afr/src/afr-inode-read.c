@@ -1348,7 +1348,7 @@ afr_aggregate_stime_xattr (dict_t *this, char *key, data_t *value, void *data)
         int ret = 0;
 
         if (fnmatch (GF_XATTR_STIME_PATTERN, key, FNM_NOESCAPE) == 0)
-                ret = gf_get_min_stime (THIS, data, key, value);
+                ret = gf_get_max_stime (THIS, data, key, value);
 
         return ret;
 }
