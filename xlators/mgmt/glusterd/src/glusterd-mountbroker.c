@@ -231,7 +231,6 @@ parse_mount_pattern_desc (gf_mount_spec_t *mspec, char *pdesc)
 
 const char *georep_mnt_desc_template =
         "SUP("
-                "xlator-option=\\*-dht.assert-no-child-down=true "
                 "volfile-server=localhost "
                 "client-pid=%d "
                 "user-map-root=%s "
