@@ -21,6 +21,8 @@ TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0;
 
 TEST mkdir -p $M0/1/2;
 TEST $CLI volume quota $V0 limit-usage /1/2 100MB 70%;
+TEST $CLI volume quota $V0 hard-timeout 0
+TEST $CLI volume quota $V0 soft-timeout 0
 
 #The corresponding write(3) should fail with EDQUOT ("Disk quota exceeded")
 TEST ! dd if=/dev/urandom of=$M0/1/2/file bs=1M count=102;

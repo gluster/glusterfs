@@ -160,28 +160,34 @@ struct quota_limit {
 } __attribute__ ((packed));
 typedef struct quota_limit quota_limit_t;
 
+typedef void
+(*quota_ancestry_built_t) (struct list_head *parents, inode_t *inode,
+                           int32_t op_ret, int32_t op_errno, void *data);
+
 struct quota_local {
-        gf_lock_t           lock;
-        uint32_t            validate_count;
-        uint32_t            link_count;
-        loc_t               loc;
-        loc_t               oldloc;
-        loc_t               newloc;
-        loc_t               validate_loc;
-        int64_t             delta;
-        int32_t             op_ret;
-        int32_t             op_errno;
-        int64_t             size;
-        gf_boolean_t        skip_check;
-        char                just_validated;
-        fop_lookup_cbk_t    validate_cbk;
-        inode_t            *inode;
-        call_stub_t        *stub;
-        struct iobref      *iobref;
-        quota_limit_t       limit;
-        int64_t             space_available;
+        gf_lock_t               lock;
+        uint32_t                validate_count;
+        uint32_t                link_count;
+        loc_t                   loc;
+        loc_t                   oldloc;
+        loc_t                   newloc;
+        loc_t                   validate_loc;
+        int64_t                 delta;
+        int32_t                 op_ret;
+        int32_t                 op_errno;
+        int64_t                 size;
+        gf_boolean_t            skip_check;
+        char                    just_validated;
+        fop_lookup_cbk_t        validate_cbk;
+        inode_t                *inode;
+        call_stub_t            *stub;
+        struct iobref          *iobref;
+        quota_limit_t           limit;
+        int64_t                 space_available;
+        quota_ancestry_built_t  ancestry_cbk;
+        void                   *ancestry_data;
 };
-typedef struct quota_local  quota_local_t;
+typedef struct quota_local      quota_local_t;
 
 struct quota_priv {
         uint32_t                soft_timeout;
