@@ -443,8 +443,13 @@ dht_is_subvol_in_layout (dht_layout_t *layout, xlator_t *xlator)
         int i = 0;
 
         for (i = 0; i < layout->cnt; i++) {
-                if (!strcmp (layout->list[i].xlator->name, xlator->name))
-                        return _gf_true;
+                /* Check if xlator is already part of layout, and layout is
+                 * non-zero. */
+                if (!strcmp (layout->list[i].xlator->name, xlator->name)) {
+                        if (layout->list[i].start != layout->list[i].stop)
+                                return _gf_true;
+                        break;
+                }
         }
         return _gf_false;
 }
