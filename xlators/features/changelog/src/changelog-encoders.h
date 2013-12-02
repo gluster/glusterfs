@@ -34,6 +34,8 @@ size_t
 entry_fn (void *data, char *buffer, gf_boolean_t encode);
 size_t
 fop_fn (void *data, char *buffer, gf_boolean_t encode);
+size_t
+number_fn (void *data, char *buffer, gf_boolean_t encode);
 void
 entry_free_fn (void *data);
 int
