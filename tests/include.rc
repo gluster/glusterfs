@@ -8,7 +8,7 @@ H0=${H0:=`hostname --fqdn`};  # hostname
 DEBUG=${DEBUG:=0}             # turn on debugging?
 statedumpdir=`gluster --print-statedumpdir`; # Default directory for statedump
 
-CLI="gluster --mode=script";
+CLI="gluster --mode=script --wignore";
 
 mkdir -p $B0;
 mkdir -p $M0 $M1;
