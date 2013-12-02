@@ -36,6 +36,17 @@ int nr_gfids[] = {
         [GF_FOP_CREATE]  = 1,
 };
 
+int nr_extra_recs[] = {
+        [GF_FOP_MKNOD]   = 3,
+        [GF_FOP_MKDIR]   = 3,
+        [GF_FOP_UNLINK]  = 0,
+        [GF_FOP_RMDIR]   = 0,
+        [GF_FOP_SYMLINK] = 0,
+        [GF_FOP_RENAME]  = 0,
+        [GF_FOP_LINK]    = 0,
+        [GF_FOP_CREATE]  = 3,
+};
+
 static char *
 binary_to_ascii (uuid_t uuid)
 {
@@ -211,20 +222,20 @@ gf_changelog_parse_ascii (xlator_t *this,
                           gf_changelog_t *gfc, int from_fd, int to_fd,
                           size_t start_offset, struct stat *stbuf)
 {
-        int         ng            = 0;
-        int         ret           = -1;
-        int         fop           = 0;
-        int         len           = 0;
-        off_t       off           = 0;
-        off_t       nleft         = 0;
-        char       *ptr           = NULL;
-        char       *eptr          = NULL;
-        char       *start         = NULL;
-        char       *mover         = NULL;
-        int         parse_err     = 0;
-        char        current_mover = ' ';
-        char ascii[LINE_BUFSIZE]  = {0,};
-        const char *fopname       = NULL;
+        int           ng            = 0;
+        int           ret           = -1;
+        int           fop           = 0;
+        int           len           = 0;
+        off_t         off           = 0;
+        off_t         nleft         = 0;
+        char         *ptr           = NULL;
+        char         *eptr          = NULL;
+        char         *start         = NULL;
+        char         *mover         = NULL;
+        int           parse_err     = 0;
+        char          current_mover = ' ';
+        char ascii[LINE_BUFSIZE]    = {0,};
+        const char   *fopname       = NULL;
 
         nleft = stbuf->st_size;
 
@@ -249,7 +260,6 @@ gf_changelog_parse_ascii (xlator_t *this,
 
                 switch (current_mover) {
                 case 'D':
-                case 'M':
                         MOVER_MOVE (mover, nleft, 1);
 
                         /* target gfid */
@@ -257,6 +267,32 @@ gf_changelog_parse_ascii (xlator_t *this,
                                     conv_noop, parse_err);
                         FILL_AND_MOVE(ptr, ascii, off,
                                       mover, nleft, UUID_CANONICAL_FORM_LEN);
+                        break;
+                case 'M':
+                        MOVER_MOVE (mover, nleft, 1);
+
+                        /* target gfid */
+                        PARSE_GFID (mover, ptr, UUID_CANONICAL_FORM_LEN,
+                                    conv_noop, parse_err);
+                        FILL_AND_MOVE (ptr, ascii, off,
+                                       mover, nleft, UUID_CANONICAL_FORM_LEN);
+                        FILL_AND_MOVE (" ", ascii, off, mover, nleft, 1);
+
+                        /* fop */
+                        len = strlen (mover);
+                        VERIFY_SEPARATOR (mover, len, parse_err);
+
+                        fop = atoi (mover);
+                        if ( (fopname = gf_fop_list[fop]) == NULL) {
+                                parse_err = 1;
+                                break;
+                        }
+
+                        MOVER_MOVE (mover, nleft, len);
+
+                        len = strlen (fopname);
+                        GF_CHANGELOG_FILL_BUFFER (fopname, ascii, off, len);
+
                         break;
 
                 case 'E':
@@ -284,6 +320,17 @@ gf_changelog_parse_ascii (xlator_t *this,
 
                         len = strlen (fopname);
                         GF_CHANGELOG_FILL_BUFFER (fopname, ascii, off, len);
+
+                        ng = nr_extra_recs[fop];
+                        for (;ng > 0; ng--) {
+                                MOVER_MOVE (mover, nleft, 1);
+                                len = strlen (mover);
+                                VERIFY_SEPARATOR (mover, len, parse_err);
+
+                                GF_CHANGELOG_FILL_BUFFER (" ", ascii, off, 1);
+                                FILL_AND_MOVE (mover, ascii,
+                                               off, mover, nleft, len);
+                        }
 
                         /* pargfid + bname */
                         ng = nr_gfids[fop];
@@ -320,7 +367,7 @@ gf_changelog_parse_ascii (xlator_t *this,
                 if (gf_changelog_write (to_fd, ascii, off) != off) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "processing ascii changelog failed due to "
-                                " wrror in writing change (reason: %s)",
+                                " error in writing change (reason: %s)",
                                 strerror (errno));
                         break;
                 }

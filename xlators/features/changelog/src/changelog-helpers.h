@@ -225,6 +225,7 @@ typedef struct changelog_inode_ctx {
 typedef enum {
         CHANGELOG_OPT_REC_FOP,
         CHANGELOG_OPT_REC_ENTRY,
+        CHANGELOG_OPT_REC_UINT32,
 } changelog_optional_rec_type_t;
 
 struct changelog_entry_fields {
@@ -253,7 +254,8 @@ typedef struct {
         size_t co_len;
 
         union {
-                glusterfs_fop_t co_fop;
+                unsigned int                  co_uint32;
+                glusterfs_fop_t               co_fop;
                 struct changelog_entry_fields co_entry;
         };
 } changelog_opt_t;
@@ -344,6 +346,14 @@ changelog_forget (xlator_t *this, inode_t *inode);
                 for (; i < CHANGELOG_MAX_TYPE; i++) {   \
                         slice->changelog_version[i]++;  \
                 }                                       \
+        } while (0)
+
+#define CHANGELOG_FILL_UINT32(co, number, converter, xlen) do { \
+                co->co_convert = converter;                     \
+                co->co_free = NULL;                             \
+                co->co_type = CHANGELOG_OPT_REC_UINT32;         \
+                co->co_uint32 = number;                         \
+                xlen += sizeof (unsigned int);                 \
         } while (0)
 
 #define CHANGLOG_FILL_FOP_NUMBER(co, fop, converter, xlen) do { \

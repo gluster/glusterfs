@@ -329,19 +329,28 @@ changelog_mkdir (call_frame_t *frame, xlator_t *this,
         }
         uuid_copy (gfid, uuid_req);
 
-        CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, gfid, 2);
+        CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, gfid, 5);
 
         co = changelog_get_usable_buffer (frame->local);
         if (!co)
                 goto wind;
 
         CHANGLOG_FILL_FOP_NUMBER (co, frame->root->op, fop_fn, xtra_len);
-
         co++;
+
+        CHANGELOG_FILL_UINT32 (co, S_IFDIR | mode, number_fn, xtra_len);
+        co++;
+
+        CHANGELOG_FILL_UINT32 (co, frame->root->uid, number_fn, xtra_len);
+        co++;
+
+        CHANGELOG_FILL_UINT32 (co, frame->root->gid, number_fn, xtra_len);
+        co++;
+
         CHANGELOG_FILL_ENTRY (co, loc->pargfid, loc->name,
                               entry_fn, entry_free_fn, xtra_len, wind);
 
-        changelog_set_usable_record_and_length (frame->local, xtra_len, 2);
+        changelog_set_usable_record_and_length (frame->local, xtra_len, 5);
 
  wind:
         STACK_WIND (frame, changelog_mkdir_cbk,
@@ -405,8 +414,8 @@ changelog_symlink (call_frame_t *frame, xlator_t *this,
                 goto wind;
 
         CHANGLOG_FILL_FOP_NUMBER (co, frame->root->op, fop_fn, xtra_len);
-
         co++;
+
         CHANGELOG_FILL_ENTRY (co, loc->pargfid, loc->name,
                               entry_fn, entry_free_fn, xtra_len, wind);
 
@@ -467,19 +476,28 @@ changelog_mknod (call_frame_t *frame,
         }
         uuid_copy (gfid, uuid_req);
 
-        CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, gfid, 2);
+        CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, gfid, 5);
 
         co = changelog_get_usable_buffer (frame->local);
         if (!co)
                 goto wind;
 
         CHANGLOG_FILL_FOP_NUMBER (co, frame->root->op, fop_fn, xtra_len);
-
         co++;
+
+        CHANGELOG_FILL_UINT32 (co, mode, number_fn, xtra_len);
+        co++;
+
+        CHANGELOG_FILL_UINT32 (co, frame->root->uid, number_fn, xtra_len);
+        co++;
+
+        CHANGELOG_FILL_UINT32 (co, frame->root->gid, number_fn, xtra_len);
+        co++;
+
         CHANGELOG_FILL_ENTRY (co, loc->pargfid, loc->name,
                               entry_fn, entry_free_fn, xtra_len, wind);
 
-        changelog_set_usable_record_and_length (frame->local, xtra_len, 2);
+        changelog_set_usable_record_and_length (frame->local, xtra_len, 5);
 
  wind:
         STACK_WIND (frame, changelog_mknod_cbk,
@@ -539,7 +557,7 @@ changelog_create (call_frame_t *frame, xlator_t *this,
         uuid_copy (gfid, uuid_req);
 
         /* init with two extra records */
-        CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, gfid, 2);
+        CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, gfid, 5);
         if (!frame->local)
                 goto wind;
 
@@ -548,12 +566,21 @@ changelog_create (call_frame_t *frame, xlator_t *this,
                 goto wind;
 
         CHANGLOG_FILL_FOP_NUMBER (co, frame->root->op, fop_fn, xtra_len);
-
         co++;
+
+        CHANGELOG_FILL_UINT32 (co, mode, number_fn, xtra_len);
+        co++;
+
+        CHANGELOG_FILL_UINT32 (co, frame->root->uid, number_fn, xtra_len);
+        co++;
+
+        CHANGELOG_FILL_UINT32 (co, frame->root->gid, number_fn, xtra_len);
+        co++;
+
         CHANGELOG_FILL_ENTRY (co, loc->pargfid, loc->name,
                               entry_fn, entry_free_fn, xtra_len, wind);
 
-        changelog_set_usable_record_and_length (frame->local, xtra_len, 2);
+        changelog_set_usable_record_and_length (frame->local, xtra_len, 5);
 
  wind:
         STACK_WIND (frame, changelog_create_cbk,
@@ -601,13 +628,25 @@ changelog_fsetattr (call_frame_t *frame,
                     xlator_t *this, fd_t *fd,
                     struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
-        changelog_priv_t *priv = NULL;
+        changelog_priv_t *priv     = NULL;
+        changelog_opt_t  *co       = NULL;
+        size_t            xtra_len = 0;
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         CHANGELOG_INIT (this, frame->local,
-                        fd->inode, fd->inode->gfid, 0);
+                        fd->inode, fd->inode->gfid, 1);
+        if (!frame->local)
+                goto wind;
+
+        co = changelog_get_usable_buffer (frame->local);
+        if (!co)
+                goto wind;
+
+        CHANGLOG_FILL_FOP_NUMBER (co, frame->root->op, fop_fn, xtra_len);
+
+        changelog_set_usable_record_and_length (frame->local, xtra_len, 1);
 
  wind:
         STACK_WIND (frame, changelog_fsetattr_cbk,
@@ -646,13 +685,25 @@ changelog_setattr (call_frame_t *frame,
                    xlator_t *this, loc_t *loc,
                    struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
-        changelog_priv_t *priv = NULL;
+        changelog_priv_t *priv     = NULL;
+        changelog_opt_t  *co       = NULL;
+        size_t            xtra_len = 0;
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         CHANGELOG_INIT (this, frame->local,
-                        loc->inode, loc->inode->gfid, 0);
+                        loc->inode, loc->inode->gfid, 1);
+        if (!frame->local)
+                goto wind;
+
+        co = changelog_get_usable_buffer (frame->local);
+        if (!co)
+                goto wind;
+
+        CHANGLOG_FILL_FOP_NUMBER (co, frame->root->op, fop_fn, xtra_len);
+
+        changelog_set_usable_record_and_length (frame->local, xtra_len, 1);
 
  wind:
         STACK_WIND (frame, changelog_setattr_cbk,
@@ -688,13 +739,23 @@ int32_t
 changelog_fremovexattr (call_frame_t *frame, xlator_t *this,
                         fd_t *fd, const char *name, dict_t *xdata)
 {
-        changelog_priv_t *priv = NULL;
+        changelog_priv_t *priv     = NULL;
+        changelog_opt_t  *co       = NULL;
+        size_t            xtra_len = 0;
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         CHANGELOG_INIT (this, frame->local,
-                        fd->inode, fd->inode->gfid, 0);
+                        fd->inode, fd->inode->gfid, 1);
+
+        co = changelog_get_usable_buffer (frame->local);
+        if (!co)
+                goto wind;
+
+        CHANGLOG_FILL_FOP_NUMBER (co, frame->root->op, fop_fn, xtra_len);
+
+        changelog_set_usable_record_and_length (frame->local, xtra_len, 1);
 
  wind:
         STACK_WIND (frame, changelog_fremovexattr_cbk,
@@ -728,13 +789,23 @@ int32_t
 changelog_removexattr (call_frame_t *frame, xlator_t *this,
                        loc_t *loc, const char *name, dict_t *xdata)
 {
-        changelog_priv_t *priv = NULL;
+        changelog_priv_t *priv     = NULL;
+        changelog_opt_t  *co       = NULL;
+        size_t            xtra_len = 0;
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         CHANGELOG_INIT (this, frame->local,
-                        loc->inode, loc->inode->gfid, 0);
+                        loc->inode, loc->inode->gfid, 1);
+
+        co = changelog_get_usable_buffer (frame->local);
+        if (!co)
+                goto wind;
+
+        CHANGLOG_FILL_FOP_NUMBER (co, frame->root->op, fop_fn, xtra_len);
+
+        changelog_set_usable_record_and_length (frame->local, xtra_len, 1);
 
  wind:
         STACK_WIND (frame, changelog_removexattr_cbk,
@@ -771,13 +842,23 @@ changelog_setxattr (call_frame_t *frame,
                     xlator_t *this, loc_t *loc,
                     dict_t *dict, int32_t flags, dict_t *xdata)
 {
-        changelog_priv_t *priv = NULL;
+        changelog_priv_t *priv     = NULL;
+        changelog_opt_t  *co       = NULL;
+        size_t            xtra_len = 0;
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         CHANGELOG_INIT (this, frame->local,
-                        loc->inode, loc->inode->gfid, 0);
+                        loc->inode, loc->inode->gfid, 1);
+
+        co = changelog_get_usable_buffer (frame->local);
+        if (!co)
+                goto wind;
+
+        CHANGLOG_FILL_FOP_NUMBER (co, frame->root->op, fop_fn, xtra_len);
+
+        changelog_set_usable_record_and_length (frame->local, xtra_len, 1);
 
  wind:
         STACK_WIND (frame, changelog_setxattr_cbk,
@@ -812,13 +893,23 @@ changelog_fsetxattr (call_frame_t *frame,
                      xlator_t *this, fd_t *fd, dict_t *dict,
                      int32_t flags, dict_t *xdata)
 {
-        changelog_priv_t *priv = NULL;
+        changelog_priv_t *priv     = NULL;
+        changelog_opt_t  *co       = NULL;
+        size_t            xtra_len = 0;
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         CHANGELOG_INIT (this, frame->local,
-                        fd->inode, fd->inode->gfid, 0);
+                        fd->inode, fd->inode->gfid, 1);
+
+        co = changelog_get_usable_buffer (frame->local);
+        if (!co)
+                goto wind;
+
+        CHANGLOG_FILL_FOP_NUMBER (co, frame->root->op, fop_fn, xtra_len);
+
+        changelog_set_usable_record_and_length (frame->local, xtra_len, 1);
 
  wind:
         STACK_WIND (frame, changelog_fsetxattr_cbk,

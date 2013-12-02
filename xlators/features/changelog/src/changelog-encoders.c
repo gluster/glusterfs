@@ -56,6 +56,24 @@ fop_fn (void *data, char *buffer, gf_boolean_t encode)
         return bufsz;
 }
 
+size_t
+number_fn (void *data, char *buffer, gf_boolean_t encode)
+{
+        size_t       bufsz = 0;
+        unsigned int nr    = 0;
+        char buf[20]       = {0,};
+
+        nr = *(unsigned int *) data;
+
+        if (encode) {
+                (void) snprintf (buf, sizeof (buf), "%u", nr);
+                CHANGELOG_FILL_BUFFER (buffer, bufsz, buf, strlen (buf));
+        } else
+                CHANGELOG_FILL_BUFFER (buffer, bufsz, &nr, sizeof (unsigned int));
+
+        return bufsz;
+}
+
 void
 entry_free_fn (void *data)
 {
@@ -93,6 +111,9 @@ changelog_encode_write_xtra (changelog_log_data_t *cld,
                         break;
                 case CHANGELOG_OPT_REC_ENTRY:
                         data = &co->co_entry;
+                        break;
+                case CHANGELOG_OPT_REC_UINT32:
+                        data = &co->co_uint32;
                         break;
                 }
 

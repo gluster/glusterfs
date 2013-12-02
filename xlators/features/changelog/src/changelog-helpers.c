@@ -55,6 +55,9 @@ changelog_get_usable_buffer (changelog_local_t *local)
 {
         changelog_log_data_t *cld = NULL;
 
+        if (!local)
+                return NULL;
+
         cld = &local->cld;
         if (!cld->cld_iobuf)
                 return NULL;
