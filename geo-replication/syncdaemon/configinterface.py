@@ -5,6 +5,10 @@ except ImportError:
     import configparser as ConfigParser
 import re
 from string import Template
+import os
+import errno
+import sys
+from stat import ST_DEV, ST_INO, ST_MTIME
 
 from syncdutils import escape, unescape, norm, update_file, GsyncdError
 
@@ -65,7 +69,37 @@ class GConffile(object):
         self.auxdicts = dd
         self.config = ConfigParser.RawConfigParser()
         self.config.read(path)
+        self.dev, self.ino, self.mtime = -1, -1, -1
         self._normconfig()
+
+    def _load(self):
+        try:
+            sres = os.stat(self.path)
+            self.dev = sres[ST_DEV]
+            self.ino = sres[ST_INO]
+            self.mtime = sres[ST_MTIME]
+        except (OSError, IOError):
+            if sys.exc_info()[1].errno == errno.ENOENT:
+                sres = None
+
+        self.config.read(self.path)
+        self._normconfig()
+
+    def get_realtime(self, opt):
+        try:
+            sres = os.stat(self.path)
+        except (OSError, IOError):
+            if sys.exc_info()[1].errno == errno.ENOENT:
+                sres = None
+            else:
+                raise
+
+        # compare file system stat with that of our stream file handle
+        if not sres or sres[ST_DEV] != self.dev or \
+           sres[ST_INO] != self.ino or self.mtime != sres[ST_MTIME]:
+            self._load()
+
+        return self.get(opt, printValue=False)
 
     def section(self, rx=False):
         """get the section name of the section representing .peers in .config"""
@@ -162,7 +196,7 @@ class GConffile(object):
         if self.config.has_section(self.section()):
             update_from_sect(self.section(), MultiDict(dct, *self.auxdicts))
 
-    def get(self, opt=None):
+    def get(self, opt=None, printValue=True):
         """print the matching key/value pairs from .config,
            or if @opt given, the value for @opt (according to the
            logic described in .update_to)
@@ -173,7 +207,10 @@ class GConffile(object):
             opt = norm(opt)
             v = d.get(opt)
             if v:
-                print(v)
+                if printValue:
+                    print(v)
+                else:
+                    return v
         else:
             for k, v in d.iteritems():
                 if k == '__name__':

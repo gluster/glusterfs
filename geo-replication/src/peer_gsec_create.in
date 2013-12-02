@@ -8,5 +8,11 @@ if [ ! -f "$GLUSTERD_WORKING_DIR"/geo-replication/secret.pem.pub ]; then
     ssh-keygen -N '' -f "$GLUSTERD_WORKING_DIR"/geo-replication/secret.pem > /dev/null
 fi
 
-output=`echo command=\"@libexecdir@/glusterfs/gsyncd\" " "``cat "$GLUSTERD_WORKING_DIR"/geo-replication/secret.pem.pub`
-echo $output
+if [ ! -f "$GLUSTERD_WORKING_DIR"/geo-replication/tar_ssh.pem.pub ]; then
+    \rm -rf "$GLUSTERD_WORKING_DIR"/geo-replication/tar_ssh.pem*
+    ssh-keygen -N '' -f "$GLUSTERD_WORKING_DIR"/geo-replication/tar_ssh.pem > /dev/null
+fi
+
+output1=`echo command=\"${exec_prefix}/libexec/glusterfs/gsyncd\" " "``cat "$GLUSTERD_WORKING_DIR"/geo-replication/secret.pem.pub`
+output2=`echo command=\"tar \$\{SSH_ORIGINAL_COMMAND#* \}\" " "``cat "$GLUSTERD_WORKING_DIR"/geo-replication/tar_ssh.pem.pub`
+echo -e "$output1\n$output2"
