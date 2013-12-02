@@ -151,4 +151,7 @@ match_uuid_local (const char *name, char *uuid);
 int
 gf_get_min_stime (xlator_t *this, dict_t *dst, char *key, data_t *value);
 
+int
+gf_get_max_stime (xlator_t *this, dict_t *dst, char *key, data_t *value);
+
 #endif /* !_LIBXLATOR_H */

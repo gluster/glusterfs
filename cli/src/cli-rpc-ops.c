@@ -3874,85 +3874,22 @@ gf_cli_gsync_config_command (dict_t *dict)
         return runner_run (&runner);
 }
 
-int
-gf_cli_fetch_gsyncd_status_values (char *status,
-                                   gf_cli_gsync_status_t *sts_val)
-{
-        int32_t   ret      = -1;
-        char     *tmp      = NULL;
-        char     *save_ptr = NULL;
-        char     *key      = NULL;
-        char     *value    = NULL;
-
-        if (!status || !sts_val) {
-                gf_log ("", GF_LOG_ERROR, "status or sts_val is null");
-                goto out;
-        }
-
-        tmp = strtok_r (status, "\n", &save_ptr);
-
-        if (tmp)
-                sts_val->health = gf_strdup (tmp);
-
-        while (tmp) {
-                key = strtok_r (tmp, "=", &value);
-
-                if ((key) && (!strcmp(key, "Uptime")))
-                        sts_val->uptime = gf_strdup (value);
-
-                if ((key) && (!strcmp(key, "FilesSyncd")))
-                        sts_val->files_syncd = gf_strdup (value);
-
-                if ((key) && (!strcmp(key, "FilesPending")))
-                        sts_val->files_pending = gf_strdup (value);
-
-                if ((key) && (!strcmp(key, "BytesPending"))) {
-                        value = gf_uint64_2human_readable(atol(value));
-                        sts_val->bytes_pending = gf_strdup (value);
-                }
-
-                if ((key) && (!strcmp(key, "DeletesPending")))
-                        sts_val->deletes_pending = gf_strdup (value);
-
-                tmp = strtok_r (NULL, ";", &save_ptr);
-        }
-
-        if (sts_val->health)
-                ret = 0;
-
-        if (!sts_val->uptime)
-                sts_val->uptime = gf_strdup ("N/A");
-
-        if (!sts_val->files_syncd)
-                sts_val->files_syncd = gf_strdup ("N/A");
-
-        if (!sts_val->files_pending)
-                sts_val->files_pending = gf_strdup ("N/A");
-
-        if (!sts_val->bytes_pending)
-                sts_val->bytes_pending = gf_strdup ("N/A");
-
-        if (!sts_val->deletes_pending)
-                sts_val->deletes_pending = gf_strdup ("N/A");
-
-out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d.", ret);
-        return ret;
-}
-
 char*
-get_struct_variable (int mem_num, gf_cli_gsync_status_t *sts_val)
+get_struct_variable (int mem_num, gf_gsync_status_t *sts_val)
 {
         switch (mem_num) {
-        case 0: return (sts_val->node);
-        case 1: return (sts_val->master);
-        case 2: return (sts_val->slave);
-        case 3: return (sts_val->health);
-        case 4: return (sts_val->uptime);
-        case 5: return (sts_val->files_syncd);
-        case 6: return (sts_val->files_pending);
-        case 7: return (sts_val->bytes_pending);
-        case 8: return (sts_val->deletes_pending);
+        case 0:  return (sts_val->node);
+        case 1:  return (sts_val->master);
+        case 2:  return (sts_val->brick);
+        case 3:  return (sts_val->slave_node);
+        case 4:  return (sts_val->worker_status);
+        case 5:  return (sts_val->checkpoint_status);
+        case 6:  return (sts_val->crawl_status);
+        case 7:  return (sts_val->files_syncd);
+        case 8:  return (sts_val->files_remaining);
+        case 9:  return (sts_val->bytes_remaining);
+        case 10: return (sts_val->purges_remaining);
+        case 11: return (sts_val->total_files_skipped);
         default:
                  goto out;
         }
@@ -3963,28 +3900,23 @@ out:
 
 int
 gf_cli_print_status (char **title_values,
-                     gf_cli_gsync_status_t **sts_vals,
+                     gf_gsync_status_t **sts_vals,
                      int *spacing, int gsync_count,
                      int number_of_fields, int is_detail)
 {
-        int     indents                  = 0;
         int     i                        = 0;
         int     j                        = 0;
         int     ret                      = 0;
+        int     status_fields            = 6; /* Indexed at 0 */
         int     total_spacing            = 0;
         char  **output_values            = NULL;
         char   *tmp                      = NULL;
         char   *hyphens                  = NULL;
-        char    heading[PATH_MAX]        = {0, };
-        char    indent_spaces[PATH_MAX]  = {0, };
 
         /* calculating spacing for hyphens */
         for (i = 0; i < number_of_fields; i++) {
-                /* Suppressing master and slave output for status detail */
-                if ((is_detail) && ((i == 1) || (i == 2))) {
-                        total_spacing++;
-                        continue;
-                } else if ((!is_detail) && (i > 4)) {
+                /* Suppressing detail output for status */
+                if ((!is_detail) && (i > status_fields)) {
                        /* Suppressing detailed output for
                         * status */
                         continue;
@@ -4018,64 +3950,29 @@ gf_cli_print_status (char **title_values,
                 goto out;
         }
 
-        ret = snprintf(heading, sizeof(heading), "MASTER: %s  SLAVE: %s",
-                       sts_vals[0]->master, sts_vals[0]->slave);
-        if (ret) {
-                if (ret < sizeof(heading))
-                        heading[ret] = '\0';
-                else
-                        heading[sizeof(heading) - 1] = '\0';
-                ret = 0;
-        } else {
-                ret = -1;
-                goto out;
-        }
-
-        if (is_detail) {
-                cli_out (" ");
-                if (strlen(heading) > total_spacing)
-                        cli_out ("%s", heading);
-                else {
-                        /* Printing the heading with centre justification */
-                        indents = (total_spacing - strlen(heading)) / 2;
-                        memset (indent_spaces, ' ', indents);
-                        indent_spaces[indents] = '\0';
-                        ret = snprintf (hyphens, total_spacing, "%s%s",
-                                        indent_spaces, heading);
-                        if (ret) {
-                                hyphens[ret] = '\0';
-                                cli_out ("%s", hyphens);
-                                ret = 0;
-                        } else {
-                                ret = -1;
-                                goto out;
-                        }
-                }
-                cli_out (" ");
-        }
+        cli_out (" ");
 
         /* setting the title "NODE", "MASTER", etc. from title_values[]
            and printing the same */
         for (j = 0; j < number_of_fields; j++) {
-                /* Suppressing master and slave output for status detail */
-                if ((is_detail) && ((j == 1) || (j == 2))) {
-                        output_values[j][0] = '\0';
-                        continue;
-                } else if ((!is_detail) && (j > 4)) {
+                if ((!is_detail) && (j > status_fields)) {
                        /* Suppressing detailed output for
                         * status */
                        output_values[j][0] = '\0';
-                        continue;
+                       continue;
                 }
                 memset (output_values[j], ' ', spacing[j]);
                 memcpy (output_values[j], title_values[j],
                         strlen(title_values[j]));
                 output_values[j][spacing[j]] = '\0';
         }
-        cli_out ("%s %s %s %s %s %s %s %s %s", output_values[0],
-                 output_values[1], output_values[2], output_values[3],
-                 output_values[4], output_values[5], output_values[6],
-                 output_values[7], output_values[8]);
+        cli_out ("%s %s %s %s %s %s %s %s %s %s %s %s",
+                 output_values[0], output_values[1],
+                 output_values[2], output_values[3],
+                 output_values[4], output_values[5],
+                 output_values[6], output_values[7],
+                 output_values[8], output_values[9],
+                 output_values[10], output_values[11]);
 
         /* setting and printing the hyphens */
         memset (hyphens, '-', total_spacing);
@@ -4084,12 +3981,7 @@ gf_cli_print_status (char **title_values,
 
         for (i = 0; i < gsync_count; i++) {
                 for (j = 0; j < number_of_fields; j++) {
-                        /* Suppressing master and slave output for
-                         * status detail */
-                        if ((is_detail) && ((j == 1) || (j == 2))) {
-                                output_values[j][0] = '\0';
-                                continue;
-                        }  else if ((!is_detail) && (j > 4)) {
+                        if ((!is_detail) && (j > status_fields)) {
                                 /* Suppressing detailed output for
                                  * status */
                                 output_values[j][0] = '\0';
@@ -4107,10 +3999,13 @@ gf_cli_print_status (char **title_values,
                         output_values[j][spacing[j]] = '\0';
                 }
 
-                cli_out ("%s %s %s %s %s %s %s %s %s", output_values[0],
-                         output_values[1], output_values[2], output_values[3],
-                         output_values[4], output_values[5], output_values[6],
-                         output_values[7], output_values[8]);
+                cli_out ("%s %s %s %s %s %s %s %s %s %s %s %s",
+                         output_values[0], output_values[1],
+                         output_values[2], output_values[3],
+                         output_values[4], output_values[5],
+                         output_values[6], output_values[7],
+                         output_values[8], output_values[9],
+                         output_values[10], output_values[11]);
         }
 
 out:
@@ -4130,47 +4025,23 @@ out:
 
 int
 gf_cli_read_status_data (dict_t *dict,
-                         gf_cli_gsync_status_t **sts_vals,
+                         gf_gsync_status_t **sts_vals,
                          int *spacing, int gsync_count,
                          int number_of_fields)
 {
-        int     ret            = 0;
-        int     i              = 0;
-        int     j              = 0;
-        char    mst[PATH_MAX]  = {0, };
-        char    slv[PATH_MAX]  = {0, };
-        char    sts[PATH_MAX]  = {0, };
-        char    nds[PATH_MAX]  = {0, };
-        char   *status         = NULL;
-        char   *tmp            = NULL;
+        char   *tmp                    = NULL;
+        char    sts_val_name[PATH_MAX] = "";
+        int     ret                    = 0;
+        int     i                      = 0;
+        int     j                      = 0;
 
         /* Storing per node status info in each object */
         for (i = 0; i < gsync_count; i++) {
-                snprintf (nds, sizeof(nds), "node%d", i + 1);
-                snprintf (mst, sizeof(mst), "master%d", i + 1);
-                snprintf (slv, sizeof(slv), "slave%d", i + 1);
-                snprintf (sts, sizeof(sts), "status%d", i + 1);
+                snprintf (sts_val_name, sizeof(sts_val_name), "status_value%d", i);
 
                 /* Fetching the values from dict, and calculating
                    the max length for each field */
-                ret = dict_get_str (dict, nds, &(sts_vals[i]->node));
-                if (ret)
-                        goto out;
-
-                ret = dict_get_str (dict, mst, &(sts_vals[i]->master));
-                if (ret)
-                        goto out;
-
-                ret = dict_get_str (dict, slv, &(sts_vals[i]->slave));
-                if (ret)
-                        goto out;
-
-                ret = dict_get_str (dict, sts, &status);
-                if (ret)
-                        goto out;
-
-                /* Fetching health and uptime from sts_val */
-                ret = gf_cli_fetch_gsyncd_status_values (status, sts_vals[i]);
+                ret = dict_get_bin (dict, sts_val_name, (void **)&(sts_vals[i]));
                 if (ret)
                         goto out;
 
@@ -4192,25 +4063,23 @@ out:
 }
 
 int
-gf_cli_gsync_status_output (dict_t *dict, int status_detail)
+gf_cli_gsync_status_output (dict_t *dict, gf_boolean_t is_detail)
 {
         int                     gsync_count    = 0;
         int                     i              = 0;
-        int                     j              = 0;
         int                     ret            = 0;
-        int                     spacing[10]    = {0};
-        int                     num_of_fields  = 9;
+        int                     spacing[13]    = {0};
+        int                     num_of_fields  = 12;
         char                    errmsg[1024]   = "";
         char                   *master         = NULL;
         char                   *slave          = NULL;
-        char                   *tmp            = NULL;
-        char                   *title_values[] = {"NODE", "MASTER", "SLAVE",
-                                                  "HEALTH", "UPTIME",
-                                                  "FILES SYNCD",
-                                                  "FILES PENDING",
-                                                  "BYTES PENDING",
-                                                  "DELETES PENDING"};
-        gf_cli_gsync_status_t **sts_vals = NULL;
+        char                   *title_values[] = {"MASTER NODE", "MASTER VOL",
+                                                  "MASTER BRICK", "SLAVE",
+                                                  "STATUS", "CHECKPOINT STATUS",
+                                                  "CRAWL STATUS", "FILES SYNCD",
+                                                  "FILES PENDING", "BYTES PENDING",
+                                                  "DELETES PENDING", "FILES SKIPPED"};
+        gf_gsync_status_t     **sts_vals       = NULL;
 
         /* Checks if any session is active or not */
         ret = dict_get_int32 (dict, "gsync-count", &gsync_count);
@@ -4244,14 +4113,14 @@ gf_cli_gsync_status_output (dict_t *dict, int status_detail)
         /* gsync_count = number of nodes reporting output.
            each sts_val object will store output of each
            node */
-        sts_vals = GF_CALLOC (gsync_count, sizeof (gf_cli_gsync_status_t *),
+        sts_vals = GF_CALLOC (gsync_count, sizeof (gf_gsync_status_t *),
                               gf_common_mt_char);
         if (!sts_vals) {
                 ret = -1;
                 goto out;
         }
         for (i = 0; i < gsync_count; i++) {
-                sts_vals[i] = GF_CALLOC (1, sizeof (gf_cli_gsync_status_t),
+                sts_vals[i] = GF_CALLOC (1, sizeof (gf_gsync_status_t),
                                          gf_common_mt_char);
                 if (!sts_vals[i]) {
                         ret = -1;
@@ -4267,23 +4136,15 @@ gf_cli_gsync_status_output (dict_t *dict, int status_detail)
         }
 
         ret = gf_cli_print_status (title_values, sts_vals, spacing, gsync_count,
-                                   num_of_fields, status_detail);
+                                   num_of_fields, is_detail);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to print status output");
                 goto out;
         }
 
 out:
-        if (sts_vals) {
-                for (i = 0; i < gsync_count; i++) {
-                        for (j = 3; j < num_of_fields; j++) {
-                                tmp = get_struct_variable(j, sts_vals[i]);
-                                if (tmp)
-                                        GF_FREE (tmp);
-                        }
-                }
+        if (sts_vals)
                 GF_FREE (sts_vals);
-        }
 
         return ret;
 }
@@ -4602,7 +4463,10 @@ gf_cli_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
                         status_detail = dict_get_str_boolean (dict,
                                                               "status-detail",
                                                               _gf_false);
-                        ret = gf_cli_gsync_status_output (dict, status_detail);
+                        if (status_detail)
+                                ret = gf_cli_gsync_status_output (dict, status_detail);
+                        else
+                                ret = gf_cli_gsync_status_output (dict, status_detail);
                 break;
 
                 case GF_GSYNC_OPTION_TYPE_DELETE:

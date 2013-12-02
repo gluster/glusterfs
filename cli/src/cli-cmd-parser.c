@@ -1737,13 +1737,13 @@ config_parse (const char **words, int wordcount, dict_t *dict,
                 }
                 append_str[append_len - 2] = '\0';
                 /* "checkpoint now" is special: we resolve that "now" */
-                if (strcmp (words[cmdi + 1], "checkpoint") == 0 &&
-                    strcmp (append_str, "now") == 0) {
+                if ((strcmp (words[cmdi + 1], "checkpoint") == 0) &&
+                    (strcmp (append_str, "now") == 0)) {
                         struct timeval tv = {0,};
 
                         ret = gettimeofday (&tv, NULL);
                         if (ret == -1)
-                                goto out; /* FIXME: free append_str? */
+                                goto out;
 
                         GF_FREE (append_str);
                         append_str = GF_CALLOC (1, 300, cli_mt_append_str);
@@ -1751,10 +1751,8 @@ config_parse (const char **words, int wordcount, dict_t *dict,
                                 ret = -1;
                                 goto out;
                         }
-                        strcpy (append_str, "as of ");
-                        gf_time_fmt (append_str + strlen ("as of "),
-                                     300 - strlen ("as of "),
-                                     tv.tv_sec, gf_timefmt_FT);
+                        snprintf (append_str, 300, "now:%ld.%06ld",
+                                  tv.tv_sec, tv.tv_usec);
                 }
 
                 ret = dict_set_dynstr (dict, "op_value", append_str);

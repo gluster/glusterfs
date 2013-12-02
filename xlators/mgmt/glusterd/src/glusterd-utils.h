@@ -583,6 +583,17 @@ glusterd_get_slave_details_confpath (glusterd_volinfo_t *volinfo, dict_t *dict,
                                      char **conf_path, char **op_errstr);
 
 int
+glusterd_get_slave_info (char *slave, char **slave_ip,
+                         char **slave_vol, char **op_errstr);
+
+int
+glusterd_get_statefile_name (glusterd_volinfo_t *volinfo, char *slave,
+                             char *conf_path, char **statefile);
+
+int
+glusterd_gsync_read_frm_status (char *path, char *buf, size_t blen);
+
+int
 glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave,
                                       dict_t *resp_dict, char *path_list,
                                       char *conf_path, gf_boolean_t is_force);

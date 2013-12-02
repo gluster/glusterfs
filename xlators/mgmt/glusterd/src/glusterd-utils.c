@@ -4591,14 +4591,24 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
 {
         char                        *path_list = NULL;
         char                        *slave = NULL;
+        char                        *slave_ip = NULL;
+        char                        *slave_vol = NULL;
+        char                        *statefile = NULL;
+        char                         buf[1024] = "faulty";
         int                          uuid_len = 0;
         int                          ret = 0;
         char                         uuid_str[64] = {0};
-        glusterd_volinfo_t           *volinfo = NULL;
-        char                         *conf_path = NULL;
+        glusterd_volinfo_t          *volinfo = NULL;
+        char                         confpath[PATH_MAX] = "";
+        char                        *op_errstr = NULL;
+        glusterd_conf_t             *priv = NULL;
+
+        GF_ASSERT (THIS);
+        priv = THIS->private;
+        GF_ASSERT (priv);
+        GF_ASSERT (data);
 
         volinfo = data;
-        GF_ASSERT (volinfo);
         slave = strchr(value->data, ':');
         if (slave)
                 slave ++;
@@ -4608,22 +4618,63 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
 
         strncpy (uuid_str, (char*)value->data, uuid_len);
 
+        /* Getting Local Brickpaths */
         ret = glusterd_get_local_brickpaths (volinfo, &path_list);
 
-        ret = dict_get_str (this, "conf_path", &conf_path);
+        /*Generating the conf file path needed by gsyncd */
+        ret = glusterd_get_slave_info (slave, &slave_ip,
+                                       &slave_vol, &op_errstr);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
-                        "Unable to fetch conf file path.");
+                        "Unable to fetch slave details.");
+                ret = -1;
                 goto out;
         }
 
-        glusterd_start_gsync (volinfo, slave, path_list, conf_path,
+        ret = snprintf (confpath, sizeof(confpath) - 1,
+                        "%s/"GEOREP"/%s_%s_%s/gsyncd.conf",
+                        priv->workdir, volinfo->volname,
+                        slave_ip, slave_vol);
+        confpath[ret] = '\0';
+
+        /* Fetching the last status of the node */
+        ret = glusterd_get_statefile_name (volinfo, slave,
+                                           confpath, &statefile);
+        if (ret) {
+                if (!strstr(slave, "::"))
+                        gf_log ("", GF_LOG_INFO,
+                                "%s is not a valid slave url.", slave);
+                else
+                        gf_log ("", GF_LOG_INFO, "Unable to get"
+                                " statefile's name");
+                goto out;
+        }
+
+        ret = glusterd_gsync_read_frm_status (statefile, buf, sizeof (buf));
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "Unable to read the status");
+                goto out;
+        }
+
+        /* Looks for the last status, to find if the sessiom was running
+         * when the node went down. If the session was not started or
+         * not started, do not restart the geo-rep session */
+        if ((!strcmp (buf, "Not Started")) ||
+            (!strcmp (buf, "Stopped"))) {
+                gf_log ("", GF_LOG_INFO,
+                        "Geo-Rep Session was not started between "
+                        "%s and %s::%s. Not Restarting", volinfo->volname,
+                        slave_ip, slave_vol);
+                goto out;
+        }
+
+        glusterd_start_gsync (volinfo, slave, path_list, confpath,
                               uuid_str, NULL);
 
-        GF_FREE (path_list);
-        path_list = NULL;
-
 out:
+        if (path_list)
+                GF_FREE (path_list);
+
         return ret;
 }
 
@@ -7205,21 +7256,16 @@ glusterd_append_gsync_status (dict_t *dst, dict_t *src)
 
 }
 
-static int32_t
+int32_t
 glusterd_append_status_dicts (dict_t *dst, dict_t *src)
 {
-        int              dst_count = 0;
-        int              src_count = 0;
-        int              i = 0;
-        int              ret = 0;
-        char             mst[PATH_MAX] = {0,};
-        char             slv[PATH_MAX] = {0, };
-        char             sts[PATH_MAX] = {0, };
-        char             nds[PATH_MAX] = {0, };
-        char             *mst_val = NULL;
-        char             *slv_val = NULL;
-        char             *sts_val = NULL;
-        char             *nds_val = NULL;
+        char                sts_val_name[PATH_MAX] = {0, };
+        int                 dst_count              = 0;
+        int                 src_count              = 0;
+        int                 i                      = 0;
+        int                 ret                    = 0;
+        gf_gsync_status_t  *sts_val                = NULL;
+        gf_gsync_status_t  *dst_sts_val            = NULL;
 
         GF_ASSERT (dst);
 
@@ -7237,49 +7283,29 @@ glusterd_append_status_dicts (dict_t *dst, dict_t *src)
                 goto out;
         }
 
-        for (i = 1; i <= src_count; i++) {
-                snprintf (nds, sizeof(nds), "node%d", i);
-                snprintf (mst, sizeof(mst), "master%d", i);
-                snprintf (slv, sizeof(slv), "slave%d", i);
-                snprintf (sts, sizeof(sts), "status%d", i);
+        for (i = 0; i < src_count; i++) {
+                memset (sts_val_name, '\0', sizeof(sts_val_name));
+                snprintf (sts_val_name, sizeof(sts_val_name), "status_value%d", i);
 
-                ret = dict_get_str (src, nds, &nds_val);
+                ret = dict_get_bin (src, sts_val_name, (void **) &sts_val);
                 if (ret)
                         goto out;
 
-                ret = dict_get_str (src, mst, &mst_val);
+                dst_sts_val = GF_CALLOC (1, sizeof(gf_gsync_status_t),
+                                         gf_common_mt_gsync_status_t);
+                if (!dst_sts_val) {
+                        gf_log ("", GF_LOG_ERROR, "Out Of Memory");
+                        goto out;
+                }
+
+                memcpy (dst_sts_val, sts_val, sizeof(gf_gsync_status_t));
+
+                memset (sts_val_name, '\0', sizeof(sts_val_name));
+                snprintf (sts_val_name, sizeof(sts_val_name), "status_value%d", i + dst_count);
+
+                ret = dict_set_bin (dst, sts_val_name, dst_sts_val, sizeof(gf_gsync_status_t));
                 if (ret)
                         goto out;
-
-                ret = dict_get_str (src, slv, &slv_val);
-                if (ret)
-                        goto out;
-
-                ret = dict_get_str (src, sts, &sts_val);
-                if (ret)
-                        goto out;
-
-                snprintf (nds, sizeof(nds), "node%d", i+dst_count);
-                snprintf (mst, sizeof(mst), "master%d", i+dst_count);
-                snprintf (slv, sizeof(slv), "slave%d", i+dst_count);
-                snprintf (sts, sizeof(sts), "status%d", i+dst_count);
-
-                ret = dict_set_dynstr (dst, nds, gf_strdup (nds_val));
-                if (ret)
-                        goto out;
-
-                ret = dict_set_dynstr (dst, mst, gf_strdup (mst_val));
-                if (ret)
-                        goto out;
-
-                ret = dict_set_dynstr (dst, slv, gf_strdup (slv_val));
-                if (ret)
-                        goto out;
-
-                ret = dict_set_dynstr (dst, sts, gf_strdup (sts_val));
-                if (ret)
-                        goto out;
-
         }
 
         ret = dict_set_int32 (dst, "gsync-count", dst_count+src_count);

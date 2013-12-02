@@ -594,7 +594,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
         /* gluster-params */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_args (&runner, "gluster-params",
-                         "aux-gfid-mount xlator-option=*-dht.assert-no-child-down=true",
+                         "aux-gfid-mount",
                          ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
@@ -608,10 +608,27 @@ configure_syncdaemon (glusterd_conf_t *conf)
         runner_add_args (&runner, ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
+        /* ssh-command tar */
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_arg (&runner, "ssh-command-tar");
+        runner_argprintf (&runner,
+                          "ssh -oPasswordAuthentication=no "
+                           "-oStrictHostKeyChecking=no "
+                           "-i %s/tar_ssh.pem", georepdir);
+        runner_add_args (&runner, ".", ".", NULL);
+        RUN_GSYNCD_CMD;
+
         /* pid-file */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_arg (&runner, "pid-file");
         runner_argprintf (&runner, "%s/${mastervol}_${remotehost}_${slavevol}/${eSlave}.pid", georepdir);
+        runner_add_args (&runner, ".", ".", NULL);
+        RUN_GSYNCD_CMD;
+
+        /* geo-rep working dir */
+        runinit_gsyncd_setrx (&runner, conf);
+        runner_add_arg (&runner, "georep-session-working-dir");
+        runner_argprintf (&runner, "%s/${mastervol}_${remotehost}_${slavevol}/", georepdir);
         runner_add_args (&runner, ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
@@ -701,7 +718,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
         /* gluster-params */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_args (&runner, "gluster-params",
-                         "aux-gfid-mount xlator-option=*-dht.assert-no-child-down=true",
+                         "aux-gfid-mount",
                          ".", NULL);
         RUN_GSYNCD_CMD;
 

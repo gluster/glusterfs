@@ -452,6 +452,61 @@ gf_get_min_stime (xlator_t *this, dict_t *dst, char *key, data_t *value)
 
         /* can't use 'min()' macro here as we need to compare two fields
            in the array, selectively */
+        if ((host_value_timebuf[0] < host_timebuf[0]) ||
+            ((host_value_timebuf[0] == host_timebuf[0]) &&
+             (host_value_timebuf[1] < host_timebuf[1]))) {
+                update_timebuf (value_timebuf, net_timebuf);
+        }
+
+        ret = 0;
+out:
+        return ret;
+error:
+        /* To be used only when net_timebuf is not set in the dict */
+        if (net_timebuf)
+                GF_FREE (net_timebuf);
+
+        return ret;
+}
+
+int
+gf_get_max_stime (xlator_t *this, dict_t *dst, char *key, data_t *value)
+{
+        int ret = -1;
+        uint32_t *net_timebuf = NULL;
+        uint32_t *value_timebuf = NULL;
+        uint32_t host_timebuf[2] = {0,};
+        uint32_t host_value_timebuf[2] = {0,};
+
+        /* stime should be maximum of all the other nodes */
+        ret = dict_get_bin (dst, key, (void **)&net_timebuf);
+        if (ret < 0) {
+                net_timebuf = GF_CALLOC (1, sizeof (int64_t),
+                                           gf_common_mt_char);
+                if (!net_timebuf)
+                        goto out;
+
+                ret = dict_set_bin (dst, key, net_timebuf, sizeof (int64_t));
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "key=%s: dict set failed", key);
+                        goto error;
+                }
+        }
+
+        value_timebuf = data_to_bin (value);
+        if (!value_timebuf) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "key=%s: getting value of stime failed", key);
+                ret = -1;
+                goto out;
+        }
+
+        get_hosttime (value_timebuf, host_value_timebuf);
+        get_hosttime (net_timebuf, host_timebuf);
+
+        /* can't use 'max()' macro here as we need to compare two fields
+           in the array, selectively */
         if ((host_value_timebuf[0] > host_timebuf[0]) ||
             ((host_value_timebuf[0] == host_timebuf[0]) &&
              (host_value_timebuf[1] > host_timebuf[1]))) {
