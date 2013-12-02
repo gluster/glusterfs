@@ -110,6 +110,7 @@ enum gf_common_mem_types_ {
         gf_common_mt_iov_base_t           = 94,
         gf_common_mt_groups_t             = 95,
 	gf_common_mt_auxgids              = 96,
-        gf_common_mt_end                  = 97
+        gf_common_mt_syncopctx            = 97,
+        gf_common_mt_end                  = 98
 };
 #endif

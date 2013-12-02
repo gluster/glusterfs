@@ -16,6 +16,44 @@
 
 #define GLFS_SYMLINK_MAX_FOLLOW 2048
 
+#define DEFAULT_REVAL_COUNT 1
+
+#define ESTALE_RETRY(ret,errno,reval,loc,label) do {	\
+	if (ret == -1 && errno == ESTALE) {	        \
+		if (reval < DEFAULT_REVAL_COUNT) {	\
+			reval++;			\
+			loc_wipe (loc);			\
+			goto label;			\
+		}					\
+	}						\
+	} while (0)
+
+#define GLFS_LOC_FILL_INODE(oinode, loc, label) do {   \
+	loc.inode = inode_ref (oinode);                \
+	uuid_copy (loc.gfid, oinode->gfid);            \
+	ret = glfs_loc_touchup (&loc);                 \
+	if (ret != 0) {                                \
+		errno = EINVAL;                        \
+		goto label;                            \
+	}                                              \
+	} while (0)
+
+#define GLFS_LOC_FILL_PINODE(pinode, loc, ret, errno, label, path) do {   \
+	loc.inode = inode_new (pinode->table);                            \
+	if (!loc.inode) {                                                 \
+		ret = -1;                                                 \
+		errno = ENOMEM;                                           \
+		goto label;                                               \
+	}                                                                 \
+	loc.parent = inode_ref (pinode);                                  \
+	loc.name = path;                                                  \
+	ret = glfs_loc_touchup (&loc);                                    \
+	if (ret != 0) {                                                   \
+		errno = EINVAL;                                           \
+		goto label;                                               \
+	}                                                                 \
+	} while (0)
+
 struct glfs;
 
 typedef int (*glfs_init_cbk) (struct glfs *fs, int ret);
@@ -57,6 +95,14 @@ struct glfs_fd {
 	fd_t              *fd; /* Currently guared by @fs->mutex. TODO: per-glfd lock */
 	struct list_head   entries;
 	gf_dirent_t       *next;
+};
+
+/* glfs object handle introduced for the alternate gfapi implementation based
+   on glfs handles/gfid/inode
+*/
+struct glfs_object {
+        inode_t         *inode;
+        uuid_t          gfid;
 };
 
 #define DEFAULT_EVENT_POOL_SIZE           16384
@@ -135,6 +181,19 @@ inode_t * glfs_refresh_inode (xlator_t *subvol, inode_t *inode);
 
 inode_t *glfs_cwd_get (struct glfs *fs);
 int glfs_cwd_set (struct glfs *fs, inode_t *inode);
+inode_t *glfs_resolve_inode (struct glfs *fs, xlator_t *subvol,
+			     struct glfs_object *object);
+int glfs_create_object (loc_t *loc, struct glfs_object **retobject);
 int __glfs_cwd_set (struct glfs *fs, inode_t *inode);
+
+int glfs_resolve_base (struct glfs *fs, xlator_t *subvol, inode_t *inode,
+		       struct iatt *iatt);
+int glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
+                     const char *origpath, loc_t *loc, struct iatt *iatt,
+                     int follow, int reval);
+int glfs_loc_touchup (loc_t *loc);
+void glfs_iatt_to_stat (struct glfs *fs, struct iatt *iatt, struct stat *stat);
+int glfs_loc_link (loc_t *loc, struct iatt *iatt);
+int glfs_loc_unlink (loc_t *loc);
 
 #endif /* !_GLFS_INTERNAL_H */

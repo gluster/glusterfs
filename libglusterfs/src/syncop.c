@@ -15,6 +15,160 @@
 
 #include "syncop.h"
 
+int
+syncopctx_setfsuid (void *uid)
+{
+	struct syncopctx *opctx = NULL;
+	int               ret = 0;
+
+	/* In args check */
+	if (!uid) {
+		ret = -1;
+		errno = EINVAL;
+		goto out;
+	}
+
+	opctx = syncopctx_getctx ();
+
+	/* alloc for this thread the first time */
+	if (!opctx) {
+		opctx = GF_CALLOC (1, sizeof (*opctx), gf_common_mt_syncopctx);
+		if (!opctx) {
+			ret = -1;
+			goto out;
+		}
+
+		ret = syncopctx_setctx (opctx);
+		if (ret != 0) {
+			GF_FREE (opctx);
+			opctx = NULL;
+			goto out;
+		}
+	}
+
+out:
+	if (opctx && uid) {
+		opctx->uid = *(uid_t *)uid;
+		opctx->valid |= SYNCOPCTX_UID;
+	}
+
+	return ret;
+}
+
+int
+syncopctx_setfsgid (void *gid)
+{
+	struct syncopctx *opctx = NULL;
+	int               ret = 0;
+
+	/* In args check */
+	if (!gid) {
+		ret = -1;
+		errno = EINVAL;
+		goto out;
+	}
+
+	opctx = syncopctx_getctx ();
+
+	/* alloc for this thread the first time */
+	if (!opctx) {
+		opctx = GF_CALLOC (1, sizeof (*opctx), gf_common_mt_syncopctx);
+		if (!opctx) {
+			ret = -1;
+			goto out;
+		}
+
+		ret = syncopctx_setctx (opctx);
+		if (ret != 0) {
+			GF_FREE (opctx);
+			opctx = NULL;
+			goto out;
+		}
+	}
+
+out:
+	if (opctx && gid) {
+		opctx->gid = *(gid_t *)gid;
+		opctx->valid |= SYNCOPCTX_GID;
+	}
+
+	return ret;
+}
+
+int
+syncopctx_setfsgroups (int count, const void *groups)
+{
+	struct syncopctx *opctx = NULL;
+	gid_t            *tmpgroups = NULL;
+	int               ret = 0;
+
+	/* In args check */
+	if (count != 0 && !groups) {
+		ret = -1;
+		errno = EINVAL;
+		goto out;
+	}
+
+	opctx = syncopctx_getctx ();
+
+	/* alloc for this thread the first time */
+	if (!opctx) {
+		opctx = GF_CALLOC (1, sizeof (*opctx), gf_common_mt_syncopctx);
+		if (!opctx) {
+			ret = -1;
+			goto out;
+		}
+
+		ret = syncopctx_setctx (opctx);
+		if (ret != 0) {
+			GF_FREE (opctx);
+			opctx = NULL;
+			goto out;
+		}
+	}
+
+	/* resize internal groups as required */
+	if (count && opctx->grpsize < count) {
+		if (opctx->groups) {
+			tmpgroups = GF_REALLOC (opctx->groups,
+						(sizeof (gid_t) * count));
+			/* NOTE: Not really required to zero the reallocation,
+			 * as ngrps controls the validity of data,
+			 * making a note irrespective */
+			if (tmpgroups == NULL) {
+				opctx->grpsize = 0;
+				GF_FREE (opctx->groups);
+				opctx->groups = NULL;
+				ret = -1;
+				goto out;
+			}
+		}
+		else {
+			tmpgroups = GF_CALLOC (count, sizeof (gid_t),
+					       gf_common_mt_syncopctx);
+			if (tmpgroups == NULL) {
+				opctx->grpsize = 0;
+				ret = -1;
+				goto out;
+			}
+		}
+
+		opctx->groups = tmpgroups;
+		opctx->grpsize = count;
+	}
+
+	/* copy out the groups passed */
+	if (count)
+		memcpy (opctx->groups, groups, (sizeof (gid_t) * count));
+
+	/* set/reset the ngrps, this is where reset of groups is handled */
+	opctx->ngrps = count;
+	opctx->valid |= SYNCOPCTX_GROUPS;
+
+out:
+	return ret;
+}
+
 static void
 __run (struct synctask *task)
 {
