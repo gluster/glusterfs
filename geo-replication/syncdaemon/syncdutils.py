@@ -227,7 +227,7 @@ def log_raise_exception(excont):
                     logging.warn("!!!!!!!!!!!!!")
                     logging.warn('!!! getting "No such file or directory" errors '
                                  "is most likely due to MISCONFIGURATION, please consult "
-                                 "http://access.redhat.com/knowledge/docs/en-US/Red_Hat_Storage/2.0/html/Administration_Guide/chap-User_Guide-Geo_Rep-Preparation-Settingup_Environment.html")
+                                 "https://access.redhat.com/site/documentation/en-US/Red_Hat_Storage/2.1/html/Administration_Guide/chap-User_Guide-Geo_Rep-Preparation-Settingup_Environment.html")
                     logging.warn("!!!!!!!!!!!!!")
                 gconf.transport.terminate_geterr()
         elif isinstance(exc, OSError) and exc.errno in (ENOTCONN, ECONNABORTED):
