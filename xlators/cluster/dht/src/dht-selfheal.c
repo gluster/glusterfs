@@ -127,6 +127,7 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
         int32_t           *disk_layout = NULL;
         dht_local_t       *local = NULL;
         dht_conf_t        *conf = NULL;
+        data_t            *data = NULL;
 
         local = frame->local;
         if (req_subvol)
@@ -171,7 +172,16 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
                 layout->type, subvol->name, loc->path);
 
         dict_ref (xattr);
-
+        if (local->xattr) {
+                data = dict_get (local->xattr, QUOTA_LIMIT_KEY);
+                if (data) {
+                        ret = dict_add (xattr, QUOTA_LIMIT_KEY, data);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "set quota limit key on %s",loc->path);
+                        }
+                }
+        }
         if (!uuid_is_null (local->gfid))
                 uuid_copy (loc->gfid, local->gfid);
 
@@ -265,7 +275,14 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
                 }
                 missing_xattr++;
         }
-
+        /* Also account for subvolumes with no-layout. Used for zero'ing out
+         * the layouts and for setting quota key's if present */
+        for (i = 0; i < conf->subvolume_cnt; i++) {
+                if (_gf_false ==
+                    dht_is_subvol_in_layout (layout, conf->subvolumes[i])) {
+                        missing_xattr++;
+                }
+        }
         gf_log (this->name, GF_LOG_TRACE,
                 "%d subvolumes missing xattr for %s",
                 missing_xattr, loc->path);
@@ -276,7 +293,6 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
         }
 
         local->call_cnt = missing_xattr;
-
         for (i = 0; i < layout->cnt; i++) {
                 if (layout->list[i].err != -1 || !layout->list[i].stop)
                         continue;
@@ -289,13 +305,15 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
         dummy = dht_layout_new (this, 1);
         if (!dummy)
                 goto out;
-        for (i = 0; i < conf->subvolume_cnt; i++) {
+        for (i = 0; i < conf->subvolume_cnt && missing_xattr; i++) {
                 if (_gf_false ==
                     dht_is_subvol_in_layout (layout, conf->subvolumes[i])) {
                         dht_selfheal_dir_xattr_persubvol (frame, loc, dummy, 0,
                                                           conf->subvolumes[i]);
+                        missing_xattr--;
                 }
         }
+
         dht_layout_unref (this, dummy);
 out:
         return 0;
