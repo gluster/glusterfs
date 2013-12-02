@@ -77,66 +77,70 @@ typedef struct glfs_object glfs_object_t;
 /* Operations that generate handles */
 struct glfs_object *glfs_h_lookupat (struct glfs *fs,
 				     struct glfs_object *parent,
-				     const char *path, struct stat *stat);
+				     const char *path,
+                                     struct stat *stat) __THROW;
 
 struct glfs_object *glfs_h_creat (struct glfs *fs, struct glfs_object *parent,
 				  const char *path, int flags, mode_t mode,
-				  struct stat *sb);
+				  struct stat *sb) __THROW;
 
 struct glfs_object *glfs_h_mkdir (struct glfs *fs, struct glfs_object *parent,
 				  const char *path, mode_t flags,
-				  struct stat *sb);
+				  struct stat *sb) __THROW;
 
 struct glfs_object *glfs_h_mknod (struct glfs *fs, struct glfs_object *parent,
 				  const char *path, mode_t mode, dev_t dev,
-				  struct stat *sb);
+				  struct stat *sb) __THROW;
 
 struct glfs_object *glfs_h_symlink (struct glfs *fs, struct glfs_object *parent,
 				    const char *name, const char *data,
-				    struct stat *stat);
+				    struct stat *stat) __THROW;
 
 /* Operations on the actual objects */
 int glfs_h_unlink (struct glfs *fs, struct glfs_object *parent,
-		   const char *path);
+		   const char *path) __THROW;
 
-int glfs_h_close (struct glfs_object *object);
+int glfs_h_close (struct glfs_object *object) __THROW;
 
 int glfs_caller_specific_init (void *uid_caller_key, void *gid_caller_key,
-			       void *future);
+			       void *future) __THROW;
 
-int glfs_h_truncate (struct glfs *fs, struct glfs_object *object, off_t offset);
+int glfs_h_truncate (struct glfs *fs, struct glfs_object *object,
+                     off_t offset) __THROW;
 
-int glfs_h_stat(struct glfs *fs, struct glfs_object *object, struct stat *stat);
+int glfs_h_stat(struct glfs *fs, struct glfs_object *object,
+                struct stat *stat) __THROW;
 
 int glfs_h_getattrs (struct glfs *fs, struct glfs_object *object,
-		     struct stat *stat);
+		     struct stat *stat) __THROW;
 
 int glfs_h_setattrs (struct glfs *fs, struct glfs_object *object,
-		     struct stat *sb, int valid);
+		     struct stat *sb, int valid) __THROW;
 
 int glfs_h_readlink (struct glfs *fs, struct glfs_object *object, char *buf,
-		     size_t bufsiz);
+		     size_t bufsiz) __THROW;
 
 int glfs_h_link (struct glfs *fs, struct glfs_object *linktgt,
-		 struct glfs_object *parent, const char *name);
+		 struct glfs_object *parent, const char *name) __THROW;
 
 int glfs_h_rename (struct glfs *fs, struct glfs_object *olddir,
 		   const char *oldname, struct glfs_object *newdir,
-		   const char *newname);
+		   const char *newname) __THROW;
 
 /* Operations enabling opaque invariant handle to object transitions */
 ssize_t glfs_h_extract_handle (struct glfs_object *object,
-			       unsigned char *handle, int len);
+			       unsigned char *handle, int len) __THROW;
 
 struct glfs_object *glfs_h_create_from_handle (struct glfs *fs,
 					       unsigned char *handle, int len,
-					       struct stat *stat);
+					       struct stat *stat) __THROW;
 
 /* Operations enabling object handles to fd transitions */
-struct glfs_fd *glfs_h_opendir (struct glfs *fs, struct glfs_object *object);
+struct glfs_fd *glfs_h_opendir (struct glfs *fs,
+                                struct glfs_object *object) __THROW;
 
 struct glfs_fd *glfs_h_open (struct glfs *fs, struct glfs_object *object,
-			     int flags);
+			     int flags) __THROW;
 
 __END_DECLS
 
