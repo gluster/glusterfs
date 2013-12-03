@@ -1405,7 +1405,7 @@ afr_is_special_xattr (const char *name, fop_getxattr_cbk_t *cbk,
         gf_boolean_t    is_spl = _gf_true;
 
         GF_ASSERT (cbk);
-        if (!cbk) {
+        if (!cbk || !name) {
                 is_spl = _gf_false;
                 goto out;
         }
