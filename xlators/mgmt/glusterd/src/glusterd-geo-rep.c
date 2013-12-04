@@ -2531,6 +2531,90 @@ out:
         return ret;
 }
 
+/*
+ * glusterd_gsync_op_already_set:
+ *      This funcion checks whether the op_value is same as in the
+ *      gsyncd.conf file.
+ *
+ * RETURN VALUE:
+ *      0 : op_value matches the conf file.
+ *      1 : op_value does not matches the conf file or op_param not
+ *          found in conf file.
+ *     -1 : error
+ */
+
+int
+glusterd_gsync_op_already_set (char* master, char* slave, char* conf_path,
+                                             char* op_name, char* op_value)
+{
+        dict_t                 *confd                       = NULL;
+        char                   *op_val_buf                  = NULL;
+        int32_t                 op_val_conf                 = 0;
+        int32_t                 op_val_cli                  = 0;
+        int32_t                 ret                         = -1;
+        gf_boolean_t            is_bool                     = _gf_true;
+
+        confd = dict_new ();
+        if (!confd) {
+                gf_log ("", GF_LOG_ERROR, "Not able to create dict.");
+                return -1;
+        }
+
+        ret = glusterd_gsync_get_config (master, slave, conf_path,
+                                         confd);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get configuration data"
+                            "for %s(master), %s(slave)", master, slave);
+                goto out;
+        }
+
+        ret = dict_get_param (confd, op_name, &op_val_buf);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get op_value "
+                            "for %s(master), %s(slave). Please check gsync "
+                            "config file.", master, slave);
+                ret = 1;
+                goto out;
+        }
+
+        gf_log("",GF_LOG_DEBUG, "val_cli:%s  val_conf:%s",op_value,op_val_buf);
+
+        if (!strcmp(op_val_buf,"true") || !strcmp(op_val_buf,"1")
+            || !strcmp(op_val_buf,"yes")) {
+                op_val_conf = 1;
+        } else if(!strcmp(op_val_buf,"false") || !strcmp(op_val_buf,"0")
+                || !strcmp(op_val_buf,"no")) {
+                op_val_conf = 0;
+        } else {
+                is_bool = _gf_false;
+        }
+
+        if (is_bool) {
+                if (!strcmp(op_value,"true") || !strcmp(op_value,"1")
+                    || !strcmp(op_value,"yes")) {
+                        op_val_cli = 1;
+                } else {
+                        op_val_cli = 0;
+                }
+
+                if ( op_val_cli == op_val_conf ) {
+                        ret = 0;
+                        goto out;
+                }
+        } else {
+                if (!strcmp(op_val_buf,op_value)) {
+                        ret = 0;
+                        goto out;
+                }
+        }
+
+        ret = 1;
+
+out:
+        dict_unref(confd);
+        return ret;
+}
+
 static int
 glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
                           char *path_list, dict_t *dict,
@@ -2549,6 +2633,7 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
         struct stat      stbuf     = {0, };
         gf_boolean_t     restart_required = _gf_true;
         char           **resopt    = NULL;
+        gf_boolean_t     op_already_set = _gf_false;
 
         GF_ASSERT (slave);
         GF_ASSERT (op_errstr);
@@ -2603,6 +2688,24 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
         runner_add_arg (&runner, op_name);
         if (op_value)
                 runner_add_arg (&runner, op_value);
+
+        if ( strcmp(op_name,"checkpoint") != 0 ) {
+                ret = glusterd_gsync_op_already_set(master,slave,conf_path,
+                                                           op_name,op_value);
+                if (ret == -1) {
+                        gf_log ("", GF_LOG_WARNING,
+                                "glusterd_gsync_op_already_set failed.");
+                        gf_asprintf (op_errstr, GEOREP" config-%s failed for "
+                                     "%s %s", subop, master, slave);
+                        goto out;
+                }
+                if (ret == 0) {
+                        gf_log("", GF_LOG_DEBUG, "op_value is already set");
+                        op_already_set = _gf_true;
+                        goto out;
+                }
+        }
+
         synclock_unlock (&priv->big_lock);
         ret = runner_run (&runner);
         synclock_lock (&priv->big_lock);
@@ -2652,7 +2755,7 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
         gf_asprintf (op_errstr, "config-%s successful", subop);
 
 out:
-        if (!ret && volinfo) {
+        if (!ret && volinfo && !op_already_set) {
             for (resopt = gsync_no_restart_opts; *resopt; resopt++) {
                 restart_required = _gf_true;
                 if (!strcmp ((*resopt), op_name)){
@@ -3873,12 +3976,13 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if (type == GF_GSYNC_OPTION_TYPE_CONFIG) {
                 ret = glusterd_gsync_configure (volinfo, slave, path_list,
                                                 dict, resp_dict, op_errstr);
-
-                ret = dict_set_str (resp_dict, "conf_path", conf_path);
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR,
-                                "Unable to store conf_file_path.");
-                        goto out;
+                if (!ret) {
+                        ret = dict_set_str (resp_dict, "conf_path", conf_path);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR,
+                                        "Unable to store conf_file_path.");
+                                goto out;
+                        }
                 }
                 goto out;
         }
