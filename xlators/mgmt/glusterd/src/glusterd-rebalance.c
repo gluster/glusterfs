@@ -195,7 +195,6 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         char                   sockfile[PATH_MAX] = {0,};
         char                   pidfile[PATH_MAX] = {0,};
         char                   logfile[PATH_MAX] = {0,};
-        dict_t                 *options = NULL;
         char                   valgrind_logfile[PATH_MAX] = {0,};
 
         priv    = THIS->private;
@@ -286,26 +285,10 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
 
         sleep (5);
 
-        /* Setting frame-timeout to 10mins (600seconds).
-         * Unix domain sockets ensures that the connection is reliable. The
-         * default timeout of 30mins used for unreliable network connections is
-         * too long for unix domain socket connections.
-         */
-        ret = rpc_transport_unix_options_build (&options, sockfile, 600);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Unix options build failed");
-                goto out;
-        }
+        ret = glusterd_rebalance_rpc_create (volinfo);
 
-        synclock_unlock (&priv->big_lock);
-        ret = glusterd_rpc_create (&defrag->rpc, options,
-                                   glusterd_defrag_notify, volinfo);
-        synclock_lock (&priv->big_lock);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "RPC create failed");
-                goto out;
-        }
-
+        //FIXME: this cbk is passed as NULL in all occurrences. May be
+        //we never needed it.
         if (cbk)
                 defrag->cbk_fn = cbk;
 
@@ -316,28 +299,23 @@ out:
 
 
 int
-glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
-                               glusterd_conf_t *priv, int cmd)
+glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo)
 {
         dict_t                  *options = NULL;
         char                     sockfile[PATH_MAX] = {0,};
         int                      ret = -1;
-        glusterd_defrag_info_t  *defrag =  NULL;
+        glusterd_defrag_info_t  *defrag = volinfo->rebal.defrag;
+        glusterd_conf_t         *priv = THIS->private;
 
-        if (!volinfo->rebal.defrag)
-                volinfo->rebal.defrag =
-                        GF_CALLOC (1, sizeof (*volinfo->rebal.defrag),
-                                   gf_gld_mt_defrag_info);
-
-        if (!volinfo->rebal.defrag)
+        //rebalance process is not started
+        if (!defrag)
                 goto out;
 
-        defrag = volinfo->rebal.defrag;
-
-        defrag->cmd = cmd;
-
-        LOCK_INIT (&defrag->lock);
-
+        //rpc obj for rebalance process already in place.
+        if (defrag->rpc) {
+                ret = 0;
+                goto out;
+        }
         GLUSTERD_GET_DEFRAG_SOCK_FILE (sockfile, volinfo, priv);
 
         /* Setting frame-timeout to 10mins (600seconds).
