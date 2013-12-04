@@ -6708,7 +6708,7 @@ glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
                 glusterd_handle_defrag_start (volinfo, op_errstr, len, cmd,
                                               cbk, volinfo->rebal.op);
         } else {
-                glusterd_rebalance_rpc_create (volinfo, priv, cmd);
+                glusterd_rebalance_rpc_create (volinfo);
         }
 
         return ret;
