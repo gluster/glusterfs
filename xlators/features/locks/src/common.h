@@ -32,20 +32,6 @@
 
 #define SET_FLOCK_PID(flock, lock) ((flock)->l_pid = lock->client_pid)
 
-struct _locker {
-        struct list_head  lockers;
-        char             *volume;
-        loc_t             loc;
-        fd_t             *fd;
-        gf_lkowner_t      owner;
-        pid_t             pid;
-};
-
-struct _lock_table {
-        struct list_head  inodelk_lockers;
-        struct list_head  entrylk_lockers;
-        gf_lock_t         lock;
-};
 
 posix_lock_t *
 new_posix_lock (struct gf_flock *flock, client_t *client, pid_t client_pid,
@@ -92,7 +78,7 @@ __pl_inodelk_unref (pl_inode_lock_t *lock);
 
 void
 grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
-                           pl_entry_lock_t *unlocked, pl_dom_list_t *dom);
+                           pl_dom_list_t *dom);
 
 void pl_update_refkeeper (xlator_t *this, inode_t *inode);
 
@@ -166,22 +152,7 @@ pl_reserve_unlock (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *reqlock);
 uint32_t
 check_entrylk_on_basename (xlator_t *this, inode_t *parent, char *basename);
 
-int32_t
-pl_add_locker (struct _lock_table *table, const char *volume,
-               loc_t *loc,
-               fd_t *fd,
-               pid_t pid,
-               gf_lkowner_t *owner,
-               glusterfs_fop_t type);
-
-int32_t
-pl_del_locker (struct _lock_table *table, const char *volume,
-               loc_t *loc,
-               fd_t *fd,
-               gf_lkowner_t *owner,
-               glusterfs_fop_t type);
-
-struct _lock_table *
-pl_lock_table_new (void);
+void __pl_inodelk_unref (pl_inode_lock_t *lock);
+void __pl_entrylk_unref (pl_entry_lock_t *lock);
 
 #endif /* __COMMON_H__ */
