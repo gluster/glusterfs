@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2008-2013 Red Hat, Inc. <http://www.redhat.com>
+  Copyright (c) 2013 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -35,7 +35,7 @@
 
 #define POSIX_ACL_UNDEFINED_ID        (-1)
 
-#define POSIX_ACL_VERSION             (0x02)
+#define POSIX_ACL_XATTR_VERSION       (0x02)
 
 #define POSIX_ACL_ACCESS_XATTR        "system.posix_acl_access"
 #define POSIX_ACL_DEFAULT_XATTR       "system.posix_acl_default"
@@ -50,6 +50,27 @@ struct posix_acl_xattr_header {
         uint32_t                        version;
         struct posix_acl_xattr_entry    entries[];
 };
+
+typedef struct posix_acl_xattr_entry  posix_acl_xattr_entry;
+typedef struct posix_acl_xattr_header posix_acl_xattr_header;
+
+static inline size_t
+posix_acl_xattr_size (unsigned int count)
+{
+        return (sizeof(posix_acl_xattr_header) +
+                       (count * sizeof(posix_acl_xattr_entry)));
+}
+
+static inline ssize_t
+posix_acl_xattr_count (size_t size)
+{
+        if (size < sizeof(posix_acl_xattr_header))
+                return (-1);
+        size -= sizeof(posix_acl_xattr_header);
+        if (size % sizeof(posix_acl_xattr_entry))
+                return (-1);
+        return (size / sizeof(posix_acl_xattr_entry));
+}
 
 struct posix_ace {
         uint16_t     tag;
