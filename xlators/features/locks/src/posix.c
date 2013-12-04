@@ -2243,7 +2243,7 @@ __dump_entrylks (pl_inode_t *pl_inode)
                                           lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
                                           "ENTRYLK_WRLCK", lock->basename,
                                           (unsigned long long) lock->client_pid,
-                                          lkowner_utoa (&lock->owner), lock->trans,
+                                          lkowner_utoa (&lock->owner), lock->client,
                                           lock->connection_id,
                                           ctime_r (&lock->granted_time.tv_sec, granted));
                         } else {
@@ -2251,7 +2251,7 @@ __dump_entrylks (pl_inode_t *pl_inode)
                                           lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
                                           "ENTRYLK_WRLCK", lock->basename,
                                           (unsigned long long) lock->client_pid,
-                                          lkowner_utoa (&lock->owner), lock->trans,
+                                          lkowner_utoa (&lock->owner), lock->client,
                                           lock->connection_id,
                                           ctime_r (&lock->blkd_time.tv_sec, blocked),
                                           ctime_r (&lock->granted_time.tv_sec, granted));
@@ -2271,7 +2271,7 @@ __dump_entrylks (pl_inode_t *pl_inode)
                                   lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
                                   "ENTRYLK_WRLCK", lock->basename,
                                   (unsigned long long) lock->client_pid,
-                                  lkowner_utoa (&lock->owner), lock->trans,
+                                  lkowner_utoa (&lock->owner), lock->client,
                                   lock->connection_id,
                                   ctime_r (&lock->blkd_time.tv_sec, blocked));
 
@@ -2524,19 +2524,12 @@ pl_ctx_get (client_t *client, xlator_t *xlator)
         if (ctx == NULL)
                 goto out;
 
-        ctx->ltable = pl_lock_table_new();
-
-        if (ctx->ltable == NULL) {
-                GF_FREE (ctx);
-                ctx = NULL;
-                goto out;
-        }
-
-        LOCK_INIT (&ctx->ltable_lock);
+        pthread_mutex_init (&ctx->lock, NULL);
+	INIT_LIST_HEAD (&ctx->inodelk_lockers);
+	INIT_LIST_HEAD (&ctx->entrylk_lockers);
 
         if (client_ctx_set (client, xlator, ctx) != 0) {
-                LOCK_DESTROY (&ctx->ltable_lock);
-                GF_FREE (ctx->ltable);
+                pthread_mutex_destroy (&ctx->lock);
                 GF_FREE (ctx);
                 ctx = NULL;
         }
@@ -2544,82 +2537,44 @@ out:
         return ctx;
 }
 
-static void
-ltable_delete_locks (struct _lock_table *ltable)
+
+static int
+pl_client_disconnect_cbk (xlator_t *this, client_t *client)
 {
-        struct _locker *locker = NULL;
-        struct _locker *tmp    = NULL;
+        pl_ctx_t *pl_ctx = NULL;
 
-        list_for_each_entry_safe (locker, tmp, &ltable->inodelk_lockers, lockers) {
-                if (locker->fd)
-                        pl_del_locker (ltable, locker->volume, &locker->loc,
-                                       locker->fd, &locker->owner,
-                                       GF_FOP_INODELK);
-                GF_FREE (locker->volume);
-                GF_FREE (locker);
-        }
+	pl_ctx = pl_ctx_get (client, this);
 
-        list_for_each_entry_safe (locker, tmp, &ltable->entrylk_lockers, lockers) {
-                if (locker->fd)
-                        pl_del_locker (ltable, locker->volume, &locker->loc,
-                                       locker->fd, &locker->owner,
-                                       GF_FOP_ENTRYLK);
-                GF_FREE (locker->volume);
-                GF_FREE (locker);
-        }
-        GF_FREE (ltable);
+	pl_inodelk_client_cleanup (this, pl_ctx);
+
+	pl_entrylk_client_cleanup (this, pl_ctx);
+
+	return 0;
 }
 
 
-static int32_t
-destroy_cbk (xlator_t *this, client_t *client)
+static int
+pl_client_destroy_cbk (xlator_t *this, client_t *client)
 {
-        void     *tmp       = NULL;
-        pl_ctx_t *locks_ctx = NULL;
+        void     *tmp    = NULL;
+        pl_ctx_t *pl_ctx = NULL;
+
+	pl_client_disconnect_cbk (this, client);
 
         client_ctx_del (client, this, &tmp);
 
         if (tmp == NULL)
-                return 0
-;
-        locks_ctx = tmp;
-        if (locks_ctx->ltable)
-                ltable_delete_locks (locks_ctx->ltable);
+                return 0;
 
-        LOCK_DESTROY (&locks_ctx->ltable_lock);
-        GF_FREE (locks_ctx);
+        pl_ctx = tmp;
+
+	GF_ASSERT (list_empty(&pl_ctx->inodelk_lockers));
+	GF_ASSERT (list_empty(&pl_ctx->entrylk_lockers));
+
+	pthread_mutex_destroy (&pl_ctx->lock);
+        GF_FREE (pl_ctx);
 
         return 0;
-}
-
-
-static int32_t
-disconnect_cbk (xlator_t *this, client_t *client)
-{
-        int32_t              ret       = 0;
-        pl_ctx_t            *locks_ctx = NULL;
-        struct _lock_table  *ltable    = NULL;
-
-        locks_ctx = pl_ctx_get (client, this);
-        if (locks_ctx == NULL) {
-                gf_log (this->name, GF_LOG_INFO, "pl_ctx_get() failed");
-                goto out;
-        }
-
-        LOCK (&locks_ctx->ltable_lock);
-        {
-                if (locks_ctx->ltable) {
-                        ltable = locks_ctx->ltable;
-                        locks_ctx->ltable = pl_lock_table_new ();
-                }
-        }
-        UNLOCK (&locks_ctx->ltable_lock);
-
-        if (ltable)
-                ltable_delete_locks (ltable);
-
-out:
-        return ret;
 }
 
 
@@ -2756,8 +2711,8 @@ struct xlator_cbks cbks = {
         .forget            = pl_forget,
         .release           = pl_release,
         .releasedir        = pl_releasedir,
-        .client_destroy    = destroy_cbk,
-        .client_disconnect = disconnect_cbk,
+        .client_destroy    = pl_client_destroy_cbk,
+        .client_disconnect = pl_client_disconnect_cbk,
 };
 
 

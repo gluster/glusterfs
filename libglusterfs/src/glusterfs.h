@@ -452,7 +452,6 @@ struct _glusterfs_ctx {
 
         int                 daemon_pipe[2];
 
-        struct client_disconnect *client_disconnect;
         struct clienttable *clienttable;
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
