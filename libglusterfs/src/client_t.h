@@ -60,6 +60,7 @@ struct clienttable {
         gf_lock_t            lock;
         cliententry_t       *cliententries;
         int                  first_free;
+	client_t            *local;
 };
 typedef struct clienttable clienttable_t;
 
