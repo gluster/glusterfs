@@ -2318,8 +2318,11 @@ print_quota_list_output (char *mountdir, char *default_sl, char *path)
         char    *avail_str        = NULL;
         int     ret               = -1;
         char    *sl_final         = NULL;
-        char     percent_str[20]  = {0,};
         char    *hl_str           = NULL;
+        double  sl_num           = 0;
+        gf_boolean_t sl          = _gf_false;
+        gf_boolean_t hl          = _gf_false;
+        char percent_str[20]     = {0};
 
         struct quota_limit {
                 int64_t hl;
@@ -2356,8 +2359,11 @@ print_quota_list_output (char *mountdir, char *default_sl, char *path)
         hl_str = gf_uint64_2human_readable (existing_limits.hl);
 
         if (existing_limits.sl < 0) {
+                ret = gf_string2percent (default_sl, &sl_num);
+                sl_num = (sl_num * existing_limits.hl) / 100;
                 sl_final = default_sl;
         } else {
+                sl_num = (existing_limits.sl * existing_limits.hl) / 100;
                 snprintf (percent_str, sizeof (percent_str), "%"PRIu64"%%",
                           existing_limits.sl);
                 sl_final = percent_str;
@@ -2367,26 +2373,37 @@ print_quota_list_output (char *mountdir, char *default_sl, char *path)
                              &used_space, sizeof (used_space));
 
         if (ret < 0) {
-                cli_out ("%-40s %7s %9s %11s %7s", path, hl_str, sl_final,
-                         "N/A", "N/A");
+                cli_out ("%-40s %7s %9s %11s %7s %15s %20s",
+                         path, hl_str, sl_final,
+                         "N/A", "N/A", "N/A", "N/A");
         } else {
                 used_space = ntoh64 (used_space);
 
                 used_str = gf_uint64_2human_readable (used_space);
 
-                if (existing_limits.hl > used_space)
+                if (existing_limits.hl > used_space) {
                         avail = existing_limits.hl - used_space;
-                else
+                        hl = _gf_false;
+                        if (used_space > sl_num)
+                                sl = _gf_true;
+                        else
+                                sl = _gf_false;
+                } else {
                         avail = 0;
+                        hl = sl = _gf_true;
+                }
 
                 avail_str = gf_uint64_2human_readable (avail);
-                if (used_str == NULL)
+                if (used_str == NULL) {
                         cli_out ("%-40s %7s %9s %11"PRIu64
-                                                 "%9"PRIu64, path, hl_str,
-                                                 sl_final, used_space, avail);
-                else
-                        cli_out ("%-40s %7s %9s %11s %7s", path, hl_str,
-                                 sl_final, used_str, avail_str);
+                                 "%9"PRIu64" %15s %18s", path, hl_str,
+                                  sl_final, used_space, avail, sl? "Yes" : "No",
+                                  hl? "Yes" : "No");
+                } else {
+                        cli_out ("%-40s %7s %9s %11s %7s %15s %20s", path, hl_str,
+                                 sl_final, used_str, avail_str, sl? "Yes" : "No",
+                                 hl? "Yes" : "No");
+                }
         }
 
 out:
@@ -2425,9 +2442,11 @@ gf_cli_print_limit_list_from_dict (char *volname, dict_t *dict,
         }
 
         cli_out ("                  Path                   Hard-limit "
-                 "Soft-limit   Used  Available");
-        cli_out ("-----------------------------------------------------"
-                 "---------------------------");
+                 "Soft-limit   Used  Available  Soft-limit exceeded?"
+                 "  Hard-limit exceeded?");
+        cli_out ("--------------------------------------------------------"
+                 "--------------------------------------------------------"
+                 "-----------");
 
         while (count--) {
                 snprintf (key, sizeof (key), "path%d", i++);
@@ -2458,14 +2477,17 @@ print_quota_list_from_quotad (call_frame_t *frame, dict_t *rsp_dict)
         int64_t *limit         = NULL;
         char    *used_str      = NULL;
         char    *avail_str     = NULL;
-        char    percent_str[20]= {0};
         char    *hl_str        = NULL;
         char    *sl_final      = NULL;
         char    *path          = NULL;
-        char    *default_sl = NULL;
+        char    *default_sl    = NULL;
         int     ret            = -1;
         cli_local_t *local     = NULL;
         dict_t *gd_rsp_dict    = NULL;
+        double sl_num          = 0;
+        gf_boolean_t sl        = _gf_false;
+        gf_boolean_t hl        = _gf_false;
+        char  percent_str[20]  = {0,};
 
         local = frame->local;
         gd_rsp_dict = local->dict;
@@ -2502,37 +2524,48 @@ print_quota_list_from_quotad (call_frame_t *frame, dict_t *rsp_dict)
         hl_str = gf_uint64_2human_readable (existing_limits->hl);
 
         if (existing_limits->sl < 0) {
+                ret = gf_string2percent (default_sl, &sl_num);
+                sl_num = (sl_num * existing_limits->hl) / 100;
                 sl_final = default_sl;
         } else {
+                sl_num = (existing_limits->sl * existing_limits->hl) / 100;
                 snprintf (percent_str, sizeof (percent_str), "%"PRIu64"%%",
                           existing_limits->sl);
-                sl_final = percent_str;
+                sl_final =  percent_str;
         }
 
         ret = dict_get_bin (rsp_dict, QUOTA_SIZE_KEY, (void**)&limit);
         if (ret < 0) {
                 gf_log ("cli", GF_LOG_WARNING,
                         "size key not present in dict");
-                cli_out ("%-40s %7s %9s %11s %7s", path, hl_str, sl_final,
-                         "N/A", "N/A");
+                cli_out ("%-40s %7s %9s %11s %7s %15s %20s", path, hl_str,
+                         sl_final, "N/A", "N/A", "N/A", "N/A");
         } else {
                 used_space = *limit;
                 used_space = ntoh64 (used_space);
                 used_str = gf_uint64_2human_readable (used_space);
 
-                if (existing_limits->hl > used_space)
+                if (existing_limits->hl > used_space) {
                         avail = existing_limits->hl - used_space;
-                else
+                        hl = _gf_false;
+                        if (used_space > sl_num)
+                                sl = _gf_true;
+                        else
+                                sl = _gf_false;
+                } else {
                         avail = 0;
-
+                        hl = sl = _gf_true;
+                }
                 avail_str = gf_uint64_2human_readable (avail);
                 if (used_str == NULL)
                         cli_out ("%-40s %7s %9s %11"PRIu64
-                                                 "%9"PRIu64, path, hl_str,
-                                                 sl_final, used_space, avail);
+                                 "%9"PRIu64" %15s %20s", path, hl_str,
+                                 sl_final, used_space, avail, sl? "Yes" : "No",
+                                 hl? "Yes" : "No");
                 else
-                        cli_out ("%-40s %7s %9s %11s %7s", path, hl_str,
-                                 sl_final, used_str, avail_str);
+                        cli_out ("%-40s %7s %9s %11s %7s %15s %20s", path,
+                                 hl_str, sl_final, used_str, avail_str,
+                                 sl? "Yes" : "No", hl? "Yes" : "No");
         }
 
         ret = 0;

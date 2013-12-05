@@ -1115,9 +1115,11 @@ print_quota_list_header (void)
 {
         //Header
         cli_out ("                  Path                   Hard-limit "
-                 "Soft-limit   Used  Available");
+                 "Soft-limit   Used  Available  Soft-limit exceeded?"
+                 " Hard-limit exceeded?");
         cli_out ("-----------------------------------------------------"
-                 "---------------------------");
+                 "-----------------------------------------------------"
+                 "-----------------");
 }
 
 int
