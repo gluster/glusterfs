@@ -30,6 +30,7 @@ extras/init.d/glusterd-Debian
 extras/init.d/glusterd-Redhat
 extras/init.d/glusterd-SuSE
 extras/init.d/glusterd.plist
+extras/systemd/glusterd.service
 extras/ocf/glusterd
 extras/ocf/volume
 extras/who-wrote-glusterfs/gitdm
@@ -40,9 +41,10 @@ libgfchangelog.pc
 libglusterfs/src/spec.lex.c
 libglusterfs/src/y.tab.c
 libglusterfs/src/y.tab.h
+libglusterfs/src/gf-error-codes.h
 libtool
 run-tests.sh
-ufo/.tox
-ufo/test/unit/.coverage
 xlators/mount/fuse/utils/mount.glusterfs
 xlators/mount/fuse/utils/mount_glusterfs
+geo-replication/src/peer_add_secret_pub
+geo-replication/src/peer_gsec_create
