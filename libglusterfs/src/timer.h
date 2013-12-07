@@ -24,12 +24,12 @@ struct _gf_timer {
         gf_timer_cbk_t    callbk;
         void             *data;
         xlator_t         *xl;
+	gf_boolean_t      fired;
 };
 
 struct _gf_timer_registry {
         pthread_t        th;
         char             fin;
-        struct _gf_timer stale;
         struct _gf_timer active;
         pthread_mutex_t  lock;
 };
