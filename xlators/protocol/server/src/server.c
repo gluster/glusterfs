@@ -770,7 +770,7 @@ client_destroy_cbk (xlator_t *this, client_t *client)
         server_ctx_t *ctx = NULL;
 
         client_ctx_del (client, this, &tmp);
- 
+
         ctx = tmp;
 
         if (ctx == NULL)
@@ -1101,13 +1101,15 @@ struct volume_options options[] = {
         { .key   = {"auth.addr.*.allow"},
           .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
           .description = "Allow a comma separated list of addresses and/or "
-                         "hostnames to connect to the server. By default, all"
-                         " connections are allowed."
+                         "hostnames to connect to the server. Option "
+                         "auth.reject overrides this option. By default, all "
+                         "connections are allowed."
         },
         { .key   = {"auth.addr.*.reject"},
           .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
           .description = "Reject a comma separated list of addresses and/or "
-                         "hostnames to connect to the server. By default, all"
+                         "hostnames to connect to the server. This option "
+                         "overrides the auth.allow option. By default, all"
                          " connections are allowed."
         },
 
