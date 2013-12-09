@@ -73,6 +73,19 @@ parse_backup_volfile_servers ()
     echo ${new_servers}
 }
 
+parse_backupvolfile_server ()
+{
+    local server=$1
+
+    length=$(echo $server | wc -c)
+    if [ ${length} -gt ${HOST_NAME_MAX} ]; then
+       echo "Hostname:${server} provided is too long.. exiting"
+       exit 1
+    fi
+
+    echo ${server}
+}
+
 start_glusterfs ()
 {
     # lets the comparsion be case insensitive for all strings
@@ -206,6 +219,13 @@ start_glusterfs ()
         if  [ -n "$server_ip" ]; then
 
             cmd_line=$(echo "$cmd_line --volfile-server=$server_ip");
+
+            if [ -n "$backupvolfile_server" ]; then
+                if [ -z "$backup_volfile_servers" ]; then
+                    server=$(parse_backupvolfile_server ${backupvolfile_server})
+                    cmd_line=$(echo "$cmd_line --volfile-server=$server");
+                fi
+            fi
 
             if [ -n "$backup_volfile_servers" ]; then
                 servers=$(parse_backup_volfile_servers ${backup_volfile_servers})
@@ -388,6 +408,8 @@ main ()
                             "gid-timeout")   gid_timeout=$value ;;
                             "background-qlen") bg_qlen=$value ;;
                             "backup-volfile-servers") backup_volfile_servers=$value ;;
+                            ## Place-holder backward compatibility
+                            "backupvolfile-server") backupvolfile_server=$value ;;
                             "congestion-threshold")  cong_threshold=$value ;;
                             "xlator-option")  xlator_option=$xlator_option" "$pair ;;
                             "fuse-mountopts")  fuse_mountopts=$value ;;
