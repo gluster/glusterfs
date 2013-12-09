@@ -1793,6 +1793,11 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         }
 
         case GF_OP_CMD_START:
+                /* Reset defrag status to 'NOT STARTED' whenever a
+                 * remove-brick/rebalance command is issued to remove
+                 * stale information from previous run.
+                 */
+                volinfo->rebal.defrag_status = GF_DEFRAG_STATUS_NOT_STARTED;
                 ret = dict_get_str (dict, GF_REMOVE_BRICK_TID_KEY, &task_id_str);
                 if (ret) {
                         gf_log (this->name, GF_LOG_DEBUG,
