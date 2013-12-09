@@ -641,7 +641,7 @@ _self_heal_entry (xlator_t *this, afr_crawl_data_t *crawl_data, gf_dirent_t *ent
                 goto out;
         }
 
-        ret = dict_set_int32 (xattr_req, "allow-sh-for-running-transaction", 1);
+        ret = dict_set_int32 (xattr_req, "attempt-self-heal", 1);
 
         gf_log (this->name, GF_LOG_DEBUG, "lookup %s", child->path);
 

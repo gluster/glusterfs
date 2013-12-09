@@ -509,7 +509,8 @@ typedef struct _afr_local {
         */
         gf_boolean_t      append_write;
 
-        int allow_sh_for_running_transaction;
+        int attempt_self_heal;
+        int foreground_self_heal;
 
 
         /* This struct contains the arguments for the "continuation"
