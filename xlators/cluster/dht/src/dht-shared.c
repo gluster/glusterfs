@@ -690,7 +690,8 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_INT,
           .min  = 1,
           .validate = GF_OPT_VALIDATE_MIN,
-          .description = "Specifies the directory layout spread."
+          .description = "Specifies the directory layout spread. Takes number "
+                         "of subvolumes as default value."
         },
         { .key  = {"decommissioned-bricks"},
           .type = GF_OPTION_TYPE_ANY,

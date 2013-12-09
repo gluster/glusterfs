@@ -2841,13 +2841,19 @@ struct volume_options options[] = {
         { .key   = {"lk-heal"},
           .type  = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
-          .description = "Enables or disables the lock heal."
+          .description = "When the connection to client is lost, server "
+                         "cleans up all the locks held by the client. After "
+                         "the connection is restored, the client reacquires "
+                         "(heals) the fcntl locks released by the server."
         },
         { .key   = {"grace-timeout"},
           .type  = GF_OPTION_TYPE_INT,
           .min   = 10,
           .max   = 1800,
-          .description = "Sets the grace-timeout value. Valid range 10-1800."
+          .default_value = "10",
+          .description = "Specifies the duration for the lock state to be "
+                         "maintained on the client after a network "
+                         "disconnection. Range 10-1800 seconds."
         },
         {.key  = {"tcp-window-size"},
          .type = GF_OPTION_TYPE_SIZET,
