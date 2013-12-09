@@ -1833,12 +1833,13 @@ afr_lookup_perform_self_heal (call_frame_t *frame, xlator_t *this,
         afr_lookup_set_self_heal_params (local, this);
         if (afr_can_self_heal_proceed (&local->self_heal, priv)) {
                 if  (afr_is_transaction_running (local) &&
-                     (!local->allow_sh_for_running_transaction))
+                     (!local->attempt_self_heal))
                         goto out;
 
                 reason = "lookup detected pending operations";
                 afr_launch_self_heal (frame, this, local->cont.lookup.inode,
-                                      _gf_true, local->cont.lookup.buf.ia_type,
+                                      !local->foreground_self_heal,
+                                      local->cont.lookup.buf.ia_type,
                                       reason, afr_post_gfid_sh_success,
                                       afr_self_heal_lookup_unwind);
                 *sh_launched = _gf_true;
@@ -2420,16 +2421,15 @@ int
 afr_lookup (call_frame_t *frame, xlator_t *this,
             loc_t *loc, dict_t *xattr_req)
 {
-        afr_private_t    *priv           = NULL;
-        afr_local_t      *local          = NULL;
-        void              *gfid_req      = NULL;
-        int               ret            = -1;
-        int               i              = 0;
-        int               call_count     = 0;
-        uint64_t          ctx            = 0;
-        int32_t           op_errno       = 0;
-        int               allow_sh       = 0;
-        priv = this->private;
+        afr_private_t  *priv      = NULL;
+        afr_local_t    *local     = NULL;
+        void           *gfid_req  = NULL;
+        int            ret        = -1;
+        int            i          = 0;
+        int            call_count = 0;
+        uint64_t       ctx        = 0;
+        int32_t        op_errno   = 0;
+                       priv       = this->private;
 
         AFR_LOCAL_ALLOC_OR_GOTO (local, out);
 
@@ -2500,10 +2500,13 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         /* By default assume ENOTCONN. On success it will be set to 0. */
         local->op_errno = ENOTCONN;
 
-        ret = dict_get_int32 (xattr_req, "allow-sh-for-running-transaction",
-                              &allow_sh);
-        dict_del (xattr_req, "allow-sh-for-running-transaction");
-        local->allow_sh_for_running_transaction = allow_sh;
+        ret = dict_get_int32 (xattr_req, "attempt-self-heal",
+                              &local->attempt_self_heal);
+        dict_del (xattr_req, "attempt-self-heal");
+
+        ret = dict_get_int32 (xattr_req, "foreground-self-heal",
+                              &local->foreground_self_heal);
+        dict_del (xattr_req, "foreground-self-heal");
 
         ret = afr_lookup_xattr_req_prepare (local, this, xattr_req, &local->loc,
                                             &gfid_req);
