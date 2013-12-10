@@ -3219,6 +3219,12 @@ glusterd_import_volinfo (dict_t *vols, int count,
                           "for volume.");
                 goto out;
         }
+        ret = gd_import_friend_volume_rebal_dict (vols, count, new_volinfo);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Failed to import rebalance dict "
+                          "for volume.");
+                goto out;
+        }
 
         memset (key, 0, sizeof (key));
         snprintf (key, 256, "volume%d."GLUSTERD_STORE_KEY_RB_STATUS, count);
