@@ -181,6 +181,7 @@ struct dht_local {
         xlator_t        *link_subvol;
 
         struct dht_rebalance_ rebalance;
+        xlator_t        *first_up_subvol;
 
 };
 typedef struct dht_local dht_local_t;
