@@ -5093,8 +5093,21 @@ posix_set_owner (xlator_t *this, uid_t uid, gid_t gid)
 {
         struct posix_private *priv = NULL;
         int                   ret  = -1;
+	struct stat st = {0,};
 
         priv = this->private;
+
+	ret = sys_lstat (priv->base_path, &st);
+	if (ret) {
+		gf_log (this->name, GF_LOG_ERROR, "Failed to stat "
+			"brick path %s (%s)",
+			priv->base_path, strerror (errno));
+		return ret;
+	}
+
+	if ((uid == -1 || st.st_uid == uid) &&
+	    (gid == -1 || st.st_gid == gid))
+		return 0;
 
         ret = sys_chown (priv->base_path, uid, gid);
         if (ret)
@@ -5131,15 +5144,16 @@ reconfigure (xlator_t *this, dict_t *options)
 {
 	int                   ret = -1;
 	struct posix_private *priv = NULL;
-        uid_t                 uid = -1;
-        gid_t                 gid = -1;
+        int32_t               uid = -1;
+        int32_t               gid = -1;
 	char                 *batch_fsync_mode_str = NULL;
 
 	priv = this->private;
 
-        GF_OPTION_RECONF ("brick-uid", uid, options, uint32, out);
-        GF_OPTION_RECONF ("brick-gid", gid, options, uint32, out);
-        posix_set_owner (this, uid, gid);
+        GF_OPTION_RECONF ("brick-uid", uid, options, int32, out);
+        GF_OPTION_RECONF ("brick-gid", gid, options, int32, out);
+	if (uid != -1 || gid != -1)
+		posix_set_owner (this, uid, gid);
 
 	GF_OPTION_RECONF ("batch-fsync-delay-usec", priv->batch_fsync_delay_usec,
 			  options, uint32, out);
@@ -5205,8 +5219,8 @@ init (xlator_t *this)
         uuid_t                gfid          = {0,};
         uuid_t                rootgfid      = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
         char                 *guuid         = NULL;
-        uid_t                 uid           = -1;
-        gid_t                 gid           = -1;
+        int32_t               uid           = -1;
+        int32_t               gid           = -1;
 	char                 *batch_fsync_mode_str;
 
         dir_data = dict_get (this->options, "directory");
@@ -5541,9 +5555,10 @@ init (xlator_t *this)
 	_private->aio_init_done = _gf_false;
 	_private->aio_capable = _gf_false;
 
-        GF_OPTION_INIT ("brick-uid", uid, uint32, out);
-        GF_OPTION_INIT ("brick-gid", gid, uint32, out);
-        posix_set_owner (this, uid, gid);
+        GF_OPTION_INIT ("brick-uid", uid, int32, out);
+        GF_OPTION_INIT ("brick-gid", gid, int32, out);
+	if (uid != -1 || gid != -1)
+		posix_set_owner (this, uid, gid);
 
 	GF_OPTION_INIT ("linux-aio", _private->aio_configured, bool, out);
 
@@ -5704,15 +5719,17 @@ struct volume_options options[] = {
         {
           .key = {"brick-uid"},
           .type = GF_OPTION_TYPE_INT,
-          .min = 0,
+          .min = -1,
           .validate = GF_OPT_VALIDATE_MIN,
+	  .default_value = "-1",
           .description = "Support for setting uid of brick's owner"
         },
         {
           .key = {"brick-gid"},
           .type = GF_OPTION_TYPE_INT,
-          .min = 0,
+          .min = -1,
           .validate = GF_OPT_VALIDATE_MIN,
+	  .default_value = "-1",
           .description = "Support for setting gid of brick's owner"
         },
         { .key = {"node-uuid-pathinfo"},
