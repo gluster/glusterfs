@@ -738,7 +738,7 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         cached_subvol = local->cached_subvol;
         conf = this->private;
 
-        ret = dht_layout_preset (this, local->cached_subvol, local->loc.inode);
+        ret = dht_layout_preset (this, local->cached_subvol, inode);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "failed to set layout for subvolume %s",
