@@ -1842,19 +1842,22 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        /* Save the list of bricks for later usage. Right now this is required
-         * for displaying the task parameters with task status in volume status.
+        /* Save the list of bricks for later usage only on starting a
+         * remove-brick. Right now this is required for displaying the task
+         * parameters with task status in volume status.
          */
-        bricks_dict = dict_new ();
-        if (!bricks_dict) {
-                ret = -1;
-                goto out;
-        }
-        ret = dict_set_int32 (bricks_dict, "count", count);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Failed to save remove-brick count");
-                goto out;
+        if (GF_OP_CMD_START == cmd) {
+                bricks_dict = dict_new ();
+                if (!bricks_dict) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = dict_set_int32 (bricks_dict, "count", count);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to save remove-brick count");
+                        goto out;
+                }
         }
         while ( i <= count) {
                 snprintf (key, 256, "brick%d", i);
@@ -1865,20 +1868,22 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
-                brick_tmpstr = gf_strdup (brick);
-                if (!brick_tmpstr) {
-                        ret = -1;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to duplicate brick name");
-                        goto out;
+                if (GF_OP_CMD_START == cmd) {
+                        brick_tmpstr = gf_strdup (brick);
+                        if (!brick_tmpstr) {
+                                ret = -1;
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to duplicate brick name");
+                                goto out;
+                        }
+                        ret = dict_set_dynstr (bricks_dict, key, brick_tmpstr);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to add brick to dict");
+                                goto out;
+                        }
+                        brick_tmpstr = NULL;
                 }
-                ret = dict_set_dynstr (bricks_dict, key, brick_tmpstr);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to add brick to dict");
-                        goto out;
-                }
-                brick_tmpstr = NULL;
 
                 ret = glusterd_op_perform_remove_brick (volinfo, brick, force,
                                                         &need_rebalance);
@@ -1886,6 +1891,9 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                         goto out;
                 i++;
         }
+        if (GF_OP_CMD_START == cmd)
+                volinfo->rebal.dict = dict_ref (bricks_dict);
+
         ret = dict_get_int32 (dict, "replica-count", &replica_count);
         if (!ret) {
                 gf_log (this->name, GF_LOG_INFO,
@@ -1910,8 +1918,6 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                         }
                 }
         }
-        volinfo->rebal.dict = bricks_dict;
-        bricks_dict = NULL;
 
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret) {
