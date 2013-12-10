@@ -2260,6 +2260,7 @@ afr_self_heal_local_init (afr_local_t *l, xlator_t *this)
 
         shc->unwind = sh->unwind;
         shc->gfid_sh_success_cbk = sh->gfid_sh_success_cbk;
+        shc->dry_run = sh->dry_run;
         shc->do_missing_entry_self_heal = sh->do_missing_entry_self_heal;
         shc->do_gfid_self_heal = sh->do_gfid_self_heal;
         shc->do_data_self_heal = sh->do_data_self_heal;
@@ -2352,6 +2353,9 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
                 orig_frame_local = sh->orig_frame->local;
                 orig_frame_sh = &orig_frame_local->self_heal;
                 orig_frame_sh->actual_sh_started = _gf_true;
+                orig_frame_sh->entry_sh_pending = sh->entry_sh_pending;
+                orig_frame_sh->data_sh_pending = sh->data_sh_pending;
+                orig_frame_sh->metadata_sh_pending = sh->metadata_sh_pending;
                 sh->unwind (sh->orig_frame, this, sh->op_ret, sh->op_errno,
                             is_self_heal_failed (sh, AFR_CHECK_ALL));
         }

@@ -1042,6 +1042,7 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
                 afr_sh_data_setattr (frame, this, &sh->buf[tstamp_source]);
         } else {
                 afr_set_data_sh_info_str (local, sh, this);
+
                 if (nsources == 0) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "No self-heal needed for %s",
@@ -1051,7 +1052,9 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
                         return 0;
                 }
 
-                if (sh->do_data_self_heal &&
+                sh->data_sh_pending = _gf_true;
+
+                if (!sh->dry_run && sh->do_data_self_heal &&
                     afr_data_self_heal_enabled (priv->data_self_heal))
                         afr_sh_data_fix (frame, this);
                 else

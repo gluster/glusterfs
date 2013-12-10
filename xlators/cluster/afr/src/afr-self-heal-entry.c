@@ -2343,7 +2343,12 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this,
                                         sh->fresh_children);
 
 heal:
-        afr_sh_entry_sync_prepare (frame, this);
+        sh->entry_sh_pending = _gf_true;
+        if (sh->dry_run) {
+                afr_sh_entry_finish (frame, this);
+        } else {
+                afr_sh_entry_sync_prepare (frame, this);
+        }
 out:
         return;
 }

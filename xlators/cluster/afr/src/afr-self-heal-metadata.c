@@ -672,7 +672,9 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this,
                                         sh->fresh_children);
         }
 
-        if (sh->do_metadata_self_heal && priv->metadata_self_heal)
+        sh->metadata_sh_pending = _gf_true;
+        if (!sh->dry_run &&
+            sh->do_metadata_self_heal && priv->metadata_self_heal)
                 afr_sh_metadata_sync_prepare (frame, this);
         else
                 afr_sh_metadata_finish (frame, this);

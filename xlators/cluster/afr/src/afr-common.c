@@ -1743,14 +1743,23 @@ afr_self_heal_lookup_unwind (call_frame_t *frame, xlator_t *this,
 
         afr_lookup_done_success_action (frame, this, _gf_true);
         xattr = local->cont.lookup.xattr;
-        if (xattr) {
+        if (!xattr)
+                goto out;
+
+        if (sh_failed) {
                 ret = dict_set_int32 (xattr, "sh-failed", sh_failed);
                 if (ret)
                         gf_log (this->name, GF_LOG_ERROR, "%s: Failed to set "
                                 "sh-failed to %d", local->loc.path, sh_failed);
+        } else {
+                ret = dict_set_int32 (xattr, "metadata-self-heal-pending",
+                                      local->self_heal.metadata_sh_pending);
+                ret = dict_set_int32 (xattr, "data-self-heal-pending",
+                                      local->self_heal.data_sh_pending);
+                ret = dict_set_int32 (xattr, "entry-self-heal-pending",
+                                      local->self_heal.entry_sh_pending);
 
-                if (local->self_heal.actual_sh_started == _gf_true &&
-                    sh_failed == 0) {
+                if (local->self_heal.actual_sh_started == _gf_true) {
                         ret = dict_set_int32 (xattr, "actual-sh-done", 1);
                         if (ret)
                                 gf_log(this->name, GF_LOG_ERROR, "%s: Failed to"
@@ -2510,6 +2519,10 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         ret = dict_get_int32 (xattr_req, "foreground-self-heal",
                               &local->foreground_self_heal);
         dict_del (xattr_req, "foreground-self-heal");
+
+        ret = dict_get_int32 (xattr_req, "dry-run-self-heal",
+                              &local->self_heal.dry_run);
+        dict_del (xattr_req, "dry-run-self-heal");
 
         ret = afr_lookup_xattr_req_prepare (local, this, xattr_req, &local->loc,
                                             &gfid_req);

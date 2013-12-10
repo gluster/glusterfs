@@ -285,6 +285,12 @@ struct afr_self_heal_ {
         gf_boolean_t entries_skipped;
 
         gf_boolean_t actual_sh_started;
+
+        int32_t dry_run;
+        gf_boolean_t metadata_sh_pending;
+        gf_boolean_t data_sh_pending;
+        gf_boolean_t entry_sh_pending;
+
         gf_boolean_t sync_done;
         gf_boolean_t data_lock_held;
         gf_boolean_t sh_dom_lock_held;
