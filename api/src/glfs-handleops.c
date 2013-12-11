@@ -152,6 +152,7 @@ glfs_h_stat (struct glfs *fs, struct glfs_object *object, struct stat *stat)
 
 	/* fop/op */
 	ret = syncop_stat (subvol, &loc, &iatt);
+        DECODE_SYNCOP_ERR (ret);
 
 	/* populate out args */
 	if (!ret && stat) {
@@ -258,6 +259,7 @@ glfs_h_setattrs (struct glfs *fs, struct glfs_object *object, struct stat *stat,
 
 	/* fop/op */
 	ret = syncop_setattr (subvol, &loc, &iatt, glvalid, 0, 0);
+        DECODE_SYNCOP_ERR (ret);
 out:
 	loc_wipe (&loc);
 
@@ -331,6 +333,7 @@ glfs_h_open (struct glfs *fs, struct glfs_object *object, int flags)
 
 	/* fop/op */
 	ret = syncop_open (subvol, &loc, flags, glfd->fd);
+        DECODE_SYNCOP_ERR (ret);
 
 out:
 	loc_wipe (&loc);
@@ -420,6 +423,7 @@ glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
 	/* fop/op */
 	ret = syncop_create (subvol, &loc, flags, mode, glfd->fd,
 			     xattr_req, &iatt);
+        DECODE_SYNCOP_ERR (ret);
 
 	/* populate out args */
 	if (ret == 0) {
@@ -518,6 +522,7 @@ glfs_h_mkdir (struct glfs *fs, struct glfs_object *parent, const char *path,
 
 	/* fop/op */
 	ret = syncop_mkdir (subvol, &loc, mode, xattr_req, &iatt);
+        DECODE_SYNCOP_ERR (ret);
 
 	/* populate out args */
 	if ( ret == 0 )  {
@@ -606,6 +611,7 @@ glfs_h_mknod (struct glfs *fs, struct glfs_object *parent, const char *path,
 
 	/* fop/op */
 	ret = syncop_mknod (subvol, &loc, mode, dev, xattr_req, &iatt);
+        DECODE_SYNCOP_ERR (ret);
 
 	/* populate out args */
 	if (ret == 0) {
@@ -676,11 +682,13 @@ glfs_h_unlink (struct glfs *fs, struct glfs_object *parent, const char *path)
 
 	if (!IA_ISDIR(loc.inode->ia_type)) {
 		ret = syncop_unlink (subvol, &loc);
+                DECODE_SYNCOP_ERR (ret);
 		if (ret != 0) {
 			goto out;
 		}
 	} else {
 		ret = syncop_rmdir (subvol, &loc, 0);
+                DECODE_SYNCOP_ERR (ret);
 		if (ret != 0) {
 			goto out;
 		}
@@ -755,6 +763,7 @@ glfs_h_opendir (struct glfs *fs, struct glfs_object *object)
 
 	/* fop/op */
 	ret = syncop_opendir (subvol, &loc, glfd->fd);
+        DECODE_SYNCOP_ERR (ret);
 
 out:
 	loc_wipe (&loc);
@@ -846,6 +855,7 @@ glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
 	}
 
 	ret = syncop_lookup (subvol, &loc, 0, &iatt, 0, 0);
+        DECODE_SYNCOP_ERR (ret);
 	if (ret) {
 		gf_log (subvol->name, GF_LOG_WARNING,
 			"inode refresh of %s failed: %s",
@@ -934,6 +944,7 @@ glfs_h_truncate (struct glfs *fs, struct glfs_object *object, off_t offset)
 
 	/* fop/op */
 	ret = syncop_truncate (subvol, &loc, (off_t)offset);
+        DECODE_SYNCOP_ERR (ret);
 
 	/* populate out args */
 	if (ret == 0)
@@ -1006,6 +1017,7 @@ glfs_h_symlink (struct glfs *fs, struct glfs_object *parent, const char *name,
 
 	/* fop/op */
 	ret = syncop_symlink (subvol, &loc, data, xattr_req, &iatt);
+        DECODE_SYNCOP_ERR (ret);
 
 	/* populate out args */
 	if (ret == 0) {
@@ -1081,6 +1093,7 @@ glfs_h_readlink (struct glfs *fs, struct glfs_object *object, char *buf,
 
 	/* fop/op */
 	ret = syncop_readlink (subvol, &loc, &linkval, bufsiz);
+        DECODE_SYNCOP_ERR (ret);
 
 	/* populate out args */
 	if (ret > 0)
@@ -1166,6 +1179,7 @@ glfs_h_link (struct glfs *fs, struct glfs_object *linksrc,
 
 	/* fop/op */
 	ret = syncop_link (subvol, &oldloc, &newloc);
+        DECODE_SYNCOP_ERR (ret);
 
 	if (ret == 0)
 		/* TODO: No iatt to pass as there has been no lookup */
@@ -1256,6 +1270,7 @@ glfs_h_rename (struct glfs *fs, struct glfs_object *olddir, const char *oldname,
 	/* TODO: check if new or old is a prefix of the other, and fail EINVAL */
 
 	ret = syncop_rename (subvol, &oldloc, &newloc);
+        DECODE_SYNCOP_ERR (ret);
 
 	if (ret == 0)
 		inode_rename (oldloc.parent->table, oldloc.parent, oldloc.name,

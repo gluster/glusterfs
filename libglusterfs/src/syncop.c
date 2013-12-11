@@ -983,7 +983,8 @@ syncop_lookup (xlator_t *subvol, loc_t *loc, dict_t *xdata_req,
         else if (args.xdata)
                 dict_unref (args.xdata);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -1059,7 +1060,8 @@ syncop_readdirp (xlator_t *subvol,
                 list_splice_init (&args.entries.list, &entries->list);
         /* TODO: need to free all the 'args.entries' in 'else' case */
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 
 }
@@ -1118,7 +1120,8 @@ syncop_readdir (xlator_t *subvol,
                 list_splice_init (&args.entries.list, &entries->list);
         /* TODO: need to free all the 'args.entries' in 'else' case */
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 
 }
@@ -1153,7 +1156,8 @@ syncop_opendir (xlator_t *subvol,
         SYNCOP (subvol, (&args), syncop_opendir_cbk, subvol->fops->opendir,
                 loc, fd, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 
 }
@@ -1182,7 +1186,8 @@ syncop_fsyncdir (xlator_t *subvol, fd_t *fd, int datasync)
         SYNCOP (subvol, (&args), syncop_fsyncdir_cbk, subvol->fops->fsyncdir,
                 fd, datasync, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -1210,7 +1215,8 @@ syncop_removexattr (xlator_t *subvol, loc_t *loc, const char *name)
         SYNCOP (subvol, (&args), syncop_removexattr_cbk, subvol->fops->removexattr,
                 loc, name, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -1238,7 +1244,8 @@ syncop_fremovexattr (xlator_t *subvol, fd_t *fd, const char *name)
         SYNCOP (subvol, (&args), syncop_fremovexattr_cbk,
                 subvol->fops->fremovexattr, fd, name, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -1267,7 +1274,8 @@ syncop_setxattr (xlator_t *subvol, loc_t *loc, dict_t *dict, int32_t flags)
         SYNCOP (subvol, (&args), syncop_setxattr_cbk, subvol->fops->setxattr,
                 loc, dict, flags, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -1296,7 +1304,8 @@ syncop_fsetxattr (xlator_t *subvol, fd_t *fd, dict_t *dict, int32_t flags)
         SYNCOP (subvol, (&args), syncop_fsetxattr_cbk, subvol->fops->fsetxattr,
                 fd, dict, flags, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -1331,7 +1340,8 @@ syncop_listxattr (xlator_t *subvol, loc_t *loc, dict_t **dict)
         else if (args.xattr)
                 dict_unref (args.xattr);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -1348,7 +1358,8 @@ syncop_getxattr (xlator_t *subvol, loc_t *loc, dict_t **dict, const char *key)
         else if (args.xattr)
                 dict_unref (args.xattr);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -1365,7 +1376,8 @@ syncop_fgetxattr (xlator_t *subvol, fd_t *fd, dict_t **dict, const char *key)
         else if (args.xattr)
                 dict_unref (args.xattr);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -1404,7 +1416,8 @@ syncop_statfs (xlator_t *subvol, loc_t *loc, struct statvfs *buf)
         if (buf)
                 *buf = args.statvfs_buf;
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -1445,7 +1458,8 @@ syncop_setattr (xlator_t *subvol, loc_t *loc, struct iatt *iatt, int valid,
         if (postop)
                 *postop = args.iatt2;
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -1464,7 +1478,8 @@ syncop_fsetattr (xlator_t *subvol, fd_t *fd, struct iatt *iatt, int valid,
         if (postop)
                 *postop = args.iatt2;
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -1493,7 +1508,8 @@ syncop_open (xlator_t *subvol, loc_t *loc, int32_t flags, fd_t *fd)
         SYNCOP (subvol, (&args), syncop_open_cbk, subvol->fops->open,
                 loc, flags, fd, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 
 }
@@ -1555,7 +1571,8 @@ syncop_readv (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
                 iobref_unref (args.iobref);
 
 out:
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 
 }
@@ -1588,7 +1605,8 @@ syncop_writev (xlator_t *subvol, fd_t *fd, const struct iovec *vector,
                 fd, (struct iovec *) vector, count, offset, flags, iobref,
                 NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -1604,7 +1622,8 @@ int syncop_write (xlator_t *subvol, fd_t *fd, const char *buf, int size,
         SYNCOP (subvol, (&args), syncop_writev_cbk, subvol->fops->writev,
                 fd, &vec, 1, offset, flags, iobref, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -1647,10 +1666,11 @@ syncop_create (xlator_t *subvol, loc_t *loc, int32_t flags, mode_t mode,
         SYNCOP (subvol, (&args), syncop_create_cbk, subvol->fops->create,
                 loc, flags, mode, 0, fd, xdata);
 
-        errno = args.op_errno;
 	if (iatt)
 		*iatt = args.iatt1;
 
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 
 }
@@ -1680,7 +1700,8 @@ syncop_unlink (xlator_t *subvol, loc_t *loc)
         SYNCOP (subvol, (&args), syncop_unlink_cbk, subvol->fops->unlink, loc,
                 0, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -1709,7 +1730,8 @@ syncop_rmdir (xlator_t *subvol, loc_t *loc, int flags)
         SYNCOP (subvol, (&args), syncop_rmdir_cbk, subvol->fops->rmdir, loc,
                 flags, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -1741,7 +1763,8 @@ syncop_link (xlator_t *subvol, loc_t *oldloc, loc_t *newloc)
         SYNCOP (subvol, (&args), syncop_link_cbk, subvol->fops->link,
                 oldloc, newloc, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
 
         return args.op_ret;
 }
@@ -1775,7 +1798,8 @@ syncop_rename (xlator_t *subvol, loc_t *oldloc, loc_t *newloc)
         SYNCOP (subvol, (&args), syncop_rename_cbk, subvol->fops->rename,
                 oldloc, newloc, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
 
         return args.op_ret;
 }
@@ -1806,7 +1830,8 @@ syncop_ftruncate (xlator_t *subvol, fd_t *fd, off_t offset)
         SYNCOP (subvol, (&args), syncop_ftruncate_cbk, subvol->fops->ftruncate,
                 fd, offset, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -1818,7 +1843,8 @@ syncop_truncate (xlator_t *subvol, loc_t *loc, off_t offset)
         SYNCOP (subvol, (&args), syncop_ftruncate_cbk, subvol->fops->truncate,
                 loc, offset, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -1848,7 +1874,8 @@ syncop_fsync (xlator_t *subvol, fd_t *fd, int dataonly)
         SYNCOP (subvol, (&args), syncop_fsync_cbk, subvol->fops->fsync,
                 fd, dataonly, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 
 }
@@ -1879,7 +1906,8 @@ syncop_flush (xlator_t *subvol, fd_t *fd)
         SYNCOP (subvol, (&args), syncop_flush_cbk, subvol->fops->flush,
                 fd, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 
 }
@@ -1914,7 +1942,8 @@ syncop_fstat (xlator_t *subvol, fd_t *fd, struct iatt *stbuf)
         if (stbuf)
                 *stbuf = args.iatt1;
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 
 }
@@ -1930,7 +1959,8 @@ syncop_stat (xlator_t *subvol, loc_t *loc, struct iatt *stbuf)
         if (stbuf)
                 *stbuf = args.iatt1;
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 
 }
@@ -1964,10 +1994,11 @@ syncop_symlink (xlator_t *subvol, loc_t *loc, const char *newpath, dict_t *dict,
         SYNCOP (subvol, (&args), syncop_symlink_cbk, subvol->fops->symlink,
                 newpath, loc, 0, dict);
 
-        errno = args.op_errno;
 	if (iatt)
 		*iatt = args.iatt1;
 
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 
 }
@@ -2004,7 +2035,8 @@ syncop_readlink (xlator_t *subvol, loc_t *loc, char **buffer, size_t size)
                 *buffer = args.buffer;
         else GF_FREE (args.buffer);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -2038,10 +2070,11 @@ syncop_mknod (xlator_t *subvol, loc_t *loc, mode_t mode, dev_t rdev,
         SYNCOP (subvol, (&args), syncop_mknod_cbk, subvol->fops->mknod,
                 loc, mode, rdev, 0, dict);
 
-        errno = args.op_errno;
 	if (iatt)
 		*iatt = args.iatt1;
 
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 
 }
@@ -2077,10 +2110,11 @@ syncop_mkdir (xlator_t *subvol, loc_t *loc, mode_t mode, dict_t *dict,
         SYNCOP (subvol, (&args), syncop_mkdir_cbk, subvol->fops->mkdir,
                 loc, mode, 0, dict);
 
-        errno = args.op_errno;
 	if (iatt)
 		*iatt = args.iatt1;
 
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 
 }
@@ -2108,7 +2142,8 @@ syncop_access (xlator_t *subvol, loc_t *loc, int32_t mask)
         SYNCOP (subvol, (&args), syncop_access_cbk, subvol->fops->access,
                 loc, mask, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -2139,7 +2174,8 @@ syncop_fallocate(xlator_t *subvol, fd_t *fd, int32_t keep_size, off_t offset,
         SYNCOP (subvol, (&args), syncop_fallocate_cbk, subvol->fops->fallocate,
                 fd, keep_size, offset, len, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -2169,7 +2205,8 @@ syncop_discard(xlator_t *subvol, fd_t *fd, off_t offset, size_t len)
         SYNCOP (subvol, (&args), syncop_discard_cbk, subvol->fops->discard,
                 fd, offset, len, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -2198,7 +2235,8 @@ syncop_zerofill(xlator_t *subvol, fd_t *fd, off_t offset, off_t len)
         SYNCOP (subvol, (&args), syncop_zerofill_cbk, subvol->fops->zerofill,
                 fd, offset, len, NULL);
 
-        errno = args.op_errno;
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }
 
@@ -2230,8 +2268,9 @@ syncop_lk (xlator_t *subvol, fd_t *fd, int cmd, struct gf_flock *flock)
         SYNCOP (subvol, (&args), syncop_lk_cbk, subvol->fops->lk,
                 fd, cmd, flock, NULL);
 
-        errno = args.op_errno;
 	*flock = args.flock;
 
+        if (args.op_ret < 0)
+                return -args.op_errno;
         return args.op_ret;
 }

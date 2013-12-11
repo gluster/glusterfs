@@ -86,7 +86,7 @@ qb_format_and_resume (void *opaque)
 		GF_FREE(qb_inode->backing_fname);
 		if (ret) {
 			loc_wipe(&loc);
-			ret = errno;
+			ret = -ret;
 			goto err;
 		}
 
@@ -150,11 +150,10 @@ qb_format_and_resume (void *opaque)
 
 	ret = syncop_fsetxattr (FIRST_CHILD(THIS), fd, xattr, 0);
 	if (ret) {
-		ret = errno;
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"failed to setxattr for %s",
 			uuid_utoa (inode->gfid));
-		QB_STUB_UNWIND (stub, -1, ret);
+		QB_STUB_UNWIND (stub, -1, -ret);
 		fd_unref (fd);
 		dict_unref (xattr);
 		return 0;
@@ -476,7 +475,10 @@ qb_co_truncate (void *opaque)
 		}
 	}
 
-	syncop_fstat (FIRST_CHILD(this), local->fd, &stub->args_cbk.prestat);
+	ret = syncop_fstat (FIRST_CHILD(this), local->fd,
+                            &stub->args_cbk.prestat);
+        if (ret < 0)
+                goto out;
 	stub->args_cbk.prestat.ia_size = qb_inode->size;
 
 	ret = bdrv_truncate (qb_inode->bs, stub->args.offset);
@@ -487,7 +489,10 @@ qb_co_truncate (void *opaque)
 
 	qb_inode->size = offset;
 
-	syncop_fstat (FIRST_CHILD(this), local->fd, &stub->args_cbk.poststat);
+	ret = syncop_fstat (FIRST_CHILD(this), local->fd,
+                            &stub->args_cbk.poststat);
+        if (ret < 0)
+                goto out;
 	stub->args_cbk.poststat.ia_size = qb_inode->size;
 
 	qb_update_size_xattr (this, local->fd, qb_inode->fmt, qb_inode->size);

@@ -504,9 +504,10 @@ pump_xattr_cleaner (call_frame_t *frame, void *cookie, xlator_t *this,
         for (i = 0; i < priv->child_count; i++) {
                 ret = syncop_removexattr (priv->children[i], &loc,
                                           PUMP_SOURCE_COMPLETE);
-                if (ret)
+                if (ret) {
                         gf_log (this->name, GF_LOG_DEBUG, "removexattr "
-                                "failed with %s", strerror (errno));
+                                "failed with %s", strerror (-ret));
+                }
         }
 
         loc_wipe (&loc);
@@ -598,6 +599,7 @@ pump_lookup_sink (loc_t *loc)
         if (ret) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Lookup on sink child failed");
+                ret = -1;
                 goto out;
         }
 

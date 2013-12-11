@@ -109,7 +109,7 @@ qemu_gluster_open (BlockDriverState *bs, QDict *options, int bdrv_flags)
 				    NULL);
 		if (ret) {
 			loc_wipe(&loc);
-			return -errno;
+			return ret;
 		}
 
 		s->inode = inode_ref(loc.inode);
@@ -153,7 +153,7 @@ qemu_gluster_create (const char *filename, QEMUOptionParameter *options)
 	ret = syncop_fstat (FIRST_CHILD(THIS), fd, &stat);
 	if (ret) {
 		fd_unref (fd);
-		return -errno;
+		return ret;
 	}
 
 	if (stat.ia_size) {
@@ -166,7 +166,7 @@ qemu_gluster_create (const char *filename, QEMUOptionParameter *options)
 		ret = syncop_ftruncate (FIRST_CHILD(THIS), fd, total_size);
 		if (ret) {
 			fd_unref (fd);
-			return -errno;
+			return ret;
 		}
 	}
 
@@ -196,10 +196,8 @@ qemu_gluster_co_readv (BlockDriverState *bs, int64_t sector_num, int nb_sectors,
 
 	ret = syncop_readv (FIRST_CHILD(THIS), fd, size, offset, 0,
 			    &iov, &count, &iobref);
-	if (ret < 0) {
-		ret = -errno;
+	if (ret < 0)
 		goto out;
-	}
 
 	iov_copy (qiov->iov, qiov->niov, iov, count); /* *choke!* */
 
@@ -249,8 +247,6 @@ qemu_gluster_co_writev (BlockDriverState *bs, int64_t sector_num, int nb_sectors
 	iov.iov_len = size;
 
 	ret = syncop_writev (FIRST_CHILD(THIS), fd, &iov, 1, offset, iobref, 0);
-	if (ret < 0)
-		ret = -errno;
 
 out:
 	if (iobuf)
@@ -305,9 +301,6 @@ qemu_gluster_truncate (BlockDriverState *bs, int64_t offset)
 	ret = syncop_ftruncate (FIRST_CHILD(THIS), fd, offset);
 
 	fd_unref (fd);
-
-	if (ret < 0)
-		return ret;
 
 	return ret;
 }
