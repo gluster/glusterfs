@@ -732,10 +732,6 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                         }
                         UNLOCK (&ctx->lock);
 
-                        /* We log usage only if quota limit is configured on
-                           that inode. */
-                        quota_log_usage (this, ctx, _inode, delta);
-
                         if (need_validate) {
                                 ret = quota_validate (frame, _inode, this,
                                                       quota_validate_cbk);
@@ -763,7 +759,16 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                                                 = space_available;
 
                                 }
+
+                                if (space_available == 0) {
+                                        op_errno = EDQUOT;
+                                        goto err;
+                                }
                         }
+
+                        /* We log usage only if quota limit is configured on
+                           that inode. */
+                        quota_log_usage (this, ctx, _inode, delta);
                 }
 
                 if (__is_root_gfid (_inode->gfid)) {
