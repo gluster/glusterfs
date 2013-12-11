@@ -1,0 +1,199 @@
+GlusterFS Maintainers
+=====================
+
+The intention of this file is not to establish who owns what portions of the
+code base, but to provide a set of names that developers can consult when they
+have a question about a particular subset and also to provide a set of names
+to be CC'd when submitting a patch to obtain appropriate review.
+
+In general, if you have a question about inclusion of a patch, you should
+consult gluster-devel@nongnu.org and not any specific individual privately.
+
+Descriptions of section entries:
+
+	M: Mail patches to: FullName <address@domain>
+	L: Mailing list that is relevant to this area
+	W: Web-page with status/info
+	Q: Patchwork web based patch tracking system site
+	T: SCM tree type and location.  Type is one of: git, hg, quilt, stgit.
+	S: Status, one of the following:
+	   Supported:	Someone is actually paid to look after this.
+	   Maintained:	Someone actually looks after it.
+	   Odd Fixes:	It has a maintainer but they don't have time to do
+			much other than throw the odd patch in. See below.
+	   Orphan:	No current maintainer [but maybe you could take the
+			role as you write your new code].
+	   Obsolete:	Old code. Something tagged obsolete generally means
+			it has been replaced by a better system and you
+			should be using that.
+	F: Files and directories with wildcard patterns.
+	   A trailing slash includes all files and subdirectory files.
+	   F:	drivers/net/	all files in and below drivers/net
+	   F:	drivers/net/*	all files in drivers/net, but not below
+	   F:	*/net/*		all files in "any top level directory"/net
+	   One pattern per line.  Multiple F: lines acceptable.
+	X: Files and directories that are NOT maintained, same rules as F:
+	   Files exclusions are tested before file matches.
+	   Can be useful for excluding a specific subdirectory, for instance:
+	   F:	net/
+	   X:	net/ipv6/
+	   matches all files in and below net excluding net/ipv6/
+	K: Keyword perl extended regex pattern to match content in a
+	   patch or file.  For instance:
+	   K: of_get_profile
+	      matches patches or files that contain "of_get_profile"
+	   K: \b(printk|pr_(info|err))\b
+	      matches patches or files that contain one or more of the words
+	      printk, pr_info or pr_err
+	   One regex pattern per line.  Multiple K: lines acceptable.
+
+
+General Project Architects
+--------------------------
+M: Amar Tumballi <amarts@redhat.com>
+M: Anand Avati <avati@redhat.com>
+M: Jeff Darcy <jdarcy@redhat.com>
+M: Kaleb S. Keithley <kkeithle@redhat.com>
+M: Vijay Bellur <vbellur@redhat.com>
+
+xlators:
+--------
+Automatic File Replication (AFR)
+M: Pranith Karampuri <pkarampu@redhat.com>
+S: Maintained
+F: xlators/cluster/afr/
+
+Distributed Hashing Table (DHT)
+M: Shishir Gowda <gowda.shishir@gmail.com>
+S: Maintained
+F: xlators/cluster/dht/
+
+Performance
+M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+S: Maintained
+F: xlators/performance/
+
+Index
+M: Pranith Karampuri <pkarampu@redhat.com>
+S: Maintained
+F: xlators/features/index/
+
+Quota
+M: Krishnan Parthasarathi <kparthas@redhat.com>
+M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+S: Maintained
+F: xlators/features/quota/
+
+Marker
+M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+S: Maintained
+F: xlators/features/marker/
+
+NFS Server
+M: Santosh Pradhan <spradhan@redhat.com>
+S: Maintained
+F: xlators/nfs/
+
+Changelog
+M: Venky Shankar <vshankar@redhat.com>
+S: Maintained
+F: xlators/features/changelog/
+
+Block Device
+M: M. Mohan Kumar <mohan@in.ibm.com>
+F: xlators/storage/bd/
+
+FUSE Bridge
+M: Anand Avati <avati@redhat.com>
+M: Brian Foster <bfoster@redhat.com>
+M: Csaba Henk <chenk@redhat.com>
+S: Maintained
+F: xlators/mount/
+
+
+Other bits of code:
+-------------------
+Geo Replication
+M: Venky Shankar <vshankar@redhat.com>
+S: Maintained
+F: geo-replication/
+
+libgfapi
+M: Anand Avati <avati@redhat.com>
+S: Maintained
+F: api/
+
+Management Daemon
+M: Krishnan Parthasarathi <kparthas@redhat.com>
+S: Maintained
+F: cli/
+F: xlators/mgmt/
+
+Remote Procedure Call subsystem
+M: Amar Tumballi <amarts@redhat.com>
+M: Anand Avati <avati@redhat.com>
+S: Maintained
+F: rpc/
+
+
+Distribution Specific:
+----------------------
+Debian Packaging
+M: Patrick Matthäi <pmatthaei@debian.org>
+M: Louis Zuckerman <me@louiszuckerman.com>
+W: http://packages.qa.debian.org/g/glusterfs.html
+
+Fedora Packaging
+M: glusterfs-owner@fedoraproject.org
+M: Kaleb Keithley <kkeithle@redhat.com>
+M: Niels de Vos <ndevos@redhat.com>
+W: https://apps.fedoraproject.org/packages/glusterfs
+T: http://pkgs.fedoraproject.org/git/glusterfs.git
+
+NetBSD port
+M: Emmanuel Dreyfus <manu@netbsd.org>
+W: http://pkgsrc.se/filesystems/glusterfs
+
+Ubuntu Packaging
+M: Louis Zuckerman <me@louiszuckerman.com>
+W: http://download.gluster.org/pub/gluster/glusterfs/LATEST/Ubuntu/Ubuntu.README
+
+
+Related projects
+----------------
+Gluster Openstack Swift
+M: Luis Pabon <lpabon@redhat.com>
+S: Maintained
+T: https://github.com/gluster/gluster-swift.git
+
+GlusterFS Hadoop HCFS plugin
+M: Jay Vyas <jvyas@redhat.com>
+T: https://github.com/gluster/glusterfs-hadoop.git
+
+NFS-Ganesha FSAL plugin
+M: Anand Subramanian <ansubram@redhat.com>
+S: Maintained
+T: git://github.com/nfs-ganesha/nfs-ganesha.git
+F: src/nfs-ganesha~/src/FSAL/FSAL_GLUSTER/
+
+QEMU integration
+M: Bharata B Rao <bharata@linux.vnet.ibm.com>
+S: Maintained
+T: git://git.qemu.org/qemu.git
+F: block/gluster.c
+
+Samba VFS plugin
+M: Raghavendra Talur <rtalur@redhat.com>
+M: Chris Hertel <chertel@redhat.com>
+M: Jose Rivera <jrivera@redhat.com>
+M: Ira Cooper <icooper@redhat.com>
+S: Maintained
+T: git://git.samba.org/samba.git
+F: source3/modules/vfs_glusterfs.c
+
+Wireshark dissectors
+M: Niels de Vos <ndevos@redhat.com>
+S: Maintained
+T: http://code.wireshark.org/git/wireshark
+F: epan/dissectors/packet-gluster*
+
