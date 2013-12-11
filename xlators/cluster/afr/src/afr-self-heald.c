@@ -336,8 +336,9 @@ _get_path_from_gfid_loc (xlator_t *this, xlator_t *readdir_xl, loc_t *child,
 
         ret = syncop_getxattr (readdir_xl, child, &xattr, GFID_TO_PATH_KEY);
         if (ret < 0) {
-                if ((errno == ENOENT || errno == ESTALE) && missing)
+                if ((-ret == ENOENT || -ret == ESTALE) && missing)
                         *missing = _gf_true;
+                ret = -1;
                 goto out;
         }
         ret = dict_get_str (xattr, GFID_TO_PATH_KEY, &path);
@@ -437,10 +438,10 @@ _remove_stale_index (xlator_t *this, xlator_t *readdir_xl,
         gf_log (this->name, GF_LOG_DEBUG, "Removing stale index "
                 "for %s on %s", index_loc.name, readdir_xl->name);
         ret = syncop_unlink (readdir_xl, &index_loc);
-        if(ret && (errno != ENOENT)) {
+        if((ret < 0) && (-ret != ENOENT)) {
                 gf_log(this->name, GF_LOG_ERROR, "%s: Failed to remove index "
                        "on %s - %s",index_loc.name, readdir_xl->name,
-                       strerror (errno));
+                       strerror (-ret));
         }
         index_loc.path = NULL;
         loc_wipe (&index_loc);
@@ -467,8 +468,10 @@ _count_hard_links_under_base_indices_dir (xlator_t *this,
         child = crawl_data->child;
 
         ret = syncop_lookup (readdir_xl, childloc, NULL, iattr, NULL, &parent);
-        if (ret)
+        if (ret) {
+                ret = -1;
                 goto out;
+        }
 
         ret = dict_get_int32 (output, this->name, &xl_id);
         if (ret)
@@ -648,8 +651,10 @@ _self_heal_entry (xlator_t *this, afr_crawl_data_t *crawl_data, gf_dirent_t *ent
 
         ret = syncop_lookup (this, child, xattr_req,
                              iattr, &xattr_rsp, &parentbuf);
-        _crawl_post_sh_action (this, parent, child, ret, errno, xattr_rsp,
+        _crawl_post_sh_action (this, parent, child, ret, -ret, xattr_rsp,
                                crawl_data);
+        if (ret < 0)
+                ret = -1;
         if (xattr_rsp)
                 dict_unref (xattr_rsp);
         if (ret == 0)
@@ -1190,8 +1195,10 @@ afr_crawl_build_start_loc (xlator_t *this, afr_crawl_data_t *crawl_data,
                 afr_build_root_loc (this, &rootloc);
                 ret = syncop_getxattr (readdir_xl, &rootloc, &xattr,
                                        GF_XATTROP_INDEX_GFID);
-                if (ret < 0)
+                if (ret < 0) {
+                        ret = -1;
                         goto out;
+                }
                 ret = dict_get_ptr (xattr, GF_XATTROP_INDEX_GFID, &index_gfid);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR, "failed to get index "
@@ -1210,11 +1217,12 @@ afr_crawl_build_start_loc (xlator_t *this, afr_crawl_data_t *crawl_data,
                 ret = syncop_lookup (readdir_xl, dirloc, NULL,
                                      &iattr, NULL, &parent);
                 if (ret < 0) {
-                        if (errno != ENOENT) {
+                        if (-ret != ENOENT) {
                                 gf_log (this->name, GF_LOG_ERROR, "lookup "
                                         "failed on index dir on %s - (%s)",
-                                        readdir_xl->name, strerror (errno));
+                                        readdir_xl->name, strerror (-ret));
                         }
+                        ret = -1;
                         goto out;
                 }
                 ret = _link_inode_update_loc (this, dirloc, &iattr);
@@ -1224,8 +1232,10 @@ afr_crawl_build_start_loc (xlator_t *this, afr_crawl_data_t *crawl_data,
                 afr_build_root_loc (this, &rootloc);
                 ret = syncop_getxattr (readdir_xl, &rootloc, &xattr,
                                        GF_BASE_INDICES_HOLDER_GFID);
-                if (ret < 0)
+                if (ret < 0) {
+                        ret = -1;
                         goto out;
+                }
                 ret = dict_get_ptr (xattr, GF_BASE_INDICES_HOLDER_GFID,
                                     &base_indices_holder_vgfid);
                 if (ret < 0) {
@@ -1246,16 +1256,17 @@ afr_crawl_build_start_loc (xlator_t *this, afr_crawl_data_t *crawl_data,
                 ret = syncop_lookup (readdir_xl, dirloc, NULL, &iattr, NULL,
                                      &parent);
                 if (ret < 0) {
-                        if (errno != ENOENT) {
+                        if (-ret != ENOENT) {
                                 gf_log (this->name, GF_LOG_ERROR, "lookup "
                                         "failed for base_indices_holder dir"
                                         " on %s - (%s)", readdir_xl->name,
-                                        strerror (errno));
+                                        strerror (-ret));
 
                         } else {
                                 gf_log (this->name, GF_LOG_ERROR, "base_indices"
                                         "_holder is not yet created.");
                         }
+                        ret = -1;
                         goto out;
                 }
                 ret = _link_inode_update_loc (this, dirloc, &iattr);
@@ -1290,6 +1301,7 @@ afr_crawl_opendir (xlator_t *this, afr_crawl_data_t *crawl_data, fd_t **dirfd,
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "opendir failed on %s", dirloc->path);
+                        ret = -1;
                         goto out;
                 }
         } else {
@@ -1442,8 +1454,13 @@ _crawl_directory (fd_t *fd, loc_t *loc, afr_crawl_data_t *crawl_data)
                 else
                         ret = syncop_readdir (readdir_xl, fd, 131072, offset,
                                               &entries);
-                if (ret <= 0)
+                if (ret < 0) {
+                        ret = -1;
                         break;
+                } else if (ret == 0) {
+                        break;
+                }
+
                 ret = 0;
                 free_entries = _gf_true;
 
@@ -1503,7 +1520,8 @@ afr_find_child_position (xlator_t *this, int child, afr_child_pos_t *pos)
                                GF_XATTR_NODE_UUID_KEY);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR, "getxattr failed on %s - "
-                        "(%s)", priv->children[child]->name, strerror (errno));
+                        "(%s)", priv->children[child]->name, strerror (-ret));
+                ret = -1;
                 goto out;
         }
 

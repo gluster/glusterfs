@@ -769,17 +769,20 @@ dht_migration_complete_check_task (void *data)
                 dst_node = dht_linkfile_subvol (this, NULL, NULL, dict);
 
         if (ret) {
-                if (!dht_inode_missing(errno) || (!local->loc.inode)) {
+                if (!dht_inode_missing(-ret) || (!local->loc.inode)) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "%s: failed to get the 'linkto' xattr %s",
-                                local->loc.path, strerror (errno));
+                                local->loc.path, strerror (-ret));
+                        ret = -1;
                         goto out;
                 }
                 /* Need to do lookup on hashed subvol, then get the file */
                 ret = syncop_lookup (this, &local->loc, NULL, &stbuf, NULL,
                                      NULL);
-                if (ret)
+                if (ret) {
+                        ret = -1;
                         goto out;
+                }
                 dst_node = dht_subvol_get_cached (this, local->loc.inode);
         }
 
@@ -799,6 +802,7 @@ dht_migration_complete_check_task (void *data)
                         gf_log (this->name, GF_LOG_ERROR,
                                 "%s: failed to lookup the file on %s",
                                 local->loc.path, dst_node->name);
+                        ret = -1;
                         goto out;
                 }
 
@@ -869,10 +873,11 @@ dht_migration_complete_check_task (void *data)
 
                 ret = syncop_open (dst_node, &tmp_loc,
                                    iter_fd->flags, iter_fd);
-                if (ret == -1) {
+                if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR, "failed to open "
                                 "the fd (%p, flags=0%o) on file %s @ %s",
                                 iter_fd, iter_fd->flags, path, dst_node->name);
+                        ret = -1;
                         open_failed = 1;
                 }
         }
@@ -955,11 +960,12 @@ dht_rebalance_inprogress_task (void *data)
                                         conf->link_xattr_name);
         }
 
-        if (ret) {
+        if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "%s: failed to get the 'linkto' xattr %s",
-                        local->loc.path, strerror (errno));
-                        goto out;
+                        local->loc.path, strerror (-ret));
+                ret = -1;
+                goto out;
         }
 
         dst_node = dht_linkfile_subvol (this, NULL, NULL, dict);
@@ -981,6 +987,7 @@ dht_rebalance_inprogress_task (void *data)
                         gf_log (this->name, GF_LOG_ERROR,
                                 "%s: failed to lookup the file on %s",
                                 local->loc.path, dst_node->name);
+                        ret = -1;
                         goto out;
                 }
 
@@ -1014,10 +1021,11 @@ dht_rebalance_inprogress_task (void *data)
 
                 ret = syncop_open (dst_node, &tmp_loc,
                                    iter_fd->flags, iter_fd);
-                if (ret == -1) {
+                if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR, "failed to send open "
                                 "the fd (%p, flags=0%o) on file %s @ %s",
                                 iter_fd, iter_fd->flags, path, dst_node->name);
+                        ret = -1;
                         open_failed = 1;
                 }
         }

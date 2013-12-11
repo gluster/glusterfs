@@ -1012,10 +1012,11 @@ dht_dir_attr_heal (void *data)
                 ret = syncop_setattr (subvol, &local->loc, &local->stbuf,
                                       (GF_SET_ATTR_UID | GF_SET_ATTR_GID),
                                       NULL, NULL);
-                if (ret)
+                if (ret) {
                         gf_log ("dht", GF_LOG_ERROR, "Failed to set uid/gid on"
                                 " %s on %s subvol (%s)", local->loc.path,
-                                subvol->name, strerror (errno));
+                                subvol->name, strerror (-ret));
+                }
         }
 out:
         return 0;
