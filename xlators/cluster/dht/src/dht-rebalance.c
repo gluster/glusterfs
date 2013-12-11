@@ -1105,6 +1105,10 @@ gf_defrag_pattern_match (gf_defrag_info_t *defrag, char *name, uint64_t size)
  * have been fixed
  */
 
+#ifdef GF_LINUX_HOST_OS
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
+#endif
 int
 gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         dict_t *migrate_data)
@@ -1371,6 +1375,9 @@ out:
         return ret;
 
 }
+#ifdef GF_LINUX_HOST_OS
+#pragma GCC pop_options
+#endif
 
 
 int
