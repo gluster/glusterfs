@@ -585,10 +585,23 @@ subvol_matcher_update (int *subvols, glusterd_volinfo_t *volinfo,
 
 static int
 subvol_matcher_verify (int *subvols, glusterd_volinfo_t *volinfo, char *err_str,
-                       size_t err_len, char *vol_type)
+                       size_t err_len, char *vol_type, int replica_count)
 {
         int i = 0;
         int ret = 0;
+        int count = volinfo->replica_count-replica_count;
+
+        if (replica_count) {
+                for (i = 0; i < volinfo->subvol_count; i++) {
+                        if (subvols[i] != count) {
+                                ret = -1;
+                                snprintf (err_str, err_len, "Remove exactly %d"
+                                " brick(s) from each subvolume.", count);
+                                break;
+                        }
+                }
+                return ret;
+        }
 
        do {
 
@@ -598,7 +611,6 @@ subvol_matcher_verify (int *subvols, glusterd_volinfo_t *volinfo, char *err_str,
                         ret = -1;
                         snprintf (err_str, err_len,
                                 "Bricks not from same subvol for %s", vol_type);
-                        gf_log (THIS->name, GF_LOG_ERROR, "%s", err_str);
                         break;
                 }
         } while (++i < volinfo->subvol_count);
@@ -626,16 +638,11 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
         glusterd_volinfo_t       *volinfo          = NULL;
         glusterd_brickinfo_t     *brickinfo        = NULL;
         int                      *subvols          = NULL;
-        glusterd_brickinfo_t     *tmp              = NULL;
         char                      err_str[2048]    = {0};
         gf_cli_rsp                rsp              = {0,};
         void                     *cli_rsp          = NULL;
         char                      vol_type[256]    = {0,};
         int32_t                   replica_count    = 0;
-        int32_t                   brick_index      = 0;
-        int32_t                   tmp_brick_idx    = 0;
-        int                       found            = 0;
-        int                       diff_count       = 0;
         char                     *volname          = 0;
         xlator_t                 *this             = NULL;
 
@@ -826,45 +833,6 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
                     (volinfo->brick_count <= volinfo->dist_leaf_count))
                         continue;
 
-                if (replica_count) {
-                        /* do the validation of bricks here */
-                        /* -2 because i++ is already done, and i starts with 1,
-                           instead of 0 */
-                        diff_count = (volinfo->replica_count - replica_count);
-                        brick_index = (((i -2) / diff_count) * volinfo->replica_count);
-                        tmp_brick_idx = 0;
-                        found = 0;
-                        list_for_each_entry (tmp, &volinfo->bricks, brick_list) {
-                                tmp_brick_idx++;
-                                gf_log (this->name, GF_LOG_TRACE,
-                                        "validate brick %s:%s (%d %d %d)",
-                                        tmp->hostname, tmp->path, tmp_brick_idx,
-                                        brick_index, volinfo->replica_count);
-                                if (tmp_brick_idx <= brick_index)
-                                        continue;
-                                if (tmp_brick_idx >
-                                    (brick_index + volinfo->replica_count))
-                                        break;
-                                if ((!strcmp (tmp->hostname,brickinfo->hostname)) &&
-                                    !strcmp (tmp->path, brickinfo->path)) {
-                                        found = 1;
-                                        break;
-                                }
-                        }
-                        if (found)
-                                continue;
-
-                        snprintf (err_str, sizeof (err_str), "Bricks are from "
-                                  "same subvol");
-                        gf_log (this->name, GF_LOG_INFO,
-                                "failed to validate brick %s:%s (%d %d %d)",
-                                tmp->hostname, tmp->path, tmp_brick_idx,
-                                brick_index, volinfo->replica_count);
-                        ret = -1;
-                        /* brick order is not valid */
-                        goto out;
-                }
-
                 /* Find which subvolume the brick belongs to */
                 subvol_matcher_update (subvols, volinfo, brickinfo);
         }
@@ -874,7 +842,7 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
             (volinfo->subvol_count > 1)) {
                 ret = subvol_matcher_verify (subvols, volinfo,
                                              err_str, sizeof(err_str),
-                                             vol_type);
+                                             vol_type, replica_count);
                 if (ret)
                         goto out;
         }
