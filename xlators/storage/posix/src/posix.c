@@ -3430,8 +3430,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 }
                 goto done;
         }
-        if (loc->inode && name &&
-            (strcmp (name, GF_XATTR_PATHINFO_KEY) == 0)) {
+        if (loc->inode && name && (XATTR_IS_PATHINFO (name))) {
                 if (LOC_HAS_ABSPATH (loc))
                         MAKE_REAL_PATH (rpath, this, loc->path);
                 else
@@ -3451,8 +3450,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         goto done;
                 }
                 size = strlen (dyn_rpath) + 1;
-                ret = dict_set_dynstr (dict, GF_XATTR_PATHINFO_KEY,
-                                       dyn_rpath);
+                ret = dict_set_dynstr (dict, (char *)name, dyn_rpath);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "could not set value (%s) in dictionary",

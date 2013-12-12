@@ -5548,9 +5548,7 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        if (name &&
-            ((strncmp (name, GF_XATTR_PATHINFO_KEY,
-                       strlen (GF_XATTR_PATHINFO_KEY)) == 0))) {
+        if (name && (XATTR_IS_PATHINFO (name))) {
                 if (IA_ISREG (loc->inode->ia_type)) {
                         ret = inode_ctx_get (loc->inode, this,
                                              (uint64_t *) &local->fctx);
@@ -5637,8 +5635,7 @@ stripe_is_special_xattr (const char *name)
 
         if (!strncmp (name, GF_XATTR_LOCKINFO_KEY,
                       strlen (GF_XATTR_LOCKINFO_KEY))
-            || !strncmp (name, GF_XATTR_PATHINFO_KEY,
-                         strlen (GF_XATTR_PATHINFO_KEY)))
+            || XATTR_IS_PATHINFO (name))
                 is_spl = _gf_true;
 out:
         return is_spl;
