@@ -321,6 +321,18 @@ class Server(object):
             else:
                 raise
 
+    @classmethod
+    @_pathguard
+    def linkto_check(cls, path):
+        try:
+            return not (Xattr.lgetxattr_buf(path, 'trusted.glusterfs.dht.linkto') == '')
+        except (IOError, OSError):
+            ex = sys.exc_info()[1]
+            if ex.errno in (ENOENT, ENODATA):
+                return False
+            else:
+                raise
+
 
     @classmethod
     @_pathguard
@@ -1139,6 +1151,9 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                     def gfid(cls, e):
                         """ path based backend gfid fetch """
                         return super(brickserver, cls).gfid(e)
+                    @classmethod
+                    def linkto_check(cls, e):
+                        return super(brickserver, cls).linkto_check(e)
                 if gconf.slave_id:
                     # define {,set_}xtime in slave, thus preempting
                     # the call to remote, so that it takes data from
