@@ -1410,7 +1410,8 @@ afr_is_special_xattr (const char *name, fop_getxattr_cbk_t *cbk,
                 goto out;
         }
 
-        if (!strcmp (name, GF_XATTR_PATHINFO_KEY)) {
+        if (!strcmp (name, GF_XATTR_PATHINFO_KEY) ||
+                        !strcmp (name, GF_XATTR_USER_PATHINFO_KEY)) {
                 if (is_fgetxattr) {
                         *cbk = afr_fgetxattr_pathinfo_cbk;
                 } else {

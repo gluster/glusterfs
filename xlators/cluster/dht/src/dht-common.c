@@ -2161,7 +2161,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
          *       (until inode_link() happens)
          */
         if (key && DHT_IS_DIR(layout) &&
-            ((strcmp (key, GF_XATTR_PATHINFO_KEY) == 0)
+            (XATTR_IS_PATHINFO (key)
              || (strcmp (key, GF_XATTR_NODE_UUID_KEY) == 0))) {
                 (void) strncpy (local->xsel, key, 256);
                 cnt = local->call_cnt = layout->cnt;
@@ -2176,7 +2176,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
 
         /* node-uuid or pathinfo for files */
         if (key && ((strcmp (key, GF_XATTR_NODE_UUID_KEY) == 0)
-                    || (strcmp (key, GF_XATTR_PATHINFO_KEY) == 0))) {
+                    || XATTR_IS_PATHINFO (key))) {
                 cached_subvol = local->cached_subvol;
                 (void) strncpy (local->xsel, key, 256);
 

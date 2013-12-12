@@ -781,7 +781,10 @@ posix_handle_pair (xlator_t *this, const char *real_path,
         int sys_ret = -1;
         int ret     = 0;
 
-        if (ZR_FILE_CONTENT_REQUEST(key)) {
+        if (XATTR_IS_PATHINFO (key)) {
+                ret = -EACCES;
+                goto out;
+        } else if (ZR_FILE_CONTENT_REQUEST(key)) {
                 ret = posix_set_file_contents (this, real_path, key, value,
                                                flags);
         } else {

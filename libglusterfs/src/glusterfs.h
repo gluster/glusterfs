@@ -84,15 +84,18 @@
 #define GF_XATTR_NODE_UUID_KEY  "trusted.glusterfs.node-uuid"
 #define GF_XATTR_VOL_ID_KEY   "trusted.glusterfs.volume-id"
 #define GF_XATTR_LOCKINFO_KEY   "trusted.glusterfs.lockinfo"
-#define GF_XATTR_GET_REAL_FILENAME_KEY "user.glusterfs.get_real_filename:"
+#define GF_XATTR_GET_REAL_FILENAME_KEY "glusterfs.get_real_filename:"
+#define GF_XATTR_USER_PATHINFO_KEY   "glusterfs.pathinfo"
 #define QUOTA_LIMIT_KEY "trusted.glusterfs.quota.limit-set"
 
 #define GF_READDIR_SKIP_DIRS       "readdir-filter-directories"
 
 #define BD_XATTR_KEY             "user.glusterfs"
 
-#define XATTR_IS_PATHINFO(x)  (strncmp (x, GF_XATTR_PATHINFO_KEY,       \
-                                        strlen (GF_XATTR_PATHINFO_KEY)) == 0)
+#define XATTR_IS_PATHINFO(x)  ((strncmp (x, GF_XATTR_PATHINFO_KEY,       \
+                                        strlen (x)) == 0) ||             \
+                              (strncmp (x, GF_XATTR_USER_PATHINFO_KEY,   \
+                                         strlen (x)) == 0))
 #define XATTR_IS_NODE_UUID(x) (strncmp (x, GF_XATTR_NODE_UUID_KEY,      \
                                         strlen (GF_XATTR_NODE_UUID_KEY)) == 0)
 #define XATTR_IS_LOCKINFO(x) (strncmp (x, GF_XATTR_LOCKINFO_KEY,        \
