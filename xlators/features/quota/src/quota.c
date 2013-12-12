@@ -3255,10 +3255,6 @@ quota_setxattr (call_frame_t *frame, xlator_t *this,
         int            op_ret   = -1;
         int64_t        hard_lim = -1, soft_lim = -1;
         quota_local_t *local    = NULL;
-        char          *src      = NULL;
-        char          *dst      = NULL;
-        int            len      = 0;
-        int            ret      = -1;
 
         priv = this->private;
 
@@ -3268,29 +3264,11 @@ quota_setxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (loc, err);
 
-        if (0 <= frame->root->pid) {
-                ret = dict_get_ptr_and_len (dict, QUOTA_LIMIT_KEY,
-                                            (void **)&src, &len);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_DEBUG, "dict_get on %s "
-                                "failed", QUOTA_LIMIT_KEY);
-                } else {
-                        dst = GF_CALLOC (len, sizeof (char), gf_common_mt_char);
-                        if (dst)
-                                memcpy (dst, src, len);
-                }
-
-                GF_REMOVE_INTERNAL_XATTR ("trusted.glusterfs.quota*",
-                                          dict);
-                if (!ret && IA_ISDIR (loc->inode->ia_type) && dst) {
-                        ret = dict_set_dynptr (dict, QUOTA_LIMIT_KEY,
-                                               dst, len);
-                        if (ret)
-                                gf_log (this->name, GF_LOG_WARNING, "setting "
-                                        "key %s failed", QUOTA_LIMIT_KEY);
-                        else
-                                dst = NULL;
-                }
+        if (frame->root->pid >= 0) {
+                GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.quota*", dict,
+                                           op_errno, err);
+                GF_IF_INTERNAL_XATTR_GOTO ("trusted.pgfid*", dict, op_errno,
+                                           err);
         }
 
         quota_get_limits (this, dict, &hard_lim, &soft_lim);
@@ -3367,9 +3345,12 @@ quota_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
 
-        if (0 <= frame->root->pid)
-                GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.quota*", dict,
+        if (0 <= frame->root->pid) {
+                GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.quota*",
+                                            dict, op_errno, err);
+                GF_IF_INTERNAL_XATTR_GOTO ("trusted.pgfid*", dict,
                                             op_errno, err);
+        }
 
         quota_get_limits (this, dict, &hard_lim, &soft_lim);
 
@@ -3418,8 +3399,12 @@ quota_removexattr (call_frame_t *frame, xlator_t *this,
         /* all quota xattrs can be cleaned up by doing setxattr on special key.
          * Hence its ok that we don't allow removexattr on quota keys here.
          */
-        GF_IF_NATIVE_XATTR_GOTO ("trusted.quota*",
-                                 name, op_errno, err);
+        if (frame->root->pid >= 0) {
+                GF_IF_NATIVE_XATTR_GOTO ("trusted.glusterfs.quota*",
+                                         name, op_errno, err);
+                GF_IF_NATIVE_XATTR_GOTO ("trusted.pgfid*", name,
+                                         op_errno, err);
+        }
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (loc, err);
@@ -3460,9 +3445,12 @@ quota_fremovexattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
 
-        GF_IF_NATIVE_XATTR_GOTO ("trusted.quota*",
-                                 name, op_errno, err);
-
+        if (frame->root->pid >= 0) {
+                GF_IF_NATIVE_XATTR_GOTO ("trusted.glusterfs.quota*",
+                                         name, op_errno, err);
+                GF_IF_NATIVE_XATTR_GOTO ("trusted.pgfid*", name,
+                                         op_errno, err);
+        }
 wind:
         STACK_WIND (frame, priv->is_quota_on?
                     quota_fremovexattr_cbk: default_fremovexattr_cbk,

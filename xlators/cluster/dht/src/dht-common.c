@@ -2010,6 +2010,12 @@ dht_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (dict_get (xattr, conf->xattr_name)) {
                 dict_del (xattr, conf->xattr_name);
         }
+
+        if (frame->root->pid >= 0 ) {
+                GF_REMOVE_INTERNAL_XATTR("trusted.glusterfs.quota*", xattr);
+                GF_REMOVE_INTERNAL_XATTR("trusted.pgfid*", xattr);
+        }
+
         local->op_ret = 0;
 
         if (!local->xattr) {
