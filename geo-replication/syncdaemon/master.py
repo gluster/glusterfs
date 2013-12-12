@@ -1184,6 +1184,13 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
             if stime and stime[-1]:
                 self.sync_stime(stime[-1], last)
 
+    def is_sticky(self, path, mo):
+        """check for DHTs linkto sticky bit file"""
+        sticky = False
+        if mo & 01000:
+            sticky = self.master.server.linkto_check(path)
+        return sticky
+
     def Xcrawl(self, path='.', xtr_root=None):
         """
         generate a CHANGELOG file consumable by process_change.
@@ -1234,6 +1241,9 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
             st = self.master.server.lstat(e)
             if isinstance(st, int):
                 logging.warn('%s got purged in the interim ...' % e)
+                continue
+            if self.is_sticky(e, st.st_mode):
+                logging.debug('ignoring sticky bit file %s' % e)
                 continue
             gfid = self.master.server.gfid(e)
             if isinstance(gfid, int):
