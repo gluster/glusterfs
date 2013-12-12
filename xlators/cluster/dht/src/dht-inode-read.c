@@ -531,7 +531,7 @@ dht_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             &local->loc, local->rebalance.flags, NULL);
                 return 0;
         }
-        if ((op_ret == -1) && (op_errno == ENOENT)) {
+        if ((op_ret == -1) && dht_inode_missing(op_errno)) {
                 /* File would be migrated to other node */
                 local->op_errno = op_errno;
                 local->rebalance.target_op_fn = dht_access2;
