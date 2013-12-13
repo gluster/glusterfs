@@ -4611,17 +4611,85 @@ err:
 
 
 int
+dht_rmdir_cached_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                             int op_ret, int op_errno, inode_t *inode,
+                             struct iatt *stbuf, dict_t *xattr,
+                             struct iatt *parent)
+{
+        dht_local_t    *local         = NULL;
+        xlator_t       *src           = NULL;
+        call_frame_t   *main_frame    = NULL;
+        dht_local_t    *main_local    = NULL;
+        int             this_call_cnt = 0;
+        dht_conf_t     *conf          = this->private;
+        dict_t         *xattrs        = NULL;
+        int             ret           = 0;
+
+        local = frame->local;
+        src   = local->hashed_subvol;
+
+        main_frame = local->main_frame;
+        main_local = main_frame->local;
+
+        if (op_ret == 0) {
+                main_local->op_ret  = -1;
+                main_local->op_errno = ENOTEMPTY;
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s found on cached subvol %s",
+                        local->loc.path, src->name);
+                goto err;
+        } else if (op_errno != ENOENT) {
+                main_local->op_ret  = -1;
+                main_local->op_errno = op_errno;
+                goto err;
+        }
+
+        xattrs = dict_new ();
+        if (!xattrs) {
+                gf_log (this->name, GF_LOG_ERROR, "dict_new failed");
+                goto err;
+        }
+
+        ret = dict_set_uint32 (xattrs, conf->link_xattr_name, 256);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to set linkto key"
+                        " in dict");
+                if (xattrs)
+                        dict_unref (xattrs);
+                goto err;
+        }
+
+        STACK_WIND (frame, dht_rmdir_lookup_cbk,
+                    src, src->fops->lookup, &local->loc, xattrs);
+        if (xattrs)
+                dict_unref (xattrs);
+
+        return 0;
+err:
+
+        this_call_cnt = dht_frame_return (main_frame);
+        if (is_last_call (this_call_cnt))
+                dht_rmdir_do (main_frame, this);
+
+        DHT_STACK_DESTROY (frame);
+        return 0;
+}
+
+
+int
 dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                            gf_dirent_t *entries, xlator_t *src)
 {
-        int                 ret = 0;
-        int                 build_ret = 0;
-        gf_dirent_t        *trav = NULL;
+        int                 ret          = 0;
+        int                 build_ret    = 0;
+        gf_dirent_t        *trav         = NULL;
         call_frame_t       *lookup_frame = NULL;
         dht_local_t        *lookup_local = NULL;
-        dht_local_t        *local = NULL;
-        dict_t             *xattrs = NULL;
-        dht_conf_t         *conf = this->private;
+        dht_local_t        *local        = NULL;
+        dict_t             *xattrs       = NULL;
+        dht_conf_t         *conf         = this->private;
+        xlator_t           *subvol       = NULL;
 
         local = frame->local;
 
@@ -4681,6 +4749,7 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
 
                 lookup_frame->local = lookup_local;
                 lookup_local->main_frame = frame;
+                lookup_local->hashed_subvol = src;
 
                 build_ret = dht_build_child_loc (this, &lookup_local->loc,
                                                  &local->loc, trav->d_name);
@@ -4699,9 +4768,20 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                 }
                 UNLOCK (&frame->lock);
 
-                STACK_WIND (lookup_frame, dht_rmdir_lookup_cbk,
-                            src, src->fops->lookup,
-                            &lookup_local->loc, xattrs);
+                subvol = dht_linkfile_subvol (this, NULL, &trav->d_stat,
+                                              trav->dict);
+                if (!subvol) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "linkfile not having link subvolume. path=%s",
+                                lookup_local->loc.path);
+                        STACK_WIND (lookup_frame, dht_rmdir_lookup_cbk,
+                                    src, src->fops->lookup,
+                                    &lookup_local->loc, xattrs);
+                } else {
+                        STACK_WIND (lookup_frame, dht_rmdir_cached_lookup_cbk,
+                                    subvol, subvol->fops->lookup,
+                                    &lookup_local->loc, xattrs);
+                }
                 ret++;
         }
 
@@ -4767,16 +4847,18 @@ int
 dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int op_ret, int op_errno, fd_t *fd, dict_t *xdata)
 {
-        dht_local_t  *local = NULL;
+        dht_local_t  *local         = NULL;
         int           this_call_cnt = -1;
-        call_frame_t *prev = NULL;
-        dict_t       *dict = NULL;
-        int           ret = 0;
-        dht_conf_t   *conf = this->private;
+        call_frame_t *prev          = NULL;
+        dict_t       *dict          = NULL;
+        int           ret           = 0;
+        dht_conf_t   *conf          = this->private;
+        int           i             = 0;
 
         local = frame->local;
         prev  = cookie;
 
+        this_call_cnt = dht_frame_return (frame);
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "opendir on %s for %s failed (%s)",
@@ -4788,6 +4870,12 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
                 goto err;
         }
+
+        if (!is_last_call (this_call_cnt))
+                return 0;
+
+        if (local->op_ret == -1)
+                goto err;
 
         dict = dict_new ();
         if (!dict) {
@@ -4802,9 +4890,13 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "%s: failed to set '%s' key",
                         local->loc.path, conf->link_xattr_name);
 
-        STACK_WIND (frame, dht_rmdir_readdirp_cbk,
-                    prev->this, prev->this->fops->readdirp,
-                    local->fd, 4096, 0, dict);
+        local->call_cnt = conf->subvolume_cnt;
+        for (i = 0; i < conf->subvolume_cnt; i++) {
+                STACK_WIND (frame, dht_rmdir_readdirp_cbk,
+                            conf->subvolumes[i],
+                            conf->subvolumes[i]->fops->readdirp,
+                            local->fd, 4096, 0, dict);
+        }
 
         if (dict)
                 dict_unref (dict);
@@ -4812,8 +4904,6 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 
 err:
-        this_call_cnt = dht_frame_return (frame);
-
         if (is_last_call (this_call_cnt)) {
                 dht_rmdir_do (frame, this);
         }
