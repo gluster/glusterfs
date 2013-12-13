@@ -1,5 +1,4 @@
-Managing the glusterd Service
-=============================
+#Managing the glusterd Service
 
 After installing GlusterFS, you must start glusterd service. The
 glusterd service serves as the Gluster elastic volume manager,
@@ -10,16 +9,13 @@ servers non-disruptively.
 This section describes how to start the glusterd service in the
 following ways:
 
--   ?
+- [Starting and Stopping glusterd Manually](#manual)
+- [Starting glusterd Automatically](#auto)
 
--   ?
+> **Note**: You must start glusterd on all GlusterFS servers.
 
-> **Note**
->
-> You must start glusterd on all GlusterFS servers.
-
-Starting and Stopping glusterd Manually
-=======================================
+<a name="manual" />
+##Starting and Stopping glusterd Manually
 
 This section describes how to start and stop glusterd manually
 
@@ -31,19 +27,13 @@ This section describes how to start and stop glusterd manually
 
     `# /etc/init.d/glusterd stop`
 
-Starting glusterd Automatically
-===============================
+<a name="auto" />
+##Starting glusterd Automatically
 
 This section describes how to configure the system to automatically
 start the glusterd service every time the system boots.
 
-To automatically start the glusterd service every time the system boots,
-enter the following from the command line:
-
-`# chkconfig glusterd on `
-
-Red Hat-based Systems
----------------------
+###Red Hat and Fedora distros
 
 To configure Red Hat-based systems to automatically start the glusterd
 service every time the system boots, enter the following from the
@@ -51,8 +41,7 @@ command line:
 
 `# chkconfig glusterd on `
 
-Debian-based Systems
---------------------
+###Debian and derivatives like Ubuntu
 
 To configure Debian-based systems to automatically start the glusterd
 service every time the system boots, enter the following from the
@@ -60,8 +49,7 @@ command line:
 
 `# update-rc.d glusterd defaults`
 
-Systems Other than Red Hat and Debain
--------------------------------------
+###Systems Other than Red Hat and Debain
 
 To configure systems other than Red Hat or Debian to automatically start
 the glusterd service every time the system boots, enter the following

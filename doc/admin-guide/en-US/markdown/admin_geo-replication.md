@@ -1,5 +1,4 @@
-Managing Geo-replication
-========================
+#Managing Geo-replication
 
 Geo-replication provides a continuous, asynchronous, and incremental
 replication service from one site to another over Local Area Networks
@@ -8,9 +7,9 @@ replication service from one site to another over Local Area Networks
 Geo-replication uses a master–slave model, whereby replication and
 mirroring occurs between the following partners:
 
--   Master – a GlusterFS volume
+-   **Master** – a GlusterFS volume
 
--   Slave – a slave which can be of the following types:
+-   **Slave** – a slave which can be of the following types:
 
     -   A local directory which can be represented as file URL like
         `file:///path/to/dir`. You can use shortened form, for example,
@@ -34,37 +33,24 @@ This section introduces Geo-replication, illustrates the various
 deployment scenarios, and explains how to configure the system to
 provide replication and mirroring in your environment.
 
-Replicated Volumes vs Geo-replication
-=====================================
+##Replicated Volumes vs Geo-replication
 
 The following table lists the difference between replicated volumes and
 geo-replication:
 
-  Replicated Volumes                                                                      Geo-replication
-  --------------------------------------------------------------------------------------- -----------------------------------------------------------------------------------------------------------------
-  Mirrors data across clusters                                                            Mirrors data across geographically distributed clusters
-  Provides high-availability                                                              Ensures backing up of data for disaster recovery
-  Synchronous replication (each and every file operation is sent across all the bricks)   Asynchronous replication (checks for the changes in files periodically and syncs them on detecting differences)
+  Replicated Volumes | Geo-replication
+  --- | ---
+  Mirrors data across clusters | Mirrors data across geographically distributed clusters
+  Provides high-availability | Ensures backing up of data for disaster recovery
+  Synchronous replication (each and every file operation is sent across all the bricks) | Asynchronous replication (checks for the changes in files periodically and syncs them on detecting differences)
 
-Preparing to Deploy Geo-replication
-===================================
+##Preparing to Deploy Geo-replication
 
 This section provides an overview of the Geo-replication deployment
 scenarios, describes how you can check the minimum system requirements,
 and explores common deployment scenarios.
 
--   ?
-
--   ?
-
--   ?
-
--   ?
-
--   ?
-
-Exploring Geo-replication Deployment Scenarios
-----------------------------------------------
+##Exploring Geo-replication Deployment Scenarios
 
 Geo-replication provides an incremental replication service over Local
 Area Networks (LANs), Wide Area Network (WANs), and across the Internet.
@@ -72,11 +58,8 @@ This section illustrates the most common deployment scenarios for
 Geo-replication, including the following:
 
 -   Geo-replication over LAN
-
 -   Geo-replication over WAN
-
 -   Geo-replication over the Internet
-
 -   Multi-site cascading Geo-replication
 
 **Geo-replication over LAN**
@@ -106,22 +89,15 @@ across multiple sites.
 
 ![ Multi-site cascading Geo-replication ][]
 
-Geo-replication Deployment Overview
------------------------------------
+##Geo-replication Deployment Overview
 
 Deploying Geo-replication involves the following steps:
 
 1.  Verify that your environment matches the minimum system requirement.
-    For more information, see ?.
+2.  Determine the appropriate deployment scenario.
+3.  Start Geo-replication on master and slave systems, as required.
 
-2.  Determine the appropriate deployment scenario. For more information,
-    see ?.
-
-3.  Start Geo-replication on master and slave systems, as required. For
-    more information, see ?.
-
-Checking Geo-replication Minimum Requirements
----------------------------------------------
+##Checking Geo-replication Minimum Requirements
 
 Before deploying GlusterFS Geo-replication, verify that your systems
 match the minimum requirements.
@@ -129,17 +105,16 @@ match the minimum requirements.
 The following table outlines the minimum requirements for both master
 and slave nodes within your environment:
 
-  Component                Master                                                                Slave
-  ------------------------ --------------------------------------------------------------------- --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  Operating System         GNU/Linux                                                             GNU/Linux
-  Filesystem               GlusterFS 3.2 or higher                                               GlusterFS 3.2 or higher (GlusterFS needs to be installed, but does not need to be running), ext3, ext4, or XFS (any other POSIX compliant file system would work, but has not been tested extensively)
-  Python                   Python 2.4 (with ctypes external module), or Python 2.5 (or higher)   Python 2.4 (with ctypes external module), or Python 2.5 (or higher)
-  Secure shell             OpenSSH version 4.0 (or higher)                                       SSH2-compliant daemon
-  Remote synchronization   rsync 3.0.7 or higher                                                 rsync 3.0.7 or higher
-  FUSE                     GlusterFS supported versions                                          GlusterFS supported versions
+  Component                | Master                                                                | Slave
+  ---                      | ---                                                                   | ---
+  Operating System         | GNU/Linux                                                             | GNU/Linux
+  Filesystem               | GlusterFS 3.2 or higher                                               | GlusterFS 3.2 or higher (GlusterFS needs to be installed, but does not need to be running), ext3, ext4, or XFS (any other POSIX compliant file system would work, but has not been tested extensively)
+  Python                   | Python 2.4 (with ctypes external module), or Python 2.5 (or higher)   | Python 2.4 (with ctypes external module), or Python 2.5 (or higher)
+  Secure shell             | OpenSSH version 4.0 (or higher)                                       | SSH2-compliant daemon
+  Remote synchronization   | rsync 3.0.7 or higher                                                 | rsync 3.0.7 or higher
+  FUSE                     | GlusterFS supported versions                                          | GlusterFS supported versions
 
-Setting Up the Environment for Geo-replication
-----------------------------------------------
+##Setting Up the Environment for Geo-replication
 
 **Time Synchronization**
 
@@ -172,8 +147,7 @@ geo-replication Start command will be issued) and the remote machine
 
     `# ssh-copy-id -i /var/lib/glusterd/geo-replication/secret.pem.pub @`
 
-Setting Up the Environment for a Secure Geo-replication Slave
--------------------------------------------------------------
+##Setting Up the Environment for a Secure Geo-replication Slave
 
 You can configure a secure slave using SSH so that master is granted a
 restricted access. With GlusterFS, you need not specify configuration
@@ -366,25 +340,13 @@ following command:
 
 `# gluster volume geo-replication '*' config allow-network ::1,127.0.0.1`
 
-Starting Geo-replication
-========================
+##Starting Geo-replication
 
 This section describes how to configure and start Gluster
 Geo-replication in your storage environment, and verify that it is
 functioning correctly.
 
--   ?
-
--   ?
-
--   ?
-
--   ?
-
--   ?
-
-Starting Geo-replication
-------------------------
+###Starting Geo-replication
 
 To start Gluster Geo-replication
 
@@ -401,10 +363,9 @@ To start Gluster Geo-replication
     > **Note**
     >
     > You may need to configure the service before starting Gluster
-    > Geo-replication. For more information, see ?.
+    > Geo-replication.
 
-Verifying Successful Deployment
--------------------------------
+###Verifying Successful Deployment
 
 You can use the gluster command to verify the status of Gluster
 Geo-replication in your environment.
@@ -425,8 +386,7 @@ Geo-replication in your environment.
         ______    ______________________________   ____________
         Volume1 root@example.com:/data/remote_dir  Starting....
 
-Displaying Geo-replication Status Information
----------------------------------------------
+###Displaying Geo-replication Status Information
 
 You can display status information about a specific geo-replication
 master session, or a particular master-slave session, or all
@@ -480,15 +440,13 @@ geo-replication sessions, as needed.
 -   **OK**: The geo-replication session is in a stable state.
 
 -   **Faulty**: The geo-replication session has witnessed some
-    abnormality and the situation has to be investigated further. For
-    further information, see ? section.
+    abnormality and the situation has to be investigated further.
 
 -   **Corrupt**: The monitor thread which is monitoring the
     geo-replication session has died. This situation should not occur
-    normally, if it persists contact Red Hat Support[][1].
+    normally.
 
-Configuring Geo-replication
----------------------------
+##Configuring Geo-replication
 
 To configure Gluster Geo-replication
 
@@ -496,16 +454,13 @@ To configure Gluster Geo-replication
 
     `# gluster volume geo-replication  config [options]`
 
-    For more information about the options, see ?.
-
     For example:
 
     To view list of all option/value pair, use the following command:
 
     `# gluster volume geo-replication Volume1 example.com:/data/remote_dir config`
 
-Stopping Geo-replication
-------------------------
+##Stopping Geo-replication
 
 You can use the gluster command to stop Gluster Geo-replication (syncing
 of data from Master to Slave) in your environment.
@@ -522,10 +477,7 @@ of data from Master to Slave) in your environment.
         Stopping geo-replication session between Volume1 and
         example.com:/data/remote_dir has been successful
 
-    See ? for more information about the gluster command.
-
-Restoring Data from the Slave
-=============================
+##Restoring Data from the Slave
 
 You can restore data from the slave to the master volume, whenever the
 master volume becomes faulty for reasons like hardware failure.
@@ -687,15 +639,13 @@ Run the following command on slave (example.com):
         Starting geo-replication session between Volume1 &
         example.com:/data/remote_dir has been successful
 
-Best Practices
-==============
+##Best Practices
 
 **Manually Setting Time**
 
 If you have to change the time on your bricks manually, then you must
-set uniform time on all bricks. This avoids the out-of-time sync issue
-described in ?. Setting time backward corrupts the geo-replication
-index, so the recommended way to set the time manually is:
+set uniform time on all bricks. Setting time backward corrupts the
+geo-replication index, so the recommended way to set the time manually is:
 
 1.  Stop geo-replication between the master and slave using the
     following command:
@@ -730,9 +680,9 @@ machine / chroot/container type solution) by the administrator to run
 the geo-replication slave in it. Enhancement in this regard will be
 available in follow-up minor release.
 
-  [ Geo-replication over LAN ]: images/Geo-Rep_LAN.png
-  [ Geo-replication over WAN ]: images/Geo-Rep_WAN.png
-  [ Geo-replication over Internet ]: images/Geo-Rep03_Internet.png
-  [ Multi-site cascading Geo-replication ]: images/Geo-Rep04_Cascading.png
+  [ Geo-replication over LAN ]: ../images/Geo-Rep_LAN.png
+  [ Geo-replication over WAN ]: ../images/Geo-Rep_WAN.png
+  [ Geo-replication over Internet ]: ../images/Geo-Rep03_Internet.png
+  [ Multi-site cascading Geo-replication ]: ../images/Geo-Rep04_Cascading.png
   []: http://docs.redhat.com/docs/en-US/Red_Hat_Enterprise_Linux/6/html/Migration_Planning_Guide/ch04s07.html
   [1]: www.redhat.com/support/

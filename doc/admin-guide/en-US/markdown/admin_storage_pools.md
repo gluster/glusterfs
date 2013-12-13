@@ -1,5 +1,4 @@
-Setting up Trusted Storage Pools
-================================
+#Setting up Trusted Storage Pools
 
 Before you can configure a GlusterFS volume, you must create a trusted
 storage pool consisting of the storage servers that provides bricks to a
@@ -10,21 +9,18 @@ the first server, the storage pool consists of that server alone. To add
 additional storage servers to the storage pool, you can use the probe
 command from a storage server that is already trusted.
 
-> **Note**
->
-> Do not self-probe the first server/localhost.
+> **Note**: Do not self-probe the first server/localhost.
 
 The GlusterFS service must be running on all storage servers that you
 want to add to the storage pool. See ? for more information.
 
-Adding Servers to Trusted Storage Pool
-======================================
+##Adding Servers to Trusted Storage Pool
 
 To create a trusted storage pool, add servers to the trusted storage
 pool
 
-1.  The hostnames used to create the storage pool must be resolvable by
-    DNS.
+1.  **The hostnames used to create the storage pool must be resolvable by
+    DNS**
 
     To add a server to the storage pool:
 
@@ -42,8 +38,8 @@ pool
         # gluster peer probe server4
         Probe successful
 
-2.  Verify the peer status from the first server using the following
-    commands:
+2.  **Verify the peer status from the first server using the following
+    commands:**
 
         # gluster peer status
         Number of Peers: 3
@@ -60,8 +56,7 @@ pool
         Uuid: 3e0caba-9df7-4f66-8e5d-cbc348f29ff7
         State: Peer in Cluster (Connected)
 
-Removing Servers from the Trusted Storage Pool
-==============================================
+##Removing Servers from the Trusted Storage Pool
 
 To remove a server from the storage pool:
 

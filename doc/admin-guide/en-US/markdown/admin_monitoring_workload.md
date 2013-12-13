@@ -1,5 +1,4 @@
-Monitoring your GlusterFS Workload
-==================================
+#Monitoring your GlusterFS Workload
 
 You can monitor the GlusterFS volumes on different parameters.
 Monitoring volumes helps in capacity planning and performance tuning
@@ -14,8 +13,7 @@ performance needs to be probed.
 You can also perform statedump of the brick processes and nfs server
 process of a volume, and also view volume status and volume information.
 
-Running GlusterFS Volume Profile Command
-========================================
+##Running GlusterFS Volume Profile Command
 
 GlusterFS Volume Profile command provides an interface to get the
 per-brick I/O information for each File Operation (FOP) of a volume. The
@@ -25,21 +23,17 @@ system.
 This section describes how to run GlusterFS Volume Profile command by
 performing the following operations:
 
--   ?
+-   [Start Profiling](#start-profiling)
+-   [Displaying the I/0 Information](#displaying-io)
+-   [Stop Profiling](#stop-profiling)
 
--   ?
-
--   ?
-
-Start Profiling
----------------
+<a name="start-profiling" />
+###Start Profiling
 
 You must start the Profiling to view the File Operation information for
 each brick.
 
-**To start profiling:**
-
--   Start profiling using the following command:
+To start profiling, use following command:
 
 `# gluster volume profile  start `
 
@@ -52,17 +46,12 @@ When profiling on the volume is started, the following additional
 options are displayed in the Volume Info:
 
     diagnostics.count-fop-hits: on
-
     diagnostics.latency-measurement: on
 
-Displaying the I/0 Information
-------------------------------
+<a name="displaying-io" />
+###Displaying the I/0 Information
 
-You can view the I/O information of each brick.
-
-To display I/O information:
-
--   Display the I/O information using the following command:
+You can view the I/O information of each brick by using the following command:
 
 `# gluster volume profile  info`
 
@@ -117,26 +106,23 @@ For example, to see the I/O information on test-volume:
 
     BytesWritten : 195571980
 
-Stop Profiling
---------------
+<a name="stop-profiling" />
+###Stop Profiling
 
 You can stop profiling the volume, if you do not need profiling
 information anymore.
 
-**To stop profiling**
-
--   Stop profiling using the following command:
+Stop profiling using the following command:
 
     `# gluster volume profile  stop`
 
-    For example, to stop profiling on test-volume:
+For example, to stop profiling on test-volume:
 
     `# gluster volume profile  stop`
 
     `Profiling stopped on test-volume`
 
-Running GlusterFS Volume TOP Command
-====================================
+##Running GlusterFS Volume TOP Command
 
 GlusterFS Volume Top command allows you to view the glusterfs bricks’
 performance metrics like read, write, file open calls, file read calls,
@@ -146,22 +132,16 @@ top command displays up to 100 results.
 This section describes how to run and view the results for the following
 GlusterFS Top commands:
 
--   ?
+-   [Viewing Open fd Count and Maximum fd Count](#open-fd-count)
+-   [Viewing Highest File Read Calls](#file-read)
+-   [Viewing Highest File Write Calls](#file-write)
+-   [Viewing Highest Open Calls on Directories](#open-dir)
+-   [Viewing Highest Read Calls on Directory](#read-dir)
+-   [Viewing List of Read Performance on each Brick](#read-perf)
+-   [Viewing List of Write Performance on each Brick](#write-perf)
 
--   ?
-
--   ?
-
--   ?
-
--   ?
-
--   ?
-
--   ?
-
-Viewing Open fd Count and Maximum fd Count
-------------------------------------------
+<a name="open-fd-count" />
+###Viewing Open fd Count and Maximum fd Count
 
 You can view both current open fd count (list of files that are
 currently the most opened and the count) on the brick and the maximum
@@ -170,8 +150,6 @@ of maximum number of files opened at any given point of time, since the
 servers are up and running). If the brick name is not specified, then
 open fd metrics of all the bricks belonging to the volume will be
 displayed.
-
-**To view open fd count and maximum fd count:**
 
 -   View open fd count and maximum fd count using the following command:
 
@@ -221,13 +199,11 @@ displayed.
         9               /clients/client8/~dmtmp/PARADOX/
                         STUDENTS.DB
 
-Viewing Highest File Read Calls
--------------------------------
+<a name="file-read" />
+###Viewing Highest File Read Calls
 
 You can view highest read calls on each brick. If brick name is not
 specified, then by default, list of 100 files will be displayed.
-
-**To view highest file Read calls:**
 
 -   View highest file Read calls using the following command:
 
@@ -265,14 +241,12 @@ specified, then by default, list of 100 files will be displayed.
 
         54               /clients/client8/~dmtmp/SEED/LARGE.FIL
 
-Viewing Highest File Write Calls
---------------------------------
+<a name="file-write" />
+###Viewing Highest File Write Calls
 
 You can view list of files which has highest file write calls on each
 brick. If brick name is not specified, then by default, list of 100
 files will be displayed.
-
-**To view highest file Write calls:**
 
 -   View highest file Write calls using the following command:
 
@@ -308,14 +282,12 @@ files will be displayed.
 
         59                /clients/client3/~dmtmp/SEED/LARGE.FIL
 
-Viewing Highest Open Calls on Directories
------------------------------------------
+<a name="open-dir" />
+###Viewing Highest Open Calls on Directories
 
 You can view list of files which has highest open calls on directories
 of each brick. If brick name is not specified, then the metrics of all
 the bricks belonging to that volume will be displayed.
-
-To view list of open calls on each directory
 
 -   View list of open calls on each directory using the following
     command:
@@ -353,14 +325,12 @@ To view list of open calls on each directory
 
         402               /clients/client4/~dmtmp
 
-Viewing Highest Read Calls on Directory
----------------------------------------
+<a name="read-dir" />
+###Viewing Highest Read Calls on Directory
 
 You can view list of files which has highest directory read calls on
 each brick. If brick name is not specified, then the metrics of all the
 bricks belonging to that volume will be displayed.
-
-**To view list of highest directory read calls on each brick**
 
 -   View list of highest directory read calls on each brick using the
     following command:
@@ -398,8 +368,8 @@ bricks belonging to that volume will be displayed.
 
         800                     /clients/client4/~dmtmp
 
-Viewing List of Read Performance on each Brick
-----------------------------------------------
+<a name="read-perf" />
+###Viewing List of Read Performance on each Brick
 
 You can view the read throughput of files on each brick. If brick name
 is not specified, then the metrics of all the bricks belonging to that
@@ -442,8 +412,6 @@ volume will be displayed. The output will be the read throughput.
 
 This command will initiate a dd for the specified count and block size
 and measures the corresponding throughput.
-
-**To view list of read performance on each brick**
 
 -   View list of read performance on each brick using the following
     command:
@@ -494,9 +462,8 @@ and measures the corresponding throughput.
         2184.00  /clients/client5/~dmtmp/WORD/       -2011-01-31
                  BASEMACH.DOC                    15:39:09.336572
                                                    
-
-Viewing List of Write Performance on each Brick
------------------------------------------------
+<a name="write-perf" />
+###Viewing List of Write Performance on each Brick
 
 You can view list of write throughput of files on each brick. If brick
 name is not specified, then the metrics of all the bricks belonging to
@@ -552,13 +519,10 @@ performance on each brick:
         516.00   /clients/client6/~dmtmp/ACCESS/    -2011-01-31
                  FASTENER.MDB                    15:39:01.797317
 
-Displaying Volume Information
-=============================
+##Displaying Volume Information
 
 You can display information about a specific volume, or all volumes, as
 needed.
-
-**To display volume information**
 
 -   Display information about a specific volume using the following
     command:
@@ -611,8 +575,7 @@ needed.
         Bricks:
         Brick: server:/brick6
 
-Performing Statedump on a Volume
-================================
+##Performing Statedump on a Volume
 
 Statedump is a mechanism through which you can get details of all
 internal variables and state of the glusterfs process at the time of
@@ -668,8 +631,7 @@ dumped:
 
     `# gluster volume info `
 
-Displaying Volume Status
-========================
+##Displaying Volume Status
 
 You can display the status information about a specific volume, brick or
 all volumes, as needed. Status information can be used to understand the

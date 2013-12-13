@@ -1,5 +1,4 @@
-Managing Unified File and Object Storage
-========================================
+#Managing Unified File and Object Storage
 
 Unified File and Object Storage (UFO) unifies NAS and object storage
 technology. It provides a system for data storage that enables users to
@@ -35,8 +34,7 @@ a traditional file system. You will not be able to mount this system
 like traditional SAN or NAS volumes and perform POSIX compliant
 operations.
 
-Components of Object Storage
-============================
+##Components of Object Storage
 
 The major components of Object Storage are:
 
@@ -88,35 +86,26 @@ objects within that account. If a user wants to access the content from
 another account, they must have API access key or a session token
 provided by their authentication system.
 
-Advantages of using GlusterFS Unified File and Object Storage
-=============================================================
+##Advantages of using GlusterFS Unified File and Object Storage
 
 The following are the advantages of using GlusterFS UFO:
 
 -   No limit on upload and download files sizes as compared to Open
     Stack Swift which limits the object size to 5GB.
-
 -   A unified view of data across NAS and Object Storage technologies.
-
 -   Using GlusterFS's UFO has other advantages like the following:
-
     -   High availability
-
     -   Scalability
-
     -   Replication
-
     -   Elastic Volume management
 
-Preparing to Deploy Unified File and Object Storage
-===================================================
+##Preparing to Deploy Unified File and Object Storage
 
 This section provides information on pre-requisites and list of
 dependencies that will be installed during the installation of Unified
 File and Object Storage.
 
-Pre-requisites
---------------
+###Pre-requisites
 
 GlusterFS's Unified File and Object Storage needs `user_xattr` support
 from the underlying disk file system. Use the following command to
@@ -128,50 +117,33 @@ For example,
 
 `# mount –o remount,user_xattr /dev/hda1 `
 
-Dependencies
+####Dependencies
 ------------
 
 The following packages are installed on GlusterFS when you install
 Unified File and Object Storage:
 
 -   curl
-
 -   memcached
-
 -   openssl
-
 -   xfsprogs
-
 -   python2.6
-
 -   pyxattr
-
 -   python-configobj
-
 -   python-setuptools
-
 -   python-simplejson
-
 -   python-webob
-
 -   python-eventlet
-
 -   python-greenlet
-
 -   python-pastedeploy
-
 -   python-netifaces
 
-Installing and Configuring Unified File and Object Storage
-==========================================================
+##Installing and Configuring Unified File and Object Storage
 
 This section provides instructions on how to install and configure
 Unified File and Object Storage in your storage environment.
 
-Installing Unified File and Object Storage
-------------------------------------------
-
-To install Unified File and Object Storage:
+##Installing Unified File and Object Storage
 
 1.  Download `rhel_install.sh` install script from [][] .
 
@@ -197,15 +169,13 @@ To install Unified File and Object Storage:
     > use a load balancer like pound, nginx, and so on to distribute the
     > request across the machines.
 
-Adding Users
-------------
+###Adding Users
 
 The authentication system allows the administrator to grant different
 levels of access to different users based on the requirement. The
 following are the types of user permissions:
 
 -   admin user
-
 -   normal user
 
 Admin user has read and write permissions on the account. By default, a
@@ -228,10 +198,7 @@ For example,
 > the `proxy-server.conf` file. It is highly recommended that you remove
 > all the default sample user entries from the configuration file.
 
-For more information on setting ACLs, see ?.
-
-Configuring Proxy Server
-------------------------
+##Configuring Proxy Server
 
 The Proxy Server is responsible for connecting to the rest of the
 OpenStack Object Storage architecture. For each request, it looks up the
@@ -251,7 +218,8 @@ The configurable options pertaining to proxy server are stored in
     account_autocreate=true
 
     [filter:tempauth]
-    use = egg:swift#tempauth                                   user_admin_admin=admin.admin.reseller_admin
+    use = egg:swift#tempauth
+    user_admin_admin=admin.admin.reseller_admin
     user_test_tester=testing.admin
     user_test2_tester2=testing2.admin
     user_test_tester3=testing3
@@ -266,15 +234,12 @@ By default, GlusterFS's Unified File and Object Storage is configured to
 support HTTP protocol and uses temporary authentication to authenticate
 the HTTP requests.
 
-Configuring Authentication System
----------------------------------
+###Configuring Authentication System
 
-Proxy server must be configured to authenticate using `
-          
-        `.
+There are several different authentication system like tempauth, keystone,
+swauth etc. Their respective documentation has detailed usage.
 
-Configuring Proxy Server for HTTPS
-----------------------------------
+###Configuring Proxy Server for HTTPS
 
 By default, proxy server only handles HTTP request. To configure the
 proxy server to process HTTPS requests, perform the following steps:
@@ -288,8 +253,8 @@ proxy server to process HTTPS requests, perform the following steps:
     [DEFAULT]
 
         bind_port = 443
-         cert_file = /etc/swift/cert.crt
-         key_file = /etc/swift/cert.key
+        cert_file = /etc/swift/cert.crt
+        key_file = /etc/swift/cert.key
 
 3.  Restart the servers using the following commands:
 
@@ -298,41 +263,40 @@ proxy server to process HTTPS requests, perform the following steps:
 
 The following are the configurable options:
 
-  Option       Default      Description
-  ------------ ------------ -------------------------------
-  bind\_ip     0.0.0.0      IP Address for server to bind
-  bind\_port   80           Port for server to bind
-  swift\_dir   /etc/swift   Swift configuration directory
-  workers      1            Number of workers to fork
-  user         swift        swift user
-  cert\_file                Path to the ssl .crt
-  key\_file                 Path to the ssl .key
+  Option       | Default      | Description
+  ------------ | ------------ | -------------------------------
+  bind\_ip     | 0.0.0.0      | IP Address for server to bind
+  bind\_port   | 80           | Port for server to bind
+  swift\_dir   | /etc/swift   | Swift configuration directory
+  workers      | 1            | Number of workers to fork
+  user         | swift        | swift user
+  cert\_file   |              | Path to the ssl .crt
+  key\_file    |              | Path to the ssl .key
 
   : proxy-server.conf Default Options in the [DEFAULT] section
 
-  Option                          Default           Description
-  ------------------------------- ----------------- -----------------------------------------------------------------------------------------------------------
-  use                                               paste.deploy entry point for the container server. For most cases, this should be `egg:swift#container`.
-  log\_name                       proxy-server      Label used when logging
-  log\_facility                   LOG\_LOCAL0       Syslog log facility
-  log\_level                      INFO              Log level
-  log\_headers                    True              If True, log headers in each request
-  recheck\_account\_existence     60                Cache timeout in seconds to send memcached for account existence
-  recheck\_container\_existence   60                Cache timeout in seconds to send memcached for container existence
-  object\_chunk\_size             65536             Chunk size to read from object servers
-  client\_chunk\_size             65536             Chunk size to read from clients
-  memcache\_servers               127.0.0.1:11211   Comma separated list of memcached servers ip:port
-  node\_timeout                   10                Request timeout to external services
-  client\_timeout                 60                Timeout to read one chunk from a client
-  conn\_timeout                   0.5               Connection timeout to external services
-  error\_suppression\_interval    60                Time in seconds that must elapse since the last error for a node to be considered no longer error limited
-  error\_suppression\_limit       10                Error count to consider a node error limited
-  allow\_account\_management      false             Whether account `PUT`s and `DELETE`s are even callable
+  Option                          | Default           | Description
+  ------------------------------- | ----------------- | -----------------------------------------------------------------------
+  use                             |                   | paste.deploy entry point for the container server. For most cases, this should be `egg:swift#container`.
+  log\_name                       | proxy-server      | Label used when logging
+  log\_facility                   | LOG\_LOCAL0       | Syslog log facility
+  log\_level                      | INFO              | Log level
+  log\_headers                    | True              | If True, log headers in each request
+  recheck\_account\_existence     | 60                | Cache timeout in seconds to send memcached for account existence
+  recheck\_container\_existence   | 60                | Cache timeout in seconds to send memcached for container existence
+  object\_chunk\_size             | 65536             | Chunk size to read from object servers
+  client\_chunk\_size             | 65536             | Chunk size to read from clients
+  memcache\_servers               | 127.0.0.1:11211   | Comma separated list of memcached servers ip:port
+  node\_timeout                   | 10                | Request timeout to external services
+  client\_timeout                 | 60                | Timeout to read one chunk from a client
+  conn\_timeout                   | 0.5               | Connection timeout to external services
+  error\_suppression\_interval    | 60                | Time in seconds that must elapse since the last error for a node to be considered no longer error limited
+  error\_suppression\_limit       | 10                | Error count to consider a node error limited
+  allow\_account\_management      | false             | Whether account `PUT`s and `DELETE`s are even callable
 
   : proxy-server.conf Server Options in the [proxy-server] section
 
-Configuring Object Server
--------------------------
+##Configuring Object Server
 
 The Object Server is a very simple blob storage server that can store,
 retrieve, and delete objects stored on local devices. Objects are stored
@@ -368,36 +332,35 @@ The configurable options pertaining Object Server are stored in the file
 
 The following are the configurable options:
 
-  Option         Default      Description
-  -------------- ------------ ----------------------------------------------------------------------------------------------------
-  swift\_dir     /etc/swift   Swift configuration directory
-  devices        /srv/node    Mount parent directory where devices are mounted
-  mount\_check   true         Whether or not check if the devices are mounted to prevent accidentally writing to the root device
-  bind\_ip       0.0.0.0      IP Address for server to bind
-  bind\_port     6000         Port for server to bind
-  workers        1            Number of workers to fork
+  Option         | Default      | Description
+  -------------- | ------------ | ----------------------------------------------------------------------------------------------
+  swift\_dir     | /etc/swift   | Swift configuration directory
+  devices        | /srv/node    | Mount parent directory where devices are mounted
+  mount\_check   | true         | Whether or not check if the devices are mounted to prevent accidentally writing to the root device
+  bind\_ip       | 0.0.0.0      | IP Address for server to bind
+  bind\_port     | 6000         | Port for server to bind
+  workers        | 1            | Number of workers to fork
 
   : object-server.conf Default Options in the [DEFAULT] section
 
-  Option                 Default         Description
-  ---------------------- --------------- ----------------------------------------------------------------------------------------------------
-  use                                    paste.deploy entry point for the object server. For most cases, this should be `egg:swift#object`.
-  log\_name              object-server   log name used when logging
-  log\_facility          LOG\_LOCAL0     Syslog log facility
-  log\_level             INFO            Logging level
-  log\_requests          True            Whether or not to log each request
-  user                   swift           swift user
-  node\_timeout          3               Request timeout to external services
-  conn\_timeout          0.5             Connection timeout to external services
-  network\_chunk\_size   65536           Size of chunks to read or write over the network
-  disk\_chunk\_size      65536           Size of chunks to read or write to disk
-  max\_upload\_time      65536           Maximum time allowed to upload an object
-  slow                   0               If \> 0, Minimum time in seconds for a `PUT` or `DELETE` request to complete
+  Option                 | Default         | Description
+  ---------------------- | --------------- | ------------
+  use                    |                 | paste.deploy entry point for the object server. For most cases, this should be `egg:swift#object`.
+  log\_name              | object-server   | log name used when logging
+  log\_facility          | LOG\_LOCAL0     | Syslog log facility
+  log\_level             | INFO            | Logging level
+  log\_requests          | True            | Whether or not to log each request
+  user                   | swift           | swift user
+  node\_timeout          | 3               | Request timeout to external services
+  conn\_timeout          | 0.5             | Connection timeout to external services
+  network\_chunk\_size   | 65536           | Size of chunks to read or write over the network
+  disk\_chunk\_size      | 65536           | Size of chunks to read or write to disk
+  max\_upload\_time      | 65536           | Maximum time allowed to upload an object
+  slow                   | 0               | If \> 0, Minimum time in seconds for a `PUT` or `DELETE` request to complete
 
   : object-server.conf Server Options in the [object-server] section
 
-Configuring Container Server
-----------------------------
+##Configuring Container Server
 
 The Container Server’s primary job is to handle listings of objects. The
 listing is done by querying the GlusterFS mount point with path. This
@@ -430,32 +393,31 @@ The configurable options pertaining to container server are stored in
 
 The following are the configurable options:
 
-  Option         Default      Description
-  -------------- ------------ ----------------------------------------------------------------------------------------------------
-  swift\_dir     /etc/swift   Swift configuration directory
-  devices        /srv/node    Mount parent directory where devices are mounted
-  mount\_check   true         Whether or not check if the devices are mounted to prevent accidentally writing to the root device
-  bind\_ip       0.0.0.0      IP Address for server to bind
-  bind\_port     6001         Port for server to bind
-  workers        1            Number of workers to fork
-  user           swift        Swift user
+  Option         | Default      | Description
+  -------------- | ------------ | ------------
+  swift\_dir     | /etc/swift   | Swift configuration directory
+  devices        | /srv/node    | Mount parent directory where devices are mounted
+  mount\_check   | true         | Whether or not check if the devices are mounted to prevent accidentally writing to the root device
+  bind\_ip       | 0.0.0.0      | IP Address for server to bind
+  bind\_port     | 6001         | Port for server to bind
+  workers        | 1            | Number of workers to fork
+  user           | swift        | Swift user
 
   : container-server.conf Default Options in the [DEFAULT] section
 
-  Option          Default            Description
-  --------------- ------------------ ----------------------------------------------------------------------------------------------------------
-  use                                paste.deploy entry point for the container server. For most cases, this should be `egg:swift#container`.
-  log\_name       container-server   Label used when logging
-  log\_facility   LOG\_LOCAL0        Syslog log facility
-  log\_level      INFO               Logging level
-  node\_timeout   3                  Request timeout to external services
-  conn\_timeout   0.5                Connection timeout to external services
+  Option          | Default            | Description
+  --------------- | ------------------ | ------------
+  use             |                    | paste.deploy entry point for the container server. For most cases, this should be `egg:swift#container`.
+  log\_name       | container-server   | Label used when logging
+  log\_facility   | LOG\_LOCAL0        | Syslog log facility
+  log\_level      | INFO               | Logging level
+  node\_timeout   | 3                  | Request timeout to external services
+  conn\_timeout   | 0.5                | Connection timeout to external services
 
   : container-server.conf Server Options in the [container-server]
   section
 
-Configuring Account Server
---------------------------
+##Configuring Account Server
 
 The Account Server is very similar to the Container Server, except that
 it is responsible for listing of containers rather than objects. In UFO,
@@ -489,29 +451,28 @@ The configurable options pertaining to account server are stored in
 
 The following are the configurable options:
 
-  Option         Default      Description
-  -------------- ------------ ----------------------------------------------------------------------------------------------------
-  swift\_dir     /etc/swift   Swift configuration directory
-  devices        /srv/node    mount parent directory where devices are mounted
-  mount\_check   true         Whether or not check if the devices are mounted to prevent accidentally writing to the root device
-  bind\_ip       0.0.0.0      IP Address for server to bind
-  bind\_port     6002         Port for server to bind
-  workers        1            Number of workers to fork
-  user           swift        Swift user
+  Option         | Default      | Description
+  -------------- | ------------ | ---------------------------
+  swift\_dir     | /etc/swift   | Swift configuration directory
+  devices        | /srv/node    | mount parent directory where devices are mounted
+  mount\_check   | true         | Whether or not check if the devices are mounted to prevent accidentally writing to the root device
+  bind\_ip       | 0.0.0.0      | IP Address for server to bind
+  bind\_port     | 6002         | Port for server to bind
+  workers        | 1            | Number of workers to fork
+  user           | swift        | Swift user
 
   : account-server.conf Default Options in the [DEFAULT] section
 
-  Option          Default          Description
-  --------------- ---------------- ----------------------------------------------------------------------------------------------------------
-  use                              paste.deploy entry point for the container server. For most cases, this should be `egg:swift#container`.
-  log\_name       account-server   Label used when logging
-  log\_facility   LOG\_LOCAL0      Syslog log facility
-  log\_level      INFO             Logging level
+  Option          | Default          | Description
+  --------------- | ---------------- | ---------------------------
+  use             |                  | paste.deploy entry point for the container server. For most cases, this should be `egg:swift#container`.
+  log\_name       | account-server   | Label used when logging
+  log\_facility   | LOG\_LOCAL0      | Syslog log facility
+  log\_level      | INFO             | Logging level
 
   : account-server.conf Server Options in the [account-server] section
 
-Starting and Stopping Server
-----------------------------
+##Starting and Stopping Server
 
 You must start the server manually when system reboots and whenever you
 update/modify the configuration files.
@@ -524,16 +485,14 @@ update/modify the configuration files.
 
     `# swift_init main stop`
 
-Working with Unified File and Object Storage
-============================================
+##Working with Unified File and Object Storage
 
 This section describes the REST API for administering and managing
 Object Storage. All requests will be directed to the host and URL
 described in the `X-Storage-URL HTTP` header obtained during successful
 authentication.
 
-Configuring Authenticated Access
---------------------------------
+###Configuring Authenticated Access
 
 Authentication is the process of proving identity to the system. To use
 the REST interface, you must obtain an authorization token using GET
@@ -581,8 +540,7 @@ the headers of the response.
 >
 > The authentication tokens are valid for a 24 hour period.
 
-Working with Accounts
----------------------
+##Working with Accounts
 
 This section describes the list of operations you can perform at the
 account level of the URL.
@@ -593,11 +551,11 @@ You can list the objects of a specific container, or all containers, as
 needed using GET command. You can use the following optional parameters
 with GET request to refine the results:
 
-  Parameter   Description
-  ----------- --------------------------------------------------------------------------
-  limit       Limits the number of results to at most *n* value.
-  marker      Returns object names greater in value than the specified marker.
-  format      Specify either json or xml to return the respective serialized response.
+  Parameter   | Description
+  ----------- | --------------------------------------------------------------------------
+  limit       | Limits the number of results to at most *n* value.
+  marker      | Returns object names greater in value than the specified marker.
+  format      | Specify either json or xml to return the respective serialized response.
 
 **To display container information**
 
@@ -660,8 +618,7 @@ containers and the total bytes stored in the account.
         AUTH_tkde3ad38b087b49bbbac0494f7600a554'
         https://example.storage.com:443/v1/AUTH_test -k
 
-Working with Containers
------------------------
+##Working with Containers
 
 This section describes the list of operations you can perform at the
 container level of the URL.
@@ -706,14 +663,14 @@ You can list the objects of a container using GET command. You can use
 the following optional parameters with GET request to refine the
 results:
 
-  Parameter   Description
-  ----------- --------------------------------------------------------------------------------------------------------------
-  limit       Limits the number of results to at most *n* value.
-  marker      Returns object names greater in value than the specified marker.
-  prefix      Displays the results limited to object names beginning with the substring x. beginning with the substring x.
-  path        Returns the object names nested in the pseudo path.
-  format      Specify either json or xml to return the respective serialized response.
-  delimiter   Returns all the object names nested in the container.
+  Parameter   | Description
+  ----------- | --------------------------------------------------------------------------------------------------------------
+  limit       | Limits the number of results to at most *n* value.
+  marker      | Returns object names greater in value than the specified marker.
+  prefix      | Displays the results limited to object names beginning with the substring x. beginning with the substring x.
+  path        | Returns the object names nested in the pseudo path.
+  format      | Specify either json or xml to return the respective serialized response.
+  delimiter   | Returns all the object names nested in the container.
 
 To display objects of a container
 
@@ -896,8 +853,7 @@ container using cURL (for the above example), run the following command:
     https://example.storage.com:443/v1/AUTH_test/images
     -H 'X-Container-Read: .r:*' -k
 
-Working with Objects
---------------------
+##Working with Objects
 
 An object represents the data and any metadata for the files stored in
 the system. Through the REST interface, metadata for an object can be
