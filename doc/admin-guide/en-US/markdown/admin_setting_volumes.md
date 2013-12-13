@@ -1,5 +1,4 @@
-Setting up GlusterFS Server Volumes
-===================================
+#Setting up GlusterFS Server Volumes
 
 A volume is a logical collection of bricks where each brick is an export
 directory on a server in the trusted storage pool. Most of the gluster
@@ -12,51 +11,46 @@ start it before attempting to mount it.
 -   Volumes of the following types can be created in your storage
     environment:
 
-    -   Distributed - Distributed volumes distributes files throughout
+    -   **Distributed** - Distributed volumes distributes files throughout
         the bricks in the volume. You can use distributed volumes where
         the requirement is to scale storage and the redundancy is either
         not important or is provided by other hardware/software layers.
-        For more information, see ? .
 
-    -   Replicated – Replicated volumes replicates files across bricks
+    -   **Replicated** – Replicated volumes replicates files across bricks
         in the volume. You can use replicated volumes in environments
-        where high-availability and high-reliability are critical. For
-        more information, see ?.
+        where high-availability and high-reliability are critical.
 
-    -   Striped – Striped volumes stripes data across bricks in the
+    -   **Striped** – Striped volumes stripes data across bricks in the
         volume. For best results, you should use striped volumes only in
-        high concurrency environments accessing very large files. For
-        more information, see ?.
+        high concurrency environments accessing very large files.
 
-    -   Distributed Striped - Distributed striped volumes stripe data
+    -   **Distributed Striped** - Distributed striped volumes stripe data
         across two or more nodes in the cluster. You should use
         distributed striped volumes where the requirement is to scale
         storage and in high concurrency environments accessing very
-        large files is critical. For more information, see ?.
+        large files is critical.
 
-    -   Distributed Replicated - Distributed replicated volumes
+    -   **Distributed Replicated** - Distributed replicated volumes
         distributes files across replicated bricks in the volume. You
         can use distributed replicated volumes in environments where the
         requirement is to scale storage and high-reliability is
         critical. Distributed replicated volumes also offer improved
-        read performance in most environments. For more information, see
-        ?.
+        read performance in most environments.
 
-    -   Distributed Striped Replicated – Distributed striped replicated
+    -   **Distributed Striped Replicated** – Distributed striped replicated
         volumes distributes striped data across replicated bricks in the
         cluster. For best results, you should use distributed striped
         replicated volumes in highly concurrent environments where
         parallel access of very large files and performance is critical.
         In this release, configuration of this volume type is supported
-        only for Map Reduce workloads. For more information, see ?.
+        only for Map Reduce workloads.
 
-    -   Striped Replicated – Striped replicated volumes stripes data
+    -   **Striped Replicated** – Striped replicated volumes stripes data
         across replicated bricks in the cluster. For best results, you
         should use striped replicated volumes in highly concurrent
         environments where there is parallel access of very large files
         and performance is critical. In this release, configuration of
-        this volume type is supported only for Map Reduce workloads. For
-        more information, see ?.
+        this volume type is supported only for Map Reduce workloads.
 
 **To create a new volume**
 
@@ -71,16 +65,14 @@ start it before attempting to mount it.
         Creation of test-volume has been successful
         Please start the volume to access data.
 
-Creating Distributed Volumes
-============================
+##Creating Distributed Volumes
 
 In a distributed volumes files are spread randomly across the bricks in
 the volume. Use distributed volumes where you need to scale storage and
 redundancy is either not important or is provided by other
 hardware/software layers.
 
-> **Note**
->
+> **Note**:
 > Disk/server failure in distributed volumes can result in a serious
 > loss of data because directory contents are spread randomly across the
 > bricks in the volume.
@@ -89,7 +81,7 @@ hardware/software layers.
 
 **To create a distributed volume**
 
-1.  Create a trusted storage pool as described earlier in ?.
+1.  Create a trusted storage pool.
 
 2.  Create the distributed volume:
 
@@ -125,23 +117,19 @@ hardware/software layers.
 
     If the transport type is not specified, *tcp* is used as the
     default. You can also set additional options if required, such as
-    auth.allow or auth.reject. For more information, see ?
+    auth.allow or auth.reject.
 
-    > **Note**
-    >
+    > **Note**:
     > Make sure you start your volumes before you try to mount them or
-    > else client operations after the mount will hang, see ? for
-    > details.
+    > else client operations after the mount will hang.
 
-Creating Replicated Volumes
-===========================
+##Creating Replicated Volumes
 
 Replicated volumes create copies of files across multiple bricks in the
 volume. You can use replicated volumes in environments where
 high-availability and high-reliability are critical.
 
-> **Note**
->
+> **Note**:
 > The number of bricks should be equal to of the replica count for a
 > replicated volume. To protect against server and disk failures, it is
 > recommended that the bricks of the volume are from different servers.
@@ -150,7 +138,7 @@ high-availability and high-reliability are critical.
 
 **To create a replicated volume**
 
-1.  Create a trusted storage pool as described earlier in ?.
+1.  Create a trusted storage pool.
 
 2.  Create the replicated volume:
 
@@ -164,23 +152,19 @@ high-availability and high-reliability are critical.
 
     If the transport type is not specified, *tcp* is used as the
     default. You can also set additional options if required, such as
-    auth.allow or auth.reject. For more information, see ?
+    auth.allow or auth.reject.
 
-    > **Note**
-    >
+    > **Note**:
     > Make sure you start your volumes before you try to mount them or
-    > else client operations after the mount will hang, see ? for
-    > details.
+    > else client operations after the mount will hang.
 
-Creating Striped Volumes
-========================
+##Creating Striped Volumes
 
 Striped volumes stripes data across bricks in the volume. For best
 results, you should use striped volumes only in high concurrency
 environments accessing very large files.
 
-> **Note**
->
+> **Note**:
 > The number of bricks should be a equal to the stripe count for a
 > striped volume.
 
@@ -188,7 +172,7 @@ environments accessing very large files.
 
 **To create a striped volume**
 
-1.  Create a trusted storage pool as described earlier in ?.
+1.  Create a trusted storage pool.
 
 2.  Create the striped volume:
 
@@ -202,24 +186,20 @@ environments accessing very large files.
 
     If the transport type is not specified, *tcp* is used as the
     default. You can also set additional options if required, such as
-    auth.allow or auth.reject. For more information, see ?
+    auth.allow or auth.reject.
 
-    > **Note**
-    >
+    > **Note**:
     > Make sure you start your volumes before you try to mount them or
-    > else client operations after the mount will hang, see ? for
-    > details.
+    > else client operations after the mount will hang.
 
-Creating Distributed Striped Volumes
-====================================
+##Creating Distributed Striped Volumes
 
 Distributed striped volumes stripes files across two or more nodes in
 the cluster. For best results, you should use distributed striped
 volumes where the requirement is to scale storage and in high
 concurrency environments accessing very large files is critical.
 
-> **Note**
->
+> **Note**:
 > The number of bricks should be a multiple of the stripe count for a
 > distributed striped volume.
 
@@ -227,7 +207,7 @@ concurrency environments accessing very large files is critical.
 
 **To create a distributed striped volume**
 
-1.  Create a trusted storage pool as described earlier in ?.
+1.  Create a trusted storage pool.
 
 2.  Create the distributed striped volume:
 
@@ -242,16 +222,13 @@ concurrency environments accessing very large files is critical.
 
     If the transport type is not specified, *tcp* is used as the
     default. You can also set additional options if required, such as
-    auth.allow or auth.reject. For more information, see ?
+    auth.allow or auth.reject.
 
-    > **Note**
-    >
+    > **Note**:
     > Make sure you start your volumes before you try to mount them or
-    > else client operations after the mount will hang, see ? for
-    > details.
+    > else client operations after the mount will hang.
 
-Creating Distributed Replicated Volumes
-=======================================
+##Creating Distributed Replicated Volumes
 
 Distributes files across replicated bricks in the volume. You can use
 distributed replicated volumes in environments where the requirement is
@@ -259,8 +236,7 @@ to scale storage and high-reliability is critical. Distributed
 replicated volumes also offer improved read performance in most
 environments.
 
-> **Note**
->
+> **Note**:
 > The number of bricks should be a multiple of the replica count for a
 > distributed replicated volume. Also, the order in which bricks are
 > specified has a great effect on data protection. Each replica\_count
@@ -274,7 +250,7 @@ environments.
 
 **To create a distributed replicated volume**
 
-1.  Create a trusted storage pool as described earlier in ?.
+1.  Create a trusted storage pool.
 
 2.  Create the distributed replicated volume:
 
@@ -296,16 +272,13 @@ environments.
 
     If the transport type is not specified, *tcp* is used as the
     default. You can also set additional options if required, such as
-    auth.allow or auth.reject. For more information, see ?
+    auth.allow or auth.reject.
 
-    > **Note**
-    >
+    > **Note**:
     > Make sure you start your volumes before you try to mount them or
-    > else client operations after the mount will hang, see ? for
-    > details.
+    > else client operations after the mount will hang.
 
-Creating Distributed Striped Replicated Volumes
-===============================================
+##Creating Distributed Striped Replicated Volumes
 
 Distributed striped replicated volumes distributes striped data across
 replicated bricks in the cluster. For best results, you should use
@@ -314,14 +287,13 @@ where parallel access of very large files and performance is critical.
 In this release, configuration of this volume type is supported only for
 Map Reduce workloads.
 
-> **Note**
->
+> **Note**:
 > The number of bricks should be a multiples of number of stripe count
 > and replica count for a distributed striped replicated volume.
 
 **To create a distributed striped replicated volume**
 
-1.  Create a trusted storage pool as described earlier in ?.
+1.  Create a trusted storage pool.
 
 2.  Create a distributed striped replicated volume using the following
     command:
@@ -337,16 +309,13 @@ Map Reduce workloads.
 
     If the transport type is not specified, *tcp* is used as the
     default. You can also set additional options if required, such as
-    auth.allow or auth.reject. For more information, see ?
+    auth.allow or auth.reject.
 
-    > **Note**
-    >
+    > **Note**:
     > Make sure you start your volumes before you try to mount them or
-    > else client operations after the mount will hang, see ? for
-    > details.
+    > else client operations after the mount will hang.
 
-Creating Striped Replicated Volumes
-===================================
+##Creating Striped Replicated Volumes
 
 Striped replicated volumes stripes data across replicated bricks in the
 cluster. For best results, you should use striped replicated volumes in
@@ -354,8 +323,7 @@ highly concurrent environments where there is parallel access of very
 large files and performance is critical. In this release, configuration
 of this volume type is supported only for Map Reduce workloads.
 
-> **Note**
->
+> **Note**:
 > The number of bricks should be a multiple of the replicate count and
 > stripe count for a striped replicated volume.
 
@@ -365,8 +333,6 @@ of this volume type is supported only for Map Reduce workloads.
 
 1.  Create a trusted storage pool consisting of the storage servers that
     will comprise the volume.
-
-    For more information, see ?.
 
 2.  Create a striped replicated volume :
 
@@ -387,16 +353,13 @@ of this volume type is supported only for Map Reduce workloads.
 
     If the transport type is not specified, *tcp* is used as the
     default. You can also set additional options if required, such as
-    auth.allow or auth.reject. For more information, see ?
+    auth.allow or auth.reject.
 
-    > **Note**
-    >
+    > **Note**:
     > Make sure you start your volumes before you try to mount them or
-    > else client operations after the mount will hang, see ? for
-    > details.
+    > else client operations after the mount will hang.
 
-Starting Volumes
-================
+##Starting Volumes
 
 You must start your volumes before you try to mount them.
 
@@ -411,9 +374,9 @@ You must start your volumes before you try to mount them.
         # gluster volume start test-volume
         Starting test-volume has been successful
 
-  []: images/Distributed_Volume.png
-  [1]: images/Replicated_Volume.png
-  [2]: images/Striped_Volume.png
-  [3]: images/Distributed_Striped_Volume.png
-  [4]: images/Distributed_Replicated_Volume.png
-  [5]: images/Striped_Replicated_Volume.png
+  []: ../images/Distributed_Volume.png
+  [1]: ../images/Replicated_Volume.png
+  [2]: ../images/Striped_Volume.png
+  [3]: ../images/Distributed_Striped_Volume.png
+  [4]: ../images/Distributed_Replicated_Volume.png
+  [5]: ../images/Striped_Replicated_Volume.png

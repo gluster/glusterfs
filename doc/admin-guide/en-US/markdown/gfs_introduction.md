@@ -13,7 +13,7 @@ managing data in a single global namespace. GlusterFS is based on a
 stackable user space design, delivering exceptional performance for
 diverse workloads.
 
-![ Virtualized Cloud Environments ][]
+![ Virtualized Cloud Environments ](../images/640px-GlusterFS_Architecture.png)
 
 GlusterFS is designed for today's high-performance, virtualized cloud
 environments. Unlike traditional data centers, cloud environments
@@ -24,27 +24,8 @@ hybrid environments.
 
 GlusterFS is in production at thousands of enterprises spanning media,
 healthcare, government, education, web 2.0, and financial services. The
-following table lists the commercial offerings and its documentation
-location:
+following table lists the commercial offerings:
 
-  ------------------------------------------------------------------------
-  Product     Documentation Location
-  ----------- ------------------------------------------------------------
-  Red Hat     [][]
-  Storage     
-  Software    
-  Appliance   
-
-  Red Hat     [][1]
-  Virtual     
-  Storage     
-  Appliance   
-
-  Red Hat     [][2]
-  Storage     
-  ------------------------------------------------------------------------
-
-  [ Virtualized Cloud Environments ]: images/640px-GlusterFS_Architecture.png
-  []: http://docs.redhat.com/docs/en-US/Red_Hat_Storage_Software_Appliance/index.html
-  [1]: http://docs.redhat.com/docs/en-US/Red_Hat_Virtual_Storage_Appliance/index.html
-  [2]: http://docs.redhat.com/docs/en-US/Red_Hat_Storage/index.html
+* [Red Hat Storage](https://access.redhat.com/site/documentation/Red_Hat_Storage/)
+* Red Hat Storage Software Appliance
+* Red Hat Virtual Storage Appliance

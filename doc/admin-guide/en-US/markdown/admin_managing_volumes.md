@@ -1,167 +1,104 @@
-Managing GlusterFS Volumes
-==========================
+#Managing GlusterFS Volumes
 
 This section describes how to perform common GlusterFS management
 operations, including the following:
 
--   ?
+- [Tuning Volume Options](#tuning-options)
+- [Expanding Volumes](#expanding-volumes)
+- [Shrinking Volumes](#shrinking-volumes)
+- [Migrating Volumes](#migrating-volumes)
+- [Rebalancing Volumes](#rebalancing-volumes)
+- [Stopping Volumes](#stopping-volumes)
+- [Deleting Volumes](#deleting-volumes)
+- [Triggering Self-Heal on Replicate](#self-heal)
 
--   ?
-
--   ?
-
--   ?
-
--   ?
-
--   ?
-
--   ?
-
--   ?
-
-Tuning Volume Options
-=====================
+<a name="tuning-options" />
+##Tuning Volume Options
 
 You can tune volume options, as needed, while the cluster is online and
 available.
 
 > **Note**
 >
-> Red Hat recommends you to set server.allow-insecure option to ON if
+> It is recommended that you to set server.allow-insecure option to ON if
 > there are too many bricks in each volume or if there are too many
 > services which have already utilized all the privileged ports in the
 > system. Turning this option ON allows ports to accept/reject messages
 > from insecure ports. So, use this option only if your deployment
 > requires it.
 
-To tune volume options
-
--   Tune volume options using the following command:
+Tune volume options using the following command:
 
     `# gluster volume set `
 
-    For example, to specify the performance cache size for test-volume:
+For example, to specify the performance cache size for test-volume:
 
-        # gluster volume set test-volume performance.cache-size 256MB
-        Set volume successful
+    # gluster volume set test-volume performance.cache-size 256MB
+    Set volume successful
 
-    The following table lists the Volume options along with its
-    description and default value:
+The following table lists the Volume options along with its
+description and default value:
 
-    > **Note**
-    >
-    > The default options given here are subject to modification at any
-    > given time and may not be the same for all versions.
+> **Note**
+>
+> The default options given here are subject to modification at any
+> given time and may not be the same for all versions.
 
-      -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-      Option                                 Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     Default Value                      Available Options
-      -------------------------------------- ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- ---------------------------------- ---------------------------------------------------------------------------------------
-      auth.allow                             IP addresses of the clients which should be allowed to access the volume.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       \* (allow all)                     Valid IP address which includes wild card patterns including \*, such as 192.168.1.\*
 
-      auth.reject                            IP addresses of the clients which should be denied to access the volume.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        NONE (reject none)                 Valid IP address which includes wild card patterns including \*, such as 192.168.2.\*
+Option | Description | Default Value | Available Options
+--- | --- | --- | ---
+auth.allow | IP addresses of the clients which should be allowed to access the volume. | \* (allow all) | Valid IP address which includes wild card patterns including \*, such as 192.168.1.\*
+auth.reject | IP addresses of the clients which should be denied to access the volume. | NONE (reject none)  | Valid IP address which includes wild card patterns including \*, such as 192.168.2.\*
+client.grace-timeout | Specifies the duration for the lock state to be maintained on the client after a network disconnection. | 10 | 10 - 1800 secs
+cluster.self-heal-window-size | Specifies the maximum number of blocks per file on which self-heal would happen simultaneously. | 16 | 0 - 1025 blocks 
+cluster.data-self-heal-algorithm | Specifies the type of self-heal. If you set the option as "full", the entire file is copied from source to destinations. If the option is set to "diff" the file blocks that are not in sync are copied to destinations. Reset uses a heuristic model. If the file does not exist on one of the subvolumes, or a zero-byte file exists (created by entry self-heal) the entire content has to be copied anyway, so there is no benefit from using the "diff" algorithm. If the file size is about the same as page size, the entire file can be read and written with a few operations, which will be faster than "diff" which has to read checksums and then read and write. | reset | full/diff/reset 
+cluster.min-free-disk | Specifies the percentage of disk space that must be kept free. Might be useful for non-uniform bricks | 10% | Percentage of required minimum free disk space 
+cluster.stripe-block-size | Specifies the size of the stripe unit that will be read from or written to. | 128 KB (for all files) | size in bytes
+cluster.self-heal-daemon | Allows you to turn-off proactive self-heal on replicated | On | On/Off
+cluster.ensure-durability | This option makes sure the data/metadata is durable across abrupt shutdown of the brick. | On | On/Off
+diagnostics.brick-log-level | Changes the log-level of the bricks. | INFO | DEBUG/WARNING/ERROR/CRITICAL/NONE/TRACE
+diagnostics.client-log-level  |  Changes the log-level of the clients. | INFO | DEBUG/WARNING/ERROR/CRITICAL/NONE/TRACE
+diagnostics.latency-measurement | Statistics related to the latency of each operation would be tracked. | Off | On/Off 
+diagnostics.dump-fd-stats | Statistics related to file-operations would be tracked. | Off | On 
+feature.read-only | Enables you to mount the entire volume as read-only for all the clients (including NFS clients) accessing it. | Off | On/Off 
+features.lock-heal | Enables self-healing of locks when the network disconnects. | On | On/Off 
+features.quota-timeout | For performance reasons, quota caches the directory sizes on client. You can set timeout indicating the maximum duration of directory sizes in cache, from the time they are populated, during which they are considered valid | 0 |  0 - 3600 secs
+geo-replication.indexing | Use this option to automatically sync the changes in the filesystem from Master to Slave. | Off | On/Off 
+network.frame-timeout | The time frame after which the operation has to be declared as dead, if the server does not respond for a particular operation. | 1800 (30 mins) | 1800 secs
+network.ping-timeout | The time duration for which the client waits to check if the server is responsive. When a ping timeout happens, there is a network disconnect between the client and server. All resources held by server on behalf of the client get cleaned up. When a reconnection happens, all resources will need to be re-acquired before the client can resume its operations on the server. Additionally, the locks will be acquired and the lock tables updated. This reconnect is a very expensive operation and should be avoided. | 42 Secs | 42 Secs
+nfs.enable-ino32 | For 32-bit nfs clients or applications that do not support 64-bit inode numbers or large files, use this option from the CLI to make Gluster NFS return 32-bit inode numbers instead of 64-bit inode numbers. | Off | On/Off
+nfs.volume-access | Set the access type for the specified sub-volume. | read-write |  read-write/read-only
+nfs.trusted-write | If there is an UNSTABLE write from the client, STABLE flag will be returned to force the client to not send a COMMIT request. In some environments, combined with a replicated GlusterFS setup, this option can improve write performance. This flag allows users to trust Gluster replication logic to sync data to the disks and recover when required. COMMIT requests if received will be handled in a default manner by fsyncing. STABLE writes are still handled in a sync manner. | Off | On/Off 
+nfs.trusted-sync | All writes and COMMIT requests are treated as async. This implies that no write requests are guaranteed to be on server disks when the write reply is received at the NFS client. Trusted sync includes trusted-write behavior. | Off | On/Off
+nfs.export-dir | This option can be used to export specified comma separated subdirectories in the volume. The path must be an absolute path. Along with path allowed list of IPs/hostname can be associated with each subdirectory. If provided connection will allowed only from these IPs. Format: \<dir\>[(hostspec[hostspec...])][,...]. Where hostspec can be an IP address, hostname or an IP range in CIDR notation. **Note**: Care must be taken while configuring this option as invalid entries and/or unreachable DNS servers can introduce unwanted delay in all the mount calls. | No sub directory exported. | Absolute path with allowed list of IP/hostname
+nfs.export-volumes | Enable/Disable exporting entire volumes, instead if used in conjunction with nfs3.export-dir, can allow setting up only subdirectories as exports. | On | On/Off 
+nfs.rpc-auth-unix | Enable/Disable the AUTH\_UNIX authentication type. This option is enabled by default for better interoperability. However, you can disable it if required. | On | On/Off 
+nfs.rpc-auth-null | Enable/Disable the AUTH\_NULL authentication type. It is not recommended to change the default value for this option. | On | On/Off 
+nfs.rpc-auth-allow\<IP- Addresses\> | Allow a comma separated list of addresses and/or hostnames to connect to the server. By default, all clients are disallowed. This allows you to define a general rule for all exported volumes. | Reject All | IP address or Host name
+nfs.rpc-auth-reject\<IP- Addresses\> | Reject a comma separated list of addresses and/or hostnames from connecting to the server. By default, all connections are disallowed. This allows you to define a general rule for all exported volumes. | Reject All | IP address or Host name
+nfs.ports-insecure | Allow client connections from unprivileged ports. By default only privileged ports are allowed. This is a global setting in case insecure ports are to be enabled for all exports using a single option. | Off | On/Off 
+nfs.addr-namelookup | Turn-off name lookup for incoming client connections using this option. In some setups, the name server can take too long to reply to DNS queries resulting in timeouts of mount requests. Use this option to turn off name lookups during address authentication. Note, turning this off will prevent you from using hostnames in rpc-auth.addr.\* filters. | On | On/Off 
+nfs.register-with-portmap | For systems that need to run multiple NFS servers, you need to prevent more than one from registering with portmap service. Use this option to turn off portmap registration for Gluster NFS. | On | On/Off 
+nfs.port \<PORT- NUMBER\> | Use this option on systems that need Gluster NFS to be associated with a non-default port number. | NA | 38465- 38467
+nfs.disable | Turn-off volume being exported by NFS | Off | On/Off
+performance.write-behind-window-size | Size of the per-file write-behind buffer. | 1MB | Write-behind cache size 
+performance.io-thread-count | The number of threads in IO threads translator. | 16 | 0-65 
+performance.flush-behind | If this option is set ON, instructs write-behind translator to perform flush in background, by returning success (or any errors, if any of previous writes were failed) to application even before flush is sent to backend filesystem. | On | On/Off 
+performance.cache-max-file-size | Sets the maximum file size cached by the io-cache translator. Can use the normal size descriptors of KB, MB, GB,TB or PB (for example, 6GB). Maximum size uint64. | 2 \^ 64 -1 bytes | size in bytes
+performance.cache-min-file-size | Sets the minimum file size cached by the io-cache translator. Values same as "max" above | 0B | size in bytes
+performance.cache-refresh-timeout | The cached data for a file will be retained till 'cache-refresh-timeout' seconds, after which data re-validation is performed. | 1s | 0-61  
+performance.cache-size | Size of the read cache. | 32 MB |  size in bytes
+server.allow-insecure | Allow client connections from unprivileged ports. By default only privileged ports are allowed. This is a global setting in case insecure ports are to be enabled for all exports using a single option. | On | On/Off 
+server.grace-timeout | Specifies the duration for the lock state to be maintained on the server after a network disconnection. | 10 | 10 - 1800 secs 
+server.statedump-path | Location of the state dump file. | tmp directory of the brick |  New directory path
+storage.health-check-interval | Number of seconds between health-checks done on the filesystem that is used for the brick(s). Defaults to 30 seconds, set to 0 to disable. | tmp directory of the brick |  New directory path
 
-      client.grace-timeout                   Specifies the duration for the lock state to be maintained on the client after a network disconnection.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         10                                 10 - 1800 secs
+You can view the changed volume options using command:
+ 
+    ` # gluster volume info `
 
-      cluster.self-heal-window-size          Specifies the maximum number of blocks per file on which self-heal would happen simultaneously.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 16                                 0 - 1025 blocks
-
-      cluster.data-self-heal-algorithm       Specifies the type of self-heal. If you set the option as "full", the entire file is copied from source to destinations. If the option is set to "diff" the file blocks that are not in sync are copied to destinations. Reset uses a heuristic model. If the file does not exist on one of the subvolumes, or a zero-byte file exists (created by entry self-heal) the entire content has to be copied anyway, so there is no benefit from using the "diff" algorithm. If the file size is about the same as page size, the entire file can be read and written with a few operations, which will be faster than "diff" which has to read checksums and then read and write.   reset                              full | diff | reset
-
-      cluster.min-free-disk                  Specifies the percentage of disk space that must be kept free. Might be useful for non-uniform bricks.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          10%                                Percentage of required minimum free disk space
-
-      cluster.stripe-block-size              Specifies the size of the stripe unit that will be read from or written to.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     128 KB (for all files)             size in bytes
-
-      cluster.self-heal-daemon               Allows you to turn-off proactive self-heal on replicated volumes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               on                                 On | Off
-
-      cluster.ensure-durability              This option makes sure the data/metadata is durable across abrupt shutdown of the brick.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        on                                 On | Off
-
-      diagnostics.brick-log-level            Changes the log-level of the bricks.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            INFO                               DEBUG|WARNING|ERROR|CRITICAL|NONE|TRACE
-
-      diagnostics.client-log-level           Changes the log-level of the clients.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           INFO                               DEBUG|WARNING|ERROR|CRITICAL|NONE|TRACE
-
-      diagnostics.latency-measurement        Statistics related to the latency of each operation would be tracked.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           off                                On | Off
-
-      diagnostics.dump-fd-stats              Statistics related to file-operations would be tracked.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         off                                On | Off
-
-      feature.read-only                      Enables you to mount the entire volume as read-only for all the clients (including NFS clients) accessing it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   off                                On | Off
-
-      features.lock-heal                     Enables self-healing of locks when the network disconnects.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     on                                 On | Off
-
-      features.quota-timeout                 For performance reasons, quota caches the directory sizes on client. You can set timeout indicating the maximum duration of directory sizes in cache, from the time they are populated, during which they are considered valid.                                                                                                                                                                                                                                                                                                                                                                                                                                                 0                                  0 - 3600 secs
-
-      geo-replication.indexing               Use this option to automatically sync the changes in the filesystem from Master to Slave.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       off                                On | Off
-
-      network.frame-timeout                  The time frame after which the operation has to be declared as dead, if the server does not respond for a particular operation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 1800 (30 mins)                     1800 secs
-
-      network.ping-timeout                   The time duration for which the client waits to check if the server is responsive. When a ping timeout happens, there is a network disconnect between the client and server. All resources held by server on behalf of the client get cleaned up. When a reconnection happens, all resources will need to be re-acquired before the client can resume its operations on the server. Additionally, the locks will be acquired and the lock tables updated.                                                                                                                                                                                                                       42 Secs                            42 Secs
-                                             This reconnect is a very expensive operation and should be avoided.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-
-      nfs.enable-ino32                       For 32-bit nfs clients or applications that do not support 64-bit inode numbers or large files, use this option from the CLI to make Gluster NFS return 32-bit inode numbers instead of 64-bit inode numbers. Applications that will benefit are those that were either:                                                                                                                                                                                                                                                                                                                                                                                                        off                                On | Off
-                                             \* Built 32-bit and run on 32-bit machines.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                             \* Built 32-bit on 64-bit systems.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                             \* Built 64-bit but use a library built 32-bit, especially relevant for python and perl scripts.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                             Either of the conditions above can lead to application on Linux NFS clients failing with "Invalid argument" or "Value too large for defined data type" errors.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
-
-      nfs.volume-access                      Set the access type for the specified sub-volume.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               read-write                         read-write|read-only
-
-      nfs.trusted-write                      If there is an UNSTABLE write from the client, STABLE flag will be returned to force the client to not send a COMMIT request.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   off                                On | Off
-                                             In some environments, combined with a replicated GlusterFS setup, this option can improve write performance. This flag allows users to trust Gluster replication logic to sync data to the disks and recover when required. COMMIT requests if received will be handled in a default manner by fsyncing. STABLE writes are still handled in a sync manner.                                                                                                                                                                                                                                                                                                                                                         
-
-      nfs.trusted-sync                       All writes and COMMIT requests are treated as async. This implies that no write requests are guaranteed to be on server disks when the write reply is received at the NFS client. Trusted sync includes trusted-write behavior.                                                                                                                                                                                                                                                                                                                                                                                                                                                 off                                On | Off
-
-      nfs.export-dir                         This option can be used to export specified comma separated subdirectories in the volume. The path must be an absolute path. Along with path allowed list of IPs/hostname can be associated with each subdirectory. If provided connection will allowed only from these IPs. Format: \<dir\>[(hostspec[|hostspec|...])][,...]. Where hostspec can be an IP address, hostname or an IP range in CIDR notation. **Note**: Care must be taken while configuring this option as invalid entries and/or unreachable DNS servers can introduce unwanted delay in all the mount calls.                                                                                                     No sub directory exported.                        Absolute path with allowed list of IP/hostname.
-
-      nfs.export-volumes                     Enable/Disable exporting entire volumes, instead if used in conjunction with nfs3.export-dir, can allow setting up only subdirectories as exports.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              on                                 On | Off
-
-      nfs.rpc-auth-unix                      Enable/Disable the AUTH\_UNIX authentication type. This option is enabled by default for better interoperability. However, you can disable it if required.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      on                                 On | Off
-
-      nfs.rpc-auth-null                      Enable/Disable the AUTH\_NULL authentication type. It is not recommended to change the default value for this option.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           on                                 On | Off
-
-      nfs.rpc-auth-allow\<IP- Addresses\>    Allow a comma separated list of addresses and/or hostnames to connect to the server. By default, all clients are disallowed. This allows you to define a general rule for all exported volumes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 Reject All                         IP address or Host name
-
-      nfs.rpc-auth-reject IP- Addresses      Reject a comma separated list of addresses and/or hostnames from connecting to the server. By default, all connections are disallowed. This allows you to define a general rule for all exported volumes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                       Reject All                         IP address or Host name
-
-      nfs.ports-insecure                     Allow client connections from unprivileged ports. By default only privileged ports are allowed. This is a global setting in case insecure ports are to be enabled for all exports using a single option.                                                                                                                                                                                                                                                                                                                                                                                                                                                                        off                                On | Off
-
-      nfs.addr-namelookup                    Turn-off name lookup for incoming client connections using this option. In some setups, the name server can take too long to reply to DNS queries resulting in timeouts of mount requests. Use this option to turn off name lookups during address authentication. Note, turning this off will prevent you from using hostnames in rpc-auth.addr.\* filters.                                                                                                                                                                                                                                                                                                                    on                                 On | Off
-
-      nfs.register-with- portmap             For systems that need to run multiple NFS servers, you need to prevent more than one from registering with portmap service. Use this option to turn off portmap registration for Gluster NFS.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   on                                 On | Off
-
-      nfs.port \<PORT- NUMBER\>              Use this option on systems that need Gluster NFS to be associated with a non-default port number.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               38465- 38467                       
-
-      nfs.disable                            Turn-off volume being exported by NFS                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           off                                On | Off
-
-      performance.write-behind-window-size   Size of the per-file write-behind buffer.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       1 MB                               Write-behind cache size
-
-      performance.io-thread-count            The number of threads in IO threads translator.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 16                                 0 - 65
-
-      performance.flush-behind               If this option is set ON, instructs write-behind translator to perform flush in background, by returning success (or any errors, if any of previous writes were failed) to application even before flush is sent to backend filesystem.                                                                                                                                                                                                                                                                                                                                                                                                                                         On                                 On | Off
-
-      performance.cache-max-file-size        Sets the maximum file size cached by the io-cache translator. Can use the normal size descriptors of KB, MB, GB,TB or PB (for example, 6GB). Maximum size uint64.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               2 \^ 64 -1 bytes                   size in bytes
-
-      performance.cache-min-file-size        Sets the minimum file size cached by the io-cache translator. Values same as "max" above.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       0B                                 size in bytes
-
-      performance.cache-refresh-timeout      The cached data for a file will be retained till 'cache-refresh-timeout' seconds, after which data re-validation is performed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  1 sec                              0 - 61
-
-      performance.cache-size                 Size of the read cache.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         32 MB                              size in bytes
-
-      server.allow-insecure                  Allow client connections from unprivileged ports. By default only privileged ports are allowed. This is a global setting in case insecure ports are to be enabled for all exports using a single option.                                                                                                                                                                                                                                                                                                                                                                                                                                                                        on                                 On | Off
-
-      server.grace-timeout                   Specifies the duration for the lock state to be maintained on the server after a network disconnection.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         10                                 10 - 1800 secs
-
-      server.statedump-path                  Location of the state dump file.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                /tmp directory of the brick        New directory path
-
-      storage.health-check-interval          Number of seconds between health-checks done on the filesystem that is used for the brick(s). Defaults to 30 seconds, set to 0 to disable.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      /tmp directory of the brick        New directory path
-      -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-    You can view the changed volume options using
-    the` # gluster volume info ` command. For more information, see ?.
-
-Expanding Volumes
-=================
+<a name="expanding-volumes" />
+##Expanding Volumes
 
 You can expand volumes, as needed, while the cluster is online and
 available. For example, you might want to add a brick to a distributed
@@ -221,8 +158,8 @@ replicated volume, increasing the capacity of the GlusterFS volume.
 
     You can use the rebalance command as described in ?.
 
-Shrinking Volumes
-=================
+<a name="shrinking-volumes" />
+##Shrinking Volumes
 
 You can shrink volumes, as needed, while the cluster is online and
 available. For example, you might need to remove a brick that has become
@@ -295,8 +232,8 @@ set).
 
     You can use the rebalance command as described in ?.
 
-Migrating Volumes
-=================
+<a name="migrating-volumes" />
+##Migrating Volumes
 
 You can migrate the data from one brick to another, as needed, while the
 cluster is online and available.
@@ -305,8 +242,6 @@ cluster is online and available.
 
 1.  Make sure the new brick, server5 in this example, is successfully
     added to the cluster.
-
-    For more information, see ?.
 
 2.  Migrate the data from one brick to another using the following
     command:
@@ -401,8 +336,8 @@ cluster is online and available.
     In the above example, previously, there were bricks; 1,2,3, and 4
     and now brick 3 is replaced by brick 5.
 
-Rebalancing Volumes
-===================
+<a name="rebalancing-volumes" />
+##Rebalancing Volumes
 
 After expanding or shrinking a volume (using the add-brick and
 remove-brick commands respectively), you need to rebalance the data
@@ -414,15 +349,13 @@ layout and/or data.
 This section describes how to rebalance GlusterFS volumes in your
 storage environment, using the following common scenarios:
 
--   Fix Layout - Fixes the layout changes so that the files can actually
-    go to newly added nodes. For more information, see ?.
+-   **Fix Layout** - Fixes the layout changes so that the files can actually
+    go to newly added nodes.
 
--   Fix Layout and Migrate Data - Rebalances volume by fixing the layout
-    changes and migrating the existing data. For more information, see
-    ?.
+-   **Fix Layout and Migrate Data** - Rebalances volume by fixing the layout
+    changes and migrating the existing data.
 
-Rebalancing Volume to Fix Layout Changes
-----------------------------------------
+###Rebalancing Volume to Fix Layout Changes
 
 Fixing the layout is necessary because the layout structure is static
 for a given directory. In a scenario where new bricks have been added to
@@ -450,8 +383,7 @@ the servers.
         # gluster volume rebalance test-volume fix-layout start
         Starting rebalance on volume test-volume has been successful
 
-Rebalancing Volume to Fix Layout and Migrate Data
--------------------------------------------------
+###Rebalancing Volume to Fix Layout and Migrate Data
 
 After expanding or shrinking a volume (using the add-brick and
 remove-brick commands respectively), you need to rebalance the data
@@ -479,13 +411,10 @@ among the servers.
         # gluster volume rebalance test-volume start force
         Starting rebalancing on volume test-volume has been successful
 
-Displaying Status of Rebalance Operation
-----------------------------------------
+###Displaying Status of Rebalance Operation
 
 You can display the status information about rebalance volume operation,
 as needed.
-
-**To view status of rebalance volume**
 
 -   Check the status of the rebalance operation, using the following
     command:
@@ -520,12 +449,9 @@ as needed.
                                    ---------  ----------------  ----  -------  -----------
         617c923e-6450-4065-8e33-865e28d9428f               502  1873      334   completed
 
-Stopping Rebalance Operation
-----------------------------
+###Stopping Rebalance Operation
 
 You can stop the rebalance operation, as needed.
-
-**To stop rebalance**
 
 -   Stop the rebalance operation using the following command:
 
@@ -539,10 +465,8 @@ You can stop the rebalance operation, as needed.
         617c923e-6450-4065-8e33-865e28d9428f               59   590      244       stopped
         Stopped rebalance process on volume test-volume 
 
-Stopping Volumes
-================
-
-To stop a volume
+<a name="stopping-volumes" />
+##Stopping Volumes
 
 1.  Stop the volume using the following command:
 
@@ -558,10 +482,8 @@ To stop a volume
 
         Stopping volume test-volume has been successful
 
-Deleting Volumes
-================
-
-To delete a volume
+<a name="" />
+##Deleting Volumes
 
 1.  Delete the volume using the following command:
 
@@ -577,8 +499,8 @@ To delete a volume
 
         Deleting volume test-volume has been successful
 
-Triggering Self-Heal on Replicate
-=================================
+<a name="self-heal" />
+##Triggering Self-Heal on Replicate
 
 In replicate module, previously you had to manually trigger a self-heal
 when a brick goes offline and comes back online, to bring all the

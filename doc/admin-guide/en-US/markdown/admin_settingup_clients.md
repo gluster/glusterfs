@@ -1,5 +1,4 @@
-Accessing Data - Setting Up GlusterFS Client
-============================================
+#Accessing Data - Setting Up GlusterFS Client
 
 You can access gluster volumes in multiple ways. You can use Gluster
 Native Client method for high concurrency, performance and transparent
@@ -13,8 +12,7 @@ You can use CIFS to access volumes when using Microsoft Windows as well
 as SAMBA clients. For this access method, Samba packages need to be
 present on the client side.
 
-Gluster Native Client
-=====================
+##Gluster Native Client
 
 The Gluster Native Client is a FUSE-based client running in user space.
 Gluster Native Client is the recommended method for accessing volumes
@@ -25,8 +23,7 @@ install the software on client machines. This section also describes how
 to mount volumes on clients (both manually and automatically) and how to
 verify that the volume has mounted successfully.
 
-Installing the Gluster Native Client
-------------------------------------
+###Installing the Gluster Native Client
 
 Before you begin installing the Gluster Native Client, you need to
 verify that the FUSE module is loaded on the client and has access to
@@ -39,7 +36,6 @@ the required modules as follows:
 2.  Verify that the FUSE module is loaded:
 
     `# dmesg | grep -i fuse `
-
     `fuse init (API version 7.13)`
 
 ### Installing on Red Hat Package Manager (RPM) Distributions
@@ -59,7 +55,6 @@ To install Gluster Native Client on RPM distribution-based systems
     You can use the following chains with iptables:
 
     `$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 24007:24008 -j ACCEPT `
-
     `$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 24009:24014 -j ACCEPT`
 
     > **Note**
@@ -80,9 +75,7 @@ To install Gluster Native Client on RPM distribution-based systems
 4.  Install Gluster Native Client on the client.
 
     `$ sudo rpm -i glusterfs-3.3.0qa30-1.x86_64.rpm `
-
     `$ sudo rpm -i glusterfs-fuse-3.3.0qa30-1.x86_64.rpm `
-
     `$ sudo rpm -i glusterfs-rdma-3.3.0qa30-1.x86_64.rpm`
 
     > **Note**
@@ -134,7 +127,6 @@ To install Gluster Native Client on Debian-based distributions
     You can use the following chains with iptables:
 
     `$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 24007:24008 -j ACCEPT `
-
     `$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 24009:24014 -j ACCEPT`
 
     > **Note**
@@ -150,7 +142,6 @@ To build and install Gluster Native Client from the source code
 1.  Create a new directory using the following commands:
 
     `# mkdir glusterfs `
-
     `# cd glusterfs`
 
 2.  Download the source code.
@@ -165,21 +156,14 @@ To build and install Gluster Native Client from the source code
 
     `# ./configure `
 
-    `GlusterFS configure summary `
-
-    `================== `
-
-    `FUSE client : yes `
-
-    `Infiniband verbs : yes `
-
-    `epoll IO multiplex : yes `
-
-    `argp-standalone : no `
-
-    `fusermount : no `
-
-    `readline : yes`
+        GlusterFS configure summary
+        ===========================
+        FUSE client : yes
+        Infiniband verbs : yes
+        epoll IO multiplex : yes
+        argp-standalone : no
+        fusermount : no
+        readline : yes
 
     The configuration summary shows the components that will be built
     with Gluster Native Client.
@@ -188,7 +172,6 @@ To build and install Gluster Native Client from the source code
     commands:
 
     `# make `
-
     `# make install`
 
 6.  Verify that the correct version of Gluster Native Client is
@@ -196,18 +179,13 @@ To build and install Gluster Native Client from the source code
 
     `# glusterfs –-version`
 
-Mounting Volumes
-----------------
+##Mounting Volumes
 
 After installing the Gluster Native Client, you need to mount Gluster
 volumes to access data. There are two methods you can choose:
 
--   ?
-
--   ?
-
-After mounting a volume, you can test the mounted volume using the
-procedure described in ?.
+-   [Manually Mounting Volumes](#manual-mount)
+-   [Automatically Mounting Volumes](#auto-mount)
 
 > **Note**
 >
@@ -215,9 +193,8 @@ procedure described in ?.
 > in the client machine. You can use appropriate /etc/hosts entries or
 > DNS server to resolve server names to IP addresses.
 
+<a name="manual-mount" />
 ### Manually Mounting Volumes
-
-To manually mount a Gluster volume
 
 -   To mount a volume, use the following command:
 
@@ -272,6 +249,7 @@ attempts to fetch volume files while mounting a volume. This option is
 useful when you mount a server with multiple IP addresses or when
 round-robin DNS is configured for the server-name..
 
+<a name="auto-mount" />
 ### Automatically Mounting Volumes
 
 You can configure your system to automatically mount the Gluster volume
@@ -281,8 +259,6 @@ The server specified in the mount command is only used to fetch the
 gluster configuration volfile describing the volume name. Subsequently,
 the client will communicate directly with the servers mentioned in the
 volfile (which might not even include the one used for mount).
-
-**To automatically mount a Gluster volume**
 
 -   To mount a volume, edit the /etc/fstab file and add the following
     line:
@@ -337,17 +313,14 @@ To test mounted volumes
     following:
 
     `# cd MOUNTDIR `
-
     `# ls`
 
 -   For example,
 
     `# cd /mnt/glusterfs `
-
     `# ls`
 
-NFS
-===
+#NFS
 
 You can use NFS v3 to access to gluster volumes. Extensive testing has
 be done on GNU/Linux clients and NFS implementation in other operating
@@ -366,26 +339,23 @@ This section describes how to use NFS to mount Gluster volumes (both
 manually and automatically) and how to verify that the volume has been
 mounted successfully.
 
-Using NFS to Mount Volumes
+##Using NFS to Mount Volumes
 --------------------------
 
 You can use either of the following methods to mount Gluster volumes:
 
--   ?
-
--   ?
+-   [Manually Mounting Volumes Using NFS](#manual-nfs)
+-   [Automatically Mounting Volumes Using NFS](#auto-nfs)
 
 **Prerequisite**: Install nfs-common package on both servers and clients
 (only for Debian-based distribution), using the following command:
 
 `$ sudo aptitude install nfs-common `
 
-After mounting a volume, you can test the mounted volume using the
-procedure described in ?.
-
+<a name="manual-nfs" />
 ### Manually Mounting Volumes Using NFS
 
-To manually mount a Gluster volume using NFS
+**To manually mount a Gluster volume using NFS**
 
 -   To mount a volume, use the following command:
 
@@ -423,6 +393,7 @@ To manually mount a Gluster volume using NFS
 
     ` # mount -o proto=tcp,vers=3 nfs://server1:38467/test-volume /mnt/glusterfs`
 
+<a name="auto-nfs" />
 ### Automatically Mounting Volumes Using NFS
 
 You can configure your system to automatically mount Gluster volumes
@@ -494,19 +465,9 @@ You can confirm that Gluster directories are mounting successfully.
     following:
 
     `# cd MOUNTDIR`
-
     `# ls`
 
-    For example,
-
-    `
-                    
-                  `
-
-    `# ls`
-
-CIFS
-====
+#CIFS
 
 You can use CIFS to access to volumes when using Microsoft Windows as
 well as SAMBA clients. For this access method, Samba packages need to be
@@ -523,21 +484,18 @@ verify that the volume has mounted successfully.
 > can use the Mac OS X command line to access Gluster volumes using
 > CIFS.
 
-Using CIFS to Mount Volumes
----------------------------
+##Using CIFS to Mount Volumes
 
 You can use either of the following methods to mount Gluster volumes:
 
--   ?
-
--   ?
-
-After mounting a volume, you can test the mounted volume using the
-procedure described in ?.
+-   [Exporting Gluster Volumes Through Samba](#export-samba)
+-   [Manually Mounting Volumes Using CIFS](#cifs-manual)
+-   [Automatically Mounting Volumes Using CIFS](#cifs-auto)
 
 You can also use Samba for exporting Gluster Volumes through CIFS
 protocol.
 
+<a name="export-samba" />
 ### Exporting Gluster Volumes Through Samba
 
 We recommend you to use Samba for exporting Gluster volumes through the
@@ -545,8 +503,7 @@ CIFS protocol.
 
 **To export volumes through CIFS protocol**
 
-1.  Mount a Gluster volume. For more information on mounting volumes,
-    see ?.
+1.  Mount a Gluster volume.
 
 2.  Setup Samba configuration to export the mount point of the Gluster
     volume.
@@ -575,6 +532,7 @@ scripts (/etc/init.d/smb [re]start).
 > repeat these steps on each Gluster node. For more advanced
 > configurations, see Samba documentation.
 
+<a name="cifs-manual" />
 ### Manually Mounting Volumes Using CIFS
 
 You can manually mount Gluster volumes using CIFS on Microsoft
@@ -594,20 +552,10 @@ Windows-based client machines.
 
 The network drive (mapped to the volume) appears in the Computer window.
 
-**Alternatively, to manually mount a Gluster volume using CIFS.**
+Alternatively, to manually mount a Gluster volume using CIFS by going to 
+**Start \> Run** and entering Network path manually.
 
--   Click **Start \> Run** and enter the following:
-
-    `
-                    
-                  `
-
-    For example:
-
-    `
-                    
-                  `
-
+<a name="cifs-auto" />
 ### Automatically Mounting Volumes Using CIFS
 
 You can configure your system to automatically mount Gluster volumes

@@ -1,60 +1,54 @@
-Troubleshooting GlusterFS
-=========================
+#Troubleshooting GlusterFS
 
 This section describes how to manage GlusterFS logs and most common
 troubleshooting scenarios related to GlusterFS.
 
-Managing GlusterFS Logs
-=======================
+##Contents
+* [Managing GlusterFS Logs](#logs)
+* [Troubleshooting Geo-replication](#georep)
+* [Troubleshooting POSIX ACLs](#posix-acls)
+* [Troubleshooting Hadoop Compatible Storage](#hadoop)
+* [Troubleshooting NFS](#nfs)
+* [Troubleshooting File Locks](#file-locks)
 
-This section describes how to manage GlusterFS logs by performing the
-following operation:
+<a name="logs" />
+##Managing GlusterFS Logs
 
--   Rotating Logs
-
-Rotating Logs
--------------
+###Rotating Logs
 
 Administrators can rotate the log file in a volume, as needed.
 
 **To rotate a log file**
 
--   Rotate the log file using the following command:
-
     `# gluster volume log rotate `
 
-    For example, to rotate the log file on test-volume:
+For example, to rotate the log file on test-volume:
 
-        # gluster volume log rotate test-volume
-        log rotate successful
+    # gluster volume log rotate test-volume
+    log rotate successful
 
-    > **Note**
-    >
-    > When a log file is rotated, the contents of the current log file
-    > are moved to log-file- name.epoch-time-stamp.
+> **Note**
+> When a log file is rotated, the contents of the current log file
+> are moved to log-file- name.epoch-time-stamp.
 
-Troubleshooting Geo-replication
-===============================
+<a name="georep" />
+##Troubleshooting Geo-replication
 
 This section describes the most common troubleshooting scenarios related
 to GlusterFS Geo-replication.
 
-Locating Log Files
-------------------
+###Locating Log Files
 
 For every Geo-replication session, the following three log files are
 associated to it (four, if the slave is a gluster volume):
 
--   Master-log-file - log file for the process which monitors the Master
+-   **Master-log-file** - log file for the process which monitors the Master
     volume
-
--   Slave-log-file - log file for process which initiates the changes in
+-   **Slave-log-file** - log file for process which initiates the changes in
     slave
-
--   Master-gluster-log-file - log file for the maintenance mount point
+-   **Master-gluster-log-file** - log file for the maintenance mount point
     that Geo-replication module uses to monitor the master volume
-
--   Slave-gluster-log-file - is the slave's counterpart of it
+-   **Slave-gluster-log-file** - is the slave's counterpart of it
 
 **Master Log File**
 
@@ -87,8 +81,7 @@ running on slave machine), use the following commands:
 
     `/var/log/gluster/5f6e5200-756f-11e0-a1f0-0800200c9a66:remote-mirror.log`
 
-Rotating Geo-replication Logs
------------------------------
+###Rotating Geo-replication Logs
 
 Administrators can rotate the log file of a particular master-slave
 session, as needed. When you run geo-replication's ` log-rotate`
@@ -128,8 +121,7 @@ log file.
         # gluster volume geo-replication log rotate
         log rotate successful
 
-Synchronization is not complete
--------------------------------
+###Synchronization is not complete
 
 **Description**: GlusterFS Geo-replication did not synchronize the data
 completely but still the geo- replication status displayed is OK.
@@ -138,39 +130,35 @@ completely but still the geo- replication status displayed is OK.
 index and restarting GlusterFS Geo- replication. After restarting,
 GlusterFS Geo-replication begins synchronizing all the data. All files
 are compared using checksum, which can be a lengthy and high resource
-utilization operation on large data sets. If the error situation
-persists, contact Red Hat Support.
+utilization operation on large data sets.
 
-For more information about erasing index, see ?.
 
-Issues in Data Synchronization
-------------------------------
+###Issues in Data Synchronization
 
 **Description**: Geo-replication display status as OK, but the files do
 not get synced, only directories and symlink gets synced with the
 following error message in the log:
 
-[2011-05-02 13:42:13.467644] E [master:288:regjob] GMaster: failed to
-sync ./some\_file\`
+    [2011-05-02 13:42:13.467644] E [master:288:regjob] GMaster: failed to
+    sync ./some\_file\`
 
 **Solution**: Geo-replication invokes rsync v3.0.0 or higher on the host
 and the remote machine. You must verify if you have installed the
 required version.
 
-Geo-replication status displays Faulty very often
--------------------------------------------------
+###Geo-replication status displays Faulty very often
 
 **Description**: Geo-replication displays status as faulty very often
 with a backtrace similar to the following:
 
-2011-04-28 14:06:18.378859] E [syncdutils:131:log\_raise\_exception]
-\<top\>: FAIL: Traceback (most recent call last): File
-"/usr/local/libexec/glusterfs/python/syncdaemon/syncdutils.py", line
-152, in twraptf(\*aa) File
-"/usr/local/libexec/glusterfs/python/syncdaemon/repce.py", line 118, in
-listen rid, exc, res = recv(self.inf) File
-"/usr/local/libexec/glusterfs/python/syncdaemon/repce.py", line 42, in
-recv return pickle.load(inf) EOFError
+    2011-04-28 14:06:18.378859] E [syncdutils:131:log\_raise\_exception]
+    \<top\>: FAIL: Traceback (most recent call last): File
+    "/usr/local/libexec/glusterfs/python/syncdaemon/syncdutils.py", line
+    152, in twraptf(\*aa) File
+    "/usr/local/libexec/glusterfs/python/syncdaemon/repce.py", line 118, in
+    listen rid, exc, res = recv(self.inf) File
+    "/usr/local/libexec/glusterfs/python/syncdaemon/repce.py", line 42, in
+    recv return pickle.load(inf) EOFError
 
 **Solution**: This error indicates that the RPC communication between
 the master gsyncd module and slave gsyncd module is broken and this can
@@ -179,34 +167,28 @@ pre-requisites:
 
 -   Password-less SSH is set up properly between the host and the remote
     machine.
-
 -   If FUSE is installed in the machine, because geo-replication module
     mounts the GlusterFS volume using FUSE to sync data.
-
 -   If the **Slave** is a volume, check if that volume is started.
-
 -   If the Slave is a plain directory, verify if the directory has been
     created already with the required permissions.
-
 -   If GlusterFS 3.2 or higher is not installed in the default location
     (in Master) and has been prefixed to be installed in a custom
     location, configure the `gluster-command` for it to point to the
     exact location.
-
 -   If GlusterFS 3.2 or higher is not installed in the default location
     (in slave) and has been prefixed to be installed in a custom
     location, configure the `remote-gsyncd-command` for it to point to
     the exact place where gsyncd is located.
 
-Intermediate Master goes to Faulty State
-----------------------------------------
+###Intermediate Master goes to Faulty State
 
 **Description**: In a cascading set-up, the intermediate master goes to
 faulty state with the following log:
 
-raise RuntimeError ("aborting on uuid change from %s to %s" % \\
-RuntimeError: aborting on uuid change from af07e07c-427f-4586-ab9f-
-4bf7d299be81 to de6b5040-8f4e-4575-8831-c4f55bd41154
+    raise RuntimeError ("aborting on uuid change from %s to %s" % \\
+    RuntimeError: aborting on uuid change from af07e07c-427f-4586-ab9f-
+    4bf7d299be81 to de6b5040-8f4e-4575-8831-c4f55bd41154
 
 **Solution**: In a cascading set-up the Intermediate master is loyal to
 the original primary master. The above log means that the
@@ -214,50 +196,42 @@ geo-replication module has detected change in primary master. If this is
 the desired behavior, delete the config option volume-id in the session
 initiated from the intermediate master.
 
-Troubleshooting POSIX ACLs
-==========================
+<a name="posix-acls" />
+##Troubleshooting POSIX ACLs
 
 This section describes the most common troubleshooting issues related to
 POSIX ACLs.
 
-setfacl command fails with “setfacl: \<file or directory name\>: Operation not supported” error
------------------------------------------------------------------------------------------------
+    setfacl command fails with “setfacl: \<file or directory name\>: Operation not supported” error
 
 You may face this error when the backend file systems in one of the
 servers is not mounted with the "-o acl" option. The same can be
 confirmed by viewing the following error message in the log file of the
 server "Posix access control list is not supported".
 
-**Solution**: Remount the backend file system with "-o acl" option. For
-more information, see ?.
+**Solution**: Remount the backend file system with "-o acl" option.
 
-Troubleshooting Hadoop Compatible Storage
-=========================================
+<a name="hadoop" />
+##Troubleshooting Hadoop Compatible Storage
 
-This section describes the most common troubleshooting issues related to
-Hadoop Compatible Storage.
+###Time Sync
 
-Time Sync
----------
-
-Running MapReduce job may throw exceptions if the time is out-of-sync on
+**Problem**: Running MapReduce job may throw exceptions if the time is out-of-sync on
 the hosts in the cluster.
 
 **Solution**: Sync the time on all hosts using ntpd program.
 
-Troubleshooting NFS
-===================
+<a name="nfs" />
+##Troubleshooting NFS
 
 This section describes the most common troubleshooting issues related to
 NFS .
 
-mount command on NFS client fails with “RPC Error: Program not registered”
---------------------------------------------------------------------------
+###mount command on NFS client fails with “RPC Error: Program not registered”
 
-Start portmap or rpcbind service on the NFS server.
+    Start portmap or rpcbind service on the NFS server.
 
 This error is encountered when the server has not started correctly.
-
 On most Linux distributions this is fixed by starting portmap:
 
 `$ /etc/init.d/portmap start`
@@ -270,8 +244,7 @@ following command is required:
 After starting portmap or rpcbind, gluster NFS server needs to be
 restarted.
 
-NFS server start-up fails with “Port is already in use” error in the log file."
--------------------------------------------------------------------------------
+###NFS server start-up fails with “Port is already in use” error in the log file.
 
 Another Gluster NFS server is running on the same machine.
 
@@ -291,27 +264,21 @@ To resolve this error one of the Gluster NFS servers will have to be
 shutdown. At this time, Gluster NFS server does not support running
 multiple NFS servers on the same machine.
 
-mount command fails with “rpc.statd” related error message
-----------------------------------------------------------
+###mount command fails with “rpc.statd” related error message
 
 If the mount command fails with the following error message:
 
-mount.nfs: rpc.statd is not running but is required for remote locking.
-mount.nfs: Either use '-o nolock' to keep locks local, or start statd.
-
-Start rpc.statd
+    mount.nfs: rpc.statd is not running but is required for remote locking.
+    mount.nfs: Either use '-o nolock' to keep locks local, or start statd.
 
 For NFS clients to mount the NFS server, rpc.statd service must be
-running on the clients.
-
-Start rpc.statd service by running the following command:
+running on the clients. Start rpc.statd service by running the following command:
 
 `$ rpc.statd `
 
-mount command takes too long to finish.
----------------------------------------
+###mount command takes too long to finish.
 
-Start rpcbind service on the NFS client.
+**Start rpcbind service on the NFS client**
 
 The problem is that the rpcbind or portmap service is not running on the
 NFS client. The resolution for this is to start either of these services
@@ -324,8 +291,7 @@ following command is required:
 
 `$ /etc/init.d/rpcbind start`
 
-NFS server glusterfsd starts but initialization fails with “nfsrpc- service: portmap registration of program failed” error message in the log.
-----------------------------------------------------------------------------------------------------------------------------------------------
+###NFS server glusterfsd starts but initialization fails with “nfsrpc- service: portmap registration of program failed” error message in the log.
 
 NFS start-up can succeed but the initialization of the NFS service can
 still fail preventing clients from accessing the mount points. Such a
@@ -341,7 +307,7 @@ file:
     [2010-05-26 23:33:49] E [rpcsvc.c:2731:rpcsvc_program_unregister] rpc-service: portmap unregistration of program failed
     [2010-05-26 23:33:49] E [rpcsvc.c:2744:rpcsvc_program_unregister] rpc-service: Program unregistration failed: MOUNT3, Num: 100005, Ver: 3, Port: 38465
 
-1.  Start portmap or rpcbind service on the NFS server.
+1.  **Start portmap or rpcbind service on the NFS server**
 
     On most Linux distributions, portmap can be started using the
     following command:
@@ -356,7 +322,7 @@ file:
     After starting portmap or rpcbind, gluster NFS server needs to be
     restarted.
 
-2.  Stop another NFS server running on the same machine.
+2.  **Stop another NFS server running on the same machine**
 
     Such an error is also seen when there is another NFS server running
     on the same machine but it is not the Gluster NFS server. On Linux
@@ -372,18 +338,17 @@ file:
 
     `$ /etc/init.d/nfs stop`
 
-3.  Restart Gluster NFS server.
+3.  **Restart Gluster NFS server**
 
-mount command fails with NFS server failed error.
--------------------------------------------------
+###mount command fails with NFS server failed error.
 
 mount command fails with following error
 
-*mount: mount to NFS server '10.1.10.11' failed: timed out (retrying).*
+    *mount: mount to NFS server '10.1.10.11' failed: timed out (retrying).*
 
 Perform one of the following to resolve this issue:
 
-1.  Disable name lookup requests from NFS server to a DNS server.
+1.  **Disable name lookup requests from NFS server to a DNS server**
 
     The NFS server attempts to authenticate NFS clients by performing a
     reverse DNS lookup to match hostnames in the volume file with the
@@ -400,16 +365,14 @@ Perform one of the following to resolve this issue:
 
     `option rpc-auth.addr.namelookup off `
 
-    > **Note**
-    >
-    > Note: Remember that disabling the NFS server forces authentication
+    > **Note**: Remember that disabling the NFS server forces authentication
     > of clients to use only IP addresses and if the authentication
     > rules in the volume file use hostnames, those authentication rules
     > will fail and disallow mounting for those clients.
 
-    or
+    **OR**
 
-2.  NFS version used by the NFS client is other than version 3.
+2.  **NFS version used by the NFS client is other than version 3**
 
     Gluster NFS server supports version 3 of NFS protocol. In recent
     Linux kernels, the default NFS version has been changed from 3 to 4.
@@ -421,18 +384,14 @@ Perform one of the following to resolve this issue:
 
     `$ mount  -o vers=3 `
 
-showmount fails with clnt\_create: RPC: Unable to receive
----------------------------------------------------------
+###showmount fails with clnt\_create: RPC: Unable to receive
 
 Check your firewall setting to open ports 111 for portmap
 requests/replies and Gluster NFS server requests/replies. Gluster NFS
 server operates over the following port numbers: 38465, 38466, and
 38467.
 
-For more information, see ?.
-
-Application fails with "Invalid argument" or "Value too large for defined data type" error.
--------------------------------------------------------------------------------------------
+###Application fails with "Invalid argument" or "Value too large for defined data type" error.
 
 These two errors generally happen for 32-bit nfs clients or applications
 that do not support 64-bit inode numbers or large files. Use the
@@ -443,7 +402,6 @@ Applications that will benefit are those that were either:
 
 -   built 32-bit and run on 32-bit machines such that they do not
     support large files by default
-
 -   built 32-bit on 64-bit systems
 
 This option is disabled by default so NFS returns 64-bit inode numbers
@@ -454,8 +412,8 @@ using the following flag with gcc:
 
 ` -D_FILE_OFFSET_BITS=64`
 
-Troubleshooting File Locks
-==========================
+<a name="file-locks" />
+##Troubleshooting File Locks
 
 In GlusterFS 3.3 you can use `statedump` command to list the locks held
 on files. The statedump output also provides information on each lock
@@ -463,16 +421,10 @@ with its range, basename, PID of the application holding the lock, and
 so on. You can analyze the output to know about the locks whose
 owner/application is no longer running or interested in that lock. After
 ensuring that the no application is using the file, you can clear the
-lock using the following `clear lock` command:
+lock using the following `clear lock` commands.
 
-`# `
-
-For more information on performing `statedump`, see ?
-
-**To identify locked file and clear locks**
-
-1.  Perform statedump on the volume to view the files that are locked
-    using the following command:
+1.  **Perform statedump on the volume to view the files that are locked
+    using the following command:**
 
     `# gluster volume statedump  inode`
 
@@ -517,9 +469,9 @@ For more information on performing `statedump`, see ?
         lock-dump.domain.domain=vol-replicate-0
         inodelk.inodelk[0](ACTIVE)=type=WRITE, whence=0, start=0, len=0, pid = 714787072, owner=00ffff2a3c7f0000, transport=0x20e0670, , granted at Mon Feb 27 16:01:01 2012
 
-2.  Clear the lock using the following command:
+2.  **Clear the lock using the following command:**
 
-    `# `
+    `# gluster volume clear-locks`
 
     For example, to clear the entry lock on `file1` of test-volume:
 
@@ -527,9 +479,9 @@ For more information on performing `statedump`, see ?
         Volume clear-locks successful
         vol-locks: entry blocked locks=0 granted locks=1
 
-3.  Clear the inode lock using the following command:
+3.  **Clear the inode lock using the following command:**
 
-    `# `
+    `# gluster volume clear-locks`
 
     For example, to clear the inode lock on `file1` of test-volume:
 

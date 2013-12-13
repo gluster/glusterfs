@@ -1,5 +1,4 @@
-Using the Gluster Console Manager – Command Line Utility
-========================================================
+##Using the Gluster Console Manager – Command Line Utility
 
 The Gluster Console Manager is a single command line utility that
 simplifies configuration and management of your storage environment. The
@@ -18,7 +17,7 @@ You can also use the commands to create scripts for automation, as well
 as use the commands as an API to allow integration with third-party
 applications.
 
-**Running the Gluster Console Manager**
+###Running the Gluster Console Manager
 
 You can run the Gluster Console Manager on any GlusterFS server either
 by invoking the commands or by running the Gluster CLI in interactive

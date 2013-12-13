@@ -1,5 +1,4 @@
-Managing Directory Quota
-========================
+#Managing Directory Quota
 
 Directory quotas in GlusterFS allow you to set limits on usage of disk
 space by directories or volumes. The storage administrators can control
@@ -19,9 +18,8 @@ the storage for the users depending on their role in the organization.
 
 You can set the quota at the following levels:
 
--   Directory level – limits the usage at the directory level
-
--   Volume level – limits the usage at the volume level
+-   **Directory level** – limits the usage at the directory level
+-   **Volume level** – limits the usage at the volume level
 
 > **Note**
 >
@@ -29,8 +27,7 @@ You can set the quota at the following levels:
 > The disk limit is enforced immediately after creating that directory.
 > For more information on setting disk limit, see ?.
 
-Enabling Quota
-==============
+##Enabling Quota
 
 You must enable Quota to set disk limits.
 
@@ -45,8 +42,7 @@ You must enable Quota to set disk limits.
         # gluster volume quota test-volume enable
         Quota is enabled on /test-volume
 
-Disabling Quota
-===============
+##Disabling Quota
 
 You can disable Quota, if needed.
 
@@ -61,8 +57,7 @@ You can disable Quota, if needed.
         # gluster volume quota test-volume disable
         Quota translator is disabled on /test-volume
 
-Setting or Replacing Disk Limit
-===============================
+##Setting or Replacing Disk Limit
 
 You can create new directories in your storage environment and set the
 disk limit or set disk limit for the existing directories. The directory
@@ -86,8 +81,7 @@ being treated as "/".
     > In a multi-level directory hierarchy, the strictest disk limit
     > will be considered for enforcement.
 
-Displaying Disk Limit Information
-=================================
+##Displaying Disk Limit Information
 
 You can display disk limit information on all the directories on which
 the limit is set.
@@ -119,8 +113,7 @@ the limit is set.
 
         /Test/data    10 GB       6 GB
 
-Updating Memory Cache Size
-==========================
+##Updating Memory Cache Size
 
 For performance reasons, quota caches the directory sizes on client. You
 can set timeout indicating the maximum valid duration of directory sizes
@@ -151,8 +144,7 @@ on client side.
         # gluster volume set test-volume features.quota-timeout 5
         Set volume successful
 
-Removing Disk Limit
-===================
+##Removing Disk Limit
 
 You can remove set disk limit, if you do not want quota anymore.
 
