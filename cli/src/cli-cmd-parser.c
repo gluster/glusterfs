@@ -38,13 +38,6 @@ str_getunamb (const char *tok, char **opwords)
         return (char *)cli_getunamb (tok, (void **)opwords, id_sel);
 }
 
-static inline gf_boolean_t
-cli_is_quota_cmd (char *key)
-{
-        return ((strcmp (key, "quota") == 0) ||
-                (strcmp (key, "features.quota") == 0));
-}
-
 int32_t
 cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
                       char **bricks, int *brick_count)
@@ -865,11 +858,6 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options,
         char                    *value = NULL;
         int                     i = 0;
         char                    str[50] = {0,};
-        char                    *true_keys[] = {"on", "enable", "yes",
-                                                "true", "1", NULL};
-        char                    *false_keys[] = {"off", "disable", "no",
-                                               "false", "0", NULL};
-        char                    *w1 = NULL, *w2 = NULL;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -922,25 +910,6 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options,
                 if (ret == 0)
                         *options = dict;
                 goto out;
-        } else if (wordcount == 5 && cli_is_quota_cmd ((char *)words[3])) {
-                value = (char *)words[4];
-                w1 = str_getunamb (value, true_keys);
-                w2 = str_getunamb (value, false_keys);
-                if (w1 != NULL) {
-                        gf_asprintf (op_errstr,"'gluster volume set <VOLNAME> "
-                                     "%s %s' is deprecated. Use 'gluster "
-                                     "volume quota <VOLNAME> enable' instead.",
-                                     (char *)words[3], w1);
-                        ret = -1;
-                        goto out;
-                } else if (w2 != NULL) {
-                        gf_asprintf (op_errstr,"'gluster volume set <VOLNAME> "
-                                     "%s %s' is deprecated. Use 'gluster "
-                                     "volume quota <VOLNAME> disable' instead.",
-                                     (char *)words[3], w2);
-                        ret = -1;
-                        goto out;
-                }
         }
 
         for (i = 3; i < wordcount; i+=2) {

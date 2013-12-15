@@ -155,6 +155,40 @@ glusterd_op_sm_inject_all_acc ()
         return ret;
 }
 
+static int
+glusterd_check_quota_cmd (char *key, char *value, char *errstr, size_t size)
+{
+        int                ret = -1;
+        gf_boolean_t       b   = _gf_false;
+
+        if ((strcmp (key, "quota") == 0) ||
+           (strcmp (key, "features.quota") == 0)) {
+                ret = gf_string2boolean (value, &b);
+                if (ret)
+                        goto out;
+                if (b) {
+                          snprintf (errstr, size," 'gluster "
+                                    "volume set <VOLNAME> %s %s' is "
+                                    "deprecated. Use 'gluster volume "
+                                    "quota <VOLNAME> enable' instead.",
+                                     key, value);
+                          ret = -1;
+                          goto out;
+                } else {
+                          snprintf (errstr, size, " 'gluster "
+                                    "volume set <VOLNAME> %s %s' is "
+                                    "deprecated. Use 'gluster volume "
+                                    "quota <VOLNAME> disable' instead.",
+                                     key, value);
+                          ret = -1;
+                          goto out;
+                }
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
 int
 glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickinfo,
                                  gd1_mgmt_brick_op_req **req, dict_t *dict)
@@ -543,6 +577,10 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                 goto out;
                         }
                 }
+
+                ret = glusterd_check_quota_cmd (key, value, errstr, sizeof (errstr));
+                if (ret)
+                        goto out;
 
                 if (is_key_glusterd_hooks_friendly (key))
                         continue;
