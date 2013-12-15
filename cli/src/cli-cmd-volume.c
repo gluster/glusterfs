@@ -16,6 +16,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <netinet/in.h>
 
 #ifndef _CONFIG_H
@@ -1903,6 +1904,10 @@ cli_cmd_volume_heal_cbk (struct cli_state *state, struct cli_cmd_word *word,
         dict_t                  *options = NULL;
         xlator_t                *this = NULL;
         cli_local_t             *local = NULL;
+        int                     heal_op = 0;
+        runner_t                runner = {0};
+        char                    buff[PATH_MAX] = {0};
+        char                    *out = NULL;
 
         this = THIS;
         frame = create_frame (this, this->ctx->pool);
@@ -1921,13 +1926,33 @@ cli_cmd_volume_heal_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 parse_error = 1;
                 goto out;
         }
+        ret = dict_get_int32 (options, "heal-op", &heal_op);
+        if (ret < 0)
+                goto out;
 
-        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_HEAL_VOLUME];
+        if (heal_op == GF_AFR_OP_INDEX_SUMMARY) {
+                runinit (&runner);
+                runner_add_args (&runner, SBIN_DIR"/glfsheal", words[2], NULL);
+                runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
+                ret = runner_start (&runner);
+                if (ret == -1)
+                        goto out;
+                while ((out = fgets(buff, sizeof(buff),
+                                   runner_chio (&runner, STDOUT_FILENO)))) {
+                        printf ("%s", out);
+                }
 
-        CLI_LOCAL_INIT (local, words, frame, options);
+                ret = runner_end (&runner);
+                ret = WEXITSTATUS (ret);
+        }
+        else {
+                proc = &cli_rpc_prog->proctable[GLUSTER_CLI_HEAL_VOLUME];
 
-        if (proc->fn) {
-                ret = proc->fn (frame, THIS, options);
+                CLI_LOCAL_INIT (local, words, frame, options);
+
+                if (proc->fn) {
+                        ret = proc->fn (frame, THIS, options);
+                }
         }
 
 out:
