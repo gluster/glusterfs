@@ -198,4 +198,11 @@ afr_mark_active_sinks (xlator_t *this, unsigned char *sources,
 
 gf_boolean_t
 afr_does_witness_exist (xlator_t *this, uint64_t *witness);
+
+int
+afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
+                               uuid_t gfid, inode_t **link_inode,
+                               gf_boolean_t *data_selfheal,
+                               gf_boolean_t *metadata_selfheal,
+                               gf_boolean_t *entry_selfheal);
 #endif /* !_AFR_SELFHEAL_H */

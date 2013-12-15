@@ -995,6 +995,7 @@ fi
 %endif
 # binaries
 %{_sbindir}/glusterd
+%{_sbindir}/glfsheal
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/posix*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server*

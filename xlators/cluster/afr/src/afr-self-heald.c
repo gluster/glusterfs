@@ -40,8 +40,6 @@
 #define NTH_INDEX_HEALER(this, n) &((((afr_private_t *)this->private))->shd.index_healers[n])
 #define NTH_FULL_HEALER(this, n) &((((afr_private_t *)this->private))->shd.full_healers[n])
 
-int afr_shd_gfid_to_path (xlator_t *this, xlator_t *subvol, uuid_t gfid, char **path_p);
-
 char *
 afr_subvol_name (xlator_t *this, int subvol)
 {

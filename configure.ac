@@ -210,6 +210,8 @@ AC_CONFIG_FILES([Makefile
                 geo-replication/Makefile
                 geo-replication/src/Makefile
                 geo-replication/syncdaemon/Makefile
+                heal/Makefile
+                heal/src/Makefile
                 glusterfs.spec])
 
 AC_CANONICAL_HOST
