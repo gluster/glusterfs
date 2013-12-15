@@ -7,7 +7,7 @@ EXTRA_DIST = autogen.sh \
 	$(shell find $(top_srcdir)/tests -type f -print)
 
 SUBDIRS = argp-standalone libglusterfs rpc api xlators glusterfsd \
-	$(FUSERMOUNT_SUBDIR) doc extras cli @SYNCDAEMON_SUBDIR@
+	$(FUSERMOUNT_SUBDIR) doc extras cli heal @SYNCDAEMON_SUBDIR@
 
 pkgconfigdir = @pkgconfigdir@
 pkgconfig_DATA = glusterfs-api.pc libgfchangelog.pc
