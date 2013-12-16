@@ -137,6 +137,12 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
                                 glusterd_brickinfo_t   *brickinfo,
                                 gf_boolean_t del_brick);
 
+glusterd_volinfo_t *
+glusterd_volinfo_ref (glusterd_volinfo_t *volinfo);
+
+glusterd_volinfo_t *
+glusterd_volinfo_unref (glusterd_volinfo_t *volinfo);
+
 int32_t
 glusterd_volinfo_delete (glusterd_volinfo_t *volinfo);
 
