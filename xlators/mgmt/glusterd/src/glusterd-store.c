@@ -166,7 +166,7 @@ out:
         if (brickinfo)
                 glusterd_brickinfo_delete (brickinfo);
         if (volinfo)
-                glusterd_volinfo_delete (volinfo);
+                glusterd_volinfo_unref (volinfo);
 
         return ret;
 }

@@ -318,6 +318,8 @@ struct glusterd_volinfo_ {
 
         int                       op_version;
         int                       client_op_version;
+        pthread_mutex_t           reflock;
+        int                       refcnt;
 };
 
 typedef enum gd_node_type_ {

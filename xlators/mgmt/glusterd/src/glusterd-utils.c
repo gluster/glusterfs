@@ -445,6 +445,37 @@ glusterd_check_volume_exists (char *volname)
         return _gf_true;
 }
 
+glusterd_volinfo_t *
+glusterd_volinfo_unref (glusterd_volinfo_t *volinfo)
+{
+        int refcnt = -1;
+
+        pthread_mutex_lock (&volinfo->reflock);
+        {
+                refcnt = --volinfo->refcnt;
+        }
+        pthread_mutex_unlock (&volinfo->reflock);
+
+        if (!refcnt) {
+                glusterd_volinfo_delete (volinfo);
+                return NULL;
+        }
+
+        return volinfo;
+}
+
+glusterd_volinfo_t *
+glusterd_volinfo_ref (glusterd_volinfo_t *volinfo)
+{
+        pthread_mutex_lock (&volinfo->reflock);
+        {
+                ++volinfo->refcnt;
+        }
+        pthread_mutex_unlock (&volinfo->reflock);
+
+        return volinfo;
+}
+
 int32_t
 glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
 {
@@ -478,7 +509,8 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
 
         new_volinfo->xl = THIS;
 
-        *volinfo = new_volinfo;
+        pthread_mutex_init (&new_volinfo->reflock, NULL);
+        *volinfo = glusterd_volinfo_ref (new_volinfo);
 
         ret = 0;
 
@@ -571,6 +603,14 @@ out:
         return ret;
 }
 
+int
+glusterd_volinfo_remove (glusterd_volinfo_t *volinfo)
+{
+        list_del_init (&volinfo->vol_list);
+        glusterd_volinfo_unref (volinfo);
+        return 0;
+}
+
 int32_t
 glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
 {
@@ -595,6 +635,7 @@ glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
 
         glusterd_auth_cleanup (volinfo);
 
+        pthread_mutex_destroy (&volinfo->reflock);
         GF_FREE (volinfo);
         ret = 0;
 
@@ -3404,7 +3445,7 @@ glusterd_delete_stale_volume (glusterd_volinfo_t *stale_volinfo,
                 (void) gf_store_handle_destroy (stale_volinfo->shandle);
                 stale_volinfo->shandle = NULL;
         }
-        (void) glusterd_volinfo_delete (stale_volinfo);
+        (void) glusterd_volinfo_remove (stale_volinfo);
         return 0;
 }
 
@@ -6181,7 +6222,7 @@ glusterd_delete_volume (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        ret = glusterd_volinfo_delete (volinfo);
+        glusterd_volinfo_remove (volinfo);
 out:
         gf_log (THIS->name, GF_LOG_DEBUG, "returning %d", ret);
         return ret;
