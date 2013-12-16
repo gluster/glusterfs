@@ -30,8 +30,8 @@ cd ~
 EXPECT "$HEAL_FILES" afr_get_pending_heal_count $V0
 TEST ! $CLI volume heal $V0
 TEST $CLI volume set $V0 cluster.self-heal-daemon off
-TEST ! $CLI volume heal $V0 info
 TEST ! $CLI volume heal $V0
+TEST ! $CLI volume heal $V0 full
 TEST $CLI volume start $V0 force
 TEST $CLI volume set $V0 cluster.self-heal-daemon on
 EXPECT_WITHIN 20 "Y" glustershd_up_status
