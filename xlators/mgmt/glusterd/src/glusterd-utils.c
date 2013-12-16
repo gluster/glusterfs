@@ -189,7 +189,7 @@ get_ip_from_addrinfo (struct addrinfo *addr, char **ip)
                 return NULL;
         }
 
-        *ip = strdup (buf);
+        *ip = gf_strdup (buf);
         return *ip;
 }
 
@@ -291,8 +291,11 @@ glusterd_is_local_addr (char *hostname)
 
                 found = glusterd_is_loopback_localhost (res->ai_addr, hostname)
                         || glusterd_interface_search (ip);
-                if (found)
+                if (found) {
+                        GF_FREE (ip);
                         goto out;
+                }
+                GF_FREE (ip);
         }
 
 out:
