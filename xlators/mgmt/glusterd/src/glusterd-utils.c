@@ -1148,7 +1148,7 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
                         gf_log (this->name, GF_LOG_DEBUG, "%s is already stopped",
                                 service);
                         ret = 0;
-                        break;
+                        goto out;
                 default:
                         gf_log (this->name, GF_LOG_ERROR, "Failed to kill %s: %s",
                                 service, strerror (errno));
@@ -3425,9 +3425,11 @@ gd_check_and_update_rebalance_info (glusterd_volinfo_t *old_volinfo,
         old = &(old_volinfo->rebal);
         new = &(new_volinfo->rebal);
 
-        /* If the old task-id is not null and the task-id's don't match, the old
-         * volinfo task is stale and should be cleaned up
-         */
+        //Disconnect from rebalance process
+        if (old->defrag && old->defrag->rpc) {
+                rpc_transport_disconnect (old->defrag->rpc->conn.trans);
+        }
+
         if (!uuid_is_null (old->rebalance_id) &&
             uuid_compare (old->rebalance_id, new->rebalance_id)) {
                 (void)gd_stop_rebalance_process (old_volinfo);
@@ -3444,11 +3446,11 @@ gd_check_and_update_rebalance_info (glusterd_volinfo_t *old_volinfo,
         new->skipped_files      = old->skipped_files;
         new->rebalance_failures = old->rebalance_failures;
         new->rebalance_time     = old->rebalance_time;
-        new->defrag             = old->defrag;
         new->dict               = (old->dict ? dict_ref (old->dict) : NULL);
 
         /* glusterd_rebalance_t.{op, id, defrag_cmd} are copied during volume
          * import
+         * a new defrag object should come to life with rebalance being restarted
          */
 out:
         return ret;
