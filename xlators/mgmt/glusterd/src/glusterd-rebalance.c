@@ -164,6 +164,9 @@ __glusterd_defrag_notify (struct rpc_clnt *rpc, void *mydata,
                         rpc->conn.trans->name);
                 break;
         }
+        case RPC_CLNT_DESTROY:
+                glusterd_volinfo_unref (volinfo);
+                break;
         default:
                 gf_log ("", GF_LOG_TRACE,
                         "got some other RPC event %d", event);
@@ -329,6 +332,7 @@ glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo)
                 goto out;
         }
 
+        glusterd_volinfo_ref (volinfo);
         synclock_unlock (&priv->big_lock);
         ret = glusterd_rpc_create (&defrag->rpc, options,
                                    glusterd_defrag_notify, volinfo);
