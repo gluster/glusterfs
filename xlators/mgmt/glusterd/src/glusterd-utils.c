@@ -1142,6 +1142,18 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
                 "%d", service, pid);
 
         ret = kill (pid, sig);
+        if (ret) {
+                switch (errno) {
+                case ESRCH:
+                        gf_log (this->name, GF_LOG_DEBUG, "%s is already stopped",
+                                service);
+                        ret = 0;
+                        break;
+                default:
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to kill %s: %s",
+                                service, strerror (errno));
+                }
+        }
         if (!force_kill)
                 goto out;
 
