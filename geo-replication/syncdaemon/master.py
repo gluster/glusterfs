@@ -1091,6 +1091,7 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
     def register(self):
         self.counter = 0
         self.comlist = []
+        self.stimes = []
         self.sleep_interval = 60
         self.tempdir = self.setup_working_dir()[0]
         self.tempdir = os.path.join(self.tempdir, 'xsync')
@@ -1169,10 +1170,15 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
         if last:
             self.put('finale', None)
 
-    def sync_done(self, stime=None, last=False):
+    def sync_done(self, stime=[], last=False):
         self.sync_xsync(last)
         if stime:
-            self.sync_stime(stime, last)
+            # Send last as True only for last stime entry
+            for st in stime[:-1]:
+                self.sync_stime(st, False)
+
+            if stime and stime[-1]:
+                self.sync_stime(stime[-1], last)
 
     def Xcrawl(self, path='.', xtr_root=None):
         """
@@ -1204,7 +1210,7 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
         xtr = max(xtr, xtr_root)
         if not self.need_sync(path, xtl, xtr):
             if path == '.':
-                self.sync_done((path, xtl), True)
+                self.sync_done([(path, xtl)], True)
             return
         self.xtime_reversion_hook(path, xtl, xtr)
         logging.debug("entering " + path)
@@ -1232,11 +1238,12 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
             mo = st.st_mode
             self.counter += 1
             if self.counter == self.XSYNC_MAX_ENTRIES:
-                self.sync_done()
+                self.sync_done(self.stimes, False)
+                self.stimes = []
             if stat.S_ISDIR(mo):
                 self.write_entry_change("E", [gfid, 'MKDIR', str(mo), str(st.st_uid), str(st.st_gid), escape(os.path.join(pargfid, bname))])
                 self.Xcrawl(e, xtr_root)
-                self.sync_done((e, xte), False)
+                self.stimes.append((e, xte))
             elif stat.S_ISLNK(mo):
                 self.write_entry_change("E", [gfid, 'SYMLINK', escape(os.path.join(pargfid, bname))])
             elif stat.S_ISREG(mo):
@@ -1250,7 +1257,8 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                     self.write_entry_change("E", [gfid, 'LINK', escape(os.path.join(pargfid, bname))])
                 self.write_entry_change("D", [gfid])
         if path == '.':
-            self.sync_done((path, xtl), True)
+            self.stimes.append((path, xtl))
+            self.sync_done(self.stimes, True)
 
 class BoxClosedErr(Exception):
     pass
