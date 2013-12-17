@@ -3412,10 +3412,12 @@ gd_check_and_update_rebalance_info (glusterd_volinfo_t *old_volinfo,
 
         old = &(old_volinfo->rebal);
         new = &(new_volinfo->rebal);
-        /* If the task-id's don't match, the old volinfo task is stale and
-         * should be cleaned up
+
+        /* If the old task-id is not null and the task-id's don't match, the old
+         * volinfo task is stale and should be cleaned up
          */
-        if (uuid_compare (old->rebalance_id, new->rebalance_id)) {
+        if (!uuid_is_null (old->rebalance_id) &&
+            uuid_compare (old->rebalance_id, new->rebalance_id)) {
                 (void)gd_stop_rebalance_process (old_volinfo);
                 goto out;
         }
@@ -9241,72 +9243,15 @@ glusterd_remove_auxiliary_mount (char *volname)
         return ret;
 }
 
-/* Just a minimal callback function to which logs if the request was successfull
- * or not
- */
-int
-_gd_stop_rebalance_process_cbk (struct rpc_req *req, struct iovec *iov,
-                                int count, void *call_frame)
-{
-        xlator_t              *this  = NULL;
-        struct syncargs       *args  = NULL;
-        gd1_mgmt_brick_op_rsp rsp    = {0,};
-        int                   ret    = -1;
-        call_frame_t          *frame = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-
-        frame = call_frame;
-        args = frame->local;
-        frame->local = NULL;
-
-        if (-1 == req->rpc_status) {
-                gf_log (this->name, GF_LOG_WARNING, "Failed to stop rebalance "
-                        "process.");
-                goto out;
-        }
-
-        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to decode stop "
-                        "rebalance process response.");
-                goto out;
-        }
-
-        gf_log (this->name, GF_LOG_INFO, "Stopping rebalance process was %s.",
-                (rsp.op_ret ? "unsuccessful" : "successful"));
-
-out:
-        if ((rsp.op_errstr) && (strcmp (rsp.op_errstr, "") != 0))
-                free (rsp.op_errstr);
-        free (rsp.output.output_val);
-
-        STACK_DESTROY (frame->root);
-        __wake (args);
-
-        return 0;
-}
-
-int
-gd_stop_rebalance_process_cbk (struct rpc_req *req, struct iovec *iov,
-                                int count, void *call_frame)
-{
-        return glusterd_big_locked_cbk (req, iov, count, call_frame,
-                                        _gd_stop_rebalance_process_cbk);
-}
-/* Stops the rebalance process of the given volume, gracefully
+/* Stops the rebalance process of the given volume
  */
 int
 gd_stop_rebalance_process (glusterd_volinfo_t *volinfo)
 {
-        int                   ret       = -1;
-        xlator_t              *this     = NULL;
-        glusterd_conf_t       *conf     = NULL;
-        gd1_mgmt_brick_op_req *req      = NULL;
-        dict_t                *req_dict = NULL;
-        char                  *name     = NULL;
-        struct syncargs       args      = {0,};
+        int              ret               = -1;
+        xlator_t        *this              = NULL;
+        glusterd_conf_t *conf              = NULL;
+        char             pidfile[PATH_MAX] = {0,};
 
         GF_ASSERT (volinfo);
 
@@ -9316,43 +9261,8 @@ gd_stop_rebalance_process (glusterd_volinfo_t *volinfo)
         conf = this->private;
         GF_ASSERT (conf);
 
-        req = GF_CALLOC (1, sizeof (*req), gf_gld_mt_mop_brick_req_t);
-        if (!req) {
-                ret = -1;
-                goto out;
-        }
-
-        req->op = GLUSTERD_BRICK_XLATOR_DEFRAG;
-
-        ret = gf_asprintf(&name, "%s-dht", volinfo->volname);
-        if (ret < 0)
-                goto out;
-        req->name = name;
-
-        req_dict = dict_new();
-        if (!req_dict) {
-                ret = -1;
-                goto out;
-        }
-
-        ret = dict_set_int32 (req_dict, "rebalance-command",
-                              GF_DEFRAG_CMD_STOP);
-        if (ret)
-                goto out;
-
-        ret = dict_allocate_and_serialize (req_dict, &req->input.input_val,
-                                           &req->input.input_len);
-        if (ret)
-                goto out;
-
-        GD_SYNCOP (volinfo->rebal.defrag->rpc, (&args), NULL,
-                   gd_stop_rebalance_process_cbk, req, conf->gfs_mgmt, req->op,
-                   (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
-out:
-
-        GF_FREE (name);
-        GF_FREE (req);
-        dict_unref (req_dict);
+        GLUSTERD_GET_DEFRAG_PID_FILE (pidfile, volinfo, conf);
+        ret = glusterd_service_stop ("rebalance", pidfile, SIGTERM, _gf_true);
 
         return ret;
 }
