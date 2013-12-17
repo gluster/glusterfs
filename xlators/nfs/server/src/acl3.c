@@ -66,7 +66,8 @@ nfs3_stat_to_fattr3 (struct iatt *buf);
 #define acl3_validate_gluster_fh(handle, status, errlabel)              \
         do {                                                            \
                 if (!nfs3_fh_validate (handle)) {                       \
-                        status = NFS3ERR_SERVERFAULT;                   \
+                        gf_log (GF_ACL, GF_LOG_ERROR, "Bad Handle");    \
+                        status = NFS3ERR_BADHANDLE;                     \
                         goto errlabel;                                  \
                 }                                                       \
         } while (0)                                                     \
@@ -321,6 +322,7 @@ acl3_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         getaclreply                     *getaclreply = NULL;
         int                             ret = -1;
         nfs_user_t                      nfu = {0, };
+        uint64_t                        deviceid = 0;
 
         if (!frame->local) {
                 gf_log (GF_ACL, GF_LOG_ERROR, "Invalid argument,"
@@ -336,14 +338,18 @@ acl3_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
         }
 
-        getaclreply->attr_follows = 1;
+        /* Fill the attrs before xattrs */
+        getaclreply->attr_follows = TRUE;
+        deviceid = nfs3_request_xlator_deviceid (cs->req);
+        nfs3_map_deviceid_to_statdev (buf, deviceid);
         getaclreply->attr = nfs3_stat_to_fattr3 (buf);
-        getaclreply->mask = 0xf;
+        getaclreply->mask = (NFS_ACL|NFS_ACLCNT|NFS_DFACL|NFS_DFACLCNT);
+
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_getxattr (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc, NULL, NULL,
-                            acl3_getacl_cbk, cs);
-        if (ret == -1) {
-                stat = nfs3_cbk_errno_status (op_ret, op_errno);
+        ret = nfs_getxattr (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                            NULL, NULL, acl3_getacl_cbk, cs);
+        if (ret < 0) {
+                stat = nfs3_errno_to_nfsstat3 (-ret);
                 goto err;
         }
         return 0;
@@ -409,6 +415,13 @@ acl3svc_getacl (rpcsvc_request_t *req)
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
+
+        /* Validate ACL mask */
+        if (getaclargs.mask & ~(NFS_ACL|NFS_ACLCNT|NFS_DFACL|NFS_DFACLCNT)) {
+                stat = NFS3ERR_INVAL;
+                goto acl3err;
+        }
+
         fhp = &fh;
         acl3_validate_gluster_fh (&fh, stat, acl3err);
         acl3_map_fh_to_volume (nfs->nfs3state, fhp, req,
@@ -470,11 +483,13 @@ acl3_setacl_resume (void *carg)
         nfs_request_user_init (&nfu, cs->req);
         xattr = dict_new();
         if (cs->aclcount)
-        ret = dict_set_static_bin (xattr, POSIX_ACL_ACCESS_XATTR, cs->aclxattr,
-                                   cs->aclcount * 8 + 4);
+        ret = dict_set_static_bin (xattr, POSIX_ACL_ACCESS_XATTR,
+                                   cs->aclxattr,
+                                   posix_acl_xattr_size (cs->aclcount));
         if (cs->daclcount)
         ret = dict_set_static_bin (xattr, POSIX_ACL_DEFAULT_XATTR,
-                                   cs->daclxattr, cs->daclcount * 8 + 4);
+                                   cs->daclxattr,
+                                   posix_acl_xattr_size (cs->daclcount));
 
         ret = nfs_setxattr (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc, xattr,
                             0, NULL, acl3_setacl_cbk, cs);
