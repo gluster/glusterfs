@@ -2012,5 +2012,9 @@ out:
         else
                 ret = glusterd_op_sm_inject_event (GD_OP_EVENT_COMMIT_ACC, NULL);
 
-        glusterd_op_sm ();
+        synclock_lock (&priv->big_lock);
+        {
+                glusterd_op_sm ();
+        }
+        synclock_unlock (&priv->big_lock);
 }
