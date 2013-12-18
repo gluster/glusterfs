@@ -838,6 +838,11 @@ posix_fhandle_pair (xlator_t *this, int fd,
         int sys_ret = -1;
         int ret     = 0;
 
+        if (XATTR_IS_PATHINFO (key)) {
+                ret = -EACCES;
+                goto out;
+        }
+
         sys_ret = sys_fsetxattr (fd, key, value->data,
                                  value->len, flags);
 
