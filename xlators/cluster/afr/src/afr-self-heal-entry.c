@@ -1018,7 +1018,7 @@ afr_sh_entry_impunge_xattrop_cbk (call_frame_t *impunge_frame, void *cookie,
                         LOCK (&impunge_frame->lock);
                         {
                                 impunge_local->op_ret = -1;
-                                impunge_local->op_errno = errno;
+                                impunge_local->op_errno = op_errno;
                         }
                         UNLOCK (&impunge_frame->lock);
         }
