@@ -1002,6 +1002,7 @@ afr_sh_entry_impunge_xattrop_cbk (call_frame_t *impunge_frame, void *cookie,
         afr_private_t   *priv = NULL;
         afr_local_t     *impunge_local = NULL;
         int              child_index = 0;
+        int              call_count = -1;
 
         priv          = this->private;
         impunge_local = impunge_frame->local;
@@ -1012,16 +1013,26 @@ afr_sh_entry_impunge_xattrop_cbk (call_frame_t *impunge_frame, void *cookie,
                 gf_log (this->name, GF_LOG_INFO,
                         "%s: failed to perform xattrop on %s (%s)",
                         impunge_local->loc.path,
-                        priv->children[child_index]->name,
-                        strerror (op_errno));
-                goto out;
+                        priv->children[child_index]->name, strerror (op_errno));
+
+                        LOCK (&impunge_frame->lock);
+                        {
+                                impunge_local->op_ret = -1;
+                                impunge_local->op_errno = op_errno;
+                        }
+                        UNLOCK (&impunge_frame->lock);
         }
 
-        afr_sh_entry_impunge_setattr (impunge_frame, this);
-        return 0;
-out:
-        afr_sh_entry_call_impunge_done (impunge_frame, this,
-                                        -1, op_errno);
+        call_count = afr_frame_return (impunge_frame);
+
+        if (call_count == 0) {
+                if (impunge_local->op_ret == 0) {
+                        afr_sh_entry_impunge_setattr (impunge_frame, this);
+                } else {
+                        afr_sh_entry_call_impunge_done (impunge_frame, this,
+                                                -1, impunge_local->op_errno);
+                }
+        }
         return 0;
 }
 
@@ -1035,11 +1046,15 @@ afr_sh_entry_impunge_perform_xattrop (call_frame_t *impunge_frame,
         afr_local_t     *impunge_local    = NULL;
         afr_self_heal_t *impunge_sh       = NULL;
         int32_t         op_errno          = 0;
+        int32_t         call_count        = 0;
+        int32_t         i                 = 0;
+
 
         priv = this->private;
         impunge_local = impunge_frame->local;
         impunge_sh = &impunge_local->self_heal;
         active_src = impunge_sh->active_source;
+        impunge_local->op_ret = 0;
 
         afr_prepare_new_entry_pending_matrix (impunge_local->pending,
                                               afr_is_errno_unset,
@@ -1055,11 +1070,32 @@ afr_sh_entry_impunge_perform_xattrop (call_frame_t *impunge_frame,
         afr_set_pending_dict (priv, xattr, impunge_local->pending, active_src,
                               LOCAL_LAST);
 
-        STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_xattrop_cbk,
-                           (void *) (long) active_src,
-                           priv->children[active_src],
-                           priv->children[active_src]->fops->xattrop,
-                           &impunge_local->loc, GF_XATTROP_ADD_ARRAY, xattr, NULL);
+        for (i = 0; i < priv->child_count; i++) {
+                if ((impunge_sh->child_errno[i] == EEXIST) &&
+                    (impunge_local->child_up[i] == 1))
+
+                        call_count++;
+        }
+
+        impunge_local->call_count  = call_count;
+
+        for (i = 0; i < priv->child_count; i++) {
+
+                if ((impunge_sh->child_errno[i] == EEXIST)
+                    && (impunge_local->child_up[i] == 1)) {
+
+
+                        STACK_WIND_COOKIE (impunge_frame,
+                                           afr_sh_entry_impunge_xattrop_cbk,
+                                           (void *) (long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->xattrop,
+                                           &impunge_local->loc,
+                                           GF_XATTROP_ADD_ARRAY, xattr, NULL);
+                        if (!--call_count)
+                                break;
+                }
+        }
 
         if (xattr)
                 dict_unref (xattr);
