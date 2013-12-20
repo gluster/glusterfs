@@ -6,7 +6,7 @@ glusterfsd_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/xdr/src/libgfxdr.la \
 	$(GF_LDADD) $(GF_GLUSTERFS_LIBS)
 glusterfsd_LDFLAGS = $(GF_LDFLAGS)
-noinst_HEADERS = glusterfsd.h glusterfsd-mem-types.h
+noinst_HEADERS = glusterfsd.h glusterfsd-mem-types.h glusterfsd-messages.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src -DDATADIR=\"$(localstatedir)\" \

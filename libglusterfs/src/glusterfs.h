@@ -342,6 +342,7 @@ struct _cmd_args {
         char             *log_server;
         gf_loglevel_t    log_level;
         char            *log_file;
+        char            *log_ident;
         int32_t          max_connect_attempts;
         /* advanced options */
         uint32_t         volfile_server_port;

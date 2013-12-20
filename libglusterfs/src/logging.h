@@ -61,6 +61,20 @@ typedef enum {
         GF_LOG_TRACE,      /* full trace of operation */
 } gf_loglevel_t;
 
+/* format for the logs */
+typedef enum {
+        gf_logformat_traditional = 0, /* Format as in gluster 3.5 */
+        gf_logformat_withmsgid, /* Format enhanced with MsgID, ident, errstr */
+        gf_logformat_cee /* log enhanced format in cee */
+} gf_log_format_t;
+
+/* log infrastructure to log to */
+typedef enum {
+        gf_logger_glusterlog = 0, /* locations and files as in gluster 3.5 */
+        gf_logger_syslog /* log to (r)syslog, based on (r)syslog conf */
+        /* NOTE: In the future journald, lumberjack, next new thing here */
+} gf_log_logger_t;
+
 #define DEFAULT_LOG_FILE_DIRECTORY            DATADIR "/log/glusterfs"
 #define DEFAULT_LOG_LEVEL                     GF_LOG_INFO
 
@@ -76,11 +90,10 @@ typedef struct gf_log_handle_ {
         FILE            *gf_log_logfile;
         char            *cmd_log_filename;
         FILE            *cmdlogfile;
-#ifdef GF_USE_SYSLOG
-        int              log_control_file_found;
+        gf_log_logger_t  logger;
+        gf_log_format_t  logformat;
         char            *ident;
-#endif /* GF_USE_SYSLOG */
-
+        int              log_control_file_found;
 } gf_log_handle_t;
 
 void gf_log_globals_init (void *ctx);
@@ -90,24 +103,116 @@ void gf_log_logrotate (int signum);
 
 void gf_log_cleanup (void);
 
+/* Internal interfaces to log messages with message IDs */
+int _gf_msg (const char *domain, const char *file,
+             const char *function, int32_t line, gf_loglevel_t level,
+             int errnum, int trace, uint64_t msgid, const char *fmt, ...)
+             __attribute__ ((__format__ (__printf__, 9, 10)));
+
+void _gf_msg_backtrace_nomem (gf_loglevel_t level, int stacksize);
+
+int _gf_msg_plain (gf_loglevel_t level, const char *fmt, ...)
+                   __attribute__ ((__format__ (__printf__, 2, 3)));
+
+int _gf_msg_plain_nomem (gf_loglevel_t level, const char *msg);
+
+int _gf_msg_vplain (gf_loglevel_t level, const char *fmt, va_list ap);
+
+int _gf_msg_nomem (const char *domain, const char *file,
+                   const char *function, int line, gf_loglevel_t level,
+                   size_t size);
+
 int _gf_log (const char *domain, const char *file,
              const char *function, int32_t line, gf_loglevel_t level,
              const char *fmt, ...)
              __attribute__ ((__format__ (__printf__, 6, 7)));
+
 int _gf_log_callingfn (const char *domain, const char *file,
                        const char *function, int32_t line, gf_loglevel_t level,
                        const char *fmt, ...)
                        __attribute__ ((__format__ (__printf__, 6, 7)));
 
-int _gf_log_nomem (const char *domain, const char *file,
-                   const char *function, int line, gf_loglevel_t level,
-                   size_t size);
-
 int _gf_log_eh (const char *function, const char *fmt, ...);
 
 
 
+/* treat GF_LOG_TRACE and GF_LOG_NONE as LOG_DEBUG and
+ * other level as is */
+#define SET_LOG_PRIO(level, priority) do {                              \
+        if (GF_LOG_TRACE == (level) || GF_LOG_NONE == (level)) {        \
+                priority = LOG_DEBUG;                                   \
+        } else {                                                        \
+                priority = (level) - 1;                                 \
+        }                                                               \
+        } while (0)
+
+/* extract just the file name from the path */
+#define GET_FILE_NAME_TO_LOG(file, basename) do {       \
+        basename = strrchr ((file), '/');               \
+        if (basename)                                   \
+                basename++;                             \
+        else                                            \
+                basename = (file);                      \
+        } while (0)
+
+#define PRINT_SIZE_CHECK(ret, label, strsize) do {      \
+        if (ret < 0)                            \
+                goto label;                     \
+        if ((strsize - ret) > 0) {              \
+                strsize -= ret;                 \
+        } else {                                \
+                ret = 0;                        \
+                goto label;                     \
+        }                                       \
+        } while (0)
+
 #define FMT_WARN(fmt...) do { if (0) printf (fmt); } while (0)
+
+/* Interface to log messages with message IDs */
+#define gf_msg(dom, levl, errnum, msgid, fmt...) do {           \
+                _gf_msg (dom, __FILE__, __FUNCTION__, __LINE__, \
+                        levl, errnum, 0, msgid, ##fmt);         \
+        } while (0)
+
+/* no frills, no thrills, just a vanilla message, used to print the graph */
+#define gf_msg_plain(levl, fmt...) do {         \
+                _gf_msg_plain (levl, ##fmt);    \
+        } while (0)
+
+#define gf_msg_plain_nomem(levl, msg) do {              \
+                _gf_msg_plain_nomem (levl, msg);        \
+        } while (0)
+
+#define gf_msg_vplain(levl, fmt, va) do {         \
+                _gf_msg_vplain (levl, fmt, va);    \
+        } while (0)
+
+#define gf_msg_backtrace_nomem(level, stacksize) do {           \
+                _gf_msg_backtrace_nomem (level, stacksize);     \
+        } while (0)
+
+#define gf_msg_callingfn(dom, levl, errnum, msgid, fmt...) do { \
+                _gf_msg (dom, __FILE__, __FUNCTION__, __LINE__, \
+                        levl, errnum, 1, msgid, ##fmt);         \
+        } while (0)
+
+/* No malloc or calloc should be called in this function */
+#define gf_msg_nomem(dom, levl, size) do {                              \
+                _gf_msg_nomem (dom, __FILE__, __FUNCTION__, __LINE__,   \
+                                levl, size);                            \
+        } while (0)
+
+/* Debug or trace messages do not need message IDs as these are more developer
+ * related. Hence, the following abstractions are provided for the same */
+#define gf_msg_debug(dom, errnum, fmt...) do {                          \
+                _gf_msg (dom, __FILE__, __FUNCTION__, __LINE__,         \
+                        GF_LOG_DEBUG, errnum, 0, 0, ##fmt);             \
+        } while (0)
+
+#define gf_msg_trace(dom, errnum, fmt...) do {                          \
+                _gf_msg (dom, __FILE__, __FUNCTION__, __LINE__,         \
+                        GF_LOG_TRACE, errnum, 0, 0, ##fmt);             \
+        } while (0)
 
 #define gf_log(dom, levl, fmt...) do {                                  \
                 FMT_WARN (fmt);                                         \
@@ -127,13 +232,6 @@ int _gf_log_eh (const char *function, const char *fmt, ...);
         } while (0)
 
 
-/* No malloc or calloc should be called in this function */
-#define gf_log_nomem(dom, levl, size) do {                              \
-                _gf_log_nomem (dom, __FILE__, __FUNCTION__, __LINE__,   \
-                               levl, size);                             \
-        } while (0)
-
-
 /* Log once in GF_UNIVERSAL_ANSWER times */
 #define GF_LOG_OCCASIONALLY(var, args...) if (!(var++%GF_UNIVERSAL_ANSWER)) { \
                 gf_log (args);                                          \
@@ -143,6 +241,7 @@ void gf_log_disable_syslog (void);
 void gf_log_enable_syslog (void);
 gf_loglevel_t gf_log_get_loglevel (void);
 void gf_log_set_loglevel (gf_loglevel_t level);
+void gf_log_flush (void);
 gf_loglevel_t gf_log_get_xl_loglevel (void *xl);
 void gf_log_set_xl_loglevel (void *xl, gf_loglevel_t level);
 

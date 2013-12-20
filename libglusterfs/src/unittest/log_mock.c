@@ -39,5 +39,12 @@ int _gf_log_nomem (const char *domain, const char *file,
     return 0;
 }
 
+int _gf_msg_nomem (const char *domain, const char *file,
+                   const char *function, int line, gf_loglevel_t level,
+                   size_t size)
+{
+	return 0;
+}
+
 void
 gf_log_globals_init (void *data) {}
