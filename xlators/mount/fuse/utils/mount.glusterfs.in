@@ -26,6 +26,7 @@ _init ()
     cmd_line=$(echo "@sbindir@/glusterfs");
 
     # check whether getfattr exists
+    export PATH
     getfattr=$(which getfattr 2>/dev/null);
     if [ $? -ne 0 ]; then
         echo "WARNING: getfattr not found, certain checks will be skipped.."
