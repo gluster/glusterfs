@@ -486,7 +486,7 @@ glfs_set_volfile_server (struct glfs *fs, const char *transport,
 int
 glfs_set_logging (struct glfs *fs, const char *logfile, int loglevel)
 {
-	int  ret = 0;
+        int  ret = 0;
         char *tmplog = NULL;
 
         if (!logfile) {
@@ -498,15 +498,16 @@ glfs_set_logging (struct glfs *fs, const char *logfile, int loglevel)
                 tmplog = (char *)logfile;
         }
 
+        /* finish log set parameters before init */
+        if (loglevel >= 0)
+                gf_log_set_loglevel (loglevel);
+
         ret = gf_log_init (fs->ctx, tmplog, NULL);
         if (ret)
                 goto out;
 
-	if (loglevel >= 0)
-		gf_log_set_loglevel (loglevel);
-
 out:
-	return ret;
+        return ret;
 }
 
 

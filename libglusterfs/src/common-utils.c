@@ -281,26 +281,37 @@ err:
 
 struct xldump {
 	int lineno;
-	FILE *logfp;
 };
 
-
+/* to catch any format discrepencies that may arise in code */
+static int nprintf (struct xldump *dump, const char *fmt, ...)
+                    __attribute__ ((__format__ (__printf__, 2, 3)));
 static int
 nprintf (struct xldump *dump, const char *fmt, ...)
 {
-	va_list ap;
-	int ret = 0;
+        va_list  ap;
+        char    *msg = NULL;
+        char     header[32];
+        int      ret = 0;
 
+        ret = snprintf (header, 32, "%3d:", ++dump->lineno);
+        if (ret < 0)
+                goto out;
 
-	ret += fprintf (dump->logfp, "%3d: ", ++dump->lineno);
+        va_start (ap, fmt);
+        ret = vasprintf (&msg, fmt, ap);
+        va_end (ap);
+        if (-1 == ret)
+                goto out;
 
-	va_start (ap, fmt);
-	ret += vfprintf (dump->logfp, fmt, ap);
-	va_end (ap);
+        /* NOTE: No ret value from gf_msg_plain, so unable to compute printed
+         * characters. The return value from nprintf is not used, so for now
+         * living with it */
+        gf_msg_plain (GF_LOG_WARNING, "%s %s", header, msg);
 
-	ret += fprintf (dump->logfp, "\n");
-
-	return ret;
+out:
+        FREE (msg);
+        return 0;
 }
 
 
@@ -349,175 +360,125 @@ xldump (xlator_t *each, void *d)
 	xldump_subvolumes (each, d);
 
 	nprintf (d, "end-volume");
-	nprintf (d, "");
+	nprintf (d, " ");
 }
 
 
 void
 gf_log_dump_graph (FILE *specfp, glusterfs_graph_t *graph)
 {
-        glusterfs_ctx_t *ctx;
 	struct xldump xld = {0, };
 
-
-        ctx = THIS->ctx;
-	xld.logfp = ctx->log.gf_log_logfile;
-
-        fprintf (ctx->log.gf_log_logfile, "Final graph:\n");
-        fprintf (ctx->log.gf_log_logfile,
-                 "+---------------------------------------"
-                 "---------------------------------------+\n");
+        gf_msg_plain (GF_LOG_WARNING, "Final graph:");
+        gf_msg_plain (GF_LOG_WARNING,
+                      "+---------------------------------------"
+                      "---------------------------------------+");
 
 	xlator_foreach_depth_first (graph->top, xldump, &xld);
 
-        fprintf (ctx->log.gf_log_logfile,
-                 "+---------------------------------------"
-                 "---------------------------------------+\n");
-        fflush (ctx->log.gf_log_logfile);
+        gf_msg_plain (GF_LOG_WARNING,
+                      "+---------------------------------------"
+                      "---------------------------------------+");
 }
 
 static void
-gf_dump_config_flags (int fd)
+gf_dump_config_flags ()
 {
-        int ret = 0;
-
-        ret = write (fd, "configuration details:\n", 23);
-        if (ret == -1)
-                goto out;
+        gf_msg_plain_nomem (GF_LOG_ALERT, "configuration details:");
 
 /* have argp */
 #ifdef HAVE_ARGP
-        ret = write (fd, "argp 1\n", 7);
-        if (ret == -1)
-                goto out;
+        gf_msg_plain_nomem (GF_LOG_ALERT, "argp 1");
 #endif
 
 /* ifdef if found backtrace */
 #ifdef HAVE_BACKTRACE
-        ret = write (fd, "backtrace 1\n", 12);
-        if (ret == -1)
-                goto out;
+        gf_msg_plain_nomem (GF_LOG_ALERT, "backtrace 1");
 #endif
 
 /* Berkeley-DB version has cursor->get() */
 #ifdef HAVE_BDB_CURSOR_GET
-        ret = write (fd, "bdb->cursor->get 1\n", 19);
-        if (ret == -1)
-                goto out;
+        gf_msg_plain_nomem (GF_LOG_ALERT, "bdb->cursor->get 1");
 #endif
 
 /* Define to 1 if you have the <db.h> header file. */
 #ifdef HAVE_DB_H
-        ret = write (fd, "db.h 1\n", 7);
-        if (ret == -1)
-                goto out;
+        gf_msg_plain_nomem (GF_LOG_ALERT, "db.h 1");
 #endif
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #ifdef HAVE_DLFCN_H
-        ret = write (fd, "dlfcn 1\n", 8);
-        if (ret == -1)
-                goto out;
+        gf_msg_plain_nomem (GF_LOG_ALERT, "dlfcn 1");
 #endif
 
 /* define if fdatasync exists */
 #ifdef HAVE_FDATASYNC
-        ret = write (fd, "fdatasync 1\n", 12);
-        if (ret == -1)
-                goto out;
+        gf_msg_plain_nomem (GF_LOG_ALERT, "fdatasync 1");
 #endif
 
 /* Define to 1 if you have the `pthread' library (-lpthread). */
 #ifdef HAVE_LIBPTHREAD
-        ret = write (fd, "libpthread 1\n", 13);
-        if (ret == -1)
-                goto out;
+        gf_msg_plain_nomem (GF_LOG_ALERT, "libpthread 1");
 #endif
 
 /* define if llistxattr exists */
 #ifdef HAVE_LLISTXATTR
-        ret = write (fd, "llistxattr 1\n", 13);
-        if (ret == -1)
-                goto out;
+        gf_msg_plain_nomem (GF_LOG_ALERT, "llistxattr 1");
 #endif
 
 /* define if found setfsuid setfsgid */
 #ifdef HAVE_SET_FSID
-        ret = write (fd, "setfsid 1\n", 10);
-        if (ret == -1)
-                goto out;
+        gf_msg_plain_nomem (GF_LOG_ALERT, "setfsid 1");
 #endif
 
 /* define if found spinlock */
 #ifdef HAVE_SPINLOCK
-        ret = write (fd, "spinlock 1\n", 11);
-        if (ret == -1)
-                goto out;
+        gf_msg_plain_nomem (GF_LOG_ALERT, "spinlock 1");
 #endif
 
 /* Define to 1 if you have the <sys/epoll.h> header file. */
 #ifdef HAVE_SYS_EPOLL_H
-        ret = write (fd, "epoll.h 1\n", 10);
-        if (ret == -1)
-                goto out;
+        gf_msg_plain_nomem (GF_LOG_ALERT, "epoll.h 1");
 #endif
 
 /* Define to 1 if you have the <sys/extattr.h> header file. */
 #ifdef HAVE_SYS_EXTATTR_H
-        ret = write (fd, "extattr.h 1\n", 12);
-        if (ret == -1)
-                goto out;
+        gf_msg_plain_nomem (GF_LOG_ALERT, "extattr.h 1");
 #endif
 
 /* Define to 1 if you have the <sys/xattr.h> header file. */
 #ifdef HAVE_SYS_XATTR_H
-        ret = write (fd, "xattr.h 1\n", 10);
-        if (ret == -1)
-                goto out;
+        gf_msg_plain_nomem (GF_LOG_ALERT, "xattr.h 1");
 #endif
 
 /* define if found st_atim.tv_nsec */
 #ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
-        ret = write (fd, "st_atim.tv_nsec 1\n", 18);
-        if (ret == -1)
-                goto out;
+        gf_msg_plain_nomem (GF_LOG_ALERT, "st_atim.tv_nsec 1");
 #endif
 
 /* define if found st_atimespec.tv_nsec */
 #ifdef HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
-        ret = write (fd, "st_atimespec.tv_nsec 1\n",23);
-        if (ret == -1)
-                goto out;
+        gf_msg_plain_nomem (GF_LOG_ALERT, "st_atimespec.tv_nsec 1");
 #endif
 
 /* Define to the full name and version of this package. */
 #ifdef PACKAGE_STRING
         {
                 char msg[128];
-                sprintf (msg, "package-string: %s\n", PACKAGE_STRING);
-                ret = write (fd, msg, strlen (msg));
-                if (ret == -1)
-                        goto out;
+                sprintf (msg, "package-string: %s", PACKAGE_STRING);
+                gf_msg_plain_nomem (GF_LOG_ALERT, msg);
         }
 #endif
 
-out:
         return;
 }
 
-/* Obtain a backtrace and print it to stdout. */
-/* TODO: It looks like backtrace_symbols allocates memory,
-   it may be problem because mostly memory allocation/free causes 'sigsegv' */
-
+/* Obtain a backtrace and print it to the log */
 void
 gf_print_trace (int32_t signum, glusterfs_ctx_t *ctx)
 {
         char         msg[1024] = {0,};
         char         timestr[64] = {0,};
-        int          ret = 0;
-        int          fd = 0;
-
-        fd = fileno (ctx->log.gf_log_logfile);
 
         /* Now every gf_log call will just write to a buffer and when the
          * buffer becomes full, its written to the log-file. Suppose the process
@@ -526,75 +487,51 @@ gf_print_trace (int32_t signum, glusterfs_ctx_t *ctx)
          * contents of the buffer to the log file before printing the backtrace
          * which helps in debugging.
          */
-        fflush (ctx->log.gf_log_logfile);
+        gf_log_flush();
         /* Pending frames, (if any), list them in order */
-        ret = write (fd, "pending frames:\n", 16);
-        if (ret < 0)
-                goto out;
-
+        gf_msg_plain_nomem (GF_LOG_ALERT, "pending frames:");
         {
-                struct list_head *trav = ((call_pool_t *)ctx->pool)->all_frames.next;
+                struct list_head *trav =
+                                ((call_pool_t *)ctx->pool)->all_frames.next;
                 while (trav != (&((call_pool_t *)ctx->pool)->all_frames)) {
-                        call_frame_t *tmp = (call_frame_t *)(&((call_stack_t *)trav)->frames);
+                        call_frame_t *tmp =
+                                (call_frame_t *)(&((call_stack_t *)trav)->frames);
                         if (tmp->root->type == GF_OP_TYPE_FOP)
-                                sprintf (msg,"frame : type(%d) op(%s)\n",
+                                sprintf (msg,"frame : type(%d) op(%s)",
                                          tmp->root->type,
                                          gf_fop_list[tmp->root->op]);
                         else
-                                sprintf (msg,"frame : type(%d) op(%d)\n",
+                                sprintf (msg,"frame : type(%d) op(%d)",
                                          tmp->root->type,
                                          tmp->root->op);
 
-                        ret = write (fd, msg, strlen (msg));
-                        if (ret < 0)
-                                goto out;
+                        gf_msg_plain_nomem (GF_LOG_ALERT, msg);
 
                         trav = trav->next;
                 }
-                ret = write (fd, "\n", 1);
-                if (ret < 0)
-                        goto out;
         }
 
-        sprintf (msg, "patchset: %s\n", GLUSTERFS_REPOSITORY_REVISION);
-        ret = write (fd, msg, strlen (msg));
-        if (ret < 0)
-                goto out;
+        sprintf (msg, "patchset: %s", GLUSTERFS_REPOSITORY_REVISION);
+        gf_msg_plain_nomem (GF_LOG_ALERT, msg);
 
-        sprintf (msg, "signal received: %d\n", signum);
-        ret = write (fd, msg, strlen (msg));
-        if (ret < 0)
-                goto out;
-
+        sprintf (msg, "signal received: %d", signum);
+        gf_msg_plain_nomem (GF_LOG_ALERT, msg);
         {
                 /* Dump the timestamp of the crash too, so the previous logs
                    can be related */
-                gf_time_fmt (timestr, sizeof timestr, time (NULL), gf_timefmt_FT);
-                ret = write (fd, "time of crash: ", 15);
-                if (ret < 0)
-                        goto out;
-                ret = write (fd, timestr, strlen (timestr));
-                if (ret < 0)
-                        goto out;
+                gf_time_fmt (timestr, sizeof timestr, time (NULL),
+                             gf_timefmt_FT);
+                gf_msg_plain_nomem (GF_LOG_ALERT, "time of crash: ");
+                gf_msg_plain_nomem (GF_LOG_ALERT, timestr);
         }
 
-        gf_dump_config_flags (fd);
+        gf_dump_config_flags ();
 #if HAVE_BACKTRACE
-        /* Print 'backtrace' */
-        {
-                void *array[200];
-                size_t size;
-
-                size = backtrace (array, 200);
-                backtrace_symbols_fd (&array[1], size-1, fd);
-                sprintf (msg, "---------\n");
-                ret = write (fd, msg, strlen (msg));
-                if (ret < 0)
-                        goto out;
-        }
+        gf_msg_backtrace_nomem (GF_LOG_ALERT, 200);
+        sprintf (msg, "---------");
+        gf_msg_plain_nomem (GF_LOG_ALERT, msg);
 #endif /* HAVE_BACKTRACE */
 
-out:
         /* Send a signal to terminate the process */
         signal (signum, SIG_DFL);
         raise (signum);
@@ -2915,6 +2852,42 @@ gf_set_log_file_path (cmd_args_t *cmd_args)
                         ret = 0;
         }
 done:
+        return ret;
+}
+
+int
+gf_set_log_ident (cmd_args_t *cmd_args)
+{
+        int              ret = 0;
+        char            *ptr = NULL;
+
+        if (cmd_args->log_file == NULL) {
+                /* no ident source */
+                return 0;
+        }
+
+        /* TODO: Some idents would look like, etc-glusterfs-glusterd.vol, which
+         * seems ugly and can be bettered? */
+        /* just get the filename as the ident */
+        if (NULL != (ptr = strrchr (cmd_args->log_file, '/'))) {
+                ret = gf_asprintf (&cmd_args->log_ident, "%s", ptr + 1);
+        } else {
+                ret = gf_asprintf (&cmd_args->log_ident, "%s",
+                                   cmd_args->log_file);
+        }
+
+        if (ret > 0)
+                ret = 0;
+        else
+                return ret;
+
+        /* remove .log suffix */
+        if (NULL != (ptr = strrchr (cmd_args->log_ident, '.'))) {
+                if (strcmp (ptr, ".log") == 0) {
+                        ptr[0] = '\0';
+                }
+        }
+
         return ret;
 }
 

@@ -105,7 +105,7 @@ __gf_calloc (size_t nmemb, size_t size, uint32_t type)
         ptr = calloc (1, tot_size);
 
         if (!ptr) {
-                gf_log_nomem ("", GF_LOG_ALERT, tot_size);
+                gf_msg_nomem ("", GF_LOG_ALERT, tot_size);
                 return NULL;
         }
         gf_mem_set_acct_info (xl, &ptr, req_size, type);
@@ -129,7 +129,7 @@ __gf_malloc (size_t size, uint32_t type)
 
         ptr = malloc (tot_size);
         if (!ptr) {
-                gf_log_nomem ("", GF_LOG_ALERT, tot_size);
+                gf_msg_nomem ("", GF_LOG_ALERT, tot_size);
                 return NULL;
         }
         gf_mem_set_acct_info (xl, &ptr, size, type);
@@ -163,7 +163,7 @@ __gf_realloc (void *ptr, size_t size)
 
         new_ptr = realloc (orig_ptr, tot_size);
         if (!new_ptr) {
-                gf_log_nomem ("", GF_LOG_ALERT, tot_size);
+                gf_msg_nomem ("", GF_LOG_ALERT, tot_size);
                 return NULL;
         }
 

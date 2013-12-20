@@ -75,7 +75,7 @@ void* __gf_default_malloc (size_t size)
 
         ptr = malloc (size);
         if (!ptr)
-                gf_log_nomem ("", GF_LOG_ALERT, size);
+                gf_msg_nomem ("", GF_LOG_ALERT, size);
 
         return ptr;
 }
@@ -87,7 +87,7 @@ void* __gf_default_calloc (int cnt, size_t size)
 
         ptr = calloc (cnt, size);
         if (!ptr)
-                gf_log_nomem ("", GF_LOG_ALERT, (cnt * size));
+                gf_msg_nomem ("", GF_LOG_ALERT, (cnt * size));
 
         return ptr;
 }
@@ -99,7 +99,7 @@ void* __gf_default_realloc (void *oldptr, size_t size)
 
         ptr = realloc (oldptr, size);
         if (!ptr)
-                gf_log_nomem ("", GF_LOG_ALERT, size);
+                gf_msg_nomem ("", GF_LOG_ALERT, size);
 
         return ptr;
 }

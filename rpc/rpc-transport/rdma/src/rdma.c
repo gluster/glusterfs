@@ -104,7 +104,7 @@ gf_rdma_new_post (rpc_transport_t *this, gf_rdma_device_t *device, int32_t len,
 
         post->buf = valloc (len);
         if (!post->buf) {
-                gf_log_nomem (GF_RDMA_LOG_NAME, GF_LOG_ERROR, len);
+                gf_msg_nomem (GF_RDMA_LOG_NAME, GF_LOG_ERROR, len);
                 goto out;
         }
 
