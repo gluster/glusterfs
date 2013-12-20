@@ -733,6 +733,7 @@ parse_opts (int key, char *arg, struct argp_state *state)
         char         *tmp_str       = NULL;
         char         *port_str      = NULL;
         struct passwd *pw           = NULL;
+        int           ret           = 0;
 
         cmd_args = state->input;
 
@@ -908,8 +909,8 @@ parse_opts (int key, char *arg, struct argp_state *state)
         case ARGP_NEGATIVE_TIMEOUT_KEY:
                 d = 0.0;
 
-                gf_string2double (arg, &d);
-                if (!(d < 0.0)) {
+                ret = gf_string2double (arg, &d);
+                if ((ret == 0) && !(d < 0.0)) {
                         cmd_args->fuse_negative_timeout = d;
                         break;
                 }
