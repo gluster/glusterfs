@@ -1604,8 +1604,8 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
           .description = "Disable or enable the AUTH_UNIX authentication type."
-                         "Must always be enabled for better interoperability."
-                         "However, can be disabled if needed. Enabled by"
+                         "Must always be enabled for better interoperability. "
+                         "However, can be disabled if needed. Enabled by "
                          "default"
         },
         { .key  = {"rpc-auth.auth-null"},
@@ -1621,8 +1621,8 @@ struct volume_options options[] = {
           .description = "Disable or enable the AUTH_UNIX authentication type "
                          "for a particular exported volume overriding defaults"
                          " and general setting for AUTH_UNIX scheme. Must "
-                         "always be enabled for better interoperability."
-                         "However, can be disabled if needed. Enabled by"
+                         "always be enabled for better interoperability. "
+                         "However, can be disabled if needed. Enabled by "
                          "default."
         },
         { .key  = {"rpc-auth.auth-unix.*.allow"},
@@ -1631,8 +1631,8 @@ struct volume_options options[] = {
           .description = "Disable or enable the AUTH_UNIX authentication type "
                          "for a particular exported volume overriding defaults"
                          " and general setting for AUTH_UNIX scheme. Must "
-                         "always be enabled for better interoperability."
-                         "However, can be disabled if needed. Enabled by"
+                         "always be enabled for better interoperability. "
+                         "However, can be disabled if needed. Enabled by "
                          "default."
         },
         { .key  = {"rpc-auth.auth-null.*"},
@@ -1673,7 +1673,7 @@ struct volume_options options[] = {
           .default_value = "none",
           .description = "Reject a comma separated list of addresses and/or"
                          " hostnames from connecting to the server. By default,"
-                         " all connections are allowed. This allows users to"
+                         " all connections are allowed. This allows users to "
                          "define a rule for a specific exported volume."
         },
         { .key  = {"rpc-auth.ports.insecure"},
@@ -1770,8 +1770,8 @@ struct volume_options options[] = {
         { .key  = {"nfs.*.disable"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "false",
-          .description = "This option is used to start or stop NFS server"
-                         "for individual volume."
+          .description = "This option is used to start or stop the NFS server "
+                         "for individual volumes."
         },
 
         { .key  = {"nfs.nlm"},
