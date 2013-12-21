@@ -349,6 +349,11 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int32_t                 sub_count = 0;
         int32_t                 type = GF_CLUSTER_TYPE_NONE;
         cli_local_t             *local = NULL;
+        char                    *trans_type = NULL;
+        char                    *question = "RDMA transport is"
+                                 " recommended only for testing purposes"
+                                 " in this release. Do you want to continue?";
+        gf_answer_t             answer = GF_ANSWER_NO;
 
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_CREATE_VOLUME];
 
@@ -391,6 +396,22 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 ret = cli_cmd_check_brick_order (state, brick_list, brick_count, sub_count);
                 if (ret) {
                         gf_log("cli", GF_LOG_INFO, "Not creating volume because of bad brick order");
+                        goto out;
+                }
+        }
+
+
+        ret = dict_get_str (options, "transport", &trans_type);
+        if (ret) {
+                gf_log("cli", GF_LOG_ERROR, "Unable to get transport type");
+                goto out;
+        }
+
+        if (strcasestr (trans_type, "rdma")) {
+                answer =
+                   cli_cmd_get_confirmation (state, question);
+                if (GF_ANSWER_NO == answer) {
+                        ret = 0;
                         goto out;
                 }
         }
