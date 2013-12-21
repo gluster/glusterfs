@@ -584,8 +584,8 @@ struct volume_options options[] = {
         { .key  = {"choose-local" },
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "true",
-          .description = "Choose a local subvolume(i.e. Brick) to read from if "
-                         "read-subvolume is not explicitly set.",
+          .description = "Choose a local subvolume (i.e. Brick) to read from"
+                         " if read-subvolume is not explicitly set.",
         },
         { .key  = {"favorite-child"},
           .type = GF_OPTION_TYPE_XLATOR,
@@ -695,7 +695,7 @@ struct volume_options options[] = {
           .description = "Lock phase of a transaction has two sub-phases. "
                          "First is an attempt to acquire locks in parallel by "
                          "broadcasting non-blocking lock requests. If lock "
-                         "aquistion fails on any server, then the held locks "
+                         "acquisition fails on any server, then the held locks "
                          "are unlocked and revert to a blocking locked mode "
                          "sequentially on one server after another.  If this "
                          "option is enabled the initial broadcasting lock "
@@ -711,16 +711,15 @@ struct volume_options options[] = {
                          "arrives before the unlock phase of the \"optimized\" "
                          "transaction, that in turn \"takes over\" the lock as "
                          "well. The actual unlock now happens at the end of "
-                         "the last \"optimzed\" transaction."
+                         "the last \"optimized\" transaction."
 
         },
         { .key = {"self-heal-daemon"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
           .description = "This option applies to only self-heal-daemon. "
-                         "Index directory crawl and automatic healing of files"
-                         " will not be performed if this option is turned"
-                         " off."
+                         "Index directory crawl and automatic healing of files "
+                         "will not be performed if this option is turned off."
         },
         { .key = {"iam-self-heal-daemon"},
           .type = GF_OPTION_TYPE_BOOL,

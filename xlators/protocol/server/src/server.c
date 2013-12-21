@@ -1052,10 +1052,10 @@ struct volume_options options[] = {
         { .key   = {"root-squash"},
           .type  = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
-          .description = "Map  requests  from  uid/gid 0 to the anonymous "
-                         "uid/gid. Note that this does not apply to any other"
-                         "uids or gids that might be equally sensitive, such as"
-                         "user bin or group staff."
+          .description = "Map requests from uid/gid 0 to the anonymous "
+                         "uid/gid. Note that this does not apply to any other "
+                         "uids or gids that might be equally sensitive, such "
+                         "as user bin or group staff."
         },
         { .key           = {"statedump-path"},
           .type          = GF_OPTION_TYPE_PATH,
