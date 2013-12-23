@@ -3967,7 +3967,7 @@ glusterd_nodesvc_disconnect (char *server)
 }
 
 int32_t
-glusterd_nodesvc_start (char *server)
+glusterd_nodesvc_start (char *server, gf_boolean_t wait)
 {
         int32_t                 ret                        = -1;
         xlator_t               *this                       = NULL;
@@ -4053,7 +4053,16 @@ glusterd_nodesvc_start (char *server)
         runner_log (&runner, "", GF_LOG_DEBUG,
                     "Starting the nfs/glustershd services");
 
-        ret = runner_run_nowait (&runner);
+        if (!wait) {
+                ret = runner_run_nowait (&runner);
+        } else {
+                synclock_unlock (&priv->big_lock);
+                {
+                        ret = runner_run (&runner);
+                }
+                synclock_lock (&priv->big_lock);
+        }
+
         if (ret == 0) {
                 glusterd_nodesvc_connect (server, sockfpath);
         }
@@ -4064,19 +4073,19 @@ out:
 int
 glusterd_nfs_server_start ()
 {
-        return glusterd_nodesvc_start ("nfs");
+        return glusterd_nodesvc_start ("nfs", _gf_false);
 }
 
 int
 glusterd_shd_start ()
 {
-        return glusterd_nodesvc_start ("glustershd");
+        return glusterd_nodesvc_start ("glustershd", _gf_false);
 }
 
 int
 glusterd_quotad_start ()
 {
-        return glusterd_nodesvc_start ("quotad");
+        return glusterd_nodesvc_start ("quotad", _gf_true);
 }
 
 gf_boolean_t

@@ -295,6 +295,37 @@ quota_enforcer_notify (struct rpc_clnt *rpc, void *mydata,
         return ret;
 }
 
+int
+quota_enforcer_blocking_connect (rpc_clnt_t *rpc)
+{
+        dict_t *options = NULL;
+        int     ret     = -1;
+
+        options = dict_new ();
+        if (options == NULL)
+                goto out;
+
+        ret = dict_set_str (options, "non-blocking-io", "no");
+        if (ret)
+                goto out;
+
+        rpc->conn.trans->reconfigure (rpc->conn.trans, options);
+
+        rpc_clnt_start (rpc);
+
+        ret = dict_set_str (options, "non-blocking-io", "yes");
+        if (ret)
+                goto out;
+
+        rpc->conn.trans->reconfigure (rpc->conn.trans, options);
+
+        ret = 0;
+out:
+        dict_unref (options);
+
+        return ret;
+}
+
 //Returns a started rpc_clnt. Creates a new rpc_clnt if quota_priv doesn't have
 //one already
 struct rpc_clnt *
@@ -309,9 +340,13 @@ quota_enforcer_init (xlator_t *this, dict_t *options)
                 gf_log (this->name, GF_LOG_TRACE, "quota enforcer clnt already "
                         "inited");
                 //Turns out to be a NOP if the clnt is already connected.
-                rpc_clnt_start (priv->rpc_clnt);
+                ret = quota_enforcer_blocking_connect (priv->rpc_clnt);
+                if (ret)
+                        goto out;
+
                 return priv->rpc_clnt;
         }
+
         priv->quota_enforcer = &quota_enforcer_clnt;
 
         ret = dict_set_str (options, "transport.address-family", "unix");
@@ -339,7 +374,11 @@ quota_enforcer_init (xlator_t *this, dict_t *options)
                 goto out;
         }
 
-        rpc_clnt_start (rpc);
+        ret = quota_enforcer_blocking_connect (rpc);
+        if (ret)
+                goto out;
+
+        ret = 0;
 out:
         if (ret) {
                 if (rpc)

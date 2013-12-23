@@ -19,7 +19,6 @@ TEST $CLI volume quota $V0 enable;
 TEST MOUNTDIR="/tmp/$RANDOM"
 TEST mkdir $MOUNTDIR
 TEST glusterfs -s $H0 --volfile-id=$V0 $MOUNTDIR
-sleep 10
 
 function set_quota(){
         mkdir "$MOUNTDIR/$name"
