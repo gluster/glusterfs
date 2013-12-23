@@ -1421,8 +1421,11 @@ static int32_t prune_write(call_frame_t *frame,
 					gf_crypt_mt_data);
 
 	if (local->vec.iov_base == NULL) {
+	        gf_log(this->name, GF_LOG_WARNING,
+                       "Failed to calloc head block for prune");
 		local->op_ret = -1;
 		local->op_errno = ENOMEM;
+	        goto put_one_call;
 	}
 	for (i = 0; i < count; i++) {
 		to_copy = vec[i].iov_len;
