@@ -244,7 +244,7 @@ resolve_entry_simple (call_frame_t *frame)
                 /* simple resolution is indecisive. need to perform
                    deep resolution */
                 resolve->op_ret   = -1;
-                resolve->op_errno = ESTALE;
+                resolve->op_errno = ENOENT;
                 ret = 1;
                 goto out;
         }
@@ -341,7 +341,7 @@ resolve_inode_simple (call_frame_t *frame)
 
         if (!inode) {
                 resolve->op_ret   = -1;
-                resolve->op_errno = ESTALE;
+                resolve->op_errno = ENOENT;
                 ret = 1;
                 goto out;
         }

@@ -2615,8 +2615,7 @@ out:
         rsp.op_errno = op_errno;
         if (rsp.op_ret == -1) {
                 /* any error other than ENOENT */
-                if (!(local->loc.name && rsp.op_errno == ENOENT) &&
-		    !(rsp.op_errno == ESTALE))
+                if (rsp.op_errno != ENOENT)
                         gf_log (this->name, GF_LOG_WARNING,
                                 "remote operation failed: %s. Path: %s (%s)",
                                 strerror (rsp.op_errno),
