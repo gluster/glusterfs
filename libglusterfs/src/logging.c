@@ -108,11 +108,44 @@ gf_log_set_xl_loglevel (void *this, gf_loglevel_t level)
 }
 
 void
-gf_log_fini (void)
+gf_log_globals_fini (void)
 {
         pthread_mutex_destroy (&THIS->ctx->log.logfile_mutex);
 }
 
+/** gf_log_fini - function to perform the cleanup of the log information
+ * @data - glusterfs context
+ * @return: success: 0
+ *          failure: -1
+ */
+int
+gf_log_fini (void *data)
+{
+        glusterfs_ctx_t *ctx = data;
+        int ret = 0;
+
+        if (ctx == NULL) {
+	        ret = -1;
+                goto out;
+        }
+
+        pthread_mutex_lock (&ctx->log.logfile_mutex);
+        {
+                if (ctx->log.logfile) {
+                        if (fclose (ctx->log.logfile) != 0)
+                                ret = -1;
+                        /* Logfile needs to be set to NULL, so that any
+                           call to gf_log after calling gf_log_fini, will
+                           log the message to stderr.
+                        */
+                        ctx->log.logfile = NULL;
+                }
+        }
+        pthread_mutex_unlock (&ctx->log.logfile_mutex);
+
+ out:
+        return ret;
+}
 
 #ifdef GF_USE_SYSLOG
 /**
