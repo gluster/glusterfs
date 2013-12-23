@@ -5078,7 +5078,8 @@ dht_notify (xlator_t *this, int event, void *data, ...)
                         gf_log (this->name, GF_LOG_WARNING,
                                 "Received CHILD_DOWN. Exiting");
                         if (conf->defrag) {
-                                gf_defrag_stop (conf->defrag, NULL);
+                                gf_defrag_stop (conf->defrag,
+                                                GF_DEFRAG_STATUS_FAILED, NULL);
                         } else {
                                 kill (getpid(), SIGTERM);
                         }
@@ -5154,7 +5155,8 @@ dht_notify (xlator_t *this, int event, void *data, ...)
                         if (cmd == GF_DEFRAG_CMD_STATUS)
                                 gf_defrag_status_get (defrag, output);
                         else if (cmd == GF_DEFRAG_CMD_STOP)
-                                gf_defrag_stop (defrag, output);
+                                gf_defrag_stop (defrag,
+                                                GF_DEFRAG_STATUS_STOPPED, output);
                 }
 unlock:
                 UNLOCK (&defrag->lock);

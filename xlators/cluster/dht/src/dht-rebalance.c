@@ -1801,7 +1801,8 @@ out:
 }
 
 int
-gf_defrag_stop (gf_defrag_info_t *defrag, dict_t *output)
+gf_defrag_stop (gf_defrag_info_t *defrag, gf_defrag_status_t status,
+                dict_t *output)
 {
         /* TODO: set a variable 'stop_defrag' here, it should be checked
            in defrag loop */
@@ -1813,7 +1814,7 @@ gf_defrag_stop (gf_defrag_info_t *defrag, dict_t *output)
         }
 
         gf_log ("", GF_LOG_INFO, "Received stop command on rebalance");
-        defrag->defrag_status = GF_DEFRAG_STATUS_STOPPED;
+        defrag->defrag_status = status;
 
         if (output)
                 gf_defrag_status_get (defrag, output);

@@ -732,7 +732,8 @@ int
 gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict);
 
 int
-gf_defrag_stop (gf_defrag_info_t *defrag, dict_t *output);
+gf_defrag_stop (gf_defrag_info_t *defrag, gf_defrag_status_t status,
+                dict_t *output);
 
 void*
 gf_defrag_start (void *this);
