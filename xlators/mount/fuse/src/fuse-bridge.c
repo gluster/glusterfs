@@ -3374,8 +3374,6 @@ fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 }
         }
 
-        GET_STATE (this, finh, state);
-
         fuse_resolve_inode_init (state, &state->resolve, finh->nodeid);
 
         rv = fuse_flip_xattr_ns (priv, name, &newkey);
