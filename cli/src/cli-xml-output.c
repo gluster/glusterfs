@@ -251,6 +251,11 @@ cli_xml_output_vol_status_common (xmlTextWriterPtr writer, dict_t *dict,
         }
         *node_present = _gf_true;
 
+        /* <node>
+         * will be closed in the calling function cli_xml_output_vol_status()*/
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"node");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
         ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"hostname",
                                                "%s", hostname);
         XML_RET_CHECK_AND_GOTO (ret, out);
@@ -1662,11 +1667,6 @@ cli_xml_output_vol_status (cli_local_t *local, dict_t *dict)
         index_max = brick_index_max + other_count;
 
         for (i = 0; i <= index_max; i++) {
-                /* <node> */
-                ret = xmlTextWriterStartElement (local->writer,
-                                                 (xmlChar *)"node");
-                XML_RET_CHECK_AND_GOTO (ret, out);
-
                 ret = cli_xml_output_vol_status_common (local->writer, dict, i,
                                                         &online, &node_present);
                 if (ret) {
@@ -1732,7 +1732,8 @@ cli_xml_output_vol_status (cli_local_t *local, dict_t *dict)
                         break;
 
                 }
-                /* </node> */
+
+                /* </node>  was opened in cli_xml_output_vol_status_common()*/
                 ret = xmlTextWriterEndElement (local->writer);
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
