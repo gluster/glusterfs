@@ -153,6 +153,8 @@ int gf_cmd_log_init (const char *filename);
 
 void set_sys_log_level (gf_loglevel_t level);
 
+int gf_log_fini(void *data);
+
 #define GF_DEBUG(xl, format, args...)                           \
         gf_log ((xl)->name, GF_LOG_DEBUG, format, ##args)
 #define GF_INFO(xl, format, args...)                            \
