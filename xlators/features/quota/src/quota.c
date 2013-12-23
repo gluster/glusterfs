@@ -4177,14 +4177,15 @@ err:
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
-        int32_t           ret   = -1;
-        quota_priv_t     *priv  = NULL;
+        int32_t       ret      = -1;
+        quota_priv_t *priv     = NULL;
+        gf_boolean_t  quota_on = _gf_false;
 
         priv = this->private;
 
         GF_OPTION_RECONF ("deem-statfs", priv->consider_statfs, options, bool,
                           out);
-        GF_OPTION_RECONF ("server-quota", priv->is_quota_on, options, bool,
+        GF_OPTION_RECONF ("server-quota", quota_on, options, bool,
                           out);
         GF_OPTION_RECONF ("default-soft-limit", priv->default_soft_lim,
                           options, percent, out);
@@ -4195,7 +4196,7 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("hard-timeout", priv->hard_timeout, options,
                           time, out);
 
-        if (priv->is_quota_on) {
+        if (quota_on) {
                 priv->rpc_clnt = quota_enforcer_init (this,
                                                       this->options);
                 if (priv->rpc_clnt == NULL) {
@@ -4215,6 +4216,8 @@ reconfigure (xlator_t *this, dict_t *options)
                         rpc_clnt_disable (priv->rpc_clnt);
                 }
         }
+
+        priv->is_quota_on = quota_on;
 
         ret = 0;
 out:

@@ -996,14 +996,6 @@ glusterd_quotad_op (int opcode)
                                 ret = glusterd_check_generate_start_quotad ();
                         break;
 
-                case GF_QUOTA_OPTION_TYPE_DEFAULT_SOFT_LIMIT:
-                case GF_QUOTA_OPTION_TYPE_HARD_TIMEOUT:
-                case GF_QUOTA_OPTION_TYPE_SOFT_TIMEOUT:
-                case GF_QUOTA_OPTION_TYPE_ALERT_TIME:
-
-                        ret = glusterd_reconfigure_quotad ();
-                        break;
-
                 default:
                         ret = 0;
                         break;
@@ -1131,6 +1123,12 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         goto out;
         }
 
+        if (priv->op_version > GD_OP_VERSION_MIN) {
+                ret = glusterd_quotad_op (type);
+                if (ret)
+                        goto out;
+        }
+
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Unable to re-create "
@@ -1151,11 +1149,6 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if (rsp_dict && start_crawl == _gf_true)
                 glusterd_quota_initiate_fs_crawl (priv, volname, type);
 
-        if (priv->op_version > GD_OP_VERSION_MIN) {
-                ret = glusterd_quotad_op (type);
-                if (ret)
-                        goto out;
-        }
         ret = 0;
 out:
         return ret;

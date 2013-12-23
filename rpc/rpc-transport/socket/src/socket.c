@@ -3341,6 +3341,34 @@ reconfigure (rpc_transport_t *this, dict_t *options)
 
         priv->windowsize = (int)windowsize;
 
+        if (dict_get (this->options, "non-blocking-io")) {
+                optstr = data_to_str (dict_get (this->options,
+                                                "non-blocking-io"));
+
+                if (gf_string2boolean (optstr, &tmp_bool) == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "'non-blocking-io' takes only boolean options,"
+                                " not taking any action");
+                        tmp_bool = 1;
+                }
+
+                if (!tmp_bool) {
+                        priv->bio = 1;
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "disabling non-blocking IO");
+                }
+        }
+
+        if (!priv->bio) {
+                ret = __socket_nonblock (priv->sock);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "NBIO on %d failed (%s)",
+                                priv->sock, strerror (errno));
+                        goto out;
+                }
+        }
+
         ret = 0;
 out:
         return ret;

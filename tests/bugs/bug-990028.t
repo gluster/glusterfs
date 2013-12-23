@@ -22,7 +22,6 @@ function __init()
     TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0
 
     TEST $CLI volume quota $V0 enable
-    sleep 15
 }
 
 #CASE-1
