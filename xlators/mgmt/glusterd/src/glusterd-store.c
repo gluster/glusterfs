@@ -883,6 +883,19 @@ out:
         return ret;
 }
 
+int
+_gd_store_rebalance_dict (dict_t *dict, char *key, data_t *value, void *data)
+{
+        int             ret = -1;
+        int             fd = 0;
+
+        fd = *(int *)data;
+
+        ret = gf_store_save_value (fd, key, value->data);
+
+        return ret;
+}
+
 int32_t
 glusterd_store_node_state_write (int fd, glusterd_volinfo_t *volinfo)
 {
@@ -907,9 +920,14 @@ glusterd_store_node_state_write (int fd, glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        if (volinfo->rebal.defrag_cmd) {
-                uuid_unparse (volinfo->rebal.rebalance_id, buf);
-                ret = gf_store_save_value (fd, GF_REBALANCE_TID_KEY, buf);
+        uuid_unparse (volinfo->rebal.rebalance_id, buf);
+        ret = gf_store_save_value (fd, GF_REBALANCE_TID_KEY, buf);
+        if (ret)
+                goto out;
+
+        if (volinfo->rebal.dict) {
+                dict_foreach (volinfo->rebal.dict, _gd_store_rebalance_dict,
+                              &fd);
         }
 out:
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
@@ -1726,17 +1744,22 @@ out:
 int32_t
 glusterd_store_retrieve_node_state (char   *volname)
 {
-        int32_t                   ret                   = -1;
-        glusterd_volinfo_t        *volinfo              = NULL;
-        gf_store_iter_t           *iter                 = NULL;
-        char                      *key                  = NULL;
-        char                      *value                = NULL;
-        char                      volpath[PATH_MAX]     = {0,};
-        glusterd_conf_t           *priv                 = NULL;
-        char                      path[PATH_MAX]        = {0,};
-        gf_store_op_errno_t       op_errno              = GD_STORE_SUCCESS;
+        int32_t              ret               = -1;
+        glusterd_volinfo_t  *volinfo           = NULL;
+        gf_store_iter_t     *iter              = NULL;
+        char                *key               = NULL;
+        char                *value             = NULL;
+        char                *dup_value         = NULL;
+        char                 volpath[PATH_MAX] = {0,};
+        glusterd_conf_t     *priv              = NULL;
+        char                 path[PATH_MAX]    = {0,};
+        gf_store_op_errno_t  op_errno          = GD_STORE_SUCCESS;
+        dict_t              *tmp_dict          = NULL;
+        xlator_t            *this              = NULL;
 
-        priv = THIS->private;
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
@@ -1766,16 +1789,35 @@ glusterd_store_retrieve_node_state (char   *volname)
                 if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG,
                               strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG))) {
                         volinfo->rebal.defrag_cmd = atoi (value);
-                }
-
-                if (volinfo->rebal.defrag_cmd) {
-                        if (!strncmp (key, GF_REBALANCE_TID_KEY,
-                                       strlen (GF_REBALANCE_TID_KEY)))
-                                uuid_parse (value, volinfo->rebal.rebalance_id);
-
-                        if (!strncmp (key, GLUSTERD_STORE_KEY_DEFRAG_OP,
-                                      strlen (GLUSTERD_STORE_KEY_DEFRAG_OP)))
-                                volinfo->rebal.op = atoi (value);
+                } else if (!strncmp (key, GF_REBALANCE_TID_KEY,
+                                     strlen (GF_REBALANCE_TID_KEY))) {
+                        uuid_parse (value, volinfo->rebal.rebalance_id);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_DEFRAG_OP,
+                                        strlen (GLUSTERD_STORE_KEY_DEFRAG_OP))) {
+                        volinfo->rebal.op = atoi (value);
+                } else {
+                        if (!tmp_dict) {
+                                tmp_dict = dict_new ();
+                                if (!tmp_dict) {
+                                        ret = -1;
+                                        goto out;
+                                }
+                        }
+                        dup_value = gf_strdup (value);
+                        if (!dup_value) {
+                                ret = -1;
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to strdup value string");
+                                goto out;
+                        }
+                        ret = dict_set_str (tmp_dict, key, dup_value);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                                "Error setting data in rebal "
+                                                "dict.");
+                                goto out;
+                        }
+                        dup_value = NULL;
                 }
 
                 GF_FREE (key);
@@ -1785,9 +1827,13 @@ glusterd_store_retrieve_node_state (char   *volname)
 
                 ret = gf_store_iter_get_next (iter, &key, &value, &op_errno);
         }
+        if (tmp_dict)
+                volinfo->rebal.dict = dict_ref (tmp_dict);
 
-        if (op_errno != GD_STORE_EOF)
+        if (op_errno != GD_STORE_EOF) {
+                ret = -1;
                 goto out;
+        }
 
         ret = gf_store_iter_destroy (iter);
 
@@ -1795,6 +1841,12 @@ glusterd_store_retrieve_node_state (char   *volname)
                 goto out;
 
 out:
+        if (dup_value)
+                GF_FREE (dup_value);
+        if (ret && volinfo->rebal.dict)
+                dict_unref (volinfo->rebal.dict);
+        if (tmp_dict)
+                dict_unref (tmp_dict);
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;

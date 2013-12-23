@@ -1956,26 +1956,41 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        if (volinfo->rebal.defrag_cmd) {
-                rebalance_id_str = gf_strdup (uuid_utoa
-                                                (volinfo->rebal.rebalance_id));
-                if (!rebalance_id_str) {
-                        ret = -1;
-                        goto out;
-                }
-                memset (key, 0, sizeof (key));
-                snprintf (key, 256, "volume%d.rebalance-id", count);
-                ret = dict_set_dynstr (dict, key, rebalance_id_str);
-                if (ret)
-                        goto out;
-                rebalance_id_str = NULL;
+        rebalance_id_str = gf_strdup (uuid_utoa
+                        (volinfo->rebal.rebalance_id));
+        if (!rebalance_id_str) {
+                ret = -1;
+                goto out;
         }
+        memset (key, 0, sizeof (key));
+        snprintf (key, 256, "volume%d.rebalance-id", count);
+        ret = dict_set_dynstr (dict, key, rebalance_id_str);
+        if (ret)
+                goto out;
+        rebalance_id_str = NULL;
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.rebalance-op", count);
         ret = dict_set_uint32 (dict, key, volinfo->rebal.op);
         if (ret)
                 goto out;
+
+        if (volinfo->rebal.dict) {
+                snprintf (prefix, sizeof (prefix), "volume%d", count);
+                ctx.dict = dict;
+                ctx.prefix = prefix;
+                ctx.opt_count = 1;
+                ctx.key_name = "rebal-dict-key";
+                ctx.val_name = "rebal-dict-value";
+
+                dict_foreach (volinfo->rebal.dict, _add_dict_to_prdict, &ctx);
+                ctx.opt_count--;
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "volume%d.rebal-dict-count", count);
+                ret = dict_set_int32 (dict, key, ctx.opt_count);
+                if (ret)
+                        goto out;
+        }
 
         memset (key, 0, sizeof (key));
         snprintf (key, 256, "volume%d."GLUSTERD_STORE_KEY_RB_STATUS, count);
@@ -2063,6 +2078,13 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                 snprintf (key, sizeof (key), "volume%d.brick%d.path",
                           count, i);
                 ret = dict_set_str (dict, key, brickinfo->path);
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "volume%d.brick%d.decommissioned",
+                          count, i);
+                ret = dict_set_int32 (dict, key, brickinfo->decommissioned);
                 if (ret)
                         goto out;
 
@@ -2733,6 +2755,7 @@ glusterd_import_new_brick (dict_t *vols, int32_t vol_count,
         int                     ret = -1;
         char                    *hostname = NULL;
         char                    *path = NULL;
+        int                     decommissioned = 0;
         glusterd_brickinfo_t    *new_brickinfo = NULL;
         char                    msg[2048] = {0};
 
@@ -2758,12 +2781,22 @@ glusterd_import_new_brick (dict_t *vols, int32_t vol_count,
                 goto out;
         }
 
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.brick%d.decommissioned",
+                  vol_count, brick_count);
+        ret = dict_get_int32 (vols, key, &decommissioned);
+        if (ret) {
+                /* For backward compatibility */
+                ret = 0;
+        }
+
         ret = glusterd_brickinfo_new (&new_brickinfo);
         if (ret)
                 goto out;
 
         strcpy (new_brickinfo->path, path);
         strcpy (new_brickinfo->hostname, hostname);
+        new_brickinfo->decommissioned = decommissioned;
         //peerinfo might not be added yet
         (void) glusterd_resolve_brick (new_brickinfo);
         ret = 0;
@@ -2905,6 +2938,43 @@ out:
                 new_volinfo->quota_conf_shandle = NULL;
         }
 
+        return ret;
+}
+
+int
+gd_import_friend_volume_rebal_dict (dict_t *dict, int count,
+                                    glusterd_volinfo_t *volinfo)
+{
+        int  ret        = -1;
+        char key[256]   = {0,};
+        int  dict_count  = 0;
+        char prefix[64] = {0};
+
+        GF_ASSERT (dict);
+        GF_ASSERT (volinfo);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.rebal-dict-count", count);
+        ret = dict_get_int32 (dict, key, &dict_count);
+        if (ret) {
+                /* Older peers will not have this dict */
+                ret = 0;
+                goto out;
+        }
+
+        volinfo->rebal.dict = dict_new ();
+        if(!volinfo->rebal.dict) {
+                ret = -1;
+                goto out;
+        }
+
+        snprintf (prefix, sizeof (prefix), "volume%d", count);
+        ret = import_prdict_dict (dict, volinfo->rebal.dict, "rebal-dict-key",
+                                  "rebal-dict-value", dict_count, prefix);
+out:
+        if (ret && volinfo->rebal.dict)
+                dict_unref (volinfo->rebal.dict);
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
 }
 
@@ -3071,19 +3141,16 @@ glusterd_import_volinfo (dict_t *vols, int count,
                 goto out;
         }
 
-        if (new_volinfo->rebal.defrag_cmd) {
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "volume%d.rebalance-id", count);
-                ret = dict_get_str (vols, key, &rebalance_id_str);
-                if (ret) {
-                        /* This is not present in older glusterfs versions,
-                         * so don't error out
-                         */
-                        ret = 0;
-                } else {
-                        uuid_parse (rebalance_id_str,
-                                    new_volinfo->rebal.rebalance_id);
-                }
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.rebalance-id", count);
+        ret = dict_get_str (vols, key, &rebalance_id_str);
+        if (ret) {
+                /* This is not present in older glusterfs versions,
+                 * so don't error out
+                 */
+                ret = 0;
+        } else {
+                uuid_parse (rebalance_id_str, new_volinfo->rebal.rebalance_id);
         }
 
         memset (key, 0, sizeof (key));
@@ -3094,6 +3161,12 @@ glusterd_import_volinfo (dict_t *vols, int count,
                  * so don't error out
                  */
                 ret = 0;
+        }
+        ret = gd_import_friend_volume_rebal_dict (vols, count, new_volinfo);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Failed to import rebalance dict "
+                          "for volume.");
+                goto out;
         }
 
         memset (key, 0, sizeof (key));
