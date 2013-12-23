@@ -619,4 +619,6 @@ glusterd_store_quota_conf_stamp_header (xlator_t *this, int fd);
 int
 glusterd_remove_auxiliary_mount (char *volname);
 
+gf_boolean_t
+glusterd_status_has_tasks (int cmd);
 #endif
