@@ -742,7 +742,7 @@ fi
 %ghost %attr(0644,-,-) %config(noreplace) %{_sharedstatedir}/glusterd/glusterd.info
 %ghost %attr(0600,-,-) %{_sharedstatedir}/glusterd/options
 # This is really ugly, but I have no idea how to mark these directories in
-# any other way. They should belong to the glusterfs-server package, but 
+# any other way. They should belong to the glusterfs-server package, but
 # don't exist after installation. They are generated on the first start...
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1
@@ -877,7 +877,7 @@ fi
 * Tue Dec 10 2013 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - Sync with Fedora glusterfs.spec 3.5.0-0.1.qa3
 
-* Wed Oct 11 2013 Harshavardhana <fharshav@redhat.com>
+* Fri Oct 11 2013 Harshavardhana <fharshav@redhat.com>
 - Add '_sharedstatedir' macro to `/var/lib` on <= RHEL5 (#1003184)
 
 * Wed Oct 9 2013 Kaleb S. KEITHLEY <kkeithle@redhat.com>
