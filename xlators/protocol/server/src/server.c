@@ -1057,6 +1057,22 @@ struct volume_options options[] = {
                          "uids or gids that might be equally sensitive, such "
                          "as user bin or group staff."
         },
+        { .key           = {"anonuid"},
+          .type          = GF_OPTION_TYPE_INT,
+          .default_value = "65534", /* RPC_NOBODY_UID */
+          .min           = 0,
+          .max           = (uint32_t) -1,
+          .description   = "value of the uid used for the anonymous "
+                           "user/nfsnobody when root-squash is enabled."
+        },
+        { .key           = {"anongid"},
+          .type          = GF_OPTION_TYPE_INT,
+          .default_value = "65534", /* RPC_NOBODY_GID */
+          .min           = 0,
+          .max           = (uint32_t) -1,
+          .description   = "value of the gid used for the anonymous "
+                           "user/nfsnobody when root-squash is enabled."
+        },
         { .key           = {"statedump-path"},
           .type          = GF_OPTION_TYPE_PATH,
           .default_value = DEFAULT_VAR_RUN_DIRECTORY,

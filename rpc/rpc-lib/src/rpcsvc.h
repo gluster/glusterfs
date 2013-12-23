@@ -282,14 +282,14 @@ struct rpcsvc_request {
                 int gidcount = 0;                                       \
                 if (req->svc->root_squash) {                            \
                         if (req->uid == RPC_ROOT_UID)                   \
-                                req->uid = RPC_NOBODY_UID;              \
+                                req->uid = req->svc->anonuid;           \
                         if (req->gid == RPC_ROOT_GID)                   \
-                                req->gid = RPC_NOBODY_GID;              \
+                                req->gid = req->svc->anongid;           \
                         for (gidcount = 0; gidcount < req->auxgidcount; \
                              ++gidcount) {                              \
                                 if (!req->auxgids[gidcount])            \
                                         req->auxgids[gidcount] =        \
-                                                RPC_NOBODY_GID;         \
+                                                req->svc->anongid;      \
                         }                                               \
                 }                                                       \
         } while (0);

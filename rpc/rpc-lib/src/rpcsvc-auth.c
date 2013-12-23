@@ -230,6 +230,8 @@ int
 rpcsvc_set_root_squash (rpcsvc_t *svc, dict_t *options)
 {
         int  ret = -1;
+        uid_t anonuid = -1;
+        gid_t anongid = -1;
 
         GF_ASSERT (svc);
         GF_ASSERT (options);
@@ -240,8 +242,21 @@ rpcsvc_set_root_squash (rpcsvc_t *svc, dict_t *options)
         else
                 svc->root_squash = _gf_false;
 
+        ret = dict_get_uint32 (options, "anonuid", &anonuid);
+        if (!ret)
+                svc->anonuid = anonuid;
+        else
+                svc->anonuid = RPC_NOBODY_UID;
+
+        ret = dict_get_uint32 (options, "anongid", &anongid);
+        if (!ret)
+                svc->anongid = anongid;
+        else
+                svc->anongid = RPC_NOBODY_GID;
+
         if (svc->root_squash)
-                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "root squashing enabled ");
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "root squashing enabled "
+                        "(uid=%d, gid=%d)", svc->anonuid, svc->anongid);
 
         return 0;
 }

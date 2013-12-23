@@ -831,6 +831,16 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "root-squash",
           .op_version  = 2
         },
+        { .key         = "server.anonuid",
+          .voltype     = "protocol/server",
+          .option      = "anonuid",
+          .op_version  = 3
+        },
+        { .key         = "server.anongid",
+          .voltype     = "protocol/server",
+          .option      = "anongid",
+          .op_version  = 3
+        },
         { .key         = "server.statedump-path",
           .voltype     = "protocol/server",
           .option      = "statedump-path",
