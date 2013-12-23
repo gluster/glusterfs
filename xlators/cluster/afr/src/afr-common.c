@@ -1833,6 +1833,11 @@ afr_lookup_perform_self_heal (call_frame_t *frame, xlator_t *this,
         afr_lookup_set_self_heal_params (local, this);
         if (afr_can_self_heal_proceed (&local->self_heal, priv)) {
                 if  (afr_is_transaction_running (local) &&
+                     /*Forcefully call afr_launch_self_heal (which will go on to
+                       fail) for SB files.This prevents stale data being served
+                       due to race in  afr_is_transaction_running() when
+                       multiple clients access the same SB file*/
+                     !local->cont.lookup.possible_spb &&
                      (!local->attempt_self_heal))
                         goto out;
 
