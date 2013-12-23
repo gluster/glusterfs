@@ -21,7 +21,7 @@ TEST $CLI volume set $V0 performance.read-ahead off
 TEST $CLI volume set $V0 background-self-heal-count 0
 TEST $CLI volume set $V0 self-heal-daemon off
 TEST $CLI volume quota $V0 enable
-sleep 5 # wait for brick to connect to quotad
+
 TEST kill_brick $V0 $H0 $B0/${V0}0
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
 cd $M0
