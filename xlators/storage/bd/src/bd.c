@@ -1015,6 +1015,13 @@ bd_setx_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
+        if (!strcmp (type, BD_THIN) && !(priv->caps & BD_CAPS_THIN)) {
+                gf_log (this->name, GF_LOG_WARNING, "THIN lv not supported by "
+                        "this volume");
+                op_errno = EOPNOTSUPP;
+                goto out;
+        }
+
         s_size = strtok_r (NULL, ":", &p);
 
         /* If size not specified get default size */
