@@ -367,13 +367,7 @@ rpcsvc_request_init (rpcsvc_t *svc, rpc_transport_t *trans,
          * been copied into the required sections of the req structure,
          * we just need to fill in the meta-data about it now.
          */
-        req->cred.flavour = rpc_call_cred_flavour (callmsg);
-        req->cred.datalen = rpc_call_cred_len (callmsg);
-        req->verf.flavour = rpc_call_verf_flavour (callmsg);
-        req->verf.datalen = rpc_call_verf_len (callmsg);
-
-        /* AUTH */
-        rpcsvc_auth_request_init (req);
+        rpcsvc_auth_request_init (req, callmsg);
         return req;
 }
 

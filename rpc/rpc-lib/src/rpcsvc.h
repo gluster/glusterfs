@@ -553,7 +553,7 @@ struct rpcsvc_auth_list {
 };
 
 extern int
-rpcsvc_auth_request_init (rpcsvc_request_t *req);
+rpcsvc_auth_request_init (rpcsvc_request_t *req, struct rpc_msg *callmsg);
 
 extern int
 rpcsvc_auth_init (rpcsvc_t *svc, dict_t *options);

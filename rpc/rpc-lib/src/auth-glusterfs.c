@@ -50,12 +50,6 @@ ret:
 int
 auth_glusterfs_request_init (rpcsvc_request_t *req, void *priv)
 {
-        if (!req)
-                return -1;
-        memset (req->verf.authdata, 0, GF_MAX_AUTH_BYTES);
-        req->verf.datalen = 0;
-        req->verf.flavour = AUTH_NULL;
-
         return 0;
 }
 
@@ -172,12 +166,6 @@ ret:
 int
 auth_glusterfs_v2_request_init (rpcsvc_request_t *req, void *priv)
 {
-        if (!req)
-                return -1;
-        memset (req->verf.authdata, 0, GF_MAX_AUTH_BYTES);
-        req->verf.datalen = 0;
-        req->verf.flavour = AUTH_NULL;
-
         return 0;
 }
 
