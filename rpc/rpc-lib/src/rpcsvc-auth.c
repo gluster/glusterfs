@@ -369,25 +369,36 @@ ret:
 
 
 int
-rpcsvc_auth_request_init (rpcsvc_request_t *req)
+rpcsvc_auth_request_init (rpcsvc_request_t *req, struct rpc_msg *callmsg)
 {
-        int                     ret = -1;
+        int32_t                 ret = 0;
         rpcsvc_auth_t           *auth = NULL;
 
-        if (!req)
-                return -1;
+        if (!req || !callmsg) {
+                ret = -1;
+                goto err;
+        }
+
+        req->cred.flavour = rpc_call_cred_flavour (callmsg);
+        req->cred.datalen = rpc_call_cred_len (callmsg);
+        req->verf.flavour = rpc_call_verf_flavour (callmsg);
+        req->verf.datalen = rpc_call_verf_len (callmsg);
 
         auth = rpcsvc_auth_get_handler (req);
-        if (!auth)
+        if (!auth) {
+                ret = -1;
                 goto err;
-        ret = 0;
-        gf_log (GF_RPCSVC, GF_LOG_TRACE, "Auth handler: %s", auth->authname);
-        if (!auth->authops->request_init)
-                ret = auth->authops->request_init (req, auth->authprivate);
+        }
 
-	req->auxgids = req->auxgidsmall; /* reset to auxgidlarge during
-					    unsersialize if necessary */
-	req->auxgidlarge = NULL;
+        gf_log (GF_RPCSVC, GF_LOG_TRACE, "Auth handler: %s", auth->authname);
+
+        if (auth->authops->request_init)
+              ret = auth->authops->request_init (req, auth->authprivate);
+
+        /* reset to auxgidlarge during
+           unsersialize if necessary */
+        req->auxgids = req->auxgidsmall;
+        req->auxgidlarge = NULL;
 err:
         return ret;
 }
