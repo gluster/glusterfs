@@ -285,7 +285,7 @@ af_unix_client_get_remote_sockaddr (rpc_transport_t *this,
                 goto err;
         }
 
-        if (strlen (connect_path) > UNIX_PATH_MAX) {
+        if ((strlen (connect_path) + 1)  > UNIX_PATH_MAX) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "connect-path value length %"GF_PRI_SIZET" > %d octets",
                         strlen (connect_path), UNIX_PATH_MAX);
@@ -329,7 +329,7 @@ af_unix_server_get_local_sockaddr (rpc_transport_t *this,
 #define UNIX_PATH_MAX 108
 #endif
 
-        if (strlen (listen_path) > UNIX_PATH_MAX) {
+        if ((strlen (listen_path) + 1)  > UNIX_PATH_MAX) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "option transport.unix.listen-path has value length "
                         "%"GF_PRI_SIZET" > %d",
