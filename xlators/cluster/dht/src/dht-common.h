@@ -100,6 +100,17 @@ struct dht_rebalance_ {
         dict_t              *xdata;
 };
 
+/**
+ * Enum to store decided action based on the qdstatfs (quota-deem-statfs)
+ * events
+ **/
+typedef enum {
+        qdstatfs_action_OFF = 0,
+        qdstatfs_action_REPLACE,
+        qdstatfs_action_NEGLECT,
+        qdstatfs_action_COMPARE,
+} qdstatfs_action_t;
+
 struct dht_local {
         int                      call_cnt;
         loc_t                    loc;
@@ -187,6 +198,7 @@ struct dht_local {
         struct dht_rebalance_ rebalance;
         xlator_t        *first_up_subvol;
 
+        gf_boolean_t     quota_deem_statfs;
 };
 typedef struct dht_local dht_local_t;
 
