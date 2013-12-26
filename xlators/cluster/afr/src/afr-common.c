@@ -2184,7 +2184,9 @@ afr_resultant_errno_get (int32_t *children,
 static void
 afr_lookup_handle_error (afr_local_t *local, int32_t op_ret,  int32_t op_errno)
 {
-        GF_ASSERT (local);
+        if ((local->loc.name == NULL) && (op_errno == ESTALE))
+                op_errno = ENOENT;
+
         if (op_errno == ENOENT)
                 local->enoent_count++;
 
