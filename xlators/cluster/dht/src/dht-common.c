@@ -2984,20 +2984,26 @@ dht_normalize_stats (struct statvfs *buf, unsigned long bsize,
 
 int
 dht_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int op_ret, int op_errno, struct statvfs *statvfs, dict_t *xdata)
+                int op_ret, int op_errno, struct statvfs *statvfs,
+                dict_t *xdata)
 {
-        dht_local_t *local              = NULL;
-        int          this_call_cnt      = 0;
-        int          bsize              = 0;
-        int          frsize             = 0;
-        int8_t       quota_deem_statfs  = 0;
-        GF_UNUSED int     ret           = 0;
-        unsigned long     new_usage     = 0;
-        unsigned long     cur_usage     = 0;
 
-        ret = dict_get_int8 (xdata, "quota-deem-statfs", &quota_deem_statfs);
+        gf_boolean_t            event              = _gf_false;
+        qdstatfs_action_t       action             = qdstatfs_action_OFF;
+        dht_local_t *           local              = NULL;
+        int                     this_call_cnt      = 0;
+        int                     bsize              = 0;
+        int                     frsize             = 0;
+        GF_UNUSED int           ret                = 0;
+        unsigned long           new_usage          = 0;
+        unsigned long           cur_usage          = 0;
 
         local = frame->local;
+        GF_ASSERT (local);
+
+        if (xdata)
+                ret = dict_get_int8 (xdata, "quota-deem-statfs",
+                                     (int8_t *)&event);
 
         LOCK (&frame->lock);
         {
@@ -3012,13 +3018,51 @@ dht_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
                 local->op_ret = 0;
 
-                if (quota_deem_statfs) {
-                        new_usage = statvfs->f_blocks - statvfs->f_bfree;
-                        cur_usage = local->statvfs.f_blocks - local->statvfs.f_bfree;
-                        /* We take the maximux of the usage from the subvols */
-                        if (new_usage >= cur_usage)
+                switch (local->quota_deem_statfs) {
+                case _gf_true:
+                        if (event == _gf_true)
+                                action = qdstatfs_action_COMPARE;
+                        else
+                                action = qdstatfs_action_NEGLECT;
+                        break;
+
+                case _gf_false:
+                        if (event == _gf_true) {
+                                action = qdstatfs_action_REPLACE;
+                                local->quota_deem_statfs = _gf_true;
+                        }
+                        break;
+
+                default:
+                        gf_log (this->name, GF_LOG_ERROR, "Encountered third "
+                                "value for boolean variable %d",
+                                local->quota_deem_statfs);
+                        break;
+                }
+
+                if (local->quota_deem_statfs) {
+                        switch (action) {
+                        case qdstatfs_action_NEGLECT:
+                                goto unlock;
+
+                        case qdstatfs_action_REPLACE:
                                 local->statvfs = *statvfs;
-                        goto unlock;
+                                goto unlock;
+
+                        case qdstatfs_action_COMPARE:
+                                new_usage = statvfs->f_blocks -
+                                             statvfs->f_bfree;
+                                cur_usage = local->statvfs.f_blocks -
+                                             local->statvfs.f_bfree;
+
+                                /* Take the max of the usage from subvols */
+                                if (new_usage >= cur_usage)
+                                        local->statvfs = *statvfs;
+                                goto unlock;
+
+                        default:
+                                break;
+                        }
                 }
 
                 if (local->statvfs.f_bsize != 0) {
