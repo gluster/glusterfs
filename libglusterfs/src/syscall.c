@@ -120,7 +120,12 @@ sys_rename (const char *oldpath, const char *newpath)
 int
 sys_link (const char *oldpath, const char *newpath)
 {
+#ifdef HAVE_LINKAT 
+        /* see HAVE_LINKAT in xlators/storage/posix/src/posix.c */
+        return linkat (AT_FDCWD, oldpath, AT_FDCWD, newpath, 0);
+#else
         return link (oldpath, newpath);
+#endif
 }
 
 
