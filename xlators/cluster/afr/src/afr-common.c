@@ -2512,17 +2512,19 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         /* By default assume ENOTCONN. On success it will be set to 0. */
         local->op_errno = ENOTCONN;
 
-        ret = dict_get_int32 (xattr_req, "attempt-self-heal",
-                              &local->attempt_self_heal);
-        dict_del (xattr_req, "attempt-self-heal");
+        if (xattr_req) {
+                ret = dict_get_int32 (xattr_req, "attempt-self-heal",
+                                      &local->attempt_self_heal);
+                dict_del (xattr_req, "attempt-self-heal");
 
-        ret = dict_get_int32 (xattr_req, "foreground-self-heal",
-                              &local->foreground_self_heal);
-        dict_del (xattr_req, "foreground-self-heal");
+                ret = dict_get_int32 (xattr_req, "foreground-self-heal",
+                                      &local->foreground_self_heal);
+                dict_del (xattr_req, "foreground-self-heal");
 
-        ret = dict_get_int32 (xattr_req, "dry-run-self-heal",
-                              &local->self_heal.dry_run);
-        dict_del (xattr_req, "dry-run-self-heal");
+                ret = dict_get_int32 (xattr_req, "dry-run-self-heal",
+                                      &local->self_heal.dry_run);
+                dict_del (xattr_req, "dry-run-self-heal");
+        }
 
         ret = afr_lookup_xattr_req_prepare (local, this, xattr_req, &local->loc,
                                             &gfid_req);
