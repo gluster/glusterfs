@@ -65,156 +65,189 @@ function compare()
 	echo $var
 }
 
+var2="000000000000000000000000"
 
 var1=`getfattr -d -m . $B0/$V0-0/File -e hex 2>&1 | grep "client-3"`
-var2="trusted.afr.$V0-client-3=0x000000020000000200000000"
-
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-0/File -e hex 2>&1 | grep "client-4"`
-var2="trusted.afr.$V0-client-4=0x000000020000000200000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-0/File -e hex 2>&1 | grep "client-5"`
-var2="trusted.afr.$V0-client-5=0x000000020000000200000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-1/File -e hex 2>&1 | grep "client-3"`
-var2="trusted.afr.$V0-client-3=0x000000020000000200000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1| cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-1/File -e hex 2>&1 | grep "client-4"`
-var2="trusted.afr.$V0-client-4=0x000000020000000200000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-1/File -e hex 2>&1 | grep "client-5"`
-var2="trusted.afr.$V0-client-5=0x000000020000000200000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-2/File -e hex 2>&1 | grep "client-3"`
-var2="trusted.afr.$V0-client-3=0x000000020000000200000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-2/File -e hex 2>&1 | grep "client-4"`
-var2="trusted.afr.$V0-client-4=0x000000020000000200000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-2/File -e hex 2>&1 | grep "client-5"`
-var2="trusted.afr.$V0-client-5=0x000000020000000200000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-0/Dir -e hex 2>&1 | grep "client-3"`
-var2="trusted.afr.$V0-client-3=0x000000000000000100000001"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-0/Dir -e hex 2>&1 | grep "client-4"`
-var2="trusted.afr.$V0-client-4=0x000000000000000100000001"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-0/Dir -e hex 2>&1 | grep "client-5"`
-var2="trusted.afr.$V0-client-5=0x000000000000000100000001"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-1/Dir -e hex 2>&1 | grep "client-3"`
-var2="trusted.afr.$V0-client-3=0x000000000000000100000001"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-1/Dir -e hex 2>&1 | grep "client-4"`
-var2="trusted.afr.$V0-client-4=0x000000000000000100000001"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-1/Dir -e hex 2>&1 | grep "client-5"`
-var2="trusted.afr.$V0-client-5=0x000000000000000100000001"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-2/Dir -e hex 2>&1 | grep "client-3"`
-var2="trusted.afr.$V0-client-3=0x000000000000000100000001"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-2/Dir -e hex 2>&1 | grep "client-4"`
-var2="trusted.afr.$V0-client-4=0x000000000000000100000001"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-2/Dir -e hex 2>&1 | grep "client-5"`
-var2="trusted.afr.$V0-client-5=0x000000000000000100000001"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 
 var1=`getfattr -d -m . $B0/$V0-0/Link -e hex 2>&1 | grep "client-3"`
-var2="trusted.afr.$V0-client-3=0x000000020000000200000000"
-
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-0/Link -e hex 2>&1 | grep "client-4"`
-var2="trusted.afr.$V0-client-4=0x000000020000000200000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-0/Link -e hex 2>&1 | grep "client-5"`
-var2="trusted.afr.$V0-client-5=0x000000020000000200000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-1/Link -e hex 2>&1 | grep "client-3"`
-var2="trusted.afr.$V0-client-3=0x000000020000000200000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-1/Link -e hex 2>&1 | grep "client-4"`
-var2="trusted.afr.$V0-client-4=0x000000020000000200000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-1/Link -e hex 2>&1 | grep "client-5"`
-var2="trusted.afr.$V0-client-5=0x000000020000000200000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-2/Link -e hex 2>&1 | grep "client-3"`
-var2="trusted.afr.$V0-client-3=0x000000020000000200000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-2/Link -e hex 2>&1 | grep "client-4"`
-var2="trusted.afr.$V0-client-4=0x000000020000000200000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-2/Link -e hex 2>&1 | grep "client-5"`
-var2="trusted.afr.$V0-client-5=0x000000020000000200000000"
-EXPECT 0 compare $var1 $var2
-
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 
 
 var1=`getfattr -d -m . $B0/$V0-0/FIFO -e hex 2>&1 | grep "client-3"`
-var2="trusted.afr.$V0-client-3=0x000000000000000100000000"
-
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-0/FIFO -e hex 2>&1 | grep "client-4"`
-var2="trusted.afr.$V0-client-4=0x000000000000000100000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-0/FIFO -e hex 2>&1 | grep "client-5"`
-var2="trusted.afr.$V0-client-5=0x000000000000000100000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-1/FIFO -e hex 2>&1 | grep "client-3"`
-var2="trusted.afr.$V0-client-3=0x000000000000000100000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-1/FIFO -e hex 2>&1 | grep "client-4"`
-var2="trusted.afr.$V0-client-4=0x000000000000000100000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-1/FIFO -e hex 2>&1 | grep "client-5"`
-var2="trusted.afr.$V0-client-5=0x000000000000000100000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-2/FIFO -e hex 2>&1 | grep "client-3"`
-var2="trusted.afr.$V0-client-3=0x000000000000000100000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-2/FIFO -e hex 2>&1 | grep "client-4"`
-var2="trusted.afr.$V0-client-4=0x000000000000000100000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 var1=`getfattr -d -m . $B0/$V0-2/FIFO -e hex 2>&1 | grep "client-5"`
-var2="trusted.afr.$V0-client-5=0x000000000000000100000000"
-EXPECT 0 compare $var1 $var2
+EXPECT "0" echo $?
+var3=`echo $var1 | cut -d x -f 2`
+EXPECT_NOT $var2 echo $var3
 
 cleanup;
