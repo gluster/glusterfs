@@ -2715,6 +2715,16 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                 (local->writer, "%s", brick);
                         XML_RET_CHECK_AND_GOTO (ret, out);
 
+                        ret = xmlTextWriterWriteFormatElement
+                                (local->writer, (xmlChar *)"name", "%s",
+                                 brick);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+
+                        ret = xmlTextWriterWriteFormatElement
+                                (local->writer, (xmlChar *)"hostUuid", "%s",
+                                 uuid);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+
                         /* </brick> */
                         ret = xmlTextWriterEndElement (local->writer);
                         XML_RET_CHECK_AND_GOTO (ret, out);
