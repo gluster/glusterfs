@@ -3461,13 +3461,13 @@ quota_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (ctx->hard_lim <= 0) {
                 inode_ctx_get (inode->table->root, this, &value);
                 ctx = (quota_inode_ctx_t *)(unsigned long) value;
-                if (!ctx)
+                if (!ctx || ctx->hard_lim < 0)
                         goto unwind;
         }
 
-	usage = (ctx->size) / buf->f_bsize;
+        { /* statfs is adjusted in this code block */
+                usage = (ctx->size) / buf->f_bsize;
 
-        if (ctx->hard_lim > 0) {
                 blocks = ctx->hard_lim / buf->f_bsize;
                 buf->f_blocks = blocks;
 
