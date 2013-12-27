@@ -264,7 +264,7 @@ check_delete_stale_index_file (xlator_t *this, char *filename)
         ret = stat (filepath_under_base_indices_holder, &base_index_st);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Base index is not created"
-                        "under index/base_indices_holder");
+                        " under index/base_indices_holder");
                 return;
         }
 
