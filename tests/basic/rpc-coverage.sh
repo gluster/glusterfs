@@ -48,7 +48,7 @@
 set -o pipefail;
 
 function fail() {
-    echo "$*: failed."; 
+    echo "$*: failed.";
     exit 1;
 }
 
@@ -139,7 +139,10 @@ function test_symlink()
 {
     local msg;
 
-    ln -s $PFX/dir/file $PFX/dir/symlink;
+    pushd;
+    cd $PFX/dir;
+    ln -s file symlink;
+    popd;
     test "$(stat -c '%F' $PFX/dir/symlink)" == "symbolic link" || fail "Creation of symlink"
 
     msg=$(cat $PFX/dir/symlink);
