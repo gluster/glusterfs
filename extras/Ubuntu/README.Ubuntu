@@ -1,5 +1,6 @@
 Bug 765014 - Mounting from localhost in fstab fails at boot on ubuntu
-(https://bugzilla.redhat.com/show_bug.cgi?id=765014)
+(original bug: https://bugzilla.redhat.com/show_bug.cgi?id=765014)
+(updated in: https://bugzilla.redhat.com/show_bug.cgi?id=1047007)
 (https://bugs.launchpad.net/ubuntu/+source/glusterfs/+bug/876648)
 
 Ubuntu uses upstart instead of init to bootstrap the system and it has a unique
@@ -10,15 +11,16 @@ and the volume is mounted from localhost, the mount fails at boot time.  To
 correct this we need to launch glusterd using upstart and block the glusterfs
 mounting event until glusterd is started.
 
-The glusterd.conf file contains the necessary configuration for upstart to
-manage the glusterd service.  It should be placed in /etc/init/glusterd.conf
+The glusterfs-server.conf file contains the necessary configuration for upstart to
+manage the glusterd service.  It should be placed in /etc/init/glusterfs-server.conf
 on Ubuntu systems, and then the old initscript /etc/init.d/glusterd can be
 removed.  An additional upstart job, mounting-glusterfs.conf, is also required
-to block mounting glusterfs volumes until the glusterd service is available.
+to block mounting glusterfs volumes until the network interfaces are available.
 Both of these upstart jobs need to be placed in /etc/init to resolve the issue.
 
-Starting with Ubuntu 12.04, Precise Pangolin, these upstart jobs will be
-included with the glusterfs-server package in the Ubuntu repository. 
+Starting with Ubuntu 14.04, Trusty Tahr, these upstart jobs will be included 
+with the glusterfs-server and glusterfs-client packages in the Ubuntu 
+universe repository.
 
 This affects all versions of glusterfs on the Ubuntu platform since at least
 10.04, Lucid Lynx.
