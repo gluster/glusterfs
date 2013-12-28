@@ -409,7 +409,8 @@ sync_base_indices (void *index_priv)
 
 #ifdef HAVE_LINKAT
                     /* see HAVE_LINKAT in xlators/storage/posix/src/posix.c */
-                    ret = linkat (AT_FDCWD, xattrop_index_path, AT_FDCWD, base_index_path, 0);
+                    ret = linkat (AT_FDCWD, xattrop_index_path,
+                                  AT_FDCWD, base_index_path, 0);
 #else
                     ret = link (xattrop_index_path, base_index_path);
 #endif
