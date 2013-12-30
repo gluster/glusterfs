@@ -237,7 +237,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                 goto out;
         }
 
-        GLUSTERD_GET_DEFRAG_SOCK_FILE (sockfile, volinfo, priv);
+        GLUSTERD_GET_DEFRAG_SOCK_FILE (sockfile, volinfo);
         GLUSTERD_GET_DEFRAG_PID_FILE (pidfile, volinfo, priv);
         snprintf (logfile, PATH_MAX, "%s/%s-rebalance.log",
                     DEFAULT_LOG_FILE_DIRECTORY, volinfo->volname);
@@ -288,7 +288,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
 
         sleep (5);
 
-        ret = glusterd_rebalance_rpc_create (volinfo);
+        ret = glusterd_rebalance_rpc_create (volinfo, _gf_false);
 
         //FIXME: this cbk is passed as NULL in all occurrences. May be
         //we never needed it.
@@ -302,13 +302,21 @@ out:
 
 
 int
-glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo)
+glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
+                               gf_boolean_t reconnect)
 {
         dict_t                  *options = NULL;
         char                     sockfile[PATH_MAX] = {0,};
         int                      ret = -1;
         glusterd_defrag_info_t  *defrag = volinfo->rebal.defrag;
-        glusterd_conf_t         *priv = THIS->private;
+        glusterd_conf_t         *priv = NULL;
+        xlator_t                *this = NULL;
+        struct stat             buf = {0,};
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
 
         //rebalance process is not started
         if (!defrag)
@@ -319,7 +327,30 @@ glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo)
                 ret = 0;
                 goto out;
         }
-        GLUSTERD_GET_DEFRAG_SOCK_FILE (sockfile, volinfo, priv);
+        GLUSTERD_GET_DEFRAG_SOCK_FILE (sockfile, volinfo);
+        /* If reconnecting check if defrag sockfile exists in the new location
+         * in /var/run/ , if it does not try the old location
+         */
+        if (reconnect) {
+                ret = sys_stat (sockfile, &buf);
+                /* TODO: Remove this once we don't need backward compatability
+                 * with the older path
+                 */
+                if (ret && (errno == ENOENT)) {
+                        gf_log (this->name, GF_LOG_WARNING, "Rebalance sockfile "
+                                "%s does not exist. Trying old path.",
+                                sockfile);
+                        GLUSTERD_GET_DEFRAG_SOCK_FILE_OLD (sockfile, volinfo,
+                                                           priv);
+                        ret =sys_stat (sockfile, &buf);
+                        if (ret && (ENOENT == errno)) {
+                                gf_log (this->name, GF_LOG_ERROR, "Rebalance "
+                                        "sockfile %s does not exist.",
+                                        sockfile);
+                                goto out;
+                        }
+                }
+        }
 
         /* Setting frame-timeout to 10mins (600seconds).
          * Unix domain sockets ensures that the connection is reliable. The

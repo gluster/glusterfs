@@ -439,11 +439,17 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                 snprintf (path, PATH_MAX, "%s/rebalance",vol_path);     \
         } while (0)
 
-#define GLUSTERD_GET_DEFRAG_SOCK_FILE(path, volinfo, priv) do {         \
+#define GLUSTERD_GET_DEFRAG_SOCK_FILE_OLD(path, volinfo, priv) do {     \
                 char defrag_path[PATH_MAX];                             \
                 GLUSTERD_GET_DEFRAG_DIR(defrag_path, volinfo, priv);    \
                 snprintf (path, PATH_MAX, "%s/%s.sock", defrag_path,    \
                            uuid_utoa(MY_UUID));                         \
+        } while (0)
+
+#define GLUSTERD_GET_DEFRAG_SOCK_FILE(path, volinfo) do {                   \
+                snprintf (path, UNIX_PATH_MAX, DEFAULT_VAR_RUN_DIRECTORY    \
+                          "/gluster-rebalance-%s.sock",                     \
+                           uuid_utoa(volinfo->volume_id));                  \
         } while (0)
 
 #define GLUSTERD_GET_DEFRAG_PID_FILE(path, volinfo, priv) do {          \
@@ -727,7 +733,8 @@ int glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                                   size_t len, int cmd, defrag_cbk_fn_t cbk,
                                   glusterd_op_t op);
 int
-glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo);
+glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
+                               gf_boolean_t reconnect);
 
 int glusterd_handle_cli_heal_volume (rpcsvc_request_t *req);
 
