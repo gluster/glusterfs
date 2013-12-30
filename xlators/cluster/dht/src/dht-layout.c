@@ -722,7 +722,7 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
                                  &disk_layout_raw);
 
         if (dict_ret < 0) {
-                if (err == 0) {
+                if (err == 0 && layout->list[pos].stop) {
                         gf_log (this->name, GF_LOG_INFO,
                                 "%s - disk layout missing", loc->path);
                         ret = -1;
