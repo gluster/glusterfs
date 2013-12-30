@@ -6949,7 +6949,7 @@ glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
         case GF_DEFRAG_STATUS_STARTED:
                 GLUSTERD_GET_DEFRAG_PID_FILE(pidfile, volinfo, priv);
                 if (gf_is_service_running (pidfile, &pid)) {
-                        glusterd_rebalance_rpc_create (volinfo);
+                        glusterd_rebalance_rpc_create (volinfo, _gf_true);
                         break;
                 }
         case GF_DEFRAG_STATUS_NOT_STARTED:
