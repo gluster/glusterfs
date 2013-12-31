@@ -2334,7 +2334,7 @@ struct cli_cmd volume_cmds[] = {
          cli_cmd_check_gsync_exists_cbk},
 #endif
 
-         { "volume profile <VOLNAME> {start | info [incremental | cumulative] | stop} [nfs]",
+         { "volume profile <VOLNAME> {start|info [peek|incremental [peek]|cumulative|clear]|stop} [nfs]",
            cli_cmd_volume_profile_cbk,
            "volume profile operations"},
 

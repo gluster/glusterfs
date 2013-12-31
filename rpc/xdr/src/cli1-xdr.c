@@ -157,6 +157,17 @@ xdr_gf1_cli_stats_op (XDR *xdrs, gf1_cli_stats_op *objp)
 }
 
 bool_t
+xdr_gf1_cli_info_op (XDR *xdrs, gf1_cli_info_op *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_enum (xdrs, (enum_t *) objp))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
 xdr_gf1_cli_top_op (XDR *xdrs, gf1_cli_top_op *objp)
 {
 	register int32_t *buf;

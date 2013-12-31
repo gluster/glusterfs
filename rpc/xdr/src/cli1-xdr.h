@@ -140,11 +140,18 @@ enum gf1_cli_stats_op {
 	GF_CLI_STATS_START = 1,
 	GF_CLI_STATS_STOP = 2,
 	GF_CLI_STATS_INFO = 3,
-	GF_CLI_STATS_INFO_INCREMENTAL = 4,
-	GF_CLI_STATS_INFO_CUMULATIVE = 5,
-	GF_CLI_STATS_TOP = 6
+	GF_CLI_STATS_TOP = 4,
 };
 typedef enum gf1_cli_stats_op gf1_cli_stats_op;
+
+enum gf1_cli_info_op {
+	GF_CLI_INFO_NONE = 0,
+	GF_CLI_INFO_ALL = 1,
+	GF_CLI_INFO_INCREMENTAL = 2,
+	GF_CLI_INFO_CUMULATIVE = 3,
+	GF_CLI_INFO_CLEAR = 4,
+};
+typedef enum gf1_cli_info_op gf1_cli_info_op;
 
 enum gf1_cli_top_op {
 	GF_CLI_TOP_NONE = 0,
@@ -286,6 +293,7 @@ extern  bool_t xdr_gf1_cli_sync_volume (XDR *, gf1_cli_sync_volume*);
 extern  bool_t xdr_gf1_cli_op_flags (XDR *, gf1_cli_op_flags*);
 extern  bool_t xdr_gf1_cli_gsync_set (XDR *, gf1_cli_gsync_set*);
 extern  bool_t xdr_gf1_cli_stats_op (XDR *, gf1_cli_stats_op*);
+extern  bool_t xdr_gf1_cli_info_op (XDR *, gf1_cli_info_op*);
 extern  bool_t xdr_gf1_cli_top_op (XDR *, gf1_cli_top_op*);
 extern  bool_t xdr_gf_cli_status_type (XDR *, gf_cli_status_type*);
 extern  bool_t xdr_gf_cli_req (XDR *, gf_cli_req*);
@@ -314,6 +322,7 @@ extern bool_t xdr_gf1_cli_sync_volume ();
 extern bool_t xdr_gf1_cli_op_flags ();
 extern bool_t xdr_gf1_cli_gsync_set ();
 extern bool_t xdr_gf1_cli_stats_op ();
+extern bool_t xdr_gf1_cli_info_op ();
 extern bool_t xdr_gf1_cli_top_op ();
 extern bool_t xdr_gf_cli_status_type ();
 extern bool_t xdr_gf_cli_req ();

@@ -1972,10 +1972,13 @@ int32_t
 cli_cmd_volume_profile_parse (const char **words, int wordcount,
                               dict_t **options)
 {
-        dict_t    *dict       = NULL;
-        char      *volname    = NULL;
-        int       ret         = -1;
-        gf1_cli_stats_op op = GF_CLI_STATS_NONE;
+        dict_t              *dict       = NULL;
+        char                *volname    = NULL;
+        int                 ret         = -1;
+        gf1_cli_stats_op    op          = GF_CLI_STATS_NONE;
+        gf1_cli_info_op     info_op     = GF_CLI_INFO_NONE;
+        gf_boolean_t        is_peek     = _gf_false;
+
         char      *opwords[] = { "start", "stop", "info", NULL };
         char      *w = NULL;
 
@@ -2005,7 +2008,7 @@ cli_cmd_volume_profile_parse (const char **words, int wordcount,
             wordcount > 5)
                 goto out;
 
-        if (strcmp (w, "info") == 0 && wordcount > 6)
+        if (strcmp (w, "info") == 0 && wordcount > 7)
                 goto out;
 
         if (strcmp (w, "start") == 0) {
@@ -2014,20 +2017,34 @@ cli_cmd_volume_profile_parse (const char **words, int wordcount,
                 op = GF_CLI_STATS_STOP;
         } else if (strcmp (w, "info") == 0) {
                 op = GF_CLI_STATS_INFO;
+                info_op = GF_CLI_INFO_ALL;
                 if (wordcount > 4) {
                         if (strcmp (words[4], "incremental") == 0) {
-                                op = GF_CLI_STATS_INFO_INCREMENTAL;
+                                info_op = GF_CLI_INFO_INCREMENTAL;
+                                if (wordcount > 5 &&
+                                    strcmp (words[5], "peek") == 0) {
+                                        is_peek = _gf_true;
+                                }
                         } else if (strcmp (words[4], "cumulative") == 0) {
-                                op = GF_CLI_STATS_INFO_CUMULATIVE;
+                                info_op = GF_CLI_INFO_CUMULATIVE;
+                        } else if (strcmp (words[4], "clear") == 0) {
+                                info_op = GF_CLI_INFO_CLEAR;
+                        } else if (strcmp (words[4], "peek") == 0) {
+                                is_peek = _gf_true;
                         }
                 }
-                ret = dict_set_int32 (dict, "info-op", op);
-                if (ret)
-                        goto out;
         } else
                 GF_ASSERT (!"opword mismatch");
 
         ret = dict_set_int32 (dict, "op", (int32_t)op);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (dict, "info-op", (int32_t)info_op);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (dict, "peek", is_peek);
         if (ret)
                 goto out;
 
