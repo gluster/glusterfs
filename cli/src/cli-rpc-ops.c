@@ -4775,6 +4775,8 @@ gf_cli_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
         char                              *volname = NULL;
         char                              *brick = NULL;
         char                              str[1024] = {0,};
+        int                               stats_cleared = 0;
+        gf1_cli_info_op                   info_op = GF_CLI_INFO_NONE;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -4840,8 +4842,6 @@ gf_cli_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                  (rsp.op_ret) ? "unsuccessful": "successful");
                         break;
                 case GF_CLI_STATS_INFO:
-                case GF_CLI_STATS_INFO_INCREMENTAL:
-                case GF_CLI_STATS_INFO_CUMULATIVE:
                         break;
                 default:
                         cli_out ("volume profile on %s has been %s ",
@@ -4856,10 +4856,14 @@ gf_cli_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        if (op < GF_CLI_STATS_INFO || GF_CLI_STATS_INFO_CUMULATIVE < op) {
+        if (GF_CLI_STATS_INFO != op) {
                 ret = 0;
                 goto out;
         }
+
+        ret = dict_get_int32 (dict, "info-op", (int32_t*)&info_op);
+        if (ret)
+                goto out;
 
         ret = dict_get_int32 (dict, "count", &brick_count);
         if (ret)
@@ -4880,6 +4884,7 @@ gf_cli_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 }
 
                 ret = dict_get_str_boolean (dict, "nfs", _gf_false);
+
                 if (ret)
                         snprintf (str, sizeof (str), "NFS Server : %s", brick);
                 else
@@ -4888,15 +4893,25 @@ gf_cli_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 memset (str, '-', strlen (str));
                 cli_out ("%s", str);
 
-                snprintf (key, sizeof (key), "%d-cumulative", i);
-                ret = dict_get_int32 (dict, key, &interval);
-                if (ret == 0) {
-                        cmd_profile_volume_brick_out (dict, i, interval);
-                }
-                snprintf (key, sizeof (key), "%d-interval", i);
-                ret = dict_get_int32 (dict, key, &interval);
-                if (ret == 0) {
-                        cmd_profile_volume_brick_out (dict, i, interval);
+                if (GF_CLI_INFO_CLEAR == info_op) {
+                        snprintf (key, sizeof (key), "%d-stats-cleared", i);
+                        ret = dict_get_int32 (dict, key, &stats_cleared);
+                        if (ret)
+                                goto out;
+                        cli_out (stats_cleared ? "Cleared stats." :
+                                                 "Failed to clear stats.");
+                } else {
+                        snprintf (key, sizeof (key), "%d-cumulative", i);
+                        ret = dict_get_int32 (dict, key, &interval);
+                        if (ret == 0)
+                                cmd_profile_volume_brick_out (dict, i,
+                                                              interval);
+
+                        snprintf (key, sizeof (key), "%d-interval", i);
+                        ret = dict_get_int32 (dict, key, &interval);
+                        if (ret == 0)
+                                cmd_profile_volume_brick_out (dict, i,
+                                                              interval);
                 }
                 i++;
         }

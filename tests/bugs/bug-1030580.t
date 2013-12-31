@@ -9,14 +9,6 @@ function write_to_file {
     dd of=$M0/1 if=/dev/zero bs=1M count=128 oflag=append 2>&1 >/dev/null
 }
 
-function cumulative_stat_count {
-    echo "$1" | grep "Cumulative Stats:" | wc -l
-}
-
-function incremental_stat_count {
-    echo "$1" | grep "Interval$2Stats:" | wc -l
-}
-
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}0 $H0:$B0/${V0}1

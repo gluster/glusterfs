@@ -279,3 +279,26 @@ function get_hex_xattr {
         local path=$2
         getfattr -d -m. -e hex $2 2>/dev/null | grep $1 | cut -f2 -d'=' | cut -f2 -d'x'
 }
+
+function cumulative_stat_count {
+    echo "$1" | grep "Cumulative Stats:" | wc -l
+}
+
+function incremental_stat_count {
+    echo "$1" | grep "Interval$2Stats:" | wc -l
+}
+
+function cleared_stat_count {
+    echo "$1" | grep "Cleared stats." | wc -l
+}
+
+function data_read_count {
+    echo "$1" | grep "Data Read:$2bytes" | wc -l
+}
+
+function data_written_count {
+    echo "$1" | grep "Data Written:$2bytes" | wc -l
+}
+
+
+

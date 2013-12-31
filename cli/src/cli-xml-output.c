@@ -2229,11 +2229,13 @@ cli_xml_output_vol_profile (dict_t *dict, int op_ret, int op_errno,
         xmlDocPtr               doc = NULL;
         char                    *volname = NULL;
         int                     op = GF_CLI_STATS_NONE;
+        int                     info_op = GF_CLI_INFO_NONE;
         int                     brick_count = 0;
         char                    *brick_name = NULL;
         int                     interval = 0;
         char                    key[1024] = {0,};
         int                     i = 0;
+        int                     stats_cleared = 0;
 
         ret = cli_begin_xml_output (&writer, &doc);
         if (ret)
@@ -2261,7 +2263,7 @@ cli_xml_output_vol_profile (dict_t *dict, int op_ret, int op_errno,
                                                "%d", op);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        if (op < GF_CLI_STATS_INFO || GF_CLI_STATS_INFO_CUMULATIVE < op)
+        if (GF_CLI_STATS_INFO != op)
                 goto cont;
 
         ret = dict_get_int32 (dict, "count", &brick_count);
@@ -2270,6 +2272,10 @@ cli_xml_output_vol_profile (dict_t *dict, int op_ret, int op_errno,
         ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"brickCount",
                                                "%d", brick_count);
         XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_int32 (dict, "info-op", &info_op);
+        if (ret)
+                goto out;
 
         while (i < brick_count) {
                 i++;
@@ -2286,23 +2292,37 @@ cli_xml_output_vol_profile (dict_t *dict, int op_ret, int op_errno,
                         (writer, (xmlChar *)"brickName", "%s", brick_name);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                snprintf (key, sizeof (key), "%d-cumulative", i);
-                ret = dict_get_int32 (dict, key, &interval);
-                if (ret == 0) {
-                        ret = cli_xml_output_vol_profile_stats
-                                (writer, dict, i, interval);
+                if (GF_CLI_INFO_CLEAR == info_op) {
+                        snprintf (key, sizeof (key), "%d-stats-cleared", i);
+                        ret = dict_get_int32 (dict, key, &stats_cleared);
                         if (ret)
                                 goto out;
-                }
 
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "%d-interval", i);
-                ret = dict_get_int32 (dict, key, &interval);
-                if (ret == 0) {
-                        ret = cli_xml_output_vol_profile_stats
-                                (writer, dict, i, interval);
+                        ret = xmlTextWriterWriteFormatElement
+                                (writer, (xmlChar *)"clearStats", "%s", 
+                                stats_cleared ? "Cleared stats." :
+                                                 "Failed to clear stats.");
                         if (ret)
                                 goto out;
+                } else {
+                        snprintf (key, sizeof (key), "%d-cumulative", i);
+                        ret = dict_get_int32 (dict, key, &interval);
+                        if (ret == 0) {
+                                ret = cli_xml_output_vol_profile_stats
+                                        (writer, dict, i, interval);
+                                if (ret)
+                                        goto out;
+                        }
+
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "%d-interval", i);
+                        ret = dict_get_int32 (dict, key, &interval);
+                        if (ret == 0) {
+                                ret = cli_xml_output_vol_profile_stats
+                                        (writer, dict, i, interval);
+                                if (ret)
+                                        goto out;
+                        }
                 }
 
                 /* </brick> */

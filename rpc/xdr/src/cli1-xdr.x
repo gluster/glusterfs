@@ -97,6 +97,14 @@ enum gf1_cli_stats_op {
         GF_CLI_STATS_TOP = 4
 };
 
+enum gf1_cli_info_op {
+	    GF_CLI_INFO_NONE = 0,
+	    GF_CLI_INFO_ALL = 1,
+	    GF_CLI_INFO_INCREMENTAL = 2,
+	    GF_CLI_INFO_CUMULATIVE = 3,
+	    GF_CLI_INFO_CLEAR = 4
+};
+
 enum gf1_cli_top_op {
         GF_CLI_TOP_NONE = 0,
         GF_CLI_TOP_OPEN,
