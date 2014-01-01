@@ -29,6 +29,7 @@ eh_new (size_t buffer_size, gf_boolean_t use_buffer_once,
                 gf_log ("", GF_LOG_ERROR, "allocating circular buffer failed");
                 GF_FREE (history);
                 history = NULL;
+                goto out;
         }
 
         history->buffer = buffer;
