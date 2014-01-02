@@ -2195,7 +2195,7 @@ unlock:
                 rpc_transport_notify (this, event, this);
         }
 out:
-        return 0;
+        return ret;
 }
 
 
