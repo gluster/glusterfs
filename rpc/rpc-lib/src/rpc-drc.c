@@ -712,38 +712,30 @@ rpcsvc_drc_init (rpcsvc_t *svc, dict_t *options)
         GF_ASSERT (svc);
         GF_ASSERT (options);
 
-        if (!svc->drc) {
-                drc = GF_CALLOC (1, sizeof (rpcsvc_drc_globals_t),
-                                 gf_common_mt_drc_globals_t);
-                if (!drc)
-                        return -1;
-
-                svc->drc = drc;
-                LOCK_INIT (&drc->lock);
-        } else {
-                drc = svc->drc;
-        }
-
-        LOCK (&drc->lock);
-        if (drc->type != DRC_TYPE_NONE) {
-                ret = 0;
-                goto out;
-        }
-
         /* Toggle DRC on/off, when more drc types(persistent/cluster)
            are added, we shouldn't treat this as boolean */
         ret = dict_get_str_boolean (options, "nfs.drc", _gf_true);
         if (ret == -1) {
-                gf_log (GF_RPCSVC, GF_LOG_INFO, "drc user options need second look");
+                gf_log (GF_RPCSVC, GF_LOG_INFO,
+                        "drc user options need second look");
                 ret = _gf_true;
         }
 
-        if (ret == _gf_false) {
-                /* drc off */
-                gf_log (GF_RPCSVC, GF_LOG_INFO, "DRC is manually turned OFF");
-                ret = 0;
-                goto out;
-        }
+        gf_log (GF_RPCSVC, GF_LOG_INFO, "DRC is turned %s", (ret?"ON":"OFF"));
+
+        /*DRC off, nothing to do */
+        if (ret == _gf_false)
+                return (0);
+
+        drc = GF_CALLOC (1, sizeof (rpcsvc_drc_globals_t),
+                         gf_common_mt_drc_globals_t);
+        if (!drc)
+                return (-1);
+
+        LOCK_INIT (&drc->lock);
+        svc->drc = drc;
+
+        LOCK (&drc->lock);
 
         /* Specify type of DRC to be used */
         ret = dict_get_uint32 (options, "nfs.drc-type", &drc_type);
