@@ -240,6 +240,10 @@ AC_CONFIG_FILES([Makefile
                 extras/hook-scripts/add-brick/Makefile
                 extras/hook-scripts/add-brick/pre/Makefile
                 extras/hook-scripts/add-brick/post/Makefile
+                extras/hook-scripts/create/Makefile
+                extras/hook-scripts/create/post/Makefile
+                extras/hook-scripts/delete/Makefile
+                extras/hook-scripts/delete/pre/Makefile
                 extras/hook-scripts/start/Makefile
                 extras/hook-scripts/start/post/Makefile
                 extras/hook-scripts/set/Makefile
@@ -911,6 +915,21 @@ else
     BUILD_XML_OUTPUT="no"
 fi
 # end of xml-output
+
+dnl SELinux feature enablement
+case $host_os in
+  linux*)
+    AC_ARG_ENABLE([selinux],
+                  AC_HELP_STRING([--disable-selinux],
+                                 [Disable SELinux features]),
+                  [USE_SELINUX="${enableval}"], [USE_SELINUX="yes"])
+    ;;
+  *)
+    USE_SELINUX=no
+    ;;
+esac
+AM_CONDITIONAL(USE_SELINUX, test "x${USE_SELINUX}" = "xyes")
+dnl end of SELinux feature enablement
 
 AC_CHECK_HEADERS([execinfo.h], [have_backtrace=yes])
 if test "x${have_backtrace}" = "xyes"; then
@@ -1586,6 +1605,7 @@ echo "Unit Tests           : $BUILD_UNITTEST"
 echo "Track priv ports     : $TRACK_PRIVPORTS"
 echo "POSIX ACLs           : $BUILD_POSIX_ACLS"
 echo "Data Classification  : $BUILD_GFDB"
+echo "SELinux features     : $USE_SELINUX"
 echo "firewalld-config     : $BUILD_FIREWALLD"
 echo "Experimental xlators : $BUILD_EXPERIMENTAL"
 echo "Events               : $BUILD_EVENTS"
