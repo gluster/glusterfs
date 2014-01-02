@@ -3277,15 +3277,15 @@ static int32_t linkop_grab_local(call_frame_t *frame,
 	if (newloc) {
 		local->newloc = GF_CALLOC(1, sizeof(*newloc), gf_crypt_mt_loc);
 		if (!local->newloc) {
-			GF_FREE(local->loc);
 			loc_wipe(local->loc);
+			GF_FREE(local->loc);
 			goto error;
 		}
 		memset(local->newloc, 0, sizeof(*local->newloc));
 		ret = loc_copy(local->newloc, newloc);
 		if (ret) {
-			GF_FREE(local->loc);
 			loc_wipe(local->loc);
+			GF_FREE(local->loc);
 			GF_FREE(local->newloc);
 			goto error;
 		}
@@ -3297,19 +3297,21 @@ static int32_t linkop_grab_local(call_frame_t *frame,
 		goto error;
 	}
 	return 0;
- error:
-	if (local->xdata)
-		dict_unref(local->xdata);
-	if (local->fd)
-		fd_unref(local->fd);
-	local->fd = 0;
-	local->loc = NULL;
-	local->newloc = NULL;
 
-	local->op_ret = -1;
-	local->op_errno = ret;
+error:
+        if (local) {
+                if (local->xdata)
+                        dict_unref(local->xdata);
+                if (local->fd)
+                        fd_unref(local->fd);
+                local->fd = 0;
+                local->loc = NULL;
+                local->newloc = NULL;
+                local->op_ret = -1;
+                local->op_errno = ret;
+        }
 
-	return ret;
+        return ret;
 }
 
 /*
