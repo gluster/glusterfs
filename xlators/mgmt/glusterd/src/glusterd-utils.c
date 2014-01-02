@@ -3135,7 +3135,8 @@ glusterd_import_volinfo (dict_t *vols, int count,
         if (ret)
                 gf_log (THIS->name, GF_LOG_INFO,
                         "peer is possibly old version");
-
+        new_volinfo->subvol_count = new_volinfo->brick_count/
+                                    glusterd_get_dist_leaf_count (new_volinfo);
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.ckusm", count);
         ret = dict_get_uint32 (vols, key, &new_volinfo->cksum);
