@@ -1234,8 +1234,9 @@ exit 0
             %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/add-brick/post/disabled-quota-root-xattr-heal.sh
             %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/add-brick/pre/S28Quota-enable-root-xattr-heal.sh
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/add-brick/pre
-%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/create
-%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/create/post
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/create
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/create/post
+            %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/create/post/S10selinux-label-brick.sh
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/create/pre
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/copy-file
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/copy-file/post
@@ -1243,7 +1244,8 @@ exit 0
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/post
                             %{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post
-%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/pre
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/pre
+            %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/pre/S10selinux-del-fcontext.sh
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/remove-brick
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/remove-brick/post
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/remove-brick/pre
@@ -1312,6 +1314,9 @@ exit 0
 * Wed Apr 26 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - /var/run/gluster owner gluster:gluster(0775) for qemu(gfapi)
   statedumps (#1445569)
+
+* Mon Apr 24 2017 Jiffin Tony Thottan <jhottan@redhat.com>
+- Install SELinux hook scripts that manage contexts for bricks (#1047975)
 
 * Thu Apr 20 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - firewalld-filesystem -> firewalld (#1443959)
