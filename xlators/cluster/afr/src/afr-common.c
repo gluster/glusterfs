@@ -2292,7 +2292,7 @@ afr_set_root_inode_on_first_lookup (afr_local_t *local, xlator_t *this,
                 goto out;
         priv = this->private;
         if ((priv->first_lookup)) {
-                gf_log (this->name, GF_LOG_INFO, "added root inode");
+                gf_log (this->name, GF_LOG_DEBUG, "added root inode");
                 priv->root_inode = inode_ref (inode);
                 priv->first_lookup = 0;
         }
@@ -2353,7 +2353,7 @@ afr_discovery_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          */
         if (is_local) {
                 child_index = (int32_t)(long)cookie;
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "selecting local read_child %s",
                         priv->children[child_index]->name);
                 priv->read_child = child_index;

@@ -18,6 +18,8 @@
 #include <string.h>
 #include <time.h>
 
+#define DEFAULT_HEAL_LOG_FILE_DIRECTORY DATADIR "/log/glusterfs"
+
 int
 glfsh_link_inode_update_loc (loc_t *loc, struct iatt *iattr)
 {
@@ -212,8 +214,7 @@ glfsh_process_entries (xlator_t *xl, loc_t *parentloc, gf_dirent_t *entries,
                         goto out;
 
                 uuid_parse (entry->d_name, entry_loc.gfid);
-                //TODO: put gfid-path
-                glfs_loc_touchup (&entry_loc);
+                entry_loc.path = gf_strdup (uuid_utoa (entry_loc.gfid));
                 ret = syncop_lookup (xl->parents->xlator, &entry_loc, xattr_req,
                                      &iattr, &xattr_rsp, &parent);
                 if (ret < 0)
@@ -407,6 +408,7 @@ main (int argc, char **argv)
         xlator_t  *top_subvol = NULL;
         xlator_t  *xl = NULL;
         loc_t     rootloc = {0};
+        char      logfilepath[PATH_MAX];
 
         if (argc != 2) {
                 printf ("Usage: %s <volname>\n", argv[0]);
@@ -423,6 +425,15 @@ main (int argc, char **argv)
         }
 
         ret = glfs_set_volfile_server (fs, "tcp", "localhost", 24007);
+        snprintf (logfilepath, sizeof (logfilepath),
+                  DEFAULT_HEAL_LOG_FILE_DIRECTORY"/glfsheal-%s.log", volname);
+        ret = glfs_set_logging(fs, logfilepath, GF_LOG_INFO);
+        if (ret < 0) {
+                ret = -1;
+                printf ("Not able to initialize volume '%s'\n", volname);
+                goto out;
+        }
+
 
         ret = glfs_init (fs);
         if (ret < 0) {
@@ -473,16 +484,18 @@ main (int argc, char **argv)
         }
 
         loc_wipe (&rootloc);
-        glfs_subvol_done (fs, top_subvol);
-        glfs_fini (fs);
+        //Calling this sometimes gives log messages on stderr.
+        //There is no graceful way of disabling that at the moment,
+        //since this process dies anyway, ignoring cleanup for now.
+        //glfs_fini (fs);
 
         return 0;
 out:
         if (fs && top_subvol)
                 glfs_subvol_done (fs, top_subvol);
         loc_wipe (&rootloc);
-        if (fs)
-                glfs_fini (fs);
+        //if (fs)
+        //        glfs_fini (fs);
 
         return ret;
 }

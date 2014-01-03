@@ -947,7 +947,7 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 
         afr_sh_mark_source_sinks (frame, this);
         if (sh->active_sinks == 0) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "no active sinks for performing self-heal on file %s",
                         local->loc.path);
                 afr_sh_data_finish (frame, this);
@@ -1171,7 +1171,7 @@ afr_sh_data_fstat_cbk (call_frame_t *frame, void *cookie,
                  * the pending data xattrs which need to be erased
                  */
                 if (!afr_sh_data_proceed (sh->success_count)) {
-                        gf_log (this->name, GF_LOG_ERROR, "inspecting metadata "
+                        gf_log (this->name, GF_LOG_DEBUG, "inspecting metadata "
                                 "succeeded on < %d children, aborting "
                                 "self-heal for %s", AFR_SH_MIN_PARTICIPANTS,
                                 local->loc.path);
@@ -1283,7 +1283,7 @@ afr_sh_data_fxattrop_cbk (call_frame_t *frame, void *cookie,
         call_count = afr_frame_return (frame);
         if (call_count == 0) {
                 if (!afr_sh_data_proceed (sh->success_count)) {
-                        gf_log (this->name, GF_LOG_ERROR, "%s, inspecting "
+                        gf_log (this->name, GF_LOG_DEBUG, "%s, inspecting "
                                 "change log succeeded on < %d children",
                                 local->loc.path, AFR_SH_MIN_PARTICIPANTS);
                         afr_sh_data_fail (frame, this);

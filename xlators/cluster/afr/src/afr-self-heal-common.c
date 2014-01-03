@@ -2346,6 +2346,9 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
                 loglevel = GF_LOG_DEBUG;
         }
 
+        if (sh->dry_run)
+                loglevel = GF_LOG_DEBUG;
+
         afr_log_self_heal_completion_status (local, loglevel);
 
         FRAME_SU_UNDO (bgsh_frame, afr_local_t);
