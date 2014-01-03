@@ -3529,7 +3529,8 @@ glusterd_import_friend_volume (dict_t *vols, size_t count)
         if (ret)
                 goto out;
 
-        list_add_tail (&new_volinfo->vol_list, &priv->volumes);
+        list_add_order (&new_volinfo->vol_list, &priv->volumes,
+                        glusterd_compare_volume_name);
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with ret: %d", ret);
         return ret;
@@ -9337,3 +9338,13 @@ glusterd_rpc_clnt_unref (glusterd_conf_t *conf, rpc_clnt_t *rpc)
         return ret;
 }
 
+int32_t
+glusterd_compare_volume_name(struct list_head *list1, struct list_head *list2)
+{
+        glusterd_volinfo_t *volinfo1 = NULL;
+        glusterd_volinfo_t *volinfo2 = NULL;
+
+        volinfo1 = list_entry(list1, glusterd_volinfo_t, vol_list);
+        volinfo2 = list_entry(list2, glusterd_volinfo_t, vol_list);
+        return strcmp(volinfo1->volname, volinfo2->volname);
+}

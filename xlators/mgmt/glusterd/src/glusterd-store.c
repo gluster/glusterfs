@@ -2085,7 +2085,8 @@ glusterd_store_retrieve_volume (char    *volname)
                 goto out;
 
 
-        list_add_tail (&volinfo->vol_list, &priv->volumes);
+        list_add_order (&volinfo->vol_list, &priv->volumes,
+                         glusterd_compare_volume_name);
 
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
