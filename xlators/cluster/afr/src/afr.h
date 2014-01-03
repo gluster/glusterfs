@@ -33,6 +33,8 @@
 #define AFR_LOCKEE_COUNT_MAX    3
 #define AFR_DOM_COUNT_MAX    3
 
+#define afr_inode_missing(op_errno) (op_errno == ENOENT || op_errno == ESTALE)
+
 struct _pump_private;
 
 typedef int (*afr_expunge_done_cbk_t) (call_frame_t *frame, xlator_t *this,
