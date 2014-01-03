@@ -644,4 +644,7 @@ gd_stop_rebalance_process (glusterd_volinfo_t *volinfo);
 
 rpc_clnt_t *
 glusterd_rpc_clnt_unref (glusterd_conf_t *conf, rpc_clnt_t *rpc);
+
+int32_t
+glusterd_compare_volume_name(struct list_head *, struct list_head *);
 #endif

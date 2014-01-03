@@ -46,6 +46,21 @@ list_add_tail (struct list_head *new, struct list_head *head)
 
 
 static inline void
+list_add_order (struct list_head *new, struct list_head *head,
+                int (*compare)(struct list_head *, struct list_head *))
+{
+        struct list_head *pos = head->next;
+
+        while ( pos != head ) {
+                if (compare(new, pos) <= 0)
+                        break;
+                pos = pos->next;
+        }
+
+        list_add_tail(new, pos);
+}
+
+static inline void
 list_del (struct list_head *old)
 {
 	old->prev->next = old->next;
