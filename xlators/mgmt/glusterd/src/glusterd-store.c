@@ -1329,12 +1329,14 @@ glusterd_store_global_info (xlator_t *this)
 
         ret = gf_store_rename_tmppath (handle);
 out:
-        if (ret && (handle->fd > 0))
-                gf_store_unlink_tmppath (handle);
+        if (handle) {
+                if (ret && (handle->fd > 0))
+                        gf_store_unlink_tmppath (handle);
 
-        if (handle->fd > 0) {
-                close (handle->fd);
-                handle->fd = 0;
+                if (handle->fd > 0) {
+                        close (handle->fd);
+                        handle->fd = 0;
+                }
         }
 
         if (uuid_str)
