@@ -1183,7 +1183,7 @@ rpcsvc_submit_generic (rpcsvc_request_t *req, struct iovec *proghdr,
         iobref_add (iobref, replyiob);
 
         /* cache the request in the duplicate request cache for appropriate ops */
-        if (req->reply) {
+        if ((req->reply) && (rpcsvc_need_drc (req))) {
                 drc = req->svc->drc;
 
                 LOCK (&drc->lock);
