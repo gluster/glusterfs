@@ -701,16 +701,8 @@ posix_handle_hard (xlator_t *this, const char *oldpath, uuid_t gfid, struct stat
                         return -1;
                 }
 
-#ifdef HAVE_LINKAT
-                /*
-                 * Use linkat if the target may be a symlink to a directory
-                 * or without an existing target. See comment about linkat()
-                 * usage in posix_link() in posix.c for details
-                 */
-                ret = linkat (AT_FDCWD, oldpath, AT_FDCWD, newpath, 0);
-#else
-                ret = link (oldpath, newpath);
-#endif
+                ret = sys_link (oldpath, newpath);
+
                 if (ret) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "link %s -> %s failed (%s)",
@@ -882,16 +874,7 @@ posix_create_link_if_gfid_exists (xlator_t *this, uuid_t gfid,
         MAKE_HANDLE_PATH (newpath, this, gfid, NULL);
         ret = lstat (newpath, &stbuf);
         if (!ret) {
-#ifdef HAVE_LINKAT
-                /*
-                 * Use linkat if the target may be a symlink to a directory
-                 * or without an existing target. See comment about linkat()
-                 * usage in posix_link() in posix.c for details
-                 */
-                ret = linkat (AT_FDCWD, newpath, AT_FDCWD, real_path, 0);
-#else
-                ret = link (newpath, real_path);
-#endif
+                ret = sys_link (newpath, real_path);
         }
 
         return ret;

@@ -16,6 +16,7 @@
 #include "options.h"
 #include "glusterfs3-xdr.h"
 #include "syncop.h"
+#include "syscall.h"
 
 #define XATTROP_SUBDIR "xattrop"
 #define BASE_INDICES_HOLDER_SUBDIR "base_indices_holder"
@@ -407,13 +408,8 @@ sync_base_indices (void *index_priv)
                     snprintf (base_index_path, PATH_MAX, "%s/%s",
                               base_indices_holder, entry->d_name);
 
-#ifdef HAVE_LINKAT
-                    /* see HAVE_LINKAT in xlators/storage/posix/src/posix.c */
-                    ret = linkat (AT_FDCWD, xattrop_index_path,
-                                  AT_FDCWD, base_index_path, 0);
-#else
-                    ret = link (xattrop_index_path, base_index_path);
-#endif
+                    ret = sys_link (xattrop_index_path, base_index_path);
+
                     if (ret && errno != EEXIST)
                         goto out;
 
@@ -549,12 +545,8 @@ index_add (xlator_t *this, uuid_t gfid, const char *subdir)
         index_get_index (priv, index);
         make_index_path (priv->index_basepath, subdir,
                          index, index_path, sizeof (index_path));
-#ifdef HAVE_LINKAT
-        /* see HAVE_LINKAT in xlators/storage/posix/src/posix.c */
-        ret = linkat (AT_FDCWD, index_path, AT_FDCWD, gfid_path, 0);
-#else
-        ret = link (index_path, gfid_path);
-#endif
+
+        ret = sys_link (index_path, gfid_path);
         if (!ret || (errno == EEXIST))  {
                 ret = 0;
                 index_created = 1;
@@ -587,12 +579,7 @@ index_add (xlator_t *this, uuid_t gfid, const char *subdir)
         if (fd >= 0)
                 close (fd);
 
-#ifdef HAVE_LINKAT
-        /* see HAVE_LINKAT in xlators/storage/posix/src/posix.c */
-        ret = linkat (AT_FDCWD, index_path, AT_FDCWD, gfid_path, 0);
-#else
-        ret = link (index_path, gfid_path);
-#endif
+        ret = sys_link (index_path, gfid_path);
         if (ret && (errno != EEXIST)) {
                 gf_log (this->name, GF_LOG_ERROR, "%s: Not able to "
                         "add to index (%s)", uuid_utoa (gfid),
@@ -606,12 +593,7 @@ index_add (xlator_t *this, uuid_t gfid, const char *subdir)
                  make_index_path (priv->index_basepath,
                                   GF_BASE_INDICES_HOLDER_GFID,
                                   index, base_path, sizeof (base_path));
-#ifdef HAVE_LINKAT
-                 /* see HAVE_LINKAT in xlators/storage/posix/src/posix.c */
-                 ret = linkat (AT_FDCWD, index_path, AT_FDCWD, base_path, 0);
-#else
-                 ret = link (index_path, base_path);
-#endif
+                 ret = sys_link (index_path, base_path);
                  if (ret)
                          goto out;
         }

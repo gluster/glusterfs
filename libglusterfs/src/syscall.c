@@ -121,7 +121,13 @@ int
 sys_link (const char *oldpath, const char *newpath)
 {
 #ifdef HAVE_LINKAT
-        /* see HAVE_LINKAT in xlators/storage/posix/src/posix.c */
+	/*
+	 * On most systems (Linux being the notable exception), link(2)
+	 * first resolves symlinks. If the target is a directory or
+	 * is nonexistent, it will fail. linkat(2) operates on the
+	 * symlink instead of its target when the AT_SYMLINK_FOLLOW
+	 * flag is not supplied.
+	 */
         return linkat (AT_FDCWD, oldpath, AT_FDCWD, newpath, 0);
 #else
         return link (oldpath, newpath);
