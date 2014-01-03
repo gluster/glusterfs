@@ -1530,7 +1530,7 @@ afr_sh_entry_impunge_readlink_sink_cbk (call_frame_t *impunge_frame, void *cooki
 
         child_index = (long) cookie;
 
-        if ((op_ret == -1) && (op_errno != ENOENT)) {
+        if ((op_ret == -1) && (!afr_inode_missing(op_errno))) {
                 gf_log (this->name, GF_LOG_INFO,
                         "readlink of %s on %s failed (%s)",
                         impunge_local->loc.path,
@@ -1541,7 +1541,7 @@ afr_sh_entry_impunge_readlink_sink_cbk (call_frame_t *impunge_frame, void *cooki
 
         /* symlink doesn't exist on the sink */
 
-        if ((op_ret == -1) && (op_errno == ENOENT)) {
+        if ((op_ret == -1) && (afr_inode_missing(op_errno))) {
                 afr_sh_entry_impunge_symlink (impunge_frame, this,
                                               child_index, impunge_sh->linkname);
                 return 0;
