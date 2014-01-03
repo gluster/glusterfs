@@ -62,8 +62,8 @@ gf_store_mkstemp (gf_store_handle_t *shandle)
         int     fd = -1;
         char    tmppath[PATH_MAX] = {0,};
 
-        GF_ASSERT (shandle);
-        GF_ASSERT (shandle->path);
+        GF_VALIDATE_OR_GOTO ("store", shandle, out);
+        GF_VALIDATE_OR_GOTO ("store", shandle->path, out);
 
         snprintf (tmppath, sizeof (tmppath), "%s.tmp", shandle->path);
         fd = open (tmppath, O_RDWR | O_CREAT | O_TRUNC | O_SYNC, 0600);
@@ -71,7 +71,7 @@ gf_store_mkstemp (gf_store_handle_t *shandle)
                 gf_log ("", GF_LOG_ERROR, "Failed to open %s, error: %s",
                         tmppath, strerror (errno));
         }
-
+out:
         return fd;
 }
 
@@ -127,8 +127,8 @@ gf_store_rename_tmppath (gf_store_handle_t *shandle)
         int32_t         ret = -1;
         char            tmppath[PATH_MAX] = {0,};
 
-        GF_ASSERT (shandle);
-        GF_ASSERT (shandle->path);
+        GF_VALIDATE_OR_GOTO ("store", shandle, out);
+        GF_VALIDATE_OR_GOTO ("store", shandle->path, out);
 
         snprintf (tmppath, sizeof (tmppath), "%s.tmp", shandle->path);
         ret = rename (tmppath, shandle->path);
@@ -149,8 +149,8 @@ gf_store_unlink_tmppath (gf_store_handle_t *shandle)
         int32_t         ret = -1;
         char            tmppath[PATH_MAX] = {0,};
 
-        GF_ASSERT (shandle);
-        GF_ASSERT (shandle->path);
+        GF_VALIDATE_OR_GOTO ("store", shandle, out);
+        GF_VALIDATE_OR_GOTO ("store", shandle->path, out);
 
         snprintf (tmppath, sizeof (tmppath), "%s.tmp", shandle->path);
         ret = unlink (tmppath);
@@ -160,7 +160,7 @@ gf_store_unlink_tmppath (gf_store_handle_t *shandle)
         } else {
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
