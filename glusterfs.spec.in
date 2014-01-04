@@ -136,10 +136,8 @@ BuildRequires:    lvm2-devel
 %endif
 
 Obsoletes:        hekafs <= 0.7
-Obsoletes:        %{name}-libs <= 2.0.0
 Obsoletes:        %{name}-common < %{version}-%{release}
 Obsoletes:        %{name}-core < %{version}-%{release}
-Provides:         %{name}-libs = %{version}-%{release}
 Provides:         %{name}-common = %{version}-%{release}
 Provides:         %{name}-core = %{version}-%{release}
 
@@ -776,6 +774,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Sat Jan 4 2014 Niels de Vos <ndevos@redhat.com>
+- The main glusterfs package should not provide glusterfs-libs (#1048489)
+
 * Mon Dec 23 2013 Niels de Vos <ndevos@redhat.com>
 - Package gfapi.py into the Python site-packages path (#1005146)
 
