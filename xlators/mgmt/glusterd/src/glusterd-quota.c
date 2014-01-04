@@ -1403,6 +1403,9 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                 "greater than INT64_MAX", hard_limit_str);
                         goto out;
                 }
+                /*The break statement is missing here to allow intentional fall
+                 * through of code execution to the next switch case
+                 */
 
         case GF_QUOTA_OPTION_TYPE_REMOVE:
                 ret = glusterd_get_gfid_from_brick (dict, volinfo, rsp_dict,
