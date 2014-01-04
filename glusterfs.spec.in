@@ -156,11 +156,9 @@ BuildRequires:    glib2-devel
 %endif
 
 Obsoletes:        hekafs
-Obsoletes:        %{name}-libs <= 2.0.0
 Obsoletes:        %{name}-common < %{version}-%{release}
 Obsoletes:        %{name}-core < %{version}-%{release}
 Obsoletes:        %{name}-ufo
-Provides:         %{name}-libs = %{version}-%{release}
 Provides:         %{name}-common = %{version}-%{release}
 Provides:         %{name}-core = %{version}-%{release}
 
@@ -874,6 +872,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Sat Jan 4 2014 Niels de Vos <ndevos@redhat.com>
+- The main glusterfs package should not provide glusterfs-libs (#1048489)
+
 * Tue Dec 10 2013 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - Sync with Fedora glusterfs.spec 3.5.0-0.1.qa3
 
