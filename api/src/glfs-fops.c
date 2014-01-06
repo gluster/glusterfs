@@ -710,10 +710,14 @@ glfs_preadv_async (struct glfs_fd *glfd, const struct iovec *iovec, int count,
 			   offset, flags, NULL);
 
 out:
-	if (ret) {
-		GF_FREE (gio->iov);
-		GF_FREE (gio);
-		STACK_DESTROY (frame->root);
+        if (ret) {
+                if (gio) {
+                        GF_FREE (gio->iov);
+                        GF_FREE (gio);
+                }
+                if (frame) {
+                        STACK_DESTROY (frame->root);
+                }
 		glfs_subvol_done (fs, subvol);
 	}
 
