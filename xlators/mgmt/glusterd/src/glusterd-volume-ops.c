@@ -1774,6 +1774,9 @@ glusterd_op_stop_volume (dict_t *dict)
         glusterd_volinfo_t                      *volinfo = NULL;
         glusterd_brickinfo_t                    *brickinfo = NULL;
         xlator_t                                *this = NULL;
+        char                                    mountdir[PATH_MAX] = {0,};
+        runner_t                                runner = {0,};
+        char                                    pidfile[PATH_MAX] = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -1800,6 +1803,30 @@ glusterd_op_stop_volume (dict_t *dict)
         ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret)
                 goto out;
+
+        /* If quota auxiliary mount is present, unmount it */
+        GLUSTERFS_GET_AUX_MOUNT_PIDFILE (pidfile, volname);
+
+        if (!gf_is_service_running (pidfile, NULL)) {
+                gf_log (this->name, GF_LOG_DEBUG, "Aux mount of volume %s "
+                        "absent", volname);
+        } else {
+                GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (mountdir, volname, "/");
+
+                runinit (&runner);
+                runner_add_args (&runner, "umount",
+
+                #if GF_LINUX_HOST_OS
+                                "-l",
+                #endif
+                                mountdir, NULL);
+                ret = runner_run_reuse (&runner);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR, "umount on %s failed, "
+                                "reason : %s", mountdir, strerror (errno));
+
+                runner_end (&runner);
+        }
 
         ret = glusterd_nodesvcs_handle_graph_change (volinfo);
 out:
