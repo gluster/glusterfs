@@ -89,12 +89,13 @@ TEST $CLI volume set $V0 nfs.rpc-auth-allow 127.0.0.1
 EXPECT_WITHIN 20 1 is_nfs_export_available
 
 TEST mount -t nfs -o vers=3,nolock,soft,intr localhost:/$V0 $N0
+TEST mkdir -p $N0/subdir
 TEST umount $N0
 
 # case 10: allow a non-localhost ip
 TEST $CLI volume set $V0 nfs.rpc-auth-allow 192.168.1.1
 EXPECT_WITHIN 20 1 is_nfs_export_available
-#40
+#41
 TEST ! mount -t nfs -o vers=3,nolock,soft,intr localhost:/$V0 $N0
 
 # case 11: reject only localhost ip
@@ -104,6 +105,7 @@ TEST $CLI volume set $V0 nfs.rpc-auth-reject 127.0.0.1
 EXPECT_WITHIN 20 1 is_nfs_export_available
 
 TEST ! mount -t nfs -o vers=3,nolock,soft,intr localhost:/$V0 $N0
+TEST ! mount -t nfs -o vers=3,nolock,soft,intr localhost:/$V0/subdir $N0
 
 # case 12: reject only non-localhost ip
 TEST $CLI volume set $V0 nfs.rpc-auth-reject 192.168.1.1
@@ -112,7 +114,10 @@ EXPECT_WITHIN 20 1 is_nfs_export_available
 TEST mount -t nfs -o vers=3,nolock,soft,intr localhost:/$V0 $N0
 TEST umount $N0
 
+TEST mount -t nfs -o vers=3,nolock,soft,intr localhost:/$V0/subdir $N0
+TEST umount $N0
+
 TEST $CLI volume stop --mode=script $V0
-#49
+#52
 TEST $CLI volume delete --mode=script $V0
 cleanup

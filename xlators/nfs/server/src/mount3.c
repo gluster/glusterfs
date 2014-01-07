@@ -1318,7 +1318,8 @@ mnt3_parse_dir_exports (rpcsvc_request_t *req, struct mount3_state *ms,
         char                    volname[1024];
         struct mnt3_export      *exp = NULL;
         char                    *volname_ptr = NULL;
-        int                     ret = -1;
+        int                     ret = -ENOENT;
+        struct nfs_state        *nfs = NULL;
 
         if ((!ms) || (!subdir))
                 return -1;
@@ -1332,10 +1333,26 @@ mnt3_parse_dir_exports (rpcsvc_request_t *req, struct mount3_state *ms,
         if (!exp)
                 goto err;
 
+        nfs = (struct nfs_state *)ms->nfsx->private;
+        if (!nfs)
+                goto err;
+
+        if (!nfs_subvolume_started (nfs, exp->vol)) {
+                gf_log (GF_MNT, GF_LOG_DEBUG,
+                        "Volume %s not started", exp->vol->name);
+                goto err;
+        }
+
+        if (mnt3_check_client_net (ms, req, exp->vol) == RPCSVC_AUTH_REJECT) {
+                gf_log (GF_MNT, GF_LOG_DEBUG, "Client mount not allowed");
+                ret = -EACCES;
+                goto err;
+        }
+
         ret = mnt3_resolve_subdir (req, ms, exp, subdir);
         if (ret < 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to resolve export dir: %s"
-                        , subdir);
+                gf_log (GF_MNT, GF_LOG_ERROR,
+                        "Failed to resolve export dir: %s", subdir);
                 goto err;
         }
 
@@ -1375,10 +1392,6 @@ mnt3_find_export (rpcsvc_request_t *req, char *path, struct mnt3_export **e)
         }
 
         ret = mnt3_parse_dir_exports (req, ms, path);
-        if (ret == 0) {
-                ret = -2;
-                goto err;
-        }
 
 err:
         return ret;
@@ -1416,17 +1429,26 @@ mnt3svc_mnt (rpcsvc_request_t *req)
                 goto rpcerr;
         }
 
-        ret = 0;
         nfs = (struct nfs_state *)ms->nfsx->private;
         gf_log (GF_MNT, GF_LOG_DEBUG, "dirpath: %s", path);
         ret = mnt3_find_export (req, path, &exp);
-        if (ret == -2) {
-                ret = 0;
-                goto rpcerr;
-        } else if (ret < 0) {
-                ret = -1;
-                mntstat = MNT3ERR_NOENT;
+        if (ret < 0) {
+                mntstat = mnt3svc_errno_to_mnterr (-ret);
                 goto mnterr;
+        } else if (!exp) {
+                /*
+                 * SPECIAL CASE: exp is NULL if "path" is subdir in
+                 * call to mnt3_find_export().
+                 *
+                 * This is subdir mount, we are already DONE!
+                 * nfs_subvolume_started() and mnt3_check_client_net()
+                 * validation are done in mnt3_parse_dir_exports()
+                 * which is invoked through mnt3_find_export().
+                 *
+                 * TODO: All mount should happen thorugh mnt3svc_mount()
+                 *       It needs more clean up.
+                 */
+                return (0);
         }
 
         if (!nfs_subvolume_started (nfs, exp->vol)) {
