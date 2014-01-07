@@ -3985,6 +3985,10 @@ afr_notify (xlator_t *this, int32_t event,
         case GF_EVENT_TRANSLATOR_OP:
                 input = data;
                 output = data2;
+                if (!had_heard_from_all) {
+                        ret = -1;
+                        goto out;
+                }
                 ret = afr_xl_op (this, input, output);
                 goto out;
                 break;
