@@ -465,17 +465,23 @@ client_set_lk_version (xlator_t *this)
         clnt_conf_t        *conf     = NULL;
         call_frame_t       *frame    = NULL;
         gf_set_lk_ver_req   req      = {0, };
+        char               *process_uuid = NULL;
 
         GF_VALIDATE_OR_GOTO ("client", this, err);
 
         conf = (clnt_conf_t *) this->private;
 
         req.lk_ver = client_get_lk_ver (conf);
-        ret = gf_asprintf (&req.uid, "%s-%s-%d",
-                           this->ctx->process_uuid, this->name,
-                           this->graph->id);
-        if (ret == -1)
+        ret = dict_get_str (this->options, "process-uuid", &process_uuid);
+        if (!process_uuid) {
+                ret = -1;
                 goto err;
+        }
+        req.uid = gf_strdup (process_uuid);
+        if (!req.uid) {
+                ret = -1;
+                goto err;
+        }
 
         frame = create_frame (this, this->ctx->pool);
         if (!frame) {
@@ -1524,6 +1530,7 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
         char             *process_uuid_xl = NULL;
         clnt_conf_t      *conf            = NULL;
         dict_t           *options         = NULL;
+        char             counter_str[32]  = {0};
 
         options = this->options;
         conf    = this->private;
@@ -1549,13 +1556,24 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
                 }
         }
 
-        /* With multiple graphs possible in the same process, we need a
+        /* When lock-heal is enabled:
+         * With multiple graphs possible in the same process, we need a
            field to bring the uniqueness. Graph-ID should be enough to get the
-           job done
+           job done.
+         * When lock-heal is disabled, connection-id should always be unique so
+         * that server never gets to reuse the previous connection resources
+         * so it cleans up the resources on every disconnect. Otherwise
+         * it may lead to stale resources, i.e. leaked file desciptors,
+         * inode/entry locks
         */
-        ret = gf_asprintf (&process_uuid_xl, "%s-%s-%d",
+        if (!conf->lk_heal) {
+                snprintf (counter_str, sizeof (counter_str),
+                          "-%"PRIu64, conf->setvol_count);
+                conf->setvol_count++;
+        }
+        ret = gf_asprintf (&process_uuid_xl, "%s-%s-%d%s",
                            this->ctx->process_uuid, this->name,
-                           this->graph->id);
+                           this->graph->id, counter_str);
         if (-1 == ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "asprintf failed while setting process_uuid");
