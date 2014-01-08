@@ -1063,7 +1063,8 @@ class GMasterChangelogMixin(GMasterCommon):
                     self.master.server.changelog_done(pr)
                     changes.remove(pr)
             logging.debug('processing changes %s' % repr(changes))
-            self.process(changes)
+            if changes:
+                self.process(changes)
 
     def register(self):
         (workdir, logfile) = self.setup_working_dir()
