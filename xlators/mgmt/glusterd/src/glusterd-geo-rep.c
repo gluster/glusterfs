@@ -2743,7 +2743,7 @@ glusterd_read_status_file (glusterd_volinfo_t *volinfo, char *slave,
         char                   *master                     = NULL;
         char                    tmp[1024]                  = "";
         char                    sts_val_name[1024]         = "";
-        char                    monitor_status[PATH_MAX]   = "";
+        char                    monitor_status[NAME_MAX]   = "";
         char                   *statefile                  = NULL;
         char                   *socketfile                 = NULL;
         dict_t                 *confd                      = NULL;
