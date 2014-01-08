@@ -165,6 +165,11 @@ typedef struct glusterd_gsync_status_temp {
         char *node;
 }glusterd_gsync_status_temp_t;
 
+typedef struct gsync_status_param {
+        int is_active;
+        glusterd_volinfo_t *volinfo;
+}gsync_status_param_t;
+
 typedef enum cli_cmd_type_ {
         PER_REPLICA,
         ALL_REPLICA,
