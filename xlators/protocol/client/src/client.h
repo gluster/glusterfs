@@ -120,6 +120,11 @@ typedef struct clnt_conf {
 						*/
         gf_boolean_t           filter_o_direct; /* if set, filter O_DIRECT from
                                                    the flags list of open() */
+        /* set volume is the op which results in creating/re-using
+         * the conn-id and is called once per connection, this remembers
+         * how manytimes set_volume is called
+         */
+        uint64_t               setvol_count;
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {
