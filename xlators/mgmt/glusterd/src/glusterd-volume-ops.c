@@ -30,6 +30,8 @@
 #define glusterd_op_start_volume_args_get(dict, volname, flags) \
         glusterd_op_stop_volume_args_get (dict, volname, flags)
 
+extern int
+_get_slave_status (dict_t *this, char *key, data_t *value, void *data);
 
 int
 __glusterd_handle_create_volume (rpcsvc_request_t *req)
@@ -1059,6 +1061,7 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
         glusterd_volinfo_t                      *volinfo = NULL;
         char                                    msg[2048] = {0};
         xlator_t                                *this = NULL;
+        gsync_status_param_t                    param = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -1102,7 +1105,22 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
         if (ret && (is_run == _gf_false))
                 gf_log (this->name, GF_LOG_WARNING, "Unable to get the status"
                         " of active "GEOREP" session");
-        if (is_run) {
+
+        param.volinfo = volinfo;
+        ret = dict_foreach (volinfo->gsync_slaves, _get_slave_status, &param);
+
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING, "_get_slave_satus failed");
+                snprintf (msg, sizeof(msg), GEOREP" Unable to get the status "
+                          "of active "GEOREP" session for the volume '%s'.\n"
+                          "Please check the log file for more info. Use "
+                          "'force' option to ignore and stop the volume.",
+                          volname);
+                ret = -1;
+                goto out;
+        }
+
+        if (is_run && param.is_active) {
                 gf_log (this->name, GF_LOG_WARNING, GEOREP" sessions active"
                         "for the volume %s ", volname);
                 snprintf (msg, sizeof(msg), GEOREP" sessions are active "
