@@ -5,11 +5,6 @@
 
 cleanup;
 
-function pidgrep()
-{
-    ps ax | grep "$1" | grep -v grep | awk '{print $1}' | head -1
-}
-
 ## Start glusterd
 TEST glusterd;
 TEST pidof glusterd;
@@ -38,7 +33,6 @@ EXPECT 'Created' volinfo_field $V0 'Status';
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 TEST glusterfs -s $H0 --volfile-id=$V0 --acl $M0
-MOUNT_PID=`ps ax |grep "glusterfs -s $H0 --volfile-id=$V0 --acl $M0" | awk '{print $1}' | head -1`
 ## Real test starts here
 ## ----------------------------------------------------------------------------
 
@@ -103,7 +97,6 @@ dd if=/dev/zero of=$M0/$FILETOCREATE bs=1024 count=2048 1>/dev/null 2>&1
 TEST [ -e $OTHERBRICK/$FILETOCREATE ]
 
 ## Done testing, lets clean up
-EXPECT "$MOUNT_PID" pidgrep $MOUNT_PID
 TEST rm -rf $M0/*
 
 ## Finish up
