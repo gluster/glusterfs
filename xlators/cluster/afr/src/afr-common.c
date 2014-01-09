@@ -1822,6 +1822,8 @@ afr_self_heal_lookup_unwind (call_frame_t *frame, xlator_t *this,
                 if (ret)
                         gf_log (this->name, GF_LOG_ERROR, "%s: Failed to set "
                                 "sh-failed to %d", local->loc.path, sh_failed);
+                ret = dict_set_int32 (xattr, "possibly-healing",
+                                      local->self_heal.possibly_healing);
         } else {
                 ret = dict_set_int32 (xattr, "metadata-self-heal-pending",
                                       local->self_heal.metadata_sh_pending);

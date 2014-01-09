@@ -2360,6 +2360,7 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
                 orig_frame_sh->entry_sh_pending = sh->entry_sh_pending;
                 orig_frame_sh->data_sh_pending = sh->data_sh_pending;
                 orig_frame_sh->metadata_sh_pending = sh->metadata_sh_pending;
+                orig_frame_sh->possibly_healing = sh->possibly_healing;
                 sh->unwind (sh->orig_frame, this, sh->op_ret, sh->op_errno,
                             is_self_heal_failed (sh, AFR_CHECK_ALL));
         }

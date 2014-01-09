@@ -127,6 +127,20 @@ _is_self_heal_pending (dict_t *xattr_rsp)
         return _gf_false;
 }
 
+static gf_boolean_t
+_is_possibly_healing (dict_t *xattr_rsp)
+{
+        int     ret = 0;
+        int     healing = 0;
+
+        ret = dict_get_int32 (xattr_rsp, "possibly-healing", &healing);
+        if ((ret == 0) && healing) {
+                return _gf_true;
+        }
+
+        return _gf_false;
+}
+
 #define RESET_ENTRIES(loc, shf, ope, rsp, grsp) \
         do {                                    \
                 loc_wipe (&loc);                \
@@ -188,7 +202,7 @@ glfsh_process_entries (xlator_t *xl, loc_t *parentloc, gf_dirent_t *entries,
         dict_t          *xattr_rsp = NULL;
         dict_t          *getxattr_rsp = NULL;
         int32_t         sh_failed = 0;
-        int32_t         sh_pending = 0;
+        gf_boolean_t    sh_pending = _gf_false;
         char            *path = NULL;
         int32_t         op_errno = 0;
 
@@ -239,7 +253,12 @@ glfsh_process_entries (xlator_t *xl, loc_t *parentloc, gf_dirent_t *entries,
 
 
                 (*num_entries)++;
-                printf ("%s\n", path ? path : uuid_utoa (entry_loc.gfid));
+                if (_is_possibly_healing (xattr_rsp)) {
+                        printf ("%s - Possibly undergoing heal\n",
+                                path ? path : uuid_utoa (entry_loc.gfid));
+                } else {
+                        printf ("%s\n", path ? path : uuid_utoa (entry_loc.gfid));
+                }
         }
         ret = 0;
 out:

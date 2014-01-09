@@ -1418,6 +1418,22 @@ afr_sh_dom_lock_success (call_frame_t *frame, xlator_t *this)
 }
 
 int
+afr_sh_dom_lock_failure (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t   *local = NULL;
+        afr_self_heal_t *sh = NULL;
+        afr_internal_lock_t *int_lock = NULL;
+
+        local = frame->local;
+        sh = &local->self_heal;
+        int_lock = &local->internal_lock;
+        if (EAGAIN == int_lock->lock_op_errno)
+                sh->possibly_healing = _gf_true;
+        afr_sh_data_fail (frame, this);
+        return 0;
+}
+
+int
 afr_sh_data_post_blocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
 {
         afr_internal_lock_t *int_lock = NULL;
@@ -1612,8 +1628,9 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "fd for %s opened, commencing sync",
                         local->loc.path);
 
-                afr_sh_data_lock (frame, this, 0, 0, _gf_true, priv->sh_domain,
-                                  afr_sh_dom_lock_success, afr_sh_data_fail);
+                afr_sh_data_lock (frame, this, 0, 0, !sh->dry_run,
+                                  priv->sh_domain, afr_sh_dom_lock_success,
+                                  afr_sh_dom_lock_failure);
         }
 
         return 0;

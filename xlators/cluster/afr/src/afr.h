@@ -288,6 +288,8 @@ struct afr_self_heal_ {
 
         int32_t dry_run;
         gf_boolean_t metadata_sh_pending;
+        gf_boolean_t possibly_healing; //set when it is detected
+                                       //that a self-heal is in progress
         gf_boolean_t data_sh_pending;
         gf_boolean_t entry_sh_pending;
 

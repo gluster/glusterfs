@@ -1432,6 +1432,7 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         LOCK (&frame->lock);
         {
 		if (op_ret < 0) {
+                        int_lock->lock_op_errno      = op_errno;
 			if (op_errno == ENOSYS) {
 				/* return ENOTSUP */
 				gf_log (this->name, GF_LOG_ERROR,
@@ -1440,7 +1441,6 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 					"server");
 				local->op_ret                = op_ret;
 				int_lock->lock_op_ret        = op_ret;
-				int_lock->lock_op_errno      = op_errno;
 				local->op_errno              = op_errno;
 			}
 			if (local->transaction.eager_lock)
