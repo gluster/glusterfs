@@ -101,6 +101,7 @@ F: xlators/features/changelog/
 
 Block Device
 M: M. Mohan Kumar <mohan@in.ibm.com>
+S: Maintained
 F: xlators/storage/bd/
 
 FUSE Bridge
