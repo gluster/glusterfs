@@ -256,7 +256,7 @@ acl3_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         cs = frame->local;
         getaclreply = &cs->args.getaclreply;
-        if (op_ret == -1) {
+        if (op_ret < 0) {
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto err;
         }
@@ -343,7 +343,6 @@ acl3_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         deviceid = nfs3_request_xlator_deviceid (cs->req);
         nfs3_map_deviceid_to_statdev (buf, deviceid);
         getaclreply->attr = nfs3_stat_to_fattr3 (buf);
-        getaclreply->mask = (NFS_ACL|NFS_ACLCNT|NFS_DFACL|NFS_DFACLCNT);
 
         nfs_request_user_init (&nfu, cs->req);
         ret = nfs_getxattr (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
@@ -430,6 +429,7 @@ acl3svc_getacl (rpcsvc_request_t *req)
                                      vol, stat, rpcerr);
 
         cs->vol = vol;
+        cs->args.getaclreply.mask = getaclargs.mask;
         acl3_volume_started_check (nfs3, vol, ret, acl3err);
 
         ret = nfs3_fh_resolve_and_resume (cs, fhp,
@@ -551,6 +551,13 @@ acl3svc_setacl (rpcsvc_request_t *req)
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
+
+        /* Validate ACL mask */
+        if (setaclargs.mask & ~(NFS_ACL|NFS_ACLCNT|NFS_DFACL|NFS_DFACLCNT)) {
+                stat = NFS3ERR_INVAL;
+                goto acl3err;
+        }
+
         fhp = &fh;
         acl3_validate_gluster_fh (fhp, stat, acl3err);
         acl3_map_fh_to_volume (nfs->nfs3state, fhp, req,
