@@ -1121,8 +1121,8 @@ dict_foreach (dict_t *dict,
         while (pairs) {
                 next = pairs->next;
                 ret = fn (dict, pairs->key, pairs->value, data);
-                if (ret == -1)
-                        return -1;
+                if (ret < 0)
+                        return ret;
                 pairs = next;
         }
 
