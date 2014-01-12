@@ -2950,8 +2950,10 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
         filler.flags = flags;
         op_ret = dict_foreach (dict, _handle_setxattr_keyvalue_pair,
                                &filler);
-        if (op_ret < 0)
+        if (op_ret < 0) {
                 op_errno = -op_ret;
+                op_ret = -1;
+        }
 
 out:
         SET_TO_OLD_FS_ID ();
@@ -3916,8 +3918,10 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
         filler.flags = flags;
         op_ret = dict_foreach (dict, _handle_fsetxattr_keyvalue_pair,
                                &filler);
-        if (op_ret < 0)
+        if (op_ret < 0) {
                 op_errno = -op_ret;
+                op_ret = -1;
+        }
 
 out:
         SET_TO_OLD_FS_ID ();
