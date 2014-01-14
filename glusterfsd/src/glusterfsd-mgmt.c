@@ -365,7 +365,7 @@ glusterfs_volume_top_write_perf (uint32_t blk_size, uint32_t blk_count,
 {
         int32_t                 fd = -1;
         int32_t                 input_fd = -1;
-        char                    export_path[PATH_MAX];
+        char                    export_path[PATH_MAX] = {0,};
         char                    *buf = NULL;
         int32_t                 iter = 0;
         int32_t                 ret = -1;
@@ -448,7 +448,7 @@ glusterfs_volume_top_read_perf (uint32_t blk_size, uint32_t blk_count,
         int32_t                 fd = -1;
         int32_t                 input_fd = -1;
         int32_t                 output_fd = -1;
-        char                    export_path[PATH_MAX];
+        char                    export_path[PATH_MAX] = {0,};
         char                    *buf = NULL;
         int32_t                 iter = 0;
         int32_t                 ret = -1;

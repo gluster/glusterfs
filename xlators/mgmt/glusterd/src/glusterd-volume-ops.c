@@ -923,7 +923,7 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
         gf_boolean_t                            exists = _gf_false;
         glusterd_volinfo_t                      *volinfo = NULL;
         glusterd_brickinfo_t                    *brickinfo = NULL;
-        char                                    msg[2048];
+        char                                    msg[2048] = {0,};
         glusterd_conf_t                         *priv = NULL;
         xlator_t                                *this = NULL;
         uuid_t                                  volume_id = {0,};
