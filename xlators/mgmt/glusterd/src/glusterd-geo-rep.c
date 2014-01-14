@@ -2614,7 +2614,7 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
                 goto out;
         }
 
-        if (!strcmp (op_name, "state_file")) {
+        if ((!strcmp (op_name, "state_file")) && (op_value)) {
 
                 ret = lstat (op_value, &stbuf);
                 if (ret) {
