@@ -1790,7 +1790,7 @@ out:
 	if (ret && glfd) {
 		glfs_fd_destroy (glfd);
 		glfd = NULL;
-	} else {
+	} else if (glfd) {
 		fd_bind (glfd->fd);
 		glfs_fd_bind (glfd);
 	}
