@@ -967,6 +967,15 @@ nfs_init_state (xlator_t *this)
                 goto free_foppool;
         }
 
+        ret = rpcsvc_set_outstanding_rpc_limit (nfs->rpcsvc,
+                                  this->options,
+                                  RPCSVC_DEF_NFS_OUTSTANDING_RPC_LIMIT);
+        if (ret < 0) {
+                gf_log (GF_NFS, GF_LOG_ERROR,
+                        "Failed to configure outstanding-rpc-limit");
+                goto free_foppool;
+        }
+
         nfs->register_portmap = rpcsvc_register_portmap_enabled (nfs->rpcsvc);
 
         this->private = (void *)nfs;
@@ -1210,6 +1219,17 @@ reconfigure (xlator_t *this, dict_t *options)
                         "rpcsvc reconfigure options failed");
                 return (-1);
         }
+
+        /* Reconfigure rpc.outstanding-rpc-limit */
+        ret = rpcsvc_set_outstanding_rpc_limit (nfs->rpcsvc,
+                                       options,
+                                       RPCSVC_DEF_NFS_OUTSTANDING_RPC_LIMIT);
+        if (ret < 0) {
+                gf_log (GF_NFS, GF_LOG_ERROR,
+                        "Failed to reconfigure outstanding-rpc-limit");
+                return (-1);
+        }
+
         regpmap = rpcsvc_register_portmap_enabled(nfs->rpcsvc);
         if (nfs->register_portmap != regpmap) {
                 nfs->register_portmap = regpmap;
@@ -1741,7 +1761,7 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_INT,
           .min  = RPCSVC_MIN_OUTSTANDING_RPC_LIMIT,
           .max  = RPCSVC_MAX_OUTSTANDING_RPC_LIMIT,
-          .default_value = TOSTRING(RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT),
+          .default_value = TOSTRING(RPCSVC_DEF_NFS_OUTSTANDING_RPC_LIMIT),
           .description = "Parameter to throttle the number of incoming RPC "
                          "requests from a client. 0 means no limit (can "
                          "potentially run out of memory)"

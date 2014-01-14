@@ -38,7 +38,8 @@
 #define MAX_IOVEC 16
 #endif
 
-#define RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT 64
+#define RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT 64 /* Default for protocol/server */
+#define RPCSVC_DEF_NFS_OUTSTANDING_RPC_LIMIT 16 /* Default for nfs/server */
 #define RPCSVC_MAX_OUTSTANDING_RPC_LIMIT 65536
 #define RPCSVC_MIN_OUTSTANDING_RPC_LIMIT 0 /* No limit i.e. Unlimited */
 
@@ -597,7 +598,7 @@ rpcsvc_set_addr_namelookup (rpcsvc_t *svc, dict_t *options);
 int
 rpcsvc_set_root_squash (rpcsvc_t *svc, dict_t *options);
 int
-rpcsvc_set_outstanding_rpc_limit (rpcsvc_t *svc, dict_t *options);
+rpcsvc_set_outstanding_rpc_limit (rpcsvc_t *svc, dict_t *options, int defvalue);
 int
 rpcsvc_auth_array (rpcsvc_t *svc, char *volname, int *autharr, int arrlen);
 rpcsvc_vector_sizer

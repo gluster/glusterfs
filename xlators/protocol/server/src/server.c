@@ -746,7 +746,15 @@ reconfigure (xlator_t *this, dict_t *options)
 
         (void) rpcsvc_set_allow_insecure (rpc_conf, options);
         (void) rpcsvc_set_root_squash (rpc_conf, options);
-        (void) rpcsvc_set_outstanding_rpc_limit (rpc_conf, options);
+
+        ret = rpcsvc_set_outstanding_rpc_limit (rpc_conf, options,
+                                         RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to reconfigure outstanding-rpc-limit");
+                goto out;
+        }
+
         list_for_each_entry (listeners, &(rpc_conf->listeners), list) {
                 if (listeners->trans != NULL) {
                         if (listeners->trans->reconfigure )
@@ -860,9 +868,17 @@ init (xlator_t *this)
         /* RPC related */
         conf->rpc = rpcsvc_init (this, this->ctx, this->options, 0);
         if (conf->rpc == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, GF_LOG_ERROR,
                         "creation of rpcsvc failed");
                 ret = -1;
+                goto out;
+        }
+
+        ret = rpcsvc_set_outstanding_rpc_limit (conf->rpc, this->options,
+                                         RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to configure outstanding-rpc-limit");
                 goto out;
         }
 

@@ -1883,8 +1883,7 @@ rpcsvc_init_options (rpcsvc_t *svc, dict_t *options)
         if (!svc->register_portmap)
                 gf_log (GF_RPCSVC, GF_LOG_DEBUG, "Portmap registration "
                         "disabled");
-
-        ret = rpcsvc_set_outstanding_rpc_limit (svc, options);
+        ret = 0;
 out:
         return ret;
 }
@@ -2016,10 +2015,15 @@ out:
 }
 
 /*
- * Reconfigure() the rpc.outstanding-rpc-limit param.
+ * Configure() the rpc.outstanding-rpc-limit param.
+ * If dict_get_int32() for dict-key "rpc.outstanding-rpc-limit" FAILS,
+ * it would set the value as "defvalue". Otherwise it would fetch the
+ * value and round up to multiple-of-8. defvalue must be +ve.
+ *
+ * NB: defval or set-value "0" is special which means unlimited/65536.
  */
 int
-rpcsvc_set_outstanding_rpc_limit (rpcsvc_t *svc, dict_t *options)
+rpcsvc_set_outstanding_rpc_limit (rpcsvc_t *svc, dict_t *options, int defvalue)
 {
         int            ret        = -1; /* FAILURE */
         int            rpclim     = 0;
@@ -2028,30 +2032,30 @@ rpcsvc_set_outstanding_rpc_limit (rpcsvc_t *svc, dict_t *options)
         if ((!svc) || (!options))
                 return (-1);
 
-        /* Reconfigure() the rpc.outstanding-rpc-limit param */
+        if ((defvalue < RPCSVC_MIN_OUTSTANDING_RPC_LIMIT) ||
+            (defvalue > RPCSVC_MAX_OUTSTANDING_RPC_LIMIT)) {
+                return (-1);
+        }
+
+        /* Fetch the rpc.outstanding-rpc-limit from dict. */
         ret = dict_get_int32 (options, rpclimkey, &rpclim);
         if (ret < 0) {
                 /* Fall back to default for FAILURE */
-                rpclim = RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT;
-        } else {
-                /* SUCCESS: round off to multiple of 8.
-                 * If the input value fails Boundary check, fall back to
-                 * default i.e. RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT.
-                 * NB: value 0 is special, means its unset i.e. unlimited.
-                 */
-                rpclim = ((rpclim + 8 - 1) >> 3) * 8;
-                if (rpclim < RPCSVC_MIN_OUTSTANDING_RPC_LIMIT) {
-                        rpclim = RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT;
-                } else if (rpclim > RPCSVC_MAX_OUTSTANDING_RPC_LIMIT) {
-                        rpclim = RPCSVC_MAX_OUTSTANDING_RPC_LIMIT;
-                }
+                rpclim = defvalue;
+        }
+
+        /* Round up to multiple-of-8. It must not exceed
+         * RPCSVC_MAX_OUTSTANDING_RPC_LIMIT.
+         */
+        rpclim = ((rpclim + 8 - 1) >> 3) * 8;
+        if (rpclim > RPCSVC_MAX_OUTSTANDING_RPC_LIMIT) {
+                rpclim = RPCSVC_MAX_OUTSTANDING_RPC_LIMIT;
         }
 
         if (svc->outstanding_rpc_limit != rpclim) {
                 svc->outstanding_rpc_limit = rpclim;
                 gf_log (GF_RPCSVC, GF_LOG_INFO,
-                                   "Configured %s with value %d",
-                                   rpclimkey, rpclim);
+                        "Configured %s with value %d", rpclimkey, rpclim);
         }
 
         return (0);
@@ -2066,7 +2070,7 @@ rpcsvc_init (xlator_t *xl, glusterfs_ctx_t *ctx, dict_t *options,
         rpcsvc_t          *svc              = NULL;
         int                ret              = -1;
 
-        if ((!ctx) || (!options))
+        if ((!xl) || (!ctx) || (!options))
                 return NULL;
 
         svc = GF_CALLOC (1, sizeof (*svc), gf_common_mt_rpcsvc_t);
