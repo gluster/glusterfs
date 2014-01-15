@@ -605,7 +605,6 @@ mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/gsync-create/pre
 mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/glustershd
 mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/peers
 mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/vols
-mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/groups
 mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/nfs/run
 touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/nfs-server.vol
 touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
@@ -720,6 +719,8 @@ fi
 %endif
 %config(noreplace) %{_sysconfdir}/sysconfig/glusterd
 %config(noreplace) %{_sysconfdir}/glusterfs
+%dir %{_sharedstatedir}/glusterd/groups
+%config(noreplace) %{_sharedstatedir}/glusterd/groups/virt
 # Legacy configs
 %if ( 0%{_for_fedora_koji_builds} )
 %config(noreplace) %{_sysconfdir}/logrotate.d/glusterfsd
@@ -768,7 +769,6 @@ fi
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glustershd
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/vols
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/peers
-%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/groups
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/nfs-server.vol
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs/run
@@ -872,6 +872,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Wed Jan 15 2014 Niels de Vos <ndevos@redhat.com>
+- Install /var/lib/glusterd/groups/virt by default
+
 * Sat Jan 4 2014 Niels de Vos <ndevos@redhat.com>
 - The main glusterfs package should not provide glusterfs-libs (#1048489)
 
