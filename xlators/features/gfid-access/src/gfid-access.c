@@ -263,6 +263,8 @@ ga_fill_tmp_loc (loc_t *loc, xlator_t *this, uuid_t gfid,
         ret = inode_ctx_get (loc->inode, this, &value);
         if (!ret) {
                 parent = (void *)value;
+                if (uuid_is_null (parent->gfid))
+                        parent = loc->inode;
         }
 
         /* parent itself should be looked up */
@@ -627,7 +629,8 @@ ga_virtual_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         /* the inode is not present in itable, ie, the actual
                            path is not yet looked up. Use the current inode
                            itself for now */
-                        inode_ref (inode);
+
+                        inode_link (inode, NULL, NULL, buf);
                 } else {
                         /* 'inode_ref()' has been done in inode_find() */
                         inode = true_inode;
