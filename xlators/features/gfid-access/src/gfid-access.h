@@ -44,8 +44,7 @@
                         if (ret)                                        \
                                 goto lbl;                               \
                         tmp_inode = (inode_t *)value;                   \
-                        unref = inode_ref (tmp_inode);                  \
-                        l->parent = tmp_inode;                          \
+                        l->parent = inode_ref (tmp_inode);                          \
                         /* if parent is virtual, no need to handle */   \
                         /* loc->inode */                                \
                         break;                                          \
@@ -59,8 +58,7 @@
                         if (ret)                                        \
                                 goto lbl;                               \
                         tmp_inode = (inode_t *)value;                   \
-                        unref = inode_ref (tmp_inode);                  \
-                        l->inode = tmp_inode;                           \
+                        l->inode = inode_ref (tmp_inode);                           \
                 }                                                       \
                                                                         \
         } while (0)
