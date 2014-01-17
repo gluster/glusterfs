@@ -132,7 +132,7 @@
 
 /* Index xlator related */
 #define GF_XATTROP_INDEX_GFID "glusterfs.xattrop_index_gfid"
-#define GF_BASE_INDICES_HOLDER_GFID "glusterfs.base_indicies_holder_gfid"
+#define GF_XATTROP_INDEX_COUNT "glusterfs.xattrop_index_count"
 
 #define GF_GFIDLESS_LOOKUP "gfidless-lookup"
 /* replace-brick and pump related internal xattrs */

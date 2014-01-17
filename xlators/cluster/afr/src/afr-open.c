@@ -43,73 +43,21 @@
 #include "afr-dir-read.h"
 #include "afr-dir-write.h"
 #include "afr-transaction.h"
-#include "afr-self-heal.h"
-#include "afr-self-heal-common.h"
 
-int
-afr_stale_child_up (afr_local_t *local, xlator_t *this)
+
+gf_boolean_t
+afr_is_fd_fixable (fd_t *fd)
 {
-        int             i = 0;
-        afr_private_t   *priv = NULL;
-        int             up = -1;
+        if (!fd || !fd->inode)
+                return _gf_false;
+        else if (fd_is_anonymous (fd))
+                return _gf_false;
+        else if (uuid_is_null (fd->inode->gfid))
+                return _gf_false;
 
-        priv = this->private;
-
-        if (!local->fresh_children)
-                local->fresh_children = afr_children_create (priv->child_count);
-        if (!local->fresh_children)
-                goto out;
-
-        afr_inode_get_read_ctx (this, local->fd->inode, local->fresh_children);
-        if (priv->child_count == afr_get_children_count (local->fresh_children,
-                                                         priv->child_count))
-                goto out;
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (!local->child_up[i])
-                        continue;
-                if (afr_is_child_present (local->fresh_children,
-                                          priv->child_count, i))
-                        continue;
-                up = i;
-                break;
-        }
-out:
-        return up;
+        return _gf_true;
 }
 
-void
-afr_perform_data_self_heal (call_frame_t *frame, xlator_t *this)
-{
-        afr_local_t     *local = NULL;
-        afr_self_heal_t *sh = NULL;
-        inode_t         *inode = NULL;
-        int             st_child = -1;
-        char            reason[64] = {0};
-
-        local = frame->local;
-        sh = &local->self_heal;
-        inode = local->fd->inode;
-
-        if (!IA_ISREG (inode->ia_type))
-                goto out;
-
-        st_child = afr_stale_child_up (local, this);
-        if (st_child < 0)
-                goto out;
-
-        sh->do_data_self_heal          = _gf_true;
-        sh->do_metadata_self_heal      = _gf_true;
-        sh->do_gfid_self_heal          = _gf_true;
-        sh->do_missing_entry_self_heal = _gf_true;
-
-        snprintf (reason, sizeof (reason), "stale subvolume %d detected",
-                  st_child);
-        afr_launch_self_heal (frame, this, inode, _gf_true, inode->ia_type,
-                              reason, NULL, NULL);
-out:
-        return;
-}
 
 int
 afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -117,11 +65,7 @@ afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         struct iatt *postbuf, dict_t *xdata)
 {
         afr_local_t * local = frame->local;
-        afr_private_t *priv = NULL;
 
-        priv = this->private;
-        if (afr_open_only_data_self_heal (priv->data_self_heal))
-                afr_perform_data_self_heal (frame, this);
         AFR_STACK_UNWIND (open, frame, local->op_ret, local->op_errno,
                           local->fd, xdata);
         return 0;
@@ -134,49 +78,38 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
               fd_t *fd, dict_t *xdata)
 {
         afr_local_t *  local       = NULL;
-        int            ret         = 0;
         int            call_count  = -1;
         int            child_index = (long) cookie;
-        afr_private_t *priv        = NULL;
+	afr_fd_ctx_t  *fd_ctx = NULL;
 
-        priv = this->private;
         local = frame->local;
+	fd_ctx = local->fd_ctx;
 
         LOCK (&frame->lock);
         {
                 if (op_ret == -1) {
                         local->op_errno = op_errno;
-                }
-
-                if (op_ret >= 0) {
+			fd_ctx->opened_on[child_index] = AFR_FD_NOT_OPENED;
+                } else {
                         local->op_ret = op_ret;
-                        local->success_count++;
-
-                        ret = afr_child_fd_ctx_set (this, fd, child_index,
-                                                    local->cont.open.flags);
-                        if (ret) {
-                                local->op_ret = -1;
-                                local->op_errno = -ret;
-                                goto unlock;
-                        }
+			fd_ctx->opened_on[child_index] = AFR_FD_OPENED;
+			if (!local->xdata_rsp && xdata)
+				local->xdata_rsp = dict_ref (xdata);
                 }
         }
-unlock:
         UNLOCK (&frame->lock);
 
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
-                if ((local->cont.open.flags & O_TRUNC)
-                    && (local->op_ret >= 0)) {
+                if ((fd_ctx->flags & O_TRUNC) && (local->op_ret >= 0)) {
                         STACK_WIND (frame, afr_open_ftruncate_cbk,
                                     this, this->fops->ftruncate,
                                     fd, 0, NULL);
                 } else {
-                        if (afr_open_only_data_self_heal (priv->data_self_heal))
-                                afr_perform_data_self_heal (frame, this);
                         AFR_STACK_UNWIND (open, frame, local->op_ret,
-                                          local->op_errno, local->fd, xdata);
+                                          local->op_errno, local->fd,
+					  local->xdata_rsp);
                 }
         }
 
@@ -190,16 +123,11 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         afr_private_t * priv       = NULL;
         afr_local_t *   local      = NULL;
         int             i          = 0;
-        int             ret        = -1;
         int32_t         call_count = 0;
         int32_t         op_errno   = 0;
-        int32_t         wind_flags = flags & (~O_TRUNC);
-        //We can't let truncation to happen outside transaction.
+	afr_fd_ctx_t   *fd_ctx = NULL;
 
-        VALIDATE_OR_GOTO (frame, out);
-        VALIDATE_OR_GOTO (this, out);
-        VALIDATE_OR_GOTO (this->private, out);
-        VALIDATE_OR_GOTO (loc, out);
+        //We can't let truncation to happen outside transaction.
 
         priv = this->private;
 
@@ -207,44 +135,38 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 QUORUM_CHECK(open,out);
         }
 
-        if (afr_is_split_brain (this, loc->inode)) {
-                /* self-heal failed */
-                gf_log (this->name, GF_LOG_WARNING,
-                        "failed to open as split brain seen, returning EIO");
-                op_errno = EIO;
-                goto out;
-        }
+	local = AFR_FRAME_INIT (frame, op_errno);
+	if (!local)
+		goto out;
 
-        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
-        local = frame->local;
-
-        ret = afr_local_init (local, priv, &op_errno);
-        if (ret < 0)
-                goto out;
-
-        call_count   = local->call_count;
-        loc_copy (&local->loc, loc);
-
-        local->cont.open.flags   = flags;
+	fd_ctx = afr_fd_ctx_get (fd, this);
+	if (!fd_ctx) {
+		op_errno = ENOMEM;
+		goto out;
+	}
 
         local->fd = fd_ref (fd);
+	local->fd_ctx = fd_ctx;
+	fd_ctx->flags = flags;
+
+        call_count = local->call_count;
+
+        local->cont.open.flags = flags;
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
                         STACK_WIND_COOKIE (frame, afr_open_cbk, (void *) (long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->open,
-                                           loc, wind_flags, fd, xdata);
-
+                                           loc, (flags & ~O_TRUNC), fd, xdata);
                         if (!--call_count)
                                 break;
                 }
         }
 
-        ret = 0;
+	return 0;
 out:
-        if (ret < 0)
-                AFR_STACK_UNWIND (open, frame, -1, op_errno, fd, xdata);
+	AFR_STACK_UNWIND (open, frame, -1, op_errno, fd, NULL);
 
         return 0;
 }
@@ -273,12 +195,7 @@ afr_openfd_fix_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         priv->children[child_index]->name);
         }
 
-        fd_ctx = afr_fd_ctx_get (local->fd, this);
-        if (!fd_ctx) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "failed to get fd context, %p", local->fd);
-                goto out;
-        }
+        fd_ctx = local->fd_ctx;
 
         LOCK (&local->fd->lock);
         {
@@ -289,7 +206,7 @@ afr_openfd_fix_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         }
         UNLOCK (&local->fd->lock);
-out:
+
         call_count = afr_frame_return (frame);
         if (call_count == 0)
                 AFR_STACK_DESTROY (frame);
@@ -297,8 +214,42 @@ out:
         return 0;
 }
 
+
+static int
+afr_fd_ctx_need_open (fd_t *fd, xlator_t *this, unsigned char *need_open)
+{
+	afr_fd_ctx_t *fd_ctx = NULL;
+	afr_private_t *priv = NULL;
+	int i = 0;
+	int count = 0;
+
+	priv = this->private;
+
+	fd_ctx = afr_fd_ctx_get (fd, this);
+	if (!fd_ctx)
+		return 0;
+
+	LOCK (&fd->lock);
+	{
+		for (i = 0; i < priv->child_count; i++) {
+			if (fd_ctx->opened_on[i] == AFR_FD_NOT_OPENED &&
+			    priv->child_up[i]) {
+				fd_ctx->opened_on[i] = AFR_FD_OPENING;
+				need_open[i] = 1;
+				count++;
+			} else {
+				need_open[i] = 0;
+			}
+		}
+	}
+	UNLOCK (&fd->lock);
+
+	return count;
+}
+
+
 void
-afr_fix_open (xlator_t *this, fd_t *fd, size_t need_open_count, int *need_open)
+afr_fix_open (fd_t *fd, xlator_t *this)
 {
         afr_private_t *priv    = NULL;
         int           i        = 0;
@@ -307,29 +258,31 @@ afr_fix_open (xlator_t *this, fd_t *fd, size_t need_open_count, int *need_open)
         int           ret      = -1;
         int32_t       op_errno = 0;
         afr_fd_ctx_t  *fd_ctx  = NULL;
+	unsigned char *need_open = NULL;
+	int call_count = 0;
 
         priv  = this->private;
 
-        if (!afr_is_fd_fixable (fd) || !need_open || !need_open_count)
+        if (!afr_is_fd_fixable (fd))
                 goto out;
 
         fd_ctx = afr_fd_ctx_get (fd, this);
-        if (!fd_ctx) {
-                ret = -1;
+        if (!fd_ctx)
                 goto out;
-        }
+
+	need_open = alloca0 (priv->child_count);
+
+	call_count = afr_fd_ctx_need_open (fd, this, need_open);
+	if (!call_count)
+		goto out;
 
         frame = create_frame (this, this->ctx->pool);
-        if (!frame) {
-                ret = -1;
+        if (!frame)
                 goto out;
-        }
 
-        AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
-        local = frame->local;
-        ret = afr_local_init (local, priv, &op_errno);
-        if (ret < 0)
-                goto out;
+	local = AFR_FRAME_INIT (frame, op_errno);
+	if (!local)
+		goto out;
 
         local->loc.inode = inode_ref (fd->inode);
         ret = loc_path (&local->loc, NULL);
@@ -337,10 +290,12 @@ afr_fix_open (xlator_t *this, fd_t *fd, size_t need_open_count, int *need_open)
                 goto out;
 
         local->fd = fd_ref (fd);
-        local->call_count = need_open_count;
+	local->fd_ctx = fd_ctx;
 
-        gf_log (this->name, GF_LOG_DEBUG, "need open count: %zd",
-                need_open_count);
+        local->call_count = call_count;
+
+        gf_log (this->name, GF_LOG_DEBUG, "need open count: %d",
+                call_count);
 
         for (i = 0; i < priv->child_count; i++) {
                 if (!need_open[i])
@@ -371,12 +326,12 @@ afr_fix_open (xlator_t *this, fd_t *fd, size_t need_open_count, int *need_open)
                                            local->fd, NULL);
                 }
 
+		if (!--call_count)
+			break;
         }
-        op_errno = 0;
-        ret = 0;
+
+	return;
 out:
-        if (op_errno)
-                ret = -1; //For handling ALLOC_OR_GOTO
-        if (ret && frame)
+        if (frame)
                 AFR_STACK_DESTROY (frame);
 }

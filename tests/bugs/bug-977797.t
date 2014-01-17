@@ -54,7 +54,7 @@ TEST chmod 757 $M0/a/file
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN 20 "1" afr_child_up_status $V0 1;
 
-TEST ls   -l $M0/a/file
+TEST dd if=$M0/a/file of=/dev/null bs=1M
 
 b1c0dir=$(afr_get_specific_changelog_xattr $B0/$V0"1"/a \
           trusted.afr.$V0-client-0 "entry")
@@ -75,34 +75,15 @@ b2c0f=$(afr_get_specific_changelog_xattr $B0/$V0"2"/a/file \
 b2c1f=$(afr_get_specific_changelog_xattr $B0/$V0"2"/a/file \
         trusted.afr.$V0-client-1 "data")
 
-EXPECT "00000000" echo $b1c0f
-EXPECT "00000000" echo $b1c1f
-EXPECT "00000000" echo $b2c0f
-EXPECT "00000000" echo $b2c1f
+EXPECT "00000000|^$" echo $b1c0f
+EXPECT "00000000|^$" echo $b1c1f
+EXPECT "00000000|^$" echo $b2c0f
+EXPECT "00000000|^$" echo $b2c1f
 
-EXPECT "00000000" echo $b1c0dir
-EXPECT "00000000" echo $b1c1dir
-EXPECT "00000000" echo $b2c0dir
-EXPECT "00000000" echo $b2c1dir
-
-contains() {
-    string="$1"
-    substring="$2"
-    var="-1"
-    if test "${string#*$substring}" != "$string"
-    then
-        var="0"    # $substring is in $string
-    else
-        var="1"    # $substring is not in $string
-    fi
-    echo $var
-}
-
-var1=$(cat $M0/a/file 2>&1)
-var2="Input/output error"
-
-
-EXPECT "0" contains "$var1" "$var2"
+EXPECT "00000000|^$" echo $b1c0dir
+EXPECT "00000000|^$" echo $b1c1dir
+EXPECT "00000000|^$" echo $b2c0dir
+EXPECT "00000000|^$" echo $b2c1dir
 
 ## Finish up
 TEST $CLI volume stop $V0;

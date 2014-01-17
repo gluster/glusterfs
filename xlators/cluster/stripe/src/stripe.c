@@ -4886,7 +4886,7 @@ unlock:
 
                 if (!local_entry)
                         break;
-                if (!IA_ISREG (local_entry->d_stat.ia_type)) {
+                if (!IA_ISREG (local_entry->d_stat.ia_type) || !local_entry->inode) {
                         LOCK (&frame->lock);
                         {
                                 local->wind_count--;

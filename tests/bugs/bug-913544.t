@@ -17,7 +17,7 @@ TEST touch a
 #simulate no-changelog data split-brain
 echo "abc" > $B0/${V0}1/a
 echo "abcd" > $B0/${V0}0/a
-TEST ! truncate -s 0 a
+TEST truncate -s 0 a
 TEST ls
 cd
 

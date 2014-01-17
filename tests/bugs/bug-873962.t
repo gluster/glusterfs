@@ -61,11 +61,12 @@ EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
 EXPECT_WITHIN 20 "1" afr_child_up_status $V0 1
 
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id=$V0 $M1 --direct-io-mode=enable
+
 #Files are in split-brain, so open should fail
 TEST ! cat $M0/a;
 TEST ! cat $M1/a;
-TEST ! cat $M0/b;
-TEST ! cat $M1/b;
+TEST cat $M0/b;
+TEST cat $M1/b;
 
 #Reset split-brain status
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000000000000000000000 $B0/${V0}1/a;
@@ -75,6 +76,7 @@ TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000000000000000000000 $B0/${V0
 EXPECT "2" cat $M0/a;
 # FAIL HERE - see comment about cluster.self-heal-background-count above.
 EXPECT "2" cat $M1/a;
+TEST dd if=$M0/b of=/dev/null bs=1M
 EXPECT "def" getfattr -n trusted.mdata --only-values $M0/b 2>/dev/null
 EXPECT "def" getfattr -n trusted.mdata --only-values $M1/b 2>/dev/null
 
@@ -90,8 +92,8 @@ TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id=$V0 $
 #Files are in split-brain, so open should fail
 TEST ! cat $M0/c
 TEST ! cat $M1/c
-TEST ! cat $M0/d
-TEST ! cat $M1/d
+TEST cat $M0/d
+TEST cat $M1/d
 
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000000000000000000000 $B0/${V0}1/c
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000000000000000000000 $B0/${V0}1/d
@@ -102,7 +104,4 @@ EXPECT "2" cat $M1/c
 EXPECT "1" cat $M0/d
 EXPECT "1" cat $M1/d
 
-#Check that the self-heal is not triggered.
-EXPECT "1" cat $B0/${V0}1/c
-EXPECT "abc" getfattr -n trusted.mdata --only-values $B0/${V0}1/d 2>/dev/null
 cleanup;
