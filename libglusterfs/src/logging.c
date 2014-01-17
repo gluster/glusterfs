@@ -138,6 +138,7 @@ gf_log_fini (void *data)
                            call to gf_log after calling gf_log_fini, will
                            log the message to stderr.
                         */
+                        ctx->log.loglevel = GF_LOG_NONE;
                         ctx->log.logfile = NULL;
                 }
         }
@@ -556,7 +557,7 @@ _gf_log_nomem (const char *domain, const char *file,
         {
                 if (ctx->log.logfile) {
                         fprintf (ctx->log.logfile, "%s\n", msg);
-                } else {
+                } else if (ctx->log.loglevel >= level) {
                         fprintf (stderr, "%s\n", msg);
                 }
 
@@ -711,7 +712,7 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
         {
                 if (ctx->log.logfile) {
                         fprintf (ctx->log.logfile, "%s\n", msg);
-                } else {
+                } else if (ctx->log.loglevel >= level) {
                         fprintf (stderr, "%s\n", msg);
                 }
 
@@ -880,7 +881,7 @@ log:
                 if (ctx->log.logfile) {
                         fprintf (ctx->log.logfile, "%s\n", msg);
                         fflush (ctx->log.logfile);
-                } else {
+                } else if (ctx->log.loglevel >= level) {
                         fprintf (stderr, "%s\n", msg);
                         fflush (stderr);
                 }
