@@ -21,11 +21,6 @@
 #endif
 #include "afr-common.c"
 
-#define SHD_INODE_LRU_LIMIT          2048
-#define AFR_EH_HEALED_LIMIT          1024
-#define AFR_EH_HEAL_FAIL_LIMIT       1024
-#define AFR_EH_SPLIT_BRAIN_LIMIT     1024
-
 struct volume_options options[];
 
 int32_t
@@ -114,6 +109,14 @@ reconfigure (xlator_t *this, dict_t *options)
 
         priv = this->private;
 
+	GF_OPTION_RECONF ("afr-dirty-xattr",
+			  priv->afr_dirty, options, str,
+			  out);
+
+	GF_OPTION_RECONF ("metadata-splitbrain-forced-heal",
+			  priv->metadata_splitbrain_forced_heal, options, bool,
+			  out);
+
         GF_OPTION_RECONF ("background-self-heal-count",
                           priv->background_self_heal_count, options, uint32,
                           out);
@@ -126,9 +129,6 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("entry-self-heal", priv->entry_self_heal, options,
                           bool, out);
-
-        GF_OPTION_RECONF ("strict-readdir", priv->strict_readdir, options, bool,
-                          out);
 
         GF_OPTION_RECONF ("data-self-heal-window-size",
                           priv->data_self_heal_window_size, options,
@@ -145,8 +145,6 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("data-self-heal-algorithm",
                           priv->data_self_heal_algorithm, options, str, out);
-
-        GF_OPTION_RECONF ("self-heal-daemon", priv->shd.enabled, options, bool, out);
 
         GF_OPTION_RECONF ("read-subvolume", read_subvol, options, xlator, out);
 
@@ -175,13 +173,13 @@ reconfigure (xlator_t *this, dict_t *options)
                 priv->read_child = index;
         }
 
+        GF_OPTION_RECONF ("pre-op-compat", priv->pre_op_compat, options, bool, out);
+
         GF_OPTION_RECONF ("eager-lock", priv->eager_lock, options, bool, out);
         GF_OPTION_RECONF ("quorum-type", qtype, options, str, out);
         GF_OPTION_RECONF ("quorum-count", priv->quorum_count, options,
                           uint32, out);
         fix_quorum_options(this,priv,qtype);
-        GF_OPTION_RECONF ("heal-timeout", priv->shd.timeout, options,
-                          int32, out);
 
 	GF_OPTION_RECONF ("post-op-delay-secs", priv->post_op_delay_secs, options,
 			  uint32, out);
@@ -189,10 +187,15 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF (AFR_SH_READDIR_SIZE_KEY, priv->sh_readdir_size,
                           options, size, out);
         /* Reset this so we re-discover in case the topology changed.  */
-        GF_OPTION_RECONF ("readdir-failover", priv->readdir_failover, options,
-                          bool, out);
         GF_OPTION_RECONF ("ensure-durability", priv->ensure_durability, options,
                           bool, out);
+
+	GF_OPTION_RECONF ("self-heal-daemon", priv->shd.enabled, options,
+			  bool, out);
+
+	GF_OPTION_RECONF ("iam-self-heal-daemon", priv->shd.iamshd, options,
+			  bool, out);
+
         priv->did_discovery = _gf_false;
 
         ret = 0;
@@ -244,16 +247,17 @@ init (xlator_t *this)
 
         priv = this->private;
         LOCK_INIT (&priv->lock);
-        LOCK_INIT (&priv->read_child_lock);
-        //lock recovery is not done in afr
-        pthread_mutex_init (&priv->mutex, NULL);
-        INIT_LIST_HEAD (&priv->saved_fds);
 
         child_count = xlator_subvolume_count (this);
 
         priv->child_count = child_count;
 
         priv->read_child = -1;
+
+	GF_OPTION_INIT ("afr-dirty-xattr", priv->afr_dirty, str, out);
+
+	GF_OPTION_INIT ("metadata-splitbrain-forced-heal",
+			priv->metadata_splitbrain_forced_heal, bool, out);
 
         GF_OPTION_INIT ("read-subvolume", read_subvol, xlator, out);
         if (read_subvol) {
@@ -308,10 +312,6 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("entry-self-heal", priv->entry_self_heal, bool, out);
 
-        GF_OPTION_INIT ("self-heal-daemon", priv->shd.enabled, bool, out);
-
-        GF_OPTION_INIT ("iam-self-heal-daemon", priv->shd.iamshd, bool, out);
-
         GF_OPTION_INIT ("data-change-log", priv->data_change_log, bool, out);
 
         GF_OPTION_INIT ("metadata-change-log", priv->metadata_change_log, bool,
@@ -326,7 +326,7 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("entrylk-trace", priv->entrylk_trace, bool, out);
 
-        GF_OPTION_INIT ("strict-readdir", priv->strict_readdir, bool, out);
+        GF_OPTION_INIT ("pre-op-compat", priv->pre_op_compat, bool, out);
 
         GF_OPTION_INIT ("eager-lock", priv->eager_lock, bool, out);
         GF_OPTION_INIT ("quorum-type", qtype, str, out);
@@ -336,9 +336,12 @@ init (xlator_t *this)
         fix_quorum_options(this,priv,qtype);
 
 	GF_OPTION_INIT ("post-op-delay-secs", priv->post_op_delay_secs, uint32, out);
-        GF_OPTION_INIT ("readdir-failover", priv->readdir_failover, bool, out);
         GF_OPTION_INIT ("ensure-durability", priv->ensure_durability, bool,
                         out);
+
+	GF_OPTION_INIT ("self-heal-daemon", priv->shd.enabled, bool, out);
+
+	GF_OPTION_INIT ("iam-self-heal-daemon", priv->shd.iamshd, bool, out);
 
         priv->wait_count = 1;
 
@@ -402,6 +405,12 @@ init (xlator_t *this)
                 goto out;
         }
 
+	ret = afr_selfheal_daemon_init (this);
+	if (ret) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
         /* keep more local here as we may need them for self-heal etc */
         this->local_pool = mem_pool_new (afr_local_t, 512);
         if (!this->local_pool) {
@@ -411,58 +420,8 @@ init (xlator_t *this)
                 goto out;
         }
 
-        priv->first_lookup = 1;
         priv->root_inode = NULL;
 
-        if (!priv->shd.iamshd) {
-                ret = 0;
-                goto out;
-        }
-
-        ret = -ENOMEM;
-        priv->shd.pos = GF_CALLOC (sizeof (*priv->shd.pos), child_count,
-                                   gf_afr_mt_brick_pos_t);
-        if (!priv->shd.pos)
-                goto out;
-
-        priv->shd.pending = GF_CALLOC (sizeof (*priv->shd.pending), child_count,
-                                       gf_afr_mt_int32_t);
-        if (!priv->shd.pending)
-                goto out;
-
-        priv->shd.inprogress = GF_CALLOC (sizeof (*priv->shd.inprogress),
-                                          child_count, gf_afr_mt_shd_bool_t);
-        if (!priv->shd.inprogress)
-                goto out;
-        priv->shd.timer = GF_CALLOC (sizeof (*priv->shd.timer), child_count,
-                                     gf_afr_mt_shd_timer_t);
-        if (!priv->shd.timer)
-                goto out;
-
-        priv->shd.healed = eh_new (AFR_EH_HEALED_LIMIT, _gf_false,
-                                   _destroy_shd_event_data);
-        if (!priv->shd.healed)
-                goto out;
-
-        priv->shd.heal_failed = eh_new (AFR_EH_HEAL_FAIL_LIMIT, _gf_false,
-                                        _destroy_shd_event_data);
-        if (!priv->shd.heal_failed)
-                goto out;
-
-        priv->shd.split_brain = eh_new (AFR_EH_SPLIT_BRAIN_LIMIT, _gf_false,
-                                        _destroy_shd_event_data);
-        if (!priv->shd.split_brain)
-                goto out;
-
-        this->itable = inode_table_new (SHD_INODE_LRU_LIMIT, this);
-        if (!this->itable)
-                goto out;
-        priv->root_inode = inode_ref (this->itable->root);
-        GF_OPTION_INIT ("node-uuid", priv->shd.node_uuid, str, out);
-        GF_OPTION_INIT ("heal-timeout", priv->shd.timeout, int32, out);
-        ret = afr_initialise_statistics (this);
-        if (ret)
-                goto out;
         ret = 0;
 out:
         return ret;
@@ -572,11 +531,11 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_INT,
           .min = 0,
           .max = 2,
-          .default_value = "0",
+          .default_value = "1",
           .description = "inode-read fops happen only on one of the bricks in "
                          "replicate. AFR will prefer the one computed using "
                          "the method specified using this option"
-                         "0 = first responder, "
+                         "0 = first up server, "
                          "1 = hash by GFID of file (all clients use "
                                                     "same subvolume), "
                          "2 = hash by GFID of file and client PID",
@@ -585,7 +544,7 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "true",
           .description = "Choose a local subvolume (i.e. Brick) to read from"
-                         " if read-subvolume is not explicitly set.",
+	                 " if read-subvolume is not explicitly set.",
         },
         { .key  = {"favorite-child"},
           .type = GF_OPTION_TYPE_XLATOR,
@@ -675,10 +634,6 @@ struct volume_options options[] = {
                          "pre fop changelog operations in afr transaction "
                          "if this option is enabled."
         },
-        { .key  = {"strict-readdir"},
-          .type = GF_OPTION_TYPE_BOOL,
-          .default_value = "off",
-        },
         { .key = {"inodelk-trace"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
@@ -689,6 +644,12 @@ struct volume_options options[] = {
           .default_value = "off",
           .description = "Enabling this option logs entry lock/unlocks"
         },
+	{ .key = {"pre-op-compat"},
+	  .type = GF_OPTION_TYPE_BOOL,
+	  .default_value = "on",
+	  .description = "Use separate pre-op xattrop() FOP rather than "
+	                 "overloading xdata of the OP"
+	},
         { .key = {"eager-lock"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
@@ -753,14 +714,6 @@ struct volume_options options[] = {
                          "self-heal-daemon so that it can crawl only on "
                          "local index directories.",
         },
-        { .key  = {"heal-timeout"},
-          .type = GF_OPTION_TYPE_INT,
-          .min  = 60,
-          .max  = INT_MAX,
-          .default_value = "600",
-          .description = "time interval for checking the need to self-heal "
-                         "in self-heal-daemon"
-        },
         { .key  = {"post-op-delay-secs"},
           .type = GF_OPTION_TYPE_INT,
           .min  = 0,
@@ -777,11 +730,6 @@ struct volume_options options[] = {
           .max = 131072,
           .default_value = "1KB",
         },
-        { .key = {"readdir-failover"},
-          .type = GF_OPTION_TYPE_BOOL,
-          .description = "readdir(p) will not failover if this option is off",
-          .default_value = "on",
-        },
         { .key = {"ensure-durability"},
           .type = GF_OPTION_TYPE_BOOL,
           .description = "Afr performs fsyncs for transactions if this "
@@ -789,5 +737,13 @@ struct volume_options options[] = {
                          "written to the disk",
           .default_value = "on",
         },
+	{ .key = {"afr-dirty-xattr"},
+	  .type = GF_OPTION_TYPE_STR,
+	  .default_value = AFR_DIRTY_DEFAULT,
+	},
+	{ .key = {"metadata-splitbrain-forced-heal"},
+	  .type = GF_OPTION_TYPE_BOOL,
+	  .default_value = "off",
+	},
         { .key  = {NULL} },
 };

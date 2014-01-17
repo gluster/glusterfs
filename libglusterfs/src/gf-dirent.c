@@ -83,6 +83,8 @@ gf_link_inodes_from_dirent (xlator_t *this, inode_t *parent,
                 if (entry->inode) {
                         link_inode = inode_link (entry->inode, parent,
                                                  entry->d_name, &entry->d_stat);
+			if (!link_inode)
+				continue;
                         inode_lookup (link_inode);
                         inode_unref (link_inode);
                 }

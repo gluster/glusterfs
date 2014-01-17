@@ -81,15 +81,17 @@ ls -l $N0 &> /dev/null;
 sleep 5;
 
 ## Force entry self-heal.
-find $N0 | xargs stat > /dev/null;
+TEST $CLI volume set $V0 cluster.self-heal-daemon on
+sleep 1
+TEST gluster volume heal $V0 full
 #ls -lR $N0 > /dev/null;
 
 ## Do NOT check through the NFS mount here. That will force a new self-heal
 ## check, but we want to test whether self-heal already happened.
 
 ## Make sure everything's in order on the recreated brick.
-EXPECT 'test_data' cat $B0/${V0}-0/a_file;
-EXPECT 'more_test_data' cat $B0/${V0}-0/a_dir/another_file;
+EXPECT_WITHIN 20 'test_data' cat $B0/${V0}-0/a_file;
+EXPECT_WITHIN 20 'more_test_data' cat $B0/${V0}-0/a_dir/another_file;
 
 if [ "$EXIT_EARLY" = "1" ]; then
 	exit 0;

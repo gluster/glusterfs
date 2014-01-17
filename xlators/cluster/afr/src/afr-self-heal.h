@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2008-2012 Red Hat, Inc. <http://www.redhat.com>
+  Copyright (c) 2013 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -8,36 +8,160 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef __AFR_SELF_HEAL_H__
-#define __AFR_SELF_HEAL_H__
 
-#include <sys/stat.h>
+#ifndef _AFR_SELFHEAL_H
+#define _AFR_SELFHEAL_H
 
-#define FILETYPE_DIFFERS(buf1,buf2) ((buf1)->ia_type != (buf2)->ia_type)
-#define PERMISSION_DIFFERS(buf1,buf2) (st_mode_from_ia ((buf1)->ia_prot, (buf1)->ia_type) != st_mode_from_ia ((buf2)->ia_prot, (buf2)->ia_type))
-#define OWNERSHIP_DIFFERS(buf1,buf2) (((buf1)->ia_uid != (buf2)->ia_uid) || ((buf1)->ia_gid != (buf2)->ia_gid))
-#define SIZE_DIFFERS(buf1,buf2) ((buf1)->ia_size != (buf2)->ia_size)
 
-#define SIZE_GREATER(buf1,buf2) ((buf1)->ia_size > (buf2)->ia_size)
+/* Perform fop on all UP subvolumes and wait for all callbacks to return */
+
+#define AFR_ONALL(frame, rfn, fop, args ...) do {			\
+	afr_local_t *__local = frame->local;				\
+	afr_private_t *__priv = frame->this->private;			\
+	int __i = 0, __count = 0;					\
+									\
+	afr_replies_wipe (__local, __priv);				\
+									\
+	for (__i = 0; __i < __priv->child_count; __i++) {		\
+		if (!__priv->child_up[__i]) continue;			\
+		STACK_WIND_COOKIE (frame, rfn, (void *)(long) __i,	\
+				   __priv->children[__i],		\
+				   __priv->children[__i]->fops->fop, args); \
+		__count++;						\
+	}								\
+	syncbarrier_wait (&__local->barrier, __count);			\
+	} while (0)
+
+
+/* Perform fop on all subvolumes represented by list[] array and wait
+   for all callbacks to return */
+
+#define AFR_ONLIST(list, frame, rfn, fop, args ...) do {		\
+	afr_local_t *__local = frame->local;				\
+	afr_private_t *__priv = frame->this->private;			\
+	int __i = 0, __count = 0;					\
+									\
+	afr_replies_wipe (__local, __priv);				\
+									\
+	for (__i = 0; __i < __priv->child_count; __i++) {		\
+		if (!list[__i]) continue;				\
+		STACK_WIND_COOKIE (frame, rfn, (void *)(long) __i,	\
+				   __priv->children[__i],		\
+				   __priv->children[__i]->fops->fop, args); \
+		__count++;						\
+	}								\
+	syncbarrier_wait (&__local->barrier, __count);			\
+	} while (0)
+
+
+#define AFR_SEQ(frame, rfn, fop, args ...) do {				\
+	afr_local_t *__local = frame->local;				\
+	afr_private_t *__priv = frame->this->private;			\
+	int __i = 0;							\
+									\
+	afr_replies_wipe (__local, __priv);				\
+									\
+	for (__i = 0; __i < __priv->child_count; __i++) {		\
+		if (!__priv->child_up[__i]) continue;			\
+		STACK_WIND_COOKIE (frame, rfn, (void *)(long) __i,	\
+				   __priv->children[__i],		\
+				   __priv->children[__i]->fops->fop, args); \
+		syncbarrier_wait (&__local->barrier, 1);		\
+	}								\
+	} while (0)
+
+
+#define ALLOC_MATRIX(n, type) ({type **__ptr = NULL; \
+	int __i; \
+	__ptr = alloca0 (n * sizeof(type *)); \
+	for (__i = 0; __i < n; __i++) __ptr[__i] = alloca0 (n * sizeof(type)); \
+	__ptr;})
+
+
+#define IA_EQUAL(f,s,field) (memcmp (&(f.ia_##field), &(s.ia_##field), sizeof (s.ia_##field)) == 0)
+
 
 int
-afr_self_heal_entry (call_frame_t *frame, xlator_t *this);
+afr_selfheal (xlator_t *this, uuid_t gfid);
 
 int
-afr_self_heal_data (call_frame_t *frame, xlator_t *this);
+afr_selfheal_name (xlator_t *this, uuid_t gfid, const char *name);
 
 int
-afr_self_heal_metadata (call_frame_t *frame, xlator_t *this);
+afr_selfheal_data (call_frame_t *frame, xlator_t *this, inode_t *inode);
 
 int
-afr_self_heal_get_source (xlator_t *this, afr_local_t *local, dict_t **xattr);
+afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode);
 
 int
-afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode);
+afr_selfheal_entry (call_frame_t *frame, xlator_t *this, inode_t *inode);
+
 
 int
-afr_lookup_select_read_child_by_txn_type (xlator_t *this, afr_local_t *local,
-                                          dict_t **xattr,
-                                          afr_transaction_type txn_type,
-                                          uuid_t gfid);
-#endif /* __AFR_SELF_HEAL_H__ */
+afr_selfheal_inodelk (call_frame_t *frame, xlator_t *this, inode_t *inode,
+		      char *dom, off_t off, size_t size,
+		      unsigned char *locked_on);
+
+int
+afr_selfheal_tryinodelk (call_frame_t *frame, xlator_t *this, inode_t *inode,
+			 char *dom, off_t off, size_t size,
+			 unsigned char *locked_on);
+
+int
+afr_selfheal_uninodelk (call_frame_t *frame, xlator_t *this, inode_t *inode,
+			char *dom, off_t off, size_t size,
+			const unsigned char *locked_on);
+
+int
+afr_selfheal_entrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
+		      char *dom, const char *name, unsigned char *locked_on);
+
+int
+afr_selfheal_tryentrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
+			 char *dom, const char *name, unsigned char *locked_on);
+
+int
+afr_selfheal_unentrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
+			char *dom, const char *name, unsigned char *locked_on);
+
+int
+afr_selfheal_unlocked_discover (call_frame_t *frame, inode_t *inode,
+				uuid_t gfid, struct afr_reply *replies);
+
+inode_t *
+afr_selfheal_unlocked_lookup_on (call_frame_t *frame, inode_t *parent,
+				 const char *name, struct afr_reply *replies,
+				 unsigned char *lookup_on);
+
+int
+afr_selfheal_find_direction (call_frame_t *frame, xlator_t *this,
+			     struct afr_reply *replies,
+			     afr_transaction_type type, unsigned char *locked_on,
+			     unsigned char *sources, unsigned char *sinks);
+
+int
+afr_selfheal_extract_xattr (xlator_t *this, struct afr_reply *replies,
+			    afr_transaction_type type, int *dirty, int **matrix);
+
+int
+afr_selfheal_undo_pending (call_frame_t *frame, xlator_t *this, inode_t *inode,
+			   unsigned char *sources, unsigned char *sinks,
+			   unsigned char *healed_sinks, afr_transaction_type type,
+			   struct afr_reply *replies, unsigned char *locked_on);
+
+int
+afr_selfheal_recreate_entry (call_frame_t *frame, xlator_t *this, int dst,
+			     int source, inode_t *dir, const char *name,
+			     inode_t *inode, struct afr_reply *replies);
+
+int
+afr_selfheal_post_op (call_frame_t *frame, xlator_t *this, inode_t *inode,
+		      int subvol, dict_t *xattr);
+
+call_frame_t *
+afr_frame_create (xlator_t *this);
+
+inode_t *
+afr_inode_find (xlator_t *this, uuid_t gfid);
+
+#endif /* !_AFR_SELFHEAL_H */

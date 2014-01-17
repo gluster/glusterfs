@@ -55,7 +55,7 @@ EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
 EXPECT_WITHIN 20 "1" afr_child_up_status $V0 1
 EXPECT_WITHIN 20 "1" afr_child_up_status $V0 2
 TEST kill_brick ${V0} ${H0} ${B0}/${V0}-2
-TEST ls -l ${M0}/a_file
+TEST dd if=${M0}/a_file of=/dev/null
 
 
 obs_path_0=${B0}/${V0}-0/a_file
@@ -67,31 +67,31 @@ tgt_xattr_1="trusted.afr.${V0}-client-1"
 tgt_xattr_2="trusted.afr.${V0}-client-2"
 
 actual=$(afr_get_changelog_xattr $obs_path_0 $tgt_xattr_0)
-EXPECT "0x000000000000000000000000" echo $actual
+EXPECT "0x000000000000000000000000|^\$" echo $actual
 
 actual=$(afr_get_changelog_xattr $obs_path_0 $tgt_xattr_1)
-EXPECT "0x000000000000000000000000" echo $actual
+EXPECT "0x000000000000000000000000|^\$" echo $actual
 
 actual=$(afr_get_changelog_xattr $obs_path_0 $tgt_xattr_2)
-EXPECT "0x000000020000000000000000" echo $actual
+EXPECT "0x000000030000000000000000" echo $actual
 
 actual=$(afr_get_changelog_xattr $obs_path_1 $tgt_xattr_0)
-EXPECT "0x000000000000000000000000" echo $actual
+EXPECT "0x000000000000000000000000|^\$" echo $actual
 
 actual=$(afr_get_changelog_xattr $obs_path_1 $tgt_xattr_1)
-EXPECT "0x000000000000000000000000" echo $actual
+EXPECT "0x000000000000000000000000|^\$" echo $actual
 
 actual=$(afr_get_changelog_xattr $obs_path_1 $tgt_xattr_2)
-EXPECT "0x000000020000000000000000" echo $actual
+EXPECT "0x000000010000000000000000" echo $actual
 
 actual=$(afr_get_changelog_xattr $obs_path_2 $tgt_xattr_0)
-EXPECT "0x000000000000000000000000" echo $actual
+EXPECT "0x000000000000000000000000|^\$" echo $actual
 
 actual=$(afr_get_changelog_xattr $obs_path_2 $tgt_xattr_1)
-EXPECT "0x000000000000000000000000" echo $actual
+EXPECT "0x000000000000000000000000|^\$" echo $actual
 
 actual=$(afr_get_changelog_xattr $obs_path_2 $tgt_xattr_2)
-EXPECT "0x000000000000000000000000" echo $actual
+EXPECT "0x000000000000000000000000|^\$" echo $actual
 
 if [ "$EXIT_EARLY" = "1" ]; then
 	exit 0;

@@ -680,7 +680,9 @@ loc_copy_overload_parent (loc_t *dst, loc_t *src, inode_t *parent)
                         dst->name = strrchr (dst->path, '/');
                 if (dst->name)
                         dst->name++;
-        }
+        } else if (src->name) {
+		dst->name = src->name;
+	}
 
         ret = 0;
 out:
@@ -718,7 +720,9 @@ loc_copy (loc_t *dst, loc_t *src)
                         dst->name = strrchr (dst->path, '/');
                 if (dst->name)
                         dst->name++;
-        }
+        } else if (src->name) {
+		dst->name = src->name;
+	}
 
         ret = 0;
 out:

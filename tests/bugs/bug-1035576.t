@@ -34,7 +34,8 @@ quota_limit_val1=$(get_hex_xattr trusted.glusterfs.quota.limit-set $B0/${V0}1/a)
 quota_size_val1=$(get_hex_xattr trusted.glusterfs.quota.size $B0/${V0}1/a)
 
 #Trigger entry,metadata self-heal
-TEST stat $M0/a
+TEST ls $M0/a
+
 quota_limit_val0=$(get_hex_xattr trusted.glusterfs.quota.limit-set $B0/${V0}0/a)
 quota_size_val0=$(get_hex_xattr trusted.glusterfs.quota.size $B0/${V0}0/a)
 
@@ -43,7 +44,7 @@ TEST [ $quota_limit_val0 == $quota_limit_val1 ]
 
 #Only entry, metadata self-heal is done quota size value should not be same
 TEST [ $quota_size_val0 != $quota_size_val1 ]
-TEST stat $M0/a/f
+TEST cat $M0/a/f
 
 #Now that data self-heal is done quota size value should be same
 quota_size_val0=$(get_hex_xattr trusted.glusterfs.quota.size $B0/${V0}0/a)

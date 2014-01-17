@@ -36,28 +36,14 @@ typedef struct index_fd_ctx {
         DIR *dir;
 } index_fd_ctx_t;
 
-typedef enum {
-        sync_not_started,
-        sync_started,
-        synced_state,
-} to_be_healed_states_t;
-
-typedef enum {
-        INDEX_XATTROP,
-        BASE_INDICES_HOLDER,
-} readdir_directory;
-
 typedef struct index_priv {
         char *index_basepath;
         uuid_t index;
         gf_lock_t lock;
         uuid_t xattrop_vgfid;//virtual gfid of the xattrop index dir
-        uuid_t base_indices_holder_vgfid; //virtual gfid of the
-                                          //to_be_healed_xattrop directory
         struct list_head callstubs;
         pthread_mutex_t mutex;
         pthread_cond_t  cond;
-        to_be_healed_states_t to_be_healed_states;
 } index_priv_t;
 
 #define INDEX_STACK_UNWIND(fop, frame, params ...)      \

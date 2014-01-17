@@ -38,7 +38,12 @@ TEST $CLI volume start $V0 force
 EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
 EXPECT_WITHIN 20 "1" afr_child_up_status $V0 1
 
-find $M0 | xargs stat 1>/dev/null
+TEST $CLI volume set $V0 cluster.self-heal-daemon on
+sleep 1
+TEST gluster volume heal $V0 full
+
+size=`stat -c '%s' /etc/passwd`
+EXPECT_WITHIN 60 $size stat -c '%s' $B0/gfs0/brick01/a
 
 TEST modify_atstamp1=$(get_mtime $B0/gfs0/brick01/a)
 TEST modify_atstamp2=$(get_mtime $B0/gfs0/brick02/a)

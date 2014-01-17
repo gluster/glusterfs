@@ -38,10 +38,9 @@ TEST [ -z $inodelk_max_latency ]
 
 TEST dd of=$M0/a if=/dev/urandom bs=1M count=10 conv=fsync
 #Check for no trace of pending changelog. Flush should make sure of it.
-EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_0/a trusted.afr.$V0-client-0
-EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_0/a trusted.afr.$V0-client-1
-EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_1/a trusted.afr.$V0-client-0
-EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_1/a trusted.afr.$V0-client-1
+EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_0/a trusted.afr.dirty
+EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_1/a trusted.afr.dirty
+
 
 dd of=$M0/a if=/dev/urandom bs=1M count=1024 2>/dev/null &
 p=$!
@@ -51,15 +50,13 @@ TEST $CLI volume set $V0 performance.io-cache off
 TEST $CLI volume set $V0 performance.stat-prefetch off
 TEST $CLI volume set $V0 performance.read-ahead off
 
-kill -SIGTERM $p
+kill -TERM $p
 #wait for dd to exit
 wait  > /dev/null 2>&1
 
 #Goal is to check if there is permanent FOOL changelog
 sleep 5
-EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_0/a trusted.afr.$V0-client-0
-EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_0/a trusted.afr.$V0-client-1
-EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_1/a trusted.afr.$V0-client-0
-EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_1/a trusted.afr.$V0-client-1
+EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_0/a trusted.afr.dirty
+EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_1/a trusted.afr.dirty
 
 cleanup;

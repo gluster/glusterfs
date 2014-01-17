@@ -26,10 +26,9 @@ TEST setfattr -n trusted.gfid -v $gfid2 $B0/${V0}1/c
 
 sleep 2
 
-cd $M0
-TEST ls -l a
-TEST ls -l b
-TEST ls -l c
+TEST stat $M0/a
+TEST stat $M0/b
+TEST stat $M0/c
 
 TEST gf_get_gfid_xattr $B0/${V0}0/a
 TEST gf_get_gfid_xattr $B0/${V0}1/a

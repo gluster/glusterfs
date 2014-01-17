@@ -48,8 +48,8 @@ EXPECT "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $B0/${V0}0/dir/b
 
 #attempt self-heal so that the files are created on brick-0
 
-TEST ls -l $M0/dir/a
-TEST ls -l $M0/dir/b
+TEST dd if=$M0/dir/a of=/dev/null bs=1M
+TEST dd if=$M0/dir/b of=/dev/null bs=1M
 
 #trigger writev for attempting open-fd-fix in afr
 TEST fd_write $wfd "open sesame"

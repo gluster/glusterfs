@@ -75,4 +75,7 @@ pump_command_status (xlator_t *this, dict_t *dict);
 int
 pump_execute_status (call_frame_t *frame, xlator_t *this);
 
+int
+pump_command_reply (call_frame_t *frame, xlator_t *this);
+
 #endif /* __PUMP_H__ */

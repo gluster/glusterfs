@@ -3120,7 +3120,7 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 /* making sure we set the inode ctx right with layout,
                    currently possible only for non-directories, so for
                    directories don't set entry inodes */
-                if (!IA_ISDIR(entry->d_stat.ia_type)) {
+                if (!IA_ISDIR(entry->d_stat.ia_type) && orig_entry->inode) {
                         ret = dht_layout_preset (this, prev->this,
                                                  orig_entry->inode);
                         if (ret)

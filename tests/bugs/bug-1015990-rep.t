@@ -35,7 +35,6 @@ for  i in  {1..100}; do echo "STRING" > $M0/File$i; done
 brick_2_sh_entries=$(count_sh_entries $B0/$V0"2")
 brick_4_sh_entries=$(count_sh_entries $B0/$V0"4")
 
-
 command_output=$(gluster volume heal $V0 statistics heal-count replica $H0:$B0/$V0"1")
 
 

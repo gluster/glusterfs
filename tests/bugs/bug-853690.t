@@ -66,7 +66,6 @@ TEST glusterfs --volfile=$B0/test.vol --attribute-timeout=0 --entry-timeout=0 $M
 # file sizes and immediate split-brain (EIO).
 TEST dd if=/dev/zero of=$M0/file bs=128k count=1
 TEST dd if=$M0/file of=/dev/null bs=128k count=1
-
 ########
 #
 # Test self-heal with short writes...
@@ -76,14 +75,11 @@ TEST dd if=$M0/file of=/dev/null bs=128k count=1
 # Cause a lookup and wait a few seconds for posterity. This self-heal also fails
 # due to a short write.
 TEST ls $M0/file
-
 # Verify the attributes on the healthy replica do not reflect consistency with
 # the other replica.
-TEST "getfattr -n trusted.afr.test-locks-0 $B0/test2/file --only-values > $B0/out1 2> /dev/null"
-TEST "getfattr -n trusted.afr.test-locks-1 $B0/test2/file --only-values > $B0/out2 2> /dev/null"
-TEST ! cmp $B0/out1 $B0/out2
+xa=`getfattr -n trusted.afr.test-locks-0 -e hex $B0/test2/file 2>&1 | grep = | cut -f2 -d=`
+EXPECT_NOT 0x000000000000000000000000 echo $xa
 
-TEST rm -f $B0/out1 $B0/out2
 TEST rm -f $M0/file
 TEST umount $M0
 

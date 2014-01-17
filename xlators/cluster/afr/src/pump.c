@@ -21,6 +21,120 @@
 #include "afr-common.c"
 #include "defaults.c"
 #include "glusterfs.h"
+#include "pump.h"
+
+
+static int
+afr_set_dict_gfid (dict_t *dict, uuid_t gfid)
+{
+        int ret       = 0;
+        uuid_t *pgfid = NULL;
+
+        GF_ASSERT (gfid);
+
+        pgfid = GF_CALLOC (1, sizeof (uuid_t), gf_common_mt_char);
+        if (!pgfid) {
+                ret = -1;
+                goto out;
+        }
+
+        uuid_copy (*pgfid, gfid);
+
+        ret = dict_set_dynptr (dict, "gfid-req", pgfid, sizeof (uuid_t));
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR, "gfid set failed");
+
+out:
+        if (ret && pgfid)
+                GF_FREE (pgfid);
+	return ret;
+}
+
+static int
+afr_set_root_gfid (dict_t *dict)
+{
+        uuid_t gfid;
+        int ret = 0;
+
+        memset (gfid, 0, 16);
+        gfid[15] = 1;
+
+        ret = afr_set_dict_gfid (dict, gfid);
+
+        return ret;
+}
+
+static int
+afr_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
+{
+        int   ret = -1;
+        uuid_t pargfid = {0};
+
+        if (!child)
+                goto out;
+
+        if (!uuid_is_null (parent->inode->gfid))
+                uuid_copy (pargfid, parent->inode->gfid);
+        else if (!uuid_is_null (parent->gfid))
+                uuid_copy (pargfid, parent->gfid);
+
+        if (uuid_is_null (pargfid))
+                goto out;
+
+        if (strcmp (parent->path, "/") == 0)
+                ret = gf_asprintf ((char **)&child->path, "/%s", name);
+        else
+                ret = gf_asprintf ((char **)&child->path, "%s/%s", parent->path,
+                                   name);
+
+        if (-1 == ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "asprintf failed while setting child path");
+        }
+
+        child->name = strrchr (child->path, '/');
+        if (child->name)
+                child->name++;
+
+        child->parent = inode_ref (parent->inode);
+        child->inode = inode_new (parent->inode->table);
+        uuid_copy (child->pargfid, pargfid);
+
+        if (!child->inode) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+out:
+        if ((ret == -1) && child)
+                loc_wipe (child);
+
+        return ret;
+}
+
+static void
+afr_build_root_loc (xlator_t *this, loc_t *loc)
+{
+        afr_private_t   *priv = NULL;
+
+        priv = this->private;
+        loc->path = gf_strdup ("/");
+        loc->name = "";
+        loc->inode = inode_ref (priv->root_inode);
+        uuid_copy (loc->gfid, loc->inode->gfid);
+}
+
+static void
+afr_update_loc_gfids (loc_t *loc, struct iatt *buf, struct iatt *postparent)
+{
+        GF_ASSERT (loc);
+        GF_ASSERT (buf);
+
+        uuid_copy (loc->gfid, buf->ia_gfid);
+        if (postparent)
+                uuid_copy (loc->pargfid, postparent->ia_gfid);
+}
 
 static uint64_t pump_pid = 0;
 static inline void
@@ -387,54 +501,68 @@ gf_pump_traverse_directory (loc_t *loc)
                         if (ret)
                                 goto out;
 
-                        if (!IS_ENTRY_CWD (entry->d_name) &&
-                            !IS_ENTRY_PARENT (entry->d_name)) {
+			if ((strcmp (entry->d_name, ".") == 0) ||
+			    (strcmp (entry->d_name, "..") == 0))
+				continue;
 
-                                    is_directory_empty = _gf_false;
-                                    gf_log (this->name, GF_LOG_DEBUG,
-                                            "lookup %s => %"PRId64,
-                                            entry_loc.path,
-                                            iatt.ia_ino);
+			is_directory_empty = _gf_false;
+			gf_log (this->name, GF_LOG_DEBUG,
+				"lookup %s => %"PRId64,
+				entry_loc.path,
+				iatt.ia_ino);
 
-                                    ret = syncop_lookup (this, &entry_loc, NULL,
-                                                         &iatt, &xattr_rsp, &parent);
+			ret = syncop_lookup (this, &entry_loc, NULL, &iatt,
+					     &xattr_rsp, &parent);
 
-                                    if (ret) {
-                                            gf_log (this->name, GF_LOG_ERROR,
-                                                    "%s: lookup failed",
-                                                    entry_loc.path);
-                                            continue;
-                                    }
-                                    pump_fill_loc_info (&entry_loc, &iatt,
-                                                       &parent);
+			if (ret) {
+				gf_log (this->name, GF_LOG_ERROR,
+					"%s: lookup failed", entry_loc.path);
+				continue;
+			}
 
-                                    pump_update_resume_state (this, entry_loc.path);
+			ret = afr_selfheal_name (this, loc->gfid, entry->d_name);
+			if (ret) {
+				gf_log (this->name, GF_LOG_ERROR,
+					"%s: name self-heal failed (%s/%s)",
+					entry_loc.path, uuid_utoa (loc->gfid),
+					entry->d_name);
+				continue;
+			}
 
-                                    pump_save_path (this, entry_loc.path);
-                                    pump_save_file_stats (this, entry_loc.path);
+			ret = afr_selfheal (this, iatt.ia_gfid);
+			if (ret) {
+				gf_log (this->name, GF_LOG_ERROR,
+					"%s: self-heal failed (%s)",
+					entry_loc.path, uuid_utoa (iatt.ia_gfid));
+				continue;
+			}
 
-                                    ret = pump_check_and_update_status (this);
-                                    if (ret < 0) {
-                                            gf_log (this->name, GF_LOG_DEBUG,
-                                                    "Pump beginning to exit out");
-                                            goto out;
-                                    }
+			pump_fill_loc_info (&entry_loc, &iatt, &parent);
 
-                                    if (IA_ISDIR (iatt.ia_type)) {
-                                            if (is_pump_traversal_allowed (this, entry_loc.path)) {
-                                                    gf_log (this->name, GF_LOG_TRACE,
-                                                            "entering dir=%s",
-                                                            entry->d_name);
-                                                    gf_pump_traverse_directory (&entry_loc);
-                                            }
-                                    }
+			pump_update_resume_state (this, entry_loc.path);
+
+			pump_save_path (this, entry_loc.path);
+			pump_save_file_stats (this, entry_loc.path);
+
+			ret = pump_check_and_update_status (this);
+			if (ret < 0) {
+				gf_log (this->name, GF_LOG_DEBUG,
+					"Pump beginning to exit out");
+				goto out;
+			}
+
+			if (IA_ISDIR (iatt.ia_type)) {
+				if (is_pump_traversal_allowed (this, entry_loc.path)) {
+					gf_log (this->name, GF_LOG_TRACE,
+						"entering dir=%s", entry->d_name);
+					gf_pump_traverse_directory (&entry_loc);
+				}
                         }
                 }
 
                 gf_dirent_free (&entries);
                 free_entries = _gf_false;
-                gf_log (this->name, GF_LOG_TRACE,
-                        "offset incremented to %d",
+                gf_log (this->name, GF_LOG_TRACE, "offset incremented to %d",
                         (int32_t ) offset);
 
         }
@@ -443,7 +571,7 @@ gf_pump_traverse_directory (loc_t *loc)
         if (ret < 0)
                 gf_log (this->name, GF_LOG_DEBUG, "closing the fd failed");
 
-        if (is_directory_empty && IS_ROOT_PATH (loc->path)) {
+        if (is_directory_empty && (strcmp (loc->path, "/") == 0)) {
                pump_change_state (this, PUMP_STATE_RUNNING);
                gf_log (this->name, GF_LOG_INFO, "Empty source brick. "
                                 "Nothing to be done.");
@@ -1277,128 +1405,16 @@ out:
 
 }
 
-struct _xattr_key {
-        char *key;
-        struct list_head list;
-};
-
-static int
-__gather_xattr_keys (dict_t *dict, char *key, data_t *value,
-                     void *data)
+int
+pump_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+	       const char *name, dict_t *xdata)
 {
-        struct list_head *  list  = data;
-        struct _xattr_key * xkey  = NULL;
+	afr_private_t *priv = NULL;
+	int op_errno = 0;
+	int ret = 0;
 
-        if (!strncmp (key, AFR_XATTR_PREFIX,
-                      strlen (AFR_XATTR_PREFIX))) {
+	priv = this->private;
 
-                xkey = GF_CALLOC (1, sizeof (*xkey), gf_afr_mt_xattr_key);
-                if (!xkey)
-                        return -1;
-
-                xkey->key = key;
-                INIT_LIST_HEAD (&xkey->list);
-
-                list_add_tail (&xkey->list, list);
-        }
-        return 0;
-}
-
-static void
-__filter_xattrs (dict_t *dict)
-{
-        struct list_head keys;
-
-        struct _xattr_key *key;
-        struct _xattr_key *tmp;
-
-        INIT_LIST_HEAD (&keys);
-
-        dict_foreach (dict, __gather_xattr_keys,
-                      (void *) &keys);
-
-        list_for_each_entry_safe (key, tmp, &keys, list) {
-                dict_del (dict, key->key);
-
-                list_del_init (&key->list);
-
-                GF_FREE (key);
-        }
-}
-
-int32_t
-pump_getxattr_cbk (call_frame_t *frame, void *cookie,
-		  xlator_t *this, int32_t op_ret, int32_t op_errno,
-		  dict_t *dict, dict_t *xdata)
-{
-	afr_private_t   *priv           = NULL;
-	afr_local_t     *local          = NULL;
-	xlator_t        **children      = NULL;
-	int             unwind          = 1;
-        int32_t         *last_index     = NULL;
-        int32_t         next_call_child = -1;
-        int32_t         read_child      = -1;
-        int32_t         *fresh_children = NULL;
-
-
-	priv     = this->private;
-	children = priv->children;
-
-	local = frame->local;
-
-        read_child = (long) cookie;
-
-	if (op_ret == -1) {
-		last_index = &local->cont.getxattr.last_index;
-                fresh_children = local->fresh_children;
-                next_call_child = afr_next_call_child (fresh_children,
-                                                       local->child_up,
-                                                       priv->child_count,
-                                                       last_index, read_child);
-                if (next_call_child < 0)
-                        goto out;
-
-		unwind = 0;
-		STACK_WIND_COOKIE (frame, pump_getxattr_cbk,
-				   (void *) (long) read_child,
-				   children[next_call_child],
-				   children[next_call_child]->fops->getxattr,
-				   &local->loc,
-				   local->cont.getxattr.name, NULL);
-	}
-
-out:
-	if (unwind) {
-                if (op_ret >= 0 && dict)
-                        __filter_xattrs (dict);
-
-		AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict, NULL);
-	}
-
-	return 0;
-}
-
-int32_t
-pump_getxattr (call_frame_t *frame, xlator_t *this,
-	      loc_t *loc, const char *name, dict_t *xdata)
-{
-	afr_private_t *   priv       = NULL;
-	xlator_t **       children   = NULL;
-	int               call_child = 0;
-	afr_local_t       *local     = NULL;
-	int32_t           ret     = -1;
-	int32_t           op_errno   = 0;
-        uint64_t          read_child = 0;
-
-
-	VALIDATE_OR_GOTO (frame, out);
-	VALIDATE_OR_GOTO (this, out);
-	VALIDATE_OR_GOTO (this->private, out);
-
-	priv     = this->private;
-	VALIDATE_OR_GOTO (priv->children, out);
-
-	children = priv->children;
         if (!priv->use_afr_in_pump) {
                 STACK_WIND (frame, default_getxattr_cbk,
                             FIRST_CHILD (this),
@@ -1406,14 +1422,6 @@ pump_getxattr (call_frame_t *frame, xlator_t *this,
                             loc, name, xdata);
                 return 0;
         }
-
-
-	AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
-	local = frame->local;
-
-        ret = afr_local_init (local, priv, &op_errno);
-        if (ret < 0)
-                goto out;
 
         if (name) {
                 if (!strncmp (name, AFR_XATTR_PREFIX,
@@ -1432,165 +1440,12 @@ pump_getxattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        local->fresh_children = GF_CALLOC (priv->child_count,
-                                          sizeof (*local->fresh_children),
-                                          gf_afr_mt_int32_t);
-        if (!local->fresh_children) {
-                ret = -1;
-                op_errno = ENOMEM;
-                goto out;
-        }
-
-        read_child = afr_inode_get_read_ctx (this, loc->inode, local->fresh_children);
-        ret = afr_get_call_child (this, local->child_up, read_child,
-                                     local->fresh_children,
-                                     &call_child,
-                                     &local->cont.getxattr.last_index);
-        if (ret < 0) {
-                op_errno = -ret;
-                goto out;
-        }
-	loc_copy (&local->loc, loc);
-	if (name)
-	  local->cont.getxattr.name       = gf_strdup (name);
-
-	STACK_WIND_COOKIE (frame, pump_getxattr_cbk,
-			   (void *) (long) call_child,
-			   children[call_child], children[call_child]->fops->getxattr,
-			   loc, name, xdata);
+	afr_getxattr (frame, this, loc, name, xdata);
 
 	ret = 0;
 out:
 	if (ret < 0)
 		AFR_STACK_UNWIND (getxattr, frame, -1, op_errno, NULL, NULL);
-	return 0;
-}
-
-static int
-afr_setxattr_unwind (call_frame_t *frame, xlator_t *this)
-{
-	afr_local_t *   local = NULL;
-	call_frame_t   *main_frame = NULL;
-
-	local = frame->local;
-
-	LOCK (&frame->lock);
-	{
-		if (local->transaction.main_frame)
-			main_frame = local->transaction.main_frame;
-		local->transaction.main_frame = NULL;
-	}
-	UNLOCK (&frame->lock);
-
-	if (main_frame) {
-		AFR_STACK_UNWIND (setxattr, main_frame,
-                                  local->op_ret, local->op_errno, NULL);
-	}
-	return 0;
-}
-
-static int
-afr_setxattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		       int32_t op_ret, int32_t op_errno, dict_t *xdata)
-{
-	afr_local_t *   local = NULL;
-	afr_private_t * priv  = NULL;
-
-	int call_count  = -1;
-	int need_unwind = 0;
-
-	local = frame->local;
-	priv = this->private;
-
-	LOCK (&frame->lock);
-	{
-		if (op_ret != -1) {
-			if (local->success_count == 0) {
-				local->op_ret = op_ret;
-			}
-			local->success_count++;
-
-			if (local->success_count == priv->child_count) {
-				need_unwind = 1;
-			}
-		}
-
-		local->op_errno = op_errno;
-	}
-	UNLOCK (&frame->lock);
-
-	if (need_unwind)
-		local->transaction.unwind (frame, this);
-
-	call_count = afr_frame_return (frame);
-
-	if (call_count == 0) {
-		local->transaction.resume (frame, this);
-	}
-
-	return 0;
-}
-
-static int
-afr_setxattr_wind (call_frame_t *frame, xlator_t *this)
-{
-	afr_local_t *local = NULL;
-	afr_private_t *priv = NULL;
-
-	int call_count = -1;
-	int i = 0;
-
-	local = frame->local;
-	priv = this->private;
-
-	call_count = afr_up_children_count (local->child_up, priv->child_count);
-
-	if (call_count == 0) {
-		local->transaction.resume (frame, this);
-		return 0;
-	}
-
-	local->call_count = call_count;
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (local->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_setxattr_wind_cbk,
-					   (void *) (long) i,
-					   priv->children[i],
-					   priv->children[i]->fops->setxattr,
-					   &local->loc,
-					   local->cont.setxattr.dict,
-					   local->cont.setxattr.flags, NULL);
-
-			if (!--call_count)
-				break;
-		}
-	}
-
-	return 0;
-}
-
-
-static int
-afr_setxattr_done (call_frame_t *frame, xlator_t *this)
-{
-	afr_local_t * local = frame->local;
-
-	local->transaction.unwind (frame, this);
-
-	AFR_STACK_DESTROY (frame);
-
-	return 0;
-}
-
-int32_t
-pump_setxattr_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno, dict_t *xdata)
-{
-	AFR_STACK_UNWIND (setxattr, frame, op_ret, op_errno, xdata);
 	return 0;
 }
 
@@ -1617,51 +1472,56 @@ pump_command_reply (call_frame_t *frame, xlator_t *this)
 }
 
 int
-pump_parse_command (call_frame_t *frame, xlator_t *this,
-                    afr_local_t *local, dict_t *dict)
+pump_parse_command (call_frame_t *frame, xlator_t *this, dict_t *dict,
+		    int *op_errno_p)
 {
-
+	afr_local_t *local = NULL;
         int ret = -1;
+	int op_errno = 0;
 
         if (pump_command_start (this, dict)) {
-                frame->local = local;
+                local = AFR_FRAME_INIT (frame, op_errno);
+		if (!local)
+			goto out;
                 local->dict = dict_ref (dict);
                 ret = pump_execute_start (frame, this);
 
         } else if (pump_command_pause (this, dict)) {
-                frame->local = local;
+		local = AFR_FRAME_INIT (frame, op_errno);
+		if (!local)
+			goto out;
                 local->dict = dict_ref (dict);
                 ret = pump_execute_pause (frame, this);
 
         } else if (pump_command_abort (this, dict)) {
-                frame->local = local;
+		local = AFR_FRAME_INIT (frame, op_errno);
+		if (!local)
+			goto out;
                 local->dict = dict_ref (dict);
                 ret = pump_execute_abort (frame, this);
 
         } else if (pump_command_commit (this, dict)) {
-                frame->local = local;
+		local = AFR_FRAME_INIT (frame, op_errno);
+		if (!local)
+			goto out;
                 local->dict = dict_ref (dict);
                 ret = pump_execute_commit (frame, this);
         }
+out:
+	if (op_errno_p)
+		*op_errno_p = op_errno;
         return ret;
 }
 
 int
-pump_setxattr (call_frame_t *frame, xlator_t *this,
-               loc_t *loc, dict_t *dict, int32_t flags, dict_t *xdata)
+pump_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
+	       int32_t flags, dict_t *xdata)
 {
-	afr_private_t * priv  = NULL;
-	afr_local_t   * local = NULL;
-	call_frame_t   *transaction_frame = NULL;
+	afr_private_t *priv = NULL;
 	int ret = -1;
 	int op_errno = 0;
 
-	VALIDATE_OR_GOTO (frame, out);
-	VALIDATE_OR_GOTO (this, out);
-	VALIDATE_OR_GOTO (this->private, out);
-
-        GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.pump*", dict,
-                                   op_errno, out);
+        GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.pump*", dict, op_errno, out);
 
 	priv = this->private;
         if (!priv->use_afr_in_pump) {
@@ -1672,57 +1532,15 @@ pump_setxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-
-	AFR_LOCAL_ALLOC_OR_GOTO (local, out);
-
-	ret = afr_local_init (local, priv, &op_errno);
-	if (ret < 0) {
-                afr_local_cleanup (local, this);
-                mem_put (local);
-		goto out;
-        }
-
-        ret = pump_parse_command (frame, this,
-                                  local, dict);
-        if (ret >= 0) {
-                ret = 0;
+        ret = pump_parse_command (frame, this, dict, &op_errno);
+        if (ret >= 0)
                 goto out;
-        }
 
-	transaction_frame = copy_frame (frame);
-	if (!transaction_frame) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"Out of memory.");
-                op_errno = ENOMEM;
-                ret = -1;
-                afr_local_cleanup (local, this);
-		goto out;
-	}
-
-	transaction_frame->local = local;
-
-	local->op_ret = -1;
-
-	local->cont.setxattr.dict  = dict_ref (dict);
-	local->cont.setxattr.flags = flags;
-
-	local->transaction.fop    = afr_setxattr_wind;
-	local->transaction.done   = afr_setxattr_done;
-	local->transaction.unwind = afr_setxattr_unwind;
-
-	loc_copy (&local->loc, loc);
-
-	local->transaction.main_frame = frame;
-	local->transaction.start   = LLONG_MAX - 1;
-	local->transaction.len     = 0;
-
-	afr_transaction (transaction_frame, this, AFR_METADATA_TRANSACTION);
+	afr_setxattr (frame, this, loc, dict, flags, xdata);
 
 	ret = 0;
 out:
 	if (ret < 0) {
-		if (transaction_frame)
-			AFR_STACK_DESTROY (transaction_frame);
 		AFR_STACK_UNWIND (setxattr, frame, -1, op_errno, NULL);
 	}
 
@@ -2416,10 +2234,6 @@ init (xlator_t *this)
                 goto out;
 
         LOCK_INIT (&priv->lock);
-        LOCK_INIT (&priv->read_child_lock);
-        //lock recovery is not done in afr
-        pthread_mutex_init (&priv->mutex, NULL);
-        INIT_LIST_HEAD (&priv->saved_fds);
 
         child_count = xlator_subvolume_count (this);
         if (child_count != 2) {
@@ -2453,8 +2267,6 @@ init (xlator_t *this)
            and the sink.
         */
 
-	priv->strict_readdir = _gf_false;
-	priv->wait_count = 1;
 	priv->child_up = GF_CALLOC (sizeof (unsigned char), child_count,
                                  gf_afr_mt_char);
 	if (!priv->child_up) {
@@ -2508,7 +2320,6 @@ init (xlator_t *this)
                 goto out;
         }
 
-        priv->first_lookup = 1;
         priv->root_inode = NULL;
 
         priv->last_event = GF_CALLOC (child_count, sizeof (*priv->last_event),
@@ -2579,7 +2390,6 @@ out:
                 GF_FREE (priv->pending_key);
                 GF_FREE (priv->last_event);
                 LOCK_DESTROY (&priv->lock);
-                LOCK_DESTROY (&priv->read_child_lock);
                 GF_FREE (priv);
         }
 

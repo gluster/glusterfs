@@ -84,7 +84,7 @@ TEST $CLI volume start $V0 force
 
 EXPECT_WITHIN 20 "1" afr_child_up_status $V0 `expr $brick_id - 1`
 
-stat $pth
+cat $pth >/dev/null
 
 # check backends - xattr should not be present anywhere
 EXPECT 1 xattr_query_check ${backend_paths_array[0]} "trusted.name"
