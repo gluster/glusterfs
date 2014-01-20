@@ -371,7 +371,6 @@ __lock_entrylk (xlator_t *this, pl_inode_t *pinode, pl_entry_lock_t *lock,
         __pl_entrylk_ref (lock);
         gettimeofday (&lock->granted_time, NULL);
         list_add (&lock->domain_list, &dom->entrylk_list);
-	lock->frame = NULL;
 
         ret = 0;
 out:
@@ -576,10 +575,12 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 			reqlock->pinode = pinode;
 
                         ret = __lock_entrylk (this, pinode, reqlock, nonblock, dom);
-			if (ret == 0)
+			if (ret == 0) {
+				reqlock->frame = NULL;
 				op_ret = 0;
-			else
+			} else {
 				op_errno = -ret;
+			}
 
 			if (ctx && (!ret || !nonblock))
 				list_add (&reqlock->client_list,
