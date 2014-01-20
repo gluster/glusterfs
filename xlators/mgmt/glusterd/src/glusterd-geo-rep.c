@@ -1444,6 +1444,7 @@ _get_slave_status (dict_t *dict, char *key, data_t *value, void *data)
         ret = is_geo_rep_active (param->volinfo,slave, conf_path,
                                  &param->is_active);
 out:
+        GF_FREE(errmsg);
         return ret;
 }
 
