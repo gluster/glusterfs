@@ -4027,6 +4027,7 @@ quota_log_usage (xlator_t *this, quota_inode_ctx_t *ctx, inode_t *inode,
         char                    *path           = NULL;
         int64_t                  cur_size       = 0;
         quota_priv_t            *priv           = NULL;
+        gf_boolean_t            dyn_mem         = _gf_true;
 
         priv = this->private;
         if ((ctx->soft_lim <= 0) || (timerisset (&ctx->prev_log) &&
@@ -4041,6 +4042,7 @@ quota_log_usage (xlator_t *this, quota_inode_ctx_t *ctx, inode_t *inode,
         if (!usage_str) {
                 snprintf (size_str, sizeof (size_str), "%"PRId64, cur_size);
                 usage_str = (char*) size_str;
+                dyn_mem = _gf_false;
         }
         inode_path (inode, NULL, &path);
         if (!path)
@@ -4061,7 +4063,8 @@ quota_log_usage (xlator_t *this, quota_inode_ctx_t *ctx, inode_t *inode,
                 ctx->prev_log = cur_time;
         }
 
-        GF_FREE (usage_str);
+        if (dyn_mem)
+                GF_FREE (usage_str);
 }
 
 int32_t
