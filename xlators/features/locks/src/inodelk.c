@@ -478,6 +478,7 @@ pl_inode_setlk (xlator_t *this, pl_ctx_t *ctx, pl_inode_t *pl_inode,
                 if (lock->fl_type != F_UNLCK) {
                         ret = __lock_inodelk (this, pl_inode, lock, can_block, dom);
                         if (ret == 0) {
+				lock->frame = NULL;
                                 gf_log (this->name, GF_LOG_TRACE,
                                         "%s (pid=%d) (lk-owner=%s) %"PRId64" - %"PRId64" => OK",
                                         lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
