@@ -20,7 +20,7 @@ from ipaddr import IPAddress, IPNetwork
 from gconf import gconf
 from syncdutils import FreeObject, norm, grabpidfile, finalize, log_raise_exception
 from syncdutils import GsyncdError, select, set_term_handler, privileged, update_file
-from configinterface import GConffile
+from configinterface import GConffile, upgrade_config_file
 import resource
 from monitor import monitor
 
@@ -371,6 +371,8 @@ def main_i():
                     namedict['remotehost'] = x.remotehost
     if not 'config_file' in rconf:
         rconf['config_file'] = os.path.join(os.path.dirname(sys.argv[0]), "conf/gsyncd_template.conf")
+
+    upgrade_config_file(rconf['config_file'])
     gcnf = GConffile(rconf['config_file'], canon_peers, defaults.__dict__, opts.__dict__, namedict)
 
     checkpoint_change = False
