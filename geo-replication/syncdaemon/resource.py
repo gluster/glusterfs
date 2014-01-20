@@ -779,7 +779,11 @@ class SlaveRemote(object):
             p0.stdin.write(f)
             p0.stdin.write('\n')
         p0.stdin.close()
+
+        # wait() for tar to terminate, collecting any errors, further
+        # waiting for transfer to complete
         p0.wait()
+        p0.terminate_geterr(fail_on_err = False)
 
         p1.wait()
         p1.terminate_geterr(fail_on_err = False)
