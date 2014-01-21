@@ -126,7 +126,7 @@ __glusterd_defrag_notify (struct rpc_clnt *rpc, void *mydata,
                 UNLOCK (&defrag->lock);
 
                gf_log ("", GF_LOG_DEBUG, "%s got RPC_CLNT_CONNECT",
-                        rpc->conn.trans->name);
+                        rpc->conn.name);
                break;
         }
 
@@ -161,7 +161,7 @@ __glusterd_defrag_notify (struct rpc_clnt *rpc, void *mydata,
 
                 GF_FREE (defrag);
                 gf_log ("", GF_LOG_DEBUG, "%s got RPC_CLNT_DISCONNECT",
-                        rpc->conn.trans->name);
+                        rpc->conn.name);
                 break;
         }
         case RPC_CLNT_DESTROY:

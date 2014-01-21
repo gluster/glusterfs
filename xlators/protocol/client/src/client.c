@@ -2205,7 +2205,7 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                                         "will keep trying to connect to "
                                         "glusterd until brick's port is "
                                         "available",
-                                  conf->rpc->conn.trans->peerinfo.identifier);
+                                  conf->rpc->conn.name);
 
                                 if (conf->portmap_err_logged)
                                         conf->disconnect_err_logged = 1;
