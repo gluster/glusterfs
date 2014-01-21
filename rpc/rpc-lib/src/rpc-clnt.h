@@ -144,6 +144,7 @@ struct rpc_clnt_connection {
 	struct timeval           last_sent;
 	struct timeval           last_received;
 	int32_t                  ping_started;
+        char                    *name;
 };
 typedef struct rpc_clnt_connection rpc_clnt_connection_t;
 

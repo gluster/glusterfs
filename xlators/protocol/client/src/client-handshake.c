@@ -1458,7 +1458,7 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
 
         gf_log (this->name, GF_LOG_INFO,
                 "Connected to %s, attached to remote volume '%s'.",
-                conf->rpc->conn.trans->peerinfo.identifier,
+                conf->rpc->conn.name,
                 remote_subvol);
 
         rpc_clnt_set_connected (&conf->rpc->conn);
