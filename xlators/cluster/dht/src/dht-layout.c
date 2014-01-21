@@ -465,11 +465,8 @@ dht_layout_entry_cmp (dht_layout_t *layout, int i, int j)
                        - (int64_t) layout->list[j].stop;
                        goto out;
         }
-        if (layout->list[i].err || layout->list[j].err)
-                diff = layout->list[i].err - layout->list[j].err;
-        else
-                diff = (int64_t) layout->list[i].start
-                        - (int64_t) layout->list[j].start;
+        diff = (int64_t) layout->list[i].start
+                - (int64_t) layout->list[j].start;
 
 out:
         return diff;
@@ -536,8 +533,20 @@ dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
         char        is_virgin = 1;
         uint32_t    no_space  = 0;
 
-        /* TODO: explain what is happening */
+        /* This funtion scans through the layout spread of a directory to
+           check if there are any anomalies. Prior to calling this function
+           the layout entries should be sorted in the ascending order.
 
+           If the layout entry has err != 0
+                then increment the corresponding anomaly.
+           else
+                if (start of the current layout entry > stop + 1 of previous
+                   non erroneous layout entry)
+                        then it indicates a hole in the layout
+                if (start of the current layout entry < stop + 1 of previous
+                    non erroneous layout entry)
+                         then it indicates an overlap in the layout
+        */
         last_stop = layout->list[0].start - 1;
         prev_stop = last_stop;
 
