@@ -1695,7 +1695,7 @@ rpc_clnt_reconfig (struct rpc_clnt *rpc, struct rpc_clnt_config *config)
                                         "changing hostname to %s (from %s)",
                                         config->remote_host,
                                         rpc->conn.config.remote_host);
-                        FREE (rpc->conn.config.remote_host);
+                        GF_FREE (rpc->conn.config.remote_host);
                 } else {
                         gf_log (rpc->conn.trans->name, GF_LOG_INFO,
                                 "setting hostname to %s",
