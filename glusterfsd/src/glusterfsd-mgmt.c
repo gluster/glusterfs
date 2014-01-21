@@ -1572,7 +1572,9 @@ glusterfs_rebalance_event_notify (dict_t *dict)
 
         GF_FREE (req.dict.dict_val);
 
-        STACK_DESTROY (frame->root);
+        if (frame) {
+              STACK_DESTROY (frame->root);
+        }
         return ret;
 }
 
