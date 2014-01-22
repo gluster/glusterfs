@@ -234,6 +234,10 @@ start_glusterfs ()
                 done
             fi
 
+            if [ -n "$volfile_max_fetch_attempts" ]; then
+                cmd_line=$(echo "$cmd_line --volfile-max-fetch-attempts=$volfile_max_fetch_attempts");
+            fi
+
             if [ -n "$server_port" ]; then
                 cmd_line=$(echo "$cmd_line --volfile-server-port=$server_port");
             fi
@@ -410,6 +414,8 @@ main ()
                             "backup-volfile-servers") backup_volfile_servers=$value ;;
                             ## Place-holder backward compatibility
                             "backupvolfile-server") backupvolfile_server=$value ;;
+                            "fetch-attempts") volfile_max_fetch_attempts=$value ;;
+                            ## End backward compatibility
                             "congestion-threshold")  cong_threshold=$value ;;
                             "xlator-option")  xlator_option=$xlator_option" "$pair ;;
                             "fuse-mountopts")  fuse_mountopts=$value ;;
