@@ -142,6 +142,9 @@ static struct argp_option gf_options[] = {
          "Mount the filesystem with POSIX ACL support"},
         {"selinux", ARGP_SELINUX_KEY, 0, 0,
          "Enable SELinux label (extened attributes) support on inodes"},
+        {"volfile-max-fetch-attempts", ARGP_VOLFILE_MAX_FETCH_ATTEMPTS, "0",
+         OPTION_HIDDEN, "Maximum number of attempts to fetch the volfile"},
+
 #ifdef GF_LINUX_HOST_OS
         {"aux-gfid-mount", ARGP_AUX_GFID_MOUNT_KEY, 0, 0,
          "Enable access to filesystem through gfid directly"},
@@ -879,6 +882,9 @@ parse_opts (int key, char *arg, struct argp_state *state)
         case ARGP_DEBUG_KEY:
                 cmd_args->debug_mode = ENABLE_DEBUG_MODE;
                 break;
+        case ARGP_VOLFILE_MAX_FETCH_ATTEMPTS:
+                cmd_args->max_connect_attempts = 1;
+                break;
 
         case ARGP_DIRECT_IO_MODE_KEY:
                 if (!arg)
@@ -1475,6 +1481,16 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
 
                         GF_FREE (tmp_logfile_dyn);
                 }
+        }
+
+        /*
+           This option was made obsolete but parsing it for backward
+           compatibility with third party applications
+         */
+        if (cmd_args->max_connect_attempts) {
+                gf_log ("glusterfs", GF_LOG_WARNING,
+                        "obsolete option '--volfile-max-fetch-attempts"
+                        " or fetch-attempts' was provided");
         }
 
 #ifdef GF_DARWIN_HOST_OS

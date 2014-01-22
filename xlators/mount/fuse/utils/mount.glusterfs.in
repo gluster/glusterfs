@@ -151,6 +151,9 @@ start_glusterfs ()
     if [ -n "$worm" ]; then
         cmd_line=$(echo "$cmd_line --worm");
     fi
+    if [ -n "$volfile_max_fetch_attempts" ]; then
+       cmd_line=$(echo "$cmd_line --volfile-max-fetch-attempts=$volfile_max_fetch_attempts")
+    fi
 
     if [ -n "$fopen_keep_cache" ]; then
         cmd_line=$(echo "$cmd_line --fopen-keep-cache");
@@ -423,6 +426,9 @@ with_options()
             ;;
         "backupvolfile-server")
             backupvolfile_server=$value
+            ;;
+        "fetch-attempts")
+            volfile_max_fetch_attempts=$value
             ;;
         "congestion-threshold")
             cong_threshold=$value
