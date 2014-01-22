@@ -19,7 +19,6 @@
 #include "xlator.h"
 #include "gf-dirent.h"
 
-#define HANDLE_PFX ".glusterfs"
 #define TRASH_DIR "landfill"
 
 #define UUID0_STR "00000000-0000-0000-0000-000000000000"
