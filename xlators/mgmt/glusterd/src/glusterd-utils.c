@@ -1295,11 +1295,14 @@ glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
                                            glusterd_brick_rpc_notify,
                                            brickid);
                 synclock_lock (&priv->big_lock);
-                if (ret)
+                if (ret) {
+                        GF_FREE (brickid);
                         goto out;
+                }
                 brickinfo->rpc = rpc;
         }
 out:
+
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
