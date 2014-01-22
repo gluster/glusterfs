@@ -54,7 +54,7 @@
 #define MAX_NO_VECT 1024
 
 #define POSIX_GFID_HANDLE_SIZE(base_path_len) (base_path_len + SLEN("/") \
-                                               + SLEN(HANDLE_PFX) + SLEN("/") \
+                                               + SLEN(GF_HIDDEN_PATH) + SLEN("/") \
                                                + SLEN("00/")            \
                                                + SLEN("00/") + SLEN(UUID0_STR) + 1) /* '\0' */;
 

@@ -145,7 +145,7 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
         dir_handle = alloca (handle_size);
         linkname   = alloca (PATH_MAX);
         snprintf (dir_handle, handle_size, "%s/%s/%02x/%02x/%s",
-                  priv_base_path, HANDLE_PFX, gfid[0], gfid[1],
+                  priv_base_path, GF_HIDDEN_PATH, gfid[0], gfid[1],
                   uuid_utoa (gfid));
 
         len = readlink (dir_handle, linkname, PATH_MAX);
@@ -343,13 +343,13 @@ posix_handle_path (xlator_t *this, uuid_t gfid, const char *basename,
                 buf = alloca (maxlen);
         }
 
-        base_len = (priv->base_path_length + SLEN(HANDLE_PFX) + 45);
+        base_len = (priv->base_path_length + SLEN(GF_HIDDEN_PATH) + 45);
         base_str = alloca (base_len + 1);
         base_len = snprintf (base_str, base_len + 1, "%s/%s/%02x/%02x/%s",
-                             priv->base_path, HANDLE_PFX, gfid[0], gfid[1],
+                             priv->base_path, GF_HIDDEN_PATH, gfid[0], gfid[1],
                              uuid_str);
 
-        pfx_len = priv->base_path_length + 1 + SLEN(HANDLE_PFX) + 1;
+        pfx_len = priv->base_path_length + 1 + SLEN(GF_HIDDEN_PATH) + 1;
 
         if (basename) {
                 len = snprintf (buf, maxlen, "%s/%s", base_str, basename);
@@ -391,7 +391,7 @@ posix_handle_gfid_path (xlator_t *this, uuid_t gfid, const char *basename,
 
         len = priv->base_path_length  /* option directory "/export" */
                 + SLEN("/")
-                + SLEN(HANDLE_PFX)
+                + SLEN(GF_HIDDEN_PATH)
                 + SLEN("/")
                 + SLEN("00/")
                 + SLEN("00/")
@@ -422,10 +422,10 @@ posix_handle_gfid_path (xlator_t *this, uuid_t gfid, const char *basename,
 
         if (basename) {
                 len = snprintf (buf, buflen, "%s/%s/%02x/%02x/%s/%s", priv->base_path,
-                                HANDLE_PFX, gfid[0], gfid[1], uuid_str, basename);
+                                GF_HIDDEN_PATH, gfid[0], gfid[1], uuid_str, basename);
         } else {
                 len = snprintf (buf, buflen, "%s/%s/%02x/%02x/%s", priv->base_path,
-                                HANDLE_PFX, gfid[0], gfid[1], uuid_str);
+                                GF_HIDDEN_PATH, gfid[0], gfid[1], uuid_str);
         }
 out:
         return len;
@@ -454,10 +454,10 @@ posix_handle_init (xlator_t *this)
                 return -1;
         }
 
-        handle_pfx = alloca (priv->base_path_length + 1 + strlen (HANDLE_PFX)
+        handle_pfx = alloca (priv->base_path_length + 1 + strlen (GF_HIDDEN_PATH)
                              + 1);
 
-        sprintf (handle_pfx, "%s/%s", priv->base_path, HANDLE_PFX);
+        sprintf (handle_pfx, "%s/%s", priv->base_path, GF_HIDDEN_PATH);
 
         ret = stat (handle_pfx, &stbuf);
         switch (ret) {
@@ -621,7 +621,7 @@ posix_handle_trash_init (xlator_t *this)
         priv = this->private;
 
         priv->trash_path = GF_CALLOC (1, priv->base_path_length + strlen ("/")
-                                      + strlen (HANDLE_PFX) + strlen ("/")
+                                      + strlen (GF_HIDDEN_PATH) + strlen ("/")
                                       + strlen (TRASH_DIR) + 1,
                                       gf_posix_mt_trash_path);
 
@@ -629,7 +629,7 @@ posix_handle_trash_init (xlator_t *this)
                 goto out;
 
         strncpy (priv->trash_path, priv->base_path, priv->base_path_length);
-        strcat (priv->trash_path, "/" HANDLE_PFX "/" TRASH_DIR);
+        strcat (priv->trash_path, "/" GF_HIDDEN_PATH "/" TRASH_DIR);
         ret = posix_handle_new_trash_init (this, priv->trash_path);
         if (ret)
                 goto out;
