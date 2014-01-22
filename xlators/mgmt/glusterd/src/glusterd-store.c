@@ -2582,8 +2582,10 @@ glusterd_store_retrieve_peers (xlator_t *this)
                         ret = gf_store_iter_get_next (iter, &key, &value,
                                                       &op_errno);
                 }
-                if (op_errno != GD_STORE_EOF)
+                if (op_errno != GD_STORE_EOF) {
+                        GF_FREE(hostname);
                         goto out;
+                }
 
                 (void) gf_store_iter_destroy (iter);
 
