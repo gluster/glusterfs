@@ -4211,30 +4211,6 @@ stripe_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 op_errno = ENOMEM;
                 goto err;
         }
-        fctx = (stripe_fd_ctx_t *)(long)tmp_fctx;
-        stripe_size = fctx->stripe_size;
-
-        STRIPE_VALIDATE_FCTX (fctx, err);
-
-        remaining_size = len;
-
-        local = mem_get0 (this->local_pool);
-        if (!local) {
-                op_errno = ENOMEM;
-                goto err;
-        }
-        fctx = (stripe_fd_ctx_t *)(long)tmp_fctx;
-        stripe_size = fctx->stripe_size;
-
-        STRIPE_VALIDATE_FCTX (fctx, err);
-
-        remaining_size = len;
-
-        local = mem_get0 (this->local_pool);
-        if (!local) {
-                op_errno = ENOMEM;
-                goto err;
-        }
         frame->local = local;
         local->stripe_size = stripe_size;
         local->fctx = fctx;
