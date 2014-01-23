@@ -762,7 +762,24 @@ ga_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
            but on gfid-path */
         if (!((loc->parent && __is_gfid_access_dir (loc->parent->gfid)) ||
               __is_gfid_access_dir (loc->pargfid))) {
+                if (!loc->parent)
                         goto wind;
+
+                ret = inode_ctx_get (loc->parent, this, &value);
+                if (ret)
+                        goto wind;
+
+                inode = (inode_t *) value;
+
+                ret = loc_copy_overload_parent (&tmp_loc, loc, inode);
+                if (ret)
+                        goto err;
+
+                STACK_WIND (frame, ga_lookup_cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->lookup, &tmp_loc, xdata);
+
+                loc_wipe (&tmp_loc);
+                return 0;
         }
 
         /* make sure the 'basename' is actually a 'canonical-gfid',
