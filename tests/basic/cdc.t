@@ -24,21 +24,21 @@ EXPECT 'off' volinfo_field $V0 'performance.quick-read'
 TEST $CLI volume set $V0 strict-write-ordering on
 EXPECT 'on' volinfo_field $V0 'performance.strict-write-ordering'
 
-## Turn on cdc xlator by setting features.compress to on
-TEST $CLI volume set $V0 compress on
-EXPECT 'on' volinfo_field $V0 'features.compress'
-EXPECT 'server' volinfo_field $V0 'compress.mode'
+## Turn on cdc xlator by setting network.compression to on
+TEST $CLI volume set $V0 network.compression on
+EXPECT 'on' volinfo_field $V0 'network.compression'
+EXPECT 'server' volinfo_field $V0 'network.compression.mode'
 
-## Make sure that user cannot change compress.mode
+## Make sure that user cannot change network.compression.mode
 ## This would break the cdc xlator if allowed!
-TEST $CLI volume set $V0 compress.mode client
-EXPECT 'server' volinfo_field $V0 'compress.mode'
+TEST $CLI volume set $V0 network.compression.mode client
+EXPECT 'server' volinfo_field $V0 'network.compression.mode'
 
-## Turn on compress.debug option
+## Turn on network.compression.debug option
 ## This will dump compressed data onto disk as gzip file
 ## This is used to check if compression actually happened
-TEST $CLI volume set $V0 compress.debug on
-EXPECT 'on' volinfo_field $V0 'compress.debug'
+TEST $CLI volume set $V0 network.compression.debug on
+EXPECT 'on' volinfo_field $V0 'network.compression.debug'
 
 ## Start the volume
 TEST $CLI volume start $V0;
@@ -96,11 +96,11 @@ TEST umount $M0
 TEST $CLI volume stop $V0;
 EXPECT 'Stopped' volinfo_field $V0 'Status';
 
-## Turn on compress.min-size and set it to 100 bytes
+## Turn on network.compression.min-size and set it to 100 bytes
 ## Compression should not take place if file size
 ## is less than 100 bytes
-TEST $CLI volume set $V0 compress.min-size 100
-EXPECT '100' volinfo_field $V0 'compress.min-size'
+TEST $CLI volume set $V0 network.compression.min-size 100
+EXPECT '100' volinfo_field $V0 'network.compression.min-size'
 
 ## Start the volume
 TEST $CLI volume start $V0;
@@ -118,11 +118,11 @@ TEST ! test -e /tmp/cdcdump.gz
 TEST rm -f /tmp/cdc* $M0/cdc*
 TEST umount $M0
 
-## Reset the compress options
-TEST $CLI volume reset $V0 compress.debug
-TEST $CLI volume reset $V0 compress.min-size
-TEST $CLI volume reset $V0 compress.mode
-TEST $CLI volume reset $V0 features.compress
+## Reset the network.compression options
+TEST $CLI volume reset $V0 network.compression.debug
+TEST $CLI volume reset $V0 network.compression.min-size
+TEST $CLI volume reset $V0 network.compression.mode
+TEST $CLI volume reset $V0 network.compression
 
 ## Stop the volume
 TEST $CLI volume stop $V0;
