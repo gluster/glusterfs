@@ -943,6 +943,7 @@ client_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.vector = vector;
         args.count  = count;
         args.offset = off;
+        args.size   = iov_length (vector, count);
         args.flags  = flags;
         args.iobref = iobref;
         args.xdata = xdata;
