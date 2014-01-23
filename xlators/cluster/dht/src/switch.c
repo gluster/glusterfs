@@ -670,6 +670,7 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
                         GF_FREE (dup_str);
                         continue;
                 }
+                GF_FREE (dup_str);
                 memcpy (switch_opt->path_pattern, pattern, strlen (pattern));
                 if (childs) {
                         dup_childs = gf_strdup (childs);
@@ -726,7 +727,6 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
                                 "option in unify volume. Exiting");
                         goto err;
                 }
-                GF_FREE (dup_str);
 
                 /* Link it to the main structure */
                 if (switch_buf) {
