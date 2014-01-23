@@ -3735,6 +3735,7 @@ server3_3_writev (rpcsvc_request_t *req)
         state->resolve.type  = RESOLVE_MUST;
         state->resolve.fd_no = args.fd;
         state->offset        = args.offset;
+        state->size          = args.size;
         state->flags         = args.flag;
         state->iobref        = iobref_ref (req->iobref);
         memcpy (state->resolve.gfid, args.gfid, 16);
