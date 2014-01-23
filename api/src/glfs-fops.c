@@ -2543,23 +2543,23 @@ out:
 int
 glfs_listxattr_process (void *value, size_t size, dict_t *xattr)
 {
-	int     ret = -1;
+	int ret = -1;
+
+	if (!value || !size || !xattr)
+		goto out;
 
 	ret = dict_keys_join (NULL, 0, xattr, NULL);
-
-	if (!value || !size)
-		goto out;
 
 	if (size < ret) {
 		ret = -1;
 		errno = ERANGE;
-		goto out;
+	} else {
+		dict_keys_join (value, size, xattr, NULL);
 	}
 
-	dict_keys_join (value, size, xattr, NULL);
+	dict_unref (xattr);
+
 out:
-	if (xattr)
-		dict_unref (xattr);
 	return ret;
 }
 
