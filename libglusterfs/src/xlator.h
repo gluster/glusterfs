@@ -937,6 +937,8 @@ xlator_t *xlator_search_by_name (xlator_t *any, const char *name);
 void inode_destroy_notify (inode_t *inode, const char *xlname);
 
 int loc_copy (loc_t *dst, loc_t *src);
+int loc_copy_overload_parent (loc_t *dst,
+                              loc_t *src, inode_t *parent);
 #define loc_dup(src, dst) loc_copy(dst, src)
 void loc_wipe (loc_t *loc);
 int loc_path (loc_t *loc, const char *bname);
