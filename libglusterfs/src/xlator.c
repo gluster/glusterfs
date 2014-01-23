@@ -650,6 +650,45 @@ loc_gfid_utoa (loc_t *loc)
 }
 
 int
+loc_copy_overload_parent (loc_t *dst, loc_t *src, inode_t *parent)
+{
+        int ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("xlator", dst, err);
+        GF_VALIDATE_OR_GOTO ("xlator", src, err);
+        GF_VALIDATE_OR_GOTO ("xlator", parent, err);
+
+        uuid_copy (dst->gfid, src->gfid);
+        uuid_copy (dst->pargfid, parent->gfid);
+
+        if (src->inode)
+                dst->inode = inode_ref (src->inode);
+
+        if (parent)
+                dst->parent = inode_ref (parent);
+
+        if (src->path) {
+                dst->path = gf_strdup (src->path);
+
+                if (!dst->path)
+                        goto out;
+
+                if (src->name)
+                        dst->name = strrchr (dst->path, '/');
+                if (dst->name)
+                        dst->name++;
+        }
+
+        ret = 0;
+out:
+        if (ret == -1)
+                loc_wipe (dst);
+
+err:
+        return ret;
+}
+
+int
 loc_copy (loc_t *dst, loc_t *src)
 {
         int ret = -1;
