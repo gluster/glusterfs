@@ -235,7 +235,6 @@ qemu_gluster_co_writev (BlockDriverState *bs, int64_t sector_num, int nb_sectors
 
 	iobref = iobref_new ();
 	if (!iobref) {
-		iobuf_unref (iobuf);
 		goto out;
 	}
 
