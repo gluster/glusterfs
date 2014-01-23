@@ -566,7 +566,6 @@ qr_readv_cached (call_frame_t *frame, qr_inode_t *qr_inode, size_t size,
 		iobref = iobref_new ();
 		if (!iobref) {
 			op_ret = -1;
-			iobuf_unref (iobuf);
 			goto unlock;
 		}
 
