@@ -4805,8 +4805,8 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
                               uuid_str, NULL);
 
 out:
-        if (path_list)
-                GF_FREE (path_list);
+        GF_FREE (path_list);
+        GF_FREE (op_errstr);
 
         return ret;
 }
