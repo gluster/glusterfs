@@ -469,7 +469,7 @@ mount_rewrite_rmtab (struct mount3_state *ms, char *new_rmtab)
                                 "%s as rmtab", nfs->rmtab);
                 } else {
                         GF_FREE (nfs->rmtab);
-                        nfs->rmtab = new_rmtab;
+                        nfs->rmtab = rmtab;
                 }
 
                 gf_store_unlock (nsh);
