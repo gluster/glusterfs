@@ -1508,26 +1508,6 @@ glusterfs_pidfile_setup (glusterfs_ctx_t *ctx)
                 goto out;
         }
 
-        ret = lockf (fileno (pidfp), F_TLOCK, 0);
-        if (ret) {
-                gf_log ("glusterfsd", GF_LOG_ERROR,
-                        "pidfile %s lock error (%s)",
-                        cmd_args->pid_file, strerror (errno));
-                goto out;
-        }
-
-        gf_log ("glusterfsd", GF_LOG_TRACE,
-                "pidfile %s lock acquired",
-                cmd_args->pid_file);
-
-        ret = lockf (fileno (pidfp), F_ULOCK, 0);
-        if (ret) {
-                gf_log ("glusterfsd", GF_LOG_ERROR,
-                        "pidfile %s unlock error (%s)",
-                        cmd_args->pid_file, strerror (errno));
-                goto out;
-        }
-
         ctx->pidfp = pidfp;
 
         ret = 0;
