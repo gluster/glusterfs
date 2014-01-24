@@ -1307,16 +1307,6 @@ out:
         return ret;
 }
 
-/* Caller should ensure that brick process is not running*/
-static void
-_reap_brick_process (char *pidfile, char *brickpath)
-{
-        unlink (pidfile);
-        /* Brick process is not running and pmap may have an entry for it.*/
-        pmap_registry_remove (THIS, 0, brickpath,
-                              GF_PMAP_PORT_BRICKSERVER, NULL);
-}
-
 static int
 _mk_rundir_p (glusterd_volinfo_t *volinfo)
 {
@@ -1370,8 +1360,6 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, priv);
         if (gf_is_service_running (pidfile, NULL))
                 goto connect;
-
-        _reap_brick_process (pidfile, brickinfo->path);
 
         port = brickinfo->port;
         if (!port)
