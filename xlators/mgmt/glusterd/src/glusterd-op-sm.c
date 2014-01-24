@@ -1539,10 +1539,12 @@ glusterd_op_set_volume (dict_t *dict)
         if (dict_count == 0) {
                 ret = glusterd_volset_help (NULL, &op_errstr);
                 if (ret) {
-                        op_errstr = (op_errstr)? op_errstr:
-                                     "Volume set help internal error";
-                        gf_log (this->name, GF_LOG_ERROR, "%s", op_errstr);
+                        gf_log (this->name, GF_LOG_ERROR, "%s", 
+                                       (op_errstr)? op_errstr:
+                                       "Volume set help internal error");
                 }
+
+                GF_FREE(op_errstr);
                 goto out;
          }
 
