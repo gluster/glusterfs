@@ -68,6 +68,10 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 
 	xlator_mem_acct_init (THIS, glfs_mt_end + 1);
 
+	if (!ctx) {
+		goto err;
+	}
+
 	ctx->process_uuid = generate_glusterfs_ctx_id ();
 	if (!ctx->process_uuid) {
 		goto err;
