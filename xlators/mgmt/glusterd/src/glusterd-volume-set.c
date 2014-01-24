@@ -1016,44 +1016,44 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "features/cdc",
           .value       = "off",
           .type        = NO_DOC,
-          .op_version  = 2,
+          .op_version  = 3,
           .description = "enable/disable network compression translator"
         },
         { .key         = "network.compression.mode",
           .voltype     = "features/cdc",
           .option      = "mode",
           .type        = NO_DOC,
-          .op_version  = 2
+          .op_version  = 3
         },
         { .key         = "network.compression.window-size",
           .voltype     = "features/cdc",
           .option      = "window-size",
           .type        = NO_DOC,
-          .op_version  = 2
+          .op_version  = 3
         },
         { .key         = "network.compression.mem-level",
           .voltype     = "features/cdc",
           .option      = "mem-level",
           .type        = NO_DOC,
-          .op_version  = 2
+          .op_version  = 3
         },
         { .key         = "network.compression.min-size",
           .voltype     = "features/cdc",
           .option      = "min-size",
           .type        = NO_DOC,
-          .op_version  = 2
+          .op_version  = 3
         },
         { .key         = "network.compression.compression-level",
           .voltype     = "features/cdc",
           .option      = "compression-level",
           .type        = NO_DOC,
-          .op_version  = 2
+          .op_version  = 3
         },
         { .key         = "network.compression.debug",
           .voltype     = "features/cdc",
           .option      = "debug",
           .type        = NO_DOC,
-          .op_version  = 2
+          .op_version  = 3
         },
 #endif
 
@@ -1462,27 +1462,27 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key         = "changelog.changelog",
           .voltype     = "features/changelog",
           .type        = NO_DOC,
-          .op_version  = 2
+          .op_version  = 3
         },
         { .key         = "changelog.changelog-dir",
           .voltype     = "features/changelog",
           .type        = NO_DOC,
-          .op_version  = 2
+          .op_version  = 3
         },
         { .key         = "changelog.encoding",
           .voltype     = "features/changelog",
           .type        = NO_DOC,
-          .op_version  = 2
+          .op_version  = 3
         },
         { .key         = "changelog.rollover-time",
           .voltype     = "features/changelog",
           .type        = NO_DOC,
-          .op_version  = 2
+          .op_version  = 3
         },
         { .key         = "changelog.fsync-interval",
           .voltype     = "features/changelog",
           .type        = NO_DOC,
-          .op_version  = 2
+          .op_version  = 3
         },
         { .key         = NULL
         }
