@@ -67,10 +67,10 @@ function test_expect_footer()
         local a=$2
         local err=""
 
-        if [ "x${e}" != "x${a}" ]; then
+        if ! [[ "$a" =~ $e ]]; then
                 err="Got \"$a\" instead of \"$e\""
         fi
-        [[ "x${e}" == "x${a}" ]];
+        [[ "$a" =~ $e ]];
 
         test_footer "$err";
 }
@@ -96,11 +96,11 @@ function test_expect_not_footer()
         local a=$2
         local err=""
 
-        if [ "x${e}" == "x${a}" ]; then
+        if [[ "$a" =~ $e ]]; then
                 err="Got \"$a\" when not expecting it"
         fi
 
-        [[ "x${e}" != "x${a}" ]];
+        ! [[ "$a" =~ "$e" ]];
         test_footer "$err";
 }
 
