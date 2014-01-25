@@ -343,6 +343,20 @@ afr_sh_all_nodes_innocent (afr_node_character *characters,
         return ret;
 }
 
+static gf_boolean_t
+afr_sh_has_any_fools (afr_node_character *characters, int child_count)
+{
+        int i   = 0;
+
+        for (i = 0; i < child_count; i++) {
+                if (characters[i].type == AFR_NODE_FOOL) {
+                        return _gf_true;
+                }
+        }
+
+        return _gf_false;
+}
+
 
 static int
 afr_sh_wise_nodes_exist (afr_node_character *characters, int child_count)
@@ -786,6 +800,7 @@ afr_mark_success_children_sources (int32_t *sources, int32_t *success_children,
                 sources[success_children[i]] = 1;
         }
 }
+
 /**
  * mark_sources: Mark all 'source' nodes and return number of source
  * nodes found
@@ -835,6 +850,39 @@ afr_mark_sources (xlator_t *this, int32_t *sources, int32_t **pending_matrix,
         nsources = 0;
         afr_find_character_types (characters, pending_matrix, success_children,
                                   child_count);
+
+        if ((type == AFR_SELF_HEAL_ENTRY) &&
+            afr_sh_has_any_fools (characters, child_count)) {
+                /*
+                 * Force a conservative merge even if there is a single FOOL
+                 * in the characters. Just because a brick's state is FOOL we
+                 * should not assume that the brick does not have new entries.
+                 * Example where this matters:
+                 *All the operations done in this directory are 'creates'.
+                 0) create files a, b in the directory.
+                 1) bring down brick-0 (either the process or network) and
+                    create file 'c'. -- This makes brick-1 as 'source'.
+                 2) Disable self-heal-daemon and entry-self-heal to simulate
+                    the case where self-heal for this directory is not happened
+                    yet.
+                 3) bring up brick-0 and bring down brick-1.
+                 4) create files d, e and before 'post-op' can complete for the
+                    transaction for creation of 'e' bring down brick-0.  That
+                    leaves brick-0 in 'FOOL' state. If the post-op had
+                    completed for brick-0, it would also have gone to 'source'
+                    state and there would have been a split-brain where
+                    conservative merge would have happened and all the files
+                    would have been there.  But because post-op is not
+                    complete, changelogs say brick-1 is correct and brick-0 is
+                    stale which leads to removal of files d, e from brick-0.
+                 */
+                if (subvol_status)
+                        *subvol_status |= SPLIT_BRAIN;
+                //nsources is set to -1 when there is a split-brain
+                nsources = -1;
+                goto out;
+        }
+
         if (afr_sh_all_nodes_innocent (characters, child_count)) {
                 switch (type) {
                 case AFR_SELF_HEAL_METADATA:
