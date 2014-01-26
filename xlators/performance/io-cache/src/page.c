@@ -136,6 +136,7 @@ int64_t
 ioc_page_destroy (ioc_page_t *page)
 {
         int64_t ret = 0;
+        struct ioc_inode *inode = NULL;
 
         if (page == NULL) {
                 goto out;
@@ -143,9 +144,10 @@ ioc_page_destroy (ioc_page_t *page)
 
         ioc_inode_lock (page->inode);
         {
+                inode = page->inode;
                 ret = __ioc_page_destroy (page);
         }
-        ioc_inode_unlock (page->inode);
+        ioc_inode_unlock (inode);
 
 out:
         return ret;
@@ -1032,6 +1034,7 @@ ioc_waitq_t *
 ioc_page_error (ioc_page_t *page, int32_t op_ret, int32_t op_errno)
 {
         ioc_waitq_t  *waitq = NULL;
+        struct ioc_inode *inode = NULL;
 
         if (page == NULL) {
                 goto out;
@@ -1039,9 +1042,10 @@ ioc_page_error (ioc_page_t *page, int32_t op_ret, int32_t op_errno)
 
         ioc_inode_lock (page->inode);
         {
+                inode = page->inode;
                 waitq = __ioc_page_error (page, op_ret, op_errno);
         }
-        ioc_inode_unlock (page->inode);
+        ioc_inode_unlock (inode);
 
 out:
         return waitq;
