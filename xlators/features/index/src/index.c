@@ -490,8 +490,10 @@ sync_base_indices_from_xattrop (xlator_t *this)
                                 continue;
                         }
                         ret = unlink (entry->d_name);
-                        if (ret)
+                        if (ret) {
+                                closedir (dir);
                                 goto out;
+                        }
                 }
                 closedir (dir);
         }
