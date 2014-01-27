@@ -1843,10 +1843,13 @@ dht_vgetxattr_fill_and_set (dht_local_t *local, dict_t **dict, xlator_t *this,
         } else {
                 gf_log (this->name, GF_LOG_WARNING,
                         "Unknown local->xsel (%s)", local->xsel);
+                GF_FREE (xattr_buf);
                 goto out;
         }
 
         ret = dict_set_dynstr (*dict, local->xsel, xattr_buf);
+        if (ret)
+                GF_FREE (xattr_buf);
         GF_FREE (local->xattr_val);
 
  out:
