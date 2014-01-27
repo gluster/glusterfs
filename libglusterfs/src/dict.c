@@ -801,6 +801,8 @@ data_from_dynstr (char *value)
 
         data_t *data = get_new_data ();
 
+        if (!data)
+                return NULL;
         data->len = strlen (value) + 1;
         data->data = value;
 
@@ -817,6 +819,8 @@ data_from_dynmstr (char *value)
 
         data_t *data = get_new_data ();
 
+        if (!data)
+                return NULL;
         data->len = strlen (value) + 1;
         data->data = value;
         data->is_stdalloc = 1;
