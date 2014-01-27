@@ -31,6 +31,7 @@
 #define SYNCOPCTX_UID    0x00000001
 #define SYNCOPCTX_GID    0x00000002
 #define SYNCOPCTX_GROUPS 0x00000004
+#define SYNCOPCTX_PID    0x00000008
 
 struct synctask;
 struct syncproc;
@@ -164,6 +165,7 @@ struct syncopctx {
         int          grpsize;
         int          ngrps;
         gid_t       *groups;
+	pid_t        pid;
 };
 
 #define __yawn(args) do {                                       \
@@ -260,6 +262,7 @@ int synctask_setid (struct synctask *task, uid_t uid, gid_t gid);
 int syncopctx_setfsuid (void *uid);
 int syncopctx_setfsgid (void *gid);
 int syncopctx_setfsgroups (int count, const void *groups);
+int syncopctx_setfspid (void *pid);
 
 static inline call_frame_t *
 syncop_create_frame (xlator_t *this)
@@ -272,9 +275,13 @@ syncop_create_frame (xlator_t *this)
 	if (!frame)
 		return NULL;
 
-	frame->root->pid = getpid ();
-
 	opctx = syncopctx_getctx ();
+
+	if (opctx && (opctx->valid & SYNCOPCTX_PID))
+		frame->root->pid = opctx->pid;
+	else
+		frame->root->pid = getpid ();
+
 	if (opctx && (opctx->valid & SYNCOPCTX_UID))
 		frame->root->uid = opctx->uid;
 	else

@@ -169,6 +169,46 @@ out:
 	return ret;
 }
 
+int
+syncopctx_setfspid (void *pid)
+{
+	struct syncopctx *opctx = NULL;
+	int               ret = 0;
+
+	/* In args check */
+	if (!pid) {
+		ret = -1;
+		errno = EINVAL;
+		goto out;
+	}
+
+	opctx = syncopctx_getctx ();
+
+	/* alloc for this thread the first time */
+	if (!opctx) {
+		opctx = GF_CALLOC (1, sizeof (*opctx), gf_common_mt_syncopctx);
+		if (!opctx) {
+			ret = -1;
+			goto out;
+		}
+
+		ret = syncopctx_setctx (opctx);
+		if (ret != 0) {
+			GF_FREE (opctx);
+			opctx = NULL;
+			goto out;
+		}
+	}
+
+out:
+	if (opctx && pid) {
+		opctx->pid = *(pid_t *)pid;
+		opctx->valid |= SYNCOPCTX_PID;
+	}
+
+	return ret;
+}
+
 static void
 __run (struct synctask *task)
 {
