@@ -418,10 +418,11 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (content) {
 		/* new content came along, always replace old content */
 		qr_inode = qr_inode_ctx_get_or_new (this, inode);
-		if (!qr_inode)
+		if (!qr_inode) {
 			/* no harm done */
+			GF_FREE (content);
 			goto out;
-
+		}
 		qr_content_update (this, qr_inode, content, buf);
 	} else {
 		/* purge old content if necessary */
