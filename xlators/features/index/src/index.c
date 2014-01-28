@@ -655,22 +655,16 @@ _check_key_is_zero_filled (dict_t *d, char *k, data_t *v,
         return 0;
 }
 
-
 void
-_xattrop_index_action (xlator_t *this, inode_t *inode,  dict_t *xattr)
+_index_action (xlator_t *this, inode_t *inode, gf_boolean_t zero_xattr)
 {
-        gf_boolean_t      zero_xattr = _gf_true;
+        int               ret  = 0;
         index_inode_ctx_t *ctx = NULL;
-        int               ret = 0;
-
-        ret = dict_foreach (xattr, _check_key_is_zero_filled, NULL);
-        if (ret == -1)
-                zero_xattr = _gf_false;
 
         ret = index_inode_ctx_get (inode, this, &ctx);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Not able to %s %s -> index",
-                        zero_xattr?"add":"del", uuid_utoa (inode->gfid));
+                        zero_xattr?"del":"add", uuid_utoa (inode->gfid));
                 goto out;
         }
         if (zero_xattr) {
@@ -687,6 +681,19 @@ _xattrop_index_action (xlator_t *this, inode_t *inode,  dict_t *xattr)
                         ctx->state = IN;
         }
 out:
+        return;
+}
+
+void
+_xattrop_index_action (xlator_t *this, inode_t *inode,  dict_t *xattr)
+{
+        gf_boolean_t      zero_xattr = _gf_true;
+        int               ret = 0;
+
+        ret = dict_foreach (xattr, _check_key_is_zero_filled, NULL);
+        if (ret == -1)
+                zero_xattr = _gf_false;
+        _index_action (this, inode, zero_xattr);
         return;
 }
 
@@ -868,6 +875,11 @@ int
 index_xattrop_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc,
                        gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
 {
+        //In wind phase bring the gfid into index. This way if the brick crashes
+        //just after posix performs xattrop before _cbk reaches index xlator
+        //we will still have the gfid in index.
+        _index_action (this, frame->local, _gf_false);
+
         STACK_WIND (frame, index_xattrop_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->xattrop, loc, optype, xattr,
                     xdata);
@@ -878,6 +890,10 @@ int
 index_fxattrop_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                         gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
 {
+        //In wind phase bring the gfid into index. This way if the brick crashes
+        //just after posix performs xattrop before _cbk reaches index xlator
+        //we will still have the gfid in index.
+        _index_action (this, frame->local, _gf_false);
         STACK_WIND (frame, index_fxattrop_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->fxattrop, fd, optype, xattr,
                     xdata);
