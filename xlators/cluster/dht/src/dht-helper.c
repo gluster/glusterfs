@@ -884,8 +884,12 @@ dht_migration_complete_check_task (void *data)
                 if (fd_is_anonymous (iter_fd))
                         continue;
 
+                /* flags for open are stripped down to allow following the
+                 * new location of the file, otherwise we can get EEXIST or
+                 * truncate the file again as rebalance is moving the data */
                 ret = syncop_open (dst_node, &tmp_loc,
-                                   iter_fd->flags, iter_fd);
+                                   (iter_fd->flags &
+                                   ~(O_CREAT | O_EXCL | O_TRUNC)), iter_fd);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR, "failed to open "
                                 "the fd (%p, flags=0%o) on file %s @ %s",
@@ -1034,8 +1038,12 @@ dht_rebalance_inprogress_task (void *data)
                 if (fd_is_anonymous (iter_fd))
                         continue;
 
+                /* flags for open are stripped down to allow following the
+                 * new location of the file, otherwise we can get EEXIST or
+                 * truncate the file again as rebalance is moving the data */
                 ret = syncop_open (dst_node, &tmp_loc,
-                                   iter_fd->flags, iter_fd);
+                                   (iter_fd->flags &
+                                   ~(O_CREAT | O_EXCL | O_TRUNC)), iter_fd);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR, "failed to send open "
                                 "the fd (%p, flags=0%o) on file %s @ %s",
