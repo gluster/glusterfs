@@ -3717,12 +3717,12 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
         }
 
         hashed_subvol = dht_subvol_get_hashed (this, loc);
+        /* Dont fail unlink if hashed_subvol is NULL which can be the result
+         * of layout anomaly */
         if (!hashed_subvol) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "no subvolume in layout for path=%s",
                         loc->path);
-                op_errno = EINVAL;
-                goto err;
         }
 
         cached_subvol = local->cached_subvol;
@@ -3734,7 +3734,7 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
         }
 
         local->flags = xflag;
-        if (hashed_subvol != cached_subvol) {
+        if (hashed_subvol && hashed_subvol != cached_subvol) {
                 STACK_WIND (frame, dht_unlink_linkfile_cbk,
                             hashed_subvol, hashed_subvol->fops->unlink, loc,
                             xflag, xdata);
