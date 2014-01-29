@@ -38,7 +38,7 @@ TEST $CLI volume rebalance $V0 fix-layout start
 
 EXPECT_WITHIN 1 "fix-layout in progress" rebalance_status_field $V0;
 
-EXPECT_WITHIN 20 "fix-layout completed" rebalance_status_field $V0;
+EXPECT_WITHIN 30 "fix-layout completed" rebalance_status_field $V0;
 
 TEST umount $M0
 TEST $CLI volume stop $V0
