@@ -32,11 +32,12 @@ echo 0:0;
 exit 1;
 fi;
 cd \$d;
-available_size=\$(df -B1 \$d | tail -1 | awk "{print \\\$2}");
+disk_size=\$(df -B1 \$d | tail -1 | awk "{print \\\$2}");
+used_size=\$(df -B1 \$d | tail -1 | awk "{print \\\$3}");
 umount -l \$d;
 rmdir \$d;
 ver=\$(gluster --version | head -1 | cut -f2 -d " ");
-echo \$available_size:\$ver;
+echo \$disk_size:\$used_size:\$ver;
 };
 cd /tmp;
 [ x$VOL != x ] && do_verify $VOL;
@@ -61,12 +62,13 @@ echo 0:0;
 exit 1;
 fi;
 cd \$d;
-available_size=\$(df -B1 \$d | tail -1 | awk "{print \\\$4}");
+disk_size=\$(df -B1 \$d | tail -1 | awk "{print \\\$2}");
+available_size=\$(df -B1 \$d | tail -1 | awk "{print \\\$3}");
 no_of_files=\$(find  \$d -maxdepth 0 -empty);
 umount -l \$d;
 rmdir \$d;
 ver=\$(gluster --version | head -1 | cut -f2 -d " ");
-echo \$available_size:\$ver:\$no_of_files:;
+echo \$disk_size:\$used_size:\$ver:\$no_of_files;
 };
 cd /tmp;
 [ x$VOL != x ] && do_verify $VOL;
@@ -118,11 +120,13 @@ function main()
     ERRORS=0;
     master_data=$(master_stats $1);
     slave_data=$(slave_stats $2 $3);
-    master_size=$(echo $master_data | cut -f1 -d':');
-    slave_size=$(echo $slave_data | cut -f1 -d':');
-    master_version=$(echo $master_data | cut -f2 -d':');
-    slave_version=$(echo $slave_data | cut -f2 -d':');
-    slave_no_of_files=$(echo $slave_data | cut -f3 -d':');
+    master_disk_size=$(echo $master_data | cut -f1 -d':');
+    slave_disk_size=$(echo $slave_data | cut -f1 -d':');
+    master_used_size=$(echo $master_data | cut -f2 -d':');
+    slave_used_size=$(echo $slave_data | cut -f2 -d':');
+    master_version=$(echo $master_data | cut -f3 -d':');
+    slave_version=$(echo $slave_data | cut -f3 -d':');
+    slave_no_of_files=$(echo $slave_data | cut -f4 -d':');
 
     if [[ "x$master_size" = "x" || "x$master_version" = "x" || "$master_size" -eq "0" ]]; then
 	echo "FORCE_BLOCKER|Unable to fetch master volume details. Please check the master cluster and master volume." > $log_file;
@@ -138,16 +142,25 @@ function main()
     # if they fail. The checks below can be bypassed if force option is
     # provided hence no FORCE_BLOCKER flag.
 
-    if [ ! $slave_size -ge $(($master_size - $BUFFER_SIZE )) ]; then
-	echo "Total size of master is greater than available size of slave." >> $log_file;
-	ERRORS=$(($ERRORS + 1));
-    fi;
+    if [ "$slave_disk_size" -lt "$master_disk_size" ]; then
+        echo "Total disk size of master is greater than disk size of slave." >> $log_file;
+        ERRORS=$(($ERRORS + 1));
+    fi
+
+    effective_master_used_size=$(( $master_used_size + $BUFFER_SIZE ))
+    slave_available_size=$(( $slave_disk_size - $slave_used_size ))
+    master_available_size=$(( $master_disk_size - $effective_master_used_size ));
+
+    if [ "$slave_available_size" -lt "$master_available_size" ]; then
+        echo "Total available size of master is greater than available size of slave" >> $log_file;
+        ERRORS=$(($ERRORS + 1));
+    fi
 
     if [ -z $slave_no_of_files ]; then
         echo "$2::$3 is not empty. Please delete existing files in $2::$3 and retry, or use force to continue without deleting the existing files." >> $log_file;
         ERRORS=$(($ERRORS + 1));
     fi;
- 
+
     if [[ $master_version > $slave_version ]]; then
 	echo "Gluster version mismatch between master and slave." >> $log_file;
 	ERRORS=$(($ERRORS + 1));
