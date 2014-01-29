@@ -362,23 +362,23 @@ posix_setattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (valid & GF_SET_ATTR_MODE) {
-                op_ret = posix_do_chmod (this, real_path, stbuf);
-                if (op_ret == -1) {
-                        op_errno = errno;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "setattr (chmod) on %s failed: %s", real_path,
-                                strerror (op_errno));
-                        goto out;
-                }
-        }
-
         if (valid & (GF_SET_ATTR_UID | GF_SET_ATTR_GID)){
                 op_ret = posix_do_chown (this, real_path, stbuf, valid);
                 if (op_ret == -1) {
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR,
                                 "setattr (chown) on %s failed: %s", real_path,
+                                strerror (op_errno));
+                        goto out;
+                }
+        }
+
+        if (valid & GF_SET_ATTR_MODE) {
+                op_ret = posix_do_chmod (this, real_path, stbuf);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "setattr (chmod) on %s failed: %s", real_path,
                                 strerror (op_errno));
                         goto out;
                 }
