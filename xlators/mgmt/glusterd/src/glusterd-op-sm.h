@@ -286,7 +286,8 @@ glusterd_are_all_volumes_stopped ();
 int
 glusterd_stop_bricks (glusterd_volinfo_t *volinfo);
 int
-gsync_status (char *master, char *slave, char *conf_path, int *status);
+gsync_status (char *master, char *slave, char *conf_path,
+              int *status, gf_boolean_t *is_template_in_use);
 
 int
 glusterd_check_gsync_running (glusterd_volinfo_t *volinfo, gf_boolean_t *flag);
