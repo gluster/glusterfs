@@ -6392,11 +6392,13 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         char                         buf[1024] = "faulty";
         int                          uuid_len = 0;
         int                          ret = 0;
+        int                          ret_status = 0;
         char                         uuid_str[64] = {0};
         glusterd_volinfo_t          *volinfo = NULL;
         char                         confpath[PATH_MAX] = "";
         char                        *op_errstr = NULL;
         glusterd_conf_t             *priv = NULL;
+        gf_boolean_t                 is_template_in_use = _gf_false;
 
         GF_ASSERT (THIS);
         priv = THIS->private;
@@ -6434,7 +6436,8 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
 
         /* Fetching the last status of the node */
         ret = glusterd_get_statefile_name (volinfo, slave,
-                                           confpath, &statefile);
+                                           confpath, &statefile,
+                                           &is_template_in_use);
         if (ret) {
                 if (!strstr(slave, "::"))
                         gf_log ("", GF_LOG_INFO,
@@ -6442,6 +6445,34 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
                 else
                         gf_log ("", GF_LOG_INFO, "Unable to get"
                                 " statefile's name");
+                goto out;
+        }
+
+        /* If state-file entry is missing from the config file,
+         * do not start gsyncd on restart */
+        if (is_template_in_use) {
+                gf_log ("", GF_LOG_INFO,
+                        "state-file entry is missing in config file."
+                        "Not Restarting");
+                goto out;
+        }
+
+        is_template_in_use = _gf_false;
+
+        ret = gsync_status (volinfo->volname, slave, confpath,
+                            &ret_status, &is_template_in_use);
+        if (ret == -1) {
+                gf_log ("", GF_LOG_INFO,
+                        GEOREP" start option validation failed ");
+                ret = 0;
+                goto out;
+        }
+
+        if (is_template_in_use == _gf_true) {
+                gf_log ("", GF_LOG_INFO,
+                        "pid-file entry is missing in config file."
+                        "Not Restarting");
+                ret = 0;
                 goto out;
         }
 
@@ -6463,10 +6494,36 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
                 goto out;
         }
 
+        if ((!strcmp (buf, "Config Corrupted"))) {
+                gf_log ("", GF_LOG_INFO,
+                        "Recovering from a corrupted config. "
+                        "Not Restarting. Use start (force) to "
+                        "start the session between %s and %s::%s.",
+                        volinfo->volname,
+                        slave_ip, slave_vol);
+                goto out;
+        }
+
         glusterd_start_gsync (volinfo, slave, path_list, confpath,
                               uuid_str, NULL);
 
 out:
+        if (statefile)
+                GF_FREE (statefile);
+
+        if (is_template_in_use) {
+                ret = glusterd_create_status_file (volinfo->volname, slave,
+                                                   slave_ip, slave_vol,
+                                                   "Config Corrupted");
+               if (ret) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Unable to create status file"
+                                ". Error : %s", strerror (errno));
+                        ret = -1;
+                        goto out;
+               }
+        }
+
         GF_FREE (path_list);
         GF_FREE (op_errstr);
 
@@ -8066,6 +8123,7 @@ glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
         xlator_t        *this = NULL;
         glusterd_conf_t *priv = NULL;
         int             errcode = 0;
+        gf_boolean_t    is_template_in_use = _gf_false;
 
         this = THIS;
         GF_ASSERT (this);
@@ -8081,9 +8139,18 @@ glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
                 goto out;
         }
 
-        ret = gsync_status (master_vol->volname, slave, conf_path, &status);
+        ret = gsync_status (master_vol->volname, slave, conf_path,
+                            &status, &is_template_in_use);
         if (status == 0)
                 goto out;
+
+        if (is_template_in_use == _gf_true) {
+                gf_asprintf (op_errstr, GEOREP" start failed for %s %s : "
+                             "pid-file entry missing in config file",
+                             master_vol->volname, slave);
+                ret = -1;
+                goto out;
+        }
 
         uuid_utoa_r (master_vol->volume_id, uuid_str);
         runinit (&runner);

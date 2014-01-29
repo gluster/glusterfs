@@ -633,10 +633,15 @@ glusterd_get_slave_info (char *slave, char **slave_ip,
 
 int
 glusterd_get_statefile_name (glusterd_volinfo_t *volinfo, char *slave,
-                             char *conf_path, char **statefile);
+                             char *conf_path, char **statefile,
+                             gf_boolean_t *is_template_in_use);
 
 int
 glusterd_gsync_read_frm_status (char *path, char *buf, size_t blen);
+
+int
+glusterd_create_status_file (char *master, char *slave, char *slave_ip,
+                             char *slave_vol, char *status);
 
 int
 glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave,
