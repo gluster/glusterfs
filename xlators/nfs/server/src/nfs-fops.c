@@ -317,6 +317,9 @@ nfs_gfid_dict (inode_t *inode)
         uuid_t  rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
         dyngfid = GF_CALLOC (1, sizeof (uuid_t), gf_common_mt_char);
+        if (dyngfid == NULL)
+                return (NULL);
+
         uuid_generate (newgfid);
 
         if (uuid_compare (inode->gfid, rootgfid) == 0)
@@ -327,16 +330,17 @@ nfs_gfid_dict (inode_t *inode)
         dictgfid = dict_new ();
         if (!dictgfid) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "Failed to create gfid dict");
-                goto out;
+                GF_FREE (dyngfid);
+                return (NULL);
         }
 
         ret = dict_set_bin (dictgfid, "gfid-req", dyngfid, sizeof (uuid_t));
         if (ret < 0) {
+                GF_FREE (dyngfid);
                 dict_unref (dictgfid);
-                dictgfid = NULL;
+                return (NULL);
         }
 
-out:
         return dictgfid;
 }
 
