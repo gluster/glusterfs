@@ -21,14 +21,15 @@
  *
  * 3.3.0                - 1
  * 3.4.0                - 2
- * 3.next (3.5?)        - 3
+ * 3.5.0                - 3
+ * 3.next (3.6?)        - 4
  *
  * TODO: Change above comment once gluster version is finalised
  * TODO: Finalize the op-version ranges
  */
 #define GD_OP_VERSION_MIN  1 /* MIN is the fresh start op-version, mostly
                                 should not change */
-#define GD_OP_VERSION_MAX  3 /* MAX VERSION is the maximum count in VME table,
+#define GD_OP_VERSION_MAX  4 /* MAX VERSION is the maximum count in VME table,
                                 should keep changing with introduction of newer
                                 versions */
 
