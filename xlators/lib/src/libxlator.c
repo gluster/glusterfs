@@ -233,6 +233,7 @@ out:
                 frame->local = local->xl_local;
                 local->xl_specf_unwind (frame, op_ret,
                                         op_errno, dict, xdata);
+		GF_FREE (local);
         } else if (need_unwind) {
                 STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno,
                                      dict, xdata);
@@ -344,6 +345,7 @@ unlock:
                 frame->local = local->xl_local;
                 local->xl_specf_unwind (frame, op_ret,
                                         op_errno, dict, xdata);
+		GF_FREE (local);
                 return 0;
         } else if (need_unwind){
                 STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno,
