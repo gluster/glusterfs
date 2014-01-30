@@ -79,7 +79,7 @@ TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --volfile-check
 TEST umount -l $M0
 
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --dump-fuse=/tmp/a.txt
-EXPECT_NOT "0" wc -l /tmp/a.txt
+EXPECT "0" stat /tmp/a.txt
 TEST rm -f /tmp/a.txt
 TEST umount -l $M0
 

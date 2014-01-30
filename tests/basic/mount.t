@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../nfs.rc
 
 cleanup;
 
@@ -49,7 +50,11 @@ TEST 'mount -t fuse.glusterfs | grep -E "^$H0:$V0 .+ \(ro,"';
 TEST 'grep -E "^$H0:$V0 .+ ,?ro,.+" /proc/mounts';
 
 ## Wait for volume to register with rpc.mountd
-sleep 5;
+EXPECT_WITHIN 20 "1" is_nfs_export_available;
+
+## HACK: mount seems to require about 40 seconds more to be successful,
+## sleep 40 is an interim fix till we root cause the underlying issue.
+sleep 40
 
 ## Mount NFS
 TEST mount -t nfs -o nolock,soft,intr $H0:/$V0 $N0;
