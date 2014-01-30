@@ -315,6 +315,7 @@ __ioc_wait_on_page (ioc_page_t *page, call_frame_t *frame, off_t offset,
                 local->op_errno = ENOMEM;
                 gf_log (frame->this->name, GF_LOG_WARNING,
                         "asked to wait on a NULL page");
+                goto out;
         }
 
         waitq = GF_CALLOC (1, sizeof (*waitq), gf_ioc_mt_ioc_waitq_t);
@@ -476,6 +477,7 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         iobref_unref (page->iobref);
                                         GF_FREE (page->vector);
                                         page->vector = NULL;
+                                        page->iobref = NULL;
                                 }
 
                                 /* keep a copy of the page for our cache */
