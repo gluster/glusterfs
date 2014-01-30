@@ -51,7 +51,7 @@ typedef struct gf_changelog {
         /* connection retries */
         int gfc_connretries;
 
-        char gfc_sockpath[PATH_MAX];
+        char gfc_sockpath[UNIX_PATH_MAX];
 
         char gfc_brickpath[PATH_MAX];
 

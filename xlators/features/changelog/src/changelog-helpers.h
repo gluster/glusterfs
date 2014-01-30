@@ -125,7 +125,7 @@ typedef struct changelog_notify {
         pthread_t notify_th;
 
         /* unique socket path */
-        char sockpath[PATH_MAX];
+        char sockpath[UNIX_PATH_MAX];
 
         int socket_fd;
 

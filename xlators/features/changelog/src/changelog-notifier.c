@@ -178,7 +178,7 @@ changelog_notifier (void *data)
         }
 
         CHANGELOG_MAKE_SOCKET_PATH (priv->changelog_brick,
-                                    cn->sockpath, PATH_MAX);
+                                    cn->sockpath, UNIX_PATH_MAX);
         if (unlink (cn->sockpath) < 0) {
                 if (errno != ENOENT) {
                         gf_log (this->name, GF_LOG_ERROR,
