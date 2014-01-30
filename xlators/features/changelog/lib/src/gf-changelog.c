@@ -173,7 +173,7 @@ gf_changelog_notification_init (xlator_t *this, gf_changelog_t *gfc)
         }
 
         CHANGELOG_MAKE_SOCKET_PATH (gfc->gfc_brickpath,
-                                    gfc->gfc_sockpath, PATH_MAX);
+                                    gfc->gfc_sockpath, UNIX_PATH_MAX);
         gf_log (this->name, GF_LOG_INFO,
                 "connecting to changelog socket: %s (brick: %s)",
                 gfc->gfc_sockpath, gfc->gfc_brickpath);
