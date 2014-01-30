@@ -101,6 +101,7 @@ qr_inode_ctx_get_or_new (xlator_t *this, inode_t *inode)
 		if (ret) {
 			__qr_inode_prune (&priv->table, qr_inode);
 			GF_FREE (qr_inode);
+                        qr_inode = NULL;
 		}
 	}
 unlock:

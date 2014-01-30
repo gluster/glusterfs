@@ -967,11 +967,11 @@ __wb_collapse_small_writes (wb_request_t *holder, wb_request_t *req)
 
                 ret = iobref_add (iobref, iobuf);
                 if (ret != 0) {
-                        iobuf_unref (iobuf);
-                        iobref_unref (iobref);
                         gf_log (req->wb_inode->this->name, GF_LOG_WARNING,
                                 "cannot add iobuf (%p) into iobref (%p)",
                                 iobuf, iobref);
+                        iobuf_unref (iobuf);
+                        iobref_unref (iobref);
                         goto out;
                 }
 
