@@ -363,10 +363,9 @@ volopt_trie_section (int lvl, char **patt, char *word, char **hint, int hints)
         GF_ASSERT (hints <= 2);
         nodevec.cnt = hints;
         ret = trie_measure_vec (trie, word, &nodevec);
-        if (ret || !nodevec.nodes[0])
-                trie_destroy (trie);
+        if (!ret && nodevec.nodes[0])
+                ret = process_nodevec (&nodevec, hint);
 
-        ret = process_nodevec (&nodevec, hint);
         trie_destroy (trie);
 
         return ret;
