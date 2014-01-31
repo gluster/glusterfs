@@ -362,12 +362,11 @@ gf_store_handle_new (char *path, gf_store_handle_t **handle)
                 goto out;
 
         spath = gf_strdup (path);
-
         if (!spath)
                 goto out;
 
         fd = open (path, O_RDWR | O_CREAT | O_APPEND, 0600);
-        if (fd <= 0) {
+        if (fd < 0) {
                 gf_log ("", GF_LOG_ERROR, "Failed to open file: %s, error: %s",
                         path, strerror (errno));
                 goto out;
@@ -383,7 +382,7 @@ gf_store_handle_new (char *path, gf_store_handle_t **handle)
 
         ret = 0;
 out:
-        if (fd > 0)
+        if (fd >= 0)
                 close (fd);
 
         if (ret == -1) {
