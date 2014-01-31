@@ -371,6 +371,7 @@ sync_base_indices (void *index_priv)
         char            xattrop_directory[PATH_MAX] = {0};
         char            base_index_path[PATH_MAX] = {0};
         char            xattrop_index_path[PATH_MAX] = {0};
+        int32_t         op_errno = 0;
         int             ret = 0;
 
         priv = index_priv;
@@ -381,11 +382,14 @@ sync_base_indices (void *index_priv)
                   XATTROP_SUBDIR);
 
         if ((dir_base_holder = opendir(base_indices_holder)) == NULL) {
+                op_errno = errno;
                 ret = -1;
                 goto out;
         }
         if ((xattrop_dir = opendir (xattrop_directory)) == NULL) {
+                op_errno = errno;
                 ret = -1;
+                (void) closedir (dir_base_holder);
                 goto out;
         }
 
@@ -410,20 +414,30 @@ sync_base_indices (void *index_priv)
 
                     ret = sys_link (xattrop_index_path, base_index_path);
 
-                    if (ret && errno != EEXIST)
+                    if (ret && errno != EEXIST) {
+                        op_errno = errno;
+                        (void) closedir (dir_base_holder);
+                        (void) closedir (xattrop_dir);
                         goto out;
+                    }
 
                 }
         }
         ret = closedir (xattrop_dir);
-        if (ret)
+        if (ret) {
+                op_errno = errno;
+                (void) closedir (dir_base_holder);
                 goto out;
+        }
         ret = closedir (dir_base_holder);
-        if (ret)
+        if (ret) {
+                op_errno = errno;
                 goto out;
+        }
 
         ret = 0;
 out:
+        errno = op_errno;
         return ret;
 
 }
