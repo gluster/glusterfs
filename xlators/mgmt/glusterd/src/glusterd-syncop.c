@@ -1099,9 +1099,11 @@ gd_unlock_op_phase (struct list_head *peers, glusterd_op_t op, int op_ret,
 
 out:
         glusterd_op_send_cli_response (op, op_ret, 0, req, op_ctx, op_errstr);
-        glusterd_op_clear_op (op);
-        if (is_locked)
+        /* Unlock and reset opinfo.op ONLY if lock ever succeeded! */
+        if (is_locked) {
+                glusterd_op_clear_op (op);
                 glusterd_unlock (MY_UUID);
+        }
 
         return 0;
 }
