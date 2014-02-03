@@ -3228,31 +3228,30 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
                 ret = dict_get_uint64 (dict, key, &failures);
                 if (ret)
                         goto out;
-                total_failures += failures;
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"failures",
-                                                       "%"PRIu64, failures);
-                XML_RET_CHECK_AND_GOTO (ret, out);
 
-                /* skipped-%d is not available for remove brick in dict,
-                   so using failures as skipped count in case of remove-brick
-                   similar to logic used in CLI(non xml output) */
-                if (task_type == GF_TASK_TYPE_REBALANCE) {
-                    memset (key, 0, sizeof (key));
-                    snprintf (key, sizeof (key), "skipped-%d", i);
-                }
-                else {
-                    memset (key, 0, sizeof (key));
-                    snprintf (key, sizeof (key), "failures-%d", i);
-                }
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "skipped-%d", i);
 
                 ret = dict_get_uint64 (dict, key, &skipped);
                 if (ret)
                         goto out;
-                total_skipped += skipped;
+
+                if (task_type == GF_TASK_TYPE_REMOVE_BRICK) {
+                        failures += skipped;
+                        skipped = 0;
+                }
+
+                total_failures += failures;
                 ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"skipped",
-                                                       "%"PRIu64, skipped);
+                                               (xmlChar *)"failures",
+                                               "%"PRIu64, failures);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                total_skipped += skipped;
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                               (xmlChar *)"skipped",
+                                               "%"PRIu64, skipped);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 ret = xmlTextWriterWriteFormatElement (writer,

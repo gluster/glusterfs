@@ -42,6 +42,11 @@
 #include "cli-quotad-client.h"
 #include "run.h"
 
+enum gf_task_types {
+        GF_TASK_TYPE_REBALANCE,
+        GF_TASK_TYPE_REMOVE_BRICK
+};
+
 extern struct rpc_clnt *global_quotad_rpc;
 extern rpc_clnt_prog_t cli_quotad_clnt;
 extern rpc_clnt_prog_t *cli_rpc_prog;
@@ -1225,7 +1230,7 @@ out:
 }
 
 int
-gf_cli_print_rebalance_status (dict_t *dict)
+gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type)
 {
         int                ret          = -1;
         int                count        = 0;
@@ -1316,6 +1321,13 @@ gf_cli_print_rebalance_status (dict_t *dict)
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE,
                                 "failed to get skipped count");
+
+                /* For remove-brick include skipped count into failure count*/
+                if (task_type != GF_TASK_TYPE_REBALANCE) {
+                        failures += skipped;
+                        skipped = 0;
+                }
+
                 memset (key, 0, 256);
                 snprintf (key, 256, "run-time-%d", i);
                 ret = dict_get_double (dict, key, &elapsed);
@@ -1470,7 +1482,7 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gf_cli_print_rebalance_status (dict);
+        ret = gf_cli_print_rebalance_status (dict, GF_TASK_TYPE_REBALANCE);
         if (ret)
                 gf_log ("cli", GF_LOG_ERROR,
                         "Failed to print rebalance status");
@@ -1873,7 +1885,7 @@ xml_output:
                 goto out;
         }
 
-        ret = gf_cli_print_rebalance_status (dict);
+        ret = gf_cli_print_rebalance_status (dict, GF_TASK_TYPE_REMOVE_BRICK);
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Failed to print remove-brick "
                         "rebalance status");
