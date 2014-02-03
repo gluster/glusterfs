@@ -229,10 +229,18 @@ acl3svc_null (rpcsvc_request_t *req)
 }
 
 int
-acl3_getacl_reply (nfs3_call_state_t *cs, getaclreply *reply)
+acl3_getacl_reply (rpcsvc_request_t *req, getaclreply *reply)
 {
-        acl3svc_submit_reply (cs->req, (void *)reply,
+        acl3svc_submit_reply (req, (void *)reply,
                               (acl3_serializer)xdr_serialize_getaclreply);
+        return 0;
+}
+
+int
+acl3_setacl_reply (rpcsvc_request_t *req, setaclreply *reply)
+{
+        acl3svc_submit_reply (req, (void *)reply,
+                              (acl3_serializer)xdr_serialize_setaclreply);
         return 0;
 }
 
@@ -300,14 +308,14 @@ acl3_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 getaclreply->daclentry.daclentry_len = aclcount;
         }
 
-        acl3_getacl_reply (cs, getaclreply);
+        acl3_getacl_reply (cs->req, getaclreply);
         nfs3_call_state_wipe (cs);
         return 0;
 
 err:
         if (getaclreply)
                 getaclreply->status = stat;
-        acl3_getacl_reply (cs, getaclreply);
+        acl3_getacl_reply (cs->req, getaclreply);
         nfs3_call_state_wipe (cs);
         return 0;
 }
@@ -354,7 +362,7 @@ acl3_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 err:
         getaclreply->status = stat;
-        acl3_getacl_reply (cs, getaclreply);
+        acl3_getacl_reply (cs->req, getaclreply);
         nfs3_call_state_wipe (cs);
         return 0;
 }
@@ -382,7 +390,7 @@ acl3err:
         if (ret < 0) {
                 gf_log (GF_ACL, GF_LOG_ERROR, "unable to open_and_resume");
                 cs->args.getaclreply.status = nfs3_errno_to_nfsstat3 (stat);
-                acl3_getacl_reply (cs, &cs->args.getaclreply);
+                acl3_getacl_reply (cs->req, &cs->args.getaclreply);
                 nfs3_call_state_wipe (cs);
         }
 
@@ -401,6 +409,7 @@ acl3svc_getacl (rpcsvc_request_t *req)
         nfsstat3                        stat = NFS3ERR_SERVERFAULT;
         struct nfs3_fh                  fh, *fhp = NULL;
         getaclargs                      getaclargs;
+        getaclreply                     getaclreply;
 
         if (!req)
                 return ret;
@@ -408,6 +417,7 @@ acl3svc_getacl (rpcsvc_request_t *req)
         acl3_validate_nfs3_state (req, nfs3, stat, rpcerr, ret);
         nfs = nfs_state (nfs3->nfsx);
         memset (&getaclargs, 0, sizeof (getaclargs));
+        memset (&getaclreply, 0, sizeof (getaclreply));
         getaclargs.fh.n_bytes = (char *)&fh;
         if (xdr_to_getaclargs(req->msg[0], &getaclargs) <= 0) {
                 gf_log (GF_ACL, GF_LOG_ERROR, "Error decoding args");
@@ -423,26 +433,23 @@ acl3svc_getacl (rpcsvc_request_t *req)
 
         fhp = &fh;
         acl3_validate_gluster_fh (&fh, stat, acl3err);
-        acl3_map_fh_to_volume (nfs->nfs3state, fhp, req,
-                               vol, stat, acl3err);
+        acl3_map_fh_to_volume (nfs->nfs3state, fhp, req, vol, stat, acl3err);
+        acl3_volume_started_check (nfs3, vol, ret, rpcerr);
         acl3_handle_call_state_init (nfs->nfs3state, cs, req,
-                                     vol, stat, rpcerr);
+                                     vol, stat, acl3err);
 
         cs->vol = vol;
         cs->args.getaclreply.mask = getaclargs.mask;
-        acl3_volume_started_check (nfs3, vol, ret, acl3err);
 
-        ret = nfs3_fh_resolve_and_resume (cs, fhp,
-                                          NULL, acl3_getacl_resume);
+        ret = nfs3_fh_resolve_and_resume (cs, fhp, NULL, acl3_getacl_resume);
+        stat = nfs3_errno_to_nfsstat3 (-ret);
 
 acl3err:
         if (ret < 0) {
                 gf_log (GF_ACL, GF_LOG_ERROR, "unable to resolve and resume");
-                if (cs) {
-                        cs->args.getaclreply.status = stat;
-                        acl3_getacl_reply (cs, &cs->args.getaclreply);
-                        nfs3_call_state_wipe (cs);
-                }
+                getaclreply.status = stat;
+                acl3_getacl_reply (req, &getaclreply);
+                nfs3_call_state_wipe (cs);
                 return 0;
         }
 
@@ -462,8 +469,8 @@ acl3_setacl_cbk (call_frame_t *frame, void *cookie,
                 cs->args.setaclreply.status = status;
         }
 
-        acl3svc_submit_reply (cs->req, (void *)&cs->args.setaclreply,
-                              (acl3_serializer)xdr_serialize_setaclreply);
+        acl3_setacl_reply (cs->req, &cs->args.setaclreply);
+
         return 0;
 }
 
@@ -500,8 +507,7 @@ acl3err:
                 stat = -ret;
                 gf_log (GF_ACL, GF_LOG_ERROR, "unable to open_and_resume");
                 cs->args.setaclreply.status = nfs3_errno_to_nfsstat3 (stat);
-                acl3svc_submit_reply (cs->req, (void *)&cs->args.setaclreply,
-                                      (acl3_serializer)xdr_serialize_setaclreply);
+                acl3_setacl_reply (cs->req, &cs->args.setaclreply);
                 nfs3_call_state_wipe (cs);
         }
 
@@ -521,8 +527,9 @@ acl3svc_setacl (rpcsvc_request_t *req)
         struct nfs3_fh                 fh;
         struct nfs3_fh                 *fhp = NULL;
         setaclargs                     setaclargs;
+        setaclreply                    setaclreply;
+        aclentry                       *daclentry = NULL;
         aclentry                       *aclentry = NULL;
-        struct aclentry                *daclentry = NULL;
         int                            aclerrno = 0;
         int                            defacl = 1;
 
@@ -542,6 +549,7 @@ acl3svc_setacl (rpcsvc_request_t *req)
         acl3_validate_nfs3_state (req, nfs3, stat, rpcerr, ret);
         nfs = nfs_state (nfs3->nfsx);
         memset (&setaclargs, 0, sizeof (setaclargs));
+        memset (&setaclreply, 0, sizeof (setaclreply));
         memset (&fh, 0, sizeof (fh));
         setaclargs.fh.n_bytes = (char *)&fh;
         setaclargs.aclentry.aclentry_val = aclentry;
@@ -560,14 +568,12 @@ acl3svc_setacl (rpcsvc_request_t *req)
 
         fhp = &fh;
         acl3_validate_gluster_fh (fhp, stat, acl3err);
-        acl3_map_fh_to_volume (nfs->nfs3state, fhp, req,
-                               vol, stat, acl3err);
+        acl3_map_fh_to_volume (nfs->nfs3state, fhp, req, vol, stat, acl3err);
+        acl3_volume_started_check (nfs3, vol, ret, rpcerr);
         acl3_handle_call_state_init (nfs->nfs3state, cs, req,
-                                     vol, stat, rpcerr);
+                                     vol, stat, acl3err);
 
         cs->vol = vol;
-        acl3_volume_started_check (nfs3, vol, ret, rpcerr);
-
         cs->aclcount = setaclargs.aclcount;
         cs->daclcount = setaclargs.daclcount;
 
@@ -593,15 +599,14 @@ acl3svc_setacl (rpcsvc_request_t *req)
                 goto acl3err;
         }
 
-        ret = nfs3_fh_resolve_and_resume (cs, fhp,
-                                          NULL, acl3_setacl_resume);
+        ret = nfs3_fh_resolve_and_resume (cs, fhp, NULL, acl3_setacl_resume);
+        stat = nfs3_errno_to_nfsstat3 (-ret);
 
 acl3err:
         if (ret < 0) {
                 gf_log (GF_ACL, GF_LOG_ERROR, "unable to resolve and resume");
-                cs->args.setaclreply.status = stat;
-                acl3svc_submit_reply (cs->req, (void *)&cs->args.setaclreply,
-                                      (acl3_serializer)xdr_serialize_setaclreply);
+                setaclreply.status = stat;
+                acl3_setacl_reply (req, &setaclreply);
                 nfs3_call_state_wipe (cs);
                 GF_FREE(aclentry);
                 GF_FREE(daclentry);
