@@ -21,7 +21,6 @@
 #include "config.h"
 #endif
 
-
 static int
 gf_client_chain_client_entries (cliententry_t *entries, uint32_t startidx,
                         uint32_t endcount)
@@ -82,8 +81,9 @@ gf_client_clienttable_expand (clienttable_t *clienttable, uint32_t nr)
                 memcpy (clienttable->cliententries, oldclients, cpy);
         }
 
-        gf_client_chain_client_entries (clienttable->cliententries, oldmax_clients,
-                                clienttable->max_clients);
+        gf_client_chain_client_entries (clienttable->cliententries,
+                                        oldmax_clients,
+                                        clienttable->max_clients);
 
         /* Now that expansion is done, we must update the client list
          * head pointer so that the client allocation functions can continue
@@ -149,6 +149,24 @@ gf_client_clienttable_destroy (clienttable_t *clienttable)
         }
 }
 
+
+/*
+ * a more comprehensive feature test is shown at
+ * http://lists.iptel.org/pipermail/semsdev/2010-October/005075.html
+ * this is sufficient for RHEL5 i386 builds
+ */
+#if (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)) && !defined(__i386__)
+# define INCREMENT_ATOMIC(lk,op) __sync_add_and_fetch(&op, 1)
+# define DECREMENT_ATOMIC(lk,op) __sync_sub_and_fetch(&op, 1)
+#else
+/* These are only here for old gcc, e.g. on RHEL5 i386.
+ * We're not ever going to use this in an if stmt,
+ * but let's be pedantically correct for style points */
+# define INCREMENT_ATOMIC(lk,op) do { LOCK (&lk); ++op; UNLOCK (&lk); } while (0)
+/* this is a gcc 'statement expression', it works with llvm/clang too */
+# define DECREMENT_ATOMIC(lk,op) ({ LOCK (&lk); --op; UNLOCK (&lk); op; })
+#endif
+
 client_t *
 gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
 {
@@ -184,15 +202,8 @@ gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
                                         memcmp (cred->authdata,
                                                 client->auth.data,
                                                 client->auth.len) == 0))) {
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)
-                                __sync_add_and_fetch(&client->ref.bind, 1);
-#else
-                                LOCK (&client->ref.lock);
-                                {
-                                        ++client->ref.bind;
-                                }
-                                UNLOCK (&client->ref.lock);
-#endif
+                                INCREMENT_ATOMIC (client->ref.lock,
+                                                  client->ref.bind);
                                 break;
                         }
                 }
@@ -274,15 +285,7 @@ gf_client_put (client_t *client, gf_boolean_t *detached)
         if (detached)
                 *detached = _gf_false;
 
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)
-        bind_ref = __sync_sub_and_fetch(&client->ref.bind, 1);
-#else
-        LOCK (&client->ref.lock);
-        {
-                bind_ref = --client->ref.bind;
-        }
-        UNLOCK (&client->ref.lock);
-#endif
+        bind_ref = DECREMENT_ATOMIC (client->ref.lock, client->ref.bind);
         if (bind_ref == 0)
                 unref = _gf_true;
 
@@ -295,7 +298,6 @@ gf_client_put (client_t *client, gf_boolean_t *detached)
         }
 }
 
-
 client_t *
 gf_client_ref (client_t *client)
 {
@@ -304,15 +306,7 @@ gf_client_ref (client_t *client)
                 return NULL;
         }
 
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)
-        __sync_add_and_fetch(&client->ref.count, 1);
-#else
-        LOCK (&client->ref.lock);
-        {
-                ++client->ref.count;
-        }
-        UNLOCK (&client->ref.lock);
-#endif
+        INCREMENT_ATOMIC (client->ref.lock, client->ref.count);
         return client;
 }
 
@@ -391,15 +385,7 @@ gf_client_unref (client_t *client)
                 return;
         }
 
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)
-        refcount = __sync_sub_and_fetch(&client->ref.count, 1);
-#else
-        LOCK (&client->ref.lock);
-        {
-                refcount = --client->ref.count;
-        }
-        UNLOCK (&client->ref.lock);
-#endif
+        refcount = DECREMENT_ATOMIC (client->ref.lock, client->ref.count);
         if (refcount == 0) {
                 client_destroy (client);
         }
