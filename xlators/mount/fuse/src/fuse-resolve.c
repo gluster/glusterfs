@@ -381,6 +381,8 @@ fuse_migrate_fd_task (void *data)
         basefd = state->fd;
 
         basefd_ctx = fuse_fd_ctx_get (state->this, basefd);
+        if (!basefd_ctx)
+                goto out;
 
         LOCK (&basefd->lock);
         {
