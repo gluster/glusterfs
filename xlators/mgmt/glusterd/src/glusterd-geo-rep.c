@@ -987,6 +987,8 @@ _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
                                                 param->node);
 out:
 
+        GF_FREE (errmsg);
+
         if (slave_buf)
                 GF_FREE(slave_buf);
 
