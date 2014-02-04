@@ -3654,11 +3654,11 @@ get_brickinfo_from_brickid (char *brickid, glusterd_brickinfo_t **brickinfo)
 
         volid_str = brickid_dup;
         brick = strchr (brickid_dup, ':');
-        *brick = '\0';
-        brick++;
         if (!volid_str || !brick)
                 goto out;
 
+        *brick = '\0';
+        brick++;
         uuid_parse (volid_str, volid);
         ret = glusterd_volinfo_find_by_volume_id (volid, &volinfo);
         if (ret)
