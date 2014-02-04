@@ -202,6 +202,7 @@ gf_changelog_notification_init (xlator_t *this, gf_changelog_t *gfc)
                 gf_log (this->name, GF_LOG_ERROR,
                         "could not connect to changelog socket!"
                         " bailing out...");
+                close (sockfd);
                 ret = -1;
         } else
                 gf_log (this->name, GF_LOG_INFO,
