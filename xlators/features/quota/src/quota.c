@@ -3387,6 +3387,10 @@ quota_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         if (hard_lim > 0) {
                 local = quota_local_new ();
+                if (local == NULL) {
+                        op_errno = ENOMEM;
+                        goto err;
+                }
                 frame->local = local;
                 local->loc.inode = inode_ref (fd->inode);
 
