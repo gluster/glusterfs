@@ -354,6 +354,10 @@ glusterd_validate_quorum_options (xlator_t *this, char *fullkey, char *value,
         if (!glusterd_is_quorum_option (fullkey))
                 goto out;
         key = strchr (fullkey, '.');
+        if (key == NULL) {
+                ret = -1;
+                goto out;
+        }
         key++;
         opt = xlator_volume_option_get (this, key);
         ret = xlator_option_validate (this, key, value, opt, op_errstr);
