@@ -1380,7 +1380,8 @@ out:
 
         free (rsp.spec);
 
-        emancipate (ctx, ret);
+        if (ctx)
+                emancipate (ctx, ret);
 
         // Stop if server is running at an unsupported op-version
         if (ENOTSUP == ret) {
