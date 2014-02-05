@@ -244,16 +244,16 @@ int32_t default_fsetattr (call_frame_t *frame,
                           int32_t valid, dict_t *xdata);
 
 int32_t default_fallocate(call_frame_t *frame,
-			  xlator_t *this,
-			  fd_t *fd,
-			  int32_t keep_size, off_t offset,
-			  size_t len, dict_t *xdata);
+                          xlator_t *this,
+                          fd_t *fd,
+                          int32_t keep_size, off_t offset,
+                          size_t len, dict_t *xdata);
 
 int32_t default_discard(call_frame_t *frame,
-			xlator_t *this,
-			fd_t *fd,
-			off_t offset,
-			size_t len, dict_t *xdata);
+                        xlator_t *this,
+                        fd_t *fd,
+                        off_t offset,
+                        size_t len, dict_t *xdata);
 
 int32_t default_zerofill(call_frame_t *frame,
                         xlator_t *this,
@@ -473,16 +473,16 @@ int32_t default_fsetattr_resume (call_frame_t *frame,
                           int32_t valid, dict_t *xdata);
 
 int32_t default_fallocate_resume(call_frame_t *frame,
-				 xlator_t *this,
-				 fd_t *fd,
-				 int32_t keep_size, off_t offset,
-				 size_t len, dict_t *xdata);
+                                 xlator_t *this,
+                                 fd_t *fd,
+                                 int32_t keep_size, off_t offset,
+                                 size_t len, dict_t *xdata);
 
 int32_t default_discard_resume(call_frame_t *frame,
-			       xlator_t *this,
-			       fd_t *fd,
-			       off_t offset,
-			       size_t len, dict_t *xdata);
+                               xlator_t *this,
+                               fd_t *fd,
+                               off_t offset,
+                               size_t len, dict_t *xdata);
 
 int32_t default_zerofill_resume(call_frame_t *frame,
                                xlator_t *this,
@@ -491,8 +491,278 @@ int32_t default_zerofill_resume(call_frame_t *frame,
                                off_t len, dict_t *xdata);
 
 
-/* _cbk */
+/* _cbk_resume */
 
+int32_t
+default_lookup_cbk_resume (call_frame_t * frame, void *cookie,
+                           xlator_t * this, int32_t op_ret, int32_t op_errno,
+                           inode_t * inode, struct iatt *buf, dict_t * xdata,
+                           struct iatt *postparent);
+
+int32_t
+default_stat_cbk_resume (call_frame_t * frame, void *cookie, xlator_t * this,
+                         int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                         dict_t * xdata);
+
+
+int32_t
+default_truncate_cbk_resume (call_frame_t * frame, void *cookie,
+                             xlator_t * this, int32_t op_ret,
+                             int32_t op_errno, struct iatt *prebuf,
+                             struct iatt *postbuf, dict_t * xdata);
+
+int32_t
+default_ftruncate_cbk_resume (call_frame_t * frame, void *cookie,
+                              xlator_t * this, int32_t op_ret,
+                              int32_t op_errno, struct iatt *prebuf,
+                              struct iatt *postbuf, dict_t * xdata);
+
+int32_t
+default_access_cbk_resume (call_frame_t * frame, void *cookie,
+                           xlator_t * this, int32_t op_ret, int32_t op_errno,
+                           dict_t * xdata);
+
+int32_t
+default_readlink_cbk_resume (call_frame_t * frame, void *cookie,
+                             xlator_t * this, int32_t op_ret,
+                             int32_t op_errno, const char *path,
+                             struct iatt *buf, dict_t * xdata);
+
+
+int32_t
+default_mknod_cbk_resume (call_frame_t * frame, void *cookie, xlator_t * this,
+                          int32_t op_ret, int32_t op_errno, inode_t * inode,
+                          struct iatt *buf, struct iatt *preparent,
+                          struct iatt *postparent, dict_t * xdata);
+
+int32_t
+default_mkdir_cbk_resume (call_frame_t * frame, void *cookie, xlator_t * this,
+                          int32_t op_ret, int32_t op_errno, inode_t * inode,
+                          struct iatt *buf, struct iatt *preparent,
+                          struct iatt *postparent, dict_t * xdata);
+
+int32_t
+default_unlink_cbk_resume (call_frame_t * frame, void *cookie,
+                           xlator_t * this, int32_t op_ret, int32_t op_errno,
+                           struct iatt *preparent, struct iatt *postparent,
+                           dict_t * xdata);
+
+int32_t
+default_rmdir_cbk_resume (call_frame_t * frame, void *cookie, xlator_t * this,
+                          int32_t op_ret, int32_t op_errno,
+                          struct iatt *preparent, struct iatt *postparent,
+                          dict_t * xdata);
+
+
+int32_t
+default_symlink_cbk_resume (call_frame_t * frame, void *cookie,
+                            xlator_t * this, int32_t op_ret, int32_t op_errno,
+                            inode_t * inode, struct iatt *buf,
+                            struct iatt *preparent, struct iatt *postparent,
+                            dict_t * xdata);
+
+
+int32_t
+default_rename_cbk_resume (call_frame_t * frame, void *cookie,
+                           xlator_t * this, int32_t op_ret, int32_t op_errno,
+                           struct iatt *buf, struct iatt *preoldparent,
+                           struct iatt *postoldparent,
+                           struct iatt *prenewparent,
+                           struct iatt *postnewparent, dict_t * xdata);
+
+
+int32_t
+default_link_cbk_resume (call_frame_t * frame, void *cookie, xlator_t * this,
+                         int32_t op_ret, int32_t op_errno, inode_t * inode,
+                         struct iatt *buf, struct iatt *preparent,
+                         struct iatt *postparent, dict_t * xdata);
+
+
+int32_t
+default_create_cbk_resume (call_frame_t * frame, void *cookie,
+                           xlator_t * this, int32_t op_ret, int32_t op_errno,
+                           fd_t * fd, inode_t * inode, struct iatt *buf,
+                           struct iatt *preparent, struct iatt *postparent,
+                           dict_t * xdata);
+
+int32_t
+default_open_cbk_resume (call_frame_t * frame, void *cookie, xlator_t * this,
+                         int32_t op_ret, int32_t op_errno, fd_t * fd,
+                         dict_t * xdata);
+
+int32_t
+default_readv_cbk_resume (call_frame_t * frame, void *cookie, xlator_t * this,
+                          int32_t op_ret, int32_t op_errno,
+                          struct iovec *vector, int32_t count,
+                          struct iatt *stbuf, struct iobref *iobref,
+                          dict_t * xdata);
+
+
+int32_t
+default_writev_cbk_resume (call_frame_t * frame, void *cookie,
+                           xlator_t * this, int32_t op_ret, int32_t op_errno,
+                           struct iatt *prebuf, struct iatt *postbuf,
+                           dict_t * xdata);
+
+
+int32_t
+default_flush_cbk_resume (call_frame_t * frame, void *cookie, xlator_t * this,
+                          int32_t op_ret, int32_t op_errno, dict_t * xdata);
+
+
+
+int32_t
+default_fsync_cbk_resume (call_frame_t * frame, void *cookie, xlator_t * this,
+                          int32_t op_ret, int32_t op_errno,
+                          struct iatt *prebuf, struct iatt *postbuf,
+                          dict_t * xdata);
+
+int32_t
+default_fstat_cbk_resume (call_frame_t * frame, void *cookie, xlator_t * this,
+                          int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                          dict_t * xdata);
+
+int32_t
+default_opendir_cbk_resume (call_frame_t * frame, void *cookie,
+                            xlator_t * this, int32_t op_ret, int32_t op_errno,
+                            fd_t * fd, dict_t * xdata);
+
+int32_t
+default_fsyncdir_cbk_resume (call_frame_t * frame, void *cookie,
+                             xlator_t * this, int32_t op_ret,
+                             int32_t op_errno, dict_t * xdata);
+
+int32_t
+default_statfs_cbk_resume (call_frame_t * frame, void *cookie,
+                           xlator_t * this, int32_t op_ret, int32_t op_errno,
+                           struct statvfs *buf, dict_t * xdata);
+
+
+int32_t
+default_setxattr_cbk_resume (call_frame_t * frame, void *cookie,
+                             xlator_t * this, int32_t op_ret,
+                             int32_t op_errno, dict_t * xdata);
+
+
+int32_t
+default_fsetxattr_cbk_resume (call_frame_t * frame, void *cookie,
+                              xlator_t * this, int32_t op_ret,
+                              int32_t op_errno, dict_t * xdata);
+
+
+
+int32_t
+default_fgetxattr_cbk_resume (call_frame_t * frame, void *cookie,
+                              xlator_t * this, int32_t op_ret,
+                              int32_t op_errno, dict_t * dict,
+                              dict_t * xdata);
+
+
+int32_t
+default_getxattr_cbk_resume (call_frame_t * frame, void *cookie,
+                             xlator_t * this, int32_t op_ret,
+                             int32_t op_errno, dict_t * dict, dict_t * xdata);
+
+int32_t
+default_xattrop_cbk_resume (call_frame_t * frame, void *cookie,
+                            xlator_t * this, int32_t op_ret, int32_t op_errno,
+                            dict_t * dict, dict_t * xdata);
+
+int32_t
+default_fxattrop_cbk_resume (call_frame_t * frame, void *cookie,
+                             xlator_t * this, int32_t op_ret,
+                             int32_t op_errno, dict_t * dict, dict_t * xdata);
+
+
+int32_t
+default_removexattr_cbk_resume (call_frame_t * frame, void *cookie,
+                                xlator_t * this, int32_t op_ret,
+                                int32_t op_errno, dict_t * xdata);
+
+int32_t
+default_fremovexattr_cbk_resume (call_frame_t * frame, void *cookie,
+                                 xlator_t * this, int32_t op_ret,
+                                 int32_t op_errno, dict_t * xdata);
+
+int32_t
+default_lk_cbk_resume (call_frame_t * frame, void *cookie, xlator_t * this,
+                       int32_t op_ret, int32_t op_errno,
+                       struct gf_flock *lock, dict_t * xdata);
+
+int32_t
+default_inodelk_cbk_resume (call_frame_t * frame, void *cookie,
+                            xlator_t * this, int32_t op_ret, int32_t op_errno,
+                            dict_t * xdata);
+
+
+int32_t
+default_finodelk_cbk_resume (call_frame_t * frame, void *cookie,
+                             xlator_t * this, int32_t op_ret,
+                             int32_t op_errno, dict_t * xdata);
+
+int32_t
+default_entrylk_cbk_resume (call_frame_t * frame, void *cookie,
+                            xlator_t * this, int32_t op_ret, int32_t op_errno,
+                            dict_t * xdata);
+
+int32_t
+default_fentrylk_cbk_resume (call_frame_t * frame, void *cookie,
+                             xlator_t * this, int32_t op_ret,
+                             int32_t op_errno, dict_t * xdata);
+
+
+int32_t
+default_rchecksum_cbk_resume (call_frame_t * frame, void *cookie,
+                              xlator_t * this, int32_t op_ret,
+                              int32_t op_errno, uint32_t weak_checksum,
+                              uint8_t * strong_checksum, dict_t * xdata);
+
+
+int32_t
+default_readdir_cbk_resume (call_frame_t * frame, void *cookie,
+                            xlator_t * this, int32_t op_ret, int32_t op_errno,
+                            gf_dirent_t * entries, dict_t * xdata);
+
+
+int32_t
+default_readdirp_cbk_resume (call_frame_t * frame, void *cookie,
+                             xlator_t * this, int32_t op_ret,
+                             int32_t op_errno, gf_dirent_t * entries,
+                             dict_t * xdata);
+
+int32_t
+default_setattr_cbk_resume (call_frame_t * frame, void *cookie,
+                            xlator_t * this, int32_t op_ret, int32_t op_errno,
+                            struct iatt *statpre, struct iatt *statpost,
+                            dict_t * xdata);
+
+int32_t
+default_fsetattr_cbk_resume (call_frame_t * frame, void *cookie,
+                             xlator_t * this, int32_t op_ret,
+                             int32_t op_errno, struct iatt *statpre,
+                             struct iatt *statpost, dict_t * xdata);
+
+int32_t default_fallocate_cbk_resume (call_frame_t * frame, void *cookie,
+                                      xlator_t * this, int32_t op_ret,
+                                      int32_t op_errno, struct iatt *pre,
+                                      struct iatt *post, dict_t * xdata);
+
+int32_t default_discard_cbk_resume (call_frame_t * frame, void *cookie,
+                                    xlator_t * this, int32_t op_ret,
+                                    int32_t op_errno, struct iatt *pre,
+                                    struct iatt *post, dict_t * xdata);
+
+int32_t default_zerofill_cbk_resume (call_frame_t * frame, void *cookie,
+                                     xlator_t * this, int32_t op_ret,
+                                     int32_t op_errno, struct iatt *pre,
+                                     struct iatt *post, dict_t * xdata);
+
+int32_t
+default_getspec_cbk_resume (call_frame_t * frame, void *cookie,
+                            xlator_t * this, int32_t op_ret, int32_t op_errno,
+                            char *spec_data);
+
+/* _CBK */
 int32_t
 default_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, inode_t *inode,
@@ -702,12 +972,12 @@ default_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       struct iatt *statpost, dict_t *xdata);
 
 int32_t default_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-			      int32_t op_ret, int32_t op_errno, struct iatt *pre,
-			      struct iatt *post, dict_t *xdata);
+                              int32_t op_ret, int32_t op_errno, struct iatt *pre,
+                              struct iatt *post, dict_t *xdata);
 
 int32_t default_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-			    int32_t op_ret, int32_t op_errno, struct iatt *pre,
-			    struct iatt *post, dict_t *xdata);
+                            int32_t op_ret, int32_t op_errno, struct iatt *pre,
+                            struct iatt *post, dict_t *xdata);
 
 int32_t default_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                             int32_t op_ret, int32_t op_errno, struct iatt *pre,
