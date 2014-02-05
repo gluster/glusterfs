@@ -2219,6 +2219,8 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                                 " geo-replication %s %s create push-pem"
                                 " force\"", down_peerstr, volinfo->volname,
                                 volinfo->volname, slave);
+                         GF_FREE (down_peerstr);
+                         down_peerstr = NULL;
                 }
 
                 /* Checking if slave host is pingable, has proper passwordless
@@ -3221,15 +3223,17 @@ dict_get_param (dict_t *dict, char *key, char **param)
                 return -1;
 
         s = strpbrk (dk, "-_");
-        if (!s)
-                return -1;
+        if (!s) {
+                ret = -1;
+                goto out;
+        }
         x = (*s == '-') ? '_' : '-';
         *s++ = x;
         while ((s = strpbrk (s, "-_")))
                 *s++ = x;
 
         ret = dict_get_str (dict, dk, param);
-
+out:
         GF_FREE (dk);
         return ret;
 }
@@ -3764,7 +3768,6 @@ glusterd_set_gsync_knob (glusterd_volinfo_t *volinfo, char *key, int *vc)
 {
         int   ret          = -1;
         int   conf_enabled = _gf_false;
-        char *knob_on      = NULL;
 
         GF_ASSERT (THIS);
         GF_ASSERT (THIS->private);
@@ -3779,14 +3782,8 @@ glusterd_set_gsync_knob (glusterd_volinfo_t *volinfo, char *key, int *vc)
         ret = 0;
         if (conf_enabled == _gf_false) {
                 *vc = 1;
-                knob_on = gf_strdup ("on");
-                if (knob_on == NULL) {
-                        ret = -1;
-                        goto out;
-                }
-
                 ret = glusterd_gsync_volinfo_dict_set (volinfo,
-                                                       key, knob_on);
+                                                       key, "on");
         }
 
  out:
@@ -4224,7 +4221,7 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
         int              file_mode              = -1;
         glusterd_conf_t *priv                   = NULL;
         struct stat      stbuf                  = {0,};
-
+        gf_boolean_t     free_contents          = _gf_true;
 
         if (THIS)
                 priv = THIS->private;
@@ -4325,7 +4322,7 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
                         gf_log ("", GF_LOG_ERROR, "%s", errmsg);
                         goto out;
                 }
-                close (fd);
+                free_contents = _gf_false;
         } else {
                 ret = dict_get_bin (dict, "common_pem_contents",
                                     (void **) &contents);
@@ -4336,7 +4333,6 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
                         gf_log ("", GF_LOG_ERROR, "%s", errmsg);
                         goto out;
                 }
-
                 ret = dict_get_int32 (dict, "contents_size", &contents_size);
                 if (ret) {
                         snprintf (errmsg, sizeof (errmsg), "Unable to set"
@@ -4377,11 +4373,16 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
                 }
 
                 fchmod (fd, file_mode);
-                close (fd);
         }
 
         ret = 0;
 out:
+        if (fd != -1)
+                close (fd);
+
+        if (free_contents)
+                GF_FREE(contents);
+
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
