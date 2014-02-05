@@ -589,6 +589,13 @@ glfs_init_async (struct glfs *fs, glfs_init_cbk cbk)
 {
 	int  ret = -1;
 
+	if (!fs || !fs->ctx) {
+		gf_log ("glfs", GF_LOG_ERROR,
+			"fs is not properly initialized.");
+		errno = EINVAL;
+		return ret;
+	}
+
 	fs->init_cbk = cbk;
 
 	ret = glfs_init_common (fs);
@@ -601,6 +608,13 @@ int
 glfs_init (struct glfs *fs)
 {
 	int  ret = -1;
+
+	if (!fs || !fs->ctx) {
+		gf_log ("glfs", GF_LOG_ERROR,
+			"fs is not properly initialized.");
+		errno = EINVAL;
+		return ret;
+	}
 
 	ret = glfs_init_common (fs);
 	if (ret)
