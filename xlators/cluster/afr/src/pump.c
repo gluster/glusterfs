@@ -1678,6 +1678,7 @@ pump_setxattr (call_frame_t *frame, xlator_t *this,
 	ret = afr_local_init (local, priv, &op_errno);
 	if (ret < 0) {
                 afr_local_cleanup (local, this);
+                mem_put (local);
 		goto out;
         }
 
