@@ -2390,7 +2390,7 @@ int32_t
 init (xlator_t *this)
 {
 	afr_private_t * priv        = NULL;
-        pump_private_t *pump_priv = NULL;
+        pump_private_t *pump_priv   = NULL;
 	int             child_count = 0;
 	xlator_list_t * trav        = NULL;
 	int             i           = 0;
@@ -2411,12 +2411,10 @@ init (xlator_t *this)
 			"Volume is dangling.");
 	}
 
-	this->private = GF_CALLOC (1, sizeof (afr_private_t),
-                                   gf_afr_mt_afr_private_t);
-        if (!this->private)
+	priv = GF_CALLOC (1, sizeof (afr_private_t), gf_afr_mt_afr_private_t);
+        if (!priv)
                 goto out;
 
-	priv = this->private;
         LOCK_INIT (&priv->lock);
         LOCK_INIT (&priv->read_child_lock);
         //lock recovery is not done in afr
@@ -2456,7 +2454,6 @@ init (xlator_t *this)
         */
 
 	priv->strict_readdir = _gf_false;
-
 	priv->wait_count = 1;
 	priv->child_up = GF_CALLOC (sizeof (unsigned char), child_count,
                                  gf_afr_mt_char);
@@ -2491,7 +2488,8 @@ init (xlator_t *this)
 	while (i < child_count) {
 		priv->children[i] = trav->xlator;
 
-                ret = gf_asprintf (&priv->pending_key[i], "%s.%s", AFR_XATTR_PREFIX,
+                ret = gf_asprintf (&priv->pending_key[i], "%s.%s",
+                                   AFR_XATTR_PREFIX,
                                    trav->xlator->name);
                 if (-1 == ret) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -2535,8 +2533,7 @@ init (xlator_t *this)
         pump_priv->resume_path = GF_CALLOC (1, PATH_MAX,
                                             gf_afr_mt_char);
         if (!pump_priv->resume_path) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+                gf_log (this->name, GF_LOG_ERROR, "Out of memory");
                 ret = -1;
                 goto out;
         }
@@ -2559,11 +2556,33 @@ init (xlator_t *this)
         }
 
 	priv->pump_private = pump_priv;
+        pump_priv = NULL;
+
+        this->private = priv;
+        priv = NULL;
 
         pump_change_state (this, PUMP_STATE_ABORT);
 
 	ret = 0;
 out:
+
+        if (pump_priv) {
+                GF_FREE (pump_priv->resume_path);
+                LOCK_DESTROY (&pump_priv->resume_path_lock);
+                LOCK_DESTROY (&pump_priv->pump_state_lock);
+                GF_FREE (pump_priv);
+        }
+
+        if (priv) {
+                GF_FREE (priv->child_up);
+                GF_FREE (priv->children);
+                GF_FREE (priv->pending_key);
+                GF_FREE (priv->last_event);
+                LOCK_DESTROY (&priv->lock);
+                LOCK_DESTROY (&priv->read_child_lock);
+                GF_FREE (priv);
+        }
+
 	return ret;
 }
 
