@@ -23,13 +23,6 @@
 #include "socket.h"
 #include "common-utils.h"
 
-int32_t
-gf_resolve_ip6 (const char *hostname,
-                uint16_t port,
-                int family,
-                void **dnscache,
-                struct addrinfo **addr_info);
-
 static int32_t
 af_inet_bind_to_port_lt_ceiling (int fd, struct sockaddr *sockaddr,
                                  socklen_t sockaddr_len, int ceiling)
