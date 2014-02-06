@@ -236,6 +236,13 @@ struct gf_gsync_detailed_status_ {
         char total_files_skipped[NAME_MAX];
 };
 
+enum glusterd_mgmt_v3_procnum {
+        GLUSTERD_MGMT_V3_NULL,    /* 0 */
+        GLUSTERD_MGMT_V3_VOLUME_LOCK,
+        GLUSTERD_MGMT_V3_VOLUME_UNLOCK,
+        GLUSTERD_MGMT_V3_MAXVALUE,
+};
+
 typedef struct gf_gsync_detailed_status_ gf_gsync_status_t;
 
 #define GLUSTER_HNDSK_PROGRAM    14398633 /* Completely random */
@@ -267,6 +274,9 @@ typedef struct gf_gsync_detailed_status_ gf_gsync_status_t;
 
 #define GD_BRICK_PROGRAM         4867634 /*Completely random*/
 #define GD_BRICK_VERSION         2
+
+/* Third version */
+#define GD_MGMT_V3_VERSION       3
 
 /* OP-VERSION handshake */
 #define GD_MGMT_HNDSK_PROGRAM    1239873 /* Completely random */

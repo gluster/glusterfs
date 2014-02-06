@@ -529,11 +529,14 @@ glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
                                struct list_head *peers,
                                char **down_peerstr);
 
+int32_t
+glusterd_set_originator_uuid (dict_t *dict);
+
 /* Should be used only when an operation is in progress, as that is the only
  * time a lock_owner is set
  */
 gf_boolean_t
-is_origin_glusterd ();
+is_origin_glusterd (dict_t *dict);
 
 gf_boolean_t
 glusterd_is_quorum_changed (dict_t *options, char *option, char *value);

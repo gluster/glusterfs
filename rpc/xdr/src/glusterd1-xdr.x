@@ -125,3 +125,32 @@ struct gd1_mgmt_brick_op_rsp {
         opaque  output<>;
         string  op_errstr<>;
 } ;
+
+struct gd1_mgmt_volume_lock_req {
+        unsigned char  uuid[16];
+        unsigned char  txn_id[16];
+        int            op;
+        opaque         dict<>;
+}  ;
+
+struct gd1_mgmt_volume_lock_rsp {
+        unsigned char  uuid[16];
+        unsigned char  txn_id[16];
+        opaque         dict<>;
+        int            op_ret;
+        int            op_errno;
+}  ;
+
+struct gd1_mgmt_volume_unlock_req {
+        unsigned char  uuid[16];
+        unsigned char  txn_id[16];
+        opaque         dict<>;
+}  ;
+
+struct gd1_mgmt_volume_unlock_rsp {
+        unsigned char  uuid[16];
+        unsigned char  txn_id[16];
+        opaque         dict<>;
+        int            op_ret;
+        int            op_errno;
+}  ;

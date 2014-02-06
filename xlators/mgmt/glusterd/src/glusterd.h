@@ -525,6 +525,14 @@ int
 glusterd_op_unlock_send_resp (rpcsvc_request_t *req, int32_t status);
 
 int
+glusterd_op_volume_lock_send_resp (rpcsvc_request_t *req,
+                                   uuid_t *txn_id, int32_t status);
+
+int
+glusterd_op_volume_unlock_send_resp (rpcsvc_request_t *req,
+                                     uuid_t *txn_id, int32_t status);
+
+int
 glusterd_op_stage_send_resp (rpcsvc_request_t *req,
                              int32_t op, int32_t status,
                              char *op_errstr, dict_t *rsp_dict);
@@ -797,4 +805,14 @@ int32_t glusterd_op_begin_synctask (rpcsvc_request_t *req, glusterd_op_t op,
                                     void *dict);
 int32_t
 glusterd_defrag_event_notify_handle (dict_t *dict);
+
+int32_t
+glusterd_txn_opinfo_dict_init ();
+
+void
+glusterd_txn_opinfo_dict_fini ();
+
+void
+glusterd_txn_opinfo_init ();
+
 #endif

@@ -545,7 +545,7 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
         case GF_DEFRAG_CMD_START:
         case GF_DEFRAG_CMD_START_LAYOUT_FIX:
         case GF_DEFRAG_CMD_START_FORCE:
-                if (is_origin_glusterd ()) {
+                if (is_origin_glusterd (dict)) {
                         op_ctx = glusterd_op_get_ctx ();
                         if (!op_ctx) {
                                 ret = -1;

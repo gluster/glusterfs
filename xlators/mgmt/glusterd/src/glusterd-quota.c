@@ -824,7 +824,7 @@ glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict,
                 }
         }
 
-        if (is_origin_glusterd ()) {
+        if (is_origin_glusterd (dict)) {
                 ret = glusterd_set_quota_limit (volinfo->volname, path,
                                                 hard_limit, soft_limit,
                                                 op_errstr);
@@ -919,7 +919,7 @@ glusterd_quota_remove_limits (glusterd_volinfo_t *volinfo, dict_t *dict,
         if (ret)
                 goto out;
 
-        if (is_origin_glusterd ()) {
+        if (is_origin_glusterd (dict)) {
                 ret = glusterd_remove_quota_limit (volinfo->volname, path,
                                                    op_errstr);
                 if (ret)
@@ -1385,7 +1385,7 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         case GF_QUOTA_OPTION_TYPE_ENABLE:
         case GF_QUOTA_OPTION_TYPE_LIST:
                 /* Fuse mount req. only for enable & list-usage options*/
-                if (is_origin_glusterd () &&
+                if (is_origin_glusterd (dict) &&
                     !glusterd_is_fuse_available ()) {
                         *op_errstr = gf_strdup ("Fuse unavailable");
                         ret = -1;
