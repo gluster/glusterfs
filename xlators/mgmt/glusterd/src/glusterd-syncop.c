@@ -1451,7 +1451,8 @@ gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
         }
 
         INIT_LIST_HEAD (&selected);
-        ret = glusterd_op_bricks_select (op, req_dict, op_errstr, &selected, rsp_dict);
+        ret = glusterd_op_bricks_select (op, req_dict, op_errstr, &selected,
+                                         rsp_dict);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "%s",
                        (*op_errstr)? *op_errstr: "Brick op failed. Check "

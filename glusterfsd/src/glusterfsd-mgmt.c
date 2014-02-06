@@ -1205,6 +1205,116 @@ out:
         return ret;
 
 }
+
+int
+glusterfs_handle_barrier (rpcsvc_request_t *req)
+{
+        int                     ret         = -1;
+        gd1_mgmt_brick_op_req   brick_req   = {0,};
+        gd1_mgmt_brick_op_rsp   brick_rsp   = {0,};
+        glusterfs_ctx_t         *ctx        = NULL;
+        glusterfs_graph_t       *active     = NULL;
+        xlator_t                *any        = NULL;
+        xlator_t                *xlator     = NULL;
+        xlator_t                *old_THIS   = NULL;
+        dict_t                  *dict       = NULL;
+        char                    name[1024]  = {0,};
+
+        GF_ASSERT (req);
+
+        ret = xdr_to_generic(req->msg[0], &brick_req,
+                             (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+        if (ret < 0) {
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        ctx = glusterfsd_ctx;
+        GF_ASSERT (ctx);
+        active = ctx->active;
+        any = active->first;
+
+        dict = dict_new();
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_unserialize(brick_req.input.input_val,
+                               brick_req.input.input_len, &dict);
+        if (ret < 0) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to unserialize "
+                        "request dictionary");
+                goto out;
+        }
+
+        brick_rsp.op_ret = 0;
+        brick_rsp.op_errstr = ""; // initing to prevent serilaztion failures
+        old_THIS = THIS;
+
+        /* Send barrier request to the barrier xlator */
+        snprintf (name, sizeof (name), "%s-barrier", brick_req.name);
+        xlator = xlator_search_by_name(any, name);
+        if (!xlator) {
+                ret = -1;
+                gf_log (THIS->name, GF_LOG_ERROR, "%s xlator is not loaded",
+                        name);
+                goto out;
+        }
+
+        THIS = xlator;
+        // TODO: Extend this to accept return of errnos
+        ret = xlator->notify (xlator, GF_EVENT_TRANSLATOR_OP, dict);
+        if (ret) {
+                brick_rsp.op_ret = ret;
+                brick_rsp.op_errstr = gf_strdup ("Failed to reconfigure "
+                                                 "barrier.");
+                goto submit_reply;
+        }
+
+        /* Reset THIS so that we have it correct in case of an error below
+         */
+        THIS = old_THIS;
+
+        /* Send barrier request to changelog as well */
+        /* Commenting out the below code till the changelog changes are merged
+
+        memset (name, 0, sizeof (name));
+        snprintf (name, sizeof (name), "%s-changelog", brick_req.name);
+        xlator = xlator_search_by_name(any, name);
+        if (!xlator) {
+                ret = -1;
+                gf_log (THIS->name, GF_LOG_ERROR, "%s xlator is not loaded",
+                        name);
+                goto out;
+        }
+
+        THIS = xlator;
+        ret = xlator->reconfigure (xlator, dict);
+
+
+        if (ret) {
+                brick_rsp.op_ret = ret;
+                brick_rsp.op_errstr = gf_strdup ("Failed to reconfigure "
+                                                 "changelog.");
+                goto submit_reply;
+        }
+        */
+submit_reply:
+        THIS = old_THIS;
+
+        ret = glusterfs_submit_reply (req, &brick_rsp, NULL, 0, NULL,
+                                      (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
+
+out:
+        if (dict)
+                dict_unref (dict);
+        free (brick_req.input.input_val);
+
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
 int
 glusterfs_handle_rpc_msg (rpcsvc_request_t *req)
 {
@@ -1270,6 +1380,7 @@ rpcsvc_actor_t glusterfs_actors[] = {
         [GLUSTERD_NODE_PROFILE]        = {"NFS PROFILE",       GLUSTERD_NODE_PROFILE,        glusterfs_handle_nfs_profile,         NULL, 0, DRC_NA},
         [GLUSTERD_NODE_STATUS]         = {"NFS STATUS",        GLUSTERD_NODE_STATUS,         glusterfs_handle_node_status,         NULL, 0, DRC_NA},
         [GLUSTERD_VOLUME_BARRIER_OP]   = {"VOLUME BARRIER OP", GLUSTERD_VOLUME_BARRIER_OP,   glusterfs_handle_volume_barrier_op,   NULL, 0, DRC_NA},
+        [GLUSTERD_BRICK_BARRIER]       = {"BARRIER",           GLUSTERD_BRICK_BARRIER,       glusterfs_handle_barrier,             NULL, 0, DRC_NA},
 };
 
 struct rpcsvc_program glusterfs_mop_prog = {
