@@ -5026,8 +5026,8 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
         if (ret < 0)
                 goto out;
 
-        weak_checksum = gf_rsync_weak_checksum ((unsigned char *) buf, (size_t) len);
-        gf_rsync_strong_checksum ((unsigned char *) buf, (size_t) len, (unsigned char *) strong_checksum);
+        weak_checksum = gf_rsync_weak_checksum ((unsigned char *) buf, (size_t) ret);
+        gf_rsync_strong_checksum ((unsigned char *) buf, (size_t) ret, (unsigned char *) strong_checksum);
 
         op_ret = 0;
 out:
