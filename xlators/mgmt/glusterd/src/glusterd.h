@@ -108,6 +108,7 @@ typedef enum glusterd_op_ {
         GD_OP_SYS_EXEC,
         GD_OP_GSYNC_CREATE,
         GD_OP_SNAP,
+        GD_OP_BARRIER,
         GD_OP_MAX,
 } glusterd_op_t;
 

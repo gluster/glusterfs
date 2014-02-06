@@ -531,6 +531,18 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
                 brick_req->name = gf_strdup (name);
 
                 break;
+        case GD_OP_BARRIER:
+                brick_req = GF_CALLOC (1, sizeof(*brick_req),
+                                       gf_gld_mt_mop_brick_req_t);
+                if (!brick_req)
+                        goto out;
+                brick_req->op = GLUSTERD_BRICK_BARRIER;
+                ret = dict_get_str(dict, "volname", &volname);
+                if (ret)
+                        goto out;
+                brick_req->name = gf_strdup (volname);
+                break;
+
         default:
                 goto out;
         break;
@@ -5726,6 +5738,56 @@ out:
         return ret;
 }
 
+/* Select the bricks to send the barrier request to.
+ * This selects the bricks of the given volume which are present on this peer
+ * and are running
+ */
+static int
+glusterd_bricks_select_barrier (dict_t *dict, struct list_head *selected)
+{
+        int                       ret           = -1;
+        char                      *volname      = NULL;
+        glusterd_volinfo_t        *volinfo      = NULL;
+        glusterd_brickinfo_t      *brickinfo    = NULL;
+        glusterd_pending_node_t   *pending_node = NULL;
+
+        GF_ASSERT (dict);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to get volname");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to find volume %s",
+                        volname);
+                goto out;
+        }
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (uuid_compare (brickinfo->uuid, MY_UUID) ||
+                    !glusterd_is_brick_started (brickinfo)) {
+                        continue;
+                }
+                pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                gf_gld_mt_pending_node_t);
+                if (!pending_node) {
+                        ret = -1;
+                        goto out;
+                }
+                pending_node->node = brickinfo;
+                pending_node->type = GD_NODE_BRICK;
+                list_add_tail (&pending_node->list, selected);
+                pending_node = NULL;
+        }
+
+out:
+        gf_log(THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
 static int
 glusterd_op_ac_send_brick_op (glusterd_op_sm_event_t *event, void *ctx)
 {
@@ -5877,6 +5939,10 @@ glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr,
         case GD_OP_DEFRAG_BRICK_VOLUME:
                 ret = glusterd_bricks_select_rebalance_volume (dict, op_errstr,
                                                                selected);
+                break;
+
+        case GD_OP_BARRIER:
+                ret = glusterd_bricks_select_barrier (dict, selected);
                 break;
         case GD_OP_SNAP:
                 ret = glusterd_bricks_select_snap (dict, op_errstr, selected);
