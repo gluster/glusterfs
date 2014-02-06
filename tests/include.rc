@@ -3,6 +3,7 @@ M1=${M1:=/mnt/glusterfs/1};   # 1st mount point for FUSE
 N0=${N0:=/mnt/nfs/0};         # 0th mount point for NFS
 N1=${N1:=/mnt/nfs/1};         # 1st mount point for NFS
 V0=${V0:=patchy};             # volume name to use in tests
+V1=${V1:=patchy1};            # volume name to use in tests
 B0=${B0:=/d/backends};        # top level of brick directories
 H0=${H0:=`hostname --fqdn`};  # hostname
 DEBUG=${DEBUG:=0}             # turn on debugging?

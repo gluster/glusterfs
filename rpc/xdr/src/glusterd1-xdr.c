@@ -491,3 +491,81 @@ xdr_gd1_mgmt_brick_op_rsp (XDR *xdrs, gd1_mgmt_brick_op_rsp *objp)
 		 return FALSE;
 	return TRUE;
 }
+
+bool_t
+xdr_gd1_mgmt_volume_lock_req (XDR *xdrs, gd1_mgmt_volume_lock_req *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_vector (xdrs, (char *)objp->uuid, 16,
+		sizeof (u_char), (xdrproc_t) xdr_u_char))
+		 return FALSE;
+	 if (!xdr_vector (xdrs, (char *)objp->txn_id, 16,
+		sizeof (u_char), (xdrproc_t) xdr_u_char))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gd1_mgmt_volume_lock_rsp (XDR *xdrs, gd1_mgmt_volume_lock_rsp *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_vector (xdrs, (char *)objp->uuid, 16,
+		sizeof (u_char), (xdrproc_t) xdr_u_char))
+		 return FALSE;
+	 if (!xdr_vector (xdrs, (char *)objp->txn_id, 16,
+		sizeof (u_char), (xdrproc_t) xdr_u_char))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gd1_mgmt_volume_unlock_req (XDR *xdrs, gd1_mgmt_volume_unlock_req *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_vector (xdrs, (char *)objp->uuid, 16,
+		sizeof (u_char), (xdrproc_t) xdr_u_char))
+		 return FALSE;
+	 if (!xdr_vector (xdrs, (char *)objp->txn_id, 16,
+		sizeof (u_char), (xdrproc_t) xdr_u_char))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gd1_mgmt_volume_unlock_rsp (XDR *xdrs, gd1_mgmt_volume_unlock_rsp *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_vector (xdrs, (char *)objp->uuid, 16,
+		sizeof (u_char), (xdrproc_t) xdr_u_char))
+		 return FALSE;
+	 if (!xdr_vector (xdrs, (char *)objp->txn_id, 16,
+		sizeof (u_char), (xdrproc_t) xdr_u_char))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	return TRUE;
+}

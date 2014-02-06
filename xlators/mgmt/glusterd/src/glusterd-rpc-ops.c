@@ -33,6 +33,7 @@
 
 
 extern glusterd_op_info_t opinfo;
+extern uuid_t global_txn_id;
 
 int32_t
 glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
@@ -574,6 +575,7 @@ __glusterd_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
         xlator_t                      *this = NULL;
+        uuid_t                        *txn_id = &global_txn_id;
 
         this = THIS;
         GF_ASSERT (this);
@@ -618,7 +620,7 @@ out:
                 event_type = GD_OP_EVENT_RCVD_ACC;
         }
 
-        ret = glusterd_op_sm_inject_event (event_type, NULL);
+        ret = glusterd_op_sm_inject_event (event_type, txn_id, NULL);
 
         if (!ret) {
                 glusterd_friend_sm ();
@@ -637,6 +639,168 @@ glusterd_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
                                         __glusterd_cluster_lock_cbk);
 }
 
+static int32_t
+glusterd_vol_lock_cbk_fn (struct rpc_req *req, struct iovec *iov,
+                            int count, void *myframe)
+{
+        gd1_mgmt_volume_lock_rsp      rsp   = {{0},};
+        int                           ret   = -1;
+        int32_t                       op_ret = -1;
+        glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
+        glusterd_peerinfo_t           *peerinfo = NULL;
+        xlator_t                      *this = NULL;
+        uuid_t                        *txn_id = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (req);
+
+        if (-1 == req->rpc_status) {
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        ret = xdr_to_generic (*iov, &rsp,
+                              (xdrproc_t)xdr_gd1_mgmt_volume_lock_rsp);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to decode volume lock "
+                        "response received from peer");
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        op_ret = rsp.op_ret;
+
+        txn_id = &rsp.txn_id;
+
+        gf_log (this->name, (op_ret) ? GF_LOG_ERROR : GF_LOG_DEBUG,
+                "Received volume lock %s from uuid: %s",
+                (op_ret) ? "RJT" : "ACC", uuid_utoa (rsp.uuid));
+
+        ret = glusterd_friend_find (rsp.uuid, NULL, &peerinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "Volume lock response received "
+                        "from unknown peer: %s. Ignoring response",
+                         uuid_utoa (rsp.uuid));
+                goto out;
+        }
+
+        if (op_ret) {
+                event_type = GD_OP_EVENT_RCVD_RJT;
+                opinfo.op_ret = op_ret;
+                opinfo.op_errstr = gf_strdup ("Another transaction could be in "
+                                              "progress. Please try again after"
+                                              " sometime.");
+        } else {
+                event_type = GD_OP_EVENT_RCVD_ACC;
+        }
+
+        ret = glusterd_op_sm_inject_event (event_type, txn_id, NULL);
+
+        if (!ret) {
+                glusterd_friend_sm ();
+                glusterd_op_sm ();
+        }
+
+out:
+        GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
+        return ret;
+}
+
+int32_t
+glusterd_vol_lock_cbk (struct rpc_req *req, struct iovec *iov,
+                       int count, void *myframe)
+{
+        return glusterd_big_locked_cbk (req, iov, count, myframe,
+                                        glusterd_vol_lock_cbk_fn);
+}
+
+static int32_t
+glusterd_vol_unlock_cbk_fn (struct rpc_req *req, struct iovec *iov,
+                           int count, void *myframe)
+{
+        gd1_mgmt_volume_unlock_rsp    rsp   = {{0},};
+        int                           ret   = -1;
+        int32_t                       op_ret = -1;
+        glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
+        glusterd_peerinfo_t           *peerinfo = NULL;
+        xlator_t                      *this = NULL;
+        uuid_t                        *txn_id = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (req);
+
+        if (-1 == req->rpc_status) {
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        ret = xdr_to_generic (*iov, &rsp,
+                              (xdrproc_t)xdr_gd1_mgmt_volume_unlock_rsp);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to decode volume unlock "
+                        "response received from peer");
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        op_ret = rsp.op_ret;
+
+        txn_id = &rsp.txn_id;
+
+        gf_log (this->name, (op_ret) ? GF_LOG_ERROR : GF_LOG_DEBUG,
+                "Received volume unlock %s from uuid: %s",
+                (op_ret) ? "RJT" : "ACC",
+                uuid_utoa (rsp.uuid));
+
+        ret = glusterd_friend_find (rsp.uuid, NULL, &peerinfo);
+
+        if (ret) {
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "Volume unlock response received "
+                        "from unknown peer: %s. Ignoring response",
+                        uuid_utoa (rsp.uuid));
+                goto out;
+        }
+
+        if (op_ret) {
+                event_type = GD_OP_EVENT_RCVD_RJT;
+                opinfo.op_ret = op_ret;
+                opinfo.op_errstr = gf_strdup ("Another transaction could be in "
+                                              "progress. Please try again after"
+                                              " sometime.");
+        } else {
+                event_type = GD_OP_EVENT_RCVD_ACC;
+        }
+
+        ret = glusterd_op_sm_inject_event (event_type, txn_id, NULL);
+
+        if (!ret) {
+                glusterd_friend_sm ();
+                glusterd_op_sm ();
+        }
+
+out:
+        GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
+        return ret;
+}
+
+int32_t
+glusterd_vol_unlock_cbk (struct rpc_req *req, struct iovec *iov,
+                         int count, void *myframe)
+{
+        return glusterd_big_locked_cbk (req, iov, count, myframe,
+                                        glusterd_vol_unlock_cbk_fn);
+}
+
 int32_t
 __glusterd_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
                                  int count, void *myframe)
@@ -647,6 +811,7 @@ __glusterd_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
         xlator_t                      *this = NULL;
+        uuid_t                        *txn_id = &global_txn_id;
 
         this = THIS;
         GF_ASSERT (this);
@@ -688,7 +853,7 @@ out:
                 event_type = GD_OP_EVENT_RCVD_ACC;
         }
 
-        ret = glusterd_op_sm_inject_event (event_type, NULL);
+        ret = glusterd_op_sm_inject_event (event_type, txn_id, NULL);
 
         if (!ret) {
                 glusterd_friend_sm ();
@@ -720,6 +885,7 @@ __glusterd_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         char                          err_str[2048] = {0};
         char                          *peer_str = NULL;
         xlator_t                      *this = NULL;
+        uuid_t                        *txn_id = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -772,11 +938,17 @@ out:
                 "Received stage %s from uuid: %s",
                 (op_ret) ? "RJT" : "ACC", uuid_utoa (rsp.uuid));
 
+        ret = dict_get_bin (dict, "transaction_id", (void **)&txn_id);
+
+        gf_log ("", GF_LOG_DEBUG, "transaction ID = %s", uuid_utoa (*txn_id));
+
         ret = glusterd_friend_find (rsp.uuid, NULL, &peerinfo);
 
         if (ret) {
                 gf_log (this->name, GF_LOG_CRITICAL, "Stage response received "
-                        "from unknown peer: %s", uuid_utoa (rsp.uuid));
+                        "from unknown peer: %s. Ignoring response.",
+                        uuid_utoa (rsp.uuid));
+                goto out;
         }
 
         if (op_ret) {
@@ -807,7 +979,7 @@ out:
                 break;
         }
 
-        ret = glusterd_op_sm_inject_event (event_type, NULL);
+        ret = glusterd_op_sm_inject_event (event_type, txn_id, NULL);
 
         if (!ret) {
                 glusterd_friend_sm ();
@@ -847,6 +1019,8 @@ __glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         char                          err_str[2048] = {0};
         char                          *peer_str = NULL;
         xlator_t                      *this = NULL;
+        uuid_t                        *txn_id = NULL;
+
 
         this = THIS;
         GF_ASSERT (this);
@@ -899,6 +1073,10 @@ __glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log (this->name, (op_ret) ? GF_LOG_ERROR : GF_LOG_DEBUG,
                 "Received commit %s from uuid: %s",
                 (op_ret)?"RJT":"ACC", uuid_utoa (rsp.uuid));
+
+        ret = dict_get_bin (dict, "transaction_id", (void **)&txn_id);
+
+        gf_log ("", GF_LOG_DEBUG, "transaction ID = %s", uuid_utoa (*txn_id));
 
         ret = glusterd_friend_find (rsp.uuid, NULL, &peerinfo);
 
@@ -979,7 +1157,7 @@ __glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
 out:
-        ret = glusterd_op_sm_inject_event (event_type, NULL);
+        ret = glusterd_op_sm_inject_event (event_type, txn_id, NULL);
 
         if (!ret) {
                 glusterd_friend_sm ();
@@ -1216,6 +1394,107 @@ out:
 }
 
 int32_t
+glusterd_vol_lock (call_frame_t *frame, xlator_t *this,
+                   void *data)
+{
+        gd1_mgmt_volume_lock_req         req         = {{0},};
+        int                              ret         = -1;
+        glusterd_peerinfo_t             *peerinfo    = NULL;
+        glusterd_conf_t                 *priv        = NULL;
+        call_frame_t                    *dummy_frame = NULL;
+        dict_t                          *dict        = NULL;
+
+        if (!this)
+                goto out;
+
+        dict = data;
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = dict_get_ptr (dict, "peerinfo", VOID (&peerinfo));
+        if (ret)
+                goto out;
+
+        //peerinfo should not be in payload
+        dict_del (dict, "peerinfo");
+
+        glusterd_get_uuid (&req.uuid);
+
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to serialize dict "
+                        "to request buffer");
+                goto out;
+        }
+
+        dummy_frame = create_frame (this, this->ctx->pool);
+        if (!dummy_frame)
+                goto out;
+
+        ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
+                                       peerinfo->mgmt_v3,
+                                       GLUSTERD_MGMT_V3_VOLUME_LOCK, NULL,
+                                       this, glusterd_vol_lock_cbk,
+                                       (xdrproc_t)xdr_gd1_mgmt_volume_lock_req);
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_vol_unlock (call_frame_t *frame, xlator_t *this,
+                   void *data)
+{
+        gd1_mgmt_volume_unlock_req       req         = {{0},};
+        int                              ret         = -1;
+        glusterd_peerinfo_t             *peerinfo    = NULL;
+        glusterd_conf_t                 *priv        = NULL;
+        call_frame_t                    *dummy_frame = NULL;
+        dict_t                          *dict        = NULL;
+
+        if (!this)
+                goto out;
+
+        dict = data;
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = dict_get_ptr (dict, "peerinfo", VOID (&peerinfo));
+        if (ret)
+                goto out;
+
+        //peerinfo should not be in payload
+        dict_del (dict, "peerinfo");
+
+        glusterd_get_uuid (&req.uuid);
+
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to serialize dict "
+                        "to request buffer");
+                goto out;
+        }
+
+        dummy_frame = create_frame (this, this->ctx->pool);
+        if (!dummy_frame)
+                goto out;
+
+        ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
+                                       peerinfo->mgmt_v3,
+                                       GLUSTERD_MGMT_V3_VOLUME_UNLOCK, NULL,
+                                       this, glusterd_vol_unlock_cbk,
+                                       (xdrproc_t)
+                                       xdr_gd1_mgmt_volume_unlock_req);
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
 glusterd_cluster_unlock (call_frame_t *frame, xlator_t *this,
                             void *data)
 {
@@ -1378,6 +1657,7 @@ __glusterd_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
         glusterd_req_ctx_t            *req_ctx = NULL;
         glusterd_pending_node_t       *node = NULL;
         xlator_t                      *this = NULL;
+        uuid_t                        *txn_id = &global_txn_id;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1440,6 +1720,11 @@ __glusterd_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
                 }
         }
 out:
+
+        ret = dict_get_bin (req_ctx->dict, "transaction_id", (void **)&txn_id);
+
+        gf_log ("", GF_LOG_DEBUG, "transaction ID = %s", uuid_utoa (*txn_id));
+
         ev_ctx = GF_CALLOC (1, sizeof (*ev_ctx), gf_gld_mt_brick_rsp_ctx_t);
         GF_ASSERT (ev_ctx);
         if (op_ret) {
@@ -1452,7 +1737,7 @@ out:
         ev_ctx->pending_node = frame->cookie;
         ev_ctx->rsp_dict  = dict;
         ev_ctx->commit_ctx = frame->local;
-        ret = glusterd_op_sm_inject_event (event_type, ev_ctx);
+        ret = glusterd_op_sm_inject_event (event_type, txn_id, ev_ctx);
         if (!ret) {
                 glusterd_friend_sm ();
                 glusterd_op_sm ();
@@ -1477,6 +1762,7 @@ int32_t
 glusterd_brick_op (call_frame_t *frame, xlator_t *this,
                       void *data)
 {
+
         gd1_mgmt_brick_op_req           *req = NULL;
         int                             ret = 0;
         glusterd_conf_t                 *priv = NULL;
@@ -1487,6 +1773,7 @@ glusterd_brick_op (call_frame_t *frame, xlator_t *this,
         glusterd_req_ctx_t              *req_ctx = NULL;
         struct rpc_clnt                 *rpc = NULL;
         dict_t                          *op_ctx = NULL;
+        uuid_t                          *txn_id = &global_txn_id;
 
         if (!this) {
                 ret = -1;
@@ -1508,6 +1795,11 @@ glusterd_brick_op (call_frame_t *frame, xlator_t *this,
                 opinfo.op_errstr = op_errstr;
                 goto out;
         }
+
+
+        ret = dict_get_bin (req_ctx->dict, "transaction_id", (void **)&txn_id);
+
+        gf_log ("", GF_LOG_DEBUG, "transaction ID = %s", uuid_utoa (*txn_id));
 
         list_for_each_entry (pending_node, &opinfo.pending_bricks, list) {
                 dummy_frame = create_frame (this, this->ctx->pool);
@@ -1587,7 +1879,8 @@ glusterd_brick_op (call_frame_t *frame, xlator_t *this,
 
 out:
         if (ret) {
-                glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT, data);
+                glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT,
+                                             txn_id, data);
                 opinfo.op_ret = ret;
         }
         gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
@@ -1615,6 +1908,12 @@ struct rpc_clnt_procedure gd_mgmt_actors[GLUSTERD_MGMT_MAXVALUE] = {
         [GLUSTERD_MGMT_COMMIT_OP]      = {"COMMIT_OP", glusterd_commit_op},
 };
 
+struct rpc_clnt_procedure gd_mgmt_v3_actors[GLUSTERD_MGMT_V3_MAXVALUE] = {
+        [GLUSTERD_MGMT_V3_NULL]           = {"NULL", NULL },
+        [GLUSTERD_MGMT_V3_VOLUME_LOCK]    = {"VOLUME_LOCK", glusterd_vol_lock},
+        [GLUSTERD_MGMT_V3_VOLUME_UNLOCK]  = {"VOLUME_UNLOCK", glusterd_vol_unlock},
+};
+
 struct rpc_clnt_program gd_mgmt_prog = {
         .progname  = "glusterd mgmt",
         .prognum   = GD_MGMT_PROGRAM,
@@ -1639,4 +1938,10 @@ struct rpc_clnt_program gd_peer_prog = {
         .numproc   = GLUSTERD_FRIEND_MAXVALUE,
 };
 
-
+struct rpc_clnt_program gd_mgmt_v3_prog = {
+        .progname  = "glusterd mgmt v3",
+        .prognum   = GD_MGMT_PROGRAM,
+        .progver   = GD_MGMT_V3_VERSION,
+        .proctable = gd_mgmt_v3_actors,
+        .numproc   = GLUSTERD_MGMT_V3_MAXVALUE,
+};

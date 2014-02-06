@@ -36,6 +36,7 @@
 #include "glusterd-store.h"
 #include "glusterd-hooks.h"
 #include "glusterd-utils.h"
+#include "glusterd-locks.h"
 #include "common-utils.h"
 #include "run.h"
 
@@ -48,6 +49,7 @@ extern struct rpcsvc_program gluster_cli_getspec_prog;
 extern struct rpcsvc_program gluster_pmap_prog;
 extern glusterd_op_info_t opinfo;
 extern struct rpcsvc_program gd_svc_mgmt_prog;
+extern struct rpcsvc_program gd_svc_mgmt_v3_prog;
 extern struct rpcsvc_program gd_svc_peer_prog;
 extern struct rpcsvc_program gd_svc_cli_prog;
 extern struct rpcsvc_program gd_svc_cli_prog_ro;
@@ -64,6 +66,7 @@ struct rpcsvc_program *gd_inet_programs[] = {
         &gd_svc_peer_prog,
         &gd_svc_cli_prog_ro,
         &gd_svc_mgmt_prog,
+        &gd_svc_mgmt_v3_prog,
         &gluster_pmap_prog,
         &gluster_handshake_prog,
         &glusterd_mgmt_hndsk_prog,
@@ -1303,6 +1306,8 @@ init (xlator_t *this)
         glusterd_friend_sm_init ();
         glusterd_op_sm_init ();
         glusterd_opinfo_init ();
+        glusterd_vol_lock_init ();
+        glusterd_txn_opinfo_dict_init ();
         ret = glusterd_sm_tr_log_init (&conf->op_sm_log,
                                        glusterd_op_sm_state_name_get,
                                        glusterd_op_sm_event_name_get,
@@ -1422,6 +1427,8 @@ fini (xlator_t *this)
         if (conf->handle)
                 gf_store_handle_destroy (conf->handle);
         glusterd_sm_tr_log_delete (&conf->op_sm_log);
+        glusterd_vol_lock_fini ();
+        glusterd_txn_opinfo_dict_fini ();
         GF_FREE (conf);
 
         this->private = NULL;

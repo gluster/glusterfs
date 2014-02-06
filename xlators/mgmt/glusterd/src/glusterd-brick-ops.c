@@ -1467,7 +1467,7 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
-                if (is_origin_glusterd ()) {
+                if (is_origin_glusterd (dict)) {
                         ret = glusterd_generate_and_set_task_id
                                 (dict, GF_REMOVE_BRICK_TID_KEY);
                         if (ret) {
@@ -1733,7 +1733,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         /* Set task-id, if available, in ctx dict for operations other than
          * start
          */
-        if (is_origin_glusterd () && (cmd != GF_OP_CMD_START)) {
+        if (is_origin_glusterd (dict) && (cmd != GF_OP_CMD_START)) {
                 if (!uuid_is_null (volinfo->rebal.rebalance_id)) {
                         ret = glusterd_copy_uuid_to_dict
                                 (volinfo->rebal.rebalance_id, dict,

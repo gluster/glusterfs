@@ -30,6 +30,7 @@
 
 extern struct rpc_clnt_program gd_peer_prog;
 extern struct rpc_clnt_program gd_mgmt_prog;
+extern struct rpc_clnt_program gd_mgmt_v3_prog;
 
 #define TRUSTED_PREFIX         "trusted-"
 
@@ -812,6 +813,7 @@ __glusterd_mgmt_hndsk_version_ack_cbk (struct rpc_req *req, struct iovec *iov,
          */
         peerinfo->mgmt = &gd_mgmt_prog;
         peerinfo->peer = &gd_peer_prog;
+        peerinfo->mgmt_v3 = &gd_mgmt_v3_prog;
 
         ret = default_notify (this, GF_EVENT_CHILD_UP, NULL);
 
@@ -1038,6 +1040,15 @@ glusterd_set_clnt_mgmt_program (glusterd_peerinfo_t *peerinfo,
                          peerinfo->peer->progname, peerinfo->peer->prognum,
                          peerinfo->peer->progver);
         }
+
+        if (peerinfo->mgmt_v3) {
+                 gf_log ("", GF_LOG_INFO,
+                         "Using Program %s, Num (%d), Version (%d)",
+                         peerinfo->mgmt_v3->progname,
+                         peerinfo->mgmt_v3->prognum,
+                         peerinfo->mgmt_v3->progver);
+        }
+
         ret = 0;
 out:
         return ret;

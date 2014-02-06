@@ -37,6 +37,7 @@
 #include "glusterd-pmap.h"
 #include "glusterfs-acl.h"
 #include "glusterd-syncop.h"
+#include "glusterd-locks.h"
 
 #include "xdr-generic.h"
 #include <sys/resource.h>
@@ -7897,7 +7898,7 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
         if (ret)
                 goto out;
 
-        if (cmd & GF_CLI_STATUS_ALL && is_origin_glusterd ()) {
+        if (cmd & GF_CLI_STATUS_ALL && is_origin_glusterd (ctx_dict)) {
                 ret = dict_get_int32 (rsp_dict, "vol_count", &vol_count);
                 if (ret == 0) {
                         ret = dict_set_int32 (ctx_dict, "vol_count",
@@ -8788,20 +8789,66 @@ glusterd_handle_node_rsp (dict_t *req_dict, void *pending_entry,
         return ret;
 }
 
+int32_t
+glusterd_set_originator_uuid (dict_t *dict)
+{
+        int          ret              = -1;
+        uuid_t      *originator_uuid  = NULL;
+
+        GF_ASSERT (dict);
+
+        originator_uuid = GF_CALLOC (1, sizeof(uuid_t),
+                                     gf_common_mt_uuid_t);
+        if (!originator_uuid) {
+                ret = -1;
+                goto out;
+        }
+
+        uuid_copy (*originator_uuid, MY_UUID);
+        ret = dict_set_bin (dict, "originator_uuid",
+                            originator_uuid, sizeof (uuid_t));
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Failed to set originator_uuid.");
+                goto out;
+        }
+
+out:
+        if (ret && originator_uuid)
+                GF_FREE (originator_uuid);
+
+        return ret;
+}
+
 /* Should be used only when an operation is in progress, as that is the only
  * time a lock_owner is set
  */
 gf_boolean_t
-is_origin_glusterd ()
+is_origin_glusterd (dict_t *dict)
 {
-        int     ret = 0;
-        uuid_t  lock_owner = {0,};
+        gf_boolean_t  ret              = _gf_false;
+        uuid_t        lock_owner       = {0,};
+        uuid_t        *originator_uuid = NULL;
 
-        ret = glusterd_get_lock_owner (&lock_owner);
-        if (ret)
-                return _gf_false;
+        GF_ASSERT (dict);
 
-        return (uuid_compare (MY_UUID, lock_owner) == 0);
+        ret = dict_get_bin (dict, "originator_uuid",
+                            (void **) &originator_uuid);
+        if (ret) {
+                /* If not originator_uuid has been set, then the command
+                 * has been originated from a glusterd running on older version
+                 * Hence fetching the lock owner */
+                ret = glusterd_get_lock_owner (&lock_owner);
+                if (ret) {
+                        ret = _gf_false;
+                        goto out;
+                }
+                ret = !uuid_compare (MY_UUID, lock_owner);
+        } else
+                ret = !uuid_compare (MY_UUID, *originator_uuid);
+
+out:
+        return ret;
 }
 
 int
