@@ -721,7 +721,7 @@ quota_check_limit_continuation (struct list_head *parents, inode_t *inode,
         this = THIS;
 
         if ((op_ret < 0) || list_empty (parents)) {
-                if (list_empty (parents)) {
+                if (op_ret >= 0) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "Couldn't build ancestry for inode (gfid:%s). "
                                 "Without knowing ancestors till root, quota "
