@@ -154,6 +154,9 @@ BuildRequires:    lvm2-devel
 %if ( 0%{!?_without_qemu_block:1} )
 BuildRequires:    glib2-devel
 %endif
+%if ( 0%{!?_without_georeplication:1} )
+BuildRequires:    libattr-devel
+%endif
 
 Obsoletes:        hekafs
 Obsoletes:        %{name}-common < %{version}-%{release}
@@ -609,6 +612,9 @@ mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/nfs/run
 touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/nfs-server.vol
 touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
+install -p -m 0744 extras/hook-scripts/S56glusterd-geo-rep-create-post.sh \
+    %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/gsync-create/post
+
 find ./tests ./run-tests.sh -type f | cpio -pd %{buildroot}%{_prefix}/share/glusterfs
 
 %clean
@@ -689,14 +695,26 @@ if [ $1 -ge 1 ]; then
 fi
 
 %files geo-replication
+%{_sysconfdir}/logrotate.d/glusterfs-georep
 %{_libexecdir}/glusterfs/gsyncd
 %{_libexecdir}/glusterfs/python/syncdaemon/*
 %{_libexecdir}/glusterfs/gverify.sh
 %{_libexecdir}/glusterfs/peer_add_secret_pub
 %{_libexecdir}/glusterfs/peer_gsec_create
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/geo-replication
+%dir %{_sharedstatedir}/glusterd/hooks
+%dir %{_sharedstatedir}/glusterd/hooks/1
+%dir %{_sharedstatedir}/glusterd/hooks/1/gsync-create
+%dir %{_sharedstatedir}/glusterd/hooks/1/gsync-create/post
+%{_sharedstatedir}/glusterd/hooks/1/gsync-create/post/S56glusterd-geo-rep-create-post.sh
+%{_datadir}/glusterfs/scripts/get-gfid.sh
+%{_datadir}/glusterfs/scripts/slave-upgrade.sh
+%{_datadir}/glusterfs/scripts/gsync-upgrade.sh
+%{_datadir}/glusterfs/scripts/generate-gfid-file.sh
+%{_datadir}/glusterfs/scripts/gsync-sync-gfid
 %ghost %attr(0644,-,-) %{_sharedstatedir}/glusterd/geo-replication/gsyncd_template.conf
 %endif
+
 
 %files fuse
 %if ( 0%{_for_fedora_koji_builds} )
@@ -872,6 +890,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Thu Feb 06 2014 Aravinda VK <avishwan@redhat.com>
+- Include geo-replication upgrade scripts and hook scripts.
+
 * Wed Jan 15 2014 Niels de Vos <ndevos@redhat.com>
 - Install /var/lib/glusterd/groups/virt by default
 
