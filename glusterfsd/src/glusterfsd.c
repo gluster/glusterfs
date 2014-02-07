@@ -1561,8 +1561,6 @@ glusterfs_pidfile_setup (glusterfs_ctx_t *ctx)
 
         ret = 0;
 out:
-        if (ret && pidfp)
-                fclose (pidfp);
 
         return ret;
 }
