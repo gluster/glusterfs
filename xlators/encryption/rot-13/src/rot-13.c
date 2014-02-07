@@ -150,6 +150,7 @@ init (xlator_t *this)
 		if (gf_string2boolean (data->data, &priv->encrypt_write) == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"encrypt-write takes only boolean options");
+			GF_FREE (priv);
 			return -1;
 		}
 	}
@@ -159,6 +160,7 @@ init (xlator_t *this)
 		if (gf_string2boolean (data->data, &priv->decrypt_read) == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"decrypt-read takes only boolean options");
+			GF_FREE (priv);
 			return -1;
 		}
 	}
