@@ -115,6 +115,10 @@ static struct argp_option gf_options[] = {
         "[default: \"gluster-log\"]"},
         {"log-format", ARGP_LOG_FORMAT, "LOG-FORMAT", 0, "Set log format, valid"
          " options are: no-msg-id and with-msg-id, [default: \"with-msg-id\"]"},
+        {"log-buf-size", ARGP_LOG_BUF_SIZE, "LOG-BUF-SIZE", 0, "Set logging "
+         "buffer size, [default: 5]"},
+        {"log-flush-timeout", ARGP_LOG_FLUSH_TIMEOUT, "LOG-FLUSH-TIMEOUT", 0,
+         "Set log flush timeout, [default: 2 minutes]"},
 
         {0, 0, 0, 0, "Advanced Options:"},
         {"volfile-server-port", ARGP_VOLFILE_SERVER_PORT_KEY, "PORT", 0,
@@ -1110,6 +1114,37 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
                 break;
 
+        case ARGP_LOG_BUF_SIZE:
+                if (gf_string2uint32 (arg, &cmd_args->log_buf_size)) {
+                        argp_failure (state, -1, 0,
+                                      "unknown log buf size option %s", arg);
+                } else if ((cmd_args->log_buf_size < GF_LOG_LRU_BUFSIZE_MIN) ||
+                          (cmd_args->log_buf_size > GF_LOG_LRU_BUFSIZE_MAX)) {
+                            argp_failure (state, -1, 0,
+                                          "Invalid log buf size %s. "
+                                          "Valid range: ["
+                                          GF_LOG_LRU_BUFSIZE_MIN_STR","
+                                          GF_LOG_LRU_BUFSIZE_MAX_STR"]", arg);
+                }
+
+                break;
+
+        case ARGP_LOG_FLUSH_TIMEOUT:
+                if (gf_string2uint32 (arg, &cmd_args->log_flush_timeout)) {
+                        argp_failure (state, -1, 0,
+                                "unknown log flush timeout option %s", arg);
+                } else if ((cmd_args->log_flush_timeout <
+                            GF_LOG_FLUSH_TIMEOUT_MIN) ||
+                           (cmd_args->log_flush_timeout >
+                            GF_LOG_FLUSH_TIMEOUT_MAX)) {
+                            argp_failure (state, -1, 0,
+                                          "Invalid log flush timeout %s. "
+                                          "Valid range: ["
+                                          GF_LOG_FLUSH_TIMEOUT_MIN_STR","
+                                          GF_LOG_FLUSH_TIMEOUT_MAX_STR"]", arg);
+                }
+
+                break;
 	}
 
         return 0;
@@ -1126,6 +1161,23 @@ cleanup_and_exit (int signum)
 
         if (!ctx)
                 return;
+
+        /* To take or not to take the mutex here and in the other
+         * signal handler - gf_print_trace() - is the big question here.
+         *
+         * Taking mutex in signal handler would mean that if the process
+         * receives a fatal signal while another thread is holding
+         * ctx->log.log_buf_lock to perhaps log a message in _gf_msg_internal(),
+         * the offending thread hangs on the mutex lock forever without letting
+         * the process exit.
+         *
+         * On the other hand. not taking the mutex in signal handler would cause
+         * it to modify the lru_list of buffered log messages in a racy manner,
+         * corrupt the list and potentially give rise to an unending
+         * cascade of SIGSEGVs and other re-entrancy issues.
+         */
+
+        gf_log_disable_suppression_before_exit (ctx);
 
         gf_msg_callingfn ("", GF_LOG_WARNING, 0, glusterfsd_msg_32, signum);
 
@@ -1313,6 +1365,11 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         if (!ctx->dict_data_pool)
                 goto out;
 
+        ctx->logbuf_pool = mem_pool_new (log_buf_t,
+                                         GF_MEMPOOL_COUNT_OF_LRU_BUF_T);
+        if (!ctx->logbuf_pool)
+                goto out;
+
         pthread_mutex_init (&(ctx->lock), NULL);
 
         ctx->clienttable = gf_clienttable_alloc();
@@ -1325,6 +1382,8 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         cmd_args->log_level = DEFAULT_LOG_LEVEL;
         cmd_args->logger    = gf_logger_glusterlog;
         cmd_args->log_format = gf_logformat_withmsgid;
+        cmd_args->log_buf_size = GF_LOG_LRU_BUFSIZE_DEFAULT;
+        cmd_args->log_flush_timeout = GF_LOG_FLUSH_TIMEOUT_DEFAULT;
 
         cmd_args->mac_compat = GF_OPTION_DISABLE;
 #ifdef GF_DARWIN_HOST_OS
@@ -1359,6 +1418,7 @@ out:
                 mem_pool_destroy (ctx->dict_pool);
                 mem_pool_destroy (ctx->dict_data_pool);
                 mem_pool_destroy (ctx->dict_pair_pool);
+                mem_pool_destroy (ctx->logbuf_pool);
         }
 
         return ret;
@@ -1397,11 +1457,23 @@ logging_init (glusterfs_ctx_t *ctx, const char *progpath)
 
         gf_log_set_logformat (cmd_args->log_format);
 
+        gf_log_set_log_buf_size (cmd_args->log_buf_size);
+
+        gf_log_set_log_flush_timeout (cmd_args->log_flush_timeout);
+
         if (gf_log_init (ctx, cmd_args->log_file, cmd_args->log_ident) == -1) {
                 fprintf (stderr, "ERROR: failed to open logfile %s\n",
                          cmd_args->log_file);
                 return -1;
         }
+
+        /* At this point, all the logging related parameters are initialised
+         * except for the log flush timer, which will be injected post fork(2)
+         * in daemonize() . During this time, any log message that is logged
+         * will be kept buffered. And if the list that holds these messages
+         * overflows, then the same lru policy is used to drive out the least
+         * recently used message and displace it with the message just logged.
+         */
 
         return 0;
 }
@@ -1791,6 +1863,8 @@ postfork:
         ret = glusterfs_pidfile_update (ctx);
         if (ret)
                 goto out;
+
+        ret = gf_log_inject_timer_event (ctx);
 
         glusterfs_signals_setup (ctx);
 out:

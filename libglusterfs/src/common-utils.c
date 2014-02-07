@@ -488,6 +488,9 @@ gf_print_trace (int32_t signum, glusterfs_ctx_t *ctx)
          * which helps in debugging.
          */
         gf_log_flush();
+
+        gf_log_disable_suppression_before_exit (ctx);
+
         /* Pending frames, (if any), list them in order */
         gf_msg_plain_nomem (GF_LOG_ALERT, "pending frames:");
         {
