@@ -2832,7 +2832,7 @@ retry:
 	if (ret)
 		goto out;
 
-	ret = syncop_removexattr (subvol, &loc, name);
+	ret = syncop_removexattr (subvol, &loc, name, 0);
         DECODE_SYNCOP_ERR (ret);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
@@ -2883,7 +2883,7 @@ glfs_fremovexattr (struct glfs_fd *glfd, const char *name)
 		goto out;
 	}
 
-	ret = syncop_fremovexattr (subvol, fd, name);
+	ret = syncop_fremovexattr (subvol, fd, name, 0);
         DECODE_SYNCOP_ERR (ret);
 out:
 	if (fd)

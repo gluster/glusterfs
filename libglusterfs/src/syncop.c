@@ -1208,12 +1208,12 @@ syncop_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
-syncop_removexattr (xlator_t *subvol, loc_t *loc, const char *name)
+syncop_removexattr (xlator_t *subvol, loc_t *loc, const char *name, dict_t *xdata)
 {
         struct syncargs args = {0, };
 
         SYNCOP (subvol, (&args), syncop_removexattr_cbk, subvol->fops->removexattr,
-                loc, name, NULL);
+                loc, name, xdata);
 
         if (args.op_ret < 0)
                 return -args.op_errno;
@@ -1237,12 +1237,12 @@ syncop_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
-syncop_fremovexattr (xlator_t *subvol, fd_t *fd, const char *name)
+syncop_fremovexattr (xlator_t *subvol, fd_t *fd, const char *name, dict_t *xdata)
 {
         struct syncargs args = {0, };
 
         SYNCOP (subvol, (&args), syncop_fremovexattr_cbk,
-                subvol->fops->fremovexattr, fd, name, NULL);
+                subvol->fops->fremovexattr, fd, name, xdata);
 
         if (args.op_ret < 0)
                 return -args.op_errno;
