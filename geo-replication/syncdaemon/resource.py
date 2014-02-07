@@ -33,6 +33,8 @@ from master import gmaster_builder
 import syncdutils
 from syncdutils import GsyncdError, select, privileged, boolify, funcode
 from syncdutils import umask, entry2pb, gauxpfx, errno_wrap, lstat
+from syncdutils import NoPurgeTimeAvailable, PartialHistoryAvailable
+from libgfchangelog import ChangelogException
 
 UrlRX = re.compile('\A(\w+)://([^ *?[]*)\Z')
 HostRX = re.compile('[a-z\d](?:[a-z\d.-]*[a-z\d])?', re.I)
@@ -683,6 +685,22 @@ class Server(object):
         Changes.cl_done(clfile)
 
     @classmethod
+    def history_changelog(cls, changelog_path, start, end):
+        return Changes.cl_history_changelog(changelog_path, start, end)
+
+    @classmethod
+    def history_changelog_scan(cls):
+        return Changes.cl_history_scan()
+
+    @classmethod
+    def history_changelog_getchanges(cls):
+        return Changes.cl_history_getchanges()
+
+    @classmethod
+    def history_changelog_done(cls, clfile):
+        Changes.cl_history_done(clfile)
+
+    @classmethod
     @_pathguard
     def setattr(cls, path, adct):
         """set file attributes
@@ -1213,7 +1231,8 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
         """return a tuple of the 'one shot' and the 'main crawl'
         class instance"""
         return (gmaster_builder('xsync')(self, slave),
-                gmaster_builder()(self, slave))
+                gmaster_builder()(self, slave),
+                gmaster_builder('changeloghistory')(self, slave))
 
     def service_loop(self, *args):
         """enter service loop
@@ -1277,20 +1296,55 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                                                   mark)
                         ),
                         slave.server)
-                (g1, g2) = self.gmaster_instantiate_tuple(slave)
+                (g1, g2, g3) = self.gmaster_instantiate_tuple(slave)
                 g1.master.server = brickserver
                 g2.master.server = brickserver
+                g3.master.server = brickserver
             else:
-                (g1, g2) = self.gmaster_instantiate_tuple(slave)
+                (g1, g2, g3) = self.gmaster_instantiate_tuple(slave)
                 g1.master.server.aggregated = gmaster.master.server
                 g2.master.server.aggregated = gmaster.master.server
+                g3.master.server.aggregated = gmaster.master.server
             # bad bad bad: bad way to do things like this
             # need to make this elegant
             # register the crawlers and start crawling
+            # g1 ==> Xsync, g2 ==> config.change_detector(changelog by default)
+            # g3 ==> changelog History
             g1.register()
-            g2.register()
-            g1.crawlwrap(oneshot=True)
-            g2.crawlwrap()
+            try:
+                g2.register()
+                g3.register()
+            except ChangelogException as e:
+                logging.debug("Changelog register failed: %s - %s" %
+                              (e.errno, e.strerror))
+
+            # oneshot: Try to use changelog history api, if not
+            # available switch to FS crawl
+            # Note: if config.change_detector is xsync then
+            # it will not use changelog history api
+            try:
+                g3.crawlwrap(oneshot=True)
+            except (ChangelogException, NoPurgeTimeAvailable,
+                    PartialHistoryAvailable) as e:
+                if isinstance(e, ChangelogException):
+                    logging.debug('Changelog history crawl failed, failback '
+                                  'to xsync: %s - %s' % (e.errno, e.strerror))
+                elif isinstance(e, NoPurgeTimeAvailable):
+                    logging.debug('Using xsync crawl since no purge time '
+                                  'available')
+                elif isinstance(e, PartialHistoryAvailable):
+                    logging.debug('Using xsync crawl after consuming history '
+                                  'till %s' % str(e))
+                g1.crawlwrap(oneshot=True)
+
+            # crawl loop: Try changelog crawl, if failed
+            # switch to FS crawl
+            try:
+                g2.crawlwrap()
+            except ChangelogException as e:
+                logging.debug('Changelog crawl failed, failback to xsync: '
+                              '%s - %s' % (e.errno, e.strerror))
+                g1.crawlwrap()
         else:
             sup(self, *args)
 
