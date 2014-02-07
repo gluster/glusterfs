@@ -128,12 +128,12 @@ function main()
     slave_version=$(echo $slave_data | cut -f3 -d':');
     slave_no_of_files=$(echo $slave_data | cut -f4 -d':');
 
-    if [[ "x$master_size" = "x" || "x$master_version" = "x" || "$master_size" -eq "0" ]]; then
+    if [[ "x$master_disk_size" = "x" || "x$master_version" = "x" || "$master_disk_size" -eq "0" ]]; then
 	echo "FORCE_BLOCKER|Unable to fetch master volume details. Please check the master cluster and master volume." > $log_file;
 	exit 1;
     fi;
 
-    if [[ "x$slave_size" = "x" || "x$slave_version" = "x" || "$slave_size" -eq "0" ]]; then
+    if [[ "x$slave_disk_size" = "x" || "x$slave_version" = "x" || "$slave_disk_size" -eq "0" ]]; then
 	echo "FORCE_BLOCKER|Unable to fetch slave volume details. Please check the slave cluster and slave volume." > $log_file;
 	exit 1;
     fi;
