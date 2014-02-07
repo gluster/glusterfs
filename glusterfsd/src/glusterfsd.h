@@ -39,6 +39,8 @@
 #define GF_MEMPOOL_COUNT_OF_DATA_T        (GF_MEMPOOL_COUNT_OF_DICT_T * 4)
 #define GF_MEMPOOL_COUNT_OF_DATA_PAIR_T   (GF_MEMPOOL_COUNT_OF_DICT_T * 4)
 
+#define GF_MEMPOOL_COUNT_OF_LRU_BUF_T     256
+
 enum argp_option_keys {
         ARGP_VOLFILE_SERVER_KEY           = 's',
         ARGP_VOLUME_FILE_KEY              = 'f',
@@ -87,6 +89,8 @@ enum argp_option_keys {
         ARGP_FUSE_NO_ROOT_SQUASH_KEY      = 167,
         ARGP_LOGGER                       = 168,
         ARGP_LOG_FORMAT                   = 169,
+        ARGP_LOG_BUF_SIZE                 = 170,
+        ARGP_LOG_FLUSH_TIMEOUT            = 171,
 };
 
 struct _gfd_vol_top_priv_t {

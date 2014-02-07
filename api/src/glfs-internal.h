@@ -131,6 +131,8 @@ struct glfs_object {
 #define GF_MEMPOOL_COUNT_OF_DATA_T        (GF_MEMPOOL_COUNT_OF_DICT_T * 4)
 #define GF_MEMPOOL_COUNT_OF_DATA_PAIR_T   (GF_MEMPOOL_COUNT_OF_DICT_T * 4)
 
+#define GF_MEMPOOL_COUNT_OF_LRU_BUF_T     256
+
 int glfs_mgmt_init (struct glfs *fs);
 void glfs_init_done (struct glfs *fs, int ret);
 int glfs_process_volfp (struct glfs *fs, FILE *fp);

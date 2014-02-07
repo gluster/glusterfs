@@ -1366,6 +1366,46 @@ log_format_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
 }
 
 static int
+log_buf_size_option_handler (volgen_graph_t *graph,
+                             struct volopt_map_entry *vme,
+                             void *param)
+{
+        char  *role = NULL;
+        struct volopt_map_entry vme2 = {0,};
+
+        role = (char *) param;
+
+        if (strcmp (vme->option, "!log-buf-size") != 0 ||
+            !strstr (vme->key, role))
+                return 0;
+
+        memcpy (&vme2, vme, sizeof (vme2));
+        vme2.option = "log-buf-size";
+
+        return basic_option_handler (graph, &vme2, NULL);
+}
+
+static int
+log_flush_timeout_option_handler (volgen_graph_t *graph,
+                                  struct volopt_map_entry *vme,
+                                  void *param)
+{
+        char  *role = NULL;
+        struct volopt_map_entry vme2 = {0,};
+
+        role = (char *) param;
+
+        if (strcmp (vme->option, "!log-flush-timeout") != 0 ||
+            !strstr (vme->key, role))
+                return 0;
+
+        memcpy (&vme2, vme, sizeof (vme2));
+        vme2.option = "log-flush-timeout";
+
+        return basic_option_handler (graph, &vme2, NULL);
+}
+
+static int
 volgen_graph_set_xl_options (volgen_graph_t *graph, dict_t *dict)
 {
         int32_t   ret               = -1;
@@ -1422,6 +1462,12 @@ server_spec_option_handler (volgen_graph_t *graph,
 
         if (!ret)
                 ret = log_format_option_handler (graph, vme, "brick");
+
+        if (!ret)
+                ret = log_buf_size_option_handler (graph, vme, "brick");
+
+        if (!ret)
+                ret = log_flush_timeout_option_handler (graph, vme, "brick");
 
         return ret;
 }
@@ -2780,6 +2826,18 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 gf_log (this->name, GF_LOG_WARNING, "changing client log format"
                         " failed");
 
+        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
+                                                &log_buf_size_option_handler);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "Failed to change "
+                        "log-buf-size option");
+
+        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
+                                            &log_flush_timeout_option_handler);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "Failed to change "
+                        "log-flush-timeout option");
+
 out:
         return ret;
 }
@@ -3139,7 +3197,23 @@ build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
                                                  &log_format_option_handler);
                 if (ret)
                         gf_log (this->name, GF_LOG_WARNING, "changing log "
-                                "format level of self-heal daemon failed");
+                                "format of self-heal daemon failed");
+
+                ret = volgen_graph_set_options_generic (graph, set_dict,
+                                                        "client",
+                                                 &log_buf_size_option_handler);
+                if (ret)
+                        gf_log (this->name, GF_LOG_WARNING, "changing "
+                                "log-buf-size for self-heal daemon failed");
+
+                ret = volgen_graph_set_options_generic (graph, set_dict,
+                                                        "client",
+                                             &log_flush_timeout_option_handler);
+                if (ret)
+                        gf_log (this->name, GF_LOG_WARNING, "changing "
+                                "log-flush-timeout for self-heal daemon "
+                                "failed");
+
 
                 ret = dict_reset (set_dict);
                 if (ret)

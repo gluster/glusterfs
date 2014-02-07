@@ -187,6 +187,19 @@
                                      == DHT_LINKFILE_MODE)
 #define DHT_LINKFILE_STR "linkto"
 
+#define GF_LOG_LRU_BUFSIZE_DEFAULT 5
+#define GF_LOG_LRU_BUFSIZE_MIN 0
+#define GF_LOG_LRU_BUFSIZE_MAX 20
+#define GF_LOG_LRU_BUFSIZE_MIN_STR "0"
+#define GF_LOG_LRU_BUFSIZE_MAX_STR "20"
+
+#define GF_LOG_FLUSH_TIMEOUT_DEFAULT 120
+#define GF_LOG_FLUSH_TIMEOUT_MIN 30
+#define GF_LOG_FLUSH_TIMEOUT_MAX 300
+#define GF_LOG_FLUSH_TIMEOUT_MIN_STR "30"
+#define GF_LOG_FLUSH_TIMEOUT_MAX_STR "300"
+
+
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {
         GF_FOP_NULL = 0,
@@ -348,6 +361,8 @@ struct _cmd_args {
         char            *log_ident;
         gf_log_logger_t  logger;
         gf_log_format_t  log_format;
+        uint32_t         log_buf_size;
+        uint32_t         log_flush_timeout;
         int32_t          max_connect_attempts;
         /* advanced options */
         uint32_t         volfile_server_port;
@@ -428,6 +443,7 @@ struct _glusterfs_ctx {
         struct call_pool   *pool;
         void               *event_pool;
         void               *iobuf_pool;
+        void               *logbuf_pool;
         pthread_mutex_t     lock;
         size_t              page_size;
         struct list_head    graphs; /* double linked list of graphs - one per volfile parse */

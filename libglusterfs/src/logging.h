@@ -16,10 +16,12 @@
 #include "config.h"
 #endif
 
+#include <sys/time.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <pthread.h>
+#include "list.h"
 
 #ifdef GF_DARWIN_HOST_OS
 #define GF_PRI_FSBLK       "u"
@@ -96,22 +98,45 @@ typedef enum {
 #define DEFAULT_LOG_LEVEL                     GF_LOG_INFO
 
 typedef struct gf_log_handle_ {
-        pthread_mutex_t  logfile_mutex;
-        uint8_t          logrotate;
-        gf_loglevel_t    loglevel;
-        int              gf_log_syslog;
-        gf_loglevel_t    sys_log_level;
-        char             gf_log_xl_log_set;
-        char            *filename;
-        FILE            *logfile;
-        FILE            *gf_log_logfile;
-        char            *cmd_log_filename;
-        FILE            *cmdlogfile;
-        gf_log_logger_t  logger;
-        gf_log_format_t  logformat;
-        char            *ident;
-        int              log_control_file_found;
+        pthread_mutex_t   logfile_mutex;
+        uint8_t           logrotate;
+        gf_loglevel_t     loglevel;
+        int               gf_log_syslog;
+        gf_loglevel_t     sys_log_level;
+        char              gf_log_xl_log_set;
+        char             *filename;
+        FILE             *logfile;
+        FILE             *gf_log_logfile;
+        char             *cmd_log_filename;
+        FILE             *cmdlogfile;
+        gf_log_logger_t   logger;
+        gf_log_format_t   logformat;
+        char             *ident;
+        int               log_control_file_found;
+        struct list_head  lru_queue;
+        uint32_t          lru_size;
+        uint32_t          lru_cur_size;
+        uint32_t          timeout;
+        pthread_mutex_t   log_buf_lock;
+        struct _gf_timer *log_flush_timer;
 } gf_log_handle_t;
+
+
+typedef struct log_buf_ {
+        char             *msg;
+        uint64_t          msg_id;
+        int               errnum;
+        struct timeval    oldest;
+        struct timeval    latest;
+        char             *domain;
+        char             *file;
+        char             *function;
+        int32_t           line;
+        gf_loglevel_t     level;
+        int              refcount;
+        int              graph_id;
+        struct list_head msg_list;
+} log_buf_t;
 
 void gf_log_globals_init (void *ctx);
 int gf_log_init (void *data, const char *filename, const char *ident);
@@ -276,6 +301,23 @@ gf_log_set_logger (gf_log_logger_t logger);
 
 void
 gf_log_set_logformat (gf_log_format_t format);
+
+void
+gf_log_set_log_buf_size (uint32_t buf_size);
+
+void
+gf_log_set_log_flush_timeout (uint32_t timeout);
+
+struct _glusterfs_ctx;
+
+void
+gf_log_flush_msgs (struct _glusterfs_ctx *ctx);
+
+int
+gf_log_inject_timer_event (struct _glusterfs_ctx *ctx);
+
+void
+gf_log_disable_suppression_before_exit (struct _glusterfs_ctx *ctx);
 
 #define GF_DEBUG(xl, format, args...)                           \
         gf_log ((xl)->name, GF_LOG_DEBUG, format, ##args)

@@ -129,6 +129,11 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 	if (!ctx->dict_data_pool)
 		goto err;
 
+        ctx->logbuf_pool = mem_pool_new (log_buf_t,
+                                         GF_MEMPOOL_COUNT_OF_LRU_BUF_T);
+        if (!ctx->logbuf_pool)
+                goto err;
+
 	INIT_LIST_HEAD (&pool->all_frames);
 	INIT_LIST_HEAD (&ctx->cmd_args.xlator_options);
         INIT_LIST_HEAD (&ctx->cmd_args.volfile_servers);
@@ -157,6 +162,8 @@ err:
 			mem_pool_destroy (ctx->dict_data_pool);
 		if (ctx->dict_pair_pool)
 			mem_pool_destroy (ctx->dict_pair_pool);
+                if (ctx->logbuf_pool)
+                        mem_pool_destroy (ctx->logbuf_pool);
 	}
 
 	return ret;
@@ -587,6 +594,10 @@ glfs_set_logging (struct glfs *fs, const char *logfile, int loglevel)
                 gf_log_set_loglevel (loglevel);
 
         ret = gf_log_init (fs->ctx, tmplog, NULL);
+        if (ret)
+                goto out;
+
+        ret = gf_log_inject_timer_event (fs->ctx);
         if (ret)
                 goto out;
 
