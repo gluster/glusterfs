@@ -488,3 +488,11 @@ def lstat(e):
             return ex.errno
         else:
             raise
+
+
+class NoPurgeTimeAvailable(Exception):
+    pass
+
+
+class PartialHistoryAvailable(Exception):
+    pass
