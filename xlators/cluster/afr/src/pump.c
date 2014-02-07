@@ -496,14 +496,14 @@ pump_xattr_cleaner (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_build_root_loc (this, &loc);
 
         ret = syncop_removexattr (priv->children[source], &loc,
-                                          PUMP_PATH);
+				  PUMP_PATH, 0);
 
         ret = syncop_removexattr (priv->children[sink], &loc,
-                                  PUMP_SINK_COMPLETE);
+                                  PUMP_SINK_COMPLETE, 0);
 
         for (i = 0; i < priv->child_count; i++) {
                 ret = syncop_removexattr (priv->children[i], &loc,
-                                          PUMP_SOURCE_COMPLETE);
+                                          PUMP_SOURCE_COMPLETE, 0);
                 if (ret) {
                         gf_log (this->name, GF_LOG_DEBUG, "removexattr "
                                 "failed with %s", strerror (-ret));

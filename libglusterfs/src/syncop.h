@@ -360,8 +360,10 @@ int syncop_fsetxattr (xlator_t *subvol, fd_t *fd, dict_t *dict, int32_t flags);
 int syncop_listxattr (xlator_t *subvol, loc_t *loc, dict_t **dict);
 int syncop_getxattr (xlator_t *xl, loc_t *loc, dict_t **dict, const char *key);
 int syncop_fgetxattr (xlator_t *xl, fd_t *fd, dict_t **dict, const char *key);
-int syncop_removexattr (xlator_t *subvol, loc_t *loc, const char *name);
-int syncop_fremovexattr (xlator_t *subvol, fd_t *fd, const char *name);
+int syncop_removexattr (xlator_t *subvol, loc_t *loc, const char *name,
+			dict_t *xdata);
+int syncop_fremovexattr (xlator_t *subvol, fd_t *fd, const char *name,
+			 dict_t *xdata);
 
 int syncop_create (xlator_t *subvol, loc_t *loc, int32_t flags, mode_t mode,
                    fd_t *fd, dict_t *dict, struct iatt *iatt);

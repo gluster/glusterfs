@@ -892,7 +892,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         }
 
         /* remove the 'linkto' xattr from the destination */
-        ret = syncop_fremovexattr (to, dst_fd, conf->link_xattr_name);
+        ret = syncop_fremovexattr (to, dst_fd, conf->link_xattr_name, 0);
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: failed to perform removexattr on %s (%s)",
