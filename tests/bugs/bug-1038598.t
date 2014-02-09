@@ -69,6 +69,10 @@ EXPECT "6.0MB" usage "/test_dir";
 EXPECT 'Yes' sl_exceeded "/test_dir";
 EXPECT 'No' hl_exceeded "/test_dir";
 
+#set timeout to 0 so that quota gets enforced without any lag
+TEST $CLI volume set $V0 features.hard-timeout 0
+TEST $CLI volume set $V0 features.soft-timeout 0
+
 TEST ! dd if=/dev/zero of=$M0/test_dir/file1.txt bs=1M count=15
 EXPECT 'Yes' sl_exceeded "/test_dir";
 EXPECT 'Yes' hl_exceeded "/test_dir";
