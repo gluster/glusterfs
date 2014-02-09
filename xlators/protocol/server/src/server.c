@@ -421,11 +421,10 @@ _check_for_auth_option (dict_t *d, char *k, data_t *v,
                         else
                                 addr = NULL;
                 }
-
-                GF_FREE (tmp_addr_list);
-                tmp_addr_list = NULL;
         }
 out:
+        GF_FREE (tmp_addr_list);
+
         return ret;
 }
 
