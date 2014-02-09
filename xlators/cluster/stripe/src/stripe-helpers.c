@@ -223,6 +223,7 @@ stripe_fill_lockinfo_xattr (xlator_t *this, stripe_local_t *local,
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "dict_serialize failed (%s)", strerror (-ret));
+                        GF_FREE(buf);
                         ret = -1;
                         goto out;
                 }
@@ -280,6 +281,7 @@ stripe_fill_pathinfo_xattr (xlator_t *this, stripe_local_t *local,
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Cannot aggregate pathinfo list");
+                GF_FREE(pathinfo_serz);
                 goto out;
         }
 
