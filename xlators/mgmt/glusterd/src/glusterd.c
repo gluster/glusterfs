@@ -937,6 +937,14 @@ _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
                 "adding %smount spec failed: label: %s desc: %s",
                 georep ? GEOREP" " : "", label, pdesc);
 
+        if (mspec) {
+                if (mspec->patterns) {
+                        GF_FREE (mspec->patterns->components);
+                        GF_FREE (mspec->patterns);
+                }
+                GF_FREE (mspec);
+        }
+
         return -1;
 }
 

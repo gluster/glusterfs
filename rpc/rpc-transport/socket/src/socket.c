@@ -2491,8 +2491,10 @@ socket_server_event_handler (int fd, int idx, void *data,
 
                         new_trans = GF_CALLOC (1, sizeof (*new_trans),
                                                gf_common_mt_rpc_trans_t);
-                        if (!new_trans)
+                        if (!new_trans) {
+                                close (new_sock);
                                 goto unlock;
+                        }
 
                         ret = pthread_mutex_init(&new_trans->lock, NULL);
                         if (ret == -1) {
@@ -2500,6 +2502,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                                         "pthread_mutex_init() failed: %s",
                                         strerror (errno));
                                 close (new_sock);
+                                GF_FREE (new_trans);
                                 goto unlock;
                         }
 
@@ -2520,6 +2523,8 @@ socket_server_event_handler (int fd, int idx, void *data,
                                         "getsockname on %d failed (%s)",
                                         new_sock, strerror (errno));
                                 close (new_sock);
+                                GF_FREE (new_trans->name);
+                                GF_FREE (new_trans);
                                 goto unlock;
                         }
 
@@ -2527,6 +2532,8 @@ socket_server_event_handler (int fd, int idx, void *data,
                         ret = socket_init(new_trans);
                         if (ret != 0) {
                                 close(new_sock);
+                                GF_FREE (new_trans->name);
+                                GF_FREE (new_trans);
                                 goto unlock;
                         }
                         new_trans->ops = this->ops;
@@ -2549,6 +2556,8 @@ socket_server_event_handler (int fd, int idx, void *data,
 					gf_log(this->name,GF_LOG_ERROR,
 					       "server setup failed");
 					close(new_sock);
+                                        GF_FREE (new_trans->name);
+                                        GF_FREE (new_trans);
 					goto unlock;
 				}
 			}
@@ -2562,6 +2571,8 @@ socket_server_event_handler (int fd, int idx, void *data,
                                                 new_sock, strerror (errno));
 
                                         close (new_sock);
+                                        GF_FREE (new_trans->name);
+                                        GF_FREE (new_trans);
                                         goto unlock;
                                 }
                         }
@@ -2600,6 +2611,8 @@ socket_server_event_handler (int fd, int idx, void *data,
                         if (ret == -1) {
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "failed to register the socket with event");
+                                close (new_sock);
+                                rpc_transport_unref (new_trans);
                                 goto unlock;
                         }
 
