@@ -991,6 +991,7 @@ ioc_dispatch_requests (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
                                                 "out of memory");
                                         local->op_ret = -1;
                                         local->op_errno = ENOMEM;
+                                        ioc_inode_unlock (ioc_inode);
                                         goto out;
                                 }
                         }
