@@ -184,6 +184,18 @@ AC_PROG_CC
 AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
 
+# Initialize CFLAGS before usage
+AC_ARG_ENABLE([debug],
+              AC_HELP_STRING([--enable-debug],
+                             [Enable debug build options.]))
+if test "x$enable_debug" = "xyes"; then
+        BUILD_DEBUG=yes
+        CFLAGS="-g -O0 -DDEBUG"
+else
+        BUILD_DEBUG=no
+        CFLAGS="-g -O2"
+fi
+
 AC_ARG_WITH(pkgconfigdir,
             [  --with-pkgconfigdir=DIR      pkgconfig file in DIR @<:@LIBDIR/pkgconfig@:>@],
             [pkgconfigdir=$withval],
@@ -696,14 +708,14 @@ fi
 case $host_os in
      linux*)
         GF_HOST_OS="GF_LINUX_HOST_OS"
-        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -O0"
+        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS}"
         GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
         GF_LDADD="${ARGP_STANDALONE_LDADD}"
         GF_FUSE_CFLAGS="-DFUSERMOUNT_DIR=\\\"\$(bindir)\\\""
         ;;
      solaris*)
         GF_HOST_OS="GF_SOLARIS_HOST_OS"
-        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS -O0 -m64"
+        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS -m64"
         GF_LDFLAGS=""
         GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
         GF_LDADD="${ARGP_STANDALONE_LDADD}"
@@ -727,7 +739,7 @@ case $host_os in
         ;;
      *bsd*)
         GF_HOST_OS="GF_BSD_HOST_OS"
-        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -O0"
+        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS}"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_DIRNAME"
         GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
@@ -740,10 +752,10 @@ case $host_os in
      darwin*)
         GF_HOST_OS="GF_DARWIN_HOST_OS"
         LIBTOOL=glibtool
-        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D__DARWIN_64_BIT_INO_T -bundle -undefined suppress -flat_namespace -D_XOPEN_SOURCE -O0"
+        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D__DARWIN_64_BIT_INO_T -bundle -undefined suppress -flat_namespace -D_XOPEN_SOURCE"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_DIRNAME"
-        GF_GLUSTERFS_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D__DARWIN_64_BIT_INO_T -undefined suppress -flat_namespace -O0"
+        GF_GLUSTERFS_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D__DARWIN_64_BIT_INO_T -undefined suppress -flat_namespace"
         GF_LDADD="${ARGP_STANDALONE_LDADD}"
         GF_FUSE_CFLAGS="-I\$(CONTRIBDIR)/macfuse"
         ;;
@@ -795,6 +807,8 @@ AM_PATH_PYTHON()
 if echo $PYTHON_VERSION | grep ^2; then
   have_python2=yes
 fi
+
+# Save flags before testing python
 saved_CFLAGS=$CFLAGS
 saved_CPPFLAGS=$CPPFLAGS
 saved_LDFLAGS=$LDFLAGS
@@ -809,9 +823,12 @@ case x$enable_glupy in
    xyes)
       if test "x$have_python2" = "xyes" -a "x$have_Python_h" = "xyes"; then
          BUILD_GLUPY=yes
-         saved_CFLAGS="$saved_CFLAGS $CFLAGS"
-         saved_CPPFLAGS="$saved_CPPFLAGS $CPPFLAGS"
-         saved_LDFLAGS="$saved_LDFLAGS $LDFLAGS"
+        PYTHONDEV_CFLAGS="$CFLAGS"
+        PYTHONDEV_CPPFLAGS="$CPPFLAGS"
+        PYTHONDEV_LDFLAGS="$LDFLAGS"
+        AC_SUBST(PYTHONDEV_CFLAGS)
+        AC_SUBST(PYTHONDEV_CPPFLAGS)
+        AC_SUBST(PYTHONDEV_LDFLAGS)
       else
          AC_MSG_ERROR([glupy requires python-devel/python-dev package and python2.x])
       fi
@@ -821,9 +838,12 @@ case x$enable_glupy in
    *)
       if test "x$have_python2" = "xyes" -a "x$have_Python_h" = "xyes"; then
          BUILD_GLUPY=yes
-         saved_CFLAGS="$saved_CFLAGS $CFLAGS"
-         saved_CPPFLAGS="$saved_CPPFLAGS $CPPFLAGS"
-         saved_LDFLAGS="$saved_LDFLAGS $LDFLAGS"
+        PYTHONDEV_CFLAGS="$CFLAGS"
+        PYTHONDEV_CPPFLAGS="$CPPFLAGS"
+        PYTHONDEV_LDFLAGS="$LDFLAGS"
+        AC_SUBST(PYTHONDEV_CFLAGS)
+        AC_SUBST(PYTHONDEV_CPPFLAGS)
+        AC_SUBST(PYTHONDEV_LDFLAGS)
       else
          AC_MSG_WARN([
         ---------------------------------------------------------------------------------
@@ -832,6 +852,7 @@ case x$enable_glupy in
       fi
       ;;
 esac
+# Restore flags
 CFLAGS=$saved_CFLAGS
 CPPFLAGS=$saved_CPPFLAGS
 LDFLAGS=$saved_LDFLAGS
@@ -851,15 +872,6 @@ if test "x$BUILD_GLUPY" = "xyes"; then
 fi
 # end glupy section
 
-# Other stuff (most notably the glupy section) might have injected another -O2
-# into CFLAGS, so *do this last*.
-BUILD_DEBUG=no
-if test "x$enable_debug" = "xyes"; then
-   BUILD_DEBUG=yes
-   CFLAGS=`echo $CFLAGS | sed -e s/O2/O0/g`
-else
-   BUILD_DEBUG=no
-fi
 AC_SUBST(CFLAGS)
 # end enable debug section
 
