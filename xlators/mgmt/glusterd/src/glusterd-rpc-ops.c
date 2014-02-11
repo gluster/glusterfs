@@ -575,11 +575,16 @@ __glusterd_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
         xlator_t                      *this = NULL;
-        uuid_t                        *txn_id = &global_txn_id;
+        uuid_t                        *txn_id = NULL;
+        glusterd_conf_t               *priv = NULL;
 
         this = THIS;
         GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
         GF_ASSERT (req);
+
+        txn_id = &priv->global_txn_id;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -811,11 +816,16 @@ __glusterd_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
         xlator_t                      *this = NULL;
-        uuid_t                        *txn_id = &global_txn_id;
+        uuid_t                        *txn_id = NULL;
+        glusterd_conf_t               *priv = NULL;
 
         this = THIS;
         GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
         GF_ASSERT (req);
+
+        txn_id = &priv->global_txn_id;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -1403,6 +1413,7 @@ glusterd_vol_lock (call_frame_t *frame, xlator_t *this,
         glusterd_conf_t                 *priv        = NULL;
         call_frame_t                    *dummy_frame = NULL;
         dict_t                          *dict        = NULL;
+        uuid_t                          *txn_id      = NULL;
 
         if (!this)
                 goto out;
@@ -1429,9 +1440,23 @@ glusterd_vol_lock (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        dummy_frame = create_frame (this, this->ctx->pool);
-        if (!dummy_frame)
+        ret = dict_get_bin (dict, "transaction_id",
+                            (void **)&txn_id);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                       "Failed to get transaction id.");
                 goto out;
+        } else {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Transaction_id = %s", uuid_utoa (*txn_id));
+                uuid_copy (req.txn_id, *txn_id);
+        }
+
+        dummy_frame = create_frame (this, this->ctx->pool);
+        if (!dummy_frame) {
+                ret = -1;
+                goto out;
+        }
 
         ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
                                        peerinfo->mgmt_v3,
@@ -1453,6 +1478,7 @@ glusterd_vol_unlock (call_frame_t *frame, xlator_t *this,
         glusterd_conf_t                 *priv        = NULL;
         call_frame_t                    *dummy_frame = NULL;
         dict_t                          *dict        = NULL;
+        uuid_t                          *txn_id      = NULL;
 
         if (!this)
                 goto out;
@@ -1479,9 +1505,23 @@ glusterd_vol_unlock (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        dummy_frame = create_frame (this, this->ctx->pool);
-        if (!dummy_frame)
+        ret = dict_get_bin (dict, "transaction_id",
+                            (void **)&txn_id);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                       "Failed to get transaction id.");
                 goto out;
+        } else {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Transaction_id = %s", uuid_utoa (*txn_id));
+                uuid_copy (req.txn_id, *txn_id);
+        }
+
+        dummy_frame = create_frame (this, this->ctx->pool);
+        if (!dummy_frame) {
+                ret = -1;
+                goto out;
+        }
 
         ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
                                        peerinfo->mgmt_v3,
@@ -1657,12 +1697,16 @@ __glusterd_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
         glusterd_req_ctx_t            *req_ctx = NULL;
         glusterd_pending_node_t       *node = NULL;
         xlator_t                      *this = NULL;
-        uuid_t                        *txn_id = &global_txn_id;
+        uuid_t                        *txn_id = NULL;
+        glusterd_conf_t               *priv = NULL;
 
         this = THIS;
         GF_ASSERT (this);
-
+        priv = this->private;
+        GF_ASSERT (priv);
         GF_ASSERT (req);
+
+        txn_id = &priv->global_txn_id;
         frame = myframe;
         req_ctx = frame->local;
 
@@ -1760,7 +1804,7 @@ glusterd_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
 
 int32_t
 glusterd_brick_op (call_frame_t *frame, xlator_t *this,
-                      void *data)
+                   void *data)
 {
 
         gd1_mgmt_brick_op_req           *req = NULL;
@@ -1773,7 +1817,7 @@ glusterd_brick_op (call_frame_t *frame, xlator_t *this,
         glusterd_req_ctx_t              *req_ctx = NULL;
         struct rpc_clnt                 *rpc = NULL;
         dict_t                          *op_ctx = NULL;
-        uuid_t                          *txn_id = &global_txn_id;
+        uuid_t                          *txn_id = NULL;
 
         if (!this) {
                 ret = -1;
@@ -1781,6 +1825,8 @@ glusterd_brick_op (call_frame_t *frame, xlator_t *this,
         }
         priv = this->private;
         GF_ASSERT (priv);
+
+        txn_id = &priv->global_txn_id;
 
         req_ctx = data;
         GF_ASSERT (req_ctx);

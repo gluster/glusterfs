@@ -1895,15 +1895,17 @@ glusterd_do_replace_brick (void *data)
         glusterd_brickinfo_t   *src_brickinfo = NULL;
         glusterd_brickinfo_t   *dst_brickinfo = NULL;
 	glusterd_conf_t	       *priv = NULL;
-        uuid_t                 *txn_id = &global_txn_id;
+        uuid_t                 *txn_id = NULL;
 
         int ret = 0;
 
         dict = data;
 
 	GF_ASSERT (THIS);
-
 	priv = THIS->private;
+        GF_ASSERT (priv);
+
+        txn_id = &priv->global_txn_id;
 
 	if (priv->timer) {
 		gf_timer_call_cancel (THIS->ctx, priv->timer);

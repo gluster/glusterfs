@@ -15,10 +15,9 @@
 #include "config.h"
 #endif
 
-struct volume_lock_object_ {
+typedef struct glusterd_volume_lock_object_ {
         uuid_t              lock_owner;
-};
-typedef struct volume_lock_object_ vol_lock_obj;
+} glusterd_vol_lock_obj;
 
 int32_t
 glusterd_vol_lock_init ();

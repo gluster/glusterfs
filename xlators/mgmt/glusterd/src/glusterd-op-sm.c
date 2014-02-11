@@ -68,28 +68,26 @@
 static struct list_head gd_op_sm_queue;
 pthread_mutex_t       gd_op_sm_lock;
 glusterd_op_info_t    opinfo = {{0},};
-uuid_t                global_txn_id = {0}; /* To be used in
-                                               * heterogeneous
-                                               * cluster with no
-                                               * transaction ids */
-
-static dict_t *txn_opinfo;
-
-struct glusterd_txn_opinfo_object_ {
-        glusterd_op_info_t    opinfo;
-};
-typedef struct glusterd_txn_opinfo_object_ glusterd_txn_opinfo_obj;
 
 int32_t
 glusterd_txn_opinfo_dict_init ()
 {
-        int32_t ret = -1;
+        int32_t             ret    = -1;
+        xlator_t           *this   = NULL;
+        glusterd_conf_t    *priv   = NULL;
 
-        txn_opinfo = dict_new ();
-        if (!txn_opinfo) {
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        priv->glusterd_txn_opinfo = dict_new ();
+        if (!priv->glusterd_txn_opinfo) {
                 ret = -1;
                 goto out;
         }
+
+        memset (priv->global_txn_id, '\0', sizeof(uuid_t));
 
         ret = 0;
 out:
@@ -99,8 +97,16 @@ out:
 void
 glusterd_txn_opinfo_dict_fini ()
 {
-        if (txn_opinfo)
-                dict_destroy (txn_opinfo);
+        xlator_t           *this   = NULL;
+        glusterd_conf_t    *priv   = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        if (priv->glusterd_txn_opinfo)
+                dict_unref (priv->glusterd_txn_opinfo);
 }
 
 void
@@ -118,7 +124,10 @@ glusterd_txn_opinfo_init (glusterd_op_info_t  *opinfo,
         if (op)
                 opinfo->op = *op;
 
-        opinfo->op_ctx = dict_ref(op_ctx);
+        if (op_ctx)
+                opinfo->op_ctx = dict_ref(op_ctx);
+        else
+                opinfo->op_ctx = NULL;
 
         if (req)
                 opinfo->req = req;
@@ -130,14 +139,23 @@ int32_t
 glusterd_generate_txn_id (dict_t *dict, uuid_t **txn_id)
 {
         int32_t             ret      = -1;
+        glusterd_conf_t    *priv     = NULL;
+        xlator_t           *this     = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
         GF_ASSERT (dict);
 
         *txn_id = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
         if (!*txn_id)
                 goto out;
 
-        uuid_generate (**txn_id);
+        if (priv->op_version < GD_OP_VERSION_4)
+                uuid_copy (**txn_id, priv->global_txn_id);
+        else
+                uuid_generate (**txn_id);
 
         ret = dict_set_bin (dict, "transaction_id",
                             *txn_id, sizeof (uuid_t));
@@ -150,8 +168,10 @@ glusterd_generate_txn_id (dict_t *dict, uuid_t **txn_id)
         gf_log ("", GF_LOG_DEBUG,
                 "Transaction_id = %s", uuid_utoa (**txn_id));
 out:
-        if (ret && *txn_id)
+        if (ret && *txn_id) {
                 GF_FREE (*txn_id);
+                *txn_id = NULL;
+        }
 
         return ret;
 }
@@ -161,6 +181,13 @@ glusterd_get_txn_opinfo (uuid_t *txn_id, glusterd_op_info_t  *opinfo)
 {
         int32_t                   ret         = -1;
         glusterd_txn_opinfo_obj  *opinfo_obj  = NULL;
+        glusterd_conf_t          *priv        = NULL;
+        xlator_t                 *this        = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
 
         if (!txn_id || !opinfo) {
                 gf_log ("", GF_LOG_ERROR,
@@ -169,15 +196,22 @@ glusterd_get_txn_opinfo (uuid_t *txn_id, glusterd_op_info_t  *opinfo)
                 goto out;
         }
 
-        ret = dict_get_bin(txn_opinfo, uuid_utoa (*txn_id),
+        ret = dict_get_bin(priv->glusterd_txn_opinfo,
+                           uuid_utoa (*txn_id),
                            (void **) &opinfo_obj);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
-                        "Unable to get transaction opinfo");
+                        "Unable to get transaction opinfo "
+                        "for transaction ID : %s",
+                        uuid_utoa (*txn_id));
                 goto out;
         }
 
         (*opinfo) = opinfo_obj->opinfo;
+
+        gf_log ("", GF_LOG_DEBUG,
+                "Successfully got opinfo for transaction ID : %s",
+                uuid_utoa (*txn_id));
 
         ret = 0;
 out:
@@ -190,6 +224,13 @@ glusterd_set_txn_opinfo (uuid_t *txn_id, glusterd_op_info_t  *opinfo)
 {
         int32_t                   ret        = -1;
         glusterd_txn_opinfo_obj  *opinfo_obj = NULL;
+        glusterd_conf_t          *priv        = NULL;
+        xlator_t                 *this        = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
 
         if (!txn_id) {
                 gf_log ("", GF_LOG_ERROR, "Empty transaction id received.");
@@ -197,7 +238,8 @@ glusterd_set_txn_opinfo (uuid_t *txn_id, glusterd_op_info_t  *opinfo)
                 goto out;
         }
 
-        ret = dict_get_bin(txn_opinfo, uuid_utoa (*txn_id),
+        ret = dict_get_bin(priv->glusterd_txn_opinfo,
+                           uuid_utoa (*txn_id),
                            (void **) &opinfo_obj);
         if (ret) {
                 opinfo_obj = GF_CALLOC (1, sizeof(glusterd_txn_opinfo_obj),
@@ -207,7 +249,8 @@ glusterd_set_txn_opinfo (uuid_t *txn_id, glusterd_op_info_t  *opinfo)
                         goto out;
                 }
 
-                ret = dict_set_bin(txn_opinfo, uuid_utoa (*txn_id), opinfo_obj,
+                ret = dict_set_bin(priv->glusterd_txn_opinfo,
+                                   uuid_utoa (*txn_id), opinfo_obj,
                                    sizeof(glusterd_txn_opinfo_obj));
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR,
@@ -219,6 +262,9 @@ glusterd_set_txn_opinfo (uuid_t *txn_id, glusterd_op_info_t  *opinfo)
 
         opinfo_obj->opinfo = (*opinfo);
 
+        gf_log ("", GF_LOG_DEBUG,
+                "Successfully set opinfo for transaction ID : %s",
+                uuid_utoa (*txn_id));
         ret = 0;
 out:
         if (ret)
@@ -234,6 +280,13 @@ glusterd_clear_txn_opinfo (uuid_t *txn_id)
 {
         int32_t               ret         = -1;
         glusterd_op_info_t    txn_op_info = {{0},};
+        glusterd_conf_t      *priv        = NULL;
+        xlator_t             *this        = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
 
         if (!txn_id) {
                 gf_log ("", GF_LOG_ERROR, "Empty transaction id received.");
@@ -247,9 +300,14 @@ glusterd_clear_txn_opinfo (uuid_t *txn_id)
                 goto out;
         }
 
-        dict_unref (txn_op_info.op_ctx);
+        if (txn_op_info.op_ctx)
+                dict_unref (txn_op_info.op_ctx);
 
-        dict_del(txn_opinfo, uuid_utoa (*txn_id));
+        dict_del(priv->glusterd_txn_opinfo, uuid_utoa (*txn_id));
+
+        gf_log ("", GF_LOG_DEBUG,
+                "Successfully cleared opinfo for transaction ID : %s",
+                uuid_utoa (*txn_id));
 
         ret = 0;
 out:
@@ -4293,7 +4351,7 @@ glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         }
 
         ret = dict_set_bin (rsp_dict, "transaction_id",
-                            txn_id, sizeof(uuid_t *));
+                            txn_id, sizeof(uuid_t));
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                        "Failed to set transaction id.");

@@ -1313,7 +1313,7 @@ out:
 }
 
 int
-gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int op_ret,
+gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
                     rpcsvc_request_t *req, dict_t *op_ctx, char *op_errstr,
                     int npeers, char *volname, gf_boolean_t is_acquired,
                     uuid_t txn_id)
@@ -1336,8 +1336,10 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int op_ret,
 
         /* If the lock has not been held during this
          * transaction, do not send unlock requests */
-        if (!is_acquired)
+        if (!is_acquired) {
+                ret = 0;
                 goto out;
+        }
 
         this = THIS;
         synctask_barrier_init((&args));
@@ -1376,7 +1378,11 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int op_ret,
         }
 
 out:
-        glusterd_op_send_cli_response (op, op_ret, 0, req, op_ctx, op_errstr);
+        /* If unlock failed, and op_ret was previously set
+         * priority is given to the op_ret. If op_ret was
+         * not set, and unlock failed, then set op_ret */
+        if (!*op_ret)
+                *op_ret = ret;
 
         if (is_acquired) {
                 /* Based on the op-version,
@@ -1396,6 +1402,9 @@ out:
                         }
                 }
         }
+
+        if (!*op_ret)
+                *op_ret = ret;
 
         return 0;
 }
@@ -1486,6 +1495,7 @@ void
 gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
 {
         int                         ret              = -1;
+        int                         op_ret           = -1;
         int                         npeers           = 0;
         dict_t                      *req_dict        = NULL;
         glusterd_conf_t             *conf            = NULL;
@@ -1504,6 +1514,14 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         conf = this->private;
         GF_ASSERT (conf);
 
+        ret = dict_get_int32 (op_ctx, GD_SYNC_OPCODE_KEY, &tmp_op);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get volume "
+                        "operation");
+                goto out;
+        }
+        op = tmp_op;
+
         /* Generate a transaction-id for this operation and
          * save it in the dict */
         ret = glusterd_generate_txn_id (op_ctx, &txn_id);
@@ -1511,8 +1529,19 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to generate transaction id");
                 goto out;
-
         }
+
+        /* Save opinfo for this transaction with the transaction id */
+        glusterd_txn_opinfo_init (&txn_opinfo, NULL, &op, NULL, NULL);
+        ret = glusterd_set_txn_opinfo (txn_id, &txn_opinfo);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to set transaction's opinfo");
+
+        gf_log (this->name, GF_LOG_DEBUG,
+                "Transaction ID : %s", uuid_utoa (*txn_id));
+
+        opinfo = txn_opinfo;
 
         /* Save the MY_UUID as the originator_uuid */
         ret = glusterd_set_originator_uuid (op_ctx);
@@ -1521,15 +1550,6 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
                         "Failed to set originator_uuid.");
                 goto out;
         }
-
-        ret = dict_get_int32 (op_ctx, GD_SYNC_OPCODE_KEY, &tmp_op);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get volume "
-                        "operation");
-                goto out;
-        }
-
-        op = tmp_op;
 
         /* Based on the op_version, acquire a cluster or volume lock */
         if (conf->op_version < GD_OP_VERSION_4) {
@@ -1576,26 +1596,20 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
 
 local_locking_done:
 
-        /* Save opinfo for this transaction with the transaction id */
-        glusterd_txn_opinfo_init (&txn_opinfo, NULL, &op, NULL, NULL);
-        ret = glusterd_set_txn_opinfo (txn_id, &txn_opinfo);
-        if (ret)
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Unable to set transaction's opinfo");
-
-        opinfo = txn_opinfo;
-
         INIT_LIST_HEAD (&conf->xaction_peers);
 
         npeers = gd_build_peers_list  (&conf->peers, &conf->xaction_peers, op);
 
         /* If no volname is given as a part of the command, locks will
          * not be held */
-        if (volname) {
+        if (volname || (conf->op_version < GD_OP_VERSION_4)) {
                 ret = gd_lock_op_phase (conf, op, op_ctx, &op_errstr,
                                         npeers, *txn_id);
-                if (ret)
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Locking Peers Failed.");
                         goto out;
+                }
         }
 
         ret = glusterd_op_build_payload (&req_dict, &op_errstr, op_ctx);
@@ -1623,14 +1637,23 @@ local_locking_done:
 
         ret = 0;
 out:
-        (void) gd_unlock_op_phase (conf, op, ret, req, op_ctx, op_errstr,
-                                   npeers, volname, is_acquired, *txn_id);
+        op_ret = ret;
+        if (txn_id) {
+                (void) gd_unlock_op_phase (conf, op, &op_ret, req,
+                                           op_ctx, op_errstr,
+                                           npeers, volname,
+                                           is_acquired, *txn_id);
 
-        /* Clearing the transaction opinfo */
-        ret = glusterd_clear_txn_opinfo (txn_id);
-        if (ret)
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Unable to clear transaction's opinfo");
+                /* Clearing the transaction opinfo */
+                ret = glusterd_clear_txn_opinfo (txn_id);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to clear transaction's "
+                                "opinfo for transaction ID : %s",
+                                uuid_utoa (*txn_id));
+        }
+
+        glusterd_op_send_cli_response (op, op_ret, 0, req, op_ctx, op_errstr);
 
         if (volname)
                 GF_FREE (volname);

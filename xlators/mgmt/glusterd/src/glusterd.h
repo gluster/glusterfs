@@ -142,6 +142,13 @@ typedef struct {
         gf_timer_t              *timer;
         glusterd_sm_tr_log_t     op_sm_log;
         struct rpc_clnt_program *gfs_mgmt;
+        dict_t                  *vol_lock; /* Dict for saving vol locks */
+        dict_t                  *glusterd_txn_opinfo; /* Dict for saving
+                                                       * transaction opinfos */
+        uuid_t                   global_txn_id; /* To be used in
+                                                 * heterogeneous
+                                                 * cluster with no
+                                                 * transaction ids */
 
         struct list_head  mount_specs;
         gf_boolean_t      valgrind;

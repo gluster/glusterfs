@@ -26,17 +26,22 @@
 
 #include <signal.h>
 
-static dict_t *vol_lock;
-
 /* Initialize the global vol-lock list(dict) when
  * glusterd is spawned */
 int32_t
 glusterd_vol_lock_init ()
 {
-        int32_t ret = -1;
+        int32_t             ret = -1;
+        xlator_t           *this   = NULL;
+        glusterd_conf_t    *priv   = NULL;
 
-        vol_lock = dict_new ();
-        if (!vol_lock)
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        priv->vol_lock = dict_new ();
+        if (!priv->vol_lock)
                 goto out;
 
         ret = 0;
@@ -49,16 +54,31 @@ out:
 void
 glusterd_vol_lock_fini ()
 {
-        if (vol_lock)
-                dict_unref (vol_lock);
+        xlator_t           *this   = NULL;
+        glusterd_conf_t    *priv   = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        if (priv->vol_lock)
+                dict_unref (priv->vol_lock);
 }
 
 int32_t
 glusterd_get_vol_lock_owner (char *volname, uuid_t *uuid)
 {
-        int32_t        ret      = -1;
-        vol_lock_obj  *lock_obj = NULL;
-        uuid_t         no_owner = {0,};
+        int32_t                 ret      = -1;
+        glusterd_vol_lock_obj  *lock_obj = NULL;
+        glusterd_conf_t        *priv     = NULL;
+        uuid_t                  no_owner = {0,};
+        xlator_t               *this     = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
 
         if (!volname || !uuid) {
                 gf_log ("", GF_LOG_ERROR, "volname or uuid is null.");
@@ -66,7 +86,7 @@ glusterd_get_vol_lock_owner (char *volname, uuid_t *uuid)
                 goto out;
         }
 
-        ret = dict_get_bin (vol_lock, volname, (void **) &lock_obj);
+        ret = dict_get_bin (priv->vol_lock, volname, (void **) &lock_obj);
         if (!ret)
                 uuid_copy (*uuid, lock_obj->lock_owner);
         else
@@ -81,9 +101,16 @@ out:
 int32_t
 glusterd_volume_lock (char *volname, uuid_t uuid)
 {
-        int32_t        ret      = -1;
-        vol_lock_obj  *lock_obj = NULL;
-        uuid_t         owner    = {0};
+        int32_t                 ret      = -1;
+        glusterd_vol_lock_obj  *lock_obj = NULL;
+        glusterd_conf_t        *priv     = NULL;
+        uuid_t                  owner    = {0};
+        xlator_t               *this     = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
 
         if (!volname) {
                 gf_log ("", GF_LOG_ERROR, "volname is null.");
@@ -93,21 +120,22 @@ glusterd_volume_lock (char *volname, uuid_t uuid)
 
         ret = glusterd_get_vol_lock_owner (volname, &owner);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG, "Unable to get volume lock owner");
+                gf_log ("", GF_LOG_WARNING,
+                        "Unable to get volume lock owner");
                 goto out;
         }
 
         /* If the lock has already been held for the given volume
          * we fail */
         if (!uuid_is_null (owner)) {
-                gf_log ("", GF_LOG_ERROR, "Unable to acquire lock. "
+                gf_log ("", GF_LOG_WARNING, "Unable to acquire lock. "
                         "Lock for %s held by %s", volname,
                         uuid_utoa (owner));
                 ret = -1;
                 goto out;
         }
 
-        lock_obj = GF_CALLOC (1, sizeof(vol_lock_obj),
+        lock_obj = GF_CALLOC (1, sizeof(glusterd_vol_lock_obj),
                               gf_common_mt_vol_lock_obj_t);
         if (!lock_obj) {
                 ret = -1;
@@ -116,7 +144,8 @@ glusterd_volume_lock (char *volname, uuid_t uuid)
 
         uuid_copy (lock_obj->lock_owner, uuid);
 
-        ret = dict_set_bin (vol_lock, volname, lock_obj, sizeof(vol_lock_obj));
+        ret = dict_set_bin (priv->vol_lock, volname, lock_obj,
+                            sizeof(glusterd_vol_lock_obj));
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to set lock owner "
                                           "in volume lock");
@@ -137,8 +166,15 @@ out:
 int32_t
 glusterd_volume_unlock (char *volname, uuid_t uuid)
 {
-        int32_t        ret      = -1;
-        uuid_t         owner    = {0};
+        int32_t                 ret      = -1;
+        glusterd_conf_t        *priv     = NULL;
+        uuid_t                  owner    = {0};
+        xlator_t               *this     = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
 
         if (!volname) {
                 gf_log ("", GF_LOG_ERROR, "volname is null.");
@@ -151,21 +187,21 @@ glusterd_volume_unlock (char *volname, uuid_t uuid)
                 goto out;
 
         if (uuid_is_null (owner)) {
-                gf_log ("", GF_LOG_ERROR, "Lock for %s not held", volname);
+                gf_log ("", GF_LOG_WARNING, "Lock for %s not held", volname);
                 ret = -1;
                 goto out;
         }
 
         ret = uuid_compare (uuid, owner);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Lock owner mismatch. "
+                gf_log (THIS->name, GF_LOG_WARNING, "Lock owner mismatch. "
                         "Lock for %s held by %s",
                         volname, uuid_utoa (owner));
                 goto out;
         }
 
         /* Removing the volume lock from the global list */
-        dict_del (vol_lock, volname);
+        dict_del (priv->vol_lock, volname);
 
         gf_log ("", GF_LOG_DEBUG, "Lock for %s successfully released",
                 volname);

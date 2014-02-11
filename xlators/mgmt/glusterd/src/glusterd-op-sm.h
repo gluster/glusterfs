@@ -172,6 +172,10 @@ typedef struct gsync_status_param {
         glusterd_volinfo_t *volinfo;
 }gsync_status_param_t;
 
+typedef struct glusterd_txn_opinfo_object_ {
+        glusterd_op_info_t    opinfo;
+} glusterd_txn_opinfo_obj;
+
 typedef enum cli_cmd_type_ {
         PER_REPLICA,
         ALL_REPLICA,
