@@ -1314,8 +1314,6 @@ init (xlator_t *this)
         glusterd_friend_sm_init ();
         glusterd_op_sm_init ();
         glusterd_opinfo_init ();
-        glusterd_vol_lock_init ();
-        glusterd_txn_opinfo_dict_init ();
         ret = glusterd_sm_tr_log_init (&conf->op_sm_log,
                                        glusterd_op_sm_state_name_get,
                                        glusterd_op_sm_event_name_get,
@@ -1344,6 +1342,8 @@ init (xlator_t *this)
         }
 
         this->private = conf;
+        glusterd_vol_lock_init ();
+        glusterd_txn_opinfo_dict_init ();
         (void) glusterd_nodesvc_set_online_status ("glustershd", _gf_false);
 
         GLUSTERD_GET_HOOKS_DIR (hooks_dir, GLUSTERD_HOOK_VER, conf);

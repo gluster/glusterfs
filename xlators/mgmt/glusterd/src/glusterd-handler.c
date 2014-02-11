@@ -56,7 +56,6 @@
 #endif
 
 extern glusterd_op_info_t opinfo;
-extern uuid_t global_txn_id;
 
 int glusterd_big_locked_notify (struct rpc_clnt *rpc, void *mydata,
                                 rpc_clnt_event_t event,
@@ -623,7 +622,6 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to generate transaction id");
                 goto out;
-
         }
 
         /* Save the MY_UUID as the originator_uuid. This originator_uuid
@@ -684,7 +682,7 @@ local_locking_done:
 
         /* If no volname is given as a part of the command, locks will
          * not be held, hence sending stage event. */
-        if (volname)
+        if (volname || (priv->op_version < GD_OP_VERSION_4))
                 event_type = GD_OP_EVENT_START_LOCK;
         else {
                 txn_op_info.state.state = GD_OP_STATE_LOCK_SENT;
@@ -743,12 +741,17 @@ __glusterd_handle_cluster_lock (rpcsvc_request_t *req)
         glusterd_op_t                   op          = GD_OP_EVENT_LOCK;
         glusterd_peerinfo_t            *peerinfo    = NULL;
         glusterd_op_info_t              txn_op_info = {{0},};
-        uuid_t                         *txn_id      = &global_txn_id;
+        glusterd_conf_t                *priv        = NULL;
+        uuid_t                         *txn_id      = NULL;
         xlator_t                       *this        = NULL;
 
         this = THIS;
         GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
         GF_ASSERT (req);
+
+        txn_id = &priv->global_txn_id;
 
         ret = xdr_to_generic (req->msg[0], &lock_req,
                               (xdrproc_t)xdr_gd1_mgmt_cluster_lock_req);
@@ -1057,13 +1060,18 @@ __glusterd_handle_stage_op (rpcsvc_request_t *req)
         gd1_mgmt_stage_op_req           op_req = {{0},};
         glusterd_peerinfo_t             *peerinfo = NULL;
         xlator_t                        *this = NULL;
-        uuid_t                          *txn_id = &global_txn_id;
+        uuid_t                          *txn_id = NULL;
         glusterd_op_info_t              txn_op_info = {{0},};
         glusterd_op_sm_state_info_t     state = {0,};
+        glusterd_conf_t                 *priv = NULL;
 
         this = THIS;
         GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
         GF_ASSERT (req);
+
+        txn_id = &priv->global_txn_id;
 
         ret = xdr_to_generic (req->msg[0], &op_req,
                               (xdrproc_t)xdr_gd1_mgmt_stage_op_req);
@@ -1141,11 +1149,16 @@ __glusterd_handle_commit_op (rpcsvc_request_t *req)
         gd1_mgmt_commit_op_req          op_req = {{0},};
         glusterd_peerinfo_t             *peerinfo = NULL;
         xlator_t                        *this = NULL;
-        uuid_t                          *txn_id = &global_txn_id;
+        uuid_t                          *txn_id = NULL;
+        glusterd_conf_t                 *priv = NULL;
 
         this = THIS;
         GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
         GF_ASSERT (req);
+
+        txn_id = &priv->global_txn_id;
 
         ret = xdr_to_generic (req->msg[0], &op_req,
                               (xdrproc_t)xdr_gd1_mgmt_commit_op_req);
@@ -2285,11 +2298,16 @@ __glusterd_handle_cluster_unlock (rpcsvc_request_t *req)
         glusterd_op_lock_ctx_t          *ctx = NULL;
         glusterd_peerinfo_t             *peerinfo = NULL;
         xlator_t                        *this = NULL;
-        uuid_t                          *txn_id = &global_txn_id;
+        uuid_t                          *txn_id = NULL;
+        glusterd_conf_t                 *priv = NULL;
 
         this = THIS;
         GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
         GF_ASSERT (req);
+
+        txn_id = &priv->global_txn_id;
 
         ret = xdr_to_generic (req->msg[0], &unlock_req,
                               (xdrproc_t)xdr_gd1_mgmt_cluster_unlock_req);
