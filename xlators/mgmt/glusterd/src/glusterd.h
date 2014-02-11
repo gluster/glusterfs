@@ -922,6 +922,9 @@ int glusterd_op_stage_clearlocks_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_clearlocks_volume (dict_t *dict, char **op_errstr,
                                    dict_t *rsp_dict);
 
+int glusterd_op_stage_barrier (dict_t *dict, char **op_errstr);
+int glusterd_op_barrier (dict_t *dict, char **op_errstr);
+
 /* misc */
 void glusterd_do_replace_brick (void *data);
 int glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick,

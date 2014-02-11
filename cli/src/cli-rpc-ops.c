@@ -8657,6 +8657,68 @@ out:
         return ret;
 }
 
+int32_t
+gf_cli_barrier_volume_cbk (struct rpc_req *req, struct iovec *iov,
+                                  int count, void *myframe)
+{
+        gf_cli_rsp                      rsp = {0,};
+        int                             ret = -1;
+        dict_t                          *dict = NULL;
+
+        if (-1 == req->rpc_status)
+                goto out;
+        ret = xdr_to_generic (*iov, &rsp,
+                              (xdrproc_t)xdr_gf_cli_rsp);
+        if (ret < 0) {
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
+                goto out;
+        }
+        gf_log ("cli", GF_LOG_DEBUG, "Received response to barrier");
+
+        if (rsp.op_ret) {
+                if (rsp.op_errstr && (strlen (rsp.op_errstr) > 1)) {
+                        cli_err ("volume barrier: command unsuccessful : %s",
+                                 rsp.op_errstr);
+                } else {
+                        cli_err ("volume barrier: command unsuccessful");
+                }
+        } else {
+                cli_out ("volume barrier: command successful");
+        }
+        ret = rsp.op_ret;
+
+out:
+        if (dict)
+                dict_unref (dict);
+        free (rsp.op_errstr);
+        free (rsp.dict.dict_val);
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+int
+gf_cli_barrier_volume (call_frame_t *frame, xlator_t *this, void *data)
+{
+        gf_cli_req                      req = {{0,}};
+        dict_t                          *options = NULL;
+        int                             ret = -1;
+
+        if (!frame || !this || !data)
+                goto out;
+
+        options = data;
+
+        ret = cli_to_glusterd (&req, frame, gf_cli_barrier_volume_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, options,
+                               GLUSTER_CLI_BARRIER_VOLUME, this, cli_rpc_prog,
+                               NULL);
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        GF_FREE (req.dict.dict_val);
+        return ret;
+}
+
 int
 cli_to_glusterd (gf_cli_req *req, call_frame_t *frame,
                  fop_cbk_fn_t cbkfn, xdrproc_t xdrproc, dict_t *dict,
@@ -8769,6 +8831,7 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_COPY_FILE]        = {"COPY_FILE", gf_cli_copy_file},
         [GLUSTER_CLI_SYS_EXEC]         = {"SYS_EXEC", gf_cli_sys_exec},
         [GLUSTER_CLI_SNAP]             = {"SNAP", gf_cli_snapshot},
+        [GLUSTER_CLI_BARRIER_VOLUME]   = {"BARRIER VOLUME", gf_cli_barrier_volume},
 };
 
 struct rpc_clnt_program cli_prog = {

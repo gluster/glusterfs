@@ -114,6 +114,8 @@ struct volopt_map_entry {
 int glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
                                  glusterd_brickinfo_t *brickinfo);
 
+int glusterd_create_volfiles (glusterd_volinfo_t *volinfo);
+
 int glusterd_create_volfiles_and_notify_services (glusterd_volinfo_t *volinfo);
 
 void glusterd_get_nfs_filepath (char *filename);

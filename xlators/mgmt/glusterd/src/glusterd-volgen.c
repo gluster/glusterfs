@@ -3656,7 +3656,7 @@ glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
 }
 
 int
-glusterd_create_volfiles_and_notify_services (glusterd_volinfo_t *volinfo)
+glusterd_create_volfiles (glusterd_volinfo_t *volinfo)
 {
         int        ret  = -1;
         xlator_t  *this = NULL;
@@ -3678,11 +3678,25 @@ glusterd_create_volfiles_and_notify_services (glusterd_volinfo_t *volinfo)
         }
 
         ret = generate_client_volfiles (volinfo, GF_CLIENT_OTHER);
-        if (ret) {
+        if (ret)
                 gf_log (this->name, GF_LOG_ERROR,
                         "Could not generate client volfiles");
+
+out:
+        return ret;
+}
+
+int
+glusterd_create_volfiles_and_notify_services (glusterd_volinfo_t *volinfo)
+{
+        int        ret  = -1;
+        xlator_t  *this = NULL;
+
+        this = THIS;
+
+        ret = glusterd_create_volfiles (volinfo);
+        if (ret)
                 goto out;
-        }
 
         ret = glusterd_fetchspec_notify (this);
 
