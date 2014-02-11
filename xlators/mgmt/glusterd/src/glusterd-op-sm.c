@@ -1721,10 +1721,6 @@ glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict)
         if (ret)
                 goto out;
 
-        dup_value = gf_strdup (value);
-        if (!dup_value)
-                goto out;
-
         ret = glusterd_store_options (this, dup_opt);
         if (ret)
                 goto out;
@@ -1739,10 +1735,18 @@ glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict)
         else
                 next_version = NULL;
 
+        dup_value = gf_strdup (value);
+        if (!dup_value)
+                goto out;
+
         ret = dict_set_dynstr (conf->opts, key, dup_value);
         if (ret)
                 goto out;
+        else
+                dup_value = NULL; /* Protect the allocation from GF_FREE */
+
 out:
+        GF_FREE (dup_value);
         GF_FREE (key_fixed);
         if (dup_opt)
                 dict_unref (dup_opt);
