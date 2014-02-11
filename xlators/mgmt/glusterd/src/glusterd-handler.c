@@ -3948,6 +3948,68 @@ out:
 }
 
 static int
+__glusterd_handle_barrier (rpcsvc_request_t *req)
+{
+        int          ret     = -1;
+        xlator_t     *this   = NULL;
+        gf_cli_req   cli_req = {{0,}};
+        dict_t       *dict   = NULL;
+        char *volname = NULL;
+
+        GF_ASSERT (req);
+        this = THIS;
+        GF_ASSERT(this);
+
+        ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
+        if (ret < 0) {
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        if (!cli_req.dict.dict_len) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = dict_new();
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+        ret = dict_unserialize (cli_req.dict.dict_val, cli_req.dict.dict_len,
+                                &dict);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to unserialize "
+                        "request dictionary.");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Volname not present in "
+                        "dict");
+                goto out;
+        }
+        gf_log (this->name, GF_LOG_INFO, "Recieved barrier volume request for "
+                "volume %s", volname);
+
+        ret = glusterd_op_begin_synctask (req, GD_OP_BARRIER, dict);
+
+out:
+        if (ret) {
+                ret = glusterd_op_send_cli_response (GD_OP_BARRIER, ret, 0, req,
+                                                     dict, "Operation failed");
+        }
+        free (cli_req.dict.dict_val);
+        return ret;
+}
+
+int
+glusterd_handle_barrier (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req, __glusterd_handle_barrier);
+}
+static int
 get_brickinfo_from_brickid (char *brickid, glusterd_brickinfo_t **brickinfo)
 {
         glusterd_volinfo_t      *volinfo    = NULL;
@@ -4356,6 +4418,7 @@ rpcsvc_actor_t gd_svc_cli_actors[] = {
         [GLUSTER_CLI_COPY_FILE]          = {"COPY_FILE",          GLUSTER_CLI_COPY_FILE,        glusterd_handle_copy_file,             NULL, 0, DRC_NA},
         [GLUSTER_CLI_SYS_EXEC]           = {"SYS_EXEC",           GLUSTER_CLI_SYS_EXEC,         glusterd_handle_sys_exec,              NULL, 0, DRC_NA},
         [GLUSTER_CLI_SNAP]               = {"SNAP",               GLUSTER_CLI_SNAP,             glusterd_handle_snapshot,              NULL, 0, DRC_NA},
+        [GLUSTER_CLI_BARRIER_VOLUME] = {"BARRIER_VOLUME", GLUSTER_CLI_BARRIER_VOLUME, glusterd_handle_barrier, NULL, 0, DRC_NA},
 };
 
 struct rpcsvc_program gd_svc_cli_prog = {

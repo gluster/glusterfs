@@ -2008,3 +2008,104 @@ out:
 
         return ret;
 }
+
+int
+glusterd_op_stage_barrier (dict_t *dict, char **op_errstr)
+{
+        int                  ret         = -1;
+        xlator_t             *this       = NULL;
+        char                 *volname    = NULL;
+        glusterd_volinfo_t   *vol        = NULL;
+
+        GF_ASSERT (dict);
+        this = THIS;
+        GF_ASSERT (this);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Volname not present in "
+                        "dict");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &vol);
+        if (ret) {
+                gf_asprintf (op_errstr, "Volume %s does not exist", volname);
+                gf_log (this->name, GF_LOG_ERROR, "%s", *op_errstr);
+                goto out;
+        }
+
+        if (!glusterd_is_volume_started (vol)) {
+                gf_asprintf (op_errstr, "Volume %s is not started", volname);
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_get_str_boolean (dict, "barrier", -1);
+        if (ret == -1) {
+                gf_asprintf (op_errstr, "Barrier op for volume %s not present "
+                             "in dict", volname);
+                gf_log (this->name, GF_LOG_ERROR, "%s", *op_errstr);
+                goto out;
+        }
+        ret = 0;
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_op_barrier (dict_t *dict, char **op_errstr)
+{
+        int                  ret         = -1;
+        xlator_t             *this       = NULL;
+        char                 *volname    = NULL;
+        glusterd_volinfo_t   *vol        = NULL;
+        char                 *barrier_op = NULL;
+
+        GF_ASSERT (dict);
+        this = THIS;
+        GF_ASSERT (this);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Volname not present in "
+                        "dict");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &vol);
+        if (ret) {
+                gf_asprintf (op_errstr, "Volume %s does not exist", volname);
+                gf_log (this->name, GF_LOG_ERROR, "%s", *op_errstr);
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "barrier", &barrier_op);
+        if (ret) {
+                gf_asprintf (op_errstr, "Barrier op for volume %s not present "
+                             "in dict", volname);
+                gf_log (this->name, GF_LOG_ERROR, "%s", *op_errstr);
+                goto out;
+        }
+
+        ret = dict_set_dynstr_with_alloc (vol->dict, "features.barrier",
+                                          barrier_op);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set barrier op in"
+                        " volume option dict");
+                goto out;
+        }
+
+        gd_update_volume_op_versions (vol);
+        ret = glusterd_create_volfiles (vol);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to create volfiles");
+                goto out;
+        }
+        ret = glusterd_store_volinfo (vol, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
