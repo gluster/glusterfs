@@ -1443,7 +1443,7 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
 
         if (ENABLE_DEBUG_MODE == cmd_args->debug_mode) {
                 cmd_args->log_level = GF_LOG_DEBUG;
-                cmd_args->log_file = "/dev/stderr";
+                cmd_args->log_file = gf_strdup ("/dev/stderr");
                 cmd_args->no_daemon_mode = ENABLE_NO_DAEMON_MODE;
         }
 
