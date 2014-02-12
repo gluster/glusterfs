@@ -1053,6 +1053,9 @@ stripe_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                 op_errno = ENOMEM;
                 goto err;
         }
+
+        frame->local = local;
+
         local->op_ret = -1;
         loc_copy (&local->loc, oldloc);
         loc_copy (&local->loc2, newloc);
@@ -1065,8 +1068,6 @@ stripe_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 			goto err;
 		local->fctx = fctx;
 	}
-
-        frame->local = local;
 
         STACK_WIND (frame, stripe_first_rename_cbk, trav->xlator,
                     trav->xlator->fops->rename, oldloc, newloc, NULL);
@@ -2879,15 +2880,15 @@ stripe_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags, dict
                 goto err;
         }
 
+        frame->local = local;
+
 	inode_ctx_get(fd->inode, this, (uint64_t *) &fctx);
 	if (!fctx) {
 		op_errno = EINVAL;
 		goto err;
 	}
 	local->fctx = fctx;
-
         local->op_ret = -1;
-        frame->local = local;
         local->call_count = priv->child_count;
 
         while (trav) {
