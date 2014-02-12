@@ -4,10 +4,11 @@
 #include <string.h>
 #include <limits.h>
 #include <sys/types.h>
-#include <attr/xattr.h>
 #include <libgen.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include "glusterfs.h"
+#include "syscall.h"
 
 #ifndef UUID_CANONICAL_FORM_LEN
 #define UUID_CANONICAL_FORM_LEN 36
@@ -86,8 +87,8 @@ main (int argc, char *argv[])
 
                 memcpy (tmp_blob, bname, strlen (bname));
 
-                ret = setxattr (parent_dir, GF_FUSE_AUX_GFID_HEAL, blob, len,
-                                0);
+                ret = sys_lsetxattr (parent_dir, GF_FUSE_AUX_GFID_HEAL, 
+                                blob, len, 0);
                 if (ret < 0) {
                         fprintf (stderr, "setxattr on %s/%s failed (%s)\n",
                                  parent_dir, bname, strerror (errno));
