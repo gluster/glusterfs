@@ -17,7 +17,8 @@ lib_LTLIBRARIES = libgfchangelog.la
 CONTRIB_BUILDDIR = $(top_builddir)/contrib
 
 libgfchangelog_la_SOURCES = gf-changelog.c gf-changelog-process.c \
-		gf-changelog-helpers.c $(CONTRIBDIR)/uuid/clear.c \
+		gf-changelog-helpers.c gf-history-changelog.c \
+		$(CONTRIBDIR)/uuid/clear.c \
 		$(CONTRIBDIR)/uuid/copy.c $(CONTRIBDIR)/uuid/gen_uuid.c \
 		$(CONTRIBDIR)/uuid/pack.c $(CONTRIBDIR)/uuid/parse.c \
 		$(CONTRIBDIR)/uuid/unparse.c $(CONTRIBDIR)/uuid/uuid_time.c \

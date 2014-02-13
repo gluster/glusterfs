@@ -23,6 +23,7 @@
 #define GF_CHANGELOG_CURRENT_DIR    ".current"
 #define GF_CHANGELOG_PROCESSED_DIR  ".processed"
 #define GF_CHANGELOG_PROCESSING_DIR ".processing"
+#define GF_CHANGELOG_HISTORY_DIR    ".history"
 
 #ifndef MAXLINE
 #define MAXLINE 4096
@@ -68,6 +69,9 @@ typedef struct gf_changelog {
         char gfc_processing_dir[PATH_MAX];
 
         pthread_t gfc_changelog_processor;
+
+        /* Holds gfc for History API */
+        struct gf_changelog *hist_gfc;
 } gf_changelog_t;
 
 int
