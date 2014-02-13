@@ -181,6 +181,7 @@ gf_auth (dict_t *input_params, dict_t *config_params)
                         addr_str = strtok_r (NULL, ADDR_DELIMITER, &tmp);
                 }
                 GF_FREE (addr_cpy);
+                addr_cpy = NULL;
         }
 
         if (allow_addr) {
