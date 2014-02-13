@@ -729,7 +729,7 @@ struct nfs_state *
 nfs_init_state (xlator_t *this)
 {
         struct nfs_state        *nfs = NULL;
-        int                     ret = -1;
+        int                     i = 0, ret = -1;
         unsigned int            fopspoolsize = 0;
         char                    *optstr = NULL;
         gf_boolean_t            boolt = _gf_false;
@@ -853,6 +853,23 @@ nfs_init_state (xlator_t *this)
                         gf_msg (GF_NFS, GF_LOG_ERROR, errno, NFS_MSG_PARSE_FAIL,
                                 "Failed to parse uint string");
                         goto free_foppool;
+                }
+        }
+
+        if (dict_get (this->options, "transport.socket.bind-address")) {
+                ret = dict_get_str (this->options,
+                        "transport.socket.bind-address",
+                        &optstr);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse "
+                                "transport.socket.bind-address string");
+                } else {
+                        this->instance_name = gf_strdup (optstr);
+                        for (i = 0; i < strlen (this->instance_name); i++) {
+                                if (this->instance_name[i] == '.' ||
+                                    this->instance_name[i] == ':')
+                                        this->instance_name[i] = '_';
+                        }
                 }
         }
 
@@ -1531,6 +1548,7 @@ fini (xlator_t *this)
         nfs = (struct nfs_state *)this->private;
         gf_msg_debug (GF_NFS, 0, "NFS service going down");
         nfs_deinit_versions (&nfs->versions, this);
+        GF_FREE (this->instance_name);
         return 0;
 }
 

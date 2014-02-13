@@ -853,6 +853,7 @@ struct _xlator {
         /* Built during parsing */
         char          *name;
         char          *type;
+        char          *instance_name;  /* Used for multi NFSd */
         xlator_t      *next;
         xlator_t      *prev;
         xlator_list_t *parents;

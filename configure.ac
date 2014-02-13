@@ -891,6 +891,19 @@ AC_SUBST(ARGP_STANDALONE_CPPFLAGS)
 AC_SUBST(ARGP_STANDALONE_LDADD)
 AC_SUBST(ARGP_STANDALONE_DIR)
 
+# Check for atomic operation support
+echo -n "checking for atomic operation support... "
+AC_LANG_CONFTEST([int main() { long int a = 4; __sync_fetch_and_add_8 (&a, 1); }])
+$CC conftest.c $CFLAGS -o conftest > /dev/null 2> /dev/null
+ret=$?
+rm -f conftest.o conftest
+if test $ret -eq 0 ; then
+  echo "yes"
+  AC_DEFINE(HAVE_ATOMIC_BUILTINS, 1, [have atomic builtins])
+else
+  echo "no"
+fi
+
 AC_CHECK_HEADER([malloc.h], AC_DEFINE(HAVE_MALLOC_H, 1, [have malloc.h]))
 
 AC_CHECK_FUNC([llistxattr], [have_llistxattr=yes])

@@ -13,6 +13,8 @@
 
 #include "mem-types.h"
 
+extern const char *__progname;
+
 enum gf_io_stats_mem_types_ {
         gf_io_stats_mt_ios_conf = gf_common_mt_end + 1,
         gf_io_stats_mt_ios_fd,
