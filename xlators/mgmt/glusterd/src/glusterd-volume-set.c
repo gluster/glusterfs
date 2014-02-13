@@ -768,6 +768,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_6_0,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key         = "diagnostics.stats-dump-interval",
+          .voltype     = "debug/io-stats",
+          .option      = "ios-dump-interval",
+          .op_version  = 1
+        },
 
         /* IO-cache xlator options */
         { .key         = "performance.cache-max-file-size",

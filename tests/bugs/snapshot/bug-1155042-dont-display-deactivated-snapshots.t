@@ -21,16 +21,16 @@ TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0
 # in the USS world
 gluster snapshot config activate-on-create enable
 for i in {1..10}; do $CLI snapshot create snap$i $V0 no-timestamp; done
-EXPECT 10 uss_count_snap_displayed $M0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 10 uss_count_snap_displayed $M0
 
 # snapshots should not be displayed after deactivation
 for i in {1..10}; do $CLI snapshot deactivate snap$i --mode=script; done
-EXPECT 0 uss_count_snap_displayed $M0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 0 uss_count_snap_displayed $M0
 
 # activate all the snapshots and check if all the activated snapshots
 # are displayed again
 for i in {1..10}; do $CLI snapshot activate snap$i --mode=script; done
-EXPECT 10 uss_count_snap_displayed $M0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 10 uss_count_snap_displayed $M0
 
 cleanup;
 

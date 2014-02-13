@@ -11,7 +11,8 @@ noinst_HEADERS = io-stats-mem-types.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/rpc/xdr/src \
-	-I$(top_srcdir)/rpc/rpc-lib/src
+	-I$(top_srcdir)/rpc/rpc-lib/src \
+        -DDATADIR=\"$(localstatedir)\"
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)
 

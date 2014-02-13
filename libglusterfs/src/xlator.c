@@ -409,6 +409,7 @@ xlator_init (xlator_t *xl)
         if (xl->mem_acct_init)
                 xl->mem_acct_init (xl);
 
+        xl->instance_name = NULL;
         if (!xl->init) {
                 gf_msg (xl->name, GF_LOG_WARNING, 0, LG_MSG_INIT_FAILED,
                         "No init() found");
