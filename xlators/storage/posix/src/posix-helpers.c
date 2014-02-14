@@ -59,6 +59,8 @@ static char* posix_ignore_xattrs[] = {
         GLUSTERFS_ENTRYLK_COUNT,
         GLUSTERFS_INODELK_COUNT,
         GLUSTERFS_POSIXLK_COUNT,
+        GLUSTERFS_PARENT_ENTRYLK,
+        GF_GFIDLESS_LOOKUP,
         NULL
 };
 
@@ -391,7 +393,7 @@ posix_fill_ino_from_gfid (xlator_t *this, struct iatt *buf)
                 goto out;
         }
         for (i = 15; i > (15 - 8); i--) {
-		temp_ino += (uint64_t)(buf->ia_gfid[i]) << j;
+                temp_ino += (uint64_t)(buf->ia_gfid[i]) << j;
                 j += 8;
         }
         buf->ia_ino = temp_ino;
@@ -1015,7 +1017,7 @@ posix_spawn_janitor_thread (xlator_t *this)
         {
                 if (!priv->janitor_present) {
                         ret = gf_thread_create (&priv->janitor, NULL,
-						posix_janitor_thread_proc, this);
+                                                posix_janitor_thread_proc, this);
 
                         if (ret < 0) {
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -1358,7 +1360,7 @@ posix_spawn_health_check_thread (xlator_t *xl)
                         goto unlock;
 
                 ret = gf_thread_create (&priv->health_check, NULL,
-					posix_health_check_thread_proc, xl);
+                                        posix_health_check_thread_proc, xl);
                 if (ret < 0) {
                         priv->health_check_interval = 0;
                         priv->health_check_active = _gf_false;
@@ -1379,89 +1381,89 @@ unlock:
 int
 posix_fsyncer_pick (xlator_t *this, struct list_head *head)
 {
-	struct posix_private *priv = NULL;
-	int count = 0;
+        struct posix_private *priv = NULL;
+        int count = 0;
 
-	priv = this->private;
-	pthread_mutex_lock (&priv->fsync_mutex);
-	{
-		while (list_empty (&priv->fsyncs))
-			pthread_cond_wait (&priv->fsync_cond,
-					   &priv->fsync_mutex);
+        priv = this->private;
+        pthread_mutex_lock (&priv->fsync_mutex);
+        {
+                while (list_empty (&priv->fsyncs))
+                        pthread_cond_wait (&priv->fsync_cond,
+                                           &priv->fsync_mutex);
 
-		count = priv->fsync_queue_count;
-		priv->fsync_queue_count = 0;
-		list_splice_init (&priv->fsyncs, head);
-	}
-	pthread_mutex_unlock (&priv->fsync_mutex);
+                count = priv->fsync_queue_count;
+                priv->fsync_queue_count = 0;
+                list_splice_init (&priv->fsyncs, head);
+        }
+        pthread_mutex_unlock (&priv->fsync_mutex);
 
-	return count;
+        return count;
 }
 
 
 void
 posix_fsyncer_process (xlator_t *this, call_stub_t *stub, gf_boolean_t do_fsync)
 {
-	struct posix_fd *pfd = NULL;
-	int ret = -1;
-	struct posix_private *priv = NULL;
+        struct posix_fd *pfd = NULL;
+        int ret = -1;
+        struct posix_private *priv = NULL;
 
-	priv = this->private;
+        priv = this->private;
 
-	ret = posix_fd_ctx_get (stub->args.fd, this, &pfd);
-	if (ret < 0) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"could not get fdctx for fd(%s)",
-			uuid_utoa (stub->args.fd->inode->gfid));
-		call_unwind_error (stub, -1, EINVAL);
-		return;
-	}
+        ret = posix_fd_ctx_get (stub->args.fd, this, &pfd);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "could not get fdctx for fd(%s)",
+                        uuid_utoa (stub->args.fd->inode->gfid));
+                call_unwind_error (stub, -1, EINVAL);
+                return;
+        }
 
-	if (do_fsync) {
+        if (do_fsync) {
 #ifdef HAVE_FDATASYNC
-		if (stub->args.datasync)
-			ret = fdatasync (pfd->fd);
-		else
+                if (stub->args.datasync)
+                        ret = fdatasync (pfd->fd);
+                else
 #endif
-			ret = fsync (pfd->fd);
-	} else {
-		ret = 0;
-	}
+                        ret = fsync (pfd->fd);
+        } else {
+                ret = 0;
+        }
 
-	if (ret) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"could not fstat fd(%s)",
-			uuid_utoa (stub->args.fd->inode->gfid));
-		call_unwind_error (stub, -1, errno);
-		return;
-	}
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "could not fstat fd(%s)",
+                        uuid_utoa (stub->args.fd->inode->gfid));
+                call_unwind_error (stub, -1, errno);
+                return;
+        }
 
-	call_unwind_error (stub, 0, 0);
+        call_unwind_error (stub, 0, 0);
 }
 
 
 static void
 posix_fsyncer_syncfs (xlator_t *this, struct list_head *head)
 {
-	call_stub_t *stub = NULL;
-	struct posix_fd *pfd = NULL;
-	int ret = -1;
+        call_stub_t *stub = NULL;
+        struct posix_fd *pfd = NULL;
+        int ret = -1;
 
-	stub = list_entry (head->prev, call_stub_t, list);
-	ret = posix_fd_ctx_get (stub->args.fd, this, &pfd);
-	if (ret)
-		return;
+        stub = list_entry (head->prev, call_stub_t, list);
+        ret = posix_fd_ctx_get (stub->args.fd, this, &pfd);
+        if (ret)
+                return;
 
 #ifdef GF_LINUX_HOST_OS
-	/* syncfs() is not "declared" in RHEL's glibc even though
-	   the kernel has support.
-	*/
+        /* syncfs() is not "declared" in RHEL's glibc even though
+           the kernel has support.
+        */
 #include <sys/syscall.h>
 #include <unistd.h>
 #ifdef SYS_syncfs
-	syscall (SYS_syncfs, pfd->fd);
+        syscall (SYS_syncfs, pfd->fd);
 #else
-	sync();
+        sync();
 #endif
 #else
         sync();
@@ -1472,49 +1474,49 @@ posix_fsyncer_syncfs (xlator_t *this, struct list_head *head)
 void *
 posix_fsyncer (void *d)
 {
-	xlator_t *this = d;
-	struct posix_private *priv = NULL;
-	call_stub_t *stub = NULL;
-	call_stub_t *tmp = NULL;
-	struct list_head list;
-	int count = 0;
-	gf_boolean_t do_fsync = _gf_true;
+        xlator_t *this = d;
+        struct posix_private *priv = NULL;
+        call_stub_t *stub = NULL;
+        call_stub_t *tmp = NULL;
+        struct list_head list;
+        int count = 0;
+        gf_boolean_t do_fsync = _gf_true;
 
-	priv = this->private;
+        priv = this->private;
 
-	for (;;) {
-		INIT_LIST_HEAD (&list);
+        for (;;) {
+                INIT_LIST_HEAD (&list);
 
-		count = posix_fsyncer_pick (this, &list);
+                count = posix_fsyncer_pick (this, &list);
 
-		usleep (priv->batch_fsync_delay_usec);
+                usleep (priv->batch_fsync_delay_usec);
 
-		gf_log (this->name, GF_LOG_DEBUG,
-			"picked %d fsyncs", count);
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "picked %d fsyncs", count);
 
-		switch (priv->batch_fsync_mode) {
-		case BATCH_NONE:
-		case BATCH_REVERSE_FSYNC:
-			break;
-		case BATCH_SYNCFS:
-		case BATCH_SYNCFS_SINGLE_FSYNC:
-		case BATCH_SYNCFS_REVERSE_FSYNC:
-			posix_fsyncer_syncfs (this, &list);
-			break;
-		}
+                switch (priv->batch_fsync_mode) {
+                case BATCH_NONE:
+                case BATCH_REVERSE_FSYNC:
+                        break;
+                case BATCH_SYNCFS:
+                case BATCH_SYNCFS_SINGLE_FSYNC:
+                case BATCH_SYNCFS_REVERSE_FSYNC:
+                        posix_fsyncer_syncfs (this, &list);
+                        break;
+                }
 
-		if (priv->batch_fsync_mode == BATCH_SYNCFS)
-			do_fsync = _gf_false;
-		else
-			do_fsync = _gf_true;
+                if (priv->batch_fsync_mode == BATCH_SYNCFS)
+                        do_fsync = _gf_false;
+                else
+                        do_fsync = _gf_true;
 
-		list_for_each_entry_safe_reverse (stub, tmp, &list, list) {
-			list_del_init (&stub->list);
+                list_for_each_entry_safe_reverse (stub, tmp, &list, list) {
+                        list_del_init (&stub->list);
 
-			posix_fsyncer_process (this, stub, do_fsync);
+                        posix_fsyncer_process (this, stub, do_fsync);
 
-			if (priv->batch_fsync_mode == BATCH_SYNCFS_SINGLE_FSYNC)
-				do_fsync = _gf_false;
-		}
-	}
+                        if (priv->batch_fsync_mode == BATCH_SYNCFS_SINGLE_FSYNC)
+                                do_fsync = _gf_false;
+                }
+        }
 }
