@@ -1197,14 +1197,14 @@ rpcsvc_submit_generic (rpcsvc_request_t *req, struct iovec *proghdr,
                         "rpc-transport (%s)", req->xid,
                         req->prog ? req->prog->progname : "(not matched)",
                         req->prog ? req->prog->progver : 0,
-                        req->procnum, trans->name);
+                        req->procnum, trans ? trans->name : "");
         } else {
                 gf_log (GF_RPCSVC, GF_LOG_TRACE,
                         "submitted reply for rpc-message (XID: 0x%x, "
                         "Program: %s, ProgVers: %d, Proc: %d) to rpc-transport "
                         "(%s)", req->xid, req->prog ? req->prog->progname: "-",
                         req->prog ? req->prog->progver : 0,
-                        req->procnum, trans->name);
+                        req->procnum, trans ? trans->name : "");
         }
 
 disconnect_exit:
