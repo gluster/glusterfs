@@ -27,6 +27,352 @@
 
 #include "xlator.h"
 
+/* FAILURE_CBK function section */
+
+int32_t
+default_lookup_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (lookup, frame, -1, op_errno, NULL, NULL,
+                             NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_stat_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (stat, frame, -1, op_errno, NULL, NULL);
+        return 0;
+}
+
+
+int32_t
+default_truncate_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (truncate, frame, -1, op_errno, NULL, NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_ftruncate_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (ftruncate, frame, -1, op_errno, NULL, NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_access_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (access, frame, -1, op_errno, NULL);
+        return 0;
+}
+
+int32_t
+default_readlink_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (readlink, frame, -1, op_errno, NULL, NULL, NULL);
+        return 0;
+}
+
+
+int32_t
+default_mknod_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (mknod, frame, -1, op_errno, NULL, NULL, NULL,
+                             NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_mkdir_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (mkdir, frame, -1, op_errno, NULL, NULL, NULL,
+                             NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_unlink_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (unlink, frame, -1, op_errno, NULL, NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_rmdir_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (rmdir, frame, -1, op_errno, NULL, NULL, NULL);
+        return 0;
+}
+
+
+int32_t
+default_symlink_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (symlink, frame, -1, op_errno, NULL, NULL, NULL,
+                             NULL, NULL);
+        return 0;
+}
+
+
+int32_t
+default_rename_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (rename, frame, -1, op_errno, NULL, NULL, NULL,
+                             NULL, NULL, NULL);
+        return 0;
+}
+
+
+int32_t
+default_link_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (link, frame, -1, op_errno, NULL, NULL, NULL,
+                             NULL, NULL);
+        return 0;
+}
+
+
+int32_t
+default_create_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (create, frame, -1, op_errno, NULL, NULL, NULL,
+                             NULL, NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_open_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (open, frame, -1, op_errno, NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_readv_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (readv, frame, -1, op_errno, NULL, -1, NULL,
+                             NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_writev_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (writev, frame, -1, op_errno, NULL, NULL, NULL);
+        return 0;
+}
+
+
+int32_t
+default_flush_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (flush, frame, -1, op_errno, NULL);
+        return 0;
+}
+
+
+
+int32_t
+default_fsync_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (fsync, frame, -1, op_errno, NULL, NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_fstat_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (fstat, frame, -1, op_errno, NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_opendir_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (opendir, frame, -1, op_errno, NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_fsyncdir_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (fsyncdir, frame, -1, op_errno, NULL);
+        return 0;
+}
+
+int32_t
+default_statfs_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (statfs, frame, -1, op_errno, NULL, NULL);
+        return 0;
+}
+
+
+int32_t
+default_setxattr_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (setxattr, frame, -1, op_errno, NULL);
+        return 0;
+}
+
+
+int32_t
+default_fsetxattr_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (fsetxattr, frame, -1, op_errno, NULL);
+        return 0;
+}
+
+
+
+int32_t
+default_fgetxattr_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (fgetxattr, frame, -1, op_errno, NULL, NULL);
+        return 0;
+}
+
+
+int32_t
+default_getxattr_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (getxattr, frame, -1, op_errno, NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_xattrop_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (xattrop, frame, -1, op_errno, NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_fxattrop_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (fxattrop, frame, -1, op_errno, NULL, NULL);
+        return 0;
+}
+
+
+int32_t
+default_removexattr_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (removexattr, frame, -1, op_errno, NULL);
+        return 0;
+}
+
+
+int32_t
+default_fremovexattr_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (fremovexattr, frame, -1, op_errno, NULL);
+        return 0;
+}
+
+int32_t
+default_lk_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (lk, frame, -1, op_errno, NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_inodelk_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (inodelk, frame, -1, op_errno, NULL);
+        return 0;
+}
+
+
+int32_t
+default_finodelk_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (finodelk, frame, -1, op_errno, NULL);
+        return 0;
+}
+
+int32_t
+default_entrylk_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (entrylk, frame, -1, op_errno, NULL);
+        return 0;
+}
+
+int32_t
+default_fentrylk_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (fentrylk, frame, -1, op_errno, NULL);
+        return 0;
+}
+
+
+int32_t
+default_rchecksum_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (rchecksum, frame, -1, op_errno, -1, NULL, NULL);
+        return 0;
+}
+
+
+int32_t
+default_readdir_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (readdir, frame, -1, op_errno, NULL, NULL);
+        return 0;
+}
+
+
+int32_t
+default_readdirp_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (readdirp, frame, -1, op_errno, NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_setattr_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (setattr, frame, -1, op_errno, NULL, NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_fsetattr_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (fsetattr, frame, -1, op_errno, NULL, NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_fallocate_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT(fallocate, frame, -1, op_errno, NULL, NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_discard_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT(discard, frame, -1, op_errno, NULL, NULL, NULL);
+        return 0;
+}
+
+int32_t
+default_zerofill_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT(zerofill, frame, -1, op_errno, NULL, NULL, NULL);
+        return 0;
+}
+
+
+int32_t
+default_getspec_failure_cbk (call_frame_t *frame, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (getspec, frame, -1, op_errno, NULL);
+        return 0;
+}
+
 /* _CBK function section */
 
 int32_t
