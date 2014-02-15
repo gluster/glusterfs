@@ -70,7 +70,7 @@ To install Gluster Native Client on RPM distribution-based systems
     glusterfs-rdma packages contain OpenFabrics verbs RDMA module for
     Infiniband.
 
-    You can download the software at [][].
+    You can download the software at [GlusterFS download page][1].
 
 4.  Install Gluster Native Client on the client.
 
@@ -92,7 +92,7 @@ To install Gluster Native Client on Debian-based distributions
 
 2.  Download the latest GlusterFS .deb file and checksum to each client.
 
-    You can download the software at [][1].
+    You can download the software at [GlusterFS download page][1].
 
 3.  For each .deb file, get the checksum (using the following command)
     and compare it against the checksum for that file in the md5sum
@@ -100,7 +100,7 @@ To install Gluster Native Client on Debian-based distributions
 
     `$ md5sum GlusterFS_DEB_file.deb `
 
-    The md5sum of the packages is available at: [][2]
+    The md5sum of the packages is available at: [GlusterFS download page][2]
 
 4.  Uninstall GlusterFS v3.1 (or an earlier version) from the client
     using the following command:
