@@ -718,6 +718,143 @@ default_getspec_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, char *spec_data);
 
 int32_t
+default_lookup_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_stat_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+
+int32_t
+default_truncate_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_ftruncate_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_access_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_readlink_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+
+int32_t
+default_mknod_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_mkdir_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_unlink_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_rmdir_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_symlink_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_rename_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_link_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_create_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_open_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_readv_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_writev_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_flush_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_fsync_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_fstat_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_opendir_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_fsyncdir_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_statfs_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_setxattr_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_fsetxattr_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_fgetxattr_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_getxattr_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_xattrop_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_fxattrop_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_removexattr_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_fremovexattr_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_lk_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_inodelk_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_finodelk_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_entrylk_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_fentrylk_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_rchecksum_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_readdir_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_readdirp_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_setattr_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_fsetattr_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_fallocate_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_discard_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_zerofill_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_getspec_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
 default_mem_acct_init (xlator_t *this);
 
 #endif /* _DEFAULTS_H */
