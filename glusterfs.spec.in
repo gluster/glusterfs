@@ -328,7 +328,6 @@ This package provides the glusterfs server daemon.
 Summary:          Clustered file-system api library
 Group:            System Environment/Daemons
 Requires:         %{name} = %{version}-%{release}
-Requires:         %{name}-devel = %{version}-%{release}
 # we provide the Python package/namespace 'gluster'
 Provides:         python-gluster = %{version}-%{release}
 
@@ -890,6 +889,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Wed Feb 26 2014 Niels de Vos <ndevos@redhat.com>
+- Drop glusterfs-devel dependency from glusterfs-api (#1065750)
+
 * Thu Feb 06 2014 Aravinda VK <avishwan@redhat.com>
 - Include geo-replication upgrade scripts and hook scripts.
 
