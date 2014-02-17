@@ -1666,13 +1666,16 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         }
 
         /* Check for compress volume option, and add it to the graph on server side */
-        if (dict_get_str_boolean (set_dict, "network.compression", 0)) {
+        ret = dict_get_str_boolean (set_dict, "network.compression", 0);
+        if (ret == -1)
+                goto out;
+        if (ret) {
                 xl = volgen_graph_add (graph, "features/cdc", volname);
                 if (!xl) {
                         ret = -1;
                         goto out;
                 }
-                ret = dict_set_str (set_dict, "network.compression.mode", "server");
+                ret = xlator_set_option (xl, "mode", "server");
                 if (ret)
                         goto out;
         }
@@ -2543,16 +2546,18 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 goto out;
 
         /* Check for compress volume option, and add it to the graph on client side */
-        if (dict_get_str_boolean (set_dict, "network.compression", 0)) {
+        ret = dict_get_str_boolean (set_dict, "network.compression", 0);
+        if (ret == -1)
+                goto out;
+        if (ret) {
                 xl = volgen_graph_add (graph, "features/cdc", volname);
                 if (!xl) {
                         ret = -1;
                         goto out;
                 }
-                ret = dict_set_str (set_dict, "network.compression.mode", "client");
+                ret = xlator_set_option (xl, "mode", "client");
                 if (ret)
                         goto out;
-
         }
 
         ret = glusterd_volinfo_get_boolean (volinfo, "features.encryption");

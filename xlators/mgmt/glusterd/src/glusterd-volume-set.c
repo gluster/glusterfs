@@ -1020,39 +1020,30 @@ struct volopt_map_entry glusterd_volopt_map[] = {
          */
         { .key         = "network.compression",
           .voltype     = "features/cdc",
+          .option      = "!feat",
           .value       = "off",
-          .type        = NO_DOC,
           .op_version  = 3,
-          .description = "enable/disable network compression translator"
-        },
-        { .key         = "network.compression.mode",
-          .voltype     = "features/cdc",
-          .option      = "mode",
-          .type        = NO_DOC,
-          .op_version  = 3
+          .description = "enable/disable network compression translator",
+          .flags       = OPT_FLAG_XLATOR_OPT
         },
         { .key         = "network.compression.window-size",
           .voltype     = "features/cdc",
           .option      = "window-size",
-          .type        = NO_DOC,
           .op_version  = 3
         },
         { .key         = "network.compression.mem-level",
           .voltype     = "features/cdc",
           .option      = "mem-level",
-          .type        = NO_DOC,
           .op_version  = 3
         },
         { .key         = "network.compression.min-size",
           .voltype     = "features/cdc",
           .option      = "min-size",
-          .type        = NO_DOC,
           .op_version  = 3
         },
         { .key         = "network.compression.compression-level",
           .voltype     = "features/cdc",
           .option      = "compression-level",
-          .type        = NO_DOC,
           .op_version  = 3
         },
         { .key         = "network.compression.debug",

@@ -115,8 +115,8 @@ cdc_writev_cbk (call_frame_t *frame,
                 struct iatt *postbuf, dict_t *xdata)
 {
 
-	STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf, xdata);
-	return 0;
+        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf, xdata);
+        return 0;
 }
 
 int32_t
@@ -129,24 +129,23 @@ cdc_writev (call_frame_t *frame,
             uint32_t flags,
             struct iobref *iobref, dict_t *xdata)
 {
-	int	     ret   = -1;
-	cdc_priv_t  *priv  = NULL;
-	cdc_info_t   ci    = {0,};
-	size_t       isize = 0;
+        int          ret   = -1;
+        cdc_priv_t  *priv  = NULL;
+        cdc_info_t   ci    = {0,};
+        size_t       isize = 0;
 
-	GF_VALIDATE_OR_GOTO ("cdc", this, default_out);
-	GF_VALIDATE_OR_GOTO (this->name, frame, default_out);
+        GF_VALIDATE_OR_GOTO ("cdc", this, default_out);
+        GF_VALIDATE_OR_GOTO (this->name, frame, default_out);
 
-	priv = this->private;
+        priv = this->private;
 
-	isize =  iov_length(vector, count);
+        isize =  iov_length(vector, count);
 
-	if (isize <= 0)
-                goto default_out;
+        if (isize <= 0)
+            goto default_out;
 
-        if ( (priv->min_file_size != 0)
-             && (isize < priv->min_file_size) )
-                goto default_out;
+        if ( (priv->min_file_size != 0) && (isize < priv->min_file_size) )
+            goto default_out;
 
         ci.count       = count;
         ci.ibytes      = isize;
@@ -159,18 +158,18 @@ cdc_writev (call_frame_t *frame,
 
 /* A writev compresses on the client side and decompresses on the server side
  */
-	if (priv->op_mode == GF_CDC_MODE_CLIENT) {
-		ret = cdc_compress (this, priv, &ci, &xdata);
-	} else if (priv->op_mode == GF_CDC_MODE_SERVER) {
-		ret = cdc_decompress (this, priv, &ci, xdata);
-	} else {
-		gf_log (this->name, GF_LOG_ERROR, "Invalid operation mode (%d) ", priv->op_mode);
-	}
+	    if (priv->op_mode == GF_CDC_MODE_CLIENT) {
+		    ret = cdc_compress (this, priv, &ci, &xdata);
+	    } else if (priv->op_mode == GF_CDC_MODE_SERVER) {
+		    ret = cdc_decompress (this, priv, &ci, xdata);
+	    } else {
+		    gf_log (this->name, GF_LOG_ERROR, "Invalid operation mode (%d) ", priv->op_mode);
+	    }
 
-	if (ret)
-		goto default_out;
+	    if (ret)
+		    goto default_out;
 
-	STACK_WIND (frame,
+	    STACK_WIND (frame,
                     cdc_writev_cbk,
                     FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->writev,
@@ -181,13 +180,13 @@ cdc_writev (call_frame_t *frame,
         return 0;
 
  default_out:
-	STACK_WIND (frame,
+        STACK_WIND (frame,
                     cdc_writev_cbk,
                     FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->writev,
                     fd, vector, count, offset, flags,
                     iobref, xdata);
-	return 0;
+        return 0;
 }
 
 int32_t
@@ -309,17 +308,17 @@ struct volume_options options[] = {
         { .key  = {"mem-level"},
           .default_value = "8",
           .type = GF_OPTION_TYPE_INT,
-          .description = "Memory allocated for internal compression state.\
-                          1 uses minimum memory but is slow and reduces \
-                          compression ratio; memLevel=9 uses maximum memory \
-                          for optimal speed. The default value is 8."
+          .description = "Memory allocated for internal compression state. "
+                         "1 uses minimum memory but is slow and reduces "
+                         "compression ratio; memLevel=9 uses maximum memory "
+                         "for optimal speed. The default value is 8."
         },
         { .key  = {"compression-level"},
           .default_value = "-1",
           .type = GF_OPTION_TYPE_INT,
-          .description = "Compression levels \
-                          0 : no compression, 1 : best speed, \
-                          9 : best compression, -1 : default compression "
+          .description = "Compression levels \n"
+                         "0 : no compression, 1 : best speed, \n"
+                         "9 : best compression, -1 : default compression "
         },
         { .key  = {"min-size"},
           .default_value = "0",
@@ -329,13 +328,14 @@ struct volume_options options[] = {
         { .key  = {"mode"},
           .value = {"server", "client"},
           .type = GF_OPTION_TYPE_STR,
-          .description = "Set on the basis of where the xlator is loaded."
+          .description = "Set on the basis of where the xlator is loaded. "
+                         "This option should NOT be configured by user."
         },
         { .key = {"debug"},
           .default_value = "false",
           .type = GF_OPTION_TYPE_BOOL,
-          .description = "This is used in testing. Will dump compressed data \
-                          to disk as a gzip file."
+          .description = "This is used in testing. Will dump compressed data "
+                         "to disk as a gzip file."
         },
         { .key  = {NULL}
         },
