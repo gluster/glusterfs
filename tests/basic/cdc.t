@@ -21,18 +21,16 @@ EXPECT 'off' volinfo_field $V0 'performance.io-cache'
 TEST $CLI volume set $V0 performance.quick-read off
 EXPECT 'off' volinfo_field $V0 'performance.quick-read'
 
-TEST $CLI volume set $V0 strict-write-ordering on
+TEST $CLI volume set $V0 performance.strict-write-ordering on
 EXPECT 'on' volinfo_field $V0 'performance.strict-write-ordering'
 
 ## Turn on cdc xlator by setting network.compression to on
 TEST $CLI volume set $V0 network.compression on
 EXPECT 'on' volinfo_field $V0 'network.compression'
-EXPECT 'server' volinfo_field $V0 'network.compression.mode'
 
 ## Make sure that user cannot change network.compression.mode
 ## This would break the cdc xlator if allowed!
-TEST $CLI volume set $V0 network.compression.mode client
-EXPECT 'server' volinfo_field $V0 'network.compression.mode'
+TEST ! $CLI volume set $V0 network.compression.mode client
 
 ## Turn on network.compression.debug option
 ## This will dump compressed data onto disk as gzip file
@@ -44,6 +42,7 @@ EXPECT 'on' volinfo_field $V0 'network.compression.debug'
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
+sleep 2
 ## Mount FUSE with caching disabled
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
 
@@ -121,7 +120,6 @@ TEST umount $M0
 ## Reset the network.compression options
 TEST $CLI volume reset $V0 network.compression.debug
 TEST $CLI volume reset $V0 network.compression.min-size
-TEST $CLI volume reset $V0 network.compression.mode
 TEST $CLI volume reset $V0 network.compression
 
 ## Stop the volume
