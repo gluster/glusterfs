@@ -94,6 +94,41 @@ out:
 
 }
 
+/*
+   return values:
+   -1 : failure
+   -2 : success
+
+Hard link migration is carried out in three stages.
+
+(Say there are n hardlinks)
+Stage 1: Setting the new hashed subvol information on the 1st hardlink
+         encountered (linkto setxattr)
+
+Stage 2: Creating hardlinks on new hashed subvol for the 2nd to (n-1)th
+         hardlink
+
+Stage 3: Physical migration of the data file for nth hardlink
+
+Why to deem "-2" as success and not "0":
+
+   dht_migrate_file expects return value "0" from _is_file_migratable if
+the file has to be migrated.
+
+   _is_file_migratable returns zero only when it is called with the
+flag "GF_DHT_MIGRATE_HARDLINK_IN_PROGRESS".
+
+   gf_defrag_handle_hardlink calls dht_migrate_file for physical migration
+of the data file with the flag "GF_DHT_MIGRATE_HARDLINK_IN_PROGRESS"
+
+Hence, gf_defrag_handle_hardlink returning "0" for success will force
+"dht_migrate_file" to migrate each of the hardlink which is not intended.
+
+For each of the three stage mentioned above "-2" will be returned and will
+be converted to "0" in dht_migrate_file.
+
+*/
+
 int32_t
 gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                            struct iatt *stbuf)
@@ -164,6 +199,7 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                         ret = -1;
                         goto out;
                 }
+                ret = -2;
                 goto out;
         } else {
                 linkto_subvol = dht_linkfile_subvol (this, NULL, NULL, xattrs);
@@ -200,12 +236,19 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                 if (ret)
                         goto out;
         }
-        ret = 0;
+        ret = -2;
 out:
         return ret;
 }
 
-
+/*
+     return values
+     0 : File will be migrated
+    -2 : File will not be migrated
+         (This is the return value from gf_defrag_handle_hardlink. Checkout
+         gf_defrag_handle_hardlink for description of "returning -2")
+    -1 : failure
+*/
 static inline int
 __is_file_migratable (xlator_t *this, loc_t *loc,
                       struct iatt *stbuf, dict_t *xattrs, int flags)
@@ -228,7 +271,12 @@ __is_file_migratable (xlator_t *this, loc_t *loc,
                 if (flags == GF_DHT_MIGRATE_HARDLINK) {
                         ret = gf_defrag_handle_hardlink (this, loc,
                                                          xattrs, stbuf);
-                        if (ret) {
+
+                   /*
+                   Returning zero will force the file to be remigrated.
+                   Checkout gf_defrag_handle_hardlink for more information.
+                   */
+                        if (ret && ret != -2) {
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "%s: failed to migrate file with link",
                                         loc->path);
@@ -236,8 +284,8 @@ __is_file_migratable (xlator_t *this, loc_t *loc,
                 } else {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "%s: file has hardlinks", loc->path);
+                        ret = -ENOTSUP;
                 }
-                ret = ENOTSUP;
                 goto out;
         }
 
@@ -743,9 +791,11 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
 
         /* Check if file can be migrated */
         ret = __is_file_migratable (this, loc, &stbuf, xattr_rsp, flag);
-        if (ret)
+        if (ret) {
+                if (ret == -2)
+                        ret = 0;
                 goto out;
-
+        }
         /* Take care of the special files */
         if (!IA_ISREG (stbuf.ia_type)) {
                 /* Special files */
