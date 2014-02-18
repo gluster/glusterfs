@@ -3570,7 +3570,8 @@ socket_init (rpc_transport_t *this)
 	}
         priv->ssl_ca_list = gf_strdup(priv->ssl_ca_list);
 
-        gf_log(this->name,GF_LOG_INFO,"SSL support is %s",
+        gf_log(this->name, priv->ssl_enabled ? GF_LOG_INFO: GF_LOG_DEBUG,
+               "SSL support is %s",
                priv->ssl_enabled ? "ENABLED" : "NOT enabled");
         /*
          * This might get overridden temporarily in socket_connect (q.v.)
@@ -3585,7 +3586,8 @@ socket_init (rpc_transport_t *this)
 				"invalid value given for own-thread boolean");
 		}
 	}
-	gf_log(this->name,GF_LOG_INFO,"using %s polling thread",
+	gf_log(this->name, priv->own_thread ? GF_LOG_INFO: GF_LOG_DEBUG,
+               "using %s polling thread",
 	       priv->own_thread ? "private" : "system");
 
 	if (priv->use_ssl) {
