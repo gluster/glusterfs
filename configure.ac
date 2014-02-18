@@ -190,10 +190,10 @@ AC_ARG_ENABLE([debug],
                              [Enable debug build options.]))
 if test "x$enable_debug" = "xyes"; then
         BUILD_DEBUG=yes
-        CFLAGS="-g -O0 -DDEBUG"
+        CFLAGS="${CFLAGS} -g -O0 -DDEBUG"
 else
         BUILD_DEBUG=no
-        CFLAGS="-g -O2"
+        CFLAGS="${CFLAGS} -g -O2"
 fi
 
 AC_ARG_WITH(pkgconfigdir,
