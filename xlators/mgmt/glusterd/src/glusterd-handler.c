@@ -898,10 +898,11 @@ glusterd_handle_volume_lock_fn (rpcsvc_request_t *req)
 
 out:
         if (ret) {
-                if (ctx->dict)
-                        dict_destroy (ctx->dict);
-                if (ctx)
+                if (ctx) {
+                        if (ctx->dict)
+                                dict_destroy (ctx->dict);
                         GF_FREE (ctx);
+                }
         }
 
         glusterd_friend_sm ();
@@ -982,10 +983,11 @@ glusterd_handle_volume_unlock_fn (rpcsvc_request_t *req)
 
 out:
         if (ret) {
-                if (ctx->dict)
-                        dict_destroy (ctx->dict);
-                if (ctx)
+                if (ctx) {
+                        if (ctx->dict)
+                                dict_destroy (ctx->dict);
                         GF_FREE (ctx);
+                }
         }
 
         glusterd_friend_sm ();
