@@ -106,3 +106,6 @@ function define_clis() {
     done
 }
 
+function peer_count() {
+    $CLI_1 peer status | grep 'Peer in Cluster (Connected)' | wc -l
+}

@@ -12,6 +12,7 @@
 
 #include "syncop.h"
 #include "glusterd-sm.h"
+#include "glusterd.h"
 
 #define GD_SYNC_OPCODE_KEY "sync-mgmt-operation"
 
@@ -51,4 +52,20 @@ int gd_syncop_mgmt_stage_op (struct rpc_clnt *rpc, struct syncargs *arg,
 int gd_syncop_mgmt_commit_op (struct rpc_clnt *rpc, struct syncargs *arg,
                               uuid_t my_uuid, uuid_t recv_uuid, int op,
                               dict_t *dict_out, dict_t *op_ctx);
+
+void
+gd_synctask_barrier_wait (struct syncargs *args, int count);
+
+int
+gd_build_peers_list (struct list_head *peers, struct list_head *xact_peers,
+                     glusterd_op_t op);
+int
+gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
+                   char **op_errstr);
+
+int
+glusterd_syncop_aggr_rsp_dict (glusterd_op_t op, dict_t *aggr, dict_t *rsp);
+
+void
+gd_syncargs_init (struct syncargs *args, dict_t *op_ctx);
 #endif /* __RPC_SYNCOP_H */

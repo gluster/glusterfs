@@ -36,21 +36,139 @@ extern struct rpc_clnt_program gd_mgmt_v3_prog;
 
 typedef ssize_t (*gfs_serialize_t) (struct iovec outmsg, void *data);
 
+static int
+get_snap_volname_and_volinfo (const char *volpath, char **volname,
+                              glusterd_volinfo_t **volinfo)
+{
+        int              ret            = -1;
+        char            *save_ptr       = NULL;
+        char            *str_token      = NULL;
+        char            *snapname       = NULL;
+        char            *volname_token  = NULL;
+        char            *vol            = NULL;
+        glusterd_snap_t *snap           = NULL;
+        xlator_t        *this           = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (volpath);
+        GF_ASSERT (volinfo);
+
+        str_token = gf_strdup (volpath);
+        if (NULL == str_token) {
+                goto out;
+        }
+
+        /* Input volname will have below formats:
+         * /snaps/<snapname>/<volname>.<hostname>
+         * or
+         * /snaps/<snapname>/<parent-volname>
+         * We need to extract snapname and parent_volname */
+
+        /*split string by "/" */
+        strtok_r (str_token, "/",  &save_ptr);
+        snapname  = strtok_r(NULL, "/", &save_ptr);
+        if (!snapname) {
+                gf_log(this->name, GF_LOG_ERROR, "Invalid path: %s", volpath);
+                goto out;
+        }
+
+        volname_token = strtok_r(NULL, "/", &save_ptr);
+        if (!volname_token) {
+                gf_log(this->name, GF_LOG_ERROR, "Invalid path: %s", volpath);
+                goto out;
+        }
+
+        snap = glusterd_find_snap_by_name (snapname);
+        if (!snap) {
+                gf_log(this->name, GF_LOG_ERROR, "Failed to "
+                                "fetch snap %s", snapname);
+                goto out;
+        }
+
+        /* Find if its a parent volume name or snap volume
+         * name. This function will succeed if volname_token
+         * is a parent volname
+         */
+        ret = glusterd_volinfo_find (volname_token, volinfo);
+        if (ret) {
+                *volname = gf_strdup (volname_token);
+                if (NULL == *volname) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = glusterd_snap_volinfo_find (volname_token, snap,
+                                                  volinfo);
+                if (ret) {
+                        /* Split the volume name */
+                        vol = strtok_r (volname_token, ".", &save_ptr);
+                        if (!vol) {
+                                gf_log(this->name, GF_LOG_ERROR, "Invalid "
+                                                "volname (%s)", volname_token);
+                                goto out;
+                        }
+
+                        ret = glusterd_snap_volinfo_find (vol, snap, volinfo);
+                        if (ret) {
+                                gf_log(this->name, GF_LOG_ERROR, "Failed to "
+                                       "fetch snap volume from volname (%s)",
+                                       vol);
+                                goto out;
+                        }
+                }
+        } else {
+                /*volname_token is parent volname*/
+                ret = glusterd_snap_volinfo_find_from_parent_volname (
+                                volname_token, snap, volinfo);
+                if (ret) {
+                        gf_log(this->name, GF_LOG_ERROR, "Failed to "
+                                        "fetch snap volume from parent "
+                                        "volname (%s)", volname_token);
+                        goto out;
+                }
+
+                /* Since volname_token is a parent volname we should
+                 * get the snap volname here*/
+                *volname = gf_strdup ((*volinfo)->volname);
+                if (NULL == *volname) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+out:
+        if (ret && NULL != *volname) {
+                GF_FREE (*volname);
+                *volname = NULL;
+        }
+        return ret;
+}
+
 static size_t
 build_volfile_path (const char *volname, char *path,
                     size_t path_len, char *trusted_str)
 {
-        struct stat         stbuf       = {0,};
-        int32_t             ret         = -1;
-        glusterd_conf_t    *priv        = NULL;
-        char               *vol         = NULL;
-        char               *dup_volname = NULL;
-        char               *free_ptr    = NULL;
-        char               *tmp         = NULL;
-        glusterd_volinfo_t *volinfo     = NULL;
-        char               *server      = NULL;
+        struct stat              stbuf                  = {0,};
+        int32_t                  ret                    = -1;
+        glusterd_conf_t         *priv                   = NULL;
+        char                    *vol                    = NULL;
+        char                    *dup_volname            = NULL;
+        char                    *free_ptr               = NULL;
+        char                    *save_ptr               = NULL;
+        char                    *str_token              = NULL;
+        glusterd_volinfo_t      *volinfo                = NULL;
+        char                    *server                 = NULL;
+        const char              *volname_ptr            = NULL;
+        char                     path_prefix [PATH_MAX] = {0,};
+        xlator_t                *this                   = NULL;
 
-        priv    = THIS->private;
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+        GF_ASSERT (volname);
+        GF_ASSERT (path);
 
         if (strstr (volname, "gluster/")) {
                 server = strchr (volname, '/') + 1;
@@ -58,6 +176,22 @@ build_volfile_path (const char *volname, char *path,
                                               path, path_len);
                 ret = 1;
                 goto out;
+        } else if ((str_token = strstr (volname, "/snaps/"))) {
+                ret = get_snap_volname_and_volinfo (str_token, &dup_volname,
+                                                    &volinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to get snap"
+                                " volinfo from path (%s)", volname);
+                        ret = -1;
+                        goto out;
+                }
+
+                snprintf (path_prefix, sizeof (path_prefix), "%s/snaps/%s",
+                          priv->workdir, volinfo->snapshot->snapname);
+
+                free_ptr = dup_volname;
+                volname_ptr = dup_volname;
+                goto gotvolinfo;
         } else if (volname[0] != '/') {
                 /* Normal behavior */
                 dup_volname = gf_strdup (volname);
@@ -68,39 +202,53 @@ build_volfile_path (const char *volname, char *path,
                 dup_volname = gf_strdup (&volname[1]);
         }
 
+        if (!dup_volname) {
+                gf_log(THIS->name, GF_LOG_ERROR, "strdup failed");
+                ret = -1;
+                goto out;
+        }
         free_ptr = dup_volname;
+        volname_ptr = volname;
+
+        snprintf (path_prefix, sizeof (path_prefix), "%s/vols",
+                  priv->workdir);
 
         ret = glusterd_volinfo_find (dup_volname, &volinfo);
+
         if (ret) {
                 /* Split the volume name */
-                vol = strtok_r (dup_volname, ".", &tmp);
+                vol = strtok_r (dup_volname, ".", &save_ptr);
                 if (!vol)
                         goto out;
+
                 ret = glusterd_volinfo_find (vol, &volinfo);
                 if (ret)
                         goto out;
         }
 
+gotvolinfo:
         if (!glusterd_auth_get_username (volinfo))
                 trusted_str = NULL;
 
-        ret = snprintf (path, path_len, "%s/vols/%s/%s.vol",
-                        priv->workdir, volinfo->volname, volname);
+        ret = snprintf (path, path_len, "%s/%s/%s.vol", path_prefix,
+                        volinfo->volname, volname_ptr);
         if (ret == -1)
                 goto out;
 
         ret = stat (path, &stbuf);
 
         if ((ret == -1) && (errno == ENOENT)) {
-                snprintf (path, path_len, "%s/vols/%s/%s%s-fuse.vol",
-                          priv->workdir, volinfo->volname,
-                          (trusted_str ? trusted_str : ""), dup_volname);
+                snprintf (path, path_len, "%s/%s/%s%s-fuse.vol",
+                          path_prefix, volinfo->volname,
+                          (trusted_str ? trusted_str : ""),
+                          dup_volname);
+
                 ret = stat (path, &stbuf);
         }
 
         if ((ret == -1) && (errno == ENOENT)) {
-                snprintf (path, path_len, "%s/vols/%s/%s-tcp.vol",
-                          priv->workdir, volinfo->volname, volname);
+                snprintf (path, path_len, "%s/%s/%s-tcp.vol",
+                          path_prefix, volinfo->volname, volname_ptr);
         }
 
         ret = 1;

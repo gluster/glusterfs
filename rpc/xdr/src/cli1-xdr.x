@@ -136,6 +136,26 @@ enum gf_cli_status_type {
         GF_CLI_STATUS_QUOTAD       = 0x2000     /*10000000000000*/
 };
 
+/* Identifiers for snapshot clis */
+enum gf1_cli_snapshot {
+        GF_SNAP_OPTION_TYPE_NONE = 0,
+        GF_SNAP_OPTION_TYPE_CREATE,
+        GF_SNAP_OPTION_TYPE_DELETE,
+        GF_SNAP_OPTION_TYPE_RESTORE,
+        GF_SNAP_OPTION_TYPE_START,
+        GF_SNAP_OPTION_TYPE_STOP,
+        GF_SNAP_OPTION_TYPE_LIST,
+        GF_SNAP_OPTION_TYPE_STATUS,
+        GF_SNAP_OPTION_TYPE_CONFIG
+};
+
+enum gf1_cli_snapshot_config {
+        GF_SNAP_CONFIG_TYPE_NONE = 0,
+        GF_SNAP_CONFIG_TYPE_SET,
+        GF_SNAP_CONFIG_DISPLAY,
+
+};
+
  struct gf_cli_req {
         opaque  dict<>;
 }  ;

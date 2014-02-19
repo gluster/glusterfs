@@ -85,6 +85,11 @@ glusterd_submit_request (struct rpc_clnt *rpc, void *req,
 int32_t
 glusterd_volinfo_new (glusterd_volinfo_t **volinfo);
 
+int32_t
+glusterd_volinfo_dup (glusterd_volinfo_t *volinfo,
+                      glusterd_volinfo_t **dup_volinfo,
+                      gf_boolean_t set_userauth);
+
 char *
 glusterd_auth_get_username (glusterd_volinfo_t *volinfo);
 
@@ -119,10 +124,22 @@ int32_t
 glusterd_peer_hostname_new (char *hostname, glusterd_peer_hostname_t **name);
 
 int32_t
+glusterd_snap_volinfo_find (char *volname, glusterd_snap_t *snap,
+                            glusterd_volinfo_t **volinfo);
+int32_t
+glusterd_snap_volinfo_find_from_parent_volname (char *origin_volname,
+                                      glusterd_snap_t *snap,
+                                      glusterd_volinfo_t **volinfo);
+
+int32_t
 glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo);
 
 int
 glusterd_volinfo_find_by_volume_id (uuid_t volume_id, glusterd_volinfo_t **volinfo);
+
+int
+glusterd_snap_volinfo_find_by_volume_id (uuid_t volume_id,
+                                         glusterd_volinfo_t **volinfo);
 
 int32_t
 glusterd_service_stop(const char *service, char *pidfile, int sig,
@@ -302,6 +319,7 @@ glusterd_is_defrag_on (glusterd_volinfo_t *volinfo);
 
 int32_t
 glusterd_volinfo_bricks_delete (glusterd_volinfo_t *volinfo);
+
 int
 glusterd_friend_find_by_uuid (uuid_t uuid,
                               glusterd_peerinfo_t  **peerinfo);
@@ -371,7 +389,7 @@ gf_boolean_t
 glusterd_peerinfo_is_uuid_unknown (glusterd_peerinfo_t *peerinfo);
 int32_t
 glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
-                        glusterd_brickinfo_t  *brickinfo);
+                        glusterd_brickinfo_t  *brickinfo, char *socketpath);
 int32_t
 glusterd_brick_disconnect (glusterd_brickinfo_t *brickinfo);
 int32_t
@@ -379,12 +397,16 @@ glusterd_delete_volume (glusterd_volinfo_t *volinfo);
 int32_t
 glusterd_delete_brick (glusterd_volinfo_t* volinfo,
                        glusterd_brickinfo_t *brickinfo);
+
 int32_t
 glusterd_delete_all_bricks (glusterd_volinfo_t* volinfo);
+
 int
 glusterd_spawn_daemons (void *opaque);
+
 int
 glusterd_restart_gsyncds (glusterd_conf_t *conf);
+
 int
 glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
                       char *path_list, char *conf_path,
@@ -510,6 +532,8 @@ int
 glusterd_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
 int
 glusterd_sys_exec_output_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
+int
+glusterd_snap_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
 int32_t
 glusterd_handle_node_rsp (dict_t *req_ctx, void *pending_entry,
                           glusterd_op_t op, dict_t *rsp_dict, dict_t *op_ctx,
@@ -660,4 +684,37 @@ glusterd_rpc_clnt_unref (glusterd_conf_t *conf, rpc_clnt_t *rpc);
 
 int32_t
 glusterd_compare_volume_name(struct list_head *, struct list_head *);
+#ifdef GF_LINUX_HOST_OS
+char*
+glusterd_get_brick_mount_details (glusterd_brickinfo_t *brickinfo);
+struct mntent *
+glusterd_get_mnt_entry_info (char *mnt_pt, FILE *mtab);
+int
+glusterd_get_brick_root (char *path, char **mount_point);
+#endif //LINUX_HOST
+
+int
+glusterd_compare_snap_time(struct list_head *, struct list_head *);
+
+int
+glusterd_compare_snap_vol_time(struct list_head *, struct list_head *);
+
+int32_t
+glusterd_snap_volinfo_restore (dict_t *rsp_dict,
+                               glusterd_volinfo_t *new_volinfo,
+                               glusterd_volinfo_t *snap_volinfo);
+int32_t
+glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol);
+
+int32_t
+glusterd_missed_snapinfo_new (glusterd_missed_snap_info **missed_snapinfo);
+
+int32_t
+glusterd_missed_snap_op_new (glusterd_snap_op_t **snap_op);
+
+int32_t
+glusterd_add_missed_snaps_to_dict (dict_t *rsp_dict, char *snap_uuid,
+                                   glusterd_brickinfo_t *brickinfo,
+                                   int32_t brick_number, int32_t op);
+
 #endif

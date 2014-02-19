@@ -167,6 +167,7 @@ enum gluster_cli_procnum {
         GLUSTER_CLI_UUID_GET,
         GLUSTER_CLI_COPY_FILE,
         GLUSTER_CLI_SYS_EXEC,
+        GLUSTER_CLI_SNAP,
         GLUSTER_CLI_MAXVALUE,
 };
 
@@ -198,6 +199,7 @@ enum glusterd_brick_procnum {
         GLUSTERD_BRICK_XLATOR_DEFRAG,
         GLUSTERD_NODE_PROFILE,
         GLUSTERD_NODE_STATUS,
+        GLUSTERD_VOLUME_BARRIER_OP,
         GLUSTERD_BRICK_MAXVALUE,
 };
 
@@ -238,8 +240,12 @@ struct gf_gsync_detailed_status_ {
 
 enum glusterd_mgmt_v3_procnum {
         GLUSTERD_MGMT_V3_NULL,    /* 0 */
-        GLUSTERD_MGMT_V3_VOLUME_LOCK,
-        GLUSTERD_MGMT_V3_VOLUME_UNLOCK,
+        GLUSTERD_MGMT_V3_LOCK,
+        GLUSTERD_MGMT_V3_PRE_VALIDATE,
+        GLUSTERD_MGMT_V3_BRICK_OP,
+        GLUSTERD_MGMT_V3_COMMIT,
+        GLUSTERD_MGMT_V3_POST_VALIDATE,
+        GLUSTERD_MGMT_V3_UNLOCK,
         GLUSTERD_MGMT_V3_MAXVALUE,
 };
 

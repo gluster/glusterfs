@@ -56,6 +56,8 @@ extern struct rpcsvc_program gd_svc_cli_prog_ro;
 extern struct rpc_clnt_program gd_brick_prog;
 extern struct rpcsvc_program glusterd_mgmt_hndsk_prog;
 
+extern char snap_mount_folder[PATH_MAX];
+
 rpcsvc_cbk_program_t glusterd_cbk_prog = {
         .progname  = "Gluster Callback",
         .prognum   = GLUSTER_CBK_PROGRAM,
@@ -110,6 +112,7 @@ const char *gd_op_list[GD_OP_MAX + 1] = {
         [GD_OP_COPY_FILE]               = "Copy File",
         [GD_OP_SYS_EXEC]                = "Execute system commands",
         [GD_OP_GSYNC_CREATE]            = "Geo-replication Create",
+        [GD_OP_SNAP]                    = "Snapshot",
         [GD_OP_MAX]                     = "Invalid op"
 };
 
@@ -1092,6 +1095,71 @@ glusterd_stop_uds_listener (xlator_t *this)
         return;
 }
 
+static int
+glusterd_init_snap_folder (xlator_t *this)
+{
+        int             ret = -1;
+        struct stat     buf = {0,};
+
+        GF_ASSERT (this);
+
+        /* Snapshot volumes are mounted under /var/run/gluster/snaps folder.
+         * But /var/run is normally a symbolic link to /run folder, which
+         * creates problems as the entry point in the mtab for the mount point
+         * and glusterd maintained entry point will be different. Therefore
+         * identify the correct run folder and use it for snap volume mounting.
+         */
+        ret = lstat (GLUSTERD_VAR_RUN_DIR, &buf);
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "stat fails on %s, exiting. (errno = %d)",
+                        GLUSTERD_VAR_RUN_DIR, errno);
+                goto out;
+        }
+
+        /* If /var/run is symlink then use /run folder */
+        if (S_ISLNK (buf.st_mode)) {
+                strcpy (snap_mount_folder, GLUSTERD_RUN_DIR);
+        } else {
+                strcpy (snap_mount_folder, GLUSTERD_VAR_RUN_DIR);
+        }
+
+        strcat (snap_mount_folder, GLUSTERD_DEFAULT_SNAPS_BRICK_DIR);
+
+        ret = stat (snap_mount_folder, &buf);
+        if ((ret != 0) && (ENOENT != errno)) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "stat fails on %s, exiting. (errno = %d)",
+                        snap_mount_folder, errno);
+                ret = -1;
+                goto out;
+        }
+
+        if ((!ret) && (!S_ISDIR(buf.st_mode))) {
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "Provided snap path %s is not a directory,"
+                        "exiting", snap_mount_folder);
+                ret = -1;
+                goto out;
+        }
+
+        if ((-1 == ret) && (ENOENT == errno)) {
+                /* Create missing folders */
+                ret = mkdir_p (snap_mount_folder, 0777, _gf_false);
+
+                if (-1 == ret) {
+                        gf_log (this->name, GF_LOG_CRITICAL,
+                                "Unable to create directory %s"
+                                " ,errno = %d", snap_mount_folder, errno);
+                        goto out;
+                }
+        }
+
+out:
+        return ret;
+}
+
+
 /*
  * init - called during glusterd initialization
  *
@@ -1157,6 +1225,14 @@ init (xlator_t *this)
         setenv ("GLUSTERD_WORKING_DIR", workdir, 1);
         gf_log (this->name, GF_LOG_INFO, "Using %s as working directory",
                 workdir);
+
+        ret = glusterd_init_snap_folder (this);
+
+        if (ret) {
+                gf_log (this->name, GF_LOG_CRITICAL, "Unable to create "
+                        "snap backend folder");
+                exit (1);
+        }
 
         snprintf (cmd_log_filename, PATH_MAX,"%s/.cmd_log_history",
                   DEFAULT_LOG_FILE_DIRECTORY);
@@ -1301,6 +1377,9 @@ init (xlator_t *this)
 
         INIT_LIST_HEAD (&conf->peers);
         INIT_LIST_HEAD (&conf->volumes);
+        INIT_LIST_HEAD (&conf->snapshots);
+        INIT_LIST_HEAD (&conf->missed_snaps_list);
+
         pthread_mutex_init (&conf->mutex, NULL);
         conf->rpc = rpc;
         conf->uds_rpc = uds_rpc;
@@ -1342,7 +1421,7 @@ init (xlator_t *this)
         }
 
         this->private = conf;
-        glusterd_vol_lock_init ();
+        glusterd_mgmt_v3_lock_init ();
         glusterd_txn_opinfo_dict_init ();
         (void) glusterd_nodesvc_set_online_status ("glustershd", _gf_false);
 
@@ -1435,7 +1514,7 @@ fini (xlator_t *this)
         if (conf->handle)
                 gf_store_handle_destroy (conf->handle);
         glusterd_sm_tr_log_delete (&conf->op_sm_log);
-        glusterd_vol_lock_fini ();
+        glusterd_mgmt_v3_lock_fini ();
         glusterd_txn_opinfo_dict_fini ();
         GF_FREE (conf);
 
@@ -1552,6 +1631,10 @@ struct volume_options options[] = {
         { .key = {"base-port"},
           .type = GF_OPTION_TYPE_INT,
           .description = "Sets the base port for portmap query"
+        },
+        { .key = {"snap-brick-path"},
+          .type = GF_OPTION_TYPE_STR,
+          .description = "directory where the bricks for the snapshots will be created"
         },
         { .key   = {NULL} },
 };

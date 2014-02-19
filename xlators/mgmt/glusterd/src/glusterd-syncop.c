@@ -21,7 +21,7 @@
 
 extern glusterd_op_info_t opinfo;
 
-static inline void
+void
 gd_synctask_barrier_wait (struct syncargs *args, int count)
 {
         glusterd_conf_t *conf = THIS->private;
@@ -56,17 +56,17 @@ gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
                                   "Error: %s", op_errstr);
 
                 switch (op_code) {
-                        case GLUSTERD_MGMT_V3_VOLUME_LOCK:
+                        case GLUSTERD_MGMT_V3_LOCK:
                         {
                                 snprintf (op_err, sizeof(op_err) - 1,
-                                          "Locking volume failed "
+                                          "Locking failed "
                                           "on %s. %s", peer_str, err_str);
                                 break;
                         }
-                        case GLUSTERD_MGMT_V3_VOLUME_UNLOCK:
+                        case GLUSTERD_MGMT_V3_UNLOCK:
                         {
                                 snprintf (op_err, sizeof(op_err) - 1,
-                                          "Unlocking volume failed "
+                                          "Unlocking failed "
                                           "on %s. %s", peer_str, err_str);
                                 break;
                         }
@@ -164,7 +164,7 @@ gd_collate_errors (struct syncargs *args, int op_ret, int op_errno,
         return;
 }
 
-static void
+void
 gd_syncargs_init (struct syncargs *args, dict_t *op_ctx)
 {
         args->dict = op_ctx;
@@ -268,7 +268,7 @@ extern struct rpc_clnt_program gd_mgmt_prog;
 extern struct rpc_clnt_program gd_brick_prog;
 extern struct rpc_clnt_program gd_mgmt_v3_prog;
 
-static int
+int
 glusterd_syncop_aggr_rsp_dict (glusterd_op_t op, dict_t *aggr, dict_t *rsp)
 {
         int ret = 0;
@@ -339,6 +339,12 @@ glusterd_syncop_aggr_rsp_dict (glusterd_op_t op, dict_t *aggr, dict_t *rsp)
                         goto out;
         break;
 
+        case GD_OP_SNAP:
+                ret = glusterd_snap_use_rsp_dict (aggr, rsp);
+                if (ret)
+                        goto out;
+        break;
+
         default:
         break;
         }
@@ -347,13 +353,13 @@ out:
 }
 
 int32_t
-_gd_syncop_mgmt_volume_lock_cbk (struct rpc_req *req, struct iovec *iov,
+gd_syncop_mgmt_v3_lock_cbk_fn (struct rpc_req *req, struct iovec *iov,
                                  int count, void *myframe)
 {
         int                         ret         = -1;
         struct syncargs             *args       = NULL;
         glusterd_peerinfo_t         *peerinfo   = NULL;
-        gd1_mgmt_volume_lock_rsp     rsp        = {{0},};
+        gd1_mgmt_v3_lock_rsp         rsp        = {{0},};
         call_frame_t                *frame      = NULL;
         int                         op_ret      = -1;
         int                         op_errno    = -1;
@@ -374,7 +380,7 @@ _gd_syncop_mgmt_volume_lock_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         ret = xdr_to_generic (*iov, &rsp,
-                              (xdrproc_t)xdr_gd1_mgmt_volume_lock_rsp);
+                              (xdrproc_t)xdr_gd1_mgmt_v3_lock_rsp);
         if (ret < 0)
                 goto out;
 
@@ -384,7 +390,7 @@ _gd_syncop_mgmt_volume_lock_cbk (struct rpc_req *req, struct iovec *iov,
         op_errno = rsp.op_errno;
 out:
         gd_mgmt_v3_collate_errors (args, op_ret, op_errno, NULL,
-                                   GLUSTERD_MGMT_V3_VOLUME_LOCK,
+                                   GLUSTERD_MGMT_V3_LOCK,
                                    peerinfo, rsp.uuid);
         STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
@@ -392,21 +398,21 @@ out:
 }
 
 int32_t
-gd_syncop_mgmt_volume_lock_cbk (struct rpc_req *req, struct iovec *iov,
-                                int count, void *myframe)
+gd_syncop_mgmt_v3_lock_cbk (struct rpc_req *req, struct iovec *iov,
+                            int count, void *myframe)
 {
         return glusterd_big_locked_cbk (req, iov, count, myframe,
-                                        _gd_syncop_mgmt_volume_lock_cbk);
+                                        gd_syncop_mgmt_v3_lock_cbk_fn);
 }
 
 int
-gd_syncop_mgmt_volume_lock (glusterd_op_t op, dict_t *op_ctx,
-                            glusterd_peerinfo_t *peerinfo,
-                            struct syncargs *args, uuid_t my_uuid,
-                            uuid_t recv_uuid, uuid_t txn_id)
+gd_syncop_mgmt_v3_lock (glusterd_op_t op, dict_t *op_ctx,
+                        glusterd_peerinfo_t *peerinfo,
+                        struct syncargs *args, uuid_t my_uuid,
+                        uuid_t recv_uuid, uuid_t txn_id)
 {
         int                      ret  = -1;
-        gd1_mgmt_volume_lock_req req  = {{0},};
+        gd1_mgmt_v3_lock_req     req  = {{0},};
         glusterd_conf_t         *conf = THIS->private;
 
         GF_ASSERT(op_ctx);
@@ -425,10 +431,10 @@ gd_syncop_mgmt_volume_lock (glusterd_op_t op, dict_t *op_ctx,
         synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerinfo,
                                         &gd_mgmt_v3_prog,
-                                        GLUSTERD_MGMT_V3_VOLUME_LOCK,
-                                        gd_syncop_mgmt_volume_lock_cbk,
+                                        GLUSTERD_MGMT_V3_LOCK,
+                                        gd_syncop_mgmt_v3_lock_cbk,
                                         (xdrproc_t)
-                                        xdr_gd1_mgmt_volume_lock_req);
+                                        xdr_gd1_mgmt_v3_lock_req);
         synclock_lock (&conf->big_lock);
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
@@ -436,13 +442,13 @@ out:
 }
 
 int32_t
-_gd_syncop_mgmt_volume_unlock_cbk (struct rpc_req *req, struct iovec *iov,
-                                   int count, void *myframe)
+gd_syncop_mgmt_v3_unlock_cbk_fn (struct rpc_req *req, struct iovec *iov,
+                                 int count, void *myframe)
 {
         int                         ret         = -1;
         struct syncargs             *args       = NULL;
         glusterd_peerinfo_t         *peerinfo   = NULL;
-        gd1_mgmt_volume_unlock_rsp   rsp        = {{0},};
+        gd1_mgmt_v3_unlock_rsp       rsp        = {{0},};
         call_frame_t                *frame      = NULL;
         int                         op_ret      = -1;
         int                         op_errno    = -1;
@@ -463,7 +469,7 @@ _gd_syncop_mgmt_volume_unlock_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         ret = xdr_to_generic (*iov, &rsp,
-                              (xdrproc_t)xdr_gd1_mgmt_volume_unlock_rsp);
+                              (xdrproc_t)xdr_gd1_mgmt_v3_unlock_rsp);
         if (ret < 0)
                 goto out;
 
@@ -476,7 +482,7 @@ _gd_syncop_mgmt_volume_unlock_cbk (struct rpc_req *req, struct iovec *iov,
         op_errno = rsp.op_errno;
 out:
         gd_mgmt_v3_collate_errors (args, op_ret, op_errno, NULL,
-                                   GLUSTERD_MGMT_V3_VOLUME_UNLOCK,
+                                   GLUSTERD_MGMT_V3_UNLOCK,
                                    peerinfo, rsp.uuid);
         STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
@@ -484,20 +490,20 @@ out:
 }
 
 int32_t
-gd_syncop_mgmt_volume_unlock_cbk (struct rpc_req *req, struct iovec *iov,
-                                  int count, void *myframe)
+gd_syncop_mgmt_v3_unlock_cbk (struct rpc_req *req, struct iovec *iov,
+                              int count, void *myframe)
 {
         return glusterd_big_locked_cbk (req, iov, count, myframe,
-                                        _gd_syncop_mgmt_volume_unlock_cbk);
+                                        gd_syncop_mgmt_v3_unlock_cbk_fn);
 }
 
 int
-gd_syncop_mgmt_volume_unlock (dict_t *op_ctx, glusterd_peerinfo_t *peerinfo,
-                              struct syncargs *args, uuid_t my_uuid,
-                              uuid_t recv_uuid, uuid_t txn_id)
+gd_syncop_mgmt_v3_unlock (dict_t *op_ctx, glusterd_peerinfo_t *peerinfo,
+                          struct syncargs *args, uuid_t my_uuid,
+                          uuid_t recv_uuid, uuid_t txn_id)
 {
         int                          ret  = -1;
-        gd1_mgmt_volume_unlock_req   req  = {{0},};
+        gd1_mgmt_v3_unlock_req       req  = {{0},};
         glusterd_conf_t             *conf = THIS->private;
 
         GF_ASSERT(op_ctx);
@@ -515,10 +521,10 @@ gd_syncop_mgmt_volume_unlock (dict_t *op_ctx, glusterd_peerinfo_t *peerinfo,
         synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerinfo,
                                         &gd_mgmt_v3_prog,
-                                        GLUSTERD_MGMT_V3_VOLUME_UNLOCK,
-                                        gd_syncop_mgmt_volume_unlock_cbk,
+                                        GLUSTERD_MGMT_V3_UNLOCK,
+                                        gd_syncop_mgmt_v3_unlock_cbk,
                                         (xdrproc_t)
-                                        xdr_gd1_mgmt_volume_unlock_req);
+                                        xdr_gd1_mgmt_v3_unlock_req);
         synclock_lock (&conf->big_lock);
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
@@ -884,10 +890,12 @@ gd_syncop_mgmt_brick_op (struct rpc_clnt *rpc, glusterd_pending_node_t *pnode,
         GD_SYNCOP (rpc, (&args), NULL, gd_syncop_brick_op_cbk, req,
                    &gd_brick_prog, req->op, xdr_gd1_mgmt_brick_op_req);
 
-        if (args.errstr && errstr)
-                *errstr = args.errstr;
-        else
-                GF_FREE (args.errstr);
+        if (args.errstr) {
+                if ((strlen(args.errstr) > 0) && errstr)
+                        *errstr = args.errstr;
+                else
+                        GF_FREE (args.errstr);
+        }
 
         if (GD_OP_STATUS_VOLUME == op) {
                 ret = dict_set_int32 (args.dict, "index", pnode->index);
@@ -1097,8 +1105,8 @@ gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
                         gd_syncop_mgmt_lock (peerinfo, &args,
                                              MY_UUID, peer_uuid);
                 } else
-                        gd_syncop_mgmt_volume_lock (op, op_ctx, peerinfo, &args,
-                                                    MY_UUID, peer_uuid, txn_id);
+                        gd_syncop_mgmt_v3_lock (op, op_ctx, peerinfo, &args,
+                                                MY_UUID, peer_uuid, txn_id);
                 peer_cnt++;
         }
         gd_synctask_barrier_wait((&args), peer_cnt);
@@ -1321,7 +1329,7 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
         glusterd_peerinfo_t *peerinfo   = NULL;
         glusterd_peerinfo_t *tmp        = NULL;
         uuid_t              tmp_uuid    = {0};
-        int                 peer_cnt       = 0;
+        int                 peer_cnt    = 0;
         int                 ret         = -1;
         xlator_t            *this       = NULL;
         struct syncargs     args        = {0};
@@ -1358,9 +1366,9 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
                 if (volname) {
                         list_for_each_entry_safe (peerinfo, tmp,
                                                   peers, op_peers_list) {
-                                gd_syncop_mgmt_volume_unlock (op_ctx, peerinfo,
-                                                              &args, MY_UUID,
-                                                              tmp_uuid, txn_id);
+                                gd_syncop_mgmt_v3_unlock (op_ctx, peerinfo,
+                                                          &args, MY_UUID,
+                                                          tmp_uuid, txn_id);
                                 peer_cnt++;
                                 list_del_init (&peerinfo->op_peers_list);
                         }
@@ -1386,7 +1394,7 @@ out:
 
         if (is_acquired) {
                 /* Based on the op-version,
-                 * we release the cluster or volume lock
+                 * we release the cluster or mgmt_v3 lock
                  * and clear the op */
 
                 glusterd_op_clear_op (op);
@@ -1394,7 +1402,8 @@ out:
                         glusterd_unlock (MY_UUID);
                 else {
                         if (volname) {
-                                ret = glusterd_volume_unlock (volname, MY_UUID);
+                                ret = glusterd_mgmt_v3_unlock (volname, MY_UUID,
+                                                               "vol");
                                 if (ret)
                                         gf_log (this->name, GF_LOG_ERROR,
                                                 "Unable to release lock for %s",
@@ -1551,7 +1560,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
                 goto out;
         }
 
-        /* Based on the op_version, acquire a cluster or volume lock */
+        /* Based on the op_version, acquire a cluster or mgmt_v3 lock */
         if (conf->op_version < GD_OP_VERSION_4) {
                 ret = glusterd_lock (MY_UUID);
                 if (ret) {
@@ -1580,7 +1589,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
                                 goto out;
                 }
 
-                ret = glusterd_volume_lock (volname, MY_UUID);
+                ret = glusterd_mgmt_v3_lock (volname, MY_UUID, "vol");
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to acquire lock for %s", volname);

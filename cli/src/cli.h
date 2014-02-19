@@ -166,6 +166,11 @@ struct cli_volume_status {
 #endif
 };
 
+struct snap_config_opt_vals_ {
+        char           *op_name;
+        char           *question;
+};
+
 typedef struct cli_volume_status cli_volume_status_t;
 
 typedef struct cli_local cli_local_t;
@@ -385,4 +390,9 @@ cli_xml_output_vol_status_tasks_detail (cli_local_t *local, dict_t *dict);
 
 char *
 is_server_debug_xlator (void *myframe);
+
+int32_t
+cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
+                        struct cli_state *state);
+
 #endif /* __CLI_H__ */

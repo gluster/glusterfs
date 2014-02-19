@@ -46,7 +46,7 @@
 #include <dirent.h>
 
 void
-glusterd_replace_slash_with_hipen (char *str)
+glusterd_replace_slash_with_hyphen (char *str)
 {
         char                    *ptr = NULL;
 
@@ -85,7 +85,7 @@ glusterd_store_key_vol_brick_set (glusterd_brickinfo_t *brickinfo,
         GF_ASSERT (len >= PATH_MAX);
 
         snprintf (key_vol_brick, len, "%s", brickinfo->path);
-        glusterd_replace_slash_with_hipen (key_vol_brick);
+        glusterd_replace_slash_with_hyphen (key_vol_brick);
 }
 
 static void
@@ -243,6 +243,20 @@ glusterd_store_brickinfo_write (int fd, glusterd_brickinfo_t *brickinfo)
 
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_BRICK_ID,
                                    brickinfo->brick_id);
+        if (ret)
+                goto out;
+
+        if (strlen(brickinfo->device_path) > 0) {
+                snprintf (value, sizeof(value), "%s", brickinfo->device_path);
+                ret = gf_store_save_value (fd,
+                                GLUSTERD_STORE_KEY_BRICK_DEVICE_PATH, value);
+                if (ret)
+                        goto out;
+        }
+
+        snprintf (value, sizeof(value), "%d", brickinfo->snap_status);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS,
+                                   value);
         if (ret)
                 goto out;
 
@@ -511,13 +525,12 @@ int _storeopts (dict_t *this, char *key, data_t *value, void *data)
 int32_t
 glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
 {
-        char      *str   = NULL;
+        char    *str            = NULL;
+        char    buf[PATH_MAX]   = {0,};
+        int32_t ret             = -1;
 
         GF_ASSERT (fd > 0);
         GF_ASSERT (volinfo);
-
-        char                    buf[PATH_MAX] = {0,};
-        int32_t                 ret           = -1;
 
         snprintf (buf, sizeof (buf), "%d", volinfo->type);
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_TYPE, buf);
@@ -560,6 +573,14 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
+        snprintf (buf, sizeof (buf), "%s", volinfo->parent_volname);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_PARENT_VOLNAME, buf);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to store "
+                        GLUSTERD_STORE_KEY_PARENT_VOLNAME);
+                goto out;
+        }
+
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_ID,
                                    uuid_utoa (volinfo->volume_id));
         if (ret)
@@ -599,6 +620,23 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
                         goto out;
         }
 
+        snprintf (buf, sizeof (buf), "%d", volinfo->is_volume_restored);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_IS_RESTORED, buf);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Unable to write is_volume_restored");
+                goto out;
+        }
+
+        snprintf (buf, sizeof (buf), "%"PRIu64, volinfo->snap_max_hard_limit);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
+                                   buf);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Unable to write snap-max-hard-limit");
+                goto out;
+        }
+
 out:
         if (ret)
                 gf_log (THIS->name, GF_LOG_ERROR, "Unable to write volume "
@@ -616,8 +654,7 @@ glusterd_store_voldirpath_set (glusterd_volinfo_t *volinfo, char *voldirpath,
         priv = THIS->private;
         GF_ASSERT (priv);
 
-        snprintf (voldirpath, len, "%s/%s/%s", priv->workdir,
-                  GLUSTERD_VOLUME_DIR_PREFIX, volinfo->volname);
+        GLUSTERD_GET_VOLUME_DIR (voldirpath, volinfo, priv);
 }
 
 static int32_t
@@ -631,7 +668,29 @@ glusterd_store_create_volume_dir (glusterd_volinfo_t *volinfo)
         glusterd_store_voldirpath_set (volinfo, voldirpath,
                                        sizeof (voldirpath));
         ret = gf_store_mkdir (voldirpath);
+
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        return ret;
+}
+
+static int32_t
+glusterd_store_create_snap_dir (glusterd_snap_t *snap)
+{
+        int32_t            ret                   = -1;
+        char               snapdirpath[PATH_MAX] = {0,};
+        glusterd_conf_t   *priv                  = NULL;
+
+        priv = THIS->private;
+        GF_ASSERT (priv);
+        GF_ASSERT (snap);
+
+        GLUSTERD_GET_SNAP_DIR (snapdirpath, snap, priv);
+
+        ret = mkdir_p (snapdirpath, 0755, _gf_true);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to create snaps dir "
+                        "%s", snapdirpath);
+        }
         return ret;
 }
 
@@ -654,6 +713,49 @@ glusterd_store_volinfo_write (int fd, glusterd_volinfo_t *volinfo)
 
         dict_foreach (volinfo->gsync_slaves, _storeslaves, shandle);
         shandle->fd = 0;
+out:
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_store_snapinfo_write (glusterd_snap_t *snap)
+{
+        int32_t  ret            = -1;
+        int      fd             = 0;
+        char     buf[PATH_MAX]  = "";
+
+        GF_ASSERT (snap);
+
+        fd = gf_store_mkstemp (snap->shandle);
+        if (fd <= 0)
+               goto out;
+
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_SNAP_ID,
+                                   uuid_utoa (snap->snap_id));
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%d", snap->snap_status);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_SNAP_STATUS, buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%d", snap->snap_restored);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_SNAP_RESTORED, buf);
+        if (ret)
+                goto out;
+
+        if (snap->description) {
+                ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_SNAP_DESC,
+                                           snap->description);
+                if (ret)
+                        goto out;
+        }
+
+        snprintf (buf, sizeof (buf), "%ld", snap->time_stamp);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_SNAP_TIMESTAMP, buf);
+
 out:
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -718,6 +820,36 @@ glusterd_store_quota_conf_path_set (glusterd_volinfo_t *volinfo,
                   GLUSTERD_VOLUME_QUOTA_CONFIG);
 }
 
+static void
+glusterd_store_missed_snaps_list_path_set (char *missed_snaps_list,
+                                           size_t len)
+{
+        glusterd_conf_t *priv = NULL;
+
+        priv = THIS->private;
+        GF_ASSERT (priv);
+        GF_ASSERT (missed_snaps_list);
+        GF_ASSERT (len <= PATH_MAX);
+
+        snprintf (missed_snaps_list, len, "%s/snaps/"
+                  GLUSTERD_MISSED_SNAPS_LIST_FILE, priv->workdir);
+}
+
+static void
+glusterd_store_snapfpath_set (glusterd_snap_t *snap, char *snap_fpath,
+                              size_t len)
+{
+        glusterd_conf_t *priv = NULL;
+        priv = THIS->private;
+        GF_ASSERT (priv);
+        GF_ASSERT (snap);
+        GF_ASSERT (snap_fpath);
+        GF_ASSERT (len <= PATH_MAX);
+
+        snprintf (snap_fpath, len, "%s/snaps/%s/%s", priv->workdir,
+                  snap->snapname, GLUSTERD_SNAP_INFO_FILE);
+}
+
 int32_t
 glusterd_store_create_rbstate_shandle_on_absence (glusterd_volinfo_t *volinfo)
 {
@@ -778,6 +910,43 @@ glusterd_store_create_quota_conf_sh_on_absence (glusterd_volinfo_t *volinfo)
 
         return ret;
 }
+
+static int32_t
+glusterd_store_create_missed_snaps_list_shandle_on_absence ()
+{
+        char               missed_snaps_list[PATH_MAX] = "";
+        int32_t            ret                         = -1;
+        glusterd_conf_t   *priv                        = NULL;
+        xlator_t          *this                        = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        glusterd_store_missed_snaps_list_path_set (missed_snaps_list,
+                                                   sizeof(missed_snaps_list));
+
+        ret = gf_store_handle_create_on_absence
+                                            (&priv->missed_snaps_list_shandle,
+                                             missed_snaps_list);
+        return ret;
+}
+
+int32_t
+glusterd_store_create_snap_shandle_on_absence (glusterd_snap_t *snap)
+{
+        char            snapfpath[PATH_MAX] = {0};
+        int32_t         ret = 0;
+
+        GF_ASSERT (snap);
+
+        glusterd_store_snapfpath_set (snap, snapfpath, sizeof (snapfpath));
+        ret = gf_store_handle_create_on_absence (&snap->shandle, snapfpath);
+        return ret;
+}
+
 int32_t
 glusterd_store_brickinfos (glusterd_volinfo_t *volinfo, int vol_fd)
 {
@@ -789,7 +958,7 @@ glusterd_store_brickinfos (glusterd_volinfo_t *volinfo, int vol_fd)
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 ret = glusterd_store_brickinfo (volinfo, brickinfo,
-                                            brick_count, vol_fd);
+                                brick_count, vol_fd);
                 if (ret)
                         goto out;
                 brick_count++;
@@ -1094,6 +1263,60 @@ out:
 }
 
 int32_t
+glusterd_store_snap_atomic_update (glusterd_snap_t *snap)
+{
+        int ret = -1;
+        GF_ASSERT (snap);
+
+        ret = gf_store_rename_tmppath (snap->shandle);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR, "Couldn't rename "
+                        "temporary file(s): Reason %s", strerror (errno));
+
+        return ret;
+}
+
+int32_t
+glusterd_store_snap (glusterd_snap_t *snap)
+{
+        int32_t                 ret = -1;
+
+        GF_ASSERT (snap);
+
+        ret = glusterd_store_create_snap_dir (snap);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to create snap dir");
+                goto out;
+        }
+
+        ret = glusterd_store_create_snap_shandle_on_absence (snap);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to create snap info "
+                        "file");
+                goto out;
+        }
+
+        ret = glusterd_store_snapinfo_write (snap);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to write snap info");
+                goto out;
+        }
+
+        ret = glusterd_store_snap_atomic_update (snap);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,"Failed to do automic update");
+                goto out;
+        }
+
+out:
+        if (ret && snap->shandle)
+                gf_store_unlink_tmppath (snap->shandle);
+
+        gf_log (THIS->name, GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
 glusterd_store_volinfo (glusterd_volinfo_t *volinfo, glusterd_volinfo_ver_ac_t ac)
 {
         int32_t                 ret = -1;
@@ -1150,7 +1373,6 @@ out:
         return ret;
 }
 
-
 int32_t
 glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
 {
@@ -1177,8 +1399,8 @@ glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
         GLUSTERD_GET_VOLUME_DIR (pathname, volinfo, priv);
 
         snprintf (delete_path, sizeof (delete_path),
-                  "%s/"GLUSTERD_TRASH"/%s.deleted", priv->workdir,
-                  uuid_utoa (volinfo->volume_id));
+        "%s/"GLUSTERD_TRASH"/%s.deleted", priv->workdir,
+        uuid_utoa (volinfo->volume_id));
 
         snprintf (trashdir, sizeof (trashdir), "%s/"GLUSTERD_TRASH,
                   priv->workdir);
@@ -1270,6 +1492,116 @@ out:
         return ret;
 }
 
+/*TODO: cleanup the duplicate code and implement a generic function for
+ * deleting snap/volume depending on the parameter flag */
+int32_t
+glusterd_store_delete_snap (glusterd_snap_t *snap)
+{
+        char             pathname[PATH_MAX]    = {0,};
+        int32_t          ret                   = 0;
+        glusterd_conf_t *priv                  = NULL;
+        DIR             *dir                   = NULL;
+        struct dirent   *entry                 = NULL;
+        char             path[PATH_MAX]        = {0,};
+        char             delete_path[PATH_MAX] = {0,};
+        char             trashdir[PATH_MAX]    = {0,};
+        struct stat      st                    = {0, };
+        xlator_t        *this                  = NULL;
+        gf_boolean_t     rename_fail           = _gf_false;
+
+        this = THIS;
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        GF_ASSERT (snap);
+        GLUSTERD_GET_SNAP_DIR (pathname, snap, priv);
+
+        snprintf (delete_path, sizeof (delete_path),
+        "%s/"GLUSTERD_TRASH"/snap-%s.deleted", priv->workdir,
+        uuid_utoa (snap->snap_id));
+
+        snprintf (trashdir, sizeof (trashdir), "%s/"GLUSTERD_TRASH,
+                  priv->workdir);
+
+        ret = mkdir (trashdir, 0777);
+        if (ret && errno != EEXIST) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to create trash "
+                        "directory, reason : %s", strerror (errno));
+                ret = -1;
+                goto out;
+        }
+
+        ret = rename (pathname, delete_path);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to rename snap "
+                        "directory %s to %s", pathname, delete_path);
+                rename_fail = _gf_true;
+                goto out;
+        }
+
+        dir = opendir (delete_path);
+        if (!dir) {
+                gf_log (this->name, GF_LOG_DEBUG, "Failed to open directory %s."
+                        " Reason : %s", delete_path, strerror (errno));
+                ret = 0;
+                goto out;
+        }
+
+        glusterd_for_each_entry (entry, dir);
+        while (entry) {
+                snprintf (path, PATH_MAX, "%s/%s", delete_path, entry->d_name);
+                ret = stat (path, &st);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_DEBUG, "Failed to stat "
+                                "entry %s : %s", path, strerror (errno));
+                        goto stat_failed;
+                }
+
+                if (S_ISDIR (st.st_mode))
+                        ret = rmdir (path);
+                else
+                        ret = unlink (path);
+
+                if (ret) {
+                        gf_log (this->name, GF_LOG_DEBUG, " Failed to remove "
+                                "%s. Reason : %s", path, strerror (errno));
+                }
+
+                gf_log (this->name, GF_LOG_DEBUG, "%s %s",
+                                ret ? "Failed to remove":"Removed",
+                                entry->d_name);
+stat_failed:
+                memset (path, 0, sizeof(path));
+                glusterd_for_each_entry (entry, dir);
+        }
+
+        ret = closedir (dir);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG, "Failed to close dir %s. "
+                        "Reason : %s",delete_path, strerror (errno));
+        }
+
+        ret = rmdir (delete_path);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG, "Failed to rmdir: %s,err: %s",
+                        delete_path, strerror (errno));
+        }
+        ret = rmdir (trashdir);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG, "Failed to rmdir: %s, Reason:"
+                        " %s", trashdir, strerror (errno));
+        }
+
+out:
+        if (snap->shandle) {
+                gf_store_handle_destroy (snap->shandle);
+                snap->shandle = NULL;
+        }
+        ret = (rename_fail == _gf_true) ? -1: 0;
+
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
 
 int
 glusterd_store_global_info (xlator_t *this)
@@ -1280,6 +1612,7 @@ glusterd_store_global_info (xlator_t *this)
         char                    path[PATH_MAX]          = {0,};
         gf_store_handle_t       *handle                 = NULL;
         char                    *uuid_str               = NULL;
+        char                     buf[256]               = {0, };
 
         conf = this->private;
 
@@ -1329,6 +1662,24 @@ glusterd_store_global_info (xlator_t *this)
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Storing op-version failed ret = %d", ret);
+                goto out;
+        }
+
+        snprintf (buf, sizeof (buf), "%"PRIu64, conf->snap_max_hard_limit);
+        ret = gf_store_save_value (handle->fd,
+                                   GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT, buf);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Storing snap-max-hard-limit failed ret = %d", ret);
+                goto out;
+        }
+
+        snprintf (buf, sizeof (buf), "%"PRIu64, conf->snap_max_soft_limit);
+        ret = gf_store_save_value (handle->fd,
+                                   GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT, buf);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Storing snap-max-soft-limit failed ret = %d", ret);
                 goto out;
         }
 
@@ -1405,14 +1756,93 @@ out:
         return ret;
 }
 
+int
+glusterd_retrieve_sys_snap_max_limit (xlator_t *this, uint64_t *limit,
+                                      char *key)
+{
+        char                    *limit_str      = NULL;
+        glusterd_conf_t         *priv           = NULL;
+        int                     ret             = -1;
+        uint64_t                tmp_limit       = 0;
+        char                    *tmp            = NULL;
+        char                    path[PATH_MAX]  = {0,};
+        gf_store_handle_t       *handle         = NULL;
+
+        GF_ASSERT (this);
+        priv = this->private;
+
+        GF_ASSERT (priv);
+        GF_ASSERT (limit);
+        GF_ASSERT (key);
+
+        if (!priv->handle) {
+                snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
+                          GLUSTERD_INFO_FILE);
+                ret = gf_store_handle_retrieve (path, &handle);
+
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG, "Unable to get store "
+                                "handle!");
+                        goto out;
+                }
+
+                priv->handle = handle;
+        }
+
+        ret = gf_store_retrieve_value (priv->handle,
+                                       key,
+                                       &limit_str);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "No previous %s present", key);
+                goto out;
+        }
+
+        tmp_limit = strtoul (limit_str, &tmp, 10);
+        if ((tmp_limit <= 0) || (tmp && strlen (tmp) > 1)) {
+                gf_log (this->name, GF_LOG_WARNING, "invalid version number");
+                goto out;
+        }
+
+        *limit = tmp_limit;
+
+        ret = 0;
+out:
+        if (limit_str)
+                GF_FREE (limit_str);
+
+        return ret;
+}
 static int
 glusterd_restore_op_version (xlator_t *this)
 {
-        glusterd_conf_t *conf = NULL;
-        int ret = 0;
-        int op_version = 0;
+        glusterd_conf_t *conf           = NULL;
+        int              ret            = 0;
+        int              op_version     = 0;
 
         conf = this->private;
+
+        ret = glusterd_retrieve_sys_snap_max_limit (this,
+                                                    &conf->snap_max_hard_limit,
+                                                    GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Unable to retrieve system snap-max-hard-limit, "
+                        "setting it to default value(%d)",
+                        GLUSTERD_SNAPS_MAX_HARD_LIMIT);
+                conf->snap_max_hard_limit = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
+        }
+
+        ret = glusterd_retrieve_sys_snap_max_limit (this,
+                                                    &conf->snap_max_soft_limit,
+                                                    GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Unable to retrieve system snap-max-soft-limit, "
+                        "setting it to default value(%d)",
+                        GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT);
+                conf->snap_max_soft_limit = GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT;
+        }
 
         ret = glusterd_retrieve_op_version (this, &op_version);
         if (!ret) {
@@ -1501,7 +1931,6 @@ out:
 int32_t
 glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
 {
-
         int32_t                 ret = 0;
         glusterd_brickinfo_t    *brickinfo = NULL;
         gf_store_iter_t         *iter = NULL;
@@ -1523,7 +1952,7 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
 
         priv = THIS->private;
 
-        GLUSTERD_GET_BRICK_DIR (brickdir, volinfo, priv)
+        GLUSTERD_GET_BRICK_DIR (brickdir, volinfo, priv);
 
         ret = gf_store_iter_new (volinfo->shandle, &tmpiter);
 
@@ -1606,6 +2035,13 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_DECOMMISSIONED,
                                              strlen (GLUSTERD_STORE_KEY_BRICK_DECOMMISSIONED))) {
                                 gf_string2int (value, &brickinfo->decommissioned);
+                        } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_DEVICE_PATH,
+                                             strlen (GLUSTERD_STORE_KEY_BRICK_DEVICE_PATH))) {
+                                strncpy (brickinfo->device_path, value,
+                                         sizeof (brickinfo->device_path));
+                        } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS,
+                                             strlen (GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS))) {
+                                gf_string2int (value, &brickinfo->snap_status);
                         } else if (!strncmp (key,
                                     GLUSTERD_STORE_KEY_BRICK_VGNAME,
                                     strlen (GLUSTERD_STORE_KEY_BRICK_VGNAME))) {
@@ -1659,10 +2095,9 @@ out:
 
 
 int32_t
-glusterd_store_retrieve_rbstate (char   *volname)
+glusterd_store_retrieve_rbstate (glusterd_volinfo_t *volinfo)
 {
         int32_t                   ret                   = -1;
-        glusterd_volinfo_t        *volinfo              = NULL;
         gf_store_iter_t           *iter                 = NULL;
         char                      *key                  = NULL;
         char                      *value                = NULL;
@@ -1670,15 +2105,13 @@ glusterd_store_retrieve_rbstate (char   *volname)
         glusterd_conf_t           *priv                 = NULL;
         char                      path[PATH_MAX]        = {0,};
         gf_store_op_errno_t       op_errno              = GD_STORE_SUCCESS;
+        xlator_t                 *this                  = NULL;
 
-        priv = THIS->private;
-
-        ret = glusterd_volinfo_find (volname, &volinfo);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Couldn't get"
-                        "volinfo for %s.", volname);
-                goto out;
-        }
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+        GF_ASSERT (volinfo);
 
         GLUSTERD_GET_VOLUME_DIR(volpath, volinfo, priv);
         snprintf (path, sizeof (path), "%s/%s", volpath,
@@ -1755,16 +2188,15 @@ glusterd_store_retrieve_rbstate (char   *volname)
                 goto out;
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
 
         return ret;
 }
 
 int32_t
-glusterd_store_retrieve_node_state (char   *volname)
+glusterd_store_retrieve_node_state (glusterd_volinfo_t *volinfo)
 {
         int32_t              ret               = -1;
-        glusterd_volinfo_t  *volinfo           = NULL;
         gf_store_iter_t     *iter              = NULL;
         char                *key               = NULL;
         char                *value             = NULL;
@@ -1779,13 +2211,8 @@ glusterd_store_retrieve_node_state (char   *volname)
         this = THIS;
         GF_ASSERT (this);
         priv = this->private;
-
-        ret = glusterd_volinfo_find (volname, &volinfo);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Couldn't get"
-                        "volinfo for %s.", volname);
-                goto out;
-        }
+        GF_ASSERT (priv);
+        GF_ASSERT (volinfo);
 
         GLUSTERD_GET_VOLUME_DIR(volpath, volinfo, priv);
         snprintf (path, sizeof (path), "%s/%s", volpath,
@@ -1866,50 +2293,59 @@ out:
                 dict_unref (volinfo->rebal.dict);
         if (tmp_dict)
                 dict_unref (tmp_dict);
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+
+        gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
 
         return ret;
 }
 
-int32_t
-glusterd_store_retrieve_volume (char    *volname)
+
+int
+glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
 {
-        int32_t                   ret                   = -1;
-        glusterd_volinfo_t        *volinfo              = NULL;
-        gf_store_iter_t           *iter                 = NULL;
-        char                      *key                  = NULL;
-        char                      *value                = NULL;
-        char                      volpath[PATH_MAX]     = {0,};
-        glusterd_conf_t           *priv                 = NULL;
-        char                      path[PATH_MAX]        = {0,};
-        int                       exists                = 0;
-        gf_store_op_errno_t       op_errno              = GD_STORE_SUCCESS;
+        int                     ret                     = -1;
+        int                     exists                  = 0;
+        char                    *key                    = NULL;
+        char                    *value                  = NULL;
+        char                    volpath[PATH_MAX]       = {0,};
+        char                    path[PATH_MAX]          = {0,};
+        xlator_t                *this                   = NULL;
+        glusterd_conf_t         *conf                   = NULL;
+        gf_store_iter_t         *iter                   = NULL;
+        gf_store_op_errno_t     op_errno                = GD_STORE_SUCCESS;
 
-        ret = glusterd_volinfo_new (&volinfo);
-        if (ret)
-                goto out;
+        this = THIS;
+        GF_ASSERT (this);
+        conf = THIS->private;
+        GF_ASSERT (volinfo);
 
-        strncpy (volinfo->volname, volname, GLUSTERD_MAX_VOLUME_NAME);
+        GLUSTERD_GET_VOLUME_DIR(volpath, volinfo, conf);
 
-        priv = THIS->private;
-
-        GLUSTERD_GET_VOLUME_DIR(volpath, volinfo, priv);
         snprintf (path, sizeof (path), "%s/%s", volpath,
                   GLUSTERD_VOLUME_INFO_FILE);
 
         ret = gf_store_handle_retrieve (path, &volinfo->shandle);
-        if (ret)
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "volinfo handle is NULL");
                 goto out;
+        }
 
         ret = gf_store_iter_new (volinfo->shandle, &iter);
-        if (ret)
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get new store "
+                        "iter");
                 goto out;
+        }
 
         ret = gf_store_iter_get_next (iter, &key, &value, &op_errno);
-        if (ret)
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get next store "
+                        "iter");
                 goto out;
+        }
 
         while (!ret) {
+                gf_log ("", GF_LOG_DEBUG, "key = %s value = %s", key, value);
                 if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_TYPE,
                               strlen (GLUSTERD_STORE_KEY_VOL_TYPE))) {
                         volinfo->type = atoi (value);
@@ -1978,6 +2414,15 @@ glusterd_store_retrieve_volume (char    *volname)
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_CAPS,
                                      strlen (GLUSTERD_STORE_KEY_VOL_CAPS))) {
                         volinfo->caps = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
+                                strlen (GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT))) {
+                        volinfo->snap_max_hard_limit = (uint64_t) atoll (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_IS_RESTORED,
+                                     strlen (GLUSTERD_STORE_KEY_VOL_IS_RESTORED))) {
+                        volinfo->is_volume_restored = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_PARENT_VOLNAME,
+                                strlen (GLUSTERD_STORE_KEY_PARENT_VOLNAME))) {
+                        strncpy (volinfo->parent_volname, value, sizeof(volinfo->parent_volname) - 1);
                 } else {
 
                         if (is_key_glusterd_hooks_friendly (key)) {
@@ -2076,9 +2521,48 @@ glusterd_store_retrieve_volume (char    *volname)
                 goto out;
 
         ret = gf_store_iter_destroy (iter);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to destroy store "
+                        "iter");
+                goto out;
+        }
 
+        ret = 0;
+out:
+        return ret;
+}
+
+glusterd_volinfo_t*
+glusterd_store_retrieve_volume (char *volname, glusterd_snap_t *snap)
+{
+        int32_t                    ret                  = -1;
+        glusterd_volinfo_t        *volinfo              = NULL;
+        glusterd_volinfo_t        *origin_volinfo       = NULL;
+        glusterd_conf_t           *priv                 = NULL;
+        xlator_t                  *this                 = NULL;
+
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+        GF_ASSERT (volname);
+
+        ret = glusterd_volinfo_new (&volinfo);
         if (ret)
                 goto out;
+
+        strncpy (volinfo->volname, volname, GLUSTERD_MAX_VOLUME_NAME);
+        volinfo->snapshot = snap;
+        if (snap)
+                volinfo->is_snap_volume = _gf_true;
+
+        ret = glusterd_store_update_volinfo (volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to update volinfo "
+                        "for %s volume", volname);
+                goto out;
+        }
 
         ret = glusterd_store_retrieve_bricks (volinfo);
         if (ret)
@@ -2105,13 +2589,30 @@ glusterd_store_retrieve_volume (char    *volname)
                 goto out;
 
 
-        list_add_order (&volinfo->vol_list, &priv->volumes,
-                         glusterd_compare_volume_name);
+        if (!snap) {
+                list_add_order (&volinfo->vol_list, &priv->volumes,
+                                glusterd_compare_volume_name);
+        } else {
+                ret = glusterd_volinfo_find (volinfo->parent_volname,
+                                             &origin_volinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Parent volinfo "
+                                "not found for %s volume", volname);
+                        goto out;
+                }
+                glusterd_list_add_snapvol (origin_volinfo, volinfo);
+        }
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        if (ret) {
+                if (volinfo)
+                        glusterd_volinfo_delete (volinfo);
+                volinfo = NULL;
+        }
 
-        return ret;
+        gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
+
+        return volinfo;
 }
 
 inline void
@@ -2211,9 +2712,9 @@ out:
 }
 
 int32_t
-glusterd_store_retrieve_volumes (xlator_t  *this)
+glusterd_store_retrieve_volumes (xlator_t  *this, glusterd_snap_t *snap)
 {
-        int32_t                ret              = 0;
+        int32_t                ret              = -1;
         char                   path[PATH_MAX]   = {0,};
         glusterd_conf_t       *priv             = NULL;
         DIR                   *dir              = NULL;
@@ -2225,49 +2726,411 @@ glusterd_store_retrieve_volumes (xlator_t  *this)
 
         GF_ASSERT (priv);
 
-        snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
-                        GLUSTERD_VOLUME_DIR_PREFIX);
+        if (snap)
+                snprintf (path, PATH_MAX, "%s/snaps/%s", priv->workdir,
+                          snap->snapname);
+        else
+                snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
+                          GLUSTERD_VOLUME_DIR_PREFIX);
 
         dir = opendir (path);
 
         if (!dir) {
                 gf_log ("", GF_LOG_ERROR, "Unable to open dir %s", path);
-                ret = -1;
                 goto out;
         }
 
         glusterd_for_each_entry (entry, dir);
 
         while (entry) {
-                ret = glusterd_store_retrieve_volume (entry->d_name);
-                if (ret) {
+                if ( entry->d_type != DT_DIR )
+                        goto next;
+
+                volinfo = glusterd_store_retrieve_volume (entry->d_name, snap);
+                if (!volinfo) {
                         gf_log ("", GF_LOG_ERROR, "Unable to restore "
                                 "volume: %s", entry->d_name);
+                        ret = -1;
                         goto out;
                 }
 
-                ret = glusterd_store_retrieve_rbstate (entry->d_name);
+                ret = glusterd_store_retrieve_rbstate (volinfo);
                 if (ret) {
                         /* Backward compatibility */
                         gf_log ("", GF_LOG_INFO, "Creating a new rbstate "
                                 "for volume: %s.", entry->d_name);
-                        ret = glusterd_volinfo_find (entry->d_name, &volinfo);
                         ret = glusterd_store_create_rbstate_shandle_on_absence (volinfo);
                         ret = glusterd_store_perform_rbstate_store (volinfo);
                 }
 
-                ret = glusterd_store_retrieve_node_state (entry->d_name);
+                ret = glusterd_store_retrieve_node_state (volinfo);
                 if (ret) {
                         /* Backward compatibility */
                         gf_log ("", GF_LOG_INFO, "Creating a new node_state "
                                 "for volume: %s.", entry->d_name);
-                        ret = glusterd_volinfo_find (entry->d_name, &volinfo);
-                        ret =
                         glusterd_store_create_nodestate_sh_on_absence (volinfo);
                         ret = glusterd_store_perform_node_state_store (volinfo);
 
                 }
+next:
                 glusterd_for_each_entry (entry, dir);
+        }
+
+        ret = 0;
+
+out:
+        if (dir)
+                closedir (dir);
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+
+        return ret;
+}
+
+int32_t
+glusterd_resolve_snap_bricks (xlator_t  *this, glusterd_snap_t *snap)
+{
+        int32_t                 ret = -1;
+        glusterd_volinfo_t      *volinfo = NULL;
+        glusterd_brickinfo_t    *brickinfo = NULL;
+
+        GF_ASSERT (this);
+        GF_VALIDATE_OR_GOTO (this->name, snap, out);
+
+        list_for_each_entry (volinfo, &snap->volumes, vol_list) {
+                list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                        ret = glusterd_resolve_brick (brickinfo);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "resolve brick failed in restore");
+                                goto out;
+                        }
+                }
+        }
+
+        ret = 0;
+
+out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
+
+        return ret;
+}
+
+int
+glusterd_store_update_snap (glusterd_snap_t *snap)
+{
+        int                     ret = -1;
+        char                    *key                    = NULL;
+        char                    *value                  = NULL;
+        char                    snappath[PATH_MAX]      = {0,};
+        char                    path[PATH_MAX]          = {0,};
+        xlator_t                *this                   = NULL;
+        glusterd_conf_t         *conf                   = NULL;
+        gf_store_iter_t         *iter                   = NULL;
+        gf_store_op_errno_t     op_errno                = GD_STORE_SUCCESS;
+
+        this = THIS;
+        conf = this->private;
+        GF_ASSERT (snap);
+
+        GLUSTERD_GET_SNAP_DIR (snappath, snap, conf);
+
+        snprintf (path, sizeof (path), "%s/%s", snappath,
+                  GLUSTERD_SNAP_INFO_FILE);
+
+        ret = gf_store_handle_retrieve (path, &snap->shandle);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "snap handle is NULL");
+                goto out;
+        }
+
+        ret = gf_store_iter_new (snap->shandle, &iter);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get new store "
+                        "iter");
+                goto out;
+        }
+
+        ret = gf_store_iter_get_next (iter, &key, &value, &op_errno);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get next store "
+                        "iter");
+                goto out;
+        }
+
+        while (!ret) {
+                gf_log (this->name, GF_LOG_DEBUG, "key = %s value = %s",
+                        key, value);
+
+                if (!strncmp (key, GLUSTERD_STORE_KEY_SNAP_ID,
+                                     strlen (GLUSTERD_STORE_KEY_SNAP_ID))) {
+                        ret = uuid_parse (value, snap->snap_id);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Failed to parse uuid");
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_SNAP_RESTORED,
+                                   strlen (GLUSTERD_STORE_KEY_SNAP_RESTORED))) {
+                        snap->snap_restored = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_SNAP_STATUS,
+                                     strlen (GLUSTERD_STORE_KEY_SNAP_STATUS))) {
+                        snap->snap_status = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_SNAP_DESC,
+                                     strlen (GLUSTERD_STORE_KEY_SNAP_DESC))) {
+                        snap->description = gf_strdup (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_SNAP_TIMESTAMP,
+                                  strlen (GLUSTERD_STORE_KEY_SNAP_TIMESTAMP))) {
+                        snap->time_stamp = atoi (value);
+                }
+
+                GF_FREE (key);
+                GF_FREE (value);
+                key = NULL;
+                value = NULL;
+
+                ret = gf_store_iter_get_next (iter, &key, &value, &op_errno);
+        }
+
+        if (op_errno != GD_STORE_EOF)
+                goto out;
+
+        ret = gf_store_iter_destroy (iter);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to destroy store "
+                        "iter");
+        }
+
+out:
+        return ret;
+}
+
+int32_t
+glusterd_store_retrieve_snap (char *snapname)
+{
+        int32_t                ret    = -1;
+        dict_t                *dict   = NULL;
+        glusterd_snap_t       *snap   = NULL;
+        glusterd_conf_t       *priv   = NULL;
+        xlator_t              *this   = NULL;
+
+        this = THIS;
+        priv = this->private;
+        GF_ASSERT (priv);
+        GF_ASSERT (snapname);
+
+        dict = dict_new();
+        if (!dict) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to create dict");
+                ret = -1;
+                goto out;
+        }
+
+        snap = glusterd_new_snap_object ();
+        if (!snap) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to create "
+                                                  " snap object");
+                goto out;
+        }
+
+        strncpy (snap->snapname, snapname, strlen(snapname));
+        ret = glusterd_store_update_snap (snap);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to update snapshot "
+                        "for %s snap", snapname);
+                goto out;
+        }
+
+        ret = glusterd_store_retrieve_volumes (this, snap);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to retrieve "
+                        "snap volumes for snap %s", snapname);
+                goto out;
+        }
+
+        /* Unlike bricks of normal volumes which are resolved at the end of
+           the glusterd restore, the bricks belonging to the snap volumes of
+           each snap should be resolved as part of snapshot restore itself.
+           Because if the snapshot has to be removed, then resolving bricks
+           helps glusterd in understanding what all bricks have its own uuid
+           and killing those bricks.
+        */
+        ret = glusterd_resolve_snap_bricks (this, snap);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "resolving the snap bricks"
+                        " failed (snap: %s)", snap?snap->snapname:"");
+
+        /* When the snapshot command from cli is received, the on disk and
+           in memory structures for the snapshot are created (with the status)
+           being marked as GD_SNAP_STATUS_INIT. Once the backend snapshot is
+           taken, the status is changed to GD_SNAP_STATUS_IN_USE. If glusterd
+           dies after taking the backend snapshot, but before updating the
+           status, then when glusterd comes up, it should treat that snapshot
+           as a failed snapshot and clean it up.
+        */
+        if (snap->snap_status != GD_SNAP_STATUS_IN_USE) {
+                ret = glusterd_snap_remove (dict, snap, _gf_true, _gf_true);
+                if (ret)
+                        gf_log (this->name, GF_LOG_WARNING, "failed to remove"
+                                " the snapshot %s", snap->snapname);
+                goto out;
+        }
+
+        /* TODO: list_add_order can do 'N-square' comparisions and
+           is not efficient. Find a better solution to store the snap
+           in order */
+        list_add_order (&snap->snap_list, &priv->snapshots,
+                        glusterd_compare_snap_time);
+
+out:
+        if (dict)
+                dict_unref (dict);
+
+        gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
+        return ret;
+}
+
+/* Read the missed_snap_list and update the in-memory structs */
+int32_t
+glusterd_store_retrieve_missed_snaps_list (xlator_t  *this)
+{
+        char                   buf[PATH_MAX]    = "";
+        char                   path[PATH_MAX]   = "";
+        char                  *missed_node_info = NULL;
+        char                  *brick_path       = NULL;
+        char                  *value            = NULL;
+        char                  *save_ptr         = NULL;
+        FILE                  *fp               = NULL;
+        int32_t                brick_num        = -1;
+        int32_t                snap_op          = -1;
+        int32_t                snap_status      = -1;
+        int32_t                ret              = -1;
+        glusterd_conf_t       *priv             = NULL;
+        gf_store_op_errno_t    store_errno      = GD_STORE_SUCCESS;
+
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        /* Get the path of the missed_snap_list */
+        glusterd_store_missed_snaps_list_path_set (path, sizeof(path));
+
+        fp = fopen (path, "r");
+        if (!fp) {
+                /* If errno is ENOENT then there are no missed snaps yet */
+                if (errno != ENOENT) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to open %s. "
+                                "Error: %s", path, strerror(errno));
+                } else {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "No missed snaps list.");
+                        ret = 0;
+                }
+                goto out;
+        }
+
+        do {
+                ret = gf_store_read_and_tokenize (fp, buf,
+                                                  &missed_node_info, &value,
+                                                  &store_errno);
+                if (ret) {
+                        if (store_errno == GD_STORE_EOF) {
+                                gf_log (this->name,
+                                        GF_LOG_DEBUG,
+                                        "EOF for missed_snap_list");
+                                ret = 0;
+                                break;
+                        }
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to fetch data from "
+                                "missed_snaps_list. Error: %s",
+                                gf_store_strerror (store_errno));
+                        goto out;
+                }
+
+                /* Fetch the brick_num, brick_path, snap_op and snap status */
+                brick_num = atoi(strtok_r (value, ":", &save_ptr));
+                brick_path = strtok_r (NULL, ":", &save_ptr);
+                snap_op = atoi(strtok_r (NULL, ":", &save_ptr));
+                snap_status = atoi(strtok_r (NULL, ":", &save_ptr));
+
+                if (!missed_node_info || !brick_path ||
+                    brick_num < 1 || snap_op < 1 ||
+                    snap_status < 1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Invalid missed_snap_entry");
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = glusterd_store_missed_snaps_list (missed_node_info,
+                                                        brick_num,
+                                                        brick_path,
+                                                        snap_op,
+                                                        snap_status);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to store missed snaps_list");
+                        goto out;
+                }
+
+        } while (store_errno == GD_STORE_SUCCESS);
+
+        ret = 0;
+out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_store_retrieve_snaps (xlator_t  *this)
+{
+        int32_t                ret              = 0;
+        char                   path[PATH_MAX]   = {0,};
+        glusterd_conf_t       *priv             = NULL;
+        DIR                   *dir              = NULL;
+        struct dirent         *entry            = NULL;
+
+        GF_ASSERT (this);
+        priv = this->private;
+
+        GF_ASSERT (priv);
+
+        snprintf (path, PATH_MAX, "%s/snaps", priv->workdir);
+
+        dir = opendir (path);
+
+        if (!dir) {
+                /* If snaps dir doesn't exists ignore the error for
+                   backward compatibility */
+                if (errno != ENOENT) {
+                        ret = -1;
+                        gf_log ("", GF_LOG_ERROR, "Unable to open dir %s", path);
+                }
+                goto out;
+        }
+
+        glusterd_for_each_entry (entry, dir);
+
+        while (entry) {
+                if (entry->d_type == DT_DIR) {
+                        ret = glusterd_store_retrieve_snap (entry->d_name);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Unable to restore snapshot: %s",
+                                        entry->d_name);
+                                goto out;
+                        }
+                }
+
+                glusterd_for_each_entry (entry, dir);
+        }
+
+        /* Retrieve missed_snaps_list */
+        ret = glusterd_store_retrieve_missed_snaps_list (this);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Failed to retrieve missed_snaps_list");
+                goto out;
         }
 
 out:
@@ -2275,6 +3138,126 @@ out:
                 closedir (dir);
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
+        return ret;
+}
+
+/* Writes all the contents of conf->missed_snap_list */
+int32_t
+glusterd_store_write_missed_snapinfo (int32_t fd)
+{
+        char                           value[PATH_MAX]             = "";
+        int32_t                        ret                         = -1;
+        glusterd_conf_t               *priv                        = NULL;
+        glusterd_missed_snap_info     *missed_snapinfo             = NULL;
+        glusterd_snap_op_t            *snap_opinfo                 = NULL;
+        xlator_t                      *this                        = NULL;
+
+        this = THIS;
+        GF_ASSERT(this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        /* Write the missed_snap_entry */
+        list_for_each_entry (missed_snapinfo, &priv->missed_snaps_list,
+                             missed_snaps) {
+                list_for_each_entry (snap_opinfo,
+                                     &missed_snapinfo->snap_ops,
+                                     snap_ops_list) {
+                        snprintf (value, sizeof(value), "%d:%s:%d:%d",
+                                  snap_opinfo->brick_num,
+                                  snap_opinfo->brick_path,
+                                  snap_opinfo->op, snap_opinfo->status);
+                        ret = gf_store_save_value
+                                           (fd,
+                                            missed_snapinfo->node_snap_info,
+                                            value);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to write missed snapinfo");
+                                goto out;
+                        }
+                }
+        }
+
+        ret = 0;
+out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
+}
+
+/* Adds the missed snap entries to the in-memory conf->missed_snap_list *
+ * and writes them to disk */
+int32_t
+glusterd_store_update_missed_snaps (dict_t *dict, int32_t missed_snap_count)
+{
+        int32_t                        fd                          = -1;
+        int32_t                        ret                         = -1;
+        glusterd_conf_t               *priv                        = NULL;
+        xlator_t                      *this                        = NULL;
+
+        this = THIS;
+        GF_ASSERT(this);
+        GF_ASSERT(dict);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        if (missed_snap_count < 1) {
+                gf_log (this->name, GF_LOG_DEBUG, "No missed snaps");
+                ret = 0;
+                goto out;
+        }
+
+        ret = glusterd_store_create_missed_snaps_list_shandle_on_absence ();
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to obtain "
+                        "missed_snaps_list store handle.");
+                goto out;
+        }
+
+        fd = gf_store_mkstemp (priv->missed_snaps_list_shandle);
+        if (fd <= 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to create tmp file");
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_add_missed_snaps_to_list (dict, missed_snap_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to add missed snaps to list");
+                goto out;
+        }
+
+        ret = glusterd_store_write_missed_snapinfo (fd);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to write missed snaps to disk");
+                goto out;
+        }
+
+        ret = gf_store_rename_tmppath (priv->missed_snaps_list_shandle);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to rename the tmp file");
+                goto out;
+        }
+out:
+        if (ret && (fd > 0)) {
+                ret = gf_store_unlink_tmppath (priv->missed_snaps_list_shandle);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to unlink the tmp file");
+                }
+                ret = -1;
+        }
+
+        if (fd > 0)
+                close (fd);
+
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
 
@@ -2681,7 +3664,11 @@ glusterd_restore ()
                 goto out;
         }
 
-        ret = glusterd_store_retrieve_volumes (this);
+        ret = glusterd_store_retrieve_volumes (this, NULL);
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_retrieve_snaps (this);
         if (ret)
                 goto out;
 

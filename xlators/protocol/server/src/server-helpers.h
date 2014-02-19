@@ -29,6 +29,10 @@
 
 #define IS_NOT_ROOT(pathlen) ((pathlen > 2)? 1 : 0)
 
+#define is_fop_barriered(fops, procnum) (fops & ((uint64_t)1 << procnum))
+
+#define barrier_add_to_queue(barrier) (barrier->on || barrier->cur_size)
+
 void free_state (server_state_t *state);
 
 void server_loc_wipe (loc_t *loc);
@@ -57,5 +61,16 @@ int auth_set_username_passwd (dict_t *input_params, dict_t *config_params,
                               struct _client_t *client);
 
 server_ctx_t *server_ctx_get (client_t *client, xlator_t *xlator);
+
+int32_t gf_barrier_start (xlator_t *this);
+int32_t gf_barrier_stop (xlator_t *this);
+int32_t gf_barrier_fops_configure (xlator_t *this, gf_barrier_t *barrier,
+                                   char *str);
+void gf_barrier_enqueue (gf_barrier_t *barrier, gf_barrier_payload_t *stub);
+gf_barrier_payload_t *
+gf_barrier_payload (rpcsvc_request_t *req, struct iovec *rsp,
+                    call_frame_t *frame, struct iovec *payload,
+                    int payloadcount, struct iobref *iobref,
+                    struct iobuf *iob, gf_boolean_t free_iobref);
 
 #endif /* !_SERVER_HELPERS_H */

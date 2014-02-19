@@ -202,7 +202,7 @@ struct gd1_mgmt_brick_op_rsp {
 };
 typedef struct gd1_mgmt_brick_op_rsp gd1_mgmt_brick_op_rsp;
 
-struct gd1_mgmt_volume_lock_req {
+struct gd1_mgmt_v3_lock_req {
 	u_char uuid[16];
 	u_char txn_id[16];
 	int op;
@@ -211,9 +211,9 @@ struct gd1_mgmt_volume_lock_req {
 		char *dict_val;
 	} dict;
 };
-typedef struct gd1_mgmt_volume_lock_req gd1_mgmt_volume_lock_req;
+typedef struct gd1_mgmt_v3_lock_req gd1_mgmt_v3_lock_req;
 
-struct gd1_mgmt_volume_lock_rsp {
+struct gd1_mgmt_v3_lock_rsp {
 	u_char uuid[16];
 	u_char txn_id[16];
 	struct {
@@ -223,19 +223,113 @@ struct gd1_mgmt_volume_lock_rsp {
 	int op_ret;
 	int op_errno;
 };
-typedef struct gd1_mgmt_volume_lock_rsp gd1_mgmt_volume_lock_rsp;
+typedef struct gd1_mgmt_v3_lock_rsp gd1_mgmt_v3_lock_rsp;
 
-struct gd1_mgmt_volume_unlock_req {
+struct gd1_mgmt_v3_pre_val_req {
 	u_char uuid[16];
-	u_char txn_id[16];
+	int op;
 	struct {
 		u_int dict_len;
 		char *dict_val;
 	} dict;
 };
-typedef struct gd1_mgmt_volume_unlock_req gd1_mgmt_volume_unlock_req;
+typedef struct gd1_mgmt_v3_pre_val_req gd1_mgmt_v3_pre_val_req;
 
-struct gd1_mgmt_volume_unlock_rsp {
+struct gd1_mgmt_v3_pre_val_rsp {
+	u_char uuid[16];
+	int op;
+	int op_ret;
+	int op_errno;
+	char *op_errstr;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gd1_mgmt_v3_pre_val_rsp gd1_mgmt_v3_pre_val_rsp;
+
+struct gd1_mgmt_v3_brick_op_req {
+	u_char uuid[16];
+	int op;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gd1_mgmt_v3_brick_op_req gd1_mgmt_v3_brick_op_req;
+
+struct gd1_mgmt_v3_brick_op_rsp {
+	u_char uuid[16];
+	int op;
+	int op_ret;
+	int op_errno;
+	char *op_errstr;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gd1_mgmt_v3_brick_op_rsp gd1_mgmt_v3_brick_op_rsp;
+
+struct gd1_mgmt_v3_commit_req {
+	u_char uuid[16];
+	int op;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gd1_mgmt_v3_commit_req gd1_mgmt_v3_commit_req;
+
+struct gd1_mgmt_v3_commit_rsp {
+	u_char uuid[16];
+	int op;
+	int op_ret;
+	int op_errno;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+	char *op_errstr;
+};
+typedef struct gd1_mgmt_v3_commit_rsp gd1_mgmt_v3_commit_rsp;
+
+struct gd1_mgmt_v3_post_val_req {
+	u_char uuid[16];
+	int op;
+	int op_ret;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gd1_mgmt_v3_post_val_req gd1_mgmt_v3_post_val_req;
+
+struct gd1_mgmt_v3_post_val_rsp {
+	u_char uuid[16];
+	int op;
+	int op_ret;
+	int op_errno;
+	char *op_errstr;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gd1_mgmt_v3_post_val_rsp gd1_mgmt_v3_post_val_rsp;
+
+struct gd1_mgmt_v3_unlock_req {
+	u_char uuid[16];
+	u_char txn_id[16];
+	int op;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gd1_mgmt_v3_unlock_req gd1_mgmt_v3_unlock_req;
+
+struct gd1_mgmt_v3_unlock_rsp {
 	u_char uuid[16];
 	u_char txn_id[16];
 	struct {
@@ -245,7 +339,7 @@ struct gd1_mgmt_volume_unlock_rsp {
 	int op_ret;
 	int op_errno;
 };
-typedef struct gd1_mgmt_volume_unlock_rsp gd1_mgmt_volume_unlock_rsp;
+typedef struct gd1_mgmt_v3_unlock_rsp gd1_mgmt_v3_unlock_rsp;
 
 /* the xdr functions */
 
@@ -269,10 +363,18 @@ extern  bool_t xdr_gd1_mgmt_friend_update (XDR *, gd1_mgmt_friend_update*);
 extern  bool_t xdr_gd1_mgmt_friend_update_rsp (XDR *, gd1_mgmt_friend_update_rsp*);
 extern  bool_t xdr_gd1_mgmt_brick_op_req (XDR *, gd1_mgmt_brick_op_req*);
 extern  bool_t xdr_gd1_mgmt_brick_op_rsp (XDR *, gd1_mgmt_brick_op_rsp*);
-extern  bool_t xdr_gd1_mgmt_volume_lock_req (XDR *, gd1_mgmt_volume_lock_req*);
-extern  bool_t xdr_gd1_mgmt_volume_lock_rsp (XDR *, gd1_mgmt_volume_lock_rsp*);
-extern  bool_t xdr_gd1_mgmt_volume_unlock_req (XDR *, gd1_mgmt_volume_unlock_req*);
-extern  bool_t xdr_gd1_mgmt_volume_unlock_rsp (XDR *, gd1_mgmt_volume_unlock_rsp*);
+extern  bool_t xdr_gd1_mgmt_v3_lock_req (XDR *, gd1_mgmt_v3_lock_req*);
+extern  bool_t xdr_gd1_mgmt_v3_lock_rsp (XDR *, gd1_mgmt_v3_lock_rsp*);
+extern  bool_t xdr_gd1_mgmt_v3_pre_val_req (XDR *, gd1_mgmt_v3_pre_val_req*);
+extern  bool_t xdr_gd1_mgmt_v3_pre_val_rsp (XDR *, gd1_mgmt_v3_pre_val_rsp*);
+extern  bool_t xdr_gd1_mgmt_v3_brick_op_req (XDR *, gd1_mgmt_v3_brick_op_req*);
+extern  bool_t xdr_gd1_mgmt_v3_brick_op_rsp (XDR *, gd1_mgmt_v3_brick_op_rsp*);
+extern  bool_t xdr_gd1_mgmt_v3_commit_req (XDR *, gd1_mgmt_v3_commit_req*);
+extern  bool_t xdr_gd1_mgmt_v3_commit_rsp (XDR *, gd1_mgmt_v3_commit_rsp*);
+extern  bool_t xdr_gd1_mgmt_v3_post_val_req (XDR *, gd1_mgmt_v3_post_val_req*);
+extern  bool_t xdr_gd1_mgmt_v3_post_val_rsp (XDR *, gd1_mgmt_v3_post_val_rsp*);
+extern  bool_t xdr_gd1_mgmt_v3_unlock_req (XDR *, gd1_mgmt_v3_unlock_req*);
+extern  bool_t xdr_gd1_mgmt_v3_unlock_rsp (XDR *, gd1_mgmt_v3_unlock_rsp*);
 
 #else /* K&R C */
 extern bool_t xdr_glusterd_volume_status ();
@@ -294,10 +396,18 @@ extern bool_t xdr_gd1_mgmt_friend_update ();
 extern bool_t xdr_gd1_mgmt_friend_update_rsp ();
 extern bool_t xdr_gd1_mgmt_brick_op_req ();
 extern bool_t xdr_gd1_mgmt_brick_op_rsp ();
-extern bool_t xdr_gd1_mgmt_volume_lock_req ();
-extern bool_t xdr_gd1_mgmt_volume_lock_rsp ();
-extern bool_t xdr_gd1_mgmt_volume_unlock_req ();
-extern bool_t xdr_gd1_mgmt_volume_unlock_rsp ();
+extern bool_t xdr_gd1_mgmt_v3_lock_req ();
+extern bool_t xdr_gd1_mgmt_v3_lock_rsp ();
+extern bool_t xdr_gd1_mgmt_v3_pre_val_req ();
+extern bool_t xdr_gd1_mgmt_v3_pre_val_rsp ();
+extern bool_t xdr_gd1_mgmt_v3_brick_op_req ();
+extern bool_t xdr_gd1_mgmt_v3_brick_op_rsp ();
+extern bool_t xdr_gd1_mgmt_v3_commit_req ();
+extern bool_t xdr_gd1_mgmt_v3_commit_rsp ();
+extern bool_t xdr_gd1_mgmt_v3_post_val_req ();
+extern bool_t xdr_gd1_mgmt_v3_post_val_rsp ();
+extern bool_t xdr_gd1_mgmt_v3_unlock_req ();
+extern bool_t xdr_gd1_mgmt_v3_unlock_rsp ();
 
 #endif /* K&R C */
 

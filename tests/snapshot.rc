@@ -1,0 +1,290 @@
+#!/bin/bash
+
+LVM_DEFINED=0
+LVM_PREFIX="patchy_snap"
+LVM_COUNT=0
+VHD_SIZE="1G"
+
+function init_lvm() {
+    if [ "$1" == "" ]; then
+        echo "Error: Invalid argument supplied"
+        return 1
+    fi
+    LVM_COUNT=$1
+
+    if [ "$2" != "" ]; then
+        VHD_SIZE=$2
+    fi
+
+    local b
+    local i
+
+    if [ "$B1" = "" ]; then
+        B1=$B0
+    fi
+
+    for i in `seq 1 $LVM_COUNT`; do
+        b="B$i"
+        if [ "${!b}" = "" ]; then
+            echo "Error: $b not defined."
+            echo "Please run launch_cluster with atleast $LVM_COUNT nodes"
+            return 1
+        fi
+
+        eval "L$i=${!b}/${LVM_PREFIX}_mnt"
+        l="L$i"
+        mkdir -p ${!l}
+        if [ $? -ne 0 ]; then
+            echo "Error: failed to create dir ${!l}"
+            return 1
+        fi
+
+        eval "VG$i=${LVM_PREFIX}_vg_${i}"
+    done
+
+    LVM_DEFINED=1
+    return 0
+}
+
+function setup_lvm() {
+    init_lvm $@ || return 1
+    _setup_lvm
+    return 0
+}
+
+function cleanup_lvm() {
+    pkill gluster
+    sleep 2
+
+    if [ "$LVM_DEFINED" = "1" ]; then
+        _cleanup_lvm >/dev/null 2>&1
+    fi
+
+    _cleanup_lvm_again >/dev/null 2>&1
+    # TODO Delete cleanup has open bug
+    # once fixed delete this
+    mount | grep "run/gluster/snaps" | awk '{print $3}' | xargs umount 2> /dev/null
+    mount | grep "patchy_snap" | awk '{print $3}' | xargs umount 2> /dev/null
+    \rm -rf /var/run/gluster/snaps/*
+    lvscan | grep "/dev/patchy_snap" | awk '{print $2}'| xargs lvremove -f 2> /dev/null
+    vgs | grep patchy_snap | awk '{print $1}' | xargs vgremove -f 2>/dev/null
+    \rm -rf /dev/patchy*
+    return 0
+}
+
+########################################################
+# Private Functions
+########################################################
+function _setup_lvm() {
+    local count=$LVM_COUNT
+    local b
+    local i
+
+    for i in `seq 1 $count`; do
+        b="B$i"
+
+        _create_vhd ${!b} $i
+        _create_lv ${!b} $i
+        _mount_lv $i
+    done
+}
+
+function _cleanup_lvm() {
+    local count=$LVM_COUNT
+    local b
+    local i
+
+    for i in `seq 1 $count`; do
+        b="B$i"
+        _umount_lv $i
+        _remove_lv $i
+        _remove_vhd ${!b}
+    done
+}
+
+function _cleanup_lvm_again() {
+    local file
+
+    mount | grep $LVM_PREFIX | awk '{print $3}' | xargs -r umount -f
+
+    /sbin/vgs | grep $LVM_PREFIX | awk '{print $1}' | xargs -r vgremove -f
+
+    find $B0 -name "${LVM_PREFIX}_loop" | xargs -r losetup -d
+
+    find $B0 -name "${LVM_PREFIX}*" | xargs -r rm -rf
+
+    find /run/gluster/snaps -name "*${LVM_PREFIX}*" | xargs -r rm -rf
+
+    for file in `ls /run/gluster/snaps`; do
+        find /run/gluster/snaps/$file -mmin -2 | xargs -r rm -rf
+    done
+}
+
+########################################################
+########################################################
+function _create_vhd() {
+    local dir=$1
+    local num=$2
+    local loop_num=`expr $2 + 8`
+
+    fallocate -l${VHD_SIZE} $dir/${LVM_PREFIX}_vhd
+    mknod -m660 $dir/${LVM_PREFIX}_loop b 7 $loop_num
+    /sbin/losetup $dir/${LVM_PREFIX}_loop $dir/${LVM_PREFIX}_vhd
+}
+
+function _create_lv() {
+    local dir=$1
+    local num=$2
+    local vg="VG$num"
+    local thinpoolsize="0.8G"
+    local virtualsize="0.6G"
+
+    /sbin/pvcreate $dir/${LVM_PREFIX}_loop
+    /sbin/vgcreate ${!vg} $dir/${LVM_PREFIX}_loop
+
+    /sbin/lvcreate -L ${thinpoolsize} -T /dev/${!vg}/thinpool
+    /sbin/lvcreate -V ${virtualsize} -T /dev/${!vg}/thinpool -n brick_lvm
+
+    mkfs.xfs -f /dev/${!vg}/brick_lvm
+}
+
+function _mount_lv() {
+    local num=$1
+    local vg="VG$num"
+    local l="L$num"
+
+    mount -t xfs -o nouuid /dev/${!vg}/brick_lvm ${!l}
+}
+
+function _umount_lv() {
+    local num=$1
+    local l="L$num"
+
+    umount -f ${!l} 2>/dev/null || true
+    rmdir ${!l} 2>/dev/null || true
+}
+
+function _remove_lv() {
+    local num=$1
+    local vg="VG$num"
+
+    vgremove -f ${!vg}
+}
+
+function _remove_vhd() {
+    local dir=$1
+
+    losetup -d $dir/${LVM_PREFIX}_loop
+    rm -f $dir/${LVM_PREFIX}_loop
+    rm -f $dir/${LVM_PREFIX}_vhd
+}
+
+########################################################
+# Utility Functions
+########################################################
+function snapshot_exists() {
+        local clitype=$1
+        local snapname=$2
+        local cli=$CLI
+        if [ "$clitype" == "1" ]; then
+                cli=$CLI_1;
+        fi
+        if [ "$clitype" == "2" ]; then
+                cli=$CLI_2;
+        fi
+        $cli snapshot list | egrep -q "^$snapname\$"
+        return $?
+}
+
+#Create N number of snaps in a given volume
+#Arg1 : <Volume Name>
+#Arg2 : <Count of snaps to be created>
+#Arg3 : <Snap Name Pattern>
+#Return: Returns 0 if all snaps are created ,
+#        if not will return exit code of last failed
+#        snap create command.
+function create_n_snapshots() {
+        local cli=$1
+        local vol=$1
+        local snap_count=$2
+        local snap_name=$3
+        local ret=0
+        for i in `seq 1 $snap_count`; do
+                $CLI_1 snapshot create $snap_name$i ${vol}&
+                PID_1=$!
+                wait $PID_1
+                ret=$?
+                if [ "$ret" != "0" ]; then
+                        break
+                fi
+         done
+         return $ret
+}
+
+
+#Delete N number of snaps in a given volume
+#Arg1 : <Volume Name>
+#Arg2 : <Count of snaps to be deleted>
+#Arg3 : <Snap Name Pattern>
+#Return: Returns 0 if all snaps are Delete,
+#        if not will return exit code of last failed
+#        snap delete command.
+function delete_n_snapshots() {
+        local vol=$1
+        local snap_count=$2
+        local snap_name=$3
+        local ret=0
+        for i in `seq 1 $snap_count`; do
+                $CLI_1 snapshot delete $snap_name$i &
+                PID_1=$!
+                wait $PID_1
+                temp=$?
+                if [ "$temp" != "0" ]; then
+                        ret=$temp
+                fi
+         done
+         return $ret
+}
+
+#Check for the existance of N number of snaps in a given volume
+#Arg1 : <Volume Name>
+#Arg2 : <Count of snaps to be checked>
+#Arg3 : <Snap Name Pattern>
+#Return: Returns 0 if all snaps exists,
+#        if not will return exit code of last failed
+#        snapshot_exists().
+function snapshot_n_exists() {
+        local vol=$1
+        local snap_count=$2
+        local snap_name=$3
+        local ret=0
+        for i in `seq 1 $snap_count`; do
+                snapshot_exists 1 $snap_name$i
+                ret=$?
+                if [ "$ret" != "0" ]; then
+                        break
+                fi
+         done
+         return $ret
+}
+
+# TODO: Cleanup code duplication
+function volinfo_field()
+{
+    local vol=$1;
+    local field=$2;
+
+    $CLI_1 volume info $vol | grep "^$field: " | sed 's/.*: //';
+}
+
+
+function volume_exists() {
+        local volname=$1
+        $CLI_1 volume info $volname 2>&1 | grep -q 'does not exist'
+        if [ $? -eq 0 ]; then
+                return 1
+        else
+                return 0
+        fi
+}
+

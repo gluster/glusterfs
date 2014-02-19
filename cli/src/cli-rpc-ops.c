@@ -22,6 +22,8 @@
 #define VOL_TOP_PERF_SPEED_WIDTH        4
 #define VOL_TOP_PERF_TIME_WIDTH         26
 
+#define INDENT_MAIN_HEAD "%-25s %s "
+
 #include "cli.h"
 #include "compat-errno.h"
 #include "cli-cmd.h"
@@ -291,7 +293,7 @@ gf_cli_output_pool_list (dict_t *dict, int count)
                 else
                         connected_str = "Disconnected";
 
-                cli_out ("%s\t%-8s\t%s ", uuid_buf, hostname_buf,
+                cli_out ("%s\t%-9s\t%s ", uuid_buf, hostname_buf,
                          connected_str);
                 i++;
         }
@@ -508,6 +510,9 @@ gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         gf_cli_rsp                 rsp                  = {0};
         char                      *caps                 = NULL;
         int                        k __attribute__((unused)) = 0;
+        /* snap_volume variable helps in showing whether a volume is a normal
+         * volume or a volume for the snapshot */
+        int32_t                    snap_volume          = 0;
 
         if (-1 == req->rpc_status)
                 goto out;
@@ -629,6 +634,11 @@ xml_output:
                 if (ret)
                         goto out;
 
+                snprintf (key, sizeof (key), "volume%d.snap_volume", i);
+                ret = dict_get_int32 (dict, key, &snap_volume);
+                if (ret)
+                        goto out;
+
                 snprintf (key, 256, "volume%d.brick_count", i);
                 ret = dict_get_int32 (dict, key, &brick_count);
                 if (ret)
@@ -669,6 +679,10 @@ xml_output:
                 cli_out ("Type: %s", cli_vol_type_str[vol_type]);
                 cli_out ("Volume ID: %s", volume_id_str);
                 cli_out ("Status: %s", cli_vol_status_str[status]);
+                if (snap_volume)
+                        cli_out ("Snap Volume: %s", "yes");
+                else
+                        cli_out ("Snap Volume: %s", "no");
 
 #ifdef HAVE_BD_XLATOR
                 k = 0;
@@ -7619,6 +7633,1030 @@ out:
         return ret;
 }
 
+int32_t
+cli_snapshot_remove_reply (gf_cli_rsp *rsp, dict_t *dict, call_frame_t *frame)
+{
+        int32_t       ret        = -1;
+        char         *snap_name  = NULL;
+
+        GF_ASSERT (rsp);
+        GF_ASSERT (dict);
+        GF_ASSERT (frame);
+
+        if (rsp->op_ret) {
+                cli_err("snapshot delete: failed: %s",
+                        rsp->op_errstr ? rsp->op_errstr :
+                        "Please check log file for details");
+                ret = rsp->op_ret;
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "snapname", &snap_name);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snapname");
+                goto out;
+        }
+
+        cli_out ("snapshot delete: %s: snap removed successfully",
+                 snap_name);
+        ret = 0;
+
+out:
+        return ret;
+}
+
+int
+cli_snapshot_config_display (dict_t *dict, gf_cli_rsp *rsp)
+{
+        char                buf[PATH_MAX]        = "";
+        char               *volname              = NULL;
+        int                 ret                  = -1;
+        int                 config_command       = 0;
+        uint64_t            value                = 0;
+        uint64_t            hard_limit           = 0;
+        uint64_t            soft_limit           = 0;
+        uint64_t            i                    = 0;
+        uint64_t            voldisplaycount      = 0;
+
+        GF_ASSERT (dict);
+        GF_ASSERT (rsp);
+
+        if (rsp->op_ret) {
+                cli_err ("Snapshot Config : failed: %s",
+                         rsp->op_errstr ? rsp->op_errstr :
+                         "Please check log file for details");
+                ret = rsp->op_ret;
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "config-command", &config_command);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not fetch config type");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+        /* Ignore the error, as volname is optional */
+
+        if (!volname) {
+                volname = "System";
+        }
+
+        ret = dict_get_uint64 (dict, "snap-max-hard-limit", &hard_limit);
+        /* Ignore the error, as the key specified is optional */
+        ret = dict_get_uint64 (dict, "snap-max-soft-limit", &soft_limit);
+
+        if (!hard_limit && !soft_limit
+                        && config_command != GF_SNAP_CONFIG_DISPLAY) {
+                ret = -1;
+                gf_log(THIS->name, GF_LOG_ERROR,
+                       "Could not fetch config-key");
+                goto out;
+        }
+
+        switch (config_command) {
+        case GF_SNAP_CONFIG_TYPE_SET:
+                if (hard_limit && soft_limit) {
+                        cli_out ("snapshot config: snap-max-hard-limit "
+                                "& snap-max-soft-limit for system set "
+                                 "successfully");
+                } else if (hard_limit) {
+                        cli_out ("snapshot config: %s "
+                                 "for snap-max-hard-limit set successfully",
+                                 volname);
+                } else if (soft_limit) {
+                        cli_out ("snapshot config: %s "
+                                 "for snap-max-soft-limit set successfully",
+                                 volname);
+                }
+                break;
+
+        case GF_SNAP_CONFIG_DISPLAY:
+                cli_out ("\nSnapshot System Configuration:");
+                ret = dict_get_uint64 (dict, "snap-max-hard-limit",
+                                       &value);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not fetch "
+                                "snap_max_hard_limit for %s", volname);
+                        ret = -1;
+                        goto out;
+                }
+                cli_out ("snap-max-hard-limit : %"PRIu64, value);
+
+                ret = dict_get_uint64 (dict, "snap-max-soft-limit",
+                                       &soft_limit);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not fetch "
+                               "snap-max-soft-limit for %s", volname);
+                        ret = -1;
+                        goto out;
+                }
+                cli_out ("snap-max-soft-limit : %"PRIu64"%%\n",
+                         soft_limit);
+
+                cli_out ("Snapshot Volume Configuration:");
+
+                ret = dict_get_uint64 (dict, "voldisplaycount",
+                                       &voldisplaycount);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                               "Could not fetch voldisplaycount");
+                        ret = -1;
+                        goto out;
+                }
+
+                for (i = 0; i < voldisplaycount; i++) {
+                        snprintf (buf, sizeof(buf), "volume%ld-volname", i);
+                        ret = dict_get_str (dict, buf, &volname);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR, "Could not fetch "
+                                       " %s", buf);
+                                ret = -1;
+                                goto out;
+                        }
+                        cli_out ("\nVolume : %s", volname);
+
+                        snprintf (buf, sizeof(buf),
+                                  "volume%ld-snap-max-hard-limit", i);
+                        ret = dict_get_uint64 (dict, buf, &value);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR, "Could not fetch "
+                                       " %s", buf);
+                                ret = -1;
+                                goto out;
+                        }
+                        cli_out ("snap-max-hard-limit : %"PRIu64, value);
+
+                        snprintf (buf, sizeof(buf),
+                                  "volume%ld-active-hard-limit", i);
+                        ret = dict_get_uint64 (dict, buf, &value);
+                        if (ret) {
+                                 gf_log ("cli", GF_LOG_ERROR, "Could not fetch"
+                                        " effective snap_max_hard_limit for "
+                                        "%s", volname);
+                                ret = -1;
+                                goto out;
+                        }
+                        cli_out ("Effective snap-max-hard-limit : %"PRIu64,
+                                 value);
+
+                        snprintf (buf, sizeof(buf),
+                                      "volume%ld-snap-max-soft-limit", i);
+                        ret = dict_get_uint64 (dict, buf, &value);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR, "Could not fetch "
+                                       " %s", buf);
+                                ret = -1;
+                                goto out;
+                        }
+                        cli_out ("Effective snap-max-soft-limit : %"PRIu64" "
+                                 "(%"PRIu64"%%)", value, soft_limit);
+                }
+                break;
+        default:
+                break;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+/* This function is used to print the volume related information
+ * of a snap.
+ *
+ * arg - 0, dict       : Response Dictionary.
+ * arg - 1, prefix str : snaplist.snap{0..}.vol{0..}.*
+ */
+int
+cli_get_each_volinfo_in_snap (dict_t *dict, char *keyprefix,
+                              gf_boolean_t snap_driven) {
+        char             key[PATH_MAX]  =  "";
+        char            *get_buffer     =  NULL;
+        int              value          =  0;
+        int              ret            = -1;
+        char             indent[5]      = "\t";
+        char            *volname        =  NULL;
+
+        GF_ASSERT (dict);
+        GF_ASSERT (keyprefix);
+
+        if (snap_driven) {
+                ret = snprintf (key, sizeof (key), "%s.volname", keyprefix);
+                if (ret < 0) {
+                        goto out;
+                }
+
+                ret = dict_get_str (dict, key, &get_buffer);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to get %s", key);
+                        goto out;
+                }
+                cli_out ("%s" INDENT_MAIN_HEAD "%s", indent,
+                        "Snap Volume Name", ":", get_buffer);
+
+                ret = snprintf (key, sizeof (key),
+                                "%s.origin-volname", keyprefix);
+                if (ret < 0) {
+                        goto out;
+                }
+
+                ret = dict_get_str (dict, key, &volname);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_WARNING, "Failed to get %s", key);
+                        cli_out ("%-12s", "Origin:");
+                }
+                cli_out ("%s" INDENT_MAIN_HEAD "%s", indent,
+                        "Origin Volume name", ":", volname);
+
+
+                ret = snprintf (key, sizeof (key), "%s.snapcount",
+                                keyprefix);
+                if (ret < 0) {
+                        goto out;
+                }
+
+                ret = dict_get_int32 (dict, key, &value);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to get %s", key);
+                        goto out;
+                }
+                cli_out ("%s%s %s      %s %d", indent, "Snaps taken for",
+                        volname, ":", value);
+
+                ret = snprintf (key, sizeof (key), "%s.snaps-available",
+                                keyprefix);
+                if (ret < 0) {
+                        goto out;
+                }
+
+                ret = dict_get_int32 (dict, key, &value);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to get %s", key);
+                        goto out;
+                }
+                cli_out ("%s%s %s  %s %d", indent, "Snaps available for",
+                         volname, ":", value);
+        }
+
+
+        ret = snprintf (key, sizeof (key), "%s.vol-status", keyprefix);
+        if (ret < 0) {
+                goto out;
+        }
+
+        ret = dict_get_str (dict, key, &get_buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get %s", key);
+                goto out;
+        }
+        cli_out ("%s" INDENT_MAIN_HEAD "%s", indent, "Status",
+                 ":", get_buffer);
+out:
+        return ret;
+}
+
+/* This function is used to print snap related information
+ * arg - 0, dict       : Response dictionary.
+ * arg - 1, prefix_str : snaplist.snap{0..}.*
+ */
+int
+cli_get_volinfo_in_snap (dict_t *dict, char *keyprefix) {
+
+        char            key[PATH_MAX]   = "";
+        int             i               = 0;
+        int             volcount        = 0;
+        int             ret             = -1;
+
+        GF_ASSERT (dict);
+        GF_ASSERT (keyprefix);
+
+        ret = snprintf (key, sizeof (key), "%s.vol-count", keyprefix);
+        if (ret < 0) {
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, key, &volcount);
+        for (i = 1 ; i <= volcount ; i++) {
+                ret = snprintf (key, sizeof (key),
+                                "%s.vol%d", keyprefix, i);
+                if (ret < 0) {
+                        goto out;
+                }
+                ret = cli_get_each_volinfo_in_snap (dict, key, _gf_true);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not list "
+                                "details of volume in a snap");
+                        goto out;
+                }
+                cli_out (" ");
+        }
+
+out:
+        return ret;
+}
+
+int
+cli_get_each_snap_info (dict_t *dict, char *prefix_str,
+                        gf_boolean_t snap_driven) {
+        char            key_buffer[PATH_MAX] = "";
+        char           *get_buffer           = NULL;
+        int             ret                  = -1;
+        char            indent[5]            = "";
+
+        GF_ASSERT (dict);
+        GF_ASSERT (prefix_str);
+
+        if (!snap_driven)
+                strcat (indent, "\t");
+
+        ret = snprintf (key_buffer, sizeof (key_buffer), "%s.snapname",
+                        prefix_str);
+        if (ret < 0) {
+                goto out;
+        }
+
+        ret = dict_get_str (dict, key_buffer, &get_buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to fetch snapname %s ",
+                        key_buffer);
+                goto out;
+        }
+        cli_out ("%s" INDENT_MAIN_HEAD "%s", indent, "Snapshot",
+                ":", get_buffer);
+
+        ret = snprintf (key_buffer, sizeof (key_buffer), "%s.snap-id",
+                        prefix_str);
+        if (ret < 0) {
+                goto out;
+        }
+
+        ret = dict_get_str (dict, key_buffer, &get_buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to fetch snap-id %s ",
+                        key_buffer);
+                goto out;
+        }
+        cli_out ("%s" INDENT_MAIN_HEAD "%s", indent, "Snap UUID",
+                ":", get_buffer);
+
+        ret = snprintf (key_buffer, sizeof (key_buffer), "%s.snap-desc",
+                        prefix_str);
+        if (ret < 0) {
+                goto out;
+        }
+
+        ret = dict_get_str (dict, key_buffer, &get_buffer);
+        if (!ret) {
+                /* Ignore error for description */
+                cli_out ("%s" INDENT_MAIN_HEAD "%s", indent,
+                         "Description", ":", get_buffer);
+        }
+
+        ret = snprintf (key_buffer, sizeof (key_buffer), "%s.snap-time",
+                        prefix_str);
+        if (ret < 0) {
+                goto out;
+        }
+
+        ret = dict_get_str (dict, key_buffer, &get_buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to fetch snap-time %s ",
+                        prefix_str);
+                goto out;
+        }
+        cli_out ("%s" INDENT_MAIN_HEAD "%s", indent, "Created",
+                ":", get_buffer);
+
+        if (snap_driven) {
+                cli_out ("%-12s", "Snap Volumes:\n");
+                ret = cli_get_volinfo_in_snap (dict, prefix_str);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Unable to list details "
+                                "of the snaps");
+                        goto out;
+                }
+        }
+out:
+        return ret;
+}
+
+/* This is a generic function to print snap related information.
+ * arg - 0, dict : Response Dictionary
+ */
+int
+cli_call_snapshot_info (dict_t *dict, gf_boolean_t bool_snap_driven) {
+        int             snap_count       =  0;
+        char            key[PATH_MAX]    =  "";
+        int             ret              =  -1;
+        int             i                =   0;
+
+        GF_ASSERT (dict);
+
+        ret = dict_get_int32 (dict, "snap-count", &snap_count);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to get snap-count");
+                goto out;
+        }
+
+        if (snap_count == 0) {
+                cli_out ("No snapshots present");
+        }
+
+        for (i = 1 ; i <= snap_count ; i++) {
+                ret = snprintf (key, sizeof (key), "snap%d", i);
+                if (ret < 0) {
+                        goto out;
+                }
+                ret = cli_get_each_snap_info (dict, key, bool_snap_driven);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Unable to print snap details");
+                        goto out;
+                }
+        }
+out:
+        return ret;
+}
+
+int
+cli_get_snaps_in_volume (dict_t *dict) {
+        int      ret             =  -1;
+        int      i               =  0;
+        int      count           =  0;
+        int      avail           =  0;
+        char     key[PATH_MAX]   =  "";
+        char    *get_buffer      =  NULL;
+
+        GF_ASSERT (dict);
+
+        ret = dict_get_str (dict, "origin-volname", &get_buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not fetch origin-volname");
+                goto out;
+        }
+        cli_out (INDENT_MAIN_HEAD "%s", "Volume Name", ":", get_buffer);
+
+        ret = dict_get_int32 (dict, "snap-count", &avail);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not fetch snap-count");
+                goto out;
+        }
+        cli_out (INDENT_MAIN_HEAD "%d", "Snaps Taken", ":", avail);
+
+        ret = dict_get_int32 (dict, "snaps-available", &count);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not fetch snaps-available");
+                goto out;
+        }
+        cli_out (INDENT_MAIN_HEAD "%d", "Snaps Available", ":", count);
+
+        for (i = 1 ; i <= avail ; i++) {
+                snprintf (key, sizeof (key), "snap%d", i);
+                ret = cli_get_each_snap_info (dict, key, _gf_false);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Unable to print snap details");
+                        goto out;
+                }
+
+                ret = snprintf (key, sizeof (key), "snap%d.vol1", i);
+                if (ret < 0) {
+                        goto out;
+                }
+                ret = cli_get_each_volinfo_in_snap (dict, key, _gf_false);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not get volume "
+                                "related information");
+                        goto out;
+                }
+
+                cli_out (" ");
+        }
+out:
+        return ret;
+}
+
+int
+cli_snapshot_list (dict_t *dict) {
+        int     snapcount       =       0;
+        char    key[PATH_MAX]   =       "";
+        int     ret             =       -1;
+        int     i               =       0;
+        char    *get_buffer     =       NULL;
+
+        GF_ASSERT (dict);
+
+        ret = dict_get_int32 (dict, "snap-count", &snapcount);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not fetch snap count");
+                goto out;
+        }
+
+        if (snapcount == 0) {
+                cli_out ("No snapshots present");
+        }
+
+        for (i = 1 ; i <= snapcount ; i++) {
+                ret = snprintf (key, sizeof (key), "snapname%d", i);
+                if (ret < 0) {
+                        goto out;
+                }
+
+                ret = dict_get_str (dict, key, &get_buffer);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not get %s ", key);
+                        goto out;
+                } else {
+                        cli_out ("%s", get_buffer);
+                }
+        }
+out:
+        return ret;
+}
+
+int
+cli_get_snap_volume_status (dict_t *dict, char *key_prefix)
+{
+        int             ret             =       -1;
+        char            key[PATH_MAX]   =       "";
+        char            *buffer         =       NULL;
+        int             brickcount      =       0;
+        int             i               =       0;
+        int             pid             =       0;
+
+        GF_ASSERT (dict);
+        GF_ASSERT (key_prefix);
+
+        ret = snprintf (key, sizeof (key), "%s.brickcount", key_prefix);
+        if (ret < 0) {
+                goto out;
+        }
+        ret = dict_get_int32 (dict, key, &brickcount);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to fetch brickcount");
+                goto out;
+        }
+
+        for (i = 0 ; i < brickcount ; i++) {
+                ret = snprintf (key, sizeof (key), "%s.brick%d.path",
+                                key_prefix, i);
+                if (ret < 0) {
+                        goto out;
+                }
+
+                ret = dict_get_str (dict, key, &buffer);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_INFO,
+                                "Unable to get Brick Path");
+                        continue;
+                }
+                cli_out ("\n\t%-17s %s   %s", "Brick Path", ":", buffer);
+
+                ret = snprintf (key, sizeof (key), "%s.brick%d.vgname",
+                                key_prefix, i);
+                if (ret < 0) {
+                        goto out;
+                }
+
+                ret = dict_get_str (dict, key, &buffer);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_INFO,
+                                "Unable to get Volume Group");
+                        cli_out ("\t%-17s %s   %s", "Volume Group", ":",
+                                 "N/A");
+                } else
+                        cli_out ("\t%-17s %s   %s", "Volume Group", ":",
+                                 buffer);
+
+                ret = snprintf (key, sizeof (key), "%s.brick%d.status",
+                                key_prefix, i);
+                if (ret < 0) {
+                        goto out;
+                }
+
+                ret = dict_get_str (dict, key, &buffer);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_INFO,
+                                "Unable to get Brick Running");
+                        cli_out ("\t%-17s %s   %s", "Brick Running", ":",
+                                 "N/A");
+                } else
+                        cli_out ("\t%-17s %s   %s", "Brick Running", ":",
+                                 buffer);
+
+                ret = snprintf (key, sizeof (key), "%s.brick%d.pid",
+                                key_prefix, i);
+                if (ret < 0) {
+                        goto out;
+                }
+
+                ret = dict_get_int32 (dict, key, &pid);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_INFO,
+                                "Unable to get pid");
+                        cli_out ("\t%-17s %s   %s", "Brick PID", ":", "N/A");
+                } else
+                        cli_out ("\t%-17s %s   %d", "Brick PID", ":", pid);
+
+                ret = snprintf (key, sizeof (key), "%s.brick%d.data",
+                                key_prefix, i);
+                if (ret < 0) {
+                        goto out;
+                }
+
+                ret = dict_get_str (dict, key, &buffer);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_INFO,
+                                "Unable to get Data Percent");
+                        cli_out ("\t%-17s %s   %s", "Data Percentage", ":",
+                                 "N/A");
+                } else
+                        cli_out ("\t%-17s %s   %s", "Data Percentage", ":",
+                                 buffer);
+
+                ret = snprintf (key, sizeof (key), "%s.brick%d.lvsize",
+                                key_prefix, i);
+                if (ret < 0) {
+                        goto out;
+                }
+                ret = dict_get_str (dict, key, &buffer);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_INFO, "Unable to get LV Size");
+                        cli_out ("\t%-17s %s   %s", "LV Size", ":", "N/A");
+                } else
+                        cli_out ("\t%-17s %s   %s", "LV Size", ":", buffer);
+
+        }
+out:
+        return ret;
+}
+
+
+
+int
+cli_get_single_snap_status (dict_t *dict, char *keyprefix)
+{
+        int             ret             =       -1;
+        char            key[PATH_MAX]   =       "";
+        int             i               =       0;
+        int             volcount        =       0;
+        char            *get_buffer     =       NULL;
+
+        GF_ASSERT (dict);
+        GF_ASSERT (keyprefix);
+
+        ret = snprintf (key, sizeof (key), "%s.snapname", keyprefix);
+        if (ret < 0) {
+                goto out;
+        }
+
+        ret = dict_get_str (dict, key, &get_buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to get snapname");
+                goto out;
+        }
+        cli_out ("\nSnap Name : %s", get_buffer);
+
+        ret = snprintf (key, sizeof (key), "%s.uuid", keyprefix);
+        if (ret < 0) {
+                goto out;
+        }
+
+        ret = dict_get_str (dict, key, &get_buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to get snap UUID");
+                goto out;
+        }
+        cli_out ("Snap UUID : %s", get_buffer);
+
+        ret = snprintf (key, sizeof (key), "%s.volcount", keyprefix);
+        if (ret < 0) {
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, key, &volcount);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to get volume count");
+                goto out;
+        }
+
+        for (i = 0 ; i < volcount ; i++) {
+                ret = snprintf (key, sizeof (key), "%s.vol%d", keyprefix, i);
+                if (ret < 0) {
+                        goto out;
+                }
+
+                ret = cli_get_snap_volume_status (dict, key);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Could not get snap volume status");
+                        goto out;
+                }
+        }
+out:
+        return ret;
+}
+
+int
+cli_snap_status_all (dict_t *dict) {
+        int             ret             =       -1;
+        char            key[PATH_MAX]   =       "";
+        int             snapcount       =       0;
+        int             i               =       0;
+
+        GF_ASSERT (dict);
+
+        ret = dict_get_int32 (dict, "status.snapcount", &snapcount);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not get snapcount");
+                goto out;
+        }
+
+        if (snapcount == 0) {
+                cli_out ("No snapshots present");
+        }
+
+        for (i = 0 ; i < snapcount; i++) {
+                ret = snprintf (key, sizeof (key), "status.snap%d",i);
+                if (ret < 0) {
+                        goto out;
+                }
+                ret = cli_get_single_snap_status (dict, key);
+        }
+out:
+        return ret;
+}
+
+
+int
+cli_snapshot_status_display (dict_t *dict, gf_cli_rsp *rsp)
+{
+        char            key[PATH_MAX]   =       "";
+        int             ret             =       -1;
+        int             status_cmd      =       -1;
+
+        GF_ASSERT (dict);
+        GF_ASSERT (rsp);
+
+        if (rsp->op_ret) {
+                cli_err ("Snapshot Status : failed: %s",
+                        rsp->op_errstr ? rsp->op_errstr :
+                        "Please check log file for details");
+                ret = rsp->op_ret;
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "cmd", &status_cmd);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not fetch status type");
+                goto out;
+        }
+        switch (status_cmd) {
+                case GF_SNAP_STATUS_TYPE_ALL:
+                {
+                        ret = cli_snap_status_all (dict);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR, "Could not fetch "
+                                        "status of all snap");
+                                goto out;
+                        }
+                break;
+                }
+
+                case GF_SNAP_STATUS_TYPE_SNAP:
+                {
+                        ret = snprintf (key, sizeof (key), "status.snap0");
+                        if (ret < 0) {
+                                goto out;
+                        }
+                        ret = cli_get_single_snap_status (dict, key);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR, "Could not fetch "
+                                        "status of snap");
+                                goto out;
+                        }
+                break;
+                }
+
+                case GF_SNAP_STATUS_TYPE_VOL:
+                {
+                        ret = cli_snap_status_all (dict);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR, "Could not fetch "
+                                        "status of snap in a volume");
+                                goto out;
+                        }
+                        break;
+                }
+                default:
+                        break;
+        }
+out:
+        return ret;
+}
+
+int
+gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
+                     int count, void *myframe)
+{
+        int                   ret                      = -1;
+        gf_cli_rsp            rsp                      = {0, };
+        dict_t               *dict                     = NULL;
+        char                 *snap_name                = NULL;
+        int32_t               type                     =  0;
+        call_frame_t         *frame                    = NULL;
+        gf_boolean_t         snap_driven               = _gf_false;
+
+        if (req->rpc_status == -1) {
+                ret = -1;
+                goto out;
+        }
+
+        frame = myframe;
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
+        if (ret < 0) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
+                goto out;
+        }
+
+        dict = dict_new ();
+
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len, &dict);
+
+        if (ret)
+                goto out;
+
+        ret = dict_get_int32 (dict, "type", &type);
+        if (ret) {
+                gf_log (frame->this->name, GF_LOG_ERROR, "failed to get type");
+                goto out;
+        }
+
+        switch (type) {
+        case GF_SNAP_OPTION_TYPE_CREATE:
+                if (rsp.op_ret) {
+                        cli_err("snapshot create: failed: %s",
+                                 rsp.op_errstr ? rsp.op_errstr :
+                                 "Please check log file for details");
+                                 ret = rsp.op_ret;
+                                 goto out;
+                }
+
+                ret = dict_get_str (dict, "snapname", &snap_name);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Failed to get snap name");
+                        goto out;
+                }
+                cli_out ("snapshot create: %s: snap created successfully",
+                         snap_name);
+                break;
+
+        case GF_SNAP_OPTION_TYPE_RESTORE:
+                /* TODO: Check if rsp.op_ret needs to be checked here. Or is
+                 * it ok to check this in the start of the function where we
+                 * get rsp.*/
+                if (rsp.op_ret) {
+                        cli_err("snapshot restore: failed: %s",
+                                 rsp.op_errstr ? rsp.op_errstr :
+                                 "Please check log file for details");
+                                 ret = rsp.op_ret;
+                                 goto out;
+                }
+
+                ret = dict_get_str (dict, "snapname", &snap_name);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Failed to get snap name");
+                        goto out;
+                }
+
+                cli_out ("Snapshot restore: %s: Snap restored "
+                                 "successfully", snap_name);
+
+                ret = 0;
+                break;
+
+        case GF_SNAP_OPTION_TYPE_INFO:
+                if (rsp.op_ret) {
+                        cli_err ("Snapshot info : failed: %s",
+                                  rsp.op_errstr ? rsp.op_errstr :
+                                  "Please check log file for details");
+                        ret = rsp.op_ret;
+                        goto out;
+                }
+
+                snap_driven = dict_get_str_boolean (dict, "snap-driven",
+                                                    _gf_false);
+                if (snap_driven == _gf_true) {
+                        ret = cli_call_snapshot_info  (dict, snap_driven);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR,
+                                        "Snapshot info failed");
+                                goto out;
+                        }
+                } else if (snap_driven == _gf_false) {
+                        ret = cli_get_snaps_in_volume (dict);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR,
+                                        "Snapshot info failed");
+                                goto out;
+                        }
+                }
+                break;
+
+        case GF_SNAP_OPTION_TYPE_CONFIG:
+                ret = cli_snapshot_config_display (dict, &rsp);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to display "
+                                "snapshot config output.");
+                        goto out;
+                }
+                break;
+
+        case GF_SNAP_OPTION_TYPE_LIST:
+                if (rsp.op_ret) {
+                        cli_err ("Snapshot list : failed: %s",
+                                 rsp.op_errstr ? rsp.op_errstr :
+                                "Please check log file for details");
+                        ret = rsp.op_ret;
+                        goto out;
+                }
+
+                ret = cli_snapshot_list (dict);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to display "
+                                "snapshot list");
+                        goto out;
+                }
+                break;
+
+        case GF_SNAP_OPTION_TYPE_DELETE:
+                ret = cli_snapshot_remove_reply (&rsp, dict, frame);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Failed to delete snap");
+                        goto out;
+                }
+                break;
+
+        case GF_SNAP_OPTION_TYPE_STATUS:
+                ret = cli_snapshot_status_display (dict, &rsp);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to display "
+                                "snapshot status output.");
+                        goto out;
+                }
+                break;
+
+        default:
+                cli_err ("Unknown command executed");
+                ret = -1;
+                goto out;
+        }
+out:
+        if (dict)
+                dict_unref (dict);
+        cli_cmd_broadcast_response (ret);
+
+        free (rsp.dict.dict_val);
+        free (rsp.op_errstr);
+
+        return ret;
+}
+
+int32_t
+gf_cli_snapshot (call_frame_t *frame, xlator_t *this,
+                 void *data)
+{
+        gf_cli_req        req     = {{0,}};
+        dict_t           *options = NULL;
+        int               ret     = -1;
+
+        if (!frame || !this || !data)
+                goto out;
+
+        options = data;
+
+        ret = cli_to_glusterd (&req, frame, gf_cli_snapshot_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, options,
+                               GLUSTER_CLI_SNAP, this, cli_rpc_prog,
+                               NULL);
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        GF_FREE (req.dict.dict_val);
+        return ret;
+}
+
 int
 cli_to_glusterd (gf_cli_req *req, call_frame_t *frame,
                  fop_cbk_fn_t cbkfn, xdrproc_t xdrproc, dict_t *dict,
@@ -7730,6 +8768,7 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_CLRLOCKS_VOLUME]  = {"CLEARLOCKS_VOLUME", gf_cli_clearlocks_volume},
         [GLUSTER_CLI_COPY_FILE]        = {"COPY_FILE", gf_cli_copy_file},
         [GLUSTER_CLI_SYS_EXEC]         = {"SYS_EXEC", gf_cli_sys_exec},
+        [GLUSTER_CLI_SNAP]             = {"SNAP", gf_cli_snapshot},
 };
 
 struct rpc_clnt_program cli_prog = {

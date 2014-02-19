@@ -1129,6 +1129,83 @@ out:
 }
 
 int
+glusterfs_handle_volume_barrier_op (rpcsvc_request_t *req)
+{
+        int32_t                  ret     = -1;
+        gd1_mgmt_brick_op_req    xlator_req = {0,};
+        dict_t                   *dict    = NULL;
+        xlator_t                 *xlator = NULL;
+        xlator_t                 *any = NULL;
+        dict_t                   *output = NULL;
+        char                     msg[2048] = {0};
+        glusterfs_ctx_t          *ctx = NULL;
+        glusterfs_graph_t        *active = NULL;
+        xlator_t                 *this = NULL;
+
+        GF_ASSERT (req);
+        this = THIS;
+        GF_ASSERT (this);
+
+        ctx = glusterfsd_ctx;
+        GF_ASSERT (ctx);
+
+        active = ctx->active;
+        if (!active) {
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        any = active->first;
+        ret = xdr_to_generic (req->msg[0], &xlator_req,
+                              (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+        if (ret < 0) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        ret = dict_unserialize (xlator_req.input.input_val,
+                                xlator_req.input.input_len,
+                                &dict);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to "
+                        "unserialize req-buffer to dictionary");
+                goto out;
+        }
+        xlator = xlator_search_by_name (any, xlator_req.name);
+        if (!xlator) {
+                snprintf (msg, sizeof (msg), "xlator %s is not loaded",
+                          xlator_req.name);
+                goto out;
+        }
+
+        output = dict_new ();
+        if (!output) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = xlator->notify (xlator, GF_EVENT_VOLUME_BARRIER_OP,
+                              dict, output);
+
+        ret = glusterfs_translator_info_response_send (req, ret,
+                                                       msg, output);
+out:
+        if (dict)
+                dict_unref (dict);
+        free (xlator_req.input.input_val); // malloced by xdr
+        if (output)
+                dict_unref (output);
+        free (xlator_req.name); //malloced by xdr
+
+        return ret;
+
+}
+int
 glusterfs_handle_rpc_msg (rpcsvc_request_t *req)
 {
         int ret = -1;
@@ -1192,6 +1269,7 @@ rpcsvc_actor_t glusterfs_actors[] = {
         [GLUSTERD_BRICK_XLATOR_DEFRAG] = {"TRANSLATOR DEFRAG", GLUSTERD_BRICK_XLATOR_DEFRAG, glusterfs_handle_defrag,              NULL, 0, DRC_NA},
         [GLUSTERD_NODE_PROFILE]        = {"NFS PROFILE",       GLUSTERD_NODE_PROFILE,        glusterfs_handle_nfs_profile,         NULL, 0, DRC_NA},
         [GLUSTERD_NODE_STATUS]         = {"NFS STATUS",        GLUSTERD_NODE_STATUS,         glusterfs_handle_node_status,         NULL, 0, DRC_NA},
+        [GLUSTERD_VOLUME_BARRIER_OP]   = {"VOLUME BARRIER OP", GLUSTERD_VOLUME_BARRIER_OP,   glusterfs_handle_volume_barrier_op,   NULL, 0, DRC_NA},
 };
 
 struct rpcsvc_program glusterfs_mop_prog = {

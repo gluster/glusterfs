@@ -190,6 +190,28 @@ xdr_gf_cli_status_type (XDR *xdrs, gf_cli_status_type *objp)
 }
 
 bool_t
+xdr_gf1_cli_snapshot (XDR *xdrs, gf1_cli_snapshot *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_enum (xdrs, (enum_t *) objp))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_snapshot_config (XDR *xdrs, gf1_cli_snapshot_config *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_enum (xdrs, (enum_t *) objp))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
 xdr_gf_cli_req (XDR *xdrs, gf_cli_req *objp)
 {
 	register int32_t *buf;

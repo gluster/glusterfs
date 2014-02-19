@@ -231,6 +231,9 @@ cli_cmds_register (struct cli_state *state)
         if (ret)
                 goto out;
 
+        ret = cli_cmd_snapshot_register (state);
+        if (ret)
+                goto out;
 out:
         return ret;
 }
