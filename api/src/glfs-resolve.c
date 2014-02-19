@@ -450,7 +450,9 @@ glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 		ret = 0;
 	}
 
-	ret = glfs_loc_touchup (loc);
+        if (glfs_loc_touchup (loc) < 0) {
+                ret = -1;
+        }
 out:
 	GF_FREE (path);
 
