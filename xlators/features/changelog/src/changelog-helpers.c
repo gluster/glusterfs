@@ -17,6 +17,7 @@
 #include "defaults.h"
 #include "logging.h"
 #include "iobuf.h"
+#include "syscall.h"
 
 #include "changelog-helpers.h"
 #include "changelog-mem-types.h"
@@ -132,6 +133,49 @@ changelog_write (int fd, char *buffer, size_t len)
         return (writen != len);
 }
 
+int
+htime_update (xlator_t *this,
+              changelog_priv_t *priv, unsigned long ts,
+              char * buffer)
+{
+        char changelog_path[PATH_MAX+1]   = {0,};
+        int len                           = -1;
+        char x_value[25]                  = {0,};
+        /* time stamp(10) + : (1) + rolltime (12 ) + buffer (2) */
+        int ret                           = 0;
+
+        if (priv->htime_fd ==-1) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Htime fd not available for updation");
+                ret = -1;
+                goto out;
+        }
+        strcpy (changelog_path, buffer);
+        len = strlen (changelog_path);
+        changelog_path[len] = '\0'; /* redundant */
+
+        if (changelog_write (priv->htime_fd, (void*) changelog_path, len+1 ) < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Htime file content write failed");
+                ret =-1;
+                goto out;
+        }
+
+        sprintf (x_value,"%lu:%d",ts, priv->rollover_count);
+
+        if (sys_fsetxattr (priv->htime_fd, HTIME_KEY, x_value,
+                       strlen (x_value),  XATTR_REPLACE)) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Htime xattr updation failed");
+                goto out;
+        }
+
+        priv->rollover_count +=1;
+
+out:
+        return ret;
+}
+
 static int
 changelog_rollover_changelog (xlator_t *this,
                               changelog_priv_t *priv, unsigned long ts)
@@ -173,6 +217,15 @@ changelog_rollover_changelog (xlator_t *this,
                         ofile, nfile, strerror (errno));
         }
 
+        if (!ret) {
+                ret = htime_update (this, priv, ts, nfile);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "could not update htime file");
+                        goto out;
+                }
+        }
+
         if (notify) {
                 bname = basename (nfile);
                 gf_log (this->name, GF_LOG_DEBUG, "notifying: %s", bname);
@@ -209,6 +262,54 @@ changelog_rollover_changelog (xlator_t *this,
         }
 
  out:
+        return ret;
+}
+
+/* Returns 0 on successful creation of htime file
+ * returns -1 on failure or error
+ */
+int
+htime_open (xlator_t *this,
+            changelog_priv_t * priv, unsigned long ts)
+{
+        int fd                          = -1;
+        int ret                         = 0;
+        char ht_dir_path[PATH_MAX]      = {0,};
+        char ht_file_path[PATH_MAX]     = {0,};
+        int flags                       = 0;
+
+        CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, ht_dir_path);
+
+        /* get the htime file name in ht_file_path */
+        (void) snprintf (ht_file_path,PATH_MAX,"%s/%s.%lu",ht_dir_path,
+                        HTIME_FILE_NAME, ts);
+
+        flags |= (O_CREAT | O_RDWR | O_SYNC);
+        fd = open (ht_file_path, flags,
+                        S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        if (fd < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "unable to open/create htime file: %s"
+                        "(reason: %s)", ht_file_path, strerror (errno));
+                ret = -1;
+                goto out;
+
+        }
+
+        if (sys_fsetxattr (fd, HTIME_KEY, HTIME_INITIAL_VALUE,
+                       sizeof (HTIME_INITIAL_VALUE)-1,  0)) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Htime xattr initialization failed");
+                ret = -1;
+                goto out;
+        }
+
+        /* save this htime_fd in priv->htime_fd */
+        priv->htime_fd = fd;
+        /* initialize rollover-number in priv to 1 */
+        priv->rollover_count = 1;
+
+out:
         return ret;
 }
 
@@ -311,7 +412,7 @@ changelog_handle_change (xlator_t *this,
         int ret = 0;
 
         if (CHANGELOG_TYPE_IS_ROLLOVER (cld->cld_type)) {
-                changelog_encode_change(priv);
+                changelog_encode_change (priv);
                 ret = changelog_start_next_change (this, priv,
                                                    cld->cld_roll_time,
                                                    cld->cld_finale);
