@@ -184,6 +184,41 @@ enum gf_cli_status_type {
 };
 typedef enum gf_cli_status_type gf_cli_status_type;
 
+enum gf1_cli_snapshot {
+	GF_SNAP_OPTION_TYPE_NONE = 0,
+	GF_SNAP_OPTION_TYPE_CREATE = 1,
+	GF_SNAP_OPTION_TYPE_DELETE = 2,
+	GF_SNAP_OPTION_TYPE_RESTORE = 3,
+	GF_SNAP_OPTION_TYPE_START = 4,
+	GF_SNAP_OPTION_TYPE_STOP = 5,
+	GF_SNAP_OPTION_TYPE_LIST = 6,
+	GF_SNAP_OPTION_TYPE_STATUS = 7,
+	GF_SNAP_OPTION_TYPE_CONFIG = 8,
+        GF_SNAP_OPTION_TYPE_INFO = 9,
+};
+typedef enum gf1_cli_snapshot gf1_cli_snapshot;
+
+enum gf1_cli_snapshot_info {
+        GF_SNAP_INFO_TYPE_ALL = 0,
+        GF_SNAP_INFO_TYPE_SNAP = 1,
+        GF_SNAP_INFO_TYPE_VOL = 2,
+};
+typedef enum gf1_cli_snapshot_info gf1_cli_snapshot_info;
+
+enum gf1_cli_snapshot_config {
+        GF_SNAP_CONFIG_TYPE_NONE = 0,
+        GF_SNAP_CONFIG_TYPE_SET = 1,
+	GF_SNAP_CONFIG_DISPLAY  = 2,
+};
+typedef enum gf1_cli_snapshot_config gf1_cli_snapshot_config;
+
+enum  gf1_cli_snapshot_status {
+        GF_SNAP_STATUS_TYPE_ALL  = 0,
+        GF_SNAP_STATUS_TYPE_SNAP = 1,
+        GF_SNAP_STATUS_TYPE_VOL = 2,
+};
+typedef enum gf1_cli_snapshot_status gf1_cli_snapshot_status;
+
 struct gf_cli_req {
 	struct {
 		u_int dict_len;
@@ -296,6 +331,8 @@ extern  bool_t xdr_gf1_cli_stats_op (XDR *, gf1_cli_stats_op*);
 extern  bool_t xdr_gf1_cli_info_op (XDR *, gf1_cli_info_op*);
 extern  bool_t xdr_gf1_cli_top_op (XDR *, gf1_cli_top_op*);
 extern  bool_t xdr_gf_cli_status_type (XDR *, gf_cli_status_type*);
+extern  bool_t xdr_gf1_cli_snapshot (XDR *, gf1_cli_snapshot*);
+extern  bool_t xdr_gf1_cli_snapshot_config (XDR *, gf1_cli_snapshot_config*);
 extern  bool_t xdr_gf_cli_req (XDR *, gf_cli_req*);
 extern  bool_t xdr_gf_cli_rsp (XDR *, gf_cli_rsp*);
 extern  bool_t xdr_gf1_cli_peer_list_req (XDR *, gf1_cli_peer_list_req*);
@@ -325,6 +362,8 @@ extern bool_t xdr_gf1_cli_stats_op ();
 extern bool_t xdr_gf1_cli_info_op ();
 extern bool_t xdr_gf1_cli_top_op ();
 extern bool_t xdr_gf_cli_status_type ();
+extern bool_t xdr_gf1_cli_snapshot ();
+extern bool_t xdr_gf1_cli_snapshot_config ();
 extern bool_t xdr_gf_cli_req ();
 extern bool_t xdr_gf_cli_rsp ();
 extern bool_t xdr_gf1_cli_peer_list_req ();

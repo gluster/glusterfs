@@ -158,7 +158,7 @@ glusterd_generate_txn_id (dict_t *dict, uuid_t **txn_id)
                 uuid_generate (**txn_id);
 
         ret = dict_set_bin (dict, "transaction_id",
-                            *txn_id, sizeof (uuid_t));
+                            *txn_id, sizeof (**txn_id));
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
                        "Failed to set transaction id.");
@@ -517,7 +517,20 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
                 brick_req->name = gf_strdup (name);
 
                 break;
+        case GD_OP_SNAP:
+                brick_req = GF_CALLOC (1, sizeof (*brick_req),
+                                       gf_gld_mt_mop_brick_req_t);
+                if (!brick_req)
+                        goto out;
 
+                brick_req->op = GLUSTERD_VOLUME_BARRIER_OP;
+                ret = dict_get_str (dict, "volname", &volname);
+                if (ret)
+                        goto out;
+                snprintf (name, 1024, "%s-server",volname);
+                brick_req->name = gf_strdup (name);
+
+                break;
         default:
                 goto out;
         break;
@@ -1659,14 +1672,25 @@ glusterd_stop_bricks (glusterd_volinfo_t *volinfo)
 int
 glusterd_start_bricks (glusterd_volinfo_t *volinfo)
 {
-        glusterd_brickinfo_t                    *brickinfo = NULL;
+        int                      ret            = -1;
+        glusterd_brickinfo_t    *brickinfo      = NULL;
+
+        GF_ASSERT (volinfo);
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (glusterd_brick_start (volinfo, brickinfo, _gf_false))
-                        return -1;
+                ret = glusterd_brick_start (volinfo, brickinfo, _gf_false);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "Failed to start %s:%s for %s",
+                                brickinfo->hostname, brickinfo->path,
+                                volinfo->volname);
+                        goto out;
+                }
         }
 
-        return 0;
+        ret = 0;
+out:
+        return ret;
 }
 
 static int
@@ -2687,7 +2711,7 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
                     (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
                         continue;
 
-                /* Based on the op_version, acquire a cluster or volume lock */
+                /* Based on the op_version, acquire a cluster or mgmt_v3 lock */
                 if (priv->op_version < GD_OP_VERSION_4) {
                         proc = &peerinfo->mgmt->proctable
                                           [GLUSTERD_MGMT_CLUSTER_LOCK];
@@ -2709,7 +2733,7 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
                         dict_ref (dict);
 
                         proc = &peerinfo->mgmt_v3->proctable
-                                          [GLUSTERD_MGMT_V3_VOLUME_LOCK];
+                                          [GLUSTERD_MGMT_V3_LOCK];
                         if (proc->fn) {
                                 ret = dict_set_static_ptr (dict, "peerinfo",
                                                            peerinfo);
@@ -2723,7 +2747,7 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
                                 ret = proc->fn (NULL, this, dict);
                                 if (ret) {
                                         gf_log (this->name, GF_LOG_WARNING,
-                                                "Failed to send volume lock "
+                                                "Failed to send mgmt_v3 lock "
                                                 "request for operation "
                                                 "'Volume %s' to peer %s",
                                                 gd_op_list[opinfo.op],
@@ -2770,7 +2794,7 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
                         continue;
 
                 /* Based on the op_version,
-                 * release the cluster or volume lock */
+                 * release the cluster or mgmt_v3 lock */
                 if (priv->op_version < GD_OP_VERSION_4) {
                         proc = &peerinfo->mgmt->proctable
                                           [GLUSTERD_MGMT_CLUSTER_UNLOCK];
@@ -2792,7 +2816,7 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
                         dict_ref (dict);
 
                         proc = &peerinfo->mgmt_v3->proctable
-                                          [GLUSTERD_MGMT_V3_VOLUME_UNLOCK];
+                                          [GLUSTERD_MGMT_V3_UNLOCK];
                         if (proc->fn) {
                                 ret = dict_set_static_ptr (dict, "peerinfo",
                                                            peerinfo);
@@ -2870,7 +2894,7 @@ glusterd_op_ac_lock (glusterd_op_sm_event_t *event, void *ctx)
 
         /* If the req came from a node running on older op_version
          * the dict won't be present. Based on it acquiring a cluster
-         * or volume lock */
+         * or mgmt_v3 lock */
         if (lock_ctx->dict == NULL) {
                 ret = glusterd_lock (lock_ctx->uuid);
                 glusterd_op_lock_send_resp (lock_ctx->req, ret);
@@ -2880,14 +2904,15 @@ glusterd_op_ac_lock (glusterd_op_sm_event_t *event, void *ctx)
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to acquire volname");
                 else {
-                        ret = glusterd_volume_lock (volname, lock_ctx->uuid);
+                        ret = glusterd_mgmt_v3_lock (volname, lock_ctx->uuid,
+                                                     "vol");
                         if (ret)
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Unable to acquire lock for %s",
                                         volname);
                 }
 
-                glusterd_op_volume_lock_send_resp (lock_ctx->req,
+                glusterd_op_mgmt_v3_lock_send_resp (lock_ctx->req,
                                                    &event->txn_id, ret);
 
                 dict_unref (lock_ctx->dict);
@@ -2917,7 +2942,7 @@ glusterd_op_ac_unlock (glusterd_op_sm_event_t *event, void *ctx)
 
         /* If the req came from a node running on older op_version
          * the dict won't be present. Based on it releasing the cluster
-         * or volume lock */
+         * or mgmt_v3 lock */
         if (lock_ctx->dict == NULL) {
                 ret = glusterd_unlock (lock_ctx->uuid);
                 glusterd_op_unlock_send_resp (lock_ctx->req, ret);
@@ -2927,14 +2952,15 @@ glusterd_op_ac_unlock (glusterd_op_sm_event_t *event, void *ctx)
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to acquire volname");
                 else {
-                        ret = glusterd_volume_unlock (volname, lock_ctx->uuid);
+                        ret = glusterd_mgmt_v3_unlock (volname, lock_ctx->uuid,
+                                                       "vol");
                         if (ret)
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Unable to release lock for %s",
                                         volname);
                 }
 
-                glusterd_op_volume_unlock_send_resp (lock_ctx->req,
+                glusterd_op_mgmt_v3_unlock_send_resp (lock_ctx->req,
                                                      &event->txn_id, ret);
 
                 dict_unref (lock_ctx->dict);
@@ -3466,7 +3492,7 @@ glusterd_op_start_rb_timer (dict_t *dict, uuid_t *txn_id)
         }
 
         ret = dict_set_bin (rb_ctx, "transaction_id",
-                            txn_id, sizeof (uuid_t));
+                            txn_id, sizeof (*txn_id));
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
                        "Failed to set transaction id.");
@@ -4243,7 +4269,7 @@ glusterd_op_txn_complete (uuid_t *txn_id)
         glusterd_op_reset_ctx ();
         glusterd_op_clear_errstr ();
 
-        /* Based on the op-version, we release the cluster or volume lock */
+        /* Based on the op-version, we release the cluster or mgmt_v3 lock */
         if (priv->op_version < GD_OP_VERSION_4) {
                 ret = glusterd_unlock (MY_UUID);
                 /* unlock cant/shouldnt fail here!! */
@@ -4260,7 +4286,8 @@ glusterd_op_txn_complete (uuid_t *txn_id)
                                 "Locks have not been held.");
 
                 if (volname) {
-                        ret = glusterd_volume_unlock (volname, MY_UUID);
+                        ret = glusterd_mgmt_v3_unlock (volname, MY_UUID,
+                                                       "vol");
                         if (ret)
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Unable to release lock for %s",
@@ -4355,7 +4382,7 @@ glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         }
 
         ret = dict_set_bin (rsp_dict, "transaction_id",
-                            txn_id, sizeof(uuid_t));
+                            txn_id, sizeof(*txn_id));
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                        "Failed to set transaction id.");
@@ -4467,7 +4494,7 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         }
 
         ret = dict_set_bin (rsp_dict, "transaction_id",
-                            txn_id, sizeof(uuid_t));
+                            txn_id, sizeof(*txn_id));
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                        "Failed to set transaction id.");
@@ -5225,6 +5252,61 @@ _select_rxlators_for_full_self_heal (xlator_t *this,
 
 
 static int
+glusterd_bricks_select_snap (dict_t *dict, char **op_errstr,
+                             struct list_head *selected)
+{
+        int                        ret           = -1;
+        glusterd_conf_t            *priv         = NULL;
+        xlator_t                   *this         = NULL;
+        glusterd_pending_node_t    *pending_node = NULL;
+        glusterd_volinfo_t         *volinfo      = NULL;
+        char                       *volname      = NULL;
+        glusterd_brickinfo_t       *brickinfo    = NULL;
+        int                         brick_index  = -1;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get"
+                        " volname");
+                goto out;
+        }
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret)
+                goto out;
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                brick_index++;
+                if (uuid_compare (brickinfo->uuid, MY_UUID) ||
+                    !glusterd_is_brick_started (brickinfo)) {
+                        continue;
+                }
+                pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                          gf_gld_mt_pending_node_t);
+                if (!pending_node) {
+                        ret = -1;
+                        goto out;
+                }
+                pending_node->node = brickinfo;
+                pending_node->type = GD_NODE_BRICK;
+                pending_node->index = brick_index;
+                list_add_tail (&pending_node->list,
+                               selected);
+                pending_node = NULL;
+        }
+
+        ret = 0;
+
+out:
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning ret %d", ret);
+        return ret;
+}
+
+static int
 fill_shd_status_for_local_bricks (dict_t *dict, glusterd_volinfo_t *volinfo,
                                   cli_cmd_type type, dict_t *req_dict)
 {
@@ -5795,7 +5877,9 @@ glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr,
                 ret = glusterd_bricks_select_rebalance_volume (dict, op_errstr,
                                                                selected);
                 break;
-
+        case GD_OP_SNAP:
+                ret = glusterd_bricks_select_snap (dict, op_errstr, selected);
+                break;
         default:
                 break;
          }

@@ -376,6 +376,21 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
+        /* As of now, the snap volumes are also displayed as part of
+           volume info command. So this change is to display whether
+           the volume is original volume or the snap_volume. If
+           displaying of snap volumes in volume info o/p is not needed
+           this should be removed.
+        */
+        snprintf (key, 256, "volume%d.snap_volume", count);
+        ret = dict_set_int32 (volumes, key, volinfo->is_snap_volume);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING, "failed to set whether "
+                        "the volume is a snap volume or actual volume (%s)",
+                        volinfo->volname);
+                goto out;
+        }
+
         snprintf (key, 256, "volume%d.brick_count", count);
         ret = dict_set_int32 (volumes, key, volinfo->brick_count);
         if (ret)
@@ -634,7 +649,7 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
                 goto out;
         }
 
-        /* Based on the op_version, acquire a cluster or volume lock */
+        /* Based on the op_version, acquire a cluster or mgmt_v3 lock */
         if (priv->op_version < GD_OP_VERSION_4) {
                 ret = glusterd_lock (MY_UUID);
                 if (ret) {
@@ -664,7 +679,7 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
                                 goto out;
                 }
 
-                ret = glusterd_volume_lock (volname, MY_UUID);
+                ret = glusterd_mgmt_v3_lock (volname, MY_UUID, "vol");
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to acquire lock for %s", volname);
@@ -711,11 +726,12 @@ local_locking_done:
 out:
         if (locked && ret) {
                 /* Based on the op-version, we release the
-                 * cluster or volume lock */
+                 * cluster or mgmt_v3 lock */
                 if (priv->op_version < GD_OP_VERSION_4)
                         glusterd_unlock (MY_UUID);
                 else {
-                        ret = glusterd_volume_unlock (volname, MY_UUID);
+                        ret = glusterd_mgmt_v3_unlock (volname, MY_UUID,
+                                                       "vol");
                         if (ret)
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Unable to release lock for %s",
@@ -820,188 +836,6 @@ glusterd_handle_cluster_lock (rpcsvc_request_t *req)
 {
         return glusterd_big_locked_handler (req,
                                             __glusterd_handle_cluster_lock);
-}
-
-static int
-glusterd_handle_volume_lock_fn (rpcsvc_request_t *req)
-{
-        gd1_mgmt_volume_lock_req        lock_req    = {{0},};
-        int32_t                         ret         = -1;
-        glusterd_op_lock_ctx_t         *ctx         = NULL;
-        glusterd_peerinfo_t            *peerinfo    = NULL;
-        xlator_t                       *this        = NULL;
-        glusterd_op_info_t              txn_op_info = {{0},};
-
-        this = THIS;
-        GF_ASSERT (this);
-        GF_ASSERT (req);
-
-        ret = xdr_to_generic (req->msg[0], &lock_req,
-                              (xdrproc_t)xdr_gd1_mgmt_volume_lock_req);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to decode lock "
-                        "request received from peer");
-                req->rpc_err = GARBAGE_ARGS;
-                goto out;
-        }
-
-        gf_log (this->name, GF_LOG_DEBUG, "Received volume lock req "
-                "from uuid: %s txn_id: %s", uuid_utoa (lock_req.uuid),
-                uuid_utoa (lock_req.txn_id));
-
-        if (glusterd_friend_find_by_uuid (lock_req.uuid, &peerinfo)) {
-                gf_log (this->name, GF_LOG_WARNING, "%s doesn't "
-                        "belong to the cluster. Ignoring request.",
-                        uuid_utoa (lock_req.uuid));
-                ret = -1;
-                goto out;
-        }
-
-        ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_op_lock_ctx_t);
-        if (!ctx) {
-                ret = -1;
-                goto out;
-        }
-
-        uuid_copy (ctx->uuid, lock_req.uuid);
-        ctx->req = req;
-
-        ctx->dict = dict_new ();
-        if (!ctx->dict) {
-                ret = -1;
-                goto out;
-        }
-
-        ret = dict_unserialize (lock_req.dict.dict_val,
-                                lock_req.dict.dict_len, &ctx->dict);
-        if (ret) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "failed to unserialize the dictionary");
-                goto out;
-        }
-
-        glusterd_txn_opinfo_init (&txn_op_info, NULL, &lock_req.op,
-                                  ctx->dict, req);
-
-        ret = glusterd_set_txn_opinfo (&lock_req.txn_id, &txn_op_info);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Unable to set transaction's opinfo");
-                goto out;
-        }
-
-        ret = glusterd_op_sm_inject_event (GD_OP_EVENT_LOCK,
-                                           &lock_req.txn_id, ctx);
-        if (ret)
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Failed to inject event GD_OP_EVENT_LOCK");
-
-out:
-        if (ret) {
-                if (ctx) {
-                        if (ctx->dict)
-                                dict_destroy (ctx->dict);
-                        GF_FREE (ctx);
-                }
-        }
-
-        glusterd_friend_sm ();
-        glusterd_op_sm ();
-
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
-}
-
-int
-glusterd_handle_volume_lock (rpcsvc_request_t *req)
-{
-        return glusterd_big_locked_handler (req,
-                                            glusterd_handle_volume_lock_fn);
-}
-
-static int
-glusterd_handle_volume_unlock_fn (rpcsvc_request_t *req)
-{
-        gd1_mgmt_volume_unlock_req        lock_req = {{0},};
-        int32_t                           ret      = -1;
-        glusterd_op_lock_ctx_t           *ctx      = NULL;
-        glusterd_peerinfo_t              *peerinfo = NULL;
-        xlator_t                         *this     = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-        GF_ASSERT (req);
-
-        ret = xdr_to_generic (req->msg[0], &lock_req,
-                              (xdrproc_t)xdr_gd1_mgmt_volume_unlock_req);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to decode unlock "
-                        "request received from peer");
-                req->rpc_err = GARBAGE_ARGS;
-                goto out;
-        }
-
-        gf_log (this->name, GF_LOG_DEBUG, "Received volume unlock req "
-                "from uuid: %s", uuid_utoa (lock_req.uuid));
-
-        if (glusterd_friend_find_by_uuid (lock_req.uuid, &peerinfo)) {
-                gf_log (this->name, GF_LOG_WARNING, "%s doesn't "
-                        "belong to the cluster. Ignoring request.",
-                        uuid_utoa (lock_req.uuid));
-                ret = -1;
-                goto out;
-        }
-
-        ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_op_lock_ctx_t);
-        if (!ctx) {
-                ret = -1;
-                goto out;
-        }
-
-        uuid_copy (ctx->uuid, lock_req.uuid);
-        ctx->req = req;
-
-        ctx->dict = dict_new ();
-        if (!ctx->dict) {
-                ret = -1;
-                goto out;
-        }
-
-        ret = dict_unserialize (lock_req.dict.dict_val,
-                                lock_req.dict.dict_len, &ctx->dict);
-        if (ret) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "failed to unserialize the dictionary");
-                goto out;
-        }
-
-        ret = glusterd_op_sm_inject_event (GD_OP_EVENT_UNLOCK,
-                                           &lock_req.txn_id, ctx);
-        if (ret)
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Failed to inject event GD_OP_EVENT_UNLOCK");
-
-out:
-        if (ret) {
-                if (ctx) {
-                        if (ctx->dict)
-                                dict_destroy (ctx->dict);
-                        GF_FREE (ctx);
-                }
-        }
-
-        glusterd_friend_sm ();
-        glusterd_op_sm ();
-
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
-}
-
-int
-glusterd_handle_volume_unlock (rpcsvc_request_t *req)
-{
-        return glusterd_big_locked_handler (req,
-                                            glusterd_handle_volume_unlock_fn);
 }
 
 int
@@ -2243,12 +2077,12 @@ glusterd_op_unlock_send_resp (rpcsvc_request_t *req, int32_t status)
 }
 
 int
-glusterd_op_volume_lock_send_resp (rpcsvc_request_t *req, uuid_t *txn_id,
+glusterd_op_mgmt_v3_lock_send_resp (rpcsvc_request_t *req, uuid_t *txn_id,
                                    int32_t status)
 {
 
-        gd1_mgmt_volume_lock_rsp       rsp = {{0},};
-        int                            ret = -1;
+        gd1_mgmt_v3_lock_rsp    rsp = {{0},};
+        int                     ret = -1;
 
         GF_ASSERT (req);
         GF_ASSERT (txn_id);
@@ -2259,20 +2093,20 @@ glusterd_op_volume_lock_send_resp (rpcsvc_request_t *req, uuid_t *txn_id,
         uuid_copy (rsp.txn_id, *txn_id);
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     (xdrproc_t)xdr_gd1_mgmt_volume_lock_rsp);
+                                     (xdrproc_t)xdr_gd1_mgmt_v3_lock_rsp);
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Responded to volume lock, ret: %d",
+        gf_log (THIS->name, GF_LOG_DEBUG, "Responded to mgmt_v3 lock, ret: %d",
                 ret);
 
         return ret;
 }
 
 int
-glusterd_op_volume_unlock_send_resp (rpcsvc_request_t *req, uuid_t *txn_id,
+glusterd_op_mgmt_v3_unlock_send_resp (rpcsvc_request_t *req, uuid_t *txn_id,
                                      int32_t status)
 {
 
-        gd1_mgmt_volume_unlock_rsp      rsp = {{0},};
+        gd1_mgmt_v3_unlock_rsp      rsp = {{0},};
         int                             ret = -1;
 
         GF_ASSERT (req);
@@ -2284,9 +2118,9 @@ glusterd_op_volume_unlock_send_resp (rpcsvc_request_t *req, uuid_t *txn_id,
         uuid_copy (rsp.txn_id, *txn_id);
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                                     (xdrproc_t)xdr_gd1_mgmt_volume_unlock_rsp);
+                                     (xdrproc_t)xdr_gd1_mgmt_v3_unlock_rsp);
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Responded to volume unlock, ret: %d",
+        gf_log (THIS->name, GF_LOG_DEBUG, "Responded to mgmt_v3 unlock, ret: %d",
                 ret);
 
         return ret;
@@ -4069,8 +3903,12 @@ get_brickinfo_from_brickid (char *brickid, glusterd_brickinfo_t **brickinfo)
         brick++;
         uuid_parse (volid_str, volid);
         ret = glusterd_volinfo_find_by_volume_id (volid, &volinfo);
-        if (ret)
-                goto out;
+        if (ret) {
+                /* Check if it a snapshot volume */
+                ret = glusterd_snap_volinfo_find_by_volume_id (volid, &volinfo);
+                if (ret)
+                        goto out;
+        }
 
         ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
                                                       brickinfo);
@@ -4284,9 +4122,10 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                         } else {
                                 list_for_each_entry (volinfo, &conf->volumes,
                                                      vol_list) {
-                                        ret = glusterd_volume_unlock
+                                        ret = glusterd_mgmt_v3_unlock
                                                     (volinfo->volname,
-                                                     peerinfo->uuid);
+                                                     peerinfo->uuid,
+                                                     "vol");
                                         if (ret)
                                                 gf_log (this->name,
                                                         GF_LOG_TRACE,
@@ -4414,8 +4253,9 @@ rpcsvc_actor_t gd_svc_cli_actors[] = {
         [GLUSTER_CLI_STATEDUMP_VOLUME]   = {"STATEDUMP_VOLUME",   GLUSTER_CLI_STATEDUMP_VOLUME, glusterd_handle_cli_statedump_volume,  NULL, 0, DRC_NA},
         [GLUSTER_CLI_LIST_VOLUME]        = {"LIST_VOLUME",        GLUSTER_CLI_LIST_VOLUME,      glusterd_handle_cli_list_volume,       NULL, 0, DRC_NA},
         [GLUSTER_CLI_CLRLOCKS_VOLUME]    = {"CLEARLOCKS_VOLUME",  GLUSTER_CLI_CLRLOCKS_VOLUME,  glusterd_handle_cli_clearlocks_volume, NULL, 0, DRC_NA},
-        [GLUSTER_CLI_COPY_FILE]     = {"COPY_FILE", GLUSTER_CLI_COPY_FILE, glusterd_handle_copy_file, NULL, 0, DRC_NA},
-        [GLUSTER_CLI_SYS_EXEC]      = {"SYS_EXEC", GLUSTER_CLI_SYS_EXEC, glusterd_handle_sys_exec, NULL, 0, DRC_NA},
+        [GLUSTER_CLI_COPY_FILE]          = {"COPY_FILE",          GLUSTER_CLI_COPY_FILE,        glusterd_handle_copy_file,             NULL, 0, DRC_NA},
+        [GLUSTER_CLI_SYS_EXEC]           = {"SYS_EXEC",           GLUSTER_CLI_SYS_EXEC,         glusterd_handle_sys_exec,              NULL, 0, DRC_NA},
+        [GLUSTER_CLI_SNAP]               = {"SNAP",               GLUSTER_CLI_SNAP,             glusterd_handle_snapshot,              NULL, 0, DRC_NA},
 };
 
 struct rpcsvc_program gd_svc_cli_prog = {
@@ -4446,19 +4286,4 @@ struct rpcsvc_program gd_svc_cli_prog_ro = {
         .numactors = GLUSTER_CLI_MAXVALUE,
         .actors    = gd_svc_cli_actors_ro,
 	.synctask  = _gf_true,
-};
-
-rpcsvc_actor_t gd_svc_mgmt_v3_actors[] = {
-        [GLUSTERD_MGMT_V3_NULL]          = { "NULL",       GLUSTERD_MGMT_V3_NULL,          glusterd_null,                 NULL, 0, DRC_NA},
-        [GLUSTERD_MGMT_V3_VOLUME_LOCK]   = { "VOL_LOCK",   GLUSTERD_MGMT_V3_VOLUME_LOCK,   glusterd_handle_volume_lock,   NULL, 0, DRC_NA},
-        [GLUSTERD_MGMT_V3_VOLUME_UNLOCK] = { "VOL_UNLOCK", GLUSTERD_MGMT_V3_VOLUME_UNLOCK, glusterd_handle_volume_unlock, NULL, 0, DRC_NA},
-};
-
-struct rpcsvc_program gd_svc_mgmt_v3_prog = {
-        .progname  = "GlusterD svc mgmt v3",
-        .prognum   = GD_MGMT_PROGRAM,
-        .progver   = GD_MGMT_V3_VERSION,
-        .numactors = GLUSTERD_MGMT_V3_MAXVALUE,
-        .actors    = gd_svc_mgmt_v3_actors,
-        .synctask  = _gf_true,
 };

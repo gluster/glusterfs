@@ -27,13 +27,23 @@ function volinfo_field()
 function two_diff_vols_create {
         # Both volume creates should be successful
         $CLI_1 volume create $V0 $H1:$B1/$V0 $H2:$B2/$V0 $H3:$B3/$V0 &
-        $CLI_2 volume create $V1 $H1:$B1/$V1 $H2:$B2/$V1 $H3:$B3/$V1
+        PID_1=$!
+
+        $CLI_2 volume create $V1 $H1:$B1/$V1 $H2:$B2/$V1 $H3:$B3/$V1 &
+        PID_2=$!
+
+        wait $PID_1 $PID_2
 }
 
 function two_diff_vols_start {
         # Both volume starts should be successful
         $CLI_1 volume start $V0 &
-        $CLI_2 volume start $V1
+        PID_1=$!
+
+        $CLI_2 volume start $V1 &
+        PID_2=$!
+
+        wait $PID_1 $PID_2
 }
 
 function two_diff_vols_stop_force {
@@ -42,7 +52,12 @@ function two_diff_vols_stop_force {
         # still go ahead. Both volume stops should
         # be successful
         $CLI_1 volume stop $V0 force &
-        $CLI_2 volume stop $V1 force
+        PID_1=$!
+
+        $CLI_2 volume stop $V1 force &
+        PID_2=$!
+
+        wait $PID_1 $PID_2
 }
 
 function same_vol_remove_brick {

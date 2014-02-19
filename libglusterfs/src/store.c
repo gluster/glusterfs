@@ -168,10 +168,12 @@ int
 gf_store_read_and_tokenize (FILE *file, char *str, char **iter_key,
                             char **iter_val, gf_store_op_errno_t *store_errno)
 {
-        int32_t     ret = -1;
-        char        *savetok = NULL;
-        char        *key = NULL;
-        char        *value = NULL;
+        int32_t     ret         =   -1;
+        char        *savetok    = NULL;
+        char        *key        = NULL;
+        char        *value      = NULL;
+        char        *temp       = NULL;
+        size_t       str_len    =    0;
 
         GF_ASSERT (file);
         GF_ASSERT (str);
@@ -179,12 +181,16 @@ gf_store_read_and_tokenize (FILE *file, char *str, char **iter_key,
         GF_ASSERT (iter_val);
         GF_ASSERT (store_errno);
 
-        ret = fscanf (file, "%s", str);
-        if (ret <= 0 || feof (file)) {
+        temp = fgets (str, PATH_MAX, file);
+        if (temp == NULL || feof (file)) {
                 ret = -1;
                 *store_errno = GD_STORE_EOF;
                 goto out;
         }
+
+        str_len = strlen(str);
+        str[str_len - 1] = '\0';
+        /* Truncate the "\n", as fgets stores "\n" in str */
 
         key = strtok_r (str, "=", &savetok);
         if (!key) {
@@ -253,8 +259,13 @@ gf_store_retrieve_value (gf_store_handle_t *handle, char *key, char **value)
                 goto out;
         }
 
-        scan_str = GF_CALLOC (1, st.st_size,
+        /* "st.st_size + 1" is used as we are fetching each
+         * line of a file using fgets, fgets will append "\0"
+         * to the end of the string
+         */
+        scan_str = GF_CALLOC (1, st.st_size + 1,
                               gf_common_mt_char);
+
         if (scan_str == NULL) {
                 ret = -1;
                 store_errno = GD_STORE_ENOMEM;
@@ -531,7 +542,11 @@ gf_store_iter_get_next (gf_store_iter_t *iter, char  **key, char **value,
                 goto out;
         }
 
-        scan_str = GF_CALLOC (1, st.st_size,
+        /* "st.st_size + 1" is used as we are fetching each
+         * line of a file using fgets, fgets will append "\0"
+         * to the end of the string
+         */
+        scan_str = GF_CALLOC (1, st.st_size + 1,
                               gf_common_mt_char);
         if (!scan_str) {
                 ret = -1;
@@ -595,7 +610,9 @@ gf_store_iter_get_matching (gf_store_iter_t *iter, char *key, char **value)
                         goto out;
                 }
                 GF_FREE (tmp_key);
+                tmp_key = NULL;
                 GF_FREE (tmp_value);
+                tmp_value = NULL;
                 ret = gf_store_iter_get_next (iter, &tmp_key, &tmp_value,
                                               NULL);
         }

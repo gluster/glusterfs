@@ -1211,6 +1211,16 @@ glusterd_op_stage_delete_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        if (volinfo->snap_count > 0 || !list_empty(&volinfo->snap_volumes)) {
+                snprintf (msg, sizeof (msg), "Cannot delete Volume %s ,"
+                        "as it has %ld snapshots. "
+                        "To delete the volume, "
+                        "first delete all the snapshots under it.",
+                          volname, volinfo->snap_count);
+                ret = -1;
+                goto out;
+        }
+
         ret = 0;
 
 out:
@@ -1772,54 +1782,48 @@ out:
         return ret;
 }
 
-
 int
-glusterd_op_stop_volume (dict_t *dict)
+glusterd_stop_volume (glusterd_volinfo_t *volinfo)
 {
-        int                                     ret = 0;
-        int                                     flags = 0;
-        char                                    *volname = NULL;
-        glusterd_volinfo_t                      *volinfo = NULL;
-        glusterd_brickinfo_t                    *brickinfo = NULL;
-        xlator_t                                *this = NULL;
-        char                                    mountdir[PATH_MAX] = {0,};
-        runner_t                                runner = {0,};
-        char                                    pidfile[PATH_MAX] = {0,};
+        int                     ret                     = -1;
+        glusterd_brickinfo_t    *brickinfo              = NULL;
+        char                    mountdir[PATH_MAX]      = {0,};
+        runner_t                runner                  = {0,};
+        char                    pidfile[PATH_MAX]       = {0,};
+        xlator_t                *this                   = NULL;
 
         this = THIS;
         GF_ASSERT (this);
 
-        ret = glusterd_op_stop_volume_args_get (dict, &volname, &flags);
-        if (ret)
-                goto out;
-
-        ret  = glusterd_volinfo_find (volname, &volinfo);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, FMTSTR_CHECK_VOL_EXISTS,
-                        volname);
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO (this->name, volinfo, out);
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 ret = glusterd_brick_stop (volinfo, brickinfo, _gf_false);
-                if (ret)
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to stop "
+                                "brick (%s)", brickinfo->path);
                         goto out;
+                }
         }
 
         glusterd_set_volume_status (volinfo, GLUSTERD_STATUS_STOPPED);
 
         ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
-        if (ret)
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to store volinfo of "
+                        "%s volume", volinfo->volname);
                 goto out;
+        }
 
         /* If quota auxiliary mount is present, unmount it */
-        GLUSTERFS_GET_AUX_MOUNT_PIDFILE (pidfile, volname);
+        GLUSTERFS_GET_AUX_MOUNT_PIDFILE (pidfile, volinfo->volname);
 
         if (!gf_is_service_running (pidfile, NULL)) {
                 gf_log (this->name, GF_LOG_DEBUG, "Aux mount of volume %s "
-                        "absent", volname);
+                        "absent", volinfo->volname);
         } else {
-                GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (mountdir, volname, "/");
+                GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (mountdir, volinfo->volname,
+                                                   "/");
 
                 runinit (&runner);
                 runner_add_args (&runner, "umount",
@@ -1837,6 +1841,45 @@ glusterd_op_stop_volume (dict_t *dict)
         }
 
         ret = glusterd_nodesvcs_handle_graph_change (volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to notify graph "
+                        "change for %s volume", volinfo->volname);
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
+int
+glusterd_op_stop_volume (dict_t *dict)
+{
+        int                                     ret = 0;
+        int                                     flags = 0;
+        char                                    *volname = NULL;
+        glusterd_volinfo_t                      *volinfo = NULL;
+        xlator_t                                *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        ret = glusterd_op_stop_volume_args_get (dict, &volname, &flags);
+        if (ret)
+                goto out;
+
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, FMTSTR_CHECK_VOL_EXISTS,
+                        volname);
+                goto out;
+        }
+
+        ret = glusterd_stop_volume (volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to stop %s volume",
+                        volname);
+                goto out;
+        }
 out:
         return ret;
 }

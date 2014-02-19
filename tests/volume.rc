@@ -308,3 +308,54 @@ function has_holes {
                 echo "0"
         fi
 }
+
+function do_volume_operations() {
+        local operation=$1
+        local count=$2
+        local force=$3
+
+        local pids=()
+        local cli
+        local v
+
+         for i in `seq 1 $count`; do
+                cli="CLI_$i"
+                v="V`expr $i - 1`"
+                ${!cli} volume $operation ${!v} $force &
+                pids[$i]=$!
+        done
+
+        for i in `seq 1 $count`; do
+                wait ${pids[$i]}
+        done
+}
+
+function start_volumes() {
+        do_volume_operations start $1
+}
+
+function stop_volumes() {
+        do_volume_operations stop $1
+}
+
+function start_force_volumes() {
+        do_volume_operations start $1 force
+}
+
+function stop_force_volumes() {
+        do_volume_operations stop $1 force
+}
+
+function delete_volumes() {
+        do_volume_operations delete $1
+}
+
+function volume_exists() {
+        local volname=$1
+        $CLI volume info $volname 2>&1 | grep -q 'does not exist'
+        if [ $? -eq 0 ]; then
+                return 1
+        else
+                return 0
+        fi
+}

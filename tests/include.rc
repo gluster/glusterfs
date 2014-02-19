@@ -225,6 +225,7 @@ function cleanup()
                 umount $m
         done
 
+        type cleanup_lvm &>/dev/null && cleanup_lvm
 
         LOOPDEVICES=`losetup -a | grep "$B0/" | awk '{print $1}' | tr -d :`
         for l in $LOOPDEVICES;
@@ -239,6 +240,7 @@ function cleanup()
 	umount -l $M1 2>/dev/null || true;
 	umount -l $N0 2>/dev/null || true;
 	umount -l $N1 2>/dev/null || true;
+
 }
 
 function volinfo_field()

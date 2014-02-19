@@ -491,8 +491,11 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
         if (!new_volinfo)
                 goto out;
 
+        LOCK_INIT (&new_volinfo->lock);
         INIT_LIST_HEAD (&new_volinfo->vol_list);
+        INIT_LIST_HEAD (&new_volinfo->snapvol_list);
         INIT_LIST_HEAD (&new_volinfo->bricks);
+        INIT_LIST_HEAD (&new_volinfo->snap_volumes);
 
         new_volinfo->dict = dict_new ();
         if (!new_volinfo->dict) {
@@ -508,6 +511,10 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
                 goto out;
         }
 
+        snprintf (new_volinfo->parent_volname, GLUSTERD_MAX_VOLUME_NAME, "N/A");
+
+        new_volinfo->snap_max_hard_limit = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
+
         new_volinfo->xl = THIS;
 
         pthread_mutex_init (&new_volinfo->reflock, NULL);
@@ -517,6 +524,224 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
 
 out:
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+/* This function will create a new volinfo and then
+ * dup the entries from volinfo to the new_volinfo.
+ *
+ * @param volinfo       volinfo which will be duplicated
+ * @param dup_volinfo   new volinfo which will be created
+ * @param set_userauth  if this true then auth info is also set
+ *
+ * @return 0 on success else -1
+ */
+int32_t
+glusterd_volinfo_dup (glusterd_volinfo_t *volinfo,
+                      glusterd_volinfo_t **dup_volinfo,
+                      gf_boolean_t set_userauth)
+{
+        int32_t                 ret             = -1;
+        xlator_t                *this           = NULL;
+        glusterd_volinfo_t      *new_volinfo    = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_VALIDATE_OR_GOTO (this->name, volinfo, out);
+        GF_VALIDATE_OR_GOTO (this->name, dup_volinfo, out);
+
+        ret = glusterd_volinfo_new (&new_volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "not able to create the "
+                        "duplicate volinfo for the volume %s",
+                        volinfo->volname);
+                goto out;
+        }
+
+        new_volinfo->type = volinfo->type;
+        new_volinfo->replica_count = volinfo->replica_count;
+        new_volinfo->stripe_count = volinfo->stripe_count;
+        new_volinfo->dist_leaf_count = volinfo->dist_leaf_count;
+        new_volinfo->sub_count = volinfo->sub_count;
+        new_volinfo->transport_type = volinfo->transport_type;
+        new_volinfo->nfs_transport_type = volinfo->nfs_transport_type;
+        new_volinfo->brick_count = volinfo->brick_count;
+
+        dict_copy (volinfo->dict, new_volinfo->dict);
+        gd_update_volume_op_versions (new_volinfo);
+
+        if (set_userauth) {
+                glusterd_auth_set_username (new_volinfo,
+                                            volinfo->auth.username);
+                glusterd_auth_set_password (new_volinfo,
+                                            volinfo->auth.password);
+        }
+
+        *dup_volinfo = new_volinfo;
+        ret = 0;
+out:
+        if (ret && (NULL != new_volinfo)) {
+                (void) glusterd_volinfo_delete (new_volinfo);
+        }
+        return ret;
+}
+
+/* This function will duplicate brickinfo
+ *
+ * @param brickinfo     Source brickinfo
+ * @param dup_brickinfo Destination brickinfo
+ *
+ * @return 0 on success else -1
+ */
+int32_t
+glusterd_brickinfo_dup (glusterd_brickinfo_t *brickinfo,
+                        glusterd_brickinfo_t *dup_brickinfo)
+{
+        int32_t         ret     = -1;
+        xlator_t        *this   = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        GF_VALIDATE_OR_GOTO (this->name, brickinfo, out);
+        GF_VALIDATE_OR_GOTO (this->name, dup_brickinfo, out);
+
+        strcpy (dup_brickinfo->hostname, brickinfo->hostname);
+        strcpy (dup_brickinfo->path, brickinfo->path);
+        strcpy (dup_brickinfo->device_path, brickinfo->device_path);
+        ret = gf_canonicalize_path (dup_brickinfo->path);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to canonicalize "
+                        "brick path");
+                goto out;
+        }
+        uuid_copy (dup_brickinfo->uuid, brickinfo->uuid);
+
+        dup_brickinfo->port = brickinfo->port;
+        dup_brickinfo->rdma_port = brickinfo->rdma_port;
+        if (NULL != brickinfo->logfile) {
+                dup_brickinfo->logfile = gf_strdup (brickinfo->logfile);
+                if (NULL == dup_brickinfo->logfile) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+        dup_brickinfo->status = brickinfo->status;
+        dup_brickinfo->snap_status = brickinfo->snap_status;
+out:
+        return ret;
+}
+
+/* This function will copy snap volinfo to the new
+ * passed volinfo and regenerate backend store files
+ * for the restored snap.
+ *
+ * @param new_volinfo   new volinfo
+ * @param snap_volinfo  volinfo of snap volume
+ *
+ * @return 0 on success and -1 on failure
+ *
+ * TODO: Duplicate all members of volinfo, e.g. geo-rep sync slaves
+ */
+int32_t
+glusterd_snap_volinfo_restore (dict_t *rsp_dict,
+                               glusterd_volinfo_t *new_volinfo,
+                               glusterd_volinfo_t *snap_volinfo)
+{
+        int32_t                 brick_count     = -1;
+        int32_t                 ret             = -1;
+        xlator_t                *this           = NULL;
+        glusterd_brickinfo_t    *brickinfo      = NULL;
+        glusterd_brickinfo_t    *new_brickinfo  = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (rsp_dict);
+
+        GF_VALIDATE_OR_GOTO (this->name, new_volinfo, out);
+        GF_VALIDATE_OR_GOTO (this->name, snap_volinfo, out);
+
+        brick_count = 0;
+        list_for_each_entry (brickinfo, &snap_volinfo->bricks, brick_list) {
+                ret = glusterd_brickinfo_new (&new_brickinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to create "
+                                "new brickinfo");
+                        goto out;
+                }
+
+                /* Duplicate brickinfo */
+                ret = glusterd_brickinfo_dup (brickinfo, new_brickinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to dup "
+                                "brickinfo");
+                        goto out;
+                }
+
+                /*Update the brickid for the new brick in new volume*/
+                GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO (new_brickinfo,
+                                                      new_volinfo,
+                                                      brick_count);
+
+                /* If the brick is not of this peer, or snapshot is missed *
+                 * for the brick do not replace the xattr for it */
+                if ((!uuid_compare (brickinfo->uuid, MY_UUID)) &&
+                    (brickinfo->snap_status != -1)) {
+                        /* We need to replace the volume id of all the bricks
+                         * to the volume id of the origin volume. new_volinfo
+                         * has the origin volume's volume id*/
+                        ret = sys_lsetxattr (new_brickinfo->path,
+                                             GF_XATTR_VOL_ID_KEY,
+                                             new_volinfo->volume_id,
+                                             sizeof (new_volinfo->volume_id),
+                                             XATTR_REPLACE);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "set extended attribute %s on %s. "
+                                        "Reason: %s, snap: %s",
+                                        GF_XATTR_VOL_ID_KEY,
+                                        new_brickinfo->path, strerror (errno),
+                                        new_volinfo->volname);
+                                goto out;
+                        }
+                }
+
+                /* If a snapshot is pending for this brick then
+                 * restore should also be pending
+                 */
+                if (brickinfo->snap_status == -1) {
+                        /* Adding missed delete to the dict */
+                        ret = glusterd_add_missed_snaps_to_dict
+                                                (rsp_dict,
+                                                 snap_volinfo->volname,
+                                                 brickinfo,
+                                                 brick_count + 1,
+                                                 GF_SNAP_OPTION_TYPE_RESTORE);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to add missed snapshot info "
+                                        "for %s:%s in the rsp_dict",
+                                        brickinfo->hostname,
+                                        brickinfo->path);
+                                goto out;
+                        }
+                }
+
+                list_add_tail (&new_brickinfo->brick_list,
+                                &new_volinfo->bricks);
+                /* ownership of new_brickinfo is passed to new_volinfo */
+                new_brickinfo = NULL;
+                brick_count++;
+        }
+
+        /* Regenerate all volfiles */
+        ret = glusterd_create_volfiles_and_notify_services (new_volinfo);
+
+out:
+        if (ret && (NULL != new_brickinfo)) {
+                (void) glusterd_brickinfo_delete (new_brickinfo);
+        }
+
         return ret;
 }
 
@@ -620,6 +845,7 @@ glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
         GF_ASSERT (volinfo);
 
         list_del_init (&volinfo->vol_list);
+        list_del_init (&volinfo->snapvol_list);
 
         ret = glusterd_volume_brickinfos_delete (volinfo);
         if (ret)
@@ -644,7 +870,6 @@ out:
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
-
 
 int32_t
 glusterd_brickinfo_new (glusterd_brickinfo_t **brickinfo)
@@ -1160,6 +1385,42 @@ glusterd_volinfo_find_by_volume_id (uuid_t volume_id, glusterd_volinfo_t **volin
         return ret;
 }
 
+int
+glusterd_snap_volinfo_find_by_volume_id (uuid_t volume_id,
+                                         glusterd_volinfo_t **volinfo)
+{
+        int32_t                  ret     = -1;
+        xlator_t                *this    = NULL;
+        glusterd_volinfo_t      *voliter = NULL;
+        glusterd_snap_t         *snap    = NULL;
+        glusterd_conf_t         *priv    = NULL;
+
+        this = THIS;
+        priv = this->private;
+        GF_ASSERT (priv);
+        GF_ASSERT (volinfo);
+
+        if (uuid_is_null(volume_id)) {
+                gf_log (this->name, GF_LOG_WARNING, "Volume UUID is NULL");
+                goto out;
+        }
+
+        list_for_each_entry (snap, &priv->snapshots, snap_list) {
+                list_for_each_entry (voliter, &snap->volumes, vol_list) {
+                        if (uuid_compare (volume_id, voliter->volume_id))
+                                continue;
+                        *volinfo = voliter;
+                        ret = 0;
+                        goto out;
+                }
+        }
+
+        gf_log (this->name, GF_LOG_WARNING, "Snap volume not found");
+out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
+}
+
 int32_t
 glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo)
 {
@@ -1169,7 +1430,6 @@ glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo)
         glusterd_conf_t         *priv = NULL;
 
         GF_ASSERT (volname);
-
         this = THIS;
         GF_ASSERT (this);
 
@@ -1178,7 +1438,8 @@ glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo)
 
         list_for_each_entry (tmp_volinfo, &priv->volumes, vol_list) {
                 if (!strcmp (tmp_volinfo->volname, volname)) {
-                        gf_log (this->name, GF_LOG_DEBUG, "Volume %s found", volname);
+                        gf_log (this->name, GF_LOG_DEBUG, "Volume %s found",
+                                volname);
                         ret = 0;
                         *volinfo = tmp_volinfo;
                         break;
@@ -1186,6 +1447,68 @@ glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo)
         }
 
         gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_snap_volinfo_find (char *snap_volname, glusterd_snap_t *snap,
+                            glusterd_volinfo_t **volinfo)
+{
+        int32_t                  ret         = -1;
+        xlator_t                *this        = NULL;
+        glusterd_volinfo_t      *snap_vol    = NULL;
+        glusterd_conf_t         *priv        = NULL;
+
+        this = THIS;
+        priv = this->private;
+        GF_ASSERT (priv);
+        GF_ASSERT (snap);
+        GF_ASSERT (snap_volname);
+
+        list_for_each_entry (snap_vol, &snap->volumes, vol_list) {
+                if (!strcmp (snap_vol->volname, snap_volname)) {
+                        ret = 0;
+                        *volinfo = snap_vol;
+                        goto out;
+                }
+        }
+
+        gf_log (this->name, GF_LOG_WARNING, "Snap volume %s not found",
+                snap_volname);
+out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_snap_volinfo_find_from_parent_volname (char *origin_volname,
+                                      glusterd_snap_t *snap,
+                                      glusterd_volinfo_t **volinfo)
+{
+        int32_t                  ret         = -1;
+        xlator_t                *this        = NULL;
+        glusterd_volinfo_t      *snap_vol    = NULL;
+        glusterd_conf_t         *priv        = NULL;
+
+        this = THIS;
+        priv = this->private;
+        GF_ASSERT (priv);
+        GF_ASSERT (snap);
+        GF_ASSERT (origin_volname);
+
+        list_for_each_entry (snap_vol, &snap->volumes, vol_list) {
+                if (!strcmp (snap_vol->parent_volname, origin_volname)) {
+                        ret = 0;
+                        *volinfo = snap_vol;
+                        goto out;
+                }
+        }
+
+        gf_log (this->name, GF_LOG_DEBUG, "Snap volume not found(snap: %s, "
+                "origin-volume: %s", snap->snapname, origin_volname);
+
+out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
 
@@ -1281,10 +1604,9 @@ glusterd_set_brick_socket_filepath (glusterd_volinfo_t *volinfo,
  */
 int32_t
 glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
-                        glusterd_brickinfo_t  *brickinfo)
+                        glusterd_brickinfo_t  *brickinfo, char *socketpath)
 {
         int                     ret = 0;
-        char                    socketpath[PATH_MAX] = {0};
         char                    volume_id_str[64];
         char                    *brickid = NULL;
         dict_t                  *options = NULL;
@@ -1293,12 +1615,9 @@ glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
+        GF_ASSERT (socketpath);
 
         if (brickinfo->rpc == NULL) {
-                glusterd_set_brick_socket_filepath (volinfo, brickinfo,
-                                                    socketpath,
-                                                    sizeof (socketpath));
-
                 /* Setting frame-timeout to 10mins (600seconds).
                  * Unix domain sockets ensures that the connection is reliable.
                  * The default timeout of 30mins used for unreliable network
@@ -1379,9 +1698,23 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         priv = this->private;
         GF_ASSERT (priv);
 
+        if (brickinfo->snap_status == -1) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "Snapshot is pending on %s:%s. "
+                        "Hence not starting the brick",
+                        brickinfo->hostname,
+                        brickinfo->path);
+                ret = 0;
+                goto out;
+        }
+
         ret = _mk_rundir_p (volinfo);
         if (ret)
                 goto out;
+
+        glusterd_set_brick_socket_filepath (volinfo, brickinfo, socketpath,
+                                            sizeof (socketpath));
+
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, priv);
         if (gf_is_service_running (pidfile, NULL))
                 goto connect;
@@ -1417,8 +1750,15 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 runner_argprintf (&runner, "--log-file=%s", valgrind_logfile);
         }
 
-        snprintf (volfile, PATH_MAX, "%s.%s.%s", volinfo->volname,
-                  brickinfo->hostname, exp_path);
+        if (volinfo->is_snap_volume) {
+                snprintf (volfile, PATH_MAX,"/%s/%s/%s.%s.%s",
+                          GLUSTERD_VOL_SNAP_DIR_PREFIX,
+                          volinfo->snapshot->snapname, volinfo->volname,
+                          brickinfo->hostname, exp_path);
+        } else {
+                snprintf (volfile, PATH_MAX, "%s.%s.%s", volinfo->volname,
+                          brickinfo->hostname, exp_path);
+        }
 
         if (volinfo->logdir) {
                 snprintf (logfile, PATH_MAX, "%s/%s.log",
@@ -1429,9 +1769,6 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         }
         if (!brickinfo->logfile)
                 brickinfo->logfile = gf_strdup (logfile);
-
-        glusterd_set_brick_socket_filepath (volinfo, brickinfo, socketpath,
-                                            sizeof (socketpath));
 
         (void) snprintf (glusterd_uuid, 1024, "*-posix.glusterd-uuid=%s",
                          uuid_utoa (MY_UUID));
@@ -1480,9 +1817,13 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         brickinfo->rdma_port = rdma_port;
 
 connect:
-        ret = glusterd_brick_connect (volinfo, brickinfo);
-        if (ret)
+        ret = glusterd_brick_connect (volinfo, brickinfo, socketpath);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to connect to brick %s:%s on %s",
+                        brickinfo->hostname, brickinfo->path, socketpath);
                 goto out;
+        }
 out:
         return ret;
 }
@@ -1546,10 +1887,10 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
                                 glusterd_brickinfo_t   *brickinfo,
                                 gf_boolean_t del_brick)
 {
-        xlator_t                *this = NULL;
-        glusterd_conf_t         *priv = NULL;
-        char                    pidfile[PATH_MAX] = {0,};
-        int                     ret = 0;
+        xlator_t        *this                   = NULL;
+        glusterd_conf_t *priv                   = NULL;
+        char            pidfile[PATH_MAX]       = {0,};
+        int             ret                     = 0;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -1803,7 +2144,7 @@ out:
 }
 
 int glusterd_compute_cksum (glusterd_volinfo_t *volinfo,
-                               gf_boolean_t is_quota_conf)
+                            gf_boolean_t is_quota_conf)
 {
         int               ret                  = -1;
         uint32_t          cs                   = 0;
@@ -1918,7 +2259,10 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         glusterd_dict_ctx_t     ctx               = {0};
         char                    *rebalance_id_str = NULL;
         char                    *rb_id_str        = NULL;
+        xlator_t                *this             = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT (dict);
         GF_ASSERT (volinfo);
 
@@ -1932,6 +2276,15 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         ret = dict_set_int32 (dict, key, volinfo->type);
         if (ret)
                 goto out;
+
+        snprintf (key, sizeof (key), "volume%d.is_volume_restored", count);
+        ret = dict_set_int32 (dict, key, volinfo->is_volume_restored);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to set "
+                        "is_volume_restored option for %s volume",
+                        volinfo->volname);
+                goto out;
+        }
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.brick_count", count);
@@ -1986,6 +2339,20 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         ret = dict_set_uint32 (dict, key, volinfo->transport_type);
         if (ret)
                 goto out;
+
+        snprintf (key, sizeof (key), "volume%d.is_snap_volume", count);
+        ret = dict_set_uint32 (dict, key, volinfo->is_snap_volume);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Unable to set %s", key);
+                goto out;
+        }
+
+        snprintf (key, sizeof (key), "volume%d.snap-max-hard-limit", count);
+        ret = dict_set_uint64 (dict, key, volinfo->snap_max_hard_limit);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Unable to set %s", key);
+                goto out;
+        }
 
         volume_id_str = gf_strdup (uuid_utoa (volinfo->volume_id));
         if (!volume_id_str) {
@@ -2161,6 +2528,28 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                 ret = dict_set_str (dict, key, brickinfo->brick_id);
                 if (ret)
                         goto out;
+
+                snprintf (key, sizeof (key), "volume%d.brick%d.snap_status",
+                          count, i);
+                ret = dict_set_int32 (dict, key, brickinfo->snap_status);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set snap_status for %s:%s",
+                                brickinfo->hostname,
+                                brickinfo->path);
+                        goto out;
+                }
+
+                snprintf (key, sizeof (key), "volume%d.brick%d.device_path",
+                          count, i);
+                ret = dict_set_str (dict, key, brickinfo->device_path);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set snap_device for %s:%s",
+                                brickinfo->hostname,
+                                brickinfo->path);
+                        goto out;
+                }
 
                 i++;
         }
@@ -2716,7 +3105,7 @@ glusterd_do_volume_quorum_action (xlator_t *this, glusterd_volinfo_t *volinfo,
                                   gf_boolean_t meets_quorum)
 {
         glusterd_brickinfo_t    *brickinfo = NULL;
-        glusterd_conf_t         *conf = NULL;
+        glusterd_conf_t         *conf      = NULL;
 
         conf = this->private;
         if (volinfo->status != GLUSTERD_STATUS_STARTED)
@@ -2834,6 +3223,8 @@ glusterd_import_new_brick (dict_t *vols, int32_t vol_count,
 {
         char                    key[512] = {0,};
         int                     ret = -1;
+        int32_t                 snap_status = 0;
+        char                    *snap_device = NULL;
         char                    *hostname = NULL;
         char                    *path = NULL;
         char                    *brick_id = NULL;
@@ -2877,12 +3268,30 @@ glusterd_import_new_brick (dict_t *vols, int32_t vol_count,
                 ret = 0;
         }
 
+        snprintf (key, sizeof (key), "volume%d.brick%d.snap_status",
+                  vol_count, brick_count);
+        ret = dict_get_int32 (vols, key, &snap_status);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "%s missing in payload", key);
+                goto out;
+        }
+
+        snprintf (key, sizeof (key), "volume%d.brick%d.device_path",
+                  vol_count, brick_count);
+        ret = dict_get_str (vols, key, &snap_device);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "%s missing in payload", key);
+                goto out;
+        }
+
         ret = glusterd_brickinfo_new (&new_brickinfo);
         if (ret)
                 goto out;
 
         strcpy (new_brickinfo->path, path);
         strcpy (new_brickinfo->hostname, hostname);
+        strcpy (new_brickinfo->device_path, snap_device);
+        new_brickinfo->snap_status = snap_status;
         new_brickinfo->decommissioned = decommissioned;
         if (brick_id)
                 strcpy (new_brickinfo->brick_id, brick_id);
@@ -3092,6 +3501,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
         char               *rb_id_str        = NULL;
         int                op_version        = 0;
         int                client_op_version = 0;
+        uint32_t           is_snap_volume    = 0;
 
         GF_ASSERT (vols);
         GF_ASSERT (volinfo);
@@ -3100,6 +3510,22 @@ glusterd_import_volinfo (dict_t *vols, int count,
         ret = dict_get_str (vols, key, &volname);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload", key);
+                goto out;
+        }
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.is_snap_volume", count);
+        ret = dict_get_uint32 (vols, key, &is_snap_volume);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "%s missing in payload for %s",
+                          key, volname);
+                goto out;
+        }
+
+        if (is_snap_volume == _gf_true) {
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "Not syncing snap volume %s", volname);
+                ret = 0;
                 goto out;
         }
 
@@ -3223,6 +3649,25 @@ glusterd_import_volinfo (dict_t *vols, int count,
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.transport_type", count);
         ret = dict_get_uint32 (vols, key, &new_volinfo->transport_type);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "%s missing in payload for %s",
+                          key, volname);
+                goto out;
+        }
+
+        new_volinfo->is_snap_volume = is_snap_volume;
+
+        snprintf (key, sizeof (key), "volume%d.is_volume_restored", count);
+        ret = dict_get_uint32 (vols, key, &new_volinfo->is_volume_restored);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to get "
+                        "is_volume_restored option for %s",
+                        volname);
+                goto out;
+        }
+
+        snprintf (key, sizeof (key), "volume%d.snap-max-hard-limit", count);
+        ret = dict_get_uint64 (vols, key, &new_volinfo->snap_max_hard_limit);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload for %s",
                           key, volname);
@@ -3567,6 +4012,12 @@ glusterd_import_friend_volume (dict_t *vols, size_t count)
         ret = glusterd_import_volinfo (vols, count, &new_volinfo);
         if (ret)
                 goto out;
+
+        if (!new_volinfo) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Not importing snap volume");
+                goto out;
+        }
 
         ret = glusterd_volinfo_find (new_volinfo->volname, &old_volinfo);
         if (0 == ret) {
@@ -4756,17 +5207,39 @@ out:
 int
 glusterd_restart_bricks (glusterd_conf_t *conf)
 {
+        int                   ret            = 0;
         glusterd_volinfo_t   *volinfo        = NULL;
         glusterd_brickinfo_t *brickinfo      = NULL;
+        glusterd_snap_t      *snap           = NULL;
         gf_boolean_t          start_nodesvcs = _gf_false;
-        int                   ret            = 0;
+        xlator_t             *this           = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 if (volinfo->status != GLUSTERD_STATUS_STARTED)
                         continue;
                 start_nodesvcs = _gf_true;
+                gf_log (this->name, GF_LOG_DEBUG, "starting the volume %s",
+                        volinfo->volname);
                 list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                         glusterd_brick_start (volinfo, brickinfo, _gf_false);
+                }
+        }
+
+        list_for_each_entry (snap, &conf->snapshots, snap_list) {
+                list_for_each_entry (volinfo, &snap->volumes, vol_list) {
+                        if (volinfo->status != GLUSTERD_STATUS_STARTED)
+                                continue;
+                        start_nodesvcs = _gf_true;
+                        gf_log (this->name, GF_LOG_DEBUG, "starting the snap "
+                                "volume %s", volinfo->volname);
+                        list_for_each_entry (brickinfo, &volinfo->bricks,
+                                             brick_list) {
+                                glusterd_brick_start (volinfo, brickinfo,
+                                                      _gf_false);
+                        }
                 }
         }
 
@@ -4986,7 +5459,7 @@ out:
 }
 
 #ifdef GF_LINUX_HOST_OS
-static int
+int
 glusterd_get_brick_root (char *path, char **mount_point)
 {
         char           *ptr            = NULL;
@@ -5165,6 +5638,31 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
         return ret;
 }
 
+struct mntent *
+glusterd_get_mnt_entry_info (char *mnt_pt, FILE *mtab)
+{
+        struct mntent  *entry                = NULL;
+
+        mtab = setmntent (_PATH_MOUNTED, "r");
+        if (!mtab)
+                goto out;
+
+        entry = getmntent (mtab);
+
+        while (1) {
+                if (!entry)
+                        goto out;
+
+                if (!strcmp (entry->mnt_dir, mnt_pt) &&
+                    strcmp (entry->mnt_type, "rootfs"))
+                        break;
+                entry = getmntent (mtab);
+        }
+
+out:
+        return entry;
+}
+
 static int
 glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
                                   dict_t *dict, int count)
@@ -5176,8 +5674,8 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
         char           *fs_name              = NULL;
         char           *mnt_options          = NULL;
         char           *device               = NULL;
-        FILE           *mtab                 = NULL;
         struct mntent  *entry                = NULL;
+        FILE           *mtab                 = NULL;
 
         snprintf (base_key, sizeof (base_key), "brick%d", count);
 
@@ -5185,23 +5683,10 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
         if (ret)
                 goto out;
 
-        mtab = setmntent (_PATH_MOUNTED, "r");
-        if (!mtab) {
+        entry = glusterd_get_mnt_entry_info (mnt_pt, mtab);
+        if (!entry) {
                 ret = -1;
                 goto out;
-        }
-
-        entry = getmntent (mtab);
-
-        while (1) {
-                if (!entry) {
-                        ret = -1;
-                        goto out;
-                }
-                if (!strcmp (entry->mnt_dir, mnt_pt) &&
-                    strcmp (entry->mnt_type, "rootfs"))
-                        break;
-                entry = getmntent (mtab);
         }
 
         /* get device file */
@@ -5235,6 +5720,45 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
                 endmntent (mtab);
 
         return ret;
+}
+
+char*
+glusterd_get_brick_mount_details (glusterd_brickinfo_t *brickinfo)
+{
+        int             ret                  = -1;
+        char           *mnt_pt               = NULL;
+        char           *device               = NULL;
+        FILE           *mtab                 = NULL;
+        struct mntent  *entry                = NULL;
+        xlator_t       *this                 = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (brickinfo);
+
+        ret = glusterd_get_brick_root (brickinfo->path, &mnt_pt);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get mount point "
+                        "for %s brick", brickinfo->path);
+                goto out;
+        }
+
+        entry = glusterd_get_mnt_entry_info (mnt_pt, mtab);
+        if (NULL == entry) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get mnt entry "
+                        "for %s mount path", mnt_pt);
+                goto out;
+        }
+
+        /* get the fs_name/device */
+        device = gf_strdup (entry->mnt_fsname);
+
+out:
+        if (NULL != mtab) {
+                endmntent (mtab);
+        }
+
+        return device;
 }
 #endif
 
@@ -8238,6 +8762,279 @@ out:
 }
 
 int
+glusterd_snap_config_use_rsp_dict (dict_t *dst, dict_t *src)
+{
+        char           buf[PATH_MAX]        = "";
+        char          *volname              = NULL;
+        int            ret                  = -1;
+        int            config_command       = 0;
+        uint64_t       i                    = 0;
+        uint64_t       value                = 0;
+        uint64_t       voldisplaycount      = 0;
+
+        if (!dst || !src) {
+                gf_log ("", GF_LOG_ERROR, "Source or Destination "
+                        "dict is empty.");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dst, "config-command", &config_command);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR,
+                        "failed to get config-command type");
+                goto out;
+        }
+
+        switch (config_command) {
+        case GF_SNAP_CONFIG_DISPLAY:
+                ret = dict_get_uint64 (src, "snap-max-hard-limit", &value);
+                if (!ret) {
+                        ret = dict_set_uint64 (dst, "snap-max-hard-limit", value);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR,
+                                        "Unable to set snap_max_hard_limit");
+                                goto out;
+                        }
+                } else {
+                        /* Received dummy response from other nodes */
+                        ret = 0;
+                        goto out;
+                }
+
+                ret = dict_get_uint64 (src, "snap-max-soft-limit", &value);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Unable to get snap_max_soft_limit");
+                        goto out;
+                }
+
+                ret = dict_set_uint64 (dst, "snap-max-soft-limit", value);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Unable to set snap_max_soft_limit");
+                        goto out;
+                }
+
+                ret = dict_get_uint64 (src, "voldisplaycount",
+                                       &voldisplaycount);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Unable to get voldisplaycount");
+                        goto out;
+                }
+
+                ret = dict_set_uint64 (dst, "voldisplaycount",
+                                       voldisplaycount);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Unable to set voldisplaycount");
+                        goto out;
+                }
+
+                for (i = 0; i < voldisplaycount; i++) {
+                        snprintf (buf, sizeof(buf), "volume%ld-volname", i);
+                        ret = dict_get_str (src, buf, &volname);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR,
+                                        "Unable to get %s", buf);
+                                goto out;
+                        }
+                        ret = dict_set_str (dst, buf, volname);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR,
+                                        "Unable to set %s", buf);
+                                goto out;
+                        }
+
+                        snprintf (buf, sizeof(buf),
+                                  "volume%ld-snap-max-hard-limit", i);
+                        ret = dict_get_uint64 (src, buf, &value);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR,
+                                        "Unable to get %s", buf);
+                                goto out;
+                        }
+                        ret = dict_set_uint64 (dst, buf, value);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR,
+                                        "Unable to set %s", buf);
+                                goto out;
+                        }
+
+                        snprintf (buf, sizeof(buf),
+                                  "volume%ld-active-hard-limit", i);
+                        ret = dict_get_uint64 (src, buf, &value);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR,
+                                        "Unable to get %s", buf);
+                                goto out;
+                        }
+                        ret = dict_set_uint64 (dst, buf, value);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR,
+                                        "Unable to set %s", buf);
+                                goto out;
+                        }
+
+                        snprintf (buf, sizeof(buf),
+                                  "volume%ld-snap-max-soft-limit", i);
+                        ret = dict_get_uint64 (src, buf, &value);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR,
+                                        "Unable to get %s", buf);
+                                goto out;
+                        }
+                        ret = dict_set_uint64 (dst, buf, value);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR,
+                                        "Unable to set %s", buf);
+                                goto out;
+                        }
+                }
+
+                break;
+        default:
+                break;
+        }
+
+        ret = 0;
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+/* Aggregate missed_snap_counts from different nodes and save it *
+ * in the req_dict of the originator node */
+int
+glusterd_snap_create_use_rsp_dict (dict_t *dst, dict_t *src)
+{
+        char          *buf                      = NULL;
+        char          *tmp_str                  = NULL;
+        char           name_buf[PATH_MAX]       = "";
+        int32_t        i                        = -1;
+        int32_t        ret                      = -1;
+        int32_t        src_missed_snap_count    = -1;
+        int32_t        dst_missed_snap_count    = -1;
+        xlator_t      *this                     = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        if (!dst || !src) {
+                gf_log (this->name, GF_LOG_ERROR, "Source or Destination "
+                        "dict is empty.");
+                goto out;
+        }
+
+        ret = dict_get_int32 (src, "missed_snap_count",
+                              &src_missed_snap_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG, "No missed snaps");
+                ret = 0;
+                goto out;
+        }
+
+        ret = dict_get_int32 (dst, "missed_snap_count",
+                              &dst_missed_snap_count);
+        if (ret) {
+                /* Initialize dst_missed_count for the first time */
+                dst_missed_snap_count = 0;
+        }
+
+        for (i = 0; i < src_missed_snap_count; i++) {
+                 snprintf (name_buf, sizeof(name_buf), "missed_snaps_%d",
+                           i);
+                 ret = dict_get_str (src, name_buf, &buf);
+                 if (ret) {
+                         gf_log (this->name, GF_LOG_ERROR,
+                                 "Unable to fetch %s", name_buf);
+                         goto out;
+                 }
+
+                 snprintf (name_buf, sizeof(name_buf), "missed_snaps_%d",
+                           dst_missed_snap_count);
+
+                 tmp_str = gf_strdup (buf);
+                 if (!tmp_str) {
+                         ret = -1;
+                         goto out;
+                 }
+
+                 ret = dict_set_dynstr (dst, name_buf, tmp_str);
+                 if (ret) {
+                         gf_log (this->name, GF_LOG_ERROR,
+                                 "Unable to set %s", name_buf);
+                         goto out;
+                 }
+
+                 tmp_str = NULL;
+                 dst_missed_snap_count++;
+        }
+
+        ret = dict_set_int32 (dst, "missed_snap_count", dst_missed_snap_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to set dst_missed_snap_count");
+                goto out;
+        }
+
+out:
+        if (ret && tmp_str)
+                GF_FREE(tmp_str);
+
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_snap_use_rsp_dict (dict_t *dst, dict_t *src)
+{
+        int            ret            = -1;
+        int32_t        snap_command   = 0;
+
+        if (!dst || !src) {
+                gf_log ("", GF_LOG_ERROR, "Source or Destination "
+                        "dict is empty.");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dst, "type", &snap_command);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "unable to get the type of "
+                        "the snapshot command");
+                goto out;
+        }
+
+        switch (snap_command) {
+        case GF_SNAP_OPTION_TYPE_CREATE:
+        case GF_SNAP_OPTION_TYPE_DELETE:
+                ret = glusterd_snap_create_use_rsp_dict (dst, src);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to use rsp dict");
+                        goto out;
+                }
+                break;
+        case GF_SNAP_OPTION_TYPE_CONFIG:
+                ret = glusterd_snap_config_use_rsp_dict (dst, src);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to use rsp dict");
+                        goto out;
+                }
+                break;
+        default:
+                // copy the response dictinary's contents to the dict to be
+                // sent back to the cli
+                dict_copy (src, dst);
+                break;
+        }
+
+        ret = 0;
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
 glusterd_sys_exec_output_rsp_dict (dict_t *dst, dict_t *src)
 {
         char           output_name[PATH_MAX] = "";
@@ -9144,6 +9941,102 @@ glusterd_is_status_tasks_op (glusterd_op_t op, dict_t *dict)
 
 out:
         return is_status_tasks;
+}
+
+int
+glusterd_compare_snap_time(struct list_head *list1, struct list_head *list2)
+{
+        glusterd_snap_t *snap1 = NULL;
+        glusterd_snap_t *snap2 = NULL;
+        double diff_time       = 0;
+
+        GF_ASSERT (list1);
+        GF_ASSERT (list2);
+
+        snap1 = list_entry(list1, glusterd_snap_t, snap_list);
+        snap2 = list_entry(list2, glusterd_snap_t, snap_list);
+        diff_time = difftime(snap1->time_stamp, snap2->time_stamp);
+
+        return ((int)diff_time);
+}
+
+int
+glusterd_compare_snap_vol_time(struct list_head *list1, struct list_head *list2)
+{
+        glusterd_volinfo_t *snapvol1 = NULL;
+        glusterd_volinfo_t *snapvol2 = NULL;
+        double diff_time             = 0;
+
+        GF_ASSERT (list1);
+        GF_ASSERT (list2);
+
+        snapvol1 = list_entry(list1, glusterd_volinfo_t, snapvol_list);
+        snapvol2 = list_entry(list2, glusterd_volinfo_t, snapvol_list);
+        diff_time = difftime(snapvol1->snapshot->time_stamp,
+                             snapvol2->snapshot->time_stamp);
+
+        return ((int)diff_time);
+}
+
+int32_t
+glusterd_missed_snapinfo_new (glusterd_missed_snap_info **missed_snapinfo)
+{
+        glusterd_missed_snap_info      *new_missed_snapinfo = NULL;
+        int32_t                         ret                 = -1;
+        xlator_t                       *this                = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (missed_snapinfo);
+
+        new_missed_snapinfo = GF_CALLOC (1, sizeof(*new_missed_snapinfo),
+                                         gf_gld_mt_missed_snapinfo_t);
+
+        if (!new_missed_snapinfo)
+                goto out;
+
+        new_missed_snapinfo->node_snap_info = NULL;
+        INIT_LIST_HEAD (&new_missed_snapinfo->missed_snaps);
+        INIT_LIST_HEAD (&new_missed_snapinfo->snap_ops);
+
+        *missed_snapinfo = new_missed_snapinfo;
+
+        ret = 0;
+
+out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_missed_snap_op_new (glusterd_snap_op_t **snap_op)
+{
+        glusterd_snap_op_t      *new_snap_op = NULL;
+        int32_t                  ret         = -1;
+        xlator_t                *this        = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (snap_op);
+
+        new_snap_op = GF_CALLOC (1, sizeof(*new_snap_op),
+                                 gf_gld_mt_missed_snapinfo_t);
+
+        if (!new_snap_op)
+                goto out;
+
+        new_snap_op->brick_path = NULL;
+        new_snap_op->brick_num = -1;
+        new_snap_op->op = -1;
+        new_snap_op->status = -1;
+        INIT_LIST_HEAD (&new_snap_op->snap_ops_list);
+
+        *snap_op = new_snap_op;
+
+        ret = 0;
+out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
 }
 
 /* Tells if rebalance needs to be started for the given volume on the peer

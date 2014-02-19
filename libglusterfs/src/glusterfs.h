@@ -70,6 +70,7 @@
 #define FNM_EXTMATCH 0
 #endif
 
+#define GLUSTERD_MAX_SNAP_NAME  255
 #define ZR_MOUNTPOINT_OPT       "mountpoint"
 #define ZR_ATTR_TIMEOUT_OPT     "attribute-timeout"
 #define ZR_ENTRY_TIMEOUT_OPT    "entry-timeout"
@@ -484,6 +485,7 @@ typedef enum {
         GF_EVENT_AUTH_FAILED,
         GF_EVENT_VOLUME_DEFRAG,
         GF_EVENT_PARENT_DOWN,
+        GF_EVENT_VOLUME_BARRIER_OP,
         GF_EVENT_MAXVAL,
 } glusterfs_event_t;
 

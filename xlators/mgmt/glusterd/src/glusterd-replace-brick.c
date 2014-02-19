@@ -688,7 +688,7 @@ rb_src_brick_restart (glusterd_volinfo_t *volinfo,
 
         sleep (2);
         ret = glusterd_volume_start_glusterfs (volinfo, src_brickinfo,
-                                              _gf_false);
+                                               _gf_false);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to start "
                         "glusterfs, ret: %d", ret);

@@ -67,7 +67,9 @@ typedef enum gf_gld_mem_types_ {
         gf_gld_mt_hooks_priv_t                  = gf_common_mt_end + 51,
         gf_gld_mt_mop_commit_req_t              = gf_common_mt_end + 52,
         gf_gld_mt_int                           = gf_common_mt_end + 53,
-        gf_gld_mt_end                           = gf_common_mt_end + 54,
+        gf_gld_mt_snap_t                        = gf_common_mt_end + 54,
+        gf_gld_mt_missed_snapinfo_t             = gf_common_mt_end + 55,
+        gf_gld_mt_end                           = gf_common_mt_end + 56,
 } gf_gld_mem_types_t;
 #endif
 
