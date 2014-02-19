@@ -454,7 +454,7 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
 
                         /* this is not a 'failure', but we don't want to
                            consider this as 'success' too :-/ */
-                        ret = 1;
+                        ret = -1;
                         goto out;
                 }
         }
@@ -465,7 +465,7 @@ check_avail_space:
                         "data movement attempted from node (%s) with "
                         "to node (%s) which does not have required free space"
                         " for %s", from->name, to->name, loc->path);
-                ret = 1;
+                ret = -1;
                 goto out;
         }
 
@@ -1213,7 +1213,6 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         struct timeval           end            = {0,};
         double                   elapsed        = {0,};
         struct timeval           start          = {0,};
-        int32_t                  err            = 0;
         int                      loglevel       = GF_LOG_TRACE;
 
         gf_log (this->name, GF_LOG_INFO, "migrate data called on %s",
@@ -1380,11 +1379,11 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
                         ret = syncop_setxattr (this, &entry_loc, migrate_data,
                                                0);
-                        if (ret) {
-                                err = op_errno;
+                        if (ret < 0) {
+                                op_errno = -ret;
                                 /* errno is overloaded. See
                                  * rebalance_task_completion () */
-                                if (err != ENOSPC) {
+                                if (op_errno == ENOSPC) {
                                         gf_log (this->name, GF_LOG_DEBUG,
                                                 "migrate-data skipped for %s"
                                                 " due to space constraints",
@@ -1396,10 +1395,7 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                                 entry_loc.path);
                                         defrag->total_failures +=1;
                                 }
-                        }
 
-                        if (ret < 0) {
-                                op_errno = -ret;
                                 ret = gf_defrag_handle_migrate_error (op_errno,
                                                                       defrag);
 
@@ -1412,6 +1408,11 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                         continue;
                                 else if (ret == -1)
                                         goto out;
+                        } else if (ret > 0) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "migrate-data failed for %s",
+                                        entry_loc.path);
+                                defrag->total_failures +=1;
                         }
 
                         LOCK (&defrag->lock);
