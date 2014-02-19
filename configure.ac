@@ -577,10 +577,18 @@ if test "x$enable_xml_output" != "xno"; then
     if test "x${no_xml}" = "x"; then
         AC_DEFINE([HAVE_LIB_XML], [1], [Define to 1 if using libxml2.])
     else
-        AC_MSG_WARN([libxml2 devel libraries not found disabling XML support])
-        BUILD_XML_OUTPUT="no"
+	if test "x$enable_georeplication" != "xno"; then
+           AC_MSG_ERROR([libxml2 devel libraries not found])
+	else
+	   AC_MSG_WARN([libxml2 devel libraries not found disabling XML support])
+           BUILD_XML_OUTPUT="no"
+	fi
+
     fi
 else
+    if test "x$enable_georeplication" != "xno"; then
+       AC_MSG_ERROR([geo-replication requires xml output])
+    fi
     BUILD_XML_OUTPUT="no"
 fi
 # end of xml-output
