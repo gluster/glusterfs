@@ -1661,6 +1661,11 @@ changelog_init (xlator_t *this, changelog_priv_t *priv)
          * simple here.
          */
         ret = changelog_fill_rollover_data (&cld, _gf_false);
+        if(ret)
+                goto out;
+
+        ret = htime_open (this, priv, cld.cld_roll_time);
+        /* call htime open with cld's rollover_time */
         if (ret)
                 goto out;
 
@@ -1779,6 +1784,8 @@ reconfigure (xlator_t *this, dict_t *options)
         gf_boolean_t            active_now     = _gf_true;
         changelog_time_slice_t *slice          = NULL;
         changelog_log_data_t    cld            = {0,};
+        char    htime_dir[PATH_MAX]            = {0,};
+        struct timeval          tv             = {0,};
 
         priv = this->private;
         if (!priv)
@@ -1803,6 +1810,12 @@ reconfigure (xlator_t *this, dict_t *options)
                 goto out;
 
         ret = mkdir_p (priv->changelog_dir, 0600, _gf_true);
+
+        if (ret)
+                goto out;
+        CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, htime_dir);
+        ret = mkdir_p (htime_dir, 0600, _gf_true);
+
         if (ret)
                 goto out;
 
@@ -1847,6 +1860,15 @@ reconfigure (xlator_t *this, dict_t *options)
                         goto out;
 
                 if (active_now) {
+                        if (!active_earlier) {
+                                if (gettimeofday(&tv, NULL) ) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                 "unable to fetch htime");
+                                        ret = -1;
+                                        goto out;
+                                }
+                                htime_open(this, priv, tv.tv_sec);
+                        }
                         ret = changelog_spawn_notifier (this, priv);
                         if (!ret)
                                 ret = changelog_spawn_helper_threads (this,
@@ -1871,10 +1893,11 @@ reconfigure (xlator_t *this, dict_t *options)
 int32_t
 init (xlator_t *this)
 {
-        int                     ret             = -1;
-        char                    *tmp            = NULL;
-        changelog_priv_t        *priv           = NULL;
-        gf_boolean_t            cond_lock_init  = _gf_false;
+        int                     ret                     = -1;
+        char                    *tmp                    = NULL;
+        changelog_priv_t        *priv                   = NULL;
+        gf_boolean_t            cond_lock_init          = _gf_false;
+        char                    htime_dir[PATH_MAX]     = {0,};
 
         GF_VALIDATE_OR_GOTO ("changelog", this, out);
 
@@ -1932,6 +1955,12 @@ init (xlator_t *this)
          * so that consumers can _look_ into it (finding nothing...)
          */
         ret = mkdir_p (priv->changelog_dir, 0600, _gf_true);
+
+        if (ret)
+                goto out;
+
+        CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, htime_dir);
+        ret = mkdir_p (htime_dir, 0600, _gf_true);
         if (ret)
                 goto out;
 

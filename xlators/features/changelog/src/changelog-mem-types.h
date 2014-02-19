@@ -23,6 +23,7 @@ enum gf_changelog_mem_types {
         gf_changelog_mt_libgfchangelog_rl_t     = gf_common_mt_end + 7,
         gf_changelog_mt_libgfchangelog_dirent_t = gf_common_mt_end + 8,
         gf_changelog_mt_changelog_buffer_t      = gf_common_mt_end + 9,
+        gf_changelog_mt_history_data_t          = gf_common_mt_end + 10,
         gf_changelog_mt_end
 };
 

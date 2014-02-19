@@ -203,8 +203,17 @@ struct changelog_priv {
         /* logging directory */
         char *changelog_dir;
 
+        /* htime directory */
+        char *htime_dir;
+
         /* one file for all changelog types */
         int changelog_fd;
+
+        /* htime fd for current changelog session */
+        int htime_fd;
+
+        /* rollover_count used by htime */
+        int  rollover_count;
 
         gf_lock_t lock;
 
@@ -393,6 +402,11 @@ void *
 changelog_fsync_thread (void *data);
 int
 changelog_forget (xlator_t *this, inode_t *inode);
+int
+htime_update (xlator_t *this, changelog_priv_t *priv,
+              unsigned long ts, char * buffer);
+int
+htime_open (xlator_t *this, changelog_priv_t * priv, unsigned long ts);
 
 /* Geo-Rep snapshot dependency changes */
 void
@@ -549,5 +563,6 @@ call_stub_t *__chlog_barrier_dequeue (xlator_t *this, struct list_head *queue);
                         goto label;                                            \
                 }                                                              \
         } while (0)
+/*  End: Geo-Rep snapshot dependency changes */
+
 #endif /* _CHANGELOG_HELPERS_H */
-/* End: Geo-Rep snapshot dependency changes */
