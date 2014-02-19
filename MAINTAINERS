@@ -50,7 +50,7 @@ Descriptions of section entries:
 
 General Project Architects
 --------------------------
-M: Amar Tumballi <amarts@redhat.com>
+M: Amar Tumballi <amarts@gmail.com>
 M: Anand Avati <avati@redhat.com>
 M: Jeff Darcy <jdarcy@redhat.com>
 M: Kaleb S. Keithley <kkeithle@redhat.com>
@@ -131,7 +131,7 @@ F: cli/
 F: xlators/mgmt/
 
 Remote Procedure Call subsystem
-M: Amar Tumballi <amarts@redhat.com>
+M: Amar Tumballi <amarts@gmail.com>
 M: Anand Avati <avati@redhat.com>
 S: Maintained
 F: rpc/
