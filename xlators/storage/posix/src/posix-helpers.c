@@ -266,6 +266,16 @@ _posix_xattr_get_set (dict_t *xattr_req,
                                 goto err;
                         }
 
+                        /*
+                         * There could be a situation where the ia_size is
+                         * zero. GF_CALLOC will return a pointer to the
+                         * memory initialized by gf_mem_set_acct_info.
+                         * This function adds a header and a footer to
+                         * the allocated memory.  The returned pointer
+                         * points to the memory just after the header, but
+                         * when size is zero, there is no space for user
+                         * data. The memory can be freed by calling GF_FREE.
+                         */
                         databuf = GF_CALLOC (1, filler->stbuf->ia_size,
                                              gf_posix_mt_char);
                         if (!databuf) {

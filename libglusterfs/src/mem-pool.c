@@ -22,29 +22,30 @@
 #define is_mem_chunk_in_use(ptr)         (*ptr == 1)
 #define mem_pool_from_ptr(ptr)           ((ptr) + GF_MEM_POOL_LIST_BOUNDARY)
 
-#define GF_MEM_HEADER_SIZE  (4 + sizeof (size_t) + sizeof (xlator_t *) + 4 + 8)
-#define GF_MEM_TRAILER_SIZE 8
-
-#define GF_MEM_HEADER_MAGIC  0xCAFEBABE
-#define GF_MEM_TRAILER_MAGIC 0xBAADF00D
-
 #define GLUSTERFS_ENV_MEM_ACCT_STR  "GLUSTERFS_DISABLE_MEM_ACCT"
+
+#include <cmockery/pbc.h>
+#include <cmockery/cmockery_override.h>
 
 void
 gf_mem_acct_enable_set (void *data)
 {
         glusterfs_ctx_t *ctx = NULL;
 
+        REQUIRE(data != NULL);
+
         ctx = data;
 
-        GF_ASSERT (ctx);
+        GF_ASSERT (ctx != NULL);
 
         ctx->mem_acct_enable = 1;
+
+        ENSURE(1 == ctx->mem_acct_enable);
 
         return;
 }
 
-void
+int
 gf_mem_set_acct_info (xlator_t *xl, char **alloc_ptr,
                       size_t size, uint32_t type)
 {
@@ -52,7 +53,7 @@ gf_mem_set_acct_info (xlator_t *xl, char **alloc_ptr,
         char    *ptr = NULL;
 
         if (!alloc_ptr)
-                return;
+                return -1;
 
         ptr = (char *) (*alloc_ptr);
 
@@ -88,7 +89,7 @@ gf_mem_set_acct_info (xlator_t *xl, char **alloc_ptr,
         *(uint32_t *) (ptr + size) = GF_MEM_TRAILER_MAGIC;
 
         *alloc_ptr = (void *)ptr;
-        return;
+        return 0;
 }
 
 
@@ -150,9 +151,12 @@ __gf_realloc (void *ptr, size_t size)
         char            *orig_ptr = NULL;
         xlator_t        *xl = NULL;
         uint32_t        type = 0;
+        char            *new_ptr;
 
         if (!THIS->ctx->mem_acct_enable)
                 return REALLOC (ptr, size);
+
+        REQUIRE(NULL != ptr);
 
         tot_size = size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
 
@@ -166,15 +170,22 @@ __gf_realloc (void *ptr, size_t size)
         orig_ptr = (char *)ptr - GF_MEM_HEADER_SIZE;
         type = *(uint32_t *)orig_ptr;
 
-        ptr = realloc (orig_ptr, tot_size);
-        if (!ptr) {
+        new_ptr = realloc (orig_ptr, tot_size);
+        if (!new_ptr) {
                 gf_log_nomem ("", GF_LOG_ALERT, tot_size);
                 return NULL;
         }
 
-        gf_mem_set_acct_info (xl, (char **)&ptr, size, type);
+        /*
+         * We used to pass (char **)&ptr as the second
+         * argument after the value of realloc was saved
+         * in ptr, but the compiler warnings complained
+         * about the casting to and forth from void ** to
+         * char **.
+         */
+        gf_mem_set_acct_info (xl, &new_ptr, size, type);
 
-        return (void *)ptr;
+        return (void *)new_ptr;
 }
 
 int

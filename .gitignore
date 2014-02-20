@@ -9,6 +9,8 @@ ltmain.sh
 Makefile.in
 missing
 py-compile
+*.gcda
+*.gcno
 *.sw?
 *~
 *.lo

@@ -450,6 +450,10 @@ pushd api/examples
 FLAGS="$RPM_OPT_FLAGS" python setup.py build
 popd
 
+%check
+
+LD_LIBRARY_PATH=$PWD/cmockery2/.libs make check
+
 %install
 rm -rf %{buildroot}
 make install DESTDIR=%{buildroot}
@@ -666,6 +670,9 @@ rm -rf %{buildroot}
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/rot-13*
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/mac-compat*
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance/symlink-cache*
+# exclude cmockery
+%exclude %{_includedir}/cmockery*
+%exclude %{_prefix}/share/doc/cmockery*
 
 %post libs
 /sbin/ldconfig
