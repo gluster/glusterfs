@@ -6,7 +6,7 @@ EXTRA_DIST = autogen.sh \
 	gen-headers.py run-tests.sh \
 	$(shell find $(top_srcdir)/tests -type f -print)
 
-SUBDIRS = argp-standalone libglusterfs rpc api xlators glusterfsd \
+SUBDIRS = argp-standalone cmockery2 libglusterfs rpc api xlators glusterfsd \
 	$(FUSERMOUNT_SUBDIR) doc extras cli @SYNCDAEMON_SUBDIR@
 
 pkgconfigdir = @pkgconfigdir@

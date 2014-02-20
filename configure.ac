@@ -630,6 +630,18 @@ AC_SUBST(HAVE_LINKAT)
 dnl check for Monotonic clock
 AC_CHECK_FUNC([clock_gettime], [has_monotonic_clock=yes], AC_CHECK_LIB([rt], [clock_gettime], , AC_MSG_WARN([System doesn't have monotonic clock using contrib])))
 
+dnl Add cmockery2 for unit testing
+AC_CONFIG_SUBDIRS([cmockery2])
+UNITTEST_CFLAGS='-g -Wall -DUNIT_TESTING=1 -DDEBUG -Werror -O0 --coverage'
+UNITTEST_CPPFLAGS='-I$(top_srcdir)/cmockery2/src'
+UNITTEST_LDADD='$(top_builddir)/cmockery2/libcmockery.la'
+UNITTEST_LDFLAGS=-lgcov
+CFLAGS="$CFLAGS ${UNITTEST_CPPFLAGS}"
+AC_SUBST(UNITTEST_CFLAGS)
+AC_SUBST(UNITTEST_CPPFLAGS)
+AC_SUBST(UNITTEST_LDADD)
+AC_SUBST(UNITTEST_LDFLAGS)
+
 dnl Check for argp
 AC_CHECK_HEADER([argp.h], AC_DEFINE(HAVE_ARGP, 1, [have argp]))
 AC_CONFIG_SUBDIRS(argp-standalone)
@@ -900,7 +912,7 @@ CONTRIBDIR='$(top_srcdir)/contrib'
 AC_SUBST(CONTRIBDIR)
 
 GF_CPPDEFINES='-D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS)'
-GF_CPPINCLUDES='-I$(top_srcdir)/libglusterfs/src -I$(CONTRIBDIR)/uuid'
+GF_CPPINCLUDES='-I$(top_srcdir)/libglusterfs/src -I$(CONTRIBDIR)/uuid $(UNITTEST_CPPFLAGS)'
 GF_CPPFLAGS="$GF_CPPDEFINES $GF_CPPINCLUDES"
 AC_SUBST([GF_CPPFLAGS])
 
