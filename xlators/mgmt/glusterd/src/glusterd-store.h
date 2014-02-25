@@ -65,6 +65,7 @@ typedef enum glusterd_store_ver_ac_{
 #define GLUSTERD_STORE_KEY_BRICK_RDMA_PORT "rdma.listen-port"
 #define GLUSTERD_STORE_KEY_BRICK_DECOMMISSIONED "decommissioned"
 #define GLUSTERD_STORE_KEY_BRICK_VGNAME "vg"
+#define GLUSTERD_STORE_KEY_BRICK_ID "brick-id"
 
 #define GLUSTERD_STORE_KEY_PEER_UUID      "uuid"
 #define GLUSTERD_STORE_KEY_PEER_HOSTNAME  "hostname"

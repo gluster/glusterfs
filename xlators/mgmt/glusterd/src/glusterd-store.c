@@ -241,6 +241,11 @@ glusterd_store_brickinfo_write (int fd, glusterd_brickinfo_t *brickinfo)
         if (ret)
                 goto out;
 
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_BRICK_ID,
+                                   brickinfo->brick_id);
+        if (ret)
+                goto out;
+
         if (!brickinfo->vg[0])
                 goto out;
 
@@ -1493,7 +1498,6 @@ out:
         return ret;
 }
 
-
 int32_t
 glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
 {
@@ -1511,6 +1515,7 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
         gf_store_iter_t         *tmpiter = NULL;
         char                    *tmpvalue = NULL;
         struct pmap_registry    *pmap = NULL;
+        int                      brickid = 0;
         gf_store_op_errno_t     op_errno = GD_STORE_SUCCESS;
 
         GF_ASSERT (volinfo);
@@ -1606,6 +1611,9 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                                     strlen (GLUSTERD_STORE_KEY_BRICK_VGNAME))) {
                                 strncpy (brickinfo->vg, value,
                                          sizeof (brickinfo->vg));
+                        } else if (!strcmp(key, GLUSTERD_STORE_KEY_BRICK_ID)) {
+                                strncpy (brickinfo->brick_id, value,
+                                         sizeof (brickinfo->brick_id));
                         } else {
                                 gf_log ("", GF_LOG_ERROR, "Unknown key: %s",
                                         key);
@@ -1620,12 +1628,21 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                                                       &op_errno);
                 }
 
-                if (op_errno != GD_STORE_EOF)
+                if (op_errno != GD_STORE_EOF) {
+                        gf_log ("", GF_LOG_ERROR, "Error parsing brickinfo: "
+                                "op_errno=%d", op_errno);
                         goto out;
+                }
                 ret = gf_store_iter_destroy (iter);
 
                 if (ret)
                         goto out;
+
+                if (brickinfo->brick_id[0] == '\0') {
+                        /* This is an old volume upgraded to op_version 4 */
+                       GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO (brickinfo, volinfo,
+                                                             brickid++);
+                }
 
                 list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
                 brick_count++;

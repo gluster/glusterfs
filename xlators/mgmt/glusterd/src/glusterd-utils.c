@@ -671,6 +671,30 @@ out:
         return ret;
 }
 
+int
+glusterd_get_next_available_brickid (glusterd_volinfo_t *volinfo)
+{
+        glusterd_brickinfo_t *brickinfo    = NULL;
+        char                 *token        = NULL;
+        int                   brickid      = 0;
+        int                   max_brickid  = -1;
+        int                   ret          = -1;
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                token = strrchr (brickinfo->brick_id, '-');
+                ret = gf_string2int32 (++token, &brickid);
+                if (ret < 0) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "Unable to generate brick ID");
+                        return ret;
+                }
+                if (brickid > max_brickid)
+                        max_brickid = brickid;
+        }
+
+        return max_brickid + 1 ;
+}
+
 int32_t
 glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo)
 {
@@ -2131,6 +2155,13 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                 if (ret)
                         goto out;
 
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "volume%d.brick%d.brick_id",
+                          count, i);
+                ret = dict_set_str (dict, key, brickinfo->brick_id);
+                if (ret)
+                        goto out;
+
                 i++;
         }
 
@@ -2805,6 +2836,7 @@ glusterd_import_new_brick (dict_t *vols, int32_t vol_count,
         int                     ret = -1;
         char                    *hostname = NULL;
         char                    *path = NULL;
+        char                    *brick_id = NULL;
         int                     decommissioned = 0;
         glusterd_brickinfo_t    *new_brickinfo = NULL;
         char                    msg[2048] = {0};
@@ -2832,6 +2864,11 @@ glusterd_import_new_brick (dict_t *vols, int32_t vol_count,
         }
 
         memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.brick%d.brick_id",
+                  vol_count, brick_count);
+        ret = dict_get_str (vols, key, &brick_id);
+
+        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.brick%d.decommissioned",
                   vol_count, brick_count);
         ret = dict_get_int32 (vols, key, &decommissioned);
@@ -2847,6 +2884,8 @@ glusterd_import_new_brick (dict_t *vols, int32_t vol_count,
         strcpy (new_brickinfo->path, path);
         strcpy (new_brickinfo->hostname, hostname);
         new_brickinfo->decommissioned = decommissioned;
+        if (brick_id)
+                strcpy (new_brickinfo->brick_id, brick_id);
         //peerinfo might not be added yet
         (void) glusterd_resolve_brick (new_brickinfo);
         ret = 0;
@@ -2864,6 +2903,7 @@ glusterd_import_bricks (dict_t *vols, int32_t vol_count,
 {
         int                     ret = -1;
         int                     brick_count = 1;
+        int                     brickid = 0;
         glusterd_brickinfo_t     *new_brickinfo = NULL;
 
         GF_ASSERT (vols);
@@ -2875,6 +2915,12 @@ glusterd_import_bricks (dict_t *vols, int32_t vol_count,
                                                  &new_brickinfo);
                 if (ret)
                         goto out;
+                if (new_brickinfo->brick_id[0] == '\0')
+                        /*We were probed from a peer having op-version
+                         less than GD_OP_VER_PERSISTENT_AFR_XATTRS*/
+                        GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO (new_brickinfo,
+                                                              new_volinfo,
+                                                              brickid++);
                 list_add_tail (&new_brickinfo->brick_list, &new_volinfo->bricks);
                 brick_count++;
         }

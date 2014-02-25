@@ -1488,6 +1488,7 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
         char                 *username   = NULL;
         char                 *password   = NULL;
         int                   caps       = 0;
+        int                   brickid    = 0;
         char                  msg[1024] __attribute__((unused)) = {0, };
 
         this = THIS;
@@ -1653,10 +1654,16 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 brick = strtok_r (brick_list+1, " \n", &saveptr);
         caps = CAPS_BD | CAPS_THIN | CAPS_OFFLOAD_COPY | CAPS_OFFLOAD_SNAPSHOT;
 
+        brickid = glusterd_get_next_available_brickid (volinfo);
+        if (brickid < 0)
+                goto out;
         while ( i <= count) {
                 ret = glusterd_brickinfo_new_from_brick (brick, &brickinfo);
                 if (ret)
                         goto out;
+
+                GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO (brickinfo, volinfo,
+                                                      brickid++);
 
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret) {
