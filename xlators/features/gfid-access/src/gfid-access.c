@@ -666,6 +666,11 @@ ga_virtual_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         buf->ia_ino = temp_ino;
 
 unwind:
+        /* Lookup on non-existing gfid returns ESTALE.
+           Convert into ENOENT for virtual lookup*/
+        if (op_errno == ESTALE)
+               op_errno = ENOENT;
+
         STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, cbk_inode, buf,
                              xdata, postparent);
 
