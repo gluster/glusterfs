@@ -2151,7 +2151,7 @@ volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         list_for_each_entry (brick, &volinfo->bricks, brick_list) {
                 ret = -1;
                 xl = volgen_graph_add_nolink (graph, "protocol/client",
-                                              "%s-client-%d", volname, i);
+                                              "%s", brick->brick_id);
                 if (!xl)
                         goto out;
                 ret = xlator_set_option (xl, "remote-host", brick->hostname);

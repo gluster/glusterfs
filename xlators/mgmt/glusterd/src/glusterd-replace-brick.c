@@ -1516,6 +1516,9 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
         if (ret)
                 goto out;
 
+        strncpy (new_brickinfo->brick_id, old_brickinfo->brick_id,
+                 sizeof (new_brickinfo->brick_id));
+
         list_add_tail (&new_brickinfo->brick_list,
                        &old_brickinfo->brick_list);
 

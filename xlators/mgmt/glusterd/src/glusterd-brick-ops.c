@@ -995,6 +995,7 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
         gf_boolean_t                  restart_needed = 0;
         char                          msg[1024] __attribute__((unused)) = {0, };
         int                           caps           = 0;
+        int                           brickid        = 0;
 
         GF_ASSERT (volinfo);
 
@@ -1022,10 +1023,16 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                                 "type is set %d, need to change it", type);
         }
 
+        brickid = glusterd_get_next_available_brickid (volinfo);
+        if (brickid < 0)
+                goto out;
         while ( i <= count) {
                 ret = glusterd_brickinfo_new_from_brick (brick, &brickinfo);
                 if (ret)
                         goto out;
+
+                GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO (brickinfo, volinfo,
+                                                      brickid++);
 
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret)
