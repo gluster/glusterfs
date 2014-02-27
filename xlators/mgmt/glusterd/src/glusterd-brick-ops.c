@@ -1931,6 +1931,16 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        if (GF_OP_CMD_START == cmd &&
+                        volinfo->status == GLUSTERD_STATUS_STARTED) {
+                ret = glusterd_nodesvcs_handle_reconfigure (volinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                               "Unable to reconfigure NFS-Server");
+                goto out;
+                }
+        }
+
         /* Need to reset the defrag/rebalance status accordingly */
         switch (volinfo->rebal.defrag_status) {
         case GF_DEFRAG_STATUS_FAILED:
