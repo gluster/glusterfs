@@ -33,6 +33,7 @@
                                 should keep changing with introduction of newer
                                 versions */
 #define GD_OP_VERSION_4    4 /* Op-Version 4 */
+#define GD_OP_VER_PERSISTENT_AFR_XATTRS GD_OP_VERSION_4
 
 #include "xlator.h"
 

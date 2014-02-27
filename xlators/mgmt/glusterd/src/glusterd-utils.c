@@ -9042,6 +9042,27 @@ gd_update_volume_op_versions (glusterd_volinfo_t *volinfo)
         return;
 }
 
+int
+op_version_check (xlator_t *this, int min_op_version, char *msg, int msglen)
+{
+       int              ret  = 0;
+       glusterd_conf_t *priv = NULL;
+
+       GF_ASSERT (this);
+       GF_ASSERT (msg);
+
+       priv = this->private;
+       if (priv->op_version < min_op_version) {
+                snprintf (msg, msglen, "One or more nodes do not support "
+                          "the required op-version. Cluster op-version must "
+                          "atleast be %d.", min_op_version);
+                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                ret = -1;
+      }
+      return ret;
+}
+
+
 /* A task is committed/completed once the task-id for it is cleared */
 gf_boolean_t
 gd_is_remove_brick_committed (glusterd_volinfo_t *volinfo)
