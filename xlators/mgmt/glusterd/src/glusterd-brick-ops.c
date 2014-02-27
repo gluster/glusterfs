@@ -1207,6 +1207,7 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
         int                                     ret = 0;
         char                                    *volname = NULL;
         int                                     count = 0;
+        int                                     replica_count = 0;
         int                                     i = 0;
         char                                    *bricks    = NULL;
         char                                    *brick_list = NULL;
@@ -1215,17 +1216,31 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
         char                                    *brick = NULL;
         glusterd_brickinfo_t                    *brickinfo = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
-        glusterd_conf_t                         *priv = NULL;
+        xlator_t                                *this = NULL;
         char                                    msg[2048] = {0,};
         gf_boolean_t                            brick_alloc = _gf_false;
         char                                    *all_bricks = NULL;
         char                                    *str_ret = NULL;
         gf_boolean_t                            is_force = _gf_false;
 
-        priv = THIS->private;
-        if (!priv)
-                goto out;
+        this = THIS;
+        GF_ASSERT (this);
 
+        ret = dict_get_int32 (dict, "replica-count", &replica_count);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Unable to get replica count");
+        }
+
+        if (replica_count > 0) {
+                ret = op_version_check (this, GD_OP_VER_PERSISTENT_AFR_XATTRS,
+                                        msg, sizeof(msg));
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+                        goto out;
+                }
+        }
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR,
@@ -1375,6 +1390,14 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
 
         this = THIS;
         GF_ASSERT (this);
+
+        ret = op_version_check (this, GD_OP_VER_PERSISTENT_AFR_XATTRS,
+                                msg, sizeof(msg));
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                goto out;
+        }
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
