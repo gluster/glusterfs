@@ -4,6 +4,7 @@ EXTRA_DIST = autogen.sh \
 	glusterfs.spec glusterfs-api.pc.in libgfchangelog.pc.in \
 	error-codes.json gf-error-codes.h.template \
 	gen-headers.py run-tests.sh \
+	build-aux/pkg-version \
 	$(shell find $(top_srcdir)/tests -type f -print)
 
 SUBDIRS = contrib/argp-standalone libglusterfs rpc api xlators glusterfsd \
@@ -28,5 +29,14 @@ gitclean: distclean
 	rm -f $(CONTRIBDIR)/argp-standalone/install-sh
 	rm -f $(CONTRIBDIR)/argp-standalone/missing
 
-dist-hook:
+dist-hook: gen-VERSION gen-ChangeLog
+.PHONY: gen-VERSION gen-ChangeLog
+
+gen-ChangeLog:
 	(cd $(srcdir) && git diff && echo ===== git log ==== && git log) > $(distdir)/ChangeLog
+
+gen-VERSION:
+	if test -d .git; then                           \
+	  $(top_srcdir)/build-aux/pkg-version --full    \
+	    > $(distdir)/VERSION;                       \
+	fi
