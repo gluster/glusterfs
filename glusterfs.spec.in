@@ -83,7 +83,7 @@ Vendor:           Fedora Project
 %else
 Name:             @PACKAGE_NAME@
 Version:          @PACKAGE_VERSION@
-Release:          1%{?dist}
+Release:          0.@PACKAGE_RELEASE@%{?dist}
 Vendor:           glusterfs.org
 %endif
 License:          GPLv2 or LGPLv3+
@@ -950,6 +950,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Wed Apr 02 2014 Arumugam Balamurugan <barumuga@redhat.com>
+- add version/release dynamically (#1074919)
+
 * Wed Mar 26 2014 Poornima G <pgurusid@redhat.com>
 - Include the hook scripts of add-brick, volume start, stop and set
 
