@@ -108,6 +108,7 @@ typedef struct wb_inode {
 				after it arrived (i.e, those that have a
 				liability generation higher than itself)
 			     */
+	size_t       size; /* Size of the file to catch write after EOF. */
         gf_lock_t    lock;
         xlator_t    *this;
 } wb_inode_t;
@@ -503,8 +504,23 @@ wb_enqueue_common (wb_inode_t *wb_inode, call_stub_t *stub, int tempted)
 
 	switch (stub->fop) {
 	case GF_FOP_WRITE:
-		req->ordering.off = stub->args.offset;
-		req->ordering.size = req->write_size;
+		LOCK (&wb_inode->lock);
+		{
+			if (wb_inode->size < stub->args.offset) {
+				req->ordering.off = wb_inode->size;
+				req->ordering.size = stub->args.offset
+				                     + req->write_size
+						     - wb_inode->size;
+			} else {
+				req->ordering.off = stub->args.offset;
+				req->ordering.size = req->write_size;
+			}
+
+			if (wb_inode->size < stub->args.offset + req->write_size)
+				wb_inode->size = stub->args.offset
+				                 + req->write_size;
+		}
+		UNLOCK (&wb_inode->lock);
 
 		req->fd = fd_ref (stub->args.fd);
 
@@ -519,10 +535,20 @@ wb_enqueue_common (wb_inode_t *wb_inode, call_stub_t *stub, int tempted)
 	case GF_FOP_TRUNCATE:
 		req->ordering.off = stub->args.offset;
 		req->ordering.size = 0; /* till infinity */
+		LOCK (&wb_inode->lock);
+		{
+			wb_inode->size = req->ordering.off;
+		}
+		UNLOCK (&wb_inode->lock);
 		break;
 	case GF_FOP_FTRUNCATE:
 		req->ordering.off = stub->args.offset;
 		req->ordering.size = 0; /* till infinity */
+		LOCK (&wb_inode->lock);
+		{
+			wb_inode->size = req->ordering.off;
+		}
+		UNLOCK (&wb_inode->lock);
 
 		req->fd = fd_ref (stub->args.fd);
 
@@ -1196,6 +1222,20 @@ wb_process_queue (wb_inode_t *wb_inode)
 }
 
 
+void
+wb_set_inode_size(wb_inode_t *wb_inode, struct iatt *postbuf)
+{
+	GF_ASSERT (wb_inode);
+	GF_ASSERT (postbuf);
+
+	LOCK (&wb_inode->lock);
+	{
+		wb_inode->size = postbuf->ia_size;
+	}
+	UNLOCK (&wb_inode->lock);
+}
+
+
 int
 wb_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	       int32_t op_ret, int32_t op_errno,
@@ -1576,11 +1616,29 @@ noqueue:
 }
 
 
+int32_t
+wb_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                 struct iatt *postbuf, dict_t *xdata)
+{
+        GF_ASSERT (frame->local);
+
+        if (op_ret == 0)
+                wb_set_inode_size (frame->local, postbuf);
+
+        frame->local = NULL;
+
+        STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, prebuf,
+                             postbuf, xdata);
+        return 0;
+}
+
+
 int
 wb_truncate_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
                     off_t offset, dict_t *xdata)
 {
-        STACK_WIND (frame, default_truncate_cbk, FIRST_CHILD(this),
+        STACK_WIND (frame, wb_truncate_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
         return 0;
 }
@@ -1596,6 +1654,8 @@ wb_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 	wb_inode = wb_inode_create (this, loc->inode);
 	if (!wb_inode)
 		goto unwind;
+
+	frame->local = wb_inode;
 
 	stub = fop_truncate_stub (frame, wb_truncate_helper, loc,
 				  offset, xdata);
@@ -1619,11 +1679,29 @@ unwind:
 }
 
 
+int32_t
+wb_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                  struct iatt *postbuf, dict_t *xdata)
+{
+        GF_ASSERT (frame->local);
+
+        if (op_ret == 0)
+                wb_set_inode_size (frame->local, postbuf);
+
+        frame->local = NULL;
+
+        STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, prebuf,
+                             postbuf, xdata);
+        return 0;
+}
+
+
 int
 wb_ftruncate_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                      off_t offset, dict_t *xdata)
 {
-        STACK_WIND (frame, default_ftruncate_cbk, FIRST_CHILD(this),
+        STACK_WIND (frame, wb_ftruncate_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->ftruncate, fd, offset, xdata);
         return 0;
 }
@@ -1646,6 +1724,8 @@ wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 	if (wb_fd_err (fd, this, &op_errno))
 		goto unwind;
 
+	frame->local = wb_inode;
+
 	stub = fop_ftruncate_stub (frame, wb_ftruncate_helper, fd,
 				   offset, xdata);
 	if (!stub) {
@@ -1663,6 +1743,8 @@ wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         return 0;
 
 unwind:
+	frame->local = NULL;
+
         STACK_UNWIND_STRICT (ftruncate, frame, -1, op_errno, NULL, NULL, NULL);
 
         if (stub)
@@ -1759,6 +1841,81 @@ unwind:
 noqueue:
         STACK_WIND (frame, default_fsetattr_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fsetattr, fd, stbuf, valid, xdata);
+        return 0;
+}
+
+
+int32_t
+wb_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
+           mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
+{
+        wb_inode_t   *wb_inode     = NULL;
+
+        wb_inode = wb_inode_create (this, fd->inode);
+	if (!wb_inode)
+		goto unwind;
+
+	if (((flags & O_RDWR) || (flags & O_WRONLY)) && (flags & O_TRUNC))
+		wb_inode->size = 0;
+
+	STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->create, loc, flags, mode,
+                         umask, fd, xdata);
+        return 0;
+
+unwind:
+	STACK_UNWIND_STRICT (create, frame, -1, ENOMEM, NULL, NULL, NULL, NULL,
+                             NULL, NULL);
+	return 0;
+}
+
+
+int32_t
+wb_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
+         fd_t *fd, dict_t *xdata)
+{
+        wb_inode_t   *wb_inode     = NULL;
+
+        wb_inode = wb_inode_create (this, fd->inode);
+	if (!wb_inode)
+		goto unwind;
+
+	if (((flags & O_RDWR) || (flags & O_WRONLY)) && (flags & O_TRUNC))
+		wb_inode->size = 0;
+
+	STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->open, loc, flags, fd, xdata);
+        return 0;
+
+unwind:
+	STACK_UNWIND_STRICT (open, frame, -1, ENOMEM, NULL, NULL);
+	return 0;
+}
+
+
+int32_t
+wb_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, inode_t *inode,
+               struct iatt *buf, dict_t *xdata, struct iatt *postparent)
+{
+        if (op_ret == 0) {
+                wb_inode_t *wb_inode = wb_inode_ctx_get (this, inode);
+                if (wb_inode)
+                        wb_set_inode_size (wb_inode, buf);
+        }
+
+        STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf,
+                             xdata, postparent);
+        return 0;
+}
+
+
+int32_t
+wb_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
+           dict_t *xdata)
+{
+        STACK_WIND (frame, wb_lookup_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->lookup, loc, xdata);
         return 0;
 }
 
