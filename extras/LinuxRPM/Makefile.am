@@ -15,6 +15,7 @@ prep:
 	if [ ! -e $(GFS_TAR) ]; then \
 		$(MAKE) -C ../.. dist; \
 	fi
+	-mkdir -p rpmbuild/BUILD
 	-mkdir -p rpmbuild/SPECS
 	-mkdir -p rpmbuild/RPMS
 	-mkdir -p rpmbuild/SRPMS
