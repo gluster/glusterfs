@@ -1599,7 +1599,7 @@ __inode_ctx_get0 (inode_t *inode, xlator_t *xlator, uint64_t *value1)
         int ret = 0;
 
         ret =  __inode_ctx_get2 (inode, xlator, &tmp_value, NULL);
-        if (!ret)
+        if (!ret && value1)
                 *value1 = tmp_value;
 
         return ret;
@@ -1612,7 +1612,7 @@ __inode_ctx_get1 (inode_t *inode, xlator_t *xlator, uint64_t *value2)
         int ret = 0;
 
         ret =  __inode_ctx_get2 (inode, xlator, NULL, &tmp_value);
-        if (!ret)
+        if (!ret && value2)
                 *value2 = tmp_value;
 
         return ret;
