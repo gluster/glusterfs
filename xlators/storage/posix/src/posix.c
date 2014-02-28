@@ -3733,8 +3733,10 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                 size = sys_fgetxattr (_fd, key, NULL, 0);
                 if (size <= 0) {
                         op_errno = errno;
-                        gf_log (this->name, GF_LOG_ERROR, "fgetxattr failed on "
-                                "key %s (%s)", key, strerror (op_errno));
+                        gf_log (this->name, ((errno == ENODATA) ?
+                                             GF_LOG_DEBUG : GF_LOG_ERROR),
+                                "fgetxattr failed on key %s (%s)", key,
+                                strerror (op_errno));
                         goto done;
                 }
 
