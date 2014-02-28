@@ -2296,7 +2296,7 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_remove_brick_cbk,
           "remove brick from volume <VOLNAME>"},
 
-        { "volume rebalance <VOLNAME> [fix-layout] {start|stop|status} [force]",
+        { "volume rebalance <VOLNAME> {{fix-layout start} | {start [force]|stop|status}}",
           cli_cmd_volume_defrag_cbk,
           "rebalance operations"},
 
