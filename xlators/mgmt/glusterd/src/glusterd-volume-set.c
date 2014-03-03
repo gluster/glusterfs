@@ -1524,6 +1524,16 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = NO_DOC,
           .op_version  = 3
         },
+        { .key         = "features.barrier",
+          .voltype     = "features/barrier",
+          .value       = "disable",
+          .op_version  = 4
+        },
+        { .key         = "features.barrier-timeout",
+          .voltype     = "features/barrier",
+          .value       = "120",
+          .op_version  = 4
+        },
         { .key         = NULL
         }
 };
