@@ -415,7 +415,7 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_ASSERT (priv);
 
         GF_OPTION_RECONF ("barrier", barrier_enabled, options, bool, out);
-        GF_OPTION_RECONF ("timeout", timeout, options, time, out);
+        GF_OPTION_RECONF ("barrier-timeout", timeout, options, time, out);
 
         INIT_LIST_HEAD (&queue);
 
@@ -490,7 +490,7 @@ init (xlator_t *this)
         LOCK_INIT (&priv->lock);
 
         GF_OPTION_INIT ("barrier", priv->barrier_enabled, bool, out);
-        GF_OPTION_INIT ("timeout", timeout, time, out);
+        GF_OPTION_INIT ("barrier-timeout", timeout, time, out);
         priv->timeout.tv_sec = timeout;
 
         INIT_LIST_HEAD (&priv->queue);
@@ -646,7 +646,7 @@ struct volume_options options[] = {
                          "write (with O_SYNC), fsync. It is turned \"off\" by "
                          "default."
         },
-        { .key = {"timeout"},
+        { .key = {"barrier-timeout"},
           .type = GF_OPTION_TYPE_TIME,
           .default_value = "120",
           .description = "After 'timeout' seconds since the time 'barrier' "

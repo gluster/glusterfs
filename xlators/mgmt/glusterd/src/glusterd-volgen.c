@@ -1589,6 +1589,10 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 return -1;
 
+        xl = volgen_graph_add (graph, "features/barrier", volname);
+        if (!xl)
+               return -1;
+
         ret = dict_get_int32 (volinfo->dict, "enable-pump", &pump);
         if (ret == -ENOENT)
                 ret = pump = 0;
