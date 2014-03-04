@@ -680,3 +680,23 @@ glfs_fini (struct glfs *fs)
 
         return ret;
 }
+
+ssize_t
+glfs_get_volfile (struct glfs *fs, void *buf, size_t len)
+{
+        ssize_t         res;
+
+        glfs_lock(fs);
+        if (len >= fs->oldvollen) {
+                gf_log ("glfs", GF_LOG_TRACE, "copying %lu to %p", len, buf);
+                memcpy(buf,fs->oldvolfile,len);
+                res = len;
+        }
+        else {
+                res = len - fs->oldvollen;
+                gf_log ("glfs", GF_LOG_TRACE, "buffer is %ld too short", -res);
+        }
+        glfs_unlock(fs);
+
+        return res;
+}
