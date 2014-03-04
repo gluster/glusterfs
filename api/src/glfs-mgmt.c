@@ -207,6 +207,8 @@ glusterfs_oldvolfile_update (struct glfs *fs, char *volfile, ssize_t size)
 {
 	int ret = -1;
 
+        pthread_mutex_lock (&fs->mutex);
+
 	fs->oldvollen = size;
 	if (!fs->oldvolfile) {
 		fs->oldvolfile = GF_CALLOC (1, size+1, glfs_mt_volfile_t);
@@ -221,6 +223,8 @@ glusterfs_oldvolfile_update (struct glfs *fs, char *volfile, ssize_t size)
 		fs->oldvollen = size;
 		ret = 0;
 	}
+
+        pthread_mutex_unlock (&fs->mutex);
 
 	return ret;
 }

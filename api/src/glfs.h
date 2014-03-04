@@ -253,6 +253,36 @@ int glfs_init (glfs_t *fs) __THROW;
 int glfs_fini (glfs_t *fs) __THROW;
 
 /*
+  SYNOPSIS
+
+      glfs_getvol: Get the volfile associated with a 'virtual mount'
+
+  DESCRIPTION
+
+      Sometimes it's useful e.g. for scripts to see the volfile, so that they
+      can parse it and find subvolumes to do things like split-brain resolution
+      or custom layouts.  The API here was specifically intended to make access
+      e.g. from Python as simple as possible.
+
+      Note that the volume must be started (not necessarily mounted) for this
+      to work.
+
+  PARAMETERS
+
+      @fs:  The 'virtual mount' object for which a volfile is desired
+      @buf: Pointer to a place for the volfile length to be stored
+      @len: Length of @buf
+
+  RETURN VALUES
+
+      >0: filled N bytes of buffer
+       0: no volfile available
+      <0: volfile length exceeds @len by N bytes (@buf unchanged)
+*/
+
+ssize_t glfs_get_volfile (glfs_t *fs, void *buf, size_t len) __THROW;
+
+/*
  * FILE OPERATION
  *
  * What follows are filesystem operations performed on the
