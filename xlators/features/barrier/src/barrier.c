@@ -17,6 +17,8 @@
 #include "defaults.h"
 #include "call-stub.h"
 
+#include "statedump.h"
+
 int32_t
 barrier_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
@@ -478,6 +480,82 @@ out:
         return;
 }
 
+static void
+barrier_dump_stub (call_stub_t *stub, char *prefix)
+{
+        char key[GF_DUMP_MAX_BUF_LEN] = {0,};
+
+        gf_proc_dump_build_key (key, prefix, "fop");
+        gf_proc_dump_write (key, "%s", gf_fop_list[stub->fop]);
+
+        gf_proc_dump_build_key (key, prefix, "gfid");
+        gf_proc_dump_write (key, "%s", uuid_utoa (stub->args.loc.gfid));
+
+        if (stub->args.loc.path) {
+                gf_proc_dump_build_key (key, prefix, "path");
+                gf_proc_dump_write (key, "%s", stub->args.loc.path);
+        }
+        if (stub->args.loc.name) {
+                gf_proc_dump_build_key (key, prefix, "name");
+                gf_proc_dump_write (key, "%s", stub->args.loc.name);
+        }
+
+        return;
+}
+
+static void
+__barrier_dump_queue (barrier_priv_t *priv)
+{
+        call_stub_t *stub = NULL;
+        char key[GF_DUMP_MAX_BUF_LEN] = {0,};
+        int i = 0;
+
+        GF_VALIDATE_OR_GOTO ("barrier", priv, out);
+
+        list_for_each_entry (stub, &priv->queue, list) {
+                snprintf (key, sizeof (key), "stub.%d", i++);
+                gf_proc_dump_add_section (key);
+                barrier_dump_stub(stub, key);
+        }
+
+out:
+        return;
+}
+
+int
+barrier_dump_priv (xlator_t *this)
+{
+        int ret = -1;
+        char key[GF_DUMP_MAX_BUF_LEN] = {0,};
+        barrier_priv_t *priv = NULL;
+
+        GF_VALIDATE_OR_GOTO ("barrier", this, out);
+
+        priv = this->private;
+        if (!priv)
+                return 0;
+
+        gf_proc_dump_build_key (key, "xlator.features.barrier", "priv");
+        gf_proc_dump_add_section (key);
+
+        LOCK (&priv->lock);
+        {
+                gf_proc_dump_build_key (key, "barrier", "enabled");
+                gf_proc_dump_write (key, "%d", priv->barrier_enabled);
+                gf_proc_dump_build_key (key, "barrier", "timeout");
+                gf_proc_dump_write (key, "%"PRId64, priv->timeout.tv_sec);
+                if (priv->barrier_enabled) {
+                        gf_proc_dump_build_key (key, "barrier", "queue_size");
+                        gf_proc_dump_write (key, "%d", priv->queue_size);
+                        __barrier_dump_queue (priv);
+                }
+        }
+        UNLOCK (&priv->lock);
+
+out:
+        return ret;
+}
+
 struct xlator_fops fops = {
 
         /* Barrier Class fops */
@@ -494,7 +572,9 @@ struct xlator_fops fops = {
         .writev         = barrier_writev,
 };
 
-struct xlator_dumpops dumpops;
+struct xlator_dumpops dumpops = {
+        .priv = barrier_dump_priv,
+};
 
 struct xlator_cbks cbks;
 
