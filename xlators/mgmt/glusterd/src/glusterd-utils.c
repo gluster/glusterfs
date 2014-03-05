@@ -2145,6 +2145,13 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.client-op-version", count);
         ret = dict_set_int32 (dict, key, volinfo->client_op_version);
+        if (ret)
+                goto out;
+
+        /*Add volume Capability (BD Xlator) to dict*/
+        memset (key, 0 ,sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.caps", count);
+        ret = dict_set_int32 (dict, key, volinfo->caps);
 
 out:
         GF_FREE (volume_id_str);
@@ -3302,6 +3309,11 @@ glusterd_import_volinfo (dict_t *vols, int count,
                 new_volinfo->op_version = 1;
                 new_volinfo->client_op_version = 1;
         }
+
+        memset (key, 0 ,sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.caps", count);
+        /*This is not present in older glusterfs versions, so ignore ret value*/
+        ret = dict_get_int32 (vols, key, &new_volinfo->caps);
 
         ret = glusterd_import_bricks (vols, count, new_volinfo);
         if (ret)
