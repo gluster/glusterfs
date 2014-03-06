@@ -956,7 +956,7 @@ glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
                         goto out;
                 }
                 else if (parent_st.st_dev == root_st.st_dev) {
-                        snprintf (msg, sizeof (msg), "The brick %s:%s is "
+                        snprintf (msg, sizeof (msg), "The brick %s:%s "
                                   "is being created in the root partition. It "
                                   "is recommended that you don't use the "
                                   "system's root partition for storage backend."
