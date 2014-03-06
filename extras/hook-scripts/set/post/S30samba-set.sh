@@ -20,6 +20,9 @@
 PROGNAME="Ssamba-set"
 OPTSPEC="volname:"
 VOL=
+CONFIGFILE=
+LOGFILEBASE=
+PIDDIR=
 
 enable_smb=""
 
@@ -57,22 +60,33 @@ function parse_args () {
         done
 }
 
+function find_config_info () {
+        cmdout=`smbd -b | grep smb.conf`
+        if [ $? -ne 0 ]; then
+                echo "Samba is not installed"
+                exit 1
+        fi
+        CONFIGFILE=`echo $cmdout | awk '{print $2}'`
+        PIDDIR=`smbd -b | grep PIDDIR | awk '{print $2}'`
+        LOGFILEBASE=`smbd -b | grep 'LOGFILEBASE' | awk '{print $2}'`
+}
+
 function add_samba_share () {
         volname=$1
         STRING="\n[gluster-$volname]\n"
         STRING+="comment = For samba share of volume $volname\n"
         STRING+="vfs objects = glusterfs\n"
         STRING+="glusterfs:volume = $volname\n"
-        STRING+="glusterfs:logfile = /var/log/samba/glusterfs-$volname.%%M.log\n"
+        STRING+="glusterfs:logfile = $LOGFILEBASE/glusterfs-$volname.%%M.log\n"
         STRING+="glusterfs:loglevel = 7\n"
         STRING+="path = %%P/\n"
         STRING+="read only = no\n"
         STRING+="guest ok = yes\n"
-        printf "$STRING"  >> /etc/samba/smb.conf
+        printf "$STRING"  >> ${CONFIGFILE}
 }
 
 function sighup_samba () {
-        pid=`cat /var/run/smbd.pid`
+        pid=`cat ${PIDDIR}/smbd.pid`
         if [ "x$pid" != "x" ]
         then
                 kill -HUP "$pid";
@@ -96,6 +110,9 @@ parse_args $@
 if [ "0" = $(is_volume_started "$VOL") ]; then
     exit 0
 fi
+
+#Find smb.conf, smbd pid directory and smbd logfile path
+find_config_info
 
 if [ "$enable_smb" = "enable" ]; then
     if ! grep --quiet "\[gluster-$VOL\]" /etc/samba/smb.conf ; then
