@@ -24,7 +24,12 @@
 
 # if you wish to compile an rpm without geo-replication support, compile like this...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without georeplication
-%{?_without_georeplication:%global _without_georeplication --disable-geo-replication}
+%{?_without_georeplication:%global _without_georeplication --disable-georeplication}
+
+# Disable geo-replication on EL5, as its default Python is too old
+%if ( 0%{?rhel} && 0%{?rhel} < 6 )
+%global _without_georeplication --disable-georeplication
+%endif
 
 # if you wish to compile an rpm without the OCF resource agents...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without ocf
@@ -615,8 +620,10 @@ mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/nfs/run
 touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/nfs-server.vol
 touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
+%if ( 0%{!?_without_georeplication:1} )
 install -p -m 0744 extras/hook-scripts/S56glusterd-geo-rep-create-post.sh \
     %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/gsync-create/post
+%endif
 
 find ./tests ./run-tests.sh -type f | cpio -pd %{buildroot}%{_prefix}/share/glusterfs
 
