@@ -2946,12 +2946,13 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
         }
 
         if (datasync) {
-                ;
                 op_ret = sys_fdatasync (_fd);
                 if (op_ret == -1) {
+                        op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR,
                                 "fdatasync on fd=%p failed: %s",
                                 fd, strerror (errno));
+                        goto out;
                 }
         } else {
                 op_ret = sys_fsync (_fd);
