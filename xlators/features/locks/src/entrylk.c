@@ -607,6 +607,9 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 			if (unlocked) {
 				list_del_init (&unlocked->client_list);
 				__pl_entrylk_unref (unlocked);
+				op_ret = 0;
+			} else {
+				op_errno = EINVAL;
 			}
 			__pl_entrylk_unref (reqlock);
                 }
@@ -624,8 +627,6 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
                         "a bug report at http://bugs.gluster.com", cmd);
                 goto out;
         }
-
-        op_ret = 0;
 out:
         pl_update_refkeeper (this, inode);
 
