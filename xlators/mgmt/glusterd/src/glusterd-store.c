@@ -1994,8 +1994,11 @@ glusterd_store_retrieve_volume (char    *volname)
                                 goto out;
 
                         case 0:
-                                gf_log ("", GF_LOG_ERROR, "Unknown key: %s",
-                                        key);
+                                 /*Ignore GLUSTERD_STORE_KEY_VOL_BRICK since
+                                  glusterd_store_retrieve_bricks gets it later*/
+                                if (!strstr (key, GLUSTERD_STORE_KEY_VOL_BRICK))
+                                        gf_log ("", GF_LOG_WARNING,
+                                                "Unknown key: %s", key);
                                 break;
 
                         case 1:
