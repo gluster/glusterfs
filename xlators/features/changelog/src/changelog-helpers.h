@@ -107,6 +107,9 @@ typedef struct changelog_rollover {
         pthread_t rollover_th;
 
         xlator_t *this;
+
+        /* read end of pipe used as event from barrier on snapshot */
+        int rfd;
 } changelog_rollover_t;
 
 typedef struct changelog_fsync {
@@ -138,6 +141,57 @@ typedef struct changelog_notify {
 
         xlator_t *this;
 } changelog_notify_t;
+
+/* Draining during changelog rollover (for geo-rep snapshot dependency):
+ * --------------------------------------------------------------------
+ * The introduction of draining of in-transit fops during changelog rollover
+ * (both explicit/timeout triggered) requires coloring of fops. Basically the
+ * implementation requires two counters, one counter which keeps the count of
+ * current intransit fops which should end up in current changelog and the other
+ * counter to keep track of incoming fops which should be drained as part of
+ * next changelog rollover event. The fops are colored w.r.t these counters.
+ * The fops that are to be drained as part of current changelog rollover is
+ * given one color and the fops which keep incoming during this and not
+ * necessarily should end up in current changelog and should be drained as part
+ * of next changelog rollover are given other color. The color switching
+ * continues with each changelog rollover. Two colors(black and white) are
+ * chosen here and initially black is chosen is default.
+ */
+
+typedef enum chlog_fop_color {
+         FOP_COLOR_BLACK,
+         FOP_COLOR_WHITE
+}chlog_fop_color_t;
+
+/* Barrier notify variable */
+typedef struct barrier_notify {
+         pthread_mutex_t        bnotify_mutex;
+         pthread_cond_t         bnotify_cond;
+         gf_boolean_t           bnotify;
+}barrier_notify_t;
+
+/* Two separate mutex and conditional variable set is used
+ * to drain white and black fops. */
+
+typedef struct drain_mgmt {
+         pthread_mutex_t        drain_black_mutex;
+         pthread_cond_t         drain_black_cond;
+         pthread_mutex_t        drain_white_mutex;
+         pthread_cond_t         drain_white_cond;
+         /* Represents black fops count in-transit */
+         unsigned long          black_fop_cnt;
+         /* Represents white fops count in-transit */
+         unsigned long          white_fop_cnt;
+         gf_boolean_t           drain_wait_black;
+         gf_boolean_t           drain_wait_white;
+}drain_mgmt_t;
+
+/* Internal and External barrier on/off indicating flags */
+typedef struct barrier_flags {
+        gf_lock_t lock;
+        gf_boolean_t barrier_ext;
+}barrier_flags_t;
+
 
 struct changelog_priv {
         gf_boolean_t active;
@@ -191,6 +245,26 @@ struct changelog_priv {
 
         /* encoder */
         struct changelog_encoder *ce;
+
+        /* snapshot dependency changes */
+
+        /* Draining of fops*/
+        drain_mgmt_t dm;
+
+        /* Represents the active color. Initially by default black */
+        chlog_fop_color_t current_color;
+
+        /* write end of pipe to do explicit rollover on barrier during snap */
+        int cr_wfd;
+
+        /* flag to determine explicit rollover is triggered */
+        gf_boolean_t explicit_rollover;
+
+        /* barrier notification variable protected by mutex */
+        barrier_notify_t bn;
+
+        /* barrier on/off indicating flags */
+        barrier_flags_t bflags;
 };
 
 struct changelog_local {
@@ -206,6 +280,9 @@ struct changelog_local {
          * but we call it as ->prev_entry... ha ha ha
          */
         struct changelog_local *prev_entry;
+
+        /* snap dependency changes */
+        chlog_fop_color_t color;
 };
 
 typedef struct changelog_local changelog_local_t;
@@ -311,6 +388,25 @@ changelog_fsync_thread (void *data);
 int
 changelog_forget (xlator_t *this, inode_t *inode);
 
+/* Geo-Rep snapshot dependency changes */
+inline void
+changelog_color_fop_and_inc_cnt (xlator_t *this, changelog_priv_t *priv,
+                                                 changelog_local_t *local);
+inline void
+changelog_inc_fop_cnt (xlator_t *this, changelog_priv_t *priv,
+                                       changelog_local_t *local);
+inline void
+changelog_dec_fop_cnt (xlator_t *this, changelog_priv_t *priv,
+                                       changelog_local_t *local);
+inline int
+changelog_barrier_notify (changelog_priv_t *priv, char* buf);
+inline void
+changelog_barrier_cleanup (xlator_t *this, changelog_priv_t *priv);
+void
+changelog_drain_white_fops (xlator_t *this, changelog_priv_t *priv);
+void
+changelog_drain_black_fops (xlator_t *this, changelog_priv_t *priv);
+
 /* macros */
 
 #define CHANGELOG_STACK_UNWIND(fop, frame, params ...) do {             \
@@ -404,4 +500,41 @@ changelog_forget (xlator_t *this, inode_t *inode);
                         goto label;                                    \
         } while (0)
 
+/* Begin: Geo-Rep snapshot dependency changes */
+
+#define DICT_ERROR         -1
+#define BARRIER_OFF         0
+#define BARRIER_ON          1
+#define DICT_DEFAULT        2
+
+#define CHANGELOG_NOT_ON_THEN_GOTO(priv, ret, label) do {                      \
+                if (!priv->active) {                                           \
+                        gf_log (this->name, GF_LOG_WARNING,                    \
+                                "Changelog is not active, return success");    \
+                        ret = 0;                                               \
+                        goto label;                                            \
+                }                                                              \
+        } while (0)
+
+/* Log pthread error and goto label */
+#define CHANGELOG_PTHREAD_ERROR_HANDLE_0(ret, label) do {                      \
+                if (ret) {                                                     \
+                        gf_log (this->name, GF_LOG_ERROR,                      \
+                                "pthread error: Error: %d", ret);              \
+                        ret = -1;                                              \
+                        goto label;                                            \
+                }                                                              \
+        } while (0)
+
+/* Log pthread error, set flag and goto label */
+#define CHANGELOG_PTHREAD_ERROR_HANDLE_1(ret, label, flag) do {                \
+                if (ret) {                                                     \
+                        gf_log (this->name, GF_LOG_ERROR,                      \
+                                "pthread error: Error: %d", ret);              \
+                        ret = -1;                                              \
+                        flag = _gf_true;                                       \
+                        goto label;                                            \
+                }                                                              \
+        } while (0)
 #endif /* _CHANGELOG_HELPERS_H */
+/* End: Geo-Rep snapshot dependency changes */
