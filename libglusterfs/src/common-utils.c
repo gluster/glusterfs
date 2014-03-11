@@ -3048,3 +3048,38 @@ dht_is_linkfile (struct iatt *buf, dict_t *dict)
         return linkfile_key_found;
 }
 
+int
+gf_check_log_format (const char *value)
+{
+        int log_format = -1;
+
+        if (!strcasecmp (value, GF_LOG_FORMAT_NO_MSG_ID))
+                log_format = gf_logformat_traditional;
+        else if (!strcasecmp (value, GF_LOG_FORMAT_WITH_MSG_ID))
+                log_format = gf_logformat_withmsgid;
+
+        if (log_format == -1)
+                gf_log (THIS->name, GF_LOG_ERROR, "Invalid log-format. "
+                        "possible values are "
+                        GF_LOG_FORMAT_NO_MSG_ID "|" GF_LOG_FORMAT_WITH_MSG_ID);
+
+        return log_format;
+}
+
+int
+gf_check_logger (const char *value)
+{
+        int logger = -1;
+
+        if (!strcasecmp (value, GF_LOGGER_GLUSTER_LOG))
+                logger = gf_logger_glusterlog;
+        else if (!strcasecmp (value, GF_LOGGER_SYSLOG))
+                logger = gf_logger_syslog;
+
+        if (logger == -1)
+                gf_log (THIS->name, GF_LOG_ERROR, "Invalid logger. "
+                        "possible values are "
+                        GF_LOGGER_GLUSTER_LOG "|" GF_LOGGER_SYSLOG);
+
+        return logger;
+}
