@@ -48,6 +48,12 @@
 #define LOG_DEBUG   7           /* debug-level messages */
 #endif
 
+#define GF_LOG_FORMAT_NO_MSG_ID       "no-msg-id"
+#define GF_LOG_FORMAT_WITH_MSG_ID     "with-msg-id"
+
+#define GF_LOGGER_GLUSTER_LOG         "gluster-log"
+#define GF_LOGGER_SYSLOG              "syslog"
+
 typedef enum {
         GF_LOG_NONE,
         GF_LOG_EMERG,
@@ -253,6 +259,12 @@ int gf_cmd_log_init (const char *filename);
 void set_sys_log_level (gf_loglevel_t level);
 
 int gf_log_fini(void *data);
+
+void
+gf_log_set_logger (gf_log_logger_t logger);
+
+void
+gf_log_set_logformat (gf_log_format_t format);
 
 #define GF_DEBUG(xl, format, args...)                           \
         gf_log ((xl)->name, GF_LOG_DEBUG, format, ##args)

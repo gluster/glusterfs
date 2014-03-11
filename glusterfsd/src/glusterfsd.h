@@ -85,6 +85,8 @@ enum argp_option_keys {
         ARGP_FUSE_USE_READDIRP_KEY        = 165,
 	ARGP_AUX_GFID_MOUNT_KEY		  = 166,
         ARGP_FUSE_NO_ROOT_SQUASH_KEY      = 167,
+        ARGP_LOGGER                       = 168,
+        ARGP_LOG_FORMAT                   = 169,
 };
 
 struct _gfd_vol_top_priv_t {

@@ -610,6 +610,28 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key         = "diagnostics.brick-logger",
+          .voltype     = "debug/io-stats",
+          .option      = "!logger",
+          .op_version  = 4
+        },
+        { .key        = "diagnostics.client-logger",
+          .voltype    = "debug/io-stats",
+          .option     = "!logger",
+          .op_version = 4,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key         = "diagnostics.brick-log-format",
+          .voltype     = "debug/io-stats",
+          .option      = "!log-format",
+          .op_version  = 4
+        },
+        { .key        = "diagnostics.client-log-format",
+          .voltype    = "debug/io-stats",
+          .option     = "!log-format",
+          .op_version = 4,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
 
         /* IO-cache xlator options */
         { .key         = "performance.cache-max-file-size",

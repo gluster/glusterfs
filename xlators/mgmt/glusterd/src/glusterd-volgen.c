@@ -1328,6 +1328,44 @@ sys_loglevel_option_handler (volgen_graph_t *graph,
 }
 
 static int
+logger_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
+                       void *param)
+{
+        char  *role = NULL;
+        struct volopt_map_entry vme2 = {0,};
+
+        role = (char *) param;
+
+        if (strcmp (vme->option, "!logger") != 0 ||
+            !strstr (vme->key, role))
+                return 0;
+
+        memcpy (&vme2, vme, sizeof (vme2));
+        vme2.option = "logger";
+
+        return basic_option_handler (graph, &vme2, NULL);
+}
+
+static int
+log_format_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
+                           void *param)
+{
+        char  *role = NULL;
+        struct volopt_map_entry vme2 = {0,};
+
+        role = (char *) param;
+
+        if (strcmp (vme->option, "!log-format") != 0 ||
+            !strstr (vme->key, role))
+                return 0;
+
+        memcpy (&vme2, vme, sizeof (vme2));
+        vme2.option = "log-format";
+
+        return basic_option_handler (graph, &vme2, NULL);
+}
+
+static int
 volgen_graph_set_xl_options (volgen_graph_t *graph, dict_t *dict)
 {
         int32_t   ret               = -1;
@@ -1378,6 +1416,12 @@ server_spec_option_handler (volgen_graph_t *graph,
 
         if (!ret)
                 ret = sys_loglevel_option_handler (graph, vme, "brick");
+
+        if (!ret)
+                ret = logger_option_handler (graph, vme, "brick");
+
+        if (!ret)
+                ret = log_format_option_handler (graph, vme, "brick");
 
         return ret;
 }
@@ -2536,7 +2580,9 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char            *tmp     = NULL;
         gf_boolean_t     var     = _gf_false;
         gf_boolean_t     ob      = _gf_false;
+        xlator_t        *this    = THIS;
 
+        GF_ASSERT (this);
         GF_ASSERT (conf);
 
         volname = volinfo->volname;
@@ -2613,7 +2659,7 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         ob = _gf_false;
                         ret = gf_string2boolean (tmp, &ob);
                         if (!ret && ob) {
-                                gf_log (THIS->name, GF_LOG_WARNING,
+                                gf_log (this->name, GF_LOG_WARNING,
                                         "root-squash is enabled. Please turn it"
                                         " off to change read-after-open "
                                         "option");
@@ -2682,7 +2728,7 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                 ret = 0;
                 }
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_WARNING, "setting "
+                        gf_log (this->name, GF_LOG_WARNING, "setting "
                                 "open behind option as part of root "
                                 "squash failed");
                         goto out;
@@ -2708,14 +2754,28 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                                 &loglevel_option_handler);
 
         if (ret)
-                gf_log (THIS->name, GF_LOG_WARNING, "changing client log level"
+                gf_log (this->name, GF_LOG_WARNING, "changing client log level"
                         " failed");
 
         ret = volgen_graph_set_options_generic (graph, set_dict, "client",
                                                 &sys_loglevel_option_handler);
         if (ret)
-                gf_log (THIS->name, GF_LOG_WARNING, "changing client syslog "
+                gf_log (this->name, GF_LOG_WARNING, "changing client syslog "
                         "level failed");
+
+        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
+                                                &logger_option_handler);
+
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "changing client logger"
+                        " failed");
+
+        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
+                                                &log_format_option_handler);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "changing client log format"
+                        " failed");
+
 out:
         return ret;
 }
@@ -3052,15 +3112,30 @@ build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
                                                  &loglevel_option_handler);
 
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_WARNING, "changing loglevel "
+                        gf_log (this->name, GF_LOG_WARNING, "changing loglevel "
                                 "of self-heal daemon failed");
 
                 ret = volgen_graph_set_options_generic (graph, set_dict,
                                                         "client",
                                                  &sys_loglevel_option_handler);
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_WARNING, "changing syslog "
+                        gf_log (this->name, GF_LOG_WARNING, "changing syslog "
                                 "level of self-heal daemon failed");
+
+                ret = volgen_graph_set_options_generic (graph, set_dict,
+                                                        "client",
+                                                 &logger_option_handler);
+
+                if (ret)
+                        gf_log (this->name, GF_LOG_WARNING, "changing logger "
+                                "of self-heal daemon failed");
+
+                ret = volgen_graph_set_options_generic (graph, set_dict,
+                                                        "client",
+                                                 &log_format_option_handler);
+                if (ret)
+                        gf_log (this->name, GF_LOG_WARNING, "changing log "
+                                "format level of self-heal daemon failed");
 
                 ret = dict_reset (set_dict);
                 if (ret)

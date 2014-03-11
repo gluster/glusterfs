@@ -110,6 +110,11 @@ static struct argp_option gf_options[] = {
         {"log-file", ARGP_LOG_FILE_KEY, "LOGFILE", 0,
          "File to use for logging [default: "
          DEFAULT_LOG_FILE_DIRECTORY "/" PACKAGE_NAME ".log" "]"},
+        {"logger", ARGP_LOGGER, "LOGGER", 0, "Set which logging sub-system to "
+        "log to, valid options are: gluster-log and syslog, "
+        "[default: \"gluster-log\"]"},
+        {"log-format", ARGP_LOG_FORMAT, "LOG-FORMAT", 0, "Set log format, valid"
+         " options are: no-msg-id and with-msg-id, [default: \"with-msg-id\"]"},
 
         {0, 0, 0, 0, "Advanced Options:"},
         {"volfile-server-port", ARGP_VOLFILE_SERVER_PORT_KEY, "PORT", 0,
@@ -1084,6 +1089,27 @@ parse_opts (int key, char *arg, struct argp_state *state)
                               "unknown use-readdirp setting \"%s\"", arg);
                 break;
 
+        case ARGP_LOGGER:
+                if (strcasecmp (arg, GF_LOGGER_GLUSTER_LOG) == 0)
+                        cmd_args->logger = gf_logger_glusterlog;
+                else if (strcasecmp (arg, GF_LOGGER_SYSLOG) == 0)
+                        cmd_args->logger = gf_logger_syslog;
+                else
+                        argp_failure (state, -1, 0, "unknown logger %s", arg);
+
+                break;
+
+        case ARGP_LOG_FORMAT:
+                if (strcasecmp (arg, GF_LOG_FORMAT_NO_MSG_ID) == 0)
+                        cmd_args->log_format = gf_logformat_traditional;
+                else if (strcasecmp (arg, GF_LOG_FORMAT_WITH_MSG_ID) == 0)
+                        cmd_args->log_format = gf_logformat_withmsgid;
+                else
+                        argp_failure (state, -1, 0, "unknown log format %s",
+                                      arg);
+
+                break;
+
 	}
 
         return 0;
@@ -1297,6 +1323,8 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 
         /* parsing command line arguments */
         cmd_args->log_level = DEFAULT_LOG_LEVEL;
+        cmd_args->logger    = gf_logger_glusterlog;
+        cmd_args->log_format = gf_logformat_withmsgid;
 
         cmd_args->mac_compat = GF_OPTION_DISABLE;
 #ifdef GF_DARWIN_HOST_OS
@@ -1364,6 +1392,10 @@ logging_init (glusterfs_ctx_t *ctx, const char *progpath)
 
         /* finish log set parameters before init */
         gf_log_set_loglevel (cmd_args->log_level);
+
+        gf_log_set_logger (cmd_args->logger);
+
+        gf_log_set_logformat (cmd_args->log_format);
 
         if (gf_log_init (ctx, cmd_args->log_file, cmd_args->log_ident) == -1) {
                 fprintf (stderr, "ERROR: failed to open logfile %s\n",

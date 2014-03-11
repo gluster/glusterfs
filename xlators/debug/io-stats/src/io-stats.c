@@ -2666,9 +2666,13 @@ reconfigure (xlator_t *this, dict_t *options)
         struct ios_conf    *conf = NULL;
         int                 ret = -1;
         char               *sys_log_str = NULL;
+        char               *log_format_str = NULL;
+        char               *logger_str    = NULL;
         int                 sys_log_level = -1;
         char               *log_str = NULL;
         int                 log_level = -1;
+        int                 log_format = -1;
+        int                 logger = -1;
 
         if (!this || !this->private)
                 goto out;
@@ -2694,6 +2698,18 @@ reconfigure (xlator_t *this, dict_t *options)
         if (log_str) {
                 log_level = glusterd_check_log_level (log_str);
                 gf_log_set_loglevel (log_level);
+        }
+
+        GF_OPTION_RECONF ("logger", logger_str, options, str, out);
+        if (logger_str) {
+                logger = gf_check_logger (logger_str);
+                gf_log_set_logger (logger);
+        }
+
+        GF_OPTION_RECONF ("log-format", log_format_str, options, str, out);
+        if (log_format_str) {
+                log_format = gf_check_log_format (log_format_str);
+                gf_log_set_logformat (log_format);
         }
 
         ret = 0;
@@ -2727,6 +2743,10 @@ init (xlator_t *this)
 {
         struct ios_conf    *conf = NULL;
         char               *sys_log_str = NULL;
+        char               *logger_str  = NULL;
+        char               *log_format_str  = NULL;
+        int                 logger = -1;
+        int                 log_format = -1;
         int                 sys_log_level = -1;
         char               *log_str = NULL;
         int                 log_level = -1;
@@ -2784,6 +2804,19 @@ init (xlator_t *this)
                 log_level = glusterd_check_log_level (log_str);
                 gf_log_set_loglevel (log_level);
         }
+
+        GF_OPTION_INIT ("logger", logger_str, str, out);
+        if (logger_str) {
+                logger = gf_check_logger (logger_str);
+                gf_log_set_logger (logger);
+        }
+
+        GF_OPTION_INIT ("log-format", log_format_str, str, out);
+        if (log_format_str) {
+                log_format = gf_check_log_format (log_format_str);
+                gf_log_set_logformat (log_format);
+        }
+
 
         this->private = conf;
         ret = 0;
@@ -3026,6 +3059,40 @@ struct volume_options options[] = {
           .description = "Changes the log-level of the bricks",
           .value = { "DEBUG", "WARNING", "ERROR", "INFO",
                      "CRITICAL", "NONE", "TRACE"}
+        },
+        { .key = {"logger"},
+          .type = GF_OPTION_TYPE_STR,
+          .value = { GF_LOGGER_GLUSTER_LOG, GF_LOGGER_SYSLOG}
+        },
+        { .key = {"client-logger"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = GF_LOGGER_GLUSTER_LOG,
+          .description = "Changes the logging sub-system to log to, for the "
+                         "clients",
+          .value = { GF_LOGGER_GLUSTER_LOG, GF_LOGGER_SYSLOG}
+        },
+        { .key = {"brick-logger"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = GF_LOGGER_GLUSTER_LOG,
+          .description = "Changes the logging sub-system to log to, for the "
+                         "bricks",
+          .value = { GF_LOGGER_GLUSTER_LOG, GF_LOGGER_SYSLOG}
+        },
+        { .key = {"log-format"},
+          .type = GF_OPTION_TYPE_STR,
+          .value = { GF_LOG_FORMAT_NO_MSG_ID, GF_LOG_FORMAT_WITH_MSG_ID}
+        },
+        { .key = {"client-log-format"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = GF_LOG_FORMAT_WITH_MSG_ID,
+          .description = "Changes log format for the clients",
+          .value = { GF_LOG_FORMAT_NO_MSG_ID, GF_LOG_FORMAT_WITH_MSG_ID}
+        },
+        { .key = {"brick-log-format"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = GF_LOG_FORMAT_WITH_MSG_ID,
+          .description = "Changes the log format for the bricks",
+          .value = { GF_LOG_FORMAT_NO_MSG_ID, GF_LOG_FORMAT_WITH_MSG_ID}
         },
         { .key  = {NULL} },
 

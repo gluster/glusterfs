@@ -629,4 +629,10 @@ struct _dict;
 inline gf_boolean_t
 dht_is_linkfile (struct iatt *buf, struct _dict *dict);
 
+int
+gf_check_log_format (const char *value);
+
+int
+gf_check_logger (const char *value);
+
 #endif /* _COMMON_UTILS_H */
