@@ -60,7 +60,7 @@ function remove_ctdb_options () {
 function remove_fstab_entry () {
 	volname=$1
 	mntpt=$2
-	mntent="`hostname`:/$volname $mntpt glusterfs defaults,transport=tcp 0 0"
+	mntent="`hostname`:/$volname $mntpt glusterfs _netdev,defaults,transport=tcp 0 0"
 	esc_mntent=$(echo -e "$mntent" | sed 's/\//\\\//g')
 	exists=`grep "^$mntent" /etc/fstab`
 	if [ "$exists" != " " ]
