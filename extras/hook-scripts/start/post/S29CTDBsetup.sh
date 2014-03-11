@@ -55,7 +55,7 @@ function add_glusterfs_ctdb_options () {
 function add_fstab_entry () {
         volname=$1
         mntpt=$2
-        mntent="`hostname`:/$volname $mntpt glusterfs defaults,transport=tcp 0 0"
+        mntent="`hostname`:/$volname $mntpt glusterfs _netdev,defaults,transport=tcp 0 0"
         exists=`grep "^$mntent" /etc/fstab`
         if [ "$exists" == "" ]
         then
