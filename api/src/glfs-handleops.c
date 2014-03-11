@@ -1262,7 +1262,7 @@ glfs_h_rename (struct glfs *fs, struct glfs_object *olddir, const char *oldname,
 			 * or both must be non-dirs. Else, fail.
 			 */
 			ret = -1;
-			errno = EISDIR;
+			errno = EEXIST;
 			goto out;
 		}
 	}
