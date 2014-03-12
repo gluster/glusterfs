@@ -1075,11 +1075,11 @@ quota_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         priv = this->private;
 
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
+
         xattr_req = xattr_req ? dict_ref(xattr_req) : dict_new();
         if (!xattr_req)
                 goto err;
-
-        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
         local = quota_local_new ();
         if (local == NULL) {
