@@ -9,6 +9,7 @@
 #include <linux/fs.h>
 #include <sys/ioctl.h>
 #include "bd.h"
+#include "bd-mem-types.h"
 #include "run.h"
 
 int
@@ -242,7 +243,7 @@ __bd_fd_ctx_get (xlator_t *this, fd_t *fd, bd_fd_t **bdfd_p)
         }
 
         uuid_utoa_r (fd->inode->gfid, gfid);
-        asprintf (&devpath, "/dev/%s/%s", priv->vg, gfid);
+        gf_asprintf (&devpath, "/dev/%s/%s", priv->vg, gfid);
         if (!devpath)
                 goto out;
 
@@ -268,7 +269,7 @@ __bd_fd_ctx_get (xlator_t *this, fd_t *fd, bd_fd_t **bdfd_p)
 
         ret = 0;
 out:
-        FREE (devpath);
+        GF_FREE (devpath);
         if (ret) {
                 close (_fd);
                 GF_FREE (bdfd);
@@ -701,8 +702,8 @@ out:
         if (fd2 != -1)
                 close (fd2);
 
-        FREE (spath);
-        FREE (dpath);
+        GF_FREE (spath);
+        GF_FREE (dpath);
 
         return ret;
 }

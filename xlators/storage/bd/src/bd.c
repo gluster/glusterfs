@@ -32,6 +32,7 @@
 
 #include "bd.h"
 #include "bd-aio.h"
+#include "bd-mem-types.h"
 #include "defaults.h"
 #include "glusterfs3-xdr.h"
 #include "run.h"
@@ -213,7 +214,7 @@ bd_forget (xlator_t *this, inode_t *inode)
         ret = bd_inode_ctx_get (inode, this, &bdatt);
         if (!ret) {
                 inode_ctx_del (inode, this, &ctx);
-                FREE (bdatt);
+                GF_FREE (bdatt);
         }
         return 0;
 }
@@ -236,7 +237,7 @@ bd_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                                      entry->d_stat.ia_gfid, &type, &size)) {
                         entry->d_stat.ia_size = size;
                         entry->d_stat.ia_blocks = size / 512;
-                        FREE (type);
+                        GF_FREE (type);
                 }
         }
 
@@ -653,7 +654,7 @@ bd_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 goto posix;
 
         uuid_utoa_r (fd->inode->gfid, gfid);
-        asprintf (&devpath, "/dev/%s/%s", priv->vg, gfid);
+        gf_asprintf (&devpath, "/dev/%s/%s", priv->vg, gfid);
         BD_VALIDATE_MEM_ALLOC (devpath, ret, out);
 
         _fd = open (devpath, flags | O_LARGEFILE, 0);
@@ -688,7 +689,7 @@ posix:
 out:
         BD_STACK_UNWIND (open, frame, -1, ret, fd, NULL);
 
-        FREE (devpath);
+        GF_FREE (devpath);
         if (ret) {
                 close (_fd);
                 GF_FREE (bd_fd);
@@ -1213,7 +1214,7 @@ bd_offload_dest_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        local->bdatt = CALLOC (1, sizeof (bd_attr_t));
+        local->bdatt = GF_CALLOC (1, sizeof (bd_attr_t), gf_bd_attr);
         BD_VALIDATE_MEM_ALLOC (local->bdatt, op_errno, out);
 
         STACK_WIND (frame, bd_offload_getx_cbk, FIRST_CHILD(this),
@@ -1303,7 +1304,7 @@ bd_offload (call_frame_t *frame, xlator_t *this, loc_t *loc,
         local->dict = dict_new ();
         BD_VALIDATE_MEM_ALLOC (local->dict, op_errno, out);
 
-        local->dloc = CALLOC (1, sizeof (loc_t));
+        local->dloc = GF_CALLOC (1, sizeof (loc_t), gf_bd_loc_t);
         BD_VALIDATE_MEM_ALLOC (local->dloc, op_errno, out);
 
         strncpy (param, local->data->data, local->data->len);
@@ -1923,7 +1924,7 @@ bd_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
         memcpy (postbuf, &bdatt->iatt, sizeof (struct iatt));
 out:
-        FREE (valid);
+        GF_FREE (valid);
         BD_STACK_UNWIND (setattr, frame, op_ret, op_errno, prebuf,
                          postbuf, xdata);
         return 0;
@@ -1948,7 +1949,7 @@ bd_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc, struct iatt *stbuf,
         local = bd_local_init (frame, this);
         BD_VALIDATE_MEM_ALLOC (local, op_errno, out);
 
-        ck_valid = CALLOC (1, sizeof (valid));
+        ck_valid = GF_CALLOC (1, sizeof (valid), gf_bd_int32_t);
         BD_VALIDATE_MEM_ALLOC (ck_valid, op_errno, out);
 
         local->inode = inode_ref (loc->inode);
@@ -2268,6 +2269,7 @@ mem_acct_init (xlator_t *this)
         if (ret != 0)
                 gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
                        "failed");
+
         return ret;
 }
 
