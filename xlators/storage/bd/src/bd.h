@@ -92,13 +92,6 @@
 
 typedef char bd_gfid_t[GF_UUID_BUF_SIZE];
 
-enum gf_bd_mem_types_ {
-        gf_bd_private  = gf_common_mt_end + 1,
-        gf_bd_attr,
-        gf_bd_fd,
-        gf_bd_mt_end
-};
-
 /**
  * bd_fd - internal structure
  */

@@ -29,6 +29,7 @@
 
 #ifdef HAVE_LIBAIO
 #include <libaio.h>
+#include "bd-mem-types.h"
 
 struct bd_aio_cb {
         struct iocb     iocb;
@@ -187,7 +188,7 @@ bd_aio_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto err;
         }
 
-        paiocb = CALLOC (1, sizeof (*paiocb));
+        paiocb = GF_CALLOC (1, sizeof (*paiocb), gf_bd_aio_cb);
         if (!paiocb) {
                 op_errno = ENOMEM;
                 goto err;
@@ -314,7 +315,7 @@ bd_aio_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         _fd = bd_fd->fd;
 
-        paiocb = CALLOC (1, sizeof (*paiocb));
+        paiocb = GF_CALLOC (1, sizeof (*paiocb), gf_bd_aio_cb);
         if (!paiocb) {
                 op_errno = ENOMEM;
                 goto err;
