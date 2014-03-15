@@ -9,7 +9,7 @@ the leveraging of existing file system interface functionality to
 support the construction, deletion and manipulation of attributes.
 
 But as we have tested through this functionality provided by Solaris
-we have come accross two major issues as written below.
+we have come across two major issues as written below.
 
 1. Symlink XATTR_NOFOLLOW not present for creating extended attributes
    directly on the symlinks like other platforms Linux,MAC-OSX,BSD etc.

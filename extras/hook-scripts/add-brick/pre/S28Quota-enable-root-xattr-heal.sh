@@ -5,7 +5,7 @@
 ## The scripts
 ## I.   add-brick/pre/S28Quota-root-xattr-heal.sh (itself)
 ## II.  add-brick/post/disabled-root-xattr-heal.sh AND
-## collectively acheives the job of healing the 'limit-set' xattr upon
+## collectively archieves the job of healing the 'limit-set' xattr upon
 ## add-brick to the gluster volume.
 ##
 ## This script is the 'controlling' script. Upon add-brick this script enables

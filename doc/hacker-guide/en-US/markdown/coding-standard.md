@@ -341,7 +341,7 @@ This is the recommended template for any fop. In the beginning come
 the initializations. After that, the `success' control flow should be
 linear.  Any error conditions should cause a `goto` to a single
 point, `out`.  At that point, the code should detect the error
-that has occured and do appropriate cleanup.
+that has occurred and do appropriate cleanup.
 
 ```
 int32_t

@@ -992,7 +992,7 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
         }
 
         /* TODO: there are challenges in supporting changing of
-           stripe-count, untill it is properly supported give warning to user */
+           stripe-count, until it is properly supported give warning to user */
         if (dict_get (options, "stripe-count")) {
                 answer = cli_cmd_get_confirmation (state, question);
 
@@ -1450,7 +1450,7 @@ cli_cmd_quota_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
         }
 
-        //create auxillary mount need for quota commands that operate on path
+        //create auxiliary mount need for quota commands that operate on path
         ret = cli_stage_quota_op (volname, type);
         if (ret)
                 goto out;

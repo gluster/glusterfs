@@ -169,7 +169,7 @@ Glossary
 **Translator**
 :   Translators (also called xlators) are stackable modules where each
     module has a very specific purpose. Translators are stacked in a
-    hierarchical structure called as graph. A translator recieves data
+    hierarchical structure called as graph. A translator receives data
     from its parent translator, performs necessary operations and then
     passes the data down to its child translator in hierarchy.
 

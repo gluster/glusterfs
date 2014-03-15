@@ -12,7 +12,7 @@ On a regular translator tree without write-behind, control flow is like this:
 1. application makes a `write()` system call.
 2. VFS ==> FUSE ==> `/dev/fuse`.
 3. fuse-bridge initiates a glusterfs `writev()` call.
-4. `writev()` is `STACK_WIND()`ed upto client-protocol or storage translator.
+4. `writev()` is `STACK_WIND()`ed up to client-protocol or storage translator.
 5. client-protocol, on receiving reply from server, starts `STACK_UNWIND()` towards the fuse-bridge.
 
 On a translator tree with write-behind, control flow is like this:
@@ -20,7 +20,7 @@ On a translator tree with write-behind, control flow is like this:
 1. application makes a `write()` system call.
 2. VFS ==> FUSE ==> `/dev/fuse`.
 3. fuse-bridge initiates a glusterfs `writev()` call.
-4. `writev()` is `STACK_WIND()`ed upto write-behind translator.
+4. `writev()` is `STACK_WIND()`ed up to write-behind translator.
 5. write-behind adds the write buffer to its internal queue and does a `STACK_UNWIND()` towards the fuse-bridge.
 
 write call is completed in application's percepective. after 
@@ -46,7 +46,7 @@ writev() calls from fuse-bridge. Blocking is only from application's
 perspective. Write-behind does `STACK_WIND()` to child translator 
 straight-away, but hold behind the `STACK_UNWIND()` towards fuse-bridge. 
 `STACK_UNWIND()` is done only once write-behind gets enough replies to 
-accomodate for currently blocked request.
+accommodate for currently blocked request.
 
 Flush behind
 ------------
