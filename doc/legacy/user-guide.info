@@ -234,7 +234,7 @@ recommended that all users use the patched FUSE.
      GlusterFS has been increased to 1MB, permitting large reads and
      writes to be sent in bigger chunks.
 
-   * The kernel's read-ahead boundry has been extended upto 1MB.
+   * The kernel's read-ahead boundary has been extended up to 1MB.
 
    * Block size returned in the `stat()'/`fstat()' calls tuned to 1MB,
      to make cp and similar commands perform I/O using that block size.
@@ -527,7 +527,7 @@ module loaded. You can ensure this by running:
      [root@server]# modprobe fuse
 
    Before we can run the GlusterFS client or server programs, we need
-to write two files called _volume specifications_ (equivalently refered
+to write two files called _volume specifications_ (equivalently referred
 to as _volfiles_).  The volfile describes the _translator tree_ on a
 node. The next chapter will explain the concepts of `translator' and
 `volume specification' in detail. For now, just assume that the volfile
@@ -1161,7 +1161,7 @@ alu.order' configuration directive.
    Each sub-scheduler needs to know two things: when to kick in (the
 entry-threshold), and how long to stay in control (the exit-threshold).
 For example: when unifying three disks of 100GB, keeping an exact
-balance of disk-usage is not necesary. Instead, there could be a 1GB
+balance of disk-usage is not necessary. Instead, there could be a 1GB
 margin, which can be used to nicely balance other factors, such as
 read-usage. The disk-usage scheduler can be told to kick in only when a
 certain threshold of discrepancy is passed, such as 1GB. When it
@@ -1557,7 +1557,7 @@ can be pipelined.  This mode of write-behind operation is best used on
 the client side, to enable decreased write latency for the application.
 
    The write-behind translator can also aggregate write requests. If the
-`aggregate-size' option is specified, then successive writes upto that
+`aggregate-size' option is specified, then successive writes up to that
 size are accumulated and written in a single operation. This mode of
 operation is best used on the server side, as this will decrease the
 disk's head movement when multiple files are being written to in
@@ -1611,7 +1611,7 @@ useful in a web hosting environment, where most clients will simply
 read some files and only a few will write to them).
 
    The IO cache translator reads data from its child in `page-size'
-chunks.  It caches data upto `cache-size' bytes. The cache is
+chunks.  It caches data up to `cache-size' bytes. The cache is
 maintained as a prioritized least-recently-used (LRU) list, with
 priorities determined by user-specified patterns to match filenames.
 

@@ -1,6 +1,6 @@
 creating a call stub and pausing a call
 ---------------------------------------
-libglusterfs provides seperate API to pause each of the fop. parameters to each API is
+libglusterfs provides separate API to pause each of the fop. parameters to each API is
 @frame - call frame which has to be used to resume the call at call_resume().
 @fn    - procedure to call during call_resume().
        NOTE: @fn should exactly take the same type and number of parameters that

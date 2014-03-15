@@ -1686,7 +1686,7 @@ gf_cli_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len, &dict);
 
         /* For brick processes graph change does not happen on the fly.
-         * The proces has to be restarted. So this is a check from the
+         * The process has to be restarted. So this is a check from the
          * volume set option such that if debug xlators such as trace/errorgen
          * are provided in the set command, warn the user.
          */
@@ -4201,7 +4201,7 @@ write_contents_to_common_pem_file (dict_t *dict, int output_count)
         char             common_pem_file[PATH_MAX] = "";
         char            *output                    = NULL;
         char             output_name[PATH_MAX]     = "";
-        int              bytes_writen              = 0;
+        int              bytes_written             = 0;
         int              fd                        = -1;
         int              ret                       = -1;
         int              i                         = -1;
@@ -4239,16 +4239,16 @@ write_contents_to_common_pem_file (dict_t *dict, int output_count)
                         cli_out ("Unable to fetch output.");
                 }
                 if (output) {
-                        bytes_writen = write (fd, output, strlen(output));
-                        if (bytes_writen != strlen(output)) {
+                        bytes_written = write (fd, output, strlen(output));
+                        if (bytes_written != strlen(output)) {
                                 gf_log ("", GF_LOG_ERROR, "Failed to write "
                                         "to %s", common_pem_file);
                                 ret = -1;
                                 goto out;
                         }
                         /* Adding the new line character */
-                        bytes_writen = write (fd, "\n", strlen("\n"));
-                        if (bytes_writen != strlen("\n")) {
+                        bytes_written = write (fd, "\n", strlen("\n"));
+                        if (bytes_written != strlen("\n")) {
                                 gf_log ("", GF_LOG_ERROR,
                                         "Failed to add new line char");
                                 ret = -1;
@@ -6621,7 +6621,7 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
                 if (ret)
                         continue;
 
-                /* Brick/not-brick is handled seperately here as all
+                /* Brick/not-brick is handled separately here as all
                  * types of nodes are contained in the default output
                  */
                 memset (status.brick, 0, PATH_MAX + 255);

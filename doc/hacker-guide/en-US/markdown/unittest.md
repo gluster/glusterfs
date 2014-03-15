@@ -115,7 +115,7 @@ Add the following to your C file:
 #include <assert.h>
 
 /*
- * Checks caller responsability against contract
+ * Checks caller responsibility against contract
  */
 #define REQUIRE(cond) assert(cond)
 
@@ -127,7 +127,7 @@ Add the following to your C file:
 /*
  * While REQUIRE and ENSURE apply to functions, INVARIANT
  * applies to classes/structs.  It ensures that intances
- * of the class/struct are consistant. In other words,
+ * of the class/struct are consistent. In other words,
  * that the instance has not been corrupted.
  */
 #define INVARIANT(invariant_fnc) do{ (invariant_fnc) } while (0);

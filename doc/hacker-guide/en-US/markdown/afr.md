@@ -143,7 +143,7 @@ Self heal
             * consider the entry with the highest `AFR_METADATA_PENDING` number as
               definitive and replicate its attributes on children.
     * If entry is a directory:
-        * Consider the entry with the higest `AFR_ENTRY_PENDING` number as
+        * Consider the entry with the highest `AFR_ENTRY_PENDING` number as
           definitive and replicate its contents on all children.
     * If any two entries have non-matching types (i.e., one is file and
       other is directory):

@@ -15,11 +15,11 @@
 ----------------------------------------------------------------------------------------------------
 * options provided in protocol/server:
 	* for username/password based authentication:
-	      option auth.login.<brick>.allow [comma seperated list of usernames using which clients can connect to volume <brick>]
+	      option auth.login.<brick>.allow [comma separated list of usernames using which clients can connect to volume <brick>]
 	      option auth.login.<username>.password <password> #specify password <password> for username <username>
 	* for addr based authentication:
-	      option auth.addr.<brick>.allow [comma seperated list of ip-addresses/unix-paths from which clients are allowed to connect to volume <brick>]
-	      option auth.addr.<brick>.reject [comma seperated list of ip-addresses/unix-paths from which clients are not allowed to connect to volume <brick>]
+	      option auth.addr.<brick>.allow [comma separated list of ip-addresses/unix-paths from which clients are allowed to connect to volume <brick>]
+	      option auth.addr.<brick>.reject [comma separated list of ip-addresses/unix-paths from which clients are not allowed to connect to volume <brick>]
 	* negation operator '!' is used to invert the sense of matching.
 	  Eg., option auth.addr.brick.allow !a.b.c.d #do not allow client from a.b.c.d to connect to volume brick
 	       option auth.addr.brick.reject !w.x.y.z #allow client from w.x.y.z to connect to volume brick

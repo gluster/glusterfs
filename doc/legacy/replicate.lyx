@@ -293,7 +293,7 @@ Locking and Change Log
 To ensure consistency across subvolumes, replicate holds a lock whenever a modificatio
 n is being made to a file or directory.
  By default, replicate considers the first subvolume as the sole lock server.
- However, the number of lock servers can be increased upto the total number
+ However, the number of lock servers can be increased up to the total number
  of subvolumes.
 \end_layout
 
