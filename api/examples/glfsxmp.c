@@ -293,19 +293,19 @@ test_h_unlink (void)
                 goto out;
         }
 
-        /* unlink non-existant regular file */
+        /* unlink non-existent regular file */
         ret = glfs_h_unlink (fs, dir, my_file);
         if ((ret && errno != ENOENT) || (ret == 0)) {
-                fprintf (stderr, "glfs_h_unlink: error unlinking non-existant %s: invalid errno ,%d, %s\n",
+                fprintf (stderr, "glfs_h_unlink: error unlinking non-existent %s: invalid errno ,%d, %s\n",
                          my_file, ret, strerror (errno));
                 printf ("glfs_h_unlink tests: FAILED\n");
                 goto out;
         }
 
-        /* unlink non-existant directory */
+        /* unlink non-existent directory */
         ret = glfs_h_unlink (fs, dir, my_subdir);
         if ((ret && errno != ENOENT) || (ret == 0)) {
-                fprintf (stderr, "glfs_h_unlink: error unlinking non-existant %s:  invalid errno ,%d, %s\n",
+                fprintf (stderr, "glfs_h_unlink: error unlinking non-existent %s:  invalid errno ,%d, %s\n",
                          my_subdir, ret, strerror (errno));
                 printf ("glfs_h_unlink tests: FAILED\n");
                 goto out;
