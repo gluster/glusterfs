@@ -24,23 +24,16 @@
 
 #define GLUSTERFS_ENV_MEM_ACCT_STR  "GLUSTERFS_DISABLE_MEM_ACCT"
 
-#include <cmockery/pbc.h>
-#include <cmockery/cmockery_override.h>
-
 void
 gf_mem_acct_enable_set (void *data)
 {
         glusterfs_ctx_t *ctx = NULL;
-
-        REQUIRE(data != NULL);
 
         ctx = data;
 
         GF_ASSERT (ctx != NULL);
 
         ctx->mem_acct_enable = 1;
-
-        ENSURE(1 == ctx->mem_acct_enable);
 
         return;
 }
@@ -155,8 +148,6 @@ __gf_realloc (void *ptr, size_t size)
 
         if (!THIS->ctx->mem_acct_enable)
                 return REALLOC (ptr, size);
-
-        REQUIRE(NULL != ptr);
 
         tot_size = size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
 
