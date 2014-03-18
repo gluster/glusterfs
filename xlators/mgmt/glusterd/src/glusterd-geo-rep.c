@@ -3900,8 +3900,6 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {
         int32_t             ret     = -1;
         int32_t             type    = -1;
-        dict_t             *ctx    = NULL;
-        dict_t             *resp_dict = NULL;
         char               *host_uuid = NULL;
         char               *slave  = NULL;
         char               *slave_ip  = NULL;
@@ -3919,6 +3917,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         GF_ASSERT (THIS->private);
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
+        GF_ASSERT (rsp_dict);
 
         priv = THIS->private;
 
@@ -3930,12 +3929,8 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if (ret < 0)
                 goto out;
 
-        ctx = glusterd_op_get_ctx ();
-        resp_dict = ctx ? ctx : rsp_dict;
-        GF_ASSERT (resp_dict);
-
         if (type == GF_GSYNC_OPTION_TYPE_STATUS) {
-                ret = glusterd_get_gsync_status (dict, op_errstr, resp_dict);
+                ret = glusterd_get_gsync_status (dict, op_errstr, rsp_dict);
                 goto out;
         }
 
@@ -3965,8 +3960,8 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if (dict_get_str (dict, "master", &volname) == 0) {
                 ret = glusterd_volinfo_find (volname, &volinfo);
                 if (ret) {
-                        gf_log ("", GF_LOG_WARNING, "Volinfo for %s (master) not found",
-                                volname);
+                        gf_log ("", GF_LOG_WARNING, "Volinfo for %s (master)"
+                                " not found", volname);
                         goto out;
                 }
 
@@ -3975,9 +3970,9 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         if (type == GF_GSYNC_OPTION_TYPE_CONFIG) {
                 ret = glusterd_gsync_configure (volinfo, slave, path_list,
-                                                dict, resp_dict, op_errstr);
+                                                dict, rsp_dict, op_errstr);
                 if (!ret) {
-                        ret = dict_set_str (resp_dict, "conf_path", conf_path);
+                        ret = dict_set_str (rsp_dict, "conf_path", conf_path);
                         if (ret) {
                                 gf_log ("", GF_LOG_ERROR,
                                         "Unable to store conf_file_path.");
@@ -3994,7 +3989,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
                 ret = glusterd_gsync_delete (volinfo, slave, slave_ip,
                                              slave_vol, path_list, dict,
-                                             resp_dict, op_errstr);
+                                             rsp_dict, op_errstr);
                 goto out;
         }
 
@@ -4009,8 +4004,9 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
                 ret = glusterd_set_gsync_confs (volinfo);
                 if (ret != 0) {
-                        gf_log ("", GF_LOG_WARNING, "marker/changelog start failed");
-                        *op_errstr = gf_strdup ("failed to initialize indexing");
+                        gf_log ("", GF_LOG_WARNING, "marker/changelog"
+                                " start failed");
+                        *op_errstr = gf_strdup ("Index initialization failed");
                         ret = -1;
                         goto out;
                 }
@@ -4031,9 +4027,10 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         goto out;
                 }
 
-                ret = stop_gsync (volname, slave, &status_msg, conf_path, is_force);
+                ret = stop_gsync (volname, slave, &status_msg,
+                                  conf_path, is_force);
                 if (ret == 0 && status_msg)
-                        ret = dict_set_str (resp_dict, "gsync-status",
+                        ret = dict_set_str (rsp_dict, "gsync-status",
                                             status_msg);
                 if (ret != 0 && !is_force && path_list)
                         *op_errstr = gf_strdup ("internal error");
@@ -4041,7 +4038,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 if (!ret) {
                         ret = glusterd_create_status_file (volinfo->volname,
                                                            slave, slave_ip,
-                                                           slave_vol, "Stopped");
+                                                           slave_vol,"Stopped");
                         if (ret) {
                                 gf_log ("", GF_LOG_ERROR, "Unable to update"
                                         "state_file. Error : %s",
