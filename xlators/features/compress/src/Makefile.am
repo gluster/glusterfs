@@ -4,7 +4,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 noinst_HEADERS = cdc.h cdc-mem-types.h
 
-cdc_la_LDFLAGS = -module -avoidversion $(LIBZ_LIBS)
+cdc_la_LDFLAGS = -module -avoid-version $(LIBZ_LIBS)
 
 cdc_la_SOURCES = cdc.c cdc-helper.c
 cdc_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
