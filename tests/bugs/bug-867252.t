@@ -35,7 +35,7 @@ EXPECT '1' brick_count $V0
 TEST $CLI volume add-brick $V0 $H0:$B0/${V0}2;
 EXPECT '2' brick_count $V0
 
-TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}2;
+TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}2 force;
 EXPECT '1' brick_count $V0
 
 cleanup;

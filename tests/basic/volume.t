@@ -22,7 +22,7 @@ EXPECT 'Started' volinfo_field $V0 'Status';
 TEST $CLI volume add-brick $V0 $H0:$B0/${V0}{9,10,11,12};
 EXPECT '12' brick_count $V0
 
-TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}{1,2,3,4};
+TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}{1,2,3,4} force;
 EXPECT '8' brick_count $V0
 
 TEST $CLI volume stop $V0;
