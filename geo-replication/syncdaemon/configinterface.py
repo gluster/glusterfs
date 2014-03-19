@@ -47,6 +47,19 @@ CONFIGS = (
      "",
      "ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no "
      "-i /var/lib/glusterd/geo-replication/tar_ssh.pem"),
+    ("peersrx . .",
+     "changelog_log_file",
+     "",
+     "${iprefix}/log/glusterfs/geo-replication/${mastervol}"
+     "/${eSlave}${local_id}-changes.log"),
+    ("peersrx . .",
+     "working_dir",
+     "/var/run/gluster/${mastervol}/${eSlave}",
+     "${iprefix}/lib/misc/glusterfsd/${mastervol}/${eSlave}"),
+    ("peersrx . .",
+     "working_dir",
+     "/usr/local/var/run/gluster/${mastervol}/${eSlave}",
+     "${iprefix}/lib/misc/glusterfsd/${mastervol}/${eSlave}"),
 )
 
 
