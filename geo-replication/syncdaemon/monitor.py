@@ -146,20 +146,20 @@ class Monitor(object):
             if so:
                 ret = nwait(cpid, os.WNOHANG)
                 if ret != None:
-                    logging.debug("worker died before establishing connection")
+                    logging.info("worker(%s) died before establishing " \
+                                 "connection" % w[0])
                 else:
-                    logging.debug("worker seems to be connected (?? racy check)")
+                    logging.debug("worker(%s) connected" % w[0])
                     while time.time() < t0 + conn_timeout:
                         ret = nwait(cpid, os.WNOHANG)
                         if ret != None:
-                            logging.debug("worker died in startup phase")
+                            logging.info("worker(%s) died in startup " \
+                                         "phase" % w[0])
                             break
                         time.sleep(1)
             else:
-                logging.debug("worker not confirmed in %d sec, aborting it" % \
-                              conn_timeout)
-                self.terminate()
-                time.sleep(1)
+                logging.info("worker(%s) not confirmed in %d sec, " \
+                             "aborting it" % (w[0], conn_timeout))
                 os.kill(cpid, signal.SIGKILL)
                 ret = nwait(cpid)
             if ret == None:
@@ -188,7 +188,6 @@ class Monitor(object):
         for wx in wspx:
             def wmon(w):
                 cpid, _ = self.monitor(w, argv, cpids)
-                terminate()
                 time.sleep(1)
                 self.lock.acquire()
                 for cpid in cpids:
