@@ -3,7 +3,7 @@ if ENABLE_CRYPT_XLATOR
 xlator_LTLIBRARIES = crypt.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/encryption
 
-crypt_la_LDFLAGS = -module -avoidversion -lssl -lcrypto
+crypt_la_LDFLAGS = -module -avoid-version -lssl -lcrypto
 
 crypt_la_SOURCES = keys.c data.c metadata.c atom.c crypt.c
 crypt_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la

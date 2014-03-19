@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = readdir-ahead.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 
-readdir_ahead_la_LDFLAGS = -module -avoidversion
+readdir_ahead_la_LDFLAGS = -module -avoid-version
 
 readdir_ahead_la_SOURCES = readdir-ahead.c
 readdir_ahead_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
