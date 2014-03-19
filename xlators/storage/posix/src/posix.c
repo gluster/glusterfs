@@ -3232,13 +3232,18 @@ posix_get_ancestry_non_directory (xlator_t *this, inode_t *leaf_inode,
                 goto out;
         }
 
-        list = alloca (size + 1);
+        list = alloca (size);
         if (!list) {
                 *op_errno = errno;
                 goto out;
         }
 
         size = sys_llistxattr (leaf_path, list, size);
+        if (size < 0) {
+                op_ret = -1;
+                *op_errno = errno;
+                goto out;
+        }
         remaining_size = size;
         list_offset = 0;
 
@@ -3252,8 +3257,6 @@ posix_get_ancestry_non_directory (xlator_t *this, inode_t *leaf_inode,
         }
 
         while (remaining_size > 0) {
-                if (*(list + list_offset) == '\0')
-                        break;
                 strcpy (key, list + list_offset);
                 if (strncmp (key, PGFID_XATTR_KEY_PREFIX,
                              strlen (PGFID_XATTR_KEY_PREFIX)) != 0)
@@ -3629,19 +3632,22 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         if (size == 0)
                 goto done;
 
-        list = alloca (size + 1);
+        list = alloca (size);
         if (!list) {
                 op_errno = errno;
                 goto out;
         }
 
         size = sys_llistxattr (real_path, list, size);
+        if (size < 0) {
+                op_ret = -1;
+                op_errno = errno;
+                goto out;
+        }
 
         remaining_size = size;
         list_offset = 0;
         while (remaining_size > 0) {
-                if (*(list + list_offset) == '\0')
-                        break;
                 strcpy (keybuffer, list + list_offset);
                 size = sys_lgetxattr (real_path, keybuffer, NULL, 0);
                 if (size == -1) {
