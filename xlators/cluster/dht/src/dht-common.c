@@ -3855,7 +3855,7 @@ dht_link (call_frame_t *frame, xlator_t *this,
         if (!cached_subvol) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "no cached subvolume for path=%s", oldloc->path);
-                op_errno = EINVAL;
+                op_errno = ENOENT;
                 goto err;
         }
 
@@ -3864,7 +3864,7 @@ dht_link (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_DEBUG,
                         "no subvolume in layout for path=%s",
                         newloc->path);
-                op_errno = EINVAL;
+                op_errno = ENOENT;
                 goto err;
         }
 
@@ -4253,7 +4253,7 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_DEBUG,
                         "hashed subvol not found for %s",
                         loc->path);
-                op_errno = EINVAL;
+                op_errno = ENOENT;
                 goto err;
         }
 
