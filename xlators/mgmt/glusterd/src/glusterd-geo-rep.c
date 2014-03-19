@@ -652,6 +652,7 @@ glusterd_gsync_get_config (char *master, char *slave, char *conf_path, dict_t *d
         runinit (&runner);
         runner_add_args  (&runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
         runner_argprintf (&runner, "%s", conf_path);
+        runner_argprintf (&runner, "--iprefix=%s", DATADIR);
         runner_argprintf (&runner, ":%s", master);
         runner_add_args  (&runner, slave, "--config-get-all", NULL);
 
@@ -668,6 +669,7 @@ glusterd_gsync_get_param_file (char *prmfile, const char *param, char *master,
         runinit (&runner);
         runner_add_args  (&runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
         runner_argprintf (&runner, "%s", conf_path);
+        runner_argprintf (&runner, "--iprefix=%s", DATADIR);
         runner_argprintf (&runner, ":%s", master);
         runner_add_args  (&runner, slave, "--config-get", NULL);
         runner_argprintf (&runner, "%s-file", param);
@@ -1930,6 +1932,7 @@ glusterd_create_status_file (char *master, char *slave, char *slave_ip,
                          status, "-c", NULL);
         runner_argprintf (&runner, "%s/"GEOREP"/%s_%s_%s/gsyncd.conf",
                           priv->workdir, master, slave_ip, slave_vol);
+        runner_argprintf (&runner, "--iprefix=%s", DATADIR);
         runner_argprintf (&runner, ":%s", master);
         runner_add_args  (&runner, slave, NULL);
         synclock_unlock (&priv->big_lock);
@@ -3071,6 +3074,7 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
         runinit (&runner);
         runner_add_args (&runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
         runner_argprintf (&runner, "%s", conf_path);
+        runner_argprintf (&runner, "--iprefix=%s", DATADIR);
         if (volinfo) {
                 master = volinfo->volname;
                 runner_argprintf (&runner, ":%s", master);
@@ -4019,6 +4023,7 @@ glusterd_gsync_delete (glusterd_volinfo_t *volinfo, char *slave, char *slave_ip,
         runner_add_args  (&runner, GSYNCD_PREFIX"/gsyncd",
                           "--delete", "-c", NULL);
         runner_argprintf (&runner, "%s", conf_path);
+        runner_argprintf (&runner, "--iprefix=%s", DATADIR);
 
         if (volinfo) {
                 master = volinfo->volname;
@@ -4896,6 +4901,14 @@ create_conf_file (glusterd_conf_t *conf, char *conf_path)
                          ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
+        /* changelog-log-file */
+        runinit_gsyncd_setrx (&runner, conf_path);
+        runner_add_args (&runner,
+                         "changelog-log-file",
+                         DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/${mastervol}/${eSlave}${local_id}-changes.log",
+                         ".", ".", NULL);
+        RUN_GSYNCD_CMD;
+
         /* gluster-log-file */
         runinit_gsyncd_setrx (&runner, conf_path);
         runner_add_args (&runner,
@@ -4922,7 +4935,7 @@ create_conf_file (glusterd_conf_t *conf, char *conf_path)
         runinit_gsyncd_setrx (&runner, conf_path);
         runner_add_arg(&runner, "working-dir");
         runner_argprintf(&runner, "%s/${mastervol}/${eSlave}",
-                         DEFAULT_VAR_RUN_DIRECTORY);
+                         DEFAULT_GLUSTERFSD_MISC_DIRETORY);
         runner_add_args (&runner, ".", ".", NULL);
         RUN_GSYNCD_CMD;
 

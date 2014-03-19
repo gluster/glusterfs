@@ -216,6 +216,10 @@ def main_i():
                   action='callback', callback=store_abs)
     op.add_option('-l', '--log-file', metavar='LOGF', type=str,
                   action='callback', callback=store_abs)
+    op.add_option('--iprefix',  metavar='LOGD',  type=str,
+                  action='callback', callback=store_abs)
+    op.add_option('--changelog-log-file',  metavar='LOGF',  type=str,
+                  action='callback', callback=store_abs)
     op.add_option('--log-file-mbr', metavar='LOGF', type=str,
                   action='callback', callback=store_abs)
     op.add_option('--state-file', metavar='STATF', type=str,
@@ -253,6 +257,7 @@ def main_i():
     op.add_option('--state-socket-unencoded', metavar='SOCKF',
                   type=str, action='callback', callback=store_abs)
     op.add_option('--checkpoint', metavar='LABEL', default='')
+
     # tunables for failover/failback mechanism:
     # None   - gsyncd behaves as normal
     # blind  - gsyncd works with xtime pairs to identify
@@ -302,7 +307,9 @@ def main_i():
                                        setattr(
                                            a[-1].values, 'log_file', '-'),
                                        setattr(a[-1].values, 'log_level',
-                                               'DEBUG'))),
+                                               'DEBUG'),
+                                       setattr(a[-1].values,
+                                               'changelog_log_file', '-')))
     op.add_option('--path', type=str, action='append')
 
     for a in ('check', 'get'):

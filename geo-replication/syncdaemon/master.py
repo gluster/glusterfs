@@ -725,6 +725,9 @@ class GMasterChangelogMixin(GMasterCommon):
     # maximum retries per changelog before giving up
     MAX_RETRIES = 10
 
+    CHANGELOG_LOG_LEVEL = 9
+    CHANGELOG_CONN_RETRIES = 5
+
     def fallback_xsync(self):
         logging.info('falling back to xsync mode')
         gconf.configinterface.set('change-detector', 'xsync')
@@ -732,10 +735,8 @@ class GMasterChangelogMixin(GMasterCommon):
 
     def setup_working_dir(self):
         workdir = os.path.join(gconf.working_dir, md5hex(gconf.local_path))
-        logfile = os.path.join(workdir, 'changes.log')
-        logging.debug('changelog working dir %s (log: %s)' %
-                      (workdir, logfile))
-        return (workdir, logfile)
+        logging.debug('changelog working dir %s' % workdir)
+        return workdir
 
     def process_change(self, change, done, retry):
         pfx = gauxpfx()
@@ -1216,7 +1217,7 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
         self.comlist = []
         self.stimes = []
         self.sleep_interval = 60
-        self.tempdir = self.setup_working_dir()[0]
+        self.tempdir = self.setup_working_dir()
         self.tempdir = os.path.join(self.tempdir, 'xsync')
         logging.info('xsync temp directory: %s' % self.tempdir)
         try:

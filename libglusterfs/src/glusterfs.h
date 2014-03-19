@@ -156,8 +156,9 @@
 #define ZR_FILE_CONTENT_REQUEST(key) (!strncmp(key, ZR_FILE_CONTENT_STR, \
                                                ZR_FILE_CONTENT_STRLEN))
 
-#define DEFAULT_VAR_RUN_DIRECTORY    DATADIR "/run/gluster"
-#define GF_REPLICATE_TRASH_DIR          ".landfill"
+#define DEFAULT_VAR_RUN_DIRECTORY        DATADIR "/run/gluster"
+#define DEFAULT_GLUSTERFSD_MISC_DIRETORY DATADIR "/lib/misc/glusterfsd"
+#define GF_REPLICATE_TRASH_DIR           ".landfill"
 
 /* GlusterFS's maximum supported Auxilary GIDs */
 /* TODO: Keeping it to 200, so that we can fit in 2KB buffer for auth data

@@ -8515,6 +8515,7 @@ glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
         runner_add_args  (&runner, GSYNCD_PREFIX"/gsyncd",
                           path_list, "--monitor", "-c", NULL);
         runner_argprintf (&runner, "%s", conf_path);
+        runner_argprintf (&runner, "--iprefix=%s", DATADIR);
         runner_argprintf (&runner, ":%s", master_vol->volname);
         runner_argprintf (&runner, "--glusterd-uuid=%s",
                           uuid_utoa (priv->uuid));

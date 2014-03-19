@@ -1279,12 +1279,14 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
 
             g1.register()
             try:
-                (workdir, logfile) = g2.setup_working_dir()
+                workdir = g2.setup_working_dir()
                 # register with the changelog library
                 # 9 == log level (DEBUG)
                 # 5 == connection retries
                 changelog_agent.register(gconf.local_path,
-                                         workdir, logfile, 9, 5)
+                                         workdir, gconf.changelog_log_file,
+                                         g2.CHANGELOG_LOG_LEVEL,
+                                         g2.CHANGELOG_CONN_RETRIES)
                 g2.register(changelog_agent)
                 g3.register(changelog_agent)
             except ChangelogException as e:

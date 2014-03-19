@@ -3914,6 +3914,7 @@ gf_cli_gsync_config_command (dict_t *dict)
         runinit (&runner);
         runner_add_args (&runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
         runner_argprintf (&runner, "%s", confpath);
+        runner_argprintf (&runner, "--iprefix=%s", DATADIR);
         if (master)
                 runner_argprintf (&runner, ":%s", master);
         runner_add_arg (&runner, slave);
