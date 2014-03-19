@@ -64,6 +64,12 @@ static char* posix_ignore_xattrs[] = {
         NULL
 };
 
+static char* list_xattr_ignore_xattrs[] = {
+        GF_SELINUX_XATTR_KEY,
+        GF_XATTR_VOL_ID_KEY,
+        GFID_XATTR_KEY,
+        NULL
+};
 gf_boolean_t
 posix_special_xattr (char **pattern, char *key)
 {
@@ -84,20 +90,30 @@ out:
 }
 
 static gf_boolean_t
+_is_in_array (char **str_array, char *str)
+{
+        int i = 0;
+
+        for (i = 0; str_array[i]; i++) {
+                if (strcmp (str, str_array[i]) == 0)
+                        return _gf_true;
+        }
+        return _gf_false;
+}
+
+static gf_boolean_t
 posix_xattr_ignorable (char *key, posix_xattr_filler_t *filler)
 {
-        int          i = 0;
         gf_boolean_t ignore = _gf_false;
 
         GF_ASSERT (key);
         if (!key)
                 goto out;
-        for (i = 0; posix_ignore_xattrs[i]; i++) {
-                if (!strcmp (key, posix_ignore_xattrs[i])) {
-                        ignore = _gf_true;
-                        goto out;
-                }
-        }
+
+        ignore = _is_in_array (posix_ignore_xattrs, key);
+        if (ignore)
+                goto out;
+
         if ((!strcmp (key, GF_CONTENT_KEY))
             && (!IA_ISREG (filler->stbuf->ia_type)))
                 ignore = _gf_true;
@@ -179,7 +195,7 @@ _posix_get_marker_all_contributions (posix_xattr_filler_t *filler)
                 goto out;
         }
 
-        list = alloca (size + 1);
+        list = alloca (size);
         if (!list) {
                 goto out;
         }
@@ -194,8 +210,6 @@ _posix_get_marker_all_contributions (posix_xattr_filler_t *filler)
         list_offset = 0;
 
         while (remaining_size > 0) {
-                if (*(list + list_offset) == '\0')
-                        break;
                 strcpy (key, list + list_offset);
                 if (fnmatch (marker_contri_key, key, 0) == 0) {
                         ret = _posix_xattr_get_set_from_backend (filler, key);
@@ -558,6 +572,55 @@ out:
         return ret;
 }
 
+static void
+_handle_list_xattr (dict_t *xattr_req, const char *real_path,
+                    posix_xattr_filler_t *filler)
+{
+        int                   ret                   = -1;
+        ssize_t               size                  = 0;
+        char                 *list                  = NULL;
+        int32_t               list_offset           = 0;
+        size_t                remaining_size        = 0;
+        char                  *key                  = NULL;
+
+        if (!real_path)
+                goto out;
+
+        size = sys_llistxattr (real_path, NULL, 0);
+        if (size <= 0)
+                goto out;
+
+        list = alloca (size);
+        if (!list)
+                goto out;
+
+        size = sys_llistxattr (real_path, list, size);
+        if (size <= 0)
+                goto out;
+
+        remaining_size = size;
+        list_offset = 0;
+        while (remaining_size > 0) {
+                key = list + list_offset;
+
+                if (_is_in_array (list_xattr_ignore_xattrs, key))
+                        goto next;
+
+                if (posix_special_xattr (marker_xattrs, key))
+                        goto next;
+
+                if (dict_get (filler->xattr, key))
+                        goto next;
+
+                ret = _posix_xattr_get_set_from_backend (filler, key);
+next:
+                remaining_size -= strlen (key) + 1;
+                list_offset += strlen (key) + 1;
+
+        } /* while (remaining_size > 0) */
+out:
+        return;
+}
 
 dict_t *
 posix_lookup_xattr_fill (xlator_t *this, const char *real_path, loc_t *loc,
@@ -565,6 +628,12 @@ posix_lookup_xattr_fill (xlator_t *this, const char *real_path, loc_t *loc,
 {
         dict_t     *xattr             = NULL;
         posix_xattr_filler_t filler   = {0, };
+        gf_boolean_t    list          = _gf_false;
+
+        if (dict_get (xattr_req, "list-xattr")) {
+                dict_del (xattr_req, "list-xattr");
+                list = _gf_true;
+        }
 
         xattr = get_new_dict();
         if (!xattr) {
@@ -578,6 +647,9 @@ posix_lookup_xattr_fill (xlator_t *this, const char *real_path, loc_t *loc,
         filler.loc       = loc;
 
         dict_foreach (xattr_req, _posix_xattr_get_set, &filler);
+        if (list)
+                _handle_list_xattr (xattr_req, real_path, &filler);
+
 out:
         return xattr;
 }
