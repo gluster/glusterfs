@@ -1118,7 +1118,7 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
         GF_ASSERT (words);
         GF_ASSERT (options);
 
-        if (wordcount < 4)
+        if (wordcount < 5)
                 goto out;
 
         dict = dict_new ();
@@ -1136,7 +1136,7 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
         brick_index = 3;
         w = str_getunamb (words[3], type_opword);
         if (w && !strcmp ("replica", w)) {
-                if (wordcount < 5) {
+                if (wordcount < 6) {
                         ret = -1;
                         goto out;
                 }
@@ -1158,10 +1158,8 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
 
         w = str_getunamb (words[wordcount - 1], opwords);
         if (!w) {
-                /* Should be default 'force' */
-                command = GF_OP_CMD_COMMIT_FORCE;
-                if (question)
-                        *question = 1;
+                ret = -1;
+                goto out;
         } else {
                 /* handled this option */
                 wordcount--;

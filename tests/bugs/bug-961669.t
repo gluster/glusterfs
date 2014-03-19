@@ -27,7 +27,7 @@ function remove_brick_start {
 }
 
 function remove_brick {
-        $CLI volume remove-brick $V0 replica 2 $H0:$B0/${V0}{1,4,7} 2>&1|grep -oE 'success|failed'
+        $CLI volume remove-brick $V0 replica 2 $H0:$B0/${V0}{1,4,7} force 2>&1|grep -oE 'success|failed'
 }
 
 #remove-brick start variant
