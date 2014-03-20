@@ -1160,6 +1160,12 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
         if (!w) {
                 /* Should be default 'force' */
                 command = GF_OP_CMD_COMMIT_FORCE;
+                cli_out("WARNING: running remove-brick commands without an "
+                        "explicit option is deprecated, and will be removed "
+                        "in the next version of GlusterFS.\n"
+                        "To forcibly remove a brick in the next version of "
+                        "GlusterFS, you will need to use \"remove-brick "
+                        "force\".");
                 if (question)
                         *question = 1;
         } else {
