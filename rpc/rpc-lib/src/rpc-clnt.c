@@ -1133,16 +1133,33 @@ rpc_clnt_register_notify (struct rpc_clnt *rpc, rpc_clnt_notify_t fn,
         return 0;
 }
 
+/* used for GF_LOG_OCCASIONALLY() */
+static int gf_auth_max_groups_log = 0;
+
 ssize_t
 xdr_serialize_glusterfs_auth (char *dest, struct auth_glusterfs_parms_v2 *au)
 {
         ssize_t ret = -1;
         XDR     xdr;
+        uint64_t ngroups = 0;
+        int     max_groups = 0;
 
         if ((!dest) || (!au))
                 return -1;
 
+        max_groups = GF_AUTH_GLUSTERFS_MAX_GROUPS (au->lk_owner.lk_owner_len);
+
         xdrmem_create (&xdr, dest, GF_MAX_AUTH_BYTES, XDR_ENCODE);
+
+        if (au->groups.groups_len > max_groups) {
+                ngroups = au->groups.groups_len;
+                au->groups.groups_len = max_groups;
+
+                GF_LOG_OCCASIONALLY (gf_auth_max_groups_log,
+                                     THIS->name, GF_LOG_WARNING,
+                                     "too many groups, reducing %ld -> %d",
+                                     ngroups, max_groups);
+        }
 
         if (!xdr_auth_glusterfs_parms_v2 (&xdr, au)) {
                 gf_log (THIS->name, GF_LOG_WARNING,
@@ -1154,6 +1171,9 @@ xdr_serialize_glusterfs_auth (char *dest, struct auth_glusterfs_parms_v2 *au)
         ret = (((size_t)(&xdr)->x_private) - ((size_t)(&xdr)->x_base));
 
 ret:
+        if (ngroups)
+                au->groups.groups_len = ngroups;
+
         return ret;
 }
 
@@ -1319,6 +1339,8 @@ rpc_clnt_record (struct rpc_clnt *clnt, call_frame_t *call_frame,
         struct auth_glusterfs_parms_v2  au          = {0, };
         struct iobuf                   *request_iob = NULL;
         char                            owner[4] = {0,};
+        int                             max_groups = 0;
+        int                             max_lkowner_len = 0;
 
         if (!prog || !rpchdr || !call_frame) {
                 goto out;
@@ -1343,6 +1365,27 @@ rpc_clnt_record (struct rpc_clnt *clnt, call_frame_t *call_frame,
 
                 au.lk_owner.lk_owner_val = owner;
                 au.lk_owner.lk_owner_len = 4;
+        }
+
+        /* The number of groups and the size of lk_owner depend on oneother.
+         * We can truncate the groups, but should not touch the lk_owner. */
+        max_groups = GF_AUTH_GLUSTERFS_MAX_GROUPS (au.lk_owner.lk_owner_len);
+        if (au.groups.groups_len > max_groups) {
+                GF_LOG_OCCASIONALLY (gf_auth_max_groups_log, clnt->conn.name,
+                                     GF_LOG_WARNING, "truncating grouplist "
+                                     "from %d to %d", au.groups.groups_len,
+                                     max_groups);
+
+                au.groups.groups_len = max_groups;
+        }
+
+        max_lkowner_len = GF_AUTH_GLUSTERFS_MAX_LKOWNER (au.groups.groups_len);
+        if (au.lk_owner.lk_owner_len > max_lkowner_len) {
+                gf_log (clnt->conn.name, GF_LOG_ERROR, "lkowner field is too "
+                        "big (%d), it does not fit in the rpc-header",
+                        au.lk_owner.lk_owner_len);
+                errno = E2BIG;
+                goto out;
         }
 
         gf_log (clnt->conn.name, GF_LOG_TRACE, "Auth Info: pid: %u, uid: %d"

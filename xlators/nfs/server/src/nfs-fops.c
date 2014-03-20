@@ -30,6 +30,8 @@
 #include <libgen.h>
 #include <semaphore.h>
 
+static int gf_auth_max_groups_nfs_log = 0;
+
 void
 nfs_fix_groups (xlator_t *this, call_stack_t *root)
 {
@@ -39,6 +41,7 @@ nfs_fix_groups (xlator_t *this, call_stack_t *root)
         gid_t            mygroups[GF_MAX_AUX_GROUPS];
         int              ngroups;
         int              i;
+        int              max_groups;
         struct nfs_state *priv = this->private;
         const gid_list_t *agl;
 	gid_list_t gl;
@@ -47,10 +50,22 @@ nfs_fix_groups (xlator_t *this, call_stack_t *root)
                 return;
         }
 
+	/* RPC enforces the GF_AUTH_GLUSTERFS_MAX_GROUPS limit */
+	max_groups = GF_AUTH_GLUSTERFS_MAX_GROUPS(root->lk_owner.len);
+
 	agl = gid_cache_lookup(&priv->gid_cache, root->uid, 0, 0);
 	if (agl) {
-		for (ngroups = 0; ngroups < agl->gl_count; ngroups++) 
+		if (agl->gl_count > max_groups) {
+			GF_LOG_OCCASIONALLY (gf_auth_max_groups_nfs_log,
+					this->name, GF_LOG_WARNING,
+					"too many groups, reducing %d -> %d",
+					agl->gl_count, max_groups);
+		}
+
+		for (ngroups = 0; ngroups < agl->gl_count
+				&& ngroups <= max_groups; ngroups++) {
 			root->groups[ngroups] = agl->gl_list[ngroups];
+		}
 		root->ngrps = ngroups;
 		gid_cache_release(&priv->gid_cache, agl);
 		return;
@@ -90,6 +105,16 @@ nfs_fix_groups (xlator_t *this, call_stack_t *root)
 		memcpy(gl.gl_list, mygroups, sizeof(gid_t) * ngroups);
 		if (gid_cache_add(&priv->gid_cache, &gl) != 1)
 			GF_FREE(gl.gl_list);
+	}
+
+	/* RPC enforces the GF_AUTH_GLUSTERFS_MAX_GROUPS limit */
+	if (ngroups > max_groups) {
+		GF_LOG_OCCASIONALLY (gf_auth_max_groups_nfs_log,
+				     this->name, GF_LOG_WARNING,
+				     "too many groups, reducing %d -> %d",
+				     ngroups, max_groups);
+
+		ngroups = max_groups;
 	}
 
 	/* Copy data to the frame. */
