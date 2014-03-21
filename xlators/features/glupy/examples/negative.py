@@ -1,6 +1,6 @@
 import sys
 from uuid import UUID
-from gluster import *
+from gluster.glupy import *
 
 # Negative-lookup-caching example.  If a file wasn't there the last time we
 # looked, it's probably still not there.  This translator keeps track of
@@ -89,4 +89,3 @@ class xlator (Translator):
         dl.unwind_create(frame,cookie,this,op_ret,op_errno,fd,inode,buf,
                          preparent,postparent,xdata)
         return 0
-

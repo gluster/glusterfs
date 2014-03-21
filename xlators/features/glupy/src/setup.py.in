@@ -8,12 +8,12 @@ features and extensibility.  It borrows a powerful concept called
 Translators from GNU Hurd kernel. Much of the code in GlusterFS is in
 user space and easily manageable.
 
-This package contains the Python interface to the libgfapi library."""
+This package contains Glupy, the Python translator interface for GlusterFS."""
 
 setup(
-    name='glusterfs-api',
+    name='glusterfs-glupy',
     version='@PACKAGE_VERSION@',
-    description='Python client library for the GlusterFS libgfapi',
+    description='Glupy is the Python translator interface for GlusterFS',
     long_description=DESC,
     author='Gluster Community',
     author_email='gluster-devel@nongnu.org',
