@@ -1,5 +1,5 @@
 import sys
-from gluster import *
+from gluster.glupy import *
 
 class xlator (Translator):
 

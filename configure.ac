@@ -104,7 +104,9 @@ AC_CONFIG_FILES([Makefile
 		xlators/features/changelog/lib/Makefile
 		xlators/features/changelog/lib/src/Makefile
                 xlators/features/glupy/Makefile
+                xlators/features/glupy/examples/Makefile
                 xlators/features/glupy/src/Makefile
+                xlators/features/glupy/src/setup.py
                 xlators/features/locks/Makefile
                 xlators/features/locks/src/Makefile
                 xlators/features/quota/Makefile
@@ -178,6 +180,7 @@ AC_CONFIG_FILES([Makefile
                 api/Makefile
                 api/src/Makefile
                 api/examples/Makefile
+                api/examples/__init__.py
                 api/examples/setup.py
 		geo-replication/Makefile
 		geo-replication/src/Makefile

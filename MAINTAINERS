@@ -119,6 +119,11 @@ M: Venky Shankar <vshankar@redhat.com>
 S: Maintained
 F: geo-replication/
 
+Glupy
+M: Justin Clift <justin@gluster.org>
+S: Maintained
+F: xlators/features/glupy/
+
 libgfapi
 M: Anand Avati <avati@redhat.com>
 S: Maintained
