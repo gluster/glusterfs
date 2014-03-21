@@ -216,5 +216,8 @@ int glfs_loc_touchup (loc_t *loc);
 void glfs_iatt_to_stat (struct glfs *fs, struct iatt *iatt, struct stat *stat);
 int glfs_loc_link (loc_t *loc, struct iatt *iatt);
 int glfs_loc_unlink (loc_t *loc);
+dict_t * dict_for_key_value (const char *name, const char *value, size_t size);
+int glfs_getxattr_process (void *value, size_t size, dict_t *xattr,
+			   const char *name);
 
 #endif /* !_GLFS_INTERNAL_H */
