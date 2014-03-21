@@ -15,4 +15,5 @@ EXTRA_DIST = specgen.scm MacOSX/Portfile glusterfs-mode.el glusterfs.vim  \
 	backend-cleanup.sh disk_usage_sync.sh glusterfs-logrotate         \
         clear_xattrs.sh group-virt.example glusterd-sysconfig             \
         gluster-rsyslog-7.2.conf gluster-rsyslog-5.8.conf                 \
-        logger.conf.example glusterd.vol glusterfs-georep-logrotate
+        logger.conf.example glusterd.vol glusterfs-georep-logrotate       \
+        post-upgrade-script-for-quota.sh pre-upgrade-script-for-quota.sh
