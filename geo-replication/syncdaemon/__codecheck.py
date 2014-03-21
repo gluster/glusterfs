@@ -1,10 +1,20 @@
+#
+# Copyright (c) 2011-2014 Red Hat, Inc. <http://www.redhat.com>
+# This file is part of GlusterFS.
+
+# This file is licensed to you under your choice of the GNU Lesser
+# General Public License, version 3 or any later version (LGPLv3 or
+# later), or the GNU General Public License, version 2 (GPLv2), in all
+# cases as published by the Free Software Foundation.
+#
+
 import os
 import os.path
 import sys
 import tempfile
 import shutil
 
-ipd = tempfile.mkdtemp(prefix = 'codecheck-aux')
+ipd = tempfile.mkdtemp(prefix='codecheck-aux')
 
 try:
     # add a fake ipaddr module, we don't want to
@@ -25,7 +35,7 @@ class IPNetwork(list):
         if f[-3:] != '.py' or f[0] == '_':
             continue
         m = f[:-3]
-        sys.stdout.write('importing %s ...' %  m)
+        sys.stdout.write('importing %s ...' % m)
         __import__(m)
         print(' OK.')
 
@@ -33,7 +43,8 @@ class IPNetwork(list):
         sys.argv = sys.argv[:1] + a
 
     gsyncd = sys.modules['gsyncd']
-    for a in [['--help'], ['--version'], ['--canonicalize-escape-url', '/foo']]:
+    for a in [['--help'], ['--version'],
+              ['--canonicalize-escape-url', '/foo']]:
         print('>>> invoking program with args: %s' % ' '.join(a))
         pid = os.fork()
         if not pid:

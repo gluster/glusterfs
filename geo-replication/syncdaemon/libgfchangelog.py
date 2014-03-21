@@ -1,6 +1,17 @@
+#
+# Copyright (c) 2011-2014 Red Hat, Inc. <http://www.redhat.com>
+# This file is part of GlusterFS.
+
+# This file is licensed to you under your choice of the GNU Lesser
+# General Public License, version 3 or any later version (LGPLv3 or
+# later), or the GNU General Public License, version 2 (GPLv2), in all
+# cases as published by the Free Software Foundation.
+#
+
 import os
-from ctypes import *
+from ctypes import CDLL, create_string_buffer, get_errno
 from ctypes.util import find_library
+
 
 class Changes(object):
     libgfc = CDLL(find_library("gfchangelog"), use_errno=True)
@@ -19,9 +30,10 @@ class Changes(object):
         return getattr(cls.libgfc, call)
 
     @classmethod
-    def cl_register(cls, brick, path, log_file, log_level, retries = 0):
+    def cl_register(cls, brick, path, log_file, log_level, retries=0):
         ret = cls._get_api('gf_changelog_register')(brick, path,
-                                                    log_file, log_level, retries)
+                                                    log_file,
+                                                    log_level, retries)
         if ret == -1:
             cls.raise_oserr()
 
@@ -49,8 +61,8 @@ class Changes(object):
         while True:
             ret = call(buf, 4096)
             if ret in (0, -1):
-                break;
-            changes.append(buf.raw[:ret-1])
+                break
+            changes.append(buf.raw[:ret - 1])
         if ret == -1:
             cls.raise_oserr()
         # cleanup tracker
