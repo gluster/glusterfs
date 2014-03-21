@@ -22,7 +22,8 @@ Makefile
 stamp-h1
 
 # Generated files
-api/examples/__init__.py*
+api/examples/__init__.py
+api/examples/__init__.py?
 api/examples/setup.py
 argp-standalone/libargp.a
 contrib/uuid/uuid_types.h
@@ -46,3 +47,4 @@ ufo/.tox
 ufo/test/unit/.coverage
 xlators/mount/fuse/utils/mount.glusterfs
 xlators/mount/fuse/utils/mount_glusterfs
+xlators/features/glupy/src/setup.py

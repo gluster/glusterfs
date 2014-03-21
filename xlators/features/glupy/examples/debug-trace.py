@@ -2,12 +2,13 @@ import sys
 import stat
 from uuid import UUID
 from time import strftime, localtime
-from gluster import *
+from gluster.glupy import *
+
 # This translator was written primarily to test the fop entry point definitions
-# and structure definitions in 'gluster.py'.
-# It is similar to the debug-trace translator, one of the already available
-# translator types written in C, that logs the arguments passed to the fops and
-# their corresponding cbk functions.
+# and structure definitions in 'glupy.py'.
+
+# It is similar to the C language debug-trace translator, which logs the
+# arguments passed to the fops and their corresponding cbk functions.
 
 dl.get_id.restype = c_long
 dl.get_id.argtypes = [ POINTER(call_frame_t) ]

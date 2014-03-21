@@ -2365,7 +2365,7 @@ init (xlator_t *this)
                 goto *err_cleanup;
         }
 
-        gf_log (this->name, GF_LOG_ERROR, "py_mod_name = %s", module_name);
+        gf_log (this->name, GF_LOG_DEBUG, "py_mod_name = %s", module_name);
         priv->py_module = PyImport_Import(py_mod_name);
         Py_DECREF(py_mod_name);
         if (!priv->py_module) {
@@ -2375,6 +2375,7 @@ init (xlator_t *this)
                 }
                 goto *err_cleanup;
         }
+        gf_log (this->name, GF_LOG_INFO, "Import of %s succeeded", module_name);
         err_cleanup = &&err_deref_module;
 
         py_init_func = PyObject_GetAttrString(priv->py_module, "xlator");
@@ -2407,7 +2408,7 @@ init (xlator_t *this)
                 }
                 goto *err_cleanup;
         }
-        gf_log (this->name, GF_LOG_INFO, "init returned %p", priv->py_xlator);
+        gf_log (this->name, GF_LOG_DEBUG, "init returned %p", priv->py_xlator);
 
         return 0;
 
