@@ -115,12 +115,12 @@ int glfs_set_volfile (glfs_t *fs, const char *volfile);
 /*
   SYNOPSIS
 
-  glfs_set_volfile_server: Specify the address of management server.
+  glfs_set_volfile_server: Specify the list of addresses for management server.
 
   DESCRIPTION
 
-  This function specifies the address of the management server (glusterd)
-  to connect, and establish the volume configuration. The @volname
+  This function specifies the list of addresses for the management server
+  (glusterd) to connect, and establish the volume configuration. The @volname
   parameter passed to glfs_new() is the volume which will be virtually
   mounted as the glfs_t object. All operations performed by the CLI at
   the management server will automatically be reflected in the 'virtual
@@ -136,19 +136,22 @@ int glfs_set_volfile (glfs_t *fs, const char *volfile);
 
   @transport: String specifying the transport used to connect to the
               management daemon. Specifying NULL will result in the usage
-	      of the default (tcp) transport type. Permitted values
-	      are those what you specify as transport-type in a volume
-	      specification file (e.g "tcp", "rdma", "unix".)
+              of the default (tcp) transport type. Permitted values
+              are those what you specify as transport-type in a volume
+              specification file (e.g "tcp", "rdma" etc.)
 
-  @host: String specifying the address of where to find the management
-         daemon. Depending on the transport type this would either be
-	 an FQDN (e.g: "storage01.company.com"), ASCII encoded IP
-	 address "192.168.22.1", or a UNIX domain socket path (e.g
-	 "/tmp/glusterd.socket".)
+  @host:      String specifying the address where to find the management daemon.
+              This would either be
+              - FQDN (e.g: "storage01.company.com") or
+              - ASCII (e.g: "192.168.22.1")
+
+  NOTE: This API is special, multiple calls to this function with different
+        volfile servers, port or transport-type would create a list of volfile
+        servers which would be polled during `volfile_fetch_attempts()`
 
   @port: The TCP port number where gluster management daemon is listening.
          Specifying 0 uses the default port number GF_DEFAULT_BASE_PORT.
-	 This parameter is unused if you are using a UNIX domain socket.
+         This parameter is unused if you are using a UNIX domain socket.
 
   RETURN VALUES
 
@@ -158,9 +161,9 @@ int glfs_set_volfile (glfs_t *fs, const char *volfile);
 */
 
 int glfs_set_volfile_server (glfs_t *fs, const char *transport,
-			     const char *host, int port) __THROW;
-
-
+                             const char *host, int port) __THROW;
+int glfs_unset_volfile_server (glfs_t *fs, const char *transport,
+                               const char *host, int port) __THROW;
 /*
   SYNOPSIS
 
