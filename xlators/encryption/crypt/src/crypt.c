@@ -4380,6 +4380,25 @@ static void crypt_free_private(xlator_t *this)
 	}
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_crypt_mt_end);
+
+        if (ret != 0) {
+                gf_log(this->name, GF_LOG_ERROR, "Memory accounting init"
+                       "failed");
+                return ret;
+        }
+
+        return ret;
+}
+
 int32_t reconfigure (xlator_t *this, dict_t *options)
 {
 	int32_t ret = -1;
