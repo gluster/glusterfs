@@ -24,6 +24,7 @@ enum gf_crypt_mem_types_ {
 	gf_crypt_mt_key,
 	gf_crypt_mt_iovec,
 	gf_crypt_mt_char,
+	gf_crypt_mt_end,
 };
 
 #endif /* __CRYPT_MEM_TYPES_H__ */
