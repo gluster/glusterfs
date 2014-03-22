@@ -5,8 +5,8 @@ import ctypes.util
 
 api = ctypes.CDLL(ctypes.util.find_library("gfapi"))
 api.glfs_get_volfile.argtypes = [ctypes.c_void_p,
-							     ctypes.c_void_p,
-								 ctypes.c_ulong]
+                                 ctypes.c_void_p,
+                                 ctypes.c_ulong]
 api.glfs_get_volfile.restype = ctypes.c_long;
 
 def get_volfile (host, volume):

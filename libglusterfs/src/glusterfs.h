@@ -325,6 +325,8 @@ typedef struct _xlator_cmdline_option xlator_cmdline_option_t;
 struct _server_cmdline {
         struct list_head  list;
         char              *volfile_server;
+        char              *transport;
+        int               port;
 };
 typedef struct _server_cmdline server_cmdline_t;
 

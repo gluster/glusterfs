@@ -425,36 +425,85 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 		 void *data)
 {
 	xlator_t	*this = NULL;
-	cmd_args_t	*cmd_args = NULL;
 	glusterfs_ctx_t *ctx = NULL;
+        server_cmdline_t *server = NULL;
+        rpc_transport_t  *rpc_trans = NULL;
 	struct glfs	 *fs = NULL;
 	int		 ret = 0;
 
 	this = mydata;
-	ctx = this->ctx;
+        rpc_trans = rpc->conn.trans;
 
+	ctx = this->ctx;
 	if (!ctx)
 		goto out;
 
 	fs = ((xlator_t *)ctx->master)->private;
-	cmd_args = &ctx->cmd_args;
 
 	switch (event) {
 	case RPC_CLNT_DISCONNECT:
 		if (!ctx->active) {
-			cmd_args->max_connect_attempts--;
-			gf_log ("glfs-mgmt", GF_LOG_ERROR,
-				"failed to connect with remote-host: %s",
-				strerror (errno));
-			gf_log ("glfs-mgmt", GF_LOG_INFO,
-				"%d connect attempts left",
-				cmd_args->max_connect_attempts);
-			if (0 >= cmd_args->max_connect_attempts) {
-				errno = ENOTCONN;
-				glfs_init_done (fs, -1);
-			}
-		}
-		break;
+                        gf_log ("glfs-mgmt", GF_LOG_ERROR,
+                                "failed to connect with remote-host: %s (%s)",
+                                ctx->cmd_args.volfile_server,
+                                strerror (errno));
+                        server = ctx->cmd_args.curr_server;
+                        if (server->list.next == &ctx->cmd_args.volfile_servers) {
+                                errno = ENOTCONN;
+                                gf_log("glfs-mgmt", GF_LOG_INFO,
+                                       "Exhausted all volfile servers");
+                                glfs_init_done (fs, -1);
+                                break;
+                        }
+                        server = list_entry (server->list.next, typeof(*server),
+                                             list);
+                        ctx->cmd_args.curr_server = server;
+                        ctx->cmd_args.volfile_server_port = server->port;
+                        ctx->cmd_args.volfile_server = server->volfile_server;
+                        ctx->cmd_args.volfile_server_transport = server->transport;
+
+                        ret = dict_set_int32 (rpc_trans->options,
+                                              "remote-port",
+                                              server->port);
+                        if (ret != 0) {
+                                gf_log ("glfs-mgmt", GF_LOG_ERROR,
+                                        "failed to set remote-port: %d",
+                                        server->port);
+                                errno = ENOTCONN;
+                                glfs_init_done (fs, -1);
+                                break;
+                        }
+
+                        ret = dict_set_str (rpc_trans->options,
+                                            "remote-host",
+                                            server->volfile_server);
+                        if (ret != 0) {
+                                gf_log ("glfs-mgmt", GF_LOG_ERROR,
+                                        "failed to set remote-host: %s",
+                                        server->volfile_server);
+                                errno = ENOTCONN;
+                                glfs_init_done (fs, -1);
+                                break;
+                        }
+
+                        ret = dict_set_str (rpc_trans->options,
+                                            "transport-type",
+                                            server->transport);
+                        if (ret != 0) {
+                                gf_log ("glfs-mgmt", GF_LOG_ERROR,
+                                        "failed to set transport-type: %s",
+                                        server->transport);
+                                errno = ENOTCONN;
+                                glfs_init_done (fs, -1);
+                                break;
+                        }
+                        gf_log ("glfs-mgmt", GF_LOG_INFO,
+                                "connecting to next volfile server %s"
+                                " at port %d with transport: %s",
+                                server->volfile_server, server->port,
+                                server->transport);
+                }
+                break;
 	case RPC_CLNT_CONNECT:
 		rpc_clnt_set_connected (&((struct rpc_clnt*)ctx->mgmt)->conn);
 
@@ -556,4 +605,3 @@ glfs_mgmt_init (struct glfs *fs)
 out:
 	return ret;
 }
-
