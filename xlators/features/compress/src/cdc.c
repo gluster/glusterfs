@@ -190,6 +190,25 @@ cdc_writev (call_frame_t *frame,
 }
 
 int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_cdc_mt_end);
+
+        if (ret != 0) {
+                gf_log(this->name, GF_LOG_ERROR, "Memory accounting init"
+                       "failed");
+                return ret;
+        }
+
+        return ret;
+}
+
+int32_t
 init (xlator_t *this)
 {
         int         ret      = -1;
