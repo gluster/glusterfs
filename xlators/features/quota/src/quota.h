@@ -80,6 +80,23 @@
                 }                                       \
         } while (0);
 
+#define QUOTA_STACK_WIND_TAIL(frame, params...)                         \
+        do {                                                            \
+                quota_local_t *_local = NULL;                           \
+                xlator_t      *_this  = NULL;                           \
+                                                                        \
+                if (frame) {                                            \
+                        _local = frame->local;                          \
+                        _this  = frame->this;                           \
+                        frame->local = NULL;                            \
+                }                                                       \
+                                                                        \
+                STACK_WIND_TAIL (frame, params);                        \
+                                                                        \
+                if (_local)                                             \
+                        quota_local_cleanup (_this, _local);            \
+        } while (0)
+
 #define QUOTA_STACK_UNWIND(fop, frame, params...)                       \
         do {                                                            \
                 quota_local_t *_local = NULL;                           \
@@ -186,6 +203,7 @@ struct quota_local {
         int64_t                 space_available;
         quota_ancestry_built_t  ancestry_cbk;
         void                   *ancestry_data;
+        dict_t                 *xdata;
 };
 typedef struct quota_local      quota_local_t;
 
