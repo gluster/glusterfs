@@ -1392,6 +1392,16 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "!nfs-disable",
           .op_version  = 1
         },
+        { .key         = "nfs-ganesha.enable",
+          .voltype     = "nfs/server",
+          .option      = "!nfs-ganesha.enable",
+          .op_version  = 4
+        },
+        { .key         = "nfs-ganesha.host",
+          .voltype     = "nfs/server",
+          .option      = "!nfs-ganesha.host",
+          .op_version  = 4
+        },
         { .key         = "nfs.nlm",
           .voltype     = "nfs/server",
           .option      = "nfs.nlm",

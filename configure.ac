@@ -183,6 +183,9 @@ AC_CONFIG_FILES([Makefile
                 extras/hook-scripts/set/post/Makefile
                 extras/hook-scripts/stop/Makefile
                 extras/hook-scripts/stop/pre/Makefile
+                extras/hook-scripts/reset/Makefile
+                extras/hook-scripts/reset/post/Makefile
+                extras/hook-scripts/reset/pre/Makefile
                 contrib/fuse-util/Makefile
                 contrib/uuid/uuid_types.h
                 glusterfs-api.pc
