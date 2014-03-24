@@ -971,4 +971,6 @@ afr_handle_open_fd_count (call_frame_t *frame, xlator_t *this);
 int
 afr_local_pathinfo (char *pathinfo, gf_boolean_t *is_local);
 
+void
+afr_remove_eager_lock_stub (afr_local_t *local);
 #endif /* __AFR_H__ */
