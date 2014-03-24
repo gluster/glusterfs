@@ -46,7 +46,7 @@ char glusterd_hook_dirnames[GD_OP_MAX][256] =
         [GD_OP_REMOVE_BRICK]            = "remove-brick",
         [GD_OP_REPLACE_BRICK]           = EMPTY,
         [GD_OP_SET_VOLUME]              = "set",
-        [GD_OP_RESET_VOLUME]            = EMPTY,
+        [GD_OP_RESET_VOLUME]            = "reset",
         [GD_OP_SYNC_VOLUME]             = EMPTY,
         [GD_OP_LOG_ROTATE]              = EMPTY,
         [GD_OP_GSYNC_CREATE]            = "gsync-create",
@@ -277,6 +277,13 @@ glusterd_hooks_add_op_args (runner_t *runner, glusterd_op_t op,
                         glusterd_hooks_add_hooks_version (runner);
                         glusterd_hooks_add_op (runner, "add-brick");
                         glusterd_hooks_add_working_dir (runner, priv);
+                        break;
+
+               case GD_OP_RESET_VOLUME:
+                        glusterd_hooks_add_hooks_version (runner);
+                        glusterd_hooks_add_op (runner, "reset");
+                        glusterd_hooks_add_working_dir (runner, priv);
+                        break;
 
                 default:
                         break;

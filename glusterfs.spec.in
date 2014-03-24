@@ -649,6 +649,9 @@ mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/stop/pre
 mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/start
 mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/start/post
 mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/start/pre
+mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/reset
+mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/reset/post
+mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/reset/pre
 mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/remove-brick
 mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/remove-brick/post
 mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/remove-brick/pre
@@ -691,6 +694,9 @@ install -p -m 0744 extras/hook-scripts/S56glusterd-geo-rep-create-post.sh \
     %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/add-brick/post
 %{__install} -p -m 0744 extras/hook-scripts/add-brick/pre/*.sh   \
     %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/add-brick/pre
+%{__install} -p -m 0744 extras/hook-scripts/reset/post/*.sh   \
+    %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/reset/post
+
 
 find ./tests ./run-tests.sh -type f | cpio -pd %{buildroot}%{_prefix}/share/glusterfs
 
