@@ -1544,7 +1544,7 @@ afr_delayed_changelog_wake_up (xlator_t *this, fd_t *fd)
 }
 
 
-        int
+int
 afr_transaction_resume (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t         *local    = NULL;
@@ -1555,11 +1555,7 @@ afr_transaction_resume (call_frame_t *frame, xlator_t *this)
                 /* We don't need to retain "local" in the
                    fd list anymore, writes to all subvols
                    are finished by now */
-                LOCK (&local->fd->lock);
-                {
-                        list_del_init (&local->transaction.eager_locked);
-                }
-                UNLOCK (&local->fd->lock);
+                afr_remove_eager_lock_stub (local);
         }
 
         afr_restore_lk_owner (frame);
