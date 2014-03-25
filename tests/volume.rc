@@ -300,5 +300,11 @@ function data_written_count {
     echo "$1" | grep "Data Written:$2bytes" | wc -l
 }
 
-
-
+function has_holes {
+        if [ $((`stat -c '%b*%B-%s' -- $1`)) -lt 0 ];
+        then
+                echo "1"
+        else
+                echo "0"
+        fi
+}

@@ -159,7 +159,7 @@ __afr_selfheal_data_read_write (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		 */
 #define is_last_block(o,b,s) ((s >= o) && (s <= (o + b)))
 		if (HAS_HOLES ((&replies[source].poststat)) &&
-		    offset > replies[i].poststat.ia_size &&
+		    offset >= replies[i].poststat.ia_size &&
 		    !is_last_block (offset, size,
 				    replies[source].poststat.ia_size) &&
 		    (iov_0filled (iovec, count) == 0))
@@ -268,6 +268,31 @@ afr_selfheal_data_restore_time (call_frame_t *frame, xlator_t *this,
 }
 
 static int
+afr_data_self_heal_type_get (afr_private_t *priv, unsigned char *healed_sinks,
+                             int source, struct afr_reply *replies)
+{
+        int type = AFR_SELFHEAL_DATA_FULL;
+        int i = 0;
+
+        if (priv->data_self_heal_algorithm == NULL) {
+                type = AFR_SELFHEAL_DATA_FULL;
+                for (i = 0; i < priv->child_count; i++) {
+                        if (!healed_sinks[i] && i != source)
+                                continue;
+                        if (replies[i].poststat.ia_size) {
+                                type = AFR_SELFHEAL_DATA_DIFF;
+                                break;
+                        }
+                }
+        } else if (strcmp (priv->data_self_heal_algorithm, "full") == 0) {
+                type = AFR_SELFHEAL_DATA_FULL;
+        } else if (strcmp (priv->data_self_heal_algorithm, "diff") == 0) {
+                type = AFR_SELFHEAL_DATA_DIFF;
+        }
+        return type;
+}
+
+static int
 afr_selfheal_data_do (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		      int source, unsigned char *healed_sinks,
 		      struct afr_reply *replies)
@@ -296,14 +321,8 @@ afr_selfheal_data_do (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		"source=%d sinks=%s",
 		uuid_utoa (fd->inode->gfid), source, sinks_str);
 
-	for (i = 0; i < priv->child_count; i++) {
-		if (!healed_sinks[i] && i != source)
-			continue;
-		if (replies[i].poststat.ia_size) {
-			type = AFR_SELFHEAL_DATA_DIFF;
-			break;
-		}
-	}
+        type = afr_data_self_heal_type_get (priv, healed_sinks, source,
+                                            replies);
 
 	iter_frame = afr_copy_frame (frame);
 	if (!iter_frame)
