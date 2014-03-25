@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
+. $(dirname $0)/../dht.rc
 
 cleanup;
 
@@ -110,7 +111,7 @@ EXPECT "150.0MB" hard_limit "/test_dir/in_test_dir";
 ## <Test quota functionality in add-brick senarios>
 ## ------------------------------------------------
 ###################################################
-QUOTALIMIT=1024
+QUOTALIMIT=100
 QUOTALIMITROOT=2048
 TESTDIR="addbricktest"
 
@@ -135,8 +136,8 @@ done
 
 #53-62
 for i in `seq 1 9`; do
-        TEST_IN_LOOP dd if=/dev/urandom of="$M0/$TESTDIR/dir1/100MBfile$i" \
-                        bs=1M count=100;
+        TEST_IN_LOOP dd if=/dev/urandom of="$M0/$TESTDIR/dir1/10MBfile$i" \
+                        bs=1M count=10;
 done
 
 # 63-64
@@ -145,11 +146,20 @@ done
 TEST $CLI volume add-brick $V0 $H0:$B0/brick{3,4}
 TEST $CLI volume rebalance $V0 start;
 
+## Wait for rebalance
+while true; do
+        rebalance_completed
+        if [ $? -eq 1 ]; then
+                sleep 1;
+        else
+                break;
+        fi
+done
 
 ## <Try creating data beyond limit>
 ## --------------------------------
 for i in `seq 1 200`; do
-        dd if=/dev/urandom of="$M0/$TESTDIR/dir1/10MBfile$i" bs=1M count=10 \
+        dd if=/dev/urandom of="$M0/$TESTDIR/dir1/1MBfile$i" bs=1M count=1 \
            &>/dev/null
 done
 
