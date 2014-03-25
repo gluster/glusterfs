@@ -71,7 +71,10 @@ If you remove the brick, the data stored in that brick will not be available. Yo
 .B replace-brick
 option.
 .TP
-\fB\ volume rebalance-brick <VOLNAME>(<BRICK> <NEW-BRICK>) start \fR
+\fB\ volume replace-brick <VOLNAME> (<BRICK> <NEW-BRICK>) start|pause|abort|status|commit \fR
+Replace the specified brick.
+.TP
+\fB\ volume rebalance <VOLNAME> start \fR
 Start rebalancing the specified volume.
 .TP
 \fB\ volume rebalance <VOLNAME> stop \fR
@@ -80,8 +83,6 @@ Stop rebalancing the specified volume.
 \fB\ volume rebalance <VOLNAME> status \fR
 Display the rebalance status of the specified volume.
 .TP
-\fB\ volume replace-brick <VOLNAME> (<BRICK> <NEW-BRICK>) start|pause|abort|status|commit \fR
-Replace the specified brick.
 .SS "Log Commands"
 .TP
 \fB\ volume log filename <VOLNAME> [BRICK] <DIRECTORY> \fB
