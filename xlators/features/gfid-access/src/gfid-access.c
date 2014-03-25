@@ -593,18 +593,19 @@ ga_virtual_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, inode_t *inode,
                        struct iatt *buf, dict_t *xdata, struct iatt *postparent)
 {
-        int       j           = 0;
-        int       i           = 0;
-        int       ret         = 0;
-        uint64_t  temp_ino    = 0;
-        inode_t  *cbk_inode   = NULL;
-        inode_t  *true_inode  = NULL;
-        uuid_t    random_gfid = {0,};
+        int             j                       = 0;
+        int             i                       = 0;
+        int             ret                     = 0;
+        uint64_t        temp_ino                = 0;
+        inode_t         *cbk_inode              = NULL;
+        inode_t         *true_inode             = NULL;
+        uuid_t          random_gfid             = {0,};
+        inode_t         *linked_inode           = NULL;
 
         if (frame->local)
                 cbk_inode = frame->local;
         else
-                cbk_inode = inode;
+                cbk_inode = inode_ref (inode);
 
         frame->local = NULL;
         if (op_ret)
@@ -619,6 +620,10 @@ ga_virtual_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    if its just previously discover()'d inode */
                 true_inode = inode_find (inode->table, buf->ia_gfid);
                 if (!true_inode) {
+                        /* This unref is for 'inode_ref()' done in beginning.
+                           This is needed as cbk_inode is allocated new inode
+                           whose unref is taken at the end*/
+                        inode_unref (cbk_inode);
                         cbk_inode = inode_new (inode->table);
 
                         if (!cbk_inode) {
@@ -630,7 +635,8 @@ ga_virtual_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            path is not yet looked up. Use the current inode
                            itself for now */
 
-                        inode_link (inode, NULL, NULL, buf);
+                        linked_inode = inode_link (inode, NULL, NULL, buf);
+                        inode = linked_inode;
                 } else {
                         /* 'inode_ref()' has been done in inode_find() */
                         inode = true_inode;
@@ -673,6 +679,10 @@ unwind:
 
         STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, cbk_inode, buf,
                              xdata, postparent);
+
+        /* Also handles inode_unref of frame->local if done in ga_lookup */
+        if (cbk_inode)
+               inode_unref (cbk_inode);
 
         return 0;
 }
@@ -819,6 +829,8 @@ ga_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 /* time do another lookup and update the context
                    with proper inode */
                 op_errno = ESTALE;
+                /* 'inode_ref()' done in inode_find */
+                inode_unref (true_inode);
                 goto err;
         }
 
@@ -833,7 +845,7 @@ discover:
         /* if revalidate, then we need to have the proper reference */
         if (inode) {
                 tmp_loc.inode = inode_ref (inode);
-                frame->local = loc->inode;
+                frame->local = inode_ref (loc->inode);
         } else {
                 tmp_loc.inode = inode_ref (loc->inode);
         }
