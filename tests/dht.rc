@@ -76,4 +76,5 @@ function rebalance_completed()
        fi
 
        echo $val
+       return $val
 }
