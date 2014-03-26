@@ -18,6 +18,8 @@ py-compile
 *.o
 *.tar.gz
 *.rpm
+*.diff
+*.patch
 .libs
 .deps
 Makefile
@@ -27,7 +29,7 @@ stamp-h1
 api/examples/__init__.py
 api/examples/__init__.py?
 api/examples/setup.py
-argp-standalone/libargp.a
+contrib/argp-standalone/libargp.a
 contrib/uuid/uuid_types.h
 extras/init.d/glusterd-Debian
 extras/init.d/glusterd-Redhat

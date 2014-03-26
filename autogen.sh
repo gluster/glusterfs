@@ -64,7 +64,7 @@ fi
 if [ "x${PYTHONBIN}" = "x" ]; then
   PYTHONBIN=python
 fi
-env ${PYTHONBIN} -V > /dev/null 2>&1 
+env ${PYTHONBIN} -V > /dev/null 2>&1
 if [ $? -ne 0 ]; then
   MISSING="$MISSING python"
 fi
@@ -108,7 +108,7 @@ $AUTOMAKE --add-missing --copy --foreign
 
 # Run autogen in the argp-standalone sub-directory
 echo "Running autogen.sh in argp-standalone ..."
-( cd argp-standalone;./autogen.sh )
+( cd contrib/argp-standalone;./autogen.sh )
 
 # Instruct user on next steps
 echo

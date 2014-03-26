@@ -193,6 +193,7 @@ AC_PROG_CC
 AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
 
+
 # Initialize CFLAGS before usage
 AC_ARG_ENABLE([debug],
               AC_HELP_STRING([--enable-debug],
@@ -641,13 +642,13 @@ AC_CHECK_FUNC([clock_gettime], [has_monotonic_clock=yes], AC_CHECK_LIB([rt], [cl
 
 dnl Check for argp
 AC_CHECK_HEADER([argp.h], AC_DEFINE(HAVE_ARGP, 1, [have argp]))
-AC_CONFIG_SUBDIRS(argp-standalone)
+AC_CONFIG_SUBDIRS(contrib/argp-standalone)
 
 BUILD_ARGP_STANDALONE=no
 if test "x${ac_cv_header_argp_h}" = "xno"; then
    BUILD_ARGP_STANDALONE=yes
-   ARGP_STANDALONE_CPPFLAGS='-I${top_srcdir}/argp-standalone'
-   ARGP_STANDALONE_LDADD='${top_builddir}/argp-standalone/libargp.a'
+   ARGP_STANDALONE_CPPFLAGS='-I${top_srcdir}/contrib/argp-standalone'
+   ARGP_STANDALONE_LDADD='${top_builddir}/contrib/argp-standalone/libargp.a'
 fi
 
 AC_SUBST(ARGP_STANDALONE_CPPFLAGS)
