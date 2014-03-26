@@ -651,6 +651,16 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 install -p -m 0744 extras/hook-scripts/S56glusterd-geo-rep-create-post.sh \
     %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/gsync-create/post
 %endif
+%{__install} -p -m 0744 extras/hook-scripts/start/post/*.sh   \
+    %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/start/post
+%{__install} -p -m 0744 extras/hook-scripts/stop/pre/*.sh   \
+    %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/stop/pre
+%{__install} -p -m 0744 extras/hook-scripts/set/post/*.sh   \
+    %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/set/post
+%{__install} -p -m 0744 extras/hook-scripts/add-brick/post/*.sh   \
+    %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/add-brick/post
+%{__install} -p -m 0744 extras/hook-scripts/add-brick/pre/*.sh   \
+    %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/add-brick/pre
 
 find ./tests ./run-tests.sh -type f | cpio -pd %{buildroot}%{_prefix}/share/glusterfs
 
@@ -795,6 +805,7 @@ fi
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs*
+%{_sharedstatedir}/glusterd
 %ghost %attr(0644,-,-) %config(noreplace) %{_sharedstatedir}/glusterd/glusterd.info
 %ghost %attr(0600,-,-) %{_sharedstatedir}/glusterd/options
 # This is really ugly, but I have no idea how to mark these directories in
@@ -950,6 +961,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Wed Mar 26 2014 Poornima G <pgurusid@redhat.com>
+- Include the hook scripts of add-brick, volume start, stop and set
+
 * Wed Feb 26 2014 Niels de Vos <ndevos@redhat.com>
 - Drop glusterfs-devel dependency from glusterfs-api (#1065750)
 
