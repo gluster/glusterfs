@@ -34,6 +34,8 @@ int32_t default_release (xlator_t *this, fd_t *fd);
 int32_t default_releasedir (xlator_t *this, fd_t *fd);
 
 
+extern struct xlator_fops *default_fops;
+
 /* Management Operations */
 
 int32_t default_getspec (call_frame_t *frame,
