@@ -453,6 +453,7 @@ struct _glusterfs_ctx {
         void               *listener; /* listener of the commands from glusterd */
         unsigned char       measure_latency; /* toggle switch for latency measurement */
         pthread_t           sigwaiter;
+	char               *cmdlinestr;
         struct mem_pool    *stub_mem_pool;
         unsigned char       cleanup_started;
         int                 graph_id; /* Incremented per graph, value should

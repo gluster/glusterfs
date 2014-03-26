@@ -52,6 +52,8 @@ AC_CONFIG_FILES([Makefile
                 rpc/xdr/Makefile
                 rpc/xdr/src/Makefile
                 xlators/Makefile
+		xlators/meta/Makefile
+		xlators/meta/src/Makefile
                 xlators/mount/Makefile
                 xlators/mount/fuse/Makefile
                 xlators/mount/fuse/src/Makefile

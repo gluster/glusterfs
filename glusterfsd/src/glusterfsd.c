@@ -1996,6 +1996,8 @@ main (int argc, char *argv[])
                 }
                 gf_msg (argv[0], GF_LOG_INFO, 0, glusterfsd_msg_30,
                         argv[0], PACKAGE_VERSION, cmdlinestr);
+
+		ctx->cmdlinestr = gf_strdup (cmdlinestr);
         }
 
         gf_proc_dump_init();
