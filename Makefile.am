@@ -6,7 +6,7 @@ EXTRA_DIST = autogen.sh \
 	gen-headers.py run-tests.sh \
 	$(shell find $(top_srcdir)/tests -type f -print)
 
-SUBDIRS = argp-standalone libglusterfs rpc api xlators glusterfsd \
+SUBDIRS = contrib/argp-standalone libglusterfs rpc api xlators glusterfsd \
 	$(FUSERMOUNT_SUBDIR) doc extras cli @SYNCDAEMON_SUBDIR@
 
 pkgconfigdir = @pkgconfigdir@
@@ -20,10 +20,13 @@ gitclean: distclean
 	find . -name mount.glusterfs -exec rm -f {} \;
 	rm -fr autom4te.cache
 	rm -f missing aclocal.m4 config.h.in config.guess config.sub ltmain.sh install-sh configure depcomp
-	rm -fr argp-standalone/autom4te.cache
-	rm -f argp-standalone/aclocal.m4 argp-standalone/config.h.in
-	rm -f argp-standalone/configure argp-standalone/depcomp
-	rm -f argp-standalone/install-sh argp-standalone/missing
+	rm -fr $(CONTRIBDIR)/argp-standalone/autom4te.cache
+	rm -f $(CONTRIBDIR)/argp-standalone/aclocal.m4
+	rm -f $(CONTRIBDIR)/argp-standalone/config.h.in
+	rm -f $(CONTRIBDIR)/argp-standalone/configure
+	rm -f $(CONTRIBDIR)/argp-standalone/depcomp
+	rm -f $(CONTRIBDIR)/argp-standalone/install-sh
+	rm -f $(CONTRIBDIR)/argp-standalone/missing
 
 dist-hook:
 	(cd $(srcdir) && git diff && echo ===== git log ==== && git log) > $(distdir)/ChangeLog
