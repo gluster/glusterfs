@@ -196,6 +196,21 @@ glusterfs_graph_worm (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
         return ret;
 }
 
+
+int
+glusterfs_graph_meta (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
+{
+        int ret = 0;
+
+	if (!ctx->master)
+		return 0;
+
+        ret = glusterfs_graph_insert (graph, ctx, "meta",
+                                      "meta-autoload", 1);
+        return ret;
+}
+
+
 int
 glusterfs_graph_mac_compat (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 {
@@ -464,6 +479,14 @@ glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
                 return -1;
         }
 
+	/* XXX: topmost xlator */
+	ret = glusterfs_graph_meta (graph, ctx);
+	if (ret) {
+		gf_log ("graph", GF_LOG_ERROR,
+			"glusterfs graph meta failed");
+		return -1;
+	}
+
         /* XXX: this->ctx setting */
         for (trav = graph->first; trav; trav = trav->next) {
                 trav->ctx = ctx;
@@ -670,6 +693,8 @@ glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
         if (!newvolfile_graph) {
                 goto out;
         }
+
+	glusterfs_graph_prepare (newvolfile_graph, ctx);
 
         if (!is_graph_topology_equal (oldvolfile_graph,
                                       newvolfile_graph)) {
