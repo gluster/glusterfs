@@ -5110,6 +5110,17 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
                         "size for %s : %s package missing", fs_name,
                         ((strcmp (fs_name, "xfs")) ?
                          "e2fsprogs" : "xfsprogs"));
+                /*
+                 * Runner_start might return an error after the child has
+                 * been forked, e.g. if the program isn't there.  In that
+                 * case, we still need to call runner_end to reap the
+                 * child and free resources.  Fortunately, that seems to
+                 * be harmless for other kinds of failures.
+                 */
+                if (runner_end(&runner)) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "double failure calling runner_end");
+                }
                 goto out;
         }
 
