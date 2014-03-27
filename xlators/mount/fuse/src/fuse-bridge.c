@@ -186,6 +186,8 @@ send_fuse_iov (xlator_t *this, fuse_in_header_t *finh, struct iovec *iov_out,
         fouh->unique = finh->unique;
 
         res = writev (priv->fd, iov_out, count);
+        gf_log ("glusterfs-fuse", GF_LOG_TRACE, "writev() result %d/%d %s",
+                res, fouh->len, res == -1 ? strerror (errno) : "");
 
         if (res == -1)
                 return errno;
@@ -215,13 +217,19 @@ send_fuse_data (xlator_t *this, fuse_in_header_t *finh, void *data, size_t size)
 {
         struct fuse_out_header fouh = {0, };
         struct iovec iov_out[2];
+        int ret = 0;
 
         fouh.error = 0;
         iov_out[0].iov_base = &fouh;
         iov_out[1].iov_base = data;
         iov_out[1].iov_len = size;
 
-        return send_fuse_iov (this, finh, iov_out, 2);
+        ret = send_fuse_iov (this, finh, iov_out, 2);
+        if (ret != 0)
+                gf_log ("glusterfs-fuse", GF_LOG_ERROR, "send_fuse_iov() "
+                        "failed: %s", strerror (ret));
+
+        return ret;
 }
 
 #define send_fuse_obj(this, finh, obj) \
@@ -2524,6 +2532,7 @@ fuse_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fuse_state_t *state = NULL;
         fuse_in_header_t *finh = NULL;
         int           size = 0;
+        int           max_size = 0;
         char         *buf = NULL;
         gf_dirent_t  *entry = NULL;
         struct fuse_dirent *fde = NULL;
@@ -2549,16 +2558,23 @@ fuse_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 frame->root->unique, op_ret, state->size, state->off);
 
         list_for_each_entry (entry, &entries->list, list) {
-                size += FUSE_DIRENT_ALIGN (FUSE_NAME_OFFSET +
-                                           strlen (entry->d_name));
+                max_size += FUSE_DIRENT_ALIGN (FUSE_NAME_OFFSET +
+                                               strlen (entry->d_name));
+
+                if (max_size > state->size) {
+                        /* we received to many entries to fit in the request */
+                        max_size -= FUSE_DIRENT_ALIGN (FUSE_NAME_OFFSET +
+                                                       strlen (entry->d_name));
+                        break;
+                }
         }
 
-	if (size <= 0) {
-		send_fuse_data (this, finh, 0, 0);
-		goto out;
-	}
+        if (max_size <= 0) {
+                send_fuse_data (this, finh, 0, 0);
+                goto out;
+        }
 
-        buf = GF_CALLOC (1, size, gf_fuse_mt_char);
+        buf = GF_CALLOC (1, max_size, gf_fuse_mt_char);
         if (!buf) {
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                         "%"PRIu64": READDIR => -1 (%s)", frame->root->unique,
@@ -2572,6 +2588,9 @@ fuse_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 fde = (struct fuse_dirent *)(buf + size);
                 gf_fuse_fill_dirent (entry, fde, priv->enable_ino32);
                 size += FUSE_DIRENT_SIZE (fde);
+
+                if (size == max_size)
+                        break;
         }
 
         send_fuse_data (this, finh, buf, size);
@@ -2625,6 +2644,7 @@ fuse_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 	fuse_state_t *state = NULL;
 	fuse_in_header_t *finh = NULL;
+        int           max_size = 0;
 	int           size = 0;
 	char         *buf = NULL;
 	gf_dirent_t  *entry = NULL;
@@ -2650,16 +2670,24 @@ fuse_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		frame->root->unique, op_ret, state->size, state->off);
 
 	list_for_each_entry (entry, &entries->list, list) {
-		size += FUSE_DIRENT_ALIGN (FUSE_NAME_OFFSET_DIRENTPLUS +
-					   strlen (entry->d_name));
+                max_size += FUSE_DIRENT_ALIGN (FUSE_NAME_OFFSET_DIRENTPLUS +
+                                               strlen (entry->d_name));
+
+                if (max_size > state->size) {
+                        /* we received to many entries to fit in the reply */
+                        max_size -= FUSE_DIRENT_ALIGN (
+                                                FUSE_NAME_OFFSET_DIRENTPLUS +
+                                                strlen (entry->d_name));
+                        break;
+                }
 	}
 
-	if (size <= 0) {
+	if (max_size <= 0) {
 		send_fuse_data (this, finh, 0, 0);
 		goto out;
 	}
 
-	buf = GF_CALLOC (1, size, gf_fuse_mt_char);
+	buf = GF_CALLOC (1, max_size, gf_fuse_mt_char);
 	if (!buf) {
 		gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
 			"%"PRIu64": READDIRP => -1 (%s)", frame->root->unique,
@@ -2682,7 +2710,7 @@ fuse_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		size += FUSE_DIRENTPLUS_SIZE (fde);
 
 		if (!entry->inode)
-			continue;
+			goto next_entry;
 
 		entry->d_stat.ia_blksize = this->ctx->page_size;
 		gf_fuse_stat2attr (&entry->d_stat, &feo->attr, priv->enable_ino32);
@@ -2690,7 +2718,7 @@ fuse_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		linked_inode = inode_link (entry->inode, state->fd->inode,
 					   entry->d_name, &entry->d_stat);
 		if (!linked_inode)
-			continue;
+			goto next_entry;
 
 		inode_lookup (linked_inode);
 
@@ -2708,6 +2736,10 @@ fuse_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			calc_timeout_sec (priv->attribute_timeout);
 		feo->attr_valid_nsec =
 			calc_timeout_nsec (priv->attribute_timeout);
+
+next_entry:
+                if (size == max_size)
+                        break;
 	}
 
 	send_fuse_data (this, finh, buf, size);
