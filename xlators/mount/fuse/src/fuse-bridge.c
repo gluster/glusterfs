@@ -869,6 +869,16 @@ out:
         return ret;
 }
 
+
+gf_boolean_t
+direct_io_mode (dict_t *xdata)
+{
+	if (xdata && dict_get (xdata, "direct-io-mode"))
+		return _gf_true;
+	return _gf_false;
+}
+
+
 static int
 fuse_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
              int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
@@ -892,7 +902,8 @@ fuse_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (!IA_ISDIR (fd->inode->ia_type)) {
                         if (((priv->direct_io_mode == 2)
                              && ((state->flags & O_ACCMODE) != O_RDONLY))
-                            || (priv->direct_io_mode == 1))
+                            || (priv->direct_io_mode == 1)
+			    || (direct_io_mode (xdata)))
                                 foo.open_flags |= FOPEN_DIRECT_IO;
 #ifdef GF_DARWIN_HOST_OS
                         /* In Linux: by default, buffer cache
@@ -1840,7 +1851,8 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (((priv->direct_io_mode == 2)
                      && ((state->flags & O_ACCMODE) != O_RDONLY))
-                    || (priv->direct_io_mode == 1))
+                    || (priv->direct_io_mode == 1)
+		    || direct_io_mode (xdata))
                         foo.open_flags |= FOPEN_DIRECT_IO;
 
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
