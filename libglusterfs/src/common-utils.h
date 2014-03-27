@@ -480,6 +480,7 @@ typedef enum {
         gf_timefmt_Ymd_T,   /* YYYY/MM-DD-hh:mm:ss */
         gf_timefmt_bdT,     /* ddd DD hh:mm:ss */
         gf_timefmt_F_HMS,   /* YYYY-MM-DD hhmmss */
+	gf_timefmt_dirent,
         gf_timefmt_last
 } gf_timefmts;
 

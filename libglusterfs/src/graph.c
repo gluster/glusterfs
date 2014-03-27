@@ -367,7 +367,7 @@ fill_uuid (char *uuid, int size)
                         strerror (errno));
         }
 
-        gf_time_fmt (now_str, sizeof now_str, tv.tv_sec, gf_timefmt_Ymd_T);
+        gf_time_fmt (now_str, sizeof now_str, tv.tv_sec, gf_timefmt_dirent);
         snprintf (uuid, size, "%s-%d-%s:%"GF_PRI_SUSECONDS,
                   hostname, getpid(), now_str, tv.tv_usec);
 
