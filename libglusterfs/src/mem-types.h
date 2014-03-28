@@ -122,6 +122,8 @@ enum gf_common_mem_types_ {
         gf_common_mt_uuid_t               = 106,
         gf_common_mt_mgmt_v3_lock_obj_t   = 107,
         gf_common_mt_txn_opinfo_obj_t     = 108,
-        gf_common_mt_end                  = 109
+	gf_common_mt_strfd_t              = 109,
+	gf_common_mt_strfd_data_t         = 110,
+        gf_common_mt_end
 };
 #endif
