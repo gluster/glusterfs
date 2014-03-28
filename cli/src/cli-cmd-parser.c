@@ -240,8 +240,14 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                         goto out;
 
                 for (i = 0; i < strlen (volname); i++)
-                        if (!isalnum (volname[i]) && (volname[i] != '_') && (volname[i] != '-'))
+                        if (!isalnum (volname[i]) && (volname[i] != '_') &&
+                           (volname[i] != '-')) {
+                                cli_err ("Volume name should not contain \"%c\""
+                                         " character.\nVolume names can only"
+                                         "contain alphanumeric, '-' and '_' "
+                                         "characters.",volname[i]);
                                 goto out;
+                        }
         }
 
         if (wordcount < 4) {
@@ -559,8 +565,14 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                         goto out;
 
                 for (i = 0; i < strlen (volname); i++)
-                        if (!isalnum (volname[i]) && (volname[i] != '_') && (volname[i] != '-'))
+                       if (!isalnum (volname[i]) && (volname[i] != '_') &&
+                          (volname[i] != '-')) {
+                                cli_err ("Volume name should not contain \"%c\""
+                                         " character.\nVolume names can only"
+                                         "contain alphanumeric, '-' and '_' "
+                                         "characters.",volname[i]);
                                 goto out;
+                       }
         }
 
         ret = dict_set_str (dict, "volname", volname);
