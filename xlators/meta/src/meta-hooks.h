@@ -35,5 +35,12 @@ DECLARE_HOOK(options_dir);
 DECLARE_HOOK(option_file);
 DECLARE_HOOK(cmdline_file);
 DECLARE_HOOK(name_file);
+DECLARE_HOOK(private_file);
+DECLARE_HOOK(mallinfo_file);
+DECLARE_HOOK(history_file);
+DECLARE_HOOK(master_dir);
+DECLARE_HOOK(meminfo_file);
+DECLARE_HOOK(measure_file);
+DECLARE_HOOK(profile_file);
 
 #endif

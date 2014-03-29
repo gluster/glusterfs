@@ -101,4 +101,6 @@ void gf_proc_dump_xlator_history (xlator_t *this, strfd_t *strfd);
 
 void gf_proc_dump_xlator_meminfo (xlator_t *this, strfd_t *strfd);
 
+void gf_proc_dump_xlator_profile (xlator_t *this, strfd_t *strfd);
+
 #endif /* STATEDUMP_H */

@@ -965,3 +965,18 @@ gf_proc_dump_xlator_meminfo (xlator_t *this, strfd_t *strfd)
 	}
 	gf_proc_dump_unlock ();
 }
+
+
+void
+gf_proc_dump_xlator_profile (xlator_t *this, strfd_t *strfd)
+{
+        gf_proc_dump_lock ();
+	{
+		gf_dump_strfd = strfd;
+
+		gf_proc_dump_latency_info (this);
+
+		gf_dump_strfd = NULL;
+	}
+	gf_proc_dump_unlock ();
+}
