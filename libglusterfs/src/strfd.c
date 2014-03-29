@@ -33,13 +33,10 @@ strfd_open ()
 
 
 int
-strprintf (strfd_t *strfd, const char *fmt, ...)
+strvprintf (strfd_t *strfd, const char *fmt, va_list ap)
 {
-	va_list ap;
 	char *str = NULL;
 	int size = 0;
-
-	va_start (ap, fmt);
 
 	size = vasprintf (&str, fmt, ap);
 
@@ -77,6 +74,20 @@ strprintf (strfd_t *strfd, const char *fmt, ...)
 	free (str); /* NOT GF_FREE */
 
 	return size;
+}
+
+
+int
+strprintf (strfd_t *strfd, const char *fmt, ...)
+{
+	int ret = 0;
+	va_list ap;
+
+	va_start (ap, fmt);
+	ret = strvprintf (strfd, fmt, ap);
+	va_end (ap);
+
+	return ret;
 }
 
 

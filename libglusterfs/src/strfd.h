@@ -23,6 +23,8 @@ strfd_t *strfd_open();
 int strprintf(strfd_t *strfd, const char *fmt, ...)
 	__attribute__ ((__format__ (__printf__, 2, 3)));
 
+int strvprintf(strfd_t *strfd, const char *fmt, va_list ap);
+
 int strfd_close(strfd_t *strfd);
 
 #endif
