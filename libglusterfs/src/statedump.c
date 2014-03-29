@@ -16,6 +16,7 @@
 #include "stack.h"
 #include "common-utils.h"
 
+
 #ifdef HAVE_MALLOC_H
 #include <malloc.h>
 #endif /* MALLOC_H */
@@ -39,6 +40,7 @@ static pthread_mutex_t  gf_proc_dump_mutex;
 static int gf_dump_fd = -1;
 gf_dump_options_t dump_options;
 
+static strfd_t *gf_dump_strfd = NULL;
 
 static void
 gf_proc_dump_lock (void)
@@ -114,20 +116,17 @@ out:
 }
 
 int
-gf_proc_dump_add_section (char *key, ...)
+gf_proc_dump_add_section_fd (char *key, va_list ap)
 {
 
         char buf[GF_DUMP_MAX_BUF_LEN];
-        va_list ap;
 
         GF_ASSERT(key);
 
         memset (buf, 0, sizeof(buf));
         snprintf (buf, GF_DUMP_MAX_BUF_LEN, "\n[");
-        va_start (ap, key);
         vsnprintf (buf + strlen(buf),
                    GF_DUMP_MAX_BUF_LEN - strlen (buf), key, ap);
-        va_end (ap);
         snprintf (buf + strlen(buf),
                   GF_DUMP_MAX_BUF_LEN - strlen (buf),  "]\n");
         return write (gf_dump_fd, buf, strlen (buf));
@@ -135,12 +134,41 @@ gf_proc_dump_add_section (char *key, ...)
 
 
 int
-gf_proc_dump_write (char *key, char *value,...)
+gf_proc_dump_add_section_strfd (char *key, va_list ap)
+{
+	int ret = 0;
+
+        ret += strprintf (gf_dump_strfd, "[");
+	ret += strvprintf (gf_dump_strfd, key, ap);
+	ret += strprintf (gf_dump_strfd,  "]\n");
+
+	return ret;
+}
+
+
+int
+gf_proc_dump_add_section (char *key, ...)
+{
+	va_list ap;
+	int ret = 0;
+
+	va_start (ap, key);
+	if (gf_dump_strfd)
+		ret = gf_proc_dump_add_section_strfd (key, ap);
+	else
+		ret = gf_proc_dump_add_section_fd (key, ap);
+	va_end (ap);
+
+	return ret;
+}
+
+
+int
+gf_proc_dump_write_fd (char *key, char *value, va_list ap)
 {
 
         char         buf[GF_DUMP_MAX_BUF_LEN];
         int          offset = 0;
-        va_list      ap;
 
         GF_ASSERT (key);
 
@@ -150,14 +178,43 @@ gf_proc_dump_write (char *key, char *value,...)
         snprintf (buf, GF_DUMP_MAX_BUF_LEN, "%s", key);
         snprintf (buf + offset, GF_DUMP_MAX_BUF_LEN - offset, "=");
         offset += 1;
-        va_start (ap, value);
         vsnprintf (buf + offset, GF_DUMP_MAX_BUF_LEN - offset, value, ap);
-        va_end (ap);
 
         offset = strlen (buf);
         snprintf (buf + offset, GF_DUMP_MAX_BUF_LEN - offset, "\n");
         return write (gf_dump_fd, buf, strlen (buf));
 }
+
+
+int
+gf_proc_dump_write_strfd (char *key, char *value, va_list ap)
+{
+	int ret = 0;
+
+	ret += strprintf (gf_dump_strfd, "%s = ", key);
+	ret += strvprintf (gf_dump_strfd, value, ap);
+	ret += strprintf (gf_dump_strfd, "\n");
+
+	return ret;
+}
+
+
+int
+gf_proc_dump_write (char *key, char *value, ...)
+{
+	int ret = 0;
+	va_list ap;
+
+	va_start (ap, value);
+	if (gf_dump_strfd)
+		ret = gf_proc_dump_write_strfd (key, value, ap);
+	else
+		ret = gf_proc_dump_write_fd (key, value, ap);
+	va_end (ap);
+
+	return ret;
+}
+
 
 static void
 gf_proc_dump_xlator_mem_info (xlator_t *xl)
@@ -830,4 +887,80 @@ void
 gf_proc_dump_cleanup (void)
 {
         pthread_mutex_destroy (&gf_proc_dump_mutex);
+}
+
+
+void
+gf_proc_dump_xlator_private (xlator_t *this, strfd_t *strfd)
+{
+        gf_proc_dump_lock ();
+	{
+		gf_dump_strfd = strfd;
+
+		if (this->dumpops && this->dumpops->priv)
+			this->dumpops->priv (this);
+
+		gf_dump_strfd = NULL;
+	}
+	gf_proc_dump_unlock ();
+}
+
+
+void
+gf_proc_dump_mallinfo (strfd_t *strfd)
+{
+        gf_proc_dump_lock ();
+	{
+		gf_dump_strfd = strfd;
+
+		gf_proc_dump_mem_info ();
+
+		gf_dump_strfd = NULL;
+	}
+	gf_proc_dump_unlock ();
+}
+
+
+void
+gf_proc_dump_xlator_history (xlator_t *this, strfd_t *strfd)
+{
+        gf_proc_dump_lock ();
+	{
+		gf_dump_strfd = strfd;
+
+		if (this->dumpops && this->dumpops->history)
+			this->dumpops->history (this);
+
+		gf_dump_strfd = NULL;
+	}
+	gf_proc_dump_unlock ();
+}
+
+
+void
+gf_proc_dump_xlator_itable (xlator_t *this, strfd_t *strfd)
+{
+        gf_proc_dump_lock ();
+	{
+		gf_dump_strfd = strfd;
+
+
+		gf_dump_strfd = NULL;
+	}
+	gf_proc_dump_unlock ();
+}
+
+
+void
+gf_proc_dump_xlator_meminfo (xlator_t *this, strfd_t *strfd)
+{
+        gf_proc_dump_lock ();
+	{
+		gf_dump_strfd = strfd;
+
+		gf_proc_dump_xlator_mem_info (this);
+
+		gf_dump_strfd = NULL;
+	}
+	gf_proc_dump_unlock ();
 }
