@@ -40,6 +40,7 @@ struct mem_acct {
 };
 
 struct mem_acct_rec {
+	const char     *typestr;
         size_t          size;
         size_t          max_size;
         uint32_t        num_allocs;
@@ -50,10 +51,10 @@ struct mem_acct_rec {
 
 
 void *
-__gf_calloc (size_t cnt, size_t size, uint32_t type);
+__gf_calloc (size_t cnt, size_t size, uint32_t type, const char *typestr);
 
 void *
-__gf_malloc (size_t size, uint32_t type);
+__gf_malloc (size_t size, uint32_t type, const char *typestr);
 
 void *
 __gf_realloc (void *ptr, size_t size);
@@ -114,9 +115,9 @@ void* __gf_default_realloc (void *oldptr, size_t size)
                 ptr = (void *)0xeeeeeeee;       \
         }
 
-#define GF_CALLOC(nmemb, size, type) __gf_calloc (nmemb, size, type)
+#define GF_CALLOC(nmemb, size, type) __gf_calloc (nmemb, size, type, #type)
 
-#define GF_MALLOC(size, type)  __gf_malloc (size, type)
+#define GF_MALLOC(size, type)  __gf_malloc (size, type, #type)
 
 #define GF_REALLOC(ptr, size)  __gf_realloc (ptr, size)
 

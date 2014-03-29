@@ -39,8 +39,8 @@ gf_mem_acct_enable_set (void *data)
 }
 
 int
-gf_mem_set_acct_info (xlator_t *xl, char **alloc_ptr,
-                      size_t size, uint32_t type)
+gf_mem_set_acct_info (xlator_t *xl, char **alloc_ptr, size_t size,
+		      uint32_t type, const char *typestr)
 {
 
         char    *ptr = NULL;
@@ -58,6 +58,8 @@ gf_mem_set_acct_info (xlator_t *xl, char **alloc_ptr,
 
         LOCK(&xl->mem_acct.rec[type].lock);
         {
+		if (!xl->mem_acct.rec[type].typestr)
+			xl->mem_acct.rec[type].typestr = typestr;
                 xl->mem_acct.rec[type].size += size;
                 xl->mem_acct.rec[type].num_allocs++;
                 xl->mem_acct.rec[type].total_allocs++;
@@ -87,7 +89,7 @@ gf_mem_set_acct_info (xlator_t *xl, char **alloc_ptr,
 
 
 void *
-__gf_calloc (size_t nmemb, size_t size, uint32_t type)
+__gf_calloc (size_t nmemb, size_t size, uint32_t type, const char *typestr)
 {
         size_t          tot_size = 0;
         size_t          req_size = 0;
@@ -108,13 +110,13 @@ __gf_calloc (size_t nmemb, size_t size, uint32_t type)
                 gf_msg_nomem ("", GF_LOG_ALERT, tot_size);
                 return NULL;
         }
-        gf_mem_set_acct_info (xl, &ptr, req_size, type);
+        gf_mem_set_acct_info (xl, &ptr, req_size, type, typestr);
 
         return (void *)ptr;
 }
 
 void *
-__gf_malloc (size_t size, uint32_t type)
+__gf_malloc (size_t size, uint32_t type, const char *typestr)
 {
         size_t          tot_size = 0;
         char            *ptr = NULL;
@@ -132,7 +134,7 @@ __gf_malloc (size_t size, uint32_t type)
                 gf_msg_nomem ("", GF_LOG_ALERT, tot_size);
                 return NULL;
         }
-        gf_mem_set_acct_info (xl, &ptr, size, type);
+        gf_mem_set_acct_info (xl, &ptr, size, type, typestr);
 
         return (void *)ptr;
 }
@@ -174,7 +176,7 @@ __gf_realloc (void *ptr, size_t size)
          * about the casting to and forth from void ** to
          * char **.
          */
-        gf_mem_set_acct_info (xl, &new_ptr, size, type);
+        gf_mem_set_acct_info (xl, &new_ptr, size, type, NULL);
 
         return (void *)new_ptr;
 }
