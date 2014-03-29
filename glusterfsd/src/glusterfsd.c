@@ -212,7 +212,7 @@ static struct argp_option gf_options[] = {
         {"volfile-check", ARGP_VOLFILE_CHECK_KEY, 0, 0,
          "Enable strict volume file checking"},
         {"mem-accounting", ARGP_MEM_ACCOUNTING_KEY, 0, OPTION_HIDDEN,
-         "Enable internal memory accounting"},
+         "Enable internal memory accounting (enabled by default, obsolete)"},
         {"fuse-mountopts", ARGP_FUSE_MOUNTOPTS_KEY, "OPTIONS", OPTION_HIDDEN,
          "Extra mount options to pass to FUSE"},
         {"use-readdirp", ARGP_FUSE_USE_READDIRP_KEY, "BOOL", OPTION_ARG_OPTIONAL,
@@ -1478,17 +1478,6 @@ logging_init (glusterfs_ctx_t *ctx, const char *progpath)
         return 0;
 }
 
-void
-gf_check_and_set_mem_acct (glusterfs_ctx_t *ctx, int argc, char *argv[])
-{
-        int i = 0;
-        for (i = 0; i < argc; i++) {
-                if (strcmp (argv[i], "--mem-accounting") == 0) {
-			gf_mem_acct_enable_set (ctx);
-                        break;
-                }
-        }
-}
 
 int
 parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
@@ -1977,13 +1966,6 @@ main (int argc, char *argv[])
                 return ENOMEM;
         }
 	glusterfsd_ctx = ctx;
-
-#ifdef DEBUG
-        gf_mem_acct_enable_set (ctx);
-#else
-        /* Enable memory accounting on the fly based on argument */
-        gf_check_and_set_mem_acct (ctx, argc, argv);
-#endif
 
         ret = glusterfs_globals_init (ctx);
         if (ret)

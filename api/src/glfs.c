@@ -522,10 +522,6 @@ glfs_new (const char *volname)
 		return NULL;
 	}
 
-#ifdef DEBUG
-        gf_mem_acct_enable_set (ctx);
-#endif
-
 	/* first globals init, for gf_mem_acct_enable_set () */
 	ret = glusterfs_globals_init (ctx);
 	if (ret)
