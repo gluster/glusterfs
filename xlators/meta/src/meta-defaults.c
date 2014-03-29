@@ -138,7 +138,7 @@ meta_default_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	iov.iov_base = iobuf_ptr (iobuf);
 
 	copy_offset = min (meta_fd->size, offset);
-	copy_size = min (size, meta_fd->size) - copy_offset;
+	copy_size = min (size, (meta_fd->size - copy_offset));
 
 	if (copy_size)
 		memcpy (iov.iov_base, meta_fd->data + copy_offset, copy_size);

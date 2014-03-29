@@ -44,6 +44,22 @@ static struct meta_dirent xlator_dir_dirents[] = {
 	  .type = IA_IFDIR,
 	  .hook = meta_options_dir_hook,
 	},
+	{ .name = "private",
+	  .type = IA_IFREG,
+	  .hook = meta_private_file_hook,
+	},
+	{ .name = "history",
+	  .type = IA_IFREG,
+	  .hook = meta_history_file_hook,
+	},
+	{ .name = "meminfo",
+	  .type = IA_IFREG,
+	  .hook = meta_meminfo_file_hook,
+	},
+	{ .name = "profile",
+	  .type = IA_IFREG,
+	  .hook = meta_profile_file_hook,
+	},
 	{ .name = NULL }
 };
 
@@ -65,6 +81,18 @@ meta_xlator_dir_hook (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	xl = xlator_search_by_name (graph->first, loc->name);
 
 	meta_ctx_set (loc->inode, this, xl);
+
+	meta_ops_set (loc->inode, this, &xlator_dir_ops);
+
+	return 0;
+}
+
+
+int
+meta_master_dir_hook (call_frame_t *frame, xlator_t *this, loc_t *loc,
+		      dict_t *xdata)
+{
+	meta_ctx_set (loc->inode, this, this->ctx->master);
 
 	meta_ops_set (loc->inode, this, &xlator_dir_ops);
 

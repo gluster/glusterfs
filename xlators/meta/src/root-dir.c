@@ -48,6 +48,18 @@ static struct meta_dirent root_dir_dirents[] = {
 	  .type = IA_IFREG,
 	  .hook = meta_cmdline_file_hook,
 	},
+	{ .name = "mallinfo",
+	  .type = IA_IFREG,
+	  .hook = meta_mallinfo_file_hook,
+	},
+	{ .name = "master",
+	  .type = IA_IFDIR,
+	  .hook = meta_master_dir_hook,
+	},
+	{ .name = "measure_latency",
+	  .type = IA_IFREG,
+	  .hook = meta_measure_file_hook,
+	},
 	{ .name = NULL }
 };
 
