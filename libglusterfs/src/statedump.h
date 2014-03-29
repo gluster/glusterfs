@@ -14,6 +14,7 @@
 
 #include <stdarg.h>
 #include "inode.h"
+#include "strfd.h"
 
 #define GF_DUMP_MAX_BUF_LEN 4096
 
@@ -91,4 +92,13 @@ void gf_proc_dump_mem_info_to_dict (dict_t *dict);
 void gf_proc_dump_mempool_info_to_dict (glusterfs_ctx_t *ctx, dict_t *dict);
 
 void glusterd_init (int sig);
+
+void gf_proc_dump_xlator_private (xlator_t *this, strfd_t *strfd);
+
+void gf_proc_dump_mallinfo (strfd_t *strfd);
+
+void gf_proc_dump_xlator_history (xlator_t *this, strfd_t *strfd);
+
+void gf_proc_dump_xlator_meminfo (xlator_t *this, strfd_t *strfd);
+
 #endif /* STATEDUMP_H */
