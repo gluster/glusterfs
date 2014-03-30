@@ -461,8 +461,7 @@ set_fuse_mount_options (glusterfs_ctx_t *ctx, dict_t *options)
                 ret = dict_set_static_ptr (options, "no-root-squash",
                                            "enable");
                 if (ret < 0) {
-                        gf_log ("glusterfsd", GF_LOG_ERROR,
-                                "failed to set 'enable' for key "
+                        gf_msg ("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_6,
                                 "no-root-squash");
                         goto err;
                 }
@@ -472,12 +471,11 @@ set_fuse_mount_options (glusterfs_ctx_t *ctx, dict_t *options)
                 ret = dict_set_static_ptr (options, "no-root-squash",
                                            "disable");
                 if (ret < 0) {
-                        gf_log ("glusterfsd", GF_LOG_ERROR,
-                                "failed to set 'disable' for key "
+                        gf_msg ("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_5,
                                 "no-root-squash");
                         goto err;
                 }
-                gf_log ("", GF_LOG_DEBUG, "fuse no-root-squash mode %d",
+                gf_msg_debug ("glusterfsd", 0, "fuse no-root-squash mode %d",
                         cmd_args->no_root_squash);
                 break;
         }
@@ -1481,9 +1479,7 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
            compatibility with third party applications
          */
         if (cmd_args->max_connect_attempts) {
-                gf_log ("glusterfs", GF_LOG_WARNING,
-                        "obsolete option '--volfile-max-fetch-attempts"
-                        " or fetch-attempts' was provided");
+                gf_msg ("glusterfs", GF_LOG_WARNING, 0, glusterfsd_msg_33);
         }
 
 #ifdef GF_DARWIN_HOST_OS

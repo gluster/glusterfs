@@ -104,6 +104,9 @@
                         " sync-environment"
 #define glusterfsd_msg_32 (GLFS_COMP_BASE + 32), "received signum (%d)," \
                         " shutting down"
+#define glusterfsd_msg_33 (GLFS_COMP_BASE + 33), "obsolete option " \
+                        "'--volfile-max-fetch-attempts or fetch-attempts' " \
+                        "was provided"
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 
