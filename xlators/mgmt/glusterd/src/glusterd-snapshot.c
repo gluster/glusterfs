@@ -3099,155 +3099,15 @@ glusterd_handle_snapshot_status (rpcsvc_request_t *req, glusterd_op_t op,
                                  dict_t *dict, char *err_str, size_t len)
 {
         int                     ret             =       -1;
-        char                    *volname        =       NULL;
-        char                    *snapname       =       NULL;
-        char                    *buf            =       NULL;
-        glusterd_conf_t         *conf           =       NULL;
         xlator_t                *this           =       NULL;
-        int32_t                 cmd             =       -1;
-        int                     i               =       0;
-        dict_t                  *voldict        =       NULL;
-        char                    key[PATH_MAX]   =       "";
-        glusterd_volinfo_t     *volinfo         =       NULL;
-        glusterd_snap_t         *snap           =       NULL;
-        glusterd_volinfo_t      *snap_volinfo   =       NULL;
 
         this = THIS;
         GF_ASSERT (this);
-        conf = this->private;
 
-        GF_ASSERT (conf);
         GF_ASSERT (req);
         GF_ASSERT (dict);
         GF_ASSERT (err_str);
 
-        ret = dict_get_int32 (dict, "cmd", &cmd);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Could not get status type");
-                goto out;
-        }
-        switch (cmd) {
-                case GF_SNAP_STATUS_TYPE_ALL:
-                {
-                        /* IF we give "gluster snapshot status"
-                         * then lock is held on all snaps.
-                         * This is the place where necessary information
-                         * (snapname and snapcount)is populated in dictionary
-                         * for locking.
-                         */
-                        ++i;
-                        list_for_each_entry (snap, &conf->snapshots, snap_list)
-                        {
-                                snprintf (key, sizeof (key), "snapname%d", i);
-                                buf = gf_strdup (snap->snapname);
-                                if (!buf) {
-                                        ret = -1;
-                                        goto out;
-                                }
-                                ret = dict_set_dynstr (dict, key, buf);
-                                if (ret) {
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "Could not save snapname (%s) "
-                                                "in the dictionary",
-                                                snap->snapname);
-                                        GF_FREE (buf);
-                                        goto out;
-                                }
-
-                                buf = NULL;
-                                i++;
-                        }
-
-                        ret = dict_set_int32 (dict, "snapcount", i - 1);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR, "Could not "
-                                        "save snapcount in the dictionary");
-                                goto out;
-                        }
-                        break;
-                }
-
-                case GF_SNAP_STATUS_TYPE_SNAP:
-                {
-                        /* IF we give "gluster snapshot status <snapname>"
-                         * then lock is held on single snap.
-                         * This is the place where necessary information
-                         * (snapname)is populated in dictionary
-                         * for locking.
-                         */
-                        ret = dict_get_str (dict, "snapname", &snapname);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Failed to fetch snap name");
-                                goto out;
-                        }
-
-                        snap = glusterd_find_snap_by_name (snapname);
-                        if (!snap) {
-                                snprintf (err_str, len, "Snap (%s)"
-                                          "does not exist", snapname);
-                                gf_log(this->name, GF_LOG_ERROR,
-                                        "%s", err_str);
-                                ret = -1;
-                                goto out;
-                        }
-                        break;
-                }
-                case GF_SNAP_STATUS_TYPE_VOL:
-                        ret = dict_get_str (dict, "volname", &volname);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Failed to fetch volname");
-                                goto out;
-                        }
-
-                        ret = glusterd_volinfo_find (volname, &volinfo);
-                        if (ret) {
-                                snprintf (err_str, len, "Volume (%s) "
-                                          "does not exist", volname);
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "%s", err_str);
-                                goto out;
-                        }
-
-                        i = 1;
-                        list_for_each_entry (snap_volinfo,
-                                        &volinfo->snap_volumes, snapvol_list) {
-                                snprintf (key, sizeof (key), "snapname%d", i);
-
-                                buf = gf_strdup
-                                             (snap_volinfo->snapshot->snapname);
-                                if (!buf) {
-                                        ret = -1;
-                                        goto out;
-                                }
-
-                                ret = dict_set_dynstr (dict, key, buf);
-                                if (ret) {
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "Could not save snapname");
-                                        GF_FREE (buf);
-                                        goto out;
-                                }
-
-                                buf = NULL;
-                                i++;
-                        }
-
-                        ret = dict_set_int32 (dict, "snapcount", i-1);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Could not save snapcount");
-                                goto out;
-                        }
-                        break;
-                default:
-                {
-                        gf_log (this->name, GF_LOG_ERROR, "Unknown type");
-                        ret = -1;
-                        goto out;
-                }
-        }
 
         ret = glusterd_mgmt_v3_initiate_snap_phases (req, op, dict);
         if (ret) {
@@ -3257,11 +3117,7 @@ glusterd_handle_snapshot_status (rpcsvc_request_t *req, glusterd_op_t op,
         }
 
         ret = 0;
-
 out:
-        if (voldict) {
-                dict_unref (voldict);
-        }
         return ret;
 }
 
@@ -4286,7 +4142,7 @@ glusterd_snapshot_status_prevalidate (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-        ret = dict_get_int32 (dict, "cmd", &cmd);
+        ret = dict_get_int32 (dict, "status-cmd", &cmd);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Could not fetch status cmd");
@@ -4331,7 +4187,7 @@ glusterd_snapshot_status_prevalidate (dict_t *dict, char **op_errstr,
 
                         ret = glusterd_volinfo_find (volname, &volinfo);
                         if (ret) {
-                                ret = gf_asprintf (op_errstr, "Volume (%s)"
+                                ret = gf_asprintf (op_errstr, "Volume (%s) "
                                                   "not found", volname);
                                 if (ret < 0) {
                                         goto out;
@@ -5616,19 +5472,20 @@ glusterd_get_snap_status_of_volume (char **op_errstr, dict_t *rsp_dict,
 
         list_for_each_entry_safe (snap_volinfo, temp_volinfo,
                              &volinfo->snap_volumes, snapvol_list) {
-                ret = snprintf (key, sizeof (key), "status.snap%d", i);
+                ret = snprintf (key, sizeof (key),
+                                "status.snap%d.snapname", i);
                 if (ret < 0) {
                         goto out;
                 }
 
-                ret = glusterd_get_each_snap_object_status (op_errstr,
-                                       rsp_dict, snap_volinfo->snapshot, key);
-
+                ret = dict_set_dynstr_with_alloc (rsp_dict, key,
+                                    snap_volinfo->snapshot->snapname);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Function : "
-                                "glusterd_get_single_snap_status failed");
+                        gf_log (this->name, GF_LOG_ERROR, "Could not save "
+                                "snap name");
                         goto out;
                 }
+
                 i++;
         }
 
@@ -5664,20 +5521,20 @@ glusterd_get_all_snapshot_status (dict_t *dict, char **op_errstr,
 
         list_for_each_entry_safe (snap, tmp_snap,
                                   &priv->snapshots, snap_list) {
-                ret = snprintf (key, sizeof (key), "status.snap%d", i);
+                ret = snprintf (key, sizeof (key),
+                                "status.snap%d.snapname", i);
                 if (ret < 0) {
                         goto out;
                 }
 
-                ret = glusterd_get_each_snap_object_status (op_errstr,
-                                                         rsp_dict, snap, key);
-
+                ret = dict_set_dynstr_with_alloc (rsp_dict, key,
+                                                  snap->snapname);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Could not get "
-                                "the details of a snap object: %s",
-                                snap->snapname);
+                        gf_log (this->name, GF_LOG_ERROR, "Could not save "
+                                "snap name");
                         goto out;
                 }
+
                 i++;
         }
 
@@ -5688,7 +5545,7 @@ glusterd_get_all_snapshot_status (dict_t *dict, char **op_errstr,
         }
 
         ret = 0;
-out:
+out :
         return ret;
 }
 
@@ -5715,14 +5572,14 @@ glusterd_snapshot_status_commit (dict_t *dict, char **op_errstr,
         conf = this->private;
 
         GF_ASSERT (conf);
-        ret = dict_get_int32 (dict, "cmd", &cmd);
+        ret = dict_get_int32 (dict, "status-cmd", &cmd);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to get status cmd type");
                 goto out;
         }
 
-        ret = dict_set_int32 (rsp_dict, "cmd", cmd);
+        ret = dict_set_int32 (rsp_dict, "status-cmd", cmd);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Could not save status cmd in rsp dictionary");
@@ -5767,6 +5624,13 @@ glusterd_snapshot_status_commit (dict_t *dict, char **op_errstr,
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR, "Unable to "
                                         "get status of snap %s", get_buffer);
+                                goto out;
+                        }
+
+                        ret = dict_set_int32 (rsp_dict, "status.snapcount", 1);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Unable to "
+                                        "set snapcount to 1");
                                 goto out;
                         }
                         break;

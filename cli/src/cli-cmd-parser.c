@@ -3532,12 +3532,13 @@ cli_snap_status_parse (dict_t *dict, const char **words, int wordcount)
 
 out:
         if (ret == 0) {
-                ret = dict_set_int32 (dict, "cmd", cmd);
+                ret = dict_set_int32 (dict, "status-cmd", cmd);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Could not save cmd "
                                 "of snapshot status");
                 }
         }
+
         return ret;
 }
 
@@ -3812,7 +3813,9 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
         } else if (!strcmp (w, "deactivate")) {
                 type = GF_SNAP_OPTION_TYPE_DEACTIVATE;
         }
-        if (type != GF_SNAP_OPTION_TYPE_CONFIG) {
+
+        if (type != GF_SNAP_OPTION_TYPE_CONFIG &&
+            type != GF_SNAP_OPTION_TYPE_STATUS) {
                 ret = dict_set_int32 (dict, "hold_snap_locks", _gf_true);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR,

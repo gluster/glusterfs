@@ -82,6 +82,9 @@ char *cli_vol_task_status_str[] = {"not started",
 };
 
 int32_t
+gf_cli_snapshot (call_frame_t *frame, xlator_t *this, void *data);
+
+int32_t
 gf_cli_get_volume (call_frame_t *frame, xlator_t *this,
                       void *data);
 
@@ -7636,14 +7639,13 @@ out:
 }
 
 int32_t
-cli_snapshot_remove_reply (gf_cli_rsp *rsp, dict_t *dict, call_frame_t *frame)
+cli_snapshot_remove_reply (gf_cli_rsp *rsp, dict_t *dict)
 {
         int32_t       ret        = -1;
         char         *snap_name  = NULL;
 
         GF_ASSERT (rsp);
         GF_ASSERT (dict);
-        GF_ASSERT (frame);
 
         if (rsp->op_ret) {
                 cli_err("snapshot delete: failed: %s",
@@ -8361,99 +8363,128 @@ out:
 }
 
 int
-cli_snap_status_all (dict_t *dict) {
+cli_populate_req_dict_for_status (dict_t *snap_dict, dict_t *dict, int index) {
         int             ret             =       -1;
         char            key[PATH_MAX]   =       "";
+        char            *buffer         =       NULL;
+        int             type            =       0;
         int             snapcount       =       0;
-        int             i               =       0;
 
+        GF_ASSERT (snap_dict);
         GF_ASSERT (dict);
 
-        ret = dict_get_int32 (dict, "status.snapcount", &snapcount);
+        ret = dict_set_uint32 (snap_dict, "status-cmd",
+                               GF_SNAP_STATUS_TYPE_SNAP);
         if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Could not get snapcount");
+                gf_log ("cli", GF_LOG_ERROR, "Could not save command "
+                        "type in snap dict");
                 goto out;
         }
 
-        if (snapcount == 0) {
-                cli_out ("No snapshots present");
+        ret = snprintf (key, sizeof (key), "status.snap%d.snapname", index);
+         if (ret < 0) {
+                 goto out;
+         }
+
+        ret = dict_get_str (dict, key, &buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not get snapname");
+                goto out;
         }
 
-        for (i = 0 ; i < snapcount; i++) {
-                ret = snprintf (key, sizeof (key), "status.snap%d",i);
-                if (ret < 0) {
-                        goto out;
-                }
-                ret = cli_get_single_snap_status (dict, key);
+        ret = dict_set_str (snap_dict, "snapname", buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not save snapname "
+                        "in snap dict");
+                goto out;
+
         }
+
+        ret = dict_set_int32 (snap_dict, "type", GF_SNAP_OPTION_TYPE_STATUS);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR,
+                        "Could not save command type");
+                goto out;
+        }
+
+        ret = dict_set_dynstr_with_alloc (snap_dict, "cmd-str",
+                                       "snapshot status");
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR,
+                        "Could not save command string as status");
+                goto out;
+        }
+
+        ret = dict_set_int32 (snap_dict, "hold_vol_locks", _gf_false);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR,
+                        "Setting volume lock flag failed");
+                goto out;
+        }
+
 out:
         return ret;
 }
 
-
 int
-cli_snapshot_status_display (dict_t *dict, gf_cli_rsp *rsp)
+cli_snapshot_status (dict_t *dict, gf_cli_rsp *rsp,
+                             call_frame_t *frame)
 {
         char            key[PATH_MAX]   =       "";
         int             ret             =       -1;
         int             status_cmd      =       -1;
+        cli_local_t     *local          =       NULL;
 
         GF_ASSERT (dict);
         GF_ASSERT (rsp);
+        GF_ASSERT (frame);
+
+        local = ((call_frame_t *) frame) -> local;
+        if (!local) {
+                gf_log ("cli", GF_LOG_ERROR, "frame->local is NULL");
+                goto out;
+        }
 
         if (rsp->op_ret) {
-                cli_err ("Snapshot Status : failed: %s",
-                        rsp->op_errstr ? rsp->op_errstr :
-                        "Please check log file for details");
+                if (rsp->op_errstr) {
+                        ret = dict_set_dynstr_with_alloc (local->dict,
+                                                          "op_err_str",
+                                                          rsp->op_errstr);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR, "Failed to set "
+                                        "op_errstr in local dictionary");
+                                goto out;
+                        }
+                }
                 ret = rsp->op_ret;
                 goto out;
         }
 
-        ret = dict_get_int32 (dict, "cmd", &status_cmd);
+        ret = dict_get_int32 (dict, "status-cmd", &status_cmd);
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Could not fetch status type");
                 goto out;
         }
-        switch (status_cmd) {
-                case GF_SNAP_STATUS_TYPE_ALL:
-                {
-                        ret = cli_snap_status_all (dict);
-                        if (ret) {
-                                gf_log ("cli", GF_LOG_ERROR, "Could not fetch "
-                                        "status of all snap");
-                                goto out;
-                        }
-                break;
-                }
 
-                case GF_SNAP_STATUS_TYPE_SNAP:
-                {
-                        ret = snprintf (key, sizeof (key), "status.snap0");
-                        if (ret < 0) {
-                                goto out;
-                        }
-                        ret = cli_get_single_snap_status (dict, key);
-                        if (ret) {
-                                gf_log ("cli", GF_LOG_ERROR, "Could not fetch "
-                                        "status of snap");
-                                goto out;
-                        }
-                break;
-                }
-
-                case GF_SNAP_STATUS_TYPE_VOL:
-                {
-                        ret = cli_snap_status_all (dict);
-                        if (ret) {
-                                gf_log ("cli", GF_LOG_ERROR, "Could not fetch "
-                                        "status of snap in a volume");
-                                goto out;
-                        }
-                        break;
-                }
-                default:
-                        break;
+        if (status_cmd != GF_SNAP_STATUS_TYPE_SNAP) {
+                dict_copy (dict, local->dict);
+                goto out;
         }
+
+
+        ret = snprintf (key, sizeof (key), "status.snap0");
+        if (ret < 0) {
+                goto out;
+        }
+
+        ret = cli_get_single_snap_status (dict, key);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not fetch "
+                        "status of snap");
+                goto out;
+        }
+
+        ret = 0;
 out:
         return ret;
 }
@@ -8650,7 +8681,7 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
                 break;
 
         case GF_SNAP_OPTION_TYPE_DELETE:
-                ret = cli_snapshot_remove_reply (&rsp, dict, frame);
+                ret = cli_snapshot_remove_reply (&rsp, dict);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR,
                                 "Failed to delete snap");
@@ -8659,7 +8690,7 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
                 break;
 
         case GF_SNAP_OPTION_TYPE_STATUS:
-                ret = cli_snapshot_status_display (dict, &rsp);
+                ret = cli_snapshot_status (dict, &rsp, frame);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Failed to display "
                                 "snapshot status output.");
@@ -8684,23 +8715,146 @@ out:
 }
 
 int32_t
-gf_cli_snapshot (call_frame_t *frame, xlator_t *this,
-                 void *data)
+gf_cli_snapshot_for_status (call_frame_t *frame, xlator_t *this,
+                            void *data)
 {
-        gf_cli_req        req     = {{0,}};
-        dict_t           *options = NULL;
-        int               ret     = -1;
+
+        gf_cli_req        req           = {{0,}};
+        dict_t           *options       = NULL;
+        int               ret           = -1;
+        int32_t           cmd           = -1;
+        cli_local_t      *local         = NULL;
+        dict_t           *snap_dict     = NULL;
+        int              snapcount      =  0;
+        int              i              =  0;
 
         if (!frame || !this || !data)
                 goto out;
 
+        if (frame->local) {
+                local = frame->local;
+        } else {
+                goto out;
+        }
+
         options = data;
+
+        ret = dict_get_int32 (local->dict, "status-cmd", &cmd);
+
+        if (cmd == GF_SNAP_STATUS_TYPE_ALL ||
+            cmd == GF_SNAP_STATUS_TYPE_VOL) {
+
+                ret = dict_get_int32 (local->dict, "status.snapcount",
+                                      &snapcount);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not get snapcount");
+                        goto out;
+                }
+
+                if (snapcount == 0) {
+                        cli_out ("No snapshots present");
+                }
+
+                for (i = 0 ; i < snapcount; i++) {
+                        ret = -1;
+
+                        snap_dict = dict_new();
+                        if (!snap_dict)
+                                goto out;
+
+                        ret = cli_populate_req_dict_for_status (snap_dict,
+                                                               local->dict, i);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR, "Could not "
+                                        "populate snap request dictionary");
+                                goto out;
+                        }
+
+                        ret = cli_to_glusterd (&req, frame,
+                                        gf_cli_snapshot_cbk,
+                                       (xdrproc_t) xdr_gf_cli_req, snap_dict,
+                                       GLUSTER_CLI_SNAP, this, cli_rpc_prog,
+                                       NULL);
+
+                        /* Ignore the return value and error for snapshot
+                         * status of type "ALL" or "VOL"
+                         *
+                         * Scenario : There might be case where status command
+                         * and delete command might be issued at the same time.
+                         * In that case when status tried to fetch detail of
+                         * snap which has been deleted by concurrent command,
+                         * then it will show snapshot not present. Which will
+                         * not be appropriate.
+                         */
+                        dict_unref (snap_dict);
+                }
+        }
+out:
+        return ret;
+
+        if (ret && snap_dict)
+                dict_unref (snap_dict);
+}
+
+int32_t
+gf_cli_snapshot (call_frame_t *frame, xlator_t *this,
+                 void *data)
+{
+        gf_cli_req        req           = {{0,}};
+        dict_t           *options       = NULL;
+        int               ret           = -1;
+        int               tmp_ret       = -1;
+        cli_local_t      *local         = NULL;
+        char             *err_str       = NULL;
+        int              type           =  -1;
+
+        if (!frame || !this || !data)
+                goto out;
+
+        if (frame->local) {
+                local = frame->local;
+        } else {
+                goto out;
+        }
+
+        options = data;
+
+        ret = dict_get_int32 (local->dict, "type", &type);
+
 
         ret = cli_to_glusterd (&req, frame, gf_cli_snapshot_cbk,
                                (xdrproc_t) xdr_gf_cli_req, options,
                                GLUSTER_CLI_SNAP, this, cli_rpc_prog,
                                NULL);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "cli_to_glusterd for "
+                        "snapshot failed");
+                goto out;
+        }
+
+        if (GF_SNAP_OPTION_TYPE_STATUS == type) {
+                ret = gf_cli_snapshot_for_status (frame, this, data);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "cli to glusterd "
+                                "for snapshot status command failed");
+                        goto out;
+                }
+        }
+
+        ret = 0;
+
 out:
+        if (ret && GF_SNAP_OPTION_TYPE_STATUS == type) {
+                tmp_ret = dict_get_str (local->dict, "op_err_str", &err_str);
+                if (err_str) {
+                        cli_err ("Snapshot Status : failed: %s", err_str);
+                        dict_del (local->dict, "op_err_str");
+                } else {
+                        cli_err ("Snapshot Status : failed: %s", "Please "
+                                "check log file for details");
+                }
+        }
+
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
         GF_FREE (req.dict.dict_val);
