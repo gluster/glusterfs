@@ -3403,6 +3403,12 @@ set_probe_error_str (int op_ret, int op_errno, char *op_errstr, char *errstr,
                                           "in this state");
                                 break;
 
+                        case GF_PROBE_MISSED_SNAP_CONFLICT:
+                                snprintf (errstr, len, "Failed to update "
+                                          "list of missed snapshots from "
+                                          "peer %s", hostname);
+                                break;
+
                         default:
                                 snprintf (errstr, len, "Probe returned with "
                                           "unknown errno %d", op_errno);

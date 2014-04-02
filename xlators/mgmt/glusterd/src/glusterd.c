@@ -1256,6 +1256,17 @@ init (xlator_t *this)
                 exit (1);
         }
 
+        snprintf (storedir, PATH_MAX, "%s/snaps", workdir);
+
+        ret = mkdir (storedir, 0777);
+
+        if ((-1 == ret) && (errno != EEXIST)) {
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "Unable to create snaps directory %s"
+                        " ,errno = %d", storedir, errno);
+                exit (1);
+        }
+
         snprintf (storedir, PATH_MAX, "%s/peers", workdir);
 
         ret = mkdir (storedir, 0777);

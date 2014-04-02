@@ -1266,6 +1266,16 @@ glusterd_rpc_friend_add (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
+        if (priv->op_version >= GD_OP_VERSION_4) {
+                ret = glusterd_add_missed_snaps_to_export_dict (vols);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to add list of missed snapshots "
+                                "in the vols dict for handshake");
+                        goto out;
+                }
+        }
+
         uuid_copy (req.uuid, MY_UUID);
         req.hostname = peerinfo->hostname;
         req.port = peerinfo->port;

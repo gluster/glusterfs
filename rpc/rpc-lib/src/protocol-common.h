@@ -107,7 +107,8 @@ enum gf_probe_resp {
         GF_PROBE_SAME_UUID,
         GF_PROBE_UNKNOWN_PEER,
         GF_PROBE_ADD_FAILED,
-        GF_PROBE_QUORUM_NOT_MET
+        GF_PROBE_QUORUM_NOT_MET,
+        GF_PROBE_MISSED_SNAP_CONFLICT,
 };
 
 enum gf_deprobe_resp {
