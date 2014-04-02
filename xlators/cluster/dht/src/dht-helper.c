@@ -1109,6 +1109,34 @@ dht_inode_ctx_layout_set (inode_t *inode, xlator_t *this,
         return ret;
 }
 
+
+void
+dht_inode_ctx_time_set (inode_t *inode, xlator_t *this, struct iatt *stat)
+{
+        dht_inode_ctx_t         *ctx            = NULL;
+        dht_stat_time_t         *time           = 0;
+        int                      ret            = -1;
+
+        ret = dht_inode_ctx_get (inode, this, &ctx);
+
+        if (ret)
+		return;
+
+        time = &ctx->time;
+
+	time->mtime      = stat->ia_mtime;
+	time->mtime_nsec = stat->ia_mtime_nsec;
+
+	time->ctime      = stat->ia_ctime;
+	time->ctime_nsec = stat->ia_ctime_nsec;
+
+	time->atime      = stat->ia_atime;
+	time->atime_nsec = stat->ia_atime_nsec;
+
+	return;
+}
+
+
 int
 dht_inode_ctx_time_update (inode_t *inode, xlator_t *this, struct iatt *stat,
                            int32_t post)
