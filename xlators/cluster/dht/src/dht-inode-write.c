@@ -862,9 +862,13 @@ unlock:
         UNLOCK (&frame->lock);
 
         this_call_cnt = dht_frame_return (frame);
-        if (is_last_call (this_call_cnt))
+        if (is_last_call (this_call_cnt)) {
+		if (local->op_ret == 0)
+			dht_inode_ctx_time_set (local->loc.inode, this,
+						&local->stbuf);
                 DHT_STACK_UNWIND (setattr, frame, local->op_ret, local->op_errno,
                                   &local->prebuf, &local->stbuf, xdata);
+	}
 
         return 0;
 }
