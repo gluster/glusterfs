@@ -5671,11 +5671,8 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
         char            key[1024]            = {0};
         char            base_key[1024]       = {0};
         char           *mnt_pt               = NULL;
-        char           *fs_name              = NULL;
-        char           *mnt_options          = NULL;
-        char           *device               = NULL;
-        struct mntent  *entry                = NULL;
         FILE           *mtab                 = NULL;
+        struct mntent  *entry                = NULL;
 
         snprintf (base_key, sizeof (base_key), "brick%d", count);
 
@@ -5693,8 +5690,7 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.device", base_key);
 
-        device = gf_strdup (entry->mnt_fsname);
-        ret = dict_set_dynstr (dict, key, device);
+        ret = dict_set_dynstr_with_alloc (dict, key, entry->mnt_fsname);
         if (ret)
                 goto out;
 
@@ -5702,8 +5698,7 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.fs_name", base_key);
 
-        fs_name = gf_strdup (entry->mnt_type);
-        ret = dict_set_dynstr (dict, key, fs_name);
+        ret = dict_set_dynstr_with_alloc (dict, key, entry->mnt_type);
         if (ret)
                 goto out;
 
@@ -5711,8 +5706,7 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.mnt_options", base_key);
 
-        mnt_options = gf_strdup (entry->mnt_opts);
-        ret = dict_set_dynstr (dict, key, mnt_options);
+        ret = dict_set_dynstr_with_alloc (dict, key, entry->mnt_opts);
 
  out:
         GF_FREE (mnt_pt);
@@ -5857,7 +5851,6 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
         int             ret                   = -1;
         int32_t         pid                   = -1;
         int32_t         brick_online          = -1;
-        char           *peer_id_str           = NULL;
         char            key[1024]             = {0};
         char            base_key[1024]        = {0};
         char            pidfile[PATH_MAX]     = {0};
@@ -5888,16 +5881,11 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
                 goto out;
 
         /* add peer uuid */
-        peer_id_str = gf_strdup (uuid_utoa (brickinfo->uuid));
-        if (!peer_id_str) {
-                ret = -1;
-                goto out;
-        }
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.peerid", base_key);
-        ret = dict_set_dynstr (dict, key, peer_id_str);
+        ret = dict_set_dynstr_with_alloc (dict, key,
+                                          uuid_utoa (brickinfo->uuid));
         if (ret) {
-                GF_FREE (peer_id_str);
                 goto out;
         }
 
@@ -6559,8 +6547,7 @@ glusterd_sm_tr_log_transition_add_to_dict (dict_t *dict,
         snprintf (key, sizeof (key), "log%d-time", count);
         gf_time_fmt (timestr, sizeof timestr, log->transitions[i].time,
                      gf_timefmt_FT);
-        str = gf_strdup (timestr);
-        ret = dict_set_dynstr (dict, key, str);
+        ret = dict_set_dynstr_with_alloc (dict, key, timestr);
         if (ret)
                 goto out;
 
@@ -7979,7 +7966,7 @@ glusterd_append_gsync_status (dict_t *dst, dict_t *src)
                 goto out;
         }
 
-        ret = dict_set_dynstr (dst, "gsync-status", gf_strdup (stop_msg));
+        ret = dict_set_dynstr_with_alloc (dst, "gsync-status", stop_msg);
         if (ret) {
                 gf_log ("glusterd", GF_LOG_WARNING, "Unable to set the stop"
                         "message in the ctx dictionary");
@@ -8083,8 +8070,8 @@ glusterd_gsync_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict, char *op_errstr)
 
                 ret = dict_get_str (rsp_dict, "conf_path", &conf_path);
                 if (!ret && conf_path) {
-                        ret = dict_set_dynstr (ctx, "conf_path",
-                                            gf_strdup(conf_path));
+                        ret = dict_set_dynstr_with_alloc (ctx, "conf_path",
+                                                          conf_path);
                         if (ret) {
                                 gf_log ("", GF_LOG_ERROR,
                                         "Unable to store conf path.");
@@ -8093,7 +8080,8 @@ glusterd_gsync_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict, char *op_errstr)
                 }
         }
         if ((op_errstr) && (strcmp ("", op_errstr))) {
-                ret = dict_set_dynstr (ctx, "errstr", gf_strdup(op_errstr));
+                ret = dict_set_dynstr_with_alloc (ctx, "errstr",
+                                                  op_errstr);
                 if (ret)
                         goto out;
         }
