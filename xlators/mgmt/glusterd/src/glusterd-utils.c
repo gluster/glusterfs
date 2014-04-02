@@ -2667,6 +2667,64 @@ out:
 }
 
 int32_t
+glusterd_add_missed_snaps_to_export_dict (dict_t *vols)
+{
+        char                           name_buf[PATH_MAX]   = "";
+        char                           value[PATH_MAX]      = "";
+        int32_t                        missed_snap_count    = 0;
+        int32_t                        ret                  = -1;
+        glusterd_conf_t               *priv                 = NULL;
+        glusterd_missed_snap_info     *missed_snapinfo      = NULL;
+        glusterd_snap_op_t            *snap_opinfo          = NULL;
+        xlator_t                      *this                 = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (vols);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        /* Add the missed_entries in the dict */
+        list_for_each_entry (missed_snapinfo, &priv->missed_snaps_list,
+                             missed_snaps) {
+                list_for_each_entry (snap_opinfo,
+                                     &missed_snapinfo->snap_ops,
+                                     snap_ops_list) {
+                        snprintf (name_buf, sizeof(name_buf),
+                                  "missed_snaps_%d", missed_snap_count);
+                        snprintf (value, sizeof(value), "%s=%d:%s:%d:%d",
+                                  missed_snapinfo->node_snap_info,
+                                  snap_opinfo->brick_num,
+                                  snap_opinfo->brick_path,
+                                  snap_opinfo->op,
+                                  snap_opinfo->status);
+
+                        ret = dict_set_dynstr_with_alloc (vols, name_buf,
+                                                          value);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Unable to set %s",
+                                        name_buf);
+                                goto out;
+                        }
+                        missed_snap_count++;
+                }
+        }
+
+        ret = dict_set_int32 (vols, "missed_snap_count", missed_snap_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to set missed_snap_count");
+                goto out;
+        }
+
+out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
 glusterd_build_volume_dict (dict_t **vols)
 {
         int32_t                 ret = -1;
@@ -4153,6 +4211,44 @@ glusterd_import_global_opts (dict_t *friend_data)
 out:
         if (import_options)
                 dict_unref (import_options);
+        return ret;
+}
+
+/* Import friend volumes missed_snap_list and update *
+ * missed_snap_list if need be */
+int32_t
+glusterd_import_friend_missed_snap_list (dict_t *vols)
+{
+        int32_t                      missed_snap_count     = -1;
+        int32_t                      ret                   = -1;
+        glusterd_conf_t             *priv                  = NULL;
+        xlator_t                    *this                  = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (vols);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        /* Add the friends missed_snaps entries to the in-memory list */
+        ret = dict_get_int32 (vols, "missed_snap_count", &missed_snap_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "No missed snaps");
+                ret = 0;
+                goto out;
+        }
+
+        ret = glusterd_store_update_missed_snaps (vols, missed_snap_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to update missed_snaps_list");
+                goto out;
+        }
+
+out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
 

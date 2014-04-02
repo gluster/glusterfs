@@ -719,4 +719,10 @@ glusterd_add_missed_snaps_to_dict (dict_t *rsp_dict, char *snap_uuid,
                                    glusterd_brickinfo_t *brickinfo,
                                    int32_t brick_number, int32_t op);
 
+int32_t
+glusterd_add_missed_snaps_to_export_dict (dict_t *vols);
+
+int32_t
+glusterd_import_friend_missed_snap_list (dict_t *vols);
+
 #endif
