@@ -10673,3 +10673,38 @@ glusterd_compare_volume_name(struct list_head *list1, struct list_head *list2)
         volinfo2 = list_entry(list2, glusterd_volinfo_t, vol_list);
         return strcmp(volinfo1->volname, volinfo2->volname);
 }
+
+int32_t
+glusterd_mount_lvm_snapshot (char *device_path, char *brick_mount_path)
+{
+        char               msg[NAME_MAX] = "";
+        int32_t            ret           = -1;
+        runner_t           runner        = {0, };
+        xlator_t          *this          = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (brick_mount_path);
+        GF_ASSERT (device_path);
+
+
+        runinit (&runner);
+        snprintf (msg, sizeof (msg), "mount -o nouuid %s %s",
+                  device_path, brick_mount_path);
+        runner_add_args (&runner, "mount", "-o", "nouuid", device_path,
+                         brick_mount_path, NULL);
+        runner_log (&runner, this->name, GF_LOG_DEBUG, msg);
+        ret = runner_run (&runner);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "mounting the snapshot "
+                        "logical device %s failed (error: %s)", device_path,
+                        strerror (errno));
+                goto out;
+        } else
+                gf_log (this->name, GF_LOG_DEBUG, "mounting the snapshot "
+                        "logical device %s successful", device_path);
+
+out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
+        return ret;
+}

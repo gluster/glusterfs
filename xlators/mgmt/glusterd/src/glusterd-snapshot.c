@@ -1104,8 +1104,12 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
         brick_count = -1;
         list_for_each_entry (brickinfo, &snap_vol->bricks, brick_list) {
                 brick_count++;
-                if (uuid_compare (brickinfo->uuid, MY_UUID))
+                if (uuid_compare (brickinfo->uuid, MY_UUID)) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "%s:%s belongs to a different node",
+                                brickinfo->hostname, brickinfo->path);
                         continue;
+                }
 
                 if (brickinfo->snap_status == -1) {
                         gf_log (this->name, GF_LOG_INFO,
@@ -1170,6 +1174,7 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
 
         ret = 0;
 out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
 
@@ -2855,9 +2860,7 @@ glusterd_snap_brick_create (char *device, glusterd_volinfo_t *snap_volinfo,
         glusterd_conf_t *priv                            = NULL;
         char             snap_brick_mount_path[PATH_MAX] = "";
         char             snap_brick_path[PATH_MAX]       = "";
-        char             msg[1024]                       = "";
         struct stat      statbuf                         = {0, };
-        runner_t         runner                          = {0, };
 
         this = THIS;
         priv = this->private;
@@ -2888,25 +2891,12 @@ glusterd_snap_brick_create (char *device, glusterd_volinfo_t *snap_volinfo,
                         MS_MGC_VAL, "nouuid");
            But for now, mounting using runner apis.
         */
-        runinit (&runner);
-        snprintf (msg, sizeof (msg), "mounting snapshot of the brick %s:%s",
-                  original_brickinfo->hostname, original_brickinfo->path);
-        runner_add_args (&runner, "mount", "-o", "nouuid", device,
-                         snap_brick_mount_path, NULL);
-        runner_log (&runner, "", GF_LOG_DEBUG, msg);
-
-        /* let glusterd get blocked till snapshot is over */
-        synclock_unlock (&priv->big_lock);
-        ret = runner_run (&runner);
-        synclock_lock (&priv->big_lock);
+        ret = glusterd_mount_lvm_snapshot (device, snap_brick_mount_path);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "mounting the snapshot "
-                        "logical device %s failed (error: %s)", device,
-                        strerror (errno));
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to mount lvm snapshot.");
                 goto out;
-        } else
-                gf_log (this->name, GF_LOG_DEBUG, "mounting the snapshot "
-                        "logical device %s successful", device);
+        }
 
         ret = stat (snap_brick_path, &statbuf);
         if (ret) {

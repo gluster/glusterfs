@@ -44,6 +44,7 @@
 #include <sys/resource.h>
 #include <inttypes.h>
 #include <dirent.h>
+#include <mntent.h>
 
 void
 glusterd_replace_slash_with_hyphen (char *str)
@@ -2424,7 +2425,7 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                               strlen (GLUSTERD_STORE_KEY_VOL_RESTORED_SNAP))) {
                         ret = uuid_parse (value, volinfo->restored_from_snap);
                         if (ret)
-                                gf_log ("", GF_LOG_WARNING,
+                                gf_log (this->name, GF_LOG_WARNING,
                                         "failed to parse restored snap's uuid");
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_PARENT_VOLNAME,
                                 strlen (GLUSTERD_STORE_KEY_PARENT_VOLNAME))) {
@@ -2792,6 +2793,209 @@ out:
         return ret;
 }
 
+/* Figure out the brick mount path, from the brick path */
+int32_t
+glusterd_find_brick_mount_path (char *brick_path, int32_t brick_count,
+                                char **brick_mount_path)
+{
+        char                     brick_num[PATH_MAX] = "";
+        char                    *ptr                 = NULL;
+        int32_t                  ret                 = -1;
+        xlator_t                *this                = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (brick_path);
+        GF_ASSERT (brick_mount_path);
+
+        *brick_mount_path = gf_strdup (brick_path);
+        if (!*brick_mount_path) {
+                ret = -1;
+                goto out;
+        }
+
+        snprintf (brick_num, sizeof(brick_num), "brick%d", brick_count);
+
+        /* Finding the pointer to the end of
+         * /var/run/gluster/snaps/<snap-uuid>
+         */
+        ptr = strstr (*brick_mount_path, brick_num);
+        if (!ptr) {
+                /* Snapshot bricks must have brick num as part
+                 * of the brickpath
+                 */
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Invalid brick path(%s)", brick_path);
+                ret = -1;
+                goto out;
+        }
+
+        /* Moving the pointer to the end of
+         * /var/run/gluster/snaps/<snap-uuid>/<brick_num>
+         * and assigning '\0' to it.
+         */
+        ptr += strlen(brick_num);
+        *ptr = '\0';
+
+        ret = 0;
+out:
+        if (ret && *brick_mount_path) {
+                GF_FREE (*brick_mount_path);
+                *brick_mount_path = NULL;
+        }
+        gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
+        return ret;
+}
+
+/* Check if brick_mount_path is already mounted. If not, mount the device_path
+ * at the brick_mount_path
+ */
+int32_t
+glusterd_mount_brick_paths (char *brick_mount_path, char *device_path)
+{
+        FILE                    *mtab                = NULL;
+        int32_t                  ret                 = -1;
+        runner_t                 runner              = {0, };
+        struct mntent           *entry               = NULL;
+        xlator_t                *this                = NULL;
+        glusterd_conf_t         *priv                = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (brick_mount_path);
+        GF_ASSERT (device_path);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        /* Check if the brick_mount_path is already mounted */
+        entry = glusterd_get_mnt_entry_info (brick_mount_path, mtab);
+        if (entry) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "brick_mount_path (%s) already mounted.",
+                        brick_mount_path);
+                ret = 0;
+                goto out;
+        }
+
+        /* TODO RHEL 6.5 has the logical volumes inactive by default
+         * on reboot. Hence activating the logical vol. Check behaviour
+         * on other systems
+         */
+        /* Activate the snapshot */
+        runinit (&runner);
+        runner_add_args (&runner, "lvchange", "-ay", device_path,
+                         NULL);
+        ret = runner_run (&runner);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to activate %s. Error: %s",
+                        device_path, strerror(errno));
+                goto out;
+        } else
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Activating %s successful", device_path);
+
+        /* Mount the snapshot */
+        ret = glusterd_mount_lvm_snapshot (device_path, brick_mount_path);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to mount lvm snapshot.");
+                goto out;
+        }
+
+out:
+        if (mtab)
+                endmntent (mtab);
+        gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
+        return ret;
+}
+
+static int32_t
+glusterd_store_recreate_brick_mounts (glusterd_volinfo_t *volinfo)
+{
+        char                    *brick_mount_path    = NULL;
+        glusterd_brickinfo_t    *brickinfo           = NULL;
+        int32_t                  ret                 = -1;
+        int32_t                  brick_count         = -1;
+        struct stat              st_buf              = {0, };
+        xlator_t                *this                = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (volinfo);
+
+        brick_count = 0;
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                brick_count++;
+                /* If the brick is not of this node, or its
+                 * snapshot is pending, or the brick is not
+                 * a snapshotted brick, we continue
+                */
+                if ((uuid_compare (brickinfo->uuid, MY_UUID)) ||
+                    (brickinfo->snap_status == -1) ||
+                    (strlen(brickinfo->device_path) == 0))
+                        continue;
+
+                /* Fetch the brick mount path from the brickinfo->path */
+                ret = glusterd_find_brick_mount_path (brickinfo->path,
+                                                      brick_count,
+                                                      &brick_mount_path);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to find brick_mount_path for %s",
+                                brickinfo->path);
+                        goto out;
+                }
+
+                /* Check if the brickinfo path is present.
+                 * If not create the brick_mount_path */
+                ret = lstat (brickinfo->path, &st_buf);
+                if (ret) {
+                        if (errno == ENOENT) {
+                                ret = mkdir_p (brick_mount_path, 0777,
+                                               _gf_true);
+                                if (ret) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Failed to create %s. "
+                                                "Error: %s", brick_mount_path,
+                                                strerror (errno));
+                                        goto out;
+                                }
+                        } else {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Brick Path(%s) not valid. "
+                                        "Error: %s", brickinfo->path,
+                                        strerror(errno));
+                                goto out;
+                        }
+                }
+
+                /* Check if brick_mount_path is already mounted.
+                 * If not, mount the device_path at the brick_mount_path */
+                ret = glusterd_mount_brick_paths (brick_mount_path,
+                                                  brickinfo->device_path);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to mount brick_mount_path");
+                        goto out;
+                }
+
+                if (brick_mount_path) {
+                        GF_FREE (brick_mount_path);
+                        brick_mount_path = NULL;
+                }
+        }
+
+        ret = 0;
+out:
+        if (ret && brick_mount_path)
+                GF_FREE (brick_mount_path);
+
+        gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
+        return ret;
+}
+
 int32_t
 glusterd_resolve_snap_bricks (xlator_t  *this, glusterd_snap_t *snap)
 {
@@ -2911,24 +3115,15 @@ out:
 int32_t
 glusterd_store_retrieve_snap (char *snapname)
 {
-        int32_t                ret    = -1;
-        dict_t                *dict   = NULL;
-        glusterd_snap_t       *snap   = NULL;
-        glusterd_conf_t       *priv   = NULL;
-        xlator_t              *this   = NULL;
+        int32_t                ret      = -1;
+        glusterd_snap_t       *snap     = NULL;
+        glusterd_conf_t       *priv     = NULL;
+        xlator_t              *this     = NULL;
 
         this = THIS;
         priv = this->private;
         GF_ASSERT (priv);
         GF_ASSERT (snapname);
-
-        dict = dict_new();
-        if (!dict) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Failed to create dict");
-                ret = -1;
-                goto out;
-        }
 
         snap = glusterd_new_snap_object ();
         if (!snap) {
@@ -2952,34 +3147,6 @@ glusterd_store_retrieve_snap (char *snapname)
                 goto out;
         }
 
-        /* Unlike bricks of normal volumes which are resolved at the end of
-           the glusterd restore, the bricks belonging to the snap volumes of
-           each snap should be resolved as part of snapshot restore itself.
-           Because if the snapshot has to be removed, then resolving bricks
-           helps glusterd in understanding what all bricks have its own uuid
-           and killing those bricks.
-        */
-        ret = glusterd_resolve_snap_bricks (this, snap);
-        if (ret)
-                gf_log (this->name, GF_LOG_WARNING, "resolving the snap bricks"
-                        " failed (snap: %s)", snap?snap->snapname:"");
-
-        /* When the snapshot command from cli is received, the on disk and
-           in memory structures for the snapshot are created (with the status)
-           being marked as GD_SNAP_STATUS_INIT. Once the backend snapshot is
-           taken, the status is changed to GD_SNAP_STATUS_IN_USE. If glusterd
-           dies after taking the backend snapshot, but before updating the
-           status, then when glusterd comes up, it should treat that snapshot
-           as a failed snapshot and clean it up.
-        */
-        if (snap->snap_status != GD_SNAP_STATUS_IN_USE) {
-                ret = glusterd_snap_remove (dict, snap, _gf_true, _gf_true);
-                if (ret)
-                        gf_log (this->name, GF_LOG_WARNING, "failed to remove"
-                                " the snapshot %s", snap->snapname);
-                goto out;
-        }
-
         /* TODO: list_add_order can do 'N-square' comparisions and
            is not efficient. Find a better solution to store the snap
            in order */
@@ -2987,9 +3154,6 @@ glusterd_store_retrieve_snap (char *snapname)
                         glusterd_compare_snap_time);
 
 out:
-        if (dict)
-                dict_unref (dict);
-
         gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
         return ret;
 }
@@ -3616,19 +3780,147 @@ out:
         return ret;
 }
 
+static int32_t
+glusterd_recreate_vol_brick_mounts (xlator_t  *this,
+                                    glusterd_volinfo_t *volinfo)
+{
+        int32_t                  ret       = 0;
+        glusterd_conf_t         *priv      = NULL;
+        glusterd_brickinfo_t    *brickinfo = NULL;
+
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                ret = glusterd_store_recreate_brick_mounts (volinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to recreate brick mounts "
+                                "for %s", volinfo->volname);
+                        goto out;
+                }
+        }
+
+out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
+        return ret;
+}
+
+/* Bricks for snap volumes are hosted at /var/run/gluster/snaps
+ * When a volume is restored, it points to the bricks of the snap
+ * volume it was restored from. Hence on a node restart these
+ * paths need to be recreated and re-mounted
+ */
+int32_t
+glusterd_recreate_all_snap_brick_mounts (xlator_t  *this)
+{
+        int32_t                  ret       = 0;
+        glusterd_conf_t         *priv      = NULL;
+        glusterd_volinfo_t      *volinfo   = NULL;
+        glusterd_snap_t         *snap      = NULL;
+
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        /* Recreate bricks of volumes restored from snaps */
+        list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                /* If the volume is not a restored volume then continue */
+                if (uuid_is_null (volinfo->restored_from_snap))
+                        continue;
+
+                ret = glusterd_recreate_vol_brick_mounts (this, volinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to recreate brick mounts "
+                                "for %s", volinfo->volname);
+                        goto out;
+                }
+        }
+
+        /* Recreate bricks of snapshot volumes */
+        list_for_each_entry (snap, &priv->snapshots, snap_list) {
+                list_for_each_entry (volinfo, &snap->volumes, vol_list) {
+                        ret = glusterd_recreate_vol_brick_mounts (this,
+                                                                  volinfo);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to recreate brick mounts "
+                                        "for %s", snap->snapname);
+                                goto out;
+                        }
+                }
+        }
+
+out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
+        return ret;
+}
+
+/* When the snapshot command from cli is received, the on disk and
+ * in memory structures for the snapshot are created (with the status)
+ * being marked as GD_SNAP_STATUS_INIT. Once the backend snapshot is
+ * taken, the status is changed to GD_SNAP_STATUS_IN_USE. If glusterd
+ * dies after taking the backend snapshot, but before updating the
+ * status, then when glusterd comes up, it should treat that snapshot
+ * as a failed snapshot and clean it up.
+ */
+int32_t
+glusterd_snap_cleanup (xlator_t  *this)
+{
+        dict_t               *dict = NULL;
+        int32_t               ret  = 0;
+        glusterd_conf_t      *priv = NULL;
+        glusterd_snap_t      *snap = NULL;
+
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        dict = dict_new();
+        if (!dict) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to create dict");
+                ret = -1;
+                goto out;
+        }
+
+        list_for_each_entry (snap, &priv->snapshots, snap_list) {
+                if (snap->snap_status != GD_SNAP_STATUS_IN_USE) {
+                        ret = glusterd_snap_remove (dict, snap,
+                                                    _gf_true, _gf_true);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to remove the snapshot %s",
+                                        snap->snapname);
+                                goto out;
+                        }
+                }
+        }
+out:
+        if (dict)
+                dict_unref (dict);
+
+        gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
+        return ret;
+}
+
 int32_t
 glusterd_resolve_all_bricks (xlator_t  *this)
 {
-        int32_t                 ret = 0;
-        glusterd_conf_t         *priv = NULL;
-        glusterd_volinfo_t      *volinfo = NULL;
+        int32_t                 ret        = 0;
+        glusterd_conf_t         *priv      = NULL;
+        glusterd_volinfo_t      *volinfo   = NULL;
         glusterd_brickinfo_t    *brickinfo = NULL;
+        glusterd_snap_t         *snap      = NULL;
 
         GF_ASSERT (this);
         priv = this->private;
 
         GF_ASSERT (priv);
 
+        /* Resolve bricks of volumes */
         list_for_each_entry (volinfo, &priv->volumes, vol_list) {
                 list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                         ret = glusterd_resolve_brick (brickinfo);
@@ -3640,9 +3932,20 @@ glusterd_resolve_all_bricks (xlator_t  *this)
                 }
         }
 
-out:
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        /* Resolve bricks of snapshot volumes */
+        list_for_each_entry (snap, &priv->snapshots, snap_list) {
+                ret = glusterd_resolve_snap_bricks (this, snap);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "resolving the snap bricks"
+                                " failed for snap: %s",
+                                snap->snapname);
+                        goto out;
+                }
+        }
 
+out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
         return ret;
 }
 
@@ -3676,6 +3979,20 @@ glusterd_restore ()
         ret = glusterd_resolve_all_bricks (this);
         if (ret)
                 goto out;
+
+        ret = glusterd_snap_cleanup (this);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to perform "
+                        "a cleanup of the snapshots");
+                goto out;
+        }
+
+        ret = glusterd_recreate_all_snap_brick_mounts (this);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to recreate "
+                        "all snap brick mounts");
+                goto out;
+        }
 
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
