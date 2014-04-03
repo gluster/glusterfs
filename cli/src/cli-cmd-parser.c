@@ -1184,11 +1184,6 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                 }
         }
 
-        if (wordcount < 4) {
-                ret = -1;
-                goto out;
-        }
-
         ret = dict_set_int32 (dict, "command", command);
         if (ret)
                 gf_log ("cli", GF_LOG_INFO, "failed to set 'command' %d",
