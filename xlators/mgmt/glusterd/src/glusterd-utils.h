@@ -731,4 +731,7 @@ gd_restore_snap_volume (dict_t *rsp_dict,
                         glusterd_volinfo_t *orig_vol,
                         glusterd_volinfo_t *snap_vol);
 
+int32_t
+glusterd_mount_lvm_snapshot (char *device_path, char *brick_mount_path);
+
 #endif
