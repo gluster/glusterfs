@@ -545,8 +545,8 @@ snap_max_hard_limits_validate (dict_t *dict, char *volname,
 
         if ((value < 0) || (value > max_limit)) {
                 ret = -1;
-                snprintf (err_str, PATH_MAX, "Invalid snap-max-hard-limit"
-                          "%"PRIu64 ". Expected range 0 - %"PRIu64,
+                snprintf (err_str, PATH_MAX, "Invalid snap-max-hard-limit "
+                          "%"PRIu64 ". Expected range 1 - %"PRIu64,
                           value, max_limit);
                 goto out;
         }
@@ -570,7 +570,6 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
         int                 config_command      = 0;
         char                err_str[PATH_MAX]   = {0,};
         glusterd_conf_t    *conf                = NULL;
-        uint64_t            value               = 0;
         uint64_t            hard_limit          = 0;
         uint64_t            soft_limit          = 0;
         gf_loglevel_t       loglevel            = GF_LOG_ERROR;
@@ -628,8 +627,8 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
                                 ret = -1;
                                 snprintf (err_str, PATH_MAX, "Invalid "
                                          "snap-max-soft-limit ""%"
-                                         PRIu64 ". Expected range 0 - %"PRIu64,
-                                         value, max_limit);
+                                         PRIu64 ". Expected range 1 - %"PRIu64,
+                                         soft_limit, max_limit);
                                 goto out;
                         }
                         break;

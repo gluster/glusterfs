@@ -3418,13 +3418,18 @@ out:
 }
 
 
+/* return value:
+ *      -1  in case of failure.
+ *       0  in case of success.
+ */
 int32_t
 cli_snap_config_limit_parse (const char **words, dict_t *dict,
                              unsigned int wordcount, unsigned int index,
                              char *key)
 {
-        int             ret             =       -1;
-        int             limit           =       0;
+        int             ret             = -1;
+        unsigned int    limit           = 0;
+        char            *end_ptr        = NULL;
 
         GF_ASSERT (words);
         GF_ASSERT (dict);
@@ -3437,10 +3442,24 @@ cli_snap_config_limit_parse (const char **words, dict_t *dict,
                 goto out;
         }
 
-        limit = strtol (words[index], NULL, 0);
-        if (limit <= 0) {
+        limit = strtol (words[index], &end_ptr, 10);
+
+        if (limit <= 0 || strcmp (end_ptr, "") != 0) {
                 ret = -1;
-                cli_err ("%s should be greater than 0.", key);
+                cli_err("Please enter an integer value "
+                        "greater than zero for %s", key);
+                goto out;
+        }
+
+        if (strcmp (key, "snap-max-hard-limit") == 0 && limit > 256) {
+                ret = -1;
+                cli_err ("%s value cannot be more than 256", key);
+                goto out;
+        }
+
+        if (strcmp (key, "snap-max-soft-limit") == 0 && limit > 100) {
+                ret = -1;
+                cli_err ("%s value cannot be more than 100", key);
                 goto out;
         }
 
@@ -3461,7 +3480,8 @@ out:
  *                                         [snap-max-soft-limit <count>]
  *
    return value: <0  on failure
-                  1  if user cancels the operation
+                  1  if user cancels the operation, or limit value is out of
+                                                                      range
                   0  on success
 
   NOTE : snap-max-soft-limit can only be set for system.
