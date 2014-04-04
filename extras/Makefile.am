@@ -9,6 +9,8 @@ conf_DATA = glusterfs-logrotate gluster-rsyslog-7.2.conf gluster-rsyslog-5.8.con
 
 voldir = $(sysconfdir)/glusterfs
 vol_DATA = glusterd.vol
+scriptsdir = $(datadir)/glusterfs/scripts
+scripts_DATA = post-upgrade-script-for-quota.sh pre-upgrade-script-for-quota.sh
 
 EXTRA_DIST = specgen.scm MacOSX/Portfile glusterfs-mode.el glusterfs.vim  \
 	migrate-unify-to-distribute.sh backend-xattr-sanitize.sh          \

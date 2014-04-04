@@ -10,7 +10,7 @@ Pre-Upgrade Script:
 
 ###What it does:
 
-The pre-upgrade script (pre-upgrade-script-for-quota.sh) iterates over the list of volumes that have quota enabled and captures the configured quota limits for each such volume in a file under /tmp/quota-config-backup/vol_&lt;VOLNAME&gt; by executing 'quota list' command on each one of them.
+The pre-upgrade script (pre-upgrade-script-for-quota.sh) iterates over the list of volumes that have quota enabled and captures the configured quota limits for each such volume in a file under /var/tmp/glusterfs/quota-config-backup/vol_&lt;VOLNAME&gt; by executing 'quota list' command on each one of them.
 
 ###Pre-requisites for running Pre-Upgrade Script:
 
@@ -39,7 +39,7 @@ Because the cluster must be operating at op-version 3 for quota to work in 3.5, 
 
 Once this is done, these volumes are started forcefully using `volume start force` to launch the Quota Daemon on all the nodes.
 
-Thereafter, for each of these volumes, the paths and the limits configured on them are retrieved from the backed up file /tmp/quota-config-backup/vol_&lt;VOLNAME&gt; and limits are set on them via the `quota limit-usage` interface.
+Thereafter, for each of these volumes, the paths and the limits configured on them are retrieved from the backed up file /var/tmp/glusterfs/quota-config-backup/vol_&lt;VOLNAME&gt; and limits are set on them via the `quota limit-usage` interface.
 
 ####Note:
 In the new version of quota, the command `quota limit-usage` will fail if the directory on which quota limit is to be set for a given volume does not exist. Therefore, it is advised that you create these directories first before running post-upgrade-script-for-quota.sh if you want limits to be set on these directories.
@@ -76,4 +76,4 @@ In the second case, the post-upgrade script picks on its own, the volumes on whi
 
 ####Note:
 1. In the second case, post-upgrade-script-for-quota.sh exits prematurely upon failure to ugprade any given volume. In that case, you may run post-upgrade-script-for-quota.sh individually (using the volume name as command line argument) on this volume and also on all volumes appearing after this volume in the output of `gluster volume list`, that have quota enabled.
-2. The backed up files under /tmp/quota-config-backup/ are retained after the post-upgrade procedure for reference.
+2. The backed up files under /var/tmp/glusterfs/quota-config-backup/ are retained after the post-upgrade procedure for reference.

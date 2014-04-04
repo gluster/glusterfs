@@ -10,6 +10,8 @@
 
 VOL=$1;
 
+BACKUP_DIR=/var/tmp/glusterfs/quota-config-backup
+
 function set_limits {
         local var=$(gluster volume info $1 | grep 'features.quota'| cut -d" " -f2);
 
@@ -31,8 +33,8 @@ function set_limits {
                 gluster volume start $1 force
                 sleep 3;
 
-                local path_array=( $(cat /tmp/quota-config-backup/vol_$1 | tail -n +3 | awk '{print $1}') )
-                local limit_array=( $(cat /tmp/quota-config-backup/vol_$1 | tail -n +3 | awk '{print $2}') )
+                local path_array=( $(cat $BACKUP_DIR/vol_$1 | tail -n +3 | awk '{print $1}') )
+                local limit_array=( $(cat $BACKUP_DIR/vol_$1 | tail -n +3 | awk '{print $2}') )
                 local len=${#path_array[@]}
 
                 for ((j=0; j<$len; j++))
