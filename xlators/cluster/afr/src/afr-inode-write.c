@@ -1588,7 +1588,7 @@ afr_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 	if (!transaction_frame)
 		goto out;
 
-	local = AFR_FRAME_INIT (frame, op_errno);
+	local = AFR_FRAME_INIT (transaction_frame, op_errno);
 	if (!local)
 		goto out;
 
