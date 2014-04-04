@@ -553,9 +553,9 @@ cli_rpc_init (struct cli_state *state)
         if (!options)
                 goto out;
 
-        /* Connect using to glusterd using the specified method, giving
-         * preference to unix socket connection. If nothing is specified connect
-         * to the default glusterd socket
+        /* Connect to glusterd using the specified method, giving preference
+         * to a unix socket connection.  If nothing is specified, connect to
+         * the default glusterd socket.
          */
         if (state->glusterd_sock) {
                 gf_log ("cli", GF_LOG_INFO, "Connecting to glusterd using "
