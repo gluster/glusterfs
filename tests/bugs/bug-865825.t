@@ -58,7 +58,7 @@ setfattr -x trusted.afr.${V0}-client-2 $B0/${V0}-1/a_file
 echo "wrong_data" > $B0/${V0}-2/a_file
 
 gluster volume set $V0 cluster.self-heal-daemon on
-sleep 3
+sleep 10
 gluster volume heal $V0 full
 
 ## Make sure brick 2 now has the correct contents.
