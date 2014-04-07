@@ -2273,14 +2273,12 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        snprintf (key, sizeof (key), "volume%d.is_volume_restored", count);
-        ret = dict_set_int32 (dict, key, volinfo->is_volume_restored);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to set "
-                        "is_volume_restored option for %s volume",
-                        volinfo->volname);
+        snprintf (key, sizeof (key), "volume%d.restored_from_snap", count);
+        ret = dict_set_dynstr_with_alloc
+                                  (dict, key,
+                                   uuid_utoa (volinfo->restored_from_snap));
+        if (ret)
                 goto out;
-        }
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.brick_count", count);
@@ -3548,6 +3546,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
         char               *volname          = NULL;
         glusterd_volinfo_t *new_volinfo      = NULL;
         char               *volume_id_str    = NULL;
+        char               *restored_snap    = NULL;
         char               msg[2048]         = {0};
         char               *src_brick        = NULL;
         char               *dst_brick        = NULL;
@@ -3713,14 +3712,15 @@ glusterd_import_volinfo (dict_t *vols, int count,
 
         new_volinfo->is_snap_volume = is_snap_volume;
 
-        snprintf (key, sizeof (key), "volume%d.is_volume_restored", count);
-        ret = dict_get_uint32 (vols, key, &new_volinfo->is_volume_restored);
+        snprintf (key, sizeof (key), "volume%d.restored_from_snap", count);
+        ret = dict_get_str (vols, key, &restored_snap);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to get "
-                        "is_volume_restored option for %s",
-                        volname);
+                snprintf (msg, sizeof (msg), "%s missing in payload for %s",
+                          key, volname);
                 goto out;
         }
+
+        uuid_parse (restored_snap, new_volinfo->restored_from_snap);
 
         snprintf (key, sizeof (key), "volume%d.snap-max-hard-limit", count);
         ret = dict_get_uint64 (vols, key, &new_volinfo->snap_max_hard_limit);
@@ -3965,8 +3965,33 @@ int32_t
 glusterd_delete_stale_volume (glusterd_volinfo_t *stale_volinfo,
                               glusterd_volinfo_t *valid_volinfo)
 {
+        int32_t                  ret            = -1;
+        glusterd_volinfo_t      *temp_volinfo   = NULL;
+        glusterd_volinfo_t      *voliter        = NULL;
+        xlator_t                *this           = NULL;
+
         GF_ASSERT (stale_volinfo);
         GF_ASSERT (valid_volinfo);
+
+        /* Copy snap_volumes list from stale_volinfo to valid_volinfo */
+        valid_volinfo->snap_count = 0;
+        list_for_each_entry_safe (voliter, temp_volinfo,
+                                  &stale_volinfo->snap_volumes, snapvol_list) {
+                list_add_tail (&voliter->snapvol_list,
+                               &valid_volinfo->snap_volumes);
+                valid_volinfo->snap_count++;
+        }
+
+        if ((!uuid_is_null (stale_volinfo->restored_from_snap)) &&
+            (uuid_compare (stale_volinfo->restored_from_snap,
+                           valid_volinfo->restored_from_snap))) {
+                ret = glusterd_lvm_snapshot_remove (NULL, stale_volinfo);
+                if (ret) {
+                        gf_log(this->name, GF_LOG_WARNING,
+                               "Failed to remove lvm snapshot for "
+                               "restored volume %s", stale_volinfo->volname);
+                }
+        }
 
         /* If stale volume is in started state, copy the port numbers of the
          * local bricks if they exist in the valid volume information.
@@ -4220,6 +4245,164 @@ out:
         return ret;
 }
 
+int32_t
+glusterd_perform_missed_op (glusterd_snap_t *snap, int32_t op)
+{
+        dict_t                  *dict         = NULL;
+        int32_t                  ret          = -1;
+        glusterd_conf_t         *priv         = NULL;
+        glusterd_volinfo_t      *snap_volinfo = NULL;
+        glusterd_volinfo_t      *volinfo      = NULL;
+        xlator_t                *this         = NULL;
+        uuid_t                   null_uuid    = {0};
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+        GF_ASSERT (snap);
+
+        dict = dict_new();
+        if (!dict) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to create dict");
+                ret = -1;
+                goto out;
+        }
+
+        switch (op) {
+        case GF_SNAP_OPTION_TYPE_DELETE:
+                ret = glusterd_snap_remove (dict, snap, _gf_true, _gf_false);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to remove snap");
+                        goto out;
+                }
+
+                break;
+        case GF_SNAP_OPTION_TYPE_RESTORE:
+                /* TODO : As of now there is only volume in snapshot.
+                 * Change this when multiple volume snapshot is introduced
+                 */
+                snap_volinfo = list_entry (snap->volumes.next,
+                                           glusterd_volinfo_t, vol_list);
+
+                /* Find the parent volinfo */
+                ret = glusterd_volinfo_find (snap_volinfo->parent_volname,
+                                             &volinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Could not get volinfo of %s",
+                                snap_volinfo->parent_volname);
+                        goto out;
+                }
+
+                /* Bump down the original volinfo's version, coz it would have
+                 * incremented already due to volume handshake
+                 */
+                volinfo->version--;
+                uuid_copy (volinfo->restored_from_snap, null_uuid);
+
+                /* Perform the restore */
+                ret = gd_restore_snap_volume (dict, volinfo, snap_volinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to restore "
+                                "snap for %s", snap->snapname);
+                        volinfo->version++;
+                        goto out;
+                }
+
+                break;
+        default:
+                /* The entry must be a create, delete, or
+                 * restore entry
+                 */
+                gf_log (this->name, GF_LOG_ERROR, "Invalid missed snap entry");
+                ret = -1;
+                goto out;
+        }
+
+out:
+        dict_unref (dict);
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
+}
+
+/* Perform missed deletes and restores on this node */
+int32_t
+glusterd_perform_missed_snap_ops ()
+{
+        int32_t                      ret                 = -1;
+        int32_t                      op_status           = -1;
+        glusterd_conf_t             *priv                = NULL;
+        glusterd_missed_snap_info   *missed_snapinfo     = NULL;
+        glusterd_snap_op_t          *snap_opinfo         = NULL;
+        glusterd_snap_t             *snap                = NULL;
+        uuid_t                       snap_uuid           = {0,};
+        xlator_t                    *this                = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        list_for_each_entry (missed_snapinfo, &priv->missed_snaps_list,
+                             missed_snaps) {
+                /* If the pending snap_op is not for this node then continue */
+                if (strcmp (missed_snapinfo->node_uuid, uuid_utoa (MY_UUID)))
+                        continue;
+
+                /* Find the snap id */
+                uuid_parse (missed_snapinfo->snap_uuid, snap_uuid);
+                snap = NULL;
+                snap = glusterd_find_snap_by_id (snap_uuid);
+                if (!snap) {
+                        /* If the snap is not found, then a delete or a
+                         * restore can't be pending on that snap_uuid.
+                         */
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Not a pending delete or restore op");
+                        continue;
+                }
+
+                op_status = GD_MISSED_SNAP_PENDING;
+                list_for_each_entry (snap_opinfo, &missed_snapinfo->snap_ops,
+                                     snap_ops_list) {
+                        /* If the snap_op is create or its status is
+                         * GD_MISSED_SNAP_DONE then continue
+                         */
+                        if ((snap_opinfo->status == GD_MISSED_SNAP_DONE) ||
+                            (snap_opinfo->op == GF_SNAP_OPTION_TYPE_CREATE))
+                                continue;
+
+                        /* Perform the actual op for the first time for
+                         * this snap, and mark the snap_status as
+                         * GD_MISSED_SNAP_DONE. For other entries for the same
+                         * snap, just mark the entry as done.
+                         */
+                        if (op_status == GD_MISSED_SNAP_PENDING) {
+                                ret = glusterd_perform_missed_op
+                                                             (snap,
+                                                              snap_opinfo->op);
+                                if (ret) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Failed to perform missed snap op");
+                                        goto out;
+                                }
+                                op_status = GD_MISSED_SNAP_DONE;
+                        }
+
+                        snap_opinfo->status = GD_MISSED_SNAP_DONE;
+                }
+        }
+
+        ret = 0;
+out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
+}
+
 /* Import friend volumes missed_snap_list and update *
  * missed_snap_list if need be */
 int32_t
@@ -4251,6 +4434,16 @@ glusterd_import_friend_missed_snap_list (dict_t *vols)
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to add missed snaps to list");
                 goto out;
+        }
+
+        ret = glusterd_perform_missed_snap_ops ();
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to perform snap operations");
+                /* Not going to out at this point coz some *
+                 * missed ops might have been performed. We *
+                 * need to persist the current list *
+                 */
         }
 
         ret = glusterd_store_update_missed_snaps ();

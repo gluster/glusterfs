@@ -726,4 +726,9 @@ glusterd_add_missed_snaps_to_export_dict (dict_t *vols);
 int32_t
 glusterd_import_friend_missed_snap_list (dict_t *vols);
 
+int32_t
+gd_restore_snap_volume (dict_t *rsp_dict,
+                        glusterd_volinfo_t *orig_vol,
+                        glusterd_volinfo_t *snap_vol);
+
 #endif

@@ -298,7 +298,7 @@ struct glusterd_volinfo_ {
         char                      volname[GLUSTERD_MAX_VOLUME_NAME];
         gf_boolean_t              is_snap_volume;
         glusterd_snap_t          *snapshot;
-        gf_boolean_t              is_volume_restored;
+        uuid_t                    restored_from_snap;
         char                      parent_volname[GLUSTERD_MAX_VOLUME_NAME];
                                          /* In case of a snap volume
                                             i.e (is_snap_volume == TRUE) this

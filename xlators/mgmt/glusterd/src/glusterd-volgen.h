@@ -172,7 +172,4 @@ gd_is_xlator_option (char *key);
 gf_boolean_t
 gd_is_boolean_option (char *key);
 
-int gd_restore_snap_volume (dict_t *rsp_dict,
-                            glusterd_volinfo_t *orig_vol,
-                            glusterd_volinfo_t *snap_vol);
 #endif
