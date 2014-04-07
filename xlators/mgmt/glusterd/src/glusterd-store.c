@@ -525,10 +525,13 @@ int _storeopts (dict_t *this, char *key, data_t *value, void *data)
 int32_t
 glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
 {
-        char    *str            = NULL;
-        char    buf[PATH_MAX]   = {0,};
-        int32_t ret             = -1;
+        char        *str            = NULL;
+        char         buf[PATH_MAX]  = "";
+        int32_t      ret            = -1;
+        xlator_t    *this           = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT (fd > 0);
         GF_ASSERT (volinfo);
 
@@ -576,7 +579,7 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
         snprintf (buf, sizeof (buf), "%s", volinfo->parent_volname);
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_PARENT_VOLNAME, buf);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to store "
+                gf_log (this->name, GF_LOG_ERROR, "Failed to store "
                         GLUSTERD_STORE_KEY_PARENT_VOLNAME);
                 goto out;
         }
@@ -620,11 +623,11 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
                         goto out;
         }
 
-        snprintf (buf, sizeof (buf), "%d", volinfo->is_volume_restored);
-        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_IS_RESTORED, buf);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_RESTORED_SNAP,
+                                   uuid_utoa (volinfo->restored_from_snap));
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "Unable to write is_volume_restored");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to write restored_from_snap");
                 goto out;
         }
 
@@ -632,14 +635,14 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
                                    buf);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_ERROR,
                         "Unable to write snap-max-hard-limit");
                 goto out;
         }
 
 out:
         if (ret)
-                gf_log (THIS->name, GF_LOG_ERROR, "Unable to write volume "
+                gf_log (this->name, GF_LOG_ERROR, "Unable to write volume "
                         "values for %s", volinfo->volname);
         return ret;
 }
@@ -2417,9 +2420,12 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
                                 strlen (GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT))) {
                         volinfo->snap_max_hard_limit = (uint64_t) atoll (value);
-                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_IS_RESTORED,
-                                     strlen (GLUSTERD_STORE_KEY_VOL_IS_RESTORED))) {
-                        volinfo->is_volume_restored = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_RESTORED_SNAP,
+                              strlen (GLUSTERD_STORE_KEY_VOL_RESTORED_SNAP))) {
+                        ret = uuid_parse (value, volinfo->restored_from_snap);
+                        if (ret)
+                                gf_log ("", GF_LOG_WARNING,
+                                        "failed to parse restored snap's uuid");
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_PARENT_VOLNAME,
                                 strlen (GLUSTERD_STORE_KEY_PARENT_VOLNAME))) {
                         strncpy (volinfo->parent_volname, value, sizeof(volinfo->parent_volname) - 1);
