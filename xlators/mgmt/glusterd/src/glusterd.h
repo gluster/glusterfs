@@ -179,6 +179,7 @@ typedef struct {
         char                      *snap_bricks_directory;
         gf_store_handle_t         *missed_snaps_list_shandle;
         struct list_head           missed_snaps_list;
+        int           ping_timeout;
 } glusterd_conf_t;
 
 

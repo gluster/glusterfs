@@ -145,6 +145,7 @@ struct rpc_clnt_connection {
 	struct timeval           last_received;
 	int32_t                  ping_started;
         char                    *name;
+	int32_t                  ping_timeout;
 };
 typedef struct rpc_clnt_connection rpc_clnt_connection_t;
 
@@ -185,7 +186,6 @@ typedef struct rpc_clnt {
         int                   auth_null;
         char                  disabled;
 } rpc_clnt_t;
-
 
 struct rpc_clnt *rpc_clnt_new (dict_t *options, glusterfs_ctx_t *ctx,
                                char *name, uint32_t reqpool_size);

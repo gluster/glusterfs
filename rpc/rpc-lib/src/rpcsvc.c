@@ -1844,6 +1844,32 @@ out:
 }
 
 static int
+rpcsvc_ping (rpcsvc_request_t *req)
+{
+        char          rsp_buf[8 * 1024] = {0,};
+        gf_common_rsp rsp               = {0,};
+        struct iovec  iov               = {0,};
+        int           ret               = -1;
+        uint32_t      ping_rsp_len      = 0;
+
+        ping_rsp_len = xdr_sizeof ((xdrproc_t) xdr_gf_common_rsp,
+                                   &rsp);
+
+        iov.iov_base = rsp_buf;
+        iov.iov_len  = ping_rsp_len;
+
+        ret = xdr_serialize_generic (iov, &rsp, (xdrproc_t)xdr_gf_common_rsp);
+        if (ret < 0) {
+                ret = RPCSVC_ACTOR_ERROR;
+        } else {
+                rsp.op_ret = 0;
+                rpcsvc_submit_generic (req, &iov, 1, NULL, 0, NULL);
+        }
+
+        return 0;
+}
+
+static int
 rpcsvc_dump (rpcsvc_request_t *req)
 {
         char         rsp_buf[8 * 1024] = {0,};
@@ -2585,6 +2611,7 @@ out:
 rpcsvc_actor_t gluster_dump_actors[] = {
         [GF_DUMP_NULL]      = {"NULL",     GF_DUMP_NULL,     NULL,        NULL, 0, DRC_NA},
         [GF_DUMP_DUMP]      = {"DUMP",     GF_DUMP_DUMP,     rpcsvc_dump, NULL, 0, DRC_NA},
+        [GF_DUMP_PING]      = {"PING",     GF_DUMP_PING,     rpcsvc_ping, NULL, 0, DRC_NA},
         [GF_DUMP_MAXVALUE]  = {"MAXVALUE", GF_DUMP_MAXVALUE, NULL,        NULL, 0, DRC_NA},
 };
 
@@ -2594,5 +2621,5 @@ struct rpcsvc_program gluster_dump_prog = {
         .prognum   = GLUSTER_DUMP_PROGRAM,
         .progver   = GLUSTER_DUMP_VERSION,
         .actors    = gluster_dump_actors,
-        .numactors = 2,
+        .numactors = sizeof (gluster_dump_actors) / sizeof (gluster_dump_actors[0]) - 1,
 };

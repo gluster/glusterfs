@@ -1648,5 +1648,11 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_STR,
           .description = "directory where the bricks for the snapshots will be created"
         },
+        { .key  = {"ping-timeout"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = 1,
+          .max  = 100,
+          .default_value = "30",
+        },
         { .key   = {NULL} },
 };

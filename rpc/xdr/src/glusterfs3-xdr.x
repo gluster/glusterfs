@@ -692,12 +692,6 @@ struct gfs3_release_req {
         opaque   xdata<>; /* Extra data */
 }  ;
 
-struct gf_common_rsp {
-       int    op_ret;
-       int    op_errno;
-        opaque   xdata<>; /* Extra data */
-} ;
-
 struct gfs3_dirlist {
        u_quad_t d_ino;
        u_quad_t d_off;

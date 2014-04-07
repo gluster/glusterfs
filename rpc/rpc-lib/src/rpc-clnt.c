@@ -17,6 +17,7 @@
 #define RPC_CLNT_DEFAULT_REQUEST_COUNT 512
 
 #include "rpc-clnt.h"
+#include "rpc-clnt-ping.h"
 #include "byte-order.h"
 #include "xdr-rpcclnt.h"
 #include "rpc-transport.h"
@@ -552,6 +553,7 @@ rpc_clnt_connection_cleanup (rpc_clnt_connection_t *conn)
                         gf_timer_call_cancel (clnt->ctx, conn->ping_timer);
                         conn->ping_timer = NULL;
                         conn->ping_started = 0;
+                        rpc_clnt_unref (clnt);
                 }
         }
         pthread_mutex_unlock (&conn->lock);
@@ -999,6 +1001,17 @@ rpc_clnt_connection_init (struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
                 conn->frame_timeout = 1800;
         }
         conn->rpc_clnt = clnt;
+
+        ret = dict_get_int32 (options, "ping-timeout",
+                              &conn->ping_timeout);
+        if (ret >= 0) {
+                gf_log (name, GF_LOG_DEBUG,
+                        "setting ping-timeout to %d", conn->ping_timeout);
+        } else {
+                gf_log (name, GF_LOG_INFO,
+                        "defaulting ping-timeout to 30secs");
+                conn->ping_timeout = 30;
+        }
 
         trans = rpc_transport_load (ctx, options, name);
         if (!trans) {
@@ -1592,6 +1605,7 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                 goto out;
         }
 
+        rpc_clnt_start_ping (rpc);
         ret = 0;
 
 out:
@@ -1734,6 +1748,7 @@ rpc_clnt_disable (struct rpc_clnt *rpc)
                         gf_timer_call_cancel (rpc->ctx, conn->ping_timer);
                         conn->ping_timer = NULL;
                         conn->ping_started = 0;
+                        rpc_clnt_unref (rpc);
                 }
                 trans = conn->trans;
                 conn->trans = NULL;

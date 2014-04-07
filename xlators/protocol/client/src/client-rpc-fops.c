@@ -14,12 +14,12 @@
 #endif
 
 #include "client.h"
+#include "rpc-common-xdr.h"
 #include "glusterfs3-xdr.h"
 #include "glusterfs3.h"
 #include "compat-errno.h"
 
 int32_t client3_getspec (call_frame_t *frame, xlator_t *this, void *data);
-void client_start_ping (void *data);
 rpc_clnt_prog_t clnt3_3_fop_prog;
 
 
@@ -35,12 +35,9 @@ client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
         struct iovec    iov        = {0, };
         struct iobuf   *iobuf      = NULL;
         int             count      = 0;
-        int             start_ping = 0;
         struct iobref  *new_iobref = NULL;
         ssize_t         xdr_size   = 0;
         struct rpc_req  rpcreq     = {0, };
-
-        start_ping = 0;
 
         conf = this->private;
 
@@ -94,19 +91,6 @@ client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG, "rpc_clnt_submit failed");
         }
-
-        if (ret == 0) {
-                pthread_mutex_lock (&conf->rpc->conn.lock);
-                {
-                        if (!conf->rpc->conn.ping_started) {
-                                start_ping = 1;
-                        }
-                }
-                pthread_mutex_unlock (&conf->rpc->conn.lock);
-        }
-
-        if (start_ping)
-                client_start_ping ((void *) this);
 
         if (new_iobref)
                 iobref_unref (new_iobref);

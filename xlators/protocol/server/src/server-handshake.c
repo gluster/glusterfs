@@ -16,6 +16,7 @@
 
 #include "server.h"
 #include "server-helpers.h"
+#include "rpc-common-xdr.h"
 #include "glusterfs3-xdr.h"
 #include "compat-errno.h"
 #include "glusterfs3.h"

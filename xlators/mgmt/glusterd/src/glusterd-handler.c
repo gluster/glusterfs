@@ -4260,6 +4260,7 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         switch (event) {
         case RPC_CLNT_CONNECT:
         {
+                rpc_clnt_set_connected (&rpc->conn);
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_CONNECT");
                 peerinfo->connected = 1;
                 peerinfo->quorum_action = _gf_true;
@@ -4272,6 +4273,7 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 
         case RPC_CLNT_DISCONNECT:
         {
+                rpc_clnt_unset_connected (&rpc->conn);
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_DISCONNECT %d",
                         peerinfo->state.state);
 
