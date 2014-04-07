@@ -2994,6 +2994,7 @@ glusterd_store_retrieve_missed_snaps_list (xlator_t  *this)
 {
         char                   buf[PATH_MAX]    = "";
         char                   path[PATH_MAX]   = "";
+        char                  *snap_vol_id      = NULL;
         char                  *missed_node_info = NULL;
         char                  *brick_path       = NULL;
         char                  *value            = NULL;
@@ -3048,12 +3049,13 @@ glusterd_store_retrieve_missed_snaps_list (xlator_t  *this)
                 }
 
                 /* Fetch the brick_num, brick_path, snap_op and snap status */
-                brick_num = atoi(strtok_r (value, ":", &save_ptr));
+                snap_vol_id = strtok_r (value, ":", &save_ptr);
+                brick_num = atoi(strtok_r (NULL, ":", &save_ptr));
                 brick_path = strtok_r (NULL, ":", &save_ptr);
                 snap_op = atoi(strtok_r (NULL, ":", &save_ptr));
                 snap_status = atoi(strtok_r (NULL, ":", &save_ptr));
 
-                if (!missed_node_info || !brick_path ||
+                if (!missed_node_info || !brick_path || !snap_vol_id ||
                     brick_num < 1 || snap_op < 1 ||
                     snap_status < 1) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -3062,11 +3064,12 @@ glusterd_store_retrieve_missed_snaps_list (xlator_t  *this)
                         goto out;
                 }
 
-                ret = glusterd_store_missed_snaps_list (missed_node_info,
-                                                        brick_num,
-                                                        brick_path,
-                                                        snap_op,
-                                                        snap_status);
+                ret = glusterd_add_new_entry_to_list (missed_node_info,
+                                                      snap_vol_id,
+                                                      brick_num,
+                                                      brick_path,
+                                                      snap_op,
+                                                      snap_status);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to store missed snaps_list");
@@ -3145,6 +3148,7 @@ out:
 int32_t
 glusterd_store_write_missed_snapinfo (int32_t fd)
 {
+        char                           key[PATH_MAX]               = "";
         char                           value[PATH_MAX]             = "";
         int32_t                        ret                         = -1;
         glusterd_conf_t               *priv                        = NULL;
@@ -3164,14 +3168,15 @@ glusterd_store_write_missed_snapinfo (int32_t fd)
                 list_for_each_entry (snap_opinfo,
                                      &missed_snapinfo->snap_ops,
                                      snap_ops_list) {
-                        snprintf (value, sizeof(value), "%d:%s:%d:%d",
+                        snprintf (key, sizeof(key), "%s:%s",
+                                  missed_snapinfo->node_uuid,
+                                  missed_snapinfo->snap_uuid);
+                        snprintf (value, sizeof(value), "%s:%d:%s:%d:%d",
+                                  snap_opinfo->snap_vol_id,
                                   snap_opinfo->brick_num,
                                   snap_opinfo->brick_path,
                                   snap_opinfo->op, snap_opinfo->status);
-                        ret = gf_store_save_value
-                                           (fd,
-                                            missed_snapinfo->node_snap_info,
-                                            value);
+                        ret = gf_store_save_value (fd, key, value);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Failed to write missed snapinfo");
@@ -3189,7 +3194,7 @@ out:
 /* Adds the missed snap entries to the in-memory conf->missed_snap_list *
  * and writes them to disk */
 int32_t
-glusterd_store_update_missed_snaps (dict_t *dict, int32_t missed_snap_count)
+glusterd_store_update_missed_snaps ()
 {
         int32_t                        fd                          = -1;
         int32_t                        ret                         = -1;
@@ -3198,16 +3203,9 @@ glusterd_store_update_missed_snaps (dict_t *dict, int32_t missed_snap_count)
 
         this = THIS;
         GF_ASSERT(this);
-        GF_ASSERT(dict);
 
         priv = this->private;
         GF_ASSERT (priv);
-
-        if (missed_snap_count < 1) {
-                gf_log (this->name, GF_LOG_DEBUG, "No missed snaps");
-                ret = 0;
-                goto out;
-        }
 
         ret = glusterd_store_create_missed_snaps_list_shandle_on_absence ();
         if (ret) {
@@ -3221,13 +3219,6 @@ glusterd_store_update_missed_snaps (dict_t *dict, int32_t missed_snap_count)
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to create tmp file");
                 ret = -1;
-                goto out;
-        }
-
-        ret = glusterd_add_missed_snaps_to_list (dict, missed_snap_count);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Failed to add missed snaps to list");
                 goto out;
         }
 

@@ -3896,6 +3896,52 @@ glusterd_handle_cli_clearlocks_volume (rpcsvc_request_t *req)
 }
 
 static int
+get_volinfo_from_brickid (char *brickid, glusterd_volinfo_t **volinfo)
+{
+        int             ret         = -1;
+        char           *volid_str  = NULL;
+        char           *brick      = NULL;
+        char           *brickid_dup = NULL;
+        uuid_t          volid       = {0};
+        xlator_t       *this        = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (brickid);
+
+        brickid_dup = gf_strdup (brickid);
+        if (!brickid_dup)
+                goto out;
+
+        volid_str = brickid_dup;
+        brick = strchr (brickid_dup, ':');
+        if (!brick) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Invalid brickid");
+                goto out;
+        }
+
+        *brick = '\0';
+        brick++;
+        uuid_parse (volid_str, volid);
+        ret = glusterd_volinfo_find_by_volume_id (volid, volinfo);
+        if (ret) {
+                /* Check if it is a snapshot volume */
+                ret = glusterd_snap_volinfo_find_by_volume_id (volid, volinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Failed to find volinfo");
+                        goto out;
+                }
+        }
+
+        ret = 0;
+out:
+        GF_FREE (brickid_dup);
+        return ret;
+}
+
+static int
 get_brickinfo_from_brickid (char *brickid, glusterd_brickinfo_t **brickinfo)
 {
         glusterd_volinfo_t      *volinfo    = NULL;
@@ -3938,13 +3984,14 @@ out:
 
 int
 __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
-                          rpc_clnt_event_t event, void *data)
+                             rpc_clnt_event_t event, void *data)
 {
-        xlator_t                *this = NULL;
-        glusterd_conf_t         *conf = NULL;
-        int                     ret = 0;
-        char                    *brickid = NULL;
-        glusterd_brickinfo_t    *brickinfo = NULL;
+        char                    *brickid           = NULL;
+        int                      ret               = 0;
+        glusterd_conf_t         *conf              = NULL;
+        glusterd_brickinfo_t    *brickinfo         = NULL;
+        glusterd_volinfo_t      *volinfo           = NULL;
+        xlator_t                *this              = NULL;
 
         brickid = mydata;
         if (!brickid)
@@ -3961,6 +4008,37 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 
         switch (event) {
         case RPC_CLNT_CONNECT:
+                /* If a node on coming back up, already starts a brick
+                 * before the handshake, and the notification comes after
+                 * the handshake is done, then we need to check if this
+                 * is a restored brick with a snapshot pending. If so, we
+                 * need to stop the brick
+                 */
+                if (brickinfo->snap_status == -1) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "Snapshot is pending on %s:%s. "
+                                "Hence not starting the brick",
+                                brickinfo->hostname,
+                                brickinfo->path);
+                        ret = get_volinfo_from_brickid (brickid, &volinfo);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to get volinfo from "
+                                        "brickid(%s)", brickid);
+                                goto out;
+                        }
+
+                        ret = glusterd_brick_stop (volinfo, brickinfo,
+                                                   _gf_false);
+                        if (ret) {
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "Unable to stop %s:%s",
+                                        brickinfo->hostname, brickinfo->path);
+                                goto out;
+                        }
+
+                        break;
+                }
                 gf_log (this->name, GF_LOG_DEBUG, "Connected to %s:%s",
                         brickinfo->hostname, brickinfo->path);
                 glusterd_set_brick_status (brickinfo, GF_BRICK_STARTED);
@@ -3986,6 +4064,7 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 break;
         }
 
+out:
         return ret;
 }
 

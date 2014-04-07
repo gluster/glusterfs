@@ -168,7 +168,6 @@ int32_t
 glusterd_store_snap (glusterd_snap_t *snap);
 
 int32_t
-glusterd_store_update_missed_snaps (dict_t *dict,
-                                    int32_t missed_snap_count);
+glusterd_store_update_missed_snaps ();
 
 #endif

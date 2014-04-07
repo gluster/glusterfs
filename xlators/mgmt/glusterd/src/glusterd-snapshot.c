@@ -52,10 +52,66 @@
 
 char snap_mount_folder[PATH_MAX];
 
+/* Look for disconnected peers, for missed snap creates or deletes */
 static int32_t
 glusterd_find_missed_snap (dict_t *rsp_dict, glusterd_volinfo_t *vol,
-                           char *snap_uuid, struct list_head *peers,
-                           int32_t op);
+                           struct list_head *peers, int32_t op)
+{
+        int32_t                   brick_count          = -1;
+        int32_t                   ret                  = -1;
+        xlator_t                 *this                 = NULL;
+        glusterd_peerinfo_t      *peerinfo             = NULL;
+        glusterd_brickinfo_t     *brickinfo            = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (rsp_dict);
+        GF_ASSERT (peers);
+        GF_ASSERT (vol);
+
+        brick_count = 0;
+        list_for_each_entry (brickinfo, &vol->bricks, brick_list) {
+                if (!uuid_compare (brickinfo->uuid, MY_UUID)) {
+                        /* If the brick belongs to the same node */
+                        brick_count++;
+                        continue;
+                }
+
+                list_for_each_entry (peerinfo, peers, uuid_list) {
+                        if (uuid_compare (peerinfo->uuid, brickinfo->uuid)) {
+                                /* If the brick doesnt belong to this peer */
+                                continue;
+                        }
+
+                        /* Found peer who owns the brick,    *
+                         * if peer is not connected or not   *
+                         * friend add it to missed snap list */
+                        if (!(peerinfo->connected) ||
+                           (peerinfo->state.state !=
+                             GD_FRIEND_STATE_BEFRIENDED)) {
+                                ret = glusterd_add_missed_snaps_to_dict
+                                                   (rsp_dict,
+                                                    vol, brickinfo,
+                                                    brick_count + 1,
+                                                    op);
+                                if (ret) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Failed to add missed snapshot "
+                                                "info for %s:%s in the "
+                                                "rsp_dict", brickinfo->hostname,
+                                                brickinfo->path);
+                                        goto out;
+                                }
+                        }
+                }
+                brick_count++;
+        }
+
+        ret = 0;
+out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
+}
 
 /* This function will restore a snapshot volumes
  *
@@ -105,6 +161,7 @@ glusterd_snapshot_restore (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
+
         /* TODO : As of now there is only volume in snapshot.
          * Change this when multiple volume snapshot is introduced
          */
@@ -122,7 +179,6 @@ glusterd_snapshot_restore (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 /* From origin glusterd check if      *
                  * any peers with snap bricks is down */
                 ret = glusterd_find_missed_snap (rsp_dict, snap_volinfo,
-                                                 snap_volinfo->volname,
                                                  &priv->peers,
                                                  GF_SNAP_OPTION_TYPE_RESTORE);
                 if (ret) {
@@ -1060,7 +1116,7 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
                         /* Adding missed delete to the dict */
                         ret = glusterd_add_missed_snaps_to_dict
                                                    (rsp_dict,
-                                                    snap_vol->volname,
+                                                    snap_vol,
                                                     brickinfo,
                                                     brick_count + 1,
                                                     GF_SNAP_OPTION_TYPE_DELETE);
@@ -2556,11 +2612,12 @@ out:
 
 /* Added missed_snap_entry to rsp_dict */
 int32_t
-glusterd_add_missed_snaps_to_dict (dict_t *rsp_dict, char *snap_uuid,
+glusterd_add_missed_snaps_to_dict (dict_t *rsp_dict,
+                                   glusterd_volinfo_t *snap_vol,
                                    glusterd_brickinfo_t *brickinfo,
                                    int32_t brick_number, int32_t op)
 {
-        char                   *buf                             = NULL;
+        char                   *snap_uuid                       = NULL;
         char                    missed_snap_entry[PATH_MAX]     = "";
         char                    name_buf[PATH_MAX]              = "";
         int32_t                 missed_snap_count               = -1;
@@ -2570,19 +2627,19 @@ glusterd_add_missed_snaps_to_dict (dict_t *rsp_dict, char *snap_uuid,
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (rsp_dict);
-        GF_ASSERT (snap_uuid);
+        GF_ASSERT (snap_vol);
         GF_ASSERT (brickinfo);
 
-        snprintf (missed_snap_entry, sizeof(missed_snap_entry),
-                  "%s:%s=%d:%s:%d:%d", uuid_utoa(brickinfo->uuid),
-                  snap_uuid, brick_number, brickinfo->path, op,
-                  GD_MISSED_SNAP_PENDING);
-
-        buf = gf_strdup (missed_snap_entry);
-        if (!buf) {
+        snap_uuid = gf_strdup (uuid_utoa (snap_vol->snapshot->snap_id));
+        if (!snap_uuid) {
                 ret = -1;
                 goto out;
         }
+
+        snprintf (missed_snap_entry, sizeof(missed_snap_entry),
+                  "%s:%s=%s:%d:%s:%d:%d", uuid_utoa(brickinfo->uuid),
+                  snap_uuid, snap_vol->volname, brick_number, brickinfo->path,
+                  op, GD_MISSED_SNAP_PENDING);
 
         /* Fetch the missed_snap_count from the dict */
         ret = dict_get_int32 (rsp_dict, "missed_snap_count",
@@ -2595,12 +2652,12 @@ glusterd_add_missed_snaps_to_dict (dict_t *rsp_dict, char *snap_uuid,
         /* Setting the missed_snap_entry in the rsp_dict */
         snprintf (name_buf, sizeof(name_buf), "missed_snaps_%d",
                   missed_snap_count);
-        ret = dict_set_dynstr (rsp_dict, name_buf, buf);
+        ret = dict_set_dynstr_with_alloc (rsp_dict, name_buf,
+                                          missed_snap_entry);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to set missed_snap_entry (%s) "
-                        "in the rsp_dict.", buf);
-                GF_FREE (buf);
+                        "in the rsp_dict.", missed_snap_entry);
                 goto out;
         }
         missed_snap_count++;
@@ -2616,6 +2673,9 @@ glusterd_add_missed_snaps_to_dict (dict_t *rsp_dict, char *snap_uuid,
         }
 
 out:
+        if (snap_uuid)
+                GF_FREE (snap_uuid);
+
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
@@ -2948,7 +3008,7 @@ glusterd_add_bricks_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
 
         if (add_missed_snap) {
                 ret = glusterd_add_missed_snaps_to_dict (rsp_dict,
-                                            snap_vol->volname,
+                                            snap_vol,
                                             original_brickinfo,
                                             brick_count + 1,
                                             GF_SNAP_OPTION_TYPE_CREATE);
@@ -3044,70 +3104,6 @@ out:
         if (device)
                 GF_FREE (device);
 
-        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
-        return ret;
-}
-
-/* Look for disconnected peers, for missed snap creates or deletes */
-static int32_t
-glusterd_find_missed_snap (dict_t *rsp_dict, glusterd_volinfo_t *vol,
-                           char *snap_uuid, struct list_head *peers,
-                           int32_t op)
-{
-        int32_t                   brick_count          = -1;
-        int32_t                   ret                  = -1;
-        xlator_t                 *this                 = NULL;
-        glusterd_peerinfo_t      *peerinfo             = NULL;
-        glusterd_brickinfo_t     *brickinfo            = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-        GF_ASSERT (rsp_dict);
-        GF_ASSERT (peers);
-        GF_ASSERT (vol);
-        GF_ASSERT (snap_uuid);
-
-        brick_count = 0;
-        list_for_each_entry (brickinfo, &vol->bricks, brick_list) {
-                if (!uuid_compare (brickinfo->uuid, MY_UUID)) {
-                        /* If the brick belongs to the same node */
-                        brick_count++;
-                        continue;
-                }
-
-                list_for_each_entry (peerinfo, peers, uuid_list) {
-                        if (uuid_compare (peerinfo->uuid, brickinfo->uuid)) {
-                                /* If the brick doesnt belong to this peer */
-                                continue;
-                        }
-
-                        /* Found peer who owns the brick,    *
-                         * if peer is not connected or not   *
-                         * friend add it to missed snap list */
-                        if (!(peerinfo->connected) ||
-                           (peerinfo->state.state !=
-                             GD_FRIEND_STATE_BEFRIENDED)) {
-                                ret = glusterd_add_missed_snaps_to_dict
-                                                   (rsp_dict,
-                                                    snap_uuid,
-                                                    brickinfo,
-                                                    brick_count + 1,
-                                                    op);
-                                if (ret) {
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "Failed to add missed snapshot "
-                                                "info for %s:%s in the "
-                                                "rsp_dict", brickinfo->hostname,
-                                                brickinfo->path);
-                                        goto out;
-                                }
-                        }
-                }
-                brick_count++;
-        }
-
-        ret = 0;
-out:
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
@@ -3592,7 +3588,6 @@ glusterd_snapshot_remove_commit (dict_t *dict, char **op_errstr,
                 /* From origin glusterd check if      *
                  * any peers with snap bricks is down */
                 ret = glusterd_find_missed_snap (rsp_dict, snap_volinfo,
-                                                 snap_volinfo->volname,
                                                  &priv->peers,
                                                  GF_SNAP_OPTION_TYPE_DELETE);
                 if (ret) {
@@ -3707,7 +3702,14 @@ glusterd_snapshot_update_snaps_post_validate (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-        ret = glusterd_store_update_missed_snaps (dict, missed_snap_count);
+        ret = glusterd_add_missed_snaps_to_list (dict, missed_snap_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to add missed snaps to list");
+                goto out;
+        }
+
+        ret = glusterd_store_update_missed_snaps ();
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to update missed_snaps_list");
@@ -5330,6 +5332,30 @@ glusterd_free_snap_op (glusterd_snap_op_t *snap_op)
         }
 }
 
+static inline void
+glusterd_free_missed_snapinfo (glusterd_missed_snap_info *missed_snapinfo)
+{
+        glusterd_snap_op_t *snap_opinfo = NULL;
+        glusterd_snap_op_t *tmp         = NULL;
+
+        if (missed_snapinfo) {
+                list_for_each_entry_safe (snap_opinfo, tmp,
+                                          &missed_snapinfo->snap_ops,
+                                          snap_ops_list) {
+                        glusterd_free_snap_op (snap_opinfo);
+                        snap_opinfo = NULL;
+                }
+
+                if (missed_snapinfo->node_uuid)
+                        GF_FREE (missed_snapinfo->node_uuid);
+
+                if (missed_snapinfo->snap_uuid)
+                        GF_FREE (missed_snapinfo->snap_uuid);
+
+                GF_FREE (missed_snapinfo);
+        }
+}
+
 /* Look for duplicates and accordingly update the list */
 int32_t
 glusterd_update_missed_snap_entry (glusterd_missed_snap_info *missed_snapinfo,
@@ -5347,6 +5373,13 @@ glusterd_update_missed_snap_entry (glusterd_missed_snap_info *missed_snapinfo,
 
         list_for_each_entry (snap_opinfo, &missed_snapinfo->snap_ops,
                              snap_ops_list) {
+                /* If the entry is not for the same snap_vol_id
+                 * then continue
+                 */
+                if (strcmp (snap_opinfo->snap_vol_id,
+                            missed_snap_op->snap_vol_id))
+                        continue;
+
                 if ((!strcmp (snap_opinfo->brick_path,
                               missed_snap_op->brick_path)) &&
                     (snap_opinfo->op == missed_snap_op->op)) {
@@ -5358,8 +5391,10 @@ glusterd_update_missed_snap_entry (glusterd_missed_snap_info *missed_snapinfo,
                                 snap_opinfo->status = GD_MISSED_SNAP_DONE;
                                 gf_log (this->name, GF_LOG_INFO,
                                         "Updating missed snap status "
-                                        "for %s:%d:%s:%d as DONE",
-                                        missed_snapinfo->node_snap_info,
+                                        "for %s:%s=%s:%d:%s:%d as DONE",
+                                        missed_snapinfo->node_uuid,
+                                        missed_snapinfo->snap_uuid,
+                                        snap_opinfo->snap_vol_id,
                                         snap_opinfo->brick_num,
                                         snap_opinfo->brick_path,
                                         snap_opinfo->op);
@@ -5372,15 +5407,19 @@ glusterd_update_missed_snap_entry (glusterd_missed_snap_info *missed_snapinfo,
                 } else if ((snap_opinfo->brick_num ==
                             missed_snap_op->brick_num) &&
                             (snap_opinfo->op == GF_SNAP_OPTION_TYPE_CREATE) &&
-                            (missed_snap_op->op ==
-                             GF_SNAP_OPTION_TYPE_DELETE)) {
+                            ((missed_snap_op->op ==
+                              GF_SNAP_OPTION_TYPE_DELETE) ||
+                             (missed_snap_op->op ==
+                              GF_SNAP_OPTION_TYPE_RESTORE))) {
                         /* Optimizing create and delete entries for the same
                          * brick and same node
                          */
                         gf_log (this->name, GF_LOG_INFO,
                                 "Updating missed snap status "
-                                "for %s:%d:%s:%d as DONE",
-                                missed_snapinfo->node_snap_info,
+                                "for %s:%s=%s:%d:%s:%d as DONE",
+                                missed_snapinfo->node_uuid,
+                                missed_snapinfo->snap_uuid,
+                                snap_opinfo->snap_vol_id,
                                 snap_opinfo->brick_num,
                                 snap_opinfo->brick_path,
                                 snap_opinfo->op);
@@ -5408,10 +5447,13 @@ out:
 
 /* Add new missed snap entry to the missed_snaps list. */
 int32_t
-glusterd_store_missed_snaps_list (char *missed_info, int32_t brick_num,
-                                  char *brick_path, int32_t snap_op,
-                                  int32_t snap_status)
+glusterd_add_new_entry_to_list (char *missed_info, char *snap_vol_id,
+                                int32_t brick_num, char *brick_path,
+                                int32_t snap_op, int32_t snap_status)
 {
+        char                          *buf                         = NULL;
+        char                          *save_ptr                    = NULL;
+        char                           node_snap_info[PATH_MAX]    = "";
         int32_t                        ret                         = -1;
         glusterd_missed_snap_info     *missed_snapinfo             = NULL;
         glusterd_snap_op_t            *missed_snap_op              = NULL;
@@ -5423,6 +5465,7 @@ glusterd_store_missed_snaps_list (char *missed_info, int32_t brick_num,
         this = THIS;
         GF_ASSERT(this);
         GF_ASSERT(missed_info);
+        GF_ASSERT(snap_vol_id);
         GF_ASSERT(brick_path);
 
         priv = this->private;
@@ -5438,6 +5481,11 @@ glusterd_store_missed_snaps_list (char *missed_info, int32_t brick_num,
                 goto out;
         }
 
+        missed_snap_op->snap_vol_id = gf_strdup(snap_vol_id);
+        if (!missed_snap_op->snap_vol_id) {
+                ret = -1;
+                goto out;
+        }
         missed_snap_op->brick_path = gf_strdup(brick_path);
         if (!missed_snap_op->brick_path) {
                 ret = -1;
@@ -5450,8 +5498,10 @@ glusterd_store_missed_snaps_list (char *missed_info, int32_t brick_num,
         /* Look for other entries for the same node and same snap */
         list_for_each_entry (missed_snapinfo, &priv->missed_snaps_list,
                              missed_snaps) {
-                if (!strcmp (missed_snapinfo->node_snap_info,
-                             missed_info)) {
+                snprintf (node_snap_info, sizeof(node_snap_info),
+                          "%s:%s", missed_snapinfo->node_uuid,
+                          missed_snapinfo->snap_uuid);
+                if (!strcmp (node_snap_info, missed_info)) {
                         /* Found missed snapshot info for *
                          * the same node and same snap */
                         match = _gf_true;
@@ -5468,8 +5518,24 @@ glusterd_store_missed_snaps_list (char *missed_info, int32_t brick_num,
                         goto out;
                 }
                 free_missed_snap_info = _gf_true;
-                missed_snapinfo->node_snap_info = gf_strdup(missed_info);
-                if (!missed_snapinfo->node_snap_info) {
+                buf = strtok_r (missed_info, ":", &save_ptr);
+                if (!buf) {
+                        ret = -1;
+                        goto out;
+                }
+                missed_snapinfo->node_uuid = gf_strdup(buf);
+                if (!missed_snapinfo->node_uuid) {
+                        ret = -1;
+                        goto out;
+                }
+
+                buf = strtok_r (NULL, ":", &save_ptr);
+                if (!buf) {
+                        ret = -1;
+                        goto out;
+                }
+                missed_snapinfo->snap_uuid = gf_strdup(buf);
+                if (!missed_snapinfo->snap_uuid) {
                         ret = -1;
                         goto out;
                 }
@@ -5496,12 +5562,8 @@ out:
                 glusterd_free_snap_op (missed_snap_op);
 
                 if (missed_snapinfo &&
-                    (free_missed_snap_info == _gf_true)) {
-                        if (missed_snapinfo->node_snap_info)
-                                GF_FREE (missed_snapinfo->node_snap_info);
-
-                        GF_FREE (missed_snapinfo);
-                }
+                    (free_missed_snap_info == _gf_true))
+                        glusterd_free_missed_snapinfo (missed_snapinfo);
         }
 
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
@@ -5517,6 +5579,7 @@ glusterd_add_missed_snaps_to_list (dict_t *dict, int32_t missed_snap_count)
         char                          *save_ptr                    = NULL;
         char                          *nodeid                      = NULL;
         char                          *snap_uuid                   = NULL;
+        char                          *snap_vol_id                 = NULL;
         char                          *brick_path                  = NULL;
         char                           missed_info[PATH_MAX]       = "";
         char                           name_buf[PATH_MAX]          = "";
@@ -5563,13 +5626,14 @@ glusterd_add_missed_snaps_to_list (dict_t *dict, int32_t missed_snap_count)
                  */
                 nodeid = strtok_r (tmp, ":", &save_ptr);
                 snap_uuid = strtok_r (NULL, "=", &save_ptr);
+                snap_vol_id = strtok_r (NULL, ":", &save_ptr);
                 brick_num = atoi(strtok_r (NULL, ":", &save_ptr));
                 brick_path = strtok_r (NULL, ":", &save_ptr);
                 snap_op = atoi(strtok_r (NULL, ":", &save_ptr));
                 snap_status = atoi(strtok_r (NULL, ":", &save_ptr));
 
                 if (!nodeid || !snap_uuid || !brick_path ||
-                    brick_num < 1 || snap_op < 1 ||
+                    !snap_vol_id || brick_num < 1 || snap_op < 1 ||
                     snap_status < 1) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Invalid missed_snap_entry");
@@ -5580,11 +5644,12 @@ glusterd_add_missed_snaps_to_list (dict_t *dict, int32_t missed_snap_count)
                 snprintf (missed_info, sizeof(missed_info), "%s:%s",
                           nodeid, snap_uuid);
 
-                ret = glusterd_store_missed_snaps_list (missed_info,
-                                                        brick_num,
-                                                        brick_path,
-                                                        snap_op,
-                                                        snap_status);
+                ret = glusterd_add_new_entry_to_list (missed_info,
+                                                      snap_vol_id,
+                                                      brick_num,
+                                                      brick_path,
+                                                      snap_op,
+                                                      snap_status);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to store missed snaps_list");
@@ -5595,6 +5660,7 @@ glusterd_add_missed_snaps_to_list (dict_t *dict, int32_t missed_snap_count)
                 tmp = NULL;
         }
 
+        ret = 0;
 out:
         if (tmp)
                 GF_FREE (tmp);

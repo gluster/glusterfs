@@ -709,7 +709,7 @@ glusterd_snap_volinfo_restore (dict_t *rsp_dict,
                         /* Adding missed delete to the dict */
                         ret = glusterd_add_missed_snaps_to_dict
                                                 (rsp_dict,
-                                                 snap_volinfo->volname,
+                                                 snap_volinfo,
                                                  brickinfo,
                                                  brick_count + 1,
                                                  GF_SNAP_OPTION_TYPE_RESTORE);
@@ -2693,8 +2693,10 @@ glusterd_add_missed_snaps_to_export_dict (dict_t *vols)
                                      snap_ops_list) {
                         snprintf (name_buf, sizeof(name_buf),
                                   "missed_snaps_%d", missed_snap_count);
-                        snprintf (value, sizeof(value), "%s=%d:%s:%d:%d",
-                                  missed_snapinfo->node_snap_info,
+                        snprintf (value, sizeof(value), "%s:%s=%s:%d:%s:%d:%d",
+                                  missed_snapinfo->node_uuid,
+                                  missed_snapinfo->snap_uuid,
+                                  snap_opinfo->snap_vol_id,
                                   snap_opinfo->brick_num,
                                   snap_opinfo->brick_path,
                                   snap_opinfo->op,
@@ -3937,7 +3939,11 @@ glusterd_volinfo_stop_stale_bricks (glusterd_volinfo_t *new_volinfo,
                                                      old_brickinfo->hostname,
                                                      old_brickinfo->path,
                                                      new_volinfo, &new_brickinfo);
-                if (ret) {
+                /* If the brick is stale, i.e it's not a part of the new volume
+                 * or if it's part of the new volume and is pending a snap,
+                 * then stop the brick process
+                 */
+                if (ret || (new_brickinfo->snap_status == -1)) {
                         /*TODO: may need to switch to 'atomic' flavour of
                          * brick_stop, once we make peer rpc program also
                          * synctask enabled*/
@@ -4240,7 +4246,14 @@ glusterd_import_friend_missed_snap_list (dict_t *vols)
                 goto out;
         }
 
-        ret = glusterd_store_update_missed_snaps (vols, missed_snap_count);
+        ret = glusterd_add_missed_snaps_to_list (vols, missed_snap_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to add missed snaps to list");
+                goto out;
+        }
+
+        ret = glusterd_store_update_missed_snaps ();
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to update missed_snaps_list");
@@ -10086,7 +10099,6 @@ glusterd_missed_snapinfo_new (glusterd_missed_snap_info **missed_snapinfo)
         if (!new_missed_snapinfo)
                 goto out;
 
-        new_missed_snapinfo->node_snap_info = NULL;
         INIT_LIST_HEAD (&new_missed_snapinfo->missed_snaps);
         INIT_LIST_HEAD (&new_missed_snapinfo->snap_ops);
 
@@ -10116,7 +10128,6 @@ glusterd_missed_snap_op_new (glusterd_snap_op_t **snap_op)
         if (!new_snap_op)
                 goto out;
 
-        new_snap_op->brick_path = NULL;
         new_snap_op->brick_num = -1;
         new_snap_op->op = -1;
         new_snap_op->status = -1;
