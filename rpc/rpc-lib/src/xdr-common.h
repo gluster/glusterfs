@@ -29,6 +29,7 @@
 enum gf_dump_procnum {
         GF_DUMP_NULL,
         GF_DUMP_DUMP,
+        GF_DUMP_PING,
         GF_DUMP_MAXVALUE,
 };
 

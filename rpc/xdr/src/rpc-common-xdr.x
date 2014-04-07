@@ -37,3 +37,10 @@ struct gf_dump_rsp {
 	int op_errno;
 	struct gf_prog_detail *prog;
 };
+
+
+struct gf_common_rsp {
+       int    op_ret;
+       int    op_errno;
+       opaque   xdata<>; /* Extra data */
+} ;
