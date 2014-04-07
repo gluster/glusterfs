@@ -393,6 +393,7 @@ struct glusterd_snap_ {
 };
 
 typedef struct glusterd_snap_op_ {
+        char                  *snap_vol_id;
         int32_t                brick_num;
         char                  *brick_path;
         int32_t                op;
@@ -401,7 +402,8 @@ typedef struct glusterd_snap_op_ {
 } glusterd_snap_op_t;
 
 typedef struct glusterd_missed_snap_ {
-        char                   *node_snap_info;
+        char                   *node_uuid;
+        char                   *snap_uuid;
         struct list_head        missed_snaps;
         struct list_head        snap_ops;
 } glusterd_missed_snap_info;
@@ -989,8 +991,8 @@ int32_t
 glusterd_add_missed_snaps_to_list (dict_t *dict, int32_t missed_snap_count);
 
 int32_t
-glusterd_store_missed_snaps_list (char *missed_info, int32_t brick_num,
-                                  char *brick_path, int32_t snap_op,
-                                  int32_t snap_status);
+glusterd_add_new_entry_to_list (char *missed_info, char *snap_vol_id,
+                                int32_t brick_num, char *brick_path,
+                                int32_t snap_op, int32_t snap_status);
 
 #endif

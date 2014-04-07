@@ -715,7 +715,8 @@ int32_t
 glusterd_missed_snap_op_new (glusterd_snap_op_t **snap_op);
 
 int32_t
-glusterd_add_missed_snaps_to_dict (dict_t *rsp_dict, char *snap_uuid,
+glusterd_add_missed_snaps_to_dict (dict_t *rsp_dict,
+                                   glusterd_volinfo_t *snap_vol,
                                    glusterd_brickinfo_t *brickinfo,
                                    int32_t brick_number, int32_t op);
 
