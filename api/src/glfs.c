@@ -351,7 +351,7 @@ glfs_set_volfile_server (struct glfs *fs, const char *transport,
         server_cmdline_t      *tmp = NULL;
         int                    ret = -1;
 
-        if (!transport || !host || !port) {
+        if (!transport || !host) {
                 errno = EINVAL;
                 return ret;
         }
