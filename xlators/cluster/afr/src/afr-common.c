@@ -861,6 +861,8 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
 
         GF_FREE (local->transaction.pre_op);
         GF_FREE (local->transaction.eager_lock);
+        GF_FREE (local->transaction.fop_subvols);
+        GF_FREE (local->transaction.failed_subvols);
 
         GF_FREE (local->transaction.basename);
         GF_FREE (local->transaction.new_basename);
@@ -982,6 +984,8 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 
         { /* writev */
                 GF_FREE (local->cont.writev.vector);
+                if (local->cont.writev.iobref)
+                        iobref_unref (local->cont.writev.iobref);
         }
 
         { /* setxattr */
