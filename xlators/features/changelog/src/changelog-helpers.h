@@ -17,6 +17,7 @@
 #include "iobuf.h"
 
 #include "changelog-misc.h"
+#include "call-stub.h"
 
 /**
  * the changelog entry
@@ -186,7 +187,7 @@ typedef struct drain_mgmt {
          gf_boolean_t           drain_wait_white;
 }drain_mgmt_t;
 
-/* Internal and External barrier on/off indicating flags */
+/* External barrier as a result of snap on/off indicating flag*/
 typedef struct barrier_flags {
         gf_lock_t lock;
         gf_boolean_t barrier_ext;
@@ -265,6 +266,11 @@ struct changelog_priv {
 
         /* barrier on/off indicating flags */
         barrier_flags_t bflags;
+
+        /* changelog barrier on/off indicating flag */
+        gf_boolean_t      barrier_enabled;
+        struct list_head  queue;
+        uint32_t          queue_size;
 };
 
 struct changelog_local {
@@ -401,11 +407,18 @@ changelog_dec_fop_cnt (xlator_t *this, changelog_priv_t *priv,
 inline int
 changelog_barrier_notify (changelog_priv_t *priv, char* buf);
 inline void
-changelog_barrier_cleanup (xlator_t *this, changelog_priv_t *priv);
+changelog_barrier_cleanup (xlator_t *this, changelog_priv_t *priv,
+                                                struct list_head *queue);
 void
 changelog_drain_white_fops (xlator_t *this, changelog_priv_t *priv);
 void
 changelog_drain_black_fops (xlator_t *this, changelog_priv_t *priv);
+
+/* Changelog barrier routines */
+void __chlog_barrier_enqueue (xlator_t *this, call_stub_t *stub);
+void __chlog_barrier_disable (xlator_t *this, struct list_head *queue);
+void chlog_barrier_dequeue_all (xlator_t *this, struct list_head *queue);
+call_stub_t *__chlog_barrier_dequeue (xlator_t *this, struct list_head *queue);
 
 /* macros */
 

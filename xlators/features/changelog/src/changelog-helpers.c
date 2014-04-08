@@ -988,9 +988,9 @@ changelog_barrier_notify (changelog_priv_t *priv, char *buf)
 }
 
 /* Clean up flags set on barrier notification */
-/*TODO: Add changelog barrier stop code with changelog barrier patch*/
 inline void
-changelog_barrier_cleanup (xlator_t *this, changelog_priv_t *priv)
+changelog_barrier_cleanup (xlator_t *this, changelog_priv_t *priv,
+                                                struct list_head *queue)
 {
         int ret = 0;
 
@@ -1005,6 +1005,19 @@ changelog_barrier_cleanup (xlator_t *this, changelog_priv_t *priv)
         }
         ret = pthread_mutex_unlock (&priv->bn.bnotify_mutex);
         CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret, out);
+
+        /* Disable changelog barrier and dequeue fops */
+        LOCK (&priv->lock);
+        {
+                if (priv->barrier_enabled == _gf_true)
+                        __chlog_barrier_disable (this, queue);
+                else
+                        ret = -1;
+        }
+        UNLOCK (&priv->lock);
+        if (ret == 0)
+                chlog_barrier_dequeue_all(this, queue);
+
  out:
         return;
 }

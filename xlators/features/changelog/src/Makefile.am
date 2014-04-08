@@ -8,7 +8,7 @@ noinst_HEADERS = changelog-helpers.h changelog-mem-types.h changelog-rt.h \
 changelog_la_LDFLAGS = -module -avoid-version
 
 changelog_la_SOURCES = changelog.c changelog-rt.c changelog-helpers.c \
-	changelog-encoders.c changelog-notifier.c
+	changelog-encoders.c changelog-notifier.c changelog-barrier.c
 changelog_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src -fPIC -D_FILE_OFFSET_BITS=64 \
