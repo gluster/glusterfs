@@ -1219,6 +1219,8 @@ glusterfs_handle_barrier (rpcsvc_request_t *req)
         xlator_t                *old_THIS   = NULL;
         dict_t                  *dict       = NULL;
         char                    name[1024]  = {0,};
+        gf_boolean_t            barrier     = _gf_true;
+        gf_boolean_t            barrier_err = _gf_false;
 
         GF_ASSERT (req);
 
@@ -1269,7 +1271,14 @@ glusterfs_handle_barrier (rpcsvc_request_t *req)
                 brick_rsp.op_ret = ret;
                 brick_rsp.op_errstr = gf_strdup ("Failed to reconfigure "
                                                  "barrier.");
-                goto submit_reply;
+                /* This is to invoke changelog-barrier disable if barrier
+                 * disable fails and don't invoke if barrier enable fails.
+                 */
+                barrier = dict_get_str_boolean (dict, "barrier", _gf_true);
+                if (barrier)
+                        goto submit_reply;
+                else
+                        barrier_err = _gf_true;
         }
 
         /* Reset THIS so that we have it correct in case of an error below
@@ -1277,7 +1286,6 @@ glusterfs_handle_barrier (rpcsvc_request_t *req)
         THIS = old_THIS;
 
         /* Send barrier request to changelog as well */
-        /* Commenting out the below code till the changelog changes are merged
 
         memset (name, 0, sizeof (name));
         snprintf (name, sizeof (name), "%s-changelog", brick_req.name);
@@ -1290,16 +1298,16 @@ glusterfs_handle_barrier (rpcsvc_request_t *req)
         }
 
         THIS = xlator;
-        ret = xlator->reconfigure (xlator, dict);
-
-
+        ret = xlator->notify (xlator, GF_EVENT_TRANSLATOR_OP, dict);
         if (ret) {
                 brick_rsp.op_ret = ret;
-                brick_rsp.op_errstr = gf_strdup ("Failed to reconfigure "
-                                                 "changelog.");
+                brick_rsp.op_errstr = gf_strdup ("changelog notify failed");
                 goto submit_reply;
         }
-        */
+
+        if (barrier_err)
+                ret = -1;
+
 submit_reply:
         THIS = old_THIS;
 
