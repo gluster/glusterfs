@@ -3479,7 +3479,8 @@ glusterd_is_valid_volfpath (char *volname, char *brick)
         strncpy (volinfo->volname, volname, sizeof (volinfo->volname));
         get_brick_filepath (volfpath, volinfo, brickinfo);
 
-        ret = (strlen (volfpath) < _POSIX_PATH_MAX);
+        ret = ((strlen(volfpath) < PATH_MAX) &&
+                strlen (strrchr(volfpath, '/')) < _POSIX_PATH_MAX);
 
 out:
         if (brickinfo)

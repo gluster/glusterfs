@@ -511,7 +511,7 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
                 goto out;
         }
 
-        snprintf (new_volinfo->parent_volname, GLUSTERD_MAX_VOLUME_NAME, "N/A");
+        snprintf (new_volinfo->parent_volname, GD_VOLUME_NAME_MAX, "N/A");
 
         new_volinfo->snap_max_hard_limit = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
 

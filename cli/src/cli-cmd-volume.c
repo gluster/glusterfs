@@ -65,7 +65,7 @@ cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
         } else if (wordcount == 3) {
                 ctx.flags = GF_CLI_GET_VOLUME;
                 ctx.volname = (char *)words[2];
-                if (strlen (ctx.volname) > 1024) {
+                if (strlen (ctx.volname) > GD_VOLUME_NAME_MAX) {
                         cli_out ("Invalid volume name");
                         goto out;
                 }

@@ -134,12 +134,16 @@ glusterd_store_brickinfopath_set (glusterd_volinfo_t *volinfo,
 gf_boolean_t
 glusterd_store_is_valid_brickpath (char *volname, char *brick)
 {
-        char                    brickpath[PATH_MAX] = {0};
         glusterd_brickinfo_t    *brickinfo = NULL;
         glusterd_volinfo_t      *volinfo = NULL;
         int32_t                 ret = 0;
         size_t                  volname_len = strlen (volname);
         xlator_t                *this = NULL;
+        int                     bpath_len = 0;
+        const char              delim[2] = "/";
+        char                    *sub_dir = NULL;
+        char                    *saveptr = NULL;
+        char                    *brickpath_ptr = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -163,10 +167,40 @@ glusterd_store_is_valid_brickpath (char *volname, char *brick)
                 goto out;
         }
         memcpy (volinfo->volname, volname, volname_len+1);
-        glusterd_store_brickinfopath_set (volinfo, brickinfo, brickpath,
-                                                sizeof (brickpath));
 
-        ret = (strlen (brickpath) < _POSIX_PATH_MAX);
+        /* Check whether brickpath is less than PATH_MAX */
+        ret = 1;
+        bpath_len = strlen (brickinfo->path);
+
+        if (brickinfo->path[bpath_len - 1] != '/') {
+                if (strlen (brickinfo->path) >= PATH_MAX) {
+                        ret = 0;
+                        goto out;
+                }
+        } else {
+                /* Path has a trailing "/" which should not be considered in
+                 * length check validation
+                 */
+                if (strlen (brickinfo->path) >= PATH_MAX + 1) {
+                        ret = 0;
+                        goto out;
+                }
+        }
+
+        /* The following validation checks whether each sub directories in the
+         * brick path meets the POSIX max length validation
+         */
+
+        brickpath_ptr = brickinfo->path;
+        sub_dir = strtok_r (brickpath_ptr, delim, &saveptr);
+
+        while (sub_dir != NULL) {
+                if (strlen(sub_dir) >= _POSIX_PATH_MAX) {
+                        ret = 0;
+                        goto out;
+                }
+                sub_dir = strtok_r (NULL, delim, &saveptr);
+        }
 
 out:
         if (brickinfo)
@@ -2564,7 +2598,7 @@ glusterd_store_retrieve_volume (char *volname, glusterd_snap_t *snap)
         if (ret)
                 goto out;
 
-        strncpy (volinfo->volname, volname, GLUSTERD_MAX_VOLUME_NAME);
+        strncpy (volinfo->volname, volname, GD_VOLUME_NAME_MAX);
         volinfo->snapshot = snap;
         if (snap)
                 volinfo->is_snap_volume = _gf_true;

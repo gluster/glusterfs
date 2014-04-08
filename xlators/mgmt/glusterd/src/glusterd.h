@@ -39,7 +39,6 @@
 #include "syncop.h"
 #include "store.h"
 
-#define GLUSTERD_MAX_VOLUME_NAME        1000
 #define GLUSTERD_TR_LOG_SIZE            50
 #define GLUSTERD_NAME                   "glusterd"
 #define GLUSTERD_SOCKET_LISTEN_BACKLOG  128
@@ -297,17 +296,17 @@ typedef struct glusterd_replace_brick_ glusterd_replace_brick_t;
 
 struct glusterd_volinfo_ {
         gf_lock_t                 lock;
-        char                      volname[GLUSTERD_MAX_VOLUME_NAME];
         gf_boolean_t              is_snap_volume;
         glusterd_snap_t          *snapshot;
         uuid_t                    restored_from_snap;
-        char                      parent_volname[GLUSTERD_MAX_VOLUME_NAME];
+        char                      parent_volname[GD_VOLUME_NAME_MAX];
                                          /* In case of a snap volume
                                             i.e (is_snap_volume == TRUE) this
                                             field will contain the name of
                                             the volume which is snapped. In
                                             case of a non-snap volume, this
                                             field will be initialized as N/A */
+        char                      volname[GD_VOLUME_NAME_MAX];
         int                       type;
         int                       brick_count;
         uint64_t                  snap_count;
@@ -521,13 +520,13 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
         snprintf (abspath, sizeof (abspath)-1,                          \
                   DEFAULT_VAR_RUN_DIRECTORY"/%s%s", volname, path);
 
-#define GLUSTERD_REMOVE_SLASH_FROM_PATH(path,string) do {               \
-                int i = 0;                                              \
-                for (i = 1; i < strlen (path); i++) {                   \
-                        string[i-1] = path[i];                          \
-                        if (string[i-1] == '/')                         \
-                                string[i-1] = '-';                      \
-                }                                                       \
+#define GLUSTERD_REMOVE_SLASH_FROM_PATH(path,string) do {                  \
+                int i = 0;                                                 \
+                for (i = 1; i < strlen (path); i++) {                      \
+                        string[i-1] = path[i];                             \
+                        if (string[i-1] == '/' && (i != strlen(path) - 1)) \
+                                string[i-1] = '-';                         \
+                }                                                          \
         } while (0)
 
 #define GLUSTERD_GET_BRICK_PIDFILE(pidfile,volinfo,brickinfo, priv) do {      \
