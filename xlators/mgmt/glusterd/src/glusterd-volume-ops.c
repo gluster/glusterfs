@@ -800,10 +800,17 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
                 brick= strtok_r (brick_list, " \n", &tmpptr);
                 brick_list = tmpptr;
 
-                if (!glusterd_store_is_valid_brickpath (volname, brick) ||
-                        !glusterd_is_valid_volfpath (volname, brick)) {
+                if (!glusterd_store_is_valid_brickpath (volname, brick)) {
                         snprintf (msg, sizeof (msg), "brick path %s is too "
                                   "long.", brick);
+                        ret = -1;
+                        goto out;
+                }
+
+                if (!glusterd_is_valid_volfpath (volname, brick)) {
+                        snprintf (msg, sizeof (msg), "Volume file path for "
+                                  "volume %s and brick path %s is too long.",
+                                   volname, brick);
                         ret = -1;
                         goto out;
                 }
@@ -1522,7 +1529,7 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        strncpy (volinfo->volname, volname, GLUSTERD_MAX_VOLUME_NAME);
+        strncpy (volinfo->volname, volname, sizeof(volinfo->volname));
         GF_ASSERT (volinfo->volname);
 
         ret = dict_get_int32 (dict, "type", &volinfo->type);

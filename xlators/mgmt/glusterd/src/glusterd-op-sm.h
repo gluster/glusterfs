@@ -31,7 +31,6 @@
 #include "glusterd.h"
 #include "protocol-common.h"
 
-#define GD_VOLUME_NAME_MAX 256
 #define GD_OP_PROTECTED    (0x02)
 #define GD_OP_UNPROTECTED  (0x04)
 

@@ -236,8 +236,11 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 if (strchr (volname, '/'))
                         goto out;
 
-                if (strlen (volname) > 512)
+                if (strlen (volname) > GD_VOLUME_NAME_MAX) {
+                        cli_err("Volume name exceeds %d characters.",
+                                GD_VOLUME_NAME_MAX);
                         goto out;
+                }
 
                 for (i = 0; i < strlen (volname); i++)
                         if (!isalnum (volname[i]) && (volname[i] != '_') &&
@@ -561,8 +564,11 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 if (strchr (volname, '/'))
                         goto out;
 
-                if (strlen (volname) > 512)
+                if (strlen (volname) > GD_VOLUME_NAME_MAX) {
+                        cli_err("Volname can not exceed %d characters.",
+                                GD_VOLUME_NAME_MAX);
                         goto out;
+                }
 
                 for (i = 0; i < strlen (volname); i++)
                        if (!isalnum (volname[i]) && (volname[i] != '_') &&

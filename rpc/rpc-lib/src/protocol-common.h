@@ -292,4 +292,6 @@ typedef struct gf_gsync_detailed_status_ gf_gsync_status_t;
 #define GD_MGMT_HNDSK_PROGRAM    1239873 /* Completely random */
 #define GD_MGMT_HNDSK_VERSION    1
 
+#define GD_VOLUME_NAME_MAX 256 /* Maximum size of volume name */
+
 #endif /* !_PROTOCOL_COMMON_H */
