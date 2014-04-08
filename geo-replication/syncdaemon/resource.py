@@ -468,8 +468,9 @@ class Server(object):
 
         try:
             val = Xattr.lgetxattr(path,
-                                  '.'.join([cls.GX_NSPACE, uuid, 'xtime']))
-            return struct.unpack('!II', val, 8)
+                                  '.'.join([cls.GX_NSPACE, uuid, 'xtime']),
+                                  8)
+            return struct.unpack('!II', val)
         except OSError:
             ex = sys.exc_info()[1]
             if ex.errno in (ENOENT, ENODATA, ENOTDIR):
@@ -489,8 +490,9 @@ class Server(object):
 
         try:
             val = Xattr.lgetxattr(path,
-                                  '.'.join([cls.GX_NSPACE, uuid, 'stime']))
-            return struct.unpack('!II', val, 8)
+                                  '.'.join([cls.GX_NSPACE, uuid, 'stime']),
+                                  8)
+            return struct.unpack('!II', val)
         except OSError:
             ex = sys.exc_info()[1]
             if ex.errno in (ENOENT, ENODATA, ENOTDIR):
@@ -510,8 +512,9 @@ class Server(object):
 
         try:
             val = Xattr.lgetxattr(path,
-                                  '.'.join([cls.GX_NSPACE, uuid, 'stime']))
-            return struct.unpack('!II', val, 8)
+                                  '.'.join([cls.GX_NSPACE, uuid, 'stime']),
+                                  8)
+            return struct.unpack('!II', val)
         except OSError:
             ex = sys.exc_info()[1]
             if ex.errno in (ENOENT, ENODATA, ENOTDIR):
