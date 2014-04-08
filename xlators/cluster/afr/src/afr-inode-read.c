@@ -1487,7 +1487,7 @@ afr_fgetxattr_wind (call_frame_t *frame, xlator_t *this, int subvol)
 		return 0;
 	}
 
-	STACK_WIND_COOKIE (frame, (void *) (long) subvol, afr_fgetxattr_cbk,
+	STACK_WIND_COOKIE (frame, afr_fgetxattr_cbk, (void *) (long) subvol,
 			   priv->children[subvol],
 			   priv->children[subvol]->fops->fgetxattr,
 			   local->fd, local->cont.getxattr.name,
