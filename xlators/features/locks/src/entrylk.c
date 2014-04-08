@@ -62,6 +62,7 @@ new_entrylk_lock (pl_inode_t *pinode, const char *basename, entrylk_type type,
         newlock->volume     = domain;
         newlock->owner      = frame->root->lk_owner;
 	newlock->frame      = frame;
+        newlock->this       = frame->this;
 
         if (conn_id) {
                 newlock->connection_id = gf_strdup (conn_id);
