@@ -1665,7 +1665,7 @@ struct volume_options options[] = {
                          "unrecognized option warnings."
         },
         { .key  = {"rpc-auth.addr.allow"},
-          .type = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
+          .type = GF_OPTION_TYPE_CLIENT_AUTH_ADDR,
           .default_value = "all",
           .description = "Allow a comma separated list of addresses and/or"
                          " hostnames to connect to the server. By default, all"
@@ -1673,7 +1673,7 @@ struct volume_options options[] = {
                          "define a general rule for all exported volumes."
         },
         { .key  = {"rpc-auth.addr.reject"},
-          .type = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
+          .type = GF_OPTION_TYPE_CLIENT_AUTH_ADDR,
           .default_value = "none",
           .description = "Reject a comma separated list of addresses and/or"
                          " hostnames from connecting to the server. By default,"
@@ -1681,7 +1681,7 @@ struct volume_options options[] = {
                          "define a general rule for all exported volumes."
         },
         { .key  = {"rpc-auth.addr.*.allow"},
-          .type = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
+          .type = GF_OPTION_TYPE_CLIENT_AUTH_ADDR,
           .default_value = "all",
           .description = "Allow a comma separated list of addresses and/or"
                          " hostnames to connect to the server. By default, all"
@@ -1689,7 +1689,7 @@ struct volume_options options[] = {
                          "define a rule for a specific exported volume."
         },
         { .key  = {"rpc-auth.addr.*.reject"},
-          .type = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
+          .type = GF_OPTION_TYPE_CLIENT_AUTH_ADDR,
           .default_value = "none",
           .description = "Reject a comma separated list of addresses and/or"
                          " hostnames from connecting to the server. By default,"
