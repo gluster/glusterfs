@@ -59,6 +59,9 @@ int
 rpcsvc_notify (rpc_transport_t *trans, void *mydata,
                rpc_transport_event_t event, void *data, ...);
 
+static int
+match_subnet_v4 (const char *addrtok, const char *ipaddr);
+
 rpcsvc_notify_wrapper_t *
 rpcsvc_notify_wrapper_alloc (void)
 {
@@ -2181,6 +2184,13 @@ rpcsvc_transport_peer_check_search (dict_t *options, char *pattern,
                                 goto err;
                 }
 
+                /* Compare IPv4 subnetwork */
+                if (strchr (addrtok, '/')) {
+                        ret = match_subnet_v4 (addrtok, ip);
+                        if (ret == 0)
+                                goto err;
+                }
+
                 addrtok = strtok_r (NULL, ",", &svptr);
         }
 
@@ -2327,8 +2337,20 @@ rpcsvc_auth_check (rpcsvc_t *svc, char *volname,
 
         ret = dict_get_str (options, srchstr, &reject_str);
         GF_FREE (srchstr);
-        if (reject_str == NULL && !strcmp ("*", allow_str))
-                return RPCSVC_AUTH_ACCEPT;
+
+        /*
+         * If "reject_str" is being set as '*' (anonymous), then NFS-server
+         * would reject everything. If the "reject_str" is not set and
+         * "allow_str" is set as '*' (anonymous), then NFS-server would
+         * accept mount requests from all clients.
+         */
+        if (reject_str != NULL) {
+                if (!strcmp ("*", reject_str))
+                        return RPCSVC_AUTH_REJECT;
+        } else {
+                if (!strcmp ("*", allow_str))
+                        return RPCSVC_AUTH_ACCEPT;
+        }
 
         /* Non-default rule, authenticate */
         if (!get_host_name (client_ip, &ip))
@@ -2459,6 +2481,71 @@ out:
         GF_FREE (srchstr);
 
         return addrstr;
+}
+
+/*
+ * match_subnet_v4() takes subnetwork address pattern and checks
+ * if the target IPv4 address has the same network address with
+ * the help of network mask.
+ *
+ * Returns 0 for SUCCESS and -1 otherwise.
+ *
+ * NB: Validation of subnetwork address pattern is not required
+ *     as it's already being done at the time of CLI SET.
+ */
+static int
+match_subnet_v4 (const char *addrtok, const char *ipaddr)
+{
+        char                 *slash     = NULL;
+        char                 *netaddr   = NULL;
+        long                  prefixlen = -1;
+        int                   ret       = -1;
+        uint32_t              shift     = 0;
+        struct sockaddr_in    sin1      = {0, };
+        struct sockaddr_in    sin2      = {0, };
+        struct sockaddr_in    mask      = {0, };
+
+        /* Copy the input */
+        netaddr = gf_strdup (addrtok);
+        if (netaddr == NULL) /* ENOMEM */
+                goto out;
+
+        /* Find the network socket addr of target */
+        if (inet_pton (AF_INET, ipaddr, &sin1.sin_addr) == 0)
+                goto out;
+
+        /* Find the network socket addr of subnet pattern */
+        slash = strchr (netaddr, '/');
+        *slash = '\0';
+        if (inet_pton (AF_INET, netaddr, &sin2.sin_addr) == 0)
+                goto out;
+
+        /*
+         * Find the network mask in network byte order.
+         * NB: 32 : Max len of IPv4 address.
+         */
+        prefixlen = atoi (slash + 1);
+        shift = 32 - (uint32_t)prefixlen;
+        mask.sin_addr.s_addr = htonl ((uint32_t)~0 << shift);
+
+        /*
+         * Check if both have same network address.
+         * Extract the network address from the IP addr by applying the
+         * network mask. If they match, return SUCCESS. i.e.
+         *
+         * (x == y) <=> (x ^ y == 0)
+         * (x & y) ^ (x & z) <=> x & (y ^ z)
+         *
+         * ((ip1 & mask) == (ip2 & mask)) <=> ((mask & (ip1 ^ ip2)) == 0)
+         */
+        if (((mask.sin_addr.s_addr) &
+             (sin1.sin_addr.s_addr ^ sin2.sin_addr.s_addr)) != 0)
+                goto out;
+
+        ret = 0; /* SUCCESS */
+out:
+        GF_FREE (netaddr);
+        return ret;
 }
 
 

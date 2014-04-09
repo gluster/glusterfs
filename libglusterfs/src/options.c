@@ -574,6 +574,45 @@ out:
         return ret;
 }
 
+static int
+xlator_option_validate_mntauth (xlator_t *xl, const char *key,
+                                const char *value, volume_option_t *opt,
+                                char **op_errstr)
+{
+        int          ret = -1;
+        char         *dup_val = NULL;
+        char         *addr_tok = NULL;
+        char         *save_ptr = NULL;
+        char         errstr[4096] = {0,};
+
+        dup_val = gf_strdup (value);
+        if (!dup_val)
+                goto out;
+
+        addr_tok = strtok_r (dup_val, ",", &save_ptr);
+        if (addr_tok == NULL)
+                goto out;
+        while (addr_tok) {
+                if (!valid_mount_auth_address (addr_tok))
+                        goto out;
+
+                addr_tok = strtok_r (NULL, ",", &save_ptr);
+        }
+        ret = 0;
+
+out:
+        if (ret) {
+                snprintf (errstr, sizeof (errstr), "option %s %s: '%s' is not "
+                "a valid mount-auth-address", key, value, value);
+                gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
+                if (op_errstr)
+                        *op_errstr = gf_strdup (errstr);
+        }
+        GF_FREE (dup_val);
+
+        return ret;
+}
+
 /*XXX: the rules to validate are as per block-size required for stripe xlator */
 static int
 gf_validate_size (const char *sizestr, volume_option_t *opt)
@@ -744,6 +783,7 @@ xlator_option_validate (xlator_t *xl, char *key, char *value,
                 xlator_option_validate_priority_list,
                 [GF_OPTION_TYPE_SIZE_LIST]   = xlator_option_validate_size_list,
                 [GF_OPTION_TYPE_ANY]         = xlator_option_validate_any,
+                [GF_OPTION_TYPE_CLIENT_AUTH_ADDR] = xlator_option_validate_mntauth,
                 [GF_OPTION_TYPE_MAX]         = NULL,
         };
 

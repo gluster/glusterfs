@@ -1858,6 +1858,70 @@ out:
         return ret;
 }
 
+/**
+ * valid_ipv4_subnetwork() takes the pattern and checks if it contains
+ * a valid ipv4 subnetwork pattern i.e. xx.xx.xx.xx/n. IPv4 address
+ * part (xx.xx.xx.xx) and mask bits lengh part (n). The mask bits lengh
+ * must be in 0-32 range (ipv4 addr is 32 bit). The pattern must be
+ * in this format.
+ *
+ * Returns _gf_true if both IP addr and mask bits len are valid
+ *         _gf_false otherwise.
+ */
+gf_boolean_t
+valid_ipv4_subnetwork (const char *address)
+{
+        char         *slash     = NULL;
+        char         *paddr     = NULL;
+        char         *endptr    = NULL;
+        long         prefixlen  = -1;
+        gf_boolean_t retv       = _gf_true;
+
+        if (address == NULL) {
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                                              "argument invalid");
+                return _gf_false;
+        }
+
+        paddr = gf_strdup (address);
+        if (paddr == NULL) /* ENOMEM */
+                return _gf_false;
+
+        /*
+         * INVALID: If '/' is not present OR
+         *          Nothing specified after '/'
+         */
+        slash = strchr(paddr, '/');
+        if ((slash == NULL) || (slash[1] == '\0')) {
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                                  "Invalid IPv4 subnetwork format");
+                retv = _gf_false;
+                goto out;
+        }
+
+        *slash = '\0';
+        retv = valid_ipv4_address (paddr, strlen(paddr), _gf_false);
+        if (retv == _gf_false) {
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                                  "Invalid IPv4 subnetwork address");
+                goto out;
+        }
+
+        prefixlen = strtol (slash + 1, &endptr, 10);
+        if ((errno != 0) || (*endptr != '\0') ||
+            (prefixlen < 0) || (prefixlen > 32)) {
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                                  "Invalid IPv4 subnetwork mask");
+                retv = _gf_false;
+                goto out;
+        }
+
+        retv = _gf_true;
+out:
+        GF_FREE (paddr);
+        return retv;
+}
+
 char
 valid_ipv6_address (char *address, int length, gf_boolean_t wildcard_acc)
 {
@@ -1936,6 +2000,65 @@ valid_internet_address (char *address, gf_boolean_t wildcard_acc)
 
 out:
         return ret;
+}
+
+/**
+ * valid_mount_auth_address - Validate the rpc-auth.addr.allow/reject pattern
+ *
+ * @param address - Pattern to be validated
+ *
+ * @return _gf_true if "address" is "*" (anonymous) 'OR'
+ *                  if "address" is valid FQDN or valid IPv4/6 address 'OR'
+ *                  if "address" contains wildcard chars e.g. "'*' or '?' or '['"
+ *                  if "address" is valid ipv4 subnet pattern (xx.xx.xx.xx/n)
+ *         _gf_false otherwise
+ *
+ *
+ * NB: If the user/admin set for wildcard pattern, then it does not have
+ *     to be validated. Make it similar to the way exportfs (kNFS) works.
+ */
+gf_boolean_t
+valid_mount_auth_address (char *address)
+{
+        int    length = 0;
+        char   *cp    = NULL;
+
+        /* 1. Check for "NULL and empty string */
+        if ((address == NULL) || (address[0] == '\0')){
+                gf_log_callingfn (THIS->name,
+                                  GF_LOG_WARNING, "argument invalid");
+                return _gf_false;
+        }
+
+        /* 2. Check for Anonymous */
+        if (strcmp(address, "*") == 0)
+                return _gf_true;
+
+        for (cp = address; *cp; cp++) {
+                /* 3. Check for wildcard pattern */
+                if (*cp == '*' || *cp == '?' || *cp == '[') {
+                        return _gf_true;
+                }
+
+                /*
+                 * 4. check for IPv4 subnetwork i.e. xx.xx.xx.xx/n
+                 * TODO: check for IPv6 subnetwork
+                 * NB: Wildcard must not be mixed with subnetwork.
+                 */
+                if (*cp == '/') {
+                        return valid_ipv4_subnetwork (address);
+                }
+        }
+
+        /* 5. Check for v4/v6 IP addr and FQDN/hostname */
+        length = strlen (address);
+        if ((valid_ipv4_address (address, length, _gf_false)) ||
+            (valid_ipv6_address (address, length, _gf_false)) ||
+            (valid_host_name (address, length))) {
+                return _gf_true;
+        }
+
+        return _gf_false;
 }
 
 /**
