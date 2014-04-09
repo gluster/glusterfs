@@ -334,6 +334,74 @@ out:
 }
 
 int
+notify (xlator_t *this, int event, void *data, ...)
+{
+        barrier_priv_t  *priv                   = NULL;
+        dict_t          *dict                   = NULL;
+        gf_boolean_t     past                   = _gf_false;
+        int              ret                    = -1;
+        gf_boolean_t     barrier_enabled        = _gf_false;
+        struct list_head queue                  = {0,};
+
+        priv = this->private;
+        GF_ASSERT (priv);
+        INIT_LIST_HEAD (&queue);
+
+        switch (event) {
+        case GF_EVENT_TRANSLATOR_OP:
+        {
+                dict = data;
+                GF_OPTION_RECONF ("barrier", barrier_enabled, dict,
+                                  bool, out);
+
+                LOCK (&priv->lock);
+                {
+                        past = priv->barrier_enabled;
+
+                        switch (past) {
+                        case _gf_false:
+                                if (barrier_enabled) {
+                                        ret = __barrier_enable (this,priv);
+                                        if (ret)
+                                                goto unlock;
+                                } else {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Already disabled.");
+                                        goto unlock;
+                                }
+                                break;
+
+                        case _gf_true:
+                                if (!barrier_enabled) {
+                                        __barrier_disable(this, &queue);
+                                } else {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Already enabled");
+                                        goto unlock;
+                                }
+                                break;
+                        }
+                        ret = 0;
+                }
+unlock:
+                UNLOCK (&priv->lock);
+
+                if (!list_empty (&queue))
+                        barrier_dequeue_all (this, &queue);
+                // missing break is intentional
+        }
+        default:
+        {
+                default_notify (this, event, data);
+                ret = 0;
+                goto out;
+        }
+        }
+out:
+        return ret;
+}
+
+int
 reconfigure (xlator_t *this, dict_t *options)
 {
         barrier_priv_t  *priv                   = NULL;
@@ -359,13 +427,9 @@ reconfigure (xlator_t *this, dict_t *options)
                 case _gf_false:
                         if (barrier_enabled) {
                                 ret = __barrier_enable (this, priv);
-                                if (ret)
+                                if (ret) {
                                         goto unlock;
-
-                        } else {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Already disabled");
-                                goto unlock;
+                                }
                         }
                         break;
 
@@ -373,16 +437,10 @@ reconfigure (xlator_t *this, dict_t *options)
                         if (!barrier_enabled) {
                                 __barrier_disable (this, &queue);
 
-                        } else {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Already enabled");
-                                goto unlock;
                         }
                         break;
                 }
-
                 priv->timeout.tv_sec = timeout;
-
                 ret = 0;
         }
 unlock:
