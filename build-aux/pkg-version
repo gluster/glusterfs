@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # To override version/release from git,
 # create VERSION file containing text with version/release
