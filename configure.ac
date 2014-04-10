@@ -656,6 +656,7 @@ if test "x${ac_cv_header_argp_h}" = "xno"; then
    BUILD_ARGP_STANDALONE=yes
    ARGP_STANDALONE_CPPFLAGS='-I${top_srcdir}/contrib/argp-standalone'
    ARGP_STANDALONE_LDADD='${top_builddir}/contrib/argp-standalone/libargp.a'
+   ARGP_STANDALONE_DIR='${top_builddir}/contrib/argp-standalone'
 fi
 
 AC_SUBST(ARGP_STANDALONE_CPPFLAGS)
