@@ -5,9 +5,10 @@ EXTRA_DIST = autogen.sh \
 	error-codes.json gf-error-codes.h.template \
 	gen-headers.py run-tests.sh \
 	build-aux/pkg-version \
+        contrib/argp-standalone \
 	$(shell find $(top_srcdir)/tests -type f -print)
 
-SUBDIRS = contrib/argp-standalone libglusterfs rpc api xlators glusterfsd \
+SUBDIRS = $(ARGP_STANDALONE_DIR) libglusterfs rpc api xlators glusterfsd \
 	$(FUSERMOUNT_SUBDIR) doc extras cli @SYNCDAEMON_SUBDIR@
 
 pkgconfigdir = @pkgconfigdir@
@@ -21,13 +22,13 @@ gitclean: distclean
 	find . -name mount.glusterfs -exec rm -f {} \;
 	rm -fr autom4te.cache
 	rm -f missing aclocal.m4 config.h.in config.guess config.sub ltmain.sh install-sh configure depcomp
-	rm -fr $(CONTRIBDIR)/argp-standalone/autom4te.cache
-	rm -f $(CONTRIBDIR)/argp-standalone/aclocal.m4
-	rm -f $(CONTRIBDIR)/argp-standalone/config.h.in
-	rm -f $(CONTRIBDIR)/argp-standalone/configure
-	rm -f $(CONTRIBDIR)/argp-standalone/depcomp
-	rm -f $(CONTRIBDIR)/argp-standalone/install-sh
-	rm -f $(CONTRIBDIR)/argp-standalone/missing
+	-rm -fr $(CONTRIBDIR)/argp-standalone/autom4te.cache
+	-rm -f $(CONTRIBDIR)/argp-standalone/aclocal.m4
+	-rm -f $(CONTRIBDIR)/argp-standalone/config.h.in
+	-rm -f $(CONTRIBDIR)/argp-standalone/configure
+	-rm -f $(CONTRIBDIR)/argp-standalone/depcomp
+	-rm -f $(CONTRIBDIR)/argp-standalone/install-sh
+	-rm -f $(CONTRIBDIR)/argp-standalone/missing
 
 dist-hook: gen-VERSION gen-ChangeLog
 .PHONY: gen-VERSION gen-ChangeLog
