@@ -8,6 +8,11 @@
 # later), or the GNU General Public License, version 2 (GPLv2), in all
 # cases as published by the Free Software Foundation.
 
+warn ()
+{
+   echo "$@" >/dev/stderr
+}
+
 _init ()
 {
     # log level definitions
@@ -29,7 +34,7 @@ _init ()
     export PATH
     getfattr=$(which getfattr 2>/dev/null);
     if [ $? -ne 0 ]; then
-        echo "WARNING: getfattr not found, certain checks will be skipped.."
+        warn "WARNING: getfattr not found, certain checks will be skipped.."
     fi
 
     alias lsL='ls -L'
@@ -125,7 +130,7 @@ start_glusterfs ()
                 log_level=$LOG_NONE;
                 ;;
             *)
-                echo "invalid log level $log_level_str, using INFO";
+                warn "invalid log level $log_level_str, using INFO";
                 log_level=$LOG_INFO;
                 ;;
         esac
@@ -241,7 +246,7 @@ start_glusterfs ()
                     cmd_line=$(echo "$cmd_line --volfile-server=$i");
                 done
             else
-                echo "ERROR: No valid servers found on command line.. exiting"
+                warn "ERROR: No valid servers found on command line.. exiting"
                 print_usage
                 exit 1
             fi
@@ -250,7 +255,7 @@ start_glusterfs ()
                 if [ -z "$backup_volfile_servers" ]; then
                     is_valid_hostname ${backupvolfile_server};
                     if [ $? -eq 1 ]; then
-                        echo "ERROR: Invalid backup server specified.. exiting"
+                        warn "ERROR: Invalid backup server specified.. exiting"
                         exit 1
                     fi
                     cmd_line=$(echo "$cmd_line --volfile-server=$backupvolfile_server");
@@ -297,7 +302,7 @@ start_glusterfs ()
     inode=$( ${getinode} $mount_point 2>/dev/null);
     # this is required if the stat returns error
     if [ $? -ne 0 ]; then
-        echo "Mount failed. Please check the log file for more details."
+        warn "Mount failed. Please check the log file for more details."
         umount $mount_point > /dev/null 2>&1;
         exit 1;
     fi
@@ -317,7 +322,7 @@ EOF
 check_recursive_mount ()
 {
     if [ $1 = "/" ]; then
-        echo "Cannot mount over root";
+        warn "Cannot mount over root";
         exit 2;
     fi
 
@@ -328,7 +333,7 @@ check_recursive_mount ()
     if [ -n ${getfattr} ]; then
         ${getfattr} -n trusted.gfid $mnt_dir 2>/dev/null | grep -iq "trusted.gfid=";
         if [ $? -eq 0 ]; then
-            echo "ERROR: $mnt_dir is in use as a brick of a gluster volume";
+            warn "ERROR: $mnt_dir is in use as a brick of a gluster volume";
             exit 2;
         fi
     fi
@@ -364,7 +369,7 @@ check_recursive_mount ()
                     brick_inode=`${lgetinode} $brick`;
                     if [ "$mnt_inode" -eq "$brick_inode" \
                         -a "$mnt_dev" -eq "$brick_dev" ]; then
-                        echo "ERROR: ${mnt_dir} is a parent of the brick ${tmp_brick}";
+                        warn "ERROR: ${mnt_dir} is a parent of the brick ${tmp_brick}";
                         exit 2;
                     fi
                     [ "$root_inode" -ne "$brick_inode" \
@@ -461,8 +466,8 @@ with_options()
                 no_root_squash=1;
             fi ;;
         *)
-            echo "Invalid option: $key"
-            exit 0
+            warn "Invalid option: $key"
+            exit 1
             ;;
     esac
 }
@@ -507,8 +512,8 @@ without_options()
         "_netdev")
             ;;
         *)
-            echo "Invalid option $option";
-            exit 0
+            warn "Invalid option $option";
+            exit 1
             ;;
     esac
 }
@@ -580,43 +585,43 @@ main ()
     }
 
     [ -z "$volume_id" -o -z "$server_ip" ] && {
-        cat <<EOF
+        cat <<EOF >/dev/stderr
 ERROR: Server name/volume name unspecified cannot proceed further..
 Please specify correct format
 Usage:
 man 8 $0
 EOF
-        exit 0;
+        exit 1;
     }
 
     grep_ret=$(echo ${mount_point} | grep '^\-o');
     [ "x" != "x${grep_ret}" ] && {
-        cat <<EOF
+        cat <<EOF >/dev/stderr
 ERROR: -o options cannot be specified in either first two arguments..
 Please specify correct style
 Usage:
 man 8 $0
 EOF
-        exit 0;
+        exit 1;
     }
 
     # No need to do a ! -d test, it is taken care while initializing the
     # variable mount_point
     [ -z "$mount_point" -o ! -d "$mount_point" ] && {
-        cat <<EOF
+        cat <<EOF >/dev/stderr
 ERROR: Mount point does not exist
 Please specify a mount point
 Usage:
 man 8 $0
 EOF
-        exit 0;
+        exit 1;
     }
 
     # Simple check to avoid multiple identical mounts
     if grep -q "[[:space:]+]${mount_point}[[:space:]+]fuse" $mounttab; then
-        echo -n "$0: according to mtab, GlusterFS is already mounted on "
-        echo "$mount_point"
-        exit 0;
+        warn -n "$0: according to mtab, GlusterFS is already mounted on "
+        warn "$mount_point"
+        exit 1;
     fi
 
     check_recursive_mount "$mount_point";
