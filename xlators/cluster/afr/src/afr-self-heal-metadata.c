@@ -591,6 +591,7 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this,
         int              nsources = 0;
         int              source = 0;
         int              i = 0;
+        gf_boolean_t     xattrs_match = _gf_false;
 
         local = frame->local;
         sh = &local->self_heal;
@@ -652,6 +653,9 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this,
         sh->source = source;
 
         /* detect changes not visible through pending flags -- JIC */
+        xattrs_match = afr_lookup_xattrs_are_equal (sh->xattr,
+                                                    sh->success_children,
+                                                    sh->success_count);
         for (i = 0; i < priv->child_count; i++) {
                 if (i == source || sh->child_errno[i])
                         continue;
@@ -660,6 +664,8 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this,
                         sh->sources[i] = 0;
 
                 if (OWNERSHIP_DIFFERS (&sh->buf[i], &sh->buf[source]))
+                        sh->sources[i] = 0;
+                if(!xattrs_match)
                         sh->sources[i] = 0;
         }
 

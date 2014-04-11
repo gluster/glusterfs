@@ -1215,6 +1215,9 @@ afr_inodelk_init (afr_inodelk_t *lk, char *dom, size_t child_count);
 void
 afr_handle_open_fd_count (call_frame_t *frame, xlator_t *this);
 
+gf_boolean_t
+afr_lookup_xattrs_are_equal (dict_t **xattr, int32_t *success_children,
+                             int success_count);
 afr_inode_ctx_t*
 afr_inode_ctx_get (inode_t *inode, xlator_t *this);
 

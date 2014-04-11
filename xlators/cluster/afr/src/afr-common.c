@@ -87,6 +87,13 @@ afr_xattr_req_prepare (xlator_t *this, dict_t *xattr_req, const char *path)
                 gf_log (this->name, GF_LOG_DEBUG, "%s: failed to set gfidless "
                         "lookup", path);
         }
+        ret = dict_set_int32 (xattr_req, "list-xattr", 1);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "%s: Unable to set dict value for list-xattr",
+                         path);
+        }
+
 }
 
 int
@@ -1743,6 +1750,77 @@ afr_data_self_heal_enabled (char *data_self_heal)
         return enabled;
 }
 
+static char *afr_ignore_xattrs[] = {
+        GLUSTERFS_OPEN_FD_COUNT,
+        GLUSTERFS_PARENT_ENTRYLK,
+        GLUSTERFS_ENTRYLK_COUNT,
+        GLUSTERFS_INODELK_COUNT,
+        GF_SELINUX_XATTR_KEY,
+        NULL
+};
+
+
+static  gf_boolean_t
+afr_lookup_xattr_ignorable (char *key)
+{
+        int i = 0;
+
+        if (!strncmp (key, AFR_XATTR_PREFIX, strlen(AFR_XATTR_PREFIX)))
+                return _gf_true;
+        for (i = 0; afr_ignore_xattrs[i]; i++) {
+                if (!strcmp (key, afr_ignore_xattrs[i]))
+                       return _gf_true;
+        }
+        return _gf_false;
+}
+
+static int
+xattr_is_equal (dict_t *this, char *key1, data_t *value1, void *data)
+{
+        dict_t *xattr2 = (dict_t *)data;
+        data_t *value2 = NULL;
+
+        if (afr_lookup_xattr_ignorable (key1))
+                return 0;
+
+        value2 = dict_get (xattr2, key1);
+        if (!value2)
+                return -1;
+
+        if (value1->len != value2->len)
+                return -1;
+        if(memcmp(value1->data, value2->data, value1->len))
+                return -1;
+        else
+                return 0;
+
+}
+
+gf_boolean_t
+afr_lookup_xattrs_are_equal (dict_t **xattr, int32_t *success_children, int success_count)
+{
+        int i           =  0;
+        int child1      = -1;
+        int child2      = -1;
+        int ret         =  0;
+
+        if (success_count < 2)
+                return _gf_true;
+
+        child1 =  success_children[0];
+        for (i = 1; i < success_count; i++) {
+                child2 = success_children[i];
+                if (xattr[child1]->count != xattr[child2]->count)
+                        return _gf_false;
+                ret = dict_foreach (xattr[child1], xattr_is_equal,
+                                    (void*) xattr[child2]);
+                if (ret == -1)
+                        return _gf_false;
+        }
+
+        return _gf_true;
+}
+
 static void
 afr_lookup_set_self_heal_params (afr_local_t *local, xlator_t *this)
 {
@@ -1784,6 +1862,11 @@ afr_lookup_set_self_heal_params (afr_local_t *local, xlator_t *this)
                 afr_lookup_set_self_heal_params_by_xattr (local, this,
                                                           xattr[child1]);
         }
+
+        if(!afr_lookup_xattrs_are_equal (xattr,
+                                         local->cont.lookup.success_children,
+                                         local->success_count))
+                local->self_heal.do_metadata_self_heal = _gf_true;
         if (afr_open_only_data_self_heal (priv->data_self_heal))
                 sh->do_data_self_heal = _gf_false;
         if (sh->do_metadata_self_heal)
