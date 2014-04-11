@@ -4017,6 +4017,29 @@ off:
         return 0;
 }
 
+void
+quota_log_helper (char **usage_str, int64_t cur_size, inode_t *inode,
+                  char **path, struct timeval *cur_time)
+{
+        xlator_t        *this   = THIS;
+
+        if (!usage_str || !inode || !path || !cur_time) {
+                gf_log (this->name, GF_LOG_ERROR, "Received null argument");
+                return;
+        }
+
+        *usage_str = gf_uint64_2human_readable (cur_size);
+        if (!(*usage_str))
+                gf_log (this->name, GF_LOG_ERROR, "integer to string "
+                        "conversion failed Reason:\"Cannot allocate memory\"");
+
+        inode_path (inode, NULL, path);
+        if (!(*path))
+                *path = uuid_utoa (inode->gfid);
+
+        gettimeofday (cur_time, NULL);
+}
+
 /* Logs if
 *  i.   Usage crossed soft limit
 *  ii.  Usage above soft limit and alert-time elapsed
@@ -4027,47 +4050,39 @@ quota_log_usage (xlator_t *this, quota_inode_ctx_t *ctx, inode_t *inode,
 {
         struct timeval           cur_time       = {0,};
         char                    *usage_str      = NULL;
-        char                    size_str[32]    = {0};
         char                    *path           = NULL;
         int64_t                  cur_size       = 0;
         quota_priv_t            *priv           = NULL;
-        gf_boolean_t            dyn_mem         = _gf_true;
 
         priv = this->private;
-        if ((ctx->soft_lim <= 0) || (timerisset (&ctx->prev_log) &&
-                                     !quota_timeout (&ctx->prev_log,
-                                                     priv->log_timeout))) {
-                return;
-        }
-
-
         cur_size = ctx->size + delta;
-        usage_str = gf_uint64_2human_readable (cur_size);
-        if (!usage_str) {
-                snprintf (size_str, sizeof (size_str), "%"PRId64, cur_size);
-                usage_str = (char*) size_str;
-                dyn_mem = _gf_false;
-        }
-        inode_path (inode, NULL, &path);
-        if (!path)
-                path = uuid_utoa (inode->gfid);
 
-        gettimeofday (&cur_time, NULL);
+        if ((ctx->soft_lim <= 0) || cur_size < ctx->soft_lim)
+                return;
+
         /* Usage crossed/reached soft limit */
         if (DID_REACH_LIMIT (ctx->soft_lim, ctx->size, cur_size)) {
+
+                quota_log_helper (&usage_str, cur_size, inode,
+                                  &path, &cur_time);
 
                 gf_log (this->name, GF_LOG_ALERT, "Usage crossed "
                         "soft limit: %s used by %s", usage_str, path);
                 ctx->prev_log = cur_time;
         }
         /* Usage is above soft limit */
-        else if (cur_size > ctx->soft_lim){
+        else if (cur_size > ctx->soft_lim &&
+                           quota_timeout (&ctx->prev_log, priv->log_timeout)) {
+
+                quota_log_helper (&usage_str, cur_size, inode,
+                                  &path, &cur_time);
+
                 gf_log (this->name, GF_LOG_ALERT, "Usage is above "
                         "soft limit: %s used by %s", usage_str, path);
                 ctx->prev_log = cur_time;
         }
 
-        if (dyn_mem)
+        if (usage_str)
                 GF_FREE (usage_str);
 }
 
