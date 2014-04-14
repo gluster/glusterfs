@@ -142,8 +142,8 @@ enum gf1_cli_snapshot {
         GF_SNAP_OPTION_TYPE_CREATE,
         GF_SNAP_OPTION_TYPE_DELETE,
         GF_SNAP_OPTION_TYPE_RESTORE,
-        GF_SNAP_OPTION_TYPE_START,
-        GF_SNAP_OPTION_TYPE_STOP,
+        GF_SNAP_OPTION_TYPE_ACTIVATE,
+        GF_SNAP_OPTION_TYPE_DEACTIVATE,
         GF_SNAP_OPTION_TYPE_LIST,
         GF_SNAP_OPTION_TYPE_STATUS,
         GF_SNAP_OPTION_TYPE_CONFIG,
@@ -152,8 +152,8 @@ enum gf1_cli_snapshot {
 
 enum gf1_cli_snapshot_info {
         GF_SNAP_INFO_TYPE_ALL = 0,
-        GF_SNAP_INFO_TYPE_SNAP = 1,
-        GF_SNAP_INFO_TYPE_VOL = 2
+        GF_SNAP_INFO_TYPE_SNAP,
+        GF_SNAP_INFO_TYPE_VOL
 };
 
 enum gf1_cli_snapshot_config {
@@ -163,9 +163,9 @@ enum gf1_cli_snapshot_config {
 };
 
 enum  gf1_cli_snapshot_status {
-        GF_SNAP_STATUS_TYPE_ALL  = 0,
-        GF_SNAP_STATUS_TYPE_SNAP = 1,
-        GF_SNAP_STATUS_TYPE_VOL = 2
+        GF_SNAP_STATUS_TYPE_ALL = 0,
+        GF_SNAP_STATUS_TYPE_SNAP,
+        GF_SNAP_STATUS_TYPE_VOL
 };
 
 struct gf_cli_req {

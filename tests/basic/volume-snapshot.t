@@ -28,6 +28,26 @@ function create_snapshots() {
         wait $PID_1 $PID_2
 }
 
+function activate_snapshots() {
+        $CLI_1 snapshot activate ${V0}_snap &
+        PID_1=$!
+
+        $CLI_1 snapshot activate ${V1}_snap &
+        PID_2=$!
+
+        wait $PID_1 $PID_2
+}
+
+function deactivate_snapshots() {
+        $CLI_1 snapshot deactivate ${V0}_snap &
+        PID_1=$!
+
+        $CLI_1 snapshot deactivate ${V1}_snap &
+        PID_2=$!
+
+        wait $PID_1 $PID_2
+}
+
 function delete_snapshots() {
         $CLI_1 snapshot delete ${V0}_snap &
         PID_1=$!
@@ -68,6 +88,20 @@ EXPECT 'Started' volinfo_field $V1 'Status';
 
 #Snapshot Operations
 create_snapshots
+
+EXPECT 'Started' snapshot_status ${V0}_snap;
+EXPECT 'Started' snapshot_status ${V1}_snap;
+
+deactivate_snapshots
+
+EXPECT 'Stopped' snapshot_status ${V0}_snap;
+EXPECT 'Stopped' snapshot_status ${V1}_snap;
+
+activate_snapshots
+
+EXPECT 'Started' snapshot_status ${V0}_snap;
+EXPECT 'Started' snapshot_status ${V1}_snap;
+
 TEST snapshot_exists 1 ${V0}_snap
 TEST snapshot_exists 1 ${V1}_snap
 TEST $CLI_1 snapshot config $V0 snap-max-hard-limit 100
