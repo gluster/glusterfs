@@ -1114,6 +1114,7 @@ glusterd_snap_create_pre_val_use_rsp_dict (dict_t *dst, dict_t *src)
         int64_t                brick_count           = 0;
         int64_t                brick_order           = 0;
         xlator_t              *this                  = NULL;
+        int32_t                brick_online          = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1192,6 +1193,23 @@ glusterd_snap_create_pre_val_use_rsp_dict (dict_t *dst, dict_t *src)
                                         "Failed to set %s", key);
                                 goto out;
                         }
+
+                        snprintf (key, sizeof (key),
+                                  "vol%ld.brick%ld.status", i+1, brick_order);
+                        ret = dict_get_int32 (src, key, &brick_online);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                        "get the brick status");
+                                goto out;
+                        }
+
+                        ret = dict_set_int32 (dst, key, brick_online);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                        "set the brick status");
+                                goto out;
+                        }
+                        brick_online = 0;
                 }
         }
 
@@ -1344,6 +1362,50 @@ glusterd_snap_pre_validate_use_rsp_dict (dict_t *dst, dict_t *src)
         ret = 0;
 out:
         gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_add_brick_status_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo,
+                                   glusterd_brickinfo_t *brickinfo,
+                                   char *key_prefix)
+{
+        char                   pidfile[PATH_MAX]         = {0, };
+        int32_t                brick_online              = 0;
+        pid_t                  pid                       = 0;
+        xlator_t              *this                      = NULL;
+        glusterd_conf_t       *conf                      = NULL;
+        int                    ret                       = -1;
+
+        GF_ASSERT (dict);
+        GF_ASSERT (volinfo);
+        GF_ASSERT (brickinfo);
+
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        if (!key_prefix) {
+                gf_log (this->name, GF_LOG_ERROR, "key prefix is NULL");
+                goto out;
+        }
+
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, conf);
+
+        brick_online = gf_is_service_running (pidfile, &pid);
+
+        ret = dict_set_int32 (dict, key_prefix, brick_online);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set %s", key_prefix);
+                goto out;
+        }
+        brick_online = 0;
+
+        ret = 0;
+
+out:
         return ret;
 }
 
@@ -1560,9 +1622,23 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                                 goto out;
                         }
 
+                        snprintf (key, sizeof (key), "vol%ld.brick%ld.status",
+                                  i, brick_order);
+
+                        ret = glusterd_add_brick_status_to_dict (rsp_dict,
+                                                                 volinfo,
+                                                                 brickinfo,
+                                                                 key);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                        "add brick status to dict");
+                                goto out;
+                        }
+
                         brick_count++;
                         brick_order++;
                 }
+
                 snprintf (key, sizeof(key) - 1, "vol%"PRId64"_brickcount", i);
                 ret = dict_set_int64 (rsp_dict, key, brick_count);
                 if (ret) {
@@ -2791,17 +2867,18 @@ int
 glusterd_handle_snapshot_create (rpcsvc_request_t *req, glusterd_op_t op,
                                dict_t *dict, char *err_str, size_t len)
 {
-        int           ret                     = -1;
-        char         *volname                 = NULL;
-        char         *snapname                = NULL;
-        int64_t       volcount                = 0;
-        xlator_t     *this                    = NULL;
-        char          key[PATH_MAX]           = "";
-        char         *username                = NULL;
-        char         *password                = NULL;
-        uuid_t       *uuid_ptr                = NULL;
-        uuid_t        tmp_uuid                = {0};
-        int           i                       = 0;
+        int           ret                              = -1;
+        char         *volname                          = NULL;
+        char         *snapname                         = NULL;
+        int64_t       volcount                         = 0;
+        xlator_t     *this                             = NULL;
+        char          key[PATH_MAX]                    = "";
+        char         *username                         = NULL;
+        char         *password                         = NULL;
+        uuid_t       *uuid_ptr                         = NULL;
+        uuid_t        tmp_uuid                         = {0};
+        int           i                                = 0;
+        char          snap_volname[GD_VOLUME_NAME_MAX] = {0, };
 
         this = THIS;
         GF_ASSERT (this);
@@ -2903,6 +2980,15 @@ glusterd_handle_snapshot_create (rpcsvc_request_t *req, glusterd_op_t op,
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to set snap_volid");
+                        GF_FREE (uuid_ptr);
+                        goto out;
+                }
+                GLUSTERD_GET_UUID_NOHYPHEN (snap_volname, *uuid_ptr);
+                snprintf (key, sizeof (key), "snap-volname%d", i);
+                ret = dict_set_dynstr_with_alloc (dict, key, snap_volname);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to set snap volname");
                         GF_FREE (uuid_ptr);
                         goto out;
                 }
@@ -3799,6 +3885,7 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
         int32_t                 brick_count                     = 0;
         glusterd_brickinfo_t   *snap_brickinfo                  = NULL;
         xlator_t               *this                            = NULL;
+        int64_t                 brick_order                     = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -3871,6 +3958,7 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
 
         /* Adding snap brickinfos to the snap volinfo */
         brick_count = 0;
+        brick_order = 0;
         list_for_each_entry (brickinfo, &origin_vol->bricks, brick_list) {
                 snap_brickinfo = NULL;
 
@@ -3898,27 +3986,74 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
                         goto out;
                 }
 
+                snprintf (key, sizeof(key) - 1,
+                          "snap-vol%"PRId64".brick%d.order", volcount,
+                          brick_count);
+                ret = dict_set_int64 (rsp_dict, key, brick_order);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set %s", key);
+                        goto out;
+                }
+
                 /* Take snapshot of the brick */
                 if ((uuid_compare (brickinfo->uuid, MY_UUID)) ||
                     (snap_brickinfo->snap_status == -1)) {
-                        brick_count++;
+                        if (!uuid_compare (brickinfo->uuid, MY_UUID)) {
+                                brick_count++;
+                                snprintf (key, sizeof (key), "snap-vol%"PRId64
+                                          ".brick%"PRId64".status", volcount,
+                                          brick_order);
+                                ret = dict_set_int32 (rsp_dict, key, 0);
+                                if (ret) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "failed to add %s to dict",
+                                                key);
+                                        goto out;
+                                }
+                        }
+                        brick_order++;
                         continue;
                 }
 
                 ret = glusterd_take_brick_snapshot (origin_vol, snap_vol,
                                                     rsp_dict, brickinfo,
                                                     snap_brick_dir,
-                                                    brick_count);
+                                                    brick_order);
+
+                snprintf (key, sizeof (key), "snap-vol%"PRId64
+                          ".brick%"PRId64".status", volcount, brick_order);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to take snapshot for %s:%s",
                                 brickinfo->hostname, brickinfo->path);
-                        goto out;
+                        ret = dict_set_int32 (rsp_dict, key, 0);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                        "add %s to dict", key);
+                                goto out;
+                        }
+                } else {
+                        ret = dict_set_int32 (rsp_dict, key, 1);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                        "add %s to dict", key);
+                                goto out;
+                        }
                 }
+
+                brick_order++;
                 brick_count++;
         }
 
-        /*TODO: the quorum check of the snap volume here */
+        snprintf (key, sizeof (key), "snap-vol%"PRId64"_brickcount",
+                  volcount);
+        ret = dict_set_int64 (rsp_dict, key, brick_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                        "add %s to dict", key);
+                goto out;
+        }
 
         ret = glusterd_store_volinfo (snap_vol,
                                       GLUSTERD_VOLINFO_VER_AC_INCREMENT);
@@ -4636,6 +4771,9 @@ glusterd_snapshot_create_commit (dict_t *dict, char **op_errstr,
         glusterd_volinfo_t      *origin_vol             = NULL;
         glusterd_volinfo_t      *snap_vol               = NULL;
         glusterd_conf_t *priv   = NULL;
+        int64_t                 brick_count             = 0;
+        int64_t                 brick_order             = 0;
+        glusterd_brickinfo_t    *brickinfo              = NULL;
 
         this = THIS;
         GF_ASSERT(this);
@@ -4709,6 +4847,12 @@ glusterd_snapshot_create_commit (dict_t *dict, char **op_errstr,
                                 "snapshot of the volume %s failed", volname);
                         goto out;
                 }
+        }
+
+        ret = dict_set_int64 (rsp_dict, "volcount", volcount);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set volcount");
+                goto out;
         }
 
         ret = 0;
