@@ -4115,7 +4115,7 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 break;
 
         case RPC_CLNT_DISCONNECT:
-                if (GF_BRICK_STARTED == brickinfo->status)
+                if (glusterd_is_brick_started (brickinfo))
                         gf_log (this->name, GF_LOG_INFO, "Disconnected from "
                                 "%s:%s", brickinfo->hostname, brickinfo->path);
 
@@ -4171,8 +4171,11 @@ __glusterd_nodesvc_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 break;
 
         case RPC_CLNT_DISCONNECT:
-                gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_DISCONNECT");
-                (void) glusterd_nodesvc_set_online_status (server, _gf_false);
+                if (glusterd_is_nodesvc_online (server)) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "got RPC_CLNT_DISCONNECT");
+                        (void) glusterd_nodesvc_set_online_status (server, _gf_false);
+                }
                 break;
 
         default:
