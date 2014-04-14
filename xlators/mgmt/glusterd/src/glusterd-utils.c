@@ -626,6 +626,7 @@ glusterd_brickinfo_dup (glusterd_brickinfo_t *brickinfo,
                         goto out;
                 }
         }
+        strcpy (dup_brickinfo->brick_id, brickinfo->brick_id);
         dup_brickinfo->status = brickinfo->status;
         dup_brickinfo->snap_status = brickinfo->snap_status;
 out:
@@ -677,11 +678,6 @@ glusterd_snap_volinfo_restore (dict_t *rsp_dict,
                                 "brickinfo");
                         goto out;
                 }
-
-                /*Update the brickid for the new brick in new volume*/
-                GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO (new_brickinfo,
-                                                      new_volinfo,
-                                                      brick_count);
 
                 /* If the brick is not of this peer, or snapshot is missed *
                  * for the brick do not replace the xattr for it */
