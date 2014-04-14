@@ -188,7 +188,7 @@ set).
 
     For example, to remove server2:/exp2:
 
-        # gluster volume remove-brick test-volume server2:/exp2
+        # gluster volume remove-brick test-volume server2:/exp2 force
 
         Removing brick(s) can result in data loss. Do you want to Continue? (y/n)
 
