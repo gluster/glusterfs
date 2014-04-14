@@ -2854,16 +2854,6 @@ glusterd_handle_snapshot_status (rpcsvc_request_t *req, glusterd_op_t op,
                 }
         }
 
-        /* Volume lock is not necessary for snapshot status, hence
-         * turning it off
-         */
-        ret = dict_set_int8 (dict, "hold_vol_locks", 0);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Setting volume lock "
-                        "flag failed");
-                goto out;
-        }
-
         ret = glusterd_mgmt_v3_initiate_snap_phases (req, op, dict);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to initiate "
@@ -3751,35 +3741,13 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
                 goto out;
         }
 
-        list_for_each_entry (brickinfo, &snap_vol->bricks, brick_list) {
-                if (uuid_compare (brickinfo->uuid, MY_UUID))
-                        continue;
+        /*Starting the snap volume without GF_CLI_FLAG_OP_FORCE option*/
+        ret = glusterd_start_volume (snap_vol, 0);
 
-                if (brickinfo->snap_status == -1) {
-                        gf_log (this->name, GF_LOG_INFO,
-                                "not starting snap brick %s:%s for "
-                                "for the snap %s (volume: %s)",
-                                brickinfo->hostname, brickinfo->path,
-                                snap->snapname, origin_vol->volname);
-                        continue;
-                }
-
-                ret = glusterd_brick_start (snap_vol, brickinfo, _gf_true);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_WARNING, "starting the "
-                                "brick %s:%s for the snap %s (volume: %s) "
-                                "failed", brickinfo->hostname, brickinfo->path,
-                                snap->snapname, origin_vol->volname);
-                        goto out;
-                }
-        }
-
-        snap_vol->status = GLUSTERD_STATUS_STARTED;
-        ret = glusterd_store_volinfo (snap_vol,
-                                      GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "Failed to store snap volinfo");
+                        "Failed to activate snap volume %s of the snap %s",
+                        snap_vol->volname, snap->snapname);
                 goto out;
         }
 
@@ -3792,6 +3760,105 @@ out:
         }
 
         return snap_vol;
+}
+
+/*This is the prevalidate function for both activate and deactive of snap
+ * For Activate operation pass is_op_activate as _gf_true
+ * For Deactivate operation pass is_op_activate as _gf_false
+ * */
+int
+glusterd_snapshot_activate_deactivate_prevalidate (dict_t *dict,
+                char **op_errstr, dict_t *rsp_dict, gf_boolean_t is_op_activate)
+{
+        int32_t                 ret                   = -1;
+        char                    *snapname             = NULL;
+        xlator_t                *this                 = NULL;
+        glusterd_snap_t         *snap                 = NULL;
+        glusterd_volinfo_t      *snap_volinfo         = NULL;
+        char                    err_str[PATH_MAX]     = "";
+        gf_loglevel_t           loglevel              = GF_LOG_ERROR;
+        glusterd_volume_status  volume_status         = GLUSTERD_STATUS_STOPPED;
+        int                     flags                 = 0;
+
+        this = THIS;
+
+        if (!dict || !op_errstr) {
+                gf_log (this->name, GF_LOG_ERROR, "input parameters NULL");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "snapname", &snapname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Getting the snap name "
+                        "failed");
+                goto out;
+        }
+
+        snap = glusterd_find_snap_by_name (snapname);
+        if (!snap) {
+                snprintf (err_str, sizeof (err_str), "Snap %s does not exist.",
+                        snapname);
+                ret = -1;
+                goto out;
+        }
+
+        /*If its activation of snap then fetch the flags*/
+        if (is_op_activate) {
+                ret = dict_get_int32 (dict, "flags", &flags);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to get flags");
+                        goto out;
+                }
+        }
+
+        /* TODO : As of now there is only volume in snapshot.
+        * Change this when multiple volume snapshot is introduced
+        */
+        snap_volinfo = list_entry (snap->volumes.next, glusterd_volinfo_t,
+                        vol_list);
+        if (!snap_volinfo) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to fetch snap_volinfo");
+                ret = -1;
+                goto out;
+        }
+
+        /*TODO: When multiple snapvolume are involved a cummulative
+         * logic is required to tell whether is snapshot is
+         * started/partially started/stopped*/
+        if (is_op_activate) {
+                volume_status = GLUSTERD_STATUS_STARTED;
+        }
+
+        if (snap_volinfo->status == volume_status) {
+                if (is_op_activate) {
+                        /* if flag is to GF_CLI_FLAG_OP_FORCE
+                         * try to start the snap volume, even
+                         * if the volume_status is GLUSTERD_STATUS_STARTED.
+                         * By doing so we try to bring
+                         * back the brick processes that are down*/
+                        if (!(flags & GF_CLI_FLAG_OP_FORCE)) {
+                                snprintf (err_str, sizeof (err_str),
+                                     "Snap %s is already activated.", snapname);
+                                ret = -1;
+                        }
+                } else {
+                        snprintf (err_str, sizeof (err_str),
+                                "Snap %s is already deactivated.", snapname);
+                        ret = -1;
+                }
+                goto out;
+        }
+        ret = 0;
+out:
+
+        if (ret && err_str[0] != '\0') {
+                gf_log (this->name, loglevel, "%s", err_str);
+                *op_errstr = gf_strdup (err_str);
+        }
+
+        return ret;
 }
 
 /* This is a snapshot remove handler function. This function will be
@@ -4004,6 +4071,134 @@ glusterd_snapshot_status_prevalidate (dict_t *dict, char **op_errstr,
         }
         ret = 0;
 
+out:
+        return ret;
+}
+
+int32_t
+glusterd_snapshot_activate_commit (dict_t *dict, char **op_errstr,
+                                 dict_t *rsp_dict)
+{
+        int32_t                   ret                  = -1;
+        char                     *snapname             = NULL;
+        glusterd_snap_t          *snap                 = NULL;
+        glusterd_volinfo_t       *snap_volinfo         = NULL;
+        xlator_t                 *this                 = NULL;
+        int                      flags                 = 0;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (dict);
+        GF_ASSERT (rsp_dict);
+        GF_ASSERT (op_errstr);
+
+        if (!dict || !op_errstr) {
+                gf_log (this->name, GF_LOG_ERROR, "input parameters NULL");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "snapname", &snapname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Getting the snap name "
+                        "failed");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "flags", &flags);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get flags");
+                goto out;
+        }
+
+        snap = glusterd_find_snap_by_name (snapname);
+        if (!snap) {
+                gf_log (this->name, GF_LOG_ERROR, "Snap %s does not exist",
+                        snapname);
+                ret = -1;
+                goto out;
+        }
+
+        /* TODO : As of now there is only volume in snapshot.
+        * Change this when multiple volume snapshot is introduced
+        */
+        snap_volinfo = list_entry (snap->volumes.next, glusterd_volinfo_t,
+                        vol_list);
+        if (!snap_volinfo) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to fetch snap_volinfo");
+                        ret = -1;
+                        goto out;
+        }
+
+        ret = glusterd_start_volume (snap_volinfo, flags);
+
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to activate snap volume %s of the snap %s",
+                        snap_volinfo->volname, snap->snapname);
+                goto out;
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
+int32_t
+glusterd_snapshot_deactivate_commit (dict_t *dict, char **op_errstr,
+                                 dict_t *rsp_dict)
+{
+        int32_t                   ret                  = -1;
+        char                     *snapname             = NULL;
+        glusterd_snap_t          *snap                 = NULL;
+        glusterd_volinfo_t       *snap_volinfo         = NULL;
+        xlator_t                 *this                 = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (dict);
+        GF_ASSERT (rsp_dict);
+        GF_ASSERT (op_errstr);
+
+        if (!dict || !op_errstr) {
+                gf_log (this->name, GF_LOG_ERROR, "input parameters NULL");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "snapname", &snapname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Getting the snap name "
+                        "failed");
+                goto out;
+        }
+
+        snap = glusterd_find_snap_by_name (snapname);
+        if (!snap) {
+                gf_log (this->name, GF_LOG_ERROR, "Snap %s does not exist",
+                        snapname);
+                ret = -1;
+                goto out;
+        }
+
+        /* TODO : As of now there is only volume in snapshot.
+        * Change this when multiple volume snapshot is introduced
+        */
+        snap_volinfo = list_entry (snap->volumes.next, glusterd_volinfo_t,
+                        vol_list);
+        if (!snap_volinfo) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to fetch snap_volinfo");
+                        ret = -1;
+                        goto out;
+        }
+
+        ret = glusterd_stop_volume (snap_volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to deactivate"
+                        "snap %s", snapname);
+                goto out;
+        }
+
+        ret = 0;
 out:
         return ret;
 }
@@ -5220,6 +5415,27 @@ glusterd_snapshot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 }
 
                 break;
+        case  GF_SNAP_OPTION_TYPE_ACTIVATE:
+                ret = glusterd_snapshot_activate_commit (dict, op_errstr,
+                                                 rsp_dict);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING, "Failed to "
+                                "activate snapshot");
+                        goto out;
+                }
+
+                break;
+
+        case GF_SNAP_OPTION_TYPE_DEACTIVATE:
+                ret = glusterd_snapshot_deactivate_commit (dict, op_errstr,
+                                                 rsp_dict);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING, "Failed to "
+                                "deactivate snapshot");
+                        goto out;
+                }
+
+                break;
 
         case GF_SNAP_OPTION_TYPE_STATUS:
                 ret = glusterd_snapshot_status_commit (dict, op_errstr,
@@ -5395,6 +5611,25 @@ glusterd_snapshot_prevalidate (dict_t *dict, char **op_errstr,
                         goto out;
                 }
                 break;
+
+        case  GF_SNAP_OPTION_TYPE_ACTIVATE:
+                ret = glusterd_snapshot_activate_deactivate_prevalidate (dict,
+                                                op_errstr, rsp_dict, _gf_true);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING, "Snapshot activate "
+                                        "validation failed");
+                        goto out;
+                }
+                break;
+        case GF_SNAP_OPTION_TYPE_DEACTIVATE:
+                ret = glusterd_snapshot_activate_deactivate_prevalidate (dict,
+                                                op_errstr, rsp_dict, _gf_false);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                        "Snapshot deactivate validation failed");
+                        goto out;
+                }
+                break;
         case GF_SNAP_OPTION_TYPE_DELETE:
                 ret = glusterd_snapshot_remove_prevalidate (dict, op_errstr,
                                                             rsp_dict);
@@ -5457,7 +5692,6 @@ glusterd_snapshot_postvalidate (dict_t *dict, int32_t op_ret, char **op_errstr,
                         goto out;
                 }
                 break;
-
         case GF_SNAP_OPTION_TYPE_DELETE:
         case GF_SNAP_OPTION_TYPE_RESTORE:
                 ret = glusterd_snapshot_update_snaps_post_validate (dict,
@@ -5469,7 +5703,12 @@ glusterd_snapshot_postvalidate (dict_t *dict, int32_t op_ret, char **op_errstr,
                         goto out;
                 }
                 break;
-
+        case GF_SNAP_OPTION_TYPE_ACTIVATE:
+        case GF_SNAP_OPTION_TYPE_DEACTIVATE:
+                 /*Nothing to be done. But want to
+                 * avoid the default case warning*/
+                ret = 0;
+                break;
         default:
                 gf_log (this->name, GF_LOG_WARNING, "invalid snap command");
                 goto out;
@@ -5603,8 +5842,22 @@ glusterd_handle_snapshot_fn (rpcsvc_request_t *req)
                                 "failed: %s", err_str);
                 }
                 break;
-        case GF_SNAP_OPTION_TYPE_START:
-        case GF_SNAP_OPTION_TYPE_STOP:
+        case  GF_SNAP_OPTION_TYPE_ACTIVATE:
+                ret = glusterd_mgmt_v3_initiate_snap_phases (req, cli_op,
+                                                             dict);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Snapshot activate failed: %s", err_str);
+                }
+                break;
+        case GF_SNAP_OPTION_TYPE_DEACTIVATE:
+                ret = glusterd_mgmt_v3_initiate_snap_phases (req, cli_op,
+                                                             dict);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Snapshot deactivate failed: %s", err_str);
+                }
+                break;
         case GF_SNAP_OPTION_TYPE_STATUS:
                 ret = glusterd_handle_snapshot_status (req, cli_op, dict,
                                                        err_str,

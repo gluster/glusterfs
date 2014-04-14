@@ -1737,13 +1737,58 @@ out:
 }
 
 int
+glusterd_start_volume (glusterd_volinfo_t *volinfo, int flags)
+
+{
+        int                             ret             = 0;
+        glusterd_brickinfo_t           *brickinfo       = NULL;
+        xlator_t                       *this            = NULL;
+        glusterd_volinfo_ver_ac_t       verincrement    = 0;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (volinfo);
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                ret = glusterd_brick_start (volinfo, brickinfo, _gf_true);
+                /* If 'force' try to start all bricks regardless of success or
+                 * failure
+                 */
+                if (!(flags & GF_CLI_FLAG_OP_FORCE) && ret)
+                        goto out;
+        }
+
+        /* Increment the volinfo version only if there is a
+         * change in status. Force option can be used to start
+         * dead bricks even if the volume is in started state.
+         * In such case volume status will be GLUSTERD_STATUS_STARTED.
+         * Therefore we should not increment the volinfo version.*/
+        if (GLUSTERD_STATUS_STARTED != volinfo->status) {
+                verincrement = GLUSTERD_VOLINFO_VER_AC_INCREMENT;
+        } else {
+                verincrement = GLUSTERD_VOLINFO_VER_AC_NONE;
+        }
+
+        glusterd_set_volume_status (volinfo, GLUSTERD_STATUS_STARTED);
+
+        ret = glusterd_store_volinfo (volinfo, verincrement);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to store volinfo of "
+                        "%s volume", volinfo->volname);
+                goto out;
+        }
+out:
+        gf_log (this->name, GF_LOG_TRACE, "returning %d ", ret);
+        return ret;
+}
+
+int
 glusterd_op_start_volume (dict_t *dict, char **op_errstr)
 {
         int                                     ret = 0;
         char                                    *volname = NULL;
         int                                     flags = 0;
         glusterd_volinfo_t                      *volinfo = NULL;
-        glusterd_brickinfo_t                    *brickinfo = NULL;
         xlator_t                                *this = NULL;
 
         this = THIS;
@@ -1760,25 +1805,15 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                ret = glusterd_brick_start (volinfo, brickinfo, _gf_true);
-                /* If 'force' try to start all bricks regardless of success or
-                 * failure
-                 */
-                if (!(flags & GF_CLI_FLAG_OP_FORCE) && ret)
-                        goto out;
-        }
+        ret = glusterd_start_volume (volinfo, flags);
 
-        glusterd_set_volume_status (volinfo, GLUSTERD_STATUS_STARTED);
-
-        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret)
                 goto out;
 
         ret = glusterd_nodesvcs_handle_graph_change (volinfo);
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "returning %d ", ret);
+        gf_log (this->name, GF_LOG_TRACE, "returning %d ", ret);
         return ret;
 }
 

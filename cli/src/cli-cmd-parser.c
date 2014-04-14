@@ -3297,6 +3297,102 @@ out:
         return ret;
 }
 
+/* snapshot activate <snapname> [force]
+ * @arg-0, dict     : Request Dictionary to be sent to server side.
+ * @arg-1, words    : Contains individual words of CLI command.
+ * @arg-2, wordcount: Contains number of words present in the CLI command.
+ *
+ * return value : -1 on failure
+ *                 0 on success
+ */
+int
+cli_snap_activate_parse (dict_t *dict, const char **words, int wordcount)
+{
+
+        int ret = -1;
+        int flags = 0;
+
+        GF_ASSERT (words);
+        GF_ASSERT (dict);
+
+        if ((wordcount < 3) || (wordcount > 4)) {
+                gf_log ("cli", GF_LOG_ERROR, "Invalid Syntax");
+                goto out;
+        }
+
+        ret = dict_set_str (dict, "snapname", (char *)words[2]);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to save snap-name %s",
+                        words[2]);
+                goto out;
+        }
+
+        if (wordcount == 4) {
+                if (!strcmp("force", (char *)words[3])) {
+                        flags = GF_CLI_FLAG_OP_FORCE;
+                } else {
+                        gf_log ("cli", GF_LOG_ERROR, "Invalid option");
+                        ret = -1;
+                        goto out;
+                }
+        }
+        ret = dict_set_int32 (dict, "flags", flags);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to save force option");
+                goto out;
+        }
+out:
+        return ret;
+}
+
+/* snapshot deactivate <snapname>
+ * @arg-0, dict     : Request Dictionary to be sent to server side.
+ * @arg-1, words    : Contains individual words of CLI command.
+ * @arg-2, wordcount: Contains number of words present in the CLI command.
+ *
+ * return value : -1 on failure
+ *                 0 on success
+ *                 1 if user cancelled the request
+ */
+int
+cli_snap_deactivate_parse (dict_t *dict, const char **words, int wordcount,
+                        struct cli_state *state)
+{
+
+        int             ret             = -1;
+        gf_answer_t     answer          = GF_ANSWER_NO;
+        const char     *question        = "Deactivating snap will make its "
+                                          "data inaccessible. Do you want to "
+                                          "continue?";
+
+
+        GF_ASSERT (words);
+        GF_ASSERT (dict);
+
+        if ((wordcount != 3)) {
+                gf_log ("cli", GF_LOG_ERROR, "Invalid Syntax");
+                goto out;
+        }
+
+        ret = dict_set_str (dict, "snapname", (char *)words[2]);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to save snap-name %s",
+                        words[2]);
+                goto out;
+        }
+
+        answer = cli_cmd_get_confirmation (state, question);
+        if (GF_ANSWER_NO == answer) {
+                ret = 1;
+                gf_log ("cli", GF_LOG_DEBUG, "User cancelled "
+                        "snapshot deactivate operation");
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
 /* snapshot delete <snapname>
  * @arg-0, dict     : Request Dictionary to be sent to server side.
  * @arg-1, words    : Contains individual words of CLI command.
@@ -3648,9 +3744,9 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
         dict_t             *dict      = NULL;
         gf1_cli_snapshot   type       = GF_SNAP_OPTION_TYPE_NONE;
         char               *w         = NULL;
-        char               *opwords[] = {"create", "delete", "restore", "start",
-                                         "stop", "list", "status", "config",
-                                         "info", NULL};
+        char               *opwords[] = {"create", "delete", "restore",
+                                        "activate", "deactivate", "list",
+                                        "status", "config", "info", NULL};
         char               *invalid_snapnames[] = {"description", "force",
                                                   "volume", NULL};
 
@@ -3690,14 +3786,29 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
                 type = GF_SNAP_OPTION_TYPE_RESTORE;
         } else if (!strcmp (w, "status")) {
                 type = GF_SNAP_OPTION_TYPE_STATUS;
+        } else if (!strcmp (w, "activate")) {
+                type = GF_SNAP_OPTION_TYPE_ACTIVATE;
+        } else if (!strcmp (w, "deactivate")) {
+                type = GF_SNAP_OPTION_TYPE_DEACTIVATE;
         }
-
         if (type != GF_SNAP_OPTION_TYPE_CONFIG) {
                 ret = dict_set_int32 (dict, "hold_snap_locks", _gf_true);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR,
                                 "Unable to set hold-snap-locks value "
                                 "as _gf_true");
+                        goto out;
+                }
+        }
+
+        /* Following commands does not require volume locks  */
+        if (type == GF_SNAP_OPTION_TYPE_STATUS ||
+            type == GF_SNAP_OPTION_TYPE_ACTIVATE ||
+            type == GF_SNAP_OPTION_TYPE_DEACTIVATE) {
+                ret = dict_set_int32 (dict, "hold_vol_locks", _gf_false);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Setting volume lock "
+                                "flag failed");
                         goto out;
                 }
         }
@@ -3764,8 +3875,12 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
                  */
                 ret = cli_snap_delete_parse (dict, words, wordcount, state);
                 if (ret) {
-                        gf_log ("cli", GF_LOG_ERROR, "Failed to parse "
-                                "snapshot delete command");
+                        /* A positive ret value means user cancelled
+                        * the command */
+                        if (ret < 0) {
+                                gf_log ("cli", GF_LOG_ERROR, "Failed to parse "
+                                        "snapshot delete command");
+                        }
                         goto out;
                 }
                 break;
@@ -3816,7 +3931,34 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
                         goto out;
                 }
                 break;
-
+                case GF_SNAP_OPTION_TYPE_ACTIVATE:
+                        /* Syntax:
+                        * snapshot activate <snapname> [force]
+                        */
+                        ret = cli_snap_activate_parse (dict, words, wordcount);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR, "Failed to parse "
+                                        "start command");
+                                goto out;
+                        }
+                        break;
+                case GF_SNAP_OPTION_TYPE_DEACTIVATE:
+                        /* Syntax:
+                        * snapshot deactivate <snapname>
+                        */
+                        ret = cli_snap_deactivate_parse (dict, words, wordcount,
+                                state);
+                        if (ret) {
+                                /* A positive ret value means user cancelled
+                                 * the command */
+                                if (ret < 0) {
+                                        gf_log ("cli", GF_LOG_ERROR,
+                                                "Failed to parse deactivate "
+                                                "command");
+                                }
+                                goto out;
+                        }
+                        break;
         default:
                 gf_log ("", GF_LOG_ERROR, "Opword Mismatch");
                 goto out;

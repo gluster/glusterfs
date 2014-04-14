@@ -941,6 +941,7 @@ int glusterd_op_statedump_volume_args_get (dict_t *dict, char **volname,
 int glusterd_op_gsync_args_get (dict_t *dict, char **op_errstr,
                                 char **master, char **slave, char **host_uuid);
 
+int glusterd_start_volume (glusterd_volinfo_t *volinfo, int flags);
 int glusterd_stop_volume (glusterd_volinfo_t *volinfo);
 
 /* Synctask part */

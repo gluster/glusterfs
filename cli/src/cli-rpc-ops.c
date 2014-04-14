@@ -8544,7 +8544,55 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
 
                 ret = 0;
                 break;
+        case GF_SNAP_OPTION_TYPE_ACTIVATE:
+                /* TODO: Check if rsp.op_ret needs to be checked here. Or is
+                 * it ok to check this in the start of the function where we
+                 * get rsp.*/
+                if (rsp.op_ret) {
+                        cli_err("snapshot activate: failed: %s",
+                                 rsp.op_errstr ? rsp.op_errstr :
+                                 "Please check log file for details");
+                                 ret = rsp.op_ret;
+                                 goto out;
+                }
 
+                ret = dict_get_str (dict, "snapname", &snap_name);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Failed to get snap name");
+                        goto out;
+                }
+
+                cli_out ("Snapshot activate: %s: Snap activated "
+                                 "successfully", snap_name);
+
+                ret = 0;
+                break;
+
+        case GF_SNAP_OPTION_TYPE_DEACTIVATE:
+                /* TODO: Check if rsp.op_ret needs to be checked here. Or is
+                 * it ok to check this in the start of the function where we
+                 * get rsp.*/
+                if (rsp.op_ret) {
+                        cli_err("snapshot deactivate: failed: %s",
+                                 rsp.op_errstr ? rsp.op_errstr :
+                                 "Please check log file for details");
+                                 ret = rsp.op_ret;
+                                 goto out;
+                }
+
+                ret = dict_get_str (dict, "snapname", &snap_name);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Failed to get snap name");
+                        goto out;
+                }
+
+                cli_out ("Snapshot deactivate: %s: Snap deactivated "
+                                 "successfully", snap_name);
+
+                ret = 0;
+                break;
         case GF_SNAP_OPTION_TYPE_INFO:
                 if (rsp.op_ret) {
                         cli_err ("Snapshot info : failed: %s",
