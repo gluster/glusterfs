@@ -619,9 +619,9 @@ EOF
 
     # Simple check to avoid multiple identical mounts
     if grep -q "[[:space:]+]${mount_point}[[:space:]+]fuse" $mounttab; then
-        warn -n "$0: according to mtab, GlusterFS is already mounted on "
-        warn "$mount_point"
-        exit 1;
+        warn "$0: according to mtab, GlusterFS is already mounted on" \
+             "$mount_point"
+        exit 32;
     fi
 
     check_recursive_mount "$mount_point";
