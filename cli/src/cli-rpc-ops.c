@@ -1510,11 +1510,11 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 } else {
                         if (!rsp.op_ret) {
                                 snprintf (msg, sizeof (msg),
-                                          "Initiated rebalance on volume %s."
-                                          "\nExecute \"gluster volume rebalance"
-                                          " <volume-name> status\" to check"
-                                          " status.\nID: %s", volname,
-                                          task_id_str);
+                                          "Rebalance on %s has been started "
+                                          "successfully. Use rebalance status "
+                                          "command to check status of the "
+                                          "rebalance process.\nID: %s",
+                                          volname, task_id_str);
                         } else {
                                 snprintf (msg, sizeof (msg),
                                           "Starting rebalance on volume %s has "

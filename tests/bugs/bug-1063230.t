@@ -18,9 +18,9 @@ var=`gluster volume rebalance $V0 start force`
 
 EXPECT "0" echo $?
 
-var1="Initiated rebalance on volume $V0. Execute \"gluster\
- volume rebalance <volume-name> status\" to check status"
-
+var1="volume rebalance: $V0: success: Rebalance on $V0 has \
+been started successfully. Use rebalance status command to \
+check status of the rebalance process."
 
 echo $var | grep "$var1"
 
