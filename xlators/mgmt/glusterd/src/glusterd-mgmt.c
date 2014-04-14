@@ -1840,6 +1840,13 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
                 goto out;
         }
 
+        /* quorum check of the volume is done here */
+        ret = glusterd_snap_quorum_check (req_dict, _gf_false, &op_errstr);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING, "quorum check failed");
+                goto out;
+        }
+
         /* Set the operation type as pre, so that differentiation can be
          * made whether the brickop is sent during pre-commit or post-commit
          */
@@ -1912,6 +1919,13 @@ unbarrier:
 
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Brick Ops Failed");
+                goto out;
+        }
+
+        // quorum check of the snapshot volume
+        ret = glusterd_snap_quorum_check (dict, _gf_true, &op_errstr);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING, "quorum check failed");
                 goto out;
         }
 

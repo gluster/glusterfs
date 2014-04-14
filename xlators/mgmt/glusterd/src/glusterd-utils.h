@@ -796,4 +796,24 @@ glusterd_take_lvm_snapshot (glusterd_volinfo_t *snap_vol,
 int32_t
 glusterd_snap_brick_create (char *device, glusterd_volinfo_t *snap_volinfo,
                             int32_t brick_count, char *snap_brick_dir);
+
+int32_t
+glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
+                            char **op_errstr);
+
+int32_t
+glusterd_volume_quorum_check (glusterd_volinfo_t *volinfo, int64_t index,
+                              dict_t *dict, char *key_prefix,
+                              int8_t snap_force, int32_t quorum_count,
+                              char *quorum_type, char **op_errstr);
+
+gf_boolean_t
+glusterd_volume_quorum_calculate (glusterd_volinfo_t *volinfo, dict_t *dict,
+                                  int down_count, gf_boolean_t first_brick_on,
+                                  int8_t snap_force, int32_t quorum_count,
+                                  char *quorum_type, char **op_errstr);
+
+int
+glusterd_merge_brick_status (dict_t *dst, dict_t *src);
+
 #endif
