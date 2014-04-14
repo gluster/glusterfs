@@ -2973,6 +2973,9 @@ glusterd_add_bricks_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
         strcpy (snap_brickinfo->hostname, original_brickinfo->hostname);
         strcpy (snap_brickinfo->path, snap_brick_path);
         uuid_copy (snap_brickinfo->uuid, original_brickinfo->uuid);
+        /* AFR changelog names are based on brick_id and hence the snap
+         * volume's bricks must retain the same ID */
+        strcpy (snap_brickinfo->brick_id, original_brickinfo->brick_id);
         list_add_tail (&snap_brickinfo->brick_list, &snap_vol->bricks);
 
 out:
@@ -3200,10 +3203,6 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
                         GF_FREE (snap_brickinfo);
                         goto out;
                 }
-
-                /*Update the brickid for the new brick in new volume*/
-                GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO (snap_brickinfo, snap_vol,
-                                                      brick_count);
 
                 /* Take snapshot of the brick */
                 if ((uuid_compare (brickinfo->uuid, MY_UUID)) ||
