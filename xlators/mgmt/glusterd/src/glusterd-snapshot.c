@@ -4589,14 +4589,6 @@ glusterd_snapshot_create_commit (dict_t *dict, char **op_errstr,
                 }
         }
 
-        snap->snap_status = GD_SNAP_STATUS_IN_USE;
-        ret = glusterd_store_snap (snap);
-        if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "Could not store snap"
-                        "object %s", snap->snapname);
-                goto out;
-        }
-
         ret = 0;
 
 out:
@@ -5425,6 +5417,9 @@ glusterd_snapshot_create_postvalidate (dict_t *dict, int32_t op_ret,
         xlator_t        *this           = NULL;
         glusterd_conf_t *priv           = NULL;
         int              ret            = -1;
+        int32_t          cleanup        = 0;
+        glusterd_snap_t *snap           = NULL;
+        char            *snapname       = NULL;
 
         this = THIS;
 
@@ -5436,21 +5431,47 @@ glusterd_snapshot_create_postvalidate (dict_t *dict, int32_t op_ret,
         GF_ASSERT (priv);
 
         if (op_ret) {
-                ret = glusterd_do_snap_cleanup (dict, op_errstr, rsp_dict);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_WARNING, "cleanup operation "
-                                "failed");
-                        goto out;
+                ret = dict_get_int32 (dict, "cleanup", &cleanup);
+                if (!ret && cleanup) {
+                        ret = glusterd_do_snap_cleanup (dict, op_errstr,
+                                                        rsp_dict);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_WARNING, "cleanup "
+                                        "operation failed");
+                                goto out;
+                        }
                 }
-        } else {
-                ret = glusterd_snapshot_update_snaps_post_validate (dict,
-                                                                    op_errstr,
-                                                                    rsp_dict);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
-                                "create snapshot");
-                        goto out;
-                }
+        }
+
+        ret = dict_get_str (dict, "snapname", &snapname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to fetch "
+                        "snapname");
+                goto out;
+        }
+
+        snap = glusterd_find_snap_by_name (snapname);
+        if (!snap) {
+                gf_log (this->name, GF_LOG_ERROR, "unable to find snap "
+                        "%s", snapname);
+                goto out;
+        }
+
+        snap->snap_status = GD_SNAP_STATUS_IN_USE;
+        ret = glusterd_store_snap (snap);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING, "Could not store snap"
+                        "object %s", snap->snapname);
+                goto out;
+        }
+
+        ret = glusterd_snapshot_update_snaps_post_validate (dict,
+                                                            op_errstr,
+                                                            rsp_dict);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                        "create snapshot");
+                goto out;
         }
 
         ret = 0;
