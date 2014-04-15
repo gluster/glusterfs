@@ -1411,19 +1411,90 @@ afr_detect_self_heal_by_lookup_status (afr_local_t *local, xlator_t *this)
 }
 
 gf_boolean_t
-afr_can_self_heal_proceed (afr_self_heal_t *sh, afr_private_t *priv)
+afr_can_start_missing_entry_gfid_self_heal (afr_local_t *local,
+                                            afr_private_t *priv)
 {
-        GF_ASSERT (sh);
-        GF_ASSERT (priv);
-
-        if (sh->force_confirm_spb)
+        if (!local)
+                goto out;
+        //attempt self heal is only for data/metadata/entry
+        if (local->self_heal.do_gfid_self_heal ||
+            local->self_heal.do_missing_entry_self_heal)
                 return _gf_true;
-        return (sh->do_gfid_self_heal
-                || sh->do_missing_entry_self_heal
-                || (afr_data_self_heal_enabled (priv->data_self_heal) &&
-                    sh->do_data_self_heal)
-                || (priv->metadata_self_heal && sh->do_metadata_self_heal)
-                || (priv->entry_self_heal && sh->do_entry_self_heal));
+out:
+        return _gf_false;
+}
+
+gf_boolean_t
+afr_can_start_entry_self_heal (afr_local_t *local, afr_private_t *priv)
+{
+        if (!local)
+                goto out;
+        //force_confirm_spb is not checked here because directory split-brains
+        //are not reported at the moment.
+        if (local->self_heal.do_entry_self_heal) {
+                if (local->attempt_self_heal || priv->entry_self_heal)
+                        return _gf_true;
+        }
+out:
+        return _gf_false;
+}
+
+gf_boolean_t
+afr_can_start_data_self_heal (afr_local_t *local, afr_private_t *priv)
+{
+        if (!local)
+                goto out;
+
+        if (local->self_heal.force_confirm_spb)
+                return _gf_true;
+
+        if (local->self_heal.do_data_self_heal) {
+                if (local->attempt_self_heal ||
+                    afr_data_self_heal_enabled (priv->data_self_heal))
+                        return _gf_true;
+        }
+out:
+        return _gf_false;
+}
+
+gf_boolean_t
+afr_can_start_metadata_self_heal (afr_local_t *local, afr_private_t *priv)
+{
+        if (!local)
+                goto out;
+        if (local->self_heal.force_confirm_spb)
+                return _gf_true;
+
+        if (local->self_heal.do_metadata_self_heal) {
+                if (local->attempt_self_heal || priv->metadata_self_heal)
+                        return _gf_true;
+        }
+out:
+        return _gf_false;
+}
+
+gf_boolean_t
+afr_can_self_heal_proceed (afr_local_t *local, afr_private_t *priv)
+{
+        if (!local)
+                goto out;
+
+        if (local->self_heal.force_confirm_spb)
+                return _gf_true;
+
+        if (afr_can_start_missing_entry_gfid_self_heal (local, priv))
+                return _gf_true;
+
+        if (afr_can_start_entry_self_heal (local, priv))
+                return _gf_true;
+
+        if (afr_can_start_data_self_heal (local, priv))
+                return _gf_true;
+
+        if (afr_can_start_metadata_self_heal (local, priv))
+                return _gf_true;
+out:
+        return _gf_false;
 }
 
 afr_transaction_type
@@ -1840,7 +1911,7 @@ afr_lookup_perform_self_heal (call_frame_t *frame, xlator_t *this,
         }
 
         afr_lookup_set_self_heal_params (local, this);
-        if (afr_can_self_heal_proceed (&local->self_heal, priv)) {
+        if (afr_can_self_heal_proceed (local, priv)) {
                 if  (afr_is_transaction_running (local) &&
                      (!local->attempt_self_heal))
                         goto out;

@@ -2307,6 +2307,7 @@ afr_self_heal_local_init (afr_local_t *l, xlator_t *this)
                                 this->name, priv->child_count);
         if (ret)
                 goto out;
+        lc->attempt_self_heal = l->attempt_self_heal;
 
 out:
         if (ret) {
@@ -2474,7 +2475,7 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
         sh->sh_type_in_action = AFR_SELF_HEAL_INVALID;
 
         FRAME_SU_DO (sh_frame, afr_local_t);
-        if (sh->do_missing_entry_self_heal || sh->do_gfid_self_heal) {
+        if (afr_can_start_missing_entry_gfid_self_heal (local, priv)) {
                 afr_self_heal_missing_entries (sh_frame, this);
         } else {
                 loc = &sh_local->loc;

@@ -688,8 +688,10 @@ afr_sh_metadata_post_nonblocking_inodelk_cbk (call_frame_t *frame,
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
+        afr_self_heal_t     *sh       = NULL;
 
         local    = frame->local;
+        sh       = &local->self_heal;
         int_lock = &local->internal_lock;
 
         if (int_lock->lock_op_ret < 0) {
@@ -697,6 +699,7 @@ afr_sh_metadata_post_nonblocking_inodelk_cbk (call_frame_t *frame,
                         "inodelks failed for %s.", local->loc.path);
                 gf_log (this->name, GF_LOG_DEBUG, "Metadata self-heal "
                         "failed for %s.", local->loc.path);
+                afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
                 afr_sh_metadata_done (frame, this);
         } else {
 
@@ -740,16 +743,6 @@ afr_sh_metadata_lock (call_frame_t *frame, xlator_t *this)
         return 0;
 }
 
-gf_boolean_t
-afr_can_start_metadata_self_heal (afr_self_heal_t *sh, afr_private_t *priv)
-{
-        if (sh->force_confirm_spb)
-                return _gf_true;
-        if (sh->do_metadata_self_heal && priv->metadata_self_heal)
-                return _gf_true;
-        return _gf_false;
-}
-
 int
 afr_self_heal_metadata (call_frame_t *frame, xlator_t *this)
 {
@@ -761,7 +754,7 @@ afr_self_heal_metadata (call_frame_t *frame, xlator_t *this)
         sh = &local->self_heal;
         sh->sh_type_in_action = AFR_SELF_HEAL_METADATA;
 
-        if (afr_can_start_metadata_self_heal (sh, priv)) {
+        if (afr_can_start_metadata_self_heal (local, priv)) {
                 afr_set_self_heal_status (sh, AFR_SELF_HEAL_STARTED);
                 afr_sh_metadata_lock (frame, this);
         } else {

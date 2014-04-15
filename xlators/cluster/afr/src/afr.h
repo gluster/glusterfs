@@ -1216,4 +1216,16 @@ afr_handle_open_fd_count (call_frame_t *frame, xlator_t *this);
 afr_inode_ctx_t*
 afr_inode_ctx_get (inode_t *inode, xlator_t *this);
 
+gf_boolean_t
+afr_can_start_missing_entry_gfid_self_heal (afr_local_t *local,
+                                            afr_private_t *priv);
+
+gf_boolean_t
+afr_can_start_entry_self_heal (afr_local_t *local, afr_private_t *priv);
+
+gf_boolean_t
+afr_can_start_data_self_heal (afr_local_t *local, afr_private_t *priv);
+
+gf_boolean_t
+afr_can_start_metadata_self_heal (afr_local_t *local, afr_private_t *priv);
 #endif /* __AFR_H__ */

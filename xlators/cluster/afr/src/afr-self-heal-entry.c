@@ -2396,7 +2396,7 @@ afr_self_heal_entry (call_frame_t *frame, xlator_t *this)
 
         sh->sh_type_in_action = AFR_SELF_HEAL_ENTRY;
 
-        if (local->self_heal.do_entry_self_heal && priv->entry_self_heal) {
+        if (afr_can_start_entry_self_heal (local, priv)) {
                 afr_set_self_heal_status (sh, AFR_SELF_HEAL_STARTED);
                 afr_sh_entrylk (frame, this, &local->loc, NULL,
                                 afr_sh_post_nonblocking_entry_cbk);

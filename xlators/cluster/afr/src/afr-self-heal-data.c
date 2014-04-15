@@ -1704,17 +1704,6 @@ afr_sh_non_reg_lock_success (call_frame_t *frame, xlator_t *this)
         return 0;
 }
 
-gf_boolean_t
-afr_can_start_data_self_heal (afr_self_heal_t *sh, afr_private_t *priv)
-{
-        if (sh->force_confirm_spb)
-                return _gf_true;
-        if (sh->do_data_self_heal &&
-            afr_data_self_heal_enabled (priv->data_self_heal))
-                return _gf_true;
-        return _gf_false;
-}
-
 int
 afr_self_heal_data (call_frame_t *frame, xlator_t *this)
 {
@@ -1728,7 +1717,7 @@ afr_self_heal_data (call_frame_t *frame, xlator_t *this)
 
         sh->sh_type_in_action = AFR_SELF_HEAL_DATA;
 
-        if (afr_can_start_data_self_heal (sh, priv)) {
+        if (afr_can_start_data_self_heal (local, priv)) {
                 afr_set_self_heal_status (sh, AFR_SELF_HEAL_STARTED);
                 ret = afr_inodelk_init (&local->internal_lock.inodelk[1],
                                         priv->sh_domain, priv->child_count);
