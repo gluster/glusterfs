@@ -1875,6 +1875,12 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
            above and along with it the originator glusterd also goes down?
            Who will initiate the cleanup?
         */
+        ret = dict_set_int32 (req_dict, "cleanup", 1);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to set dict");
+                goto unbarrier;
+        }
+
         ret = glusterd_mgmt_v3_commit (conf, op, dict, req_dict,
                                        &op_errstr, npeers);
         if (ret) {

@@ -3987,11 +3987,19 @@ glusterd_restore ()
         if (ret)
                 goto out;
 
-        ret = glusterd_store_retrieve_snaps (this);
+        ret = glusterd_store_retrieve_peers (this);
         if (ret)
                 goto out;
 
-        ret = glusterd_store_retrieve_peers (this);
+        /* While retrieving snapshots, if the snapshot status
+           is not GD_SNAP_STATUS_IN_USE, then the snapshot is
+           cleaned up. To do that, the snap volume has to be
+           stopped by stopping snapshot volume's bricks. And for
+           that the snapshot bricks should be resolved. But without
+           retrieving the peers, resolving bricks will fail. So
+           do retrieving of snapshots after retrieving peers.
+        */
+        ret = glusterd_store_retrieve_snaps (this);
         if (ret)
                 goto out;
 
