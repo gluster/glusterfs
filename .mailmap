@@ -1,5 +1,7 @@
 # .mailmap, see 'git short-log --help' for details
 #
+# This file needs to match extras/who-wrote-glusterfs/gitdm.aliases.
+#
 # Listing of contributors that filed patches with different email addresses.
 # Format: <name> <main-email> <alias> [<alias> ...]
 #
@@ -9,6 +11,7 @@ Anand Avati <avati@redhat.com> <avati@gluster.com> <avati@dev.gluster.com> <avat
 Anush Shetty <ashetty@redhat.com> <anush@gluster.com>
 Csaba Henk <csaba@redhat.com> <csaba@gluster.com> <csaba@lowlife.hu> <csaba@zresearch.com>
 Harshavardhana <fharshav@redhat.com> <harsha@gluster.com> <harsha@zresearch.com> <harsha@dev.gluster.com> <harsha@harshavardhana.net>
+Justin Clift <justin@gluster.org> <jclift@redhat.com>
 Kaleb S. KEITHLEY <kkeithle@redhat.com> <kkeithle@f16node1.kkeithle.usersys.redhat.com>
 Kaushal M <kaushal@redhat.com> <kaushal@gluster.com>
 Kaushik BV <kbudiger@redhat.com> <kaushikbv@gluster.com>
@@ -19,6 +22,7 @@ M S Vishwanath Bhat <vbhat@redhat.com> <msvbhat@gmail.com> <vishwanath@gluster.c
 Pavan Sondur <pavan@gluster.com> <pavan@dev.gluster.com>
 Pete Zaitcev <zaitcev@kotori.zaitcev.us> <zaitcev@yahoo.com>
 Pranith Kumar K <pkarampu@redhat.com> <pranithk@gluster.com>
+Prashanth Pai <ppai@redhat.com> <nullpai@gmail.com>
 Raghavendra Bhat <raghavendra@redhat.com> <raghavendrabhat@gluster.com>
 Raghavendra G <rgowdapp@redhat.com> <raghavendra@gluster.com> <raghavendra@zresearch.com>
 Rahul C S <rahulcs@redhat.com> <rahulcssjce@gmail.com>
