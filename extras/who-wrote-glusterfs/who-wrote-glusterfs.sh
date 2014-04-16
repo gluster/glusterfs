@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Gather statistics on "Who wrote GlusterFS". The idea comes from the excellent
 # articles on http://lwn.net/ named "Who wrote <linux-version>?".
