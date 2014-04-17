@@ -21,9 +21,16 @@
 #include <locale.h>
 #include <string.h>
 #include <stdlib.h>
-
-#include <libintl.h>
 #include <syslog.h>
+
+#ifdef HAVE_LIBINTL_H
+#include <libintl.h>
+#endif
+
+#ifdef HAVE_BACKTRACE
+#include <execinfo.h>
+#endif
+
 #include <sys/stat.h>
 #include "gf-error-codes.h"
 
@@ -39,14 +46,6 @@
 #include "logging.h"
 #include "defaults.h"
 #include "glusterfs.h"
-
-#ifdef GF_LINUX_HOST_OS
-#include <syslog.h>
-#endif
-
-#ifdef HAVE_BACKTRACE
-#include <execinfo.h>
-#endif
 
 static char *gf_level_strings[] = {"",  /* NONE */
                 "M", /* EMERGENCY */
@@ -374,9 +373,10 @@ gf_openlog (const char *ident, int option, int facility)
 
         /* TODO: Should check for errors here and return appropriately */
         setlocale(LC_ALL, "");
+#ifdef HAVE_LIBINTL_H
         bindtextdomain("gluster", "/usr/share/locale");
         textdomain("gluster");
-
+#endif
         /* close the previous syslog if open as we are changing settings */
         closelog ();
         openlog(ident, _option, _facility);

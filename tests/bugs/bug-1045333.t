@@ -4,6 +4,7 @@
 . $(dirname $0)/../snapshot.rc
 
 cleanup;
+TEST verify_lvm_version;
 TEST glusterd;
 TEST pidof glusterd;
 

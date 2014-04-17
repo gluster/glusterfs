@@ -17,13 +17,7 @@
 #define _NLM_H_RPCGEN
 
 #include <rpc/rpc.h>
-
-#if defined(__NetBSD__)
-#define xdr_u_quad_t xdr_u_int64_t
-#define xdr_quad_t   xdr_int64_t
-#define xdr_uint32_t xdr_u_int32_t
-#define xdr_uint64_t xdr_u_int64_t
-#endif
+#include "xdr-common.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,6 +26,14 @@ extern "C" {
 #define MAXNETOBJ_SZ 1024
 #define LM_MAXSTRLEN 1024
 #define MAXNAMELEN 1025
+
+#if defined(GF_DARWIN_HOST_OS)
+#define xdr_u_quad_t xdr_u_int64_t
+#define xdr_quad_t   xdr_int64_t
+#define xdr_uint32_t xdr_u_int32_t
+#define xdr_uint64_t xdr_u_int64_t
+#define uint64_t     u_int64_t
+#endif
 
 #if defined(__NetBSD__)
 #define xdr_u_quad_t xdr_u_int64_t

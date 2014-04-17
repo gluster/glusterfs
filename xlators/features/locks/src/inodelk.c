@@ -35,7 +35,7 @@ __pl_inodelk_ref (pl_inode_lock_t *lock)
         lock->ref++;
 }
 
-void
+inline void
 __pl_inodelk_unref (pl_inode_lock_t *lock)
 {
         lock->ref--;

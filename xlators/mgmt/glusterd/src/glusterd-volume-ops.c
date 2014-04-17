@@ -1213,7 +1213,7 @@ glusterd_op_stage_delete_volume (dict_t *dict, char **op_errstr)
 
         if (volinfo->snap_count > 0 || !list_empty(&volinfo->snap_volumes)) {
                 snprintf (msg, sizeof (msg), "Cannot delete Volume %s ,"
-                        "as it has %ld snapshots. "
+                        "as it has %"PRIu64" snapshots. "
                         "To delete the volume, "
                         "first delete all the snapshots under it.",
                           volname, volinfo->snap_count);

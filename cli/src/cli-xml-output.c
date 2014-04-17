@@ -2299,7 +2299,7 @@ cli_xml_output_vol_profile (dict_t *dict, int op_ret, int op_errno,
                                 goto out;
 
                         ret = xmlTextWriterWriteFormatElement
-                                (writer, (xmlChar *)"clearStats", "%s", 
+                                (writer, (xmlChar *)"clearStats", "%s",
                                 stats_cleared ? "Cleared stats." :
                                                  "Failed to clear stats.");
                         if (ret)

@@ -52,7 +52,7 @@ gf_client_clienttable_expand (clienttable_t *clienttable, uint32_t nr)
         uint32_t         oldmax_clients = -1;
         int              ret            = -1;
 
-        if (clienttable == NULL || nr < 0) {
+        if (clienttable == NULL || nr > UINT32_MAX) {
                 gf_log_callingfn ("client_t", GF_LOG_ERROR, "invalid argument");
                 ret = EINVAL;
                 goto out;

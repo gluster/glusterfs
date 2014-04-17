@@ -474,7 +474,7 @@ glusterd_set_quota_limit (char *volname, char *path, char *hard_limit,
 
         new_limit.sl = hton64 (new_limit.sl);
 
-        ret = gf_string2bytesize (hard_limit, (uint64_t*)&new_limit.hl);
+        ret = gf_string2bytesize_uint64 (hard_limit, (uint64_t*)&new_limit.hl);
         if (ret)
                 goto out;
 
@@ -1400,13 +1400,13 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                 "Faild to get hard-limit from dict");
                         goto out;
                 }
-                ret = gf_string2bytesize (hard_limit_str, &hard_limit);
+                ret = gf_string2bytesize_uint64 (hard_limit_str, &hard_limit);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to convert hard-limit string to value");
                         goto out;
                 }
-                if (hard_limit > INT64_MAX) {
+                if (hard_limit > UINT64_MAX) {
                         ret = -1;
                         ret = gf_asprintf (op_errstr, "Hard-limit %s is greater"
                                            " than %"PRId64"bytes. Please set a "

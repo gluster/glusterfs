@@ -37,7 +37,6 @@
 
 #include "afr.h"
 #include "afr-transaction.h"
-//#include "afr-self-heal-common.h"
 
 
 static void
@@ -1750,5 +1749,3 @@ out:
 }
 
 /* }}} */
-
-

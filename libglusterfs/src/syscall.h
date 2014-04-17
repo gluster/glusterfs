@@ -11,6 +11,41 @@
 #ifndef __SYSCALL_H__
 #define __SYSCALL_H__
 
+/* GF follows the Linux XATTR definition, which differs in Darwin. */
+#define GF_XATTR_CREATE  0x1 /* set value, fail if attr already exists */
+#define GF_XATTR_REPLACE 0x2 /* set value, fail if attr does not exist */
+
+/* Linux kernel version 2.6.x don't have these defined
+   define if not defined */
+
+#ifndef XATTR_SECURITY_PREFIX
+#define XATTR_SECURITY_PREFIX "security."
+#define XATTR_SECURITY_PREFIX_LEN (sizeof (XATTR_SECURITY_PREFIX) - 1)
+#endif
+
+#ifndef XATTR_SYSTEM_PREFIX
+#define XATTR_SYSTEM_PREFIX "system."
+#define XATTR_SYSTEM_PREFIX_LEN (sizeof (XATTR_SYSTEM_PREFIX) - 1)
+#endif
+
+#ifndef XATTR_TRUSTED_PREFIX
+#define XATTR_TRUSTED_PREFIX "trusted."
+#define XATTR_TRUSTED_PREFIX_LEN (sizeof (XATTR_TRUSTED_PREFIX) - 1)
+#endif
+
+#ifndef XATTR_USER_PREFIX
+#define XATTR_USER_PREFIX "user."
+#define XATTR_USER_PREFIX_LEN (sizeof (XATTR_USER_PREFIX) - 1)
+#endif
+
+#if defined(GF_DARWIN_HOST_OS)
+#include <sys/xattr.h>
+#define XATTR_DARWIN_NOSECURITY XATTR_NOSECURITY
+#define XATTR_DARWIN_NODEFAULT  XATTR_NODEFAULT
+#define XATTR_DARWIN_SHOWCOMPRESSION XATTR_SHOWCOMPRESSION
+#endif
+
+
 int
 sys_lstat (const char *path, struct stat *buf);
 
@@ -20,8 +55,13 @@ sys_stat (const char *path, struct stat *buf);
 int
 sys_fstat (int fd, struct stat *buf);
 
-DIR *
-sys_opendir (const char *name);
+int
+sys_fstatat (int dirfd, const char *pathname, struct stat *buf,
+             int flags);
+int
+sys_openat (int dirfd, const char *pathname, int flags, ...);
+
+DIR *sys_opendir (const char *name);
 
 struct dirent *
 sys_readdir (DIR *dir);
@@ -37,6 +77,9 @@ sys_mknod (const char *pathname, mode_t mode, dev_t dev);
 
 int
 sys_mkdir (const char *pathname, mode_t mode);
+
+int
+sys_mkdirat (int dirfd, const char *pathname, mode_t mode);
 
 int
 sys_unlink (const char *pathname);
@@ -106,6 +149,12 @@ sys_fsync (int fd);
 
 int
 sys_fdatasync (int fd);
+
+void
+gf_add_prefix(const char *ns, const char *key, char **newkey);
+
+void
+gf_remove_prefix(const char *ns, const char *key, char **newkey);
 
 int
 sys_lsetxattr (const char *path, const char *name, const void *value,

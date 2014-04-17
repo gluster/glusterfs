@@ -47,7 +47,7 @@ struct dht_layout {
         int                gen;
         int                type;
         int                ref; /* use with dht_conf_t->layout_lock */
-        int                search_unhashed;
+        gf_boolean_t       search_unhashed;
         struct {
                 int        err;   /* 0 = normal
                                      -1 = dir exists and no xattr
@@ -263,7 +263,7 @@ struct dht_conf {
         int            gen;
         dht_du_t      *du_stats;
         double         min_free_disk;
-	double         min_free_inodes;
+        double         min_free_inodes;
         char           disk_unit;
         int32_t        refresh_interval;
         gf_boolean_t   unhashed_sticky_bit;

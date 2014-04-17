@@ -5,6 +5,7 @@
 . $(dirname $0)/../cluster.rc
 . $(dirname $0)/../snapshot.rc
 
+
 V1="patchy2"
 
 function create_volumes() {
@@ -48,6 +49,7 @@ function restore_snapshots() {
 }
 cleanup;
 
+TEST verify_lvm_version;
 #Create cluster with 3 nodes
 TEST launch_cluster 3;
 TEST setup_lvm 3
@@ -92,4 +94,3 @@ TEST ! volume_exists $V0
 TEST ! volume_exists $V1
 
 cleanup;
-

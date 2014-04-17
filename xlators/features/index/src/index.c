@@ -497,13 +497,13 @@ fop_fxattrop_index_action (xlator_t *this, inode_t *inode, dict_t *xattr)
         _xattrop_index_action (this, inode, xattr);
 }
 
-inline gf_boolean_t
+static inline gf_boolean_t
 index_xattrop_track (loc_t *loc, gf_xattrop_flags_t flags, dict_t *dict)
 {
         return (flags == GF_XATTROP_ADD_ARRAY);
 }
 
-inline gf_boolean_t
+static inline gf_boolean_t
 index_fxattrop_track (fd_t *fd, gf_xattrop_flags_t flags, dict_t *dict)
 {
         return (flags == GF_XATTROP_ADD_ARRAY);

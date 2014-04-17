@@ -2615,7 +2615,7 @@ out:
         return volinfo;
 }
 
-inline void
+static inline void
 glusterd_store_set_options_path (glusterd_conf_t *conf, char *path, size_t len)
 {
         snprintf (path, len, "%s/options", conf->workdir);
@@ -3722,7 +3722,7 @@ glusterd_store_retrieve_quota_version (glusterd_volinfo_t *volinfo)
         }
 
         version = strtoul (version_str, &tmp, 10);
-         if (version < 0) {
+	if ((errno == ERANGE) || (errno == EINVAL)) {
                  gf_log (this->name, GF_LOG_DEBUG, "Invalid version number");
                  goto out;
         }

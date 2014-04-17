@@ -13,6 +13,12 @@
 #endif
 #include <inttypes.h>
 
+#if !defined(__NetBSD__) && !defined(GF_DARWIN_HOST_OS)
+#include <mntent.h>
+#else
+#include "mntent_compat.h"
+#endif
+
 #include "globals.h"
 #include "glusterfs.h"
 #include "compat.h"
@@ -44,7 +50,6 @@
 #include <inttypes.h>
 #include <signal.h>
 #include <sys/types.h>
-#include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <rpc/pmap_clnt.h>
@@ -54,11 +59,6 @@
 #include <ifaddrs.h>
 #ifdef HAVE_BD_XLATOR
 #include <lvm2app.h>
-#endif
-
-
-#ifdef GF_LINUX_HOST_OS
-#include <mntent.h>
 #endif
 
 #ifdef GF_SOLARIS_HOST_OS
@@ -4520,14 +4520,16 @@ glusterd_nodesvc_start (char *server, gf_boolean_t wait)
                                  "--trace-children=yes", "--track-origins=yes",
                                  NULL);
                 runner_argprintf (&runner, "--log-file=%s", valgrind_logfile);
-        }
+       }
 
         runner_add_args (&runner, SBIN_DIR"/glusterfs",
                          "-s", "localhost",
                          "--volfile-id", volfileid,
                          "-p", pidfile,
                          "-l", logfile,
-                         "-S", sockfpath, NULL);
+                         "-S", sockfpath,
+			 "-L", "DEBUG",
+			 NULL);
 
         if (!strcmp (server, "glustershd")) {
                 snprintf (glusterd_uuid_option, sizeof (glusterd_uuid_option),
@@ -5454,7 +5456,6 @@ out:
         return -1;
 }
 
-#ifdef GF_LINUX_HOST_OS
 int
 glusterd_get_brick_root (char *path, char **mount_point)
 {
@@ -5750,7 +5751,6 @@ out:
 
         return device;
 }
-#endif
 
 int
 glusterd_add_brick_detail_to_dict (glusterd_volinfo_t *volinfo,
@@ -5824,13 +5824,12 @@ glusterd_add_brick_detail_to_dict (glusterd_volinfo_t *volinfo,
                 if (ret)
                         goto out;
         }
-#ifdef GF_LINUX_HOST_OS
+
         ret = glusterd_add_brick_mount_details (brickinfo, dict, count);
         if (ret)
                 goto out;
 
         ret = glusterd_add_inode_size_to_dict (dict, count);
-#endif
  out:
         if (ret)
                 gf_log (this->name, GF_LOG_DEBUG, "Error adding brick"
@@ -8828,7 +8827,7 @@ glusterd_snap_config_use_rsp_dict (dict_t *dst, dict_t *src)
                 }
 
                 for (i = 0; i < voldisplaycount; i++) {
-                        snprintf (buf, sizeof(buf), "volume%ld-volname", i);
+                        snprintf (buf, sizeof(buf), "volume%"PRIu64"-volname", i);
                         ret = dict_get_str (src, buf, &volname);
                         if (ret) {
                                 gf_log ("", GF_LOG_ERROR,
@@ -8843,7 +8842,7 @@ glusterd_snap_config_use_rsp_dict (dict_t *dst, dict_t *src)
                         }
 
                         snprintf (buf, sizeof(buf),
-                                  "volume%ld-snap-max-hard-limit", i);
+                                  "volume%"PRIu64"-snap-max-hard-limit", i);
                         ret = dict_get_uint64 (src, buf, &value);
                         if (ret) {
                                 gf_log ("", GF_LOG_ERROR,
@@ -8858,7 +8857,7 @@ glusterd_snap_config_use_rsp_dict (dict_t *dst, dict_t *src)
                         }
 
                         snprintf (buf, sizeof(buf),
-                                  "volume%ld-active-hard-limit", i);
+                                  "volume%"PRIu64"-active-hard-limit", i);
                         ret = dict_get_uint64 (src, buf, &value);
                         if (ret) {
                                 gf_log ("", GF_LOG_ERROR,
@@ -8873,7 +8872,7 @@ glusterd_snap_config_use_rsp_dict (dict_t *dst, dict_t *src)
                         }
 
                         snprintf (buf, sizeof(buf),
-                                  "volume%ld-snap-max-soft-limit", i);
+                                  "volume%"PRIu64"-snap-max-soft-limit", i);
                         ret = dict_get_uint64 (src, buf, &value);
                         if (ret) {
                                 gf_log ("", GF_LOG_ERROR,

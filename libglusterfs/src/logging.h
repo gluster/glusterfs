@@ -24,17 +24,27 @@
 #ifdef GF_DARWIN_HOST_OS
 #define GF_PRI_FSBLK       "u"
 #define GF_PRI_DEV         PRId32
-#define GF_PRI_NLINK       PRIu16
+#define GF_PRI_INODE       PRIu64
+#define GF_PRI_NLINK       PRIu32
+#define GF_PRI_SECOND      "ld"
 #define GF_PRI_SUSECONDS   "06d"
+#define GF_PRI_USEC        "d"
 #else
 #define GF_PRI_FSBLK       PRIu64
 #define GF_PRI_DEV         PRIu64
+#define GF_PRI_INODE       PRIu64
 #define GF_PRI_NLINK       PRIu32
+#define GF_PRI_SECOND      "lu"
 #define GF_PRI_SUSECONDS   "06ld"
 #endif
 #define GF_PRI_BLKSIZE     PRId32
 #define GF_PRI_SIZET       "zu"
 
+#ifdef GF_DARWIN_HOST_OS
+#define GF_PRI_TIME "ld"
+#else
+#define GF_PRI_TIME PRIu64
+#endif
 
 #if 0
 /* Syslog definitions :-) */

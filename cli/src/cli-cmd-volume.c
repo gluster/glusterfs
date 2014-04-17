@@ -2008,14 +2008,14 @@ cli_print_detailed_status (cli_volume_status_t *status)
 
 
         if (status->total_inodes) {
-                cli_out ("%-20s : %-20ld", "Inode Count",
+                cli_out ("%-20s : %-20"GF_PRI_INODE, "Inode Count",
                          status->total_inodes);
         } else {
                 cli_out ("%-20s : %-20s", "Inode Count", "N/A");
         }
 
         if (status->free_inodes) {
-                cli_out ("%-20s : %-20ld", "Free Inodes",
+                cli_out ("%-20s : %-20"GF_PRI_INODE, "Free Inodes",
                          status->free_inodes);
         } else {
                 cli_out ("%-20s : %-20s", "Free Inodes", "N/A");

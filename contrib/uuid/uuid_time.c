@@ -52,6 +52,7 @@
 #include <time.h>
 
 #include "uuidP.h"
+#include "logging.h"
 
 time_t uuid_time(const uuid_t uu, struct timeval *ret_tv)
 {
@@ -163,8 +164,7 @@ main(int argc, char **argv)
 		printf("Warning: not a time-based UUID, so UUID time "
 		       "decoding will likely not work!\n");
 	}
-	printf("UUID time is: (%ld, %ld): %s\n", tv.tv_sec, tv.tv_usec,
-	       ctime(&time_reg));
+	printf("UUID time is: (%" GF_PRI_SECOND ", %" GF_PRI_USEC "): %s\n", tv.tv_sec, tv.tv_usec, ctime(&time_reg));
 
 	return 0;
 }

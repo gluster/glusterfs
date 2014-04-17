@@ -22,6 +22,7 @@
 #include <openssl/cmac.h>
 #include <openssl/modes.h>
 #include "crypt-mem-types.h"
+#include "compat.h"
 
 #define CRYPT_XLATOR_ID  (0)
 
@@ -38,13 +39,17 @@
 #define MASTER_VOL_KEY_SIZE (32)
 #define NMTD_VOL_KEY_SIZE (16)
 
-#ifdef __NetBSD__
+#if defined(__NetBSD__)
 typedef off_t loff_t;
+#endif
+
+#if defined(GF_DARWIN_HOST_OS)
+typedef uint64_t loff_t;
 #endif
 
 struct crypt_key {
 	uint32_t len;
-	const char *label;	
+	const char *label;
 };
 
 /*
@@ -124,7 +129,7 @@ struct master_cipher_info {
 	 * master key
 	 */
 	unsigned char m_key[MASTER_VOL_KEY_SIZE];
-	/* 
+	/*
 	 * volume key for oid authentication
 	 */
 	unsigned char m_nmtd_key[NMTD_VOL_KEY_SIZE];
@@ -870,8 +875,8 @@ static inline linkop_unwind_handler_t linkop_unwind_dispatch(glusterfs_fop_t fop
 		return rename_unwind;
 	default:
 		gf_log("crypt", GF_LOG_ERROR, "Bad link operation %d", fop);
-		return NULL;		
-	}	
+		return NULL;
+	}
 }
 
 static inline mtd_op_t linkop_mtdop_dispatch(glusterfs_fop_t fop)

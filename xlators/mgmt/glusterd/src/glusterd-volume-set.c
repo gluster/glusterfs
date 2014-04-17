@@ -116,8 +116,8 @@ validate_cache_max_min_size (dict_t *dict, char *key, char *value,
                                       "performance.cache-max-file-size",
                                       &current_max_value);
                 if (current_max_value) {
-                        gf_string2bytesize (current_max_value, &max_value);
-                        gf_string2bytesize (value, &min_value);
+                        gf_string2bytesize_uint64 (current_max_value, &max_value);
+                        gf_string2bytesize_uint64 (value, &min_value);
                         current_min_value = value;
                 }
         } else  if ((!strcmp (key, "performance.cache-max-file-size")) ||
@@ -126,8 +126,8 @@ validate_cache_max_min_size (dict_t *dict, char *key, char *value,
                                       "performance.cache-min-file-size",
                                       &current_min_value);
                 if (current_min_value) {
-                        gf_string2bytesize (current_min_value, &min_value);
-                        gf_string2bytesize (value, &max_value);
+                        gf_string2bytesize_uint64 (current_min_value, &min_value);
+                        gf_string2bytesize_uint64 (value, &max_value);
                         current_max_value = value;
                 }
         }
@@ -1370,6 +1370,18 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = GLOBAL_DOC,
           .op_version  = 1
         },
+        { .key         = "nfs.rpc-statd",
+          .voltype     = "nfs/server",
+          .option      = "nfs.rpc-statd",
+          .type        = NO_DOC,
+          .op_version  = 4,
+        },
+        { .key         = "nfs.log-level",
+          .voltype     = "nfs/server",
+          .option      = "nfs.log-level",
+          .type        = NO_DOC,
+          .op_version  = 4,
+        },
         { .key         = "nfs.server-aux-gids",
           .voltype     = "nfs/server",
           .option      = "nfs.server-aux-gids",
@@ -1433,6 +1445,10 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key         = "storage.batch-fsync-delay-usec",
           .voltype     = "storage/posix",
           .op_version  = 3
+        },
+        { .key         = "storage.xattr-user-namespace-mode",
+          .voltype     = "storage/posix",
+          .op_version  = 4
         },
         { .key         = "storage.owner-uid",
           .voltype     = "storage/posix",

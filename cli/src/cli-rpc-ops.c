@@ -5211,7 +5211,7 @@ gf_cli_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                 gf_time_fmt (timestr, sizeof timestr,
                                              time_sec, gf_timefmt_FT);
                                 snprintf (timestr + strlen (timestr), sizeof timestr - strlen (timestr),
-                                  ".%"GF_PRI_SUSECONDS, time_usec);
+                                  ".%ld", time_usec);
                                 if (strlen (filename) < VOL_TOP_PERF_FILENAME_DEF_WIDTH)
                                         cli_out ("%*"PRIu64" %-*s %-*s",
                                                  VOL_TOP_PERF_SPEED_WIDTH,
@@ -7766,7 +7766,7 @@ cli_snapshot_config_display (dict_t *dict, gf_cli_rsp *rsp)
                 }
 
                 for (i = 0; i < voldisplaycount; i++) {
-                        snprintf (buf, sizeof(buf), "volume%ld-volname", i);
+                        snprintf (buf, sizeof(buf), "volume%"PRIu64"-volname", i);
                         ret = dict_get_str (dict, buf, &volname);
                         if (ret) {
                                 gf_log ("cli", GF_LOG_ERROR, "Could not fetch "
@@ -7777,7 +7777,7 @@ cli_snapshot_config_display (dict_t *dict, gf_cli_rsp *rsp)
                         cli_out ("\nVolume : %s", volname);
 
                         snprintf (buf, sizeof(buf),
-                                  "volume%ld-snap-max-hard-limit", i);
+                                  "volume%"PRIu64"-snap-max-hard-limit", i);
                         ret = dict_get_uint64 (dict, buf, &value);
                         if (ret) {
                                 gf_log ("cli", GF_LOG_ERROR, "Could not fetch "
@@ -7788,7 +7788,7 @@ cli_snapshot_config_display (dict_t *dict, gf_cli_rsp *rsp)
                         cli_out ("snap-max-hard-limit : %"PRIu64, value);
 
                         snprintf (buf, sizeof(buf),
-                                  "volume%ld-active-hard-limit", i);
+                                  "volume%"PRIu64"-active-hard-limit", i);
                         ret = dict_get_uint64 (dict, buf, &value);
                         if (ret) {
                                  gf_log ("cli", GF_LOG_ERROR, "Could not fetch"
@@ -7801,7 +7801,7 @@ cli_snapshot_config_display (dict_t *dict, gf_cli_rsp *rsp)
                                  value);
 
                         snprintf (buf, sizeof(buf),
-                                      "volume%ld-snap-max-soft-limit", i);
+                                      "volume%"PRIu64"-snap-max-soft-limit", i);
                         ret = dict_get_uint64 (dict, buf, &value);
                         if (ret) {
                                 gf_log ("cli", GF_LOG_ERROR, "Could not fetch "

@@ -181,7 +181,7 @@ glusterd_hooks_set_volume_args (dict_t *dict, runner_t *runner)
                 goto out;
 
         runner_add_arg (runner, "-o");
-        for (i = 1; (ret == 0); i++) {
+        for (i = 1; ret == 0; i++) {
                 snprintf (query, sizeof (query), "key%d", i);
                 ret = dict_get_str (dict, query, &key);
                 if (ret)

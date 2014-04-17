@@ -366,7 +366,6 @@ dht_reconfigure (xlator_t *this, dict_t *options)
                                        " lookup-unhashed should be boolean,"
                                        " not (%s), defaulting to (%d)",
                                        temp_str, conf->search_unhashed);
-                                //return -1;
                                 ret = -1;
                                 goto out;
                         }
@@ -449,11 +448,11 @@ gf_defrag_pattern_list_fill (xlator_t *this, gf_defrag_info_t *defrag, char *dat
                 if (!pattern)
                         goto out;
                 if (!num) {
-                        if (gf_string2bytesize(pattern, &pattern_list->size)
+                        if (gf_string2bytesize_uint64(pattern, &pattern_list->size)
                              == 0) {
                                 pattern = "*";
                         }
-                } else if (gf_string2bytesize (num, &pattern_list->size) != 0) {
+                } else if (gf_string2bytesize_uint64 (num, &pattern_list->size) != 0) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "invalid number format \"%s\"", num);
                         goto out;

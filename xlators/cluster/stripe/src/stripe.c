@@ -4459,7 +4459,7 @@ stripe_is_bd (dict_t *this, char *key, data_t *value, void *data)
         return 0;
 }
 
-inline gf_boolean_t
+static inline gf_boolean_t
 stripe_setxattr_is_bd (dict_t *dict)
 {
         gf_boolean_t is_bd = _gf_false;
@@ -4628,7 +4628,7 @@ out:
         return ret;
 }
 
-inline gf_boolean_t
+static inline gf_boolean_t
 stripe_fsetxattr_is_special (dict_t *dict)
 {
         gf_boolean_t is_spl = _gf_false;
@@ -5080,7 +5080,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                 goto unlock;
                         }
 
-                        if (gf_string2bytesize (opt->default_value, &priv->block_size)){
+                        if (gf_string2bytesize_uint64 (opt->default_value, &priv->block_size)){
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Unable to set default block-size ");
                                 ret = -1;
@@ -5187,7 +5187,7 @@ init (xlator_t *this)
                         ret = -1;
                         goto unlock;
                 }
-                if (gf_string2bytesize (opt->default_value, &priv->block_size)){
+                if (gf_string2bytesize_uint64 (opt->default_value, &priv->block_size)){
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to set default block-size ");
                         ret = -1;
@@ -5601,7 +5601,7 @@ err:
         return 0;
 }
 
-inline gf_boolean_t
+static inline gf_boolean_t
 stripe_is_special_xattr (const char *name)
 {
         gf_boolean_t    is_spl = _gf_false;

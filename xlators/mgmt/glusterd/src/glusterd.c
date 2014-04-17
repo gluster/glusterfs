@@ -30,6 +30,7 @@
 #include "dict.h"
 #include "compat.h"
 #include "compat-errno.h"
+#include "syscall.h"
 #include "statedump.h"
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
@@ -311,7 +312,7 @@ out:
 }
 
 
-inline int32_t
+static inline int32_t
 glusterd_program_register (xlator_t *this, rpcsvc_t *svc,
                            rpcsvc_program_t *prog)
 {
@@ -804,7 +805,7 @@ check_prepare_mountbroker_root (char *mountbroker_root)
         dfd0 = dup (dfd);
 
         for (;;) {
-                ret = openat (dfd, "..", O_RDONLY);
+                ret = sys_openat (dfd, "..", O_RDONLY);
                 if (ret != -1) {
                         dfd2 = ret;
                         ret = fstat (dfd2, &st2);
@@ -839,11 +840,11 @@ check_prepare_mountbroker_root (char *mountbroker_root)
                 st = st2;
         }
 
-        ret = mkdirat (dfd0, MB_HIVE, 0711);
+        ret = sys_mkdirat (dfd0, MB_HIVE, 0711);
         if (ret == -1 && errno == EEXIST)
                 ret = 0;
         if (ret != -1)
-                ret = fstatat (dfd0, MB_HIVE, &st, AT_SYMLINK_NOFOLLOW);
+                ret = sys_fstatat (dfd0, MB_HIVE, &st, AT_SYMLINK_NOFOLLOW);
         if (ret == -1 || st.st_mode != (S_IFDIR|0711)) {
                 gf_log ("", GF_LOG_ERROR,
                         "failed to set up mountbroker-root directory %s",

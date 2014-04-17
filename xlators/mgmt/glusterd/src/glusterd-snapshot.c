@@ -18,6 +18,14 @@
 #include <sys/resource.h>
 #include <sys/statvfs.h>
 #include <sys/mount.h>
+#include <signal.h>
+
+
+#if !defined(__NetBSD__) && !defined(GF_DARWIN_HOST_OS)
+#include <mntent.h>
+#else
+#include "mntent_compat.h"
+#endif
 
 #include "globals.h"
 #include "compat.h"
@@ -40,9 +48,7 @@
 #include "cli1-xdr.h"
 #include "xdr-generic.h"
 
-#ifdef GF_LINUX_HOST_OS
-#include <mntent.h>
-#endif
+#include "lvm-defaults.h"
 
 char snap_mount_folder[PATH_MAX];
 
@@ -267,7 +273,7 @@ out:
 
 int
 snap_max_hard_limits_validate (dict_t *dict, char *volname,
-                          uint64_t value, char **op_errstr)
+                               uint64_t value, char **op_errstr)
 {
         char                err_str[PATH_MAX] = "";
         glusterd_conf_t    *conf              = NULL;
@@ -449,7 +455,7 @@ glusterd_snap_create_pre_val_use_rsp_dict (dict_t *dst, dict_t *src)
         for (i = 0; i < volume_count; i++) {
                 memset (snapbrckcnt, '\0', sizeof(snapbrckcnt));
                 ret = snprintf (snapbrckcnt, sizeof(snapbrckcnt) - 1,
-                                "vol%ld_brickcount", i+1);
+                                "vol%"PRId64"_brickcount", i+1);
                 ret = dict_get_int64 (src, snapbrckcnt, &brick_count);
                 if (ret) {
                         gf_log (this->name, GF_LOG_TRACE,
@@ -460,7 +466,7 @@ glusterd_snap_create_pre_val_use_rsp_dict (dict_t *dst, dict_t *src)
                 for (j = 0; j < brick_count; j++) {
                         /* Fetching data from source dict */
                         snprintf (key, sizeof(key) - 1,
-                                  "vol%ld.brickdir%ld", i+1, j);
+                                  "vol%"PRId64".brickdir%"PRId64, i+1, j);
 
                         ret = dict_get_ptr (src, key,
                                             (void **)&snap_brick_dir);
@@ -471,7 +477,7 @@ glusterd_snap_create_pre_val_use_rsp_dict (dict_t *dst, dict_t *src)
                         }
 
                         snprintf (key, sizeof(key) - 1,
-                                  "vol%ld.brick_snapdevice%ld", i+1, j);
+                                  "vol%"PRId64".brick_snapdevice%"PRId64, i+1, j);
 
                         ret = dict_get_ptr (src, key,
                                             (void **)&snap_device);
@@ -482,7 +488,7 @@ glusterd_snap_create_pre_val_use_rsp_dict (dict_t *dst, dict_t *src)
                         }
 
                         snprintf (snapbrckord, sizeof(snapbrckord) - 1,
-                                  "vol%ld.brick%ld.order", i+1, j);
+                                  "vol%"PRId64".brick%"PRId64".order", i+1, j);
 
                         ret = dict_get_int64 (src, snapbrckord, &brick_order);
                         if (ret) {
@@ -493,7 +499,7 @@ glusterd_snap_create_pre_val_use_rsp_dict (dict_t *dst, dict_t *src)
 
                         /* Adding the data in the dst dict */
                         snprintf (key, sizeof(key) - 1,
-                                  "vol%ld.brickdir%ld", i+1, brick_order);
+                                  "vol%"PRId64".brickdir%"PRId64, i+1, brick_order);
 
                         tmpstr = gf_strdup (snap_brick_dir);
                         if (!tmpstr) {
@@ -511,7 +517,7 @@ glusterd_snap_create_pre_val_use_rsp_dict (dict_t *dst, dict_t *src)
                         }
 
                         snprintf (key, sizeof(key) - 1,
-                                  "vol%ld.brick_snapdevice%ld",
+                                  "vol%"PRId64".brick_snapdevice%"PRId64,
                                   i+1, brick_order);
 
                         tmpstr = gf_strdup (snap_device);
@@ -618,8 +624,8 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                 goto out;
         }
         if (volcount <= 0) {
-                snprintf (err_str, sizeof (err_str), "Invalid volume count %ld "
-                          "supplied", volcount);
+                snprintf (err_str, sizeof (err_str), "Invalid volume count %"PRId64
+                          " supplied", volcount);
                 ret = -1;
                 goto out;
         }
@@ -638,7 +644,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
         }
 
         for (i = 1; i <= volcount; i++) {
-                snprintf (key, sizeof (key), "volname%ld", i);
+                snprintf (key, sizeof (key), "volname%"PRId64, i);
                 ret = dict_get_str (dict, key, &volname);
                 if (ret) {
                         snprintf (err_str, sizeof (err_str),
@@ -690,7 +696,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                         goto out;
                 }
 
-                snprintf (key, sizeof(key) - 1, "vol%ld_volid", i);
+                snprintf (key, sizeof(key) - 1, "vol%"PRId64"_volid", i);
                 ret = dict_get_bin (dict, key, (void **)&snap_volid);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -745,7 +751,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                         }
 
                         snprintf (key, sizeof(key),
-                                  "vol%ld.brick_snapdevice%ld", i,
+                                  "vol%"PRId64".brick_snapdevice%"PRId64, i,
                                   brick_count);
                         ret = dict_set_dynstr (rsp_dict, key, device);
                         if (ret) {
@@ -783,7 +789,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                                 ret = -1;
                                 goto out;
                         }
-                        snprintf (key, sizeof(key), "vol%ld.brickdir%ld", i,
+                        snprintf (key, sizeof(key), "vol%"PRId64".brickdir%"PRId64, i,
                                   brick_count);
                         ret = dict_set_dynstr (rsp_dict, key, tmpstr);
                         if (ret) {
@@ -793,7 +799,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                         }
                         tmpstr = NULL;
 
-                        snprintf (key, sizeof(key) - 1, "vol%ld.brick%ld.order",
+                        snprintf (key, sizeof(key) - 1, "vol%"PRId64".brick%"PRId64".order",
                                   i, brick_count);
                         ret = dict_set_int64 (rsp_dict, key, brick_order);
                         if (ret) {
@@ -805,7 +811,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                         brick_count++;
                         brick_order++;
                 }
-                snprintf (key, sizeof(key) - 1, "vol%ld_brickcount", i);
+                snprintf (key, sizeof(key) - 1, "vol%"PRId64"_brickcount", i);
                 ret = dict_set_int64 (rsp_dict, key, brick_count);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "Failed to set %s",
@@ -1002,7 +1008,7 @@ glusterd_do_lvm_snapshot_remove (glusterd_volinfo_t *snap_vol,
         snprintf (msg, sizeof(msg), "remove snapshot of the brick %s:%s, "
                   "device: %s", brickinfo->hostname, brickinfo->path,
                   snap_device);
-        runner_add_args (&runner, "/sbin/lvremove", "-f", snap_device, NULL);
+        runner_add_args (&runner, LVM_REMOVE, "-f", snap_device, NULL);
         runner_log (&runner, "", GF_LOG_DEBUG, msg);
 
         ret = runner_run (&runner);
@@ -2047,8 +2053,8 @@ glusterd_handle_snapshot_create (rpcsvc_request_t *req, glusterd_op_t op,
                 goto out;
         }
         if (volcount <= 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Invalid volume count %ld "
-                        "supplied", volcount);
+                gf_log (this->name, GF_LOG_ERROR, "Invalid volume count %"PRId64
+                        " supplied", volcount);
                 ret = -1;
                 goto out;
         }
@@ -2476,7 +2482,7 @@ glusterd_create_snap_object (dict_t *dict, dict_t *rsp_dict)
         }
         if (time_stamp <= 0) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "Invalid time-stamp: %ld",
+                gf_log (this->name, GF_LOG_ERROR, "Invalid time-stamp: %"PRId64,
                         time_stamp);
                 goto out;
         }
@@ -2715,7 +2721,7 @@ glusterd_take_lvm_snapshot (glusterd_volinfo_t *snap_vol,
         /* Figuring out if setactivationskip flag is supported or not */
         runinit (&runner);
         snprintf (msg, sizeof (msg), "running lvcreate help");
-        runner_add_args (&runner, "/sbin/lvcreate", "--help", NULL);
+        runner_add_args (&runner, LVM_CREATE, "--help", NULL);
         runner_log (&runner, "", GF_LOG_DEBUG, msg);
         runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
         ret = runner_start (&runner);
@@ -2744,11 +2750,11 @@ glusterd_take_lvm_snapshot (glusterd_volinfo_t *snap_vol,
         snprintf (msg, sizeof (msg), "taking snapshot of the brick %s:%s",
                   brickinfo->hostname, brickinfo->path);
         if (match == _gf_true)
-                runner_add_args (&runner, "/sbin/lvcreate", "-s", device,
+                runner_add_args (&runner, LVM_CREATE, "-s", device,
                                  "--setactivationskip", "n", "--name",
                                  snap_vol->volname, NULL);
         else
-                runner_add_args (&runner, "/sbin/lvcreate", "-s", device,
+                runner_add_args (&runner, LVM_CREATE, "-s", device,
                                  "--name", snap_vol->volname, NULL);
         runner_log (&runner, "", GF_LOG_DEBUG, msg);
         ret = runner_start (&runner);
@@ -2862,7 +2868,11 @@ out:
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING, "unmounting the snap brick"
                         " mount %s", snap_brick_mount_path);
+#if !defined(GF_DARWIN_HOST_OS)
                 umount (snap_brick_mount_path);
+#else
+		unmount (snap_brick_mount_path, 0);
+#endif
         }
 
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
@@ -2893,7 +2903,7 @@ glusterd_add_bricks_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
         GF_ASSERT (snap_brickinfo);
         GF_ASSERT (snap_brick_dir);
 
-        snprintf (key, sizeof(key) - 1, "vol%ld.brickdir%d", volcount,
+        snprintf (key, sizeof(key) - 1, "vol%"PRId64".brickdir%d", volcount,
                   brick_count);
         ret = dict_get_ptr (dict, key, (void **)snap_brick_dir);
         if (ret) {
@@ -2951,7 +2961,7 @@ glusterd_add_bricks_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
                 }
         }
 
-        snprintf (key, sizeof(key), "vol%ld.brick_snapdevice%d",
+        snprintf (key, sizeof(key), "vol%"PRId64".brick_snapdevice%d",
                   volcount, brick_count);
         ret = dict_get_ptr (dict, key, (void **)&snap_device);
         if (ret) {
@@ -3129,7 +3139,7 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
         GF_ASSERT (rsp_dict);
 
         /* fetch username, password and vol_id from dict*/
-        snprintf (key, sizeof(key), "volume%ld_username", volcount);
+        snprintf (key, sizeof(key), "volume%"PRId64"_username", volcount);
         ret = dict_get_str (dict, key, &username);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to get %s for "
@@ -3137,7 +3147,7 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
                 goto out;
         }
 
-        snprintf (key, sizeof(key), "volume%ld_password", volcount);
+        snprintf (key, sizeof(key), "volume%"PRId64"_password", volcount);
         ret = dict_get_str (dict, key, &password);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to get %s for "
@@ -3145,7 +3155,7 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
                 goto out;
         }
 
-        snprintf (key, sizeof(key) - 1, "vol%ld_volid", volcount);
+        snprintf (key, sizeof(key) - 1, "vol%"PRId64"_volid", volcount);
         ret = dict_get_bin (dict, key, (void **)&snap_volid);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -3367,7 +3377,7 @@ glusterd_handle_snapshot_remove (rpcsvc_request_t *req, glusterd_op_t op,
                         goto out;
                 }
 
-                snprintf (key, sizeof (key), "volname%ld", volcount);
+                snprintf (key, sizeof (key), "volname%"PRId64, volcount);
                 ret = dict_set_dynstr (dict, key, volname);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "Failed to set "
@@ -3771,7 +3781,7 @@ glusterd_snapshot_create_commit (dict_t *dict, char **op_errstr,
         }
 
         for (i = 1; i <= volcount; i++) {
-                snprintf (key, sizeof (key), "volname%ld", i);
+                snprintf (key, sizeof (key), "volname%"PRId64, i);
                 ret = dict_get_str (dict, key, &volname);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -3922,7 +3932,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                         soft_limit_value = (active_hard_limit *
                                             conf->snap_max_soft_limit) / 100;
 
-                        snprintf (buf, sizeof(buf), "volume%ld-volname", count);
+                        snprintf (buf, sizeof(buf), "volume%"PRIu64"-volname", count);
                         ret = dict_set_str (rsp_dict, buf, volinfo->volname);
                         if (ret) {
                                 snprintf (err_str, PATH_MAX,
@@ -3931,7 +3941,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                         }
 
                         snprintf (buf, sizeof(buf),
-                                  "volume%ld-snap-max-hard-limit", count);
+                                  "volume%"PRIu64"-snap-max-hard-limit", count);
                         ret = dict_set_uint64 (rsp_dict, buf, snap_max_limit);
                         if (ret) {
                                 snprintf (err_str, PATH_MAX,
@@ -3940,7 +3950,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                         }
 
                         snprintf (buf, sizeof(buf),
-                                  "volume%ld-active-hard-limit", count);
+                                  "volume%"PRIu64"-active-hard-limit", count);
                         ret = dict_set_uint64 (rsp_dict, buf,
                                                active_hard_limit);
                         if (ret) {
@@ -3950,7 +3960,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                         }
 
                         snprintf (buf, sizeof(buf),
-                                  "volume%ld-snap-max-soft-limit", count);
+                                  "volume%"PRIu64"-snap-max-soft-limit", count);
                         ret = dict_set_uint64 (rsp_dict, buf, soft_limit_value);
                         if (ret) {
                                 snprintf (err_str, PATH_MAX,
@@ -3984,7 +3994,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                 soft_limit_value = (active_hard_limit *
                                     conf->snap_max_soft_limit) / 100;
 
-                snprintf (buf, sizeof(buf), "volume%ld-volname", count);
+                snprintf (buf, sizeof(buf), "volume%"PRIu64"-volname", count);
                 ret = dict_set_str (rsp_dict, buf, volinfo->volname);
                 if (ret) {
                         snprintf (err_str, PATH_MAX,
@@ -3993,7 +4003,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                 }
 
                 snprintf (buf, sizeof(buf),
-                          "volume%ld-snap-max-hard-limit", count);
+                          "volume%"PRIu64"-snap-max-hard-limit", count);
                 ret = dict_set_uint64 (rsp_dict, buf, snap_max_limit);
                 if (ret) {
                         snprintf (err_str, PATH_MAX,
@@ -4002,7 +4012,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                 }
 
                 snprintf (buf, sizeof(buf),
-                          "volume%ld-active-hard-limit", count);
+                          "volume%"PRIu64"-active-hard-limit", count);
                 ret = dict_set_uint64 (rsp_dict, buf, active_hard_limit);
                 if (ret) {
                         snprintf (err_str, PATH_MAX,
@@ -4011,7 +4021,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                 }
 
                 snprintf (buf, sizeof(buf),
-                          "volume%ld-snap-max-soft-limit", count);
+                          "volume%"PRIu64"-snap-max-soft-limit", count);
                 ret = dict_set_uint64 (rsp_dict, buf, soft_limit_value);
                 if (ret) {
                         snprintf (err_str, PATH_MAX,
@@ -4196,7 +4206,7 @@ glusterd_get_brick_lvm_details (dict_t *rsp_dict,
          * for the above given command with separator ":",
          * The output will be "vgname:lvsize"
          */
-        runner_add_args (&runner, "lvs", device, "--noheading", "-o",
+        runner_add_args (&runner, LVS, device, "--noheading", "-o",
                          "vg_name,data_percent,lv_size",
                          "--separator", ":", NULL);
         runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);

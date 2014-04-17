@@ -761,7 +761,7 @@ posix_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (ret < 0) {
                 ret = -errno;
                 gf_log(this->name, GF_LOG_ERROR,
-                       "zerofill failed on fd %d length %ld %s",
+                       "zerofill failed on fd %d length %" PRId64 " %s",
                         pfd->fd, len, strerror(errno));
                 goto out;
         }
@@ -2859,16 +2859,14 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
 
         if (datasync) {
                 ;
-#ifdef HAVE_FDATASYNC
-                op_ret = fdatasync (_fd);
+                op_ret = sys_fdatasync (_fd);
                 if (op_ret == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "fdatasync on fd=%p failed: %s",
                                 fd, strerror (errno));
                 }
-#endif
         } else {
-                op_ret = fsync (_fd);
+                op_ret = sys_fsync (_fd);
                 if (op_ret == -1) {
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR,
@@ -2911,6 +2909,23 @@ _handle_setxattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
                                   filler->flags);
 }
 
+#ifdef GF_DARWIN_HOST_OS
+static inline int
+map_xattr_flags(int flags)
+{
+        /* DARWIN has different defines on XATTR_ flags.
+           There do not seem to be a POSIX standard
+           Parse any other flags over.
+        */
+        int darwinflags = flags & ~(GF_XATTR_CREATE | GF_XATTR_REPLACE | XATTR_REPLACE);
+        if (GF_XATTR_CREATE & flags)
+                darwinflags |= XATTR_CREATE;
+        if (GF_XATTR_REPLACE & flags)
+                darwinflags |= XATTR_REPLACE;
+        return darwinflags;
+}
+#endif
+
 int32_t
 posix_setxattr (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, dict_t *dict, int flags, dict_t *xdata)
@@ -2937,7 +2952,11 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
 
         filler.real_path = real_path;
         filler.this = this;
+#ifdef GF_DARWIN_HOST_OS
+        filler.flags = map_xattr_flags(flags);
+#else
         filler.flags = flags;
+#endif
         op_ret = dict_foreach (dict, _handle_setxattr_keyvalue_pair,
                                &filler);
         if (op_ret < 0) {
@@ -3354,7 +3373,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         char                 *list                  = NULL;
         int32_t               list_offset           = 0;
         size_t                remaining_size        = 0;
-        char     key[4096]                          = {0,};
+        char                  keybuffer[4096]       = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -3522,8 +3541,20 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         }
 
         if (name) {
-                strcpy (key, name);
-
+                strcpy (keybuffer, name);
+                char *key = keybuffer;
+#if defined(GF_DARWIN_HOST_OS_DISABLED)
+                if (priv->xattr_user_namespace == XATTR_STRIP) {
+                        if (strncmp(key, "user.",5) == 0) {
+                                key += 5;
+                                gf_log (this->name,
+                                        GF_LOG_DEBUG,
+                                        "getxattr for file %s"
+                                        " stripping user key: %s -> %s",
+                                        real_path, keybuffer, key);
+                        }
+                }
+#endif
                 size = sys_lgetxattr (real_path, key, NULL, 0);
                 if (size <= 0) {
                         op_errno = errno;
@@ -3611,14 +3642,13 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         while (remaining_size > 0) {
                 if (*(list + list_offset) == '\0')
                         break;
-
-                strcpy (key, list + list_offset);
-                size = sys_lgetxattr (real_path, key, NULL, 0);
+                strcpy (keybuffer, list + list_offset);
+                size = sys_lgetxattr (real_path, keybuffer, NULL, 0);
                 if (size == -1) {
                         op_ret = -1;
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR, "getxattr failed on "
-                                "%s: key = %s (%s)", real_path, key,
+                                "%s: key = %s (%s)", real_path, keybuffer,
                                 strerror (op_errno));
                         break;
                 }
@@ -3630,29 +3660,37 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         goto out;
                 }
 
-                size = sys_lgetxattr (real_path, key, value, size);
+                size = sys_lgetxattr (real_path, keybuffer, value, size);
                 if (size == -1) {
                         op_ret = -1;
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR, "getxattr failed on "
-                                "%s: key = %s (%s)", real_path, key,
+                                "%s: key = %s (%s)", real_path, keybuffer,
                                 strerror (op_errno));
                         GF_FREE (value);
                         break;
                 }
 
                 value [size] = '\0';
-                op_ret = dict_set_dynptr (dict, key, value, size);
+#ifdef GF_DARWIN_HOST_OS
+                /* The protocol expect namespace for now */
+                char *newkey = NULL;
+                gf_add_prefix (XATTR_USER_PREFIX, keybuffer, &newkey);
+                strcpy (keybuffer, newkey);
+                GF_FREE (newkey);
+#endif
+                op_ret = dict_set_dynptr (dict, keybuffer, value, size);
                 if (op_ret < 0) {
                         op_errno = -op_ret;
                         gf_log (this->name, GF_LOG_ERROR, "dict set operation "
-                                "on %s for the key %s failed.", real_path, key);
+                                "on %s for the key %s failed.", real_path,
+                                keybuffer);
                         GF_FREE (value);
                         goto out;
                 }
 
-                remaining_size -= strlen (key) + 1;
-                list_offset += strlen (key) + 1;
+                remaining_size -= strlen (keybuffer) + 1;
+                list_offset += strlen (keybuffer) + 1;
 
         } /* while (remaining_size > 0) */
 
@@ -3729,7 +3767,16 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
 
         if (name) {
                 strcpy (key, name);
-
+#ifdef GF_DARWIN_HOST_OS
+                struct posix_private *priv       = NULL;
+                priv = this->private;
+                if (priv->xattr_user_namespace == XATTR_STRIP) {
+                        char *newkey = NULL;
+                        gf_add_prefix (XATTR_USER_PREFIX, key, &newkey);
+                        strcpy (key, newkey);
+                        GF_FREE (newkey);
+                }
+#endif
                 size = sys_fgetxattr (_fd, key, NULL, 0);
                 if (size <= 0) {
                         op_errno = errno;
@@ -3832,6 +3879,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                 }
 
                 value [size] = '\0';
+
                 op_ret = dict_set_dynptr (dict, key, value, size);
                 if (op_ret) {
                         gf_log (this->name, GF_LOG_ERROR, "dict set operation "
@@ -3910,7 +3958,11 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
 
         filler.fd = _fd;
         filler.this = this;
+#ifdef GF_DARWIN_HOST_OS
+        filler.flags = map_xattr_flags(flags);
+#else
         filler.flags = flags;
+#endif
         op_ret = dict_foreach (dict, _handle_fsetxattr_keyvalue_pair,
                                &filler);
         if (op_ret < 0) {
@@ -3935,7 +3987,17 @@ _posix_remove_xattr (dict_t *dict, char *key, data_t *value, void *data)
 
         filler = (posix_xattr_filler_t *) data;
         this = filler->this;
-
+#ifdef GF_DARWIN_HOST_OS
+        struct posix_private  *priv = NULL;
+        priv = (struct posix_private *) this->private;
+        char *newkey = NULL;
+        if (priv->xattr_user_namespace == XATTR_STRIP) {
+                gf_remove_prefix (XATTR_USER_PREFIX, key, &newkey);
+                gf_log("remove_xattr", GF_LOG_DEBUG, "key %s => %s" , key,
+                       newkey);
+                key = newkey;
+        }
+#endif
         op_ret = sys_lremovexattr (filler->real_path, key);
         if (op_ret == -1) {
                 filler->op_errno = errno;
@@ -3944,7 +4006,9 @@ _posix_remove_xattr (dict_t *dict, char *key, data_t *value, void *data)
                                 "removexattr failed on %s (for %s): %s",
                                 filler->real_path, key, strerror (errno));
         }
-
+#ifdef GF_DARWIN_HOST_OS
+        GF_FREE(newkey);
+#endif
         return op_ret;
 }
 
@@ -4176,9 +4240,18 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
         optype = (gf_xattrop_flags_t)(filler->flags);
         this = filler->this;
         inode = filler->inode;
-
         count = v->len;
         array = GF_CALLOC (count, sizeof (char), gf_posix_mt_char);
+
+#ifdef GF_DARWIN_HOST_OS
+        struct posix_private *priv     = NULL;
+        priv = this->private;
+        if (priv->xattr_user_namespace == XATTR_STRIP) {
+                if (strncmp(k, XATTR_USER_PREFIX, XATTR_USER_PREFIX_LEN) == 0) {
+                        k += XATTR_USER_PREFIX_LEN;
+                }
+        }
+#endif
 
         LOCK (&inode->lock);
         {
@@ -5135,6 +5208,23 @@ set_batch_fsync_mode (struct posix_private *priv, const char *str)
 	return 0;
 }
 
+#ifdef GF_DARWIN_HOST_OS
+static int
+set_xattr_user_namespace_mode (struct posix_private *priv, const char *str)
+{
+        if (strcmp (str, "none") == 0)
+                priv->xattr_user_namespace = XATTR_NONE;
+        else if (strcmp (str, "strip") == 0)
+                priv->xattr_user_namespace = XATTR_STRIP;
+        else if (strcmp (str, "append") == 0)
+                priv->xattr_user_namespace = XATTR_APPEND;
+        else if (strcmp (str, "both") == 0)
+                priv->xattr_user_namespace = XATTR_BOTH;
+        else
+                return -1;
+        return 0;
+}
+#endif
 
 int
 reconfigure (xlator_t *this, dict_t *options)
@@ -5163,6 +5253,21 @@ reconfigure (xlator_t *this, dict_t *options)
 			batch_fsync_mode_str);
 		goto out;
 	}
+
+#ifdef GF_DARWIN_HOST_OS
+
+        char   *xattr_user_namespace_mode_str = NULL;
+
+        GF_OPTION_RECONF ("xattr-user-namespace-mode", xattr_user_namespace_mode_str,
+                          options, str, out);
+
+        if (set_xattr_user_namespace_mode (priv, xattr_user_namespace_mode_str) != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Unknown xattr user namespace mode string: %s",
+                        xattr_user_namespace_mode_str);
+                goto out;
+        }
+
+#endif
 
 	GF_OPTION_RECONF ("linux-aio", priv->aio_configured,
 			  options, bool, out);
@@ -5351,7 +5456,8 @@ init (xlator_t *this)
                         dir_data->data);
                 ret = -1;
                 goto out;
-        } else if ((size == -1) && (errno != ENODATA)) {
+        } else if ((size == -1) && (errno != ENODATA) &&
+                   (errno != ENOATTR)) {
                 /* Wrong 'gfid' is set, it should be error */
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: failed to fetch gfid (%s)",
@@ -5610,8 +5716,24 @@ init (xlator_t *this)
 		goto out;
 	}
 
-	GF_OPTION_INIT ("batch-fsync-delay-usec", _private->batch_fsync_delay_usec,
-			uint32, out);
+#ifdef GF_DARWIN_HOST_OS
+
+        char  *xattr_user_namespace_mode_str = NULL;
+
+        GF_OPTION_INIT ("xattr-user-namespace-mode",
+                        xattr_user_namespace_mode_str, str, out);
+
+        if (set_xattr_user_namespace_mode (_private,
+                                           xattr_user_namespace_mode_str) != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unknown xattr user namespace mode string: %s",
+                        xattr_user_namespace_mode_str);
+                goto out;
+        }
+#endif
+
+        GF_OPTION_INIT ("batch-fsync-delay-usec", _private->batch_fsync_delay_usec,
+                        uint32, out);
 out:
         return ret;
 }
@@ -5769,5 +5891,15 @@ struct volume_options options[] = {
           .default_value = "off",
           .description = "Enable placeholders for gfid to path conversion"
         },
+#if GF_DARWIN_HOST_OS
+        { .key = {"xattr-user-namespace-mode"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = "none",
+          .description = "Option to control XATTR user namespace on the raw filesystem: "
+	  "\t- None: Will use the user namespace, so files will be exchangable with Linux.\n"
+	  " The raw filesystem will not be compatible with OS X Finder.\n"
+	  "\t- Strip: Will strip the user namespace before setting. The raw filesystem will work in OS X.\n"
+        },
+#endif
         { .key  = {NULL} }
 };

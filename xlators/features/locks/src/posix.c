@@ -294,7 +294,7 @@ pl_locks_by_fd (pl_inode_t *pl_inode, fd_t *fd)
        {
 
                list_for_each_entry (l, &pl_inode->ext_list, list) {
-                       if ((l->fd_num == fd_to_fdnum(fd))) {
+                       if (l->fd_num == fd_to_fdnum(fd)) {
                                found = 1;
                                break;
                        }
@@ -319,7 +319,7 @@ delete_locks_of_fd (xlator_t *this, pl_inode_t *pl_inode, fd_t *fd)
        {
 
                list_for_each_entry_safe (l, tmp, &pl_inode->ext_list, list) {
-                       if ((l->fd_num == fd_to_fdnum(fd))) {
+                       if (l->fd_num == fd_to_fdnum(fd)) {
                                if (l->blocked) {
                                        list_move_tail (&l->list, &blocked_list);
                                        continue;
@@ -644,7 +644,8 @@ pl_fgetxattr_handle_lockinfo (xlator_t *this, fd_t *fd,
         pl_inode_t    *pl_inode = NULL;
         char          *key      = NULL, *buf = NULL;
         int32_t        op_ret   = 0;
-        unsigned long  fdnum    = 0, len = 0;
+        unsigned long  fdnum    = 0;
+	int32_t        len      = 0;
         dict_t        *tmp      = NULL;
 
         pl_inode = pl_inode_get (this, fd->inode);
@@ -1340,7 +1341,7 @@ __fd_has_locks (pl_inode_t *pl_inode, fd_t *fd)
         posix_lock_t *l     = NULL;
 
         list_for_each_entry (l, &pl_inode->ext_list, list) {
-                if ((l->fd_num == fd_to_fdnum(fd))) {
+                if (l->fd_num == fd_to_fdnum(fd)) {
                         found = 1;
                         break;
                 }
@@ -1369,7 +1370,7 @@ __dup_locks_to_fdctx (pl_inode_t *pl_inode, fd_t *fd,
         int ret = 0;
 
         list_for_each_entry (l, &pl_inode->ext_list, list) {
-                if ((l->fd_num == fd_to_fdnum(fd))) {
+                if (l->fd_num == fd_to_fdnum(fd)) {
                         duplock = lock_dup (l);
                         if (!duplock) {
                                 ret = -1;

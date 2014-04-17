@@ -158,6 +158,16 @@ struct posix_private {
         uint32_t        health_check_interval;
         pthread_t       health_check;
         gf_boolean_t    health_check_active;
+
+#ifdef GF_DARWIN_HOST_OS
+        enum {
+                XATTR_NONE = 0,
+                XATTR_STRIP,
+                XATTR_APPEND,
+                XATTR_BOTH,
+        } xattr_user_namespace;
+#endif
+
 };
 
 typedef struct {

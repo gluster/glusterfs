@@ -31,9 +31,19 @@
 #include <sys/un.h>
 #include <linux/limits.h>
 #include <sys/xattr.h>
+#include <linux/xattr.h>
 #include <endian.h>
 #ifdef HAVE_LINUX_FALLOC_H
 #include <linux/falloc.h>
+#endif
+
+#ifdef HAVE_ENDIAN_H
+#include <endian.h>
+#endif
+#endif /* GF_LINUX_HOST_OS */
+
+#ifdef HAVE_XATTR_H
+#include <sys/xattr.h>
 #endif
 
 /*
@@ -61,7 +71,29 @@
 #define lsetxattr(path,key,value,size,flags) setxattr(path,key,value,size,flags)
 
 #endif /* HAVE_LLISTXATTR */
-#endif /* GF_LINUX_HOST_OS */
+
+
+#ifdef GF_DARWIN_HOST_OS
+#include <machine/endian.h>
+#include <libkern/OSByteOrder.h>
+
+#define htobe16(x) OSSwapHostToBigInt16(x)
+#define htole16(x) OSSwapHostToLittleInt16(x)
+#define be16toh(x) OSSwapBigToHostInt16(x)
+#define le16toh(x) OSSwapLittleToHostInt16(x)
+
+#define htobe32(x) OSSwapHostToBigInt32(x)
+#define htole32(x) OSSwapHostToLittleInt32(x)
+#define be32toh(x) OSSwapBigToHostInt32(x)
+#define le32toh(x) OSSwapLittleToHostInt32(x)
+
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#define htole64(x) OSSwapHostToLittleInt64(x)
+#define be64toh(x) OSSwapBigToHostInt64(x)
+#define le64toh(x) OSSwapLittleToHostInt64(x)
+
+#endif
+
 
 #ifdef GF_BSD_HOST_OS
 /* In case of FreeBSD and NetBSD */
@@ -125,12 +157,29 @@ enum {
 #endif /* GF_BSD_HOST_OS */
 
 #ifdef GF_DARWIN_HOST_OS
+#include <machine/endian.h>
+#include <libkern/OSByteOrder.h>
+
+#define htobe16(x) OSSwapHostToBigInt16(x)
+#define htole16(x) OSSwapHostToLittleInt16(x)
+#define be16toh(x) OSSwapBigToHostInt16(x)
+#define le16toh(x) OSSwapLittleToHostInt16(x)
+
+#define htobe32(x) OSSwapHostToBigInt32(x)
+#define htole32(x) OSSwapHostToLittleInt32(x)
+#define be32toh(x) OSSwapBigToHostInt32(x)
+#define le32toh(x) OSSwapLittleToHostInt32(x)
+
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#define htole64(x) OSSwapHostToLittleInt64(x)
+#define be64toh(x) OSSwapBigToHostInt64(x)
+#define le64toh(x) OSSwapLittleToHostInt64(x)
 
 #define UNIX_PATH_MAX 104
+#define AT_SYMLINK_NOFOLLOW 0x100
 #include <sys/types.h>
 
 #include <sys/un.h>
-#include <machine/endian.h>
 #include <sys/xattr.h>
 #include <limits.h>
 

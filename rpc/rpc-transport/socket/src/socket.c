@@ -3346,7 +3346,7 @@ reconfigure (rpc_transport_t *this, dict_t *options)
         optstr = NULL;
         if (dict_get_str (this->options, "tcp-window-size",
                           &optstr) == 0) {
-                if (gf_string2bytesize (optstr, &windowsize) != 0) {
+                if (gf_string2uint64 (optstr, &windowsize) != 0) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "invalid number format: %s", optstr);
                         goto out;
@@ -3467,7 +3467,7 @@ socket_init (rpc_transport_t *this)
         optstr = NULL;
         if (dict_get_str (this->options, "tcp-window-size",
                           &optstr) == 0) {
-                if (gf_string2bytesize (optstr, &windowsize) != 0) {
+                if (gf_string2uint64 (optstr, &windowsize) != 0) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "invalid number format: %s", optstr);
                         return -1;

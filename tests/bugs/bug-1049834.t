@@ -6,7 +6,7 @@
 . $(dirname $0)/../snapshot.rc
 
 cleanup;
-
+TEST verify_lvm_version
 TEST launch_cluster 2
 TEST setup_lvm 2
 

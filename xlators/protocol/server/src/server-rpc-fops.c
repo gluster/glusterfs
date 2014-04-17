@@ -1611,8 +1611,8 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fd_no = gf_fd_unused_get (serv_ctx->fdtable, fd);
         fd_ref (fd);
 
-        if ((fd_no < 0) || (fd == 0)) {
-                op_ret = fd_no;
+        if ((fd_no > UINT64_MAX) || (fd == 0)) {
+                op_ret = -1;
                 op_errno = errno;
         }
 

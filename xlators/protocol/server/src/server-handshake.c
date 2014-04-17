@@ -645,7 +645,7 @@ server_setvolume (rpcsvc_request_t *req)
 
 fail:
         rsp.dict.dict_len = dict_serialized_length (reply);
-        if (rsp.dict.dict_len < 0) {
+        if (rsp.dict.dict_len > UINT_MAX) {
                 gf_log ("server-handshake", GF_LOG_DEBUG,
                         "failed to get serialized length of reply dict");
                 op_ret   = -1;

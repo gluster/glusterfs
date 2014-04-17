@@ -4169,9 +4169,9 @@ int32_t master_set_block_size (xlator_t *this, crypt_private_t *priv,
 
 	if (options != NULL)
 		GF_OPTION_RECONF("block-size", block_size, options,
-				 size, error);
+				 size_uint64, error);
 	else
-		GF_OPTION_INIT("block-size", block_size, size, error);
+		GF_OPTION_INIT("block-size", block_size, size_uint64, error);
 
 	switch (block_size) {
 	case 512:
@@ -4224,9 +4224,9 @@ static int master_set_data_key_size (xlator_t *this, crypt_private_t *priv,
 
 	if (options != NULL)
 		GF_OPTION_RECONF("data-key-size", key_size, options,
-				 size, error);
+				 uint64, error);
 	else
-		GF_OPTION_INIT("data-key-size", key_size, size, error);
+		GF_OPTION_INIT("data-key-size", key_size, uint64, error);
 
 	ret = data_cipher_algs[master->m_alg][master->m_mode].check_key(key_size);
 	if (ret) {

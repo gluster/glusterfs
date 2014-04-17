@@ -185,7 +185,7 @@ reconfigure (xlator_t *this, dict_t *options)
 			  uint32, out);
 
         GF_OPTION_RECONF (AFR_SH_READDIR_SIZE_KEY, priv->sh_readdir_size,
-                          options, size, out);
+                          options, size_uint64, out);
         /* Reset this so we re-discover in case the topology changed.  */
         GF_OPTION_RECONF ("ensure-durability", priv->ensure_durability, options,
                           bool, out);
@@ -331,7 +331,7 @@ init (xlator_t *this)
         GF_OPTION_INIT ("eager-lock", priv->eager_lock, bool, out);
         GF_OPTION_INIT ("quorum-type", qtype, str, out);
         GF_OPTION_INIT ("quorum-count", priv->quorum_count, uint32, out);
-        GF_OPTION_INIT (AFR_SH_READDIR_SIZE_KEY, priv->sh_readdir_size, size,
+        GF_OPTION_INIT (AFR_SH_READDIR_SIZE_KEY, priv->sh_readdir_size, size_uint64,
                         out);
         fix_quorum_options(this,priv,qtype);
 
@@ -436,7 +436,7 @@ fini (xlator_t *this)
         priv = this->private;
         this->private = NULL;
         afr_priv_destroy (priv);
-        if (this->itable);//I dont see any destroy func
+        //if (this->itable);//I dont see any destroy func
 
         return 0;
 }

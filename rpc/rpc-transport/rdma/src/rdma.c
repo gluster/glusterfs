@@ -2027,7 +2027,7 @@ out:
 }
 
 
-inline int32_t
+static inline int32_t
 __gf_rdma_register_local_mr_for_rdma (gf_rdma_peer_t *peer,
                                       struct iovec *vector, int count,
                                       gf_rdma_post_context_t *ctx)
@@ -3074,7 +3074,7 @@ out:
 }
 
 
-inline int32_t
+static inline int32_t
 gf_rdma_decode_error_msg (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
                           size_t bytes_in_post)
 {
@@ -3616,7 +3616,7 @@ out:
 }
 
 
-inline int32_t
+static inline int32_t
 gf_rdma_recv_request (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
                       gf_rdma_read_chunk_t *readch)
 {

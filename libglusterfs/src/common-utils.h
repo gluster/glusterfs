@@ -488,12 +488,12 @@ static inline void
 gf_time_fmt (char *dst, size_t sz_dst, time_t utime, unsigned int fmt)
 {
         extern void _gf_timestuff (gf_timefmts *, const char ***, const char ***);
-        static gf_timefmts timefmt_last = (gf_timefmts) -1;
+        static gf_timefmts timefmt_last = (gf_timefmts) - 1;
         static const char **fmts;
         static const char **zeros;
         struct tm tm;
 
-        if (timefmt_last == -1)
+        if (timefmt_last == (gf_timefmts) - 1)
                 _gf_timestuff (&timefmt_last, &fmts, &zeros);
         if (timefmt_last < fmt) fmt = gf_timefmt_default;
         if (utime && gmtime_r (&utime, &tm) != NULL) {
@@ -552,8 +552,9 @@ int gf_string2uint8_base10 (const char *str, uint8_t *n);
 int gf_string2uint16_base10 (const char *str, uint16_t *n);
 int gf_string2uint32_base10 (const char *str, uint32_t *n);
 int gf_string2uint64_base10 (const char *str, uint64_t *n);
-
 int gf_string2bytesize (const char *str, uint64_t *n);
+int gf_string2bytesize_size (const char *str, size_t *n);
+int gf_string2bytesize_uint64 (const char *str, uint64_t *n);
 int gf_string2percent_or_bytesize (const char *str, uint64_t *n,
 				   gf_boolean_t *is_percent);
 
@@ -626,7 +627,7 @@ gf_skip_header_section (int fd, int header_len);
 struct iatt;
 struct _dict;
 
-inline gf_boolean_t
+gf_boolean_t
 dht_is_linkfile (struct iatt *buf, struct _dict *dict);
 
 int

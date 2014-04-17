@@ -18,8 +18,8 @@
 
 #include <rpc/types.h>
 #include <sys/types.h>
-#include <rpc/auth.h>
 #include <rpc/xdr.h>
+#include <rpc/auth.h>
 #include <sys/uio.h>
 
 #ifdef __NetBSD__
@@ -68,7 +68,9 @@ enum gf_dump_procnum {
 #define xdr_u_quad_t xdr_u_int64_t
 #define xdr_quad_t   xdr_int64_t
 #define xdr_uint32_t xdr_u_int32_t
-#define uint64_t u_int64_t
+#define xdr_uint64_t xdr_u_int64_t
+
+unsigned long xdr_sizeof (xdrproc_t func, void *data);
 #endif
 
 #if defined(__NetBSD__)
