@@ -1517,6 +1517,7 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         gf_boolean_t          quota_enabled = _gf_true;
         gf_boolean_t          pgfid_feat    = _gf_false;
         char                 *value         = NULL;
+        char                 *ssl_user      = NULL;
 
         brickinfo = param;
         path      = brickinfo->path;
@@ -1812,6 +1813,15 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                           username);
 
                 ret = xlator_set_option (xl, key, password);
+                if (ret)
+                        return -1;
+        }
+
+        if (dict_get_str (volinfo->dict, "auth.ssl-allow", &ssl_user) == 0) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "auth.login.%s.ssl-allow", path);
+
+                ret = xlator_set_option (xl, key, ssl_user);
                 if (ret)
                         return -1;
         }

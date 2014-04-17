@@ -19,36 +19,43 @@
 auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
 {
         auth_result_t  result  = AUTH_DONT_CARE;
-        int      ret           = 0;
-        data_t  *allow_user    = NULL;
-        data_t  *username_data = NULL;
-        data_t  *passwd_data   = NULL;
-        data_t  *password_data = NULL;
-        char    *username      = NULL;
-        char    *password      = NULL;
-        char    *brick_name    = NULL;
-        char    *searchstr     = NULL;
-        char    *username_str  = NULL;
-        char    *tmp           = NULL;
-        char    *username_cpy  = NULL;
+        int             ret             = 0;
+        data_t          *allow_user     = NULL;
+        data_t          *username_data  = NULL;
+        data_t          *passwd_data    = NULL;
+        data_t          *password_data  = NULL;
+        char            *username       = NULL;
+        char            *password       = NULL;
+        char            *brick_name     = NULL;
+        char            *searchstr      = NULL;
+        char            *username_str   = NULL;
+        char            *tmp            = NULL;
+        char            *username_cpy   = NULL;
+        gf_boolean_t    using_ssl       = _gf_false;
 
-        username_data = dict_get (input_params, "username");
-        if (!username_data) {
-                gf_log ("auth/login", GF_LOG_DEBUG,
-                        "username not found, returning DONT-CARE");
-                goto out;
+        username_data = dict_get (input_params, "ssl-name");
+        if (username_data) {
+                gf_log ("auth/login", GF_LOG_INFO,
+                        "connecting user name: %s", username_data->data);
+                using_ssl = _gf_true;
+                result = AUTH_REJECT;
         }
-
+        else {
+                username_data = dict_get (input_params, "username");
+                if (!username_data) {
+                        gf_log ("auth/login", GF_LOG_DEBUG,
+                                "username not found, returning DONT-CARE");
+                        goto out;
+                }
+                password_data = dict_get (input_params, "password");
+                if (!password_data) {
+                        gf_log ("auth/login", GF_LOG_WARNING,
+                                "password not found, returning DONT-CARE");
+                        goto out;
+                }
+                password = data_to_str (password_data);
+        }
         username = data_to_str (username_data);
-
-        password_data = dict_get (input_params, "password");
-        if (!password_data) {
-                gf_log ("auth/login", GF_LOG_WARNING,
-                        "password not found, returning DONT-CARE");
-                goto out;
-        }
-
-        password = data_to_str (password_data);
 
         brick_name = data_to_str (dict_get (input_params, "remote-subvolume"));
         if (!brick_name) {
@@ -58,7 +65,8 @@ auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
                 goto out;
         }
 
-        ret = gf_asprintf (&searchstr, "auth.login.%s.allow", brick_name);
+        ret = gf_asprintf (&searchstr, "auth.login.%s.%s", brick_name,
+                           using_ssl ? "ssl-allow" : "allow");
         if (-1 == ret) {
                 gf_log ("auth/login", GF_LOG_WARNING,
                         "asprintf failed while setting search string, "
@@ -70,14 +78,26 @@ auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
         GF_FREE (searchstr);
 
         if (allow_user) {
+                gf_log ("auth/login", GF_LOG_INFO,
+                        "allowed user names: %s", allow_user->data);
                 username_cpy = gf_strdup (allow_user->data);
                 if (!username_cpy)
                         goto out;
 
                 username_str = strtok_r (username_cpy, " ,", &tmp);
 
+                /*
+                 * We have to match a user's *authenticated* name to one in the
+                 * list.  If we're using SSL, they're already authenticated.
+                 * Otherwise, they need a matching password to complete the
+                 * process.
+                 */
                 while (username_str) {
                         if (!fnmatch (username_str, username, 0)) {
+                                if (using_ssl) {
+                                        result = AUTH_ACCEPT;
+                                        break;
+                                }
                                 ret = gf_asprintf (&searchstr,
                                                    "auth.login.%s.password",
                                                    username);

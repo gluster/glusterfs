@@ -447,6 +447,10 @@ rpc_transport_destroy (rpc_transport_t *this)
         if (this->dl_handle)
                 dlclose (this->dl_handle);
 
+        if (this->ssl_name) {
+                GF_FREE(this->ssl_name);
+        }
+
 	GF_FREE (this);
 fail:
 	return ret;
