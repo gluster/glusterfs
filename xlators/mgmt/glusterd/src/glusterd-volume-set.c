@@ -944,6 +944,19 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = NO_DOC,
           .op_version  = 2
         },
+        { .key         = "server.manage-gids",
+          .voltype     = "protocol/server",
+          .op_version  = 4,
+        },
+        { .key         = "client.send-gids",
+          .voltype     = "protocol/client",
+          .type        = NO_DOC,
+          .op_version  = 4,
+        },
+        { .key         = "server.gid-timeout",
+          .voltype     = "protocol/server",
+          .op_version  = 4,
+        },
 
         /* Performance xlators enable/disbable options */
         { .key         = "performance.write-behind",

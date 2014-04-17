@@ -125,6 +125,8 @@ typedef struct clnt_conf {
          * how manytimes set_volume is called
          */
         uint64_t               setvol_count;
+
+        gf_boolean_t           send_gids; /* let the server resolve gids */
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {
