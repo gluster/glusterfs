@@ -736,6 +736,17 @@ reconfigure (xlator_t *this, dict_t *options)
                 goto out;
         }
 
+        GF_OPTION_RECONF ("manage-gids", conf->server_manage_gids, options,
+                          bool, out);
+
+        GF_OPTION_RECONF ("gid-timeout", conf->gid_cache_timeout, options,
+                          int32, out);
+        if (gid_cache_reconf (&conf->gid_cache, conf->gid_cache_timeout) < 0) {
+                gf_log(this->name, GF_LOG_ERROR, "Failed to reconfigure group "
+                        "cache.");
+                goto out;
+        }
+
         rpc_conf = conf->rpc;
         if (!rpc_conf) {
                 gf_log (this->name, GF_LOG_ERROR, "No rpc_conf !!!!");
@@ -860,6 +871,19 @@ init (xlator_t *this)
         ret = gf_auth_init (this, conf->auth_modules);
         if (ret) {
                 dict_unref (conf->auth_modules);
+                goto out;
+        }
+
+        ret = dict_get_str_boolean (this->options, "manage-gids", _gf_false);
+        if (ret == -1)
+                conf->server_manage_gids = _gf_false;
+        else
+                conf->server_manage_gids = ret;
+
+        GF_OPTION_INIT("gid-timeout", conf->gid_cache_timeout, int32, out);
+        if (gid_cache_init (&conf->gid_cache, conf->gid_cache_timeout) < 0) {
+                gf_log(this->name, GF_LOG_ERROR, "Failed to initialize "
+                        "group cache.");
                 goto out;
         }
 
@@ -1141,5 +1165,17 @@ struct volume_options options[] = {
                          "requests from a client. 0 means no limit (can "
                          "potentially run out of memory)"
         },
+
+        { .key   = {"manage-gids"},
+          .type  = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "Resolve groups on the server-side."
+        },
+        { .key = {"gid-timeout"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "2",
+          .description = "Timeout in seconds for the cached groups to expire."
+        },
+
         { .key   = {NULL} },
 };

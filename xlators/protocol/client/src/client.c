@@ -158,6 +158,8 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
         struct iobref  *new_iobref = NULL;
         ssize_t         xdr_size   = 0;
         struct rpc_req  rpcreq     = {0, };
+        uint64_t        ngroups    = 0;
+        uint64_t        gid        = 0;
 
         GF_VALIDATE_OR_GOTO ("client", this, out);
         GF_VALIDATE_OR_GOTO (this->name, prog, out);
@@ -224,6 +226,18 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
                 count = 1;
         }
 
+        /* do not send all groups if they are resolved server-side */
+        if (!conf->send_gids) {
+                /* copy some values for restoring later */
+                ngroups = frame->root->ngrps;
+                frame->root->ngrps = 1;
+                if (ngroups <= SMALL_GROUP_COUNT) {
+                        gid = frame->root->groups_small[0];
+                        frame->root->groups_small[0] = frame->root->gid;
+                        frame->root->groups = frame->root->groups_small;
+                }
+        }
+
         /* Send the msg */
         ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbkfn, &iov, count,
                                NULL, 0, new_iobref, frame, rsphdr, rsphdr_count,
@@ -231,6 +245,13 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
 
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG, "rpc_clnt_submit failed");
+        }
+
+        if (!conf->send_gids) {
+                /* restore previous values */
+                frame->root->ngrps = ngroups;
+                if (ngroups <= SMALL_GROUP_COUNT)
+                        frame->root->groups_small[0] = gid;
         }
 
         ret = 0;
@@ -2314,6 +2335,8 @@ build_client_config (xlator_t *this, clnt_conf_t *conf)
         GF_OPTION_INIT ("filter-O_DIRECT", conf->filter_o_direct,
                         bool, out);
 
+        GF_OPTION_INIT ("send-gids", conf->send_gids, bool, out);
+
         ret = 0;
 out:
         return ret;
@@ -2500,6 +2523,8 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("filter-O_DIRECT", conf->filter_o_direct,
                           options, bool, out);
+
+        GF_OPTION_RECONF ("send-gids", conf->send_gids, options, bool, out);
 
         ret = client_init_grace_timer (this, options, conf);
         if (ret)
@@ -2855,6 +2880,10 @@ struct volume_options options[] = {
           "flag will be filtered at the client protocol level so server will "
           "still continue to cache the file. This works similar to NFS's "
           "behavior of O_DIRECT",
+        },
+        { .key   = {"send-gids"},
+          .type  = GF_OPTION_TYPE_BOOL,
+          .default_value = "on",
         },
         { .key   = {NULL} },
 };
