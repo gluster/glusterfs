@@ -189,6 +189,15 @@ enum fuse_opcode {
 	FUSE_INTERRUPT     = 36,
 	FUSE_BMAP          = 37,
 	FUSE_DESTROY       = 38,
+	/*
+	FUSE_IOCTL         = 39,
+	FUSE_POLL          = 40,
+	FUSE_NOTIFY_REPLY  = 41,
+	FUSE_BATCH_FORGET  = 42,
+	FUSE_FALLOCATE     = 43,
+	FUSE_READDIRPLUS   = 44,
+	*/
+
 #if (__FreeBSD__ >= 10)
         FUSE_SETVOLNAME    = 61,
 	FUSE_GETXTIMES     = 62,

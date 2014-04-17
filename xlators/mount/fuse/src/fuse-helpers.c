@@ -235,7 +235,7 @@ out:
 
         if (sysctl(name, namelen, &kp, &kplen, NULL, 0) != 0)
                 return;
-        ngroups = MIN(kp.kp_eproc.e_ucred.cr_ngroups, GF_MAX_AUX_GROUPS);
+        ngroups = MIN(kp.kp_eproc.e_ucred.cr_ngroups, NGROUPS_MAX);
 	if (call_stack_alloc_groups (frame->root, ngroups) != 0)
 		return;
         for (i = 0; i < ngroups; i++)

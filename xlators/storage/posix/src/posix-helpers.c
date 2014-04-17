@@ -784,6 +784,27 @@ out:
         return op_ret;
 }
 
+#ifdef GF_DARWIN_HOST_OS
+static
+void posix_dump_buffer (xlator_t *this, const char *real_path, const char *key,
+                        data_t *value, int flags)
+{
+        char buffer[3*value->len+1];
+        int index = 0;
+        buffer[0] = 0;
+        gf_loglevel_t log_level = gf_log_get_loglevel ();
+        if (log_level == GF_LOG_TRACE) {
+                char *data = (char *) value->data;
+                for (index = 0; index < value->len; index++)
+                        sprintf(buffer+3*index, " %02x", data[index]);
+        }
+        gf_log (this->name, GF_LOG_DEBUG,
+                "Dump %s: key:%s flags: %u length:%u data:%s ",
+                real_path, key, flags, value->len,
+                (log_level == GF_LOG_TRACE ? buffer : "<skipped in DEBUG>"));
+}
+#endif
+
 static int gf_xattr_enotsup_log;
 
 int
@@ -802,7 +823,9 @@ posix_handle_pair (xlator_t *this, const char *real_path,
         } else {
                 sys_ret = sys_lsetxattr (real_path, key, value->data,
                                          value->len, flags);
-
+#ifdef GF_DARWIN_HOST_OS
+                posix_dump_buffer(this, real_path, key, value, flags);
+#endif
                 if (sys_ret < 0) {
                         ret = -errno;
                         if (errno == ENOTSUP) {
@@ -825,13 +848,13 @@ posix_handle_pair (xlator_t *this, const char *real_path,
                                 gf_log (this->name,
                                         ((errno == EINVAL) ?
                                          GF_LOG_DEBUG : GF_LOG_ERROR),
-                                        "%s: key:%s error:%s",
-                                        real_path, key,
+                                        "%s: key:%s flags: %u length:%d error:%s",
+                                        real_path, key, flags, value->len,
                                         strerror (errno));
 #else /* ! DARWIN */
                                 gf_log (this->name, GF_LOG_ERROR,
-                                        "%s: key:%s error:%s",
-                                        real_path, key,
+                                        "%s: key:%s flags: %u length:%d error:%s",
+                                        real_path, key, flags, value->len,
                                         strerror (errno));
 #endif /* DARWIN */
                         }
@@ -1430,12 +1453,10 @@ posix_fsyncer_process (xlator_t *this, call_stub_t *stub, gf_boolean_t do_fsync)
         }
 
         if (do_fsync) {
-#ifdef HAVE_FDATASYNC
                 if (stub->args.datasync)
-                        ret = fdatasync (pfd->fd);
+                        ret = sys_fdatasync (pfd->fd);
                 else
-#endif
-                        ret = fsync (pfd->fd);
+                        ret = sys_fsync (pfd->fd);
         } else {
                 ret = 0;
         }

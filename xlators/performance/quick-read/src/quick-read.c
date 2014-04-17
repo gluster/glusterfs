@@ -854,7 +854,7 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("cache-timeout", conf->cache_timeout, options, int32,
                           out);
 
-        GF_OPTION_RECONF ("cache-size", cache_size_new, options, size, out);
+        GF_OPTION_RECONF ("cache-size", cache_size_new, options, size_uint64, out);
         if (!check_cache_size_ok (this, cache_size_new)) {
                 ret = -1;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -995,11 +995,11 @@ init (xlator_t *this)
         LOCK_INIT (&priv->table.lock);
         conf = &priv->conf;
 
-        GF_OPTION_INIT ("max-file-size", conf->max_file_size, size, out);
+        GF_OPTION_INIT ("max-file-size", conf->max_file_size, size_uint64, out);
 
         GF_OPTION_INIT ("cache-timeout", conf->cache_timeout, int32, out);
 
-        GF_OPTION_INIT ("cache-size", conf->cache_size, size, out);
+        GF_OPTION_INIT ("cache-size", conf->cache_size, size_uint64, out);
         if (!check_cache_size_ok (this, conf->cache_size)) {
                 ret = -1;
                 goto out;

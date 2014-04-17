@@ -459,9 +459,9 @@ reconfigure(xlator_t *this, dict_t *options)
 
 	GF_OPTION_RECONF("rda-request-size", priv->rda_req_size, options,
 			 uint32, err);
-	GF_OPTION_RECONF("rda-low-wmark", priv->rda_low_wmark, options, size,
+	GF_OPTION_RECONF("rda-low-wmark", priv->rda_low_wmark, options, size_uint64,
 			 err);
-	GF_OPTION_RECONF("rda-high-wmark", priv->rda_high_wmark, options, size,
+	GF_OPTION_RECONF("rda-high-wmark", priv->rda_high_wmark, options, size_uint64,
 			 err);
 
 	return 0;
@@ -498,8 +498,8 @@ init(xlator_t *this)
 		goto err;
 
 	GF_OPTION_INIT("rda-request-size", priv->rda_req_size, uint32, err);
-	GF_OPTION_INIT("rda-low-wmark", priv->rda_low_wmark, size, err);
-	GF_OPTION_INIT("rda-high-wmark", priv->rda_high_wmark, size, err);
+	GF_OPTION_INIT("rda-low-wmark", priv->rda_low_wmark, size_uint64, err);
+	GF_OPTION_INIT("rda-high-wmark", priv->rda_high_wmark, size_uint64, err);
 
 	return 0;
 

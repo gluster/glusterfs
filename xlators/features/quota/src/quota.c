@@ -244,7 +244,7 @@ out:
         return;
 }
 
-inline void
+static inline void
 quota_link_count_decrement (quota_local_t *local)
 {
         call_stub_t *stub       = NULL;
@@ -270,7 +270,7 @@ out:
         return;
 }
 
-inline void
+static inline void
 quota_handle_validate_error (quota_local_t *local, int32_t op_ret,
                              int32_t op_errno)
 {
@@ -377,7 +377,7 @@ quota_timeout (struct timeval *tv, int32_t timeout)
         return timed_out;
 }
 
-inline void
+static inline void
 quota_add_parent (quota_dentry_t *dentry, struct list_head *list)
 {
         quota_dentry_t *entry = NULL;
@@ -928,7 +928,7 @@ err:
         return 0;
 }
 
-inline int
+static inline int
 quota_get_limits (xlator_t *this, dict_t *dict, int64_t *hard_lim,
                   int64_t *soft_lim)
 {

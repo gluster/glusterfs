@@ -46,6 +46,13 @@ function init_lvm() {
     return 0
 }
 
+function verify_lvm_version() {
+    if `/sbin/lvcreate --help | grep -q thin`; then
+        return 0;
+    fi
+    return 1;
+}
+
 function setup_lvm() {
     init_lvm $@ || return 1
     _setup_lvm
@@ -287,4 +294,3 @@ function volume_exists() {
                 return 0
         fi
 }
-

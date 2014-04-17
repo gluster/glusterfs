@@ -12,12 +12,12 @@
 #define __INCLUDE_TIMESPEC_H__
 
 #include <stdint.h>
+#include <sys/time.h>
 
 #define TS(ts)  ((ts.tv_sec * 1000000000LL) + ts.tv_nsec)
 #define NANO (+1.0E-9)
 #define GIGA UINT64_C(1000000000)
 
-void tv2ts (struct timeval tv, struct timespec *ts);
 void timespec_now (struct timespec *ts);
 void timespec_adjust_delta (struct timespec *ts, struct timespec delta);
 

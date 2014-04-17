@@ -1,4 +1,9 @@
 /*
+ * 'rebel' branch modifications:
+ *     Copyright (C) 2010 Tuxera. All Rights Reserved.
+ */
+
+/*
  * Copyright (C) 2006-2008 Google. All Rights Reserved.
  * Amit Singh <singh@>
  */
@@ -6,69 +11,81 @@
 #ifndef _FUSE_PARAM_H_
 #define _FUSE_PARAM_H_
 
-/* Compile-time tunables (M_MACFUSE*) */
+#include <AvailabilityMacros.h>
 
-#define M_MACFUSE_ENABLE_FIFOFS            0
-#define M_MACFUSE_ENABLE_INTERRUPT         1
-#define M_MACFUSE_ENABLE_SPECFS            0
-#define M_MACFUSE_ENABLE_TSLOCKING         0
-#define M_MACFUSE_ENABLE_UNSUPPORTED       1
-#define M_MACFUSE_ENABLE_XATTR             1
+/* Compile-time tunables (M_OSXFUSE*) */
 
-#if M_MACFUSE_ENABLE_UNSUPPORTED
-  #define M_MACFUSE_ENABLE_DSELECT         0
-  #define M_MACFUSE_ENABLE_EXCHANGE        1
-  #define M_MACFUSE_ENABLE_KQUEUE          1
-  #define M_MACFUSE_ENABLE_KUNC            0
-#if __LP64__
-    #define M_MACFUSE_ENABLE_INTERIM_FSNODE_LOCK 1
-#endif /* __LP64__ */
-#endif /* M_MACFUSE_ENABLE_UNSUPPORTED */
+#define M_OSXFUSE_ENABLE_FIFOFS                0
+#define M_OSXFUSE_ENABLE_INTERRUPT             1
+#define M_OSXFUSE_ENABLE_SPECFS                0
+#define M_OSXFUSE_ENABLE_TSLOCKING             1
+#define M_OSXFUSE_ENABLE_UNSUPPORTED           1
+#define M_OSXFUSE_ENABLE_XATTR                 1
+#define M_OSXFUSE_ENABLE_DSELECT               1
 
-#if M_MACFUSE_ENABLE_INTERIM_FSNODE_LOCK
-#define FUSE_VNOP_EXPORT __private_extern__
+#if M_OSXFUSE_ENABLE_UNSUPPORTED
+#  define M_OSXFUSE_ENABLE_EXCHANGE            1
+#  define M_OSXFUSE_ENABLE_KUNC                0
+#  define M_OSXFUSE_ENABLE_INTERIM_FSNODE_LOCK 1
+#endif /* M_OSXFUSE_ENABLE_UNSUPPORTED */
+
+#if MAC_OS_X_VERSION_MIN_REQUIRED < 1060
+#  if M_OSXFUSE_ENABLE_UNSUPPORTED
+     /*
+      * In Mac OS X 10.5 the file system implementation is responsible for
+      * posting kqueue events. Starting with Mac OS X 10.6 VFS took over that
+      * job.
+      */
+#    define M_OSXFUSE_ENABLE_KQUEUE            1
+#  endif
+#endif /* MAC_OS_X_VERSION_MIN_REQUIRED < 1060 */
+
+#if M_OSXFUSE_ENABLE_INTERIM_FSNODE_LOCK
+#  define M_OSXFUSE_ENABLE_HUGE_LOCK           0
+#  define M_OSXFUSE_ENABLE_LOCK_LOGGING        0
+#  define FUSE_VNOP_EXPORT __private_extern__
 #else
-#define FUSE_VNOP_EXPORT static
-#endif /* M_MACFUSE_ENABLE_INTERIM_FSNODE_LOCK */
+#  define FUSE_VNOP_EXPORT static
+#endif /* M_OSXFUSE_ENABLE_INTERIM_FSNODE_LOCK */
 
 /* User Control */
 
-#define MACFUSE_POSTUNMOUNT_SIGNAL         SIGKILL
+#define OSXFUSE_POSTUNMOUNT_SIGNAL         SIGKILL
 
 #define MACOSX_ADMIN_GROUP_NAME            "admin"
 
-#define SYSCTL_MACFUSE_TUNABLES_ADMIN      "macfuse.tunables.admin_group"
-#define SYSCTL_MACFUSE_VERSION_NUMBER      "macfuse.version.number"
+#define SYSCTL_OSXFUSE_TUNABLES_ADMIN      "osxfuse.tunables.admin_group"
+#define SYSCTL_OSXFUSE_VERSION_NUMBER      "osxfuse.version.number"
 
 /* Paths */
 
-#define MACFUSE_BUNDLE_PATH "/Library/Filesystems/fusefs.fs"
-#define MACFUSE_KEXT        MACFUSE_BUNDLE_PATH "/Support/fusefs.kext"
-#define MACFUSE_LOAD_PROG   MACFUSE_BUNDLE_PATH "/Support/load_fusefs"
-#define MACFUSE_MOUNT_PROG  MACFUSE_BUNDLE_PATH "/Support/mount_fusefs"
+#define OSXFUSE_BUNDLE_PATH "/Library/Filesystems/osxfusefs.fs"
+#define OSXFUSE_KEXT        OSXFUSE_BUNDLE_PATH "/Support/osxfusefs.kext"
+#define OSXFUSE_LOAD_PROG   OSXFUSE_BUNDLE_PATH "/Support/load_osxfusefs"
+#define OSXFUSE_MOUNT_PROG  OSXFUSE_BUNDLE_PATH "/Support/mount_osxfusefs"
 #define SYSTEM_KEXTLOAD     "/sbin/kextload"
 #define SYSTEM_KEXTUNLOAD   "/sbin/kextunload"
 
 /* Compatible API version */
 
-#define MACFUSE_MIN_USER_VERSION_MAJOR     7
-#define MACFUSE_MIN_USER_VERSION_MINOR     5
+#define OSXFUSE_MIN_USER_VERSION_MAJOR     7
+#define OSXFUSE_MIN_USER_VERSION_MINOR     5
 
 /* Device Interface */
 
 /*
- * This is the prefix ("fuse" by default) of the name of a FUSE device node
- * in devfs. The suffix is the device number. "/dev/fuse0" is the first FUSE
+ * This is the prefix ("osxfuse" by default) of the name of a FUSE device node
+ * in devfs. The suffix is the device number. "/dev/osxfuse0" is the first FUSE
  * device by default. If you change the prefix from the default to something
  * else, the user-space FUSE library will need to know about it too.
  */
-#define MACFUSE_DEVICE_BASENAME            "fuse"
+#define OSXFUSE_DEVICE_BASENAME            "osxfuse"
 
 /*
- * This is the number of /dev/fuse<n> nodes we will create. <n> goes from
- * 0 to (FUSE_NDEVICES - 1).
+ * This is the number of /dev/osxfuse<n> nodes we will create. <n> goes from
+ * 0 to (OSXFUSE_NDEVICES - 1).
  */
-#define MACFUSE_NDEVICES                   24
+#define OSXFUSE_NDEVICES                   24
 
 /*
  * This is the default block size of the virtual storage devices that are
@@ -131,13 +148,13 @@
 /* User-Kernel IPC Buffer */
 
 #define FUSE_MIN_USERKERNEL_BUFSIZE        (128  * 1024)
-#define FUSE_MAX_USERKERNEL_BUFSIZE        (4096 * 1024)
+#define FUSE_MAX_USERKERNEL_BUFSIZE        (16   * 1024 * 1024)
 
 #define FUSE_REASONABLE_XATTRSIZE          FUSE_MIN_USERKERNEL_BUFSIZE
 
 #endif /* KERNEL */
 
-#define FUSE_DEFAULT_USERKERNEL_BUFSIZE    (4096 * 1024)
+#define FUSE_DEFAULT_USERKERNEL_BUFSIZE    (16   * 1024 * 1024)
 
 #define FUSE_LINK_MAX                      LINK_MAX
 #define FUSE_UIO_BACKUP_MAX                8

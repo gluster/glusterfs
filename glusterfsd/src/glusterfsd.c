@@ -1516,7 +1516,7 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
 
 #ifdef GF_DARWIN_HOST_OS
         if (cmd_args->mount_point)
-                cmd_args->mac_compat = GF_OPTION_DEFERRED;
+               cmd_args->mac_compat = GF_OPTION_DEFERRED;
 #endif
 
         ret = 0;

@@ -717,8 +717,9 @@ rpc_clnt_handle_cbk (struct rpc_clnt *clnt, rpc_transport_pollin_t *msg)
         }
 
         gf_log (clnt->conn.name, GF_LOG_TRACE,
-                "received rpc message (XID: 0x%lx, "
-                "Ver: %ld, Program: %ld, ProgVers: %ld, Proc: %ld) "
+		"receivd rpc message (XID: 0x%" GF_PRI_RPC_XID ", "
+		"Ver: %" GF_PRI_RPC_VERSION ", Program: %" GF_PRI_RPC_PROG_ID ", "
+		"ProgVers: %" GF_PRI_RPC_PROG_VERS ", Proc: %" GF_PRI_RPC_PROC ") "
                 "from rpc-transport (%s)", rpc_call_xid (&rpcmsg),
                 rpc_call_rpcvers (&rpcmsg), rpc_call_program (&rpcmsg),
                 rpc_call_progver (&rpcmsg), rpc_call_progproc (&rpcmsg),
@@ -1141,7 +1142,7 @@ xdr_serialize_glusterfs_auth (char *dest, struct auth_glusterfs_parms_v2 *au)
 {
         ssize_t ret = -1;
         XDR     xdr;
-        uint64_t ngroups = 0;
+        u_long  ngroups = 0;
         int     max_groups = 0;
 
         if ((!dest) || (!au))

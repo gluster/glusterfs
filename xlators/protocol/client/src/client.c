@@ -21,6 +21,7 @@
 #include "statedump.h"
 #include "compat-errno.h"
 
+#include "xdr-rpc.h" 
 #include "glusterfs3.h"
 
 extern rpc_clnt_prog_t clnt_handshake_prog;
@@ -2458,7 +2459,7 @@ client_init_grace_timer (xlator_t *this, dict_t *options,
         conf->grace_ts.tv_nsec  = 0;
 
         gf_log (this->name, GF_LOG_DEBUG, "Client grace timeout "
-                "value = %"PRIu64, conf->grace_ts.tv_sec);
+                "value = %"GF_PRI_SECOND, conf->grace_ts.tv_sec);
 
         ret = 0;
 out:

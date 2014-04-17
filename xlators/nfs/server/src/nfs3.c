@@ -5186,7 +5186,7 @@ nfs3_init_options (struct nfs3_state *nfs3, dict_t *options)
                         goto err;
                 }
 
-                ret = gf_string2bytesize (optstr, &size64);
+                ret = gf_string2uint64 (optstr, &size64);
                 if (ret == -1) {
                         gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to format"
                                 " option: nfs3.read-size");
@@ -5209,7 +5209,7 @@ nfs3_init_options (struct nfs3_state *nfs3, dict_t *options)
                         goto err;
                 }
 
-                ret = gf_string2bytesize (optstr, &size64);
+                ret = gf_string2uint64 (optstr, &size64);
                 if (ret == -1) {
                         gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to format"
                                 " option: nfs3.write-size");
@@ -5232,7 +5232,7 @@ nfs3_init_options (struct nfs3_state *nfs3, dict_t *options)
                         goto err;
                 }
 
-                ret = gf_string2bytesize (optstr, &size64);
+                ret = gf_string2uint64 (optstr, &size64);
                 if (ret == -1) {
                         gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to format"
                                 " option: nfs3.readdir-size");

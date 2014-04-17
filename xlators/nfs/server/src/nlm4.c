@@ -2423,9 +2423,21 @@ nlm4svc_init(xlator_t *nfsx)
         /* unlink sm-notify.pid so that when we restart rpc.statd/sm-notify
          * it thinks that the machine has restarted and sends NOTIFY to clients.
          */
-        ret = unlink ("/var/run/sm-notify.pid");
+
+        /* TODO:
+           notify/rpc.statd is done differently on OSX
+
+           On OSX rpc.statd is controlled by rpc.lockd and are part for launchd
+           (unified service management framework)
+
+           A runcmd() should be invoking "launchctl start com.apple.lockd"
+           instead. This is still a theory but we need to thoroughly test it
+           out. Until then NLM support is non-existent on OSX.
+        */
+        ret = unlink (GF_SM_NOTIFY_PIDFILE);
         if (ret == -1 && errno != ENOENT) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to unlink sm-notify");
+                gf_log (GF_NLM, GF_LOG_ERROR, "unable to unlink %s: %d",
+                        GF_SM_NOTIFY_PIDFILE, errno);
                 goto err;
         }
         /* temporary work around to restart statd, not distro/OS independant.
@@ -2433,37 +2445,43 @@ nlm4svc_init(xlator_t *nfsx)
          * killall will cause problems on solaris.
          */
 
-        pidfile = fopen ("/var/run/rpc.statd.pid", "r");
+        char *pid_file = GF_RPC_STATD_PIDFILE;
+        if (nfs->rpc_statd_pid_file)
+                pid_file = nfs->rpc_statd_pid_file;
+        pidfile = fopen (pid_file, "r");
         if (pidfile) {
                 ret = fscanf (pidfile, "%d", &pid);
                 if (ret <= 0) {
                         gf_log (GF_NLM, GF_LOG_WARNING, "unable to get pid of "
-                                "rpc.statd");
+                                "rpc.statd from %s ", GF_RPC_STATD_PIDFILE);
                         ret = runcmd ("killall", "-9", "rpc.statd", NULL);
                 } else
                         kill (pid, SIGKILL);
 
                 fclose (pidfile);
         } else {
-                gf_log (GF_NLM, GF_LOG_WARNING, "opening the pid file of "
-                        "rpc.statd failed (%s)", strerror (errno));
+                gf_log (GF_NLM, GF_LOG_WARNING, "opening %s of "
+                        "rpc.statd failed (%s)", pid_file, strerror (errno));
                 /* if ret == -1, do nothing - case either statd was not
                  * running or was running in valgrind mode
                  */
                 ret = runcmd ("killall", "-9", "rpc.statd", NULL);
         }
 
-        ret = unlink ("/var/run/rpc.statd.pid");
+        ret = unlink (GF_RPC_STATD_PIDFILE);
         if (ret == -1 && errno != ENOENT) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to unlink rpc.statd");
+                gf_log (GF_NLM, GF_LOG_ERROR, "unable to unlink %s", pid_file);
                 goto err;
         }
 
-        ret = runcmd ("/sbin/rpc.statd", NULL);
+        ret = runcmd (nfs->rpc_statd, NULL);
         if (ret == -1) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to start rpc.statd");
+                gf_log (GF_NLM, GF_LOG_ERROR, "unable to start %s",
+                        nfs->rpc_statd);
                 goto err;
         }
+
+
         pthread_create (&thr, NULL, nsm_thread, (void*)NULL);
 
         timeout.tv_sec = nlm_grace_period;

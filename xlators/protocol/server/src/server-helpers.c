@@ -33,6 +33,7 @@ server_decode_groups (call_frame_t *frame, rpcsvc_request_t *req)
         if (frame->root->ngrps == 0)
                 return 0;
 
+	/* ngrps cannot be bigger than USHRT_MAX(65535) */
         if (frame->root->ngrps > GF_MAX_AUX_GROUPS)
                 return -1;
 
@@ -744,7 +745,7 @@ serialize_rsp_direntp (gf_dirent_t *entries, gfs3_readdirp_rsp *rsp)
                 /* if 'dict' is present, pack it */
                 if (entry->dict) {
                         trav->dict.dict_len = dict_serialized_length (entry->dict);
-                        if (trav->dict.dict_len < 0) {
+                        if (trav->dict.dict_len > UINT_MAX) {
                                 gf_log (THIS->name, GF_LOG_ERROR,
                                         "failed to get serialized length "
                                         "of reply dict");

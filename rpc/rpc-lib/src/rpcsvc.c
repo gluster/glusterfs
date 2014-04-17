@@ -423,9 +423,10 @@ rpcsvc_request_create (rpcsvc_t *svc, rpc_transport_t *trans,
         ret = -1;
         rpcsvc_request_init (svc, trans, &rpcmsg, progmsg, msg, req);
 
-        gf_log (GF_RPCSVC, GF_LOG_TRACE, "received rpc-message (XID: 0x%lx, "
-                "Ver: %ld, Program: %ld, ProgVers: %ld, Proc: %ld) from"
-                " rpc-transport (%s)", rpc_call_xid (&rpcmsg),
+        gf_log (GF_RPCSVC, GF_LOG_TRACE, "received rpc-message "
+		"(XID: 0x%" GF_PRI_RPC_XID ", Ver: %" GF_PRI_RPC_VERSION ", Program: %" GF_PRI_RPC_PROG_ID ", "
+		"ProgVers: %" GF_PRI_RPC_PROG_VERS ", Proc: %" GF_PRI_RPC_PROC ") "
+                "from rpc-transport (%s)", rpc_call_xid (&rpcmsg),
                 rpc_call_rpcvers (&rpcmsg), rpc_call_program (&rpcmsg),
                 rpc_call_progver (&rpcmsg), rpc_call_progproc (&rpcmsg),
                 trans->name);
@@ -434,8 +435,9 @@ rpcsvc_request_create (rpcsvc_t *svc, rpc_transport_t *trans,
                 /* LOG- TODO: print rpc version, also print the peerinfo
                    from transport */
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC version not supported "
-                        "(XID: 0x%lx, Ver: %ld, Prog: %ld, ProgVers: %ld, "
-                        "Proc: %ld) from trans (%s)", rpc_call_xid (&rpcmsg),
+			"(XID: 0x%" GF_PRI_RPC_XID ", Ver: %" GF_PRI_RPC_VERSION ", Program: %" GF_PRI_RPC_PROG_ID ", "
+			"ProgVers: %" GF_PRI_RPC_PROG_VERS ", Proc: %" GF_PRI_RPC_PROC ") "
+			"from trans (%s)", rpc_call_xid (&rpcmsg),
                         rpc_call_rpcvers (&rpcmsg), rpc_call_program (&rpcmsg),
                         rpc_call_progver (&rpcmsg), rpc_call_progproc (&rpcmsg),
                         trans->name);
@@ -451,8 +453,9 @@ rpcsvc_request_create (rpcsvc_t *svc, rpc_transport_t *trans,
                  */
                 rpcsvc_request_seterr (req, AUTH_ERROR);
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "auth failed on request. "
-                        "(XID: 0x%lx, Ver: %ld, Prog: %ld, ProgVers: %ld, "
-                        "Proc: %ld) from trans (%s)", rpc_call_xid (&rpcmsg),
+			"(XID: 0x%" GF_PRI_RPC_XID ", Ver: %" GF_PRI_RPC_VERSION ", Program: %" GF_PRI_RPC_PROG_ID ", "
+			"ProgVers: %" GF_PRI_RPC_PROG_VERS ", Proc: %" GF_PRI_RPC_PROC ") "
+                        "from trans (%s)", rpc_call_xid (&rpcmsg),
                         rpc_call_rpcvers (&rpcmsg), rpc_call_program (&rpcmsg),
                         rpc_call_progver (&rpcmsg), rpc_call_progproc (&rpcmsg),
                         trans->name);
@@ -797,15 +800,9 @@ err:
         return txrecord;
 }
 
-static inline int
-rpcsvc_get_callid (rpcsvc_t *rpc)
-{
-        return GF_UNIVERSAL_ANSWER;
-}
-
 int
 rpcsvc_fill_callback (int prognum, int progver, int procnum, int payload,
-                      uint64_t xid, struct rpc_msg *request)
+                      uint32_t xid, struct rpc_msg *request)
 {
         int   ret          = -1;
 
@@ -870,9 +867,9 @@ out:
         return txrecord;
 }
 
-struct iobuf *
+static struct iobuf *
 rpcsvc_callback_build_record (rpcsvc_t *rpc, int prognum, int progver,
-                              int procnum, size_t payload, uint64_t xid,
+                              int procnum, size_t payload, u_long xid,
                               struct iovec *recbuf)
 {
         struct rpc_msg           request     = {0, };
@@ -892,7 +889,7 @@ rpcsvc_callback_build_record (rpcsvc_t *rpc, int prognum, int progver,
                                     &request);
         if (ret == -1) {
                 gf_log ("rpcsvc", GF_LOG_WARNING, "cannot build a rpc-request "
-                        "xid (%"PRIu64")", xid);
+                        "xid (%" GF_PRI_RPC_XID ")", xid);
                 goto out;
         }
 
@@ -939,7 +936,6 @@ rpcsvc_callback_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
         rpc_transport_req_t    req;
         int                    ret         = -1;
         int                    proglen     = 0;
-        uint64_t               callid      = 0;
 
         if (!rpc) {
                 goto out;
@@ -947,15 +943,14 @@ rpcsvc_callback_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
 
         memset (&req, 0, sizeof (req));
 
-        callid = rpcsvc_get_callid (rpc);
-
         if (proghdr) {
                 proglen += iov_length (proghdr, proghdrcount);
         }
 
         request_iob = rpcsvc_callback_build_record (rpc, prog->prognum,
                                                     prog->progver, procnum,
-                                                    proglen, callid,
+                                                    proglen,
+                                                    GF_UNIVERSAL_ANSWER,
                                                     &rpchdr);
         if (!request_iob) {
                 gf_log ("rpcsvc", GF_LOG_WARNING,
@@ -1256,7 +1251,7 @@ rpcsvc_program_register_portmap (rpcsvc_program_t *newprog, uint32_t port)
         if (!(pmap_set (newprog->prognum, newprog->progver, IPPROTO_TCP,
                         port))) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Could not register with"
-                        " portmap");
+                        " portmap %d %d %u", newprog->prognum, newprog->progver, port);
                 goto out;
         }
 

@@ -1170,7 +1170,7 @@ gf_string2uint8 (const char *str, uint8_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= 0 && l <= UINT8_MAX) {
+        if (l <= UINT8_MAX) {
                 *n = (uint8_t) l;
                 return 0;
         }
@@ -1189,7 +1189,7 @@ gf_string2uint16 (const char *str, uint16_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= 0 && l <= UINT16_MAX) {
+        if (l <= UINT16_MAX) {
                 *n = (uint16_t) l;
                 return 0;
         }
@@ -1208,7 +1208,7 @@ gf_string2uint32 (const char *str, uint32_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= 0 && l <= UINT32_MAX) {
+	if (l <= UINT32_MAX) {
                 *n = (uint32_t) l;
                 return 0;
         }
@@ -1227,7 +1227,7 @@ gf_string2uint64 (const char *str, uint64_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= 0 && l <= UINT64_MAX) {
+        if (l <= UINT64_MAX) {
                 *n = (uint64_t) l;
                 return 0;
         }
@@ -1258,7 +1258,7 @@ gf_string2uint8_base10 (const char *str, uint8_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= 0 && l <= UINT8_MAX) {
+        if (l <= UINT8_MAX) {
                 *n = (uint8_t) l;
                 return 0;
         }
@@ -1277,7 +1277,7 @@ gf_string2uint16_base10 (const char *str, uint16_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= 0 && l <= UINT16_MAX) {
+        if (l <= UINT16_MAX) {
                 *n = (uint16_t) l;
                 return 0;
         }
@@ -1296,7 +1296,7 @@ gf_string2uint32_base10 (const char *str, uint32_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= 0 && l <= UINT32_MAX) {
+        if (l <= UINT32_MAX) {
                 *n = (uint32_t) l;
                 return 0;
         }
@@ -1315,7 +1315,7 @@ gf_string2uint64_base10 (const char *str, uint64_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l >= 0 && l <= UINT64_MAX) {
+        if (l <= UINT64_MAX) {
                 *n = (uint64_t) l;
                 return 0;
         }
@@ -1361,7 +1361,7 @@ err:
 }
 
 int
-gf_string2bytesize (const char *str, uint64_t *n)
+gf_string2bytesize_range (const char *str, uint64_t *n, uint64_t max)
 {
         double value = 0.0;
         char *tail = NULL;
@@ -1410,7 +1410,7 @@ gf_string2bytesize (const char *str, uint64_t *n)
                         return -1;
         }
 
-        if ((UINT64_MAX - value) < 0) {
+        if ((max - value) < 0) {
                 errno = ERANGE;
                 return -1;
         }
@@ -1418,6 +1418,28 @@ gf_string2bytesize (const char *str, uint64_t *n)
         *n = (uint64_t) value;
 
         return 0;
+}
+
+int
+gf_string2bytesize_size (const char *str, size_t *n)
+{
+        uint64_t u64;
+        size_t max = (size_t) - 1;
+        int val = gf_string2bytesize_range (str, &u64, max);
+        *n = (size_t) u64;
+        return val;
+}
+
+int
+gf_string2bytesize (const char *str, uint64_t *n)
+{
+        return gf_string2bytesize_range(str, n, UINT64_MAX);
+}
+
+int
+gf_string2bytesize_uint64 (const char *str, uint64_t *n)
+{
+        return gf_string2bytesize_range(str, n, UINT64_MAX);
 }
 
 int

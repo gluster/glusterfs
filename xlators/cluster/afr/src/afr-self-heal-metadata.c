@@ -18,7 +18,6 @@
 #include "afr-self-heal.h"
 #include "byte-order.h"
 
-
 #define AFR_HEAL_ATTR (GF_SET_ATTR_UID|GF_SET_ATTR_GID|GF_SET_ATTR_MODE)
 
 int

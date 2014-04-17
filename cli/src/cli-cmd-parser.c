@@ -620,7 +620,7 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                         goto out;
                 }
 
-                ret = gf_string2bytesize (words[5], &value);
+                ret = gf_string2bytesize_uint64 (words[5], &value);
                 if (ret != 0) {
                         if (errno == ERANGE)
                                 cli_err ("Value too large: %s", words[5]);
@@ -1750,7 +1750,7 @@ config_parse (const char **words, int wordcount, dict_t *dict,
                                 ret = -1;
                                 goto out;
                         }
-                        snprintf (append_str, 300, "now:%ld.%06ld",
+                        snprintf (append_str, 300, "now:%" GF_PRI_SECOND ".%06"GF_PRI_SUSECONDS,
                                   tv.tv_sec, tv.tv_usec);
                 }
 
@@ -3025,7 +3025,7 @@ cli_snap_create_parse (dict_t *dict, const char **words, int wordcount) {
                             && (strcmp (words[i], "force") != 0); i++) {
                 volcount++;
                 /* volume index starts from 1 */
-                ret = snprintf (key, sizeof (key), "volname%ld", volcount);
+                ret = snprintf (key, sizeof (key), "volname%"PRIu64, volcount);
                 if (ret < 0) {
                         goto out;
                 }

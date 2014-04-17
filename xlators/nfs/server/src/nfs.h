@@ -86,6 +86,8 @@ struct nfs_state {
 	gid_cache_t		gid_cache;
         uint32_t                generation;
         gf_boolean_t            register_portmap;
+        char                    *rpc_statd;
+        char                    *rpc_statd_pid_file;
 };
 
 struct nfs_inode_ctx {

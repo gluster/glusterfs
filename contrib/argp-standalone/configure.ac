@@ -56,12 +56,12 @@ AC_DEFUN([ARGP_CHECK_FUNC],
                [Define to 1 if you have the `]ac_func[' function.])
    AC_CACHE_CHECK([for $2], ac_var,
      [AC_TRY_LINK([$1], [$2],
-		  [AS_VAR_SET(ac_var, yes)],
-		  [AS_VAR_SET(ac_var, no)])])
+                  [AS_VAR_SET(ac_var, yes)],
+                  [AS_VAR_SET(ac_var, no)])])
    if test AS_VAR_GET(ac_var) = yes ; then
      ifelse([$3],,
-	    [AC_DEFINE_UNQUOTED(AS_TR_CPP(HAVE_[]ac_func))],
-	    [$3
+            [AC_DEFINE_UNQUOTED(AS_TR_CPP(HAVE_[]ac_func))],
+            [$3
 ])
    else
      ifelse([$4],, true, [$4])
@@ -98,5 +98,8 @@ if test x$GCC = xyes ; then
 fi
 
 CPPFLAGS="$CPPFLAGS -I$srcdir"
+
+dnl Added for C99 standards
+CFLAGS="$CFLAGS -std=gnu89"
 
 AC_OUTPUT(Makefile)

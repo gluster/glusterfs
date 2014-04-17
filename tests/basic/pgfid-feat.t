@@ -24,11 +24,10 @@ TEST $CLI volume set $V0 build-pgfid on;
 TEST mkdir $M0/a;
 TEST touch $M0/a/b;
 
-getfattr -e text -n glusterfs.ancestry.path "$M0/a/b" | grep "^glusterfs.ancestry.path" | cut -d"=" -f2 | tr -d \";
 EXPECT "/a/b" get_ancestry_path "/a/b";
 
 TEST $CLI volume set $V0 build-pgfid off;
-TEST ! getfattr -e text -n "glusterfs.ancestry.path" $M0/a/b;
+EXPECT "" get_ancestry_path "/a/b";
 
 TEST $CLI volume stop $V0;
 TEST $CLI volume delete $V0;

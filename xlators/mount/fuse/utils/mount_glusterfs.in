@@ -1,188 +1,538 @@
 #!/bin/sh
-# (C) 2008 Gluster Inc. <http://www.gluster.com>
-# 
+# (C) 2014 Red Hat Inc. <http://www.redhat.com>
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
 # published by the Free Software Foundation; either version 2 of
 # the License, or (at your option) any later version.
-#   
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
-#   
+#
 # You should have received a copy of the GNU General Public
 # License along with this program; if not, write to the Free
 # Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
 
 
+warn ()
+{
+   echo "$@" >/dev/stderr
+}
 
 _init ()
 {
+
     # log level definitions
     LOG_NONE=NONE;
     LOG_CRITICAL=CRITICAL;
     LOG_ERROR=ERROR;
     LOG_WARNING=WARNING;
-    LOG_INFO=INFO;
+    LOG_INFO=INFO
     LOG_DEBUG=DEBUG;
+    LOG_TRACE=TRACE;
 
-    # set default log level to ERROR
-    log_level=$LOG_INFO;
+    HOST_NAME_MAX=64;
+
+    prefix="@prefix@";
+    exec_prefix=@exec_prefix@;
+    cmd_line=$(echo "@sbindir@/glusterfs");
+
+    alias lsL='ls -L'
+    uname_s=`uname -s`
+    case ${uname_s} in
+        Darwin)
+            getinode="stat -f %i"
+            getdev="stat -f %d"
+            ;;
+    esac
+}
+
+is_valid_hostname ()
+{
+    local server=$1
+
+    length=$(echo $server | wc -c)
+    if [ ${length} -gt ${HOST_NAME_MAX} ]; then
+        return 1
+    fi
+}
+
+parse_backup_volfile_servers ()
+{
+    local server_list=$1
+    local servers=""
+    local new_servers=""
+
+    servers=$(echo ${server_list} | sed 's/\:/ /g')
+    for server in ${servers}; do
+        is_valid_hostname ${server}
+        if [ $? -eq 1 ]; then
+            continue
+        fi
+        new_servers=$(echo "${new_servers} ${server}")
+    done
+
+    echo ${new_servers}
+}
+
+parse_volfile_servers ()
+{
+    local server_list=$1
+    local servers=""
+    local new_servers=""
+
+    servers=$(echo ${server_list} | sed 's/,/ /g')
+    for server in ${servers}; do
+        is_valid_hostname ${server}
+        if [ $? -eq 1 ]; then
+            continue
+        fi
+        new_servers=$(echo "${new_servers} ${server}")
+    done
+
+    echo ${new_servers}
 }
 
 start_glusterfs ()
 {
-    prefix="@prefix@";
-    exec_prefix=@exec_prefix@;
-    cmd_line=$(echo "@sbindir@/glusterfs");
-    
     if [ -n "$log_level_str" ]; then
-	case "$log_level_str" in
-	    "ERROR")
-		log_level=$LOG_ERROR;
-		;;
+        case "$( echo $log_level_str | awk '{print toupper($0)}')" in
+            "ERROR")
+                log_level=$LOG_ERROR;
+                ;;
             "INFO")
                 log_level=$LOG_INFO;
                 ;;
-	    "DEBUG")
-		log_level=$LOG_DEBUG;
-		;;
-	    "CRITICAL")
-		log_level=$LOG_CRITICAL;
-		;;
-	    "WARNING")
-		log_level=$LOG_WARNING;
-		;;
-	    "NONE")
-		log_level=$LOG_NONE;
-		;;
-	    *)
-		echo "invalid log level $log_level_str, using INFO";
-		log_level=$LOG_INFO;
-		;;
-	esac
+            "DEBUG")
+                log_level=$LOG_DEBUG;
+                ;;
+            "CRITICAL")
+                log_level=$LOG_CRITICAL;
+                ;;
+            "WARNING")
+                log_level=$LOG_WARNING;
+                ;;
+            "TRACE")
+                log_level=$LOG_TRACE;
+                ;;
+            "NONE")
+                log_level=$LOG_NONE;
+                ;;
+            *)
+                warn "invalid log level $log_level_str, using INFO";
+                log_level=$LOG_INFO;
+                ;;
+        esac
     fi
-    cmd_line=$(echo "$cmd_line --log-level=$log_level");
-    
-    if [ -n "$log_file" ]; then
-	cmd_line=$(echo "$cmd_line --log-file=$log_file");
+
+    # options without values start here
+    if [ -n "$read_only" ]; then
+        cmd_line=$(echo "$cmd_line --read-only");
+    fi
+
+    if [ -n "$acl" ]; then
+        cmd_line=$(echo "$cmd_line --acl");
+    fi
+
+    if [ -n "$selinux" ]; then
+         cmd_line=$(echo "$cmd_line --selinux");
+    fi
+
+    if [ -n "$enable_ino32" ]; then
+        cmd_line=$(echo "$cmd_line --enable-ino32");
+    fi
+
+    if [ -n "$worm" ]; then
+        cmd_line=$(echo "$cmd_line --worm");
+    fi
+    if [ -n "$volfile_max_fetch_attempts" ]; then
+       cmd_line=$(echo "$cmd_line --volfile-max-fetch-attempts=$volfile_max_fetch_attempts")
+    fi
+
+    if [ -n "$fopen_keep_cache" ]; then
+        cmd_line=$(echo "$cmd_line --fopen-keep-cache");
     fi
 
     if [ -n "$volfile_check" ]; then
-	cmd_line=$(echo "$cmd_line --volfile-check");
+        cmd_line=$(echo "$cmd_line --volfile-check");
+    fi
+
+    if [ -n "$mem_accounting" ]; then
+        cmd_line=$(echo "$cmd_line --mem-accounting");
+    fi
+
+    if [ -n "$aux_gfid_mount" ]; then
+        cmd_line=$(echo "$cmd_line --aux-gfid-mount");
+    fi
+
+    if [ -n "$no_root_squash" ]; then
+        cmd_line=$(echo "$cmd_line --no-root-squash");
+    fi
+
+#options with values start here
+    if [ -n "$log_level" ]; then
+        cmd_line=$(echo "$cmd_line --log-level=$log_level");
+    fi
+
+    if [ -n "$log_file" ]; then
+        cmd_line=$(echo "$cmd_line --log-file=$log_file");
     fi
 
     if [ -n "$direct_io_mode" ]; then
-	cmd_line=$(echo "$cmd_line --disable-direct-io-mode");
+        cmd_line=$(echo "$cmd_line --direct-io-mode=$direct_io_mode");
     fi
-    
-    if [ -z "$volfile_loc" ]; then
-	if [ -n "$transport" ]; then 
-	    cmd_line=$(echo "$cmd_line \
---volfile-server=$server_ip \
---volfile-server-transport=$transport");
-	else
-	    cmd_line=$(echo "$cmd_line \
---volfile-server=$server_ip");
-	fi
-    else
-	cmd_line=$(echo "$cmd_line --volfile=$volfile_loc");
+
+    if [ -n "$mac_compat" ]; then
+        cmd_line=$(echo "$cmd_line --mac-compat=$mac_compat");
+    fi
+
+    if [ -n "$use_readdirp" ]; then
+        cmd_line=$(echo "$cmd_line --use-readdirp=$use_readdirp");
     fi
 
     if [ -n "$volume_name" ]; then
         cmd_line=$(echo "$cmd_line --volume-name=$volume_name");
     fi
-    
-    if [ -n "$volume_id" ]; then
-        cmd_line=$(echo "$cmd_line --volfile-id=$volume_id");
+
+    if [ -n "$attribute_timeout" ]; then
+        cmd_line=$(echo "$cmd_line --attribute-timeout=$attribute_timeout");
+    fi
+
+    if [ -n "$entry_timeout" ]; then
+        cmd_line=$(echo "$cmd_line --entry-timeout=$entry_timeout");
+    fi
+
+    if [ -n "$negative_timeout" ]; then
+        cmd_line=$(echo "$cmd_line --negative-timeout=$negative_timeout");
+    fi
+
+    if [ -n "$gid_timeout" ]; then
+        cmd_line=$(echo "$cmd_line --gid-timeout=$gid_timeout");
+    fi
+
+    if [ -n "$bg_qlen" ]; then
+        cmd_line=$(echo "$cmd_line --background-qlen=$bg_qlen");
+    fi
+
+    if [ -n "$cong_threshold" ]; then
+        cmd_line=$(echo "$cmd_line --congestion-threshold=$cong_threshold");
+    fi
+
+    if [ -n "$fuse_mountopts" ]; then
+        cmd_line=$(echo "$cmd_line --fuse-mountopts=$fuse_mountopts");
+    fi
+
+    if [ -n "$xlator_option" ]; then
+        cmd_line=$(echo "$cmd_line --xlator-option=$xlator_option");
+    fi
+
+    # for rdma volume, we have to fetch volfile with '.rdma' added
+    # to volume name, so that it fetches the right client vol file
+    volume_id_rdma="";
+
+    if [ -z "$volfile_loc" ]; then
+        if  [ -n "$server_ip" ]; then
+
+            servers=$(parse_volfile_servers ${server_ip});
+            if [ -n "$servers" ]; then
+                for i in $(echo ${servers}); do
+                    cmd_line=$(echo "$cmd_line --volfile-server=$i");
+                done
+            else
+                warn "ERROR: No valid servers found on command line.. exiting"
+                print_usage
+                exit 1
+            fi
+
+            if [ -n "$backupvolfile_server" ]; then
+                if [ -z "$backup_volfile_servers" ]; then
+                    is_valid_hostname ${backupvolfile_server};
+                    if [ $? -eq 1 ]; then
+                        warn "ERROR: Invalid backup server specified.. exiting"
+                        exit 1
+                    fi
+                    cmd_line=$(echo "$cmd_line --volfile-server=$backupvolfile_server");
+                fi
+            fi
+
+            if [ -n "$backup_volfile_servers" ]; then
+                backup_servers=$(parse_backup_volfile_servers ${backup_volfile_servers})
+                for i in $(echo ${backup_servers}); do
+                    cmd_line=$(echo "$cmd_line --volfile-server=$i");
+                done
+            fi
+
+            if [ -n "$server_port" ]; then
+                cmd_line=$(echo "$cmd_line --volfile-server-port=$server_port");
+            fi
+
+            if [ -n "$transport" ]; then
+                cmd_line=$(echo "$cmd_line --volfile-server-transport=$transport");
+                if [ "$transport" = "rdma" ]; then
+                    volume_id_rdma=".rdma";
+                fi
+            fi
+
+            if [ -n "$volume_id" ]; then
+                if [ -n "$volume_id_rdma" ]; then
+                    volume_id="$volume_id$volume_id_rdma";
+                fi
+                cmd_line=$(echo "$cmd_line --volfile-id=$volume_id");
+            fi
+        fi
+    else
+        cmd_line=$(echo "$cmd_line --volfile=$volfile_loc");
+    fi
+
+    if [ -n "$fuse_mountopts" ]; then
+        cmd_line=$(echo "$cmd_line --fuse-mountopts=$fuse_mountopts");
     fi
 
     cmd_line=$(echo "$cmd_line $mount_point");
-    exec $cmd_line;
+    $cmd_line;
+
+    if [ $? -ne 0 ]; then
+        exit 1;
+    fi
 }
 
+print_usage ()
+{
+cat << EOF >/dev/stderr
+Usage: $0 <volumeserver>:<volumeid/volumeport> -o<options> <mountpoint>
+Options:
+man 8 $0
+To display the version number of the mount helper: $0 -V
+EOF
+}
+
+with_options()
+{
+    local key=$1
+    local value=$2
+
+    # Handle options with values.
+    case "$key" in
+        "log-level")
+            log_level_str=$value
+            ;;
+        "log-file")
+            log_file=$value
+            ;;
+        "transport")
+            transport=$value
+            ;;
+        "direct-io-mode")
+            direct_io_mode=$value
+            ;;
+        "mac-compat")
+            mac_compat=$value
+            ;;
+        "volume-name")
+            volume_name=$value
+            ;;
+        "volume-id")
+            volume_id=$value
+            ;;
+        "volfile-check")
+            volfile_check=$value
+            ;;
+        "server-port")
+            server_port=$value
+            ;;
+        "attribute-timeout")
+            attribute_timeout=$value
+            ;;
+        "entry-timeout")
+            entry_timeout=$value
+            ;;
+        "negative-timeout")
+            negative_timeout=$value
+            ;;
+        "gid-timeout")
+            gid_timeout=$value
+            ;;
+        "background-qlen")
+            bg_qlen=$value
+            ;;
+        "backup-volfile-servers")
+            backup_volfile_servers=$value
+            ;;
+        "backupvolfile-server")
+            backupvolfile_server=$value
+            ;;
+        "fetch-attempts")
+            volfile_max_fetch_attempts=$value
+            ;;
+        "congestion-threshold")
+            cong_threshold=$value
+            ;;
+        "xlator-option")
+            xlator_option=$value
+            ;;
+        "fuse-mountopts")
+            fuse_mountopts=$value
+            ;;
+        "use-readdirp")
+            use_readdirp=$value
+            ;;
+        "no-root-squash")
+            if [ $value == "yes" ] ||
+                [ $value == "on" ] ||
+                [ $value == "enable" ] ||
+                [ $value == "true" ] ; then
+                no_root_squash=1;
+            fi ;;
+        "root-squash")
+            if [ $value == "no" ] ||
+                [ $value == "off" ] ||
+                [ $value == "disable" ] ||
+                [ $value == "false" ] ; then
+                no_root_squash=1;
+            fi ;;
+        *)
+            warn "Invalid option: $key"
+            exit 1
+            ;;
+    esac
+}
+
+without_options()
+{
+    local option=$1
+    # Handle options without values.
+    case "$option" in
+        "ro")
+            read_only=1
+            ;;
+        "acl")
+            acl=1
+            ;;
+        "selinux")
+            selinux=1
+            ;;
+        "worm")
+            worm=1
+            ;;
+        "fopen-keep-cache")
+            fopen_keep_cache=1
+            ;;
+        "enable-ino32")
+            enable_ino32=1
+            ;;
+        "mem-accounting")
+            mem_accounting=1
+            ;;
+        "aux-gfid-mount")
+            if [ ${uname_s} = "Linux" ]; then
+                aux_gfid_mount=1
+            fi
+            ;;
+         # "mount -t glusterfs" sends this, but it's useless.
+        "rw")
+            ;;
+         # these ones are interpreted during system initialization
+        "noauto")
+            ;;
+        "_netdev")
+            ;;
+        *)
+            warn "Invalid option $option";
+            exit 1
+            ;;
+    esac
+}
+
+parse_options()
+{
+    local optarg=${1}
+    for pair in $(echo ${optarg//,/ }); do
+        key=$(echo "$pair" | cut -f1 -d'=');
+        value=$(echo "$pair" | cut -f2- -d'=');
+        if [ "$key" = "$value" ]; then
+            without_options $pair;
+        else
+            with_options $key $value;
+        fi
+    done
+}
 
 main ()
 {
-    
-    new_log_level=""
-    log_file=""
-    transport=""
-    direct_io_mode=""
-    volume_name=""
-    new_fs_options=""
-    volfile_check=""
+    ## `mount` on OSX specifies options as first argument
+    if [[ $1 =~ "-o" ]]; then
+        volfile_loc=$3
+        mount_point=$4
+    else
+        volfile_loc=$1
+        mount_point=$2
+    fi
 
-    while getopts o: opt; do
-	case "$opt" in
-	    o) 
-		options=$(echo $OPTARG | sed -n 's/.*\-o[ ]*\([^ ]*\).*/\1/p');
-		[ -z $new_log_level ] && {
-		    new_log_level=$(echo "$options" | sed -n 's/.*log-level=\([^,]*\).*/\1/p');
-		}
-		
-		[ -z $log_file ] && {
-		    log_file=$(echo "$options" | sed -n 's/.*log-file=\([^,]*\).*/\1/p');
-		}
-		
-		[ -z $transport ] && {
-		    transport=$(echo "$options" | sed -n 's/.*transport=\([^,]*\).*/\1/p');
-		}
-		
-		[ -z $direct_io_mode ] && {
-		    direct_io_mode=$(echo "$options" | sed -n 's/.*direct-io-mode=\([^,]*\).*/\1/p');
-		}
-		
-		[ -z $volfile_check ] && {
-		    volfile_check=$(echo "$options" | sed -n 's/.*volfile-check=\([^,]*\).*/\1/p');
-		}
-		
-		[ -z $volume_name ] && {
-		    volume_name=$(echo "$options" | sed -n 's/.*volume-name=\([^,]*\).*/\1/p');
-		}
-
-		[ -z $volume_id ] && {
-		    volume_id=$(echo "$options" | sed -n 's/.*volume-id=\([^,]*\).*/\1/p');
-		}
-
-		this_option=$(echo "$options" | sed -e 's/[,]*log-file=[^,]*//' \
-		    -e 's/[,]*log-level=[^,]*//' \
-		    -e 's/[,]*volume-name=[^,]*//' \
-		    -e 's/[,]*volfile-check=[^,]*//' \
-		    -e 's/[,]*direct-io-mode=[^,]*//' \
-		    -e 's/[,]*transport=[^,]*//' \
-		    -e 's/[,]*volume-id=[^,]*//');
-		new_fs_options="$new_fs_options $this_option";		
-		;;
-	esac
+    while getopts "Vo:h" opt; do
+        case "${opt}" in
+            o)
+                parse_options ${OPTARG};
+                ;;
+            V)
+                ${cmd_line} -V;
+                exit 0;
+                ;;
+            h)
+                print_usage;
+                exit 0;
+                ;;
+            ?)
+                print_usage;
+                exit 0;
+                ;;
+        esac
     done
 
-    [ -n "$new_log_level" ] && {
-	log_level_str="$new_log_level";
-    }
-
-    # TODO: use getopt. This is very much darwin specific
-    volfile_loc="$1";
-    while [ "$volfile_loc" = "-o" ] ; do
-	shift ;
-	shift ;
-	volfile_loc="$1";
-    done
-    
     [ -r "$volfile_loc" ] || {
         server_ip=$(echo "$volfile_loc" | sed -n 's/\([a-zA-Z0-9:.\-]*\):.*/\1/p');
-        volume_id=$(echo "$volfile_loc" | sed -n 's/[a-zA-Z0-9:.\-]*:\(.*\)/\1/p');
-	volfile_loc="";
+        volume_str=$(echo "$volfile_loc" | sed -n 's/.*:\([^ ]*\).*/\1/p');
+        [ -n "$volume_str" ] && {
+            volume_id="$volume_str";
+        }
+        volfile_loc="";
     }
-    # following line is product of love towards sed
-    # $2=$(echo "$@" | sed -n 's/[^ ]* \([^ ]*\).*/\1/p');
-    
-    mount_point="$2";
 
-    fs_options=$(echo "$fs_options,$new_fs_options");
-    
+    [ -z "$volume_id" -o -z "$server_ip" ] && {
+        cat <<EOF >/dev/stderr
+ERROR: Server name/volume name unspecified cannot proceed further..
+Please specify correct format
+Usage:
+man 8 $0
+EOF
+        exit 1;
+    }
+
+    grep_ret=$(echo ${mount_point} | grep '^\-o');
+    [ "x" != "x${grep_ret}" ] && {
+        cat <<EOF >/dev/stderr
+ERROR: -o options cannot be specified in either first two arguments..
+Please specify correct style
+Usage:
+man 8 $0
+EOF
+        exit 1;
+    }
+
+    # No need to do a ! -d test, it is taken care while initializing the
+    # variable mount_point
+    [ -z "$mount_point" -o ! -d "$mount_point" ] && {
+        cat <<EOF >/dev/stderr
+ERROR: Mount point does not exist
+Please specify a mount point
+Usage:
+man 8 $0
+EOF
+        exit 1;
+    }
+
     start_glusterfs;
 }
 

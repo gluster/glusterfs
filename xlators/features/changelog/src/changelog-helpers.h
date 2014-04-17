@@ -268,9 +268,11 @@ typedef struct {
 
 void
 changelog_thread_cleanup (xlator_t *this, pthread_t thr_id);
-inline void *
+
+void *
 changelog_get_usable_buffer (changelog_local_t *local);
-inline void
+
+void
 changelog_set_usable_record_and_length (changelog_local_t *local,
                                         size_t len, int xr);
 void
@@ -290,16 +292,16 @@ int
 changelog_inject_single_event (xlator_t *this,
                                changelog_priv_t *priv,
                                changelog_log_data_t *cld);
-inline size_t
+size_t
 changelog_entry_length ();
-inline int
+int
 changelog_write (int fd, char *buffer, size_t len);
 int
 changelog_write_change (changelog_priv_t *priv, char *buffer, size_t len);
-inline int
+int
 changelog_handle_change (xlator_t *this,
                          changelog_priv_t *priv, changelog_log_data_t *cld);
-inline void
+void
 changelog_update (xlator_t *this, changelog_priv_t *priv,
                   changelog_local_t *local, changelog_log_type type);
 void *

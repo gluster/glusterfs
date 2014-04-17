@@ -38,20 +38,25 @@ nfs_fix_groups (xlator_t *this, call_stack_t *root)
         struct passwd    mypw;
         char             mystrs[1024];
         struct passwd    *result;
+#ifdef GF_DARWIN_HOST_OS
+        /* BSD/DARWIN does not correctly uses gid_t in getgrouplist */
+        int              mygroups[GF_MAX_AUX_GROUPS];
+#else
         gid_t            mygroups[GF_MAX_AUX_GROUPS];
+#endif
         int              ngroups;
         int              i;
         int              max_groups;
         struct nfs_state *priv = this->private;
         const gid_list_t *agl;
-	gid_list_t gl;
+        gid_list_t gl;
 
         if (!priv->server_aux_gids) {
                 return;
         }
 
-	/* RPC enforces the GF_AUTH_GLUSTERFS_MAX_GROUPS limit */
-	max_groups = GF_AUTH_GLUSTERFS_MAX_GROUPS(root->lk_owner.len);
+        /* RPC enforces the GF_AUTH_GLUSTERFS_MAX_GROUPS limit */
+        max_groups = GF_AUTH_GLUSTERFS_MAX_GROUPS(root->lk_owner.len);
 
 	agl = gid_cache_lookup(&priv->gid_cache, root->uid, 0, 0);
 	if (agl) {

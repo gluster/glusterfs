@@ -1020,7 +1020,7 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
 {
         int                                      ret           = 0;
         char                                    *volname       = NULL;
-        gf_boolean_t                             exists        = _gf_false;
+        int                                     exists         = 0;
         char                                    msg[2048]      = {0};
         char                                    *key = NULL;
         char                                    *key_fixed = NULL;
@@ -1068,6 +1068,7 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
                         ret = -1;
                         goto out;
                 }
+
                 if (!exists) {
                         ret = snprintf (msg, sizeof (msg),
                                         "Option %s does not exist", key);
@@ -1819,7 +1820,7 @@ glusterd_op_set_volume (dict_t *dict)
         if (dict_count == 0) {
                 ret = glusterd_volset_help (NULL, &op_errstr);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "%s", 
+                        gf_log (this->name, GF_LOG_ERROR, "%s",
                                        (op_errstr)? op_errstr:
                                        "Volume set help internal error");
                 }
@@ -3262,7 +3263,7 @@ glusterd_is_get_op (xlator_t *this, glusterd_op_t op, dict_t *dict)
         if (op == GD_OP_STATUS_VOLUME)
                 return _gf_true;
 
-        if ((op == GD_OP_SET_VOLUME)) {
+        if (op == GD_OP_SET_VOLUME) {
                 //check for set volume help
                 ret = dict_get_str (dict, "volname", &volname);
                 if (volname &&

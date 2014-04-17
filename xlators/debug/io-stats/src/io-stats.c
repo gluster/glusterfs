@@ -509,7 +509,7 @@ out:
         return 0;
 }
 
-inline int
+static inline int
 ios_stats_cleanup (xlator_t *this, inode_t *inode)
 {
 

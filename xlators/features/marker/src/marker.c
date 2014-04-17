@@ -255,18 +255,18 @@ out:
         return 0;
 }
 
-int32_t
+gf_boolean_t
 call_from_special_client (call_frame_t *frame, xlator_t *this, const char *name)
 {
         struct volume_mark     *vol_mark   = NULL;
         marker_conf_t          *priv       = NULL;
-        gf_boolean_t            ret        = _gf_true;
+        gf_boolean_t           is_true     = _gf_true;
 
         priv = (marker_conf_t *)this->private;
 
         if (frame->root->pid != GF_CLIENT_PID_GSYNCD || name == NULL ||
             strcmp (name, MARKER_XATTR_PREFIX "." VOLUME_MARK) != 0) {
-                ret = _gf_false;
+                is_true = _gf_false;
                 goto out;
         }
 
@@ -274,7 +274,7 @@ call_from_special_client (call_frame_t *frame, xlator_t *this, const char *name)
 
         marker_getxattr_stampfile_cbk (frame, this, name, vol_mark, NULL);
 out:
-        return ret;
+        return is_true;
 }
 
 int32_t
@@ -348,10 +348,10 @@ int32_t
 marker_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                  const char *name, dict_t *xdata)
 {
-        gf_boolean_t   ret    = _gf_false;
-        marker_conf_t *priv   = NULL;
-        unsigned long  cookie = 0;
-        marker_local_t *local = NULL;
+        gf_boolean_t    is_true  = _gf_false;
+        marker_conf_t   *priv    = NULL;
+        unsigned long   cookie   = 0;
+        marker_local_t  *local   = NULL;
 
         priv = this->private;
 
@@ -362,16 +362,15 @@ marker_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         MARKER_INIT_LOCAL (frame, local);
 
-        ret = loc_copy (&local->loc, loc);
-        if (ret < 0)
-                goto out;
+        if ((loc_copy (&local->loc, loc)) < 0)
+		goto out;
 
         gf_log (this->name, GF_LOG_DEBUG, "USER:PID = %d", frame->root->pid);
 
         if (priv && priv->feature_enabled & GF_XTIME)
-                ret = call_from_special_client (frame, this, name);
+                is_true = call_from_special_client (frame, this, name);
 
-        if (ret == _gf_false) {
+        if (is_true == _gf_false) {
                 if (name == NULL) {
                         /* Signifies that marker translator
                          * has to filter the quota's xattr's,
@@ -380,10 +379,11 @@ marker_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                          */
                         cookie = 1;
                 }
-                STACK_WIND_COOKIE (frame, marker_getxattr_cbk, (void *)cookie,
+                STACK_WIND_COOKIE (frame, marker_getxattr_cbk,
+				   (void *)cookie,
                                    FIRST_CHILD(this),
-                                   FIRST_CHILD(this)->fops->getxattr, loc,
-                                   name, xdata);
+                                   FIRST_CHILD(this)->fops->getxattr,
+				   loc, name, xdata);
         }
 
         return 0;

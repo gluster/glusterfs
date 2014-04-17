@@ -2116,7 +2116,7 @@ reconfigure (xlator_t *this, dict_t *options)
 
         conf = this->private;
 
-        GF_OPTION_RECONF ("cache-size", conf->window_size, options, size, out);
+        GF_OPTION_RECONF ("cache-size", conf->window_size, options, size_uint64, out);
 
         GF_OPTION_RECONF ("flush-behind", conf->flush_behind, options, bool,
                           out);
@@ -2163,7 +2163,7 @@ init (xlator_t *this)
         conf->aggregate_size = WB_AGGREGATE_SIZE;
 
         /* configure 'option window-size <size>' */
-        GF_OPTION_INIT ("cache-size", conf->window_size, size, out);
+        GF_OPTION_INIT ("cache-size", conf->window_size, size_uint64, out);
 
         if (!conf->window_size && conf->aggregate_size) {
                 gf_log (this->name, GF_LOG_WARNING,

@@ -95,6 +95,7 @@ enum nfsstat3 {
 	NFS3ERR_SERVERFAULT = 10006,
 	NFS3ERR_BADTYPE = 10007,
 	NFS3ERR_JUKEBOX = 10008,
+	NFS3ERR_END_OF_LIST = -1,
 };
 typedef enum nfsstat3 nfsstat3;
 

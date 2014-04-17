@@ -741,7 +741,7 @@ int
 glusterd_volinfo_get_boolean (glusterd_volinfo_t *volinfo, char *key)
 {
         char *val = NULL;
-        gf_boolean_t  boo = _gf_false;
+        gf_boolean_t  enabled = _gf_false;
         int ret = 0;
 
         ret = glusterd_volinfo_get (volinfo, key, &val);
@@ -749,14 +749,14 @@ glusterd_volinfo_get_boolean (glusterd_volinfo_t *volinfo, char *key)
                 return -1;
 
         if (val)
-                ret = gf_string2boolean (val, &boo);
+                ret = gf_string2boolean (val, &enabled);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "value for %s option is not valid", key);
 
                 return -1;
         }
 
-        return boo;
+        return enabled;
 }
 
 gf_boolean_t
@@ -1258,8 +1258,8 @@ static int
 server_check_marker_off (volgen_graph_t *graph, struct volopt_map_entry *vme,
                          glusterd_volinfo_t *volinfo)
 {
-        gf_boolean_t           bool = _gf_false;
-        int                    ret = 0;
+        gf_boolean_t enabled = _gf_false;
+        int ret = 0;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (vme);
@@ -1267,8 +1267,8 @@ server_check_marker_off (volgen_graph_t *graph, struct volopt_map_entry *vme,
         if (strcmp (vme->option, "!xtime") != 0)
                 return 0;
 
-        ret = gf_string2boolean (vme->value, &bool);
-        if (ret || bool)
+        ret = gf_string2boolean (vme->value, &enabled);
+        if (ret || enabled)
                 goto out;
 
         ret = glusterd_volinfo_get_boolean (volinfo, VKEY_MARKER_XTIME);
@@ -1279,10 +1279,10 @@ server_check_marker_off (volgen_graph_t *graph, struct volopt_map_entry *vme,
         }
 
         if (ret) {
-                bool = _gf_false;
-                ret = glusterd_check_gsync_running (volinfo, &bool);
+                enabled = _gf_false;
+                ret = glusterd_check_gsync_running (volinfo, &enabled);
 
-                if (bool) {
+                if (enabled) {
                         gf_log ("", GF_LOG_WARNING, GEOREP" sessions active"
                                 "for the volume %s, cannot disable marker "
                                 ,volinfo->volname);

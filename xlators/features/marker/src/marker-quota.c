@@ -365,7 +365,10 @@ mq_update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->loc.path, ntoh64 (*delta));
 
         new_dict = dict_new ();
-        if (!new_dict);
+        if (!new_dict) {
+		errno = ENOMEM;
+		goto err;
+	}
 
         ret = dict_set_bin (new_dict, QUOTA_SIZE_KEY, delta, 8);
         if (ret)
@@ -385,7 +388,6 @@ mq_update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
 err:
         if (op_ret == -1 || ret == -1) {
                 local->err = -1;
-
                 mq_release_lock_on_dirty_inode (frame, NULL, this, 0, 0, NULL);
         }
 

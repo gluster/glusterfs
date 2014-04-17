@@ -59,7 +59,7 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
         uint32_t     oldmax_fds = -1;
         int          ret = -1;
 
-        if (fdtable == NULL || nr < 0) {
+        if (fdtable == NULL || nr > UINT32_MAX) {
                 gf_log_callingfn ("fd", GF_LOG_ERROR, "invalid argument");
                 ret = EINVAL;
                 goto out;

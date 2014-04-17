@@ -10,6 +10,11 @@
 #include <config.h>
 
 #include "mount_util.h"
+
+#ifndef HAVE_UMOUNT2
+#include "mount-gluster-compat.h"
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,11 +25,18 @@
 #include <fcntl.h>
 #include <pwd.h>
 #include <limits.h>
+#if !defined(__NetBSD__) && !defined(GF_DARWIN_HOST_OS)
 #include <mntent.h>
+#endif /* __NetBSD__ */
 #include <sys/wait.h>
 #include <sys/stat.h>
-#include <sys/mount.h>
+#ifdef HAVE_SET_FSID
 #include <sys/fsuid.h>
+#endif
+#ifdef GF_DARWIN_HOST_OS
+#include <sys/param.h>
+#endif
+#include <sys/mount.h>
 #include <sys/socket.h>
 #include <sys/utsname.h>
 #include <sched.h>
@@ -63,22 +75,32 @@ static const char *get_user_name(void)
 	}
 }
 
+#ifdef HAVE_SET_FSID
 static uid_t oldfsuid;
 static gid_t oldfsgid;
+#endif
 
 static void drop_privs(void)
 {
 	if (getuid() != 0) {
+#ifdef HAVE_SET_FSID
 		oldfsuid = setfsuid(getuid());
 		oldfsgid = setfsgid(getgid());
+#else
+		fprintf(stderr, "%s: Implement alternative setfsuid/gid \n", progname);
+#endif
 	}
 }
 
 static void restore_privs(void)
 {
 	if (getuid() != 0) {
+#ifdef HAVE_SET_FSID
 		setfsuid(oldfsuid);
 		setfsgid(oldfsgid);
+#else
+		fprintf(stderr, "%s: Implement alternative setfsuid/gid \n", progname);
+#endif
 	}
 }
 

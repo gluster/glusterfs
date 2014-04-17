@@ -8,7 +8,7 @@ install-sh
 ltmain.sh
 Makefile.in
 missing
-py-compile
+*compile
 *.gcda
 *.gcno
 *.sw?
@@ -24,6 +24,9 @@ py-compile
 .deps
 Makefile
 stamp-h1
+# Softlinks to test and log
+log
+*.vol
 
 # Generated files
 api/examples/__init__.py
@@ -39,11 +42,14 @@ extras/systemd/glusterd.service
 extras/ocf/glusterd
 extras/ocf/volume
 extras/who-wrote-glusterfs/gitdm
+extras/geo-rep/gsync-sync-gfid
 glusterfs-api.pc
 glusterfs.spec
 glusterfsd/src/glusterfsd
+glusterfsd/src/glusterd
+glusterfsd/src/glusterfs
 libgfchangelog.pc
-libglusterfs/src/spec.lex.c
+libglusterfs/src/graph.lex.c
 libglusterfs/src/y.tab.c
 libglusterfs/src/y.tab.h
 libglusterfs/src/gf-error-codes.h
@@ -54,3 +60,7 @@ xlators/mount/fuse/utils/mount_glusterfs
 xlators/features/glupy/src/setup.py
 geo-replication/src/peer_add_secret_pub
 geo-replication/src/peer_gsec_create
+geo-replication/src/gsyncd
+cli/src/gluster
+contrib/fuse-util/fusermount-glusterfs
+geo-replication/src/gsyncd

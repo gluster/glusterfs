@@ -19,6 +19,7 @@
 #include <sys/types.h>
 #include <utime.h>
 #include <sys/time.h>
+#include <fcntl.h>
 
 int
 sys_lstat (const char *path, struct stat *buf)
@@ -41,12 +42,58 @@ sys_fstat (int fd, struct stat *buf)
 }
 
 
+int
+sys_fstatat(int dirfd, const char *pathname, struct stat *buf, int flags)
+{
+#ifdef GF_DARWIN_HOST_OS
+        if (fchdir(dirfd) < 0)
+                return -1;
+        if(flags & AT_SYMLINK_NOFOLLOW)
+                return lstat(pathname, buf);
+        else
+                return stat(pathname, buf);
+#else
+        return fstatat (dirfd, pathname, buf, flags);
+#endif
+}
+
+
+int
+sys_openat(int dirfd, const char *pathname, int flags, ...)
+{
+        mode_t mode = 0;
+        if (flags & O_CREAT) {
+                va_list ap;
+                va_start(ap, flags);
+                mode = va_arg(ap, int);
+                va_end(ap);
+        }
+
+#ifdef GF_DARWIN_HOST_OS
+        if (fchdir(dirfd) < 0)
+                return -1;
+        return open (pathname, flags, mode);
+#else
+        return openat (dirfd, pathname, flags, mode);
+#endif
+}
+
 DIR *
 sys_opendir (const char *name)
 {
         return opendir (name);
 }
 
+int sys_mkdirat(int dirfd, const char *pathname, mode_t mode)
+{
+#ifdef GF_DARWIN_HOST_OS
+        if(fchdir(dirfd) < 0)
+                return -1;
+        return mkdir(pathname, mode);
+#else
+        return mkdirat (dirfd, pathname, mode);
+#endif
+}
 
 struct dirent *
 sys_readdir (DIR *dir)
@@ -262,13 +309,43 @@ sys_fsync (int fd)
 int
 sys_fdatasync (int fd)
 {
-#ifdef HAVE_FDATASYNC
-        return fdatasync (fd);
+#ifdef GF_DARWIN_HOST_OS
+        return fcntl (fd, F_FULLFSYNC);
 #else
-        return 0;
+        return fdatasync (fd);
 #endif
 }
 
+void
+gf_add_prefix(const char *ns, const char *key, char **newkey)
+{
+        /* if we dont have any namespace, append USER NS */
+        if (strncmp(key, XATTR_USER_PREFIX,     XATTR_USER_PREFIX_LEN) &&
+            strncmp(key, XATTR_TRUSTED_PREFIX,  XATTR_TRUSTED_PREFIX_LEN) &&
+            strncmp(key, XATTR_SECURITY_PREFIX, XATTR_TRUSTED_PREFIX_LEN) &&
+            strncmp(key, XATTR_SYSTEM_PREFIX,   XATTR_SYSTEM_PREFIX_LEN)) {
+                int ns_length =  strlen(ns);
+                *newkey = GF_MALLOC(ns_length + strlen(key) + 10,
+                                    gf_common_mt_char);
+                strcpy(*newkey, ns);
+                strcat(*newkey, key);
+        } else {
+                *newkey = gf_strdup(key);
+        }
+}
+
+void
+gf_remove_prefix(const char *ns, const char *key, char **newkey)
+{
+        int ns_length =  strlen(ns);
+        if (strncmp(key, ns, ns_length) == 0) {
+                *newkey = GF_MALLOC(-ns_length + strlen(key) + 10,
+                                    gf_common_mt_char);
+                strcpy(*newkey, key + ns_length);
+        } else {
+                *newkey = gf_strdup(key);
+        }
+}
 
 int
 sys_lsetxattr (const char *path, const char *name, const void *value,
@@ -289,8 +366,11 @@ sys_lsetxattr (const char *path, const char *name, const void *value,
 #endif
 
 #ifdef GF_DARWIN_HOST_OS
+        /* OS X clients will carry other flags, which will be used on a
+           OS X host, but masked out on others. GF assume NOFOLLOW on Linux,
+           enforcing  */
         return setxattr (path, name, value, size, 0,
-                         flags|XATTR_NOFOLLOW);
+                         (flags & ~XATTR_NOSECURITY) | XATTR_NOFOLLOW);
 #endif
 
 }
@@ -313,11 +393,9 @@ sys_llistxattr (const char *path, char *list, size_t size)
 #endif
 
 #ifdef GF_DARWIN_HOST_OS
-        return listxattr (path, list, size, XATTR_NOFOLLOW);
+        return  listxattr (path, list, size, XATTR_NOFOLLOW);
 #endif
-
 }
-
 
 ssize_t
 sys_lgetxattr (const char *path, const char *name, void *value, size_t size)
@@ -337,7 +415,7 @@ sys_lgetxattr (const char *path, const char *name, void *value, size_t size)
 #endif
 
 #ifdef GF_DARWIN_HOST_OS
-        return getxattr (path, name, value, size, 0, XATTR_NOFOLLOW);
+         return getxattr (path, name, value, size, 0, XATTR_NOFOLLOW);
 #endif
 
 }
@@ -412,7 +490,7 @@ sys_fsetxattr (int filedes, const char *name, const void *value,
 #endif
 
 #ifdef GF_DARWIN_HOST_OS
-        return fsetxattr (filedes, name, value, size, 0, flags);
+        return fsetxattr (filedes, name, value, size, 0, flags & ~XATTR_NOSECURITY);
 #endif
 
 }
@@ -435,7 +513,7 @@ sys_flistxattr (int filedes, char *list, size_t size)
 #endif
 
 #ifdef GF_DARWIN_HOST_OS
-        return flistxattr (filedes, list, size, XATTR_NOFOLLOW);
+	return flistxattr (filedes, list, size, XATTR_NOFOLLOW);
 #endif
 
 }
@@ -491,4 +569,3 @@ sys_fallocate(int fd, int mode, off_t offset, off_t len)
 	errno = ENOSYS;
 	return -1;
 }
-

@@ -18,6 +18,44 @@
  *    Very helpful translator for debugging.
  */
 
+static inline void
+trace_stat_to_str(struct iatt *buf, char *str)
+{
+        char     atime_buf[256]    = {0,};
+        char     mtime_buf[256]    = {0,};
+        char     ctime_buf[256]    = {0,};
+        uint64_t ia_time           = 0;
+
+        if (!buf)
+                return;
+
+        ia_time = buf->ia_atime;
+        strftime (atime_buf, 256, "[%b %d %H:%M:%S]",
+                  localtime ((time_t *)&ia_time));
+        ia_time = buf->ia_mtime;
+        strftime (mtime_buf, 256, "[%b %d %H:%M:%S]",
+                  localtime ((time_t *)&ia_time));
+
+        ia_time = buf->ia_ctime;
+        strftime (ctime_buf, 256, "[%b %d %H:%M:%S]",
+                  localtime ((time_t *)&ia_time));
+
+        snprintf (str, sizeof (str),
+                  "gfid=%s ino=%"PRIu64", mode=%o, "
+                  "nlink=%"GF_PRI_NLINK", uid=%u, "
+                  "gid=%u, size=%"PRIu64", "
+                  "blocks=%"PRIu64", atime=%s, "
+                  "mtime=%s, ctime=%s",
+                  uuid_utoa (buf->ia_gfid),
+                  buf->ia_ino,
+                  st_mode_from_ia (buf->ia_prot, buf->ia_type),
+                  buf->ia_nlink, buf->ia_uid,
+                  buf->ia_gid, buf->ia_size,
+                  buf->ia_blocks, atime_buf,
+                  mtime_buf, ctime_buf);
+}
+
+
 int
 dump_history_trace (circular_buffer_t *cb, void *data)
 {

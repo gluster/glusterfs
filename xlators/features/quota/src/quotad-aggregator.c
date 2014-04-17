@@ -227,7 +227,7 @@ quotad_aggregator_getlimit (rpcsvc_request_t *req)
         if (ret)
                 goto err;
 
-        ret = dict_set_int32 (state->xdata, GET_ANCESTRY_PATH_KEY,42);
+        ret = dict_set_int32 (state->xdata, GET_ANCESTRY_PATH_KEY, 42);
         if (ret)
                 goto err;
 

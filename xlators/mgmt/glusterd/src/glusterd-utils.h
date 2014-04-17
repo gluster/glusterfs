@@ -8,7 +8,7 @@
    cases as published by the Free Software Foundation.
 */
 #ifndef _GLUSTERD_UTILS_H
-#define _GLUSTERD_UTILS_H_
+#define _GLUSTERD_UTILS_H
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -684,14 +684,16 @@ glusterd_rpc_clnt_unref (glusterd_conf_t *conf, rpc_clnt_t *rpc);
 
 int32_t
 glusterd_compare_volume_name(struct list_head *, struct list_head *);
-#ifdef GF_LINUX_HOST_OS
+
 char*
 glusterd_get_brick_mount_details (glusterd_brickinfo_t *brickinfo);
+
 struct mntent *
 glusterd_get_mnt_entry_info (char *mnt_pt, FILE *mtab);
+
 int
 glusterd_get_brick_root (char *path, char **mount_point);
-#endif //LINUX_HOST
+
 
 int
 glusterd_compare_snap_time(struct list_head *, struct list_head *);

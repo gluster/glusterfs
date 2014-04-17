@@ -9,10 +9,11 @@
 #ifndef _GF_ERROR_CODES_H
 #define _GF_ERROR_CODES_H
 
+#ifdef HAVE_LIBINTL_H
 #include <libintl.h>
 
 #define _(STRING)    gettext(STRING)
-
+#endif
 
 /** START: ERROR CODE DEFINITIONS **/
 $DEFINES

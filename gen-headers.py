@@ -32,8 +32,13 @@ def genCHeader(logBook,
         defineLines.append("#define %-20s %d" % (nameDef, code))
         defineLines.append("#define %-20s %s" % (msgNameDef,
                                                  json.dumps(msg)))
+        caseLines.append("#ifdef HAVE_LIBINTL_H")
         caseLines.append("        case %s: return _(%s);" % \
                              (nameDef, msgNameDef))
+        caseLines.append("#else")
+        caseLines.append("        case %s: return %s;" % \
+                             (nameDef, msgNameDef))
+        caseLines.append("#endif")
 
     d = {'DEFINES': "\n".join(defineLines),
          'CASES': "\n".join(caseLines)}

@@ -13,7 +13,7 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-DCONFDIR=\"$(sysconfdir)/glusterfs\" \
 	-I$(top_srcdir)/rpc/rpc-lib/src -I$(top_srcdir)/rpc/xdr/src
 
-AM_CFLAGS = -Wall $(GF_GLUSTERFS_CFLAGS)
+AM_CFLAGS = -Wall $(GF_CFLAGS)
 
 CLEANFILES = 
 

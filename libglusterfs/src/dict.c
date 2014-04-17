@@ -1041,7 +1041,7 @@ data_to_uint8 (data_t *data)
 	errno = 0;
 	value = strtol (str, NULL, 0);
 
-	if ((UCHAR_MAX - value) < 0) {
+	if ((UCHAR_MAX - (uint8_t)value) < 0) {
 		errno = ERANGE;
 		gf_log_callingfn ("dict", GF_LOG_WARNING,
 				  "data conversion overflow detected (%s)",
@@ -2157,7 +2157,7 @@ dict_set_bin (dict_t *this, char *key, void *ptr, size_t size)
         data_t * data = NULL;
         int      ret  = 0;
 
-        if (!ptr || (size < 0)) {
+        if (!ptr || (size > ULONG_MAX)) {
                 ret = -EINVAL;
                 goto err;
         }
@@ -2185,7 +2185,7 @@ dict_set_static_bin (dict_t *this, char *key, void *ptr, size_t size)
         data_t * data = NULL;
         int      ret  = 0;
 
-        if (!ptr || (size < 0)) {
+        if (!ptr || (size > ULONG_MAX)) {
                 ret = -EINVAL;
                 goto err;
         }

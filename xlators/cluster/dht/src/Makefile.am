@@ -1,4 +1,3 @@
-
 xlator_LTLIBRARIES = dht.la nufa.la switch.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
 

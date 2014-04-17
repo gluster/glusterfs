@@ -31,6 +31,7 @@
 #include "protocol-common.h"
 #include "glusterfs3.h"
 #include "portmap-xdr.h"
+#include "xdr-common.h"
 #include "xdr-generic.h"
 
 #include "syncop.h"

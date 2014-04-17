@@ -585,10 +585,8 @@ afr_selfheal_data_opendir (xlator_t *this, inode_t *inode)
 	}
 
 	loc_wipe (&loc);
-
-	return fd;
+        return fd;
 }
-
 
 
 int

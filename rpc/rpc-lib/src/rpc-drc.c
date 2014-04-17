@@ -460,7 +460,7 @@ rpcsvc_vacate_drc_entries (rpcsvc_drc_globals_t *drc)
 
                 client = reply->client;
 
-                (void *)rb_delete (client->rbtree, reply);
+                rb_delete (client->rbtree, reply);
 
                 rpcsvc_drc_op_destroy (drc, reply);
                 rpcsvc_drc_client_unref (drc, client);

@@ -21,7 +21,7 @@
 #include <errno.h>
 #include <dirent.h>
 #include <signal.h>
-#ifndef __NetBSD__
+#if !defined(__NetBSD__) && !defined(GF_DARWIN_HOST_OS)
 #include <mntent.h>
 #endif /* __NetBSD__ */
 #include <sys/stat.h>
@@ -36,7 +36,15 @@
 #define MS_RDONLY MNT_RDONLY
 #endif
 
-#ifdef linux
+#ifdef GF_DARWIN_HOST_OS
+#include <sys/param.h>
+#include <sys/mount.h>
+#define umount2(dir, flags) unmount(dir, ((flags) != 0) ? MNT_FORCE : 0)
+#define MS_RDONLY MNT_RDONLY
+#endif
+
+
+#ifdef GF_LINUX_HOST_OS
 #define _PATH_MOUNT "/bin/mount"
 #else /* NetBSD, MacOS X */
 #define _PATH_MOUNT "/sbin/mount"

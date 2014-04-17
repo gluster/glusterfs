@@ -688,7 +688,7 @@ server_init_grace_timer (xlator_t *this, dict_t *options,
                 conf->grace_ts.tv_sec = 10;
 
         gf_log (this->name, GF_LOG_DEBUG, "Server grace timeout "
-                "value = %"PRIu64, conf->grace_ts.tv_sec);
+                "value = %"GF_PRI_SECOND, conf->grace_ts.tv_sec);
 
         conf->grace_ts.tv_nsec  = 0;
 
