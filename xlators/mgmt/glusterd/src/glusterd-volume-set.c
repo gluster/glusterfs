@@ -950,6 +950,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = NO_DOC,
           .op_version  = 2
         },
+        { .key         = "auth.ssl-allow",
+          .voltype     = "protocol/server",
+          .option      = "!ssl-allow",
+          .type        = NO_DOC,
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
         { .key         = "server.manage-gids",
           .voltype     = "protocol/server",
           .op_version  = GD_OP_VERSION_3_6_0,

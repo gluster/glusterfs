@@ -24,6 +24,7 @@ ln $SSL_CERT $SSL_CA
 TEST $CLI volume create $V0 $H0:$B0/1
 TEST $CLI volume set $V0 server.ssl on
 TEST $CLI volume set $V0 client.ssl on
+TEST $CLI volume set $V0 auth.ssl-allow Anyone
 TEST $CLI volume start $V0
 
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0

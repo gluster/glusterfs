@@ -450,6 +450,13 @@ server_setvolume (rpcsvc_request_t *req)
                 req->trans->xl_private = client;
 
         auth_set_username_passwd (params, config_params, client);
+        if (req->trans->ssl_name) {
+                if (dict_set_str(params,"ssl-name",req->trans->ssl_name) != 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "failed to set ssl_name %s", req->trans->ssl_name);
+                        /* Not fatal, auth will just fail. */
+                }
+        }
 
         ret = dict_get_int32 (params, "fops-version", &fop_version);
         if (ret < 0) {

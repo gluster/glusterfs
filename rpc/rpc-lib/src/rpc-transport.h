@@ -214,6 +214,7 @@ struct rpc_transport {
         struct list_head           list;
         int                        bind_insecure;
         void                      *dl_handle; /* handle of dlopen() */
+        char                      *ssl_name;
 };
 
 struct rpc_transport_ops {

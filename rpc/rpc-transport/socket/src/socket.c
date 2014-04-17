@@ -246,7 +246,7 @@ out:
 #define ssl_read_one(t,b,l)  ssl_do((t),(b),(l),(SSL_trinary_func *)SSL_read)
 #define ssl_write_one(t,b,l) ssl_do((t),(b),(l),(SSL_trinary_func *)SSL_write)
 
-static int
+static char *
 ssl_setup_connection (rpc_transport_t *this, int server)
 {
 	X509             *peer = NULL;
@@ -297,7 +297,7 @@ ssl_setup_connection (rpc_transport_t *this, int server)
 		NID_commonName, peer_CN, sizeof(peer_CN)-1);
 	peer_CN[sizeof(peer_CN)-1] = '\0';
 	gf_log(this->name,GF_LOG_INFO,"peer CN = %s", peer_CN);
-	return 0;
+        return gf_strdup(peer_CN);
 
 	/* Error paths. */
 ssl_error:
@@ -307,7 +307,7 @@ free_ssl:
 	SSL_free(priv->ssl_ssl);
         priv->ssl_ssl = NULL;
 done:
-	return ret;
+	return NULL;
 }
 
 
@@ -2262,14 +2262,22 @@ socket_poller (void *ctx)
 	gf_boolean_t      to_write = _gf_false;
 	int               ret = 0;
         uint32_t          gen = 0;
+        char             *cname = NULL;
 
         priv->ot_state = OT_RUNNING;
 
         if (priv->use_ssl) {
-                if (ssl_setup_connection(this,priv->connected) < 0) {
+                cname = ssl_setup_connection(this,priv->connected);
+                if (!cname) {
                         gf_log (this->name,GF_LOG_ERROR, "%s setup failed",
                                 priv->connected ? "server" : "client");
                         goto err;
+                }
+                if (priv->connected) {
+                        this->ssl_name = cname;
+                }
+                else {
+                        GF_FREE(cname);
                 }
         }
 
@@ -2450,6 +2458,7 @@ socket_server_event_handler (int fd, int idx, void *data,
         socklen_t                addrlen = sizeof (new_sockaddr);
         socket_private_t        *new_priv = NULL;
         glusterfs_ctx_t         *ctx = NULL;
+        char                    *cname = NULL;
 
         this = data;
         GF_VALIDATE_OR_GOTO ("socket", this, out);
@@ -2560,7 +2569,8 @@ socket_server_event_handler (int fd, int idx, void *data,
 
                         new_priv->ssl_ctx = priv->ssl_ctx;
 			if (priv->use_ssl && !priv->own_thread) {
-				if (ssl_setup_connection(new_trans,1) < 0) {
+				cname = ssl_setup_connection(new_trans,1);
+                                if (!cname) {
 					gf_log(this->name,GF_LOG_ERROR,
 					       "server setup failed");
 					close(new_sock);
@@ -2568,6 +2578,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                                         GF_FREE (new_trans);
 					goto unlock;
 				}
+                                this->ssl_name = cname;
 			}
 
                         if (!priv->bio && !priv->own_thread) {
@@ -2634,6 +2645,9 @@ unlock:
         pthread_mutex_unlock (&priv->lock);
 
 out:
+        if (cname && (cname != this->ssl_name)) {
+                GF_FREE(cname);
+        }
         return ret;
 }
 
@@ -2694,6 +2708,7 @@ socket_connect (rpc_transport_t *this, int port)
         gf_boolean_t                   refd      = _gf_false;
         socket_connect_error_state_t  *arg             = NULL;
         pthread_t                      th_id           = {0, };
+        char                          *cname           = NULL;
 
         GF_VALIDATE_OR_GOTO ("socket", this, err);
         GF_VALIDATE_OR_GOTO ("socket", this->private, err);
@@ -2857,11 +2872,19 @@ socket_connect (rpc_transport_t *this, int port)
                 }
 
                 if (priv->use_ssl && !priv->own_thread) {
-                        ret = ssl_setup_connection(this,0);
-                        if (ret < 0) {
+                        cname = ssl_setup_connection(this,0);
+                        if (!cname) {
+                                errno = ENOTCONN;
+                                ret = -1;
                                 gf_log(this->name,GF_LOG_ERROR,
                                        "client setup failed");
                                 goto handler;
+                        }
+                        if (priv->connected) {
+                                this->ssl_name = cname;
+                        }
+                        else {
+                                GF_FREE(cname);
                         }
                 }
 
