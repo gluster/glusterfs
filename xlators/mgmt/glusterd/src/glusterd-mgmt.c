@@ -1306,7 +1306,7 @@ glusterd_mgmt_v3_post_validate (glusterd_conf_t  *conf, glusterd_op_t op,
         GF_ASSERT (this);
         GF_ASSERT (conf);
         GF_ASSERT (dict);
-        GF_ASSERT (req_dict);
+        GF_VALIDATE_OR_GOTO (this->name, req_dict, out);
         GF_ASSERT (op_errstr);
 
         peers = &conf->xaction_peers;
