@@ -404,7 +404,7 @@ pl_inodelk_log_cleanup (pl_inode_lock_t *lock)
 }
 
 
-/* Release all entrylks from this client */
+/* Release all inodelks from this client */
 int
 pl_inodelk_client_cleanup (xlator_t *this, pl_ctx_t *ctx)
 {
@@ -414,15 +414,16 @@ pl_inodelk_client_cleanup (xlator_t *this, pl_ctx_t *ctx)
         pl_inode_t *pl_inode = NULL;
 
         struct list_head released;
+        struct list_head unwind;
 
         INIT_LIST_HEAD (&released);
+        INIT_LIST_HEAD (&unwind);
 
 	pthread_mutex_lock (&ctx->lock);
         {
                 list_for_each_entry_safe (l, tmp, &ctx->inodelk_lockers,
 					  client_list) {
                         list_del_init (&l->client_list);
-			list_add_tail (&l->client_list, &released);
 
 			pl_inodelk_log_cleanup (l);
 
@@ -430,19 +431,64 @@ pl_inodelk_client_cleanup (xlator_t *this, pl_ctx_t *ctx)
 
 			pthread_mutex_lock (&pl_inode->mutex);
 			{
-				__delete_inode_lock (l);
+                        /* If the inodelk object is part of granted list but not
+                         * blocked list, then perform the following actions:
+                         * i.   delete the object from granted list;
+                         * ii.  grant other locks (from other clients) that may
+                         *      have been blocked on this inodelk; and
+                         * iii. unref the object.
+                         *
+                         * If the inodelk object (L1) is part of both granted
+                         * and blocked lists, then this means that a parallel
+                         * unlock on another inodelk (L2 say) may have 'granted'
+                         * L1 and added it to 'granted' list in
+                         * __grant_blocked_node_locks() (although using the
+                         * 'blocked_locks' member). In that case, the cleanup
+                         * codepath must try and grant other overlapping
+                         * blocked inodelks from other clients, now that L1 is
+                         * out of their way and then unref L1 in the end, and
+                         * leave it to the other thread (the one executing
+                         * unlock codepath) to unwind L1's frame, delete it from
+                         * blocked_locks list, and perform the last unref on L1.
+                         *
+                         * If the inodelk object (L1) is part of blocked list
+                         * only, the cleanup code path must:
+                         * i.   delete it from the blocked_locks list inside
+                         *      this critical section,
+                         * ii.  unwind its frame with EAGAIN,
+                         * iii. try and grant blocked inode locks from other
+                         *      clients that were otherwise grantable, but just
+                         *      got blocked to avoid leaving L1 to starve
+                         *      forever.
+                         * iv.  unref the object.
+                         */
+                                if (!list_empty (&l->list)) {
+                                        __delete_inode_lock (l);
+                                        list_add_tail (&l->client_list,
+                                                       &released);
+                                } else {
+                                        list_del_init(&l->blocked_locks);
+                                        list_add_tail (&l->client_list,
+                                                       &unwind);
+                                }
                         }
 			pthread_mutex_unlock (&pl_inode->mutex);
                 }
 	}
         pthread_mutex_unlock (&ctx->lock);
 
-        list_for_each_entry_safe (l, tmp, &released, client_list) {
+        list_for_each_entry_safe (l, tmp, &unwind, client_list) {
                 list_del_init (&l->client_list);
 
-		if (l->frame)
+                if (l->frame)
 			STACK_UNWIND_STRICT (inodelk, l->frame, -1, EAGAIN,
 					     NULL);
+                list_add_tail (&l->client_list, &released);
+
+        }
+
+        list_for_each_entry_safe (l, tmp, &released, client_list) {
+                list_del_init (&l->client_list);
 
 		pl_inode = l->pl_inode;
 
