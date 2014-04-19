@@ -749,7 +749,7 @@ pl_entrylk_client_cleanup (xlator_t *this, pl_ctx_t *ctx)
 
 		dom = get_domain (pinode, l->volume);
 
-		grant_blocked_inode_locks (this, pinode, dom);
+		grant_blocked_entry_locks (this, pinode, dom);
 
 		pthread_mutex_lock (&pinode->mutex);
 		{
