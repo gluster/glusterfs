@@ -113,6 +113,177 @@ out:
         return ret;
 }
 
+int
+snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
+                                char *op_errstr)
+{
+        char                err_str[PATH_MAX]    = "";
+        char                buf[PATH_MAX]        = "";
+        glusterd_conf_t    *conf                 = NULL;
+        glusterd_volinfo_t *volinfo              = NULL;
+        int                 ret                  = -1;
+        uint64_t            active_hard_limit    = 0;
+        uint64_t            snap_max_limit       = 0;
+        uint64_t            soft_limit_value     = -1;
+        uint64_t            count                = 0;
+        xlator_t           *this                 = NULL;
+
+        this = THIS;
+
+        GF_ASSERT (this);
+        GF_ASSERT (rsp_dict);
+        GF_ASSERT (op_errstr);
+
+        conf = this->private;
+
+        GF_ASSERT (conf);
+
+        if (!volname) {
+                /* For system limit */
+                list_for_each_entry (volinfo, &conf->volumes, vol_list) {
+                        if (volinfo->is_snap_volume == _gf_true)
+                                continue;
+                        snap_max_limit = volinfo->snap_max_hard_limit;
+                        if (snap_max_limit > conf->snap_max_hard_limit)
+                                active_hard_limit = conf->snap_max_hard_limit;
+                        else
+                                active_hard_limit = snap_max_limit;
+                        soft_limit_value = (active_hard_limit *
+                                            conf->snap_max_soft_limit) / 100;
+
+                        snprintf (buf, sizeof(buf), "volume%ld-volname", count);
+                        ret = dict_set_str (rsp_dict, buf, volinfo->volname);
+                        if (ret) {
+                                snprintf (err_str, PATH_MAX,
+                                          "Failed to set %s", buf);
+                                goto out;
+                        }
+
+                        snprintf (buf, sizeof(buf),
+                                  "volume%ld-snap-max-hard-limit", count);
+                        ret = dict_set_uint64 (rsp_dict, buf, snap_max_limit);
+                        if (ret) {
+                                snprintf (err_str, PATH_MAX,
+                                          "Failed to set %s", buf);
+                                goto out;
+                        }
+
+                        snprintf (buf, sizeof(buf),
+                                  "volume%ld-active-hard-limit", count);
+                        ret = dict_set_uint64 (rsp_dict, buf,
+                                               active_hard_limit);
+                        if (ret) {
+                                snprintf (err_str, PATH_MAX,
+                                          "Failed to set %s", buf);
+                                goto out;
+                        }
+
+                        snprintf (buf, sizeof(buf),
+                                  "volume%ld-snap-max-soft-limit", count);
+                        ret = dict_set_uint64 (rsp_dict, buf, soft_limit_value);
+                        if (ret) {
+                                snprintf (err_str, PATH_MAX,
+                                          "Failed to set %s", buf);
+                                goto out;
+                        }
+                        count++;
+                }
+
+                ret = dict_set_uint64 (rsp_dict, "voldisplaycount", count);
+                if (ret) {
+                        snprintf (err_str, PATH_MAX,
+                                  "Failed to set voldisplaycount");
+                        goto out;
+                }
+        } else {
+                /*  For one volume */
+                ret = glusterd_volinfo_find (volname, &volinfo);
+                if (ret) {
+                        snprintf (err_str, PATH_MAX, "Failed to get the"
+                                   " volinfo for volume %s", volname);
+                        goto out;
+                }
+
+                snap_max_limit = volinfo->snap_max_hard_limit;
+                if (snap_max_limit > conf->snap_max_hard_limit)
+                        active_hard_limit = conf->snap_max_hard_limit;
+                else
+                        active_hard_limit = snap_max_limit;
+
+                soft_limit_value = (active_hard_limit *
+                                    conf->snap_max_soft_limit) / 100;
+
+                snprintf (buf, sizeof(buf), "volume%ld-volname", count);
+                ret = dict_set_str (rsp_dict, buf, volinfo->volname);
+                if (ret) {
+                        snprintf (err_str, PATH_MAX,
+                                  "Failed to set %s", buf);
+                        goto out;
+                }
+
+                snprintf (buf, sizeof(buf),
+                          "volume%ld-snap-max-hard-limit", count);
+                ret = dict_set_uint64 (rsp_dict, buf, snap_max_limit);
+                if (ret) {
+                        snprintf (err_str, PATH_MAX,
+                                  "Failed to set %s", buf);
+                        goto out;
+                }
+
+                snprintf (buf, sizeof(buf),
+                          "volume%ld-active-hard-limit", count);
+                ret = dict_set_uint64 (rsp_dict, buf, active_hard_limit);
+                if (ret) {
+                        snprintf (err_str, PATH_MAX,
+                                  "Failed to set %s", buf);
+                        goto out;
+                }
+
+                snprintf (buf, sizeof(buf),
+                          "volume%ld-snap-max-soft-limit", count);
+                ret = dict_set_uint64 (rsp_dict, buf, soft_limit_value);
+                if (ret) {
+                        snprintf (err_str, PATH_MAX,
+                                  "Failed to set %s", buf);
+                        goto out;
+                }
+
+                count++;
+
+                ret = dict_set_uint64 (rsp_dict, "voldisplaycount", count);
+                if (ret) {
+                        snprintf (err_str, PATH_MAX,
+                                  "Failed to set voldisplaycount");
+                        goto out;
+                }
+
+        }
+
+        ret = dict_set_uint64 (rsp_dict, "snap-max-hard-limit",
+                               conf->snap_max_hard_limit);
+        if (ret) {
+                snprintf (err_str, PATH_MAX,
+                          "Failed to set sys-snap-max-hard-limit ");
+                goto out;
+        }
+
+        ret = dict_set_uint64 (rsp_dict, "snap-max-soft-limit",
+                               conf->snap_max_soft_limit);
+        if (ret) {
+                snprintf (err_str, PATH_MAX,
+                          "Failed to set sys-snap-max-hard-limit ");
+                goto out;
+        }
+
+        ret = 0;
+out:
+        if (ret) {
+                op_errstr = gf_strdup (err_str);
+                gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
+        }
+        return ret;
+}
+
 /* This function will restore a snapshot volumes
  *
  * @param dict          dictionary containing snapshot restore request
@@ -478,6 +649,88 @@ out:
         return ret;
 }
 
+/* This function will be called from RPC handler routine.
+ * This function is responsible for getting the requested
+ * snapshot config into the dictionary.
+ *
+ * @param req   RPC request object. Required for sending a response back.
+ * @param op    glusterd operation. Required for sending a response back.
+ * @param dict  pointer to dictionary which will contain both
+ *              request and response key-pair values.
+ * @return -1 on error and 0 on success
+ */
+int
+glusterd_handle_snapshot_config (rpcsvc_request_t *req, glusterd_op_t op,
+                               dict_t *dict, char *err_str, size_t len)
+{
+        int32_t         ret             = -1;
+        char            *volname        = NULL;
+        xlator_t        *this           = NULL;
+        int             config_command  = 0;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        GF_VALIDATE_OR_GOTO (this->name, req, out);
+        GF_VALIDATE_OR_GOTO (this->name, dict, out);
+
+        /* TODO : Type of lock to be taken when we are setting
+         * limits system wide
+         */
+        ret = dict_get_int32 (dict, "config-command", &config_command);
+        if (ret) {
+                snprintf (err_str, sizeof (err_str),
+                         "Failed to get config-command type");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+
+        switch (config_command) {
+        case GF_SNAP_CONFIG_TYPE_SET:
+                if (!volname) {
+                        ret = dict_set_int32 (dict, "hold_vol_locks",
+                                              _gf_false);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Unable to set hold_vol_locks value "
+                                        "as _gf_false");
+                                goto out;
+                        }
+
+                }
+                ret = glusterd_mgmt_v3_initiate_all_phases (req, op, dict);
+                break;
+        case GF_SNAP_CONFIG_DISPLAY:
+                /* Reading data from local node only */
+                ret = snap_max_limits_display_commit (dict, volname,
+                                                      err_str);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "snap-max-limit "
+                                "display commit failed.");
+                        goto out;
+                }
+                /* If everything is successful then send the response
+                 * back to cli
+                 */
+                ret = glusterd_op_send_cli_response (op, 0, 0, req, dict,
+                                                     err_str);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to send cli "
+                                        "response");
+                        goto out;
+                }
+
+                break;
+        default:
+                gf_log (this->name, GF_LOG_ERROR, "Unknown config type");
+                ret = -1;
+                break;
+        }
+out:
+        return ret;
+}
 int
 glusterd_snap_create_pre_val_use_rsp_dict (dict_t *dst, dict_t *src)
 {
@@ -3842,7 +4095,6 @@ snap_max_hard_limit_set_commit (dict_t *dict, uint64_t value,
 
         GF_ASSERT (this);
         GF_ASSERT (dict);
-        GF_ASSERT (volname);
         GF_ASSERT (op_errstr);
 
         conf = this->private;
@@ -3878,178 +4130,6 @@ snap_max_hard_limit_set_commit (dict_t *dict, uint64_t value,
                                  "snap-max-hard-limit for volume %s", volname);
                         goto out;
                 }
-        }
-
-        ret = 0;
-out:
-        if (ret) {
-                *op_errstr = gf_strdup (err_str);
-                gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
-        }
-        return ret;
-}
-
-int
-snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
-                                char **op_errstr)
-{
-        char                err_str[PATH_MAX]    = "";
-        char                buf[PATH_MAX]        = "";
-        glusterd_conf_t    *conf                 = NULL;
-        glusterd_volinfo_t *volinfo              = NULL;
-        int                 ret                  = -1;
-        uint64_t            active_hard_limit    = 0;
-        uint64_t            snap_max_limit       = 0;
-        uint64_t            soft_limit_value     = -1;
-        uint64_t            count                = 0;
-        xlator_t           *this                 = NULL;
-
-        this = THIS;
-
-        GF_ASSERT (this);
-        GF_ASSERT (rsp_dict);
-        GF_ASSERT (volname);
-        GF_ASSERT (op_errstr);
-
-        conf = this->private;
-
-        GF_ASSERT (conf);
-
-        if (!volname) {
-                /* For system limit */
-                list_for_each_entry (volinfo, &conf->volumes, vol_list) {
-                        if (volinfo->is_snap_volume == _gf_true)
-                                continue;
-                        snap_max_limit = volinfo->snap_max_hard_limit;
-                        if (snap_max_limit > conf->snap_max_hard_limit)
-                                active_hard_limit = conf->snap_max_hard_limit;
-                        else
-                                active_hard_limit = snap_max_limit;
-                        soft_limit_value = (active_hard_limit *
-                                            conf->snap_max_soft_limit) / 100;
-
-                        snprintf (buf, sizeof(buf), "volume%"PRIu64"-volname", count);
-                        ret = dict_set_str (rsp_dict, buf, volinfo->volname);
-                        if (ret) {
-                                snprintf (err_str, PATH_MAX,
-                                          "Failed to set %s", buf);
-                                goto out;
-                        }
-
-                        snprintf (buf, sizeof(buf),
-                                  "volume%"PRIu64"-snap-max-hard-limit", count);
-                        ret = dict_set_uint64 (rsp_dict, buf, snap_max_limit);
-                        if (ret) {
-                                snprintf (err_str, PATH_MAX,
-                                          "Failed to set %s", buf);
-                                goto out;
-                        }
-
-                        snprintf (buf, sizeof(buf),
-                                  "volume%"PRIu64"-active-hard-limit", count);
-                        ret = dict_set_uint64 (rsp_dict, buf,
-                                               active_hard_limit);
-                        if (ret) {
-                                snprintf (err_str, PATH_MAX,
-                                          "Failed to set %s", buf);
-                                goto out;
-                        }
-
-                        snprintf (buf, sizeof(buf),
-                                  "volume%"PRIu64"-snap-max-soft-limit", count);
-                        ret = dict_set_uint64 (rsp_dict, buf, soft_limit_value);
-                        if (ret) {
-                                snprintf (err_str, PATH_MAX,
-                                          "Failed to set %s", buf);
-                                goto out;
-                        }
-                        count++;
-                }
-
-                ret = dict_set_uint64 (rsp_dict, "voldisplaycount", count);
-                if (ret) {
-                        snprintf (err_str, PATH_MAX,
-                                  "Failed to set voldisplaycount");
-                        goto out;
-                }
-        } else {
-                /*  For one volume */
-                ret = glusterd_volinfo_find (volname, &volinfo);
-                if (ret) {
-                        snprintf (err_str, PATH_MAX, "Failed to get the"
-                                   " volinfo for volume %s", volname);
-                        goto out;
-                }
-
-                snap_max_limit = volinfo->snap_max_hard_limit;
-                if (snap_max_limit > conf->snap_max_hard_limit)
-                        active_hard_limit = conf->snap_max_hard_limit;
-                else
-                        active_hard_limit = snap_max_limit;
-
-                soft_limit_value = (active_hard_limit *
-                                    conf->snap_max_soft_limit) / 100;
-
-                snprintf (buf, sizeof(buf), "volume%"PRIu64"-volname", count);
-                ret = dict_set_str (rsp_dict, buf, volinfo->volname);
-                if (ret) {
-                        snprintf (err_str, PATH_MAX,
-                                  "Failed to set %s", buf);
-                        goto out;
-                }
-
-                snprintf (buf, sizeof(buf),
-                          "volume%"PRIu64"-snap-max-hard-limit", count);
-                ret = dict_set_uint64 (rsp_dict, buf, snap_max_limit);
-                if (ret) {
-                        snprintf (err_str, PATH_MAX,
-                                  "Failed to set %s", buf);
-                        goto out;
-                }
-
-                snprintf (buf, sizeof(buf),
-                          "volume%"PRIu64"-active-hard-limit", count);
-                ret = dict_set_uint64 (rsp_dict, buf, active_hard_limit);
-                if (ret) {
-                        snprintf (err_str, PATH_MAX,
-                                  "Failed to set %s", buf);
-                        goto out;
-                }
-
-                snprintf (buf, sizeof(buf),
-                          "volume%"PRIu64"-snap-max-soft-limit", count);
-                ret = dict_set_uint64 (rsp_dict, buf, soft_limit_value);
-                if (ret) {
-                        snprintf (err_str, PATH_MAX,
-                                  "Failed to set %s", buf);
-                        goto out;
-                }
-
-                count++;
-
-                ret = dict_set_uint64 (rsp_dict, "voldisplaycount", count);
-                if (ret) {
-                        snprintf (err_str, PATH_MAX,
-                                  "Failed to set voldisplaycount");
-                        goto out;
-                }
-
-        }
-
-        ret = dict_set_uint64 (rsp_dict, "snap-max-hard-limit",
-                               conf->snap_max_hard_limit);
-        if (ret) {
-                snprintf (err_str, PATH_MAX,
-                          "Failed to set sys-snap-max-hard-limit ");
-                goto out;
-        }
-
-        ret = dict_set_uint64 (rsp_dict, "snap-max-soft-limit",
-                               conf->snap_max_soft_limit);
-        if (ret) {
-                snprintf (err_str, PATH_MAX,
-                          "Failed to set sys-snap-max-hard-limit ");
-                goto out;
         }
 
         ret = 0;
@@ -4131,22 +4211,6 @@ glusterd_snapshot_config_commit (dict_t *dict, char **op_errstr,
                 }
                 break;
 
-        case GF_SNAP_CONFIG_DISPLAY:
-                /* Reading data from local node only */
-                if (!is_origin_glusterd (dict)) {
-                        ret = 0;
-                        break;
-                }
-
-                ret = snap_max_limits_display_commit (rsp_dict, volname,
-                                                      op_errstr);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "snap-max-limit "
-                                "display commit failed.");
-                        goto out;
-                }
-                break;
         default:
                 break;
         }
@@ -5158,7 +5222,6 @@ glusterd_handle_snapshot_fn (rpcsvc_request_t *req)
         char                 *host_uuid      = NULL;
         char                  err_str[2048]  = {0,};
         xlator_t             *this           = NULL;
-        char                 *volname        = NULL;
 
         GF_ASSERT (req);
 
@@ -5254,22 +5317,12 @@ glusterd_handle_snapshot_fn (rpcsvc_request_t *req)
                 }
                 break;
         case GF_SNAP_OPTION_TYPE_CONFIG:
-                /* TODO : Type of lock to be taken when we are setting
-                 * limits system wide
-                 */
-                ret = dict_get_str (dict, "volname", &volname);
-                if (!volname) {
-                        ret = dict_set_int32 (dict, "hold_vol_locks",
-                                              _gf_false);
-                        if (ret) {
-                                gf_log ("cli", GF_LOG_ERROR,
-                                        "Unable to set hold_vol_locks value "
-                                        "as _gf_false");
-                                goto out;
-                        }
-
+                ret = glusterd_handle_snapshot_config (req, cli_op, dict,
+                                                 err_str, sizeof (err_str));
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING, "snapshot config "
+                                "failed");
                 }
-                ret = glusterd_mgmt_v3_initiate_all_phases (req, cli_op, dict);
                 break;
         case GF_SNAP_OPTION_TYPE_DELETE:
                 ret = glusterd_handle_snapshot_remove (req, cli_op, dict,
