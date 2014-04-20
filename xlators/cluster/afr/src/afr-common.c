@@ -4034,6 +4034,8 @@ afr_notify (xlator_t *this, int32_t event,
         int             up_child            = AFR_ALL_CHILDREN;
         dict_t          *input              = NULL;
         dict_t          *output             = NULL;
+        gf_boolean_t    had_quorum          = _gf_false;
+        gf_boolean_t    has_quorum          = _gf_false;
 
         priv = this->private;
 
@@ -4071,6 +4073,8 @@ afr_notify (xlator_t *this, int32_t event,
                 goto out;
         }
 
+        had_quorum = priv->quorum_count && afr_has_quorum (priv->child_up,
+                                                           this);
         switch (event) {
         case GF_EVENT_CHILD_UP:
                 LOCK (&priv->lock);
@@ -4161,6 +4165,16 @@ afr_notify (xlator_t *this, int32_t event,
         default:
                 propagate = 1;
                 break;
+        }
+
+        if (priv->quorum_count) {
+                has_quorum = afr_has_quorum (priv->child_up, this);
+                if (!had_quorum && has_quorum)
+                        gf_log (this->name, GF_LOG_INFO, "Client-quorum"
+                                " is met");
+                if (had_quorum && !has_quorum)
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Client-quorum is not met");
         }
 
         /* have all subvolumes reported status once by now? */
@@ -4544,43 +4558,6 @@ afr_child_fd_ctx_set (xlator_t *this, fd_t *fd, int32_t child,
         ret = 0;
 out:
         return ret;
-}
-
-gf_boolean_t
-afr_have_quorum (char *logname, afr_private_t *priv)
-{
-        unsigned int        quorum = 0;
-
-        GF_VALIDATE_OR_GOTO(logname,priv,out);
-
-        quorum = priv->quorum_count;
-        if (quorum != AFR_QUORUM_AUTO) {
-                return (priv->up_count >= (priv->down_count + quorum));
-        }
-
-        quorum = priv->child_count / 2 + 1;
-        if (priv->up_count >= (priv->down_count + quorum)) {
-                return _gf_true;
-        }
-
-        /*
-         * Special case for even numbers of nodes: if we have exactly half
-         * and that includes the first ("senior-most") node, then that counts
-         * as quorum even if it wouldn't otherwise.  This supports e.g. N=2
-         * while preserving the critical property that there can only be one
-         * such group.
-         */
-        if ((priv->child_count % 2) == 0) {
-                quorum = priv->child_count / 2;
-                if (priv->up_count >= (priv->down_count + quorum)) {
-                        if (priv->child_up[0]) {
-                                return _gf_true;
-                        }
-                }
-        }
-
-out:
-        return _gf_false;
 }
 
 void

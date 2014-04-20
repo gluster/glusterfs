@@ -48,4 +48,7 @@ afr_any_fops_failed (afr_local_t *local, afr_private_t *priv);
 
 gf_boolean_t
 afr_txn_nothing_failed (call_frame_t *frame, xlator_t *this);
+
+gf_boolean_t
+afr_has_quorum (unsigned char *subvols, xlator_t *this);
 #endif /* __TRANSACTION_H__ */

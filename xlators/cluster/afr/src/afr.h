@@ -1136,9 +1136,6 @@ int
 afr_child_fd_ctx_set (xlator_t *this, fd_t *fd, int32_t child,
                       int flags);
 
-gf_boolean_t
-afr_have_quorum (char *logname, afr_private_t *priv);
-
 void
 afr_matrix_cleanup (int32_t **pending, unsigned int m);
 
@@ -1166,20 +1163,6 @@ afr_xattr_array_destroy (dict_t **xattr, unsigned int child_count);
  * a fixed value (including zero to turn off quorum enforcement).
  */
 #define AFR_QUORUM_AUTO INT_MAX
-
-/*
- * Having this as a macro will make debugging a bit weirder, but does reduce
- * the probability of functions handling this check inconsistently.
- */
-#define QUORUM_CHECK(_func,_label) do {                                  \
-        if (priv->quorum_count && !afr_have_quorum(this->name,priv)) { \
-                gf_log(this->name,GF_LOG_WARNING,                        \
-                       "failing "#_func" due to lack of quorum");        \
-                op_errno = EROFS;                                        \
-                goto _label;                                             \
-        }                                                                \
-} while (0);
-
 
 #define AFR_SBRAIN_MSG "Failed on %s as split-brain is seen. Returning EIO."
 

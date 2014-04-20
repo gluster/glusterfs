@@ -548,8 +548,6 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto out;
         }
 
-        QUORUM_CHECK(writev,out);
-
         AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
@@ -730,8 +728,6 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        QUORUM_CHECK(truncate,out);
-
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
                 op_errno = ENOMEM;
@@ -745,6 +741,7 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
         if (ret < 0)
                 goto out;
 
+        local->op = GF_FOP_TRUNCATE;
         local->cont.truncate.offset  = offset;
 
         local->transaction.fop    = afr_truncate_wind;
@@ -974,8 +971,6 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this,
                 op_errno = EIO;
                 goto out;
         }
-        QUORUM_CHECK(ftruncate,out);
-
         AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
@@ -1153,8 +1148,6 @@ afr_setattr (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        QUORUM_CHECK(setattr,out);
-
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
                 op_errno = ENOMEM;
@@ -1168,6 +1161,7 @@ afr_setattr (call_frame_t *frame, xlator_t *this,
         if (ret < 0)
                 goto out;
 
+        local->op = GF_FOP_SETATTR;
         local->cont.setattr.in_buf = *buf;
         local->cont.setattr.valid  = valid;
 
@@ -1351,8 +1345,6 @@ afr_fsetattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        QUORUM_CHECK(fsetattr,out);
-
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
                 op_errno = ENOMEM;
@@ -1366,6 +1358,7 @@ afr_fsetattr (call_frame_t *frame, xlator_t *this,
         if (ret < 0)
                 goto out;
 
+        local->op = GF_FOP_FSETATTR;
         local->cont.fsetattr.in_buf = *buf;
         local->cont.fsetattr.valid  = valid;
 
@@ -1540,7 +1533,6 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        QUORUM_CHECK(setxattr,out);
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
                 op_errno = ENOMEM;
@@ -1554,6 +1546,7 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
         if (ret < 0)
                 goto out;
 
+        local->op = GF_FOP_SETXATTR;
         local->cont.setxattr.dict  = dict_ref (dict);
         local->cont.setxattr.flags = flags;
 
@@ -1730,8 +1723,6 @@ afr_fsetxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        QUORUM_CHECK(fsetxattr,out);
-
         AFR_LOCAL_ALLOC_OR_GOTO (local, out);
 
         ret = afr_local_init (local, priv, &op_errno);
@@ -1747,6 +1738,7 @@ afr_fsetxattr (call_frame_t *frame, xlator_t *this,
 
         local->op_ret = -1;
 
+        local->op = GF_FOP_FSETXATTR;
         local->cont.fsetxattr.dict  = dict_ref (dict);
         local->cont.fsetxattr.flags = flags;
 
@@ -1922,8 +1914,6 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        QUORUM_CHECK(removexattr,out);
-
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
                 op_errno = ENOMEM;
@@ -1937,6 +1927,7 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
         if (ret < 0)
                 goto out;
 
+        local->op = GF_FOP_REMOVEXATTR;
         local->cont.removexattr.name = gf_strdup (name);
 
         local->transaction.fop    = afr_removexattr_wind;
@@ -2111,8 +2102,6 @@ afr_fremovexattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        QUORUM_CHECK(fremovexattr, out);
-
         transaction_frame = copy_frame (frame);
         if (!transaction_frame) {
                 goto out;
@@ -2130,6 +2119,7 @@ afr_fremovexattr (call_frame_t *frame, xlator_t *this,
 
         local->op_ret = -1;
 
+        local->op = GF_FOP_FREMOVEXATTR;
         local->cont.removexattr.name = gf_strdup (name);
 
         local->transaction.fop    = afr_fremovexattr_wind;
@@ -2354,8 +2344,6 @@ afr_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
                 op_errno = EIO;
                 goto out;
         }
-        QUORUM_CHECK(fallocate,out);
-
         AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
@@ -2581,8 +2569,6 @@ afr_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 op_errno = EIO;
                 goto out;
         }
-        QUORUM_CHECK(discard, out);
-
         AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 
@@ -2825,8 +2811,6 @@ afr_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 op_errno = EIO;
                 goto out;
         }
-        QUORUM_CHECK(zerofill, out);
-
         AFR_LOCAL_ALLOC_OR_GOTO (frame->local, out);
         local = frame->local;
 

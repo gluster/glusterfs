@@ -497,9 +497,6 @@ struct xlator_fops fops = {
         .finodelk    = afr_finodelk,
         .entrylk     = afr_entrylk,
         .fentrylk    = afr_fentrylk,
-	.fallocate   = afr_fallocate,
-	.discard     = afr_discard,
-        .zerofill    = afr_zerofill,
 
         /* inode read */
         .access      = afr_access,
@@ -520,6 +517,9 @@ struct xlator_fops fops = {
         .fsetattr    = afr_fsetattr,
         .removexattr = afr_removexattr,
         .fremovexattr = afr_fremovexattr,
+        .fallocate   = afr_fallocate,
+        .discard     = afr_discard,
+        .zerofill    = afr_zerofill,
 
         /* dir read */
         .opendir     = afr_opendir,
