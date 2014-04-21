@@ -2561,7 +2561,7 @@ static int client_graph_set_perf_options(volgen_graph_t *graph,
 	tmp_data = dict_get (set_dict, "nfs-volume-file");
 	if (!tmp_data)
 		return volgen_graph_set_options_generic(graph, set_dict,
-							volname,
+							volinfo,
 							&perfxl_option_handler);
 	else
 		return volgen_graph_set_options_generic(graph, set_dict,
