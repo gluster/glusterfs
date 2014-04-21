@@ -2986,12 +2986,13 @@ out:
  */
 int
 cli_snap_create_parse (dict_t *dict, const char **words, int wordcount) {
-        uint64_t        i               =        0;
+        uint64_t        i               =       0;
         int             ret             =       -1;
-        uint64_t        volcount        =        0;
-        char            key[PATH_MAX]   =        "";
+        uint64_t        volcount        =       0;
+        char            key[PATH_MAX]   =       "";
         char            *snapname       =       NULL;
-        unsigned int    cmdi            =        2;
+        unsigned int    cmdi            =       2;
+        int             flags           =       0;
         /* cmdi is command index, here cmdi is "2" (gluster snapshot create)*/
 
         GF_ASSERT (words);
@@ -3107,16 +3108,13 @@ cli_snap_create_parse (dict_t *dict, const char **words, int wordcount) {
                  */
         }
 
-        if ((strcmp (words[i], "force") != 0)) {
+        if (strcmp (words[i], "force") == 0) {
+                flags = GF_CLI_FLAG_OP_FORCE;
+
+        } else {
                 ret = -1;
                 cli_err ("Invalid Syntax.");
                 gf_log ("cli", GF_LOG_ERROR, "Invalid Syntax");
-                goto out;
-        }
-        ret = dict_set_int8 (dict, "snap-force", 1);
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Could not save "
-                        "snap force option");
                 goto out;
         }
 
@@ -3130,6 +3128,15 @@ cli_snap_create_parse (dict_t *dict, const char **words, int wordcount) {
         ret = 0;
 
 out:
+        if(ret == 0) {
+                /*Adding force flag in either of the case i.e force set
+                 * or unset*/
+                ret = dict_set_int32 (dict, "flags", flags);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not save "
+                                "snap force option");
+                }
+        }
         return ret;
 }
 
