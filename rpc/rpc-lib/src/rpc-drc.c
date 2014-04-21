@@ -127,14 +127,14 @@ int
 drc_compare_reqs (const void *item, const void *rb_node_data, void *param)
 {
         int               ret      = -1;
-        rpcsvc_request_t *req      = NULL;
+        drc_cached_op_t  *req      = NULL;
         drc_cached_op_t  *reply    = NULL;
 
         GF_ASSERT (item);
         GF_ASSERT (rb_node_data);
         GF_ASSERT (param);
 
-        req = (rpcsvc_request_t *)item;
+        req = (drc_cached_op_t *)item;
         reply = (drc_cached_op_t *)rb_node_data;
 
         ret = req->xid - reply->xid;
@@ -143,7 +143,7 @@ drc_compare_reqs (const void *item, const void *rb_node_data, void *param)
 
         if (req->prognum == reply->prognum &&
             req->procnum == reply->procnum &&
-            req->progver == reply->progversion)
+            req->progversion == reply->progversion)
                 return 0;
 
         return 1;
@@ -331,6 +331,12 @@ rpcsvc_drc_lookup (rpcsvc_request_t *req)
 {
         drc_client_t           *client = NULL;
         drc_cached_op_t        *reply  = NULL;
+        drc_cached_op_t        new = {
+                .xid            = req->xid,
+                .prognum        = req->prognum,
+                .progversion    = req->progver,
+                .procnum        = req->procnum,
+        };
 
         GF_ASSERT (req);
 
@@ -347,7 +353,7 @@ rpcsvc_drc_lookup (rpcsvc_request_t *req)
         if (client->op_count == 0)
                 goto out;
 
-        reply = rb_find (client->rbtree, req);
+        reply = rb_find (client->rbtree, &new);
 
  out:
         if (client)
