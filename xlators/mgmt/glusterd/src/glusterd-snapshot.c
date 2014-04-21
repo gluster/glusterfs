@@ -918,6 +918,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
         gf_loglevel_t          loglevel                  = GF_LOG_ERROR;
         glusterd_conf_t       *conf                      = NULL;
         int64_t                effective_max_limit       = 0;
+        int                    flags                     = 0;
 
         this = THIS;
         GF_ASSERT (op_errstr);
@@ -940,6 +941,12 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
         ret = dict_get_str (dict, "snapname", &snapname);
         if (ret) {
                 snprintf (err_str, sizeof (err_str), "Failed to get snapname");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "flags", &flags);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get flags");
                 goto out;
         }
 
@@ -1026,13 +1033,26 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                         }
 
                         if (!glusterd_is_brick_started (brickinfo)) {
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "brick %s:%s is not started",
-                                        brickinfo->hostname,
-                                        brickinfo->path);
-                                brick_order++;
-                                brick_count++;
-                                continue;
+                                if(flags & GF_CLI_FLAG_OP_FORCE) {
+                                        gf_log (this->name, GF_LOG_WARNING,
+                                                "brick %s:%s is not started",
+                                                brickinfo->hostname,
+                                                brickinfo->path);
+                                        brick_order++;
+                                        brick_count++;
+                                        continue;
+                                }
+
+                                snprintf (err_str, sizeof (err_str),
+                                          "brick %s:%s is not started. "
+                                          "Please start the stopped brick "
+                                          "and then issue snapshot create "
+                                          "command or use [force] option in "
+                                          "snapshot create to override this "
+                                          "behavior.", brickinfo->hostname,
+                                          brickinfo->path);
+                                ret = -1;
+                                goto out;
                         }
 
                         device = glusterd_get_brick_mount_details (brickinfo);

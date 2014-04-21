@@ -5,6 +5,17 @@ LVM_PREFIX="patchy_snap"
 LVM_COUNT=0
 VHD_SIZE="1G"
 
+#This function will init B# bricks
+#This is used when launch_cluster is
+#not called to init B#. Call it before
+#setup_lvm
+function init_n_bricks() {
+    local count=$1
+    for i in `seq 1 $count`; do
+        eval "B$i=/d/backends/$i"
+    done
+}
+
 function init_lvm() {
     if [ "$1" == "" ]; then
         echo "Error: Invalid argument supplied"
