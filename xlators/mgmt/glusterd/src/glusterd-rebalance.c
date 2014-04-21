@@ -512,6 +512,7 @@ int
 glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
 {
         char                    *volname = NULL;
+        char                    *cmd_str = NULL;
         int                     ret = 0;
         int32_t                 cmd = 0;
         char                    msg[2048] = {0};
@@ -582,6 +583,25 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                 break;
         case GF_DEFRAG_CMD_STATUS:
         case GF_DEFRAG_CMD_STOP:
+                ret = dict_get_str (dict, "cmd-str", &cmd_str);
+                if (ret) {
+                     gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                             "command string");
+                     ret = -1;
+                     goto out;
+                }
+                if ((strstr(cmd_str,"rebalance") != NULL) &&
+                         (volinfo->rebal.op != GD_OP_REBALANCE)){
+                        snprintf (msg,sizeof(msg),"Rebalance not started.");
+                        ret = -1;
+                        goto out;
+                }
+                if ((strstr(cmd_str,"remove-brick")!= NULL) &&
+                          (volinfo->rebal.op != GD_OP_REMOVE_BRICK)){
+                        snprintf (msg,sizeof(msg),"remove-brick not started.");
+                        ret = -1;
+                        goto out;
+                }
                 break;
         default:
                 break;
