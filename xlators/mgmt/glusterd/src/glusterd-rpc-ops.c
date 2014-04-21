@@ -1242,12 +1242,12 @@ int32_t
 glusterd_rpc_friend_add (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
-        gd1_mgmt_friend_req         req      = {{0},};
-        int                         ret      = 0;
-        glusterd_peerinfo_t        *peerinfo = NULL;
-        glusterd_conf_t            *priv     = NULL;
-        glusterd_friend_sm_event_t *event    = NULL;
-        dict_t                     *vols     = NULL;
+        gd1_mgmt_friend_req         req       = {{0},};
+        int                         ret       = 0;
+        glusterd_peerinfo_t        *peerinfo  = NULL;
+        glusterd_conf_t            *priv      = NULL;
+        glusterd_friend_sm_event_t *event     = NULL;
+        dict_t                     *peer_data = NULL;
 
 
         if (!frame || !this || !data) {
@@ -1262,16 +1262,20 @@ glusterd_rpc_friend_add (call_frame_t *frame, xlator_t *this,
 
         peerinfo = event->peerinfo;
 
-        ret = glusterd_build_volume_dict (&vols);
-        if (ret)
+        ret = glusterd_add_volumes_to_export_dict (&peer_data);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to add list of volumes "
+                        "in the peer_data dict for handshake");
                 goto out;
+        }
 
         if (priv->op_version >= GD_OP_VERSION_4) {
-                ret = glusterd_add_missed_snaps_to_export_dict (vols);
+                ret = glusterd_add_missed_snaps_to_export_dict (peer_data);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to add list of missed snapshots "
-                                "in the vols dict for handshake");
+                                "in the peer_data dict for handshake");
                         goto out;
                 }
         }
@@ -1280,7 +1284,7 @@ glusterd_rpc_friend_add (call_frame_t *frame, xlator_t *this,
         req.hostname = peerinfo->hostname;
         req.port = peerinfo->port;
 
-        ret = dict_allocate_and_serialize (vols, &req.vols.vols_val,
+        ret = dict_allocate_and_serialize (peer_data, &req.vols.vols_val,
                                            &req.vols.vols_len);
         if (ret)
                 goto out;
@@ -1294,8 +1298,8 @@ glusterd_rpc_friend_add (call_frame_t *frame, xlator_t *this,
 out:
         GF_FREE (req.vols.vols_val);
 
-        if (vols)
-                dict_unref (vols);
+        if (peer_data)
+                dict_unref (peer_data);
 
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;

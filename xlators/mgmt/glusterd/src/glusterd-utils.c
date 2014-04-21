@@ -2665,7 +2665,7 @@ out:
 }
 
 int32_t
-glusterd_add_missed_snaps_to_export_dict (dict_t *vols)
+glusterd_add_missed_snaps_to_export_dict (dict_t *peer_data)
 {
         char                           name_buf[PATH_MAX]   = "";
         char                           value[PATH_MAX]      = "";
@@ -2678,7 +2678,7 @@ glusterd_add_missed_snaps_to_export_dict (dict_t *vols)
 
         this = THIS;
         GF_ASSERT (this);
-        GF_ASSERT (vols);
+        GF_ASSERT (peer_data);
 
         priv = this->private;
         GF_ASSERT (priv);
@@ -2700,7 +2700,7 @@ glusterd_add_missed_snaps_to_export_dict (dict_t *vols)
                                   snap_opinfo->op,
                                   snap_opinfo->status);
 
-                        ret = dict_set_dynstr_with_alloc (vols, name_buf,
+                        ret = dict_set_dynstr_with_alloc (peer_data, name_buf,
                                                           value);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -2712,7 +2712,8 @@ glusterd_add_missed_snaps_to_export_dict (dict_t *vols)
                 }
         }
 
-        ret = dict_set_int32 (vols, "missed_snap_count", missed_snap_count);
+        ret = dict_set_int32 (peer_data, "missed_snap_count",
+                              missed_snap_count);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Unable to set missed_snap_count");
@@ -2725,7 +2726,7 @@ out:
 }
 
 int32_t
-glusterd_build_volume_dict (dict_t **vols)
+glusterd_add_volumes_to_export_dict (dict_t **peer_data)
 {
         int32_t                 ret = -1;
         dict_t                  *dict = NULL;
@@ -2733,11 +2734,14 @@ glusterd_build_volume_dict (dict_t **vols)
         glusterd_volinfo_t      *volinfo = NULL;
         int32_t                 count = 0;
         glusterd_dict_ctx_t     ctx            = {0};
+        xlator_t               *this = NULL;
 
-        priv = THIS->private;
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
 
         dict = dict_new ();
-
         if (!dict)
                 goto out;
 
@@ -2752,7 +2756,6 @@ glusterd_build_volume_dict (dict_t **vols)
                 if (ret)
                         goto out;
         }
-
 
         ret = dict_set_int32 (dict, "count", count);
         if (ret)
@@ -2769,18 +2772,18 @@ glusterd_build_volume_dict (dict_t **vols)
         if (ret)
                 goto out;
 
-        *vols = dict;
+        *peer_data = dict;
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
         if (ret)
                 dict_unref (dict);
 
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
 
 int32_t
-glusterd_compare_friend_volume (dict_t *vols, int32_t count, int32_t *status,
-                                char *hostname)
+glusterd_compare_friend_volume (dict_t *peer_data, int32_t count,
+                                int32_t *status, char *hostname)
 {
 
         int32_t                 ret = -1;
@@ -2793,14 +2796,14 @@ glusterd_compare_friend_volume (dict_t *vols, int32_t count, int32_t *status,
         int32_t                 version = 0;
         xlator_t                *this = NULL;
 
-        GF_ASSERT (vols);
+        GF_ASSERT (peer_data);
         GF_ASSERT (status);
 
         this = THIS;
         GF_ASSERT (this);
 
         snprintf (key, sizeof (key), "volume%d.name", count);
-        ret = dict_get_str (vols, key, &volname);
+        ret = dict_get_str (peer_data, key, &volname);
         if (ret)
                 goto out;
 
@@ -2814,7 +2817,7 @@ glusterd_compare_friend_volume (dict_t *vols, int32_t count, int32_t *status,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.version", count);
-        ret = dict_get_int32 (vols, key, &version);
+        ret = dict_get_int32 (peer_data, key, &version);
         if (ret)
                 goto out;
 
@@ -2835,7 +2838,7 @@ glusterd_compare_friend_volume (dict_t *vols, int32_t count, int32_t *status,
         //
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.ckusm", count);
-        ret = dict_get_uint32 (vols, key, &cksum);
+        ret = dict_get_uint32 (peer_data, key, &cksum);
         if (ret)
                 goto out;
 
@@ -2850,7 +2853,7 @@ glusterd_compare_friend_volume (dict_t *vols, int32_t count, int32_t *status,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.quota-version", count);
-        ret = dict_get_uint32 (vols, key, &quota_version);
+        ret = dict_get_uint32 (peer_data, key, &quota_version);
         if (ret) {
                 gf_log (this->name, GF_LOG_DEBUG, "quota-version key absent for"
                         " volume %s in peer %s's response", volinfo->volname,
@@ -2878,7 +2881,7 @@ glusterd_compare_friend_volume (dict_t *vols, int32_t count, int32_t *status,
         //
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.quota-cksum", count);
-        ret = dict_get_uint32 (vols, key, &quota_cksum);
+        ret = dict_get_uint32 (peer_data, key, &quota_cksum);
         if (ret) {
                 gf_log (this->name, GF_LOG_DEBUG, "quota checksum absent for "
                         "volume %s in peer %s's response", volinfo->volname,
@@ -2906,7 +2909,7 @@ out:
 }
 
 static int32_t
-import_prdict_dict (dict_t *vols, dict_t  *dst_dict, char *key_prefix,
+import_prdict_dict (dict_t *peer_data, dict_t  *dst_dict, char *key_prefix,
                     char *value_prefix, int opt_count, char *prefix)
 {
         char                    key[512] = {0,};
@@ -2921,7 +2924,7 @@ import_prdict_dict (dict_t *vols, dict_t  *dst_dict, char *key_prefix,
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.%s%d",
                           prefix, key_prefix, i);
-                ret = dict_get_str (vols, key, &opt_key);
+                ret = dict_get_str (peer_data, key, &opt_key);
                 if (ret) {
                         snprintf (msg, sizeof (msg), "Volume dict key not "
                                   "specified");
@@ -2931,7 +2934,7 @@ import_prdict_dict (dict_t *vols, dict_t  *dst_dict, char *key_prefix,
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.%s%d",
                           prefix, value_prefix, i);
-                ret = dict_get_str (vols, key, &opt_val);
+                ret = dict_get_str (peer_data, key, &opt_val);
                 if (ret) {
                         snprintf (msg, sizeof (msg), "Volume dict value not "
                                   "specified");
@@ -3219,7 +3222,7 @@ out:
 }
 
 int32_t
-glusterd_import_friend_volume_opts (dict_t *vols, int count,
+glusterd_import_friend_volume_opts (dict_t *peer_data, int count,
                                     glusterd_volinfo_t *volinfo)
 {
         char                    key[512] = {0,};
@@ -3228,9 +3231,12 @@ glusterd_import_friend_volume_opts (dict_t *vols, int count,
         char                    msg[2048] = {0};
         char                    volume_prefix[1024] = {0};
 
+        GF_ASSERT (peer_data);
+        GF_ASSERT (volinfo);
+
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.opt-count", count);
-        ret = dict_get_int32 (vols, key, &opt_count);
+        ret = dict_get_int32 (peer_data, key, &opt_count);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Volume option count not "
                           "specified for %s", volinfo->volname);
@@ -3238,7 +3244,7 @@ glusterd_import_friend_volume_opts (dict_t *vols, int count,
         }
 
         snprintf (volume_prefix, sizeof (volume_prefix), "volume%d", count);
-        ret = import_prdict_dict (vols, volinfo->dict, "key", "value",
+        ret = import_prdict_dict (peer_data, volinfo->dict, "key", "value",
                                   opt_count, volume_prefix);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Unable to import options dict "
@@ -3248,14 +3254,14 @@ glusterd_import_friend_volume_opts (dict_t *vols, int count,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.gsync-count", count);
-        ret = dict_get_int32 (vols, key, &opt_count);
+        ret = dict_get_int32 (peer_data, key, &opt_count);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Gsync count not "
                           "specified for %s", volinfo->volname);
                 goto out;
         }
 
-        ret = import_prdict_dict (vols, volinfo->gsync_slaves, "slave-num",
+        ret = import_prdict_dict (peer_data, volinfo->gsync_slaves, "slave-num",
                                   "slave-val", opt_count, volume_prefix);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Unable to import gsync sessions "
@@ -3271,7 +3277,7 @@ out:
 }
 
 int32_t
-glusterd_import_new_brick (dict_t *vols, int32_t vol_count,
+glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
                            int32_t brick_count,
                            glusterd_brickinfo_t **brickinfo)
 {
@@ -3286,14 +3292,14 @@ glusterd_import_new_brick (dict_t *vols, int32_t vol_count,
         glusterd_brickinfo_t    *new_brickinfo = NULL;
         char                    msg[2048] = {0};
 
-        GF_ASSERT (vols);
+        GF_ASSERT (peer_data);
         GF_ASSERT (vol_count >= 0);
         GF_ASSERT (brickinfo);
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.brick%d.hostname",
                   vol_count, brick_count);
-        ret = dict_get_str (vols, key, &hostname);
+        ret = dict_get_str (peer_data, key, &hostname);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload", key);
                 goto out;
@@ -3302,7 +3308,7 @@ glusterd_import_new_brick (dict_t *vols, int32_t vol_count,
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.brick%d.path",
                   vol_count, brick_count);
-        ret = dict_get_str (vols, key, &path);
+        ret = dict_get_str (peer_data, key, &path);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload", key);
                 goto out;
@@ -3311,12 +3317,12 @@ glusterd_import_new_brick (dict_t *vols, int32_t vol_count,
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.brick%d.brick_id",
                   vol_count, brick_count);
-        ret = dict_get_str (vols, key, &brick_id);
+        ret = dict_get_str (peer_data, key, &brick_id);
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.brick%d.decommissioned",
                   vol_count, brick_count);
-        ret = dict_get_int32 (vols, key, &decommissioned);
+        ret = dict_get_int32 (peer_data, key, &decommissioned);
         if (ret) {
                 /* For backward compatibility */
                 ret = 0;
@@ -3324,7 +3330,7 @@ glusterd_import_new_brick (dict_t *vols, int32_t vol_count,
 
         snprintf (key, sizeof (key), "volume%d.brick%d.snap_status",
                   vol_count, brick_count);
-        ret = dict_get_int32 (vols, key, &snap_status);
+        ret = dict_get_int32 (peer_data, key, &snap_status);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload", key);
                 goto out;
@@ -3332,7 +3338,7 @@ glusterd_import_new_brick (dict_t *vols, int32_t vol_count,
 
         snprintf (key, sizeof (key), "volume%d.brick%d.device_path",
                   vol_count, brick_count);
-        ret = dict_get_str (vols, key, &snap_device);
+        ret = dict_get_str (peer_data, key, &snap_device);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload", key);
                 goto out;
@@ -3361,7 +3367,7 @@ out:
 }
 
 int32_t
-glusterd_import_bricks (dict_t *vols, int32_t vol_count,
+glusterd_import_bricks (dict_t *peer_data, int32_t vol_count,
                         glusterd_volinfo_t *new_volinfo)
 {
         int                     ret = -1;
@@ -3369,12 +3375,13 @@ glusterd_import_bricks (dict_t *vols, int32_t vol_count,
         int                     brickid = 0;
         glusterd_brickinfo_t     *new_brickinfo = NULL;
 
-        GF_ASSERT (vols);
+        GF_ASSERT (peer_data);
         GF_ASSERT (vol_count >= 0);
         GF_ASSERT (new_volinfo);
         while (brick_count <= new_volinfo->brick_count) {
 
-                ret = glusterd_import_new_brick (vols, vol_count, brick_count,
+                ret = glusterd_import_new_brick (peer_data, vol_count,
+                                                 brick_count,
                                                  &new_brickinfo);
                 if (ret)
                         goto out;
@@ -3394,7 +3401,7 @@ out:
 }
 
 static int
-glusterd_import_quota_conf (dict_t *vols, int vol_idx,
+glusterd_import_quota_conf (dict_t *peer_data, int vol_idx,
                             glusterd_volinfo_t *new_volinfo)
 {
         int     gfid_idx         = 0;
@@ -3408,6 +3415,7 @@ glusterd_import_quota_conf (dict_t *vols, int vol_idx,
 
         this = THIS;
         GF_ASSERT (this);
+        GF_ASSERT (peer_data);
 
         if (!glusterd_is_volume_quota_enabled (new_volinfo)) {
                 (void) glusterd_clean_up_quota_store (new_volinfo);
@@ -3426,20 +3434,21 @@ glusterd_import_quota_conf (dict_t *vols, int vol_idx,
 
         snprintf (key, sizeof (key)-1, "volume%d.quota-cksum", vol_idx);
         key[sizeof(key)-1] = '\0';
-        ret = dict_get_uint32 (vols, key, &new_volinfo->quota_conf_cksum);
+        ret = dict_get_uint32 (peer_data, key, &new_volinfo->quota_conf_cksum);
         if (ret)
                 gf_log (this->name, GF_LOG_DEBUG, "Failed to get quota cksum");
 
         snprintf (key, sizeof (key)-1, "volume%d.quota-version", vol_idx);
         key[sizeof(key)-1] = '\0';
-        ret = dict_get_uint32 (vols, key, &new_volinfo->quota_conf_version);
+        ret = dict_get_uint32 (peer_data, key,
+                               &new_volinfo->quota_conf_version);
         if (ret)
                 gf_log (this->name, GF_LOG_DEBUG, "Failed to get quota "
                                                   "version");
 
         snprintf (key, sizeof (key)-1, "volume%d.gfid-count", vol_idx);
         key[sizeof(key)-1] = '\0';
-        ret = dict_get_int32 (vols, key, &gfid_count);
+        ret = dict_get_int32 (peer_data, key, &gfid_count);
         if (ret)
                 goto out;
 
@@ -3456,7 +3465,7 @@ glusterd_import_quota_conf (dict_t *vols, int vol_idx,
                 snprintf (key, sizeof (key)-1, "volume%d.gfid%d",
                           vol_idx, gfid_idx);
                 key[sizeof(key)-1] = '\0';
-                ret = dict_get_str (vols, key, &gfid_str);
+                ret = dict_get_str (peer_data, key, &gfid_str);
                 if (ret)
                         goto out;
 
@@ -3538,7 +3547,7 @@ out:
 }
 
 int32_t
-glusterd_import_volinfo (dict_t *vols, int count,
+glusterd_import_volinfo (dict_t *peer_data, int count,
                          glusterd_volinfo_t **volinfo)
 {
         int                ret               = -1;
@@ -3558,11 +3567,11 @@ glusterd_import_volinfo (dict_t *vols, int count,
         int                client_op_version = 0;
         uint32_t           is_snap_volume    = 0;
 
-        GF_ASSERT (vols);
+        GF_ASSERT (peer_data);
         GF_ASSERT (volinfo);
 
         snprintf (key, sizeof (key), "volume%d.name", count);
-        ret = dict_get_str (vols, key, &volname);
+        ret = dict_get_str (peer_data, key, &volname);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload", key);
                 goto out;
@@ -3570,7 +3579,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.is_snap_volume", count);
-        ret = dict_get_uint32 (vols, key, &is_snap_volume);
+        ret = dict_get_uint32 (peer_data, key, &is_snap_volume);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload for %s",
                           key, volname);
@@ -3592,7 +3601,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.type", count);
-        ret = dict_get_int32 (vols, key, &new_volinfo->type);
+        ret = dict_get_int32 (peer_data, key, &new_volinfo->type);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload for %s",
                           key, volname);
@@ -3601,7 +3610,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.brick_count", count);
-        ret = dict_get_int32 (vols, key, &new_volinfo->brick_count);
+        ret = dict_get_int32 (peer_data, key, &new_volinfo->brick_count);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload for %s",
                           key, volname);
@@ -3610,7 +3619,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.version", count);
-        ret = dict_get_int32 (vols, key, &new_volinfo->version);
+        ret = dict_get_int32 (peer_data, key, &new_volinfo->version);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload for %s",
                           key, volname);
@@ -3619,7 +3628,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.status", count);
-        ret = dict_get_int32 (vols, key, (int32_t *)&new_volinfo->status);
+        ret = dict_get_int32 (peer_data, key, (int32_t *)&new_volinfo->status);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload for %s",
                           key, volname);
@@ -3628,7 +3637,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.sub_count", count);
-        ret = dict_get_int32 (vols, key, &new_volinfo->sub_count);
+        ret = dict_get_int32 (peer_data, key, &new_volinfo->sub_count);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload for %s",
                           key, volname);
@@ -3639,7 +3648,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
            (as peer may be of old version) */
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.stripe_count", count);
-        ret = dict_get_int32 (vols, key, &new_volinfo->stripe_count);
+        ret = dict_get_int32 (peer_data, key, &new_volinfo->stripe_count);
         if (ret)
                 gf_log (THIS->name, GF_LOG_INFO,
                         "peer is possibly old version");
@@ -3648,7 +3657,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
            (as peer may be of old version) */
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.replica_count", count);
-        ret = dict_get_int32 (vols, key, &new_volinfo->replica_count);
+        ret = dict_get_int32 (peer_data, key, &new_volinfo->replica_count);
         if (ret)
                 gf_log (THIS->name, GF_LOG_INFO,
                         "peer is possibly old version");
@@ -3657,7 +3666,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
            (as peer may be of old version) */
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.dist_count", count);
-        ret = dict_get_int32 (vols, key, &new_volinfo->dist_leaf_count);
+        ret = dict_get_int32 (peer_data, key, &new_volinfo->dist_leaf_count);
         if (ret)
                 gf_log (THIS->name, GF_LOG_INFO,
                         "peer is possibly old version");
@@ -3665,7 +3674,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
                                     glusterd_get_dist_leaf_count (new_volinfo);
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.ckusm", count);
-        ret = dict_get_uint32 (vols, key, &new_volinfo->cksum);
+        ret = dict_get_uint32 (peer_data, key, &new_volinfo->cksum);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload for %s",
                           key, volname);
@@ -3674,7 +3683,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.volume_id", count);
-        ret = dict_get_str (vols, key, &volume_id_str);
+        ret = dict_get_str (peer_data, key, &volume_id_str);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload for %s",
                           key, volname);
@@ -3685,7 +3694,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.username", count);
-        ret = dict_get_str (vols, key, &str);
+        ret = dict_get_str (peer_data, key, &str);
         if (!ret) {
                 ret = glusterd_auth_set_username (new_volinfo, str);
                 if (ret)
@@ -3694,7 +3703,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.password", count);
-        ret = dict_get_str (vols, key, &str);
+        ret = dict_get_str (peer_data, key, &str);
         if (!ret) {
                 ret = glusterd_auth_set_password (new_volinfo, str);
                 if (ret)
@@ -3703,7 +3712,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.transport_type", count);
-        ret = dict_get_uint32 (vols, key, &new_volinfo->transport_type);
+        ret = dict_get_uint32 (peer_data, key, &new_volinfo->transport_type);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload for %s",
                           key, volname);
@@ -3713,7 +3722,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
         new_volinfo->is_snap_volume = is_snap_volume;
 
         snprintf (key, sizeof (key), "volume%d.restored_from_snap", count);
-        ret = dict_get_str (vols, key, &restored_snap);
+        ret = dict_get_str (peer_data, key, &restored_snap);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload for %s",
                           key, volname);
@@ -3723,7 +3732,8 @@ glusterd_import_volinfo (dict_t *vols, int count,
         uuid_parse (restored_snap, new_volinfo->restored_from_snap);
 
         snprintf (key, sizeof (key), "volume%d.snap-max-hard-limit", count);
-        ret = dict_get_uint64 (vols, key, &new_volinfo->snap_max_hard_limit);
+        ret = dict_get_uint64 (peer_data, key,
+                               &new_volinfo->snap_max_hard_limit);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload for %s",
                           key, volname);
@@ -3732,7 +3742,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.rebalance", count);
-        ret = dict_get_uint32 (vols, key, &new_volinfo->rebal.defrag_cmd);
+        ret = dict_get_uint32 (peer_data, key, &new_volinfo->rebal.defrag_cmd);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload for %s",
                           key, volname);
@@ -3741,7 +3751,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.rebalance-id", count);
-        ret = dict_get_str (vols, key, &rebalance_id_str);
+        ret = dict_get_str (peer_data, key, &rebalance_id_str);
         if (ret) {
                 /* This is not present in older glusterfs versions,
                  * so don't error out
@@ -3753,14 +3763,16 @@ glusterd_import_volinfo (dict_t *vols, int count,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.rebalance-op", count);
-        ret = dict_get_uint32 (vols, key,(uint32_t *) &new_volinfo->rebal.op);
+        ret = dict_get_uint32 (peer_data, key,
+                               (uint32_t *) &new_volinfo->rebal.op);
         if (ret) {
                 /* This is not present in older glusterfs versions,
                  * so don't error out
                  */
                 ret = 0;
         }
-        ret = gd_import_friend_volume_rebal_dict (vols, count, new_volinfo);
+        ret = gd_import_friend_volume_rebal_dict (peer_data, count,
+                                                  new_volinfo);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Failed to import rebalance dict "
                           "for volume.");
@@ -3769,7 +3781,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
 
         memset (key, 0, sizeof (key));
         snprintf (key, 256, "volume%d."GLUSTERD_STORE_KEY_RB_STATUS, count);
-        ret = dict_get_int32 (vols, key, &rb_status);
+        ret = dict_get_int32 (peer_data, key, &rb_status);
         if (ret)
                 goto out;
         new_volinfo->rep_brick.rb_status = rb_status;
@@ -3779,7 +3791,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
                 memset (key, 0, sizeof (key));
                 snprintf (key, 256, "volume%d."GLUSTERD_STORE_KEY_RB_SRC_BRICK,
                           count);
-                ret = dict_get_str (vols, key, &src_brick);
+                ret = dict_get_str (peer_data, key, &src_brick);
                 if (ret)
                         goto out;
 
@@ -3794,7 +3806,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
                 memset (key, 0, sizeof (key));
                 snprintf (key, 256, "volume%d."GLUSTERD_STORE_KEY_RB_DST_BRICK,
                           count);
-                ret = dict_get_str (vols, key, &dst_brick);
+                ret = dict_get_str (peer_data, key, &dst_brick);
                 if (ret)
                         goto out;
 
@@ -3808,7 +3820,7 @@ glusterd_import_volinfo (dict_t *vols, int count,
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.rb_id", count);
-                ret = dict_get_str (vols, key, &rb_id_str);
+                ret = dict_get_str (peer_data, key, &rb_id_str);
                 if (ret) {
                         /* This is not present in older glusterfs versions,
                          * so don't error out
@@ -3820,7 +3832,8 @@ glusterd_import_volinfo (dict_t *vols, int count,
         }
 
 
-        ret = glusterd_import_friend_volume_opts (vols, count, new_volinfo);
+        ret = glusterd_import_friend_volume_opts (peer_data, count,
+                                                  new_volinfo);
         if (ret)
                 goto out;
 
@@ -3834,12 +3847,12 @@ glusterd_import_volinfo (dict_t *vols, int count,
          */
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.op-version", count);
-        ret = dict_get_int32 (vols, key, &op_version);
+        ret = dict_get_int32 (peer_data, key, &op_version);
         if (ret)
                 ret = 0;
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.client-op-version", count);
-        ret = dict_get_int32 (vols, key, &client_op_version);
+        ret = dict_get_int32 (peer_data, key, &client_op_version);
         if (ret)
                 ret = 0;
 
@@ -3860,9 +3873,9 @@ glusterd_import_volinfo (dict_t *vols, int count,
         memset (key, 0 ,sizeof (key));
         snprintf (key, sizeof (key), "volume%d.caps", count);
         /*This is not present in older glusterfs versions, so ignore ret value*/
-        ret = dict_get_int32 (vols, key, &new_volinfo->caps);
+        ret = dict_get_int32 (peer_data, key, &new_volinfo->caps);
 
-        ret = glusterd_import_bricks (vols, count, new_volinfo);
+        ret = glusterd_import_bricks (peer_data, count, new_volinfo);
         if (ret)
                 goto out;
 
@@ -4079,7 +4092,7 @@ out:
 }
 
 int32_t
-glusterd_import_friend_volume (dict_t *vols, size_t count)
+glusterd_import_friend_volume (dict_t *peer_data, size_t count)
 {
 
         int32_t                 ret = -1;
@@ -4088,13 +4101,13 @@ glusterd_import_friend_volume (dict_t *vols, size_t count)
         glusterd_volinfo_t      *old_volinfo = NULL;
         glusterd_volinfo_t      *new_volinfo = NULL;
 
-        GF_ASSERT (vols);
+        GF_ASSERT (peer_data);
 
         this = THIS;
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
-        ret = glusterd_import_volinfo (vols, count, &new_volinfo);
+        ret = glusterd_import_volinfo (peer_data, count, &new_volinfo);
         if (ret)
                 goto out;
 
@@ -4120,7 +4133,7 @@ glusterd_import_friend_volume (dict_t *vols, size_t count)
         if (ret)
                 goto out;
 
-        ret = glusterd_import_quota_conf (vols, count, new_volinfo);
+        ret = glusterd_import_quota_conf (peer_data, count, new_volinfo);
         if (ret)
                 goto out;
 
@@ -4132,20 +4145,20 @@ out:
 }
 
 int32_t
-glusterd_import_friend_volumes (dict_t  *vols)
+glusterd_import_friend_volumes (dict_t *peer_data)
 {
         int32_t                 ret = -1;
         int32_t                 count = 0;
         int                     i = 1;
 
-        GF_ASSERT (vols);
+        GF_ASSERT (peer_data);
 
-        ret = dict_get_int32 (vols, "count", &count);
+        ret = dict_get_int32 (peer_data, "count", &count);
         if (ret)
                 goto out;
 
         while (i <= count) {
-                ret = glusterd_import_friend_volume (vols, i);
+                ret = glusterd_import_friend_volume (peer_data, i);
                 if (ret)
                         goto out;
                 i++;
@@ -4406,7 +4419,7 @@ out:
 /* Import friend volumes missed_snap_list and update *
  * missed_snap_list if need be */
 int32_t
-glusterd_import_friend_missed_snap_list (dict_t *vols)
+glusterd_import_friend_missed_snap_list (dict_t *peer_data)
 {
         int32_t                      missed_snap_count     = -1;
         int32_t                      ret                   = -1;
@@ -4415,13 +4428,14 @@ glusterd_import_friend_missed_snap_list (dict_t *vols)
 
         this = THIS;
         GF_ASSERT (this);
-        GF_ASSERT (vols);
+        GF_ASSERT (peer_data);
 
         priv = this->private;
         GF_ASSERT (priv);
 
         /* Add the friends missed_snaps entries to the in-memory list */
-        ret = dict_get_int32 (vols, "missed_snap_count", &missed_snap_count);
+        ret = dict_get_int32 (peer_data, "missed_snap_count",
+                              &missed_snap_count);
         if (ret) {
                 gf_log (this->name, GF_LOG_INFO,
                         "No missed snaps");
@@ -4429,7 +4443,8 @@ glusterd_import_friend_missed_snap_list (dict_t *vols)
                 goto out;
         }
 
-        ret = glusterd_add_missed_snaps_to_list (vols, missed_snap_count);
+        ret = glusterd_add_missed_snaps_to_list (peer_data,
+                                                 missed_snap_count);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to add missed snaps to list");
@@ -4459,25 +4474,29 @@ out:
 }
 
 int32_t
-glusterd_compare_friend_data (dict_t  *vols, int32_t *status, char *hostname)
+glusterd_compare_friend_data (dict_t *peer_data, int32_t *status,
+                              char *hostname)
 {
-        int32_t                 ret = -1;
-        int32_t                 count = 0;
-        int                     i = 1;
-        gf_boolean_t            update = _gf_false;
-        gf_boolean_t            stale_nfs = _gf_false;
-        gf_boolean_t            stale_shd = _gf_false;
-        gf_boolean_t            stale_qd  = _gf_false;
+        int32_t          ret       = -1;
+        int32_t          count     = 0;
+        int              i         = 1;
+        gf_boolean_t     update    = _gf_false;
+        gf_boolean_t     stale_nfs = _gf_false;
+        gf_boolean_t     stale_shd = _gf_false;
+        gf_boolean_t     stale_qd  = _gf_false;
+        xlator_t        *this      = NULL;
 
-        GF_ASSERT (vols);
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (peer_data);
         GF_ASSERT (status);
 
-        ret = dict_get_int32 (vols, "count", &count);
+        ret = dict_get_int32 (peer_data, "count", &count);
         if (ret)
                 goto out;
 
         while (i <= count) {
-                ret = glusterd_compare_friend_volume (vols, i, status,
+                ret = glusterd_compare_friend_volume (peer_data, i, status,
                                                       hostname);
                 if (ret)
                         goto out;
@@ -4499,10 +4518,10 @@ glusterd_compare_friend_data (dict_t  *vols, int32_t *status, char *hostname)
                         stale_shd = _gf_true;
                 if (glusterd_is_nodesvc_running ("quotad"))
                         stale_qd  = _gf_true;
-                ret = glusterd_import_global_opts (vols);
+                ret = glusterd_import_global_opts (peer_data);
                 if (ret)
                         goto out;
-                ret = glusterd_import_friend_volumes (vols);
+                ret = glusterd_import_friend_volumes (peer_data);
                 if (ret)
                         goto out;
                 if (_gf_false == glusterd_are_all_volumes_stopped ()) {
@@ -4518,9 +4537,8 @@ glusterd_compare_friend_data (dict_t  *vols, int32_t *status, char *hostname)
         }
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning with ret: %d, status: %d",
-                ret, *status);
-
+        gf_log (this->name, GF_LOG_DEBUG,
+                "Returning with ret: %d, status: %d", ret, *status);
         return ret;
 }
 

@@ -182,10 +182,11 @@ glusterd_volume_brickinfo_get_by_brick (char *brick,
                                         glusterd_brickinfo_t **brickinfo);
 
 int32_t
-glusterd_build_volume_dict (dict_t **vols);
+glusterd_add_volumes_to_export_dict (dict_t **peer_data);
 
 int32_t
-glusterd_compare_friend_data (dict_t  *vols, int32_t *status, char *hostname);
+glusterd_compare_friend_data (dict_t *peer_data, int32_t *status,
+                              char *hostname);
 
 int
 glusterd_compute_cksum (glusterd_volinfo_t  *volinfo,
@@ -251,7 +252,7 @@ int
 glusterd_remote_hostname_get (rpcsvc_request_t *req,
                               char *remote_host, int len);
 int32_t
-glusterd_import_friend_volumes (dict_t  *vols);
+glusterd_import_friend_volumes (dict_t *peer_data);
 void
 glusterd_set_volume_status (glusterd_volinfo_t  *volinfo,
                             glusterd_volume_status status);
@@ -721,10 +722,10 @@ glusterd_add_missed_snaps_to_dict (dict_t *rsp_dict,
                                    int32_t brick_number, int32_t op);
 
 int32_t
-glusterd_add_missed_snaps_to_export_dict (dict_t *vols);
+glusterd_add_missed_snaps_to_export_dict (dict_t *peer_data);
 
 int32_t
-glusterd_import_friend_missed_snap_list (dict_t *vols);
+glusterd_import_friend_missed_snap_list (dict_t *peer_data);
 
 int32_t
 gd_restore_snap_volume (dict_t *rsp_dict,
