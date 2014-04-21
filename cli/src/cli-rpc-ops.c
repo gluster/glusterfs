@@ -8516,8 +8516,8 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
                                 "Failed to get snap name");
                         goto out;
                 }
-                cli_out ("snapshot create: %s: snap created successfully",
-                         snap_name);
+                cli_out ("snapshot create: success: Snap %s created "
+                                        "successfully", snap_name);
                 break;
 
         case GF_SNAP_OPTION_TYPE_RESTORE:
