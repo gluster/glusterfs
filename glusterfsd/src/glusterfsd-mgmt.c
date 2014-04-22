@@ -1643,6 +1643,16 @@ glusterfs_volfile_fetch (glusterfs_ctx_t *ctx)
                 goto out;
         }
 
+        if (cmd_args->brick_name) {
+                ret = dict_set_dynstr_with_alloc (dict, "brick_name",
+                                                  cmd_args->brick_name);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "Failed to set brick_name in request dict");
+                        goto out;
+                }
+        }
+
         ret = dict_allocate_and_serialize (dict, &req.xdata.xdata_val,
                                            &req.xdata.xdata_len);
         if (ret < 0) {
