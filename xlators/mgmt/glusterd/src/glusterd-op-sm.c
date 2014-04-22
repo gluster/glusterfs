@@ -2082,12 +2082,12 @@ glusterd_op_sync_volume (dict_t *dict, char **op_errstr,
 
         if (volname) {
                 ret = glusterd_add_volume_to_dict (volinfo, rsp_dict,
-                                                   1);
+                                                   1, "volume");
                 vol_count = 1;
         } else {
                 list_for_each_entry (volinfo, &priv->volumes, vol_list) {
-                        ret = glusterd_add_volume_to_dict (volinfo,
-                                                           rsp_dict, count);
+                        ret = glusterd_add_volume_to_dict (volinfo, rsp_dict,
+                                                           count, "volume");
                         if (ret)
                                 goto out;
 

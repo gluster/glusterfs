@@ -677,7 +677,7 @@ glusterd_store_create_volume_dir (glusterd_volinfo_t *volinfo)
         return ret;
 }
 
-static int32_t
+int32_t
 glusterd_store_create_snap_dir (glusterd_snap_t *snap)
 {
         int32_t            ret                   = -1;
