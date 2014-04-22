@@ -760,4 +760,17 @@ glusterd_snap_volume_remove (dict_t *rsp_dict,
 int32_t
 glusterd_store_create_snap_dir (glusterd_snap_t *snap);
 
+int32_t
+glusterd_copy_file (const char *source, const char *destination);
+
+int32_t
+glusterd_copy_folder (const char *source, const char *destination);
+
+int32_t
+glusterd_get_geo_rep_session (char *slave_key, char *origin_volname,
+                              dict_t *gsync_slaves_dict, char *session,
+                              char *slave);
+
+int32_t
+glusterd_restore_geo_rep_files (glusterd_volinfo_t *snap_vol);
 #endif

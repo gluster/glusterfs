@@ -495,6 +495,10 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                 snprintf (path, PATH_MAX, "%s/snaps/%s", priv->workdir,   \
                           snap->snapname);
 
+#define GLUSTERD_GET_SNAP_GEO_REP_DIR(path, snap, priv)                      \
+                snprintf (path, PATH_MAX, "%s/snaps/%s/%s", priv->workdir,   \
+                          snap->snapname, GEOREP);
+
 #define GLUSTERD_GET_BRICK_DIR(path, volinfo, priv)                           \
         if (volinfo->is_snap_volume) {                                        \
                 snprintf (path, PATH_MAX, "%s/snaps/%s/%s/%s", priv->workdir, \

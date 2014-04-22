@@ -26,6 +26,7 @@
 #else
 #include "mntent_compat.h"
 #endif
+#include <regex.h>
 
 #include "globals.h"
 #include "compat.h"
@@ -281,6 +282,197 @@ out:
                 op_errstr = gf_strdup (err_str);
                 gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
         }
+        return ret;
+}
+
+
+/* Third argument of scandir(used in glusterd_copy_geo_rep_session_files)
+ * is filter function. As we dont want "." and ".." files present in the
+ * directory, we are excliding these 2 files.
+ * "file_select" function here does the job of filtering.
+ */
+int
+file_select (const struct dirent *entry)
+{
+        if (entry == NULL)
+                return (FALSE);
+
+        if ((strcmp(entry->d_name, ".") == 0) ||
+            (strcmp(entry->d_name, "..") == 0))
+                return (FALSE);
+        else
+                return (TRUE);
+}
+
+int32_t
+glusterd_copy_geo_rep_session_files (char *session,
+                                     glusterd_volinfo_t *snap_vol)
+{
+        int32_t         ret                             = -1;
+        char            snap_session_dir[PATH_MAX]      = "";
+        char            georep_session_dir[PATH_MAX]    = "";
+        regex_t         *reg_exp                        = NULL;
+        int             file_count                      = -1;
+        struct  dirent  **files                         = {0,};
+        xlator_t        *this                           = NULL;
+        int             i                               = 0;
+        char            src_path[PATH_MAX]              = "";
+        char            dest_path[PATH_MAX]             = "";
+        glusterd_conf_t *priv                           = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        GF_ASSERT (session);
+        GF_ASSERT (snap_vol);
+
+        ret = snprintf (georep_session_dir, sizeof (georep_session_dir),
+                        "%s/%s/%s", priv->workdir, GEOREP,
+                        session);
+        if (ret < 0) { /* Negative value is an error */
+                goto out;
+        }
+
+        ret = snprintf (snap_session_dir, sizeof (snap_session_dir),
+                        "%s/%s/%s/%s/%s", priv->workdir,
+                        GLUSTERD_VOL_SNAP_DIR_PREFIX,
+                        snap_vol->snapshot->snapname, GEOREP, session);
+        if (ret < 0) { /* Negative value is an error */
+                goto out;
+        }
+
+        ret = mkdir_p (snap_session_dir, 0777, _gf_true);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Creating directory %s failed", snap_session_dir);
+                goto out;
+        }
+
+        /* TODO : good to have - Allocate in stack instead of heap */
+        reg_exp = GF_CALLOC (1, sizeof (regex_t), gf_common_mt_regex_t);
+        if (!reg_exp) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR, "Failed to allocate "
+                        "memory for regular expression");
+                goto out;
+        }
+
+        ret = regcomp (reg_exp, "(.*status$)|(.*conf$)\0", REG_EXTENDED);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                        "compile the regular expression");
+                goto out;
+        }
+
+        /* If there are no files in a particular session then fail it*/
+        file_count = scandir (georep_session_dir, &files, file_select,
+                              alphasort);
+        if (file_count <= 0) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR, "Session files not present "
+                        "in %s", georep_session_dir);
+                goto out;
+        }
+
+        /* Now compare the file name with regular expression to see if
+         * there is a match
+         */
+        for (i = 0 ; i < file_count; i++) {
+                if (regexec (reg_exp, files[i]->d_name, 0, NULL, 0))
+                        continue;
+
+                ret = snprintf (src_path, sizeof (src_path), "%s/%s",
+                                georep_session_dir, files[i]->d_name);
+                if (ret < 0) {
+                        goto out;
+                }
+
+                ret = snprintf (dest_path , sizeof (dest_path), "%s/%s",
+                                snap_session_dir, files[i]->d_name);
+                if (ret < 0) {
+                        goto out;
+                }
+
+                ret = glusterd_copy_file (src_path, dest_path);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Could not "
+                                "copy file %s of session %s",
+                                files[i]->d_name, session);
+                        goto out;
+                }
+        }
+out:
+        if (reg_exp)
+                GF_FREE (reg_exp);
+
+        return ret;
+}
+
+
+int32_t
+glusterd_copy_geo_rep_files (glusterd_volinfo_t *origin_vol,
+                             glusterd_volinfo_t *snap_vol, dict_t *rsp_dict)
+{
+        int32_t         ret                     =       -1;
+        int             i                       =       0;
+        xlator_t        *this                   =       NULL;
+        char            key[PATH_MAX]           =       "";
+        char            session[PATH_MAX]       =       "";
+        char            slave[PATH_MAX]         =       "";
+        char            snapgeo_dir[PATH_MAX]   =       "";
+        glusterd_conf_t *priv                   =       NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        GF_ASSERT (origin_vol);
+        GF_ASSERT (snap_vol);
+        GF_ASSERT (rsp_dict);
+
+        /* This condition is not satisfied if the volume
+         * is slave volume.
+         */
+        if (!origin_vol->gsync_slaves) {
+                ret = 0;
+                goto out;
+        }
+
+        GLUSTERD_GET_SNAP_GEO_REP_DIR(snapgeo_dir, snap_vol->snapshot, priv);
+
+        ret = mkdir (snapgeo_dir, 0777);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Creating directory %s failed", snapgeo_dir);
+                goto out;
+        }
+
+        for (i = 1 ; i <= origin_vol->gsync_slaves->count ; i++) {
+                ret = snprintf (key, sizeof (key), "slave%d", i);
+                if (ret < 0) /* Negative value is an error */
+                        goto out;
+
+                ret = glusterd_get_geo_rep_session (key, origin_vol->volname,
+                                                    origin_vol->gsync_slaves,
+                                                    session, slave);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to get geo-rep session");
+                        goto out;
+                }
+
+                ret = glusterd_copy_geo_rep_session_files (session, snap_vol);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to copy files"
+                                " related to session %s", session);
+                        goto out;
+                }
+        }
+
+out:
         return ret;
 }
 
@@ -3448,6 +3640,19 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
         glusterd_auth_set_username (snap_vol, username);
         glusterd_auth_set_password (snap_vol, password);
 
+        /* TODO : Sync before taking a snapshot */
+        /* Copy the status and config files of geo-replication before
+         * taking a snapshot. During restore operation these files needs
+         * to be copied back in /var/lib/glusterd/georeplication/
+         */
+        ret = glusterd_copy_geo_rep_files (origin_vol, snap_vol, rsp_dict);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to copy geo-rep "
+                        "config and status files for volume %s",
+                        origin_vol->volname);
+                goto out;
+        }
+
         /* Adding snap brickinfos to the snap volinfo */
         brick_count = 0;
         list_for_each_entry (brickinfo, &origin_vol->bricks, brick_list) {
@@ -5857,6 +6062,13 @@ gd_restore_snap_volume (dict_t *rsp_dict,
                 gf_log (this->name, GF_LOG_ERROR, "Failed to remove "
                         "LVM backend");
                 (void)glusterd_volinfo_delete (new_volinfo);
+                goto out;
+        }
+
+        ret = glusterd_restore_geo_rep_files (snap_vol);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to restore "
+                        "geo-rep files");
                 goto out;
         }
 

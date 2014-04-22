@@ -2755,7 +2755,9 @@ glusterd_store_retrieve_volumes (xlator_t  *this, glusterd_snap_t *snap)
         glusterd_for_each_entry (entry, dir);
 
         while (entry) {
-                if ( entry->d_type != DT_DIR )
+                if ( entry->d_type != DT_DIR ||
+                   (strcmp (entry->d_name, "geo-replication") == 0
+                    && snap))
                         goto next;
 
                 volinfo = glusterd_store_retrieve_volume (entry->d_name, snap);
@@ -3299,7 +3301,6 @@ glusterd_store_retrieve_snaps (xlator_t  *this)
                                 goto out;
                         }
                 }
-
                 glusterd_for_each_entry (entry, dir);
         }
 
