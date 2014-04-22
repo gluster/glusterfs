@@ -647,10 +647,13 @@ out:
  * TODO: Duplicate all members of volinfo, e.g. geo-rep sync slaves
  */
 int32_t
-glusterd_snap_volinfo_restore (dict_t *rsp_dict,
+glusterd_snap_volinfo_restore (dict_t *dict, dict_t *rsp_dict,
                                glusterd_volinfo_t *new_volinfo,
-                               glusterd_volinfo_t *snap_volinfo)
+                               glusterd_volinfo_t *snap_volinfo,
+                               int32_t volcount)
 {
+        char                    *value          = NULL;
+        char                    key[PATH_MAX]   = "";
         int32_t                 brick_count     = -1;
         int32_t                 ret             = -1;
         xlator_t                *this           = NULL;
@@ -659,6 +662,7 @@ glusterd_snap_volinfo_restore (dict_t *rsp_dict,
 
         this = THIS;
         GF_ASSERT (this);
+        GF_ASSERT (dict);
         GF_ASSERT (rsp_dict);
 
         GF_VALIDATE_OR_GOTO (this->name, new_volinfo, out);
@@ -666,6 +670,7 @@ glusterd_snap_volinfo_restore (dict_t *rsp_dict,
 
         brick_count = 0;
         list_for_each_entry (brickinfo, &snap_volinfo->bricks, brick_list) {
+                brick_count++;
                 ret = glusterd_brickinfo_new (&new_brickinfo);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "Failed to create "
@@ -680,6 +685,28 @@ glusterd_snap_volinfo_restore (dict_t *rsp_dict,
                                 "brickinfo");
                         goto out;
                 }
+
+                /* Fetch values if present in dict These values won't
+                 * be present in case of a missed restore. In that case
+                 * it's fine to use the local node's value
+                 */
+                snprintf (key, sizeof (key), "snap%d.brick%d.path",
+                          volcount, brick_count);
+                ret = dict_get_str (dict, key, &value);
+                if (!ret)
+                        strncpy (new_brickinfo->path, value,
+                                 sizeof(new_brickinfo->path));
+
+                snprintf (key, sizeof (key), "snap%d.brick%d.snap_status",
+                          volcount, brick_count);
+                ret = dict_get_int32 (dict, key, &new_brickinfo->snap_status);
+
+                snprintf (key, sizeof (key), "snap%d.brick%d.device_path",
+                          volcount, brick_count);
+                ret = dict_get_str (dict, key, &value);
+                if (!ret)
+                        strncpy (new_brickinfo->device_path, value,
+                                 sizeof(new_brickinfo->device_path));
 
                 /* If the brick is not of this peer, or snapshot is missed *
                  * for the brick do not replace the xattr for it */
@@ -713,7 +740,7 @@ glusterd_snap_volinfo_restore (dict_t *rsp_dict,
                                                 (rsp_dict,
                                                  snap_volinfo,
                                                  brickinfo,
-                                                 brick_count + 1,
+                                                 brick_count,
                                                  GF_SNAP_OPTION_TYPE_RESTORE);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -729,7 +756,6 @@ glusterd_snap_volinfo_restore (dict_t *rsp_dict,
                                 &new_volinfo->bricks);
                 /* ownership of new_brickinfo is passed to new_volinfo */
                 new_brickinfo = NULL;
-                brick_count++;
         }
 
         /* Regenerate all volfiles */
@@ -2336,7 +2362,8 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        snprintf (key, sizeof (key), "volume%d.restored_from_snap", count);
+        snprintf (key, sizeof (key), "%s%d.restored_from_snap",
+                  prefix, count);
         ret = dict_set_dynstr_with_alloc
                                   (dict, key,
                                    uuid_utoa (volinfo->restored_from_snap));
@@ -4562,6 +4589,7 @@ glusterd_perform_missed_op (glusterd_snap_t *snap, int32_t op)
         glusterd_conf_t         *priv         = NULL;
         glusterd_volinfo_t      *snap_volinfo = NULL;
         glusterd_volinfo_t      *volinfo      = NULL;
+        glusterd_volinfo_t      *tmp          = NULL;
         xlator_t                *this         = NULL;
         uuid_t                   null_uuid    = {0};
 
@@ -4590,35 +4618,37 @@ glusterd_perform_missed_op (glusterd_snap_t *snap, int32_t op)
 
                 break;
         case GF_SNAP_OPTION_TYPE_RESTORE:
-                /* TODO : As of now there is only volume in snapshot.
-                 * Change this when multiple volume snapshot is introduced
-                 */
-                snap_volinfo = list_entry (snap->volumes.next,
-                                           glusterd_volinfo_t, vol_list);
+                list_for_each_entry_safe (snap_volinfo, tmp,
+                                          &snap->volumes, vol_list) {
+                        ret = glusterd_volinfo_find
+                                         (snap_volinfo->parent_volname,
+                                          &volinfo);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Could not get volinfo of %s",
+                                        snap_volinfo->parent_volname);
+                                goto out;
+                        }
 
-                /* Find the parent volinfo */
-                ret = glusterd_volinfo_find (snap_volinfo->parent_volname,
-                                             &volinfo);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Could not get volinfo of %s",
-                                snap_volinfo->parent_volname);
-                        goto out;
-                }
+                        volinfo->version--;
+                        uuid_copy (volinfo->restored_from_snap, null_uuid);
 
-                /* Bump down the original volinfo's version, coz it would have
-                 * incremented already due to volume handshake
-                 */
-                volinfo->version--;
-                uuid_copy (volinfo->restored_from_snap, null_uuid);
-
-                /* Perform the restore */
-                ret = gd_restore_snap_volume (dict, volinfo, snap_volinfo);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to restore "
-                                "snap for %s", snap->snapname);
-                        volinfo->version++;
-                        goto out;
+                        /* gd_restore_snap_volume() uses the dict and volcount
+                         * to fetch snap brick info from other nodes, which were
+                         * collected during prevalidation. As this is an ad-hoc
+                         * op and only local node's data matter, hence sending
+                         * volcount as 0 and re-using the same dict because we
+                         * need not record any missed creates in the rsp_dict.
+                         */
+                        ret = gd_restore_snap_volume (dict, dict, volinfo,
+                                                      snap_volinfo, 0);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to restore snap for %s",
+                                        snap->snapname);
+                                volinfo->version++;
+                                goto out;
+                        }
                 }
 
                 break;
@@ -4851,7 +4881,9 @@ out:
         return is_local;
 }
 
-/* Check if the peer has missed any snap delete for the given snap_id */
+/* Check if the peer has missed any snap delete
+ * or restore for the given snap_id
+ */
 gf_boolean_t
 glusterd_peer_has_missed_snap_delete (glusterd_peerinfo_t *peerinfo,
                                       char *peer_snap_id)
@@ -4885,8 +4917,10 @@ glusterd_peer_has_missed_snap_delete (glusterd_peerinfo_t *peerinfo,
                         list_for_each_entry (snap_opinfo,
                                              &missed_snapinfo->snap_ops,
                                              snap_ops_list) {
-                                if ((snap_opinfo->op ==
-                                             GF_SNAP_OPTION_TYPE_DELETE) &&
+                                if (((snap_opinfo->op ==
+                                              GF_SNAP_OPTION_TYPE_DELETE) ||
+                                     (snap_opinfo->op ==
+                                              GF_SNAP_OPTION_TYPE_RESTORE)) &&
                                     (snap_opinfo->status ==
                                              GD_MISSED_SNAP_PENDING)) {
                                         missed_delete = _gf_true;
@@ -5141,7 +5175,7 @@ out:
  * glusterd_compare_and_update_snap() implements the following algorithm to
  * perform the above task:
  * Step  1: Start.
- * Step  2: Check if the peer is missing a delete on the said snap.
+ * Step  2: Check if the peer is missing a delete or restore on the said snap.
  *          If yes, goto step 6.
  * Step  3: Check if there is a conflict between the peer's data and the
  *          local snap. If no, goto step 5.
@@ -5205,8 +5239,8 @@ glusterd_compare_and_update_snap (dict_t *peer_data, int32_t snap_count,
                 goto out;
         }
 
-        /* Check if the peer has missed a snap delete for the
-         * snap in question
+        /* Check if the peer has missed a snap delete or restore
+         * resulting in stale data for the snap in question
          */
         missed_delete = glusterd_peer_has_missed_snap_delete (peerinfo,
                                                               peer_snap_id);
@@ -6983,7 +7017,7 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
 }
 
 char*
-glusterd_get_brick_mount_details (glusterd_brickinfo_t *brickinfo)
+glusterd_get_brick_mount_details (char *brick_path)
 {
         int             ret                  = -1;
         char           *mnt_pt               = NULL;
@@ -6994,12 +7028,12 @@ glusterd_get_brick_mount_details (glusterd_brickinfo_t *brickinfo)
 
         this = THIS;
         GF_ASSERT (this);
-        GF_ASSERT (brickinfo);
+        GF_ASSERT (brick_path);
 
-        ret = glusterd_get_brick_root (brickinfo->path, &mnt_pt);
+        ret = glusterd_get_brick_root (brick_path, &mnt_pt);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to get mount point "
-                        "for %s brick", brickinfo->path);
+                        "for %s brick", brick_path);
                 goto out;
         }
 

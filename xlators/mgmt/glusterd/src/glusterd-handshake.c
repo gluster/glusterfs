@@ -259,54 +259,274 @@ out:
 
 /* Get and store op-versions of the clients sending the getspec request
  * Clients of versions <= 3.3, don't send op-versions, their op-versions are
- * defaulted to 1
+ * defaulted to 1. Also fetch brick_name.
  */
-static int
-_get_client_op_versions (gf_getspec_req *args, peer_info_t *peerinfo)
+int32_t
+glusterd_get_args_from_dict (gf_getspec_req *args, peer_info_t *peerinfo,
+                             char **brick_name)
 {
-        int    ret                   = 0;
-        int    client_max_op_version = 1;
-        int    client_min_op_version = 1;
-        dict_t *dict                 = NULL;
+        dict_t    *dict                  = NULL;
+        int        client_max_op_version = 1;
+        int        client_min_op_version = 1;
+        int32_t    ret                   = -1;
+        xlator_t  *this                  = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT (args);
         GF_ASSERT (peerinfo);
 
-        if (args->xdata.xdata_len) {
-                dict = dict_new ();
-                if (!dict) {
-                        ret = -1;
-                        goto out;
-                }
+        if (!args->xdata.xdata_len) {
+                ret = 0;
+                goto out;
+        }
 
-                ret = dict_unserialize (args->xdata.xdata_val,
-                                        args->xdata.xdata_len, &dict);
-                if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
-                                "Failed to unserialize request dictionary");
-                        goto out;
-                }
+        dict = dict_new ();
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
 
-                ret = dict_get_int32 (dict, "min-op-version",
-                                      &client_min_op_version);
-                if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
-                                "Failed to get client-min-op-version");
-                        goto out;
-                }
+        ret = dict_unserialize (args->xdata.xdata_val,
+                                args->xdata.xdata_len, &dict);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to unserialize request dictionary");
+                goto out;
+        }
 
-                ret = dict_get_int32 (dict, "max-op-version",
-                                      &client_max_op_version);
+        ret = dict_get_int32 (dict, "min-op-version",
+                              &client_min_op_version);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "Failed to get client-min-op-version");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "max-op-version",
+                              &client_max_op_version);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "Failed to get client-max-op-version");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "brick_name",
+                            brick_name);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "No brick name present");
+                ret = 0;
+                goto out;
+        }
+
+        gf_log (this->name, GF_LOG_DEBUG, "brick_name = %s", *brick_name);
+out:
+        peerinfo->max_op_version = client_max_op_version;
+        peerinfo->min_op_version = client_min_op_version;
+
+        return ret;
+}
+
+/* Given the missed_snapinfo and snap_opinfo take the
+ * missed lvm snapshot
+ */
+int32_t
+glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
+                             glusterd_snap_op_t *snap_opinfo)
+{
+        char                        *device      = NULL;
+        glusterd_conf_t             *priv        = NULL;
+        glusterd_snap_t             *snap        = NULL;
+        glusterd_volinfo_t          *snap_vol    = NULL;
+        glusterd_volinfo_t          *volinfo     = NULL;
+        glusterd_brickinfo_t        *brickinfo   = NULL;
+        int32_t                      ret         = -1;
+        int32_t                      i           = 0;
+        uuid_t                       snap_uuid   = {0,};
+        xlator_t                    *this        = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+        GF_ASSERT (missed_snapinfo);
+        GF_ASSERT (snap_opinfo);
+
+        uuid_parse (missed_snapinfo->snap_uuid, snap_uuid);
+
+        /* Find the snap-object */
+        snap = glusterd_find_snap_by_id (snap_uuid);
+        if (!snap) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to find the snap with snap_uuid %s",
+                        missed_snapinfo->snap_uuid);
+                ret = -1;
+                goto out;
+        }
+
+        /* Find the snap_vol */
+        list_for_each_entry (volinfo, &snap->volumes, vol_list) {
+                if (!strcmp (volinfo->volname,
+                             snap_opinfo->snap_vol_id)) {
+                        snap_vol = volinfo;
+                        break;
+                }
+        }
+
+        if (!snap_vol) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to find the snap_vol(%s) "
+                        "for snap(%s)", snap_opinfo->snap_vol_id,
+                        snap->snapname);
+                ret = -1;
+                goto out;
+        }
+
+        /* Find the missed brick in the snap volume */
+        list_for_each_entry (brickinfo, &snap_vol->bricks, brick_list) {
+                i++;
+                if (i == snap_opinfo->brick_num)
+                        break;
+        }
+
+        if (brickinfo->snap_status != -1) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "The snap status of the missed "
+                        "brick(%s) is not pending", brickinfo->path);
+                goto out;
+        }
+
+        /* Fetch the device path */
+        device = glusterd_take_lvm_snapshot (snap_vol, snap_opinfo->brick_path);
+        if (!device) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to take snapshot of %s",
+                        snap_opinfo->brick_path);
+                goto out;
+        }
+
+        /* Create and mount the snap brick */
+        ret = glusterd_snap_brick_create (device, snap_vol,
+                                          snap_opinfo->brick_num,
+                                          brickinfo->mount_dir);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                        " create and mount the brick(%s) for the snap %s",
+                        snap_opinfo->brick_path,
+                        snap_vol->snapshot->snapname);
+                goto out;
+        }
+
+        strncpy (brickinfo->device_path, device,
+                 sizeof(brickinfo->device_path));
+        brickinfo->snap_status = 0;
+
+        ret = glusterd_store_volinfo (snap_vol,
+                                      GLUSTERD_VOLINFO_VER_AC_NONE);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to store snapshot "
+                        "volinfo (%s) for snap %s", snap_vol->volname,
+                        snap->snapname);
+                goto out;
+        }
+
+        ret = glusterd_brick_start (snap_vol, brickinfo, _gf_false);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING, "starting the "
+                        "brick %s:%s for the snap %s failed",
+                        brickinfo->hostname, brickinfo->path,
+                        snap->snapname);
+                goto out;
+        }
+out:
+        return ret;
+}
+
+/* Look into missed_snap_list, to see it the given brick_name,
+ * has any missed snap creates for the local node */
+int32_t
+glusterd_take_missing_brick_snapshots (char *brick_name)
+{
+        char                        *my_node_uuid     = NULL;
+        glusterd_conf_t             *priv             = NULL;
+        glusterd_missed_snap_info   *missed_snapinfo  = NULL;
+        glusterd_snap_op_t          *snap_opinfo      = NULL;
+        int32_t                      ret              = -1;
+        gf_boolean_t                 update_list      = _gf_false;
+        xlator_t                    *this             = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+        GF_ASSERT (brick_name);
+
+        my_node_uuid = uuid_utoa (MY_UUID);
+
+        list_for_each_entry (missed_snapinfo, &priv->missed_snaps_list,
+                             missed_snaps) {
+                /* If the missed snap op is not for the local node
+                 * then continue
+                 */
+                if (strcmp (my_node_uuid, missed_snapinfo->node_uuid))
+                        continue;
+
+                list_for_each_entry (snap_opinfo, &missed_snapinfo->snap_ops,
+                                     snap_ops_list) {
+                        /* Check if the missed snap's op is a create for
+                         * the brick name in question
+                         */
+                        if ((snap_opinfo->op == GF_SNAP_OPTION_TYPE_CREATE) &&
+                            (!strcmp (brick_name, snap_opinfo->brick_path))) {
+                                /* Perform a snap create if the
+                                 * op is still pending
+                                 */
+                                if (snap_opinfo->status ==
+                                                 GD_MISSED_SNAP_PENDING) {
+                                        ret = glusterd_create_missed_snap
+                                                              (missed_snapinfo,
+                                                               snap_opinfo);
+                                        if (ret) {
+                                                gf_log (this->name,
+                                                        GF_LOG_ERROR,
+                                                        "Failed to create "
+                                                        "missed snap for %s",
+                                                        brick_name);
+                                                /* At this stage, we will mark
+                                                 * the entry as done. Because
+                                                 * of the failure other
+                                                 * snapshots will not be
+                                                 * affected, and neither the
+                                                 * brick. Only the current snap
+                                                 * brick will always remain as
+                                                 * pending.
+                                                 */
+                                        }
+                                        snap_opinfo->status =
+                                                 GD_MISSED_SNAP_DONE;
+                                        update_list = _gf_true;
+                                }
+                                /* One snap-id won't have more than one missed
+                                 * create for the same brick path. Hence
+                                 * breaking in search of another missed create
+                                 * for the same brick path in the local node
+                                 */
+                                break;
+                        }
+                }
+        }
+
+        if (update_list == _gf_true) {
+                ret = glusterd_store_update_missed_snaps ();
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
-                                "Failed to get client-max-op-version");
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to update missed_snaps_list");
                         goto out;
                 }
         }
 
-        peerinfo->max_op_version = client_max_op_version;
-        peerinfo->min_op_version = client_min_op_version;
-
+        ret = 0;
 out:
         return ret;
 }
@@ -350,11 +570,13 @@ int
 __server_getspec (rpcsvc_request_t *req)
 {
         int32_t               ret                    = -1;
+        int32_t               op_ret                 = -1;
         int32_t               op_errno               = 0;
         int32_t               spec_fd                = -1;
         size_t                file_len               = 0;
         char                  filename[PATH_MAX]  = {0,};
         struct stat           stbuf                  = {0,};
+        char                 *brick_name             = NULL;
         char                 *volume                 = NULL;
         char                 *tmp                    = NULL;
         int                   cookie                 = 0;
@@ -363,6 +585,10 @@ __server_getspec (rpcsvc_request_t *req)
         gf_getspec_rsp        rsp                    = {0,};
         char                  addrstr[RPCSVC_PEER_STRLEN] = {0};
         peer_info_t          *peerinfo               = NULL;
+        xlator_t             *this                   = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         ret = xdr_to_generic (req->msg[0], &args,
                               (xdrproc_t)xdr_gf_getspec_req);
@@ -383,9 +609,12 @@ __server_getspec (rpcsvc_request_t *req)
         else
                 strncpy (peerinfo->volname, volume, strlen(volume));
 
-        ret = _get_client_op_versions (&args, peerinfo);
-        if (ret)
+        ret = glusterd_get_args_from_dict (&args, peerinfo, &brick_name);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to get args from dict");
                 goto fail;
+        }
 
         if (!_client_supports_volume (peerinfo, &op_errno)) {
                 ret = -1;
@@ -450,6 +679,18 @@ __server_getspec (rpcsvc_request_t *req)
                 ret = read (spec_fd, rsp.spec, file_len);
 
                 close (spec_fd);
+        }
+
+        if (brick_name) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Look for missing snap creates for %s", brick_name);
+                op_ret = glusterd_take_missing_brick_snapshots (brick_name);
+                if (op_ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to take missing brick snapshots");
+                        ret = -1;
+                        goto fail;
+                }
         }
 
         /* convert to XDR */

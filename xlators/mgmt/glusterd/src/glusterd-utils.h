@@ -693,8 +693,7 @@ int32_t
 glusterd_compare_volume_name(struct list_head *, struct list_head *);
 
 char*
-glusterd_get_brick_mount_details (glusterd_brickinfo_t *brickinfo);
-
+glusterd_get_brick_mount_details (char *brick_path);
 struct mntent *
 glusterd_get_mnt_entry_info (char *mnt_pt, FILE *mtab);
 
@@ -709,9 +708,11 @@ int
 glusterd_compare_snap_vol_time(struct list_head *, struct list_head *);
 
 int32_t
-glusterd_snap_volinfo_restore (dict_t *rsp_dict,
+glusterd_snap_volinfo_restore (dict_t *dict, dict_t *rsp_dict,
                                glusterd_volinfo_t *new_volinfo,
-                               glusterd_volinfo_t *snap_volinfo);
+                               glusterd_volinfo_t *snap_volinfo,
+                               int32_t volcount);
+
 int32_t
 glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol);
 
@@ -733,10 +734,11 @@ glusterd_add_missed_snaps_to_export_dict (dict_t *peer_data);
 int32_t
 glusterd_import_friend_missed_snap_list (dict_t *peer_data);
 
-int32_t
-gd_restore_snap_volume (dict_t *rsp_dict,
+int
+gd_restore_snap_volume (dict_t *dict, dict_t *rsp_dict,
                         glusterd_volinfo_t *orig_vol,
-                        glusterd_volinfo_t *snap_vol);
+                        glusterd_volinfo_t *snap_vol,
+                        int32_t volcount);
 
 int32_t
 glusterd_mount_lvm_snapshot (char *device_path, char *brick_mount_path);
@@ -787,4 +789,11 @@ glusterd_get_brick_mount_dir (char *brickpath, char *hostname, char *mount_dir);
 int32_t
 glusterd_aggr_brick_mount_dirs (dict_t *aggr, dict_t *rsp_dict);
 
+char *
+glusterd_take_lvm_snapshot (glusterd_volinfo_t *snap_vol,
+                            char *brick_path);
+
+int32_t
+glusterd_snap_brick_create (char *device, glusterd_volinfo_t *snap_volinfo,
+                            int32_t brick_count, char *snap_brick_dir);
 #endif
