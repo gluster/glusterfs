@@ -12,13 +12,6 @@
 #include "mem-pool.h"
 #include "xdr-common.h"
 
-#if GF_DARWIN_HOST_OS
-#define xdr_u_quad_t xdr_u_int64_t
-#define xdr_quad_t   xdr_int64_t
-#define xdr_uint32_t xdr_u_int32_t
-#define xdr_uint64_t xdr_u_int64_t
-#endif
-
 bool_t
 xdr_uint64 (XDR *xdrs, uint64 *objp)
 {
@@ -1884,5 +1877,3 @@ xdr_free_write3args_nocopy (write3args *wa)
 
         FREE (wa->file.data.data_val);
 }
-
-

@@ -14,7 +14,7 @@ const MAXNETOBJ_SZ = 1024;
 const LM_MAXSTRLEN = 1024;
 const MAXNAMELEN = 1025;
 
-typedef opaque netobj<MAXNETOBJ_SZ>;
+typedef opaque nlm4_netobj<MAXNETOBJ_SZ>;
 
 #ifdef RPC_HDR
 %/*
@@ -59,15 +59,15 @@ struct nlm4_stat {
 struct nlm4_holder {
 	bool exclusive;
 	u_int32_t svid;
-	netobj oh;
+	nlm4_netobj oh;
 	u_int64_t l_offset;
 	u_int64_t l_len;
 };
 
 struct nlm4_lock {
 	string caller_name<LM_MAXSTRLEN>;
-	netobj fh;
-	netobj oh;
+	nlm4_netobj fh;
+	nlm4_netobj oh;
 	u_int32_t svid;
 	u_int64_t l_offset;
 	u_int64_t l_len;
@@ -75,71 +75,71 @@ struct nlm4_lock {
 
 struct nlm4_share {
 	string caller_name<LM_MAXSTRLEN>;
-	netobj fh;
-	netobj oh;
+	nlm4_netobj fh;
+	nlm4_netobj oh;
 	fsh_mode mode;
 	fsh_access access;
 };
 
 union nlm4_testrply switch (nlm4_stats stat) {
-	case nlm_denied:
+	case nlm4_denied:
 		struct nlm4_holder holder;
 	default:
 		void;
 };
 
 struct nlm4_testres {
-	netobj cookie;
+	nlm4_netobj cookie;
 	nlm4_testrply stat;
 };
 
 struct nlm4_testargs {
-	netobj cookie;
+	nlm4_netobj cookie;
 	bool exclusive;
 	struct nlm4_lock alock;
 };
 
 struct nlm4_res {
-	netobj cookie;
+	nlm4_netobj cookie;
 	nlm4_stat stat;
 };
 
 struct nlm4_lockargs {
-	netobj cookie;
+	nlm4_netobj cookie;
 	bool block;
 	bool exclusive;
 	struct nlm4_lock alock;
 	bool reclaim;		/* used for recovering locks */
-	int state;		/* specify local status monitor state */
+	int32_t state;		/* specify local status monitor state */
 };
 
 struct nlm4_cancargs {
-	netobj cookie;
+	nlm4_netobj cookie;
 	bool block;
 	bool exclusive;
 	struct nlm4_lock alock;
 };
 
 struct nlm4_unlockargs {
-	netobj cookie;
+	nlm4_netobj cookie;
 	struct nlm4_lock alock;
 };
 
 struct	nlm4_shareargs {
-	netobj	cookie;
+	nlm4_netobj	cookie;
 	nlm4_share	share;
 	bool	reclaim;
 };
 
 struct	nlm4_shareres {
-	netobj	cookie;
+	nlm4_netobj	cookie;
 	nlm4_stats	stat;
-	int	sequence;
+	int32_t	sequence;
 };
 
 struct  nlm4_freeallargs {
         string       name<LM_MAXSTRLEN>;   /* client hostname */
-        uint32       state;                /* unused */
+        uint32_t     state;                /* unused */
 };
 
 /*
@@ -152,3 +152,9 @@ struct nlm_sm_status {
 	int state;			/* new state */
 	opaque priv[16];		/* private data */
 };
+
+program NLMCBK_PROGRAM {
+        version NLMCBK_V1 {
+                void NLMCBK_SM_NOTIFY(struct nlm_sm_status) = 16;
+        } = 1;
+} = 100021;

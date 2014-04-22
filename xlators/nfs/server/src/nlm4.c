@@ -33,7 +33,6 @@
 #include "nfs-generics.h"
 #include "rpc-clnt.h"
 #include "nsm-xdr.h"
-#include "nlmcbk-xdr.h"
 #include "run.h"
 #include <unistd.h>
 #include <rpc/pmap_clnt.h>
@@ -157,9 +156,9 @@ nlm4_prep_nlm4_testargs (nlm4_testargs *args, struct nfs3_fh *fh,
                          nlm4_lkowner_t *oh, char *cookiebytes)
 {
         memset (args, 0, sizeof (*args));
-        args->alock.fh.n_bytes = (void *)fh;
-        args->alock.oh.n_bytes = (void *)oh;
-        args->cookie.n_bytes = (void *)cookiebytes;
+        args->alock.fh.nlm4_netobj_val = (void *)fh;
+        args->alock.oh.nlm4_netobj_val = (void *)oh;
+        args->cookie.nlm4_netobj_val = (void *)cookiebytes;
 }
 
 void
@@ -167,9 +166,9 @@ nlm4_prep_nlm4_lockargs (nlm4_lockargs *args, struct nfs3_fh *fh,
                          nlm4_lkowner_t *oh, char *cookiebytes)
 {
         memset (args, 0, sizeof (*args));
-        args->alock.fh.n_bytes = (void *)fh;
-        args->alock.oh.n_bytes = (void *)oh;
-        args->cookie.n_bytes = (void *)cookiebytes;
+        args->alock.fh.nlm4_netobj_val = (void *)fh;
+        args->alock.oh.nlm4_netobj_val = (void *)oh;
+        args->cookie.nlm4_netobj_val = (void *)cookiebytes;
 }
 
 void
@@ -177,9 +176,9 @@ nlm4_prep_nlm4_cancargs (nlm4_cancargs *args, struct nfs3_fh *fh,
                            nlm4_lkowner_t *oh, char *cookiebytes)
 {
         memset (args, 0, sizeof (*args));
-        args->alock.fh.n_bytes = (void *)fh;
-        args->alock.oh.n_bytes = (void *)oh;
-        args->cookie.n_bytes = (void *)cookiebytes;
+        args->alock.fh.nlm4_netobj_val = (void *)fh;
+        args->alock.oh.nlm4_netobj_val = (void *)oh;
+        args->cookie.nlm4_netobj_val = (void *)cookiebytes;
 }
 
 void
@@ -187,9 +186,9 @@ nlm4_prep_nlm4_unlockargs (nlm4_unlockargs *args, struct nfs3_fh *fh,
                            nlm4_lkowner_t *oh, char *cookiebytes)
 {
         memset (args, 0, sizeof (*args));
-        args->alock.fh.n_bytes = (void *)fh;
-        args->alock.oh.n_bytes = (void *)oh;
-        args->cookie.n_bytes = (void *)cookiebytes;
+        args->alock.fh.nlm4_netobj_val = (void *)fh;
+        args->alock.oh.nlm4_netobj_val = (void *)oh;
+        args->cookie.nlm4_netobj_val = (void *)cookiebytes;
 }
 
 void
@@ -197,9 +196,9 @@ nlm4_prep_shareargs (nlm4_shareargs *args, struct nfs3_fh *fh,
                      nlm4_lkowner_t *oh, char *cookiebytes)
 {
         memset (args, 0, sizeof (*args));
-        args->share.fh.n_bytes = (void *)fh;
-        args->share.oh.n_bytes = (void *)oh;
-        args->cookie.n_bytes = (void *)cookiebytes;
+        args->share.fh.nlm4_netobj_val = (void *)fh;
+        args->share.oh.nlm4_netobj_val = (void *)oh;
+        args->cookie.nlm4_netobj_val = (void *)cookiebytes;
 }
 
 void
@@ -210,22 +209,22 @@ nlm4_prep_freeallargs (nlm4_freeallargs *args, nlm4_lkowner_t *oh)
 }
 
 void
-nlm_copy_lkowner (gf_lkowner_t *dst, netobj *src)
+nlm_copy_lkowner (gf_lkowner_t *dst, nlm4_netobj *src)
 {
-        dst->len = src->n_len;
-        memcpy (dst->data, src->n_bytes, dst->len);
+        dst->len = src->nlm4_netobj_len;
+        memcpy (dst->data, src->nlm4_netobj_val, dst->len);
 }
 
 int
-nlm_is_oh_same_lkowner (gf_lkowner_t *a, netobj *b)
+nlm_is_oh_same_lkowner (gf_lkowner_t *a, nlm4_netobj *b)
 {
         if (!a || !b) {
                 gf_log (GF_NLM, GF_LOG_ERROR, "invalid args");
                 return -1;
         }
 
-        return (a->len == b->n_len &&
-                !memcmp (a->data, b->n_bytes, a->len));
+        return (a->len == b->nlm4_netobj_len &&
+                !memcmp (a->data, b->nlm4_netobj_val, a->len));
 }
 
 nlm4_stats
@@ -653,7 +652,7 @@ err:
 }
 
 int
-nlm4_generic_reply (rpcsvc_request_t *req, netobj cookie, nlm4_stats stat)
+nlm4_generic_reply (rpcsvc_request_t *req, nlm4_netobj cookie, nlm4_stats stat)
 {
         nlm4_res res;
 

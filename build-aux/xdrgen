@@ -3,7 +3,6 @@
 _init ()
 {
     xfile="$1";
-    # TODO: check the validity of .x file
 
     cfile="${1%.x}.c";
     hfile="${1%.x}.h";
@@ -22,7 +21,7 @@ append_licence_header ()
 
     cat >$dst_file <<EOF
 /*
-  Copyright (c) 2007-2012 Red Hat, Inc. <http://www.redhat.com>
+  Copyright (c) 2007-2014 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -31,12 +30,14 @@ append_licence_header ()
   cases as published by the Free Software Foundation.
 */
 
-#include "xdr-common.h"
 #include "compat.h"
+#include "xdr-common.h"
+#include "xdr-nfs3.h"
 
 #if defined(__GNUC__)
 #if __GNUC__ >= 4
 #pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#pragma GCC diagnostic ignored "-Wunused-variable"
 #endif
 #endif
 
@@ -58,12 +59,6 @@ main ()
     echo -n "writing the XDR routine file ($tmp_cfile) ...  ";
     rm -f $tmp_cfile;
     rpcgen -c -o $tmp_cfile $xfile;
-
-    # get rid of warnings in xdr .c file due to "unused variable 'buf'"
-    sed -i -e 's:buf;$:buf;\
-        buf = NULL;:' $tmp_cfile;
-
-    sed -i '/int i;/d' $tmp_cfile;
 
     echo "OK";
 

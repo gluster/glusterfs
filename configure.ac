@@ -203,6 +203,11 @@ AC_PROG_CC
 AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
 
+AC_CHECK_PROG([RPCGEN], [rpcgen], [yes], [no])
+
+if test "x$RPCGEN" = "xno"; then
+   AC_MSG_ERROR([`rpcgen` not found, glusterfs needs `rpcgen` exiting..])
+fi
 
 # Initialize CFLAGS before usage
 AC_ARG_ENABLE([debug],

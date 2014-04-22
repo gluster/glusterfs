@@ -5,6 +5,7 @@ EXTRA_DIST = autogen.sh \
 	error-codes.json gf-error-codes.h.template \
 	gen-headers.py run-tests.sh \
 	build-aux/pkg-version \
+	build-aux/xdrgen \
         contrib/argp-standalone \
 	$(shell find $(top_srcdir)/tests -type f -print)
 
