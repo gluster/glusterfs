@@ -568,6 +568,7 @@ glusterd_volinfo_dup (glusterd_volinfo_t *volinfo,
         new_volinfo->brick_count = volinfo->brick_count;
 
         dict_copy (volinfo->dict, new_volinfo->dict);
+        dict_copy (volinfo->gsync_slaves, new_volinfo->gsync_slaves);
         gd_update_volume_op_versions (new_volinfo);
 
         if (set_userauth) {
@@ -11605,5 +11606,289 @@ glusterd_mount_lvm_snapshot (char *device_path, char *brick_mount_path)
 
 out:
         gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_copy_file (const char *source, const char *destination)
+{
+        int32_t         ret             =       -1;
+        xlator_t        *this           =       NULL;
+        char            buffer[1024]    =       "";
+        int             src_fd          =       -1;
+        int             dest_fd         =       -1;
+        int             read_len        =       -1;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        GF_ASSERT (source);
+        GF_ASSERT (destination);
+
+        src_fd = open (source, O_RDONLY);
+        if (src_fd < 0) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR, "Unable to open file %s",
+                        source);
+                goto out;
+        }
+
+        dest_fd = open (destination, O_CREAT | O_RDWR, 755);
+        if (dest_fd < 0) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unble to open a file %s", destination);
+                goto out;
+        }
+
+        do {
+                ret = read (src_fd, buffer, sizeof (buffer));
+                if (ret ==  -1) {
+                        gf_log (this->name, GF_LOG_ERROR, "Error reading file "
+                                "%s", source);
+                        goto out;
+                }
+                read_len = ret;
+                if (read_len == 0)
+                        break;
+
+                ret = write (dest_fd, buffer, read_len);
+                if (ret != read_len) {
+                        gf_log (this->name, GF_LOG_ERROR, "Error writing in "
+                                "file %s", destination);
+                        goto out;
+                }
+        } while (ret > 0);
+out :
+        if (src_fd > 0)
+                close (src_fd);
+
+        if (dest_fd > 0)
+                close (dest_fd);
+        return ret;
+}
+
+int32_t
+glusterd_copy_folder (const char *source, const char *destination)
+{
+        DIR             *dir_ptr                =       NULL;
+        struct dirent   *direntp                =       NULL;
+        int32_t         ret                     =       -1;
+        char            src_path[PATH_MAX]      =       "";
+        char            dest_path[PATH_MAX]     =       "";
+        xlator_t        *this                   =       NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        GF_ASSERT (source);
+        GF_ASSERT (destination);
+
+        dir_ptr = opendir (source);
+        if (!dir_ptr) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to open %s", source);
+                goto out;
+        }
+
+        while ((direntp = readdir (dir_ptr)) != NULL) {
+                if (strcmp (direntp->d_name, ".") == 0 ||
+                    strcmp (direntp->d_name, "..") == 0)
+                        continue;
+                ret = snprintf (src_path, sizeof (src_path), "%s/%s",
+                                source, direntp->d_name);
+                if (ret < 0)
+                        goto out;
+
+                ret = snprintf (dest_path, sizeof (dest_path), "%s/%s",
+                                destination, direntp->d_name);
+                if (ret < 0)
+                        goto out;
+
+                ret = glusterd_copy_file (src_path, dest_path);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Could not copy "
+                                "%s to %s", src_path, dest_path);
+                        goto out;
+                }
+        }
+out:
+        if (dir_ptr)
+                closedir (dir_ptr);
+
+        return ret;
+}
+
+int32_t
+glusterd_get_geo_rep_session (char *slave_key, char *origin_volname,
+                              dict_t *gsync_slaves_dict, char *session,
+                              char *slave)
+{
+        int32_t         ret             =       -1;
+        char            *token          =       NULL;
+        char            *temp           =       NULL;
+        char            *ip             =       NULL;
+        char            *buffer         =       NULL;
+        xlator_t        *this           =       NULL;
+        char            *slave_temp     =       NULL;
+        char            *save_ptr       =       NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        GF_ASSERT (slave_key);
+        GF_ASSERT (origin_volname);
+        GF_ASSERT (gsync_slaves_dict);
+
+        ret = dict_get_str (gsync_slaves_dict, slave_key, &buffer);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                        "get value for key %s", slave_key);
+                goto out;
+        }
+
+        temp = gf_strdup (buffer);
+        if (!temp) {
+                ret = -1;
+                goto out;
+        }
+
+        token = strtok_r (temp, "/", &save_ptr);
+
+        token = strtok_r (NULL, ":", &save_ptr);
+        if (!token) {
+                ret = -1;
+                goto out;
+        }
+        token++;
+
+        ip = gf_strdup (token);
+        if (!ip) {
+                ret = -1;
+                goto out;
+        }
+
+        token = strtok_r (NULL, "\0", &save_ptr);
+        if (!token) {
+                ret = -1;
+                goto out;
+        }
+        token++;
+
+        slave_temp = gf_strdup (token);
+        if (!slave) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = snprintf (session, PATH_MAX, "%s_%s_%s",
+                        origin_volname, ip, slave_temp);
+        if (ret < 0) /* Negative value is an error */
+                goto out;
+
+        ret = snprintf  (slave, PATH_MAX, "%s::%s", ip, slave_temp);
+        if (ret < 0) {
+                goto out;
+        }
+
+        ret = 0; /* Success */
+
+out:
+        if (temp)
+                GF_FREE (temp);
+
+        if (ip)
+                GF_FREE (ip);
+
+        if (slave_temp)
+                GF_FREE (slave_temp);
+
+        return ret;
+}
+
+
+int32_t
+glusterd_restore_geo_rep_files (glusterd_volinfo_t *snap_vol)
+{
+        int32_t                 ret                     =       -1;
+        char                    src_path[PATH_MAX]      =       "";
+        char                    dest_path[PATH_MAX]     =       "";
+        xlator_t                *this                   =       NULL;
+        char                    *origin_volname         =       NULL;
+        glusterd_volinfo_t      *origin_vol             =       NULL;
+        int                     i                       =       0;
+        char                    key[PATH_MAX]           =       "";
+        char                    session[PATH_MAX]       =       "";
+        char                    slave[PATH_MAX]         =       "";
+        char                    snapgeo_dir[PATH_MAX]   =       "";
+        glusterd_conf_t         *priv                   =       NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        GF_ASSERT (snap_vol);
+
+        origin_volname = gf_strdup (snap_vol->parent_volname);
+        if (!origin_volname) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (origin_volname, &origin_vol);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to fetch "
+                        "volinfo for volname %s", origin_volname);
+                goto out;
+        }
+
+        for (i = 1 ; i <= snap_vol->gsync_slaves->count; i++) {
+                ret = snprintf (key, sizeof (key), "slave%d", i);
+                if (ret < 0) {
+                        goto out;
+                }
+
+                /* "origin_vol" is used here because geo-replication saves
+                 * the session in the form of master_ip_slave.
+                 * As we need the master volume to be same even after
+                 * restore, we are passing the origin volume name.
+                 *
+                 * "snap_vol->gsync_slaves" contain the slave information
+                 * when the snapshot was taken, hence we have to restore all
+                 * those slaves information when we do snapshot restore.
+                 */
+                ret = glusterd_get_geo_rep_session (key, origin_vol->volname,
+                                                    snap_vol->gsync_slaves,
+                                                    session, slave);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to get geo-rep session");
+                        goto out;
+                }
+
+                GLUSTERD_GET_SNAP_GEO_REP_DIR(snapgeo_dir, snap_vol->snapshot,
+                                              priv);
+                ret = snprintf (src_path, sizeof (src_path),
+                                "%s/%s", snapgeo_dir, session);
+                if (ret < 0)
+                        goto out;
+
+                ret = snprintf (dest_path, sizeof (dest_path),
+                                "%s/%s/%s", priv->workdir, GEOREP,
+                                session);
+                if (ret < 0)
+                        goto out;
+
+                ret = glusterd_copy_folder (src_path, dest_path);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Could not copy "
+                                "%s to %s", src_path, dest_path);
+                        goto out;
+                }
+        }
+out:
+        if (origin_volname)
+                GF_ASSERT (origin_volname);
+
         return ret;
 }
