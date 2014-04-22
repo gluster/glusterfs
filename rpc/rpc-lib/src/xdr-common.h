@@ -64,12 +64,17 @@ enum gf_dump_procnum {
 #define GF_AUTH_GLUSTERFS_MAX_LKOWNER(groups_len)  \
            (95 - groups_len)
 
-#if GF_DARWIN_HOST_OS
+#ifdef GF_LINUX_HOST_OS
+#define xdr_u_int32_t xdr_uint32_t
+#define xdr_u_int64_t xdr_uint64_t
+#endif
+
+#ifdef GF_DARWIN_HOST_OS
 #define xdr_u_quad_t xdr_u_int64_t
 #define xdr_quad_t   xdr_int64_t
 #define xdr_uint32_t xdr_u_int32_t
 #define xdr_uint64_t xdr_u_int64_t
-
+#define uint64_t u_int64_t
 unsigned long xdr_sizeof (xdrproc_t func, void *data);
 #endif
 
@@ -80,13 +85,11 @@ unsigned long xdr_sizeof (xdrproc_t func, void *data);
 #define xdr_uint64_t xdr_u_int64_t
 #endif
 
-
-#if GF_SOLARIS_HOST_OS
+#ifdef GF_SOLARIS_HOST_OS
 #define u_quad_t uint64_t
 #define quad_t int64_t
 #define xdr_u_quad_t xdr_uint64_t
 #define xdr_quad_t   xdr_int64_t
-#define xdr_uint32_t xdr_uint32_t
 #endif
 
 /* Returns the address of the byte that follows the

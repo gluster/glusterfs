@@ -4,7 +4,7 @@
         GF_DEFRAG_CMD_STATUS,
         GF_DEFRAG_CMD_START_LAYOUT_FIX,
         GF_DEFRAG_CMD_START_FORCE /* used by remove-brick data migration */
-} ;
+};
 
  enum gf_defrag_status_t {
         GF_DEFRAG_STATUS_NOT_STARTED,
@@ -17,14 +17,14 @@
         GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE,
         GF_DEFRAG_STATUS_LAYOUT_FIX_FAILED,
         GF_DEFRAG_STATUS_MAX
-} ;
+};
 
  enum gf1_cluster_type {
         GF_CLUSTER_TYPE_NONE = 0,
         GF_CLUSTER_TYPE_STRIPE,
         GF_CLUSTER_TYPE_REPLICATE,
         GF_CLUSTER_TYPE_STRIPE_REPLICATE
-} ;
+};
 
  enum gf1_cli_replace_op {
         GF_REPLACE_OP_NONE = 0,
@@ -34,7 +34,7 @@
         GF_REPLACE_OP_ABORT,
         GF_REPLACE_OP_STATUS,
         GF_REPLACE_OP_COMMIT_FORCE
-} ;
+};
 
  enum gf1_op_commands {
         GF_OP_CMD_NONE = 0,
@@ -43,7 +43,7 @@
         GF_OP_CMD_STOP,
         GF_OP_CMD_STATUS,
         GF_OP_CMD_COMMIT_FORCE
-} ;
+};
 
 enum gf_quota_type {
         GF_QUOTA_OPTION_TYPE_NONE = 0,
@@ -62,17 +62,17 @@ enum gf_quota_type {
 enum gf1_cli_friends_list {
         GF_CLI_LIST_PEERS = 1,
         GF_CLI_LIST_POOL_NODES = 2
-} ;
+};
 
 enum gf1_cli_get_volume {
         GF_CLI_GET_VOLUME_ALL = 1,
         GF_CLI_GET_VOLUME,
         GF_CLI_GET_NEXT_VOLUME
-} ;
+};
 
 enum gf1_cli_sync_volume {
         GF_CLI_SYNC_ALL = 1
-} ;
+};
 
 enum gf1_cli_op_flags {
         GF_CLI_FLAG_OP_FORCE = 1
@@ -98,11 +98,11 @@ enum gf1_cli_stats_op {
 };
 
 enum gf1_cli_info_op {
-	    GF_CLI_INFO_NONE = 0,
-	    GF_CLI_INFO_ALL = 1,
-	    GF_CLI_INFO_INCREMENTAL = 2,
-	    GF_CLI_INFO_CUMULATIVE = 3,
-	    GF_CLI_INFO_CLEAR = 4
+        GF_CLI_INFO_NONE = 0,
+        GF_CLI_INFO_ALL = 1,
+        GF_CLI_INFO_INCREMENTAL = 2,
+        GF_CLI_INFO_CUMULATIVE = 3,
+        GF_CLI_INFO_CLEAR = 4
 };
 
 enum gf1_cli_top_op {
@@ -146,37 +146,49 @@ enum gf1_cli_snapshot {
         GF_SNAP_OPTION_TYPE_STOP,
         GF_SNAP_OPTION_TYPE_LIST,
         GF_SNAP_OPTION_TYPE_STATUS,
-        GF_SNAP_OPTION_TYPE_CONFIG
+        GF_SNAP_OPTION_TYPE_CONFIG,
+        GF_SNAP_OPTION_TYPE_INFO
+};
+
+enum gf1_cli_snapshot_info {
+        GF_SNAP_INFO_TYPE_ALL = 0,
+        GF_SNAP_INFO_TYPE_SNAP = 1,
+        GF_SNAP_INFO_TYPE_VOL = 2
 };
 
 enum gf1_cli_snapshot_config {
         GF_SNAP_CONFIG_TYPE_NONE = 0,
         GF_SNAP_CONFIG_TYPE_SET,
-        GF_SNAP_CONFIG_DISPLAY,
-
+        GF_SNAP_CONFIG_DISPLAY
 };
 
- struct gf_cli_req {
+enum  gf1_cli_snapshot_status {
+        GF_SNAP_STATUS_TYPE_ALL  = 0,
+        GF_SNAP_STATUS_TYPE_SNAP = 1,
+        GF_SNAP_STATUS_TYPE_VOL = 2
+};
+
+struct gf_cli_req {
         opaque  dict<>;
-}  ;
+};
 
  struct gf_cli_rsp {
         int     op_ret;
         int     op_errno;
         string  op_errstr<>;
         opaque  dict<>;
-}  ;
+};
 
 struct gf1_cli_peer_list_req {
         int     flags;
         opaque  dict<>;
-}  ;
+};
 
 struct gf1_cli_peer_list_rsp {
         int     op_ret;
         int     op_errno;
         opaque  friends<>;
-} ;
+};
 
 struct gf1_cli_fsm_log_req {
         string name<>;
@@ -191,7 +203,7 @@ struct gf1_cli_fsm_log_rsp {
 
 struct gf1_cli_getwd_req {
         int     unused;
-} ;
+};
 
 struct gf1_cli_getwd_rsp {
         int     op_ret;

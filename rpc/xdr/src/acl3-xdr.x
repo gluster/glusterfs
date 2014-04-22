@@ -16,8 +16,8 @@ struct aclentry {
 };
 
 struct getaclargs {
-	netobj	fh;
-	int		mask;
+	netobj fh;
+	int	mask;
 };
 
 struct getaclreply {
@@ -45,4 +45,3 @@ struct setaclreply {
 	int attr_follows;
 	struct fattr3 attr;
 };
-

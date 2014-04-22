@@ -12,7 +12,6 @@
 #define _XDR_GENERIC_H
 
 #include <sys/uio.h>
-//#include <rpc/rpc.h>
 #include <rpc/types.h>
 #include <rpc/xdr.h>
 

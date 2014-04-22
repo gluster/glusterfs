@@ -31,6 +31,32 @@
 #include "nlm4-xdr.h"
 #include "lkowner.h"
 
+#define NLM4_NULL          0
+#define NLM4_TEST          1
+#define NLM4_LOCK          2
+#define NLM4_CANCEL        3
+#define NLM4_UNLOCK        4
+#define NLM4_GRANTED       5
+#define NLM4_TEST_MSG      6
+#define NLM4_LOCK_MSG      7
+#define NLM4_CANCEL_MSG    8
+#define NLM4_UNLOCK_MSG    9
+#define NLM4_GRANTED_MSG   10
+#define NLM4_TEST_RES      11
+#define NLM4_LOCK_RES      12
+#define NLM4_CANCEL_RES    13
+#define NLM4_UNLOCK_RES    14
+#define NLM4_GRANTED_RES   15
+#define NLM4_SM_NOTIFY     16
+#define NLM4_SEVENTEEN     17
+#define NLM4_EIGHTEEN      18
+#define NLM4_NINETEEN      19
+#define NLM4_SHARE         20
+#define NLM4_UNSHARE       21
+#define NLM4_NM_LOCK       22
+#define NLM4_FREE_ALL      23
+#define NLM4_PROC_COUNT    24
+
 /* Registered with portmap */
 #define GF_NLM4_PORT            38468
 #define GF_NLM                  GF_NFS"-NLM"

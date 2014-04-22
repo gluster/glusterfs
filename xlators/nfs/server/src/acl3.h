@@ -13,6 +13,11 @@
 
 #include "glusterfs-acl.h"
 
+#define ACL3_NULL 0
+#define ACL3_GETACL 1
+#define ACL3_SETACL 2
+#define ACL3_PROC_COUNT 3
+
 #define GF_ACL3_PORT            38469
 #define GF_ACL                  GF_NFS"-ACL"
 
