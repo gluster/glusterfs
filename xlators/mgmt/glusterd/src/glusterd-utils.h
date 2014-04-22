@@ -281,7 +281,8 @@ int32_t
 glusterd_volume_count_get (void);
 int32_t
 glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
-                             dict_t  *dict, int32_t count);
+                             dict_t  *dict, int32_t count,
+                             char *prefix);
 int
 glusterd_get_brickinfo (xlator_t *this, const char *brickname,
                         int port, gf_boolean_t localhost,
@@ -734,5 +735,24 @@ gd_restore_snap_volume (dict_t *rsp_dict,
 
 int32_t
 glusterd_mount_lvm_snapshot (char *device_path, char *brick_mount_path);
+
+int32_t
+glusterd_add_snapshots_to_export_dict (dict_t *peer_data);
+
+int32_t
+glusterd_compare_friend_snapshots (dict_t *peer_data,
+                                   glusterd_peerinfo_t *peerinfo);
+
+int32_t
+glusterd_snapobject_delete (glusterd_snap_t *snap);
+
+int32_t
+glusterd_snap_volume_remove (dict_t *rsp_dict,
+                             glusterd_volinfo_t *snap_vol,
+                             gf_boolean_t remove_lvm,
+                             gf_boolean_t force);
+
+int32_t
+glusterd_store_create_snap_dir (glusterd_snap_t *snap);
 
 #endif

@@ -3409,6 +3409,12 @@ set_probe_error_str (int op_ret, int op_errno, char *op_errstr, char *errstr,
                                           "peer %s", hostname);
                                 break;
 
+                        case GF_PROBE_SNAP_CONFLICT:
+                                snprintf (errstr, len, "Conflict in comparing "
+                                          "list of snapshots from "
+                                          "peer %s", hostname);
+                                break;
+
                         default:
                                 snprintf (errstr, len, "Probe returned with "
                                           "unknown errno %d", op_errno);

@@ -1278,6 +1278,14 @@ glusterd_rpc_friend_add (call_frame_t *frame, xlator_t *this,
                                 "in the peer_data dict for handshake");
                         goto out;
                 }
+
+                ret = glusterd_add_snapshots_to_export_dict (peer_data);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to add list of snapshots "
+                                "in the peer_data dict for handshake");
+                        goto out;
+                }
         }
 
         uuid_copy (req.uuid, MY_UUID);

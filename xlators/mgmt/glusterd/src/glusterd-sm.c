@@ -694,6 +694,16 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
                         op_errno = GF_PROBE_MISSED_SNAP_CONFLICT;
                         op_ret = -1;
                 }
+
+                ret = glusterd_compare_friend_snapshots (ev_ctx->vols,
+                                                         peerinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Conflict in comparing peer's snapshots");
+                        event_type = GD_FRIEND_EVENT_LOCAL_RJT;
+                        op_errno = GF_PROBE_SNAP_CONFLICT;
+                        op_ret = -1;
+                }
         }
 
         ret = glusterd_friend_sm_new_event (event_type, &new_event);
