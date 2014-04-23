@@ -378,6 +378,7 @@ typedef enum gd_snap_status_ {
         GD_SNAP_STATUS_INIT,
         GD_SNAP_STATUS_IN_USE,
         GD_SNAP_STATUS_DECOMMISSION,
+        GD_SNAP_STATUS_UNDER_RESTORE,
         GD_SNAP_STATUS_RESTORED,
 } gd_snap_status_t;
 
@@ -1005,4 +1006,6 @@ glusterd_add_new_entry_to_list (char *missed_info, char *snap_vol_id,
                                 int32_t brick_num, char *brick_path,
                                 int32_t snap_op, int32_t snap_status);
 
+int
+glusterd_snapshot_revert_restore_from_snap (glusterd_snap_t *snap);
 #endif

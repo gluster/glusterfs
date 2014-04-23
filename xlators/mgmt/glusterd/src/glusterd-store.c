@@ -3871,6 +3871,11 @@ out:
  * dies after taking the backend snapshot, but before updating the
  * status, then when glusterd comes up, it should treat that snapshot
  * as a failed snapshot and clean it up.
+ *
+ * Restore operation starts by setting the status to
+ * GD_SNAP_STATUS_RESTORED. If the server goes down before changing
+ * the status the status back we need to revert the partial snapshot
+ * taken.
  */
 int32_t
 glusterd_snap_cleanup (xlator_t  *this)
@@ -3893,7 +3898,15 @@ glusterd_snap_cleanup (xlator_t  *this)
         }
 
         list_for_each_entry (snap, &priv->snapshots, snap_list) {
-                if (snap->snap_status != GD_SNAP_STATUS_IN_USE) {
+                if (snap->snap_status == GD_SNAP_STATUS_RESTORED) {
+                        ret = glusterd_snapshot_revert_restore_from_snap (snap);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_WARNING, "Failed to "
+                                        "revert partially restored snapshot "
+                                        "(%s)", snap->snapname);
+                                goto out;
+                        }
+                } else if (snap->snap_status != GD_SNAP_STATUS_IN_USE) {
                         ret = glusterd_snap_remove (dict, snap,
                                                     _gf_true, _gf_true);
                         if (ret) {

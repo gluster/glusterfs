@@ -170,4 +170,6 @@ glusterd_store_snap (glusterd_snap_t *snap);
 int32_t
 glusterd_store_update_missed_snaps ();
 
+glusterd_volinfo_t*
+glusterd_store_retrieve_volume (char *volname, glusterd_snap_t *snap);
 #endif

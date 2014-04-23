@@ -11986,3 +11986,74 @@ out:
 
         return ret;
 }
+
+/* This is an utility function which will recursively delete
+ * a folder and its contents.
+ *
+ * @param delete_path folder to be deleted.
+ *
+ * @return 0 on success and -1 on failure.
+ */
+int
+glusterd_recursive_rmdir (const char *delete_path)
+{
+        int             ret             = -1;
+        char            path [PATH_MAX] = {0,};
+        struct stat     st              = {0,};
+        DIR            *dir             = NULL;
+        struct dirent  *entry           = NULL;
+        xlator_t       *this            = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_VALIDATE_OR_GOTO (this->name, delete_path, out);
+
+        dir = opendir (delete_path);
+        if (!dir) {
+                gf_log (this->name, GF_LOG_DEBUG, "Failed to open directory %s."
+                        " Reason : %s", delete_path, strerror (errno));
+                ret = 0;
+                goto out;
+        }
+
+        glusterd_for_each_entry (entry, dir);
+        while (entry) {
+                snprintf (path, PATH_MAX, "%s/%s", delete_path, entry->d_name);
+                ret = stat (path, &st);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_DEBUG, "Failed to stat "
+                                "entry %s : %s", path, strerror (errno));
+                        goto out;
+                }
+
+                if (S_ISDIR (st.st_mode))
+                        ret = glusterd_recursive_rmdir (path);
+                else
+                        ret = unlink (path);
+
+                if (ret) {
+                        gf_log (this->name, GF_LOG_DEBUG, " Failed to remove "
+                                "%s. Reason : %s", path, strerror (errno));
+                }
+
+                gf_log (this->name, GF_LOG_DEBUG, "%s %s",
+                                ret ? "Failed to remove":"Removed",
+                                entry->d_name);
+
+                glusterd_for_each_entry (entry, dir);
+        }
+
+        ret = closedir (dir);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG, "Failed to close dir %s. "
+                        "Reason : %s", delete_path, strerror (errno));
+        }
+
+        ret = rmdir (delete_path);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG, "Failed to rmdir: %s,err: %s",
+                        delete_path, strerror (errno));
+        }
+out:
+        return ret;
+}
