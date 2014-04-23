@@ -40,6 +40,7 @@ function test_header()
 {
 	dbg "=========================";
 	dbg "TEST $t (line $TESTLINE): $*";
+	saved_cmd="$*"
 }
 
 
@@ -52,6 +53,10 @@ function test_footer()
 	     	echo "ok $t";
 	else
                 echo "not ok $t $err";
+		# With DEBUG, this was already printed out, so skip it.
+		if [ x"$DEBUG" = x"0" ]; then
+			echo "FAILED COMMAND: $saved_cmd"
+		fi
 		if [ "$EXIT_EARLY" = "1" ]; then
 			exit $RET
 		fi
