@@ -58,3 +58,19 @@ y.tab.h: graph.y
 
 CLEANFILES = graph.lex.c y.tab.c y.tab.h
 CONFIG_CLEAN_FILES = $(CONTRIB_BUILDDIR)/uuid/uuid_types.h
+
+#### UNIT TESTS #####
+CLEANFILES += *.gcda *.gcno *_xunit.xml
+noinst_PROGRAMS =
+TESTS =
+
+mem_pool_unittest_CPPFLAGS = $(libglusterfs_la_CPPFLAGS)
+mem_pool_unittest_SOURCES = mem-pool.c \
+                            mem-pool.h \
+                            unittest/mem_pool_unittest.c \
+                            unittest/log_mock.c \
+                            unittest/global_mock.c
+mem_pool_unittest_CFLAGS = $(UNITTEST_CFLAGS)
+mem_pool_unittest_LDFLAGS = $(UNITTEST_LDFLAGS)
+noinst_PROGRAMS += mem_pool_unittest
+TESTS += mem_pool_unittest

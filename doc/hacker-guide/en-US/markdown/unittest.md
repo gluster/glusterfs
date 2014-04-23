@@ -193,11 +193,10 @@ Now you can add the following for each of the unit tests that you would like to 
 
 ```
 ### UNIT TEST xxx_unittest ###
-xxx_unittest_CPPFLAGS = $(UNITTEST_CPPFLAGS) $(xxx_CPPFLAGS)
+xxx_unittest_CPPFLAGS = $(xxx_CPPFLAGS)
 xxx_unittest_SOURCES = xxx.c \
                        unittest/xxx_unittest.c
 xxx_unittest_CFLAGS = $(UNITTEST_CFLAGS)
-xxx_unittest_LDADD = $(UNITTEST_LDADD)
 xxx_unittest_LDFLAGS = $(UNITTEST_LDFLAGS)
 noinst_PROGRAMS += xxx_unittest
 TESTS += xxx_unittest
@@ -214,11 +213,10 @@ You may see that the linker will complain about missing functions needed by the 
 You can type `make` in the directory where the C file is located.  Once you built it and there are no errors, you can execute the test either by directly executing the program (in our example above it is called `xxx_unittest` ), or by running `make check`.
 
 #### Debugging
-Sometimes you may need to debug your unit test.  To do that, you will have to point `gdb` to the actual binary which is located in the `.libs` subdirectory.  For example, you can do the following from the root of the source tree to debug `mem_pool_unittest`:
+Sometimes you may need to debug your unit test.  To do that, you will have to point `gdb` to the binary which is located in the same directory as the source.  For example, you can do the following from the root of the source tree to debug `mem_pool_unittest`:
 
 ```
-$ export LD_LIBRARY_PATH=cmockery2/.libs
-$ gdb ./libglusterfs/src/.libs/mem_pool_unittest
+$ gdb libglusterfs/src/mem_pool_unittest
 ```
 
 
