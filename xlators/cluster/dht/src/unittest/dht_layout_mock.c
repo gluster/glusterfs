@@ -61,3 +61,17 @@ int _gf_log_callingfn (const char *domain, const char *file,
 {
     return 0;
 }
+
+void uuid_unparse(const uuid_t uu, char *out)
+{
+    // could call a will-return function here
+    // to place the correct data in *out
+}
+
+int
+_gf_msg (const char *domain, const char *file, const char *function,
+         int32_t line, gf_loglevel_t level, int errnum, int trace,
+         uint64_t msgid, const char *fmt, ...)
+{
+    return 0;
+}

@@ -191,6 +191,7 @@ BuildRequires:    libxml2-devel openssl-devel
 BuildRequires:    libaio-devel
 BuildRequires:    python-devel
 BuildRequires:    python-ctypes
+BuildRequires:    cmockery2-devel
 %if ( 0%{!?_without_systemtap:1} )
 BuildRequires:    systemtap-sdt-devel
 %endif
@@ -507,6 +508,9 @@ make %{?_smp_mflags}
 pushd xlators/features/glupy/src
 FLAGS="$RPM_OPT_FLAGS" python setup.py build
 popd
+
+%check
+make check
 
 %install
 rm -rf %{buildroot}
@@ -1026,6 +1030,9 @@ fi
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %changelog
+* Wed Jul 16 2014 Luis Pabon <lpabon@redhat.com>
+- Added cmockery2 dependency
+
 * Thu Jun 29 2014 Humble Chirammal <hchiramm@redhat.com>
 - Added dynamic loading of fuse module with glusterfs-fuse package installation in el5.
 
