@@ -1042,7 +1042,6 @@ glusterd_snap_create_pre_val_use_rsp_dict (dict_t *dst, dict_t *src)
 {
         char                  *snap_brick_dir        = NULL;
         char                  *snap_device           = NULL;
-        char                  *tmpstr                = NULL;
         char                   key[PATH_MAX]         = "";
         char                   snapbrckcnt[PATH_MAX] = "";
         char                   snapbrckord[PATH_MAX] = "";
@@ -1081,7 +1080,6 @@ glusterd_snap_create_pre_val_use_rsp_dict (dict_t *dst, dict_t *src)
                         /* Fetching data from source dict */
                         snprintf (key, sizeof(key) - 1,
                                   "vol%"PRId64".brickdir%"PRId64, i+1, j);
-
                         ret = dict_get_ptr (src, key,
                                             (void **)&snap_brick_dir);
                         if (ret) {
@@ -1090,9 +1088,30 @@ glusterd_snap_create_pre_val_use_rsp_dict (dict_t *dst, dict_t *src)
                                 continue;
                         }
 
-                        snprintf (key, sizeof(key) - 1,
-                                  "vol%"PRId64".brick_snapdevice%"PRId64, i+1, j);
+                        /* Fetching brick order from source dict */
+                        snprintf (snapbrckord, sizeof(snapbrckord) - 1,
+                                  "vol%"PRId64".brick%"PRId64".order", i+1, j);
+                        ret = dict_get_int64 (src, snapbrckord, &brick_order);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to get brick order");
+                                goto out;
+                        }
 
+                        snprintf (key, sizeof(key) - 1,
+                                  "vol%"PRId64".brickdir%"PRId64, i+1,
+                                  brick_order);
+                        ret = dict_set_dynstr_with_alloc (dst, key,
+                                                          snap_brick_dir);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to set %s", key);
+                                goto out;
+                        }
+
+                        snprintf (key, sizeof(key) - 1,
+                                  "vol%"PRId64".brick_snapdevice%"PRId64,
+                                  i+1, j);
                         ret = dict_get_ptr (src, key,
                                             (void **)&snap_device);
                         if (ret) {
@@ -1101,49 +1120,14 @@ glusterd_snap_create_pre_val_use_rsp_dict (dict_t *dst, dict_t *src)
                                 goto out;
                         }
 
-                        snprintf (snapbrckord, sizeof(snapbrckord) - 1,
-                                  "vol%"PRId64".brick%"PRId64".order", i+1, j);
-
-                        ret = dict_get_int64 (src, snapbrckord, &brick_order);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Failed to get brick order");
-                                goto out;
-                        }
-
-                        /* Adding the data in the dst dict */
-                        snprintf (key, sizeof(key) - 1,
-                                  "vol%"PRId64".brickdir%"PRId64, i+1, brick_order);
-
-                        tmpstr = gf_strdup (snap_brick_dir);
-                        if (!tmpstr) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Out Of Memory");
-                                ret = -1;
-                                goto out;
-                        }
-                        ret = dict_set_dynstr (dst, key, tmpstr);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Failed to set %s", key);
-                                GF_FREE (tmpstr);
-                                goto out;
-                        }
-
                         snprintf (key, sizeof(key) - 1,
                                   "vol%"PRId64".brick_snapdevice%"PRId64,
                                   i+1, brick_order);
-
-                        tmpstr = gf_strdup (snap_device);
-                        if (!tmpstr) {
-                                ret = -1;
-                                goto out;
-                        }
-                        ret = dict_set_dynstr (dst, key, tmpstr);
+                        ret = dict_set_dynstr_with_alloc (dst, key,
+                                                          snap_device);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Failed to set %s", key);
-                                GF_FREE (tmpstr);
                                 goto out;
                         }
                 }
@@ -1205,12 +1189,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
         char                  *volname                   = NULL;
         char                  *snapname                  = NULL;
         char                  *device                    = NULL;
-        char                  *tmpstr                    = NULL;
-        char                  *brick_dir                 = NULL;
-        char                   snap_brick_dir[PATH_MAX]  = "";
-        char                  *mnt_pt                    = NULL;
         char                   key[PATH_MAX]             = "";
-        char                   snap_mount[PATH_MAX]      = "";
         char                   snap_volname[64]          = "";
         char                   err_str[PATH_MAX]         = "";
         int                    ret                       = -1;
@@ -1394,44 +1373,17 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                                 GF_FREE (device);
                                 goto out;
                         }
+                        device = NULL;
 
-                        ret = glusterd_get_brick_root (brickinfo->path,
-                                                       &mnt_pt);
-                        if (ret) {
-                                snprintf (err_str, sizeof (err_str),
-                                "could not get the root of the brick path %s",
-                                brickinfo->path);
-                                loglevel = GF_LOG_WARNING;
-                                goto out;
-                        }
-                        if (strncmp (brickinfo->path, mnt_pt, strlen(mnt_pt))) {
-                                snprintf (err_str, sizeof (err_str),
-                                "brick: %s brick mount: %s",
-                                 brickinfo->path, mnt_pt);
-                                loglevel = GF_LOG_WARNING;
-                                goto out;
-                        }
-
-                        brick_dir = &brickinfo->path[strlen (mnt_pt)];
-                        brick_dir++;
-
-                        snprintf (snap_brick_dir, sizeof (snap_brick_dir),
-                                  "/%s", brick_dir);
-
-                        tmpstr = gf_strdup (snap_brick_dir);
-                        if (!tmpstr) {
-                                ret = -1;
-                                goto out;
-                        }
                         snprintf (key, sizeof(key), "vol%"PRId64".brickdir%"PRId64, i,
                                   brick_count);
-                        ret = dict_set_dynstr (rsp_dict, key, tmpstr);
+                        ret = dict_set_dynstr_with_alloc (rsp_dict, key,
+                                                          brickinfo->mount_dir);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
-                                        "Failed to set %s", snap_mount);
+                                        "Failed to set %s", key);
                                 goto out;
                         }
-                        tmpstr = NULL;
 
                         snprintf (key, sizeof(key) - 1, "vol%"PRId64".brick%"PRId64".order",
                                   i, brick_count);
@@ -1462,8 +1414,8 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
 
         ret = 0;
 out:
-        if (ret)
-                GF_FREE (tmpstr);
+        if (device)
+                GF_FREE (device);
 
         if (ret && err_str[0] != '\0') {
                 gf_log (this->name, loglevel, "%s", err_str);
@@ -3536,23 +3488,16 @@ glusterd_add_bricks_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
                  * will help in mapping while recreating the missed snapshot
                  */
                 gf_log (this->name, GF_LOG_WARNING, "Unable to fetch "
-                        "snap mount path (%s). Using original brickinfo", key);
+                        "snap mount path(%s). Adding to missed_snap_list", key);
                 snap_brickinfo->snap_status = -1;
-                strcpy (snap_brick_path, original_brickinfo->path);
+
+                *snap_brick_dir = original_brickinfo->mount_dir;
 
                 /* In origiator node add snaps missed
                  * from different nodes to the dict
                  */
                 if (is_origin_glusterd (dict) == _gf_true)
                         add_missed_snap = _gf_true;
-        } else {
-                /* Create brick-path in the format /var/run/gluster/snaps/ *
-                 * <snap-uuid>/<original-brick#>/snap-brick-dir *
-                 */
-                snprintf (snap_brick_path, sizeof(snap_brick_path),
-                          "%s/%s/brick%d%s", snap_mount_folder,
-                          snap_vol->volname, brick_count+1,
-                          *snap_brick_dir);
         }
 
         if ((snap_brickinfo->snap_status != -1) &&
@@ -3566,7 +3511,6 @@ glusterd_add_bricks_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
                         snap_vol->snapshot->snapname);
 
                 snap_brickinfo->snap_status = -1;
-                strcpy (snap_brick_path, original_brickinfo->path);
                 add_missed_snap = _gf_true;
         }
 
@@ -3584,6 +3528,14 @@ glusterd_add_bricks_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
                         goto out;
                 }
         }
+
+        /* Create brick-path in the format /var/run/gluster/snaps/ *
+         * <snap-uuid>/<original-brick#>/snap-brick-dir *
+         */
+        snprintf (snap_brick_path, sizeof(snap_brick_path),
+                  "%s/%s/brick%d%s", snap_mount_folder,
+                  snap_vol->volname, brick_count+1,
+                  *snap_brick_dir);
 
         snprintf (key, sizeof(key), "vol%"PRId64".brick_snapdevice%d",
                   volcount, brick_count);
@@ -3606,6 +3558,7 @@ glusterd_add_bricks_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
 
         strcpy (snap_brickinfo->hostname, original_brickinfo->hostname);
         strcpy (snap_brickinfo->path, snap_brick_path);
+        strcpy (snap_brickinfo->mount_dir, original_brickinfo->mount_dir);
         uuid_copy (snap_brickinfo->uuid, original_brickinfo->uuid);
         /* AFR changelog names are based on brick_id and hence the snap
          * volume's bricks must retain the same ID */

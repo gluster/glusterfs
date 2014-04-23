@@ -996,7 +996,12 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
         char                          msg[1024] __attribute__((unused)) = {0, };
         int                           caps           = 0;
         int                           brickid        = 0;
+        char                          key[PATH_MAX]  = "";
+        char                         *brick_mount_dir  = NULL;
+        xlator_t                     *this           = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT (volinfo);
 
         if (bricks) {
@@ -1034,6 +1039,18 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                 GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO (brickinfo, volinfo,
                                                       brickid++);
 
+                brick_mount_dir = NULL;
+
+                snprintf (key, sizeof(key), "brick%d.mount_dir", i);
+                ret = dict_get_str (dict, key, &brick_mount_dir);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s not present", key);
+                        goto out;
+                }
+                strncpy (brickinfo->mount_dir, brick_mount_dir,
+                         sizeof(brickinfo->mount_dir));
+
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret)
                         goto out;
@@ -1048,7 +1065,6 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                 volinfo->brick_count++;
 
         }
-
 
         /* Gets changed only if the options are given in add-brick cli */
         if (type)
@@ -1202,13 +1218,14 @@ out:
 }
 
 int
-glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
+glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {
         int                                     ret = 0;
         char                                    *volname = NULL;
         int                                     count = 0;
         int                                     replica_count = 0;
         int                                     i = 0;
+        int32_t                                 local_brick_count = 0;
         char                                    *bricks    = NULL;
         char                                    *brick_list = NULL;
         char                                    *saveptr = NULL;
@@ -1218,6 +1235,7 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
         glusterd_volinfo_t                      *volinfo = NULL;
         xlator_t                                *this = NULL;
         char                                    msg[2048] = {0,};
+        char                                    key[PATH_MAX] = "";
         gf_boolean_t                            brick_alloc = _gf_false;
         char                                    *all_bricks = NULL;
         char                                    *str_ret = NULL;
@@ -1349,6 +1367,26 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
                                                           op_errstr, is_force);
                         if (ret)
                                 goto out;
+
+                        ret = glusterd_get_brick_mount_dir
+                                                         (brickinfo->path,
+                                                          brickinfo->hostname,
+                                                          brickinfo->mount_dir);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to get brick mount_dir");
+                                goto out;
+                        }
+
+                        snprintf (key, sizeof(key), "brick%d.mount_dir", i + 1);
+                        ret = dict_set_dynstr_with_alloc (rsp_dict, key,
+                                                          brickinfo->mount_dir);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to set %s", key);
+                                goto out;
+                        }
+                        local_brick_count = i + 1;
                 }
 
                 glusterd_brickinfo_delete (brickinfo);
@@ -1356,6 +1394,14 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
                 brickinfo = NULL;
                 brick = strtok_r (NULL, " \n", &saveptr);
                 i++;
+        }
+
+        ret = dict_set_int32 (rsp_dict, "brick_count",
+                              local_brick_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set local_brick_count");
+                goto out;
         }
 
 out:

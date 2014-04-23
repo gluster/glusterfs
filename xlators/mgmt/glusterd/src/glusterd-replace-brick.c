@@ -544,6 +544,30 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                         ret = -1;
                         goto out;
                 }
+        } else {
+                ret = glusterd_get_brick_mount_dir (dst_brickinfo->path,
+                                                    dst_brickinfo->hostname,
+                                                    dst_brickinfo->mount_dir);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to get brick mount_dir");
+                        goto out;
+                }
+
+                ret = dict_set_dynstr_with_alloc (rsp_dict, "brick1.mount_dir",
+                                                  dst_brickinfo->mount_dir);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set brick1.mount_dir");
+                        goto out;
+                }
+
+                ret = dict_set_int32 (rsp_dict, "brick_count", 1);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set local_brick_count");
+                        goto out;
+                }
         }
 
         if (replace_op == GF_REPLACE_OP_START &&
@@ -1493,12 +1517,18 @@ out:
 
 static int
 glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
-                                   char *old_brick, char  *new_brick)
+                                   char *old_brick, char *new_brick,
+                                   dict_t *dict)
 {
+        char                                    *brick_mount_dir = NULL;
         glusterd_brickinfo_t                    *old_brickinfo = NULL;
         glusterd_brickinfo_t                    *new_brickinfo = NULL;
         int32_t                                 ret = -1;
+        xlator_t                                *this = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (dict);
         GF_ASSERT (volinfo);
 
         ret = glusterd_brickinfo_new_from_brick (new_brick,
@@ -1518,6 +1548,15 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
 
         strncpy (new_brickinfo->brick_id, old_brickinfo->brick_id,
                  sizeof (new_brickinfo->brick_id));
+
+        ret = dict_get_str (dict, "brick1.mount_dir", &brick_mount_dir);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "brick1.mount_dir not present");
+                goto out;
+        }
+        strncpy (new_brickinfo->mount_dir, brick_mount_dir,
+                 sizeof(new_brickinfo->mount_dir));
 
         list_add_tail (&new_brickinfo->brick_list,
                        &old_brickinfo->brick_list);
@@ -1628,7 +1667,6 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                                        dict, replace_op);
         if (ret)
                 goto out;
-
 
 	if ((GF_REPLACE_OP_START != replace_op)) {
 
@@ -1753,7 +1791,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                 }
 
 		ret = glusterd_op_perform_replace_brick (volinfo, src_brick,
-							 dst_brick);
+							 dst_brick, dict);
 		if (ret) {
 			gf_log (this->name, GF_LOG_CRITICAL, "Unable to add "
 				"dst-brick: %s to volume: %s", dst_brick,

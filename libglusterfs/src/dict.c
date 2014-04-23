@@ -2101,7 +2101,7 @@ dict_set_dynstr_with_alloc (dict_t *this, char *key, const char *str)
                 return -1;
 
         ret = dict_set_dynstr (this, key, alloc_str);
-        if (ret)
+        if (ret == -EINVAL)
                 GF_FREE (alloc_str);
 
         return ret;

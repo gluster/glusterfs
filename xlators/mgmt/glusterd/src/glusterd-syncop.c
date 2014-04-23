@@ -271,9 +271,24 @@ extern struct rpc_clnt_program gd_mgmt_v3_prog;
 int
 glusterd_syncop_aggr_rsp_dict (glusterd_op_t op, dict_t *aggr, dict_t *rsp)
 {
-        int ret = 0;
+        int        ret  = 0;
+        xlator_t  *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         switch (op) {
+        case GD_OP_CREATE_VOLUME:
+        case GD_OP_ADD_BRICK:
+        case GD_OP_START_VOLUME:
+                ret = glusterd_aggr_brick_mount_dirs (aggr, rsp);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                "aggregate brick mount dirs");
+                        goto out;
+                }
+        break;
+
         case GD_OP_REPLACE_BRICK:
                 ret = glusterd_rb_use_rsp_dict (aggr, rsp);
                 if (ret)
@@ -723,7 +738,9 @@ _gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         uuid_copy (args->uuid, rsp.uuid);
-        if (rsp.op == GD_OP_REPLACE_BRICK || rsp.op == GD_OP_QUOTA) {
+        if (rsp.op == GD_OP_REPLACE_BRICK || rsp.op == GD_OP_QUOTA ||
+            rsp.op == GD_OP_CREATE_VOLUME || rsp.op == GD_OP_ADD_BRICK ||
+            rsp.op == GD_OP_START_VOLUME) {
                 pthread_mutex_lock (&args->lock_dict);
                 {
                         ret = glusterd_syncop_aggr_rsp_dict (rsp.op, args->dict,
@@ -1148,11 +1165,18 @@ gd_stage_op_phase (struct list_head *peers, glusterd_op_t op, dict_t *op_ctx,
         uuid_t              tmp_uuid        = {0};
         char                *errstr         = NULL;
         struct syncargs     args            = {0};
+        dict_t              *aggr_dict      = NULL;
 
         this = THIS;
         rsp_dict = dict_new ();
         if (!rsp_dict)
                 goto out;
+
+        if ((op == GD_OP_CREATE_VOLUME) || (op == GD_OP_ADD_BRICK) ||
+            (op == GD_OP_START_VOLUME))
+                aggr_dict = req_dict;
+        else
+                aggr_dict = op_ctx;
 
         ret = glusterd_op_stage_validate (op, req_dict, op_errstr, rsp_dict);
         if (ret) {
@@ -1160,8 +1184,10 @@ gd_stage_op_phase (struct list_head *peers, glusterd_op_t op, dict_t *op_ctx,
                 goto stage_done;
         }
 
-        if ((op == GD_OP_REPLACE_BRICK || op == GD_OP_QUOTA)) {
-                ret = glusterd_syncop_aggr_rsp_dict (op, op_ctx, rsp_dict);
+        if ((op == GD_OP_REPLACE_BRICK || op == GD_OP_QUOTA ||
+             op == GD_OP_CREATE_VOLUME || op == GD_OP_ADD_BRICK ||
+             op == GD_OP_START_VOLUME)) {
+                ret = glusterd_syncop_aggr_rsp_dict (op, aggr_dict, rsp_dict);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "%s",
                                 "Failed to aggregate response from node/brick");
@@ -1186,7 +1212,7 @@ stage_done:
                 goto out;
         }
 
-        gd_syncargs_init (&args, op_ctx);
+        gd_syncargs_init (&args, aggr_dict);
         synctask_barrier_init((&args));
         peer_cnt = 0;
         list_for_each_entry (peerinfo, peers, op_peers_list) {
@@ -1203,7 +1229,7 @@ stage_done:
 
         if (args.errstr)
                  *op_errstr = gf_strdup (args.errstr);
-        else if (dict_get_str (op_ctx, "errstr", &errstr) == 0)
+        else if (dict_get_str (aggr_dict, "errstr", &errstr) == 0)
                 *op_errstr = gf_strdup (errstr);
 
         ret = args.op_ret;
