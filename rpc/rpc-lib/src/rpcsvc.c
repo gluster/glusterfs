@@ -29,6 +29,7 @@
 #include "rpc-common-xdr.h"
 #include "syncop.h"
 #include "rpc-drc.h"
+#include "protocol-common.h"
 
 #include <errno.h>
 #include <pthread.h>
@@ -132,32 +133,67 @@ rpcsvc_get_program_vector_sizer (rpcsvc_t *svc, uint32_t prognum,
                 return NULL;
 }
 
+gf_boolean_t
+rpcsvc_can_outstanding_req_be_ignored (rpcsvc_request_t *req)
+{
+        /*
+         * If outstanding_rpc_limit is reached because of blocked locks and
+         * throttling is attempted then no unlock requests will be received. So
+         * the outstanding request count will never change i.e. it will always
+         * be equal to the limit. This also leads to ping timer expiry on
+         * client.
+         */
+
+        /*
+         * This is a hack and a necessity until grantedlock == fop completion.
+         * Ideally if we get a blocking lock request which cannot be granted
+         * right now, we should unwind the fop saying “request registered, will
+         * notify you when granted”, which is very hard to implement at the
+         * moment. Until we bring in such mechanism, we will need to live with
+         * not rate-limiting INODELK/ENTRYLK/LK fops
+         */
+
+        if ((req->prognum == GLUSTER_FOP_PROGRAM) &&
+            (req->progver == GLUSTER_FOP_VERSION)) {
+                if ((req->procnum == GFS3_OP_INODELK) ||
+                    (req->procnum == GFS3_OP_FINODELK) ||
+                    (req->procnum == GFS3_OP_ENTRYLK) ||
+                    (req->procnum == GFS3_OP_FENTRYLK) ||
+                    (req->procnum == GFS3_OP_LK))
+                        return _gf_true;
+        }
+        return _gf_false;
+}
+
 int
-rpcsvc_request_outstanding (rpcsvc_t *svc, rpc_transport_t *trans, int delta)
+rpcsvc_request_outstanding (rpcsvc_request_t *req, int delta)
 {
         int ret = 0;
         int old_count = 0;
         int new_count = 0;
         int limit = 0;
 
-        pthread_mutex_lock (&trans->lock);
+        if (rpcsvc_can_outstanding_req_be_ignored (req))
+                return 0;
+
+        pthread_mutex_lock (&req->trans->lock);
         {
-                limit = svc->outstanding_rpc_limit;
+                limit = req->svc->outstanding_rpc_limit;
                 if (!limit)
                         goto unlock;
 
-                old_count = trans->outstanding_rpc_count;
-                trans->outstanding_rpc_count += delta;
-                new_count = trans->outstanding_rpc_count;
+                old_count = req->trans->outstanding_rpc_count;
+                req->trans->outstanding_rpc_count += delta;
+                new_count = req->trans->outstanding_rpc_count;
 
                 if (old_count <= limit && new_count > limit)
-                        ret = rpc_transport_throttle (trans, _gf_true);
+                        ret = rpc_transport_throttle (req->trans, _gf_true);
 
                 if (old_count > limit && new_count <= limit)
-                        ret = rpc_transport_throttle (trans, _gf_false);
+                        ret = rpc_transport_throttle (req->trans, _gf_false);
         }
 unlock:
-        pthread_mutex_unlock (&trans->lock);
+        pthread_mutex_unlock (&req->trans->lock);
 
         return ret;
 }
@@ -318,7 +354,8 @@ rpcsvc_request_destroy (rpcsvc_request_t *req)
            to the client. It is time to decrement the
            outstanding request counter by 1.
         */
-        rpcsvc_request_outstanding (req->svc, req->trans, -1);
+        if (req->prognum) //Only for initialized requests
+                rpcsvc_request_outstanding (req, -1);
 
         rpc_transport_unref (req->trans);
 
@@ -400,12 +437,6 @@ rpcsvc_request_create (rpcsvc_t *svc, rpc_transport_t *trans,
                 goto err;
         }
 
-        /* We just received a new request from the wire. Account for
-           it in the outsanding request counter to make sure we don't
-           ingest too many concurrent requests from the same client.
-        */
-        ret = rpcsvc_request_outstanding (svc, trans, +1);
-
         msgbuf = msg->vector[0].iov_base;
         msglen = msg->vector[0].iov_len;
 
@@ -430,6 +461,13 @@ rpcsvc_request_create (rpcsvc_t *svc, rpc_transport_t *trans,
                 rpc_call_rpcvers (&rpcmsg), rpc_call_program (&rpcmsg),
                 rpc_call_progver (&rpcmsg), rpc_call_progproc (&rpcmsg),
                 trans->name);
+
+        /* We just received a new request from the wire. Account for
+           it in the outsanding request counter to make sure we don't
+           ingest too many concurrent requests from the same client.
+        */
+        if (req->prognum) //Only for initialized requests
+                ret = rpcsvc_request_outstanding (req, +1);
 
         if (rpc_call_rpcvers (&rpcmsg) != 2) {
                 /* LOG- TODO: print rpc version, also print the peerinfo
