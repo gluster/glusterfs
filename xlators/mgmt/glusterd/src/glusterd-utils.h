@@ -777,4 +777,7 @@ glusterd_restore_geo_rep_files (glusterd_volinfo_t *snap_vol);
 int32_t
 glusterd_copy_quota_files (glusterd_volinfo_t *src_vol,
                            glusterd_volinfo_t *dest_vol);
+
+int
+glusterd_recursive_rmdir (const char *delete_path);
 #endif

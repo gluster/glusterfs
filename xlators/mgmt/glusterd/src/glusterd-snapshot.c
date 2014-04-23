@@ -410,6 +410,101 @@ out:
         return ret;
 }
 
+/* This function will take backup of the volume store
+ * of the to-be restored volume. This will help us to
+ * revert the operation if it fails.
+ *
+ * @param volinfo volinfo of the origin volume
+ *
+ * @return 0 on success and -1 on failure
+ */
+int
+glusterd_snapshot_backup_vol (glusterd_volinfo_t *volinfo)
+{
+        char             pathname[PATH_MAX]    = {0,};
+        int              ret                   = -1;
+        int              op_ret                = 0;
+        char             delete_path[PATH_MAX] = {0,};
+        char             trashdir[PATH_MAX]    = {0,};
+        glusterd_conf_t *priv                  = NULL;
+        xlator_t        *this                  = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+        GF_ASSERT (volinfo);
+
+        GLUSTERD_GET_VOLUME_DIR (pathname, volinfo, priv);
+
+        snprintf (delete_path, sizeof (delete_path),
+                  "%s/"GLUSTERD_TRASH"/vols-%s.deleted", priv->workdir,
+                  volinfo->volname);
+
+        snprintf (trashdir, sizeof (trashdir), "%s/"GLUSTERD_TRASH,
+                  priv->workdir);
+
+        /* Create trash folder if it is not there */
+        ret = mkdir (trashdir, 0777);
+        if (ret && errno != EEXIST) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to create trash "
+                        "directory, reason : %s", strerror (errno));
+                ret = -1;
+                goto out;
+        }
+
+        /* Move the origin volume volder to the backup location */
+        ret = rename (pathname, delete_path);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to rename snap "
+                        "directory %s to %s", pathname, delete_path);
+                goto out;
+        }
+
+        /* Re-create an empty origin volume folder so that restore can
+         * happen. */
+        ret = mkdir (pathname, 0777);
+        if (ret && errno != EEXIST) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to create origin "
+                        "volume directory (%s), reason : %s",
+                        pathname, strerror (errno));
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+out:
+        /* Save the actual return value */
+        op_ret = ret;
+        if (ret) {
+                /* Revert the changes in case of failure */
+                ret = rmdir (pathname);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Failed to rmdir: %s,err: %s",
+                                pathname, strerror (errno));
+                }
+
+                ret = rename (delete_path, pathname);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to rename directory %s to %s",
+                                delete_path, pathname);
+                }
+
+                ret = rmdir (trashdir);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Failed to rmdir: %s, Reason: %s",
+                                trashdir, strerror (errno));
+                }
+        }
+
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", op_ret);
+
+        return op_ret;
+}
+
 int32_t
 glusterd_copy_geo_rep_files (glusterd_volinfo_t *origin_vol,
                              glusterd_volinfo_t *snap_vol, dict_t *rsp_dict)
@@ -679,6 +774,15 @@ glusterd_snapshot_restore_prevalidate (dict_t *dict, char **op_errstr,
                         }
                         gf_log (this->name, GF_LOG_ERROR, "%s", *op_errstr);
                         ret = -1;
+                        goto out;
+                }
+
+                /* Take backup of the volinfo folder */
+                ret = glusterd_snapshot_backup_vol (volinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to backup "
+                                "volume backend files for %s volume",
+                                volinfo->volname);
                         goto out;
                 }
         }
@@ -5660,6 +5764,286 @@ out:
         return ret;
 }
 
+/* This function is called if snapshot restore operation
+ * is successful. It will cleanup the backup files created
+ * during the restore operation.
+ *
+ * @param rsp_dict Response dictionary
+ * @param volinfo  volinfo of the volume which is being restored
+ * @param snap     snap object
+ *
+ * @return 0 on success or -1 on failure
+ */
+int
+glusterd_snapshot_restore_cleanup (dict_t *rsp_dict,
+                                   glusterd_volinfo_t *volinfo,
+                                   glusterd_snap_t *snap)
+{
+        int                     ret                     = -1;
+        char                    delete_path[PATH_MAX]   = {0,};
+        xlator_t               *this                    = NULL;
+        glusterd_conf_t        *priv                    = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+
+        GF_ASSERT (rsp_dict);
+        GF_ASSERT (volinfo);
+        GF_ASSERT (snap);
+
+        /* If the volinfo is already restored then we should delete
+         * the backend LVMs */
+        if (!uuid_is_null (volinfo->restored_from_snap)) {
+                ret = glusterd_lvm_snapshot_remove (rsp_dict, volinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to remove "
+                                "LVM backend");
+                        goto out;
+                }
+        }
+
+        snprintf (delete_path, sizeof (delete_path),
+                  "%s/"GLUSTERD_TRASH"/vols-%s.deleted", priv->workdir,
+                  volinfo->volname);
+
+        /* Restore is successful therefore delete the original volume's
+         * volinfo.
+         */
+        ret = glusterd_volinfo_delete (volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to delete volinfo");
+                goto out;
+        }
+
+        /* Now delete the snap entry. */
+        ret = glusterd_snap_remove (rsp_dict, snap, _gf_false, _gf_true);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING, "Failed to delete "
+                        "snap %s", snap->snapname);
+                goto out;
+        }
+
+        /* Delete the backup copy of volume folder */
+        ret = glusterd_recursive_rmdir (delete_path);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to remove "
+                        "backup dir (%s)", delete_path);
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+/* This function is called when the snapshot restore operation failed
+ * for some reasons. In such case we revert the restore operation.
+ *
+ * @param volinfo               volinfo of the origin volume
+ * @param restore_from_store    Boolean variable which tells whether to
+ *                              restore the origin from store or not.
+ *
+ * @return 0 on success and -1 on failure
+ */
+int
+glusterd_snapshot_revert_partial_restored_vol (glusterd_volinfo_t *volinfo,
+                                               gf_boolean_t restore_from_store)
+{
+        int                     ret                     = 0;
+        char                    pathname [PATH_MAX]     = {0,};
+        char                    trash_path[PATH_MAX]    = {0,};
+        glusterd_volinfo_t     *reverted_vol            = NULL;
+        glusterd_conf_t        *priv                    = NULL;
+        xlator_t               *this                    = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+        GF_ASSERT (volinfo);
+
+        GLUSTERD_GET_VOLUME_DIR (pathname, volinfo, priv);
+
+        snprintf (trash_path, sizeof (trash_path),
+                  "%s/"GLUSTERD_TRASH"/vols-%s.deleted", priv->workdir,
+                  volinfo->volname);
+
+        /* Since snapshot restore failed we cannot rely on the volume
+         * data stored under vols folder. Therefore delete the origin
+         * volume's backend folder.*/
+        ret = glusterd_recursive_rmdir (pathname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to remove "
+                        "%s directory", pathname);
+                goto out;
+        }
+
+        /* Now move the backup copy of the vols to its original
+         * location.*/
+        ret = rename (trash_path, pathname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to rename folder "
+                        "from %s to %s", trash_path, pathname);
+                goto out;
+        }
+
+        /* Skip the volinfo retrieval from the store if restore_from_store
+         * is not true. */
+        if (!restore_from_store) {
+                ret = 0;
+                goto out;
+        }
+
+        /* Retrieve the volume from the store */
+        reverted_vol = glusterd_store_retrieve_volume (volinfo->volname, NULL);
+        if (NULL == reverted_vol) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to load restored "
+                        "%s volume", volinfo->volname);
+                goto out;
+        }
+
+        /* Since we retrieved the volinfo from store now we don't
+         * want the older volinfo. Therefore delete the older volinfo */
+        ret = glusterd_volinfo_delete (volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to delete volinfo");
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+/* This function is called when glusterd is started and we need
+ * to revert a failed snapshot restore.
+ *
+ * @param snap snapshot object of the restored snap
+ *
+ * @return 0 on success and -1 on failure
+ */
+int
+glusterd_snapshot_revert_restore_from_snap (glusterd_snap_t *snap)
+{
+        int                     ret                     = -1;
+        char                    volname [PATH_MAX]      = {0,};
+        glusterd_volinfo_t     *snap_volinfo            = NULL;
+        glusterd_volinfo_t     *volinfo                 = NULL;
+        xlator_t               *this                    = NULL;
+
+        this = THIS;
+
+        GF_ASSERT (this);
+        GF_ASSERT (snap);
+
+        /* TODO : As of now there is only one volume in snapshot.
+         * Change this when multiple volume snapshot is introduced
+         */
+        snap_volinfo = list_entry (snap->volumes.next, glusterd_volinfo_t,
+                                   vol_list);
+
+        strcpy (volname, snap_volinfo->parent_volname);
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Could not get volinfo of "
+                        "%s", snap_volinfo->parent_volname);
+                goto out;
+        }
+
+        ret = glusterd_snapshot_revert_partial_restored_vol (volinfo, _gf_true);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to revert snapshot "
+                        "restore operation for %s volume", volname);
+                goto out;
+        }
+out:
+        return ret;
+}
+
+/* This function is called from post-validation. Based on the op_ret
+ * it will take a decision on whether to revert the operation or
+ * perform cleanup.
+ *
+ * @param dict          dictionary object
+ * @param op_ret        return value of the restore operation
+ * @param op_errstr     error string
+ * @param rsp_dict      Response dictionary
+ *
+ * @return 0 on success and -1 on failure
+ */
+int
+glusterd_snapshot_restore_postop (dict_t *dict, int32_t op_ret,
+                                  char **op_errstr, dict_t *rsp_dict)
+{
+        int                     ret             = -1;
+        char                   *name            = NULL;
+        char                   *volname         = NULL;
+        glusterd_snap_t        *snap            = NULL;
+        glusterd_volinfo_t     *volinfo         = NULL;
+        xlator_t               *this            = NULL;
+
+        this = THIS;
+
+        GF_ASSERT (this);
+        GF_ASSERT (dict);
+        GF_ASSERT (rsp_dict);
+
+        ret = dict_get_str (dict, "snapname", &name);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "getting the snap "
+                        "name failed (volume: %s)", volinfo->volname);
+                goto out;
+        }
+
+        snap = glusterd_find_snap_by_name (name);
+        if (!snap) {
+                gf_log (this->name, GF_LOG_ERROR, "snap %s is not found", name);
+                ret = -1;
+                goto out;
+        }
+
+        /* TODO: fix this when multiple volume support will come */
+        ret = dict_get_str (dict, "volname1", &volname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to get volume name");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Volume (%s) does not exist ", volname);
+                goto out;
+        }
+
+        /* On success perform the cleanup operation */
+        if (0 == op_ret) {
+                ret = glusterd_snapshot_restore_cleanup (rsp_dict, volinfo,
+                                                         snap);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to perform "
+                                "snapshot restore cleanup for %s volume",
+                                volname);
+                        goto out;
+                }
+        } else { /* On failure revert snapshot restore */
+                ret = glusterd_snapshot_revert_partial_restored_vol (volinfo,
+                                                                     _gf_false);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to revert "
+                                "restore operation for %s volume", volname);
+                        goto out;
+                }
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
 int
 glusterd_snapshot_postvalidate (dict_t *dict, int32_t op_ret, char **op_errstr,
                                 dict_t *rsp_dict)
@@ -5693,6 +6077,15 @@ glusterd_snapshot_postvalidate (dict_t *dict, int32_t op_ret, char **op_errstr,
                 }
                 break;
         case GF_SNAP_OPTION_TYPE_DELETE:
+                ret = glusterd_snapshot_update_snaps_post_validate (dict,
+                                                                    op_errstr,
+                                                                    rsp_dict);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                "update missed snaps list");
+                        goto out;
+                }
+                break;
         case GF_SNAP_OPTION_TYPE_RESTORE:
                 ret = glusterd_snapshot_update_snaps_post_validate (dict,
                                                                     op_errstr,
@@ -5700,6 +6093,14 @@ glusterd_snapshot_postvalidate (dict_t *dict, int32_t op_ret, char **op_errstr,
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "Failed to "
                                 "update missed snaps list");
+                        goto out;
+                }
+
+                ret = glusterd_snapshot_restore_postop (dict, op_ret,
+                                                        op_errstr, rsp_dict);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                "perform snapshot restore post-op");
                         goto out;
                 }
                 break;
@@ -6274,6 +6675,23 @@ gd_restore_snap_volume (dict_t *rsp_dict,
         snap = snap_vol->snapshot;
         GF_VALIDATE_OR_GOTO (this->name, snap, out);
 
+        /* Set the status to under restore so that if the
+         * the node goes down during restore and comes back
+         * the state of the volume can be reverted correctly
+         */
+        snap->snap_status = GD_SNAP_STATUS_UNDER_RESTORE;
+
+        /* We need to save this in disk so that if node goes
+         * down the status is in updated state.
+         */
+        ret = glusterd_store_snap (snap);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Could not store snap "
+                        "object for %s snap of %s volume", snap_vol->volname,
+                        snap_vol->parent_volname);
+                goto out;
+        }
+
         /* Snap volume must be stoped before performing the
          * restore operation.
          */
@@ -6312,15 +6730,6 @@ gd_restore_snap_volume (dict_t *rsp_dict,
         ret = glusterd_snap_volinfo_restore (rsp_dict, new_volinfo, snap_vol);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to restore snap");
-                (void)glusterd_volinfo_delete (new_volinfo);
-                goto out;
-        }
-
-        ret = glusterd_lvm_snapshot_remove (rsp_dict, orig_vol);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to remove "
-                        "LVM backend");
-                (void)glusterd_volinfo_delete (new_volinfo);
                 goto out;
         }
 
@@ -6344,26 +6753,7 @@ gd_restore_snap_volume (dict_t *rsp_dict,
          * set the status to the original volume's status. */
         glusterd_set_volume_status (new_volinfo, orig_vol->status);
 
-        /* Once the new_volinfo is completely constructed then delete
-         * the orinal volinfo
-         */
-        ret = glusterd_volinfo_delete (orig_vol);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to delete volinfo");
-                (void)glusterd_volinfo_delete (new_volinfo);
-                goto out;
-        }
-
         list_add_tail (&new_volinfo->vol_list, &conf->volumes);
-
-        /* Now delete the snap entry. As a first step delete the snap
-         * volume information stored in store. */
-        ret = glusterd_snap_remove (rsp_dict, snap, _gf_false, _gf_true);
-        if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "Failed to delete "
-                        "snap %s", snap->snapname);
-                goto out;
-        }
 
         ret = glusterd_store_volinfo (new_volinfo,
                                       GLUSTERD_VOLINFO_VER_AC_INCREMENT);
@@ -6374,6 +6764,13 @@ gd_restore_snap_volume (dict_t *rsp_dict,
 
         ret = 0;
 out:
+        if (ret && NULL != new_volinfo) {
+                /* In case of any failure we should free new_volinfo. Doing
+                 * this will also remove the entry we added in conf->volumes
+                 * if it was added there.
+                 */
+                (void)glusterd_volinfo_delete (new_volinfo);
+        }
 
         return ret;
 }
