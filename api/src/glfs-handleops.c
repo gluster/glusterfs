@@ -335,7 +335,8 @@ glfs_h_setxattrs (struct glfs *fs, struct glfs_object *object, const char *name,
 	dict_t          *xattr = NULL;
 
 	/* validate in args */
-	if ((fs == NULL) || (object == NULL) || (stat == NULL)) {
+	if ((fs == NULL) || (object == NULL) ||
+		 (name == NULL) || (value == NULL)) {
 		errno = EINVAL;
 		return -1;
 	}
@@ -391,7 +392,7 @@ glfs_h_removexattrs (struct glfs *fs, struct glfs_object *object, const char *na
 	loc_t            loc = {0, };
 
 	/* validate in args */
-	if ((fs == NULL) || (object == NULL) || (stat == NULL)) {
+	if ((fs == NULL) || (object == NULL) || (name == NULL)) {
 		errno = EINVAL;
 		return -1;
 	}
