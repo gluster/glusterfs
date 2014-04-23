@@ -628,6 +628,7 @@ glusterd_brickinfo_dup (glusterd_brickinfo_t *brickinfo,
                 }
         }
         strcpy (dup_brickinfo->brick_id, brickinfo->brick_id);
+        strcpy (dup_brickinfo->mount_dir, brickinfo->mount_dir);
         dup_brickinfo->status = brickinfo->status;
         dup_brickinfo->snap_status = brickinfo->snap_status;
 out:
@@ -934,17 +935,71 @@ glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo)
 }
 
 int32_t
+glusterd_get_brick_mount_dir (char *brickpath, char *hostname, char *mount_dir)
+{
+        char                   *mnt_pt        = NULL;
+        char                   *brick_dir     = NULL;
+        int32_t                 ret           = -1;
+        uuid_t                  brick_uuid    = {0, };
+        xlator_t               *this          = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (brickpath);
+        GF_ASSERT (hostname);
+        GF_ASSERT (mount_dir);
+
+        ret = glusterd_hostname_to_uuid (hostname, brick_uuid);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to convert hostname %s to uuid",
+                        hostname);
+                goto out;
+        }
+
+        if (!uuid_compare (brick_uuid, MY_UUID)) {
+                ret = glusterd_get_brick_root (brickpath, &mnt_pt);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Could not get the root of the brick path %s",
+                                brickpath);
+                        goto out;
+                }
+
+                if (strncmp (brickpath, mnt_pt, strlen(mnt_pt))) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "brick: %s brick mount: %s",
+                                brickpath, mnt_pt);
+                        ret = -1;
+                        goto out;
+                }
+
+                brick_dir = &brickpath[strlen (mnt_pt)];
+                brick_dir++;
+
+                snprintf (mount_dir, PATH_MAX, "/%s", brick_dir);
+        }
+
+out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
 glusterd_brickinfo_new_from_brick (char *brick,
                                    glusterd_brickinfo_t **brickinfo)
 {
-        int32_t                 ret = -1;
-        glusterd_brickinfo_t    *new_brickinfo = NULL;
-        char                    *hostname = NULL;
-        char                    *path = NULL;
-        char                    *tmp_host = NULL;
-        char                    *tmp_path = NULL;
-        char                    *vg       = NULL;
+        char                   *hostname      = NULL;
+        char                   *path          = NULL;
+        char                   *tmp_host      = NULL;
+        char                   *tmp_path      = NULL;
+        char                   *vg            = NULL;
+        int32_t                 ret           = -1;
+        glusterd_brickinfo_t   *new_brickinfo = NULL;
+        xlator_t               *this          = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT (brick);
         GF_ASSERT (brickinfo);
 
@@ -987,7 +1042,8 @@ out:
         GF_FREE (tmp_host);
         if (tmp_host)
                 GF_FREE (tmp_path);
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -2565,6 +2621,17 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                         goto out;
                 }
 
+                snprintf (key, sizeof (key), "%s%d.brick%d.mount_dir",
+                          prefix, count, i);
+                ret = dict_set_str (dict, key, brickinfo->mount_dir);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set mount_dir for %s:%s",
+                                brickinfo->hostname,
+                                brickinfo->path);
+                        goto out;
+                }
+
                 i++;
         }
 
@@ -3485,13 +3552,17 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
         int                     ret = -1;
         int32_t                 snap_status = 0;
         char                    *snap_device = NULL;
+        char                    *mount_dir = NULL;
         char                    *hostname = NULL;
         char                    *path = NULL;
         char                    *brick_id = NULL;
         int                     decommissioned = 0;
         glusterd_brickinfo_t    *new_brickinfo = NULL;
         char                    msg[2048] = {0};
+        xlator_t                *this     = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT (peer_data);
         GF_ASSERT (vol_count >= 0);
         GF_ASSERT (brickinfo);
@@ -3545,6 +3616,14 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
                 goto out;
         }
 
+        snprintf (key, sizeof (key), "%s%d.brick%d.mount_dir",
+                  prefix, vol_count, brick_count);
+        ret = dict_get_str (peer_data, key, &mount_dir);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "%s missing in payload", key);
+                goto out;
+        }
+
         ret = glusterd_brickinfo_new (&new_brickinfo);
         if (ret)
                 goto out;
@@ -3552,6 +3631,7 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
         strcpy (new_brickinfo->path, path);
         strcpy (new_brickinfo->hostname, hostname);
         strcpy (new_brickinfo->device_path, snap_device);
+        strcpy (new_brickinfo->mount_dir, mount_dir);
         new_brickinfo->snap_status = snap_status;
         new_brickinfo->decommissioned = decommissioned;
         if (brick_id)
@@ -9235,6 +9315,54 @@ glusterd_append_status_dicts (dict_t *dst, dict_t *src)
 }
 
 int32_t
+glusterd_aggr_brick_mount_dirs (dict_t *aggr, dict_t *rsp_dict)
+{
+        char                   key[PATH_MAX]   = "";
+        char                  *brick_mount_dir = NULL;
+        int32_t                brick_count     = -1;
+        int32_t                ret             = -1;
+        int32_t                i               = -1;
+        xlator_t              *this            = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (aggr);
+        GF_ASSERT (rsp_dict);
+
+        ret = dict_get_int32 (rsp_dict, "brick_count", &brick_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG, "No brick_count present");
+                ret = 0;
+                goto out;
+        }
+
+        for (i = 1; i <= brick_count; i++) {
+                brick_mount_dir = NULL;
+                snprintf (key, sizeof(key), "brick%d.mount_dir", i);
+                ret = dict_get_str (rsp_dict, key, &brick_mount_dir);
+                if (ret) {
+                        /* Coz the info will come from a different node */
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "%s not present", key);
+                        continue;
+                }
+
+                ret = dict_set_dynstr_with_alloc (aggr, key,
+                                                  brick_mount_dir);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set %s", key);
+                        goto out;
+                }
+        }
+
+        ret = 0;
+out:
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d ", ret);
+        return ret;
+}
+
+int32_t
 glusterd_gsync_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict, char *op_errstr)
 {
         dict_t             *ctx = NULL;
@@ -9293,7 +9421,10 @@ glusterd_rb_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         int32_t  dst_port = 0;
         int      ret      = 0;
         dict_t  *ctx      = NULL;
+        xlator_t *this    = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
 
         if (aggr) {
                 ctx = aggr;
@@ -9320,6 +9451,12 @@ glusterd_rb_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                                 "dst-brick-port=%d found", dst_port);
                 }
 
+                ret = glusterd_aggr_brick_mount_dirs (ctx, rsp_dict);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                "aggregate brick mount dirs");
+                        goto out;
+                }
         }
 
         if (src_port) {

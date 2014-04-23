@@ -294,6 +294,14 @@ glusterd_store_brickinfo_write (int fd, glusterd_brickinfo_t *brickinfo)
                         goto out;
         }
 
+        if (strlen(brickinfo->mount_dir) > 0) {
+                snprintf (value, sizeof(value), "%s", brickinfo->mount_dir);
+                ret = gf_store_save_value (fd,
+                                GLUSTERD_STORE_KEY_BRICK_MOUNT_DIR, value);
+                if (ret)
+                        goto out;
+        }
+
         snprintf (value, sizeof(value), "%d", brickinfo->snap_status);
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS,
                                    value);
@@ -2073,6 +2081,10 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                                              strlen (GLUSTERD_STORE_KEY_BRICK_DEVICE_PATH))) {
                                 strncpy (brickinfo->device_path, value,
                                          sizeof (brickinfo->device_path));
+                        } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_MOUNT_DIR,
+                                             strlen (GLUSTERD_STORE_KEY_BRICK_MOUNT_DIR))) {
+                                strncpy (brickinfo->mount_dir, value,
+                                         sizeof (brickinfo->mount_dir));
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS,
                                              strlen (GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS))) {
                                 gf_string2int (value, &brickinfo->snap_status);

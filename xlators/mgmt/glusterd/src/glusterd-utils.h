@@ -780,4 +780,11 @@ glusterd_copy_quota_files (glusterd_volinfo_t *src_vol,
 
 int
 glusterd_recursive_rmdir (const char *delete_path);
+
+int32_t
+glusterd_get_brick_mount_dir (char *brickpath, char *hostname, char *mount_dir);
+
+int32_t
+glusterd_aggr_brick_mount_dirs (dict_t *aggr, dict_t *rsp_dict);
+
 #endif

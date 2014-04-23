@@ -3373,6 +3373,7 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         xlator_t                *this = NULL;
         glusterd_peerinfo_t     *peerinfo = NULL;
         dict_t                  *dict = NULL;
+        dict_t                  *rsp_dict = NULL;
         char                    *op_errstr  = NULL;
         glusterd_op_t           op = GD_OP_NONE;
         uint32_t                pending_count = 0;
@@ -3383,6 +3384,13 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         GF_ASSERT (priv);
 
         op = glusterd_op_get_op ();
+
+        rsp_dict = dict_new();
+        if (!rsp_dict) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to create rsp_dict");
+                ret = -1;
+                goto out;
+        }
 
         ret = glusterd_op_build_payload (&dict, &op_errstr, NULL);
         if (ret) {
@@ -3401,8 +3409,7 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
                 goto out;
         }
 
-        /* rsp_dict NULL from source */
-        ret = glusterd_op_stage_validate (op, dict, &op_errstr, NULL);
+        ret = glusterd_op_stage_validate (op, dict, &op_errstr, rsp_dict);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, LOGSTR_STAGE_FAIL,
                         gd_op_list[op], "localhost",
@@ -3413,6 +3420,9 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
                 opinfo.op_errstr = op_errstr;
                 goto out;
         }
+
+        if (op == GD_OP_REPLACE_BRICK)
+                glusterd_rb_use_rsp_dict (NULL, rsp_dict);
 
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);
@@ -3447,6 +3457,9 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 
         opinfo.pending_count = pending_count;
 out:
+        if (rsp_dict)
+                dict_unref (rsp_dict);
+
         if (dict)
                 dict_unref (dict);
         if (ret) {
@@ -4586,11 +4599,13 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
 
         switch (op) {
                 case GD_OP_CREATE_VOLUME:
-                        ret = glusterd_op_stage_create_volume (dict, op_errstr);
+                        ret = glusterd_op_stage_create_volume (dict, op_errstr,
+                                                               rsp_dict);
                         break;
 
                 case GD_OP_START_VOLUME:
-                        ret = glusterd_op_stage_start_volume (dict, op_errstr);
+                        ret = glusterd_op_stage_start_volume (dict, op_errstr,
+                                                              rsp_dict);
                         break;
 
                 case GD_OP_STOP_VOLUME:
@@ -4602,7 +4617,8 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         break;
 
                 case GD_OP_ADD_BRICK:
-                        ret = glusterd_op_stage_add_brick (dict, op_errstr);
+                        ret = glusterd_op_stage_add_brick (dict, op_errstr,
+                                                           rsp_dict);
                         break;
 
                 case GD_OP_REPLACE_BRICK:

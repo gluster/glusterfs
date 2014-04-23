@@ -191,6 +191,7 @@ struct glusterd_brickinfo {
         char               hostname[1024];
         char               path[PATH_MAX];
         char               device_path[PATH_MAX];
+        char               mount_dir[PATH_MAX];
         char               brick_id[1024];/*Client xlator name, AFR changelog name*/
         struct list_head   brick_list;
         uuid_t             uuid;
@@ -903,8 +904,10 @@ int glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
 int glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict);
 int glusterd_op_log_rotate (dict_t *dict);
 int glusterd_op_stage_log_rotate (dict_t *dict, char **op_errstr);
-int glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr);
-int glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr);
+int glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr,
+                                     dict_t *rsp_dict);
+int glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
+                                    dict_t *rsp_dict);
 int glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_stage_delete_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_create_volume (dict_t *dict, char **op_errstr);
@@ -914,7 +917,8 @@ int glusterd_op_delete_volume (dict_t *dict);
 
 int glusterd_op_add_brick (dict_t *dict, char **op_errstr);
 int glusterd_op_remove_brick (dict_t *dict, char **op_errstr);
-int glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr);
+int glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr,
+                                 dict_t *rsp_dict);
 int glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr);
 
 int glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr);

@@ -714,7 +714,8 @@ out:
 
 /* op-sm */
 int
-glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
+glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr,
+                                 dict_t *rsp_dict)
 {
         int                                     ret = 0;
         char                                    *volname = NULL;
@@ -722,8 +723,10 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
         char                                    *bricks = NULL;
         char                                    *brick_list = NULL;
         char                                    *free_ptr = NULL;
+        char                                     key[PATH_MAX] = "";
         glusterd_brickinfo_t                    *brick_info = NULL;
         int32_t                                 brick_count = 0;
+        int32_t                                 local_brick_count = 0;
         int32_t                                 i = 0;
         char                                    *brick = NULL;
         char                                    *tmpptr = NULL;
@@ -738,6 +741,7 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
+        GF_ASSERT (rsp_dict);
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
@@ -844,10 +848,39 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
                                                           is_force);
                         if (ret)
                                 goto out;
+
+                        ret = glusterd_get_brick_mount_dir
+                                                       (brick_info->path,
+                                                        brick_info->hostname,
+                                                        brick_info->mount_dir);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to get brick mount_dir");
+                                goto out;
+                        }
+
+                        snprintf (key, sizeof(key), "brick%d.mount_dir", i);
+                        ret = dict_set_dynstr_with_alloc
+                                                    (rsp_dict, key,
+                                                     brick_info->mount_dir);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to set %s", key);
+                                goto out;
+                        }
+                        local_brick_count = i;
+
                         brick_list = tmpptr;
                 }
                 glusterd_brickinfo_delete (brick_info);
                 brick_info = NULL;
+        }
+
+        ret = dict_set_int32 (rsp_dict, "brick_count", local_brick_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set local_brick_count");
+                goto out;
         }
 out:
         GF_FREE (free_ptr);
@@ -922,11 +955,15 @@ out:
 }
 
 int
-glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
+glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
+                                dict_t *rsp_dict)
 {
         int                                     ret = 0;
         char                                    *volname = NULL;
+        char                                    key[PATH_MAX] = "";
         int                                     flags = 0;
+        int32_t                                 brick_count = 0;
+        int32_t                                 local_brick_count = 0;
         gf_boolean_t                            exists = _gf_false;
         glusterd_volinfo_t                      *volinfo = NULL;
         glusterd_brickinfo_t                    *brickinfo = NULL;
@@ -942,6 +979,7 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
+        GF_ASSERT (rsp_dict);
 
         ret = glusterd_op_start_volume_args_get (dict, &volname, &flags);
         if (ret)
@@ -976,6 +1014,7 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
         }
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                brick_count++;
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, FMTSTR_RESOLVE_BRICK,
@@ -983,7 +1022,8 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
-                if (uuid_compare (brickinfo->uuid, MY_UUID))
+                if ((uuid_compare (brickinfo->uuid, MY_UUID)) ||
+                    (brickinfo->snap_status == -1))
                         continue;
 
                 ret = gf_lstat_dir (brickinfo->path, NULL);
@@ -1030,6 +1070,30 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
                         ret = -1;
                         goto out;
                 }
+
+                if (strlen(brickinfo->mount_dir) < 1) {
+                        ret = glusterd_get_brick_mount_dir
+                                                       (brickinfo->path,
+                                                        brickinfo->hostname,
+                                                        brickinfo->mount_dir);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to get brick mount_dir");
+                                goto out;
+                        }
+
+                        snprintf (key, sizeof(key), "brick%d.mount_dir",
+                                  brick_count);
+                        ret = dict_set_dynstr_with_alloc
+                                                    (rsp_dict, key,
+                                                     brickinfo->mount_dir);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to set %s", key);
+                                goto out;
+                        }
+                        local_brick_count = brick_count;
+                }
 #ifdef HAVE_BD_XLATOR
                 if (brickinfo->vg[0])
                         caps = CAPS_BD | CAPS_THIN |
@@ -1045,6 +1109,13 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
                 } else
                         caps = 0;
 #endif
+        }
+
+        ret = dict_set_int32 (rsp_dict, "brick_count", local_brick_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set local_brick_count");
+                goto out;
         }
 
         volinfo->caps = caps;
@@ -1507,6 +1578,8 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
         int                   caps       = 0;
         int                   brickid    = 0;
         char                  msg[1024] __attribute__((unused)) = {0, };
+        char                 *brick_mount_dir = NULL;
+        char                  key[PATH_MAX]   = "";
 
         this = THIS;
         GF_ASSERT (this);
@@ -1689,6 +1762,17 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
+                brick_mount_dir = NULL;
+                snprintf (key, sizeof(key), "brick%d.mount_dir", i);
+                ret = dict_get_str (dict, key, &brick_mount_dir);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s not present", key);
+                        goto out;
+                }
+                strncpy (brickinfo->mount_dir, brick_mount_dir,
+                         sizeof(brickinfo->mount_dir));
+
 #ifdef HAVE_BD_XLATOR
                 if (!uuid_compare (brickinfo->uuid, MY_UUID)) {
                         if (brickinfo->vg[0]) {
@@ -1792,11 +1876,15 @@ out:
 int
 glusterd_op_start_volume (dict_t *dict, char **op_errstr)
 {
-        int                                     ret = 0;
-        char                                    *volname = NULL;
-        int                                     flags = 0;
-        glusterd_volinfo_t                      *volinfo = NULL;
-        xlator_t                                *this = NULL;
+        int                         ret             = 0;
+        int32_t                     brick_count     = 0;
+        char                       *brick_mount_dir = NULL;
+        char                        key[PATH_MAX]   = "";
+        char                       *volname         = NULL;
+        int                         flags           = 0;
+        glusterd_volinfo_t         *volinfo         = NULL;
+        glusterd_brickinfo_t       *brickinfo       = NULL;
+        xlator_t                   *this            = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1812,8 +1900,24 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        ret = glusterd_start_volume (volinfo, flags);
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                brick_count++;
+                if (strlen(brickinfo->mount_dir) < 1) {
+                        brick_mount_dir = NULL;
+                        snprintf (key, sizeof(key), "brick%d.mount_dir",
+                                  brick_count);
+                        ret = dict_get_str (dict, key, &brick_mount_dir);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "%s not present", key);
+                                goto out;
+                        }
+                        strncpy (brickinfo->mount_dir, brick_mount_dir,
+                                 sizeof(brickinfo->mount_dir));
+                }
+        }
 
+        ret = glusterd_start_volume (volinfo, flags);
         if (ret)
                 goto out;
 
