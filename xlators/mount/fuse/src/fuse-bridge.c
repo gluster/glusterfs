@@ -2553,8 +2553,8 @@ fuse_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         fuse_state_t *state = NULL;
         fuse_in_header_t *finh = NULL;
-        int           size = 0;
-        int           max_size = 0;
+        size_t        size = 0;
+        size_t        max_size = 0;
         char         *buf = NULL;
         gf_dirent_t  *entry = NULL;
         struct fuse_dirent *fde = NULL;
@@ -2580,18 +2580,18 @@ fuse_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 frame->root->unique, op_ret, state->size, state->off);
 
         list_for_each_entry (entry, &entries->list, list) {
-                max_size += FUSE_DIRENT_ALIGN (FUSE_NAME_OFFSET +
-                                               strlen (entry->d_name));
+                size_t fde_size = FUSE_DIRENT_ALIGN (FUSE_NAME_OFFSET +
+                                                     strlen (entry->d_name));
+                max_size += fde_size;
 
                 if (max_size > state->size) {
-                        /* we received to many entries to fit in the request */
-                        max_size -= FUSE_DIRENT_ALIGN (FUSE_NAME_OFFSET +
-                                                       strlen (entry->d_name));
+                        /* we received too many entries to fit in the reply */
+                        max_size -= fde_size;
                         break;
                 }
         }
 
-        if (max_size <= 0) {
+        if (max_size == 0) {
                 send_fuse_data (this, finh, 0, 0);
                 goto out;
         }
@@ -2666,8 +2666,8 @@ fuse_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 	fuse_state_t *state = NULL;
 	fuse_in_header_t *finh = NULL;
-        int           max_size = 0;
-	int           size = 0;
+        size_t        max_size = 0;
+        size_t        size = 0;
 	char         *buf = NULL;
 	gf_dirent_t  *entry = NULL;
 	struct fuse_direntplus *fde = NULL;
@@ -2692,19 +2692,18 @@ fuse_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		frame->root->unique, op_ret, state->size, state->off);
 
 	list_for_each_entry (entry, &entries->list, list) {
-                max_size += FUSE_DIRENT_ALIGN (FUSE_NAME_OFFSET_DIRENTPLUS +
-                                               strlen (entry->d_name));
+                size_t fdes = FUSE_DIRENT_ALIGN (FUSE_NAME_OFFSET_DIRENTPLUS +
+                                                 strlen (entry->d_name));
+                max_size += fdes;
 
                 if (max_size > state->size) {
-                        /* we received to many entries to fit in the reply */
-                        max_size -= FUSE_DIRENT_ALIGN (
-                                                FUSE_NAME_OFFSET_DIRENTPLUS +
-                                                strlen (entry->d_name));
+                        /* we received too many entries to fit in the reply */
+                        max_size -= fdes;
                         break;
                 }
 	}
 
-	if (max_size <= 0) {
+	if (max_size == 0) {
 		send_fuse_data (this, finh, 0, 0);
 		goto out;
 	}
