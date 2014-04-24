@@ -26,7 +26,7 @@
 inline void
 __delete_inode_lock (pl_inode_lock_t *lock)
 {
-        list_del (&lock->list);
+        list_del_init (&lock->list);
 }
 
 static inline void
