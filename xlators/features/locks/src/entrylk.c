@@ -715,15 +715,16 @@ pl_entrylk_client_cleanup (xlator_t *this, pl_ctx_t *ctx)
         pl_inode_t *pinode = NULL;
 
         struct list_head released;
+        struct list_head unwind;
 
         INIT_LIST_HEAD (&released);
+        INIT_LIST_HEAD (&unwind);
 
 	pthread_mutex_lock (&ctx->lock);
         {
                 list_for_each_entry_safe (l, tmp, &ctx->entrylk_lockers,
 					  client_list) {
                         list_del_init (&l->client_list);
-			list_add_tail (&l->client_list, &released);
 
 			pl_entrylk_log_cleanup (l);
 
@@ -731,19 +732,62 @@ pl_entrylk_client_cleanup (xlator_t *this, pl_ctx_t *ctx)
 
 			pthread_mutex_lock (&pinode->mutex);
 			{
-				list_del_init (&l->domain_list);
+                        /* If the entrylk object is part of granted list but not
+                         * blocked list, then perform the following actions:
+                         * i.   delete the object from granted list;
+                         * ii.  grant other locks (from other clients) that may
+                         *      have been blocked on this entrylk; and
+                         * iii. unref the object.
+                         *
+                         * If the entrylk object (L1) is part of both granted
+                         * and blocked lists, then this means that a parallel
+                         * unlock on another entrylk (L2 say) may have 'granted'
+                         * L1 and added it to 'granted' list in
+                         * __grant_blocked_entry_locks() (although using the
+                         * 'blocked_locks' member). In that case, the cleanup
+                         * codepath must try and grant other overlapping
+                         * blocked entrylks from other clients, now that L1 is
+                         * out of their way and then unref L1 in the end, and
+                         * leave it to the other thread (the one executing
+                         * unlock codepath) to unwind L1's frame, delete it from
+                         * blocked_locks list, and perform the last unref on L1.
+                         *
+                         * If the entrylk object (L1) is part of blocked list
+                         * only, the cleanup code path must:
+                         * i.   delete it from the blocked_locks list inside
+                         *      this critical section,
+                         * ii.  unwind its frame with EAGAIN,
+                         * iii. try and grant blocked entry locks from other
+                         *      clients that were otherwise grantable, but were
+                         *      blocked to avoid leaving L1 to starve forever.
+                         * iv.  unref the object.
+                         */
+                                if (!list_empty (&l->domain_list)) {
+                                        list_del_init (&l->domain_list);
+                                        list_add_tail (&l->client_list,
+                                                       &released);
+                                } else {
+                                        list_del_init (&l->blocked_locks);
+                                        list_add_tail (&l->client_list,
+                                                       &unwind);
+                                }
                         }
 			pthread_mutex_unlock (&pinode->mutex);
                 }
 	}
         pthread_mutex_unlock (&ctx->lock);
 
-        list_for_each_entry_safe (l, tmp, &released, client_list) {
+        list_for_each_entry_safe (l, tmp, &unwind, client_list) {
                 list_del_init (&l->client_list);
 
 		if (l->frame)
 			STACK_UNWIND_STRICT (entrylk, l->frame, -1, EAGAIN,
 					     NULL);
+                list_add_tail (&l->client_list, &released);
+        }
+
+        list_for_each_entry_safe (l, tmp, &released, client_list) {
+                list_del_init (&l->client_list);
 
 		pinode = l->pinode;
 
