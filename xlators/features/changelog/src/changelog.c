@@ -1553,13 +1553,13 @@ struct volume_options options[] = {
          .description = "encoding type for changelogs"
         },
         {.key = {"rollover-time"},
-         .default_value = "60",
+         .default_value = "15",
          .type = GF_OPTION_TYPE_TIME,
          .description = "time to switch to a new changelog file (in seconds)"
         },
         {.key = {"fsync-interval"},
          .type = GF_OPTION_TYPE_TIME,
-         .default_value = "0",
+         .default_value = "5",
          .description = "do not open CHANGELOG file with O_SYNC mode."
                         " instead perform fsync() at specified intervals"
         },
