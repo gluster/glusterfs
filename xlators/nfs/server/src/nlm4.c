@@ -974,8 +974,10 @@ nlm4_establish_callback (void *csarg)
                              NLM_V4, IPPROTO_TCP);
 
         if (port == 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Unable to get NLM port of the "
-                        "client. Is the firewall running on client?");
+                gf_log (GF_NLM, GF_LOG_ERROR,
+                        "Unable to get NLM port of the client."
+                        " Is the firewall running on client?"
+                        " OR Are RPC services running (rpcinfo -p)?");
                 goto err;
         }
 
