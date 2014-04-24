@@ -709,7 +709,19 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key        = "performance.nfs.flush-behind",
+          .voltype    = "performance/write-behind",
+          .option     = "flush-behind",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key        = "performance.write-behind-window-size",
+          .voltype    = "performance/write-behind",
+          .option     = "cache-size",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "performance.nfs.write-behind-window-size",
           .voltype    = "performance/write-behind",
           .option     = "cache-size",
           .op_version = 1,
@@ -721,7 +733,19 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 2,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key        = "performance.nfs.strict-o-direct",
+          .voltype    = "performance/write-behind",
+          .option     = "strict-O_DIRECT",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key        = "performance.strict-write-ordering",
+          .voltype    = "performance/write-behind",
+          .option     = "strict-write-ordering",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "performance.nfs.strict-write-ordering",
           .voltype    = "performance/write-behind",
           .option     = "strict-write-ordering",
           .op_version = 2,
@@ -970,13 +994,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                          "graph of volume.",
           .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
-        { .key        = "performance.nfs.write-behind",
-          .voltype    = "performance/write-behind",
-          .option     = "!nfsperf",
-          .value      = "on",
-          .type       = NO_DOC,
-          .op_version = 1,
-          .flags      = OPT_FLAG_XLATOR_OPT
+        { .key         = "performance.nfs.write-behind",
+          .voltype     = "performance/write-behind",
+          .option      = "!nfsperf",
+          .value       = "on",
+          .op_version  = 1,
+          .description = "enable/disable write-behind translator in the volume",
+          .flags       = OPT_FLAG_XLATOR_OPT
         },
         { .key        = "performance.nfs.read-ahead",
           .voltype    = "performance/read-ahead",
