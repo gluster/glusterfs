@@ -1,7 +1,9 @@
 noinst_HEADERS_linux = $(CONTRIBDIR)/fuse-include/fuse_kernel.h\
 	$(CONTRIBDIR)/fuse-include/mount_util.h\
 	$(CONTRIBDIR)/fuse-lib/mount-gluster-compat.h
-noinst_HEADERS_darwin =	$(CONTRIBDIR)/fuse-include/fuse_kernel_macfuse.h
+noinst_HEADERS_darwin = $(CONTRIBDIR)/fuse-include/fuse_kernel_macfuse.h\
+	$(CONTRIBDIR)/macfuse/fuse_param.h\
+	$(CONTRIBDIR)/macfuse/fuse_ioctl.h
 noinst_HEADERS_common = $(CONTRIBDIR)/fuse-include/fuse-mount.h\
 	$(CONTRIBDIR)/fuse-include/fuse-misc.h fuse-mem-types.h \
 	fuse-bridge.h

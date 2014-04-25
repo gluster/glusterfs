@@ -672,6 +672,7 @@ fi
 
 AC_SUBST(ARGP_STANDALONE_CPPFLAGS)
 AC_SUBST(ARGP_STANDALONE_LDADD)
+AC_SUBST(ARGP_STANDALONE_DIR)
 
 AC_CHECK_HEADER([malloc.h], AC_DEFINE(HAVE_MALLOC_H, 1, [have malloc.h]))
 
@@ -694,7 +695,6 @@ AC_CHECK_FUNC([posix_fallocate], [have_posix_fallocate=yes])
 if test "x${have_posix_fallocate}" = "xyes"; then
    AC_DEFINE(HAVE_POSIX_FALLOCATE, 1, [define if posix_fallocate exists])
 fi
-
 
 # Check the distribution where you are compiling glusterfs on
 
@@ -884,7 +884,7 @@ case $host_os in
        LDFLAGS="-L`${PYTHON}-config --prefix`/lib `${PYTHON}-config --ldflags`"
        ;;
      darwin*)
-       CFLAGS="`${PYTHON}-config --cflags` -Wno-error=unused-command-line-argument-hard-error-in-future"
+       CFLAGS="`${PYTHON}-config --cflags`"
        CPPFLAGS=$CFLAGS
        LDFLAGS="-L`${PYTHON}-config --prefix`/lib `${PYTHON}-config --ldflags`"
        ;;
@@ -931,6 +931,12 @@ esac
 CFLAGS=$saved_CFLAGS
 CPPFLAGS=$saved_CPPFLAGS
 LDFLAGS=$saved_LDFLAGS
+
+case $host_os in
+     darwin*)
+        BUILD_GLUPY=no
+        ;;
+esac
 
 if test "x$BUILD_GLUPY" = "xyes"; then
    BUILD_PYTHON_INC=`$PYTHON -c "from distutils import sysconfig; print sysconfig.get_python_inc()"`
