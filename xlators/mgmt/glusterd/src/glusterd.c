@@ -1146,7 +1146,7 @@ glusterd_init_snap_folder (xlator_t *this)
 
         if ((-1 == ret) && (ENOENT == errno)) {
                 /* Create missing folders */
-                ret = mkdir_p (snap_mount_folder, 0777, _gf_false);
+                ret = mkdir_p (snap_mount_folder, 0777, _gf_true);
 
                 if (-1 == ret) {
                         gf_log (this->name, GF_LOG_CRITICAL,
