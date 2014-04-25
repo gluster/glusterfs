@@ -42,7 +42,8 @@ void trap (void);
 #include "mem-pool.h"
 #include "uuid.h"
 
-
+#define STRINGIFY(val) #val
+#define TOSTRING(val) STRINGIFY(val)
 
 #define min(a,b) ((a)<(b)?(a):(b))
 #define max(a,b) ((a)>(b)?(a):(b))

@@ -1048,9 +1048,6 @@ struct volume_options options[] = {
         { .key   = {"transport.*"},
           .type  = GF_OPTION_TYPE_ANY,
         },
-        { .key   = {"rpc*"},
-          .type  = GF_OPTION_TYPE_ANY,
-        },
         { .key   = {"inode-lru-limit"},
           .type  = GF_OPTION_TYPE_INT,
           .min   = 0,
@@ -1134,6 +1131,15 @@ struct volume_options options[] = {
                          "hostnames to connect to the server. This option "
                          "overrides the auth.allow option. By default, all"
                          " connections are allowed."
+        },
+        { .key  = {"rpc.outstanding-rpc-limit"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = RPCSVC_MIN_OUTSTANDING_RPC_LIMIT,
+          .max  = RPCSVC_MAX_OUTSTANDING_RPC_LIMIT,
+          .default_value = TOSTRING(RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT),
+          .description = "Parameter to throttle the number of incoming RPC "
+                         "requests from a client. 0 means no limit (can "
+                         "potentially run out of memory)"
         },
         { .key   = {NULL} },
 };
