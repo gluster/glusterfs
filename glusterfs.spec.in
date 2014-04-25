@@ -573,6 +573,9 @@ EOM
 rm -rf %{buildroot}/benchmarking
 rm -f %{buildroot}/glusterfs-mode.el
 rm -f %{buildroot}/glusterfs.vim
+rm -fr %{buildroot}/%{_docdir}/glusterfs/benchmarking
+rm -f %{buildroot}/%{_docdir}/glusterfs/glusterfs-mode.el
+rm -f %{buildroot}/%{_docdir}/glusterfs/glusterfs.vim
 
 # Create working directory
 mkdir -p %{buildroot}%{_sharedstatedir}/glusterd
@@ -984,6 +987,9 @@ fi
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %changelog
+* Fri Apr 25 2014 Arumugam Balamurugan <barumuga@redhat.com>
+- fix RHEL 7 build failure "Installed (but unpackaged) file(s) found" (#1058188)
+
 * Wed Apr 02 2014 Arumugam Balamurugan <barumuga@redhat.com>
 - cleanup to rearrange spec file elements
 
