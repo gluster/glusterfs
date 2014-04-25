@@ -40,7 +40,7 @@
 %{?_without_ocf:%global _without_ocf --without-ocf}
 
 # if you wish to build rpms without syslog logging, compile like this
-# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@tar.gz --without syslog
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without syslog
 %{?_without_syslog:%global _without_syslog --disable-syslog}
 
 # disable syslog forcefully as rhel <= 6 doesn't have rsyslog or rsyslog-mmcount
@@ -153,7 +153,7 @@ License:          GPLv2 or LGPLv3+
 Group:            System Environment/Base
 URL:              http://www.gluster.org/docs/index.php/GlusterFS
 %if ( 0%{_for_fedora_koji_builds} )
-Source0:          http://download.gluster.org/pub/gluster/glusterfs/3.4/%{version}%{?prereltag}/glusterfs-%{version}%{?prereltag}.tar.gz
+Source0:          http://bits.gluster.org/pub/gluster/glusterfs/src/glusterfs-%{version}%{?prereltag}.tar.gz
 Source1:          glusterd.sysconfig
 Source2:          glusterfsd.sysconfig
 Source3:          glusterfs-fuse.logrotate
@@ -454,6 +454,9 @@ Requires:         rpcbind
 %else
 Requires:         portmap
 %endif
+%if ( 0%{?rhel} && 0%{?rhel} < 6 )
+Obsoletes:        %{name}-geo-replication = %{version}-%{release}
+%endif
 
 %description server
 GlusterFS is a clustered file-system capable of scaling to several
@@ -570,12 +573,17 @@ https://forge.gluster.org/glusterfs-core/glusterfs/commits/v%{version}%{?prerelt
 EOM
 
 # Remove benchmarking and other unpackaged files
+%if ( 0%{?rhel} && 0%{?rhel} < 6 )
 rm -rf %{buildroot}/benchmarking
 rm -f %{buildroot}/glusterfs-mode.el
 rm -f %{buildroot}/glusterfs.vim
-rm -fr %{buildroot}/%{_docdir}/glusterfs/benchmarking
-rm -f %{buildroot}/%{_docdir}/glusterfs/glusterfs-mode.el
-rm -f %{buildroot}/%{_docdir}/glusterfs/glusterfs.vim
+%else
+# make install always puts these in %%{_defaultdocdir}/%%{name} so don't
+# use %%{_pkgdocdir}; that will be wrong on later Fedora distributions
+rm -rf %{buildroot}%{_defaultdocdir}/%{name}/benchmarking
+rm -f %{buildroot}%{_defaultdocdir}/%{name}/glusterfs-mode.el
+rm -f %{buildroot}%{_defaultdocdir}/%{name}/glusterfs.vim
+%endif
 
 # Create working directory
 mkdir -p %{buildroot}%{_sharedstatedir}/glusterd
@@ -693,15 +701,13 @@ rm -rf %{buildroot}
 ## All %post should be placed here and keep them sorted
 ##
 %post
-/sbin/ldconfig
 %if ( 0%{!?_without_syslog:1} )
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
 %_init_restart rsyslog
 %endif
 %endif
 
-%post api
-/sbin/ldconfig
+%post api -p /sbin/ldconfig
 
 %if ( 0%{!?_without_georeplication:1} )
 %post geo-replication
@@ -711,8 +717,7 @@ if [ $1 -ge 1 ]; then
 fi
 %endif
 
-%post libs
-/sbin/ldconfig
+%post libs -p /sbin/ldconfig
 
 %post server
 # Legacy server
@@ -790,17 +795,15 @@ fi
 %endif
 %endif
 
-%postun api
-/sbin/ldconfig
+%postun api -p /sbin/ldconfig
 
-%postun libs
-/sbin/ldconfig
+%postun libs -p /sbin/ldconfig
 
 ##-----------------------------------------------------------------------------
 ## All %files should be placed here and keep them sorted
 ##
 %files
-%doc ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL README THANKS extras/clear_xattrs.sh
+%doc ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL README THANKS
 %config(noreplace) %{_sysconfdir}/logrotate.d/*
 %config(noreplace) %{_sysconfdir}/sysconfig/*
 %if ( 0%{!?_without_syslog:1} )
@@ -839,12 +842,12 @@ fi
 %exclude %{_libdir}/*.so
 # Shared Python-GlusterFS files
 %{python_sitelib}/gluster/__init__.*
-# Libgfapi files
+# libgfapi files
 %{_libdir}/libgfapi.*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/api*
 %{python_sitelib}/gluster/gfapi.*
 # Don't expect a .egg-info file on EL5
-%if ( 0%{?rhel} && 0%{?rhel} > 5 ) || ( 0%{?fedora} )
+%if ( ! ( 0%{?rhel} && 0%{?rhel} < 6 ) )
 %{python_sitelib}/glusterfs_api*.egg-info
 %endif
 
@@ -875,7 +878,7 @@ fi
 # Glupy Python files
 %{python_sitelib}/gluster/glupy.*
 # Don't expect a .egg-info file on EL5
-%if ( 0%{?rhel} && 0%{?rhel} > 5 ) || ( 0%{?fedora} )
+%if ( ! ( 0%{?rhel} && 0%{?rhel} < 6 ) )
 %{python_sitelib}/glusterfs_glupy*.egg-info
 %endif
 
@@ -936,6 +939,7 @@ fi
 %endif
 
 %files server
+%doc extras/clear_xattrs.sh
 %if ( 0%{_for_fedora_koji_builds} )
 %config(noreplace) %{_sysconfdir}/logrotate.d/glusterd
 %endif
@@ -987,6 +991,9 @@ fi
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %changelog
+* Fri Apr 25 2014 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- Sync with Fedora spec (#1091408, #1091392)
+
 * Fri Apr 25 2014 Arumugam Balamurugan <barumuga@redhat.com>
 - fix RHEL 7 build failure "Installed (but unpackaged) file(s) found" (#1058188)
 
