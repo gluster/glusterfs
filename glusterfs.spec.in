@@ -36,11 +36,14 @@
 %{?_without_ocf:%global _without_ocf --without-ocf}
 
 # if you wish to build rpms without syslog logging, compile like this
-# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@tar.gz --without syslog
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without syslog
 %{?_without_syslog:%global _without_syslog --disable-syslog}
 
 # disable syslog forcefully as rhel <= 6 doesn't have rsyslog or rsyslog-mmcount
-%if ( 0%{?rhel} && 0%{?rhel} <= 6 )
+# Fedora deprecated syslog, see 
+#  https://fedoraproject.org/wiki/Changes/NoDefaultSyslog
+# (And what about RHEL7?)
+%if ( 0%{?fedora} && 0%{?fedora} >= 20 ) || ( 0%{?rhel} && 0%{?rhel} <= 6 )
 %global _without_syslog --disable-syslog
 %endif
 
@@ -90,7 +93,7 @@ License:          GPLv2 or LGPLv3+
 Group:            System Environment/Base
 URL:              http://www.gluster.org/docs/index.php/GlusterFS
 %if ( 0%{_for_fedora_koji_builds} )
-Source0:          http://download.gluster.org/pub/gluster/glusterfs/3.4/%{version}%{?prereltag}/glusterfs-%{version}%{?prereltag}.tar.gz
+Source0:          http://bits.gluster.org/pub/gluster/glusterfs/src/glusterfs-%{version}%{?prereltag}.tar.gz
 Source1:          glusterd.sysconfig
 Source2:          glusterfsd.sysconfig
 Source3:          glusterfs-fuse.logrotate
@@ -316,6 +319,9 @@ Requires:         %{name}-fuse = %{version}-%{release}
 Requires:         rpcbind
 %else
 Requires:         portmap
+%endif
+%if ( 0%{?rhel} && 0%{?rhel} < 6 )
+Obsoletes:        %{name}-geo-replication = %{version}-%{release}
 %endif
 
 %description server
@@ -551,9 +557,17 @@ https://forge.gluster.org/glusterfs-core/glusterfs/commits/v%{version}%{?prerelt
 EOM
 
 # Remove benchmarking and other unpackaged files
+%if ( 0%{?rhel} && 0%{?rhel} < 6 )
 rm -rf %{buildroot}/benchmarking
 rm -f %{buildroot}/glusterfs-mode.el
 rm -f %{buildroot}/glusterfs.vim
+%else
+# make install always puts these in %%{_defaultdocdir}/%%{name} so don't
+# use %%{_pkgdocdir}; that will be wrong on later Fedora distributions
+rm -rf %{buildroot}%{_defaultdocdir}/%{name}/benchmarking
+rm -f %{buildroot}%{_defaultdocdir}/%{name}/glusterfs-mode.el
+rm -f %{buildroot}%{_defaultdocdir}/%{name}/glusterfs.vim
+%endif
 
 # Create working directory
 mkdir -p %{buildroot}%{_sharedstatedir}/glusterd
@@ -659,7 +673,6 @@ find ./tests ./run-tests.sh -type f | cpio -pd %{buildroot}%{_prefix}/share/glus
 rm -rf %{buildroot}
 
 %post
-/sbin/ldconfig
 %if ( 0%{!?_without_syslog:1} )
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
 %_init_restart rsyslog
@@ -667,7 +680,6 @@ rm -rf %{buildroot}
 %endif
 
 %postun
-/sbin/ldconfig
 %if ( 0%{!?_without_syslog:1} )
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
 %_init_restart rsyslog
@@ -675,7 +687,7 @@ rm -rf %{buildroot}
 %endif
 
 %files
-%doc ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL README THANKS extras/clear_xattrs.sh
+%doc ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL README THANKS
 %config(noreplace) %{_sysconfdir}/logrotate.d/*
 %config(noreplace) %{_sysconfdir}/sysconfig/*
 %if ( 0%{!?_without_syslog:1} )
@@ -709,11 +721,10 @@ rm -rf %{buildroot}
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance/symlink-cache*
 %{_datadir}/glusterfs/scripts/post-upgrade-script-for-quota.sh
 %{_datadir}/glusterfs/scripts/pre-upgrade-script-for-quota.sh
-%post libs
-/sbin/ldconfig
 
-%postun libs
-/sbin/ldconfig
+%post libs -p /sbin/ldconfig
+
+%postun libs -p /sbin/ldconfig
 
 %files libs
 %{_libdir}/*.so.*
@@ -772,6 +783,7 @@ fi
 %endif
 
 %files server
+%doc extras/clear_xattrs.sh
 %if ( 0%{_for_fedora_koji_builds} )
 %config(noreplace) %{_sysconfdir}/logrotate.d/glusterd
 %endif
@@ -832,22 +844,20 @@ fi
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs/run
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
-%post api
-/sbin/ldconfig
+%post api -p /sbin/ldconfig
 
-%postun api
-/sbin/ldconfig
+%postun api -p /sbin/ldconfig
 
 %files api
 %exclude %{_libdir}/*.so
 # Shared Python-GlusterFS files
 %{python_sitelib}/gluster/__init__.*
-# Libgfapi files
+# libgfapi files
 %{_libdir}/libgfapi.*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/api*
 %{python_sitelib}/gluster/gfapi.*
 # Don't expect a .egg-info file on EL5
-%if ( 0%{?rhel} && 0%{?rhel} > 5 ) || ( 0%{?fedora} )
+%if ( ! ( 0%{?rhel} && 0%{?rhel} < 6 ) )
 %{python_sitelib}/glusterfs_api*.egg-info
 %endif
 
@@ -857,7 +867,7 @@ fi
 # Glupy Python files
 %{python_sitelib}/gluster/glupy.*
 # Don't expect a .egg-info file on EL5
-%if ( 0%{?rhel} && 0%{?rhel} > 5 ) || ( 0%{?fedora} )
+%if ( ! ( 0%{?rhel} && 0%{?rhel} < 6 ) )
 %{python_sitelib}/glusterfs_glupy*.egg-info
 %endif
 
@@ -951,6 +961,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Fri Apr 25 2014 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- Sync with Fedora spec (#1091392)
+
 * Wed Feb 26 2014 Niels de Vos <ndevos@redhat.com>
 - Drop glusterfs-devel dependency from glusterfs-api (#1065750)
 
