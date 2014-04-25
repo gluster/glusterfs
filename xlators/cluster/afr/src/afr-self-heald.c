@@ -186,8 +186,10 @@ afr_shd_inode_find (xlator_t *this, xlator_t *subvol, uuid_t gfid)
 	struct iatt iatt = {0, };
 
 	inode = inode_find (this->itable, gfid);
-	if (inode)
+	if (inode) {
+                inode_lookup (inode);
 		goto out;
+        }
 
 	loc.inode = inode_new (this->itable);
 	if (!loc.inode)
@@ -245,6 +247,9 @@ afr_shd_index_opendir (xlator_t *this, int child)
 	fd = fd_anonymous (inode);
 out:
 	loc_wipe (&rootloc);
+        if (inode)
+                inode_unref (inode);
+
 	if (xattr)
 		dict_unref (xattr);
 	return fd;
@@ -440,8 +445,12 @@ afr_shd_index_sweep (struct subvol_healer *healer)
 			break;
 	}
 
-	if (fd)
+	if (fd) {
+                if (fd->inode)
+                        inode_forget (fd->inode, 1);
 		fd_unref (fd);
+        }
+
 	if (!ret)
 		ret = count;
 	return ret;
@@ -942,8 +951,12 @@ afr_shd_gather_index_entries (xlator_t *this, int child, dict_t *output)
 			break;
 	}
 
-	if (fd)
+	if (fd) {
+                if (fd->inode)
+                        inode_forget (fd->inode, 1);
 		fd_unref (fd);
+        }
+
 	if (!ret)
 		ret = count;
 	return ret;

@@ -773,20 +773,16 @@ afr_is_entry_set (xlator_t *this, dict_t *xdata)
 }
 
 
-void
+inode_t*
 afr_inode_link (inode_t *inode, struct iatt *iatt)
 {
 	inode_t *linked_inode = NULL;
 
 	linked_inode = inode_link (inode, NULL, NULL, iatt);
 
-	uuid_copy (inode->gfid, iatt->ia_gfid);
-	inode->ia_type = iatt->ia_type;
-
-	if (linked_inode) {
+	if (linked_inode)
 		inode_lookup (linked_inode);
-		inode_unref (linked_inode);
-	}
+        return linked_inode;
 }
 
 
@@ -801,12 +797,13 @@ afr_inode_link (inode_t *inode, struct iatt *iatt)
 
 int
 afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
-			       inode_t *inode, uuid_t gfid,
+			       uuid_t gfid, inode_t **link_inode,
 			       gf_boolean_t *data_selfheal,
 			       gf_boolean_t *metadata_selfheal,
 			       gf_boolean_t *entry_selfheal)
 {
 	afr_private_t *priv = NULL;
+        inode_t *inode = NULL;
 	int i = 0;
 	int valid_cnt = 0;
 	struct iatt first = {0, };
@@ -815,11 +812,15 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 
 	priv = this->private;
 
+        inode = afr_inode_find (this, gfid);
+        if (!inode)
+                goto out;
+
 	replies = alloca0 (sizeof (*replies) * priv->child_count);
 
 	ret = afr_selfheal_unlocked_discover (frame, inode, gfid, replies);
 	if (ret)
-		return ret;
+                goto out;
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (!replies[i].valid)
@@ -849,7 +850,8 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 				(int) replies[i].poststat.ia_type,
 				priv->children[i]->name,
 				uuid_utoa (replies[i].poststat.ia_gfid));
-			return -EIO;
+                        ret = -EIO;
+                        goto out;
 		}
 
 		if (!IA_EQUAL (first, replies[i].poststat, uid)) {
@@ -898,13 +900,22 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 		}
 	}
 
-	if (valid_cnt > 0)
-		afr_inode_link (inode, &first);
+	if (valid_cnt > 0) {
+		*link_inode = afr_inode_link (inode, &first);
+                if (!*link_inode) {
+                        ret = -EINVAL;
+                        goto out;
+                }
+        } else if (valid_cnt < 2) {
+		ret = -ENOTCONN;
+                goto out;
+        }
 
-	if (valid_cnt < 2)
-		return -ENOTCONN;
-
-	return 0;
+        ret = 0;
+out:
+        if (inode)
+                inode_unref (inode);
+	return ret;
 }
 
 
@@ -967,22 +978,18 @@ afr_frame_create (xlator_t *this)
 int
 afr_selfheal (xlator_t *this, uuid_t gfid)
 {
-	inode_t *inode = NULL;
+        inode_t *inode = NULL;
 	call_frame_t *frame = NULL;
 	int ret = -1;
 	gf_boolean_t data_selfheal = _gf_false;
 	gf_boolean_t metadata_selfheal = _gf_false;
 	gf_boolean_t entry_selfheal = _gf_false;
 
-	inode = afr_inode_find (this, gfid);
-	if (!inode)
-		goto out;
-
 	frame = afr_frame_create (this);
 	if (!frame)
 		goto out;
 
-	ret = afr_selfheal_unlocked_inspect (frame, this, inode, gfid,
+	ret = afr_selfheal_unlocked_inspect (frame, this, gfid, &inode,
 					     &data_selfheal,
 					     &metadata_selfheal,
 					     &entry_selfheal);
@@ -999,9 +1006,8 @@ afr_selfheal (xlator_t *this, uuid_t gfid)
 		afr_selfheal_entry (frame, this, inode);
 
 	inode_forget (inode, 1);
+        inode_unref (inode);
 out:
-	if (inode)
-		inode_unref (inode);
 	if (frame)
 		AFR_STACK_DESTROY (frame);
 
