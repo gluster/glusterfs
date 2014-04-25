@@ -37,9 +37,6 @@
 #include "rpc-drc.h"
 #include "syscall.h"
 
-#define STRINGIFY(val) #val
-#define TOSTRING(val) STRINGIFY(val)
-
 #define OPT_SERVER_AUX_GIDS             "nfs.server-aux-gids"
 #define OPT_SERVER_GID_CACHE_TIMEOUT    "nfs.server.aux-gid-timeout"
 #define OPT_SERVER_RPC_STATD             "nfs.rpc-statd"
