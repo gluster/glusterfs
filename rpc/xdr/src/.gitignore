@@ -16,3 +16,4 @@ portmap-xdr.c
 portmap-xdr.h
 rpc-common-xdr.c
 rpc-common-xdr.h
+*-e
