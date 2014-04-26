@@ -11618,12 +11618,23 @@ glusterd_copy_file (const char *source, const char *destination)
         int             src_fd          =       -1;
         int             dest_fd         =       -1;
         int             read_len        =       -1;
+        struct  stat    stbuf           =       {0,};
+        mode_t          dest_mode       =       0;
 
         this = THIS;
         GF_ASSERT (this);
 
         GF_ASSERT (source);
         GF_ASSERT (destination);
+
+        /* Here is stat is made to get the file permission of source file*/
+        ret = lstat (source, &stbuf);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "%s not found", source);
+                goto out;
+        }
+
+        dest_mode = stbuf.st_mode & 0777;
 
         src_fd = open (source, O_RDONLY);
         if (src_fd < 0) {
@@ -11633,7 +11644,7 @@ glusterd_copy_file (const char *source, const char *destination)
                 goto out;
         }
 
-        dest_fd = open (destination, O_CREAT | O_RDWR, 755);
+        dest_fd = open (destination, O_CREAT | O_RDWR, dest_mode);
         if (dest_fd < 0) {
                 ret = -1;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -11805,6 +11816,89 @@ out:
         return ret;
 }
 
+int32_t
+glusterd_copy_quota_files (glusterd_volinfo_t *src_vol,
+                              glusterd_volinfo_t *dest_vol) {
+
+        int32_t         ret                     = -1;
+        char            src_dir[PATH_MAX]       = "";
+        char            dest_dir[PATH_MAX]      = "";
+        char            src_path[PATH_MAX]      = "";
+        char            dest_path[PATH_MAX]     = "";
+        xlator_t        *this                   = NULL;
+        glusterd_conf_t *priv                   = NULL;
+        struct  stat    stbuf                   = {0,};
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        GF_ASSERT (src_vol);
+        GF_ASSERT (dest_vol);
+
+        GLUSTERD_GET_VOLUME_DIR (src_dir, src_vol, priv);
+
+        GLUSTERD_GET_VOLUME_DIR (dest_dir, dest_vol, priv);
+
+        ret = snprintf (src_path, sizeof (src_path), "%s/quota.conf",
+                        src_dir);
+        if (ret < 0)
+                goto out;
+
+        /* quota.conf is not present if quota is not enabled, Hence ignoring
+         * the absence of this file
+         */
+        ret = lstat (src_path, &stbuf);
+        if (ret) {
+                ret = 0;
+                gf_log (this->name, GF_LOG_DEBUG, "%s not found", src_path);
+                goto out;
+        }
+
+        ret = snprintf (dest_path, sizeof (dest_path), "%s/quota.conf",
+                       dest_dir);
+        if (ret < 0)
+                goto out;
+
+        ret = glusterd_copy_file (src_path, dest_path);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to copy %s in %s",
+                        src_path, dest_path);
+                goto out;
+        }
+
+        ret = snprintf (src_path, sizeof (src_path), "%s/quota.cksum",
+                        src_dir);
+        if (ret < 0)
+                goto out;
+
+        /* If quota.conf is present and quota.cksum is not present, then
+         * that scenario is considered as invalid, hence error out.
+         */
+        ret = lstat (src_path, &stbuf);
+        if (ret) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR, "%s not found", src_path);
+                goto out;
+        }
+
+        ret = snprintf (dest_path, sizeof (dest_path), "%s/quota.cksum",
+                        dest_dir);
+        if (ret < 0)
+                goto out;
+
+        ret = glusterd_copy_file (src_path, dest_path);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to copy %s in %s",
+                        src_path, dest_path);
+                goto out;
+        }
+
+out:
+        return ret;
+
+}
 
 int32_t
 glusterd_restore_geo_rep_files (glusterd_volinfo_t *snap_vol)

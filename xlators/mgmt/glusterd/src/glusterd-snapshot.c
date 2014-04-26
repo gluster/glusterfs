@@ -410,7 +410,6 @@ out:
         return ret;
 }
 
-
 int32_t
 glusterd_copy_geo_rep_files (glusterd_volinfo_t *origin_vol,
                              glusterd_volinfo_t *snap_vol, dict_t *rsp_dict)
@@ -3714,6 +3713,13 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
                 goto out;
         }
 
+        ret = glusterd_copy_quota_files (origin_vol, snap_vol);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to copy quota "
+                        "config and cksum for volume %s", origin_vol->volname);
+                goto out;
+        }
+
         ret = generate_brick_volfiles (snap_vol);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "generating the brick "
@@ -6068,7 +6074,16 @@ gd_restore_snap_volume (dict_t *rsp_dict,
         ret = glusterd_restore_geo_rep_files (snap_vol);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to restore "
-                        "geo-rep files");
+                        "geo-rep files for snap %s",
+                        snap_vol->snapshot->snapname);
+                goto out;
+        }
+
+        ret = glusterd_copy_quota_files (snap_vol, orig_vol);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to restore "
+                        "quota files for snap %s",
+                        snap_vol->snapshot->snapname);
                 goto out;
         }
 
