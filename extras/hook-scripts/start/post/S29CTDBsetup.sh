@@ -10,6 +10,7 @@
 SMB_CONF=/etc/samba/smb.conf
 
 CTDB_MNT=/gluster/lock
+PING_TIMEOUT_SECS=10
 PROGNAME="ctdb"
 OPTSPEC="volname:"
 VOL=
@@ -63,6 +64,12 @@ function add_fstab_entry () {
         fi
 }
 
+function add_ping_timeout () {
+    volname=$1
+    value=$2
+    gluster volume set $volname network.ping-timeout $value
+}
+
 parse_args $@
 if [ "$META" = "$VOL" ]
 then
@@ -71,6 +78,8 @@ then
     add_glusterfs_ctdb_options
     mkdir -p $CTDB_MNT
     sleep 5
+    # Make sure ping-timeout is not default for CTDB volume
+    add_ping_timeout $VOL $PING_TIMEOUT_SECS;
     mount -t glusterfs `hostname`:$VOL "$CTDB_MNT" && \
         add_fstab_entry $VOL $CTDB_MNT
     chkconfig ctdb on
