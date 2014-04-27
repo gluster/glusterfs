@@ -1,3 +1,8 @@
+XDRSOURCES = glusterfs3-xdr.c cli1-xdr.c nlm4-xdr.c nsm-xdr.c \
+	rpc-common-xdr.c glusterd1-xdr.c acl3-xdr.c portmap-xdr.c mount3udp.c
+XDRHEADERS = $(XDRSOURCES:.c=.h)
+XDRGENFILES = $(XDRSOURCES:.c=.x)
+
 lib_LTLIBRARIES = libgfxdr.la
 
 libgfxdr_la_CFLAGS = -Wall $(GF_CFLAGS) $(GF_DARWIN_LIBGLUSTERFS_CFLAGS)
@@ -13,14 +18,96 @@ libgfxdr_la_SOURCES =  $(XDRSOURCES) xdr-generic.c xdr-nfs3.c msg-nfs3.c
 
 noinst_HEADERS = $(XDRHEADERS) xdr-generic.h xdr-nfs3.h msg-nfs3.h glusterfs3.h
 
-XDRSOURCES = glusterfs3-xdr.c cli1-xdr.c nlm4-xdr.c nsm-xdr.c \
-	rpc-common-xdr.c glusterd1-xdr.c acl3-xdr.c portmap-xdr.c
-XDRHEADERS = glusterfs3-xdr.h cli1-xdr.h nlm4-xdr.h nsm-xdr.h \
-	rpc-common-xdr.h glusterd1-xdr.h acl3-xdr.h portmap-xdr.h
-
-%.h:%.x
-	$(top_srcdir)/build-aux/xdrgen $(top_srcdir)/rpc/xdr/src/$*.x
-%.c:%.x
-	$(top_srcdir)/build-aux/xdrgen $(top_srcdir)/rpc/xdr/src/$*.x
-
 CLEANFILES = $(XDRSOURCES) $(XDRHEADERS)
+
+EXTRA_DIST = $(XDRGENFILES)
+
+glusterfs3-xdr.c: glusterfs3-xdr.x glusterfs3-xdr.h
+	@if test -f $<; then \
+		$(top_srcdir)/build-aux/xdrgen source $< ; \
+	fi
+
+glusterfs3-xdr.h: glusterfs3-xdr.x
+	@if test -f $< ; then \
+		$(top_srcdir)/build-aux/xdrgen header $< ; \
+	fi
+
+cli1-xdr.c: cli1-xdr.x cli1-xdr.h
+	@if test -f $< ; then \
+		$(top_srcdir)/build-aux/xdrgen source $< ; \
+	fi
+
+cli1-xdr.h: cli1-xdr.x
+	@if test -f $< ; then \
+		$(top_srcdir)/build-aux/xdrgen header $< ; \
+	fi
+
+nlm4-xdr.c: nlm4-xdr.x nlm4-xdr.h
+	@if test -f $< ; then \
+		$(top_srcdir)/build-aux/xdrgen source $< ; \
+	fi
+
+nlm4-xdr.h: nlm4-xdr.x
+	@if test -f $< ; then \
+		$(top_srcdir)/build-aux/xdrgen header $< ; \
+	fi
+
+nsm-xdr.c: nsm-xdr.x nsm-xdr.h
+	@if test -f $< ; then \
+		$(top_srcdir)/build-aux/xdrgen source $< ; \
+	fi
+
+nsm-xdr.h: nsm-xdr.x
+	@if test -f $< ; then \
+		$(top_srcdir)/build-aux/xdrgen header $< ; \
+	fi
+
+rpc-common-xdr.c: rpc-common-xdr.x rpc-common-xdr.h
+	@if test -f $< ; then \
+		$(top_srcdir)/build-aux/xdrgen source $< ; \
+	fi
+
+rpc-common-xdr.h: rpc-common-xdr.x
+	@if test -f $< ; then \
+		$(top_srcdir)/build-aux/xdrgen header $< ; \
+	fi
+
+glusterd1-xdr.c: glusterd1-xdr.x glusterd1-xdr.h
+	@if test -f $< ; then \
+		$(top_srcdir)/build-aux/xdrgen source $< ; \
+	fi
+
+glusterd1-xdr.h: glusterd1-xdr.x
+	@if test -f $< ; then \
+		$(top_srcdir)/build-aux/xdrgen header $< ; \
+	fi
+
+acl3-xdr.c: acl3-xdr.x acl3-xdr.h
+	@if test -f $< ; then \
+		$(top_srcdir)/build-aux/xdrgen source $< ; \
+	fi
+
+acl3-xdr.h: acl3-xdr.x
+	@if test -f $< ; then \
+		$(top_srcdir)/build-aux/xdrgen header $< ; \
+	fi
+
+portmap-xdr.c: portmap-xdr.x portmap-xdr.h
+	@if test -f $< ; then \
+		$(top_srcdir)/build-aux/xdrgen source $< ; \
+	fi
+
+portmap-xdr.h: portmap-xdr.x
+	@if test -f $< ; then \
+		$(top_srcdir)/build-aux/xdrgen header $< ; \
+	fi
+
+mount3udp.c: mount3udp.x mount3udp.h
+	@if test -f $< ; then \
+		$(top_srcdir)/build-aux/xdrgen source $< ; \
+	fi
+
+mount3udp.h: mount3udp.x
+	@if test -f $< ; then \
+		$(top_srcdir)/build-aux/xdrgen header $< ; \
+	fi
