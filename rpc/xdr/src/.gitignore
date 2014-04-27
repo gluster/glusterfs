@@ -16,4 +16,6 @@ portmap-xdr.c
 portmap-xdr.h
 rpc-common-xdr.c
 rpc-common-xdr.h
+mount3udp.c
+mount3udp.h
 *-e
