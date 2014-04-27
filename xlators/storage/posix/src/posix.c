@@ -4319,7 +4319,7 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
                 default:
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Unknown xattrop type (%d) on %s. Please send "
-                                "a bug report to gluster-devel@nongnu.org",
+                                "a bug report to gluster-devel@gluster.org",
                                 optype, filler->real_path);
                         op_ret = -1;
                         op_errno = EINVAL;

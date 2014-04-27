@@ -21,7 +21,7 @@ Regression tests framework for GlusterFS
 - Execute `/usr/share/glusterfs/run-tests.sh` as root.
 
 - If some test cases fail, report to GlusterFS community at
-  `gluster-devel@nongnu.org`.
+  `gluster-devel@gluster.org`.
 
 ## Reminder
 - BE WARNED THAT THE TEST CASES DELETE /var/lib/glusterd/* !!!
