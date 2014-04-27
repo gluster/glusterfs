@@ -32,9 +32,9 @@ Instructions
         $ make
 
 (We've tested the tool on Debian and CentOS. If there are build errors or
-warnings, please do report them to glusterfs-devel@nongnu.org.)
+warnings, please do report them to gluster-devel@gluster.org.)
 
 2. Run the test.
         $ ./test-preload.sh > preload.log
 
-3. Mail the log to glusterfs-devel@nongnu.org.
+3. Mail the log to gluster-devel@gluster.org.

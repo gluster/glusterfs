@@ -227,7 +227,7 @@ subtract_locks (client_posix_lock_t *big, client_posix_lock_t *small)
                 /* LOG-TODO : decide what more info is required here*/
                 gf_log ("client-protocol", GF_LOG_CRITICAL,
                         "Unexpected case in subtract_locks. Please send "
-                        "a bug report to gluster-devel@nongnu.org");
+                        "a bug report to gluster-devel@gluster.org");
         }
 
         return v;
