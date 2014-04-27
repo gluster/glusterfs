@@ -36,6 +36,7 @@
 #define GF_PRI_NLINK       PRIu32
 #define GF_PRI_SECOND      "lu"
 #define GF_PRI_SUSECONDS   "06ld"
+#define GF_PRI_USEC        "ld"
 #endif
 #define GF_PRI_BLKSIZE     PRId32
 #define GF_PRI_SIZET       "zu"
