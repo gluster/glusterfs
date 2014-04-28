@@ -1017,8 +1017,13 @@ glusterd_add_new_entry_to_list (char *missed_info, char *snap_vol_id,
 int
 glusterd_snapshot_revert_restore_from_snap (glusterd_snap_t *snap);
 
+
 int
 glusterd_add_brick_status_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo,
                                    glusterd_brickinfo_t *brickinfo,
                                    char *key_prefix);
+
+int32_t
+glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict);
+
 #endif
