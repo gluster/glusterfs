@@ -5788,6 +5788,104 @@ out:
 }
 
 int32_t
+glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
+{
+        int32_t             ret                 = -1;
+        xlator_t           *this                = NULL;
+        glusterd_conf_t    *priv                = NULL;
+        uint64_t            effective_max_limit = 0;
+        int64_t             volcount            = 0;
+        int64_t             i                   = 0;
+        char               *volname             = NULL;
+        char                key[PATH_MAX]       = {0, };
+        glusterd_volinfo_t *volinfo             = NULL;
+        uint64_t            limit               = 0;
+        int64_t             count               = 0;
+        glusterd_snap_t    *snap                = NULL;
+        glusterd_volinfo_t *tmp_volinfo         = NULL;
+        glusterd_volinfo_t *other_volinfo       = NULL;
+        int64_t             var                 = 0;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (dict);
+        GF_ASSERT (rsp_dict);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = dict_get_int64 (dict, "volcount", &volcount);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to get the volcount");
+                goto out;
+        }
+
+        for (i = 1; i <= volcount; i++) {
+                snprintf (key, sizeof (key), "volname%ld", i);
+                ret = dict_get_str (dict, key, &volname);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "failed to get the "
+                                "volname");
+                        goto out;
+                }
+
+                ret = glusterd_volinfo_find (volname, &volinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "volinfo for %s "
+                                "not found", volname);
+                        goto out;
+                }
+
+                /* The minimum of the 2 limits i.e system wide limit and
+                   volume wide limit will be considered
+                */
+                if (volinfo->snap_max_hard_limit < priv->snap_max_hard_limit)
+                        effective_max_limit = volinfo->snap_max_hard_limit;
+                else
+                        effective_max_limit = priv->snap_max_hard_limit;
+
+                limit = (priv->snap_max_soft_limit * effective_max_limit)/100;
+
+                count = volinfo->snap_count - limit;
+                if (count <= 0)
+                        goto out;
+
+                list_for_each_entry_safe (tmp_volinfo, other_volinfo,
+                                         &volinfo->snap_volumes, snapvol_list) {
+                        if (var == count)
+                                break;
+
+                        snap = tmp_volinfo->snapshot;
+                        GF_ASSERT (snap);
+
+                        LOCK (&snap->lock);
+                        {
+                                snap->snap_status = GD_SNAP_STATUS_DECOMMISSION;
+                                ret = glusterd_store_snap (snap);
+                                if (ret) {
+                                        gf_log (this->name, GF_LOG_ERROR, "could "
+                                                "not store snap object %s",
+                                                snap->snapname);
+                                        goto unlock;
+                                }
+
+                                ret = glusterd_snap_remove (rsp_dict, snap,
+                                                            _gf_true, _gf_true);
+                                if (ret)
+                                        gf_log (this->name, GF_LOG_WARNING,
+                                                "failed to remove snap %s",
+                                                snap->snapname);
+                        }
+                unlock: UNLOCK (&snap->lock);
+                        var++;
+                }
+        }
+
+out:
+        return ret;
+}
+
+int32_t
 glusterd_snapshot_create_postvalidate (dict_t *dict, int32_t op_ret,
                                        char **op_errstr, dict_t *rsp_dict)
 {
@@ -5850,6 +5948,9 @@ glusterd_snapshot_create_postvalidate (dict_t *dict, int32_t op_ret,
                         "create snapshot");
                 goto out;
         }
+
+        //ignore the errors of autodelete
+        ret = glusterd_handle_snap_limit (dict, rsp_dict);
 
         ret = 0;
 out:
