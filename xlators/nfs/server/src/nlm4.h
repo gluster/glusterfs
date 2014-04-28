@@ -65,7 +65,7 @@
 #define GF_RPC_STATD_PIDFILE    "/var/run/statd.pid"
 #define GF_SM_NOTIFY_PIDFILE    "/var/run/statd.notify.pid"
 #else
-#define GF_RPC_STATD_PROG       "/sbin/rpc.stat"
+#define GF_RPC_STATD_PROG       "/sbin/rpc.statd"
 #define GF_RPC_STATD_PIDFILE    "/var/run/rpc.statd.pid"
 #define GF_SM_NOTIFY_PIDFILE    "/var/run/sm-notify.pid"
 #endif
