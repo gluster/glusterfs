@@ -38,6 +38,7 @@
 #include "glusterd-hooks.h"
 #include "glusterd-volgen.h"
 #include "glusterd-locks.h"
+#include "glusterd-messages.h"
 #include "syscall.h"
 #include "cli1-xdr.h"
 #include "common-utils.h"
@@ -3477,7 +3478,9 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 
         ret = glusterd_op_validate_quorum (this, op, dict, &op_errstr);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "%s", op_errstr);
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_SERVER_QUORUM_NOT_MET,
+                        "Server quorum not met. Rejecting operation.");
                 opinfo.op_errstr = op_errstr;
                 goto out;
         }

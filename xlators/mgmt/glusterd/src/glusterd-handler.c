@@ -41,6 +41,7 @@
 #include "rpc-clnt.h"
 #include "glusterd-volgen.h"
 #include "glusterd-mountbroker.h"
+#include "glusterd-messages.h"
 
 #include <sys/resource.h>
 #include <inttypes.h>
@@ -1093,8 +1094,9 @@ __glusterd_handle_cli_probe (rpcsvc_request_t *req)
             !does_gd_meet_server_quorum (this)) {
                 glusterd_xfer_cli_probe_resp (req, -1, GF_PROBE_QUORUM_NOT_MET,
                                               NULL, hostname, port, dict);
-                gf_log (this->name, GF_LOG_ERROR, "Quorum does not meet, "
-                        "rejecting operation");
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_SERVER_QUORUM_NOT_MET,
+                        "Server quorum not met. Rejecting operation.");
                 ret = 0;
                 goto out;
         }
@@ -1254,8 +1256,9 @@ __glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
         if (!(flags & GF_CLI_FLAG_OP_FORCE)) {
                 if (glusterd_is_any_volume_in_server_quorum (this) &&
                     !does_gd_meet_server_quorum (this)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Quorum does not "
-                                "meet, rejecting operation");
+                        gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                                GD_MSG_SERVER_QUORUM_NOT_MET,
+                                "Server quorum not met. Rejecting operation.");
                         ret = -1;
                         op_errno = GF_DEPROBE_QUORUM_NOT_MET;
                         goto out;

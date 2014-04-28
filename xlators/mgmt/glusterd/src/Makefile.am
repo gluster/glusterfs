@@ -24,7 +24,7 @@ noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h \
 	glusterd-sm.h glusterd-store.h glusterd-mem-types.h \
 	glusterd-pmap.h glusterd-volgen.h glusterd-mountbroker.h \
 	glusterd-syncop.h glusterd-hooks.h glusterd-locks.h \
-	glusterd-mgmt.h
+	glusterd-mgmt.h glusterd-messages.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(rpclibdir) -I$(CONTRIBDIR)/rbtree \
