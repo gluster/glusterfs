@@ -44,7 +44,12 @@
 #include <sys/resource.h>
 #include <inttypes.h>
 #include <dirent.h>
+
+#if !defined(__NetBSD__) && !defined(GF_DARWIN_HOST_OS)
 #include <mntent.h>
+#else
+#include "mntent_compat.h"
+#endif
 
 void
 glusterd_replace_slash_with_hyphen (char *str)
