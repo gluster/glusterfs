@@ -1744,8 +1744,7 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         }
 
         /* Check for read-only volume option, and add it to the graph */
-        if (dict_get_str_boolean (set_dict, "features.read-only", 0)
-                || volinfo -> is_snap_volume) {
+        if (dict_get_str_boolean (set_dict, "features.read-only", 0)){
                 xl = volgen_graph_add (graph, "features/read-only", volname);
                 if (!xl) {
                         ret = -1;
@@ -2643,6 +2642,21 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         ret = volume_volgen_graph_build_clusters (graph, volinfo, _gf_false);
         if (ret == -1)
                 goto out;
+
+        /* As of now snapshot volume is read-only. Read-only xlator is loaded
+         * in client graph so that AFR & DHT healing can be done in server.
+         */
+        if (volinfo->is_snap_volume) {
+                xl = volgen_graph_add (graph, "features/read-only", volname);
+                if (!xl) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to add "
+                                "read-only feature to the graph of %s "
+                                "snapshot with %s origin volume",
+                                volname, volinfo->parent_volname);
+                        ret = -1;
+                        goto out;
+                }
+        }
 
         /* Check for compress volume option, and add it to the graph on client side */
         ret = dict_get_str_boolean (set_dict, "network.compression", 0);
