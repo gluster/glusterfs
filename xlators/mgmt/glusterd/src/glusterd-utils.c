@@ -44,6 +44,7 @@
 #include "glusterfs-acl.h"
 #include "glusterd-syncop.h"
 #include "glusterd-locks.h"
+#include "glusterd-messages.h"
 
 #include "xdr-generic.h"
 #include <sys/resource.h>
@@ -3459,6 +3460,17 @@ glusterd_do_volume_quorum_action (xlator_t *this, glusterd_volinfo_t *volinfo,
 
         if (!glusterd_is_volume_in_server_quorum (volinfo))
                 meets_quorum = _gf_true;
+
+        if (meets_quorum)
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_SERVER_QUORUM_MET_STARTING_BRICKS,
+                        "Server quorum regained for volume %s. Starting local "
+                        "bricks.", volinfo->volname);
+        else
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_SERVER_QUORUM_LOST_STOPPING_BRICKS,
+                        "Server quorum lost for volume %s. Stopping local "
+                        "bricks.", volinfo->volname);
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (!glusterd_is_local_brick (this, volinfo, brickinfo))
