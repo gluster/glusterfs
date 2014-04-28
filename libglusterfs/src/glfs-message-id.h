@@ -27,21 +27,35 @@
 
 /* Per module message segments allocated */
 /* NOTE: For any new module add to the end the modules */
-#define GLFS_MSGID_COMP_GLUSTERFSD      GLFS_MSGID_BASE
-#define GLFS_MSGID_COMP_LIBGLUSTERFS    GLFS_MSGID_COMP_GLUSTERFSD + \
-                                        GLFS_MSGID_SEGMENT
-#define GLFS_MSGID_COMP_RPC_LIB         GLFS_MSGID_COMP_LIBGLUSTERFS + \
-                                        GLFS_MSGID_SEGMENT
-#define GLFS_MSGID_COMP_RPC_TRANSPORT   GLFS_MSGID_COMP_RPC_LIB + \
-                                        GLFS_MSGID_SEGMENT
-#define GLFS_MSGID_COMP_API             GLFS_MSGID_COMP_RPC_TRANSPORT + \
-                                        GLFS_MSGID_SEGMENT
-#define GLFS_MSGID_COMP_CLI             GLFS_MSGID_COMP_API + \
-                                        GLFS_MSGID_SEGMENT
+#define GLFS_MSGID_COMP_GLUSTERFSD         GLFS_MSGID_BASE
+#define GLFS_MSGID_COMP_GLUSTERFSD_END     GLFS_MSGID_COMP_GLUSTERFSD + \
+                                           GLFS_MSGID_SEGMENT
+
+#define GLFS_MSGID_COMP_LIBGLUSTERFS       GLFS_MSGID_COMP_GLUSTERFSD_END
+#define GLFS_MSGID_COMP_LIBGLUSTERFS_END   GLFS_MSGID_COMP_LIBGLUSTERFS + \
+                                           GLFS_MSGID_SEGMENT
+
+#define GLFS_MSGID_COMP_RPC_LIB            GLFS_MSGID_COMP_LIBGLUSTERFS_END
+#define GLFS_MSGID_COMP_RPC_LIB_END        GLFS_MSGID_COMP_RPC_LIB + \
+                                           GLFS_MSGID_SEGMENT
+
+#define GLFS_MSGID_COMP_RPC_TRANSPORT      GLFS_MSGID_COMP_RPC_LIB_END
+#define GLFS_MSGID_COMP_RPC_TRANSPORT_END  GLFS_MSGID_COMP_RPC_TRANSPORT + \
+                                           GLFS_MSGID_SEGMENT
+
+#define GLFS_MSGID_COMP_API                GLFS_MSGID_COMP_RPC_TRANSPORT_END
+#define GLFS_MSGID_COMP_API_END            GLFS_MSGID_COMP_API + \
+                                           GLFS_MSGID_SEGMENT
+
+#define GLFS_MSGID_COMP_CLI                GLFS_MSGID_COMP_API_END
+#define GLFS_MSGID_COMP_CLI_END            GLFS_MSGID_COMP_CLI + \
+                                           GLFS_MSGID_SEGMENT
+
 /* glusterd has a lot of messages, taking 2 segments for the same */
-#define GLFS_MSGID_GLUSTERD             GLFS_MSGID_COMP_CLI + \
-                                        GLFS_MSGID_SEGMENT + \
-                                        GLFS_MSGID_SEGMENT
+#define GLFS_MSGID_GLUSTERD                GLFS_MSGID_COMP_CLI_END
+#define GLFS_MSGID_GLUSTERD_END            GLFS_MSGID_GLUSTERD + \
+                                           GLFS_MSGID_SEGMENT + \
+                                           GLFS_MSGID_SEGMENT
 
 /* --- new segments for messages goes above this line --- */
 
