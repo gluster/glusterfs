@@ -1500,11 +1500,10 @@ bd_opendir (call_frame_t *frame, xlator_t *this,
 
         op_ret = 0;
 out:
-        if (op_ret == -1) {
+        if (op_ret == -1 && bd_fd) {
                 BD_PUT_ENTRY (priv, bd_fd->p_entry);
-                if (bd_fd)
-                        GF_FREE (bd_fd);
         }
+        GF_FREE (bd_fd);
 
         STACK_UNWIND_STRICT (opendir, frame, op_ret, op_errno, fd, NULL);
         return 0;
@@ -1725,7 +1724,7 @@ __bd_fill_readdir (pthread_rwlock_t *bd_lock, bd_fd_t *bd_fd, off_t off,
 
         BD_RD_LOCK (bd_lock);
 
-        bdentry = list_entry ((&bd_fd->p_entry->child)->next, typeof(*n_entry),
+        bdentry = list_entry ((&bd_fd->p_entry->child)->next, bd_entry_t,
                         child);
 
         if (off) {
@@ -1738,7 +1737,7 @@ __bd_fill_readdir (pthread_rwlock_t *bd_lock, bd_fd_t *bd_fd, off_t off,
                 }
         } else
                 bd_fd->entry = list_entry ((&bdentry->sibling),
-                                typeof(*n_entry), sibling);
+                                            bd_entry_t, sibling);
 
         while (filled <= size) {
                 cur_entry = bd_fd->entry;

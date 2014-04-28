@@ -4240,13 +4240,13 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
         xlator_t                                *this = NULL;
         glusterd_conf_t                         *conf = NULL;
 
-        if ((!brickinfo) || (!volinfo))
-                goto out;
-
         this = THIS;
         GF_ASSERT (this);
         conf = this->private;
         GF_ASSERT (conf);
+
+        if ((!brickinfo) || (!volinfo))
+                goto out;
 
         if (uuid_is_null (brickinfo->uuid)) {
                 ret = glusterd_resolve_brick (brickinfo);
@@ -5074,13 +5074,13 @@ glusterd_brick_stop (glusterd_volinfo_t *volinfo,
         xlator_t                                *this = NULL;
         glusterd_conf_t                         *conf = NULL;
 
-        if ((!brickinfo) || (!volinfo))
-                goto out;
-
         this = THIS;
         GF_ASSERT (this);
         conf = this->private;
         GF_ASSERT (conf);
+
+        if ((!brickinfo) || (!volinfo))
+                goto out;
 
         if (uuid_is_null (brickinfo->uuid)) {
                 ret = glusterd_resolve_brick (brickinfo);

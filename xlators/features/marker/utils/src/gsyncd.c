@@ -70,7 +70,7 @@ str2argv (char *str, char ***argv)
         int ret         = 0;
 
         assert (str);
-        str = strdup (str);
+        str = gf_strdup (str);
         if (!str)
                 return -1;
 

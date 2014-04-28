@@ -1508,6 +1508,8 @@ afr_sh_remove_entry_cbk (call_frame_t *frame, xlator_t *this, int child,
         afr_self_heal_t *sh = NULL;
 
         local = frame->local;
+        GF_ASSERT (local);
+
         sh = &local->self_heal;
 
         GF_ASSERT (sh->post_remove_call);
@@ -1567,7 +1569,7 @@ afr_sh_call_entry_expunge_remove (call_frame_t *frame, xlator_t *this,
         return;
 out:
         gf_log (this->name, GF_LOG_ERROR, "Expunge of %s failed, reason: %s",
-                local->loc.path, strerror (op_errno));
+                local ? local->loc.path : "<unknown>" , strerror (op_errno));
         expunge_done (frame, this, child_index, -1, op_errno);
 }
 

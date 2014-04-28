@@ -671,7 +671,7 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
                 ret = -1;
                 gf_log ("", GF_LOG_WARNING, "unsuccessful mount request (%s)",
                         strerror (*op_errno));
-                if (mtptemp) {
+                if (mtptemp && cookieswitch) {
                         *cookieswitch = '/';
                         unlink (mtptemp);
                         *cookieswitch = '\0';

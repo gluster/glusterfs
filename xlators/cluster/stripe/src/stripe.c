@@ -4402,10 +4402,15 @@ unlock:
 out:
         if (!count) {
                 /* all entries are directories */
-                frame->local = NULL;
-                STRIPE_STACK_UNWIND (readdir, frame, local->op_ret,
-                                     local->op_errno, &local->entries, NULL);
-                gf_dirent_free (&local->entries);
+                if (frame)
+                        frame->local = NULL;
+                STRIPE_STACK_UNWIND (readdir, frame,
+                                     local ? local->op_ret : -1,
+                                     local ? local->op_errno : EINVAL,
+                                     local ? &local->entries : NULL,
+                                     NULL);
+                if (local)
+                        gf_dirent_free (&local->entries);
                 stripe_local_wipe (local);
                 mem_put (local);
         }
