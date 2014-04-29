@@ -79,7 +79,7 @@ function add_samba_share () {
         STRING+="glusterfs:volume = $volname\n"
         STRING+="glusterfs:logfile = $LOGFILEBASE/glusterfs-$volname.%%M.log\n"
         STRING+="glusterfs:loglevel = 7\n"
-        STRING+="path = %%P/\n"
+        STRING+="path = /\n"
         STRING+="read only = no\n"
         STRING+="guest ok = yes\n"
         printf "$STRING"  >> ${CONFIGFILE}
