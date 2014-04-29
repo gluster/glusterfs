@@ -430,6 +430,135 @@ afr_handle_symmetric_errors (call_frame_t *frame, xlator_t *this)
 		__mark_all_success (frame, this);
 }
 
+gf_boolean_t
+afr_has_quorum (unsigned char *subvols, xlator_t *this)
+{
+        unsigned int  quorum_count = 0;
+        afr_private_t *priv  = NULL;
+        unsigned int  up_children_count = 0;
+
+        priv = this->private;
+        up_children_count = AFR_COUNT (subvols, priv->child_count);
+
+        if (priv->quorum_count == AFR_QUORUM_AUTO) {
+        /*
+         * Special case for even numbers of nodes in auto-quorum:
+         * if we have exactly half children up
+         * and that includes the first ("senior-most") node, then that counts
+         * as quorum even if it wouldn't otherwise.  This supports e.g. N=2
+         * while preserving the critical property that there can only be one
+         * such group.
+         */
+                if ((priv->child_count % 2 == 0) &&
+                    (up_children_count == (priv->child_count/2)))
+                        return subvols[0];
+        }
+
+        if (priv->quorum_count == AFR_QUORUM_AUTO) {
+                quorum_count = priv->child_count/2 + 1;
+        } else {
+                quorum_count = priv->quorum_count;
+        }
+
+        if (up_children_count >= quorum_count)
+                return _gf_true;
+
+        return _gf_false;
+}
+
+static gf_boolean_t
+afr_has_fop_quorum (call_frame_t *frame)
+{
+        xlator_t        *this = frame->this;
+        afr_local_t     *local = frame->local;
+        unsigned char *locked_nodes = NULL;
+
+        locked_nodes = afr_locked_nodes_get (local->transaction.type,
+                                             &local->internal_lock);
+        return afr_has_quorum (locked_nodes, this);
+}
+
+static gf_boolean_t
+afr_has_fop_cbk_quorum (call_frame_t *frame)
+{
+        afr_local_t   *local   = frame->local;
+        xlator_t      *this    = frame->this;
+        afr_private_t *priv    = this->private;
+        unsigned char *success = alloca0(priv->child_count);
+        int           i        = 0;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->transaction.pre_op[i])
+                        if (!local->transaction.failed_subvols[i])
+                                success[i] = 1;
+        }
+
+        return afr_has_quorum (success, this);
+}
+
+void
+afr_handle_quorum (call_frame_t *frame)
+{
+        afr_local_t   *local = NULL;
+        afr_private_t *priv  = NULL;
+        int           i      = 0;
+        const char    *file  = NULL;
+        uuid_t        gfid   = {0};
+
+        local = frame->local;
+        priv  = frame->this->private;
+
+        if (priv->quorum_count == 0)
+                return;
+
+        /*
+         * Network split may happen just after the fops are unwound, so check
+         * if the fop succeeded in a way it still follows quorum. If it doesn't,
+         * mark the fop as failure, mark the changelogs so it reflects that
+         * failure.
+         *
+         * Scenario:
+         * There are 3 mounts on 3 machines(node1, node2, node3) all writing to
+         * single file. Network split happened in a way that node1 can't see
+         * node2, node3. Node2, node3 both of them can't see node1. Now at the
+         * time of sending write all the bricks are up. Just after write fop is
+         * wound on node1, network split happens. Node1 thinks write fop failed
+         * on node2, node3 so marks pending changelog for those 2 extended
+         * attributes on node1. Node2, node3 thinks writes failed on node1 so
+         * they mark pending changelog for node1. When the network is stable
+         * again the file already is in split-brain. These checks prevent
+         * marking pending changelog on other subvolumes if the fop doesn't
+         * succeed in a way it is still following quorum. So with this fix what
+         * is happening is, node1 will have all pending changelog(FOOL) because
+         * the write succeeded only on node1 but failed on node2, node3 so
+         * instead of marking pending changelogs on node2, node3 it just treats
+         * the fop as failure and goes into DIRTY state. Where as node2, node3
+         * say they are sources and have pending changelog to node1 so there is
+         * no split-brain with the fix. The problem is eliminated completely.
+         */
+
+        if (afr_has_fop_cbk_quorum (frame))
+                return;
+
+        if (local->fd) {
+                uuid_copy (gfid, local->fd->inode->gfid);
+                file = uuid_utoa (gfid);
+        } else {
+                loc_path (&local->loc, local->loc.name);
+                file = local->loc.path;
+        }
+
+        gf_log (frame->this->name, GF_LOG_WARNING, "%s: Failing %s as quorum "
+                "is not met", file, gf_fop_list[local->op]);
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->transaction.pre_op[i])
+                        afr_transaction_fop_failed (frame, frame->this, i);
+        }
+
+        local->op_ret = -1;
+        local->op_errno = EROFS;
+}
 
 int
 afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
@@ -443,6 +572,7 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
         int            nothing_failed = 1;
 	gf_boolean_t   need_undirty = _gf_false;
 
+        afr_handle_quorum (frame);
         local = frame->local;
 	idx = afr_index_for_transaction_type (local->transaction.type);
 
@@ -452,6 +582,14 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
 		need_undirty = _gf_false;
 	else
 		need_undirty = _gf_true;
+
+        //If the fop fails on all the subvols then pending markers are placed
+        //for every subvol on all subvolumes. Which is nothing but split-brain.
+        //Avoid this by not doing post-op in case of failures.
+        if (local->op_ret < 0) {
+                afr_changelog_post_op_done (frame, this);
+                goto out;
+        }
 
 	if (nothing_failed && !need_undirty) {
 		afr_changelog_post_op_done (frame, this);
@@ -842,7 +980,10 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 		}
 	}
 
-	/* TBD: quorum check w/ call_count */
+        if (priv->quorum_count && !afr_has_fop_quorum (frame)) {
+                op_errno = EROFS;
+                goto err;
+        }
 
         if (call_count == 0) {
 		op_errno = ENOTCONN;
@@ -1056,7 +1197,6 @@ afr_post_blocking_rename_cbk (call_frame_t *frame, xlator_t *this)
         }
         return 0;
 }
-
 
 int
 afr_post_lower_unlock_cbk (call_frame_t *frame, xlator_t *this)
