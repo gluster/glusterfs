@@ -1264,6 +1264,7 @@ glusterd_do_lvm_snapshot_remove (glusterd_volinfo_t *snap_vol,
         char                    msg[1024]         = {0, };
         char                    pidfile[PATH_MAX] = {0, };
         pid_t                   pid               = -1;
+        int                     retry_count       = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1288,28 +1289,28 @@ glusterd_do_lvm_snapshot_remove (glusterd_volinfo_t *snap_vol,
                 }
         }
 
-        runinit (&runner);
-        snprintf (msg, sizeof (msg), "umount the snapshot mounted path %s",
-                  mount_pt);
-        runner_add_args (&runner, "umount", mount_pt, NULL);
-        runner_log (&runner, "", GF_LOG_DEBUG, msg);
+        /* umount cannot be done when the brick process is still in the process
+           of shutdown, so give three re-tries */
+        while (retry_count < 3) {
+                retry_count++;
+                ret = umount2(mount_pt, MNT_FORCE);
+                if (!ret)
+                        break;
 
-        /* We need not do synclock_unlock => runner_run => synclock_lock here.
-           Because it is needed if we are running a glusterfs process in
-           runner_run, so that when the glusterfs process started wants to
-           communicate to glusterd, glusterd wont be able to respond if it
-           has held the big lock. So we do unlock, run glusterfs process
-           (thus communicate to glusterd), lock. But since this is not a
-           glusterfs command that is being run, unlocking and then relocking
-           is not needed.
-        */
-        ret = runner_run (&runner);
-        if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "unmounting the "
-                        "path %s (brick: %s) failed (%s)", mount_pt,
-                        brickinfo->path, strerror (errno));
-                goto out;
+                if (errno == EBUSY) {
+                        gf_log (this->name, GF_LOG_DEBUG, "umount failed for "
+                                "path %s (brick: %s): %s. Retry(%d)", mount_pt,
+                                brickinfo->path, strerror (errno), retry_count);
+                } else {
+                        gf_log (this->name, GF_LOG_ERROR, "umount failed for "
+                                "path %s (brick: %s): %s.", mount_pt,
+                                brickinfo->path, strerror (errno));
+                        goto out;
+                }
+                sleep (1);
         }
+        if (ret)
+                goto out;
 
         runinit (&runner);
         snprintf (msg, sizeof(msg), "remove snapshot of the brick %s:%s, "
