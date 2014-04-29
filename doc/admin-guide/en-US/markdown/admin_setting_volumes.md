@@ -155,8 +155,16 @@ high-availability and high-reliability are critical.
     auth.allow or auth.reject.
 
     > **Note**:
-    > Make sure you start your volumes before you try to mount them or
+
+    > - Make sure you start your volumes before you try to mount them or
     > else client operations after the mount will hang.
+
+    > - GlusterFS will fail to create a replicate volume if more than one brick of a replica set is present on the same peer. For eg. four node replicated volume with a more that one brick of a replica set is present on the same peer.
+    > ```
+    # gluster volume create <volname> replica 4 server1:/brick1 server1:/brick2 server2:/brick3 server4:/brick4
+    volume create: <volname>: failed: Multiple bricks of a replicate volume are present on the same server. This setup is not optimal. Use 'force' at the end of the command if you want to override this behavior.```
+
+    >  Use the `force` option at the end of command if you want to create the volume in this case.
 
 ##Creating Striped Volumes
 
@@ -275,8 +283,16 @@ environments.
     auth.allow or auth.reject.
 
     > **Note**:
-    > Make sure you start your volumes before you try to mount them or
+    > - Make sure you start your volumes before you try to mount them or
     > else client operations after the mount will hang.
+
+    > - GlusterFS will fail to create a distribute replicate volume if more than one brick of a replica set is present on the same peer. For eg. four node distribute (replicated) volume with a more than one brick of a replica set is present on the same peer.
+    > ```
+    # gluster volume create <volname> replica 2 server1:/brick1 server1:/brick2 server2:/brick3 server4:/brick4
+    volume create: <volname>: failed: Multiple bricks of a replicate volume are present on the same server. This setup is not optimal. Use 'force' at the end of the command if you want to override this behavior.```
+
+    >  Use the `force` option at the end of command if you want to create the volume in this case.
+
 
 ##Creating Distributed Striped Replicated Volumes
 
@@ -312,8 +328,15 @@ Map Reduce workloads.
     auth.allow or auth.reject.
 
     > **Note**:
-    > Make sure you start your volumes before you try to mount them or
+    > - Make sure you start your volumes before you try to mount them or
     > else client operations after the mount will hang.
+
+    > - GlusterFS will fail to create a distribute replicate volume if more than one brick of a replica set is present on the same peer. For eg. four node distribute (replicated) volume with a more than one brick of a replica set is present on the same peer.
+    > ```
+    # gluster volume create <volname> stripe 2 replica 2 server1:/brick1 server1:/brick2 server2:/brick3 server4:/brick4
+    volume create: <volname>: failed: Multiple bricks of a replicate volume are present on the same server. This setup is not optimal. Use 'force' at the end of the command if you want to override this behavior.```
+
+    >  Use the `force` option at the end of command if you want to create the volume in this case.
 
 ##Creating Striped Replicated Volumes
 
@@ -356,8 +379,15 @@ of this volume type is supported only for Map Reduce workloads.
     auth.allow or auth.reject.
 
     > **Note**:
-    > Make sure you start your volumes before you try to mount them or
+    > - Make sure you start your volumes before you try to mount them or
     > else client operations after the mount will hang.
+
+    > - GlusterFS will fail to create a distribute replicate volume if more than one brick of a replica set is present on the same peer. For eg. four node distribute (replicated) volume with a more than one brick of replica set is present on the same peer.
+    > ```
+    # gluster volume create <volname> stripe 2 replica 2 server1:/brick1 server1:/brick2 server2:/brick3 server4:/brick4
+    volume create: <volname>: failed: Multiple bricks of a replicate volume are present on the same server. This setup is not optimal. Use 'force' at the end of the command if you want to override this behavior.```
+
+    >  Use the `force` option at the end of command if you want to create the volume in this case.
 
 ##Starting Volumes
 

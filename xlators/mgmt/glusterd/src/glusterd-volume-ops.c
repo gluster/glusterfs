@@ -28,11 +28,221 @@
 #include "glusterd-messages.h"
 #include "run.h"
 
+#include <stdint.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <stdlib.h>
+
 #define glusterd_op_start_volume_args_get(dict, volname, flags) \
         glusterd_op_stop_volume_args_get (dict, volname, flags)
 
 extern int
 _get_slave_status (dict_t *this, char *key, data_t *value, void *data);
+
+gf_ai_compare_t
+glusterd_compare_addrinfo (struct addrinfo *first, struct addrinfo *next)
+{
+        int             ret = -1;
+        struct addrinfo *tmp1 = NULL;
+        struct addrinfo *tmp2 = NULL;
+        char            firstip[NI_MAXHOST] = {0.};
+        char            nextip[NI_MAXHOST] = {0,};
+
+        for (tmp1 = first; tmp1 != NULL; tmp1 = tmp1->ai_next) {
+                ret = getnameinfo (tmp1->ai_addr, tmp1->ai_addrlen, firstip,
+                                   NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
+                if (ret)
+                        return GF_AI_COMPARE_ERROR;
+                for (tmp2 = next; tmp2 != NULL; tmp2 = tmp2->ai_next) {
+                      ret = getnameinfo (tmp2->ai_addr, tmp2->ai_addrlen,
+                                         nextip, NI_MAXHOST, NULL, 0,
+                                         NI_NUMERICHOST);
+                      if (ret)
+                              return GF_AI_COMPARE_ERROR;
+                      if (!strcmp (firstip, nextip)) {
+                              return GF_AI_COMPARE_MATCH;
+                      }
+                }
+        }
+        return GF_AI_COMPARE_NO_MATCH;
+}
+
+/* Check for non optimal brick order for replicate :
+ * Checks if bricks belonging to a replicate volume
+ * are present on the same server
+ */
+int32_t
+glusterd_check_brick_order(dict_t *dict, char *err_str)
+{
+        int             ret             = -1;
+        int             i               = 0;
+        int             j               = 0;
+        int             k               = 0;
+        xlator_t        *this           = NULL;
+        addrinfo_list_t *ai_list        = NULL;
+        addrinfo_list_t *ai_list_tmp1   = NULL;
+        addrinfo_list_t *ai_list_tmp2   = NULL;
+        char            *brick          = NULL;
+        char            *brick_list     = NULL;
+        char            *brick_list_dup = NULL;
+        char            *tmpptr         = NULL;
+        char            *volname        = NULL;
+        int32_t         brick_count     = 0;
+        int32_t         type            = GF_CLUSTER_TYPE_NONE;
+        int32_t         sub_count       = 0;
+        struct addrinfo *ai_info        = NULL;
+
+        const char      failed_string[2048] = "Failed to perform brick order "
+                                "check. Use 'force' at the end of the command"
+                                " if you want to override this behavior. ";
+        const char      found_string[2048]  = "Multiple bricks of a replicate "
+                                "volume are present on the same server. This "
+                                "setup is not optimal. Use 'force' at the "
+                                "end of the command if you want to override "
+                                "this behavior. ";
+
+        this = THIS;
+
+        GF_ASSERT(this);
+
+        ai_list = malloc (sizeof (addrinfo_list_t));
+        ai_list->info = NULL;
+        INIT_LIST_HEAD (&ai_list->list);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "type", &type);
+        if (ret) {
+                snprintf (err_str, 512, "Unable to get type of volume %s",
+                          volname);
+                gf_log (this->name, GF_LOG_WARNING, "%s", err_str);
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "bricks", &brick_list);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Bricks check : Could not "
+                        "retrieve bricks list");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "count", &brick_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Bricks check : Could not "
+                        "retrieve brick count");
+                goto out;
+        }
+
+        if (type != GF_CLUSTER_TYPE_DISPERSE) {
+                ret = dict_get_int32 (dict, "replica-count", &sub_count);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Bricks check : Could"
+                                " not retrieve replica count");
+                        goto out;
+                }
+                gf_log (this->name, GF_LOG_DEBUG, "Replicate cluster type "
+                        "found. Checking brick order.");
+        } else {
+                ret = dict_get_int32 (dict, "disperse-count", &sub_count);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Bricks check : Could"
+                                " not retrieve disperse count");
+                        goto out;
+                }
+                gf_log (this->name, GF_LOG_INFO, "Disperse cluster type"
+                        " found. Checking brick order.");
+        }
+
+        brick_list_dup = gf_strdup(brick_list);
+        /* Resolve hostnames and get addrinfo */
+        while (i < brick_count) {
+                ++i;
+                brick = strtok_r (brick_list_dup, " \n", &tmpptr);
+                brick_list = tmpptr;
+                if (brick == NULL)
+                        goto check_failed;
+                brick = strtok_r (brick, ":", &tmpptr);
+                if (brick == NULL)
+                        goto check_failed;
+                ret = getaddrinfo (brick, NULL, NULL, &ai_info);
+                if (ret != 0) {
+                        ret = 0;
+                        gf_log (this->name, GF_LOG_ERROR, "unable to resolve "
+                                "host name");
+                        goto out;
+                }
+                ai_list_tmp1 = malloc (sizeof (addrinfo_list_t));
+                if (ai_list_tmp1 == NULL) {
+                        ret = 0;
+                        gf_log (this->name, GF_LOG_ERROR, "failed to allocate "
+                                "memory");
+                        goto out;
+                }
+                ai_list_tmp1->info = ai_info;
+                list_add_tail (&ai_list_tmp1->list, &ai_list->list);
+                ai_list_tmp1 = NULL;
+        }
+
+        i = 0;
+        ai_list_tmp1 = list_entry (ai_list->list.next, addrinfo_list_t, list);
+
+        /* Check for bad brick order */
+        while (i < brick_count) {
+                ++i;
+                ai_info = ai_list_tmp1->info;
+                ai_list_tmp1 = list_entry (ai_list_tmp1->list.next,
+                                           addrinfo_list_t, list);
+                if (0 == i % sub_count) {
+                        j = 0;
+                        continue;
+                }
+                ai_list_tmp2 = ai_list_tmp1;
+                k = j;
+                while (k < sub_count - 1) {
+                        ++k;
+                        ret = glusterd_compare_addrinfo (ai_info,
+                                                         ai_list_tmp2->info);
+                        if (GF_AI_COMPARE_ERROR == ret)
+                                goto check_failed;
+                        if (GF_AI_COMPARE_MATCH == ret)
+                                goto found_bad_brick_order;
+                        ai_list_tmp2 = list_entry (ai_list_tmp2->list.next,
+                                                   addrinfo_list_t, list);
+                }
+                ++j;
+        }
+        gf_log (this->name, GF_LOG_DEBUG, "Brick order okay");
+        ret = 0;
+        goto out;
+
+check_failed:
+        gf_log (this->name, GF_LOG_ERROR, "Failed bad brick order check");
+        snprintf (err_str, sizeof (failed_string), failed_string);
+        ret = -1;
+        goto out;
+
+found_bad_brick_order:
+        gf_log (this->name, GF_LOG_INFO, "Bad brick order found");
+        snprintf (err_str, sizeof (found_string), found_string);
+        ret = -1;
+out:
+        ai_list_tmp2 = NULL;
+        GF_FREE (brick_list_dup);
+        list_for_each_entry (ai_list_tmp1, &ai_list->list, list) {
+                if (ai_list_tmp1->info)
+                          freeaddrinfo (ai_list_tmp1->info);
+                free (ai_list_tmp2);
+                ai_list_tmp2 = ai_list_tmp1;
+        }
+        free (ai_list_tmp2);
+        return ret;
+}
 
 int
 __glusterd_handle_create_volume (rpcsvc_request_t *req)
@@ -724,11 +934,12 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr,
         char                                    *bricks = NULL;
         char                                    *brick_list = NULL;
         char                                    *free_ptr = NULL;
-        char                                     key[PATH_MAX] = "";
+        char                                    key[PATH_MAX] = "";
         glusterd_brickinfo_t                    *brick_info = NULL;
         int32_t                                 brick_count = 0;
         int32_t                                 local_brick_count = 0;
         int32_t                                 i = 0;
+        int32_t                                 type = 0;
         char                                    *brick = NULL;
         char                                    *tmpptr = NULL;
         xlator_t                                *this = NULL;
@@ -879,6 +1090,30 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr,
                 }
                 glusterd_brickinfo_delete (brick_info);
                 brick_info = NULL;
+        }
+
+        /*Check brick order if the volume type is replicate or disperse. If
+         * force at the end of command not given then check brick order.
+         */
+        ret = dict_get_int32 (dict, "type", &type);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Unable to get type of volume %s",
+                          volname);
+                gf_log (this->name, GF_LOG_WARNING, "%s", msg);
+                goto out;
+        }
+
+        if (!is_force) {
+                if ((type == GF_CLUSTER_TYPE_REPLICATE) ||
+                    (type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) ||
+                    (type == GF_CLUSTER_TYPE_DISPERSE)) {
+                        ret = glusterd_check_brick_order(dict, msg);
+                        if (ret) {
+                                gf_log(this->name, GF_LOG_ERROR, "Not creating "
+                                       "volume because of bad brick order");
+                                goto out;
+                        }
+                }
         }
 
         ret = dict_set_int32 (rsp_dict, "brick_count", local_brick_count);
