@@ -523,12 +523,11 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
                 if (!brick_req)
                         goto out;
 
-                brick_req->op = GLUSTERD_VOLUME_BARRIER_OP;
+                brick_req->op = GLUSTERD_BRICK_BARRIER;
                 ret = dict_get_str (dict, "volname", &volname);
                 if (ret)
                         goto out;
-                snprintf (name, 1024, "%s-server",volname);
-                brick_req->name = gf_strdup (name);
+                brick_req->name = gf_strdup (volname);
 
                 break;
         case GD_OP_BARRIER:

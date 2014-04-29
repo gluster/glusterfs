@@ -42,4 +42,6 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
 int
 glusterd_snap_pre_validate_use_rsp_dict (dict_t *dst, dict_t *src);
 
+int32_t
+glusterd_set_barrier_value (dict_t *dict, char *option);
 #endif /* _GLUSTERD_MGMT_H_ */

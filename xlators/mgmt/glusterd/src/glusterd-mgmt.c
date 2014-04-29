@@ -19,6 +19,8 @@
 #include "glusterd-locks.h"
 #include "glusterd-mgmt.h"
 #include "glusterd-op-sm.h"
+#include "glusterd-volgen.h"
+#include "glusterd-store.h"
 
 extern struct rpc_clnt_program gd_mgmt_v3_prog;
 
@@ -1687,6 +1689,68 @@ out:
 }
 
 int32_t
+glusterd_set_barrier_value (dict_t *dict, char *option)
+{
+        int32_t                 ret             = -1;
+        xlator_t                *this           = NULL;
+        glusterd_volinfo_t     *vol             = NULL;
+        char                    *volname        = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        GF_ASSERT (dict);
+        GF_ASSERT (option);
+
+        /* TODO : Change this when we support multiple volume.
+         * As of now only snapshot of single volume is supported,
+         * Hence volname1 is directly fetched
+         */
+        ret = dict_get_str (dict, "volname1", &volname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Volname not present in "
+                        "dict");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &vol);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Volume %s not found ",
+                        volname);
+                goto out;
+        }
+
+        ret = dict_set_dynstr_with_alloc (dict, "barrier", option);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set barrier op "
+                        "in request dictionary");
+                goto out;
+        }
+
+        ret = dict_set_dynstr_with_alloc (vol->dict, "features.barrier",
+                                          option);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set barrier op "
+                        "in volume option dict");
+                goto out;
+        }
+
+        gd_update_volume_op_versions (vol);
+
+        ret = glusterd_create_volfiles (vol);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to create volfiles");
+                goto out;
+        }
+
+        ret = glusterd_store_volinfo (vol, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
 glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
                                        dict_t *dict)
 {
@@ -1776,10 +1840,16 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
                 goto out;
         }
 
-        /* BRICK OP PHASE for initiating barrier*/
-        ret = dict_set_int32 (req_dict, "barrier", 1);
-        if (ret)
+        /* Set the operation type as pre, so that differentiation can be
+         * made whether the brickop is sent during pre-commit or post-commit
+         */
+        ret = dict_set_dynstr_with_alloc (req_dict, "operation-type", "pre");
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set "
+                        "operation-type in dictionary");
                 goto out;
+        }
+
         ret = glusterd_mgmt_v3_brick_op (conf, op, req_dict,
                                         &op_errstr, npeers);
         if (ret) {
@@ -1821,10 +1891,16 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
 
         success = _gf_true;
 unbarrier:
-        /* BRICK OP PHASE for removing the barrier*/
-        ret = dict_set_int32 (req_dict, "barrier", 0);
-        if (ret)
+        /* Set the operation type as post, so that differentiation can be
+         * made whether the brickop is sent during pre-commit or post-commit
+         */
+        ret = dict_set_dynstr_with_alloc (req_dict, "operation-type", "post");
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set "
+                        "operation-type in dictionary");
                 goto out;
+        }
+
         ret = glusterd_mgmt_v3_brick_op (conf, op, req_dict,
                                          &op_errstr, npeers);
 
