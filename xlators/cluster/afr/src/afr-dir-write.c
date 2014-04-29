@@ -447,8 +447,6 @@ afr_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         priv = this->private;
 
-        QUORUM_CHECK(create,out);
-
         transaction_frame = copy_frame (frame);
         if (!transaction_frame)
                 goto out;
@@ -585,8 +583,6 @@ afr_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         priv = this->private;
 
-        QUORUM_CHECK(mknod,out);
-
         transaction_frame = copy_frame (frame);
         if (!transaction_frame)
                 goto out;
@@ -718,8 +714,6 @@ afr_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         priv = this->private;
 
-        QUORUM_CHECK(mkdir,out);
-
         transaction_frame = copy_frame (frame);
         if (!transaction_frame)
                 goto out;
@@ -848,8 +842,6 @@ afr_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         int                     op_errno                = ENOMEM;
 
         priv = this->private;
-
-        QUORUM_CHECK(link,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame)
@@ -980,8 +972,6 @@ afr_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
         int                     op_errno                = ENOMEM;
 
         priv = this->private;
-
-        QUORUM_CHECK(symlink,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame)
@@ -1115,8 +1105,6 @@ afr_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         int                     nlockee                 = 0;
 
         priv = this->private;
-
-        QUORUM_CHECK(rename,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame)
@@ -1271,8 +1259,6 @@ afr_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
 
         priv = this->private;
 
-        QUORUM_CHECK(unlink,out);
-
         transaction_frame = copy_frame (frame);
         if (!transaction_frame)
                 goto out;
@@ -1399,8 +1385,6 @@ afr_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
         int                     nlockee                 = 0;
 
         priv = this->private;
-
-        QUORUM_CHECK(rmdir,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame)

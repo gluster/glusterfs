@@ -131,10 +131,6 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         priv = this->private;
 
-        if (flags & (O_CREAT|O_TRUNC)) {
-                QUORUM_CHECK(open,out);
-        }
-
 	local = AFR_FRAME_INIT (frame, op_errno);
 	if (!local)
 		goto out;
