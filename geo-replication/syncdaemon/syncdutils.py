@@ -47,6 +47,9 @@ except ImportError:
 _CL_AUX_GFID_PFX = ".gfid/"
 GF_OP_RETRIES = 20
 
+CHANGELOG_AGENT_SERVER_VERSION = 1.0
+CHANGELOG_AGENT_CLIENT_VERSION = 1.0
+
 
 def escape(s):
     """the chosen flavor of string escaping, used all over

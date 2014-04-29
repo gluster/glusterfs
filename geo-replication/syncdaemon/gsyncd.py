@@ -32,6 +32,7 @@ from syncdutils import GsyncdError, select, set_term_handler
 from configinterface import GConffile, upgrade_config_file
 import resource
 from monitor import monitor
+from changelogagent import agent, Changelog
 
 
 class GLogger(Logger):
@@ -175,6 +176,7 @@ def main_i():
     - query/manipulate configuration
     - format gsyncd urls using gsyncd's url parsing engine
     - start service in following modes, in given stages:
+      - agent: startup(), ChangelogAgent()
       - monitor: startup(), monitor()
       - master: startup(), connect_remote(), connect(), service_loop()
       - slave: startup(), connect(), service_loop()
@@ -275,12 +277,15 @@ def main_i():
     # duh. need to specify dest or value will be mapped to None :S
     op.add_option('--monitor', dest='monitor', action='callback',
                   callback=store_local_curry(True))
+    op.add_option('--agent', dest='agent', action='callback',
+                  callback=store_local_curry(True))
     op.add_option('--resource-local', dest='resource_local',
                   type=str, action='callback', callback=store_local)
     op.add_option('--resource-remote', dest='resource_remote',
                   type=str, action='callback', callback=store_local)
     op.add_option('--feedback-fd', dest='feedback_fd', type=int,
                   help=SUPPRESS_HELP, action='callback', callback=store_local)
+    op.add_option('--rpc-fd', dest='rpc_fd', type=str, help=SUPPRESS_HELP)
     op.add_option('--listen', dest='listen', help=SUPPRESS_HELP,
                   action='callback', callback=store_local_curry(True))
     op.add_option('-N', '--no-daemon', dest="go_daemon",
@@ -586,6 +591,7 @@ def main_i():
 
     go_daemon = rconf['go_daemon']
     be_monitor = rconf.get('monitor')
+    be_agent = rconf.get('agent')
 
     rscs, local, remote = makersc(args)
     if not be_monitor and isinstance(remote, resource.SSH) and \
@@ -596,6 +602,8 @@ def main_i():
         log_file = gconf.log_file
     if be_monitor:
         label = 'monitor'
+    elif be_agent:
+        label = 'agent'
     elif remote:
         # master
         label = gconf.local_path
@@ -603,6 +611,11 @@ def main_i():
         label = 'slave'
     startup(go_daemon=go_daemon, log_file=log_file, label=label)
     resource.Popen.init_errhandler()
+
+    if be_agent:
+        os.setsid()
+        logging.debug('rpc_fd: %s' % repr(gconf.rpc_fd))
+        return agent(Changelog(), gconf.rpc_fd)
 
     if be_monitor:
         return monitor(*rscs)

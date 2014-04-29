@@ -1108,9 +1108,9 @@ class GMasterChangelogMixin(GMasterCommon):
         if isinstance(purge_time, int):
             purge_time = None
 
-        self.master.server.changelog_scan()
+        self.changelog_agent.scan()
         self.crawls += 1
-        changes = self.master.server.changelog_getchanges()
+        changes = self.changelog_agent.getchanges()
         if changes:
             if purge_time:
                 logging.info("slave's time: %s" % repr(purge_time))
@@ -1120,22 +1120,24 @@ class GMasterChangelogMixin(GMasterCommon):
                     logging.info(
                         'skipping already processed change: %s...' %
                         os.path.basename(pr))
-                    self.master.server.changelog_done(pr)
+                    self.changelog_done_func(pr)
                     changes.remove(pr)
 
             if changes:
                 logging.debug('processing changes %s' % repr(changes))
                 self.process(changes)
 
-    def register(self):
+    def register(self, changelog_agent):
+        self.changelog_agent = changelog_agent
         self.sleep_interval = int(gconf.change_interval)
-        self.changelog_done_func = self.master.server.changelog_done
+        self.changelog_done_func = self.changelog_agent.done
 
 
 class GMasterChangeloghistoryMixin(GMasterChangelogMixin):
-    def register(self):
+    def register(self, changelog_agent):
+        self.changelog_agent = changelog_agent
         self.changelog_register_time = int(time.time())
-        self.changelog_done_func = self.master.server.history_changelog_done
+        self.changelog_done_func = self.changelog_agent.history_done
 
     def crawl(self):
         self.update_worker_crawl_status("History Crawl")
@@ -1157,21 +1159,21 @@ class GMasterChangeloghistoryMixin(GMasterChangelogMixin):
         # location then consuming history will not work(Known issue as of now)
         changelog_path = os.path.join(gconf.local_path,
                                       ".glusterfs/changelogs")
-        ts = self.master.server.history_changelog(changelog_path,
-                                                  purge_time[0],
-                                                  self.changelog_register_time,
-                                                  int(gconf.sync_jobs))
+        ts = self.changelog_agent.history(changelog_path,
+                                          purge_time[0],
+                                          self.changelog_register_time,
+                                          int(gconf.sync_jobs))
 
         # scan followed by getchanges till scan returns zero.
-        # history_changelog_scan() is blocking call, till it gets the number
+        # history_scan() is blocking call, till it gets the number
         # of changelogs to process. Returns zero when no changelogs
         # to be processed. returns positive value as number of changelogs
         # to be processed, which will be fetched using
-        # history_changelog_getchanges()
-        while self.master.server.history_changelog_scan() > 0:
+        # history_getchanges()
+        while self.changelog_agent.history_scan() > 0:
             self.crawls += 1
 
-            changes = self.master.server.history_changelog_getchanges()
+            changes = self.changelog_agent.history_getchanges()
             if changes:
                 if purge_time:
                     logging.info("slave's time: %s" % repr(purge_time))
@@ -1208,7 +1210,7 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
 
     XSYNC_MAX_ENTRIES = 1 << 13
 
-    def register(self):
+    def register(self, changelog_agent=None):
         self.counter = 0
         self.comlist = []
         self.stimes = []
