@@ -1590,6 +1590,10 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .value       = "120",
           .op_version  = 4
         },
+        { .key         = "cluster.op-version",
+          .voltype     = "mgmt/glusterd",
+          .op_version  = 4
+        },
         { .key         = NULL
         }
 };

@@ -894,6 +894,54 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
 
                 if (key_fixed)
                         key = key_fixed;
+
+                /* Check if the key is cluster.op-version and set
+                 * local_new_op_version to the value given if possible.
+                 */
+                if (strcmp (key, "cluster.op-version") == 0) {
+                        if (!all_vol) {
+                                ret = -1;
+                                snprintf (errstr, sizeof (errstr), "Option \""
+                                          "%s\" is not valid for a single "
+                                          "volume", key);
+                                goto out;
+                        }
+                        /* Check if cluster.op-version is the only option being
+                         * set
+                         */
+                        if (count != 1) {
+                                ret = -1;
+                                snprintf (errstr, sizeof (errstr), "Option \""
+                                          "%s\" cannot be set along with other "
+                                          "options", key);
+                                goto out;
+                        }
+                        /* Just reusing the variable, but I'm using it for
+                         * storing the op-version from value
+                         */
+                        ret = gf_string2uint (value, &local_key_op_version);
+                        if (ret) {
+                                snprintf (errstr, sizeof (errstr), "invalid "
+                                          "number format \"%s\" in option "
+                                          "\"%s\"", value, key);
+                                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                                goto out;
+                        }
+
+                        if (local_key_op_version > GD_OP_VERSION_MAX ||
+                            local_key_op_version < GD_OP_VERSION_MIN) {
+                                ret = -1;
+                                snprintf (errstr, sizeof (errstr),
+                                          "Required op_version (%d) is not "
+                                          "supported", local_key_op_version);
+                                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                                goto out;
+                        }
+                        if (local_key_op_version > local_new_op_version)
+                                local_new_op_version = local_key_op_version;
+                        goto cont;
+                }
+
                 ALL_VOLUME_OPTION_CHECK (volname, key, ret, op_errstr, out);
                 ret = glusterd_validate_quorum_options (this, key, value,
                                                         op_errstr);
@@ -979,6 +1027,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
         if (ret)
                 goto out;
 
+cont:
         if (origin_glusterd) {
                 ret = dict_set_uint32 (dict, "new-op-version",
                                        local_new_op_version);
@@ -1717,6 +1766,7 @@ glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict)
         dict_t          *dup_opt        = NULL;
         char            *next_version   = NULL;
         gf_boolean_t    quorum_action   = _gf_false;
+        uint32_t        op_version      = 0;
 
         conf = this->private;
         ret = dict_get_str (dict, "key1", &key);
@@ -1738,6 +1788,29 @@ glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict)
 
         if (key_fixed)
                 key = key_fixed;
+
+        /* If the key is cluster.op-version, set conf->op_version to the value
+         * if needed and save it.
+         */
+        if (strcmp(key, "cluster.op-version") == 0) {
+                ret = 0;
+
+                ret = gf_string2uint (value, &op_version);
+                if (ret)
+                        goto out;
+
+                if (op_version >= conf->op_version) {
+                        conf->op_version = op_version;
+                        ret = glusterd_store_global_info (this);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to store op-version.");
+                        }
+                }
+                /* No need to save cluster.op-version in conf->opts
+                 */
+                goto out;
+        }
 
         ret = -1;
         dup_opt = dict_new ();
