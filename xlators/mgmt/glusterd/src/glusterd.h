@@ -465,6 +465,17 @@ enum glusterd_vol_comp_status_ {
         GLUSTERD_VOL_COMP_RJT,
 };
 
+typedef struct addrinfo_list {
+        struct list_head list;
+        struct addrinfo *info;
+} addrinfo_list_t;
+
+typedef enum {
+        GF_AI_COMPARE_NO_MATCH     = 0,
+        GF_AI_COMPARE_MATCH        = 1,
+        GF_AI_COMPARE_ERROR        = 2
+} gf_ai_compare_t;
+
 #define GLUSTERD_DEFAULT_PORT    GF_DEFAULT_BASE_PORT
 #define GLUSTERD_INFO_FILE      "glusterd.info"
 #define GLUSTERD_VOLUME_QUOTA_CONFIG "quota.conf"

@@ -74,17 +74,6 @@ typedef struct cli_profile_info_ {
         double percentage_avg_latency;
 } cli_profile_info_t;
 
-typedef struct addrinfo_list {
-        struct list_head list;
-        struct addrinfo *info;
-} addrinfo_list_t;
-
-typedef enum {
-        GF_AI_COMPARE_NO_MATCH     = 0,
-        GF_AI_COMPARE_MATCH        = 1,
-        GF_AI_COMPARE_ERROR        = 2
-} gf_ai_compare_t;
-
 typedef struct cli_cmd_volume_get_ctx_ cli_cmd_volume_get_ctx_t;
 
 int cli_cmd_volume_register (struct cli_state *state);
