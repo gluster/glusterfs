@@ -5043,6 +5043,7 @@ glusterd_snapshot_brickop (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         char           *volname  = NULL;
         int32_t        snap_command = 0;
         xlator_t       *this     = NULL;
+        char           *op_type  = NULL;
 
         this = THIS;
 
@@ -5059,6 +5060,44 @@ glusterd_snapshot_brickop (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         switch (snap_command) {
         case GF_SNAP_OPTION_TYPE_CREATE:
+
+                /* op_type with tell us whether its pre-commit operation
+                 * or post-commit
+                 */
+                ret = dict_get_str (dict, "operation-type", &op_type);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to fetch "
+                                "operation type");
+                        goto out;
+                }
+
+                if (strcmp (op_type, "pre") == 0) {
+                        /* BRICK OP PHASE for enabling barrier, Enable barrier
+                         * if its a pre-commit operation
+                         */
+                        ret = glusterd_set_barrier_value (dict, "enable");
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "set barrier value as enable in dict");
+                                goto out;
+                        }
+                } else if (strcmp (op_type, "post") == 0) {
+                        /* BRICK OP PHASE for disabling barrier, Disable barrier
+                         * if its a post-commit operation
+                         */
+                        ret = glusterd_set_barrier_value (dict, "disable");
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "set barrier value as disable in "
+                                        "dict");
+                                goto out;
+                        }
+                } else {
+                        ret = -1;
+                        gf_log (this->name, GF_LOG_ERROR, "Invalid op_type");
+                        goto out;
+                }
+
                 ret = dict_get_int64 (dict, "volcount", &vol_count);
                 if (ret)
                         goto out;
