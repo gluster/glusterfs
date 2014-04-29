@@ -644,7 +644,8 @@ out:
 char*
 loc_gfid_utoa (loc_t *loc)
 {
-        uuid_t gfid;
+        uuid_t gfid = {0,};
+
         loc_gfid (loc, gfid);
         return uuid_utoa (gfid);
 }

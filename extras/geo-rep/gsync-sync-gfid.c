@@ -99,6 +99,7 @@ main (int argc, char *argv[])
                 free (tmp); free (tmp1);
                 blob = NULL;
         }
+        fclose (fp);
 
         ret = 0;
 out:

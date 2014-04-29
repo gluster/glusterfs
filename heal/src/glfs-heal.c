@@ -376,8 +376,7 @@ glfsh_print_brick_from_xl (xlator_t *xl)
                 goto out;
 
         ret = dict_get_str (xl->options, "remote-subvolume", &remote_subvol);
-        if (ret < 0)
-                goto out;
+
 out:
         if (ret < 0) {
                 printf ("Brick - Not able to get brick information\n");

@@ -1653,7 +1653,7 @@ out:
         if (ret) {
                 if (errmsg[0] == '\0')
                         snprintf (errmsg, sizeof (errmsg), "%s not found.",
-                                  command);
+                                  command ? command : "<unknown>");
                 *op_errstr = gf_strdup (errmsg);
                 gf_log ("", GF_LOG_ERROR, "%s", errmsg);
         }

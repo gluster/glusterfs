@@ -881,7 +881,7 @@ rb_generate_client_volfile (glusterd_volinfo_t *volinfo,
                         "%s", strerror (errno));
                 goto out;
         }
-        close (fd);
+        sys_close (fd);
 
         file = fopen (filename, "w+");
         if (!file) {
@@ -905,12 +905,13 @@ rb_generate_client_volfile (glusterd_volinfo_t *volinfo,
                  glusterd_auth_get_username (volinfo),
                  glusterd_auth_get_password (volinfo));
 
-        fclose (file);
         GF_FREE (ttype);
-
         ret = 0;
 
 out:
+        if (file)
+                fclose (file);
+
         return ret;
 }
 
@@ -960,7 +961,7 @@ rb_generate_dst_brick_volfile (glusterd_volinfo_t *volinfo,
                         "%s", strerror (errno));
                 goto out;
         }
-        close (fd);
+        sys_close (fd);
 
         file = fopen (filename, "w+");
         if (!file) {
@@ -990,11 +991,12 @@ rb_generate_dst_brick_volfile (glusterd_volinfo_t *volinfo,
 
 	GF_FREE (trans_type);
 
-        fclose (file);
-
         ret = 0;
 
 out:
+        if (file)
+	        fclose (file);
+
         return ret;
 }
 

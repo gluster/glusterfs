@@ -1681,6 +1681,8 @@ afr_sh_call_entry_expunge_remove (call_frame_t *frame, xlator_t *this,
         int32_t         op_errno = 0;
         int             ret = 0;
 
+        local = frame->local;
+
         expunge_frame = copy_frame (frame);
         if (!expunge_frame) {
                 goto out;
@@ -1688,7 +1690,6 @@ afr_sh_call_entry_expunge_remove (call_frame_t *frame, xlator_t *this,
 
         AFR_LOCAL_ALLOC_OR_GOTO (expunge_local, out);
 
-        local = frame->local;
         sh = &local->self_heal;
         expunge_frame->local = expunge_local;
         expunge_sh = &expunge_local->self_heal;

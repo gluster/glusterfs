@@ -4691,13 +4691,13 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
         xlator_t                                *this = NULL;
         glusterd_conf_t                         *conf = NULL;
 
-        if ((!brickinfo) || (!volinfo))
-                goto out;
-
         this = THIS;
         GF_ASSERT (this);
         conf = this->private;
         GF_ASSERT (conf);
+
+        if ((!brickinfo) || (!volinfo))
+                goto out;
 
         if (uuid_is_null (brickinfo->uuid)) {
                 ret = glusterd_resolve_brick (brickinfo);
@@ -5621,13 +5621,13 @@ glusterd_brick_stop (glusterd_volinfo_t *volinfo,
         xlator_t                                *this = NULL;
         glusterd_conf_t                         *conf = NULL;
 
-        if ((!brickinfo) || (!volinfo))
-                goto out;
-
         this = THIS;
         GF_ASSERT (this);
         conf = this->private;
         GF_ASSERT (conf);
+
+        if ((!brickinfo) || (!volinfo))
+                goto out;
 
         if (uuid_is_null (brickinfo->uuid)) {
                 ret = glusterd_resolve_brick (brickinfo);
@@ -6384,18 +6384,15 @@ glusterd_get_local_brickpaths (glusterd_volinfo_t *volinfo, char **pathlist)
 
         ret = count;
 out:
-        for (i = 0; i < count; i++) {
-                GF_FREE (path_tokens[i]);
-                path_tokens[i] = NULL;
-        }
+        if (path_tokens)
+                for (i = 0; i < count; i++)
+                        GF_FREE (path_tokens[i]);
 
         GF_FREE (path_tokens);
-        path_tokens = NULL;
 
         if (ret == 0) {
                 gf_log ("", GF_LOG_DEBUG, "No Local Bricks Present.");
                 GF_FREE (tmp_path_list);
-                tmp_path_list = NULL;
         }
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);

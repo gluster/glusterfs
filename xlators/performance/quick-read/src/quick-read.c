@@ -543,8 +543,6 @@ qr_readv_cached (call_frame_t *frame, qr_inode_t *qr_inode, size_t size,
 
 	LOCK (&table->lock);
 	{
-		op_ret = -1;
-
 		if (!qr_inode->data)
 			goto unlock;
 
@@ -565,7 +563,6 @@ qr_readv_cached (call_frame_t *frame, qr_inode_t *qr_inode, size_t size,
 		iobref = iobref_new ();
 		if (!iobref) {
 			op_ret = -1;
-			iobuf_unref (iobuf);
 			goto unlock;
 		}
 
@@ -581,19 +578,15 @@ qr_readv_cached (call_frame_t *frame, qr_inode_t *qr_inode, size_t size,
 unlock:
 	UNLOCK (&table->lock);
 
-	if (op_ret > 0) {
+	if (op_ret >= 0) {
 		iov.iov_base = iobuf->ptr;
 		iov.iov_len = op_ret;
-
 		STACK_UNWIND_STRICT (readv, frame, op_ret, 0, &iov, 1,
 				     &buf, iobref, xdata);
 	}
+	iobuf_unref (iobuf);
 
-	if (iobuf)
-		iobuf_unref (iobuf);
-
-	if (iobref)
-		iobref_unref (iobref);
+	iobref_unref (iobref);
 
 	return op_ret;
 }

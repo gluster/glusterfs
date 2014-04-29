@@ -1002,10 +1002,12 @@ afr_launch_openfd_self_heal (call_frame_t *frame, xlator_t *this, fd_t *fd);
         do {                                                    \
                 afr_local_t *__local = NULL;                    \
                 xlator_t    *__this = NULL;                     \
-                __local = frame->local;                         \
-                __this = frame->this;                           \
-                frame->local = NULL;                            \
-                STACK_DESTROY (frame->root);                    \
+                if (frame) {                                    \
+                        __local = frame->local;                 \
+                        __this = frame->this;                   \
+                        frame->local = NULL;                    \
+                        STACK_DESTROY (frame->root);            \
+                }                                               \
                 if (__local) {                                  \
                         afr_local_cleanup (__local, __this);    \
                         mem_put (__local);                      \
