@@ -678,7 +678,7 @@ glusterd_handle_snapshot_config (rpcsvc_request_t *req, glusterd_op_t op,
          */
         ret = dict_get_int32 (dict, "config-command", &config_command);
         if (ret) {
-                snprintf (err_str, sizeof (err_str),
+                snprintf (err_str, len,
                          "Failed to get config-command type");
                 goto out;
         }
