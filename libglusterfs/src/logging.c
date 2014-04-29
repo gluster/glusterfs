@@ -737,7 +737,29 @@ gf_log_init (void *data, const char *file, const char *ident)
         }
 
         if (strcmp (file, "-") == 0) {
-                file = "/dev/stderr";
+		int dupfd = -1;
+
+		ctx->log.filename = gf_strdup ("/dev/stderr");
+		if (!ctx->log.filename) {
+			fprintf (stderr, "ERROR: strdup failed\n");
+			return -1;
+		}
+
+		dupfd = dup (fileno (stderr));
+		if (dupfd == -1) {
+			fprintf (stderr, "ERROR: could not dup %d (%s)\n",
+				 fileno (stderr), strerror (errno));
+			return -1;
+		}
+
+		ctx->log.logfile = fdopen (dupfd, "a");
+		if (!ctx->log.logfile) {
+			fprintf (stderr, "ERROR: could not fdopen on %d (%s)\n",
+				 dupfd, strerror (errno));
+			return -1;
+		}
+
+		goto out;
         }
 
         ctx->log.filename = gf_strdup (file);
@@ -761,7 +783,7 @@ gf_log_init (void *data, const char *file, const char *ident)
                          file, strerror (errno));
                 return -1;
         }
-
+out:
         ctx->log.gf_log_logfile = ctx->log.logfile;
 
         return 0;
