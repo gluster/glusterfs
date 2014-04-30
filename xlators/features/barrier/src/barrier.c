@@ -351,8 +351,13 @@ notify (xlator_t *this, int event, void *data, ...)
         case GF_EVENT_TRANSLATOR_OP:
         {
                 dict = data;
-                GF_OPTION_RECONF ("barrier", barrier_enabled, dict,
-                                  bool, out);
+                barrier_enabled = dict_get_str_boolean (dict, "barrier", -1);
+
+                if (barrier_enabled == -1) {
+                        gf_log (this->name, GF_LOG_ERROR, "Could not fetch "
+                                " barrier key from the dictionary.");
+                        goto out;
+                }
 
                 LOCK (&priv->lock);
                 {
@@ -388,7 +393,8 @@ unlock:
 
                 if (!list_empty (&queue))
                         barrier_dequeue_all (this, &queue);
-                // missing break is intentional
+
+                break;
         }
         default:
         {
