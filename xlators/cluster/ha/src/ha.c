@@ -2694,7 +2694,12 @@ ha_statfs_cbk (call_frame_t *frame,
         ha_local_t   *local = NULL;
         ha_private_t *priv  = NULL;
 
+        GF_ASSERT (this);
+
         local = frame->local;
+        priv = this->private;
+        GF_ASSERT (priv);
+
         if (-1 == op_ret) {
                 local->active = (local->active + 1) % priv->child_count;
                 local->tries--;
@@ -2711,7 +2716,6 @@ ha_statfs_cbk (call_frame_t *frame,
  out:
         loc_wipe (&local->loc);
         STACK_UNWIND (frame, op_ret, op_errno, buf);
-        
 	return 0;
 }
 
