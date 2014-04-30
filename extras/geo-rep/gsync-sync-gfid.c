@@ -102,6 +102,8 @@ main (int argc, char *argv[])
 
         ret = 0;
 out:
+        if (fp)
+                fclose(fp);
         return ret;
 }
 

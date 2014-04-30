@@ -1362,6 +1362,8 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
         struct list_head   *peers       = NULL;
 
         peers = &conf->xaction_peers;
+        this = THIS;
+        GF_ASSERT (this);
 
         if (!npeers) {
                 ret = 0;
@@ -1375,7 +1377,6 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
                 goto out;
         }
 
-        this = THIS;
         synctask_barrier_init((&args));
         peer_cnt = 0;
         if (conf->op_version < GD_OP_VERSION_3_6_0) {

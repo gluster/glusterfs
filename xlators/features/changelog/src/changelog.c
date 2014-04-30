@@ -2039,20 +2039,21 @@ init (xlator_t *this)
 
  out:
         if (ret) {
-                if (this->local_pool)
+                if (this && this->local_pool)
                         mem_pool_destroy (this->local_pool);
-                if (priv->cb) {
-                        ret = priv->cb->dtor (this, &priv->cd);
-                        if (ret)
-                                gf_log (this->name, GF_LOG_ERROR,
+                if (priv) {
+                        if (priv->cb) {
+                                ret = priv->cb->dtor (this, &priv->cd);
+                                if (ret)
+                                        gf_log (this->name, GF_LOG_ERROR,
                                         "error in cleanup during init()");
+                        }
+                        GF_FREE (priv->changelog_brick);
+                        GF_FREE (priv->changelog_dir);
+                        if (cond_lock_init)
+                                changelog_pthread_destroy (priv);
+                        GF_FREE (priv);
                 }
-                GF_FREE (priv->changelog_brick);
-                GF_FREE (priv->changelog_dir);
-                if (cond_lock_init)
-                        changelog_pthread_destroy (priv);
-
-                GF_FREE (priv);
                 this->private = NULL;
         } else
                 this->private = priv;

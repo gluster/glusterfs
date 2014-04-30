@@ -8435,9 +8435,10 @@ glusterd_get_local_brickpaths (glusterd_volinfo_t *volinfo, char **pathlist)
 
         ret = count;
 out:
-        for (i = 0; i < count; i++) {
-                GF_FREE (path_tokens[i]);
-                path_tokens[i] = NULL;
+        if (path_tokens) {
+                for (i = 0; i < count; i++) {
+                        GF_FREE (path_tokens[i]);
+                }
         }
 
         GF_FREE (path_tokens);
