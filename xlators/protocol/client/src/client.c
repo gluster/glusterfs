@@ -467,7 +467,7 @@ int32_t
 client_forget (xlator_t *this, inode_t *inode)
 {
         /* Nothing here */
-	return 0;
+        return 0;
 }
 
 int32_t
@@ -545,7 +545,7 @@ out:
                 STACK_UNWIND_STRICT (lookup, frame, -1, ENOTCONN,
                                      NULL, NULL, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -571,7 +571,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (stat, frame, -1, ENOTCONN, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -600,7 +600,7 @@ out:
                 STACK_UNWIND_STRICT (truncate, frame, -1, ENOTCONN, NULL, NULL, NULL);
 
 
-	return 0;
+        return 0;
 }
 
 
@@ -628,7 +628,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (ftruncate, frame, -1, ENOTCONN, NULL, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -657,7 +657,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (access, frame, -1, ENOTCONN, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -687,7 +687,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (readlink, frame, -1, ENOTCONN, NULL, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -718,7 +718,7 @@ out:
                 STACK_UNWIND_STRICT (mknod, frame, -1, ENOTCONN,
                                      NULL, NULL, NULL, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -748,7 +748,7 @@ out:
                 STACK_UNWIND_STRICT (mkdir, frame, -1, ENOTCONN,
                                      NULL, NULL, NULL, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -778,7 +778,7 @@ out:
                 STACK_UNWIND_STRICT (unlink, frame, -1, ENOTCONN,
                                      NULL, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 int32_t
@@ -807,7 +807,7 @@ out:
                 STACK_UNWIND_STRICT (rmdir, frame, -1, ENOTCONN,
                                      NULL, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -837,7 +837,7 @@ out:
                 STACK_UNWIND_STRICT (symlink, frame, -1, ENOTCONN,
                                      NULL, NULL, NULL, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -867,7 +867,7 @@ out:
                 STACK_UNWIND_STRICT (rename, frame, -1, ENOTCONN,
                                      NULL, NULL, NULL, NULL, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -897,7 +897,7 @@ out:
                 STACK_UNWIND_STRICT (link, frame, -1, ENOTCONN,
                                      NULL, NULL, NULL, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -932,7 +932,7 @@ out:
                 STACK_UNWIND_STRICT (create, frame, -1, ENOTCONN,
                                      NULL, NULL, NULL, NULL, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -965,7 +965,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (open, frame, -1, ENOTCONN, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1000,7 +1000,7 @@ out:
                 STACK_UNWIND_STRICT (readv, frame, -1, ENOTCONN,
                                      NULL, 0, NULL, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1038,7 +1038,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (writev, frame, -1, ENOTCONN, NULL, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1064,7 +1064,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (flush, frame, -1, ENOTCONN, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1093,7 +1093,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (fsync, frame, -1, ENOTCONN, NULL, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1120,7 +1120,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (fstat, frame, -1, ENOTCONN, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1149,7 +1149,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (opendir, frame, -1, ENOTCONN, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1177,7 +1177,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (fsyncdir, frame, -1, ENOTCONN, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1204,7 +1204,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (statfs, frame, -1, ENOTCONN, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 static gf_boolean_t
@@ -1393,7 +1393,7 @@ out:
         if (need_unwind)
                 STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1423,7 +1423,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (fsetxattr, frame, -1, ENOTCONN, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1453,7 +1453,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (fgetxattr, frame, -1, ENOTCONN, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1482,7 +1482,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (getxattr, frame, -1, ENOTCONN, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1512,7 +1512,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (xattrop, frame, -1, ENOTCONN, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1542,7 +1542,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (fxattrop, frame, -1, ENOTCONN, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1571,7 +1571,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (removexattr, frame, -1, ENOTCONN, NULL);
 
-	return 0;
+        return 0;
 }
 
 int32_t
@@ -1598,7 +1598,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (fremovexattr, frame, -1, ENOTCONN, NULL);
 
-	return 0;
+        return 0;
 }
 
 int32_t
@@ -1654,7 +1654,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (lk, frame, -1, ENOTCONN, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1684,7 +1684,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (inodelk, frame, -1, ENOTCONN, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1715,7 +1715,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (finodelk, frame, -1, ENOTCONN, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1747,7 +1747,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (entrylk, frame, -1, ENOTCONN, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1780,7 +1780,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (fentrylk, frame, -1, ENOTCONN, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1809,7 +1809,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (rchecksum, frame, -1, ENOTCONN, 0, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 int32_t
@@ -1840,7 +1840,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (readdir, frame, -1, ENOTCONN, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1872,7 +1872,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (readdirp, frame, -1, ENOTCONN, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -1901,7 +1901,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (setattr, frame, -1, ENOTCONN, NULL, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 int32_t
@@ -1929,7 +1929,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (fsetattr, frame, -1, ENOTCONN, NULL, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 int32_t
@@ -2155,7 +2155,7 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT (getspec, frame, -1, EINVAL, NULL);
 
-	return 0;
+        return 0;
 }
 
 
@@ -2227,6 +2227,15 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         conf = this->private;
 
         switch (event) {
+        case RPC_CLNT_PING:
+        {
+                ret = default_notify (this, GF_EVENT_CHILD_PING, NULL);
+                if (ret)
+                        gf_log (this->name, GF_LOG_INFO,
+                                "CHILD_PING notify failed");
+                conf->last_sent_event = GF_EVENT_CHILD_PING;
+                break;
+        }
         case RPC_CLNT_CONNECT:
         {
                 conf->connected = 1;
@@ -2318,7 +2327,6 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
                 } else {
                         rpc->conn.config.remote_port = 0;
-
                 }
 
                 break;
@@ -2670,7 +2678,7 @@ reconfigure (xlator_t *this, dict_t *options)
 
         ret = 0;
 out:
-	return ret;
+        return ret;
 
 }
 

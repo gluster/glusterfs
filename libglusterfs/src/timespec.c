@@ -60,3 +60,15 @@ void timespec_adjust_delta (struct timespec *ts, struct timespec delta)
         ts->tv_sec += ((ts->tv_nsec + delta.tv_nsec) / 1000000000);
         ts->tv_sec += delta.tv_sec;
 }
+
+void timespec_sub (const struct timespec *begin, const struct timespec *end,
+                   struct timespec *res)
+{
+        if (end->tv_nsec < begin->tv_nsec) {
+                res->tv_sec = end->tv_sec - begin->tv_sec - 1;
+                res->tv_nsec = end->tv_nsec + 1000000000 - begin->tv_nsec;
+        } else {
+                res->tv_sec = end->tv_sec - begin->tv_sec;
+                res->tv_nsec = end->tv_nsec - begin->tv_nsec;
+        }
+}

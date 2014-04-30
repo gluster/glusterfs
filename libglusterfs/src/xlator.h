@@ -927,6 +927,7 @@ struct _xlator {
 
         gf_loglevel_t    loglevel;   /* Log level for translator */
 
+        int64_t             client_latency;
         /* for latency measurement */
         fop_latency_t latencies[GF_FOP_MAXVALUE];
 

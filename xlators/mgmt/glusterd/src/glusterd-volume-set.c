@@ -3008,6 +3008,31 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = GD_OP_VERSION_3_6_0,
           .type        = NO_DOC,
         },
+        { .key        = "cluster.halo-shd-max-latency",
+          .voltype    = "cluster/replicate",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "cluster.halo-nfsd-max-latency",
+          .voltype    = "cluster/replicate",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "cluster.halo-max-latency",
+          .voltype    = "cluster/replicate",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "cluster.halo-max-replicas",
+          .voltype    = "cluster/replicate",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "cluster.halo-min-replicas",
+          .voltype    = "cluster/replicate",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key         = NULL
         }
 };

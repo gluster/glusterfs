@@ -186,6 +186,21 @@ start_glusterfs ()
     fi
 
 #options with values start here
+    if [ -n "$halo_max_latency" ]; then
+      cmd_line=$(echo "$cmd_line --xlator-option \
+ *replicate*.halo-max-latency=$halo_max_latency");
+    fi
+
+    if [ -n "$halo_max_replicas" ]; then
+      cmd_line=$(echo "$cmd_line --xlator-option \
+ *replicate*.halo-max-replicas=$halo_max_replicas");
+    fi
+
+    if [ -n "$halo_min_replicas" ]; then
+      cmd_line=$(echo "$cmd_line --xlator-option \
+ *replicate*.halo-min-replicas=$halo_min_replicas");
+    fi
+
     if [ -n "$log_level" ]; then
         cmd_line=$(echo "$cmd_line --log-level=$log_level");
     fi
@@ -479,6 +494,15 @@ with_options()
             [ -z "$fuse_mountopts" ] || fuse_mountopts="$fuse_mountopts,"
             fuse_mountopts="${fuse_mountopts}$key=\"$value\""
             ;;
+        "halo-max-latency")
+            halo_max_latency=$value
+            ;;
+        "halo-max-replicas")
+            halo_max_replicas=$value
+            ;;
+        "halo-min-replicas")
+          halo_min_replicas=$value
+          ;;
         x-*)
             # comments or userspace application-specific options, drop them
             ;;

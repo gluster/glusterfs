@@ -168,6 +168,7 @@ enum gf_common_mem_types_ {
         /*lock migration*/
         gf_common_mt_lock_mig,
         gf_common_mt_pthread_t,
+        gf_common_ping_local_t,
         gf_common_mt_end
 };
 #endif

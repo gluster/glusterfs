@@ -60,6 +60,11 @@ typedef enum {
         AFR_FAV_CHILD_POLICY_MAX,
 } afr_favorite_child_policy;
 
+struct afr_nfsd {
+        gf_boolean_t     iamnfsd;
+        uint32_t         halo_max_latency_msec;
+};
+
 typedef struct _afr_private {
         gf_lock_t lock;               /* to guard access to child_count, etc */
         unsigned int child_count;     /* total number of children   */
@@ -71,6 +76,7 @@ typedef struct _afr_private {
         inode_t *root_inode;
 
         unsigned char *child_up;
+        int64_t *child_latency;
         unsigned char *local;
 
         char **pending_key;
@@ -141,8 +147,12 @@ typedef struct _afr_private {
         gf_boolean_t           ensure_durability;
         char                   *sh_domain;
 	char                   *afr_dirty;
+        uint32_t               halo_max_latency_msec;
+        uint32_t               halo_max_replicas;
+        uint32_t               halo_min_replicas;
 
-	afr_self_heald_t       shd;
+        afr_self_heald_t       shd;
+        struct afr_nfsd        nfsd;
 
         gf_boolean_t           consistent_metadata;
         uint64_t               spb_choice_timeout;

@@ -21,6 +21,7 @@
 #include "statedump.h"
 #include "libglusterfs-messages.h"
 
+static int gf_set_fop_from_fn_pointer_warning;
 void
 gf_set_fop_from_fn_pointer (call_frame_t *frame, struct xlator_fops *fops, void *fn)
 {
@@ -108,8 +109,15 @@ gf_set_fop_from_fn_pointer (call_frame_t *frame, struct xlator_fops *fops, void 
                 fop = GF_FOP_READDIRP;
         else if (fops->getspec == *(fop_getspec_t *)&fn)
                 fop = GF_FOP_GETSPEC;
-        else
-                fop = -1;
+        else if (fops->ipc == *(fop_ipc_t *)&fn)
+                fop = GF_FOP_IPC;
+        else {
+                fop = GF_FOP_NULL;
+                GF_LOG_OCCASIONALLY(gf_set_fop_from_fn_pointer_warning,
+                                    "latency",
+                                    GF_LOG_WARNING,
+                                    "Unknown FOP type");
+        }
 
         frame->op   = fop;
 }

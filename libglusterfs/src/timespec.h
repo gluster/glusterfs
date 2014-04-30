@@ -20,5 +20,8 @@
 
 void timespec_now (struct timespec *ts);
 void timespec_adjust_delta (struct timespec *ts, struct timespec delta);
+void timespec_sub (const struct timespec *begin,
+                   const struct timespec *end,
+                   struct timespec *res);
 
 #endif /*  __INCLUDE_TIMESPEC_H__ */
