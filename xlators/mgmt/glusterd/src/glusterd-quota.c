@@ -746,10 +746,6 @@ out:
                 close (conf_fd);
         }
 
-        if (fd != -1) {
-                close (fd);
-        }
-
         if (ret && (fd > 0)) {
                 gf_store_unlink_tmppath (volinfo->quota_conf_shandle);
         } else if (!ret) {

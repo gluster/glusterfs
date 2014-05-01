@@ -330,8 +330,6 @@ glusterd_store_perform_brick_store (glusterd_brickinfo_t *brickinfo)
 out:
         if (ret && (fd > 0))
                 gf_store_unlink_tmppath (brickinfo->shandle);
-        if (fd > 0)
-                close (fd);
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -1094,8 +1092,6 @@ glusterd_store_perform_rbstate_store (glusterd_volinfo_t *volinfo)
 out:
         if (ret && (fd > 0))
                 gf_store_unlink_tmppath (volinfo->rb_shandle);
-        if (fd > 0)
-                close (fd);
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -1175,8 +1171,6 @@ glusterd_store_perform_node_state_store (glusterd_volinfo_t *volinfo)
 out:
         if (ret && (fd > 0))
                 gf_store_unlink_tmppath (volinfo->node_state_shandle);
-        if (fd > 0)
-                close (fd);
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -1205,8 +1199,6 @@ glusterd_store_perform_volume_store (glusterd_volinfo_t *volinfo)
 out:
         if (ret && (fd > 0))
                 gf_store_unlink_tmppath (volinfo->shandle);
-        if (fd > 0)
-                close (fd);
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -1733,7 +1725,6 @@ out:
                         gf_store_unlink_tmppath (handle);
 
                 if (handle->fd > 0) {
-                        close (handle->fd);
                         handle->fd = 0;
                 }
         }
@@ -2705,9 +2696,9 @@ glusterd_store_options (xlator_t *this, dict_t *opts)
         if (ret)
                 goto out;
 out:
+        if ((ret < 0) && (fd > 0))
+                gf_store_unlink_tmppath (shandle);
         gf_store_handle_destroy (shandle);
-        if (fd >=0 )
-                close (fd);
         return ret;
 }
 
@@ -3455,9 +3446,6 @@ out:
                 ret = -1;
         }
 
-        if (fd > 0)
-                close (fd);
-
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
@@ -3681,8 +3669,6 @@ glusterd_store_perform_peer_store (glusterd_peerinfo_t *peerinfo)
 out:
         if (ret && (fd > 0))
                 gf_store_unlink_tmppath (peerinfo->shandle);
-        if (fd > 0)
-                close (fd);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -4114,28 +4100,28 @@ out:
 int
 glusterd_store_save_quota_version_and_cksum (glusterd_volinfo_t *volinfo)
 {
-        int                 ret                  = -1;
-        char                cksum_path[PATH_MAX] = {0,};
-        char                path[PATH_MAX]       = {0,};
-        xlator_t           *this                 = NULL;
-        glusterd_conf_t    *conf                 = NULL;
-        char                buf[256]             = {0,};
-        int                 fd                   = -1;
+        gf_store_handle_t               *shandle = NULL;
+        glusterd_conf_t                 *conf = NULL;
+        xlator_t                        *this = NULL;
+        char                            path[PATH_MAX] = {0};
+        char                            cksum_path[PATH_MAX] = {0,};
+        char                            buf[256] = {0};
+        int                             fd = -1;
+        int32_t                         ret = -1;
 
         this = THIS;
-        GF_ASSERT (this);
         conf = this->private;
-        GF_ASSERT (conf);
 
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, conf);
         snprintf (cksum_path, sizeof (cksum_path), "%s/%s", path,
                   GLUSTERD_VOL_QUOTA_CKSUM_FILE);
 
-        fd = open (cksum_path, O_RDWR | O_APPEND | O_CREAT| O_TRUNC, 0600);
+        ret = gf_store_handle_new (cksum_path, &shandle);
+        if (ret)
+                goto out;
 
-        if (-1 == fd) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to open %s,"
-                        "Reason: %s", cksum_path, strerror (errno));
+        fd = gf_store_mkstemp (shandle);
+        if (fd <= 0) {
                 ret = -1;
                 goto out;
         }
@@ -4155,10 +4141,13 @@ glusterd_store_save_quota_version_and_cksum (glusterd_volinfo_t *volinfo)
                 goto out;
         }
 
-        ret = 0;
+        ret = gf_store_rename_tmppath (shandle);
+        if (ret)
+                goto out;
 
 out:
-        if (fd != -1)
-                close (fd);
+        if ((ret < 0) && (fd > 0))
+                gf_store_unlink_tmppath (shandle);
+        gf_store_handle_destroy (shandle);
         return ret;
 }

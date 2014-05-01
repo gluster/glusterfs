@@ -20,6 +20,7 @@
 struct gf_store_handle_ {
         char    *path;
         int     fd;
+        int     tmp_fd;
         FILE    *read;
         int     locked;   /* state of lockf() */
 };
