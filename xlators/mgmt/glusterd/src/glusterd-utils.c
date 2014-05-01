@@ -3698,9 +3698,6 @@ glusterd_import_quota_conf (dict_t *peer_data, int vol_idx,
         ret = 0;
 
 out:
-        if (fd != -1)
-                close (fd);
-
         if (!ret) {
                 ret = glusterd_compute_cksum (new_volinfo, _gf_true);
                 if (ret)

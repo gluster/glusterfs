@@ -356,7 +356,6 @@ __mount_rewrite_rmtab(struct mount3_state *ms, gf_store_handle_t *sh)
 
         gf_log (GF_MNT, GF_LOG_DEBUG, "Updated rmtab with %d entries", idx);
 
-        close (fd);
         if (gf_store_rename_tmppath (sh))
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to overwrite rwtab %s",
                         sh->path);
@@ -365,7 +364,6 @@ __mount_rewrite_rmtab(struct mount3_state *ms, gf_store_handle_t *sh)
 
 fail:
         gf_log (GF_MNT, GF_LOG_ERROR, "Failed to update %s", sh->path);
-        close (fd);
         gf_store_unlink_tmppath (sh);
 }
 

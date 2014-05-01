@@ -59,20 +59,19 @@ gf_store_handle_create_on_absence (gf_store_handle_t **shandle,
 int32_t
 gf_store_mkstemp (gf_store_handle_t *shandle)
 {
-        int     fd = -1;
         char    tmppath[PATH_MAX] = {0,};
 
         GF_VALIDATE_OR_GOTO ("store", shandle, out);
         GF_VALIDATE_OR_GOTO ("store", shandle->path, out);
 
         snprintf (tmppath, sizeof (tmppath), "%s.tmp", shandle->path);
-        fd = open (tmppath, O_RDWR | O_CREAT | O_TRUNC | O_SYNC, 0600);
-        if (fd <= 0) {
+        shandle->tmp_fd = open (tmppath, O_RDWR | O_CREAT | O_TRUNC, 0600);
+        if (shandle->tmp_fd < 0) {
                 gf_log ("", GF_LOG_ERROR, "Failed to open %s, error: %s",
                         tmppath, strerror (errno));
         }
 out:
-        return fd;
+        return shandle->tmp_fd;
 }
 
 int
@@ -130,6 +129,12 @@ gf_store_rename_tmppath (gf_store_handle_t *shandle)
         GF_VALIDATE_OR_GOTO ("store", shandle, out);
         GF_VALIDATE_OR_GOTO ("store", shandle->path, out);
 
+        ret = fsync (shandle->tmp_fd);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to fsync %s, "
+                        "error: %s", shandle->path, strerror (errno));
+                goto out;
+        }
         snprintf (tmppath, sizeof (tmppath), "%s.tmp", shandle->path);
         ret = rename (tmppath, shandle->path);
         if (ret) {
@@ -140,6 +145,10 @@ gf_store_rename_tmppath (gf_store_handle_t *shandle)
 
         ret = gf_store_sync_direntry (tmppath);
 out:
+        if (shandle && shandle->tmp_fd >= 0) {
+                close (shandle->tmp_fd);
+                shandle->tmp_fd = -1;
+        }
         return ret;
 }
 
@@ -161,6 +170,10 @@ gf_store_unlink_tmppath (gf_store_handle_t *shandle)
                 ret = 0;
         }
 out:
+        if (shandle && shandle->tmp_fd >= 0) {
+                close (shandle->tmp_fd);
+                shandle->tmp_fd = -1;
+        }
         return ret;
 }
 
@@ -390,6 +403,7 @@ gf_store_handle_new (char *path, gf_store_handle_t **handle)
         shandle->path = spath;
         shandle->locked = F_ULOCK;
         *handle = shandle;
+        shandle->tmp_fd = -1;
 
         ret = 0;
 out:
