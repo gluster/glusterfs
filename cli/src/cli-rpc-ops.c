@@ -4514,6 +4514,20 @@ gf_cli_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
                                  master, slave);
                 break;
 
+                case GF_GSYNC_OPTION_TYPE_PAUSE:
+                case GF_GSYNC_OPTION_TYPE_RESUME:
+                        if (dict_get_str (dict, "master", &master) != 0)
+                                master = "???";
+                        if (dict_get_str (dict, "slave", &slave) != 0)
+                                slave = "???";
+
+                        cli_out ("%s " GEOREP " session between %s & %s"
+                                 " has been successful",
+                                 type == GF_GSYNC_OPTION_TYPE_PAUSE ?
+                                  "Pausing" : "Resuming",
+                                 master, slave);
+                break;
+
                 case GF_GSYNC_OPTION_TYPE_CONFIG:
                         ret = gf_cli_gsync_config_command (dict);
                 break;

@@ -312,6 +312,14 @@ __glusterd_handle_gsync_set (rpcsvc_request_t *req)
                 strncpy (operation, "stop", sizeof (operation));
                 break;
 
+        case GF_GSYNC_OPTION_TYPE_PAUSE:
+                strncpy (operation, "pause", sizeof (operation));
+                break;
+
+        case GF_GSYNC_OPTION_TYPE_RESUME:
+                strncpy (operation, "resume", sizeof (operation));
+                break;
+
         case GF_GSYNC_OPTION_TYPE_CONFIG:
                 strncpy (operation, "config", sizeof (operation));
                 break;
@@ -2299,6 +2307,56 @@ out:
         return ret;
 }
 
+/* pre-condition check for geo-rep pause/resume.
+ * Return: 0 on success
+ *        -1 on any check failed.
+ */
+static int
+gd_pause_resume_validation (int type, glusterd_volinfo_t *volinfo,
+                            char *slave, char *statefile, char **op_errstr)
+{
+        int        ret                        = 0;
+        char       errmsg[PATH_MAX]           = {0,};
+        char       monitor_status[NAME_MAX]   = {0,};
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (slave);
+        GF_ASSERT (statefile);
+        GF_ASSERT (op_errstr);
+
+        ret = glusterd_gsync_read_frm_status (statefile, monitor_status,
+                                               sizeof (monitor_status));
+        if (ret <= 0) {
+                snprintf (errmsg, sizeof(errmsg), "Pause check Failed:"
+                          " Geo-rep session is not setup");
+                ret = -1;
+                goto out;
+        }
+
+        if ( type == GF_GSYNC_OPTION_TYPE_PAUSE &&
+             strstr (monitor_status, "Paused")) {
+                snprintf (errmsg, sizeof(errmsg), "Geo-replication"
+                          " session between %s and %s already Paused.",
+                          volinfo->volname, slave);
+                ret = -1;
+                goto out;
+        }
+        if ( type == GF_GSYNC_OPTION_TYPE_RESUME &&
+             !strstr (monitor_status, "Paused")) {
+                snprintf (errmsg, sizeof(errmsg), "Geo-replication"
+                          " session between %s and %s is not Paused.",
+                          volinfo->volname, slave);
+                ret = -1;
+                goto out;
+        }
+        ret = 0;
+out:
+        if (ret && (errmsg[0] != '\0')) {
+                *op_errstr = gf_strdup (errmsg);
+        }
+        return ret;
+}
+
 int
 glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
 {
@@ -2417,7 +2475,9 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
          * session. */
         if ((type == GF_GSYNC_OPTION_TYPE_CONFIG) ||
             ((type == GF_GSYNC_OPTION_TYPE_STOP) && !is_force) ||
-            (type == GF_GSYNC_OPTION_TYPE_DELETE)) {
+            (type == GF_GSYNC_OPTION_TYPE_DELETE) ||
+            (type == GF_GSYNC_OPTION_TYPE_PAUSE) ||
+            (type == GF_GSYNC_OPTION_TYPE_RESUME)) {
                 ret = lstat (statefile, &stbuf);
                 if (ret) {
                         snprintf (errmsg, sizeof(errmsg), "Geo-replication"
@@ -2432,7 +2492,9 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
 
         /* Check if all peers that are a part of the volume are up or not */
         if ((type == GF_GSYNC_OPTION_TYPE_DELETE) ||
-            ((type == GF_GSYNC_OPTION_TYPE_STOP) && !is_force)) {
+            ((type == GF_GSYNC_OPTION_TYPE_STOP) && !is_force) ||
+            (type == GF_GSYNC_OPTION_TYPE_PAUSE) ||
+            (type == GF_GSYNC_OPTION_TYPE_RESUME)) {
                 if (!strcmp (uuid_str, host_uuid)) {
                         ret = glusterd_are_vol_all_peers_up (volinfo,
                                                              &conf->peers,
@@ -2514,6 +2576,28 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                 }
                 break;
 
+        case GF_GSYNC_OPTION_TYPE_PAUSE:
+        case GF_GSYNC_OPTION_TYPE_RESUME:
+                if (is_template_in_use) {
+                        snprintf (errmsg, sizeof(errmsg),
+                                  "state-file entry missing in "
+                                  "the config file(%s).", conf_path);
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = glusterd_op_verify_gsync_running (volinfo, slave,
+                                                        conf_path, op_errstr);
+                if (ret)
+                        goto out;
+                if (!is_force) {
+                        ret = gd_pause_resume_validation (type, volinfo, slave,
+                                                          statefile, op_errstr);
+                        if (ret)
+                                goto out;
+                }
+                break;
+
         case GF_GSYNC_OPTION_TYPE_CONFIG:
                 if (is_template_in_use) {
                         snprintf (errmsg, sizeof(errmsg), "state-file entry "
@@ -2589,6 +2673,148 @@ out:
         }
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+static int
+gd_pause_or_resume_gsync (dict_t *dict, char *master, char *slave,
+                          char *slave_ip, char *slave_vol, char *conf_path,
+                          char **op_errstr, gf_boolean_t is_pause)
+{
+        int32_t         ret                      = 0;
+        int             pfd                      = -1;
+        pid_t           pid                      = 0;
+        char            pidfile[PATH_MAX]        = {0,};
+        char            errmsg[PATH_MAX]         = "";
+        char            buf [1024]               = {0,};
+        int             i                        = 0;
+        gf_boolean_t    is_template_in_use       = _gf_false;
+        char            monitor_status[NAME_MAX] = {0,};
+        char            *statefile               = NULL;
+        char            *token                   = NULL;
+        xlator_t        *this                    = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (dict);
+        GF_ASSERT (master);
+        GF_ASSERT (slave);
+        GF_ASSERT (slave_ip);
+        GF_ASSERT (slave_vol);
+        GF_ASSERT (conf_path);
+
+        pfd = gsyncd_getpidfile (master, slave, pidfile,
+                                 conf_path, &is_template_in_use);
+        if (pfd == -2) {
+                snprintf (errmsg, sizeof(errmsg),
+                          "pid-file entry mising in config file and "
+                          "template config file.");
+                gf_log (this->name, GF_LOG_ERROR, "%s", errmsg);
+                *op_errstr = gf_strdup (errmsg);
+                ret = -1;
+                goto out;
+        }
+
+        if (gsync_status_byfd (pfd) == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "gsyncd b/w %s & %s is not"
+                        " running", master, slave);
+                /* monitor gsyncd already dead */
+                goto out;
+        }
+
+        if (pfd < 0)
+                goto out;
+
+        /* Prepare to update status file*/
+        ret = dict_get_str (dict, "statefile", &statefile);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Pause/Resume Failed:"
+                        " Unable to fetch statefile path");
+                goto out;
+        }
+        ret = glusterd_gsync_read_frm_status (statefile, monitor_status,
+                                              sizeof (monitor_status));
+        if (ret <= 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Pause/Resume Failed: "
+                        "Unable to read status file for %s(master)"
+                        " %s(slave)", master, slave);
+                goto out;
+        }
+
+        ret = read (pfd, buf, 1024);
+        if (ret > 0) {
+                pid = strtol (buf, NULL, 10);
+                if (is_pause) {
+                        ret = kill (-pid, SIGSTOP);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed"
+                                        " to pause gsyncd. Error: %s",
+                                        strerror (errno));
+                                goto out;
+                        }
+                        /*On pause force, if status is already paused
+                          do not update status again*/
+                        if (strstr (monitor_status, "Paused"))
+                                goto out;
+                        (void) strcat (monitor_status, "(Paused)");
+                        ret = glusterd_create_status_file ( master, slave,
+                                                     slave_ip, slave_vol,
+                                                     monitor_status);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Unable  to update state_file."
+                                        " Error : %s", strerror (errno));
+                                /* If status cannot be updated resume back */
+                                if (kill (-pid, SIGCONT)) {
+                                        snprintf (errmsg, sizeof(errmsg),
+                                                  "Pause successful but could "
+                                                  "not update status file. "
+                                                  "Please use 'resume force' to"
+                                                  " resume back and retry pause"
+                                                  " to reflect in status");
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Resume back Failed. Error: %s",
+                                                 strerror (errno));
+                                        *op_errstr = gf_strdup (errmsg);
+                                }
+                                goto out;
+                        }
+                } else {
+                        ret = kill (-pid, SIGCONT);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to resume gsyncd. Error: %s",
+                                         strerror (errno));
+                                goto out;
+                        }
+                        token = strtok (monitor_status, "(");
+                        ret = glusterd_create_status_file ( master, slave,
+                                                   slave_ip, slave_vol, token);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Unable to update state_file."
+                                        " Error : %s", strerror (errno));
+                                /* If status cannot be updated pause back */
+                                if (kill (-pid, SIGSTOP)) {
+                                        snprintf (errmsg, sizeof(errmsg),
+                                                  "Resume successful but could "
+                                                  "not update status file."
+                                                  " Please use 'pause force' to"
+                                                  " pause back and retry resume"
+                                                  " to reflect in status");
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Pause back Failed. Error: %s",
+                                                 strerror (errno));
+                                        *op_errstr = gf_strdup (errmsg);
+                                }
+                                goto out;
+                        }
+                }
+        }
+        ret = 0;
+
+out:
+        sys_close (pfd);
         return ret;
 }
 
@@ -4136,6 +4362,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         char               *status_msg = NULL;
         gf_boolean_t        is_running = _gf_false;
         char               *conf_path = NULL;
+        char               errmsg[PATH_MAX] = "";
 
         GF_ASSERT (THIS);
         GF_ASSERT (THIS->private);
@@ -4239,7 +4466,9 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                             conf_path, host_uuid, op_errstr);
         }
 
-        if (type == GF_GSYNC_OPTION_TYPE_STOP) {
+        if (type == GF_GSYNC_OPTION_TYPE_STOP ||
+            type == GF_GSYNC_OPTION_TYPE_PAUSE ||
+            type == GF_GSYNC_OPTION_TYPE_RESUME) {
                 ret = glusterd_check_gsync_running_local (volinfo->volname,
                                                           slave, conf_path,
                                                           &is_running);
@@ -4251,19 +4480,39 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         goto out;
                 }
 
-                ret = stop_gsync (volname, slave, &status_msg, conf_path,
-                                  op_errstr, is_force);
-                if (ret == 0 && status_msg)
-                        ret = dict_set_str (rsp_dict, "gsync-status",
-                                            status_msg);
-                if (!ret) {
-                        ret = glusterd_create_status_file (volinfo->volname,
+                if (type == GF_GSYNC_OPTION_TYPE_PAUSE) {
+                        ret = gd_pause_or_resume_gsync (dict, volname, slave,
+                                                        slave_ip, slave_vol,
+                                                        conf_path, op_errstr,
+                                                        _gf_true);
+                        if (ret)
+                                gf_log("", GF_LOG_ERROR, GEOREP
+                                       " Pause Failed");
+                } else if (type == GF_GSYNC_OPTION_TYPE_RESUME) {
+                        ret = gd_pause_or_resume_gsync (dict, volname, slave,
+                                                        slave_ip, slave_vol,
+                                                        conf_path, op_errstr,
+                                                        _gf_false);
+                        if (ret)
+                                gf_log("", GF_LOG_ERROR, GEOREP
+                                       " Resume Failed");
+                } else {
+                        ret = stop_gsync (volname, slave, &status_msg,
+                                          conf_path, op_errstr, is_force);
+
+                        if (ret == 0 && status_msg)
+                                ret = dict_set_str (rsp_dict, "gsync-status",
+                                                    status_msg);
+                        if (!ret) {
+                                ret = glusterd_create_status_file (
+                                                           volinfo->volname,
                                                            slave, slave_ip,
                                                            slave_vol,"Stopped");
-                        if (ret) {
-                                gf_log ("", GF_LOG_ERROR, "Unable to update"
-                                        "state_file. Error : %s",
-                                        strerror (errno));
+                                if (ret) {
+                                        gf_log ("", GF_LOG_ERROR, "Unable to "
+                                                "update state_file. Error : %s",
+                                                strerror (errno));
+                                }
                         }
                 }
         }

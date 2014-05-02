@@ -3801,6 +3801,8 @@ cli_xml_output_vol_gsync (dict_t *dict, int op_ret, int op_errno,
         switch (type) {
         case GF_GSYNC_OPTION_TYPE_START:
         case GF_GSYNC_OPTION_TYPE_STOP:
+        case GF_GSYNC_OPTION_TYPE_PAUSE:
+        case GF_GSYNC_OPTION_TYPE_RESUME:
                 if (dict_get_str (dict, "master", &master) != 0)
                         master = "???";
                 if (dict_get_str (dict, "slave", &slave) != 0)
