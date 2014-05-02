@@ -971,6 +971,19 @@ fi
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs*
 %{_sharedstatedir}/glusterd
+#hookscripts
+%dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks
+%dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1
+%dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/add-brick
+%dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/add-brick/post
+%dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/add-brick/pre
+%dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/set
+%dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/set/post
+%dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/start
+%dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/start/post
+%dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop
+%dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop/pre
+
 %ghost %attr(0644,-,-) %config(noreplace) %{_sharedstatedir}/glusterd/glusterd.info
 %ghost %attr(0600,-,-) %{_sharedstatedir}/glusterd/options
 # This is really ugly, but I have no idea how to mark these directories in
