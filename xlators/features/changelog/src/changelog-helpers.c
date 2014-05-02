@@ -353,11 +353,9 @@ changelog_local_init (xlator_t *this, inode_t *inode,
                       uuid_t gfid, int xtra_records,
                       gf_boolean_t update_flag)
 {
-        changelog_priv_t  *priv  = NULL;
         changelog_local_t *local = NULL;
         struct iobuf      *iobuf = NULL;
 
-        priv = this->private;
         /**
          * We relax the presence of inode if @update_flag is true.
          * The caller (implmentation of the fop) needs to be careful to
