@@ -32,6 +32,7 @@
 #include "glusterd-store.h"
 #include "run.h"
 #include "glusterd-volgen.h"
+#include "glusterd-messages.h"
 
 #include "syscall.h"
 #include "cli1-xdr.h"
@@ -95,8 +96,13 @@ __glusterd_defrag_notify (struct rpc_clnt *rpc, void *mydata,
         int                     ret      = 0;
         char                    pidfile[PATH_MAX];
         glusterd_conf_t        *priv    = NULL;
+        xlator_t               *this    = NULL;
 
-        priv = THIS->private;
+        this = THIS;
+        if (!this)
+                return 0;
+
+        priv = this->private;
         if (!priv)
                 return 0;
 
@@ -160,8 +166,10 @@ __glusterd_defrag_notify (struct rpc_clnt *rpc, void *mydata,
                                         volinfo->rebal.defrag_status);
 
                 GF_FREE (defrag);
-                gf_log ("", GF_LOG_DEBUG, "%s got RPC_CLNT_DISCONNECT",
-                        rpc->conn.name);
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_REBALANCE_DISCONNECTED,
+                        "Rebalance process for volume %s has disconnected.",
+                        volinfo->volname);
                 break;
         }
         case RPC_CLNT_DESTROY:

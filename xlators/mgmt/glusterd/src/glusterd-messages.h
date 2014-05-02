@@ -41,7 +41,7 @@
  */
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
-#define GLFS_NUM_MESSAGES       3
+#define GLFS_NUM_MESSAGES       7
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_x GLFS_COMP_BASE, "Invalid: Start of messages"
@@ -52,6 +52,14 @@
 #define GD_MSG_SERVER_QUORUM_LOST_STOPPING_BRICKS (GLUSTERD_COMP_BASE + 2)
 
 #define GD_MSG_SERVER_QUORUM_MET_STARTING_BRICKS (GLUSTERD_COMP_BASE + 3)
+
+#define GD_MSG_PEER_DISCONNECTED (GLUSTERD_COMP_BASE + 4)
+
+#define GD_MSG_BRICK_DISCONNECTED (GLUSTERD_COMP_BASE + 5)
+
+#define GD_MSG_NODE_DISCONNECTED (GLUSTERD_COMP_BASE + 6)
+
+#define GD_MSG_REBALANCE_DISCONNECTED (GLUSTERD_COMP_BASE + 7)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"

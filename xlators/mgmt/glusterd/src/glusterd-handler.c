@@ -51,6 +51,7 @@
 
 #include "globals.h"
 #include "glusterd-syncop.h"
+#include "glusterd-messages.h"
 
 #ifdef HAVE_BD_XLATOR
 #include <lvm2app.h>
@@ -4119,8 +4120,10 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 
         case RPC_CLNT_DISCONNECT:
                 if (glusterd_is_brick_started (brickinfo))
-                        gf_log (this->name, GF_LOG_INFO, "Disconnected from "
-                                "%s:%s", brickinfo->hostname, brickinfo->path);
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                GD_MSG_BRICK_DISCONNECTED,
+                                "Brick %s:%s has disconnected from glusterd.",
+                                brickinfo->hostname, brickinfo->path);
 
                 glusterd_set_brick_status (brickinfo, GF_BRICK_STOPPED);
                 break;
@@ -4175,9 +4178,9 @@ __glusterd_nodesvc_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 
         case RPC_CLNT_DISCONNECT:
                 if (glusterd_is_nodesvc_online (server)) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "got RPC_CLNT_DISCONNECT");
-                        (void) glusterd_nodesvc_set_online_status (server, _gf_false);
+                gf_msg (this->name, GF_LOG_INFO, 0, GD_MSG_NODE_DISCONNECTED,
+                        "%s has disconnected from glusterd.", server);
+                (void) glusterd_nodesvc_set_online_status (server, _gf_false);
                 }
                 break;
 
@@ -4280,8 +4283,11 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         case RPC_CLNT_DISCONNECT:
         {
                 rpc_clnt_unset_connected (&rpc->conn);
-                gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_DISCONNECT %d",
-                        peerinfo->state.state);
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_PEER_DISCONNECTED,
+                        "Peer %s, in %s state, has disconnected from glusterd.",
+                        uuid_utoa (peerinfo->uuid),
+                        glusterd_friend_sm_state_name_get (peerinfo->state.state));
 
                 if (peerinfo->connected) {
                         if (conf->op_version < GD_OP_VERSION_4) {
