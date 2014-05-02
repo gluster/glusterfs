@@ -48,6 +48,11 @@
 #include "glusterfs.h"
 #include "timer.h"
 
+/* Do not replace gf_log in TEST_LOG with gf_msg, as there is a slight chance
+ * that it could lead to an infinite recursion.*/
+#define TEST_LOG(__msg, __args ...)                             \
+                gf_log ("logging-infra", GF_LOG_DEBUG, __msg, ##__args);
+
 void
 gf_log_flush_timeout_cbk (void *data);
 
@@ -1796,8 +1801,11 @@ unlock:
         if (list_empty (&copy))
                 return;
 
+        TEST_LOG("Log buffer size reduced. About to flush %d extra log "
+                 "messages", count);
         // ... and then flush them outside the lock.
         gf_log_flush_list (&copy, ctx);
+        TEST_LOG("Just flushed %d extra log messages", count);
 
         return;
 }
@@ -1816,6 +1824,8 @@ __gf_log_inject_timer_event (glusterfs_ctx_t *ctx)
         timeout.tv_sec  = ctx->log.timeout;
         timeout.tv_nsec = 0;
 
+        TEST_LOG("Starting timer now. Timeout = %u, current buf size = %d",
+                 ctx->log.timeout, ctx->log.lru_size);
         ctx->log.log_flush_timer = gf_timer_call_after (ctx, timeout,
                                                       gf_log_flush_timeout_cbk,
                                                         (void *)ctx);
@@ -1849,6 +1859,8 @@ gf_log_flush_timeout_cbk (void *data)
 
         ctx = (glusterfs_ctx_t *) data;
 
+        TEST_LOG("Log timer timed out. About to flush outstanding messages if "
+                 "present");
         gf_log_flush_msgs (ctx);
 
         (void) gf_log_inject_timer_event (ctx);
@@ -1966,6 +1978,10 @@ _gf_msg_internal (const char *domain, const char *file, const char *function,
                 /* If the list is full, flush the lru msg to disk and also
                  * release it after unlock, and ...
                  * */
+                if (first->refcount >= 1)
+                        TEST_LOG("Buffer overflow of a buffer whose size limit "
+                                 "is %d. About to flush least recently used log"
+                                 " message to disk", size);
                         list_del_init (&first->msg_list);
                         ctx->log.lru_cur_size--;
                         flush_lru = _gf_true;
