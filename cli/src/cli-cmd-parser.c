@@ -1802,7 +1802,9 @@ force_push_pem_parse (const char **words, int wordcount,
                 if ((strcmp ((char *)words[wordcount-2], "start")) &&
                     (strcmp ((char *)words[wordcount-2], "stop")) &&
                     (strcmp ((char *)words[wordcount-2], "create")) &&
-                    (strcmp ((char *)words[wordcount-2], "push-pem"))) {
+                    (strcmp ((char *)words[wordcount-2], "push-pem")) &&
+                    (strcmp ((char *)words[wordcount-2], "pause")) &&
+                    (strcmp ((char *)words[wordcount-2], "resume"))) {
                         ret = -1;
                         goto out;
                 }
@@ -1852,7 +1854,8 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
         unsigned           cmdi    = 0;
         char               *opwords[] = { "create", "status", "start", "stop",
                                           "config", "force", "delete",
-                                          "push-pem", "detail", NULL };
+                                          "push-pem", "detail", "pause",
+                                          "resume", NULL };
         char               *w = NULL;
 
         GF_ASSERT (words);
@@ -1869,6 +1872,8 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
          * volume geo-replication [$m] $s config [[!]$opt [$val]]
          * volume geo-replication $m $s start|stop [force]
          * volume geo-replication $m $s delete
+         * volume geo-replication $m $s pause [force]
+         * volume geo-replication $m $s resume [force]
          */
 
         if (wordcount < 3)
@@ -1959,6 +1964,16 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                         goto out;
         } else if (strcmp (w, "delete") == 0) {
                 type = GF_GSYNC_OPTION_TYPE_DELETE;
+
+                if (!masteri || !slavei)
+                        goto out;
+        } else if (strcmp (w, "pause") == 0) {
+                type = GF_GSYNC_OPTION_TYPE_PAUSE;
+
+                if (!masteri || !slavei)
+                        goto out;
+        } else if (strcmp (w, "resume") == 0) {
+                type = GF_GSYNC_OPTION_TYPE_RESUME;
 
                 if (!masteri || !slavei)
                         goto out;
