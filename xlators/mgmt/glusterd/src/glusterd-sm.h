@@ -84,6 +84,7 @@ struct glusterd_peerinfo_ {
                                                        */
         glusterd_peer_state_info_t      state;
         char                            *hostname;
+        struct list_head                hostnames;
         int                             port;
         struct list_head                uuid_list;
         struct list_head                op_peers_list;

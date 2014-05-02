@@ -8263,6 +8263,7 @@ glusterd_peerinfo_new (glusterd_peerinfo_t **peerinfo,
                        const char *hostname, int port)
 {
         glusterd_peerinfo_t      *new_peer = NULL;
+        glusterd_peer_hostname_t *peer_hostname = NULL;
         int                      ret = -1;
 
         GF_ASSERT (peerinfo);
@@ -8276,6 +8277,12 @@ glusterd_peerinfo_new (glusterd_peerinfo_t **peerinfo,
         new_peer->state.state = state;
         if (hostname)
                 new_peer->hostname = gf_strdup (hostname);
+
+        INIT_LIST_HEAD (new_peer->hostnames);
+        ret = glusterd_peer_hostname_new (hostname, &peer_hostname);
+        if (ret)
+                goto out;
+        list_add_tail (&peer_hostname->hostname_list, &new_peer->hostnames);
 
         INIT_LIST_HEAD (&new_peer->uuid_list);
 
