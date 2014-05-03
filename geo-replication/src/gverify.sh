@@ -63,7 +63,7 @@ exit 1;
 fi;
 cd \$d;
 disk_size=\$(df -B1 \$d | tail -1 | awk "{print \\\$2}");
-available_size=\$(df -B1 \$d | tail -1 | awk "{print \\\$3}");
+used_size=\$(df -B1 \$d | tail -1 | awk "{print \\\$3}");
 no_of_files=\$(find  \$d -maxdepth 0 -empty);
 umount -l \$d;
 rmdir \$d;
