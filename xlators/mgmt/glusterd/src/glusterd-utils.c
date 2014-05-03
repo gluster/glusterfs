@@ -6541,21 +6541,22 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
 int
 _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
 {
-        char                        *path_list = NULL;
-        char                        *slave = NULL;
-        char                        *slave_ip = NULL;
-        char                        *slave_vol = NULL;
-        char                        *statefile = NULL;
-        char                         buf[1024] = "faulty";
-        int                          uuid_len = 0;
-        int                          ret = 0;
-        int                          ret_status = 0;
-        char                         uuid_str[64] = {0};
-        glusterd_volinfo_t          *volinfo = NULL;
+        char               *path_list                   = NULL;
+        char               *slave                       = NULL;
+        char               *slave_ip                    = NULL;
+        char               *slave_vol                   = NULL;
+        char               *slave_host                  = NULL;
+        char               *statefile                   = NULL;
+        char                         buf[1024]          = "faulty";
+        int                 uuid_len                    = 0;
+        int                 ret                         = 0;
+        int                 ret_status                  = 0;
+        char                         uuid_str[64]       = {0};
+        glusterd_volinfo_t *volinfo                     = NULL;
         char                         confpath[PATH_MAX] = "";
-        char                        *op_errstr = NULL;
-        glusterd_conf_t             *priv = NULL;
-        gf_boolean_t                 is_template_in_use = _gf_false;
+        char               *op_errstr                   = NULL;
+        glusterd_conf_t    *priv                        = NULL;
+        gf_boolean_t        is_template_in_use          = _gf_false;
 
         GF_ASSERT (THIS);
         priv = THIS->private;
@@ -6576,7 +6577,7 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         ret = glusterd_get_local_brickpaths (volinfo, &path_list);
 
         /*Generating the conf file path needed by gsyncd */
-        ret = glusterd_get_slave_info (slave, &slave_ip,
+        ret = glusterd_get_slave_info (slave, &slave_ip, &slave_host,
                                        &slave_vol, &op_errstr);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,

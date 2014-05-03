@@ -623,12 +623,14 @@ glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
                                char **down_peerstr);
 
 int
-glusterd_get_slave_details_confpath (glusterd_volinfo_t *volinfo, dict_t *dict,
-                                     char **slave_ip, char **slave_vol,
+glusterd_get_slave_details_confpath (glusterd_volinfo_t *volinfo,
+                                     dict_t *dict, char **slave_ip,
+                                     char **slave_host, char **slave_vol,
                                      char **conf_path, char **op_errstr);
 
 int
-glusterd_get_slave_info (char *slave, char **slave_ip,
+glusterd_get_slave_info (char *slave,
+                         char **slave_url, char **hostname,
                          char **slave_vol, char **op_errstr);
 
 int
