@@ -395,18 +395,18 @@ int
 changelog_forget (xlator_t *this, inode_t *inode);
 
 /* Geo-Rep snapshot dependency changes */
-inline void
+void
 changelog_color_fop_and_inc_cnt (xlator_t *this, changelog_priv_t *priv,
                                                  changelog_local_t *local);
-inline void
+void
 changelog_inc_fop_cnt (xlator_t *this, changelog_priv_t *priv,
                                        changelog_local_t *local);
-inline void
+void
 changelog_dec_fop_cnt (xlator_t *this, changelog_priv_t *priv,
                                        changelog_local_t *local);
-inline int
+int
 changelog_barrier_notify (changelog_priv_t *priv, char* buf);
-inline void
+void
 changelog_barrier_cleanup (xlator_t *this, changelog_priv_t *priv,
                                                 struct list_head *queue);
 void
