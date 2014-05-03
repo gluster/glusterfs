@@ -19,6 +19,7 @@
 #include "iobuf.h"
 
 #include "changelog-rt.h"
+#include "changelog-helpers.h"
 
 #include "changelog-encoders.h"
 #include "changelog-mem-types.h"
