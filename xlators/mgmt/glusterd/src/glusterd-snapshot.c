@@ -20,12 +20,23 @@
 #include <sys/mount.h>
 #include <signal.h>
 
-
 #if !defined(__NetBSD__) && !defined(GF_DARWIN_HOST_OS)
 #include <mntent.h>
 #else
 #include "mntent_compat.h"
 #endif
+
+#ifdef __NetBSD__
+#include <perfuse.h>
+#define umount2(dir, flags) unmount(dir, ((flags) != 0) ? MNT_FORCE : 0)
+#endif
+
+#ifdef GF_DARWIN_HOST_OS
+#include <sys/param.h>
+#include <sys/mount.h>
+#define umount2(dir, flags) unmount(dir, ((flags) != 0) ? MNT_FORCE : 0)
+#endif
+
 #include <regex.h>
 
 #include "globals.h"
@@ -152,7 +163,8 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                         soft_limit_value = (active_hard_limit *
                                             conf->snap_max_soft_limit) / 100;
 
-                        snprintf (buf, sizeof(buf), "volume%ld-volname", count);
+                        snprintf (buf, sizeof(buf), "volume%"PRId64"-volname",
+                                  count);
                         ret = dict_set_str (rsp_dict, buf, volinfo->volname);
                         if (ret) {
                                 snprintf (err_str, PATH_MAX,
@@ -161,7 +173,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                         }
 
                         snprintf (buf, sizeof(buf),
-                                  "volume%ld-snap-max-hard-limit", count);
+                                  "volume%"PRId64"-snap-max-hard-limit", count);
                         ret = dict_set_uint64 (rsp_dict, buf, snap_max_limit);
                         if (ret) {
                                 snprintf (err_str, PATH_MAX,
@@ -170,7 +182,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                         }
 
                         snprintf (buf, sizeof(buf),
-                                  "volume%ld-active-hard-limit", count);
+                                  "volume%"PRId64"-active-hard-limit", count);
                         ret = dict_set_uint64 (rsp_dict, buf,
                                                active_hard_limit);
                         if (ret) {
@@ -180,7 +192,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                         }
 
                         snprintf (buf, sizeof(buf),
-                                  "volume%ld-snap-max-soft-limit", count);
+                                  "volume%"PRId64"-snap-max-soft-limit", count);
                         ret = dict_set_uint64 (rsp_dict, buf, soft_limit_value);
                         if (ret) {
                                 snprintf (err_str, PATH_MAX,
@@ -214,7 +226,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                 soft_limit_value = (active_hard_limit *
                                     conf->snap_max_soft_limit) / 100;
 
-                snprintf (buf, sizeof(buf), "volume%ld-volname", count);
+                snprintf (buf, sizeof(buf), "volume%"PRId64"-volname", count);
                 ret = dict_set_str (rsp_dict, buf, volinfo->volname);
                 if (ret) {
                         snprintf (err_str, PATH_MAX,
@@ -223,7 +235,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                 }
 
                 snprintf (buf, sizeof(buf),
-                          "volume%ld-snap-max-hard-limit", count);
+                          "volume%"PRId64"-snap-max-hard-limit", count);
                 ret = dict_set_uint64 (rsp_dict, buf, snap_max_limit);
                 if (ret) {
                         snprintf (err_str, PATH_MAX,
@@ -232,7 +244,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                 }
 
                 snprintf (buf, sizeof(buf),
-                          "volume%ld-active-hard-limit", count);
+                          "volume%"PRId64"-active-hard-limit", count);
                 ret = dict_set_uint64 (rsp_dict, buf, active_hard_limit);
                 if (ret) {
                         snprintf (err_str, PATH_MAX,
@@ -241,7 +253,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                 }
 
                 snprintf (buf, sizeof(buf),
-                          "volume%ld-snap-max-soft-limit", count);
+                          "volume%"PRId64"-snap-max-soft-limit", count);
                 ret = dict_set_uint64 (rsp_dict, buf, soft_limit_value);
                 if (ret) {
                         snprintf (err_str, PATH_MAX,
