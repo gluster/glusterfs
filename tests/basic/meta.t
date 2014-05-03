@@ -19,8 +19,13 @@ EXPECT 'Started' volinfo_field $V0 'Status';
 
 TEST glusterfs -s $H0 --volfile-id $V0 $M0;
 
-# the read() on frames file itself should be visible as a frame
-TEST grep -q READ $M0/.meta/frames;
+# verify json validity
+
+TEST /usr/bin/json_verify < $M0/.meta/frames;
+
+TEST /usr/bin/json_verify < $M0/.meta/cmdline;
+
+TEST /usr/bin/json_verify < $M0/.meta/version;
 
 # default log level (INFO) is 7
 TEST grep -q 7 $M0/.meta/logging/loglevel;
