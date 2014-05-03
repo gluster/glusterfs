@@ -5793,8 +5793,7 @@ glusterd_nodesvc_start (char *server, gf_boolean_t wait)
                          "-p", pidfile,
                          "-l", logfile,
                          "-S", sockfpath,
-			 "-L", "DEBUG",
-			 NULL);
+                         NULL);
 
         if (!strcmp (server, "glustershd")) {
                 snprintf (glusterd_uuid_option, sizeof (glusterd_uuid_option),
