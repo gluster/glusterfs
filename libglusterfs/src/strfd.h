@@ -12,16 +12,16 @@
 #define _STRFD_H
 
 typedef struct {
-	void *data;
-	size_t alloc_size;
-	size_t size;
-	off_t pos;
+        void *data;
+        size_t alloc_size;
+        size_t size;
+        off_t pos;
 } strfd_t;
 
 strfd_t *strfd_open();
 
 int strprintf(strfd_t *strfd, const char *fmt, ...)
-	__attribute__ ((__format__ (__printf__, 2, 3)));
+        __attribute__ ((__format__ (__printf__, 2, 3)));
 
 int strvprintf(strfd_t *strfd, const char *fmt, va_list ap);
 
