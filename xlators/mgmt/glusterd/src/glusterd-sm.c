@@ -26,6 +26,7 @@
 #include "call-stub.h"
 #include "defaults.h"
 #include "list.h"
+#include "glusterd-messages.h"
 #include "dict.h"
 #include "compat.h"
 #include "compat-errno.h"
@@ -618,7 +619,8 @@ glusterd_ac_friend_remove (glusterd_friend_sm_event_t *event, void *ctx)
 
         ret = glusterd_friend_remove_cleanup_vols (event->peerinfo->uuid);
         if (ret)
-                gf_log (THIS->name, GF_LOG_WARNING, "Volumes cleanup failed");
+                gf_msg (THIS->name, GF_LOG_WARNING, 0, GD_MSG_VOL_CLEANUP_FAIL,
+                        "Volumes cleanup failed");
 
         ret = glusterd_friend_cleanup (event->peerinfo);
         if (ret) {

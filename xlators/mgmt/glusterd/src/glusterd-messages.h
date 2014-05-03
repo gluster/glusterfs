@@ -41,7 +41,7 @@
  */
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
-#define GLFS_NUM_MESSAGES       7
+#define GLFS_NUM_MESSAGES       18
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_x GLFS_COMP_BASE, "Invalid: Start of messages"
@@ -61,8 +61,30 @@
 
 #define GD_MSG_REBALANCE_DISCONNECTED (GLUSTERD_COMP_BASE + 7)
 
+/* 4 to 7 is reserved for brick disconnection messages */
+
+#define GD_MSG_VOL_CLEANUP_FAIL (GLUSTERD_COMP_BASE + 8)
+
+#define GD_MSG_VOL_VERS_MISMATCH (GLUSTERD_COMP_BASE + 9)
+
+#define GD_MSG_CKSUM_VERS_MISMATCH (GLUSTERD_COMP_BASE + 10)
+
+#define GD_MSG_QUOTA_CONFIG_VERS_MISMATCH (GLUSTERD_COMP_BASE + 11)
+
+#define GD_MSG_QUOTA_CONFIG_CKSUM_MISMATCH (GLUSTERD_COMP_BASE + 12)
+
+#define GD_MSG_BRICK_STOP_FAIL (GLUSTERD_COMP_BASE + 13)
+
+#define GD_MSG_SVC_KILL_FAIL (GLUSTERD_COMP_BASE + 14)
+
+#define GD_MSG_PID_KILL_FAIL (GLUSTERD_COMP_BASE + 15)
+
+#define GD_MSG_REBAL_NO_SOCK_FILE (GLUSTERD_COMP_BASE + 16)
+
+#define GD_MSG_UNIX_OP_BUILD_FAIL (GLUSTERD_COMP_BASE + 17)
+
+#define GD_MSG_RPC_CREATE_FAIL (GLUSTERD_COMP_BASE + 18)
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
-
 
 #endif /* !_GLUSTERD_MESSAGES_H_ */
