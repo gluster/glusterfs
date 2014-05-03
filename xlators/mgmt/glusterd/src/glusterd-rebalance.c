@@ -29,6 +29,7 @@
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
+#include "glusterd-messages.h"
 #include "glusterd-store.h"
 #include "run.h"
 #include "glusterd-volgen.h"
@@ -352,9 +353,9 @@ glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
                                                            priv);
                         ret =sys_stat (sockfile, &buf);
                         if (ret && (ENOENT == errno)) {
-                                gf_log (this->name, GF_LOG_ERROR, "Rebalance "
-                                        "sockfile %s does not exist.",
-                                        sockfile);
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_REBAL_NO_SOCK_FILE, "Rebalance "
+                                        "sockfile %s does not exist", sockfile);
                                 goto out;
                         }
                 }
@@ -367,7 +368,8 @@ glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
          */
         ret = rpc_transport_unix_options_build (&options, sockfile, 600);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Unix options build failed");
+                gf_msg (THIS->name, GF_LOG_ERROR, 0, GD_MSG_UNIX_OP_BUILD_FAIL,
+                        "Unix options build failed");
                 goto out;
         }
 
@@ -377,7 +379,8 @@ glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
                                    glusterd_defrag_notify, volinfo);
         synclock_lock (&priv->big_lock);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "RPC create failed");
+                gf_msg (THIS->name, GF_LOG_ERROR, 0, GD_MSG_RPC_CREATE_FAIL,
+                        "Glusterd RPC creation failed");
                 goto out;
         }
         ret = 0;

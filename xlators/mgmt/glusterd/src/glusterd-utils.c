@@ -25,6 +25,7 @@
 #include "dict.h"
 #include "xlator.h"
 #include "logging.h"
+#include "glusterd-messages.h"
 #include "timer.h"
 #include "defaults.h"
 #include "compat.h"
@@ -1619,8 +1620,10 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
                         ret = 0;
                         goto out;
                 default:
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to kill %s: %s",
-                                service, strerror (errno));
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_SVC_KILL_FAIL, "Unable to kill %s "
+                                "service, reason:%s", service,
+                                strerror (errno));
                 }
         }
         if (!force_kill)
@@ -1630,9 +1633,9 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
         if (gf_is_service_running (pidfile, NULL)) {
                 ret = kill (pid, SIGKILL);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Unable to "
-                                "kill pid %d reason: %s", pid,
-                                strerror(errno));
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_PID_KILL_FAIL, "Unable to kill pid:%d, "
+                                "reason:%s", pid, strerror(errno));
                         goto out;
                 }
         }
@@ -3114,9 +3117,10 @@ glusterd_compare_friend_volume (dict_t *peer_data, int32_t count,
         if (version > volinfo->version) {
                 //Mismatch detected
                 ret = 0;
-                gf_log (this->name, GF_LOG_ERROR, "Version of volume %s differ."
-                        "local version = %d, remote version = %d on peer %s",
-                        volinfo->volname, volinfo->version, version, hostname);
+                gf_msg (this->name, GF_LOG_INFO, 0, GD_MSG_VOL_VERS_MISMATCH,
+                        "Version of volume %s differ. local version = %d, "
+                        "remote version = %d on peer %s", volinfo->volname,
+                        volinfo->version, version, hostname);
                 *status = GLUSTERD_VOL_COMP_UPDATE_REQ;
                 goto out;
         } else if (version < volinfo->version) {
@@ -3134,9 +3138,10 @@ glusterd_compare_friend_volume (dict_t *peer_data, int32_t count,
 
         if (cksum != volinfo->cksum) {
                 ret = 0;
-                gf_log (this->name, GF_LOG_ERROR, "Cksums of volume %s differ."
-                        " local cksum = %u, remote cksum = %u on peer %s",
-                        volinfo->volname, volinfo->cksum, cksum, hostname);
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_CKSUM_VERS_MISMATCH,
+                        "Version of Cksums %s differ. local cksum = %u, remote "
+                        "cksum = %u on peer %s", volinfo->volname,
+                        volinfo->cksum, cksum, hostname);
                 *status = GLUSTERD_VOL_COMP_RJT;
                 goto out;
         }
@@ -3153,12 +3158,13 @@ glusterd_compare_friend_volume (dict_t *peer_data, int32_t count,
                 if (quota_version > volinfo->quota_conf_version) {
                         //Mismatch detected
                         ret = 0;
-                        gf_log (this->name, GF_LOG_ERROR, "Quota configuration "
-                                "versions of volume %s differ. "
-                                "local version = %d, remote version = %d "
-                                "on peer %s", volinfo->volname,
-                                volinfo->quota_conf_version, quota_version,
-                                hostname);
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                GD_MSG_QUOTA_CONFIG_VERS_MISMATCH,
+                                "Quota configuration versions of volume %s "
+                                "differ. local version = %d, remote version = "
+                                "%d on peer %s", volinfo->volname,
+                                volinfo->quota_conf_version,
+                                quota_version, hostname);
                         *status = GLUSTERD_VOL_COMP_UPDATE_REQ;
                         goto out;
                 } else if (quota_version < volinfo->quota_conf_version) {
@@ -3180,12 +3186,12 @@ glusterd_compare_friend_volume (dict_t *peer_data, int32_t count,
         } else {
                 if (quota_cksum != volinfo->quota_conf_cksum) {
                         ret = 0;
-                        gf_log (this->name, GF_LOG_ERROR, "Cksums of quota "
-                                "configurations of volume %s differ. "
-                                "local cksum = %u, remote cksum = %u on "
-                                "peer %s", volinfo->volname,
-                                volinfo->quota_conf_cksum, quota_cksum,
-                                hostname);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_QUOTA_CONFIG_CKSUM_MISMATCH, "Cksums of "
+                                "quota configuration of volume %s differ. local"
+                                " cksum = %u, remote  cksum = %u on peer %s",
+                                volinfo->volname, volinfo->quota_conf_cksum,
+                                quota_cksum, hostname);
                         *status = GLUSTERD_VOL_COMP_RJT;
                         goto out;
                 }
@@ -4296,8 +4302,9 @@ glusterd_volinfo_stop_stale_bricks (glusterd_volinfo_t *new_volinfo,
                         ret = glusterd_brick_stop (old_volinfo, old_brickinfo,
                                                    _gf_false);
                         if (ret)
-                                gf_log ("glusterd", GF_LOG_ERROR, "Failed to "
-                                        "stop brick %s:%s", old_brickinfo->hostname,
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0, 
+                                        GD_MSG_BRICK_STOP_FAIL, "Failed to stop"
+                                        " brick %s:%s", old_brickinfo->hostname,
                                         old_brickinfo->path);
                 }
         }
