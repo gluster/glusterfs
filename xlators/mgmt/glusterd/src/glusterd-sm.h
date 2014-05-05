@@ -36,13 +36,6 @@ typedef enum gd_quorum_contribution_ {
         QUORUM_UP
 } gd_quorum_contrib_t;
 
-typedef enum gd_quorum_status_ {
-        QUORUM_UNKNOWN,
-        QUORUM_NOT_APPLICABLE,
-        QUORUM_MEETS,
-        QUORUM_DOES_NOT_MEET
-} gd_quorum_status_t;
-
 typedef enum glusterd_friend_sm_state_ {
         GD_FRIEND_STATE_DEFAULT = 0,
         GD_FRIEND_STATE_REQ_SENT,
