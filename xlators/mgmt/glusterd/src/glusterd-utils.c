@@ -6981,15 +6981,21 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
 }
 
 struct mntent *
-glusterd_get_mnt_entry_info (char *mnt_pt, FILE *mtab)
+glusterd_get_mnt_entry_info (char *mnt_pt, char *buff, int buflen,
+                             struct mntent *entry_ptr)
 {
-        struct mntent  *entry                = NULL;
+        struct mntent  *entry   = NULL;
+        FILE           *mtab    = NULL;
+
+        GF_ASSERT (mnt_pt);
+        GF_ASSERT (buff);
+        GF_ASSERT (entry_ptr);
 
         mtab = setmntent (_PATH_MOUNTED, "r");
         if (!mtab)
                 goto out;
 
-        entry = getmntent (mtab);
+        entry = getmntent_r (mtab, entry_ptr, buff, buflen);
 
         while (1) {
                 if (!entry)
@@ -6998,10 +7004,13 @@ glusterd_get_mnt_entry_info (char *mnt_pt, FILE *mtab)
                 if (!strcmp (entry->mnt_dir, mnt_pt) &&
                     strcmp (entry->mnt_type, "rootfs"))
                         break;
-                entry = getmntent (mtab);
+                entry = getmntent_r (mtab, entry_ptr, buff, buflen);
         }
 
 out:
+        if (NULL != mtab) {
+                endmntent (mtab);
+        }
         return entry;
 }
 
@@ -7011,9 +7020,10 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
 {
         int             ret                  = -1;
         char            key[1024]            = {0};
+        char            buff [PATH_MAX]      = {0};
         char            base_key[1024]       = {0};
+        struct mntent   save_entry           = {0};
         char           *mnt_pt               = NULL;
-        FILE           *mtab                 = NULL;
         struct mntent  *entry                = NULL;
 
         snprintf (base_key, sizeof (base_key), "brick%d", count);
@@ -7022,7 +7032,8 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
         if (ret)
                 goto out;
 
-        entry = glusterd_get_mnt_entry_info (mnt_pt, mtab);
+        entry = glusterd_get_mnt_entry_info (mnt_pt, buff, sizeof (buff),
+                                             &save_entry);
         if (!entry) {
                 ret = -1;
                 goto out;
@@ -7052,8 +7063,6 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
 
  out:
         GF_FREE (mnt_pt);
-        if (mtab)
-                endmntent (mtab);
 
         return ret;
 }
@@ -7064,8 +7073,9 @@ glusterd_get_brick_mount_device (char *brick_path)
         int             ret                  = -1;
         char           *mnt_pt               = NULL;
         char           *device               = NULL;
-        FILE           *mtab                 = NULL;
+        char            buff [PATH_MAX]      = "";
         struct mntent  *entry                = NULL;
+        struct mntent   save_entry           = {0,};
         xlator_t       *this                 = NULL;
 
         this = THIS;
@@ -7079,7 +7089,8 @@ glusterd_get_brick_mount_device (char *brick_path)
                 goto out;
         }
 
-        entry = glusterd_get_mnt_entry_info (mnt_pt, mtab);
+        entry = glusterd_get_mnt_entry_info (mnt_pt, buff, sizeof (buff),
+                                             &save_entry);
         if (NULL == entry) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to get mnt entry "
                         "for %s mount path", mnt_pt);
@@ -7090,10 +7101,6 @@ glusterd_get_brick_mount_device (char *brick_path)
         device = gf_strdup (entry->mnt_fsname);
 
 out:
-        if (NULL != mtab) {
-                endmntent (mtab);
-        }
-
         return device;
 }
 
@@ -10362,7 +10369,8 @@ glusterd_merge_brick_status (dict_t *dst, dict_t *src)
                 ret = dict_get_int64 (src, snapbrckcnt, &brick_count);
                 if (ret) {
                         gf_log (this->name, GF_LOG_TRACE,
-                                "No bricks for this volume in this dict");
+                                "No bricks for this volume in this dict (%s)",
+                                snapbrckcnt);
                         continue;
                 }
 
@@ -10374,7 +10382,8 @@ glusterd_merge_brick_status (dict_t *dst, dict_t *src)
                         ret = dict_get_int64 (src, snapbrckord, &brick_order);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
-                                        "Failed to get brick order");
+                                        "Failed to get brick order (%s)",
+                                        snapbrckord);
                                 goto out;
                         }
 
@@ -10384,14 +10393,14 @@ glusterd_merge_brick_status (dict_t *dst, dict_t *src)
                         ret = dict_get_int32 (src, key, &brick_online);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR, "failed to "
-                                        "get the brick status");
+                                        "get the brick status (%s)", key);
                                 goto out;
                         }
 
                         ret = dict_set_int32 (dst, key, brick_online);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR, "failed to "
-                                        "set the brick status");
+                                        "set the brick status (%s)", key);
                                 goto out;
                         }
                         brick_online = 0;

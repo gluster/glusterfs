@@ -2897,9 +2897,10 @@ out:
 int32_t
 glusterd_mount_brick_paths (char *brick_mount_path, char *device_path)
 {
-        FILE                    *mtab                = NULL;
         int32_t                  ret                 = -1;
         runner_t                 runner              = {0, };
+        char                     buff [PATH_MAX]     = {0, };
+        struct mntent            save_entry          = {0, };
         struct mntent           *entry               = NULL;
         xlator_t                *this                = NULL;
         glusterd_conf_t         *priv                = NULL;
@@ -2913,7 +2914,8 @@ glusterd_mount_brick_paths (char *brick_mount_path, char *device_path)
         GF_ASSERT (priv);
 
         /* Check if the brick_mount_path is already mounted */
-        entry = glusterd_get_mnt_entry_info (brick_mount_path, mtab);
+        entry = glusterd_get_mnt_entry_info (brick_mount_path, buff,
+                                             sizeof (buff), &save_entry);
         if (entry) {
                 gf_log (this->name, GF_LOG_INFO,
                         "brick_mount_path (%s) already mounted.",
@@ -2949,8 +2951,6 @@ glusterd_mount_brick_paths (char *brick_mount_path, char *device_path)
         }
 
 out:
-        if (mtab)
-                endmntent (mtab);
         gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
         return ret;
 }

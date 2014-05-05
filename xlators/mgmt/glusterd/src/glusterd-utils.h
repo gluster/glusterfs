@@ -696,7 +696,8 @@ char*
 glusterd_get_brick_mount_device (char *brick_path);
 
 struct mntent *
-glusterd_get_mnt_entry_info (char *mnt_pt, FILE *mtab);
+glusterd_get_mnt_entry_info (char *mnt_pt, char *buff, int buflen,
+                             struct mntent *entry_ptr);
 
 int
 glusterd_get_brick_root (char *path, char **mount_point);
