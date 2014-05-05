@@ -64,8 +64,8 @@ rpc_clnt_ping_timer_expired (void *rpc_ptr)
                         conn->ping_timer = NULL;
                         rpc_clnt_unref (rpc);
                 }
-                gettimeofday (&current, NULL);
 
+                gettimeofday (&current, NULL);
                 if (((current.tv_sec - conn->last_received.tv_sec) <
                      conn->ping_timeout)
                     || ((current.tv_sec - conn->last_sent.tv_sec) <
@@ -119,6 +119,7 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
         xlator_t              *this    = NULL;
         rpc_clnt_connection_t *conn    = NULL;
         call_frame_t          *frame   = NULL;
+        struct timespec       timeout  = {0, };
 
         if (!myframe) {
                 gf_log (THIS->name, GF_LOG_WARNING,
@@ -132,9 +133,9 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
         frame->local = NULL; /* Prevent STACK_DESTROY from segfaulting */
         conn = &rpc->conn;
 
-        if (req->rpc_status == -1) {
-                pthread_mutex_lock (&conn->lock);
-                {
+        pthread_mutex_lock (&conn->lock);
+        {
+                if (req->rpc_status == -1) {
                         if (conn->ping_timer != NULL) {
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "socket or ib related error");
@@ -142,20 +143,43 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
                                                       conn->ping_timer);
                                 conn->ping_timer = NULL;
                                 rpc_clnt_unref (rpc);
+
                         } else {
                                 /* timer expired and transport bailed out */
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "timer must have expired");
+
                         }
                         conn->ping_started = 0;
+                        goto unlock;
                 }
-                pthread_mutex_unlock (&conn->lock);
+
+                /*This allows other RPCs to be able to start the ping timer
+                 * if they come by before the following start ping routine
+                 * is executed by the timer thread.*/
+                conn->ping_started = 0;
+                gf_timer_call_cancel (this->ctx,
+                                      conn->ping_timer);
+
+                timeout.tv_sec = conn->ping_timeout;
+                timeout.tv_nsec = 0;
+                rpc_clnt_ref (rpc);
+                conn->ping_timer = gf_timer_call_after (this->ctx, timeout,
+                                                        rpc_clnt_start_ping,
+                                                        (void *)rpc);
+
+                if (conn->ping_timer == NULL) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "failed to set the ping timer");
+                        rpc_clnt_unref (rpc);
+                }
+
         }
+unlock:
+        pthread_mutex_unlock (&conn->lock);
 out:
         if (frame)
                 STACK_DESTROY (frame->root);
-        if (rpc)
-                rpc_clnt_unref (rpc);
         return 0;
 }
 
@@ -169,7 +193,7 @@ rpc_clnt_ping (struct rpc_clnt *rpc)
         if (!frame)
                 goto fail;
 
-        frame->local = rpc_clnt_ref (rpc);
+        frame->local = rpc;
 
         ret = rpc_clnt_submit (rpc, &clnt_ping_prog,
                                GF_DUMP_PING, rpc_clnt_ping_cbk, NULL, 0,
@@ -219,10 +243,12 @@ rpc_clnt_start_ping (void *rpc_ptr)
                         rpc_clnt_unref (rpc);
                 }
 
-                if (conn->saved_frames)
+                if (conn->saved_frames) {
+                        GF_ASSERT (conn->saved_frames->count >= 0);
                         /* treat the case where conn->saved_frames is NULL
                            as no pending frames */
                         frame_count = conn->saved_frames->count;
+                }
 
                 if ((frame_count == 0) || !conn->connected) {
                         gf_log (THIS->name, GF_LOG_DEBUG,
@@ -232,13 +258,6 @@ rpc_clnt_start_ping (void *rpc_ptr)
 
                         pthread_mutex_unlock (&conn->lock);
                         return;
-                }
-
-                if (frame_count < 0) {
-                        gf_log (THIS->name, GF_LOG_WARNING,
-                                "saved_frames->count is %"PRId64,
-                                conn->saved_frames->count);
-                        conn->saved_frames->count = 0;
                 }
 
                 timeout.tv_sec = conn->ping_timeout;
