@@ -303,6 +303,11 @@ afr_shd_selfheal (struct subvol_healer *healer, int child, uuid_t gfid)
 
 	subvol = priv->children[child];
 
+        //If this fails with ENOENT/ESTALE index is stale
+        ret = afr_shd_gfid_to_path (this, subvol, gfid, &path);
+        if (ret < 0)
+                return ret;
+
 	ret = afr_selfheal (this, gfid);
 
 	if (ret == -EIO) {
@@ -315,10 +320,6 @@ afr_shd_selfheal (struct subvol_healer *healer, int child, uuid_t gfid)
 		eh = shd->healed;
 		crawl_event->healed_count++;
 	}
-
-	afr_shd_gfid_to_path (this, subvol, gfid, &path);
-	if (!path)
-		return ret;
 
 	if (eh) {
 		shd_event = GF_CALLOC (1, sizeof(*shd_event),
@@ -334,6 +335,7 @@ afr_shd_selfheal (struct subvol_healer *healer, int child, uuid_t gfid)
 		if (eh_save_history (eh, shd_event) < 0) {
 			GF_FREE (shd_event);
 			GF_FREE (path);
+                        return ret;
 		}
 	}
 	return ret;

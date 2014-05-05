@@ -907,7 +907,7 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
                         goto out;
                 }
         } else if (valid_cnt < 2) {
-		ret = -ENOTCONN;
+                ret = -ENOTCONN;
                 goto out;
         }
 

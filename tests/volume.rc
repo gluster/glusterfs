@@ -359,3 +359,8 @@ function volume_exists() {
                 return 0
         fi
 }
+
+function afr_get_index_count {
+        local brick=$1
+        ls $1/.glusterfs/indices/xattrop | grep -v xattrop | wc -l
+}
