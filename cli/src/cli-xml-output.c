@@ -3853,3 +3853,1467 @@ out:
         return 0;
 #endif
 }
+
+#if (HAVE_LIB_XML)
+/* This function will generate snapshot create output in xml format.
+ *
+ * @param writer        xmlTextWriterPtr
+ * @param doc           xmlDocPtr
+ * @param dict          dict containing create output
+ *
+ * @return 0 on success and -1 on failure
+ */
+static int
+cli_xml_snapshot_create (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict)
+{
+        int     ret             = -1;
+        char   *str_value       = NULL;
+
+        GF_ASSERT (writer);
+        GF_ASSERT (doc);
+        GF_ASSERT (dict);
+
+        /* <snapCreate> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapCreate");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* <snapshot> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapshot");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_str (dict, "snapname", &str_value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snap name");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "name",
+                                               "%s", str_value);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_str (dict, "snapuuid", &str_value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snap uuid");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "uuid",
+                                               "%s", str_value);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* </snapshot> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* </snapCreate> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = 0;
+out:
+        return ret;
+}
+
+/* This function will generate snapshot delete output in xml format.
+ *
+ * @param writer        xmlTextWriterPtr
+ * @param doc           xmlDocPtr
+ * @param dict          dict containing delete output
+ *
+ * @return 0 on success and -1 on failure
+ */
+static int
+cli_xml_snapshot_delete (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict)
+{
+        int     ret             = -1;
+        char   *str_value       = NULL;
+
+        GF_ASSERT (writer);
+        GF_ASSERT (doc);
+        GF_ASSERT (dict);
+
+        /* <snapDelete> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapDelete");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* <snapshot> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapshot");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_str (dict, "snapname", &str_value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snap name");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "name",
+                                               "%s", str_value);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_str (dict, "snapuuid", &str_value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snap uuid");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "uuid",
+                                               "%s", str_value);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* </snapshot> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* </snapDelete> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = 0;
+out:
+
+        return ret;
+}
+
+/* This function will generate snapshot restore output in xml format.
+ *
+ * @param writer        xmlTextWriterPtr
+ * @param doc           xmlDocPtr
+ * @param dict          dict containing restore output
+ *
+ * @return 0 on success and -1 on failure
+ */
+static int
+cli_xml_snapshot_restore (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict)
+{
+        int     ret             = -1;
+        char   *str_value       = NULL;
+
+        GF_ASSERT (writer);
+        GF_ASSERT (doc);
+        GF_ASSERT (dict);
+
+        /* <snapRestore> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapRestore");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* <volume> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"volume");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_str (dict, "volname", &str_value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get vol name");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "name",
+                                               "%s", str_value);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_str (dict, "volid", &str_value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get volume id");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "uuid",
+                                               "%s", str_value);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* </volume> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+
+        /* <snapshot> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapshot");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_str (dict, "snapname", &str_value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snap name");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "name",
+                                               "%s", str_value);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_str (dict, "snapuuid", &str_value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snap uuid");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "uuid",
+                                               "%s", str_value);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* </snapshot> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* </snapRestore> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = 0;
+out:
+
+        return ret;
+}
+
+/* This function will generate snapshot list output in xml format.
+ *
+ * @param writer        xmlTextWriterPtr
+ * @param doc           xmlDocPtr
+ * @param dict          dict containing list output
+ *
+ * @return 0 on success and -1 on failure
+ */
+static int
+cli_xml_snapshot_list (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict)
+{
+        int     ret             = -1;
+        int     i               = 0;
+        int     snapcount       = 0;
+        char   *str_value       = NULL;
+        char    key[PATH_MAX]   = "";
+
+        GF_ASSERT (writer);
+        GF_ASSERT (doc);
+        GF_ASSERT (dict);
+
+        /* <snapList> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapList");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_int32 (dict, "snapcount", &snapcount);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snapcount");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "count",
+                                               "%d", snapcount);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        for (i = 1; i <= snapcount; ++i) {
+                ret = snprintf (key, sizeof (key), "snapname%d", i);
+                if (ret < 0) {
+                        goto out;
+                }
+
+                ret = dict_get_str (dict, key, &str_value);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not get %s ", key);
+                        goto out;
+                } else {
+                        ret = xmlTextWriterWriteFormatElement (writer,
+                                        (xmlChar *)"snapshot", "%s", str_value);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                }
+        }
+
+        /* </snapList> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = 0;
+out:
+
+        return ret;
+}
+
+/* This function will generate xml output for origin volume
+ * of the given snapshot.
+ *
+ * @param writer        xmlTextWriterPtr
+ * @param doc           xmlDocPtr
+ * @param dict          dict containing info output
+ * @param keyprefix     prefix for dictionary key
+ *
+ * @return 0 on success and -1 on failure
+ */
+static int
+cli_xml_snapshot_info_orig_vol (xmlTextWriterPtr writer, xmlDocPtr doc,
+                                dict_t *dict, char *keyprefix)
+{
+        int     ret             = -1;
+        int     value           = 0;
+        char   *buffer          = NULL;
+        char    key [PATH_MAX]  = "";
+
+        GF_ASSERT (dict);
+        GF_ASSERT (keyprefix);
+        GF_ASSERT (writer);
+        GF_ASSERT (doc);
+
+        /* <originVolume> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"originVolume");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        snprintf (key, sizeof (key), "%sorigin-volname", keyprefix);
+
+        ret = dict_get_str (dict, key, &buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_WARNING, "Failed to get %s", key);
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "name",
+                                               "%s", buffer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        snprintf (key, sizeof (key), "%ssnapcount", keyprefix);
+
+        ret = dict_get_int32 (dict, key, &value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get %s", key);
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "snapCount",
+                                               "%d", value);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        snprintf (key, sizeof (key), "%ssnaps-available", keyprefix);
+
+        ret = dict_get_int32 (dict, key, &value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get %s", key);
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer,
+                                (xmlChar *) "snapRemaining", "%d", value);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* </originVolume> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = 0;
+out:
+        return ret;
+}
+
+/* This function will generate xml output of snapshot volume info.
+ *
+ * @param writer        xmlTextWriterPtr
+ * @param doc           xmlDocPtr
+ * @param dict          dict containing info output
+ * @param keyprefix     key prefix for dictionary
+ * @param snap_driven   boolean to check if output is based of volume
+ *                      or snapshot
+ *
+ * @return 0 on success and -1 on failure
+ */
+static int
+cli_xml_snapshot_info_snap_vol (xmlTextWriterPtr writer, xmlDocPtr doc,
+                                dict_t *dict, char *keyprefix,
+                                gf_boolean_t snap_driven)
+{
+        char            key [PATH_MAX]          = "";
+        char           *buffer                  = NULL;
+        int             value                   = 0;
+        int             ret                     = -1;
+
+        GF_ASSERT (dict);
+        GF_ASSERT (keyprefix);
+        GF_ASSERT (writer);
+        GF_ASSERT (doc);
+
+        /* <snapVolume> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapVolume");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        snprintf (key, sizeof (key), "%s.volname", keyprefix);
+
+        ret = dict_get_str (dict, key, &buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get %s", key);
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "name",
+                                               "%s", buffer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        snprintf (key, sizeof (key), "%s.vol-status", keyprefix);
+
+        ret = dict_get_str (dict, key, &buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get %s", key);
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "status",
+                                               "%s", buffer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* If the command is snap_driven then we need to show origin volume
+         * info. Else this is shown in the start of info display.*/
+        if (snap_driven) {
+                snprintf (key, sizeof (key), "%s.", keyprefix);
+                ret = cli_xml_snapshot_info_orig_vol (writer, doc, dict, key);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to create "
+                                "xml output for snapshot's origin volume");
+                        goto out;
+                }
+        }
+
+        /* </snapVolume> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = 0;
+out:
+        return ret;
+}
+
+/* This function will generate snapshot info of individual snapshot
+ * in xml format.
+ *
+ * @param writer        xmlTextWriterPtr
+ * @param doc           xmlDocPtr
+ * @param dict          dict containing info output
+ * @param keyprefix     key prefix for dictionary
+ * @param snap_driven   boolean to check if output is based of volume
+ *                      or snapshot
+ *
+ * @return 0 on success and -1 on failure
+ */
+static int
+cli_xml_snapshot_info_per_snap (xmlTextWriterPtr writer, xmlDocPtr doc,
+                                dict_t *dict, char *keyprefix,
+                                gf_boolean_t snap_driven)
+{
+        char            key_buffer[PATH_MAX]    = "";
+        char           *buffer                  = NULL;
+        int             volcount                = 0;
+        int             ret                     = -1;
+        int             i                       = 0;
+
+        GF_ASSERT (dict);
+        GF_ASSERT (keyprefix);
+        GF_ASSERT (writer);
+        GF_ASSERT (doc);
+
+        /* <snapshot> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapshot");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        snprintf (key_buffer, sizeof (key_buffer), "%s.snapname",
+                  keyprefix);
+
+        ret = dict_get_str (dict, key_buffer, &buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to fetch snapname %s ",
+                        key_buffer);
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "name",
+                                               "%s", buffer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        snprintf (key_buffer, sizeof (key_buffer), "%s.snap-id", keyprefix);
+
+        ret = dict_get_str (dict, key_buffer, &buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to fetch snap-id %s ",
+                                key_buffer);
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "uuid",
+                                               "%s", buffer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        snprintf (key_buffer, sizeof (key_buffer), "%s.snap-desc", keyprefix);
+
+        ret = dict_get_str (dict, key_buffer, &buffer);
+        if (!ret) {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                (xmlChar *) "description",
+                                                "%s", buffer);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+        }
+
+        snprintf (key_buffer, sizeof (key_buffer), "%s.snap-time", keyprefix);
+
+        ret = dict_get_str (dict, key_buffer, &buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to fetch snap-time %s ",
+                                keyprefix);
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer,
+                                               (xmlChar *) "createTime",
+                                               "%s", buffer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        snprintf (key_buffer, sizeof (key_buffer), "%s.vol-count", keyprefix);
+        ret = dict_get_int32 (dict, key_buffer, &volcount);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Fail to get snap vol count");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer,
+                                               (xmlChar *) "volCount",
+                                               "%d", volcount);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_int32 (dict, key_buffer, &volcount);
+        /* Display info of each snapshot volume */
+        for (i = 1 ; i <= volcount ; i++) {
+                snprintf (key_buffer, sizeof (key_buffer), "%s.vol%d",
+                          keyprefix, i);
+
+                ret = cli_xml_snapshot_info_snap_vol (writer, doc, dict,
+                                                      key_buffer, snap_driven);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not list "
+                                        "details of volume in a snap");
+                        goto out;
+                }
+        }
+
+        /* </snapshot> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+out:
+        return ret;
+}
+
+/* This function will generate snapshot info output in xml format.
+ *
+ * @param writer        xmlTextWriterPtr
+ * @param doc           xmlDocPtr
+ * @param dict          dict containing info output
+ *
+ * @return 0 on success and -1 on failure
+ */
+static int
+cli_xml_snapshot_info (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict)
+{
+        int             ret             = -1;
+        int             i               = 0;
+        int             snapcount       = 0;
+        char            key [PATH_MAX]  = "";
+        char           *str_value       = NULL;
+        gf_boolean_t    snap_driven     = _gf_false;
+
+        GF_ASSERT (writer);
+        GF_ASSERT (doc);
+        GF_ASSERT (dict);
+
+        /* <snapInfo> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapInfo");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        snap_driven = dict_get_str_boolean (dict, "snap-driven", _gf_false);
+
+        /* If the approach is volume based then we should display orgin volume
+         * information first followed by per snap info*/
+        if (!snap_driven) {
+                ret = cli_xml_snapshot_info_orig_vol (writer, doc, dict, "");
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to create "
+                                "xml output for snapshot's origin volume");
+                        goto out;
+                }
+        }
+
+        ret = dict_get_int32 (dict, "snapcount", &snapcount);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snapcount");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "count",
+                                               "%d", snapcount);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* <snapshots> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapshots");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* Get snapshot info of individual snapshots */
+        for (i = 1; i <= snapcount; ++i) {
+                snprintf (key, sizeof (key), "snap%d", i);
+
+                ret = cli_xml_snapshot_info_per_snap (writer, doc, dict,
+                                                      key, snap_driven);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not get %s ", key);
+                        goto out;
+                }
+        }
+
+        /* </snapshots> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* </snapInfo> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = 0;
+out:
+
+        return ret;
+}
+
+/* This function will generate snapshot status of individual
+ * snapshot volume in xml format.
+ *
+ * @param writer        xmlTextWriterPtr
+ * @param doc           xmlDocPtr
+ * @param dict          dict containing status output
+ * @param keyprefix     key prefix for dictionary
+ *
+ * @return 0 on success and -1 on failure
+ */
+static int
+cli_xml_snapshot_volume_status (xmlTextWriterPtr writer, xmlDocPtr doc,
+                                dict_t *dict, const char *keyprefix)
+{
+        int     ret             = -1;
+        int     brickcount      = 0;
+        int     i               = 0;
+        int     value           = 0;
+        int     pid             = 0;
+        char   *buffer          = NULL;
+        char    key[PATH_MAX]   = "";
+
+        GF_ASSERT (writer);
+        GF_ASSERT (doc);
+        GF_ASSERT (dict);
+        GF_ASSERT (keyprefix);
+
+        snprintf (key, sizeof (key), "%s.brickcount", keyprefix);
+
+        ret = dict_get_int32 (dict, key, &brickcount);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to fetch brickcount");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "brickCount",
+                                               "%d", brickcount);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* Get status of every brick belonging to the snapshot volume */
+        for (i = 0 ; i < brickcount ; i++) {
+                /* <snapInfo> */
+                ret = xmlTextWriterStartElement (writer, (xmlChar *)"brick");
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                snprintf (key, sizeof (key), "%s.brick%d.path", keyprefix, i);
+
+                ret = dict_get_str (dict, key, &buffer);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_INFO, "Unable to get Brick Path");
+                        goto out;
+                }
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                        (xmlChar *) "path", "%s", buffer);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                snprintf (key, sizeof (key), "%s.brick%d.vgname",
+                          keyprefix, i);
+
+                ret = dict_get_str (dict, key, &buffer);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_INFO,
+                                "Unable to get Volume Group");
+                        goto out;
+                }
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                        (xmlChar *) "volumeGroup",
+                                        "%s", buffer);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                snprintf (key, sizeof (key), "%s.brick%d.status", keyprefix, i);
+
+                ret = dict_get_str (dict, key, &buffer);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Unable to get Brick Running");
+                        goto out;
+                }
+
+                snprintf (key, sizeof (key), "%s.brick%d.pid", keyprefix, i);
+
+                ret = dict_get_int32 (dict, key, &pid);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Unable to get pid");
+                        goto out;
+                }
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                        (xmlChar *) "pid", "%d", pid);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                snprintf (key, sizeof (key), "%s.brick%d.data", keyprefix, i);
+
+                ret = dict_get_str (dict, key, &buffer);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                        "Unable to get Data Percent");
+                        goto out;
+                }
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *) "lvUsage",
+                                                       "%s", buffer);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                snprintf (key, sizeof (key), "%s.brick%d.lvsize",
+                          keyprefix, i);
+                ret = dict_get_str (dict, key, &buffer);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_INFO, "Unable to get LV Size");
+                        goto out;
+                }
+
+                /* Truncate any newline character */
+                buffer = strtok (buffer, "\n");
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *) "lvSize",
+                                                       "%s", buffer);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                /* </brick> */
+                ret = xmlTextWriterEndElement (writer);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+        }
+
+out:
+        return ret;
+}
+
+/* This function will generate snapshot status of individual
+ * snapshot in xml format.
+ *
+ * @param writer        xmlTextWriterPtr
+ * @param doc           xmlDocPtr
+ * @param dict          dict containing status output
+ *
+ * @return 0 on success and -1 on failure
+ */
+int
+cli_xml_snapshot_status_per_snap (xmlTextWriterPtr writer, xmlDocPtr doc,
+                                  dict_t *dict, const char *keyprefix)
+{
+        int     ret             = -1;
+        int     snapcount       = 0;
+        int     volcount        = 0;
+        int     i               = 0;
+        char   *buffer          = NULL;
+        char    key [PATH_MAX]  = "";
+
+        GF_ASSERT (writer);
+        GF_ASSERT (doc);
+        GF_ASSERT (dict);
+        GF_ASSERT (keyprefix);
+
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapshot");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        snprintf (key, sizeof (key), "%s.snapname", keyprefix);
+
+        ret = dict_get_str (dict, key, &buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to get snapname");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "name",
+                                               "%s", buffer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        snprintf (key, sizeof (key), "%s.uuid", keyprefix);
+
+        ret = dict_get_str (dict, key, &buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to get snap UUID");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "uuid",
+                                               "%s", buffer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        snprintf (key, sizeof (key), "%s.volcount", keyprefix);
+
+        ret = dict_get_int32 (dict, key, &volcount);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to get volume count");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "volCount",
+                                               "%d", volcount);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* Get snapshot status of individual snapshot volume */
+        for (i = 0 ; i < volcount ; i++) {
+                /* <volume> */
+                ret = xmlTextWriterStartElement (writer, (xmlChar *)"volume");
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                snprintf (key, sizeof (key), "%s.vol%d", keyprefix, i);
+
+                ret = cli_xml_snapshot_volume_status (writer, doc,
+                                                             dict, key);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                        "Could not get snap volume status");
+                        goto out;
+                }
+
+                /* </volume> */
+                ret = xmlTextWriterEndElement (writer);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+        }
+
+        /* </snapshot> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = 0;
+out:
+        return ret;
+}
+
+/* This function will generate snapshot status output in xml format.
+ *
+ * @param writer        xmlTextWriterPtr
+ * @param doc           xmlDocPtr
+ * @param dict          dict containing status output
+ *
+ * @return 0 on success and -1 on failure
+ */
+static int
+cli_xml_snapshot_status (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict)
+{
+        int     ret             = -1;
+        int     snapcount       = 0;
+        int     i               = 0;
+        int     status_cmd      = 0;
+        char   *str_value       = NULL;
+        char    key [PATH_MAX]  = "";
+
+        GF_ASSERT (writer);
+        GF_ASSERT (doc);
+        GF_ASSERT (dict);
+
+        /* <snapStatus> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapStatus");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_int32 (dict, "status-cmd", &status_cmd);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not fetch status type");
+                goto out;
+        }
+
+        if (GF_SNAP_STATUS_TYPE_SNAP == status_cmd) {
+                snapcount = 1;
+        } else {
+                ret = dict_get_int32 (dict, "status.snapcount", &snapcount);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not get snapcount");
+                        goto out;
+                }
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *) "count",
+                                                       "%d", snapcount);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+        }
+
+        for (i = 0 ; i < snapcount; i++) {
+                snprintf (key, sizeof (key), "status.snap%d", i);
+
+                ret = cli_xml_snapshot_status_per_snap (writer, doc,
+                                                               dict, key);
+                if (ret < 0) {
+                        gf_log ("cli", GF_LOG_ERROR, "failed to create xml "
+                                "output for snapshot status");
+                        goto out;
+                }
+        }
+
+        /* </snapStatus> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = 0;
+out:
+
+        return ret;
+}
+
+/* This function will generate snapshot config show output in xml format.
+ *
+ * @param writer        xmlTextWriterPtr
+ * @param doc           xmlDocPtr
+ * @param dict          dict containing status output
+ *
+ * @return 0 on success and -1 on failure
+ */
+static int
+cli_xml_snapshot_config_show (xmlTextWriterPtr writer,
+                              xmlDocPtr doc, dict_t *dict)
+{
+        int             ret             = -1;
+        uint64_t        i               = 0;
+        uint64_t        value           = 0;
+        uint64_t        volcount        = 0;
+        char            buf[PATH_MAX]   = "";
+        char           *str_value       = NULL;
+
+        GF_ASSERT (writer);
+        GF_ASSERT (doc);
+        GF_ASSERT (dict);
+
+        /* <systemConfig> */
+        ret = xmlTextWriterStartElement (writer,
+                        (xmlChar *)"systemConfig");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_uint64 (dict, "snap-max-hard-limit", &value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get "
+                        "snap-max-hard-limit");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer,
+                        (xmlChar *) "hardLimit", "%"PRIu64, value);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_uint64 (dict, "snap-max-soft-limit", &value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get "
+                        "snap-max-soft-limit");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer,
+                        (xmlChar *) "softLimit",
+                        "%"PRIu64"%%", value);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_str (dict, "auto-delete", &str_value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not fetch auto-delet");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer,
+                        (xmlChar *) "autoDelete", "%s", str_value);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* </systemConfig> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* <volumeConfig> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"volumeConfig");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_uint64 (dict, "voldisplaycount", &volcount);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not fetch volcount");
+                goto out;
+        }
+
+        /* Get config of all the volumes */
+        for (i = 0; i < volcount; i++) {
+                /* <volume> */
+                ret = xmlTextWriterStartElement (writer, (xmlChar *)"volume");
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                snprintf (buf, sizeof(buf), "volume%"PRIu64"-volname", i);
+                ret = dict_get_str (dict, buf, &str_value);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not fetch %s", buf);
+                        goto out;
+                }
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                (xmlChar *) "name", "%s", str_value);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+
+                snprintf (buf, sizeof(buf),
+                                "volume%"PRIu64"-snap-max-hard-limit", i);
+                ret = dict_get_uint64 (dict, buf, &value);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not fetch %s", buf);
+                        goto out;
+                }
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                (xmlChar *) "hardLimit", "%"PRIu64, value);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                snprintf (buf, sizeof(buf),
+                                "volume%"PRIu64"-active-hard-limit", i);
+                ret = dict_get_uint64 (dict, buf, &value);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not fetch"
+                                " effective snap_max_hard_limit for "
+                                "%s", str_value);
+                        goto out;
+                }
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                (xmlChar *) "effectiveHardLimit",
+                                "%"PRIu64, value);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                snprintf (buf, sizeof(buf),
+                                "volume%"PRIu64"-snap-max-soft-limit", i);
+                ret = dict_get_uint64 (dict, buf, &value);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not fetch %s", buf);
+                        goto out;
+                }
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                        (xmlChar *) "softLimit",
+                                        "%"PRIu64, value);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                /* </volume> */
+                ret = xmlTextWriterEndElement (writer);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+        }
+
+        /* </volume> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = 0;
+out:
+        return ret;
+}
+
+/* This function will generate snapshot config set output in xml format.
+ *
+ * @param writer        xmlTextWriterPtr
+ * @param doc           xmlDocPtr
+ * @param dict          dict containing status output
+ *
+ * @return 0 on success and -1 on failure
+ */
+static int
+cli_xml_snapshot_config_set (xmlTextWriterPtr writer, xmlDocPtr doc,
+                             dict_t *dict)
+{
+        int             ret             = -1;
+        uint64_t        hard_limit      = 0;
+        uint64_t        soft_limit      = 0;
+        char           *volname         = NULL;
+        char           *auto_delete     = NULL;
+
+        GF_ASSERT (writer);
+        GF_ASSERT (doc);
+        GF_ASSERT (dict);
+
+        /* This is optional parameter therefore ignore the error */
+        ret = dict_get_uint64 (dict, "snap-max-hard-limit", &hard_limit);
+        /* This is optional parameter therefore ignore the error */
+        ret = dict_get_uint64 (dict, "snap-max-soft-limit", &soft_limit);
+        ret = dict_get_str (dict, "auto-delete", &auto_delete);
+
+        if (!hard_limit && !soft_limit && !auto_delete) {
+                ret = -1;
+                gf_log ("cli", GF_LOG_ERROR, "At least one option from "
+                        "snap-max-hard-limit, snap-max-soft-limit and "
+                        "auto-delete should be set");
+                goto out;
+        }
+
+        /* Ignore the error, as volname is optional */
+        ret = dict_get_str (dict, "volname", &volname);
+
+        if (NULL == volname) {
+                /* <systemConfig> */
+                ret = xmlTextWriterStartElement (writer,
+                                                 (xmlChar *)"systemConfig");
+        } else {
+                /* <volumeConfig> */
+                ret = xmlTextWriterStartElement (writer,
+                                                 (xmlChar *)"volumeConfig");
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                (xmlChar *) "name", "%s", volname);
+        }
+
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        if (hard_limit) {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                (xmlChar *) "newHardLimit",
+                                                "%"PRIu64, hard_limit);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+        }
+
+        if (soft_limit) {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                (xmlChar *) "newSoftLimit",
+                                "%"PRIu64, soft_limit);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+        }
+
+        if (auto_delete) {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                (xmlChar *) "autoDelete", "%s", auto_delete);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+        }
+
+        /* </volumeConfig> or </systemConfig> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = 0;
+out:
+        return ret;
+}
+
+/* This function will generate snapshot config output in xml format.
+ *
+ * @param writer        xmlTextWriterPtr
+ * @param doc           xmlDocPtr
+ * @param dict          dict containing config output
+ *
+ * @return 0 on success and -1 on failure
+ */
+static int
+cli_xml_snapshot_config (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict)
+{
+        int             ret             = -1;
+        int             config_command  = 0;
+
+        GF_ASSERT (writer);
+        GF_ASSERT (doc);
+        GF_ASSERT (dict);
+
+        /* <snapConfig> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapConfig");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_int32 (dict, "config-command", &config_command);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not fetch config type");
+                goto out;
+        }
+
+        switch (config_command) {
+        case GF_SNAP_CONFIG_TYPE_SET:
+                ret = cli_xml_snapshot_config_set (writer, doc, dict);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to create xml "
+                                "output for snapshot config set command");
+                        goto out;
+                }
+
+                break;
+        case GF_SNAP_CONFIG_DISPLAY:
+                ret = cli_xml_snapshot_config_show (writer, doc, dict);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to create xml "
+                                "output for snapshot config show command");
+                        goto out;
+                }
+                break;
+        default:
+                gf_log ("cli", GF_LOG_ERROR, "Uknown config command :%d",
+                        config_command);
+                ret = -1;
+                goto out;
+        }
+
+        /* </snapConfig> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = 0;
+out:
+
+        return ret;
+}
+
+/* This function will generate snapshot activate or
+ * deactivate output in xml format.
+ *
+ * @param writer        xmlTextWriterPtr
+ * @param doc           xmlDocPtr
+ * @param dict          dict containing activate or deactivate output
+ *
+ * @return 0 on success and -1 on failure
+ */
+static int
+cli_xml_snapshot_activate_deactivate (xmlTextWriterPtr writer, xmlDocPtr doc,
+                                      dict_t *dict, int cmd)
+{
+        int     ret     = -1;
+        char   *buffer  = NULL;
+        char   *tag     = NULL;
+
+        GF_ASSERT (writer);
+        GF_ASSERT (doc);
+        GF_ASSERT (dict);
+
+        if (GF_SNAP_OPTION_TYPE_ACTIVATE == cmd) {
+                tag = "snapActivate";
+        } else if (GF_SNAP_OPTION_TYPE_DEACTIVATE == cmd) {
+                tag = "snapDeactivate";
+        } else {
+                gf_log ("cli", GF_LOG_ERROR, "invalid command %d", cmd);
+                goto out;
+        }
+
+        /* <snapActivate> or <snapDeactivate> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)tag);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* <snapshot> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapshot");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_str (dict, "snapname", &buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snap name");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "name",
+                                               "%s", buffer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_str (dict, "snapuuid", &buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snap uuid");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "uuid",
+                                               "%s", buffer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* </snapshot> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+
+        /* </snapActivate> or </snapDeactivate> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = 0;
+out:
+
+        return ret;
+}
+#endif /* HAVE_LIB_XML */
+
+int
+cli_xml_output_snap_status_begin (cli_local_t *local, int op_ret, int op_errno,
+                                  char *op_errstr)
+{
+#if (HAVE_LIB_XML)
+        int                     ret = -1;
+
+        GF_ASSERT (local);
+
+        ret = cli_begin_xml_output (&(local->writer), &(local->doc));
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = cli_xml_output_common (local->writer, op_ret, op_errno,
+                                     op_errstr);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* <snapStatus> */
+        ret = xmlTextWriterStartElement (local->writer,
+                                         (xmlChar *) "snapStatus");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* <snapshots> */
+        ret = xmlTextWriterStartElement (local->writer, (xmlChar *)"snapshots");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+out:
+        gf_log ("cli", GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
+#else
+        return 0;
+#endif
+}
+
+int
+cli_xml_output_snap_status_end (cli_local_t *local)
+{
+#if (HAVE_LIB_XML)
+        int     ret = -1;
+
+        GF_ASSERT (local);
+
+        /* </snapshots> */
+        ret = xmlTextWriterEndElement (local->writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* </snapStatus> */
+        ret = xmlTextWriterEndElement (local->writer);
+        XML_RET_CHECK_AND_GOTO(ret, out);
+
+        ret = cli_end_xml_output (local->writer, local->doc);
+out:
+        gf_log ("cli", GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
+#else
+        return 0;
+#endif
+}
+
+/* This function will generate xml output for all the snapshot commands
+ *
+ * @param cmd_type      command type
+ * @param dict          dict containing snapshot command output
+ * @param op_ret        return value of the snapshot command
+ * @param op_errno      errno for the snapshot command
+ * @param op_errstr     error string for the snapshot command
+ *
+ * @return 0 on success and -1 on failure
+ */
+int
+cli_xml_output_snapshot (int cmd_type, dict_t *dict, int op_ret,
+                         int op_errno, char *op_errstr)
+{
+#if (HAVE_LIB_XML)
+        int                     ret     = -1;
+        xmlTextWriterPtr        writer  = NULL;
+        xmlDocPtr               doc     = NULL;
+
+        GF_ASSERT (dict);
+
+        ret = cli_begin_xml_output (&writer, &doc);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to output "
+                        "xml begin block");
+                goto out;
+        }
+
+        ret = cli_xml_output_common (writer, op_ret, op_errno, op_errstr);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to output "
+                        "xml common block");
+                goto out;
+        }
+
+        /* In case of command failure just printing the error message is good
+         * enough */
+        if (0 != op_ret) {
+                goto end;
+        }
+
+        switch (cmd_type) {
+        case GF_SNAP_OPTION_TYPE_CREATE:
+                ret = cli_xml_snapshot_create (writer, doc, dict);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to create "
+                                "xml output for snapshot create command");
+                        goto out;
+                }
+                break;
+        case GF_SNAP_OPTION_TYPE_DELETE:
+                ret = cli_xml_snapshot_delete (writer, doc, dict);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to create "
+                                "xml output for snapshot delete command");
+                        goto out;
+                }
+                break;
+        case GF_SNAP_OPTION_TYPE_RESTORE:
+                ret = cli_xml_snapshot_restore (writer, doc, dict);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to create "
+                                "xml output for snapshot restore command");
+                        goto out;
+                }
+                break;
+        case GF_SNAP_OPTION_TYPE_LIST:
+                ret = cli_xml_snapshot_list (writer, doc, dict);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to create "
+                                "xml output for snapshot list command");
+                        goto out;
+                }
+                break;
+        case GF_SNAP_OPTION_TYPE_STATUS:
+                ret = cli_xml_snapshot_status (writer, doc, dict);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to create"
+                                "xml output for snapshot status command");
+                        goto out;
+                }
+                break;
+        case GF_SNAP_OPTION_TYPE_INFO:
+                ret = cli_xml_snapshot_info (writer, doc, dict);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to create "
+                                "xml output for snapshot info command");
+                        goto out;
+                }
+                break;
+        case GF_SNAP_OPTION_TYPE_ACTIVATE:
+        case GF_SNAP_OPTION_TYPE_DEACTIVATE:
+                ret = cli_xml_snapshot_activate_deactivate (writer, doc,
+                                                            dict, cmd_type);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to create "
+                                "xml output for snapshot config command");
+                }
+                break;
+        case GF_SNAP_OPTION_TYPE_CONFIG:
+                ret = cli_xml_snapshot_config (writer, doc, dict);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to create "
+                                "xml output for snapshot config command");
+                }
+                break;
+        default:
+                gf_log ("cli", GF_LOG_ERROR,
+                        "Unexpected snapshot command: %d", cmd_type);
+                goto out;
+        }
+
+end:
+        ret = cli_end_xml_output (writer, doc);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to output "
+                        "xml end block");
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+#else
+        return 0;
+#endif /* HAVE_LIB_XML */
+}
