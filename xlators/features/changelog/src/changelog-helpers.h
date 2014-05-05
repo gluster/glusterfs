@@ -280,6 +280,9 @@ struct changelog_priv {
         gf_boolean_t      barrier_enabled;
         struct list_head  queue;
         uint32_t          queue_size;
+        gf_timer_t       *timer;
+        struct timespec   timeout;
+
 };
 
 struct changelog_local {
@@ -433,6 +436,8 @@ void __chlog_barrier_enqueue (xlator_t *this, call_stub_t *stub);
 void __chlog_barrier_disable (xlator_t *this, struct list_head *queue);
 void chlog_barrier_dequeue_all (xlator_t *this, struct list_head *queue);
 call_stub_t *__chlog_barrier_dequeue (xlator_t *this, struct list_head *queue);
+int __chlog_barrier_enable (xlator_t *this, changelog_priv_t *priv);
+
 
 /* macros */
 
@@ -563,6 +568,6 @@ call_stub_t *__chlog_barrier_dequeue (xlator_t *this, struct list_head *queue);
                         goto label;                                            \
                 }                                                              \
         } while (0)
-/*  End: Geo-Rep snapshot dependency changes */
+/* End: Geo-Rep snapshot dependency changes */
 
 #endif /* _CHANGELOG_HELPERS_H */

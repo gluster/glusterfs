@@ -88,6 +88,9 @@ void trap (void);
 #define GF_DAY_IN_SECONDS (24*60*60)
 #define GF_WEEK_IN_SECONDS (7*24*60*60)
 
+/* Default timeout for both barrier and changelog translator */
+#define BARRIER_TIMEOUT "120"
+
 enum _gf_boolean
 {
 	_gf_false = 0,

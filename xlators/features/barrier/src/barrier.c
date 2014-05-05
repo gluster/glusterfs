@@ -654,7 +654,7 @@ struct volume_options options[] = {
         },
         { .key = {"barrier-timeout"},
           .type = GF_OPTION_TYPE_TIME,
-          .default_value = "120",
+          .default_value = BARRIER_TIMEOUT,
           .description = "After 'timeout' seconds since the time 'barrier' "
                          "option was set to \"on\", acknowledgements to file "
                          "operations are no longer blocked and previously "

@@ -52,8 +52,41 @@ chlog_barrier_dequeue_all (xlator_t *this, struct list_head *queue)
 {
         call_stub_t            *stub    = NULL;
 
+        gf_log (this->name, GF_LOG_INFO,
+                "Dequeuing all the changelog barriered fops");
+
         while ((stub = __chlog_barrier_dequeue (this, queue)))
                 call_resume (stub);
+
+        gf_log (this->name, GF_LOG_INFO,
+                "Dequeuing changelog barriered fops is finished");
+        return;
+}
+
+/* Function called on changelog barrier timeout */
+void
+chlog_barrier_timeout (void *data)
+{
+        xlator_t               *this    = NULL;
+        changelog_priv_t       *priv    = NULL;
+        struct list_head        queue   = {0,};
+
+        this = data;
+        THIS = this;
+        priv = this->private;
+
+        INIT_LIST_HEAD (&queue);
+
+        gf_log (this->name, GF_LOG_ERROR,
+                "Disabling changelog barrier because of the timeout.");
+
+        LOCK (&priv->lock);
+        {
+                __chlog_barrier_disable (this, &queue);
+        }
+        UNLOCK (&priv->lock);
+
+        chlog_barrier_dequeue_all (this, &queue);
 
         return;
 }
@@ -63,8 +96,35 @@ void
 __chlog_barrier_disable (xlator_t *this, struct list_head *queue)
 {
         changelog_priv_t  *priv   = this->private;
+        int                ret    = 0;
+        GF_ASSERT (priv);
+
+        if (priv->timer) {
+                ret = gf_timer_call_cancel (this->ctx, priv->timer);
+                priv->timer = NULL;
+        }
 
         list_splice_init (&priv->queue, queue);
         priv->queue_size = 0;
         priv->barrier_enabled = _gf_false;
+}
+
+/* Enable chagelog barrier enable with timer */
+int
+__chlog_barrier_enable (xlator_t *this, changelog_priv_t *priv)
+{
+        int             ret     = -1;
+
+        priv->timer = gf_timer_call_after (this->ctx, priv->timeout,
+                                           chlog_barrier_timeout, (void *)this);
+        if (!priv->timer) {
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "Couldn't add changelog barrier timeout event.");
+                goto out;
+        }
+
+        priv->barrier_enabled = _gf_true;
+        ret = 0;
+out:
+        return ret;
 }

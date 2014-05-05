@@ -1281,6 +1281,16 @@ changelog_assign_encoding (changelog_priv_t *priv, char *enc)
         }
 }
 
+static void
+changelog_assign_barrier_timeout(changelog_priv_t *priv, uint32_t timeout)
+{
+       LOCK (&priv->lock);
+       {
+               priv->timeout.tv_sec = timeout;
+       }
+       UNLOCK (&priv->lock);
+}
+
 /* cleanup any helper threads that are running */
 static void
 changelog_cleanup_helper_threads (xlator_t *this, changelog_priv_t *priv)
@@ -1444,9 +1454,7 @@ notify (xlator_t *this, int event, void *data, ...)
         if (event == GF_EVENT_TRANSLATOR_OP) {
 
                 dict = data;
-                /*TODO: Also barrier option is persistent. Need to
-                 *      decide on the brick crash scenarios.
-                 */
+
                 barrier = dict_get_str_boolean (dict, "barrier", DICT_DEFAULT);
 
                 switch (barrier) {
@@ -1540,9 +1548,14 @@ notify (xlator_t *this, int event, void *data, ...)
                         /* Start changelog barrier */
                         LOCK (&priv->lock);
                         {
-                                priv->barrier_enabled = _gf_true;
+                                ret = __chlog_barrier_enable (this, priv);
                         }
                         UNLOCK (&priv->lock);
+                        if (ret == -1) {
+                                changelog_barrier_cleanup (this, priv, &queue);
+                                goto out;
+                        }
+
                         gf_log(this->name, GF_LOG_DEBUG,
                                            "Enabled changelog barrier");
 
@@ -1786,6 +1799,7 @@ reconfigure (xlator_t *this, dict_t *options)
         changelog_log_data_t    cld            = {0,};
         char    htime_dir[PATH_MAX]            = {0,};
         struct timeval          tv             = {0,};
+        uint32_t                timeout        = 0;
 
         priv = this->private;
         if (!priv)
@@ -1840,6 +1854,9 @@ reconfigure (xlator_t *this, dict_t *options)
                           priv->rollover_time, options, int32, out);
         GF_OPTION_RECONF ("fsync-interval",
                           priv->fsync_interval, options, int32, out);
+        GF_OPTION_RECONF ("changelog-barrier-timeout",
+                          timeout, options, time, out);
+        changelog_assign_barrier_timeout (priv, timeout);
 
         if (active_now || active_earlier) {
                 ret = changelog_fill_rollover_data (&cld, !active_now);
@@ -1898,6 +1915,7 @@ init (xlator_t *this)
         changelog_priv_t        *priv                   = NULL;
         gf_boolean_t            cond_lock_init          = _gf_false;
         char                    htime_dir[PATH_MAX]     = {0,};
+        uint32_t                timeout                 = 0;
 
         GF_VALIDATE_OR_GOTO ("changelog", this, out);
 
@@ -1977,6 +1995,8 @@ init (xlator_t *this)
         GF_OPTION_INIT ("rollover-time", priv->rollover_time, int32, out);
 
         GF_OPTION_INIT ("fsync-interval", priv->fsync_interval, int32, out);
+        GF_OPTION_INIT ("changelog-barrier-timeout", timeout, time, out);
+        priv->timeout.tv_sec = timeout;
 
         changelog_encode_change(priv);
 
@@ -2126,6 +2146,14 @@ struct volume_options options[] = {
          .default_value = "5",
          .description = "do not open CHANGELOG file with O_SYNC mode."
                         " instead perform fsync() at specified intervals"
+        },
+        { .key = {"changelog-barrier-timeout"},
+          .type = GF_OPTION_TYPE_TIME,
+          .default_value = BARRIER_TIMEOUT,
+          .description = "After 'timeout' seconds since the time 'barrier' "
+                         "option was set to \"on\", unlink/rmdir/rename  "
+                         "operations are no longer blocked and previously "
+                         "blocked fops are allowed to go through"
         },
         {.key = {NULL}
         },
