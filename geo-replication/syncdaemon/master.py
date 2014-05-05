@@ -1128,19 +1128,12 @@ class GMasterChangelogMixin(GMasterCommon):
                 self.process(changes)
 
     def register(self):
-        (workdir, logfile) = self.setup_working_dir()
         self.sleep_interval = int(gconf.change_interval)
         self.changelog_done_func = self.master.server.changelog_done
-        # register with the changelog library
-        # 9 == log level (DEBUG)
-        # 5 == connection retries
-        self.master.server.changelog_register(gconf.local_path,
-                                              workdir, logfile, 9, 5)
 
 
 class GMasterChangeloghistoryMixin(GMasterChangelogMixin):
     def register(self):
-        super(GMasterChangeloghistoryMixin, self).register()
         self.changelog_register_time = int(time.time())
         self.changelog_done_func = self.master.server.history_changelog_done
 
@@ -1166,7 +1159,8 @@ class GMasterChangeloghistoryMixin(GMasterChangelogMixin):
                                       ".glusterfs/changelogs")
         ts = self.master.server.history_changelog(changelog_path,
                                                   purge_time[0],
-                                                  self.changelog_register_time)
+                                                  self.changelog_register_time,
+                                                  int(gconf.sync_jobs))
 
         # scan followed by getchanges till scan returns zero.
         # history_changelog_scan() is blocking call, till it gets the number

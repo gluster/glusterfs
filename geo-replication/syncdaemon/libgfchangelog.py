@@ -85,8 +85,9 @@ class Changes(object):
         return ret
 
     @classmethod
-    def cl_history_changelog(cls, changelog_path, start, end):
-        ret = cls._get_api('gf_history_changelog')(changelog_path, start, end)
+    def cl_history_changelog(cls, changelog_path, start, end, num_parallel):
+        ret = cls._get_api('gf_history_changelog')(changelog_path, start, end,
+                                                   num_parallel)
         if ret == -1:
             cls.raise_changelog_err()
 

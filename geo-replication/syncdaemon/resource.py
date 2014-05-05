@@ -685,8 +685,9 @@ class Server(object):
         Changes.cl_done(clfile)
 
     @classmethod
-    def history_changelog(cls, changelog_path, start, end):
-        return Changes.cl_history_changelog(changelog_path, start, end)
+    def history_changelog(cls, changelog_path, start, end, num_parallel):
+        return Changes.cl_history_changelog(changelog_path, start, end,
+                                            num_parallel)
 
     @classmethod
     def history_changelog_scan(cls):
@@ -1312,6 +1313,12 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
             # g3 ==> changelog History
             g1.register()
             try:
+                (workdir, logfile) = g2.setup_working_dir()
+                # register with the changelog library
+                # 9 == log level (DEBUG)
+                # 5 == connection retries
+                brickserver.changelog_register(gconf.local_path,
+                                               workdir, logfile, 9, 5)
                 g2.register()
                 g3.register()
             except ChangelogException as e:
