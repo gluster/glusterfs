@@ -3457,35 +3457,62 @@ void
 glusterd_do_volume_quorum_action (xlator_t *this, glusterd_volinfo_t *volinfo,
                                   gf_boolean_t meets_quorum)
 {
-        glusterd_brickinfo_t    *brickinfo = NULL;
-        glusterd_conf_t         *conf      = NULL;
+        glusterd_brickinfo_t *brickinfo     = NULL;
+        glusterd_conf_t      *conf          = NULL;
+        gd_quorum_status_t   quorum_status  = NOT_APPLICABLE_QUORUM;
+        gf_boolean_t         follows_quorum = _gf_false;
 
         conf = this->private;
-        if (volinfo->status != GLUSTERD_STATUS_STARTED)
+        if (volinfo->status != GLUSTERD_STATUS_STARTED) {
+                volinfo->quorum_status = NOT_APPLICABLE_QUORUM;
+                goto out;
+        }
+
+        follows_quorum = glusterd_is_volume_in_server_quorum (volinfo);
+        if (follows_quorum) {
+                if (meets_quorum)
+                        quorum_status = MEETS_QUORUM;
+                else
+                        quorum_status = DOESNT_MEET_QUORUM;
+        } else {
+                quorum_status = NOT_APPLICABLE_QUORUM;
+        }
+
+        /*
+         * The following check is added to prevent spurious brick starts when
+         * events occur that affect quorum.
+         * Example:
+         * There is a cluster of 10 peers. Volume is in quorum. User
+         * takes down one brick from the volume to perform maintenance.
+         * Suddenly one of the peers go down. Cluster is still in quorum. But
+         * because of this 'peer going down' event, quorum is calculated and
+         * the bricks that are down are brought up again. In this process it
+         * also brings up the brick that is purposefully taken down.
+         */
+        if (volinfo->quorum_status == quorum_status)
                 goto out;
 
-        if (!glusterd_is_volume_in_server_quorum (volinfo))
-                meets_quorum = _gf_true;
-
-        if (meets_quorum)
+        if (quorum_status == MEETS_QUORUM) {
                 gf_msg (this->name, GF_LOG_CRITICAL, 0,
                         GD_MSG_SERVER_QUORUM_MET_STARTING_BRICKS,
                         "Server quorum regained for volume %s. Starting local "
                         "bricks.", volinfo->volname);
-        else
+        } else if (quorum_status == DOESNT_MEET_QUORUM) {
                 gf_msg (this->name, GF_LOG_CRITICAL, 0,
                         GD_MSG_SERVER_QUORUM_LOST_STOPPING_BRICKS,
                         "Server quorum lost for volume %s. Stopping local "
                         "bricks.", volinfo->volname);
+        }
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (!glusterd_is_local_brick (this, volinfo, brickinfo))
                         continue;
-                if (meets_quorum)
-                        glusterd_brick_start (volinfo, brickinfo, _gf_false);
-                else
+                if (quorum_status == DOESNT_MEET_QUORUM)
                         glusterd_brick_stop (volinfo, brickinfo, _gf_false);
+                else
+                        glusterd_brick_start (volinfo, brickinfo, _gf_false);
         }
+        volinfo->quorum_status = quorum_status;
 out:
         return;
 }

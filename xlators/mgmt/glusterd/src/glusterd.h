@@ -123,12 +123,6 @@ typedef struct {
 } nodesrv_t;
 
 typedef struct {
-        gf_boolean_t    quorum;
-        double          quorum_ratio;
-        uint64_t        gl_opt_version;
-} gd_global_opts_t;
-
-typedef struct {
         struct _volfile_ctx     *volfile;
         pthread_mutex_t          mutex;
         struct list_head         peers;
@@ -295,6 +289,12 @@ struct glusterd_replace_brick_ {
 
 typedef struct glusterd_replace_brick_ glusterd_replace_brick_t;
 
+typedef enum gd_quorum_status_ {
+        NOT_APPLICABLE_QUORUM, //Does not follow quorum
+        MEETS_QUORUM, //Follows quorum and meets.
+        DOESNT_MEET_QUORUM, //Follows quorum and does not meet.
+} gd_quorum_status_t;
+
 struct glusterd_volinfo_ {
         gf_lock_t                 lock;
         gf_boolean_t              is_snap_volume;
@@ -371,6 +371,7 @@ struct glusterd_volinfo_ {
         int                       client_op_version;
         pthread_mutex_t           reflock;
         int                       refcnt;
+        gd_quorum_status_t        quorum_status;
 };
 
 typedef enum gd_snap_status_ {
