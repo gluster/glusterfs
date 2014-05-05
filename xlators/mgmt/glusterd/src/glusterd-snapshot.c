@@ -6378,6 +6378,7 @@ glusterd_snapshot_restore_postop (dict_t *dict, int32_t op_ret,
         int                     ret             = -1;
         char                   *name            = NULL;
         char                   *volname         = NULL;
+        int                     cleanup         = 0;
         glusterd_snap_t        *snap            = NULL;
         glusterd_volinfo_t     *volinfo         = NULL;
         xlator_t               *this            = NULL;
@@ -6428,6 +6429,13 @@ glusterd_snapshot_restore_postop (dict_t *dict, int32_t op_ret,
                         goto out;
                 }
         } else { /* On failure revert snapshot restore */
+                ret = dict_get_int32 (dict, "cleanup", &cleanup);
+                /* Perform cleanup only when required */
+                if (ret || (0 == cleanup)) {
+                        ret = 0;
+                        goto out;
+                }
+
                 ret = glusterd_snapshot_revert_partial_restored_vol (volinfo,
                                                                      _gf_false);
                 if (ret) {
