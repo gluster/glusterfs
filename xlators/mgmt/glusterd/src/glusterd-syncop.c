@@ -1441,6 +1441,13 @@ out:
         if (!*op_ret)
                 *op_ret = ret;
 
+        /*
+         * If there are any quorum events while the OP is in progress, process
+         * them.
+         */
+        if (conf->pending_quorum_action)
+                glusterd_do_quorum_action ();
+
         return 0;
 }
 
