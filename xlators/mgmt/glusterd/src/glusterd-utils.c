@@ -10796,6 +10796,19 @@ glusterd_snap_create_use_rsp_dict (dict_t *dst, dict_t *src)
                 goto out;
         }
 
+        ret = dict_get_str (src, "snapuuid", &buf);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to get snap UUID");
+                goto out;
+        }
+
+        ret = dict_set_dynstr_with_alloc (dst, "snapuuid", buf);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set snap uuid in dict");
+                goto out;
+        }
+
         /* set in dst dictionary soft-limit-reach only if soft-limit-reach
          * is present src dictionary */
         ret = dict_get_int8 (src, "soft-limit-reach", &soft_limit_flag);
