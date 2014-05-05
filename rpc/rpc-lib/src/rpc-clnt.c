@@ -110,30 +110,6 @@ out:
 }
 
 
-void
-saved_frames_delete (struct saved_frame *saved_frame,
-                     rpc_clnt_connection_t *conn)
-{
-        GF_VALIDATE_OR_GOTO ("rpc-clnt", saved_frame, out);
-        GF_VALIDATE_OR_GOTO ("rpc-clnt", conn, out);
-
-        pthread_mutex_lock (&conn->lock);
-        {
-                list_del_init (&saved_frame->list);
-                conn->saved_frames->count--;
-        }
-        pthread_mutex_unlock (&conn->lock);
-
-        if (saved_frame->rpcreq != NULL) {
-                rpc_clnt_reply_deinit (saved_frame->rpcreq,
-                                       conn->rpc_clnt->reqpool);
-        }
-
-        mem_put (saved_frame);
-out:
-        return;
-}
-
 
 static void
 call_bail (void *data)
