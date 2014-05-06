@@ -693,7 +693,8 @@ int32_t
 glusterd_compare_volume_name(struct list_head *, struct list_head *);
 
 char*
-glusterd_get_brick_mount_details (char *brick_path);
+glusterd_get_brick_mount_device (char *brick_path);
+
 struct mntent *
 glusterd_get_mnt_entry_info (char *mnt_pt, FILE *mtab);
 
@@ -789,13 +790,9 @@ glusterd_get_brick_mount_dir (char *brickpath, char *hostname, char *mount_dir);
 int32_t
 glusterd_aggr_brick_mount_dirs (dict_t *aggr, dict_t *rsp_dict);
 
-char *
-glusterd_take_lvm_snapshot (glusterd_volinfo_t *snap_vol,
-                            char *brick_path);
-
 int32_t
-glusterd_snap_brick_create (char *device, glusterd_volinfo_t *snap_volinfo,
-                            int32_t brick_count, char *snap_brick_dir);
+glusterd_take_lvm_snapshot (glusterd_brickinfo_t *brickinfo,
+                            char *origin_brick_path);
 
 int32_t
 glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
@@ -816,4 +813,8 @@ glusterd_volume_quorum_calculate (glusterd_volinfo_t *volinfo, dict_t *dict,
 int
 glusterd_merge_brick_status (dict_t *dst, dict_t *src);
 
+int32_t
+glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
+                            glusterd_brickinfo_t *brickinfo,
+                            int32_t brick_count);
 #endif

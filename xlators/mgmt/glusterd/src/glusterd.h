@@ -995,7 +995,9 @@ int
 glusterd_snapshot_postvalidate (dict_t *dict, int32_t op_ret, char **op_errstr,
                                 dict_t *rsp_dict);
 char *
-glusterd_build_snap_device_path (char *device, char *snapname);
+glusterd_build_snap_device_path (char *device, char *snapname,
+                                 int32_t brick_count);
+
 int32_t
 glusterd_snap_remove (dict_t *rsp_dict, glusterd_snap_t *snap,
                       gf_boolean_t remove_lvm, gf_boolean_t force);
