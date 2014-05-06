@@ -21,7 +21,6 @@ TEST mkdir -p $B0/${V0}1 $B0/${V0}2
 TEST mount -t xfs $LO1 $B0/${V0}1
 TEST mount -t xfs $LO2 $B0/${V0}2
 
-
 ## Lets create volume
 TEST $CLI volume create $V0 $H0:$B0/${V0}{1,2};
 
@@ -36,7 +35,7 @@ TEST glusterfs -s $H0 --volfile-id=$V0 --acl $M0
 ## Real test starts here
 ## ----------------------------------------------------------------------------
 
-MINFREEDISKVALUE=90
+MINFREEDISKVALUE=90%
 
 ## Set min free disk to MINFREEDISKVALUE percent
 TEST $CLI volume set $V0 cluster.min-free-disk $MINFREEDISKVALUE
@@ -54,13 +53,13 @@ do
         if  [[ -e  $B0/${V0}1/file$i.data &&  $BRICK1FILE = "0" ]]
         then
                 BRICK1FILE=file$i.data
-                CONTINUE=$CONTINUE-1
+                CONTINUE=$(( $CONTINUE - 1 ))
         fi
 
         if [[ -e  $B0/${V0}2/file$i.data &&  $BRICK2FILE = "0" ]]
         then
                 BRICK2FILE=file$i.data
-                CONTINUE=$CONTINUE-1
+                CONTINUE=$(( $CONTINUE - 1 ))
         fi
 
         rm $M0/file$i.data
@@ -95,7 +94,6 @@ done
 
 dd if=/dev/zero of=$M0/$FILETOCREATE bs=1024 count=2048 1>/dev/null 2>&1
 TEST [ -e $OTHERBRICK/$FILETOCREATE ]
-
 ## Done testing, lets clean up
 TEST rm -rf $M0/*
 
