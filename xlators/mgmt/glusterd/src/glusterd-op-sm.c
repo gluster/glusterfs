@@ -3565,6 +3565,7 @@ glusterd_op_start_rb_timer (dict_t *dict, uuid_t *txn_id)
         glusterd_conf_t *priv = NULL;
         int32_t         ret = -1;
         dict_t          *rb_ctx = NULL;
+        uuid_t          *rb_txn_id = NULL;
 
         GF_ASSERT (dict);
         priv = THIS->private;
@@ -3581,9 +3582,13 @@ glusterd_op_start_rb_timer (dict_t *dict, uuid_t *txn_id)
                 goto out;
         }
 
+        rb_txn_id = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        if (!rb_txn_id)
+                goto out;
+
+        uuid_copy (*rb_txn_id, *txn_id);
         timeout.tv_sec  = 5;
         timeout.tv_nsec = 0;
-
 
         rb_ctx = dict_copy (dict, rb_ctx);
         if (!rb_ctx) {
@@ -3594,14 +3599,14 @@ glusterd_op_start_rb_timer (dict_t *dict, uuid_t *txn_id)
         }
 
         ret = dict_set_bin (rb_ctx, "transaction_id",
-                            txn_id, sizeof (*txn_id));
+                            rb_txn_id, sizeof (*rb_txn_id));
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
                        "Failed to set transaction id.");
                 goto out;
         } else
                gf_log ("", GF_LOG_DEBUG,
-                        "transaction_id = %s", uuid_utoa (*txn_id));
+                        "transaction_id = %s", uuid_utoa (*rb_txn_id));
 
         priv->timer = gf_timer_call_after (THIS->ctx, timeout,
                                            glusterd_do_replace_brick,
