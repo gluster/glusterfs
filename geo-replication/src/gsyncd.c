@@ -29,6 +29,7 @@
 #ifdef USE_LIBGLUSTERFS
 #include "glusterfs.h"
 #include "globals.h"
+#include "defaults.h"
 #endif
 
 #include "common-utils.h"
@@ -341,10 +342,11 @@ struct invocable invocables[] = {
 int
 main (int argc, char **argv)
 {
-        char *evas          = NULL;
-        struct invocable *i = NULL;
-        char *b             = NULL;
-        char *sargv         = NULL;
+        int               ret   = -1;
+        char             *evas  = NULL;
+        struct invocable *i     = NULL;
+        char             *b     = NULL;
+        char             *sargv = NULL;
 
 #ifdef USE_LIBGLUSTERFS
         glusterfs_ctx_t *ctx = NULL;
@@ -357,6 +359,11 @@ main (int argc, char **argv)
                 return 1;
 
         THIS->ctx = ctx;
+        ret = default_mem_acct_init (THIS);
+        if (ret) {
+                fprintf (stderr, "internal error: mem accounting failed\n");
+                return 1;
+        }
 #endif
 
         evas = getenv (_GLUSTERD_CALLED_);
