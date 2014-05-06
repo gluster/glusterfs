@@ -6458,15 +6458,12 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
 {
         int                                     ret   = -1;
         xlator_t                                *this = NULL;
-        glusterd_conf_t                         *conf = NULL;
 
         if ((!brickinfo) || (!volinfo))
                 goto out;
 
         this = THIS;
         GF_ASSERT (this);
-        conf = this->private;
-        GF_ASSERT (conf);
 
         if (uuid_is_null (brickinfo->uuid)) {
                 ret = glusterd_resolve_brick (brickinfo);
@@ -7062,7 +7059,7 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
 }
 
 char*
-glusterd_get_brick_mount_details (char *brick_path)
+glusterd_get_brick_mount_device (char *brick_path)
 {
         int             ret                  = -1;
         char           *mnt_pt               = NULL;

@@ -398,8 +398,29 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         }
 
         /* Fetch the device path */
-        device = glusterd_take_lvm_snapshot (snap_vol, snap_opinfo->brick_path);
+        device = glusterd_get_brick_mount_device (snap_opinfo->brick_path);
         if (!device) {
+                gf_log (this->name, GF_LOG_ERROR, "Getting device name for the"
+                        "brick %s:%s failed", brickinfo->hostname,
+                        snap_opinfo->brick_path);
+                ret = -1;
+                goto out;
+        }
+
+        device = glusterd_build_snap_device_path (device, snap_vol->volname,
+                                                  snap_opinfo->brick_num - 1);
+        if (!device) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot copy the snapshot "
+                        "device name (volname: %s, snapname: %s)",
+                         snap_vol->volname, snap->snapname);
+                ret = -1;
+                goto out;
+        }
+        strncpy (brickinfo->device_path, device,
+                 sizeof(brickinfo->device_path));
+
+        ret = glusterd_take_lvm_snapshot (brickinfo, snap_opinfo->brick_path);
+        if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to take snapshot of %s",
                         snap_opinfo->brick_path);
@@ -407,9 +428,8 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         }
 
         /* Create and mount the snap brick */
-        ret = glusterd_snap_brick_create (device, snap_vol,
-                                          snap_opinfo->brick_num,
-                                          brickinfo->mount_dir);
+        ret = glusterd_snap_brick_create (snap_vol, brickinfo,
+                                          snap_opinfo->brick_num - 1);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to "
                         " create and mount the brick(%s) for the snap %s",
@@ -417,11 +437,7 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
                         snap_vol->snapshot->snapname);
                 goto out;
         }
-
-        strncpy (brickinfo->device_path, device,
-                 sizeof(brickinfo->device_path));
         brickinfo->snap_status = 0;
-
         ret = glusterd_store_volinfo (snap_vol,
                                       GLUSTERD_VOLINFO_VER_AC_NONE);
         if (ret) {
@@ -430,6 +446,7 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
                         snap->snapname);
                 goto out;
         }
+
 
         ret = glusterd_brick_start (snap_vol, brickinfo, _gf_false);
         if (ret) {
@@ -440,6 +457,9 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
                 goto out;
         }
 out:
+        if (device)
+                GF_FREE (device);
+
         return ret;
 }
 
