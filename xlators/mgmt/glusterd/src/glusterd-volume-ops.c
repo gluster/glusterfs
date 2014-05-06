@@ -1828,7 +1828,8 @@ out:
 }
 
 int
-glusterd_start_volume (glusterd_volinfo_t *volinfo, int flags)
+glusterd_start_volume (glusterd_volinfo_t *volinfo, int flags,
+                       gf_boolean_t wait)
 
 {
         int                             ret             = 0;
@@ -1841,7 +1842,7 @@ glusterd_start_volume (glusterd_volinfo_t *volinfo, int flags)
         GF_ASSERT (volinfo);
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                ret = glusterd_brick_start (volinfo, brickinfo, _gf_true);
+                ret = glusterd_brick_start (volinfo, brickinfo, wait);
                 /* If 'force' try to start all bricks regardless of success or
                  * failure
                  */
@@ -1917,7 +1918,7 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
                 }
         }
 
-        ret = glusterd_start_volume (volinfo, flags);
+        ret = glusterd_start_volume (volinfo, flags, _gf_true);
         if (ret)
                 goto out;
 

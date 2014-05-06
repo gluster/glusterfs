@@ -4422,7 +4422,7 @@ glusterd_snapshot_activate_commit (dict_t *dict, char **op_errstr,
                         goto out;
         }
 
-        ret = glusterd_start_volume (snap_volinfo, flags);
+        ret = glusterd_start_volume (snap_volinfo, flags, _gf_true);
 
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
