@@ -204,7 +204,7 @@ glusterd_is_nodesvc_running ();
 
 void
 glusterd_get_nodesvc_dir (char *server, char *workdir,
-                                char *path, size_t len);
+                          char *path, size_t len);
 int32_t
 glusterd_nfs_server_start ();
 
@@ -839,4 +839,56 @@ glusterd_snapshot_restore_cleanup (dict_t *rsp_dict,
                                    glusterd_volinfo_t *volinfo,
                                    glusterd_snap_t *snap);
 
+int
+glusterd_unlink_file (char *sock_file_path);
+
+/* Snapd functions */
+int
+glusterd_handle_snapd_option (glusterd_volinfo_t *volinfo);
+
+int32_t
+glusterd_snapd_disconnect (glusterd_volinfo_t *volinfo);
+
+void
+glusterd_get_snapd_dir (glusterd_volinfo_t *volinfo,
+                        char *path, int path_len);
+
+void
+glusterd_get_snapd_rundir (glusterd_volinfo_t *volinfo,
+                           char *path, int path_len);
+
+void
+glusterd_get_snapd_volfile (glusterd_volinfo_t *volinfo,
+                            char *path, int path_len);
+
+void
+glusterd_get_snapd_pidfile (glusterd_volinfo_t *volinfo,
+                            char *path, int path_len);
+
+void
+glusterd_set_snapd_socket_filepath (glusterd_volinfo_t *volinfo,
+                                    char *path, int path_len);
+
+gf_boolean_t
+glusterd_is_snapd_running (glusterd_volinfo_t *volinfo);
+
+int
+glusterd_snapd_stop (glusterd_volinfo_t *volinfo);
+
+int
+glusterd_snapd_start (glusterd_volinfo_t *volinfo, gf_boolean_t wait);
+
+int
+glusterd_is_snapd_enabled (glusterd_volinfo_t *volinfo);
+
+gf_boolean_t
+glusterd_is_snapd_online (glusterd_volinfo_t *volinfo);
+
+void
+glusterd_snapd_set_online_status (glusterd_volinfo_t *volinfo,
+                                  gf_boolean_t status);
+
+int
+glusterd_restart_snapds (glusterd_conf_t *priv);
+/* End snapd functions */
 #endif

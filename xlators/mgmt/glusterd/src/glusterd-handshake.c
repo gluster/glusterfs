@@ -162,6 +162,7 @@ build_volfile_path (const char *volname, char *path,
         const char              *volname_ptr            = NULL;
         char                     path_prefix [PATH_MAX] = {0,};
         xlator_t                *this                   = NULL;
+        char                    *volname_tmp            = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -170,7 +171,18 @@ build_volfile_path (const char *volname, char *path,
         GF_ASSERT (volname);
         GF_ASSERT (path);
 
-        if (strstr (volname, "gluster/")) {
+        if (strstr (volname, "snapd/")) {
+                volname_tmp = strchr (volname, '/') + 1;
+                ret = glusterd_volinfo_find (volname_tmp, &volinfo);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Couldn't find volinfo");
+                        goto out;
+                }
+                glusterd_get_snapd_volfile (volinfo, path, path_len);
+                ret = 1;
+                goto out;
+        } else if (strstr (volname, "gluster/")) {
                 server = strchr (volname, '/') + 1;
                 glusterd_get_nodesvc_volfile (server, priv->workdir,
                                               path, path_len);

@@ -2310,6 +2310,37 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 }
 
 int
+client_check_remote_host (xlator_t *this, dict_t *options)
+{
+        char           *remote_host     = NULL;
+        int             ret             = -1;
+
+        ret = dict_get_str (options, "remote-host", &remote_host);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_INFO, "Remote host is not set. "
+                        "Assuming the volfile server as remote host.");
+
+                if (!this->ctx->cmd_args.volfile_server) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                                 "No remote host to connect.");
+                        goto out;
+                }
+
+                ret = dict_set_str (options, "remote-host",
+                                    this->ctx->cmd_args.volfile_server);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set the remote host");
+                        goto out;
+                }
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 build_client_config (xlator_t *this, clnt_conf_t *conf)
 {
         int                     ret = -1;
@@ -2336,6 +2367,10 @@ build_client_config (xlator_t *this, clnt_conf_t *conf)
                         bool, out);
 
         GF_OPTION_INIT ("send-gids", conf->send_gids, bool, out);
+
+        ret = client_check_remote_host (this, this->options);
+        if (ret)
+                goto out;
 
         ret = 0;
 out:
@@ -2492,6 +2527,10 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("ping-timeout", conf->opt.ping_timeout,
                           options, int32, out);
+
+        ret = client_check_remote_host (this, options);
+        if (ret)
+                goto out;
 
         subvol_ret = dict_get_str (this->options, "remote-host",
                                    &old_remote_host);

@@ -230,10 +230,10 @@ glusterd_get_uuid (uuid_t *uuid)
 
 int
 glusterd_submit_request_unlocked (struct rpc_clnt *rpc, void *req,
-				  call_frame_t *frame, rpc_clnt_prog_t *prog,
-				  int procnum, struct iobref *iobref,
-				  xlator_t *this, fop_cbk_fn_t cbkfn,
-				  xdrproc_t xdrproc)
+                                  call_frame_t *frame, rpc_clnt_prog_t *prog,
+                                  int procnum, struct iobref *iobref,
+                                  xlator_t *this, fop_cbk_fn_t cbkfn,
+                                  xdrproc_t xdrproc)
 {
         int                     ret         = -1;
         struct iobuf            *iobuf      = NULL;
@@ -312,17 +312,17 @@ glusterd_submit_request (struct rpc_clnt *rpc, void *req,
                          xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
 {
         glusterd_conf_t         *priv = THIS->private;
-	int ret = -1;
+        int ret = -1;
 
-	synclock_unlock (&priv->big_lock);
-	{
-		ret = glusterd_submit_request_unlocked (rpc, req, frame, prog,
-							procnum, iobref, this,
-							cbkfn, xdrproc);
-	}
-	synclock_lock (&priv->big_lock);
+        synclock_unlock (&priv->big_lock);
+        {
+                ret = glusterd_submit_request_unlocked (rpc, req, frame, prog,
+                                                        procnum, iobref, this,
+                                                        cbkfn, xdrproc);
+        }
+        synclock_lock (&priv->big_lock);
 
-	return ret;
+        return ret;
 }
 
 
@@ -1919,7 +1919,6 @@ glusterd_brick_unlink_socket_file (glusterd_volinfo_t *volinfo,
         char                    socketpath[PATH_MAX] = {0};
         xlator_t                *this = NULL;
         glusterd_conf_t         *priv = NULL;
-        int                     ret = 0;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -1931,15 +1930,8 @@ glusterd_brick_unlink_socket_file (glusterd_volinfo_t *volinfo,
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
         glusterd_set_brick_socket_filepath (volinfo, brickinfo, socketpath,
                                             sizeof (socketpath));
-        ret = unlink (socketpath);
-        if (ret && (ENOENT == errno)) {
-                ret = 0;
-        } else {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to remove %s"
-                        " error: %s", socketpath, strerror (errno));
-        }
 
-        return ret;
+        return glusterd_unlink_file (socketpath);
 }
 
 int32_t
@@ -3124,9 +3116,9 @@ glusterd_compare_friend_volume (dict_t *peer_data, int32_t count,
                 *status = GLUSTERD_VOL_COMP_UPDATE_REQ;
                 goto out;
         } else if (version < volinfo->version) {
-		*status = GLUSTERD_VOL_COMP_SCS;
-		goto out;
-	}
+                *status = GLUSTERD_VOL_COMP_SCS;
+                goto out;
+        }
 
         //Now, versions are same, compare cksums.
         //
@@ -3443,6 +3435,7 @@ glusterd_spawn_daemons (void *opaque)
 {
         glusterd_conf_t *conf = THIS->private;
         gf_boolean_t    start_bricks = !conf->restart_done;
+        int             ret             = -1;
 
         if (start_bricks) {
                 glusterd_restart_bricks (conf);
@@ -3450,7 +3443,9 @@ glusterd_spawn_daemons (void *opaque)
         }
         glusterd_restart_gsyncds (conf);
         glusterd_restart_rebalance (conf);
-        return 0;
+        ret = glusterd_restart_snapds (conf);
+
+        return ret;
 }
 
 void
@@ -5526,7 +5521,7 @@ out:
 
 void
 glusterd_get_nodesvc_dir (char *server, char *workdir,
-                                char *path, size_t len)
+                          char *path, size_t len)
 {
         GF_ASSERT (len == PATH_MAX);
         snprintf (path, len, "%s/%s", workdir, server);
@@ -5534,7 +5529,7 @@ glusterd_get_nodesvc_dir (char *server, char *workdir,
 
 void
 glusterd_get_nodesvc_rundir (char *server, char *workdir,
-                                   char *path, size_t len)
+                             char *path, size_t len)
 {
         char    dir[PATH_MAX] = {0};
         GF_ASSERT (len == PATH_MAX);
@@ -5545,7 +5540,7 @@ glusterd_get_nodesvc_rundir (char *server, char *workdir,
 
 void
 glusterd_get_nodesvc_pidfile (char *server, char *workdir,
-                                    char *path, size_t len)
+                              char *path, size_t len)
 {
         char    dir[PATH_MAX] = {0};
         GF_ASSERT (len == PATH_MAX);
@@ -5556,7 +5551,7 @@ glusterd_get_nodesvc_pidfile (char *server, char *workdir,
 
 void
 glusterd_get_nodesvc_volfile (char *server, char *workdir,
-                                    char *volfile, size_t len)
+                              char *volfile, size_t len)
 {
         char  dir[PATH_MAX] = {0,};
         GF_ASSERT (len == PATH_MAX);
@@ -5666,6 +5661,12 @@ out:
         return rpc;
 }
 
+inline struct rpc_clnt*
+glusterd_snapd_get_rpc (glusterd_volinfo_t *volinfo)
+{
+        return volinfo->snapd.rpc;
+}
+
 struct rpc_clnt*
 glusterd_nodesvc_get_rpc (char *server)
 {
@@ -5715,7 +5716,8 @@ glusterd_nodesvc_set_rpc (char *server, struct rpc_clnt *rpc)
 }
 
 int32_t
-glusterd_nodesvc_connect (char *server, char *socketpath) {
+glusterd_nodesvc_connect (char *server, char *socketpath)
+{
         int                     ret = 0;
         dict_t                  *options = NULL;
         struct rpc_clnt         *rpc = NULL;
@@ -5899,9 +5901,25 @@ glusterd_is_nodesvc_running (char *server)
 }
 
 int32_t
-glusterd_nodesvc_unlink_socket_file (char *server)
+glusterd_unlink_file (char *sockfpath)
 {
         int             ret = 0;
+
+        ret = unlink (sockfpath);
+        if (ret) {
+                if (ENOENT == errno)
+                        ret = 0;
+                else
+                        gf_log (THIS->name, GF_LOG_ERROR, "Failed to remove %s"
+                                " error: %s", sockfpath, strerror (errno));
+        }
+
+        return ret;
+}
+
+int32_t
+glusterd_nodesvc_unlink_socket_file (char *server)
+{
         char            sockfpath[PATH_MAX] = {0,};
         char            rundir[PATH_MAX] = {0,};
         glusterd_conf_t *priv = THIS->private;
@@ -5912,15 +5930,7 @@ glusterd_nodesvc_unlink_socket_file (char *server)
         glusterd_nodesvc_set_socket_filepath (rundir, MY_UUID,
                                               sockfpath, sizeof (sockfpath));
 
-        ret = unlink (sockfpath);
-        if (ret && (ENOENT == errno)) {
-                ret = 0;
-        } else {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to remove %s"
-                        " error: %s", sockfpath, strerror (errno));
-        }
-
-        return ret;
+        return glusterd_unlink_file (sockfpath);
 }
 
 int32_t
@@ -5936,7 +5946,7 @@ glusterd_nodesvc_stop (char *server, int sig)
         (void)glusterd_nodesvc_disconnect (server);
 
         glusterd_get_nodesvc_pidfile (server, priv->workdir,
-                                            pidfile, sizeof (pidfile));
+                                      pidfile, sizeof (pidfile));
         ret = glusterd_service_stop (server, pidfile, sig, _gf_true);
 
         if (ret == 0) {
@@ -6217,7 +6227,6 @@ glusterd_reconfigure_nfs ()
 out:
         return ret;
 }
-
 
 int
 glusterd_check_generate_start_nfs ()
@@ -7876,7 +7885,7 @@ glusterd_sm_tr_log_transition_add_to_dict (dict_t *dict,
 {
         int     ret = -1;
         char    key[512] = {0};
-	char    timestr[64] = {0,};
+        char    timestr[64] = {0,};
         char    *str = NULL;
 
         GF_ASSERT (dict);
@@ -12887,6 +12896,372 @@ glusterd_enable_default_options (glusterd_volinfo_t *volinfo, char *option)
                  * */
 
         }
+out:
+        return ret;
+}
+
+/* Snapd functions */
+int
+glusterd_is_snapd_enabled (glusterd_volinfo_t *volinfo)
+{
+        int              ret    = 0;
+        xlator_t        *this   = THIS;
+
+        ret = dict_get_str_boolean (volinfo->dict, "features.uss", -2);
+        if (ret == -2) {
+                gf_log (this->name, GF_LOG_DEBUG, "Key features.uss not "
+                        "present in the volinfo dict");
+                ret = 0;
+
+        } else if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                        "'features.uss' from %s volume dict",
+                        volinfo->volname);
+                ret = 0;
+        }
+
+        return ret;
+}
+
+void
+glusterd_get_snapd_rundir (glusterd_volinfo_t *volinfo,
+                           char *path, int path_len)
+{
+        char                    workdir [PATH_MAX]      = {0,};
+        glusterd_conf_t        *priv                    = THIS->private;
+
+        GLUSTERD_GET_VOLUME_DIR (workdir, volinfo, priv);
+
+        snprintf (path, path_len, "%s/run", workdir);
+}
+
+void
+glusterd_get_snapd_volfile (glusterd_volinfo_t *volinfo,
+                            char *path, int path_len)
+{
+        char                    workdir [PATH_MAX]      = {0,};
+        glusterd_conf_t        *priv                    = THIS->private;
+
+        GLUSTERD_GET_VOLUME_DIR (workdir, volinfo, priv);
+
+        snprintf (path, path_len, "%s/%s-snapd.vol", workdir,
+                  volinfo->volname);
+}
+
+void
+glusterd_get_snapd_pidfile (glusterd_volinfo_t *volinfo,
+                            char *path, int path_len)
+{
+        char            rundir [PATH_MAX]      = {0,};
+
+        glusterd_get_snapd_rundir (volinfo, rundir, sizeof (rundir));
+
+        snprintf (path, path_len, "%s/%s-snapd.pid", rundir, volinfo->volname);
+}
+
+void
+glusterd_set_snapd_socket_filepath (glusterd_volinfo_t *volinfo,
+                                    char *path, int path_len)
+{
+        char                    sockfilepath[PATH_MAX] = {0,};
+        char                    rundir[PATH_MAX]       = {0,};
+
+        glusterd_get_snapd_rundir (volinfo, rundir, sizeof (rundir));
+        snprintf (sockfilepath, sizeof (sockfilepath), "%s/run-%s",
+                  rundir, uuid_utoa (MY_UUID));
+
+        glusterd_set_socket_filepath (sockfilepath, path, path_len);
+}
+
+gf_boolean_t
+glusterd_is_snapd_running (glusterd_volinfo_t *volinfo)
+{
+        char                     pidfile [PATH_MAX]     = {0,};
+        int                      pid                    = -1;
+        glusterd_conf_t         *priv                   = THIS->private;
+
+        glusterd_get_snapd_pidfile (volinfo, pidfile,
+                                    sizeof (pidfile));
+
+        return gf_is_service_running (pidfile, &pid);
+}
+
+int
+glusterd_restart_snapds (glusterd_conf_t *priv)
+{
+        glusterd_volinfo_t      *volinfo        = NULL;
+        int                      ret            = 0;
+        xlator_t                *this           = THIS;
+
+        list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                if (volinfo->status == GLUSTERD_STATUS_STARTED &&
+                    glusterd_is_snapd_enabled (volinfo)) {
+                        ret = glusterd_snapd_start (volinfo, _gf_false);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Couldn't start snapd for vol: %s",
+                                        volinfo->volname);
+                                goto out;
+                        }
+                }
+        }
+out:
+        return ret;
+}
+
+gf_boolean_t
+glusterd_is_snapd_online (glusterd_volinfo_t *volinfo)
+{
+        return volinfo->snapd.online;
+}
+
+void
+glusterd_snapd_set_online_status (glusterd_volinfo_t *volinfo,
+                                  gf_boolean_t status)
+{
+        volinfo->snapd.online = status;
+}
+
+inline void
+glusterd_snapd_set_rpc (glusterd_volinfo_t *volinfo, struct rpc_clnt *rpc)
+{
+        volinfo->snapd.rpc = rpc;
+}
+
+int32_t
+glusterd_snapd_connect (glusterd_volinfo_t *volinfo, char *socketpath)
+{
+        int                     ret = 0;
+        dict_t                  *options = NULL;
+        struct rpc_clnt         *rpc = NULL;
+        glusterd_conf_t         *priv = THIS->private;
+
+        rpc = glusterd_snapd_get_rpc (volinfo);
+
+        if (rpc == NULL) {
+                /* Setting frame-timeout to 10mins (600seconds).
+                 * Unix domain sockets ensures that the connection is reliable.
+                 * The default timeout of 30mins used for unreliable network
+                 * connections is too long for unix domain socket connections.
+                 */
+                ret = rpc_transport_unix_options_build (&options, socketpath,
+                                                        600);
+                if (ret)
+                        goto out;
+
+                glusterd_volinfo_ref (volinfo);
+
+                synclock_unlock (&priv->big_lock);
+                ret = glusterd_rpc_create (&rpc, options,
+                                           glusterd_snapd_rpc_notify,
+                                           volinfo);
+                synclock_lock (&priv->big_lock);
+                if (ret)
+                        goto out;
+
+                (void) glusterd_snapd_set_rpc (volinfo, rpc);
+        }
+out:
+        return ret;
+}
+
+int32_t
+glusterd_snapd_disconnect (glusterd_volinfo_t *volinfo)
+{
+        struct rpc_clnt         *rpc = NULL;
+        glusterd_conf_t         *priv = THIS->private;
+
+        rpc = glusterd_snapd_get_rpc (volinfo);
+        (void)glusterd_snapd_set_rpc (volinfo, NULL);
+
+        if (rpc)
+                glusterd_rpc_clnt_unref (priv, rpc);
+
+        return 0;
+}
+
+int32_t
+glusterd_snapd_start (glusterd_volinfo_t *volinfo, gf_boolean_t wait)
+{
+        int32_t                 ret                        = -1;
+        xlator_t               *this                       = NULL;
+        glusterd_conf_t        *priv                       = NULL;
+        runner_t                runner                     = {0,};
+        char                    pidfile[PATH_MAX]          = {0,};
+        char                    logfile[PATH_MAX]          = {0,};
+        char                    volfile[PATH_MAX]          = {0,};
+        char                    glusterd_uuid [1024]       = {0,};
+        char                    rundir[PATH_MAX]           = {0,};
+        char                    sockfpath[PATH_MAX]        = {0,};
+        char                    volfileid[256]             = {0};
+        char                    valgrind_logfile[PATH_MAX] = {0};
+        int                     snapd_port                 = 0;
+        char                   *volname                    = volinfo->volname;
+        char                    snapd_id [PATH_MAX]        = {0,};
+        char                    msg [1024]                 = {0,};
+
+        this = THIS;
+        GF_ASSERT(this);
+
+        if (glusterd_is_snapd_running (volinfo)) {
+                ret = 0;
+                goto connect;
+        }
+
+        priv = this->private;
+
+        glusterd_get_snapd_rundir (volinfo, rundir, sizeof (rundir));
+        ret = mkdir (rundir, 0777);
+
+        if ((ret == -1) && (EEXIST != errno)) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to create rundir %s",
+                        rundir);
+                goto out;
+        }
+
+        glusterd_get_snapd_pidfile (volinfo, pidfile, sizeof (pidfile));
+        glusterd_get_snapd_volfile (volinfo, volfile, sizeof (volfile));
+
+        ret = sys_access (volfile, F_OK);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "snapd Volfile %s is not present", volfile);
+                goto out;
+        }
+
+        snprintf (logfile, PATH_MAX, "%s/%s-snapd.log",
+                  DEFAULT_LOG_FILE_DIRECTORY, volname);
+
+        snprintf (volfileid, sizeof (volfileid), "snapd/%s", volname);
+        glusterd_set_snapd_socket_filepath (volinfo, sockfpath,
+                                            sizeof (sockfpath));
+
+        runinit (&runner);
+
+        if (priv->valgrind) {
+                snprintf (valgrind_logfile, PATH_MAX,
+                          "%s/valgrind-%s-snapd.log",
+                          DEFAULT_LOG_FILE_DIRECTORY, volname);
+
+                runner_add_args (&runner, "valgrind", "--leak-check=full",
+                                 "--trace-children=yes", "--track-origins=yes",
+                                 NULL);
+                runner_argprintf (&runner, "--log-file=%s", valgrind_logfile);
+        }
+
+        snprintf (snapd_id, sizeof (snapd_id), "snapd-%s", volname);
+        runner_add_args (&runner, SBIN_DIR"/glusterfsd",
+                         "-s", "localhost",
+                         "--volfile-id", volfileid,
+                         "-p", pidfile,
+                         "-l", logfile,
+                         "--brick-name", snapd_id,
+                         "-S", sockfpath, NULL);
+
+        snapd_port = volinfo->snapd.port;
+        if (!snapd_port) {
+                snapd_port = pmap_registry_alloc (THIS);
+                if (!snapd_port) {
+                        snprintf (msg, sizeof (msg), "Could not allocate port "
+                                  "for snapd service for volume %s", volname);
+
+                        runner_log (&runner, this->name, GF_LOG_DEBUG, msg);
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        runner_add_arg (&runner, "--brick-port");
+        runner_argprintf (&runner, "%d", snapd_port);
+        runner_add_arg (&runner, "--xlator-option");
+        runner_argprintf (&runner, "%s-server.listen-port=%d",
+                         volname, snapd_port);
+
+        snprintf (msg, sizeof (msg),
+                  "Starting the snapd service for volume %s", volname);
+        runner_log (&runner, this->name, GF_LOG_DEBUG, msg);
+
+        if (!wait) {
+                ret = runner_run_nowait (&runner);
+        } else {
+                synclock_unlock (&priv->big_lock);
+                {
+                        ret = runner_run (&runner);
+                }
+                synclock_lock (&priv->big_lock);
+        }
+
+connect:
+        if (ret == 0)
+                glusterd_snapd_connect (volinfo, sockfpath);
+
+out:
+        return ret;
+}
+
+int
+glusterd_snapd_stop (glusterd_volinfo_t *volinfo)
+{
+        char                    pidfile [PATH_MAX]        = {0,};
+        char                    sockfpath [PATH_MAX]      = {0,};
+        glusterd_conf_t        *priv                      = THIS->private;
+        int                     ret                       = 0;
+
+        (void)glusterd_snapd_disconnect (volinfo);
+
+        if (!glusterd_is_snapd_running (volinfo))
+                goto out;
+
+        glusterd_get_snapd_pidfile (volinfo, pidfile, sizeof (pidfile));
+        ret = glusterd_service_stop ("snapd", pidfile, SIGTERM, _gf_true);
+
+        if (ret == 0) {
+                glusterd_set_snapd_socket_filepath (volinfo, sockfpath,
+                                                    sizeof (sockfpath));
+                (void)glusterd_unlink_file (sockfpath);
+        }
+out:
+        return ret;
+}
+
+int
+glusterd_handle_snapd_option (glusterd_volinfo_t *volinfo)
+{
+        int             ret     = 0;
+        xlator_t       *this    = THIS;
+
+        if (volinfo->is_snap_volume)
+                return 0;
+
+        if (glusterd_is_snapd_enabled (volinfo)) {
+                if (!glusterd_is_volume_started (volinfo))
+                        goto out;
+
+                ret = glusterd_create_snapd_volfile (volinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Couldn't create "
+                                "snapd volfile for volume: %s",
+                                volinfo->volname);
+                        goto out;
+                }
+
+                ret = glusterd_snapd_start (volinfo, _gf_false);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Couldn't start "
+                                "snapd for volume: %s", volinfo->volname);
+                        goto out;
+                }
+
+        } else if (glusterd_is_snapd_running (volinfo)) {
+                ret = glusterd_snapd_stop (volinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Couldn't stop snapd for volume: %s",
+                                volinfo->volname);
+                        goto out;
+                }
+        }
+
 out:
         return ret;
 }

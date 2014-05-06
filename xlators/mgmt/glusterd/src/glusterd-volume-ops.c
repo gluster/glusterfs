@@ -1941,6 +1941,10 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
         if (ret)
                 goto out;
 
+        ret = glusterd_handle_snapd_option (volinfo);
+        if (ret)
+                goto out;
+
         ret = glusterd_nodesvcs_handle_graph_change (volinfo);
 
 out:
@@ -2006,10 +2010,15 @@ glusterd_stop_volume (glusterd_volinfo_t *volinfo)
                 runner_end (&runner);
         }
 
+        ret = glusterd_handle_snapd_option (volinfo);
+        if (ret)
+                goto out;
+
         ret = glusterd_nodesvcs_handle_graph_change (volinfo);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to notify graph "
                         "change for %s volume", volinfo->volname);
+
                 goto out;
         }
 

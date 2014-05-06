@@ -4138,6 +4138,65 @@ glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 }
 
 int
+__glusterd_snapd_rpc_notify (struct rpc_clnt *rpc, void *mydata,
+                             rpc_clnt_event_t event, void *data)
+{
+        xlator_t                *this           = NULL;
+        glusterd_conf_t         *conf           = NULL;
+        glusterd_volinfo_t      *volinfo        = NULL;
+        int                     ret             = 0;
+
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        volinfo = mydata;
+        if (!volinfo)
+                return 0;
+
+        switch (event) {
+        case RPC_CLNT_CONNECT:
+                gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_CONNECT");
+
+                (void) glusterd_snapd_set_online_status (volinfo, _gf_true);
+
+                break;
+
+        case RPC_CLNT_DISCONNECT:
+                if (glusterd_is_snapd_online (volinfo)) {
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                GD_MSG_NODE_DISCONNECTED,
+                                "snapd for volume %s has disconnected from "
+                                "glusterd.", volinfo->volname);
+
+                        (void) glusterd_snapd_set_online_status
+                                                          (volinfo, _gf_false);
+                }
+                break;
+
+        case RPC_CLNT_DESTROY:
+                glusterd_volinfo_unref (volinfo);
+                break;
+
+        default:
+                gf_log (this->name, GF_LOG_TRACE,
+                        "got some other RPC event %d", event);
+                break;
+        }
+
+        return ret;
+}
+
+int
+glusterd_snapd_rpc_notify (struct rpc_clnt *rpc, void *mydata,
+                             rpc_clnt_event_t event, void *data)
+{
+        return glusterd_big_locked_notify (rpc, mydata, event, data,
+                                           __glusterd_snapd_rpc_notify);
+}
+
+int
 __glusterd_nodesvc_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                                rpc_clnt_event_t event, void *data)
 {
