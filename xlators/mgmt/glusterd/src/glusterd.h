@@ -123,6 +123,12 @@ typedef struct {
 } nodesrv_t;
 
 typedef struct {
+        struct rpc_clnt  *rpc;
+        int               port;
+        gf_boolean_t      online;
+} glusterd_snapd_t;
+
+typedef struct {
         struct _volfile_ctx     *volfile;
         pthread_mutex_t          mutex;
         struct list_head         peers;
@@ -372,6 +378,8 @@ struct glusterd_volinfo_ {
         pthread_mutex_t           reflock;
         int                       refcnt;
         gd_quorum_status_t        quorum_status;
+
+        glusterd_snapd_t          snapd;
 };
 
 typedef enum gd_snap_status_ {
@@ -854,6 +862,10 @@ glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 int
 glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                           rpc_clnt_event_t event, void *data);
+
+int
+glusterd_snapd_rpc_notify (struct rpc_clnt *rpc, void *mydata,
+                             rpc_clnt_event_t event, void *data);
 
 int
 glusterd_nodesvc_rpc_notify (struct rpc_clnt *rpc, void *mydata,

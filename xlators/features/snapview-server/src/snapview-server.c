@@ -2390,6 +2390,8 @@ struct xlator_cbks cbks = {
 };
 
 struct volume_options options[] = {
-        /* This translator doesn't take any options, or provide any options */
+        { .key  = {"volname"},
+          .type = GF_OPTION_TYPE_STR,
+        },
         { .key  = {NULL} },
 };

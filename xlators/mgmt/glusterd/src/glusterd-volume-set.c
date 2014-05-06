@@ -1095,6 +1095,15 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
 
+        { .key         = "features.uss",
+          .voltype     = "features/snapview-server",
+          .op_version  = 4,
+          .value       = "uss",
+          .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT,
+          .description = "Enable/Disable User Servicable Snapshots on the "
+                         "volume."
+        },
+
 #ifdef HAVE_LIB_Z
         /* Compressor-decompressor xlator options
          * defaults used from xlator/features/compress/src/cdc.h

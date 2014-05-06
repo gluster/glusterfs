@@ -2072,6 +2072,11 @@ glusterd_op_set_volume (dict_t *dict)
 
         if (!global_opts_set) {
                 gd_update_volume_op_versions (volinfo);
+
+                ret = glusterd_handle_snapd_option (volinfo);
+                if (ret)
+                        goto out;
+
                 ret = glusterd_create_volfiles_and_notify_services (volinfo);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -2098,6 +2103,11 @@ glusterd_op_set_volume (dict_t *dict)
                 list_for_each_entry (voliter, &priv->volumes, vol_list) {
                         volinfo = voliter;
                         gd_update_volume_op_versions (volinfo);
+
+                        ret = glusterd_handle_snapd_option (volinfo);
+                        if (ret)
+                                goto out;
+
                         ret = glusterd_create_volfiles_and_notify_services (volinfo);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
