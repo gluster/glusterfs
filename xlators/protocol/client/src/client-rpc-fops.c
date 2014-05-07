@@ -1079,6 +1079,7 @@ out:
         if (rsp.op_ret == -1) {
                 gf_log (this->name, (((op_errno == ENOTSUP) ||
                                       (op_errno == ENODATA) ||
+                                      (op_errno == ESTALE) ||
                                       (op_errno == ENOENT)) ?
                                      GF_LOG_DEBUG : GF_LOG_WARNING),
                         "remote operation failed: %s. Path: %s (%s). Key: %s",
