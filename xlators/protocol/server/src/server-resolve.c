@@ -45,8 +45,14 @@ resolve_loc_touchup (call_frame_t *frame)
         if (!loc->path) {
                 if (loc->parent && resolve->bname) {
                         ret = inode_path (loc->parent, resolve->bname, &path);
+                        loc->name = resolve->bname;
                 } else if (loc->inode) {
                         ret = inode_path (loc->inode, NULL, &path);
+                        if (path) {
+                                loc->name = strrchr (path, '/');
+                                if (loc->name)
+                                        loc->name++;
+                        }
                 }
                 if (ret)
                         gf_log (frame->this->name, GF_LOG_TRACE,
@@ -123,14 +129,28 @@ resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        loc_wipe (resolve_loc);
-
         link_inode = inode_link (inode, NULL, NULL, buf);
 
-        if (!link_inode)
+        if (!link_inode) {
+                loc_wipe (resolve_loc);
                 goto out;
+        }
 
         inode_lookup (link_inode);
+
+        /* wipe the loc only after the inode has been linked to the inode
+           table. Otherwise before inode gets linked to the inode table,
+           inode would have been unrefed (this might have been destroyed
+           if refcount becomes 0, and put back to mempool). So once the
+           inode gets destroyed, inode_link is a redundant operation. But
+           without knowing that the destroyed inode's pointer is saved in
+           the resolved_loc as parent (while constructing loc for resolving
+           the entry) and the inode_new call for resolving the entry will
+           return the same pointer to the inode as the parent (because in
+           reality the inode is a free inode present in cold list of the
+           inode mem-pool).
+        */
+        loc_wipe (resolve_loc);
 
         if (uuid_is_null (resolve->pargfid)) {
                 inode_unref (link_inode);
@@ -143,13 +163,14 @@ resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         resolve_loc->name = resolve->bname;
 
         resolve_loc->inode = inode_new (state->itable);
+
         inode_path (resolve_loc->parent, resolve_loc->name,
                     (char **) &resolve_loc->path);
 
         STACK_WIND (frame, resolve_gfid_entry_cbk,
                     frame->root->client->bound_xl,
                     frame->root->client->bound_xl->fops->lookup,
-                    &resolve->resolve_loc, NULL);
+                    &resolve->resolve_loc, state->xdata);
         return 0;
 out:
         resolve_continue (frame);
@@ -182,7 +203,7 @@ resolve_gfid (call_frame_t *frame)
         STACK_WIND (frame, resolve_gfid_cbk,
                     frame->root->client->bound_xl,
                     frame->root->client->bound_xl->fops->lookup,
-                    &resolve->resolve_loc, NULL);
+                    &resolve->resolve_loc, state->xdata);
         return 0;
 }
 

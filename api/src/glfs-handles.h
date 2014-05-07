@@ -162,6 +162,9 @@ struct glfs_fd *glfs_h_opendir (struct glfs *fs,
 struct glfs_fd *glfs_h_open (struct glfs *fs, struct glfs_object *object,
 			     int flags) __THROW;
 
+int
+glfs_h_access (struct glfs *fs, struct glfs_object *object, int mask) __THROW;
+
 __END_DECLS
 
 #endif /* !_GLFS_HANDLES_H */

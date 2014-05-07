@@ -2174,6 +2174,21 @@ syncop_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+/* posix_acl xlator will respond in different ways for access calls from
+   fuse and access calls from nfs. For fuse, checking op_ret is sufficient
+   to check whether the access call is successful or not. But for nfs the
+   mode of the access that is permitted is put into op_errno before unwind.
+   With syncop, the caller of syncop_access will not be able to get the
+   mode of the access despite call being successul (since syncop_access
+   returns only the op_ret collected in args).
+   Now, if access call is failed, then args.op_ret is returned to recognise
+   the failure. But if op_ret is zero, then the mode of access which is
+   set in args.op_errno is returned. Thus the caller of syncop_access
+   has to check whether the return value is less than zero or not. If the
+   return value it got is less than zero, then access call is failed.
+   If it is not, then the access call is successful and the value the caller
+   got is the mode of the access.
+*/
 int
 syncop_access (xlator_t *subvol, loc_t *loc, int32_t mask)
 {
@@ -2184,7 +2199,7 @@ syncop_access (xlator_t *subvol, loc_t *loc, int32_t mask)
 
         if (args.op_ret < 0)
                 return -args.op_errno;
-        return args.op_ret;
+        return args.op_errno;
 }
 
 

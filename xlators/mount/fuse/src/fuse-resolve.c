@@ -47,6 +47,11 @@ fuse_resolve_loc_touchup (fuse_state_t *state)
                 } else if (loc->inode) {
                         ret = inode_path (loc->inode, NULL, &path);
 			uuid_copy (loc->gfid, loc->inode->gfid);
+                        if (path) {
+                                loc->name = strrchr (path, '/');
+                                if (loc->name)
+                                        loc->name++;
+                        }
                 }
                 if (ret)
                         gf_log (THIS->name, GF_LOG_TRACE,
