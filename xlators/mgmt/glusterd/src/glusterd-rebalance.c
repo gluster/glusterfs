@@ -284,6 +284,9 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         runner_argprintf ( &runner, "*dht.rebalance-cmd=%d",cmd);
         runner_add_arg (&runner, "--xlator-option");
         runner_argprintf (&runner, "*dht.node-uuid=%s", uuid_utoa(MY_UUID));
+        runner_add_arg (&runner, "--xlator-option");
+        runner_argprintf (&runner, "*dht.commit-hash=%u",
+                          volinfo->rebal.commit_hash);
         runner_add_arg (&runner, "--socket-file");
         runner_argprintf (&runner, "%s",sockfile);
         runner_add_arg (&runner, "--pid-file");
@@ -725,6 +728,7 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         char                    *task_id_str = NULL;
         dict_t                  *ctx = NULL;
         xlator_t                *this = NULL;
+        uint32_t                commit_hash;
 
         this = THIS;
         GF_ASSERT (this);
@@ -812,6 +816,9 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                          */
                         glusterd_store_perform_node_state_store (volinfo);
                         break;
+                }
+                if (dict_get_uint32 (dict, "commit-hash", &commit_hash) == 0) {
+                        volinfo->rebal.commit_hash = commit_hash;
                 }
                 ret = glusterd_handle_defrag_start (volinfo, msg, sizeof (msg),
                                                     cmd, NULL, GD_OP_REBALANCE);

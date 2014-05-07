@@ -37,7 +37,7 @@ addbr_rebal_till_layout_change()
                 then
                         break
                 fi
-                NEW_LAYOUT=`get_layout $B0/${V0}0`
+                NEW_LAYOUT=`get_layout $B0/${V0}0 | cut -c11-34`
                 if [ $OLD_LAYOUT == $NEW_LAYOUT ]
                 then
                         i=`expr $i + 1`;
@@ -64,7 +64,7 @@ TEST touch $M0/test/test
 fd=`fd_available`
 TEST fd_open $fd "rw" $M0/test/test
 
-OLD_LAYOUT=`get_layout $B0/${V0}0`
+OLD_LAYOUT=`get_layout $B0/${V0}0 | cut -c11-34`
 
 addbr_rebal_till_layout_change 1
 

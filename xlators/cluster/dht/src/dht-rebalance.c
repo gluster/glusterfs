@@ -2336,6 +2336,46 @@ out:
 
 }
 int
+gf_defrag_settle_hash (xlator_t *this, gf_defrag_info_t *defrag,
+                       loc_t *loc, dict_t *fix_layout)
+{
+        int     ret;
+
+        /*
+         * Now we're ready to update the directory commit hash for the volume
+         * root, so that hash miscompares and broadcast lookups can stop.
+         * However, we want to skip that if fix-layout is all we did.  In
+         * that case, we want the miscompares etc. to continue until a real
+         * rebalance is complete.
+         */
+        if (defrag->cmd == GF_DEFRAG_CMD_START_LAYOUT_FIX
+            || defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER
+            || defrag->cmd == GF_DEFRAG_CMD_START_TIER) {
+                return 0;
+        }
+
+        ret = dict_set_uint32 (fix_layout, "new-commit-hash",
+                               defrag->new_commit_hash);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set new-commit-hash");
+                return -1;
+        }
+
+        ret = syncop_setxattr (this, loc, fix_layout, 0, NULL, NULL);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "fix layout on %s failed", loc->path);
+                return -1;
+        }
+
+        /* TBD: find more efficient solution than adding/deleting every time */
+        dict_del(fix_layout, "new-commit-hash");
+
+        return 0;
+}
+
+int
 gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                   dict_t *fix_layout, dict_t *migrate_data)
 {
@@ -2421,6 +2461,7 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR, "Child loc"
                                         " build failed");
+                                ret = -1;
                                 goto out;
                         }
 
@@ -2486,9 +2527,16 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                         "Fix layout failed for %s",
                                         entry_loc.path);
                                 defrag->total_failures++;
+                                ret = -1;
                                 goto out;
                         }
 
+                        if (gf_defrag_settle_hash (this, defrag, &entry_loc,
+                            fix_layout) != 0) {
+                                defrag->total_failures++;
+                                ret = -1;
+                                goto out;
+                        }
                 }
                 gf_dirent_free (&entries);
                 free_entries = _gf_false;
@@ -2572,6 +2620,36 @@ gf_defrag_start_crawl (void *data)
                 goto out;
         }
 
+        /*
+         * Unfortunately, we can't do special xattrs (like fix.layout) and
+         * real ones in the same call currently, and changing it seems
+         * riskier than just doing two calls.
+         */
+
+        gf_log (this->name, GF_LOG_INFO, "%s using commit hash %u",
+                __func__, conf->vol_commit_hash);
+
+        ret = dict_set_uint32 (fix_layout, conf->commithash_xattr_name,
+                               conf->vol_commit_hash);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set %s", conf->commithash_xattr_name);
+                defrag->total_failures++;
+                ret = -1;
+                goto out;
+        }
+
+        ret = syncop_setxattr (this, &loc, fix_layout, 0, NULL, NULL);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "fix layout on %s failed",
+                        loc.path);
+                defrag->total_failures++;
+                ret = -1;
+                goto out;
+        }
+
+        /* We now return to our regularly scheduled program. */
+
         ret = dict_set_str (fix_layout, GF_XATTR_FIX_LAYOUT_KEY, "yes");
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -2579,9 +2657,12 @@ gf_defrag_start_crawl (void *data)
                         "Failed to start rebalance:"
                         "Failed to set dictionary value: key = %s",
                         GF_XATTR_FIX_LAYOUT_KEY);
+                defrag->total_failures++;
                 ret = -1;
                 goto out;
         }
+
+        defrag->new_commit_hash = conf->vol_commit_hash;
 
         ret = syncop_setxattr (this, &loc, fix_layout, 0, NULL, NULL);
         if (ret) {
@@ -2598,19 +2679,18 @@ gf_defrag_start_crawl (void *data)
             (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX)) {
                 migrate_data = dict_new ();
                 if (!migrate_data) {
+                        defrag->total_failures++;
                         ret = -1;
                         goto out;
                 }
-                if (defrag->cmd == GF_DEFRAG_CMD_START_FORCE)
-                        ret = dict_set_str (migrate_data,
-                                            GF_XATTR_FILE_MIGRATE_KEY,
-                                            "force");
-                else
-                        ret = dict_set_str (migrate_data,
-                                            GF_XATTR_FILE_MIGRATE_KEY,
-                                            "non-force");
-                if (ret)
+                ret = dict_set_str (migrate_data, GF_XATTR_FILE_MIGRATE_KEY,
+                        (defrag->cmd == GF_DEFRAG_CMD_START_FORCE)
+                        ?  "force" : "non-force");
+                if (ret) {
+                        defrag->total_failures++;
+                        ret = -1;
                         goto out;
+                }
 
                 /* Find local subvolumes */
                 ret = syncop_getxattr (this, &loc, &dict,
@@ -2669,6 +2749,17 @@ gf_defrag_start_crawl (void *data)
 
         ret = gf_defrag_fix_layout (this, defrag, &loc, fix_layout,
                                     migrate_data);
+        if (ret) {
+                defrag->total_failures++;
+                ret = -1;
+                goto out;
+        }
+
+        if (gf_defrag_settle_hash (this, defrag, &loc, fix_layout) != 0) {
+                defrag->total_failures++;
+                ret = -1;
+                goto out;
+        }
 
         if (defrag->cmd == GF_DEFRAG_CMD_START_TIER) {
                 methods = conf->methods;

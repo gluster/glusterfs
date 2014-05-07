@@ -267,7 +267,7 @@ dht_disk_layout_extract (xlator_t *this, dht_layout_t *layout,
                 goto out;
         }
 
-        disk_layout[0] = hton32 (1);
+        disk_layout[0] = hton32 (layout->list[pos].commit_hash);
         disk_layout[1] = hton32 (layout->type);
         disk_layout[2] = hton32 (layout->list[pos].start);
         disk_layout[3] = hton32 (layout->list[pos].stop);
@@ -288,10 +288,10 @@ int
 dht_disk_layout_merge (xlator_t *this, dht_layout_t *layout,
 		       int pos, void *disk_layout_raw, int disk_layout_len)
 {
-        int      cnt = 0;
         int      type = 0;
         int      start_off = 0;
         int      stop_off = 0;
+        int      commit_hash = 0;
         int      disk_layout[4];
 
 	if (!disk_layout_raw) {
@@ -304,14 +304,6 @@ dht_disk_layout_merge (xlator_t *this, dht_layout_t *layout,
 	GF_ASSERT (disk_layout_len == sizeof (disk_layout));
 
         memcpy (disk_layout, disk_layout_raw, disk_layout_len);
-
-        cnt  = ntoh32 (disk_layout[0]);
-        if (cnt != 1) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        DHT_MSG_INVALID_DISK_LAYOUT,
-                        "Invalid disk layout: Invalid count %d", cnt);
-                return -1;
-        }
 
         type = ntoh32 (disk_layout[1]);
 	switch (type) {
@@ -330,20 +322,21 @@ dht_disk_layout_merge (xlator_t *this, dht_layout_t *layout,
 		return -1;
 	}
 
+        commit_hash = ntoh32 (disk_layout[0]);
         start_off = ntoh32 (disk_layout[2]);
         stop_off  = ntoh32 (disk_layout[3]);
 
+        layout->list[pos].commit_hash = commit_hash;
         layout->list[pos].start = start_off;
         layout->list[pos].stop  = stop_off;
 
         gf_msg_trace (this->name, 0,
-                      "merged to layout: %u - %u (type %d) from %s",
-                      start_off, stop_off, type,
+                      "merged to layout: %u - %u (type %d, hash %d) from %s",
+                      start_off, stop_off, commit_hash, type,
                       layout->list[pos].xlator->name);
 
         return 0;
 }
-
 
 int
 dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
@@ -397,6 +390,13 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
                         subvol->name);
                 goto out;
         }
+
+        if (layout->commit_hash == 0) {
+                layout->commit_hash = layout->list[i].commit_hash;
+        } else if (layout->commit_hash != layout->list[i].commit_hash) {
+                layout->commit_hash = DHT_LAYOUT_HASH_INVALID;
+        }
+
         layout->list[i].err = 0;
 
 out:
@@ -409,6 +409,7 @@ dht_layout_entry_swap (dht_layout_t *layout, int i, int j)
 {
         uint32_t  start_swap = 0;
         uint32_t  stop_swap = 0;
+        uint32_t  commit_hash_swap = 0;
         xlator_t *xlator_swap = 0;
         int       err_swap = 0;
 
@@ -416,16 +417,19 @@ dht_layout_entry_swap (dht_layout_t *layout, int i, int j)
         stop_swap   = layout->list[i].stop;
         xlator_swap = layout->list[i].xlator;
         err_swap    = layout->list[i].err;
+        commit_hash_swap = layout->list[i].commit_hash;
 
         layout->list[i].start  = layout->list[j].start;
         layout->list[i].stop   = layout->list[j].stop;
         layout->list[i].xlator = layout->list[j].xlator;
         layout->list[i].err    = layout->list[j].err;
+        layout->list[i].commit_hash = layout->list[j].commit_hash;
 
         layout->list[j].start  = start_swap;
         layout->list[j].stop   = stop_swap;
         layout->list[j].xlator = xlator_swap;
         layout->list[j].err    = err_swap;
+        layout->list[j].commit_hash = commit_hash_swap;
 }
 
 void
@@ -728,9 +732,9 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
         int         dict_ret = 0;
         int32_t     disk_layout[4];
         void       *disk_layout_raw = NULL;
-        int32_t     count = -1;
         uint32_t    start_off = -1;
         uint32_t    stop_off = -1;
+        uint32_t    commit_hash = -1;
         dht_conf_t *conf = this->private;
         char        gfid[GF_UUID_BUF_SIZE] = {0};
 
@@ -795,36 +799,21 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
         memcpy (disk_layout, disk_layout_raw, sizeof (disk_layout));
 
-        count  = ntoh32 (disk_layout[0]);
-        if (count != 1) {
-                if (loc) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                DHT_MSG_INVALID_DISK_LAYOUT,
-                                "Invalid disk layout: invalid count %d,"
-                                "path = %s, gfid = %s ",
-                                count, loc->path, gfid);
-                } else {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                DHT_MSG_INVALID_DISK_LAYOUT,
-                                "Invalid disk layout: invalid count %d,"
-                                "path not found, gfid = %s ",
-                                count, gfid);
-                }
-                ret = -1;
-                goto out;
-        }
-
         start_off = ntoh32 (disk_layout[2]);
         stop_off  = ntoh32 (disk_layout[3]);
+        commit_hash = ntoh32 (disk_layout[0]);
 
         if ((layout->list[pos].start != start_off)
-            || (layout->list[pos].stop != stop_off)) {
+            || (layout->list[pos].stop != stop_off)
+            || (layout->list[pos].commit_hash != commit_hash)) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "subvol: %s; inode layout - %"PRIu32" - %"PRIu32"; "
-                        "disk layout - %"PRIu32" - %"PRIu32,
+                        "subvol: %s; inode layout - %"PRIu32" - %"PRIu32
+                        " - %"PRIu32"; "
+                        "disk layout - %"PRIu32" - %"PRIu32" - %"PRIu32,
                         layout->list[pos].xlator->name,
                         layout->list[pos].start, layout->list[pos].stop,
-                        start_off, stop_off);
+                        layout->list[pos].commit_hash,
+                        start_off, stop_off, commit_hash);
                 ret = 1;
         } else {
                 ret = 0;
@@ -862,5 +851,20 @@ dht_layout_preset (xlator_t *this, xlator_t *subvol, inode_t *inode)
 
         ret = 0;
 out:
+        return ret;
+}
+
+int
+dht_layout_index_for_subvol (dht_layout_t *layout, xlator_t *subvol)
+{
+        int i = 0, ret = -1;
+
+        for (i = 0; i < layout->cnt; i++) {
+                if (layout->list[i].xlator == subvol) {
+                        ret = i;
+                        break;
+                }
+        }
+
         return ret;
 }

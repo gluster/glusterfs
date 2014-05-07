@@ -286,6 +286,7 @@ struct glusterd_rebalance_ {
         glusterd_op_t            op;
         dict_t                  *dict; /* Dict to store misc information
                                         * like list of bricks being removed */
+        uint32_t                 commit_hash;
 };
 
 typedef struct glusterd_rebalance_ glusterd_rebalance_t;

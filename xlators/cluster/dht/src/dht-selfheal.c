@@ -23,11 +23,14 @@
 #define DHT_SET_LAYOUT_RANGE(layout,i,srt,chunk,path)    do {           \
                 layout->list[i].start = srt;                            \
                 layout->list[i].stop  = srt + chunk - 1;                \
+                layout->list[i].commit_hash = layout->commit_hash;      \
                                                                         \
                 gf_msg_trace (this->name, 0,                            \
-                              "gave fix: %u - %u on %s for %s",         \
+                              "gave fix: %u - %u, with commit-hash %u"  \
+                              " on %s for %s",                          \
                               layout->list[i].start,                    \
                               layout->list[i].stop,                     \
+                              layout->list[i].commit_hash,              \
                               layout->list[i].xlator->name, path);      \
         } while (0)
 
@@ -448,6 +451,7 @@ dht_should_fix_layout (call_frame_t *frame, dht_layout_t **inmem,
                        dht_layout_t **ondisk)
 {
         gf_boolean_t             fixit                 = _gf_true;
+
         dht_local_t             *local                 = NULL;
         int                      layout_span           = 0;
         int                      decommissioned_bricks = 0;
@@ -482,6 +486,10 @@ dht_should_fix_layout (call_frame_t *frame, dht_layout_t **inmem,
         if (local->selfheal.hole_cnt || local->selfheal.overlaps_cnt)
                 goto out;
 
+        /* If commit hashes are being updated, let it through */
+        if ((*inmem)->commit_hash != (*ondisk)->commit_hash)
+                goto out;
+
         layout_span = dht_layout_span (*ondisk);
 
         decommissioned_bricks
@@ -497,6 +505,7 @@ dht_should_fix_layout (call_frame_t *frame, dht_layout_t **inmem,
                 fixit = _gf_false;
 
 out:
+
         return fixit;
 }
 
@@ -756,6 +765,7 @@ dht_fix_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
         dummy = dht_layout_new (this, 1);
         if (!dummy)
                 goto out;
+        dummy->commit_hash = layout->commit_hash;
         for (i = 0; i < conf->subvolume_cnt; i++) {
                 if (_gf_false ==
                     dht_is_subvol_in_layout (layout, conf->subvolumes[i])) {
@@ -1474,6 +1484,8 @@ dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
 		new_layout->list[i].xlator = layout->list[i].xlator;
         }
 
+        new_layout->commit_hash = layout->commit_hash;
+
         if (priv->du_stats) {
                 for (i = 0; i < priv->subvolume_cnt; ++i) {
                         gf_log (this->name, GF_LOG_INFO,
@@ -1653,6 +1665,11 @@ dht_selfheal_dir_getafix (call_frame_t *frame, loc_t *loc,
         overlaps = local->selfheal.overlaps_cnt;
 
         if (holes || overlaps) {
+                /* If the layout has anomolies which would change the hash
+                 * ranges, then we need to reset the commit_hash for this
+                 * directory, as the layout would change and things may not
+                 * be in place as expected */
+                layout->commit_hash = DHT_LAYOUT_HASH_INVALID;
                 dht_selfheal_layout_new_directory (frame, loc, layout);
                 ret = 0;
         }
@@ -1933,4 +1950,301 @@ dht_dir_attr_heal_done (int ret, call_frame_t *sync_frame, void *data)
 {
         DHT_STACK_DESTROY (sync_frame);
         return 0;
+}
+
+/* EXIT: dht_update_commit_hash_for_layout */
+int
+dht_update_commit_hash_for_layout_done (call_frame_t *frame, void *cookie,
+                       xlator_t *this, int32_t op_ret, int32_t op_errno,
+                       dict_t *xdata)
+{
+        dht_local_t  *local = NULL;
+
+        local = frame->local;
+
+        /* preserve oldest error */
+        if (op_ret && !local->op_ret) {
+                local->op_ret = op_ret;
+                local->op_errno = op_errno;
+        }
+
+        DHT_STACK_UNWIND (setxattr, frame, local->op_ret,
+                          local->op_errno, NULL);
+
+        return 0;
+}
+
+int
+dht_update_commit_hash_for_layout_unlock (call_frame_t *frame, xlator_t *this)
+{
+        dht_local_t  *local = NULL;
+        int ret = 0;
+
+        local = frame->local;
+
+        ret = dht_unlock_inodelk (frame, local->lock.locks,
+                                  local->lock.lk_count,
+                                  dht_update_commit_hash_for_layout_done);
+        if (ret < 0) {
+                /* preserve oldest error, just ... */
+                if (!local->op_ret) {
+                        local->op_errno = errno;
+                        local->op_ret = -1;
+                }
+
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        DHT_MSG_DIR_SELFHEAL_XATTR_FAILED,
+                        "Winding unlock failed: stale locks left on brick"
+                        " %s", local->loc.path);
+
+                dht_update_commit_hash_for_layout_done (frame, NULL, this,
+                                                        0, 0, NULL);
+        }
+
+        return 0;
+}
+
+int
+dht_update_commit_hash_for_layout_cbk (call_frame_t *frame, void *cookie,
+                                       xlator_t *this, int op_ret,
+                                       int op_errno, dict_t *xdata)
+{
+        dht_local_t  *local = NULL;
+        int           this_call_cnt = 0;
+
+        local = frame->local;
+
+        LOCK (&frame->lock);
+        /* store first failure, just because */
+        if (op_ret && !local->op_ret) {
+                local->op_ret = op_ret;
+                local->op_errno = op_errno;
+        }
+        UNLOCK (&frame->lock);
+
+        this_call_cnt = dht_frame_return (frame);
+
+        if (is_last_call (this_call_cnt)) {
+                dht_update_commit_hash_for_layout_unlock (frame, this);
+        }
+
+        return 0;
+}
+
+int
+dht_update_commit_hash_for_layout_resume (call_frame_t *frame, void *cookie,
+                                          xlator_t *this, int32_t op_ret,
+                                          int32_t op_errno, dict_t *xdata)
+{
+        dht_local_t   *local = NULL;
+        int            count = 1, ret = -1, i = 0, j = 0;
+        dht_conf_t    *conf = NULL;
+        dht_layout_t  *layout = NULL;
+        int32_t       *disk_layout = NULL;
+        dict_t        **xattr = NULL;
+
+        local = frame->local;
+        conf = frame->this->private;
+        count = conf->local_subvols_cnt;
+        layout = local->layout;
+
+        if (op_ret < 0) {
+                goto err_done;
+        }
+
+        /* We precreate the xattr list as we cannot change call count post the
+         * first wind as we may never continue from there. So we finish prep
+         * work before winding the setxattrs */
+        xattr = GF_CALLOC (count, sizeof (*xattr), gf_common_mt_char);
+        if (!xattr) {
+                local->op_errno = errno;
+
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        DHT_MSG_DIR_SELFHEAL_XATTR_FAILED,
+                        "Directory commit hash update failed:"
+                        " %s: Allocation failed", local->loc.path);
+
+                goto err;
+        }
+
+        for (i = 0; i < count; i++) {
+                /* find the layout index for the subvolume */
+                ret = dht_layout_index_for_subvol (layout,
+                                                   conf->local_subvols[i]);
+                if (ret < 0) {
+                        local->op_errno = ENOENT;
+
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_DIR_SELFHEAL_XATTR_FAILED,
+                                "Directory commit hash update failed:"
+                                " %s: (subvol %s) Failed to find disk layout",
+                                local->loc.path, conf->local_subvols[i]->name);
+
+                        goto err;
+                }
+                j = ret;
+
+                /* update the commit hash for the layout */
+                layout->list[j].commit_hash = layout->commit_hash;
+
+                /* extract the current layout */
+                ret = dht_disk_layout_extract (this, layout, j, &disk_layout);
+                if (ret == -1) {
+                        local->op_errno = errno;
+
+                        gf_msg (this->name, GF_LOG_WARNING, errno,
+                                DHT_MSG_DIR_SELFHEAL_XATTR_FAILED,
+                                "Directory commit hash update failed:"
+                                " %s: (subvol %s) Failed to extract disk"
+                                " layout", local->loc.path,
+                                conf->local_subvols[i]->name);
+
+                        goto err;
+                }
+
+                xattr[i] = get_new_dict ();
+                if (!xattr[i]) {
+                        local->op_errno = errno;
+
+                        gf_msg (this->name, GF_LOG_WARNING, errno,
+                                DHT_MSG_DIR_SELFHEAL_XATTR_FAILED,
+                                "Directory commit hash update failed:"
+                                " %s: Allocation failed", local->loc.path);
+
+                        goto err;
+                }
+
+                ret = dict_set_bin (xattr[i], conf->xattr_name,
+                                    disk_layout, 4 * 4);
+                if (ret != 0) {
+                        local->op_errno = ENOMEM;
+
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_DIR_SELFHEAL_XATTR_FAILED,
+                                "Directory self heal xattr failed:"
+                                "%s: (subvol %s) Failed to set xattr"
+                                " dictionary,", local->loc.path,
+                                conf->local_subvols[i]->name);
+
+                        goto err;
+                }
+                disk_layout = NULL;
+
+                gf_msg_trace (this->name, 0,
+                              "setting commit hash %u on subvolume %s"
+                              " for %s", layout->list[j].commit_hash,
+                              conf->local_subvols[i]->name, local->loc.path);
+        }
+
+        /* wind the setting of the commit hash across the local subvols */
+        local->call_cnt = count;
+        local->op_ret = 0;
+        local->op_errno = 0;
+        for (i = 0; i < count; i++) {
+                dict_ref (xattr[i]);
+
+                STACK_WIND (frame, dht_update_commit_hash_for_layout_cbk,
+                            conf->local_subvols[i],
+                            conf->local_subvols[i]->fops->setxattr,
+                            &local->loc, xattr[i], 0, NULL);
+
+                dict_unref (xattr[i]);
+        }
+
+        return 0;
+err:
+        if (xattr) {
+                for (i = 0; i < count; i++) {
+                        if (xattr[i])
+                                dict_destroy (xattr[i]);
+                }
+
+                GF_FREE (xattr);
+        }
+
+        GF_FREE (disk_layout);
+
+        local->op_ret = -1;
+
+        dht_update_commit_hash_for_layout_unlock (frame, this);
+
+        return 0;
+err_done:
+        local->op_ret = -1;
+
+        dht_update_commit_hash_for_layout_done (frame, NULL, this, 0, 0, NULL);
+
+        return 0;
+}
+
+/* ENTER: dht_update_commit_hash_for_layout (see EXIT above)
+ * This function is invoked from rebalance only.
+ * As a result, the check here is simple enough to see if defrag is present
+ * in the conf, as other data would be populated appropriately if so.
+ * If ever this was to be used in other code paths, checks would need to
+ * change.
+ *
+ * Functional details:
+ *  - Lock the inodes on the subvols that we want the commit hash updated
+ *  - Update each layout with the inode layout, modified to take in the new
+ *    commit hash.
+ *  - Unlock and return.
+ */
+int
+dht_update_commit_hash_for_layout (call_frame_t *frame)
+{
+        dht_local_t   *local = NULL;
+        int            count = 1, ret = -1, i = 0;
+        dht_lock_t   **lk_array = NULL;
+        dht_conf_t    *conf = NULL;
+
+        GF_VALIDATE_OR_GOTO ("dht", frame, err);
+        GF_VALIDATE_OR_GOTO (frame->this->name, frame->local, err);
+
+        local = frame->local;
+        conf = frame->this->private;
+
+        if (!conf->defrag)
+                goto err;
+
+        count = conf->local_subvols_cnt;
+        lk_array = GF_CALLOC (count, sizeof (*lk_array),
+                              gf_common_mt_char);
+        if (lk_array == NULL)
+                goto err;
+
+        for (i = 0; i < count; i++) {
+                lk_array[i] = dht_lock_new (frame->this,
+                                            conf->local_subvols[i],
+                                            &local->loc, F_WRLCK,
+                                            DHT_LAYOUT_HEAL_DOMAIN);
+                if (lk_array[i] == NULL)
+                        goto err;
+        }
+
+        local->lock.locks = lk_array;
+        local->lock.lk_count = count;
+
+        ret = dht_blocking_inodelk (frame, lk_array, count,
+                                    dht_update_commit_hash_for_layout_resume);
+        if (ret < 0) {
+                local->lock.locks = NULL;
+                local->lock.lk_count = 0;
+                goto err;
+        }
+
+        return 0;
+err:
+        if (lk_array != NULL) {
+                int tmp_count = 0, i = 0;
+
+                for (i = 0; (i < count) && (lk_array[i]); i++, tmp_count++) {
+                        ;
+                }
+
+                dht_lock_array_free (lk_array, tmp_count);
+                GF_FREE (lk_array);
+        }
+
+        return -1;
 }

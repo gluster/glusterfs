@@ -569,6 +569,7 @@ dht_init (xlator_t *this)
         int                              cmd            = 0;
         char                            *node_uuid      = NULL;
         int                              throttle_count = 0;
+        uint32_t                         commit_hash    = 0;
 
         GF_VALIDATE_OR_GOTO ("dht", this, err);
 
@@ -588,6 +589,15 @@ dht_init (xlator_t *this)
         conf = GF_CALLOC (1, sizeof (*conf), gf_dht_mt_dht_conf_t);
         if (!conf) {
                 goto err;
+        }
+
+        /* We get the commit-hash to set only for rebalance process */
+        if (dict_get_uint32 (this->options,
+                             "commit-hash", &commit_hash) == 0) {
+                gf_log (this->name, GF_LOG_INFO, "%s using commit hash %u",
+                        __func__, commit_hash);
+                conf->vol_commit_hash = commit_hash;
+                conf->vch_forced = _gf_true;
         }
 
         ret = dict_get_int32 (this->options, "rebalance-cmd", &cmd);
@@ -760,6 +770,8 @@ dht_init (xlator_t *this)
         GF_OPTION_INIT ("xattr-name", conf->xattr_name, str, err);
         gf_asprintf (&conf->link_xattr_name, "%s."DHT_LINKFILE_STR,
                      conf->xattr_name);
+        gf_asprintf (&conf->commithash_xattr_name, "%s."DHT_COMMITHASH_STR,
+                     conf->xattr_name);
         gf_asprintf (&conf->wild_xattr_name, "%s*", conf->xattr_name);
         if (!conf->link_xattr_name || !conf->wild_xattr_name) {
                 goto err;
@@ -869,6 +881,9 @@ struct volume_options options[] = {
           "on that brick."
         },
         { .key  = {"rebalance-cmd"},
+          .type = GF_OPTION_TYPE_INT,
+        },
+        { .key = {"commit-hash"},
           .type = GF_OPTION_TYPE_INT,
         },
         { .key = {"node-uuid"},

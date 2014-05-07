@@ -3404,6 +3404,36 @@ out:
 }
 
 int
+gd_set_commit_hash (dict_t *dict)
+{
+        struct timeval          tv;
+        uint32_t                hash;
+
+        /*
+         * We need a commit hash that won't conflict with others we might have
+         * set, or zero which is the implicit value if we never have.  Using
+         * seconds<<3 like this ensures that we'll only get a collision if two
+         * consecutive rebalances are separated by exactly 2^29 seconds - about
+         * 17 years - and even then there's only a 1/8 chance of a collision in
+         * the low order bits.  It's far more likely that this code will have
+         * changed completely by then.  If not, call me in 2031.
+         *
+         * P.S. Time zone changes?  Yeah, right.
+         */
+        gettimeofday (&tv, NULL);
+        hash = tv.tv_sec << 3;
+
+        /*
+         * Make sure at least one of those low-order bits is set.  The extra
+         * shifting is because not all machines have sub-millisecond time
+         * resolution.
+         */
+        hash |= 1 << ((tv.tv_usec >> 10) % 3);
+
+        return dict_set_uint32 (dict, "commit-hash", hash);
+}
+
+int
 glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
 {
         int                     ret = -1;
@@ -3415,6 +3445,7 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
         uint32_t                status_cmd = GF_CLI_STATUS_NONE;
         char                    *errstr = NULL;
         xlator_t                *this = NULL;
+        gf_boolean_t            do_common = _gf_false;
 
         GF_ASSERT (req);
 
@@ -3503,12 +3534,6 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                         }
                         break;
 
-                case GD_OP_SYNC_VOLUME:
-                        {
-                                dict_copy (dict, req_dict);
-                                break;
-                        }
-
                 case GD_OP_REMOVE_BRICK:
                         {
                                 dict_t *dict = ctx;
@@ -3524,6 +3549,10 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                                                                op_errstr);
                                 if (ret)
                                         goto out;
+
+                                if (gd_set_commit_hash(dict) != 0) {
+                                        goto out;
+                                }
 
                                 dict_destroy (req_dict);
                                 req_dict = dict_ref (dict);
@@ -3544,8 +3573,10 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                                         dict_copy (dict, req_dict);
                                         break;
                                 }
+                                do_common = _gf_true;
                         }
-                        /*fall-through*/
+                        break;
+
                 case GD_OP_DELETE_VOLUME:
                 case GD_OP_START_VOLUME:
                 case GD_OP_STOP_VOLUME:
@@ -3555,7 +3586,6 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                 case GD_OP_LOG_ROTATE:
                 case GD_OP_QUOTA:
                 case GD_OP_PROFILE_VOLUME:
-                case GD_OP_REBALANCE:
                 case GD_OP_HEAL_VOLUME:
                 case GD_OP_STATEDUMP_VOLUME:
                 case GD_OP_CLEARLOCKS_VOLUME:
@@ -3563,49 +3593,62 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                 case GD_OP_BARRIER:
                 case GD_OP_BITROT:
                         {
-                                ret = dict_get_str (dict, "volname", &volname);
-                                if (ret) {
-                                        gf_log (this->name, GF_LOG_CRITICAL,
-                                                "volname is not present in "
-                                                "operation ctx");
+                                do_common = _gf_true;
+                        }
+                        break;
+
+                case GD_OP_REBALANCE:
+                        {
+                                if (gd_set_commit_hash(dict) != 0) {
                                         goto out;
                                 }
+                                do_common = _gf_true;
+                        }
+                        break;
 
-                                if (strcasecmp (volname, "all")) {
-                                        ret = glusterd_dict_set_volid (dict,
-                                                                       volname,
-                                                                     op_errstr);
-                                        if (ret)
-                                                goto out;
-                                }
+                case GD_OP_SYNC_VOLUME:
+                case GD_OP_COPY_FILE:
+                case GD_OP_SYS_EXEC:
+                        {
                                 dict_copy (dict, req_dict);
                         }
                         break;
 
-                case GD_OP_COPY_FILE:
-                        {
-                                dict_copy (dict, req_dict);
-                                break;
-                        }
-
-                case GD_OP_SYS_EXEC:
-                        {
-                                dict_copy (dict, req_dict);
-                                break;
-                        }
-
                 case GD_OP_GANESHA:
                         {
                                 dict_copy (dict, req_dict);
-                                break;
                         }
+                        break;
 
                 default:
                         break;
         }
 
-        *req = req_dict;
-        ret = 0;
+        /*
+         * This has been moved out of the switch so that multiple ops with
+         * other special needs can all "fall through" to it.
+         */
+        if (do_common) {
+                ret = dict_get_str (dict, "volname", &volname);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_CRITICAL,
+                                "volname is not present in "
+                                "operation ctx");
+                        goto out;
+                }
+
+                if (strcasecmp (volname, "all")) {
+                        ret = glusterd_dict_set_volid (dict,
+                                                       volname,
+                                                     op_errstr);
+                        if (ret)
+                                goto out;
+                }
+                dict_copy (dict, req_dict);
+        }
+
+       *req = req_dict;
+       ret = 0;
 
 out:
         return ret;
