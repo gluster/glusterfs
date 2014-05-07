@@ -285,6 +285,38 @@ int glfs_fini (glfs_t *fs) __THROW;
 
 ssize_t glfs_get_volfile (glfs_t *fs, void *buf, size_t len) __THROW;
 
+
+/*
+  SYNOPSIS
+
+       glfs_get_volumeid: Copy the Volume UUID stored in the glfs object fs.
+
+  DESCRIPTION
+
+       This function when invoked for the first time sends RPC call to the
+       the management server (glusterd) to fetch volume uuid and stores it
+       in the glusterfs_context linked to the glfs object fs which can be used
+       in the subsequent calls. Later it parses that UUID to convert it from
+       cannonical string format into an opaque byte array and copy it into
+       the volid array. Incase if either of the input parameters, volid or size,
+       is NULL, number of bytes required to copy the volume UUID is returned.
+
+  PARAMETERS
+
+       @fs: The 'virtual mount' object to be used to retrieve and store
+            volume's UUID.
+       @volid: Pointer to a place for the volume UUID to be stored
+       @size: Length of @volid
+
+  RETURN VALUES
+
+       -1 : Failure. @errno will be set with the type of failure.
+        Others : length of the volume UUID stored.
+*/
+
+int glfs_get_volumeid (struct glfs *fs, char *volid, size_t size);
+
+
 /*
  * FILE OPERATION
  *

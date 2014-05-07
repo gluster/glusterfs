@@ -80,6 +80,7 @@ typedef int (*glfs_init_cbk) (struct glfs *fs, int ret);
 
 struct glfs {
 	char               *volname;
+        uuid_t              vol_uuid;
 
 	glusterfs_ctx_t    *ctx;
 
@@ -221,5 +222,8 @@ int glfs_loc_unlink (loc_t *loc);
 dict_t * dict_for_key_value (const char *name, const char *value, size_t size);
 int glfs_getxattr_process (void *value, size_t size, dict_t *xattr,
 			   const char *name);
+
+/* Sends RPC call to glusterd to fetch required volume info */
+int glfs_get_volume_info (struct glfs *fs);
 
 #endif /* !_GLFS_INTERNAL_H */
