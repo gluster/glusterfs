@@ -1897,6 +1897,8 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t    *req   = NULL;
         int                  ret   = 0;
 
+        state = CALL_STATE (frame);
+
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
                                     rsp.xdata.xdata_len, op_errno, out);
 
@@ -1920,8 +1922,7 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         }
 
-        /* TODO: need more clear thoughts before calling this function. */
-        /* gf_link_inodes_from_dirent (this, state->fd->inode, entries); */
+        gf_link_inodes_from_dirent (this, state->fd->inode, entries);
 
 out:
         rsp.op_ret    = op_ret;

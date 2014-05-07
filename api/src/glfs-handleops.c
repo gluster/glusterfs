@@ -945,6 +945,57 @@ out:
 	return glfd;
 }
 
+int
+glfs_h_access (struct glfs *fs, struct glfs_object *object, int mask)
+{
+	int              ret = -1;
+	xlator_t        *subvol = NULL;
+	inode_t         *inode = NULL;
+	loc_t            loc = {0, };
+
+	/* validate in args */
+	if ((fs == NULL) || (object == NULL)) {
+		errno = EINVAL;
+		goto out;
+	}
+
+	__glfs_entry_fs (fs);
+
+	/* get the active volume */
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	/* get/refresh the in arg objects inode in correlation to the xlator */
+	inode = glfs_resolve_inode (fs, subvol, object);
+	if (!inode) {
+		errno = ESTALE;
+		goto out;
+	}
+
+
+	GLFS_LOC_FILL_INODE (inode, loc, out);
+
+	/* fop/op */
+
+	ret = syncop_access (subvol, &loc, mask);
+        DECODE_SYNCOP_ERR (ret);
+
+out:
+	loc_wipe (&loc);
+
+	if (inode)
+		inode_unref (inode);
+
+
+	glfs_subvol_done (fs, subvol);
+
+	return ret;
+}
+
 ssize_t
 glfs_h_extract_handle (struct glfs_object *object, unsigned char *handle,
 		       int len)

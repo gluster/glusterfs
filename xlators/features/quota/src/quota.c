@@ -1013,7 +1013,8 @@ quota_fill_inodectx (xlator_t *this, inode_t *inode, dict_t *dict,
                         goto unlock;
                 }
 
-                if (loc->name == NULL)
+                /* do nothing if it is a nameless lookup */
+                if (loc->name == NULL || !loc->parent)
                         goto unlock;
 
                 list_for_each_entry (dentry, &ctx->parents, next) {

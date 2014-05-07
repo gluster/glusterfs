@@ -29,6 +29,7 @@
 #include "latency.h"
 
 #define FIRST_CHILD(xl) (xl->children->xlator)
+#define SECOND_CHILD(xl) (xl->children->next->xlator)
 
 #define GF_SET_ATTR_MODE  0x1
 #define GF_SET_ATTR_UID   0x2
