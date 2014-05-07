@@ -1039,6 +1039,13 @@ glusterd_friend_sm ()
         gf_boolean_t                     is_await_conn = _gf_false;
         gf_boolean_t                     quorum_action = _gf_false;
         glusterd_friend_sm_state_t       old_state = GD_FRIEND_STATE_DEFAULT;
+        xlator_t                        *this = NULL;
+        glusterd_conf_t                 *priv = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
 
         while (!list_empty (&gd_friend_sm_queue)) {
                 list_for_each_entry_safe (event, tmp, &gd_friend_sm_queue, list) {
@@ -1137,7 +1144,9 @@ out:
              * the functions spawn process(es) only if they are not started yet.
              *
              * */
-                glusterd_spawn_daemons (NULL);
+                synclock_unlock (&priv->big_lock);
+                glusterd_launch_synctask (glusterd_spawn_daemons, NULL);
+                synclock_lock (&priv->big_lock);
                 glusterd_do_quorum_action ();
         }
         return ret;

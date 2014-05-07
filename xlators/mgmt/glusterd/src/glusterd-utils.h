@@ -818,4 +818,7 @@ int32_t
 glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
                             glusterd_brickinfo_t *brickinfo,
                             int32_t brick_count);
+
+void
+glusterd_launch_synctask (synctask_fn_t fn, void *opaque);
 #endif

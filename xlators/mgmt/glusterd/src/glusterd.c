@@ -953,32 +953,6 @@ _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
 }
 
 
-static int
-gd_default_synctask_cbk (int ret, call_frame_t *frame, void *opaque)
-{
-        glusterd_conf_t     *priv = THIS->private;
-        synclock_unlock (&priv->big_lock);
-        return ret;
-}
-
-static void
-glusterd_launch_synctask (synctask_fn_t fn, void *opaque)
-{
-        xlator_t        *this = NULL;
-        glusterd_conf_t *priv = NULL;
-        int             ret   = -1;
-
-        this = THIS;
-        priv = this->private;
-
-        synclock_lock (&priv->big_lock);
-        ret = synctask_new (this->ctx->env, fn, gd_default_synctask_cbk, NULL,
-                            opaque);
-        if (ret)
-                gf_log (this->name, GF_LOG_CRITICAL, "Failed to spawn bricks"
-                        " and other volume related services");
-}
-
 int
 glusterd_uds_rpcsvc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                             void *data)
