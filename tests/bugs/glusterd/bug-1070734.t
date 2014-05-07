@@ -65,8 +65,11 @@ TEST [ -f ${OTHERBRICK}/DIR/file ]
 
 #Check the DIR on HASHED should have got zeroed layout and the \
 #OTHERBRICK should have got full layout
-EXPECT "0x00000001000000000000000000000000" dht_get_layout $HASHED/DIR ;
-EXPECT "0x000000010000000000000000ffffffff" dht_get_layout $OTHERBRICK/DIR;
+shorter_layout () {
+	dht_get_layout $1 | cut -c 19-
+}
+EXPECT "0000000000000000" shorter_layout $HASHED/DIR ;
+EXPECT "00000000ffffffff" shorter_layout $OTHERBRICK/DIR;
 
 ## Before killing daemon to avoid deadlocks
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0

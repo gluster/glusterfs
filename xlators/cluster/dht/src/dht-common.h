@@ -31,6 +31,7 @@
 #define DHT_PATHINFO_HEADER         "DISTRIBUTE:"
 #define DHT_FILE_MIGRATE_DOMAIN     "dht.file.migrate"
 #define DHT_LAYOUT_HEAL_DOMAIN      "dht.layout.heal"
+#define DHT_LAYOUT_HASH_INVALID     1
 
 #include <fnmatch.h>
 
@@ -48,6 +49,20 @@ struct dht_layout {
                                            special key */
         int                cnt;
         int                preset;
+        /*
+         * The last *configuration* state for which this directory was known
+         * to be in balance.  The corresponding vol_commit_hash changes
+         * whenever bricks are added or removed.  This value changes when a
+         * (full) rebalance is complete.  If they match, it's safe to assume
+         * that every file is where it should be and there's no need to do
+         * lookups for files elsewhere.  If they don't, then we have to do a
+         * global lookup to be sure.
+         */
+        uint32_t           commit_hash;
+        /*
+         * The *runtime* state of the volume, changes when connections to
+         * bricks are made or lost.
+         */
         int                gen;
         int                type;
         int                ref; /* use with dht_conf_t->layout_lock */
@@ -59,6 +74,7 @@ struct dht_layout {
                                   */
                 uint32_t   start;
                 uint32_t   stop;
+                uint32_t   commit_hash;
                 xlator_t  *xlator;
         } list[];
 };
@@ -325,6 +341,7 @@ struct gf_defrag_info_ {
         uuid_t                       node_uuid;
         struct timeval               start_time;
         gf_boolean_t                 stats;
+        uint32_t                     new_commit_hash;
         gf_defrag_pattern_list_t    *defrag_pattern;
         int                          tier_promote_frequency;
         int                          tier_demote_frequency;
@@ -422,6 +439,7 @@ struct dht_conf {
         /* Support variable xattr names. */
         char            *xattr_name;
         char            *link_xattr_name;
+        char            *commithash_xattr_name;
         char            *wild_xattr_name;
 
         /* Support size-weighted rebalancing (heterogeneous bricks). */
@@ -436,6 +454,13 @@ struct dht_conf {
         /*local subvol storage for rebalance*/
         xlator_t       **local_subvols;
         int32_t          local_subvols_cnt;
+
+        /*
+         * "Commit hash" for this volume topology.  Changed whenever bricks
+         * are added or removed.
+         */
+        uint32_t        vol_commit_hash;
+        gf_boolean_t    vch_forced;
 };
 typedef struct dht_conf dht_conf_t;
 
@@ -576,7 +601,7 @@ int dht_layouts_init (xlator_t *this, dht_conf_t *conf);
 int dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
                       int       op_ret, int op_errno, dict_t *xattr);
 
-int dht_disk_layout_extract (xlator_t *this, dht_layout_t *layout,
+int     dht_disk_layout_extract (xlator_t *this, dht_layout_t *layout,
                              int       pos, int32_t **disk_layout_p);
 int dht_disk_layout_merge (xlator_t   *this, dht_layout_t *layout,
                            int         pos, void *disk_layout_raw, int disk_layout_len);
@@ -631,6 +656,7 @@ xlator_t *dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol,
 int       dht_get_du_info_for_subvol (xlator_t *this, int subvol_idx);
 
 int dht_layout_preset (xlator_t *this, xlator_t *subvol, inode_t *inode);
+int dht_layout_index_for_subvol (dht_layout_t *layout, xlator_t *subvol);
 int           dht_layout_set (xlator_t *this, inode_t *inode, dht_layout_t *layout);;
 void          dht_layout_unref (xlator_t *this, dht_layout_t *layout);
 dht_layout_t *dht_layout_ref (xlator_t *this, dht_layout_t *layout);
@@ -649,6 +675,7 @@ int dht_rename_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          struct iatt      *preparent, struct iatt *postparent,
                          dict_t *xdata);
 
+int dht_update_commit_hash_for_layout (call_frame_t *frame);
 int dht_fix_directory_layout (call_frame_t *frame,
                               dht_selfheal_dir_cbk_t  dir_cbk,
                               dht_layout_t           *layout);
