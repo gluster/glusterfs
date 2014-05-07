@@ -4015,6 +4015,9 @@ glusterd_nodesvc_start (char *server, gf_boolean_t wait)
         glusterd_nodesvc_set_socket_filepath (rundir, MY_UUID,
                                               sockfpath, sizeof (sockfpath));
 
+        if (gf_is_service_running(pidfile, NULL))
+                goto connect;
+
         runinit (&runner);
 
         if (priv->valgrind) {
@@ -4062,7 +4065,7 @@ glusterd_nodesvc_start (char *server, gf_boolean_t wait)
                 }
                 synclock_lock (&priv->big_lock);
         }
-
+connect:
         if (ret == 0) {
                 glusterd_nodesvc_connect (server, sockfpath);
         }
@@ -9349,5 +9352,32 @@ glusterd_rpc_clnt_unref (glusterd_conf_t *conf, rpc_clnt_t *rpc)
         synclock_lock (&conf->big_lock);
 
         return ret;
+}
+
+
+static int
+gd_default_synctask_cbk (int ret, call_frame_t *frame, void *opaque)
+{
+        glusterd_conf_t     *priv = THIS->private;
+        synclock_unlock (&priv->big_lock);
+        return ret;
+}
+
+void
+glusterd_launch_synctask (synctask_fn_t fn, void *opaque)
+{
+        xlator_t        *this = NULL;
+        glusterd_conf_t *priv = NULL;
+        int             ret   = -1;
+
+        this = THIS;
+        priv = this->private;
+
+        synclock_lock (&priv->big_lock);
+        ret = synctask_new (this->ctx->env, fn, gd_default_synctask_cbk, NULL,
+                            opaque);
+        if (ret)
+                gf_log (this->name, GF_LOG_CRITICAL, "Failed to spawn bricks"
+                        " and other volume related services");
 }
 
