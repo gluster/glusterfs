@@ -23,6 +23,7 @@
 #include "globals.h"
 #include "glusterfs.h"
 #include "logging.h"
+#include "defaults.h"
 
 #include "gf-changelog-helpers.h"
 
@@ -65,6 +66,8 @@ __attribute__ ((constructor)) gf_changelog_ctor (void)
         }
 
         THIS->ctx = ctx;
+        if (xlator_mem_acct_init (THIS, gf_changelog_mt_end))
+                return;
 }
 
 void
