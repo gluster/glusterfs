@@ -228,6 +228,7 @@
                                                        (iabuf)->ia_type) & ~S_IFMT)\
                                      == DHT_LINKFILE_MODE)
 #define DHT_LINKFILE_STR "linkto"
+#define DHT_COMMITHASH_STR "commithash"
 
 #define DHT_SKIP_NON_LINKTO_UNLINK "unlink-only-if-dht-linkto-file"
 #define DHT_SKIP_OPEN_FD_UNLINK "dont-unlink-for-open-fd"

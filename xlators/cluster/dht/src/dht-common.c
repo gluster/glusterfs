@@ -210,6 +210,7 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
         int              ret = -1;
         dht_layout_t    *layout = NULL;
         dht_conf_t      *conf = NULL;
+        uint32_t         vol_commit_hash = 0;
 
         local = discover_frame->local;
         layout = local->layout;
@@ -277,6 +278,15 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
 
                 if (local->inode)
                         dht_layout_set (this, local->inode, layout);
+        }
+
+        if (!conf->vch_forced) {
+                ret = dict_get_uint32 (local->xattr,
+                                       conf->commithash_xattr_name,
+                                       &vol_commit_hash);
+                if (ret == 0) {
+                        conf->vol_commit_hash = vol_commit_hash;
+                }
         }
 
         DHT_STACK_UNWIND (lookup, main_frame, local->op_ret, local->op_errno,
@@ -458,6 +468,12 @@ dht_discover (call_frame_t *frame, xlator_t *this, loc_t *loc)
                         DHT_MSG_DICT_SET_FAILED,
                         "%s: Failed to set dictionary value:key = %s",
                         loc->path, conf->link_xattr_name);
+
+        if (__is_root_gfid(local->loc.gfid)) {
+                ret = dict_set_uint32 (local->xattr_req,
+                                       conf->commithash_xattr_name,
+                                       sizeof(uint32_t));
+        }
 
         call_cnt        = conf->subvolume_cnt;
         local->call_cnt = call_cnt;
@@ -655,6 +671,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_frame_t *copy          = NULL;
         dht_local_t  *copy_local    = NULL;
         char gfid[GF_UUID_BUF_SIZE] = {0};
+        uint32_t      vol_commit_hash = 0;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
         GF_VALIDATE_OR_GOTO ("dht", this, err);
@@ -666,6 +683,14 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         conf = this->private;
         if (!conf)
                 goto out;
+
+        if (!conf->vch_forced) {
+                ret = dict_get_uint32 (xattr, conf->commithash_xattr_name,
+                                       &vol_commit_hash);
+                if (ret == 0) {
+                        conf->vol_commit_hash = vol_commit_hash;
+                }
+        }
 
         gf_uuid_unparse (local->loc.gfid, gfid);
 
@@ -1852,6 +1877,7 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_frame_t *prev          = NULL;
         int           ret           = 0;
         dht_layout_t *parent_layout = NULL;
+        uint32_t      vol_commit_hash = 0;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -1875,6 +1901,14 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       "fresh_lookup returned for %s with op_ret %d and "
                       "op_errno %d", loc->path, op_ret, op_errno);
 
+        if (!conf->vch_forced) {
+                ret = dict_get_uint32 (xattr, conf->commithash_xattr_name,
+                                       &vol_commit_hash);
+                if (ret == 0) {
+                        conf->vol_commit_hash = vol_commit_hash;
+                }
+        }
+
         if (ENTRY_MISSING (op_ret, op_errno)) {
                 gf_msg_debug (this->name, 0,
                               "Entry %s missing on subvol %s",
@@ -1891,7 +1925,10 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                         &parent_layout);
                         if (ret || !parent_layout)
                                 goto out;
-                        if (parent_layout->search_unhashed) {
+                        if (parent_layout->commit_hash
+                                  != conf->vol_commit_hash) {
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "hashes don't match, do global lookup");
                                 local->op_errno = ENOENT;
                                 dht_lookup_everywhere (frame, this, loc);
                                 return 0;
@@ -2076,6 +2113,12 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                 local->cached_subvol = NULL;
                 dht_discover (frame, this, loc);
                 return 0;
+        }
+
+        if (__is_root_gfid(loc->gfid)) {
+                ret = dict_set_uint32 (local->xattr_req,
+                                       conf->commithash_xattr_name,
+                                       sizeof(uint32_t));
         }
 
         if (!hashed_subvol)
@@ -3238,8 +3281,9 @@ dht_fsetxattr (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        GF_IF_INTERNAL_XATTR_GOTO (conf->wild_xattr_name, xattr,
-                                   op_errno, err);
+        if (!conf->defrag)
+                GF_IF_INTERNAL_XATTR_GOTO (conf->wild_xattr_name, xattr,
+                                           op_errno, err);
 
         local = dht_local_init (frame, NULL, fd, GF_FOP_FSETXATTR);
         if (!local) {
@@ -3338,6 +3382,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         char          value[4096] = {0,};
         gf_dht_migrate_data_type_t forced_rebalance = GF_DHT_MIGRATE_DATA;
         int           call_cnt = 0;
+        uint32_t      new_hash = 0;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -3350,8 +3395,10 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         methods = conf->methods;
         GF_VALIDATE_OR_GOTO (this->name, conf->methods, err);
 
-        GF_IF_INTERNAL_XATTR_GOTO (conf->wild_xattr_name, xattr,
-                                   op_errno, err);
+        /* Rebalance daemon is allowed to set internal keys */
+        if (!conf->defrag)
+                GF_IF_INTERNAL_XATTR_GOTO (conf->wild_xattr_name, xattr,
+                                           op_errno, err);
 
         local = dht_local_init (frame, loc, NULL, GF_FOP_SETXATTR);
         if (!local) {
@@ -3490,6 +3537,22 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         if (tmp) {
                 gf_log (this->name, GF_LOG_INFO,
                         "fixing the layout of %s", loc->path);
+
+                ret = dict_get_uint32(xattr, "new-commit-hash", &new_hash);
+                if (ret == 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "updating commit hash for %s from %u to %u",
+                                uuid_utoa(loc->gfid),
+                                layout->commit_hash, new_hash);
+                        layout->commit_hash = new_hash;
+
+                        ret = dht_update_commit_hash_for_layout (frame);
+                        if (ret) {
+                                op_errno = ENOTCONN;
+                                goto err;
+                        }
+                        return ret;
+                }
 
                 ret = dht_fix_directory_layout (frame, dht_common_setxattr_cbk,
                                                 layout);
@@ -5379,6 +5442,8 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
+        local->layout->commit_hash = conf->vol_commit_hash;
+
         STACK_WIND (frame, dht_mkdir_hashed_cbk,
                     hashed_subvol,
                     hashed_subvol->fops->mkdir,
@@ -6573,10 +6638,12 @@ dht_log_new_layout_for_dir_selfheal (xlator_t *this, loc_t *loc,
 
                 ret  = snprintf (string, max_string_len,
                                  "[Subvol_name: %s, Err: %d , Start: "
-                                 "%"PRIu32 " , Stop: %"PRIu32 " ], ",
+                                 "%"PRIu32 " , Stop: %"PRIu32 " , Hash: %"
+                                 PRIu32 " ], ",
                                  layout->list[i].xlator->name,
                                  layout->list[i].err, layout->list[i].start,
-                                 layout->list[i].stop);
+                                 layout->list[i].stop,
+                                 layout->list[i].commit_hash);
 
                 if (ret < 0)
                         return;
@@ -6605,10 +6672,12 @@ dht_log_new_layout_for_dir_selfheal (xlator_t *this, loc_t *loc,
 
                 ret  =  snprintf (output_string + off, len - off,
                                   "[Subvol_name: %s, Err: %d , Start: "
-                                  "%"PRIu32 " , Stop: %"PRIu32 " ], ",
+                                  "%"PRIu32 " , Stop: %"PRIu32 " , Hash: %"
+                                  PRIu32  " ], ",
                                   layout->list[i].xlator->name,
                                   layout->list[i].err, layout->list[i].start,
-                                  layout->list[i].stop);
+                                  layout->list[i].stop,
+                                  layout->list[i].commit_hash);
 
                 if (ret < 0)
                         goto err;

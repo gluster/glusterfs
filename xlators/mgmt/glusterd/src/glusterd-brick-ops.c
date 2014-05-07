@@ -2022,6 +2022,8 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         dict_t                  *bricks_dict   = NULL;
         char                    *brick_tmpstr  = NULL;
         int                      start_remove  = 0;
+        uint32_t                 commit_hash   = 0;
+
         this = THIS;
         GF_ASSERT (this);
 
@@ -2287,6 +2289,9 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 break;
         }
         if (!force && need_rebalance) {
+                if (dict_get_uint32(dict, "commit-hash", &commit_hash) == 0) {
+                        volinfo->rebal.commit_hash = commit_hash;
+                }
                 /* perform the rebalance operations */
                 ret = glusterd_handle_defrag_start
                         (volinfo, err_str, sizeof (err_str),

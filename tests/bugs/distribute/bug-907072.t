@@ -17,10 +17,11 @@ TEST glusterfs -s $H0 --volfile-id $V0 $M0;
 
 TEST mkdir $M0/test;
 
-OLD_LAYOUT0=`get_layout $B0/${V0}0/test`;
-OLD_LAYOUT1=`get_layout $B0/${V0}1/test`;
-OLD_LAYOUT2=`get_layout $B0/${V0}2/test`;
-OLD_LAYOUT3=`get_layout $B0/${V0}3/test`;
+# Extract the layout sans the commit hash
+OLD_LAYOUT0=`get_layout $B0/${V0}0/test | cut -c11-34`;
+OLD_LAYOUT1=`get_layout $B0/${V0}1/test | cut -c11-34`;
+OLD_LAYOUT2=`get_layout $B0/${V0}2/test | cut -c11-34`;
+OLD_LAYOUT3=`get_layout $B0/${V0}3/test | cut -c11-34`;
 
 TEST killall glusterfsd;
 
@@ -36,10 +37,11 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST glusterfs -s $H0 --volfile-id $V0 $M0;
 TEST stat $M0/test;
 
-NEW_LAYOUT0=`get_layout $B0/${V0}0/test`;
-NEW_LAYOUT1=`get_layout $B0/${V0}1/test`;
-NEW_LAYOUT2=`get_layout $B0/${V0}2/test`;
-NEW_LAYOUT3=`get_layout $B0/${V0}3/test`;
+# Extract the layout sans the commit hash
+NEW_LAYOUT0=`get_layout $B0/${V0}0/test | cut -c11-34`;
+NEW_LAYOUT1=`get_layout $B0/${V0}1/test | cut -c11-34`;
+NEW_LAYOUT2=`get_layout $B0/${V0}2/test | cut -c11-34`;
+NEW_LAYOUT3=`get_layout $B0/${V0}3/test | cut -c11-34`;
 
 EXPECT $OLD_LAYOUT0 echo $NEW_LAYOUT0;
 EXPECT $OLD_LAYOUT1 echo $NEW_LAYOUT1;
