@@ -111,6 +111,15 @@ M: Csaba Henk <chenk@redhat.com>
 S: Maintained
 F: xlators/mount/
 
+NFS
+M: Niels de Vos <ndevos@redhat.com>
+S: Maintained
+F: xlators/nfs/server/
+
+Locks
+M: Pranith Karampuri <pkarampu@redhat.com>
+S: Maintained
+F: xlators/features/locks/
 
 Other bits of code:
 -------------------
@@ -131,11 +140,13 @@ F: api/
 
 Management Daemon
 M: Krishnan Parthasarathi <kparthas@redhat.com>
+M: Kaushal Madappa <kmadapp@redhat.com>
 S: Maintained
 F: cli/
 F: xlators/mgmt/
 
 Remote Procedure Call subsystem
+M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 M: Amar Tumballi <amarts@gmail.com>
 M: Anand Avati <avati@redhat.com>
 S: Maintained
