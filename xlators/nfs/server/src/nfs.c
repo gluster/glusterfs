@@ -518,10 +518,11 @@ nfs_init_state (xlator_t *this)
         if (!this)
                 return NULL;
 
-        if ((!this->children) || (!this->children->xlator)) {
-                gf_log (GF_NFS, GF_LOG_ERROR, "nfs must have at least one"
-                        " child subvolume");
-                return NULL;
+        if (!this->children) {
+                gf_log (GF_NFS, GF_LOG_INFO,
+                        "NFS is manually disabled: Exiting");
+                /* Nothing for nfs process to do, exit cleanly */
+                kill (getpid (), SIGTERM);
         }
 
         nfs = GF_CALLOC (1, sizeof (*nfs), gf_nfs_mt_nfs_state);
@@ -738,10 +739,10 @@ nfs_init_state (xlator_t *this)
         GF_OPTION_INIT (OPT_SERVER_GID_CACHE_TIMEOUT, nfs->server_aux_gids_max_age,
                         uint32, free_foppool);
 
-	if (gid_cache_init(&nfs->gid_cache, nfs->server_aux_gids_max_age) < 0) {
-		gf_log(GF_NFS, GF_LOG_ERROR, "Failed to initialize group cache.");
-		goto free_foppool;
-	}
+        if (gid_cache_init(&nfs->gid_cache, nfs->server_aux_gids_max_age) < 0) {
+                gf_log(GF_NFS, GF_LOG_ERROR, "Failed to initialize group cache.");
+                goto free_foppool;
+        }
 
         if (stat("/sbin/rpc.statd", &stbuf) == -1) {
                 gf_log (GF_NFS, GF_LOG_WARNING, "/sbin/rpc.statd not found. "
