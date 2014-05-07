@@ -22,6 +22,7 @@
 #endif /* _CONFIG_H */
 
 #include "glusterfs.h"
+#include "glfs.h"
 #include "stack.h"
 #include "dict.h"
 #include "event.h"
@@ -40,8 +41,9 @@
 #include "glfs-internal.h"
 #include "glfs-mem-types.h"
 
-
 int glfs_volfile_fetch (struct glfs *fs);
+int32_t glfs_get_volume_info_rpc (call_frame_t *frame, xlator_t *this,
+                                  struct glfs *fs);
 
 int
 glfs_process_volfp (struct glfs *fs, FILE *fp)
@@ -136,6 +138,7 @@ char *clnt_handshake_procs[GF_HNDSK_MAXVALUE] = {
 	[GF_HNDSK_GETSPEC]	= "GETSPEC",
 	[GF_HNDSK_PING]		= "PING",
 	[GF_HNDSK_EVENT_NOTIFY] = "EVENTNOTIFY",
+        [GF_HNDSK_GET_VOLUME_INFO] = "GETVOLUMEINFO",
 };
 
 rpc_clnt_prog_t clnt_handshake_prog = {
@@ -202,6 +205,249 @@ out:
 	return ret;
 }
 
+/*
+ * Callback routine for 'GF_HNDSK_GET_VOLUME_INFO' rpc request
+ */
+int
+mgmt_get_volinfo_cbk (struct rpc_req *req, struct iovec *iov,
+                      int count, void *myframe)
+{
+        int                        ret                  = 0;
+        char                       *volume_id_str       = NULL;
+        dict_t                     *dict                = NULL;
+        char                       key[1024]            = {0};
+        gf_get_volume_info_rsp     rsp                  = {0,};
+        call_frame_t               *frame               = NULL;
+        glusterfs_ctx_t            *ctx                 = NULL;
+        struct glfs                *fs                  = NULL;
+        struct syncargs            *args;
+
+        frame = myframe;
+        ctx = frame->this->ctx;
+        args = frame->local;
+
+        if (!ctx) {
+                gf_log (frame->this->name, GF_LOG_ERROR, "NULL context");
+                errno = EINVAL;
+                ret = -1;
+                goto out;
+        }
+
+        fs = ((xlator_t *)ctx->master)->private;
+
+        if (-1 == req->rpc_status) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "GET_VOLUME_INFO RPC call is not successfull");
+                errno = EINVAL;
+                ret = -1;
+                goto out;
+        }
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_get_volume_info_rsp);
+
+        if (ret < 0) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response for GET_VOLUME_INFO");
+                goto out;
+        }
+
+        gf_log (frame->this->name, GF_LOG_DEBUG,
+                "Received resp to GET_VOLUME_INFO RPC: %d", rsp.op_ret);
+
+        if (rsp.op_ret == -1) {
+                errno = rsp.op_errno;
+                ret = -1;
+                goto out;
+        }
+
+        if (!rsp.dict.dict_len) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Response received for GET_VOLUME_INFO RPC call is not valid");
+                ret = -1;
+                errno = EINVAL;
+                goto out;
+        }
+
+        dict = dict_new ();
+
+        if (!dict) {
+                ret = -1;
+                errno = ENOMEM;
+                goto out;
+        }
+
+        ret = dict_unserialize (rsp.dict.dict_val,
+                                rsp.dict.dict_len,
+                                &dict);
+
+        if (ret) {
+                errno = ENOMEM;
+                goto out;
+        }
+
+        snprintf (key, sizeof (key), "volume_id");
+        ret = dict_get_str (dict, key, &volume_id_str);
+        if (ret) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        ret = 0;
+out:
+        if (volume_id_str) {
+                gf_log (frame->this->name, GF_LOG_DEBUG,
+                        "Volume Id: %s", volume_id_str);
+                pthread_mutex_lock (&fs->mutex);
+                uuid_parse (volume_id_str, fs->vol_uuid);
+                pthread_mutex_unlock (&fs->mutex);
+        }
+
+        if (ret) {
+               gf_log (frame->this->name, GF_LOG_ERROR,
+                       "In GET_VOLUME_INFO cbk, received error: %s",
+                       strerror(errno));
+        }
+
+        if (dict)
+                dict_destroy (dict);
+
+        if (rsp.dict.dict_val)
+                free (rsp.dict.dict_val);
+
+        if (rsp.op_errstr && *rsp.op_errstr)
+                free (rsp.op_errstr);
+
+        gf_log (frame->this->name, GF_LOG_DEBUG, "Returning: %d", ret);
+
+        __wake (args);
+
+        return ret;
+}
+
+int
+glfs_get_volumeid (struct glfs *fs, char *volid, size_t size)
+{
+        /* TODO: Define a global macro to store UUID size */
+        size_t uuid_size = 16;
+
+        pthread_mutex_lock (&fs->mutex);
+        {
+                /* check if the volume uuid is initialized */
+                if (!uuid_is_null (fs->vol_uuid)) {
+                        pthread_mutex_unlock (&fs->mutex);
+                        goto done;
+                }
+        }
+        pthread_mutex_unlock (&fs->mutex);
+
+        /* Need to fetch volume_uuid */
+        glfs_get_volume_info (fs);
+
+        if (uuid_is_null (fs->vol_uuid)) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Unable to fetch volume UUID");
+                return -1;
+        }
+
+done:
+        if (!volid || !size) {
+                gf_log (THIS->name, GF_LOG_DEBUG, "volumeid/size is null");
+                return uuid_size;
+        }
+
+        if (size < uuid_size) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Insufficient size passed");
+                errno = ERANGE;
+                return -1;
+        }
+
+        memcpy (volid, fs->vol_uuid, uuid_size);
+
+        gf_log (THIS->name, GF_LOG_INFO, "volume uuid: %s", volid);
+
+        return uuid_size;
+}
+
+int
+glfs_get_volume_info (struct glfs *fs)
+{
+        call_frame_t     *frame = NULL;
+        glusterfs_ctx_t  *ctx   = NULL;
+        struct syncargs  args   = {0, };
+        int              ret    = 0;
+
+        ctx = fs->ctx;
+        frame = create_frame (THIS, ctx->pool);
+        frame->local = &args;
+
+        __yawn ((&args));
+
+        ret = glfs_get_volume_info_rpc (frame, THIS, fs);
+        if (ret)
+                goto out;
+
+        __yield ((&args));
+
+        frame->local = NULL;
+        STACK_DESTROY (frame->root);
+
+out:
+        return ret;
+}
+
+int32_t
+glfs_get_volume_info_rpc (call_frame_t *frame, xlator_t *this,
+                          struct glfs *fs)
+{
+        gf_get_volume_info_req  req       = {{0,}};
+        int                     ret       = 0;
+        glusterfs_ctx_t         *ctx      = NULL;
+        dict_t                  *dict     = NULL;
+        int32_t                 flags     = 0;
+
+        if (!frame || !this || !fs) {
+                ret = -1;
+                goto out;
+        }
+
+        ctx = fs->ctx;
+
+        dict = dict_new ();
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        if (fs->volname) {
+                ret = dict_set_str (dict, "volname", fs->volname);
+                if (ret)
+                        goto out;
+        }
+
+        // Set the flags for the fields which we are interested in
+        flags = (int32_t)GF_GET_VOLUME_UUID; //ctx->flags;
+        ret = dict_set_int32 (dict, "flags", flags);
+        if (ret) {
+                gf_log (frame->this->name, GF_LOG_ERROR, "failed to set flags");
+                goto out;
+        }
+
+        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
+                                           &req.dict.dict_len);
+
+
+        ret = mgmt_submit_request (&req, frame, ctx, &clnt_handshake_prog,
+                                   GF_HNDSK_GET_VOLUME_INFO,
+                                   mgmt_get_volinfo_cbk,
+                                   (xdrproc_t)xdr_gf_get_volume_info_req);
+out:
+        if (dict) {
+                dict_unref (dict);
+        }
+
+        GF_FREE (req.dict.dict_val);
+
+        return ret;
+}
 
 static int
 glusterfs_oldvolfile_update (struct glfs *fs, char *volfile, ssize_t size)
@@ -514,12 +760,12 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 			/* Exit the process.. there are some wrong options */
 			gf_log ("glfs-mgmt", GF_LOG_ERROR,
 				"failed to fetch volume file (key:%s)",
-				ctx->cmd_args.volfile_id);
-			errno = EINVAL;
-			glfs_init_done (fs, -1);
-		}
+                                ctx->cmd_args.volfile_id);
+                        errno = EINVAL;
+                        glfs_init_done (fs, -1);
+                }
 
-		break;
+                break;
 	default:
 		break;
 	}

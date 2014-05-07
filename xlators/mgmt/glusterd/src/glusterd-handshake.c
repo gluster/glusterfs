@@ -1001,10 +1001,147 @@ glusterd_mgmt_hndsk_versions_ack (rpcsvc_request_t *req)
                                             __glusterd_mgmt_hndsk_versions_ack);
 }
 
+int
+__server_get_volume_info (rpcsvc_request_t *req)
+{
+        int                     ret             = -1;
+        int32_t                 op_errno        = ENOENT;
+        gf_get_volume_info_req	vol_info_req    = {{0,}};
+        gf_get_volume_info_rsp	vol_info_rsp    = {0,};
+        char                    *volname        = NULL;
+        glusterd_volinfo_t      *volinfo        = NULL;
+        dict_t                  *dict           = NULL;
+        dict_t                  *dict_rsp       = NULL;
+        char                    *volume_id_str  = NULL;
+        int32_t                 flags           = 0;
+
+        ret = xdr_to_generic (req->msg[0], &vol_info_req,
+                             (xdrproc_t)xdr_gf_get_volume_info_req);
+        if (ret < 0) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+        gf_log ("glusterd", GF_LOG_INFO, "Received get volume info req");
+
+        if (vol_info_req.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+                if (!dict) {
+                        gf_log ("", GF_LOG_WARNING, "Out of Memory");
+                        op_errno = ENOMEM;
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_unserialize (vol_info_req.dict.dict_val,
+                                        vol_info_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        op_errno = -ret;
+                        ret = -1;
+                        goto out;
+                } else {
+                        dict->extra_stdfree = vol_info_req.dict.dict_val;
+                }
+        }
+
+        ret = dict_get_int32 (dict, "flags", &flags);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to get flags");
+                op_errno = -ret;
+                ret = -1;
+                goto out;
+        }
+
+        if (!flags) {
+                //Nothing to query about. Just return success
+                gf_log (THIS->name, GF_LOG_ERROR, "No flags set");
+                ret = 0;
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                op_errno = EINVAL;
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                op_errno = EINVAL;
+                ret = -1;
+                goto out;
+        }
+
+        if (flags | (int32_t)GF_GET_VOLUME_UUID) {
+                volume_id_str = gf_strdup (uuid_utoa (volinfo->volume_id));
+                if (!volume_id_str) {
+                        op_errno = ENOMEM;
+                        ret = -1;
+                        goto out;
+                }
+
+                dict_rsp = dict_new ();
+                if (!dict_rsp) {
+                        gf_log ("", GF_LOG_WARNING, "Out of Memory");
+                        op_errno = ENOMEM;
+                        ret = -1;
+                        goto out;
+                }
+                ret = dict_set_dynstr (dict_rsp, "volume_id", volume_id_str);
+                if (ret) {
+                        op_errno = -ret;
+                        ret = -1;
+                        goto out;
+                }
+        }
+        ret = dict_allocate_and_serialize (dict_rsp, &vol_info_rsp.dict.dict_val,
+                                           &vol_info_rsp.dict.dict_len);
+        if (ret) {
+                op_errno = -ret;
+                ret = -1;
+                goto out;
+        }
+
+out:
+        vol_info_rsp.op_ret = ret;
+        vol_info_rsp.op_errno = op_errno;
+        vol_info_rsp.op_errstr = "";
+        glusterd_submit_reply (req, &vol_info_rsp, NULL, 0, NULL,
+                               (xdrproc_t)xdr_gf_get_volume_info_rsp);
+        ret = 0;
+
+        if (dict) {
+                dict_unref (dict);
+        }
+
+        if (dict_rsp) {
+                dict_unref (dict_rsp);
+        }
+
+        if (vol_info_rsp.dict.dict_val) {
+                GF_FREE (vol_info_rsp.dict.dict_val);
+        }
+        return ret;
+}
+
+int
+server_get_volume_info (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __server_get_volume_info);
+}
+
 rpcsvc_actor_t gluster_handshake_actors[] = {
         [GF_HNDSK_NULL]         = {"NULL",        GF_HNDSK_NULL,         NULL,                NULL, 0, DRC_NA},
         [GF_HNDSK_GETSPEC]      = {"GETSPEC",     GF_HNDSK_GETSPEC,      server_getspec,      NULL, 0, DRC_NA},
         [GF_HNDSK_EVENT_NOTIFY] = {"EVENTNOTIFY", GF_HNDSK_EVENT_NOTIFY, server_event_notify, NULL, 0, DRC_NA},
+        [GF_HNDSK_GET_VOLUME_INFO] = {"GETVOLUMEINFO", GF_HNDSK_GET_VOLUME_INFO, server_get_volume_info, NULL, 0, DRC_NA},
 };
 
 

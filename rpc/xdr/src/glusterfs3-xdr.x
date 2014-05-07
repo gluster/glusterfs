@@ -653,6 +653,16 @@ struct gfs3_fstat_req {
         opaque   xdata<>; /* Extra data */
 } ;
 
+ struct gf_get_volume_info_req {
+        opaque   dict<>; /* Extra data */
+}  ;
+ struct  gf_get_volume_info_rsp {
+        int    op_ret;
+        int    op_errno;
+        string op_errstr<>;
+        opaque   dict<>; /* Extra data */
+} ;
+
  struct gf_mgmt_hndsk_req {
         opaque   hndsk<>;
 }  ;
