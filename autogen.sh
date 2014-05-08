@@ -60,15 +60,6 @@ if [ $? -ne 0 ]; then
   MISSING="$MISSING tar"
 fi
 
-# Check for python
-if [ "x${PYTHONBIN}" = "x" ]; then
-  PYTHONBIN=python
-fi
-env ${PYTHONBIN} -V > /dev/null 2>&1
-if [ $? -ne 0 ]; then
-  MISSING="$MISSING python"
-fi
-
 ## If dependencies are missing, warn the user and abort
 if [ "x$MISSING" != "x" ]; then
   echo "Aborting."
@@ -82,16 +73,6 @@ if [ "x$MISSING" != "x" ]; then
   echo "Please install them and try again."
   echo
   exit 1
-fi
-
-## generate gf-error-codes.h from error-codes.json
-echo "Generate gf-error-codes.h ..."
-if ${PYTHONBIN} ./gen-headers.py; then
-    if ! mv -fv gf-error-codes.h libglusterfs/src/gf-error-codes.h; then
-	exit 1
-    fi
-else
-    exit 1
 fi
 
 ## Do the autogeneration

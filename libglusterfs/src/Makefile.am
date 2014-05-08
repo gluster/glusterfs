@@ -29,7 +29,7 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	$(CONTRIBDIR)/stdlib/gf_mkostemp.c strfd.c \
 	$(CONTRIBDIR)/mount/mntent.c
 
-nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c gf-error-codes.h
+nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c
 
 BUILT_SOURCES = graph.lex.c
 

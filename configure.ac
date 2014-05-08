@@ -312,7 +312,6 @@ AC_CHECK_LIB([pthread], [pthread_mutex_init], , AC_MSG_ERROR([Posix threads libr
 AC_CHECK_FUNC([dlopen], [has_dlopen=yes], AC_CHECK_LIB([dl], [dlopen], , AC_MSG_ERROR([Dynamic linking library required to build glusterfs])))
 
 AC_CHECK_LIB([readline], [rl_do_undo], [RL_UNDO="yes"], [RL_UNDO="no"])
-AC_CHECK_LIB([intl], [gettext])
 
 AC_CHECK_HEADERS([sys/xattr.h])
 
@@ -323,8 +322,6 @@ AC_CHECK_HEADERS([sys/extattr.h])
 AC_CHECK_HEADERS([openssl/md5.h])
 
 AC_CHECK_HEADERS([linux/falloc.h])
-
-AC_CHECK_HEADERS([libintl.h])
 
 dnl Mac OS X does not have spinlocks
 AC_CHECK_FUNC([pthread_spin_init], [have_spinlock=yes])

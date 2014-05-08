@@ -52,7 +52,6 @@ libgfchangelog.pc
 libglusterfs/src/graph.lex.c
 libglusterfs/src/y.tab.c
 libglusterfs/src/y.tab.h
-libglusterfs/src/gf-error-codes.h
 libtool
 run-tests.sh
 xlators/mount/fuse/utils/mount.glusterfs
