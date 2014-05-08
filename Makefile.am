@@ -2,8 +2,7 @@ EXTRA_DIST = autogen.sh \
 	COPYING-GPLV2 COPYING-LGPLV3 \
 	INSTALL README AUTHORS THANKS NEWS \
 	glusterfs.spec glusterfs-api.pc.in libgfchangelog.pc.in \
-	error-codes.json gf-error-codes.h.template \
-	gen-headers.py run-tests.sh \
+	run-tests.sh \
 	build-aux/pkg-version \
 	build-aux/xdrgen \
         contrib/argp-standalone \

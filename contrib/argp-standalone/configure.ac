@@ -32,7 +32,7 @@ fi
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS(limits.h malloc.h unistd.h sysexits.h stdarg.h)
+AC_CHECK_HEADERS(libintl.h limits.h malloc.h unistd.h sysexits.h stdarg.h)
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
