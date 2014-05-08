@@ -2164,8 +2164,6 @@ afr_sh_entry_open (call_frame_t *frame, xlator_t *this)
 {
         int i = 0;
         int call_count = 0;
-
-        int source = -1;
         int *sources = NULL;
 
         fd_t *fd = NULL;
@@ -2178,43 +2176,31 @@ afr_sh_entry_open (call_frame_t *frame, xlator_t *this)
         sh = &local->self_heal;
         priv = this->private;
 
-        source  = local->self_heal.source;
         sources = local->self_heal.sources;
 
         sh->block_size = priv->sh_readdir_size;
         sh->offset = 0;
 
-        call_count = sh->active_sinks;
-        if (source != -1)
-                call_count++;
-
+        call_count = afr_up_children_count (local->child_up,
+                                                   priv->child_count);
         local->call_count = call_count;
 
         fd = fd_create (local->loc.inode, frame->root->pid);
         sh->healing_fd = fd;
 
-        if (source != -1) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "opening directory %s on subvolume %s (source)",
-                        local->loc.path, priv->children[source]->name);
+        /* We need to opendir all sources in addition to the sinks though heal
+         * happens only from one source, so that afr_sh_erase_pending() can
+         * clear the changelogs all sources. Otherwise  redundant entry
+         * self-heals can happen to the sinks from each of the sources.*/
 
-                /* open source */
-                STACK_WIND_COOKIE (frame, afr_sh_entry_opendir_cbk,
-                                   (void *) (long) source,
-                                   priv->children[source],
-                                   priv->children[source]->fops->opendir,
-                                   &local->loc, fd, NULL);
-                call_count--;
-        }
-
-        /* open sinks */
         for (i = 0; i < priv->child_count; i++) {
-                if (sources[i] || !local->child_up[i])
+                if (!local->child_up[i])
                         continue;
 
                 gf_log (this->name, GF_LOG_TRACE,
-                        "opening directory %s on subvolume %s (sink)",
-                        local->loc.path, priv->children[i]->name);
+                        "opening directory %s on subvolume %s (%s)",
+                        local->loc.path, priv->children[i]->name,
+                        local->self_heal.sources[i]? "source":"sink");
 
                 STACK_WIND_COOKIE (frame, afr_sh_entry_opendir_cbk,
                                    (void *) (long) i,

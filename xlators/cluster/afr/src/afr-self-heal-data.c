@@ -1657,7 +1657,6 @@ afr_sh_data_open (call_frame_t *frame, xlator_t *this)
         fd = fd_create (local->loc.inode, frame->root->pid);
         sh->healing_fd = fd;
 
-        /* open sinks */
         for (i = 0; i < priv->child_count; i++) {
                 if(!local->child_up[i])
                         continue;
