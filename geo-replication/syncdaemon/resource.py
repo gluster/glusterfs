@@ -34,7 +34,7 @@ import syncdutils
 from syncdutils import GsyncdError, select, privileged, boolify, funcode
 from syncdutils import umask, entry2pb, gauxpfx, errno_wrap, lstat
 from syncdutils import NoPurgeTimeAvailable, PartialHistoryAvailable
-from libgfchangelog import ChangelogException
+from syncdutils import ChangelogException
 
 UrlRX = re.compile('\A(\w+)://([^ *?[]*)\Z')
 HostRX = re.compile('[a-z\d](?:[a-z\d.-]*[a-z\d])?', re.I)

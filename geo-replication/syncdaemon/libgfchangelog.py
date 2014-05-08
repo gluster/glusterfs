@@ -11,10 +11,7 @@
 import os
 from ctypes import CDLL, create_string_buffer, get_errno
 from ctypes.util import find_library
-
-
-class ChangelogException(OSError):
-    pass
+from syncdutils import ChangelogException
 
 
 class Changes(object):
