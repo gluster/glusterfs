@@ -1314,8 +1314,11 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         struct rlimit        lim      = {0, };
         int                  ret      = -1;
 
-        xlator_mem_acct_init (THIS, gfd_mt_end);
-
+        ret = xlator_mem_acct_init (THIS, gfd_mt_end);
+        if (ret != 0) {
+                gf_msg(THIS->name, GF_LOG_CRITICAL, 0, glusterfsd_msg_34);
+                return ret;
+        }
         ctx->process_uuid = generate_glusterfs_ctx_id ();
         if (!ctx->process_uuid) {
                 gf_msg ("", GF_LOG_CRITICAL, 0, glusterfsd_msg_13);
