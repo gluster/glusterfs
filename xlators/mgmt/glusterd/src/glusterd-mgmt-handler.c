@@ -916,7 +916,7 @@ glusterd_handle_mgmt_v3_unlock (rpcsvc_request_t *req)
                                             glusterd_handle_mgmt_v3_unlock_fn);
 }
 
-rpcsvc_actor_t gd_svc_mgmt_v3_actors[] = {
+rpcsvc_actor_t gd_svc_mgmt_v3_actors[GLUSTERD_MGMT_V3_MAXVALUE] = {
         [GLUSTERD_MGMT_V3_NULL]          = { "NULL",           GLUSTERD_MGMT_V3_NULL,          glusterd_mgmt_v3_null,         NULL, 0, DRC_NA},
         [GLUSTERD_MGMT_V3_LOCK]          = { "MGMT_V3_LOCK",   GLUSTERD_MGMT_V3_LOCK,          glusterd_handle_mgmt_v3_lock,   NULL, 0, DRC_NA},
         [GLUSTERD_MGMT_V3_PRE_VALIDATE]  = { "PRE_VAL",        GLUSTERD_MGMT_V3_PRE_VALIDATE,  glusterd_handle_pre_validate,  NULL, 0, DRC_NA},

@@ -626,9 +626,9 @@ rpcerr:
 
 
 rpcsvc_actor_t  acl3svc_actors[ACL3_PROC_COUNT] = {
-        {"NULL",       ACL3_NULL,      acl3svc_null,   NULL,   0},
-        {"GETACL",     ACL3_GETACL,    acl3svc_getacl, NULL,   0},
-        {"SETACL",     ACL3_SETACL,    acl3svc_setacl, NULL,   0},
+        {"NULL",       ACL3_NULL,      acl3svc_null,   NULL,   0, DRC_NA},
+        {"GETACL",     ACL3_GETACL,    acl3svc_getacl, NULL,   0, DRC_NA},
+        {"SETACL",     ACL3_SETACL,    acl3svc_setacl, NULL,   0, DRC_NA},
 };
 
 rpcsvc_program_t        acl3prog = {

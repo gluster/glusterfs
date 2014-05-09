@@ -1331,7 +1331,7 @@ glusterfs_handle_rpc_msg (rpcsvc_request_t *req)
         return ret;
 }
 
-rpcclnt_cb_actor_t mgmt_cbk_actors[] = {
+rpcclnt_cb_actor_t mgmt_cbk_actors[GF_CBK_MAXVALUE] = {
         [GF_CBK_FETCHSPEC] = {"FETCHSPEC", GF_CBK_FETCHSPEC, mgmt_cbk_spec },
         [GF_CBK_EVENT_NOTIFY] = {"EVENTNOTIFY", GF_CBK_EVENT_NOTIFY,
                                  mgmt_cbk_event},
@@ -1378,7 +1378,7 @@ rpc_clnt_prog_t clnt_handshake_prog = {
         .procnames = clnt_handshake_procs,
 };
 
-rpcsvc_actor_t glusterfs_actors[] = {
+rpcsvc_actor_t glusterfs_actors[GLUSTERD_BRICK_MAXVALUE] = {
         [GLUSTERD_BRICK_NULL]          = {"NULL",              GLUSTERD_BRICK_NULL,          glusterfs_handle_rpc_msg,             NULL, 0, DRC_NA},
         [GLUSTERD_BRICK_TERMINATE]     = {"TERMINATE",         GLUSTERD_BRICK_TERMINATE,     glusterfs_handle_terminate,           NULL, 0, DRC_NA},
         [GLUSTERD_BRICK_XLATOR_INFO]   = {"TRANSLATOR INFO",   GLUSTERD_BRICK_XLATOR_INFO,   glusterfs_handle_translator_info_get, NULL, 0, DRC_NA},

@@ -117,6 +117,7 @@ rpcsvc_get_program_vector_sizer (rpcsvc_t *svc, uint32_t prognum,
 
         pthread_mutex_lock (&svc->rpclock);
         {
+                /* Find the matching RPC program from registered list */
                 list_for_each_entry (program, &svc->programs, program) {
                         if ((program->prognum == prognum)
                             && (program->progver == progver)) {
@@ -127,10 +128,20 @@ rpcsvc_get_program_vector_sizer (rpcsvc_t *svc, uint32_t prognum,
         }
         pthread_mutex_unlock (&svc->rpclock);
 
-        if (found)
+        if (found) {
+                /* Make sure the requested procnum is supported by RPC prog */
+                if ((procnum < 0) || (procnum >= program->numactors)) {
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR,
+                                "RPC procedure %d not available for Program %s",
+                                procnum, program->progname);
+                        return NULL;
+                }
+
+                /* SUCCESS: Supported procedure */
                 return program->actors[procnum].vector_sizer;
-        else
-                return NULL;
+        }
+
+        return NULL; /* FAIL */
 }
 
 gf_boolean_t
@@ -2608,11 +2619,10 @@ out:
 }
 
 
-rpcsvc_actor_t gluster_dump_actors[] = {
+rpcsvc_actor_t gluster_dump_actors[GF_DUMP_MAXVALUE] = {
         [GF_DUMP_NULL]      = {"NULL",     GF_DUMP_NULL,     NULL,        NULL, 0, DRC_NA},
         [GF_DUMP_DUMP]      = {"DUMP",     GF_DUMP_DUMP,     rpcsvc_dump, NULL, 0, DRC_NA},
         [GF_DUMP_PING]      = {"PING",     GF_DUMP_PING,     rpcsvc_ping, NULL, 0, DRC_NA},
-        [GF_DUMP_MAXVALUE]  = {"MAXVALUE", GF_DUMP_MAXVALUE, NULL,        NULL, 0, DRC_NA},
 };
 
 
@@ -2621,5 +2631,5 @@ struct rpcsvc_program gluster_dump_prog = {
         .prognum   = GLUSTER_DUMP_PROGRAM,
         .progver   = GLUSTER_DUMP_VERSION,
         .actors    = gluster_dump_actors,
-        .numactors = sizeof (gluster_dump_actors) / sizeof (gluster_dump_actors[0]) - 1,
+        .numactors = GF_DUMP_MAXVALUE,
 };

@@ -6136,7 +6136,7 @@ out:
 }
 
 
-rpcsvc_actor_t glusterfs3_3_fop_actors[] = {
+rpcsvc_actor_t glusterfs3_3_fop_actors[GLUSTER_FOP_PROCCNT] = {
         [GFS3_OP_NULL]         = {"NULL",         GFS3_OP_NULL,         server_null,            NULL, 0, DRC_NA},
         [GFS3_OP_STAT]         = {"STAT",         GFS3_OP_STAT,         server3_3_stat,         NULL, 0, DRC_NA},
         [GFS3_OP_READLINK]     = {"READLINK",     GFS3_OP_READLINK,     server3_3_readlink,     NULL, 0, DRC_NA},
