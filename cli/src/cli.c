@@ -97,8 +97,12 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         cmd_args_t    *cmd_args = NULL;
         struct rlimit  lim = {0, };
         call_pool_t   *pool = NULL;
+        int            ret         = -1;
 
-        xlator_mem_acct_init (THIS, cli_mt_end);
+        ret = xlator_mem_acct_init (THIS, cli_mt_end);
+        if (ret != 0) {
+                return ret;
+        }
 
         ctx->process_uuid = generate_glusterfs_ctx_id ();
         if (!ctx->process_uuid)
