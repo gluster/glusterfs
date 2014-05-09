@@ -4820,7 +4820,7 @@ posix_readdirp_fill (xlator_t *this, fd_t *fd, gf_dirent_t *entries, dict_t *dic
 	int              len      = 0;
         struct iatt      stbuf    = {0, };
 	uuid_t           gfid;
-
+        int              ret      = -1;
 	if (list_empty(&entries->list))
 		return 0;
 
@@ -4841,7 +4841,10 @@ posix_readdirp_fill (xlator_t *this, fd_t *fd, gf_dirent_t *entries, dict_t *dic
 
 		strcpy (&hpath[len+1], entry->d_name);
 
-                posix_pstat (this, gfid, hpath, &stbuf);
+                ret = posix_pstat (this, gfid, hpath, &stbuf);
+
+                if (ret == -1)
+                      continue;
 
 		if (!inode)
 			inode = inode_find (itable, stbuf.ia_gfid);
