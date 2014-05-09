@@ -40,7 +40,7 @@ client_cbk_ino_flush (struct rpc_clnt *rpc, void *mydata, void *data)
         return 0;
 }
 
-rpcclnt_cb_actor_t gluster_cbk_actors[] = {
+rpcclnt_cb_actor_t gluster_cbk_actors[GF_CBK_MAXVALUE] = {
         [GF_CBK_NULL]      = {"NULL",      GF_CBK_NULL,      client_cbk_null },
         [GF_CBK_FETCHSPEC] = {"FETCHSPEC", GF_CBK_FETCHSPEC, client_cbk_fetchspec },
         [GF_CBK_INO_FLUSH] = {"INO_FLUSH", GF_CBK_INO_FLUSH, client_cbk_ino_flush },

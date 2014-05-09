@@ -117,7 +117,7 @@ mgmt_cbk_event (struct rpc_clnt *rpc, void *mydata, void *data)
 }
 
 
-rpcclnt_cb_actor_t mgmt_cbk_actors[] = {
+rpcclnt_cb_actor_t mgmt_cbk_actors[GF_CBK_MAXVALUE] = {
 	[GF_CBK_FETCHSPEC] = {"FETCHSPEC", GF_CBK_FETCHSPEC, mgmt_cbk_spec },
 	[GF_CBK_EVENT_NOTIFY] = {"EVENTNOTIFY", GF_CBK_EVENT_NOTIFY,
 				 mgmt_cbk_event},

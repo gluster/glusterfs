@@ -404,13 +404,13 @@ out:
         return ret;
 }
 
-rpcsvc_actor_t quotad_aggregator_actors[] = {
+rpcsvc_actor_t quotad_aggregator_actors[GF_AGGREGATOR_MAXVALUE] = {
         [GF_AGGREGATOR_NULL]     = {"NULL", GF_AGGREGATOR_NULL, NULL, NULL, 0,
                                     DRC_NA},
         [GF_AGGREGATOR_LOOKUP]   = {"LOOKUP", GF_AGGREGATOR_NULL,
                                     quotad_aggregator_lookup, NULL, 0, DRC_NA},
         [GF_AGGREGATOR_GETLIMIT] = {"GETLIMIT", GF_AGGREGATOR_GETLIMIT,
-                                   quotad_aggregator_getlimit, NULL, 0},
+                                   quotad_aggregator_getlimit, NULL, 0, DRC_NA},
 };
 
 

@@ -1137,7 +1137,7 @@ server_get_volume_info (rpcsvc_request_t *req)
                                             __server_get_volume_info);
 }
 
-rpcsvc_actor_t gluster_handshake_actors[] = {
+rpcsvc_actor_t gluster_handshake_actors[GF_HNDSK_MAXVALUE] = {
         [GF_HNDSK_NULL]         = {"NULL",        GF_HNDSK_NULL,         NULL,                NULL, 0, DRC_NA},
         [GF_HNDSK_GETSPEC]      = {"GETSPEC",     GF_HNDSK_GETSPEC,      server_getspec,      NULL, 0, DRC_NA},
         [GF_HNDSK_EVENT_NOTIFY] = {"EVENTNOTIFY", GF_HNDSK_EVENT_NOTIFY, server_event_notify, NULL, 0, DRC_NA},
@@ -1154,7 +1154,7 @@ struct rpcsvc_program gluster_handshake_prog = {
 };
 
 /* A minimal RPC program just for the cli getspec command */
-rpcsvc_actor_t gluster_cli_getspec_actors[] = {
+rpcsvc_actor_t gluster_cli_getspec_actors[GF_HNDSK_MAXVALUE] = {
         [GF_HNDSK_GETSPEC]      = {"GETSPEC",     GF_HNDSK_GETSPEC,      server_getspec,      NULL, 0, DRC_NA},
 };
 
@@ -1170,6 +1170,7 @@ struct rpcsvc_program gluster_cli_getspec_prog = {
 char *glusterd_dump_proc[GF_DUMP_MAXVALUE] = {
         [GF_DUMP_NULL] = "NULL",
         [GF_DUMP_DUMP] = "DUMP",
+        [GF_DUMP_PING] = "PING",
 };
 
 rpc_clnt_prog_t glusterd_dump_prog = {
@@ -1180,16 +1181,16 @@ rpc_clnt_prog_t glusterd_dump_prog = {
 };
 
 
-rpcsvc_actor_t glusterd_mgmt_hndsk_actors[] = {
+rpcsvc_actor_t glusterd_mgmt_hndsk_actors[GD_MGMT_HNDSK_MAXVALUE] = {
         [GD_MGMT_HNDSK_NULL]            = {"NULL", GD_MGMT_HNDSK_NULL, NULL,
-                                           NULL, 0},
+                                           NULL, 0, DRC_NA},
         [GD_MGMT_HNDSK_VERSIONS]        = {"MGMT-VERS", GD_MGMT_HNDSK_VERSIONS,
                                            glusterd_mgmt_hndsk_versions, NULL,
-                                           0},
+                                           0, DRC_NA},
         [GD_MGMT_HNDSK_VERSIONS_ACK]    = {"MGMT-VERS-ACK",
                                            GD_MGMT_HNDSK_VERSIONS_ACK,
                                            glusterd_mgmt_hndsk_versions_ack,
-                                           NULL, 0},
+                                           NULL, 0, DRC_NA},
 };
 
 struct rpcsvc_program glusterd_mgmt_hndsk_prog = {
