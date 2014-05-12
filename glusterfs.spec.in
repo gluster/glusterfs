@@ -909,6 +909,7 @@ fi
 %{_libexecdir}/glusterfs/gsyncd
 %{_libexecdir}/glusterfs/python/syncdaemon/*
 %{_libexecdir}/glusterfs/gverify.sh
+%{_libexecdir}/glusterfs/set_geo_rep_pem_keys.sh
 %{_libexecdir}/glusterfs/peer_add_secret_pub
 %{_libexecdir}/glusterfs/peer_gsec_create
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/geo-replication

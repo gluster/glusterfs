@@ -1948,7 +1948,7 @@ out:
 }
 
 static int
-glusterd_verify_slave (char *volname, char *slave_ip, char *slave,
+glusterd_verify_slave (char *volname, char *slave_url, char *slave_vol,
                        char **op_errstr, gf_boolean_t *is_force_blocker)
 {
         int32_t          ret                     = -1;
@@ -1956,17 +1956,38 @@ glusterd_verify_slave (char *volname, char *slave_ip, char *slave,
         char             log_file_path[PATH_MAX] = "";
         char             buf[PATH_MAX]           = "";
         char            *tmp                     = NULL;
+        char            *slave_url_buf           = NULL;
         char            *save_ptr                = NULL;
+        char            *slave_user              = NULL;
+        char            *slave_ip                = NULL;
         glusterd_conf_t *priv                    = NULL;
+        xlator_t        *this                    = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
         GF_ASSERT (volname);
-        GF_ASSERT (slave_ip);
-        GF_ASSERT (slave);
+        GF_ASSERT (slave_url);
+        GF_ASSERT (slave_vol);
 
-        if (THIS)
-                priv = THIS->private;
-        if (priv == NULL) {
-                gf_log ("", GF_LOG_ERROR, "priv of glusterd not present");
+        /* Fetch the slave_user and slave_ip from the slave_url.
+         * If the slave_user is not present. Use "root"
+         */
+        if (strstr(slave_url, "@")) {
+                slave_url_buf = gf_strdup (slave_url);
+                if (!slave_url_buf)
+                        goto out;
+
+                slave_user = strtok_r (slave_url_buf, "@", &save_ptr);
+                slave_ip = strtok_r (NULL, "@", &save_ptr);
+        } else {
+                slave_user = "root";
+                slave_ip = slave_url;
+        }
+
+        if (!slave_user || !slave_ip) {
+                gf_log (this->name, GF_LOG_ERROR, "Invalid slave url.");
                 goto out;
         }
 
@@ -1976,8 +1997,9 @@ glusterd_verify_slave (char *volname, char *slave_ip, char *slave,
         runinit (&runner);
         runner_add_args  (&runner, GSYNCD_PREFIX"/gverify.sh", NULL);
         runner_argprintf (&runner, "%s", volname);
+        runner_argprintf (&runner, "%s", slave_user);
         runner_argprintf (&runner, "%s", slave_ip);
-        runner_argprintf (&runner, "%s", slave);
+        runner_argprintf (&runner, "%s", slave_vol);
         runner_argprintf (&runner, "%s", log_file_path);
         runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
         synclock_unlock (&priv->big_lock);
@@ -2017,6 +2039,7 @@ glusterd_verify_slave (char *volname, char *slave_ip, char *slave,
         }
         ret = 0;
 out:
+        GF_FREE (slave_url_buf);
         unlink (log_file_path);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -2102,7 +2125,7 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
         char               *volname                   = NULL;
         char               *host_uuid                 = NULL;
         char               *statefile                 = NULL;
-        char               *slave_ip                  = NULL;
+        char               *slave_url                 = NULL;
         char               *slave_host                = NULL;
         char               *slave_vol                 = NULL;
         char               *conf_path                 = NULL;
@@ -2154,7 +2177,7 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                 return -1;
         }
 
-        ret = glusterd_get_slave_details_confpath (volinfo, dict, &slave_ip,
+        ret = glusterd_get_slave_details_confpath (volinfo, dict, &slave_url,
                                                    &slave_host, &slave_vol,
                                                    &conf_path, op_errstr);
         if (ret) {
@@ -2199,7 +2222,7 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                  * ssh login setup, slave volume is created, slave vol is empty,
                  * and if it has enough memory and bypass in case of force if
                  * the error is not a force blocker */
-                ret = glusterd_verify_slave (volname, slave_host, slave_vol,
+                ret = glusterd_verify_slave (volname, slave_url, slave_vol,
                                              op_errstr, &is_force_blocker);
                 if (ret) {
                         if (is_force && !is_force_blocker) {
@@ -5049,7 +5072,11 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         char                hooks_args[PATH_MAX]      = "";
         char                uuid_str [64]             = "";
         char               *host_uuid                 = NULL;
+        char               *slave_url                 = NULL;
+        char               *slave_url_buf             = NULL;
+        char               *slave_user                = NULL;
         char               *slave_ip                  = NULL;
+        char               *save_ptr                  = NULL;
         char               *slave_host                = NULL;
         char               *slave_vol                 = NULL;
         char               *arg_buf                   = NULL;
@@ -5060,9 +5087,11 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         gf_boolean_t        is_force                  = -1;
         glusterd_conf_t    *conf                      = NULL;
         glusterd_volinfo_t *volinfo                   = NULL;
+        xlator_t           *this                      = NULL;
 
-        GF_ASSERT (THIS);
-        conf = THIS->private;
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
         GF_ASSERT (conf);
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
@@ -5090,11 +5119,33 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
-        ret = dict_get_str (dict, "slave_ip", &slave_ip);
+        ret = dict_get_str (dict, "slave_ip", &slave_url);
         if (ret) {
                 snprintf (errmsg, sizeof (errmsg),
                           "Unable to fetch slave IP.");
                 gf_log ("", GF_LOG_ERROR, "%s", errmsg);
+                ret = -1;
+                goto out;
+        }
+
+        /* Fetch the slave_user and slave_ip from the slave_url.
+         * If the slave_user is not present. Use "root"
+         */
+        if (strstr(slave_url, "@")) {
+                slave_url_buf = gf_strdup (slave_url);
+                if (!slave_url_buf) {
+                        ret = -1;
+                        goto out;
+                }
+                slave_user = strtok_r (slave_url, "@", &save_ptr);
+                slave_ip = strtok_r (NULL, "@", &save_ptr);
+        } else {
+                slave_user = "root";
+                slave_ip = slave_url;
+        }
+
+        if (!slave_user || !slave_ip) {
+                gf_log (this->name, GF_LOG_ERROR, "Invalid slave url.");
                 ret = -1;
                 goto out;
         }
@@ -5121,8 +5172,8 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         is_pem_push = 0;
 
                 snprintf(hooks_args, sizeof(hooks_args),
-                         "is_push_pem=%d pub_file=%s slave_ip=%s",
-                         is_pem_push, common_pem_file, slave_host);
+                         "is_push_pem=%d,pub_file=%s,slave_user=%s,slave_ip=%s",
+                         is_pem_push, common_pem_file, slave_user, slave_ip);
 
         } else
                 snprintf(hooks_args, sizeof(hooks_args),
@@ -5170,6 +5221,7 @@ create_essentials:
         }
 
 out:
+        GF_FREE (slave_url_buf);
         gf_log ("", GF_LOG_DEBUG,"Returning %d", ret);
         return ret;
 }
