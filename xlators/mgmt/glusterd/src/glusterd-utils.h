@@ -800,6 +800,10 @@ glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
                             char **op_errstr);
 
 int32_t
+glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
+                                       char **op_errstr);
+
+int32_t
 glusterd_volume_quorum_check (glusterd_volinfo_t *volinfo, int64_t index,
                               dict_t *dict, char *key_prefix,
                               int8_t snap_force, int32_t quorum_count,
