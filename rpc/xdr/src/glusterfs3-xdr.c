@@ -1587,43 +1587,40 @@ xdr_gfs3_discard_rsp (XDR *xdrs, gfs3_discard_rsp *objp)
 bool_t
 xdr_gfs3_zerofill_req (XDR *xdrs, gfs3_zerofill_req *objp)
 {
-        register int32_t *buf;
+	register int32_t *buf;
         buf = NULL;
 
-        if (!xdr_opaque (xdrs, objp->gfid, 16))
-                return FALSE;
-        if (!xdr_quad_t (xdrs, &objp->fd))
-                return FALSE;
-        if (!xdr_u_quad_t (xdrs, &objp->offset))
-                return FALSE;
-        if (!xdr_u_quad_t (xdrs, &objp->size))
-                return FALSE;
-        if (!xdr_bytes (xdrs, (char **)&objp->xdata.xdata_val,
-             (u_int *) &objp->xdata.xdata_len, ~0))
-                return FALSE;
-        return TRUE;
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
+		 return FALSE;
+	 if (!xdr_quad_t (xdrs, &objp->fd))
+		 return FALSE;
+	 if (!xdr_u_quad_t (xdrs, &objp->offset))
+		 return FALSE;
+	 if (!xdr_u_quad_t (xdrs, &objp->size))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->xdata.xdata_val, (u_int *) &objp->xdata.xdata_len, ~0))
+		 return FALSE;
+	return TRUE;
 }
 
 bool_t
 xdr_gfs3_zerofill_rsp (XDR *xdrs, gfs3_zerofill_rsp *objp)
 {
-        register int32_t *buf;
+	register int32_t *buf;
         buf = NULL;
 
-        if (!xdr_int (xdrs, &objp->op_ret))
-                return FALSE;
-        if (!xdr_int (xdrs, &objp->op_errno))
-                return FALSE;
-        if (!xdr_gf_iatt (xdrs, &objp->statpre))
-                return FALSE;
-        if (!xdr_gf_iatt (xdrs, &objp->statpost))
-                return FALSE;
-        if (!xdr_bytes (xdrs, (char **)&objp->xdata.xdata_val,
-             (u_int *) &objp->xdata.xdata_len, ~0))
-                return FALSE;
-        return TRUE;
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_gf_iatt (xdrs, &objp->statpre))
+		 return FALSE;
+	 if (!xdr_gf_iatt (xdrs, &objp->statpost))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->xdata.xdata_val, (u_int *) &objp->xdata.xdata_len, ~0))
+		 return FALSE;
+	return TRUE;
 }
-
 
 bool_t
 xdr_gfs3_rchecksum_req (XDR *xdrs, gfs3_rchecksum_req *objp)
@@ -1758,6 +1755,34 @@ xdr_gf_getspec_rsp (XDR *xdrs, gf_getspec_rsp *objp)
 	 if (!xdr_string (xdrs, &objp->spec, ~0))
 		 return FALSE;
 	 if (!xdr_bytes (xdrs, (char **)&objp->xdata.xdata_val, (u_int *) &objp->xdata.xdata_len, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf_get_volume_info_req (XDR *xdrs, gf_get_volume_info_req *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf_get_volume_info_rsp (XDR *xdrs, gf_get_volume_info_rsp *objp)
+{
+	register int32_t *buf;
+        buf = NULL;
+
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
 		 return FALSE;
 	return TRUE;
 }

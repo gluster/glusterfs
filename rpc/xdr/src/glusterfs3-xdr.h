@@ -937,29 +937,28 @@ struct gfs3_discard_rsp {
 typedef struct gfs3_discard_rsp gfs3_discard_rsp;
 
 struct gfs3_zerofill_req {
-        char gfid[16];
-        quad_t fd;
-        u_quad_t offset;
-        u_quad_t size;
-        struct {
-                u_int xdata_len;
-                char *xdata_val;
-        } xdata;
+	char gfid[16];
+	quad_t fd;
+	u_quad_t offset;
+	u_quad_t size;
+	struct {
+		u_int xdata_len;
+		char *xdata_val;
+	} xdata;
 };
 typedef struct gfs3_zerofill_req gfs3_zerofill_req;
 
 struct gfs3_zerofill_rsp {
-        int op_ret;
-        int op_errno;
-        struct gf_iatt statpre;
-        struct gf_iatt statpost;
-        struct {
-                u_int xdata_len;
-                char *xdata_val;
-        } xdata;
+	int op_ret;
+	int op_errno;
+	struct gf_iatt statpre;
+	struct gf_iatt statpost;
+	struct {
+		u_int xdata_len;
+		char *xdata_val;
+	} xdata;
 };
 typedef struct gfs3_zerofill_rsp gfs3_zerofill_rsp;
-
 
 struct gfs3_rchecksum_req {
 	quad_t fd;
@@ -1025,6 +1024,25 @@ struct gf_getspec_rsp {
 	} xdata;
 };
 typedef struct gf_getspec_rsp gf_getspec_rsp;
+
+struct gf_get_volume_info_req {
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gf_get_volume_info_req gf_get_volume_info_req;
+
+struct gf_get_volume_info_rsp {
+	int op_ret;
+	int op_errno;
+	char *op_errstr;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gf_get_volume_info_rsp gf_get_volume_info_rsp;
 
 struct gf_mgmt_hndsk_req {
 	struct {
@@ -1268,6 +1286,8 @@ extern  bool_t xdr_gf_setvolume_req (XDR *, gf_setvolume_req*);
 extern  bool_t xdr_gf_setvolume_rsp (XDR *, gf_setvolume_rsp*);
 extern  bool_t xdr_gf_getspec_req (XDR *, gf_getspec_req*);
 extern  bool_t xdr_gf_getspec_rsp (XDR *, gf_getspec_rsp*);
+extern  bool_t xdr_gf_get_volume_info_req (XDR *, gf_get_volume_info_req*);
+extern  bool_t xdr_gf_get_volume_info_rsp (XDR *, gf_get_volume_info_rsp*);
 extern  bool_t xdr_gf_mgmt_hndsk_req (XDR *, gf_mgmt_hndsk_req*);
 extern  bool_t xdr_gf_mgmt_hndsk_rsp (XDR *, gf_mgmt_hndsk_rsp*);
 extern  bool_t xdr_gf_log_req (XDR *, gf_log_req*);
@@ -1368,6 +1388,8 @@ extern bool_t xdr_gf_setvolume_req ();
 extern bool_t xdr_gf_setvolume_rsp ();
 extern bool_t xdr_gf_getspec_req ();
 extern bool_t xdr_gf_getspec_rsp ();
+extern bool_t xdr_gf_get_volume_info_req ();
+extern bool_t xdr_gf_get_volume_info_rsp ();
 extern bool_t xdr_gf_mgmt_hndsk_req ();
 extern bool_t xdr_gf_mgmt_hndsk_rsp ();
 extern bool_t xdr_gf_log_req ();
