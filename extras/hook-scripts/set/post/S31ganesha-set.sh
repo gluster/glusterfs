@@ -3,7 +3,8 @@ PROGNAME="Sganesha-set"
 OPTSPEC="volname:"
 VOL=
 declare -i EXPORT_ID
-CONF1="/var/lib/ganesha/nfs-ganesha.conf"
+GANESHA_DIR="/var/lib/glusterfs-ganesha"
+CONF1="$GANESHA_DIR/nfs-ganesha.conf"
 LOG="/tmp/ganesha.log"
 gnfs="enabled"
 enable_ganesha=""
@@ -76,6 +77,17 @@ function check_gluster_nfs()
         fi
 }
 
+function check_cmd_status()
+{
+        if [ "$1" != "0" ]
+                 then
+                 rm -rf $GANESHA_DIR/exports/export.$VOL.conf
+                 exit 1
+        fi
+}
+
+
+
 #This function generates a new export entry as export.volume_name.conf
 function write_conf()
 {
@@ -102,7 +114,7 @@ function write_conf()
 #This function keeps track of export IDs and increments it with every new entry
 function export_add()
 {
-        count=`ls -l /var/lib/ganesha/exports/*.conf | wc -l`
+        count=`ls -l $GANESHA_DIR/exports/*.conf | wc -l`
         if [ "$count" = "1" ] ;
                 then
                 EXPORT_ID=1
@@ -113,113 +125,124 @@ function export_add()
         #               sed -i -e "1d" /var/lib/ganesha/export_removed
         #               else
 
-                 EXPORT_ID=`cat /var/lib/ganesha/export_added`
+                 EXPORT_ID=`cat $GANESHA_DIR/.export_added`
+                 check_cmd_status `echo $?`
                  EXPORT_ID=EXPORT_ID+1
         #fi
         fi
-        echo $EXPORT_ID > /var/lib/ganesha/export_added
-        sed -i s/Export_Id.*/"Export_Id = $EXPORT_ID;"/ \
-/var/lib/ganesha/exports/export.$VOL.conf
-        echo "%include \"/var/lib/ganesha/exports/export.$VOL.conf\"" >> $CONF1
+        echo $EXPORT_ID > $GANESHA_DIR/.export_added
+        check_cmd_status `echo $?`
+        sed -i s/Export_Id.*/"Export_Id = $EXPORT_ID ;"/ \
+$GANESHA_DIR/exports/export.$VOL.conf
+        echo "%include \"$GANESHA_DIR/exports/export.$VOL.conf\"" >> $CONF1
+        check_cmd_status `echo $?`
+}
 
+#This function removes an export dynamically(uses the export_id of the export)
+function dynamic_export_remove()
+{
+        removed_id=`cat $GANESHA_DIR/exports/export.$VOL.conf |\
+grep Export_Id | cut -d " " -f3`
+        check_cmd_status `echo $?`
+        dbus-send  --system \
+--dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
+org.ganesha.nfsd.exportmgr.RemoveExport int32:$removed_id
 
 }
 
-function export_remove()
+#This function adds a new export dynamically by sending dbus signals
+function dynamic_export_add()
 {
-        $removed_id=`cat /var/lib/ganesha/exports/export.$VOL.conf | grep Export_Id | cut -d " " -f3`
-        echo $removed_id >> /var/lib/ganesha/export_removed
+        dbus-send  --system --dest=org.ganesha.nfsd \
+/org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.AddExport \
+string:$GANESHA_DIR/exports/export.$VOL.conf
+        echo $?
 }
 
 function start_ganesha()
 {
-        if [ "$IS_HOST_SET" = "NO" ]
+        if [ "$IS_HOST_SET" = "YES" ]
                 then
-                gluster volume set $VOL nfs-ganesha.enable OFF
-        else
                 check_gluster_nfs
-
                 #Remove export entry from nfs-ganesha.conf
                 sed -i /$VOL.conf/d  $CONF1
-                pkill ganesha.nfsd
-                sleep 10
-                gluster volume set $VOL  nfs.disable ON
                 sleep 4
-
                 #Create a new export entry
                 export_add
-                if ls /usr/bin/ | grep -q "ganesha.nfsd"
+                if ! ps aux | grep -q  "[g]anesha.nfsd"
                         then
-                        sed -i s/FSAL_Shared.*/FSAL_Shared_Library=\
-"\"\/usr\/lib64\/ganesha\/libfsalgluster.so\";"/ $CONF1
-                        /usr/bin/ganesha.nfsd -f $CONF1 -L $LOG -N NIV_FULL_DEBUG -d
-                        sleep 2
+                        if ls /usr/bin/ | grep -q "ganesha.nfsd"
+                                then
+                                /usr/bin/ganesha.nfsd -f $CONF1 -L $LOG -N NIV_FULL_DEBUG -d
+                                sleep 2
+                        else
+                                /usr/local/bin/ganesha.nfsd -f $CONF1 -L $LOG -N NIV_FULL_DEBUG -d
+                                sleep 2
+                        fi
                 else
-                        sed -i s/FSAL_Shared.*/FSAL_Shared_Library=\
-"\"\/usr\/local\/lib64\/ganesha\/libfsalgluster.so\";"/ $CONF1
-                       /usr/local/bin/ganesha.nfsd -f $CONF1 -L $LOG -N NIV_FULL_DEBUG -d
-                       sleep 2
+                        ret=$(dynamic_export_add $VOL)
                 fi
 
-                if ! ps aux | grep -q "[g]anesha.nfsd"
+
+              if  !(  ps aux | grep -q "[g]anesha.nfsd") || [ "$ret" == "1" ]
                         then
-                                if [ "$gnfs" = "enabled" ]
-                                        then
-                                        gluster volume set $VOL nfs.disable OFF
-                                fi
-                         rm -rf /var/lib/ganesha/exports/*
-                         rm -rf /var/lib/ganesha/export_added
-                         gluster volume set $VOL nfs-ganesha.enable OFF
-                         gluster volume set $VOL nfs-ganesha.host none
+                         rm -rf $GANESHA_DIR/exports/*
+                         rm -rf $GANESHA_DIR/.export_added
                          exit 1
                 fi
          fi
-
 }
 
 #This function generates a new config file when ganesha.host is set
 #If the volume is already exported, only hostname is changed
 function set_hostname()
 {
-        if  ! ls /var/lib/ganesha/exports/  | grep -q $VOL.conf
+        if  ! ls $GANESHA_DIR/exports/  | grep -q $VOL.conf
                 then
                 write_conf $VOL $host_name >\
-/var/lib/ganesha/exports/export.$VOL.conf
+$GANESHA_DIR/exports/export.$VOL.conf
         else
                 sed -i  s/hostname.*/"hostname=\
-\"$host_name\";"/ /var/lib/ganesha/exports/export.$VOL.conf
+\"$host_name\";"/ $GANESHA_DIR/exports/export.$VOL.conf
         fi
-
 }
 
+
+function check_ganesha_dir()
+{
+        #Check if the configuration file is placed in /etc/glusterfs-ganesha
+        if ! ls  /etc/glusterfs-ganesha  | grep "nfs-ganesha.conf"
+        then
+               exit 1
+        else
+                if [ ! -d "$GANESHA_DIR" ];
+                         then
+                         mkdir $GANESHA_DIR
+                fi
+                cp /etc/glusterfs-ganesha/nfs-ganesha.conf $GANESHA_DIR/
+        fi
+}
 
 function stop_ganesha()
 {
-        if  ps aux | grep -q  "[g]anesha.nfsd"
-                then
-                pkill ganesha.nfsd
-                sleep 10
-        fi
-        gluster vol set $VOL nfs-ganesha.host none
+        dynamic_export_remove $VOL
         #Remove the specfic export configuration file
-        rm -rf /var/lib/ganesha/exports/export.$VOL.conf
+        rm -rf $GANESHA_DIR/exports/export.$VOL.conf
         #Remove that entry from nfs-ganesha.conf
         sed -i /$VOL.conf/d  $CONF1
-        #If there are any other volumes exported, restart nfs-ganesha
-        if [ "$(ls -A /var/lib/ganesha/exports)" ];
+        #If there are no other volumes exported, stop nfs-ganesha
+        if [ ! "$(ls -A $GANESHA_DIR/exports)" ];
                 then
-                check_nfsd_loc
-                $LOC/bin/ganesha.nfsd -f $CONF1 -L $LOG -N NIV_FULL_DEBUG -d
-        else
-                rm -rf /var/lib/ganesha/export_added
+                pkill ganesha.nfsd
+                rm -rf $GANESHA_DIR/.export_added
         fi
-
 }
 
         parse_args $@
-        if [ ! -d "/var/lib/ganesha/exports" ];
+        check_ganesha_dir $VOL
+        if [ ! -d "$GANESHA_DIR/exports" ];
                 then
-                mkdir /var/lib/ganesha/exports
+                mkdir $GANESHA_DIR/exports
         fi
         if echo $enable_ganesha | grep -q -i "ON"
                 then
@@ -227,19 +250,23 @@ function stop_ganesha()
                 start_ganesha
         elif echo $enable_ganesha | grep -q -i "OFF"
                 then
-                check_if_host_set
+                check_if_host_set $VOL
                 if [ "$IS_HOST_SET" = "YES" ]
                         then
                         stop_ganesha
+                        exit 0
                 fi
         fi
         if [ "$host_name" != "none" ];
                 then
-                check_if_host_set
+                check_if_host_set $VOL
                 set_hostname
                          if  cat /var/lib/glusterd/vols/$VOL/info\
 | grep -i -q  "nfs-ganesha.enable=on"
                                   then
+                                  dynamic_export_remove $VOL
+                                  rm -rf $GANESHA_DIR/exports/export.$VOL.conf
+                                  set_hostname
                                   start_ganesha
                          fi
         fi

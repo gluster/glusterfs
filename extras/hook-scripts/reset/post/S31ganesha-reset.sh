@@ -25,8 +25,8 @@ if ps aux | grep -q "[g]anesha.nfsd"
         then
         kill -s TERM `cat /var/run/ganesha.pid`
         sleep 10
-        rm -rf /var/lib/ganesha/exports
-        rm -rf /var/lib/ganesha/export_added
+        rm -rf /var/lib/glusterfs-ganesha/exports
+        rm -rf /var/lib/glusterfs-ganesha/.export_added
         sed -i /conf/d /var/lib/ganesha/nfs-ganesha.conf
         if [ "1" = $(is_volume_started "$VOL") ];
                 then
