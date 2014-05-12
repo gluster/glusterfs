@@ -18,6 +18,7 @@
 
 #include <rpc/types.h>
 #include <sys/types.h>
+#include <rpc/auth.h>
 #include <rpc/xdr.h>
 #include <sys/uio.h>
 
@@ -34,7 +35,34 @@ enum gf_dump_procnum {
 #define GLUSTER_DUMP_PROGRAM 123451501 /* Completely random */
 #define GLUSTER_DUMP_VERSION 1
 
-#define GF_MAX_AUTH_BYTES   2048
+/* MAX_AUTH_BYTES is restricted to 400 bytes, see
+ * http://tools.ietf.org/html/rfc5531#section-8.2 */
+#define GF_MAX_AUTH_BYTES   MAX_AUTH_BYTES
+
+/* The size of an AUTH_GLUSTERFS_V2 structure:
+ *
+ *   1 | pid
+ *   1 | uid
+ *   1 | gid
+ *   1 | groups_len
+ *  XX | groups_val (GF_MAX_AUX_GROUPS=65535)
+ *   1 | lk_owner_len
+ *  YY | lk_owner_val (GF_MAX_LOCK_OWNER_LEN=1024)
+ * ----+-------------------------------------------
+ *   5 | total xdr-units
+ *
+ * one XDR-unit is defined as BYTES_PER_XDR_UNIT = 4 bytes
+ * MAX_AUTH_BYTES = 400 is the maximum, this is 100 xdr-units.
+ * XX + YY can be 95 to fill the 100 xdr-units.
+ *
+ * Note that the on-wire protocol has tighter requirements than the internal
+ * structures. It is possible for xlators to use more groups and a bigger
+ * lk_owner than that can be sent by a GlusterFS-client.
+ */
+#define GF_AUTH_GLUSTERFS_MAX_GROUPS(lk_owner_len) \
+           (95 - lk_owner_len)
+#define GF_AUTH_GLUSTERFS_MAX_LKOWNER(groups_len)  \
+           (95 - groups_len)
 
 #if GF_DARWIN_HOST_OS
 #define xdr_u_quad_t xdr_u_int64_t
