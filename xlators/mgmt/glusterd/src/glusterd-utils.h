@@ -825,4 +825,8 @@ glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
 
 void
 glusterd_launch_synctask (synctask_fn_t fn, void *opaque);
+
+int
+glusterd_enable_default_options (glusterd_volinfo_t *volinfo, char *option);
+
 #endif

@@ -25,6 +25,7 @@
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
+#include "glusterd-messages.h"
 #include "run.h"
 
 #define glusterd_op_start_volume_args_get(dict, volname, flags) \
@@ -1796,6 +1797,14 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
                 brick = strtok_r (NULL, " \n", &saveptr);
                 i++;
+        }
+
+        ret = glusterd_enable_default_options (volinfo, NULL);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_FAIL_DEFAULT_OPT_SET, "Failed to set default "
+                        "options on create for volume %s", volinfo->volname);
+                goto out;
         }
 
         gd_update_volume_op_versions (volinfo);

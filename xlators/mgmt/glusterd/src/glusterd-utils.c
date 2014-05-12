@@ -12797,3 +12797,52 @@ glusterd_launch_synctask (synctask_fn_t fn, void *opaque)
                         " and other volume related services");
 }
 
+/*
+ * glusterd_enable_default_options enable certain options by default on the
+ * given volume based on the cluster op-version. This is called only during
+ * volume create or during volume reset
+ *
+ * @volinfo - volume on which to enable the default options
+ * @option  - option to be set to default. If NULL, all possible options will be
+ *            set to default
+ *
+ * Returns 0 on sucess and -1 on failure. If @option is given, but doesn't match
+ * any of the options that could be set, it is a success.
+ */
+/*
+ * TODO: Make this able to parse the volume-set table to set options
+ * Currently, the check and set for any option which wants to make use of this
+ * 'framework' needs to be done here manually. This would mean more work for the
+ * developer. This little extra work can be avoided if we make it possible to
+ * parse the volume-set table to get the options which could be set and their
+ * default values
+ */
+int
+glusterd_enable_default_options (glusterd_volinfo_t *volinfo, char *option)
+{
+        int ret = 0;
+        xlator_t *this = NULL;
+        glusterd_conf_t *conf = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        GF_VALIDATE_OR_GOTO (this->name, volinfo, out);
+
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        if (conf->op_version >= 4) {
+                /* Set needed volume options in volinfo->dict
+                 * For ex.,
+                 *
+                 * if (!option || !strcmp("someoption", option) {
+                 *      ret = dict_set_str(volinfo->dict, "someoption", "on");
+                 *      ...
+                 * }
+                 * */
+
+        }
+out:
+        return ret;
+}

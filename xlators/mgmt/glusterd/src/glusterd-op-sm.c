@@ -1509,9 +1509,17 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
         GF_ASSERT (volinfo->dict);
         GF_ASSERT (key);
 
-        if (!strncmp(key, "all", 3))
+        if (!strncmp(key, "all", 3)) {
                 dict_foreach (volinfo->dict, _delete_reconfig_opt, is_force);
-        else {
+                ret = glusterd_enable_default_options (volinfo, NULL);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_FAIL_DEFAULT_OPT_SET, "Failed to set "
+                                "default options on reset for volume %s",
+                                volinfo->volname);
+                        goto out;
+                }
+        } else {
                 value = dict_get (volinfo->dict, key);
                 if (!value) {
                         gf_log (this->name, GF_LOG_DEBUG,
@@ -1519,6 +1527,14 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
                         goto out;
                 }
                 _delete_reconfig_opt (volinfo->dict, key, value, is_force);
+                ret = glusterd_enable_default_options (volinfo, key);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_FAIL_DEFAULT_OPT_SET, "Failed to set "
+                                "default value for option '%s' on reset for "
+                                "volume %s", key, volinfo->volname);
+                        goto out;
+                }
         }
 
         gd_update_volume_op_versions (volinfo);
