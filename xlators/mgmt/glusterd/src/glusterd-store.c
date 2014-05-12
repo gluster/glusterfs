@@ -1136,6 +1136,13 @@ glusterd_store_node_state_write (int fd, glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
+        snprintf (buf, sizeof (buf), "%d", volinfo->rebal.defrag_status);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_DEFRAG_STATUS,
+                                   buf);
+        if (ret)
+                goto out;
+
+
         snprintf (buf, sizeof (buf), "%d", volinfo->rebal.op);
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_DEFRAG_OP, buf);
         if (ret)
@@ -2281,6 +2288,9 @@ glusterd_store_retrieve_node_state (glusterd_volinfo_t *volinfo)
                 if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG,
                               strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG))) {
                         volinfo->rebal.defrag_cmd = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG_STATUS,
+                           strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG_STATUS))) {
+                                volinfo->rebal.defrag_status = atoi (value);
                 } else if (!strncmp (key, GF_REBALANCE_TID_KEY,
                                      strlen (GF_REBALANCE_TID_KEY))) {
                         uuid_parse (value, volinfo->rebal.rebalance_id);
