@@ -1159,10 +1159,11 @@ class GMasterChangeloghistoryMixin(GMasterChangelogMixin):
         # location then consuming history will not work(Known issue as of now)
         changelog_path = os.path.join(gconf.local_path,
                                       ".glusterfs/changelogs")
-        ts = self.changelog_agent.history(changelog_path,
-                                          purge_time[0],
-                                          self.changelog_register_time,
-                                          int(gconf.sync_jobs))
+        ret, actual_end = self.changelog_agent.history(
+            changelog_path,
+            purge_time[0],
+            self.changelog_register_time,
+            int(gconf.sync_jobs))
 
         # scan followed by getchanges till scan returns zero.
         # history_scan() is blocking call, till it gets the number
@@ -1192,8 +1193,8 @@ class GMasterChangeloghistoryMixin(GMasterChangelogMixin):
         # If TS returned from history_changelog is < register_time
         # then FS crawl may be required, since history is only available
         # till TS returned from history_changelog
-        if ts < self.changelog_register_time:
-            raise PartialHistoryAvailable(str(ts))
+        if actual_end < self.changelog_register_time:
+            raise PartialHistoryAvailable(str(actual_end))
 
 
 class GMasterXsyncMixin(GMasterChangelogMixin):
