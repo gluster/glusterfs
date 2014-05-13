@@ -3046,7 +3046,6 @@ err:
         return 0;
 }
 
-
 int
 dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                   int op_errno, gf_dirent_t *orig_entries, dict_t *xdata)
@@ -3062,7 +3061,9 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         dht_layout_t *layout = 0;
         dht_conf_t   *conf   = NULL;
         xlator_t     *subvol = 0;
+        xlator_t     *hashed_subvol = 0;
         int           ret    = 0;
+        int           readdir_optimize = 0;
 
         INIT_LIST_HEAD (&entries.list);
         prev = cookie;
@@ -3077,18 +3078,48 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
         layout = local->layout;
 
+        if (conf->readdir_optimize == _gf_true)
+                 readdir_optimize = 1;
+
         list_for_each_entry (orig_entry, (&orig_entries->list), list) {
                 next_offset = orig_entry->d_off;
-                if (check_is_dir (NULL, (&orig_entry->d_stat), NULL) &&
-                    (prev->this != local->first_up_subvol)) {
-                        continue;
+                if (check_is_dir (NULL, (&orig_entry->d_stat), NULL)) {
+
+                /*Directory entries filtering :
+                 * a) If rebalance is running, pick from first_up_subvol
+                 * b) (rebalance not running)hashed subvolume is NULL or
+                 * down then filter in first_up_subvolume. Other wise the
+                 * corresponding hashed subvolume will take care of the
+                 * directory entry.
+                 */
+
+                        if (readdir_optimize) {
+                                if (prev->this == local->first_up_subvol)
+                                        goto list;
+                                else
+                                        continue;
+
+                        }
+
+                        hashed_subvol = dht_layout_search (this, layout, \
+                                                           orig_entry->d_name);
+
+                        if (prev->this == hashed_subvol)
+                                goto list;
+                        if ((hashed_subvol
+                                && dht_subvol_status (conf, hashed_subvol))
+                                ||(prev->this != local->first_up_subvol))
+                                continue;
+
+                        goto list;
                 }
+
                 if (check_is_linkfile (NULL, (&orig_entry->d_stat),
                                        orig_entry->dict,
                                        conf->link_xattr_name)) {
                         continue;
                 }
-
+list:
                 entry = gf_dirent_for_name (orig_entry->d_name);
                 if (!entry) {
 

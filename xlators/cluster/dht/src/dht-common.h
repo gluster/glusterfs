@@ -784,4 +784,7 @@ dht_inodectx_dump (xlator_t *this, inode_t *inode);
 int
 dht_inode_ctx_get1 (xlator_t *this, inode_t *inode, xlator_t **subvol);
 
+int
+dht_subvol_status (dht_conf_t *conf, xlator_t *subvol);
+
 #endif/* _DHT_H */

@@ -1204,3 +1204,16 @@ int dht_inode_ctx_set (inode_t *inode, xlator_t *this, dht_inode_ctx_t *ctx)
 out:
         return ret;
 }
+
+int
+dht_subvol_status (dht_conf_t *conf, xlator_t *subvol)
+{
+        int i;
+
+        for (i=0 ; i < conf->subvolume_cnt; i++) {
+                if (conf->subvolumes[i] == subvol) {
+                        return conf->subvolume_status[i];
+                }
+        }
+        return 0;
+}
