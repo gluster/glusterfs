@@ -147,7 +147,7 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         } else {
                                 /* timer expired and transport bailed out */
                                 gf_log (this->name, GF_LOG_WARNING,
-                                        "timer must have expired");
+                                        "socket disconnected");
 
                         }
                         conn->ping_started = 0;
@@ -226,7 +226,8 @@ rpc_clnt_start_ping (void *rpc_ptr)
         conn = &rpc->conn;
 
         if (conn->ping_timeout == 0) {
-                gf_log (THIS->name, GF_LOG_INFO, "ping timeout is 0, returning");
+                gf_log (THIS->name, GF_LOG_DEBUG, "ping timeout is 0,"
+                        " returning");
                 return;
         }
 

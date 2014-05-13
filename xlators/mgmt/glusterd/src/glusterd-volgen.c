@@ -2250,6 +2250,9 @@ volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                               "%s", brick->brick_id);
                 if (!xl)
                         goto out;
+                ret = xlator_set_option (xl, "ping-timeout", "42");
+                if (ret)
+                        goto out;
                 ret = xlator_set_option (xl, "remote-host", brick->hostname);
                 if (ret)
                         goto out;

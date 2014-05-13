@@ -40,6 +40,7 @@
 #include "glusterd-locks.h"
 #include "common-utils.h"
 #include "run.h"
+#include "rpc-clnt-ping.h"
 
 #include "syncop.h"
 
@@ -1623,10 +1624,10 @@ struct volume_options options[] = {
           .description = "directory where the bricks for the snapshots will be created"
         },
         { .key  = {"ping-timeout"},
-          .type = GF_OPTION_TYPE_INT,
-          .min  = 1,
-          .max  = 100,
-          .default_value = "30",
+          .type = GF_OPTION_TYPE_TIME,
+          .min  = 0,
+          .max  = 300,
+          .default_value = TOSTRING(RPC_DEFAULT_PING_TIMEOUT),
         },
         { .key   = {NULL} },
 };

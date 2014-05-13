@@ -14,5 +14,6 @@
 #include "config.h"
 #endif
 
+#define RPC_DEFAULT_PING_TIMEOUT 30
 void
 rpc_clnt_start_ping (void *rpc_ptr);

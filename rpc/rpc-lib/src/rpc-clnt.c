@@ -984,9 +984,11 @@ rpc_clnt_connection_init (struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
                 gf_log (name, GF_LOG_DEBUG,
                         "setting ping-timeout to %d", conn->ping_timeout);
         } else {
-                gf_log (name, GF_LOG_INFO,
-                        "defaulting ping-timeout to 30secs");
-                conn->ping_timeout = 30;
+                /*TODO: Once the epoll thread model is fixed,
+                  change the default ping-timeout to 30sec */
+                gf_log (name, GF_LOG_DEBUG,
+                        "disable ping-timeout");
+                conn->ping_timeout = 0;
         }
 
         trans = rpc_transport_load (ctx, options, name);
