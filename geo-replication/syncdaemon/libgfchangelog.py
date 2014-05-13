@@ -9,7 +9,7 @@
 #
 
 import os
-from ctypes import CDLL, create_string_buffer, get_errno
+from ctypes import CDLL, create_string_buffer, get_errno, byref, c_ulong
 from ctypes.util import find_library
 from syncdutils import ChangelogException
 
@@ -86,12 +86,14 @@ class Changes(object):
 
     @classmethod
     def cl_history_changelog(cls, changelog_path, start, end, num_parallel):
+        actual_end = c_ulong()
         ret = cls._get_api('gf_history_changelog')(changelog_path, start, end,
-                                                   num_parallel)
+                                                   num_parallel,
+                                                   byref(actual_end))
         if ret == -1:
             cls.raise_changelog_err()
 
-        return ret
+        return (ret, actual_end.value)
 
     @classmethod
     def cl_history_startfresh(cls):
@@ -101,6 +103,10 @@ class Changes(object):
 
     @classmethod
     def cl_history_getchanges(cls):
+        """ remove hardcoding for path name length """
+        def clsort(f):
+            return f.split('.')[-1]
+
         changes = []
         buf = create_string_buffer('\0', 4096)
         call = cls._get_api('gf_history_changelog_next_change')
@@ -113,7 +119,7 @@ class Changes(object):
         if ret == -1:
             cls.raise_changelog_err()
 
-        return changes
+        return sorted(changes, key=clsort)
 
     @classmethod
     def cl_history_done(cls, clfile):
