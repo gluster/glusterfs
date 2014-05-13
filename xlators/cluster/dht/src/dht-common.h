@@ -740,4 +740,15 @@ dht_subvol_maxspace_nonzeroinode (xlator_t *this, xlator_t *subvol,
                                   dht_layout_t *layout);
 int
 dht_linkfile_attr_heal (call_frame_t *frame, xlator_t *this);
+
+void
+dht_layout_dump (dht_layout_t  *layout, const char *prefix);
+int32_t
+dht_priv_dump (xlator_t *this);
+int32_t
+dht_inodectx_dump (xlator_t *this, inode_t *inode);
+
+int
+dht_subvol_status (dht_conf_t *conf, xlator_t *subvol);
+
 #endif/* _DHT_H */
