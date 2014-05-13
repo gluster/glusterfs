@@ -870,6 +870,15 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
         GF_FREE (local->transaction.postop_piggybacked);
 }
 
+void
+afr_remove_eager_lock_stub (afr_local_t *local)
+{
+        LOCK (&local->fd->lock);
+        {
+                list_del_init (&local->transaction.eager_locked);
+        }
+        UNLOCK (&local->fd->lock);
+}
 
 void
 afr_local_cleanup (afr_local_t *local, xlator_t *this)
@@ -878,6 +887,10 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 
         if (!local)
                 return;
+
+        if (local->transaction.eager_lock_on &&
+            !list_empty (&local->transaction.eager_locked))
+                afr_remove_eager_lock_stub (local);
 
         afr_local_sh_cleanup (local, this);
 
@@ -2944,6 +2957,12 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
         fd_ctx = (afr_fd_ctx_t *)(long) ctx;
 
         if (fd_ctx) {
+                //no need to take any locks
+                if (!list_empty (&fd_ctx->eager_locked))
+                        gf_log (this->name, GF_LOG_WARNING, "%s: Stale "
+                                "Eager-lock stubs found",
+                                uuid_utoa (fd->inode->gfid));
+
                 GF_FREE (fd_ctx->pre_op_done);
 
                 GF_FREE (fd_ctx->opened_on);

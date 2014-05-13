@@ -1218,4 +1218,6 @@ afr_can_start_data_self_heal (afr_local_t *local, afr_private_t *priv);
 
 gf_boolean_t
 afr_can_start_metadata_self_heal (afr_local_t *local, afr_private_t *priv);
+void
+afr_remove_eager_lock_stub (afr_local_t *local);
 #endif /* __AFR_H__ */
