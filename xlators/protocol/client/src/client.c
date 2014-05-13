@@ -21,7 +21,7 @@
 #include "statedump.h"
 #include "compat-errno.h"
 
-#include "xdr-rpc.h" 
+#include "xdr-rpc.h"
 #include "glusterfs3.h"
 
 extern rpc_clnt_prog_t clnt_handshake_prog;
@@ -2841,7 +2841,7 @@ struct volume_options options[] = {
         },
         { .key   = {"ping-timeout"},
           .type  = GF_OPTION_TYPE_TIME,
-          .min   = 1,
+          .min   = 0,
           .max   = 1013,
           .default_value = "42",
           .description = "Time duration for which the client waits to "
