@@ -80,7 +80,9 @@ mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks)
         char            dir[PATH_MAX]   = {0,};
         struct stat     stbuf           = {0,};
 
-        strcpy (dir, path);
+        strncpy (dir, path, (PATH_MAX - 1));
+        dir[PATH_MAX - 1] = '\0';
+
         i = (dir[0] == '/')? 1: 0;
         do {
                 if (path[i] != '/' && path[i] != '\0')
