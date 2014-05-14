@@ -60,6 +60,15 @@
  * glfs_h_create_from_handle */
 #define GFAPI_HANDLE_LENGTH 16
 
+/* Portability non glibc c++ build systems */
+#ifndef __THROW
+# if defined __cplusplus
+#  define __THROW       throw ()
+# else
+#  define __THROW
+# endif
+#endif
+
 __BEGIN_DECLS
 
 /*
