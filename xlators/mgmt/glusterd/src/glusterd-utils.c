@@ -10463,7 +10463,7 @@ glusterd_snap_create_use_rsp_dict (dict_t *dst, dict_t *src)
         }
 
         for (i = 0; i < src_missed_snap_count; i++) {
-                snprintf (name_buf, sizeof(name_buf), "missed_snaps_%d",
+                 snprintf (name_buf, sizeof(name_buf), "missed_snaps_%d",
                            i);
                  ret = dict_get_str (src, name_buf, &buf);
                  if (ret) {
@@ -10489,8 +10489,15 @@ glusterd_snap_create_use_rsp_dict (dict_t *dst, dict_t *src)
                  }
 
                  tmp_str = NULL;
+                 dst_missed_snap_count++;
         }
 
+        ret = dict_set_int32 (dst, "missed_snap_count", dst_missed_snap_count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to set dst_missed_snap_count");
+                goto out;
+        }
 
 out:
         if (ret && tmp_str)
