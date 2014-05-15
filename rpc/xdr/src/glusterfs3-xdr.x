@@ -758,3 +758,15 @@ struct gf_event_notify_rsp {
 	int op_errno;
 	opaque dict<>;
 };
+
+
+struct gf_getsnap_name_uuid_req {
+        opaque dict<>;
+};
+
+struct gf_getsnap_name_uuid_rsp {
+        int op_ret;
+        int op_errno;
+        string op_errstr<>;
+        opaque dict<>;
+};

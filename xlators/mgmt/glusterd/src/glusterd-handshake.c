@@ -32,6 +32,7 @@ extern struct rpc_clnt_program gd_peer_prog;
 extern struct rpc_clnt_program gd_mgmt_prog;
 extern struct rpc_clnt_program gd_mgmt_v3_prog;
 
+
 #define TRUSTED_PREFIX         "trusted-"
 
 typedef ssize_t (*gfs_serialize_t) (struct iovec outmsg, void *data);
@@ -1046,8 +1047,8 @@ __server_get_volume_info (rpcsvc_request_t *req)
 {
         int                     ret             = -1;
         int32_t                 op_errno        = ENOENT;
-        gf_get_volume_info_req	vol_info_req    = {{0,}};
-        gf_get_volume_info_rsp	vol_info_rsp    = {0,};
+        gf_get_volume_info_req  vol_info_req    = {{0,}};
+        gf_get_volume_info_rsp  vol_info_rsp    = {0,};
         char                    *volname        = NULL;
         glusterd_volinfo_t      *volinfo        = NULL;
         dict_t                  *dict           = NULL;
@@ -1058,7 +1059,7 @@ __server_get_volume_info (rpcsvc_request_t *req)
         ret = xdr_to_generic (req->msg[0], &vol_info_req,
                              (xdrproc_t)xdr_gf_get_volume_info_req);
         if (ret < 0) {
-                //failed to decode msg;
+                /* failed to decode msg */
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
@@ -1098,7 +1099,7 @@ __server_get_volume_info (rpcsvc_request_t *req)
         }
 
         if (!flags) {
-                //Nothing to query about. Just return success
+                /* Nothing to query about. Just return success */
                 gf_log (THIS->name, GF_LOG_ERROR, "No flags set");
                 ret = 0;
                 goto out;
@@ -1177,11 +1178,116 @@ server_get_volume_info (rpcsvc_request_t *req)
                                             __server_get_volume_info);
 }
 
+
+/*
+ * glusterd function to get the list of snapshot names and uuids
+ */
+int
+__server_get_snap_info (rpcsvc_request_t *req)
+{
+        int                             ret             = -1;
+        int                             op_errno        = ENOENT;
+        gf_getsnap_name_uuid_req        snap_info_req   = {{0,}};
+        gf_getsnap_name_uuid_rsp        snap_info_rsp   = {0,};
+        dict_t                          *dict           = NULL;
+        dict_t                          *dict_rsp       = NULL;
+        glusterd_volinfo_t              *volinfo        = NULL;
+        char                            *volname        = NULL;
+
+        GF_ASSERT (req);
+
+        ret = xdr_to_generic (req->msg[0], &snap_info_req,
+                              (xdrproc_t)xdr_gf_getsnap_name_uuid_req);
+        if (ret < 0) {
+                req->rpc_err = GARBAGE_ARGS;
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "Failed to decode management handshake response");
+                goto out;
+        }
+
+        if (snap_info_req.dict.dict_len) {
+                dict = dict_new ();
+                if (!dict) {
+                        op_errno = ENOMEM;
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_unserialize (snap_info_req.dict.dict_val,
+                                        snap_info_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "Failed to unserialize dictionary");
+                        op_errno = EINVAL;
+                        ret = -1;
+                        goto out;
+                } else {
+                        dict->extra_stdfree = snap_info_req.dict.dict_val;
+                }
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                op_errno = EINVAL;
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "Failed to retrieve volname");
+                ret = -1;
+                goto out;
+        }
+
+        dict_rsp = dict_new ();
+        if (!dict_rsp) {
+                op_errno = ENOMEM;
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_snapshot_get_volnames_uuids (dict_rsp, volname,
+                                                    &snap_info_rsp);
+
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "Error getting snapshot volume names and uuids : %s",
+                        volname);
+                op_errno = EINVAL;
+        }
+
+out:
+        snap_info_rsp.op_ret = ret;
+        snap_info_rsp.op_errno = op_errno;
+        snap_info_rsp.op_errstr = "";
+        glusterd_submit_reply (req, &snap_info_rsp, NULL, 0, NULL,
+                               (xdrproc_t)xdr_gf_getsnap_name_uuid_rsp);
+
+        if (dict) {
+                dict_unref (dict);
+        }
+
+        if (dict_rsp) {
+                dict_unref (dict_rsp);
+        }
+
+        if (snap_info_rsp.dict.dict_val) {
+                GF_FREE (snap_info_rsp.dict.dict_val);
+        }
+
+        return 0;
+}
+
+int
+server_get_snap_info (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __server_get_snap_info);
+}
+
 rpcsvc_actor_t gluster_handshake_actors[GF_HNDSK_MAXVALUE] = {
         [GF_HNDSK_NULL]         = {"NULL",        GF_HNDSK_NULL,         NULL,                NULL, 0, DRC_NA},
         [GF_HNDSK_GETSPEC]      = {"GETSPEC",     GF_HNDSK_GETSPEC,      server_getspec,      NULL, 0, DRC_NA},
         [GF_HNDSK_EVENT_NOTIFY] = {"EVENTNOTIFY", GF_HNDSK_EVENT_NOTIFY, server_event_notify, NULL, 0, DRC_NA},
         [GF_HNDSK_GET_VOLUME_INFO] = {"GETVOLUMEINFO", GF_HNDSK_GET_VOLUME_INFO, server_get_volume_info, NULL, 0, DRC_NA},
+        [GF_HNDSK_GET_SNAPSHOT_INFO] = {"GETSNAPINFO", GF_HNDSK_GET_SNAPSHOT_INFO, server_get_snap_info, NULL, 0, DRC_NA},
 };
 
 

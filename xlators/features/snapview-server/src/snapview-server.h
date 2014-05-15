@@ -35,13 +35,50 @@
 #include "glusterfs-acl.h"
 #include "syncop.h"
 #include "list.h"
-
-/*
- * The max number of snap entries we consider currently
- */
-#define SNAP_VIEW_MAX_NUM_SNAPS 128
+#include "timer.h"
+#include "rpc-clnt.h"
+#include "protocol-common.h"
 
 #define DEFAULT_SVD_LOG_FILE_DIRECTORY DATADIR "/log/glusterfs"
+
+#define SNAP_VIEW_MAX_GLFS_T            256
+#define SNAP_VIEW_MAX_GLFS_FDS          1024
+#define SNAP_VIEW_MAX_GLFS_OBJ_HANDLES  1024
+
+#define SVS_STACK_DESTROY(_frame)                                   \
+        do {                                                        \
+                ((call_frame_t *)_frame)->local = NULL;             \
+                STACK_DESTROY (((call_frame_t *)_frame)->root);     \
+        } while (0)
+
+int
+svs_mgmt_submit_request (void *req, call_frame_t *frame,
+                         glusterfs_ctx_t *ctx,
+                         rpc_clnt_prog_t *prog, int procnum,
+                         fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);
+
+int
+svs_get_snapshot_list (xlator_t *this);
+
+int
+mgmt_get_snapinfo_cbk (struct rpc_req *req, struct iovec *iov,
+                       int count, void *myframe);
+
+char *clnt_handshake_procs[GF_HNDSK_MAXVALUE] = {
+        [GF_HNDSK_NULL]         = "NULL",
+        [GF_HNDSK_SETVOLUME]    = "SETVOLUME",
+        [GF_HNDSK_GETSPEC]      = "GETSPEC",
+        [GF_HNDSK_PING]         = "PING",
+        [GF_HNDSK_EVENT_NOTIFY] = "EVENTNOTIFY",
+};
+
+rpc_clnt_prog_t svs_clnt_handshake_prog = {
+        .progname  = "GlusterFS Handshake",
+        .prognum   = GLUSTER_HNDSK_PROGRAM,
+        .progver   = GLUSTER_HNDSK_VERSION,
+        .procnames = clnt_handshake_procs,
+};
+
 
 typedef enum {
         SNAP_VIEW_ENTRY_POINT_INODE = 0,
@@ -67,15 +104,22 @@ struct svs_fd {
 typedef struct svs_fd svs_fd_t;
 
 struct snap_dirent {
-	char name[NAME_MAX];
-	char uuid[UUID_CANONICAL_FORM_LEN + 1];
+        char name[NAME_MAX];
+        char uuid[UUID_CANONICAL_FORM_LEN + 1];
+        char snap_volname[NAME_MAX];
         glfs_t *fs;
 };
 typedef struct snap_dirent snap_dirent_t;
 
 struct svs_private {
-	snap_dirent_t *dirents;
-	int num_snaps;
+        snap_dirent_t           *dirents;
+        int                     num_snaps;
+        char                    *volname;
+        struct list_head        snaplist;
+        pthread_mutex_t         snaplist_lock;
+        uint32_t                is_snaplist_done;
+        gf_timer_t              *snap_timer;
+        pthread_attr_t          thr_attr;
 };
 typedef struct svs_private svs_private_t;
 
