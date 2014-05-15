@@ -1398,6 +1398,16 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
         }
 
         switch (heal_op) {
+                case GF_AFR_OP_HEALED_FILES:
+                case GF_AFR_OP_HEAL_FAILED_FILES:
+                        ret = -1;
+                        snprintf (msg, sizeof (msg),"Command not supported. "
+                                  "Please use \"gluster volume heal %s info\" "
+                                  "and logs to find the heal information.",
+                                  volname);
+                        *op_errstr = gf_strdup (msg);
+                        goto out;
+
                 case GF_AFR_OP_INDEX_SUMMARY:
                 case GF_AFR_OP_STATISTICS_HEAL_COUNT:
                 case GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
