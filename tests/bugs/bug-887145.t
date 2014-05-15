@@ -25,7 +25,7 @@ cp /etc/passwd $M0/;
 cp $M0/passwd $M0/file;
 chmod 600 $M0/file;
 
-TEST mount -t nfs -o vers=3,nolock $H0:/$V0 $N0;
+TEST mount_nfs $H0:/$V0 $N0 nolock;
 
 chown -R nfsnobody:nfsnobody $M0/dir;
 chown -R tmp_user:tmp_user $M0/other;

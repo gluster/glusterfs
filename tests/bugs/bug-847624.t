@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../nfs.rc
 cleanup
 
 #1
@@ -10,8 +11,8 @@ TEST pidof glusterd
 TEST $CLI volume create $V0 $H0:$B0/$V0
 TEST $CLI volume set $V0 nfs.drc on
 TEST $CLI volume start $V0
-sleep 5
-TEST mount -t nfs -o vers=3,nolock,soft,intr $H0:/$V0 $N0
+EXPECT_WITHIN 20 "1" is_nfs_export_available;
+TEST mount_nfs $H0:/$V0 $N0 nolock
 cd $N0
 #7
 TEST dbench -t 10 10

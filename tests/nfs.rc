@@ -8,7 +8,7 @@
 #
 function is_nfs_export_available ()
 {
-        vol=$1
+        local vol=$1
 
         if [ "$vol" == "" ]; then
                 vol=$V0
@@ -18,4 +18,11 @@ function is_nfs_export_available ()
         echo "$exp"
 }
 
-
+function mount_nfs ()
+{
+        local e=$1
+        local m=$2
+        local opt=$3
+        if [ ! -z "$opt" ]; then opt=",$opt"; fi
+        mount -t nfs -o soft,intr,vers=3"$opt" $e $m
+}
