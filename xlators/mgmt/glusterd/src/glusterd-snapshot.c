@@ -1272,7 +1272,7 @@ glusterd_snap_create_pre_val_use_rsp_dict (dict_t *dst, dict_t *src)
                         }
 
                         snprintf (key, sizeof (key),
-                                  "vol%ld.brick%ld.status", i+1, brick_order);
+                                  "vol%"PRId64".brick%"PRId64".status", i+1, brick_order);
                         ret = dict_get_int32 (src, key, &brick_online);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR, "failed to "
@@ -1700,7 +1700,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                                 goto out;
                         }
 
-                        snprintf (key, sizeof (key), "vol%ld.brick%ld.status",
+                        snprintf (key, sizeof (key), "vol%"PRId64".brick%"PRId64".status",
                                   i, brick_order);
 
                         ret = glusterd_add_brick_status_to_dict (rsp_dict,
@@ -3720,7 +3720,7 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
         GF_ASSERT (snap_vol);
         GF_ASSERT (original_brickinfo);
 
-        snprintf (key, sizeof(key), "vol%ld.origin_brickpath%d",
+        snprintf (key, sizeof(key), "vol%"PRId64".origin_brickpath%d",
                   volcount, brick_count);
         ret = dict_set_dynstr_with_alloc (dict, key, original_brickinfo->path);
         if (ret) {
