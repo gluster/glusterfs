@@ -70,6 +70,7 @@ enum gf_handshake_procnum {
         GF_HNDSK_SET_LK_VER,
         GF_HNDSK_EVENT_NOTIFY,
         GF_HNDSK_GET_VOLUME_INFO,
+        GF_HNDSK_GET_SNAPSHOT_INFO,
         GF_HNDSK_MAXVALUE,
 };
 
@@ -262,6 +263,12 @@ enum gf_get_volume_info_type {
 };
 
 typedef enum gf_get_volume_info_type gf_get_volume_info_type;
+
+
+enum gf_get_snapshot_info_type {
+        GF_GET_SNAPSHOT_LIST,
+};
+typedef enum gf_get_snapshot_info_type gf_get_snapshot_info_type;
 
 #define GLUSTER_HNDSK_PROGRAM    14398633 /* Completely random */
 #define GLUSTER_HNDSK_VERSION    2   /* 0.0.2 */

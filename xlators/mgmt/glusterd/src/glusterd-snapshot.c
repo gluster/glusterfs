@@ -55,6 +55,8 @@
 #include "glusterd-mgmt.h"
 #include "glusterd-syncop.h"
 
+#include "glusterfs3.h"
+
 #include "syscall.h"
 #include "cli1-xdr.h"
 #include "xdr-generic.h"
@@ -7709,6 +7711,100 @@ out:
                  */
                 (void)glusterd_volinfo_delete (new_volinfo);
         }
+
+        return ret;
+}
+
+
+
+int
+glusterd_snapshot_get_volnames_uuids (dict_t *dict,
+                                      char *volname,
+                                      gf_getsnap_name_uuid_rsp  *snap_info_rsp)
+{
+        int                 ret             = -1;
+        int                 snapcount       = 0;
+        char                key[PATH_MAX]   = {0,};
+        glusterd_volinfo_t *snap_vol        = NULL;
+        glusterd_volinfo_t *volinfo         = NULL;
+        glusterd_volinfo_t *tmp_vol         = NULL;
+        xlator_t           *this            = NULL;
+        int                 op_errno        = 0;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (volname);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, dict, out,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, volname, out,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, snap_info_rsp, out,
+                                        op_errno, EINVAL);
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to get volinfo of volume %s",
+                        volname);
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        list_for_each_entry_safe (snap_vol, tmp_vol, &volinfo->snap_volumes,
+                                  snapvol_list) {
+                snapcount++;
+
+                /* Set Snap Name */
+                snprintf (key, sizeof (key), "snapname.%d", snapcount);
+                ret = dict_set_dynstr_with_alloc (dict, key,
+                                           snap_vol->snapshot->snapname);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to set "
+                                "snap name in dictionary");
+                        goto out;
+                }
+
+                /* Set Snap ID */
+                snprintf (key, sizeof (key), "snap-id.%d", snapcount);
+                ret = dict_set_dynstr_with_alloc (dict, key,
+                                     uuid_utoa(snap_vol->snapshot->snap_id));
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to set "
+                                "snap id in dictionary");
+                        goto out;
+                }
+
+                /* Snap Volname which is used to activate the snap vol */
+                snprintf (key, sizeof (key), "snap-volname.%d", snapcount);
+                ret = dict_set_dynstr_with_alloc (dict, key, snap_vol->volname);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to set "
+                                "snap id in dictionary");
+                        goto out;
+                }
+        }
+
+        ret = dict_set_int32 (dict, "snap-count", snapcount);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set snapcount");
+                op_errno = -ret;
+                goto out;
+        }
+
+        ret = dict_allocate_and_serialize (dict, &snap_info_rsp->dict.dict_val,
+                                           &snap_info_rsp->dict.dict_len);
+        if (ret) {
+                op_errno = -ret;
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        snap_info_rsp->op_ret = ret;
+        snap_info_rsp->op_errno = op_errno;
+        snap_info_rsp->op_errstr = "";
 
         return ret;
 }

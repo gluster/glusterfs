@@ -28,6 +28,8 @@
 #include "rpc-clnt.h"
 #include "protocol-common.h"
 
+#include "glusterfs3-xdr.h"
+
 #define GLUSTERD_SOCK_DIR "/var/run"
 #define GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO(brickinfo, volinfo, brickid) do {\
         sprintf (brickinfo->brick_id, "%s-client-%d",\
@@ -902,6 +904,11 @@ glusterd_is_snap_soft_limit_reached (glusterd_volinfo_t *volinfo,
 int32_t
 glusterd_find_brick_mount_path (char *brick_path, int32_t brick_count,
                                 char **brick_mount_path);
+/*
+ * Function to retrieve list of snap volnames and their uuids
+ */
+int glusterd_snapshot_get_volnames_uuids (dict_t *dict,
+           char *volname, gf_getsnap_name_uuid_rsp *snap_info_rsp);
 
 int
 glusterd_update_fstype (char *orig_brick_path,
