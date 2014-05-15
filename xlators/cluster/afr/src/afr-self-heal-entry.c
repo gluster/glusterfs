@@ -2164,7 +2164,6 @@ afr_sh_entry_open (call_frame_t *frame, xlator_t *this)
 {
         int i = 0;
         int call_count = 0;
-        int *sources = NULL;
 
         fd_t *fd = NULL;
 
@@ -2176,7 +2175,6 @@ afr_sh_entry_open (call_frame_t *frame, xlator_t *this)
         sh = &local->self_heal;
         priv = this->private;
 
-        sources = local->self_heal.sources;
 
         sh->block_size = priv->sh_readdir_size;
         sh->offset = 0;
