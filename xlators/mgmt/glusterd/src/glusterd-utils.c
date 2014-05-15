@@ -4329,7 +4329,7 @@ glusterd_volinfo_stop_stale_bricks (glusterd_volinfo_t *new_volinfo,
                         ret = glusterd_brick_stop (old_volinfo, old_brickinfo,
                                                    _gf_false);
                         if (ret)
-                                gf_msg ("glusterd", GF_LOG_ERROR, 0, 
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                         GD_MSG_BRICK_STOP_FAIL, "Failed to stop"
                                         " brick %s:%s", old_brickinfo->hostname,
                                         old_brickinfo->path);
@@ -10369,7 +10369,7 @@ glusterd_merge_brick_status (dict_t *dst, dict_t *src)
 
         for (index = 0; index < volume_count; index++) {
                 ret = snprintf (snapbrckcnt, sizeof(snapbrckcnt) - 1,
-                                "snap-vol%ld_brickcount", index+1);
+                                "snap-vol%"PRId64"_brickcount", index+1);
                 ret = dict_get_int64 (src, snapbrckcnt, &brick_count);
                 if (ret) {
                         gf_log (this->name, GF_LOG_TRACE,
@@ -10381,7 +10381,7 @@ glusterd_merge_brick_status (dict_t *dst, dict_t *src)
                 for (j = 0; j < brick_count; j++) {
                         /* Fetching data from source dict */
                         snprintf (snapbrckord, sizeof(snapbrckord) - 1,
-                                  "snap-vol%ld.brick%ld.order", index+1, j);
+                                  "snap-vol%"PRId64".brick%"PRId64".order", index+1, j);
 
                         ret = dict_get_int64 (src, snapbrckord, &brick_order);
                         if (ret) {
@@ -10392,7 +10392,7 @@ glusterd_merge_brick_status (dict_t *dst, dict_t *src)
                         }
 
                         snprintf (key, sizeof (key) - 1,
-                                  "snap-vol%ld.brick%ld.status", index+1,
+                                  "snap-vol%"PRId64".brick%"PRId64".status", index+1,
                                   brick_order);
                         ret = dict_get_int32 (src, key, &brick_online);
                         if (ret) {
@@ -12478,7 +12478,7 @@ glusterd_volume_quorum_check (glusterd_volinfo_t *volinfo, int64_t index,
                            with replica count 2, quorum is not met if even
                            one of its subvolumes is down
                         */
-                        snprintf (key, sizeof (key), "%s%ld.brick%ld.status",
+                        snprintf (key, sizeof (key), "%s%"PRId64".brick%"PRId64".status",
                                   key_prefix, index, i);
                         ret = dict_get_int32 (dict, key, &brick_online);
                         if (ret || !brick_online) {
@@ -12505,7 +12505,7 @@ glusterd_volume_quorum_check (glusterd_volinfo_t *volinfo, int64_t index,
                         quorum_met = _gf_false;
                         for (i = 0; i < volinfo->replica_count; i++) {
                                 snprintf (key, sizeof (key),
-                                          "%s%ld.brick%ld.status", key_prefix,
+                                          "%s%"PRId64".brick%"PRId64".status", key_prefix,
                                           index,
                                           (j * volinfo->replica_count) + i);
                                 ret = dict_get_int32 (dict, key, &brick_online);
@@ -12620,7 +12620,7 @@ glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
         }
 
         for (i = 1; i <= volcount; i++) {
-                snprintf (key, sizeof (key), "%s%ld",
+                snprintf (key, sizeof (key), "%s%"PRId64,
                           snap_volume?"snap-volname":"volname", i);
                 ret = dict_get_str (dict, key, &volname);
                 if (ret) {

@@ -35,13 +35,19 @@
  * SUCH DAMAGE.
  */
 
-#ifdef GF_DARWIN_HOST_OS
+#if defined(GF_DARWIN_HOST_OS) || defined(__NetBSD__)
 #include <stdlib.h>
 #include <string.h>
 #include <sys/param.h>
 #include <sys/ucred.h>
 #include <sys/mount.h>
 #include "mntent_compat.h"
+
+#ifdef __NetBSD__
+typedef struct statvfs gf_statfs_t;
+#else
+typedef struct statfs gf_statfs_t;
+#endif
 
 static int pos = -1;
 static int mntsize = -1;
@@ -102,23 +108,32 @@ flags2opts (int flags)
         if (flags & MNT_ASYNC)          res = concatopt(res, "async");
 #if !defined(GF_DARWIN_HOST_OS)
         if (flags & MNT_NOATIME)        res = concatopt(res, "noatime");
+#if !defined(__NetBSD__)
         if (flags & MNT_NOCLUSTERR)     res = concatopt(res, "noclusterr");
         if (flags & MNT_NOCLUSTERW)     res = concatopt(res, "noclusterw");
         if (flags & MNT_NOSYMFOLLOW)    res = concatopt(res, "nosymfollow");
         if (flags & MNT_SUIDDIR)        res = concatopt(res, "suiddir");
-#endif
+#endif /* !__NetBSD__ */
+#endif /* !GF_DARWIN_HOS_OS */
         return res;
 }
 
 static struct mntent *
-statfs_to_mntent (struct statfs *mntbuf)
+statfs_to_mntent (gf_statfs_t *mntbuf)
 {
         static char opts_buf[40], *tmp;
+        int f_flags;
 
         _mntent.mnt_fsname = mntbuf->f_mntfromname;
         _mntent.mnt_dir = mntbuf->f_mntonname;
         _mntent.mnt_type = mntbuf->f_fstypename;
-        tmp = flags2opts (mntbuf->f_flags);
+
+#ifdef __NetBSD__
+        f_flags = mntbuf->f_flag;
+#else
+        f_flags = mntbuf->f_flags;
+#endif
+        tmp = flags2opts (f_flags);
         if (tmp) {
                 opts_buf[sizeof(opts_buf)-1] = '\0';
                 strncpy (opts_buf, tmp, sizeof(opts_buf)-1);
@@ -134,7 +149,10 @@ statfs_to_mntent (struct statfs *mntbuf)
 struct mntent *
 getmntent (FILE *fp)
 {
-        struct statfs *mntbuf;
+        gf_statfs_t *mntbuf;
+
+        if (!fp)
+                return NULL;
 
         if (pos == -1 || mntsize == -1)
                 mntsize = getmntinfo (&mntbuf, MNT_NOWAIT);
@@ -148,16 +166,49 @@ getmntent (FILE *fp)
         return (statfs_to_mntent (&mntbuf[pos]));
 }
 
-/* Dummy functions */
-FILE *
-setmntent(const char *filename, const char *type)
+/*
+  Careful using this function ``buffer`` and ``bufsize`` are
+  ignored since there is no stream with strings to populate
+  them on OSX or NetBSD, if one wishes to populate them then
+  perhaps a new function should be written in this source file
+  which uses 'getmntinfo()' to stringify the mntent's
+*/
+
+struct mntent *getmntent_r (FILE *fp, struct mntent *result,
+                            char *buffer, int bufsize)
 {
-        return (FILE *)0x1;
+        struct mntent *ment = NULL;
+
+        if (!fp)
+                return NULL;
+
+        flockfile (fp);
+        ment = getmntent (fp);
+        memcpy (result, ment, sizeof(*ment));
+        funlockfile (fp);
+
+        return result;
+}
+
+FILE *
+setmntent (const char *filename, const char *type)
+{
+        FILE *fp = NULL;
+#ifdef GF_DARWIN_HOST_OS
+        fp = fopen (filename, "w");
+#else
+        fp = fopen (filename, type);
+#endif
+        return fp;
 }
 
 int
 endmntent (FILE *fp)
 {
-        return 1;
+        if (fp)
+                fclose (fp);
+
+        return 1; /* endmntent() always returns 1 */
 }
-#endif /* GF_DARWIN_HOST_OS */
+
+#endif /* GF_DARWIN_HOST_OS || __NetBSD__ */
