@@ -14,6 +14,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../fileio.rc
+. $(dirname $0)/../nfs.rc
 
 cleanup;
 
@@ -29,7 +30,8 @@ EXPECT 'Created' volinfo_field $V0 'Status';
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
-TEST mount -t nfs -o noac,soft,nolock,vers=3 $H0:/$V0 $N0
+EXPECT_WITHIN 20 "1" is_nfs_export_available;
+TEST mount_nfs $H0:/$V0 $N0 noac,nolock
 
 
 QUOTA_LIMIT_DIR="quota_limit_dir"

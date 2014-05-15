@@ -17,7 +17,7 @@ TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $
 EXPECT_WITHIN 20 "1" is_nfs_export_available;
 
 ## Mount volume as NFS export
-TEST mount -t nfs -o vers=3,nolock $H0:/$V0 $N0;
+TEST mount_nfs $H0:/$V0 $N0 nolock;
 
 # just a random uid/gid
 uid=22162

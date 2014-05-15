@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../nfs.rc
 
 cleanup;
 
@@ -9,9 +10,9 @@ TEST pidof glusterd
 TEST $CLI volume info
 TEST $CLI volume create $V0 replica 2 $H0:$B0/brick0 $H0:$B0/brick1
 TEST $CLI volume start $V0
-sleep 5
 
-mount -t nfs -o vers=3,nolock `hostname`:/$V0 $N0
+EXPECT_WITHIN 20 "1" is_nfs_export_available;
+TEST mount_nfs $H0:/$V0 $N0 nolock
 
 cd $N0
 mkdir test_hardlink_self_heal;

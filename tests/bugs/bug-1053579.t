@@ -31,7 +31,7 @@ TEST $CLI volume start $V0
 EXPECT_WITHIN 20 "1" is_nfs_export_available
 
 # mount the volume
-TEST mount -t nfs -o vers=3,nolock $H0:/$V0 $N0
+TEST mount_nfs $H0:/$V0 $N0 nolock
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0
 
 # the actual test, this used to crash

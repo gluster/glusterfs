@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../nfs.rc
 
 cleanup;
 
@@ -42,11 +43,9 @@ TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
 
-## Wait for volume to register with rpc.mountd
-sleep 5;
-
+EXPECT_WITHIN 20 "1" is_nfs_export_available;
 ## Mount NFS
-TEST mount -t nfs -o vers=3,nolock,soft,intr $H0:/$V0 $N0;
+TEST mount_nfs $H0:/$V0 $N0 nolock;
 
 ## Create some files and directories
 echo "test_data" > $N0/a_file;
@@ -70,8 +69,8 @@ setfattr -n trusted.glusterfs.volume-id -v $volid $B0/${V0}-0
 ## Restart and remount. Note that we use actimeo=0 so that the stat calls
 ## we need for self-heal don't get blocked by the NFS client.
 TEST $CLI volume start $V0;
-sleep 5
-TEST mount -t nfs -o vers=3,nolock,soft,intr,actimeo=0 $H0:/$V0 $N0;
+EXPECT_WITHIN 20 "1" is_nfs_export_available;
+TEST mount_nfs $H0:/$V0 $N0 nolock,actimeo=0;
 
 ## The Linux NFS client has a really charming habit of caching stuff right
 ## after mount, even though we set actimeo=0 above. Life would be much easier

@@ -39,7 +39,7 @@ EXPECT_WITHIN 20 1 is_nfs_export_available
 # before mounting the rmtab should be empty
 EXPECT '0' count_lines /var/lib/glusterd/nfs/rmtab
 
-TEST mount -t nfs -o vers=3,nolock $H0:/$V0 $N0
+TEST mount_nfs $H0:/$V0 $N0 nolock
 # the output would looks similar to:
 #
 #   hostname-0=172.31.122.104
@@ -48,7 +48,7 @@ TEST mount -t nfs -o vers=3,nolock $H0:/$V0 $N0
 EXPECT '2' count_lines /var/lib/glusterd/nfs/rmtab
 
 # duplicate mounts should not be recorded (client could have crashed)
-TEST mount -t nfs -o vers=3,nolock $H0:/$V0 $N1
+TEST mount_nfs $H0:/$V0 $N1 nolock
 EXPECT '2' count_lines /var/lib/glusterd/nfs/rmtab
 
 # removing a mount should (even if there are two) should remove the entry
@@ -76,7 +76,7 @@ TEST gluster volume set $V0 nfs.mount-rmtab $M0/rmtab
 EXPECT_WITHIN 20 1 is_nfs_export_available
 
 # a new mount should be added to the rmtab, not overwrite exiting ones
-TEST mount -t nfs -o vers=3,nolock $H0:/$V0 $N0
+TEST mount_nfs $H0:/$V0 $N0 nolock
 EXPECT '4' count_lines $M0/rmtab
 
 TEST umount $N0
