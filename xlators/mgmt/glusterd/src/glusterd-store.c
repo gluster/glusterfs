@@ -844,6 +844,18 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
+        snprintf (buf, sizeof (buf), "%d", volinfo->disperse_count);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_DISPERSE_CNT,
+                                   buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->redundancy_count);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_REDUNDANCY_CNT,
+                                   buf);
+        if (ret)
+                goto out;
+
         snprintf (buf, sizeof (buf), "%d", volinfo->version);
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_VERSION, buf);
         if (ret)
@@ -2618,6 +2630,12 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_REPLICA_CNT,
                                      strlen (GLUSTERD_STORE_KEY_VOL_REPLICA_CNT))) {
                         volinfo->replica_count = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DISPERSE_CNT,
+                                     strlen (GLUSTERD_STORE_KEY_VOL_DISPERSE_CNT))) {
+                        volinfo->disperse_count = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_REDUNDANCY_CNT,
+                                     strlen (GLUSTERD_STORE_KEY_VOL_REDUNDANCY_CNT))) {
+                        volinfo->redundancy_count = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_TRANSPORT,
                                      strlen (GLUSTERD_STORE_KEY_VOL_TRANSPORT))) {
                         volinfo->transport_type = atoi (value);
@@ -2752,6 +2770,11 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                                 /* Introduced in 3.3 */
                                 GF_ASSERT (volinfo->stripe_count > 0);
                                 GF_ASSERT (volinfo->replica_count > 0);
+                        break;
+
+                        case GF_CLUSTER_TYPE_DISPERSE:
+                                GF_ASSERT (volinfo->disperse_count > 0);
+                                GF_ASSERT (volinfo->redundancy_count > 0);
                         break;
 
                         default:

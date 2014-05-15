@@ -336,6 +336,8 @@ struct glusterd_volinfo_ {
         int                       sub_count;  /* backward compatibility */
         int                       stripe_count;
         int                       replica_count;
+        int                       disperse_count;
+        int                       redundancy_count;
         int                       subvol_count; /* Number of subvolumes in a
                                                  distribute volume */
         int                       dist_leaf_count; /* Number of bricks in one

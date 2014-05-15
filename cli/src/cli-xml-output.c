@@ -2528,6 +2528,8 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
         int                     dist_count = 0;
         int                     stripe_count = 0;
         int                     replica_count = 0;
+        int                     disperse_count = 0;
+        int                     redundancy_count = 0;
         int                     transport = 0;
         char                    *brick = NULL;
         char                    key[1024] = {0,};
@@ -2622,13 +2624,35 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "volume%d.disperse_count", i);
+                ret = dict_get_int32 (dict, key, &disperse_count);
+                if (ret)
+                        goto out;
+                ret = xmlTextWriterWriteFormatElement (local->writer,
+                                                       (xmlChar *)"disperseCount",
+                                                       "%d", disperse_count);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "volume%d.redundancy_count", i);
+                ret = dict_get_int32 (dict, key, &redundancy_count);
+                if (ret)
+                        goto out;
+                ret = xmlTextWriterWriteFormatElement (local->writer,
+                                                       (xmlChar *)"redundancyCount",
+                                                       "%d", redundancy_count);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.type", i);
                 ret = dict_get_int32 (dict, key, &type);
                 if (ret)
                         goto out;
-                /* For Distributed-(stripe,replicate,stipe-replicate) types */
+                /* For Distributed-(stripe,replicate,stipe-replicate,disperse)
+                   types
+                 */
                 if ((type > 0) && (dist_count < brick_count))
-                        type += 3;
+                        type += 4;
                 ret = xmlTextWriterWriteFormatElement (local->writer,
                                                        (xmlChar *)"type",
                                                        "%d", type);

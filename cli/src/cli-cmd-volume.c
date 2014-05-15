@@ -362,7 +362,7 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (!frame)
                 goto out;
 
-        ret = cli_cmd_volume_create_parse (words, wordcount, &options);
+        ret = cli_cmd_volume_create_parse (state, words, wordcount, &options);
 
         if (ret) {
                 cli_usage_out (word->pattern);
@@ -376,31 +376,54 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
         }
         if ((type == GF_CLUSTER_TYPE_REPLICATE) ||
-            (type == GF_CLUSTER_TYPE_STRIPE_REPLICATE)) {
-                if ((ret = dict_get_str (options, "bricks", &brick_list)) != 0) {
-                        gf_log ("cli", GF_LOG_ERROR, "Replica bricks check : "
-                                                     "Could not retrieve bricks list");
+            (type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) ||
+            (type == GF_CLUSTER_TYPE_DISPERSE)) {
+                if ((ret = dict_get_str (options, "bricks",
+                                         &brick_list)) != 0) {
+                        gf_log ("cli", GF_LOG_ERROR, "Bricks check : Could "
+                                                     "not retrieve bricks "
+                                                     "list");
                         goto out;
                 }
-                if ((ret = dict_get_int32 (options, "count", &brick_count)) != 0) {
-                        gf_log ("cli", GF_LOG_ERROR, "Replica bricks check : "
-                                                     "Could not retrieve brick count");
+                if ((ret = dict_get_int32 (options, "count",
+                                           &brick_count)) != 0) {
+                        gf_log ("cli", GF_LOG_ERROR, "Bricks check : Could "
+                                                     "not retrieve brick "
+                                                     "count");
                         goto out;
                 }
-                if ((ret = dict_get_int32 (options, "replica-count", &sub_count)) != 0) {
-                        gf_log ("cli", GF_LOG_ERROR, "Replica bricks check : "
-                                                    "Could not retrieve replica count");
-                        goto out;
+
+                if (type != GF_CLUSTER_TYPE_DISPERSE) {
+                    if ((ret = dict_get_int32 (options, "replica-count",
+                                               &sub_count)) != 0) {
+                            gf_log ("cli", GF_LOG_ERROR, "Bricks check : "
+                                                         "Could not retrieve "
+                                                         "replica count");
+                            goto out;
+                    }
+                    gf_log ("cli", GF_LOG_INFO, "Replicate cluster type found."
+                                                " Checking brick order.");
+                } else {
+                    ret = dict_get_int32 (options, "disperse-count",
+                                          &sub_count);
+                    if (ret) {
+                            gf_log ("cli", GF_LOG_ERROR, "Bricks check : "
+                                                         "Could not retrieve "
+                                                         "disperse count");
+                            goto out;
+                    }
+                    gf_log ("cli", GF_LOG_INFO, "Disperse cluster type found. "
+                                                "Checking brick order.");
                 }
-                gf_log ("cli", GF_LOG_INFO, "Replicate cluster type found."
-                                            " Checking brick order.");
-                ret = cli_cmd_check_brick_order (state, brick_list, brick_count, sub_count);
+                ret = cli_cmd_check_brick_order (state, brick_list,
+                                                 brick_count, sub_count);
                 if (ret) {
-                        gf_log("cli", GF_LOG_INFO, "Not creating volume because of bad brick order");
+                        gf_log("cli", GF_LOG_INFO, "Not creating volume "
+                                                   "because of bad brick "
+                                                   "order");
                         goto out;
                 }
         }
-
 
         ret = dict_get_str (options, "transport", &trans_type);
         if (ret) {
@@ -2328,6 +2351,7 @@ struct cli_cmd volume_cmds[] = {
           "list information of all volumes"},
 
         { "volume create <NEW-VOLNAME> [stripe <COUNT>] [replica <COUNT>] "
+          "[disperse [<COUNT>]] [redundancy <COUNT>] "
           "[transport <tcp|rdma|tcp,rdma>] <NEW-BRICK>"
 #ifdef HAVE_BD_XLATOR
           "?<vg_name>"
