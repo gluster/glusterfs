@@ -3553,7 +3553,7 @@ cli_snap_config_limit_parse (const char **words, dict_t *dict,
                              char *key)
 {
         int             ret             = -1;
-        unsigned int    limit           = 0;
+        int             limit           = 0;
         char            *end_ptr        = NULL;
 
         GF_ASSERT (words);
@@ -3573,18 +3573,6 @@ cli_snap_config_limit_parse (const char **words, dict_t *dict,
                 ret = -1;
                 cli_err("Please enter an integer value "
                         "greater than zero for %s", key);
-                goto out;
-        }
-
-        if (strcmp (key, "snap-max-hard-limit") == 0 && limit > 256) {
-                ret = -1;
-                cli_err ("%s value cannot be more than 256", key);
-                goto out;
-        }
-
-        if (strcmp (key, "snap-max-soft-limit") == 0 && limit > 100) {
-                ret = -1;
-                cli_err ("%s value cannot be more than 100", key);
                 goto out;
         }
 

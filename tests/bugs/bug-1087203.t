@@ -32,6 +32,8 @@ TEST ! $CLI snapshot config snap-max-soft-limit 0111
 TEST ! $CLI snapshot config snap-max-hard-limit OXA
 TEST ! $CLI snapshot config snap-max-hard-limit 11.11
 TEST ! $CLI snapshot config snap-max-soft-limit 50%
+TEST ! $CLI snapshot config snap-max-hard-limit -100
+TEST ! $CLI snapshot config snap-max-soft-limit -90
 
 # Soft limit cannot be assigned to volume
 TEST ! $CLI snapshot config $V0 snap-max-soft-limit 10
