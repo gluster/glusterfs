@@ -2684,10 +2684,14 @@ volume_volgen_graph_build_clusters (volgen_graph_t *graph,
                                                        "%s-replicate-%d"};
         char                    *stripe_args[]      = {"cluster/stripe",
                                                        "%s-stripe-%d"};
+        char                    *disperse_args[]    = {"cluster/disperse",
+                                                       "%s-disperse-%d"};
+        char                    option[32]          = "";
         int                     rclusters           = 0;
         int                     clusters            = 0;
         int                     dist_count          = 0;
         int                     ret                 = -1;
+        xlator_t *              ec                  = NULL;
 
         if (!volinfo->dist_leaf_count)
                 goto out;
@@ -2736,6 +2740,26 @@ volume_volgen_graph_build_clusters (volgen_graph_t *graph,
                                                         volinfo->stripe_count);
                 if (clusters < 0)
                         goto out;
+                break;
+        case GF_CLUSTER_TYPE_DISPERSE:
+                clusters = volgen_graph_build_clusters (graph, volinfo,
+                                                        disperse_args[0],
+                                                        disperse_args[1],
+                                                        volinfo->brick_count,
+                                                        volinfo->disperse_count);
+                if (clusters < 0)
+                        goto out;
+
+                sprintf(option, "%d", volinfo->redundancy_count);
+                ec = first_of (graph);
+                while (clusters-- > 0) {
+                        ret = xlator_set_option (ec, "redundancy", option);
+                        if (ret)
+                                goto out;
+
+                        ec = ec->next;
+                }
+
                 break;
         default:
                 gf_log ("", GF_LOG_ERROR, "volume inconsistency: "

@@ -169,6 +169,12 @@ gd_addbr_validate_stripe_count (glusterd_volinfo_t *volinfo, int stripe_count,
                         }
                 }
                 break;
+        case GF_CLUSTER_TYPE_DISPERSE:
+                snprintf (err_str, err_len, "Volume %s cannot be converted "
+                                            "from dispersed to striped-"
+                                            "dispersed", volinfo->volname);
+                gf_log(THIS->name, GF_LOG_ERROR, "%s", err_str);
+                goto out;
         }
 
 out:
@@ -259,6 +265,12 @@ gd_addbr_validate_replica_count (glusterd_volinfo_t *volinfo, int replica_count,
                         }
                 }
                 break;
+        case GF_CLUSTER_TYPE_DISPERSE:
+                snprintf (err_str, err_len, "Volume %s cannot be converted "
+                                            "from dispersed to replicated-"
+                                            "dispersed", volinfo->volname);
+                gf_log(THIS->name, GF_LOG_ERROR, "%s", err_str);
+                goto out;
         }
 out:
         return ret;
@@ -276,6 +288,7 @@ gd_rmbr_validate_replica_count (glusterd_volinfo_t *volinfo,
         switch (volinfo->type) {
         case GF_CLUSTER_TYPE_NONE:
         case GF_CLUSTER_TYPE_STRIPE:
+        case GF_CLUSTER_TYPE_DISPERSE:
                 snprintf (err_str, err_len,
                           "replica count (%d) option given for non replicate "
                           "volume %s", replica_count, volinfo->volname);
@@ -737,6 +750,8 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 strcpy (vol_type, "stripe");
         } else if (volinfo->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) {
                 strcpy (vol_type, "stripe-replicate");
+        } else if (volinfo->type == GF_CLUSTER_TYPE_DISPERSE) {
+                strcpy (vol_type, "disperse");
         } else {
                 strcpy (vol_type, "distribute");
         }

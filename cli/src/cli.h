@@ -221,8 +221,8 @@ cli_submit_request (struct rpc_clnt *rpc, void *req, call_frame_t *frame,
                     xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);
 
 int32_t
-cli_cmd_volume_create_parse (const char **words, int wordcount,
-                             dict_t **options);
+cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
+                             int wordcount, dict_t **options);
 
 int32_t
 cli_cmd_volume_reset_parse (const char **words, int wordcount, dict_t **opt);

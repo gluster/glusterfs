@@ -1689,6 +1689,27 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                                 "replica count for volume %s", volname);
                         goto out;
                 }
+        } else if (GF_CLUSTER_TYPE_DISPERSE == volinfo->type) {
+                ret = dict_get_int32 (dict, "disperse-count",
+                                      &volinfo->disperse_count);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                                 "disperse count for volume %s", volname);
+                        goto out;
+                }
+                ret = dict_get_int32 (dict, "redundancy-count",
+                                      &volinfo->redundancy_count);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                                 "redundancy count for volume %s", volname);
+                        goto out;
+                }
+                if (priv->op_version < GD_OP_VERSION_3_6_0) {
+                        gf_log (this->name, GF_LOG_ERROR, "Disperse volume "
+                                "needs op-version 3.6.0 or higher");
+                        ret = -1;
+                        goto out;
+                }
         }
 
         /* dist-leaf-count is the count of brick nodes for a given
