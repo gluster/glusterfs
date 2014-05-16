@@ -654,7 +654,9 @@ afr_unlock_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (op_ret < 0 && op_errno != ENOTCONN && op_errno != EBADFD) {
-                gf_log (this->name, GF_LOG_INFO, "%s: unlock failed on subvolume %s "
+                gf_msg (this->name, GF_LOG_INFO, op_errno,
+                        AFR_MSG_ENTRY_UNLOCK_FAIL,
+                        "%s: unlock failed on subvolume %s "
                         "with lock owner %s", local->loc.path,
                         priv->children[child_index]->name,
                         lkowner_utoa (&frame->root->lk_owner));

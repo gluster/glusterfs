@@ -85,7 +85,7 @@ void
 fix_quorum_options (xlator_t *this, afr_private_t *priv, char *qtype)
 {
         if (priv->quorum_count && strcmp(qtype,"fixed")) {
-                gf_log(this->name,GF_LOG_WARNING,
+                gf_msg (this->name,GF_LOG_WARNING, 0, AFR_MSG_QUORUM_OVERRIDE,
                        "quorum-type %s overriding quorum-count %u",
                        qtype, priv->quorum_count);
         }
@@ -181,7 +181,8 @@ reconfigure (xlator_t *this, dict_t *options)
                           uint32, out);
         fix_quorum_options(this,priv,qtype);
         if (priv->quorum_count && !afr_has_quorum (priv->child_up, this))
-                gf_log (this->name, GF_LOG_WARNING, "Client-quorum is not met");
+                gf_msg (this->name, GF_LOG_WARNING, 0, AFR_MSG_QUORUM_FAIL,
+                        "Client-quorum is not met");
 
 
 	GF_OPTION_RECONF ("post-op-delay-secs", priv->post_op_delay_secs, options,

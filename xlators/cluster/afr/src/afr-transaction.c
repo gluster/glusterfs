@@ -548,8 +548,9 @@ afr_handle_quorum (call_frame_t *frame)
                 file = local->loc.path;
         }
 
-        gf_log (frame->this->name, GF_LOG_WARNING, "%s: Failing %s as quorum "
-                "is not met", file, gf_fop_list[local->op]);
+        gf_msg (frame->this->name, GF_LOG_WARNING, 0, AFR_MSG_QUORUM_FAIL,
+                "%s: Failing %s as quorum is not met",
+                file, gf_fop_list[local->op]);
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->transaction.pre_op[i])

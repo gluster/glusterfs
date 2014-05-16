@@ -26,6 +26,7 @@
 #include "syncop.h"
 
 #include "afr-self-heald.h"
+#include "afr-messages.h"
 
 #define AFR_XATTR_PREFIX "trusted.afr"
 #define AFR_PATHINFO_HEADER "REPLICATE:"
