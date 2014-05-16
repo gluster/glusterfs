@@ -212,9 +212,10 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
 							local->readable);
 
 	if (read_subvol < 0 || read_subvol > priv->child_count) {
-		gf_log (this->name, GF_LOG_WARNING, "Unreadable subvolume %d "
-			"found with event generation %d", read_subvol,
-			event_generation);
+		gf_msg (this->name, GF_LOG_WARNING, 0, AFR_MSG_SPLIT_BRAIN,
+                       "Unreadable subvolume %d found with event generation "
+                       "%d. (Possible split-brain)",
+                        read_subvol, event_generation);
 		goto refresh;
 	}
 

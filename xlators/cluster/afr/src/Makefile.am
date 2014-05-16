@@ -21,7 +21,7 @@ pump_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 noinst_HEADERS = afr.h afr-transaction.h afr-inode-write.h afr-inode-read.h \
 	afr-dir-read.h afr-dir-write.h afr-self-heal.h afr-mem-types.h \
 	afr-common.c afr-self-heald.h pump.h \
-	$(top_builddir)/xlators/lib/src/libxlator.h
+	$(top_builddir)/xlators/lib/src/libxlator.h afr-messages.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/xlators/lib/src \

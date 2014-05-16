@@ -844,7 +844,8 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 		}
 
 		if (!IA_EQUAL (first, replies[i].poststat, type)) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_SPLIT_BRAIN,
 				"TYPE mismatch %d vs %d on %s for gfid:%s",
 				(int) first.ia_type,
 				(int) replies[i].poststat.ia_type,

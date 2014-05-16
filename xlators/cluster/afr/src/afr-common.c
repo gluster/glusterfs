@@ -46,7 +46,7 @@
 #include "afr-transaction.h"
 #include "afr-self-heal.h"
 #include "afr-self-heald.h"
-
+#include "afr-messages.h"
 
 call_frame_t *
 afr_copy_frame (call_frame_t *base)
@@ -3178,8 +3178,8 @@ afr_notify (xlator_t *this, int32_t event,
          */
         idx = find_child_index (this, data);
         if (idx < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Received child_up "
-                        "from invalid subvolume");
+                gf_msg (this->name, GF_LOG_ERROR, 0, AFR_MSG_INVALID_CHILD_UP,
+                        "Received child_up from invalid subvolume");
                 goto out;
         }
 
@@ -3207,7 +3207,8 @@ afr_notify (xlator_t *this, int32_t event,
                                 if (priv->child_up[i] == 1)
                                         up_children++;
                         if (up_children == 1) {
-                                gf_log (this->name, GF_LOG_INFO,
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        AFR_MSG_SUBVOL_UP,
                                         "Subvolume '%s' came back up; "
                                         "going online.", ((xlator_t *)data)->name);
                         } else {
@@ -3245,7 +3246,8 @@ afr_notify (xlator_t *this, int32_t event,
                                 if (priv->child_up[i] == 0)
                                         down_children++;
                         if (down_children == priv->child_count) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        AFR_MSG_ALL_SUBVOLS_DOWN,
                                         "All subvolumes are down. Going offline "
                                         "until atleast one of them comes back up.");
                         } else {
@@ -3286,10 +3288,11 @@ afr_notify (xlator_t *this, int32_t event,
         if (priv->quorum_count) {
                 has_quorum = afr_has_quorum (priv->child_up, this);
                 if (!had_quorum && has_quorum)
-                        gf_log (this->name, GF_LOG_INFO, "Client-quorum"
-                                " is met");
+                        gf_msg (this->name, GF_LOG_INFO, 0, AFR_MSG_QUORUM_MET,
+                                "Client-quorum is met");
                 if (had_quorum && !has_quorum)
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                AFR_MSG_QUORUM_FAIL,
                                 "Client-quorum is not met");
         }
 
