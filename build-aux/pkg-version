@@ -1,11 +1,11 @@
-#!/bin/bash
+#!/bin/sh
 
 # To override version/release from git,
 # create VERSION file containing text with version/release
 # eg. v3.4.0-1
 PKG_VERSION=`cat VERSION 2> /dev/null || git describe --tags --match "v[0-9]*"`
 
-function get_version ()
+get_version()
 {
     # tags and output versions:
     #   - v3.4.0   => 3.4.0 (upstream clean)
@@ -21,7 +21,7 @@ function get_version ()
     echo $PKG_VERSION | awk "$AWK_VERSION" | tr -cd '[:alnum:].'
 }
 
-function get_release ()
+get_release()
 {
     # tags and output releases:
     #   - v3.4.0   => 0 (upstream clean)

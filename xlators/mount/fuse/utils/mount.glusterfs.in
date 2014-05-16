@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Copyright (c) 2013 Red Hat, Inc. <http://www.redhat.com>
 # This file is part of GlusterFS.
@@ -37,7 +37,6 @@ _init ()
         warn "WARNING: getfattr not found, certain checks will be skipped.."
     fi
 
-    alias lsL='ls -L'
     mounttab=/proc/mounts
     uname_s=`uname -s`
     case ${uname_s} in
@@ -330,7 +329,7 @@ check_recursive_mount ()
     # remove trailing / from mount point
     mnt_dir=${1%/};
 
-    if [ -n ${getfattr} ]; then
+    if [ -n "${getfattr}" ]; then
         ${getfattr} -n trusted.gfid $mnt_dir 2>/dev/null | grep -iq "trusted.gfid=";
         if [ $? -eq 0 ]; then
             warn "ERROR: $mnt_dir is in use as a brick of a gluster volume";
@@ -341,7 +340,7 @@ check_recursive_mount ()
     # check if the mount point is a brick's parent directory
     GLUSTERD_WORKDIR="/var/lib/glusterd";
 
-    lsL "$GLUSTERD_WORKDIR"/vols/*/bricks/* > /dev/null 2>&1;
+    ls -L "$GLUSTERD_WORKDIR"/vols/*/bricks/* > /dev/null 2>&1;
     if [ $? -ne 0 ]; then
         return;
     fi
@@ -358,7 +357,7 @@ check_recursive_mount ()
             continue;
         fi
 
-        if [ -n ${getfattr} ]; then
+        if [ -n "${getfattr}" ]; then
             ${getfattr} -n trusted.gfid "$brick" 2>/dev/null | grep -iq "trusted.gfid=";
             if [ $? -eq 0 ]; then
                 # brick is local
@@ -452,17 +451,17 @@ with_options()
             use_readdirp=$value
             ;;
         "no-root-squash")
-            if [ $value == "yes" ] ||
-                [ $value == "on" ] ||
-                [ $value == "enable" ] ||
-                [ $value == "true" ] ; then
+            if [ $value = "yes" ] ||
+                [ $value = "on" ] ||
+                [ $value = "enable" ] ||
+                [ $value = "true" ] ; then
                 no_root_squash=1;
             fi ;;
         "root-squash")
-            if [ $value == "no" ] ||
-                [ $value == "off" ] ||
-                [ $value == "disable" ] ||
-                [ $value == "false" ] ; then
+            if [ $value = "no" ] ||
+                [ $value = "off" ] ||
+                [ $value = "disable" ] ||
+                [ $value = "false" ] ; then
                 no_root_squash=1;
             fi ;;
         *)
@@ -521,7 +520,7 @@ without_options()
 parse_options()
 {
     local optarg=${1}
-    for pair in $(echo ${optarg//,/ }); do
+    for pair in $(echo ${optarg}|sed 's/,/ /g'); do
         key=$(echo "$pair" | cut -f1 -d'=');
         value=$(echo "$pair" | cut -f2- -d'=');
         if [ "$key" = "$value" ]; then
@@ -549,16 +548,18 @@ update_updatedb()
 
 main ()
 {
+    if [ "x${uname_s}" = "xLinux" ] ; then
+        volfile_loc=$1
+        mount_point=$2
 
-    volfile_loc=$1
-    mount_point=$2
-
-    ## `mount` specifies options as a last argument
-    shift 2;
+        ## `mount` specifies options as a last argument
+        shift 2;
+    fi
     while getopts "Vo:h" opt; do
         case "${opt}" in
             o)
                 parse_options ${OPTARG};
+		shift 2;
                 ;;
             V)
                 ${cmd_line} -V;
@@ -574,6 +575,11 @@ main ()
                 ;;
         esac
     done
+
+    if [ "x${uname_s}" = "xNetBSD" ] ; then
+        volfile_loc=$1
+        mount_point=$2
+    fi
 
     [ -r "$volfile_loc" ] || {
         server_ip=$(echo "$volfile_loc" | sed -n 's/\([a-zA-Z0-9:.\-]*\):.*/\1/p');

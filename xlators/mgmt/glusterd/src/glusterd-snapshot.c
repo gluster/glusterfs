@@ -27,7 +27,6 @@
 #endif
 
 #ifdef __NetBSD__
-#include <perfuse.h>
 #define umount2(dir, flags) unmount(dir, ((flags) != 0) ? MNT_FORCE : 0)
 #endif
 
@@ -3687,7 +3686,7 @@ out:
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING, "unmounting the snap brick"
                         " mount %s", snap_brick_mount_path);
-#if !defined(GF_DARWIN_HOST_OS)
+#if !defined(GF_DARWIN_HOST_OS) && !defined(__NetBSD__)
                 umount (snap_brick_mount_path);
 #else
 		unmount (snap_brick_mount_path, 0);

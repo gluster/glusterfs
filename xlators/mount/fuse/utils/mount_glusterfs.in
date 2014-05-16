@@ -380,17 +380,17 @@ with_options()
             use_readdirp=$value
             ;;
         "no-root-squash")
-            if [ $value == "yes" ] ||
-                [ $value == "on" ] ||
-                [ $value == "enable" ] ||
-                [ $value == "true" ] ; then
+            if [ $value = "yes" ] ||
+                [ $value = "on" ] ||
+                [ $value = "enable" ] ||
+                [ $value = "true" ] ; then
                 no_root_squash=1;
             fi ;;
         "root-squash")
-            if [ $value == "no" ] ||
-                [ $value == "off" ] ||
-                [ $value == "disable" ] ||
-                [ $value == "false" ] ; then
+            if [ $value = "no" ] ||
+                [ $value = "off" ] ||
+                [ $value = "disable" ] ||
+                [ $value = "false" ] ; then
                 no_root_squash=1;
             fi ;;
         *)

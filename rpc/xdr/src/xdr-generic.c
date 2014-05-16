@@ -24,7 +24,7 @@ xdr_serialize_generic (struct iovec outmsg, void *res, xdrproc_t proc)
         xdrmem_create (&xdr, outmsg.iov_base, (unsigned int)outmsg.iov_len,
                        XDR_ENCODE);
 
-        if (!proc (&xdr, res, 0)) {
+        if (!proc (&xdr, res)) {
                 ret = -1;
                 goto ret;
         }
@@ -48,7 +48,7 @@ xdr_to_generic (struct iovec inmsg, void *args, xdrproc_t proc)
         xdrmem_create (&xdr, inmsg.iov_base, (unsigned int)inmsg.iov_len,
                        XDR_DECODE);
 
-        if (!proc (&xdr, args, 0)) {
+        if (!proc (&xdr, args)) {
                 ret  = -1;
                 goto ret;
         }
@@ -72,7 +72,7 @@ xdr_to_generic_payload (struct iovec inmsg, void *args, xdrproc_t proc,
         xdrmem_create (&xdr, inmsg.iov_base, (unsigned int)inmsg.iov_len,
                        XDR_DECODE);
 
-        if (!proc (&xdr, args, 0)) {
+        if (!proc (&xdr, args)) {
                 ret  = -1;
                 goto ret;
         }

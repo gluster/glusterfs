@@ -15,7 +15,7 @@ BACKUP_DIR=/var/tmp/glusterfs/quota-config-backup
 function set_limits {
         local var=$(gluster volume info $1 | grep 'features.quota'| cut -d" " -f2);
 
-        if  [ -z "$var" ] || [ "$var" == "off" ]; then
+        if  [ -z "$var" ] || [ "$var" = "off" ]; then
                 if [ $2 -eq '0' ]; then
                         echo "Volume $1 does not have quota enabled. " \
                              "Exiting ..."
@@ -54,7 +54,7 @@ if [ -z $1 ]; then
         exit 1;
 fi
 
-if [ "$1" == "all" ]; then
+if [ "$1" = "all" ]; then
         for VOL in `gluster volume list`;
             do
                     set_limits $VOL '1';
