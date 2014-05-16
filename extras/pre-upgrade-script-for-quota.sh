@@ -10,7 +10,7 @@ BACKUP_DIR=/var/tmp/glusterfs/quota-config-backup
 mkdir -p $BACKUP_DIR
 for i in `gluster volume list`; do
         var=$(gluster volume info $i | grep 'features.quota'| cut -d" " -f2);
-        if  [ -z "$var" ] || [ "$var" == "off" ]; then
+        if  [ -z "$var" ] || [ "$var" = "off" ]; then
                 continue
         else
                 gluster volume quota $i list > $BACKUP_DIR/vol_$i;
