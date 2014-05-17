@@ -47,6 +47,7 @@ struct meta_ops {
 	int (*file_fill) (xlator_t *this, inode_t *file, strfd_t *strfd);
 	int (*iatt_fill) (xlator_t *this, inode_t *inode, struct iatt *iatt);
 	int (*link_fill) (xlator_t *this, inode_t *inode, strfd_t *strfd);
+	int (*file_write) (xlator_t *this, fd_t *fd, struct iovec *iov, int count);
 	struct xlator_fops fops;
 	struct xlator_cbks cbks;
 };
