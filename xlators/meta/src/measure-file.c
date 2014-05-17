@@ -31,54 +31,19 @@ measure_file_fill (xlator_t *this, inode_t *file, strfd_t *strfd)
 
 
 static int
-measure_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
-		struct iovec *iov, int count, off_t offset,
-		uint32_t flags, struct iobref *iobref, dict_t *xdata)
+measure_file_write (xlator_t *this, fd_t *fd, struct iovec *iov, int count)
 {
-	struct iatt dummy = { };
 	long int num = -1;
 
 	num = strtol (iov[0].iov_base, NULL, 0);
 	this->ctx->measure_latency = !!num;
 
-	META_STACK_UNWIND (writev, frame, iov_length (iov, count), 0,
-			   &dummy, &dummy, xdata);
-	return 0;
-}
-
-
-int
-measure_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
-		   off_t offset, dict_t *xdata)
-{
-	struct iatt iatt = { };
-
-	meta_iatt_fill (&iatt, loc->inode, IA_IFREG);
-
-	META_STACK_UNWIND (truncate, frame, 0, 0, &iatt, &iatt, xdata);
-	return 0;
-}
-
-
-int
-measure_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd,
-		   off_t offset, dict_t *xdata)
-{
-	struct iatt iatt = { };
-
-	meta_iatt_fill (&iatt, fd->inode, IA_IFREG);
-
-	META_STACK_UNWIND (ftruncate, frame, 0, 0, &iatt, &iatt, xdata);
-	return 0;
+	return iov_length (iov, count);
 }
 
 static struct meta_ops measure_file_ops = {
 	.file_fill = measure_file_fill,
-	.fops = {
-		.truncate = measure_truncate,
-		.ftruncate = measure_ftruncate,
-		.writev = measure_writev
-	}
+	.file_write = measure_file_write,
 };
 
 
