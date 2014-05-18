@@ -877,8 +877,6 @@ void posix_dump_buffer (xlator_t *this, const char *real_path, const char *key,
 }
 #endif
 
-static int gf_xattr_enotsup_log;
-
 int
 posix_handle_pair (xlator_t *this, const char *real_path,
                    char *key, data_t *value, int flags)
@@ -900,14 +898,7 @@ posix_handle_pair (xlator_t *this, const char *real_path,
 #endif
                 if (sys_ret < 0) {
                         ret = -errno;
-                        if (errno == ENOTSUP) {
-                                GF_LOG_OCCASIONALLY(gf_xattr_enotsup_log,
-                                                    this->name,GF_LOG_WARNING,
-                                                    "Extended attributes not "
-                                                    "supported (try remounting "
-                                                    "brick with 'user_xattr' "
-                                                    "flag)");
-                        } else if (errno == ENOENT) {
+                        if (errno == ENOENT) {
                                 if (!posix_special_xattr (marker_xattrs,
                                                           key)) {
                                         gf_log (this->name, GF_LOG_ERROR,
@@ -955,14 +946,7 @@ posix_fhandle_pair (xlator_t *this, int fd,
 
         if (sys_ret < 0) {
                 ret = -errno;
-                if (errno == ENOTSUP) {
-                        GF_LOG_OCCASIONALLY(gf_xattr_enotsup_log,
-                                            this->name,GF_LOG_WARNING,
-                                            "Extended attributes not "
-                                            "supported (try remounting "
-                                            "brick with 'user_xattr' "
-                                            "flag)");
-                } else if (errno == ENOENT) {
+                if (errno == ENOENT) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "fsetxattr on fd=%d failed: %s", fd,
                                 strerror (errno));
