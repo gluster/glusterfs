@@ -52,24 +52,40 @@ REPO=${PWD}
 COMMIT=$(git describe)
 mkdir rpmbuild-mock.d
 pushd rpmbuild-mock.d 2>/dev/null
-git clone -q -s file://${REPO} .
-git checkout -q -b rpm-test ${COMMIT}
+
+function git_quiet() {
+        git ${@} 2>&1 > /dev/null
+}
+
+TEST git_quiet clone -s file://${REPO} .
+TEST git_quiet checkout -b rpm-test ${COMMIT}
 
 # build the glusterfs-*.tar.gz
-[ -e configure ] || ./autogen.sh 2>&1 > /dev/null
-TEST ./configure --enable-fusermount
+function build_srpm_from_tgz() {
+        rpmbuild -ts $1 \
+                --define "_srcrpmdir ${PWD}" \
+                --define '_source_payload w9.gzdio' \
+                --define '_source_filedigest_algorithm 1'
+}
+
+TEST ./autogen.sh
+TEST ./configure
 TEST make dist
 
 # build the glusterfs src.rpm
-ls extras
-TEST make -C extras/LinuxRPM testsrpm
+TEST build_srpm_from_tgz ${PWD}/*.tar.gz
 
 # build for the last two Fedora EPEL releases (x86_64 only)
 for MOCK_CONF in $(ls -x1 /etc/mock/*.cfg | egrep -e 'epel-[0-9]+-x86_64.cfg$' | tail -n2)
 do
 	EPEL_RELEASE=$(basename ${MOCK_CONF} .cfg)
+	mkdir -p "${PWD}/mock.d/${EPEL_RELEASE}"
+	chgrp mock "${PWD}/mock.d/${EPEL_RELEASE}"
+	chmod 0775 "${PWD}/mock.d/${EPEL_RELEASE}"
+	MOCK_RESULTDIR="--resultdir ${PWD}/mock.d/${EPEL_RELEASE}"
 	# expand the mock command line
 	MOCK_CMD="/usr/bin/mock ${MOCK_CLEANUP} \
+		${MOCK_RESULTDIR} \
 		-r ${EPEL_RELEASE} --rebuild ${PWD}/*.src.rpm"
 
 	# write the mock command to a file, so that its easier to execute
@@ -101,6 +117,13 @@ done
 # we could build for the last two Fedora releases too, but that is not
 # possible on EPEL-5/6 installations, Fedora 17 and newer have unmet
 # dependencies on the build-server :-/
+
+# logs are archived by Jenkins
+if [ -d '/build/install/var' ]
+then
+        LOGS=$(find mock.d -type f -name '*.log')
+        [ -n "${LOGS}" ] && xargs cp --parents ${LOGS} /build/install/var/
+fi
 
 popd 2>/dev/null
 # only remove rpmbuild-mock.d if we're not debugging
