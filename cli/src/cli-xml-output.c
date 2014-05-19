@@ -2535,7 +2535,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
         int                     j = 1;
         char                    *caps = NULL;
         int                     k __attribute__((unused)) = 0;
-        char                    *snap_volume = NULL;
 
         ret = dict_get_int32 (dict, "count", &count);
         if (ret)
@@ -2576,18 +2575,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                                        (xmlChar *)"status",
                                                        "%d", status);
                 XML_RET_CHECK_AND_GOTO (ret, out);
-
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "volume%d.snap_volume", i);
-                ret = dict_get_str (dict, key, &snap_volume);
-                if (ret)
-                        goto out;
-                if (snap_volume) {
-                        ret = xmlTextWriterWriteFormatElement (local->writer,
-                                                         (xmlChar *)"snapVol",
-                                                          "%s", snap_volume);
-                        XML_RET_CHECK_AND_GOTO (ret, out);
-                }
 
                 ret =xmlTextWriterWriteFormatElement
                         (local->writer, (xmlChar *)"statusStr", "%s",
