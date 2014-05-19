@@ -20,7 +20,7 @@ function main()
         exit 1;
     fi
 
-    home_dir=`getent passwd | grep $user | cut -d ':' -f 6`;
+    home_dir=`getent passwd $user | cut -d ':' -f 6`;
 
     if [ "$home_dir" == "" ]; then
         echo "No user $user found"

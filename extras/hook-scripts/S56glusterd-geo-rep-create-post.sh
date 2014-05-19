@@ -49,8 +49,7 @@ if [ -f $pub_file ]; then
     # For a non-root user copy the pub file to the user's home directory
     # For a root user copy the pub files to priv_dir->geo-rep.
     if [ "$slave_user" != "root" ]; then
-        slave_user_home_dir=`ssh $slave_user@$slave_ip 'source /etc/profile; echo $HOME'`
-        echo $slave_user_home_dir
+        slave_user_home_dir=`ssh $slave_user@$slave_ip "getent passwd $slave_user | cut -d ':' -f 6"`
         scp $pub_file $slave_user@$slave_ip:$slave_user_home_dir/common_secret.pem.pub_tmp
         ssh $slave_user@$slave_ip "mv $slave_user_home_dir/common_secret.pem.pub_tmp $slave_user_home_dir/common_secret.pem.pub"
     else
