@@ -17,7 +17,7 @@ $M0;
 TEST touch $M0/file
 TEST mkdir $M0/dir
 
-EXPECT_WITHIN 20 "1" is_nfs_export_available;
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 TEST mount_nfs $H0:/$V0 $N0 nolock
 cd $N0
 

@@ -53,7 +53,7 @@ TEST $CLI volume heal $V0
 
 
 ##Expected number of entries are 0 in the .glusterfs/indices/xattrop directory
-EXPECT_WITHIN 60 '0' count_sh_entries $FILEN;
+EXPECT_WITHIN $HEAL_TIMEOUT '0' count_sh_entries $FILEN;
 
 TEST $CLI volume stop $V0;
 TEST $CLI volume delete $V0;

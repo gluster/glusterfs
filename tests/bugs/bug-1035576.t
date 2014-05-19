@@ -29,7 +29,7 @@ TEST mkdir $M0/a
 TEST $CLI volume quota $V0 limit-usage /a 1GB
 echo abc > $M0/a/f
 $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 quota_limit_val1=$(get_hex_xattr trusted.glusterfs.quota.limit-set $B0/${V0}1/a)
 quota_size_val1=$(get_hex_xattr trusted.glusterfs.quota.size $B0/${V0}1/a)
 

@@ -39,12 +39,12 @@ TEST dd if=/dev/urandom of=$M0/jkl/mno/file.txt bs=1M count=4 2>/dev/null
 TEST chown  $NEW_UID:$NEW_GID $M0/def/ghi/file2.txt
 
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
-EXPECT_WITHIN 20 "Y" glustershd_up_status
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
-EXPECT_WITHIN 20 "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 #check all files created/deleted on brick1 are also replicated on brick 0
 #(i.e. no reverse heal has happened)
@@ -68,12 +68,12 @@ TEST rm -f $M0/file
 TEST mkdir $M0/file
 
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
-EXPECT_WITHIN 20 "Y" glustershd_up_status
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
-EXPECT_WITHIN 20 "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
 TEST test -d $B0/brick0/file
@@ -91,12 +91,12 @@ TEST chmod 666 $M0/file
 TEST kill_brick $V0 $H0 $B0/brick0
 TEST chmod 777 $M0/file
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
-EXPECT_WITHIN 20 "Y" glustershd_up_status
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
-EXPECT_WITHIN 20 "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
 EXPECT "777" stat --printf=%a $B0/brick0/file
@@ -115,12 +115,12 @@ NEW_UID=36
 NEW_GID=36
 TEST chown $NEW_UID:$NEW_GID $M0/file
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
-EXPECT_WITHIN 20 "Y" glustershd_up_status
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
-EXPECT_WITHIN 20 "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
 EXPECT "$NEW_UID$NEW_GID" stat --printf=%u%g $B0/brick0/file
@@ -138,20 +138,20 @@ TEST `echo "write1">$M0/file`
 TEST kill_brick $V0 $H0 $B0/brick0
 TEST `echo "write2">>$M0/file`
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
-EXPECT_WITHIN 20 "Y" glustershd_up_status
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
 TEST kill_brick $V0 $H0 $B0/brick1
 TEST truncate -s 0 $M0/file
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 1
-EXPECT_WITHIN 20 "Y" glustershd_up_status
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
-EXPECT_WITHIN 20 "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
 EXPECT 0 stat --printf=%s $B0/brick1/file
@@ -170,11 +170,11 @@ TEST rm -f $M0/file
 TEST touch $M0/file
 GFID=$(gf_get_gfid_xattr $B1/brick1/file)
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "Y" glustershd_up_status
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
-EXPECT_WITHIN 20 "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
 EXPECT "$GFID" gf_get_gfid_xattr $B0/brick0/file
@@ -193,12 +193,12 @@ TEST rm -f $M0/link_to_file
 TEST ln -s $M0/file $M0/link_to_file
 TEST ln  $M0/file $M0/hard_link_to_file
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
-EXPECT_WITHIN 20 "Y" glustershd_up_status
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
-EXPECT_WITHIN 20 "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
 TEST test -f $B0/brick0/hard_link_to_file
@@ -219,12 +219,12 @@ TEST kill_brick $V0 $H0 $B0/brick0
 TEST setfattr -n user.myattr_1 -v "My_attribute_1_modified" $M0/file
 TEST setfattr -n user.myattr_3 -v "My_attribute_3" $M0/file
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
-EXPECT_WITHIN 20 "Y" glustershd_up_status
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
-EXPECT_WITHIN 20 "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 TEST diff <(echo "user.myattr_1=\"My_attribute_1_modified\"") <(getfattr -n user.myattr_1 $B0/brick1/file|grep user.myattr_1)
 TEST diff <(echo "user.myattr_3=\"My_attribute_3\"") <(getfattr -n user.myattr_3 $B0/brick1/file|grep user.myattr_3)

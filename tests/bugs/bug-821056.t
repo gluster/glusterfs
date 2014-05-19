@@ -27,14 +27,14 @@ realpath=$(gf_get_gfid_backend_file_path $B0/${V0}0 "a")
 
 kill_brick $V0 $H0 $B0/${V0}0
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 
 EXPECT "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 "$realpath"
 
 kill_brick $V0 $H0 $B0/${V0}0
 TEST gf_rm_file_and_gfid_link $B0/${V0}0 "a"
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 ls -l $M0/a 2>&1 > /dev/null #Make sure the file is re-created
 EXPECT "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 "$realpath"
 EXPECT "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $B0/${V0}0/a
@@ -43,10 +43,10 @@ for i in {1..1024}; do
         echo "open sesame" >&5
 done
 
-EXPECT_WITHIN 20 "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $B0/${V0}0/a
+EXPECT_WITHIN $REOPEN_TIMEOUT "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $B0/${V0}0/a
 #close the fd
 exec 5>&-
 
 #Check that anon-fd based file is not leaking.
-EXPECT_WITHIN 20 "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 "$realpath"
+EXPECT_WITHIN $REOPEN_TIMEOUT "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 "$realpath"
 cleanup;

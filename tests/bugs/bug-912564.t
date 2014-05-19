@@ -38,7 +38,7 @@ mkdir -p $H0:$B0/${V0}3
 TEST $CLI volume create $V0 $H0:$B0/${V0}0 $H0:$B0/${V0}1 \
 			    $H0:$B0/${V0}2 $H0:$B0/${V0}3
 TEST $CLI volume start $V0
-EXPECT_WITHIN 15 'Started' volinfo_field $V0 'Status';
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field $V0 'Status';
 
 # Mount it.
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0

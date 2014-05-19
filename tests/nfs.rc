@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 # Due to portmap registration NFS takes some time to
 # export all volumes. Therefore tests should start only
 # after exports are visible by showmount command. This

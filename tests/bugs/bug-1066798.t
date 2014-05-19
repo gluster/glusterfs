@@ -56,7 +56,7 @@ done
 
 
 TEST $CLI volume remove-brick $V0 $H0:${HASHED} start
-EXPECT_WITHIN 20 "completed" remove_brick_status_completed_field "$V0" "$H0:${HASHED}";
+EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" remove_brick_status_completed_field "$V0" "$H0:${HASHED}";
 
 #check consistency in mount point
 #And also check all the links are migrated to OTHER

@@ -11,7 +11,7 @@ function clients_connected()
     volname=$1
     gluster volume status $volname clients | grep -i 'Clients connected' | sed -e 's/[^0-9]*\(.*\)/\1/g'
 }
-        
+
 ## Start and create a volume
 TEST glusterd;
 TEST pidof glusterd;
@@ -27,7 +27,7 @@ TEST $CLI volume stop $V0
 # write some content which will result in marking fd bad
 fd_write $fd "more content"
 TEST $CLI volume start $V0
-EXPECT_WITHIN 30 2 clients_connected $V0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 2 clients_connected $V0
 TEST ! fd_write $fd "still more content"
 
 cleanup

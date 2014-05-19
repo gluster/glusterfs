@@ -43,7 +43,7 @@ TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
 
-EXPECT_WITHIN 20 "1" is_nfs_export_available;
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 ## Mount NFS
 TEST mount_nfs $H0:/$V0 $N0 nolock;
 
@@ -69,7 +69,7 @@ setfattr -n trusted.glusterfs.volume-id -v $volid $B0/${V0}-0
 ## Restart and remount. Note that we use actimeo=0 so that the stat calls
 ## we need for self-heal don't get blocked by the NFS client.
 TEST $CLI volume start $V0;
-EXPECT_WITHIN 20 "1" is_nfs_export_available;
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 TEST mount_nfs $H0:/$V0 $N0 nolock,actimeo=0;
 
 ## The Linux NFS client has a really charming habit of caching stuff right
@@ -89,8 +89,8 @@ TEST gluster volume heal $V0 full
 ## check, but we want to test whether self-heal already happened.
 
 ## Make sure everything's in order on the recreated brick.
-EXPECT_WITHIN 20 'test_data' cat $B0/${V0}-0/a_file;
-EXPECT_WITHIN 20 'more_test_data' cat $B0/${V0}-0/a_dir/another_file;
+EXPECT_WITHIN $HEAL_TIMEOUT 'test_data' cat $B0/${V0}-0/a_file;
+EXPECT_WITHIN $HEAL_TIMEOUT 'more_test_data' cat $B0/${V0}-0/a_dir/another_file;
 
 if [ "$EXIT_EARLY" = "1" ]; then
 	exit 0;

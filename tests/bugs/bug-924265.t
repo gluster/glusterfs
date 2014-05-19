@@ -24,7 +24,7 @@ TEST $CLI volume set $V0 cluster.dht-xattr-name trusted.foo.bar
 
 # Start and mount the volume.
 TEST $CLI volume start $V0
-EXPECT_WITHIN 15 'Started' volinfo_field $V0 'Status';
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field $V0 'Status';
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0
 
 # Create a directory and make sure it has the right xattr.

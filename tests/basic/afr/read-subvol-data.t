@@ -24,7 +24,7 @@ TEST dd if=/dev/urandom of=$M0/afr_success_5.txt bs=1M count=1
 TEST kill_brick $V0 $H0 $B0/brick0
 TEST dd if=/dev/urandom of=$M0/afr_success_5.txt bs=1M count=10
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 5 "10485760" echo `ls -l $M0/afr_success_5.txt | awk '{ print $5}'`
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "10485760" echo `ls -l $M0/afr_success_5.txt | awk '{ print $5}'`
 
 #Cleanup
 TEST umount $M0

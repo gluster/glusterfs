@@ -11,7 +11,7 @@ TEST launch_cluster 2
 TEST setup_lvm 2
 
 TEST $CLI_1 peer probe $H2
-EXPECT_WITHIN 20 1 peer_count
+EXPECT_WITHIN $PROBE_TIMEOUT 1 peer_count
 
 TEST $CLI_1 volume create $V0 $H1:$L1 $H2:$L2
 EXPECT 'Created' volinfo_field $V0 'Status'

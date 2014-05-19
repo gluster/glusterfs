@@ -17,7 +17,7 @@ TEST launch_cluster 2;
 
 TEST $CLI_1 peer probe $H2;
 
-EXPECT_WITHIN 20 1 check_peers;
+EXPECT_WITHIN $PROBE_TIMEOUT 1 check_peers;
 
 B3=/d/backends/3
 mkdir -p $B3

@@ -50,15 +50,15 @@ echo "1" > $M0/c
 TEST setfattr -n trusted.mdata -v abc $M0/b
 TEST setfattr -n trusted.mdata -v abc $M0/d
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1
 TEST kill_brick $V0 $H0 $B0/${V0}1
 echo "2" > $M0/a
 echo "2" > $M0/c
 TEST setfattr -n trusted.mdata -v def $M0/b
 TEST setfattr -n trusted.mdata -v def $M0/d
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1
 
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id=$V0 $M1 --direct-io-mode=enable
 

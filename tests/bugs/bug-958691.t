@@ -11,7 +11,7 @@ TEST $CLI volume create $V0 $H0:$B0/${V0}{0,1}
 TEST $CLI volume start $V0;
 
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0;
-EXPECT_WITHIN 20 "1" is_nfs_export_available;
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 TEST mount_nfs $H0:/$V0 $N0 nolock;
 
 sleep 2;

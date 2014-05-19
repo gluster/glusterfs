@@ -22,7 +22,7 @@ TEST touch $M0/a
 TEST kill_brick $V0 $H0 $B0/${V0}0
 TEST rm -f $M0/a
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 TEST stat $B0/${V0}0/a
 TEST ! stat $B0/${V0}1/a
 TEST ! ls -l $M0/a

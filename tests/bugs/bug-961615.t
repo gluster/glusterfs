@@ -26,7 +26,7 @@ dd if=/dev/zero of=$M0/10 bs=1k &
 bg_pid=$!
 #Now rebalance force will migrate file '10'
 TEST $CLI volume rebalance $V0 start force
-EXPECT_WITHIN 60 "completed" rebalance_status_field $V0
+EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" rebalance_status_field $V0
 #If the bug exists mount would have crashed by now
 TEST ls $M0
 kill -9 $bg_pid > /dev/null 2>&1

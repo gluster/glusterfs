@@ -24,7 +24,7 @@ TEST ! $CLI volume remove-brick $V0 $H0:$B0/${V0}1
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}2 force
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}3 start
 
-EXPECT_WITHIN 10 "completed" remove_brick_status_completed_field "$V0" \
+EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" remove_brick_status_completed_field "$V0" \
 "$H0:$B0/${V0}3"
 
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}3 commit

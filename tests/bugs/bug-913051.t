@@ -35,7 +35,7 @@ TEST rfd=`fd_available`
 TEST fd_open $rfd "r" $M0/dir/b
 
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 
 #check that the files are not opned on brick-0
 realpatha=$(gf_get_gfid_backend_file_path $B0/${V0}0 "dir/a")
@@ -57,8 +57,8 @@ TEST fd_write $wfd "open sesame"
 #trigger readv for attempting open-fd-fix in afr
 TEST fd_cat $rfd
 
-EXPECT_WITHIN 20 "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $B0/${V0}0/dir/a
-EXPECT_WITHIN 20 "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $B0/${V0}0/dir/b
+EXPECT_WITHIN $REOPEN_TIMEOUT "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $B0/${V0}0/dir/a
+EXPECT_WITHIN $REOPEN_TIMEOUT "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $B0/${V0}0/dir/b
 
 TEST fd_close $wfd
 TEST fd_close $rfd

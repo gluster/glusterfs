@@ -21,7 +21,7 @@ sleep 5
 TEST $CLI volume heal $V0
 
 # Wait for self-heal to complete
-EXPECT_WITHIN 30 '0' count_sh_entries $BRICK;
+EXPECT_WITHIN $HEAL_TIMEOUT '0' count_sh_entries $BRICK;
 
 TEST getfattr -n "user.foo" $B0/${V0}0/f1;
 

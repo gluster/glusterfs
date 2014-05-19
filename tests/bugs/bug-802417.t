@@ -51,9 +51,9 @@ TEST write_file $M0/a_file "new_data"
 
 ## Bring all the bricks up and kill one so we do a partial self-heal.
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 1
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 2
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 2
 TEST kill_brick ${V0} ${H0} ${B0}/${V0}-2
 TEST dd if=${M0}/a_file of=/dev/null
 

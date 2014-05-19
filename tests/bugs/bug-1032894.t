@@ -21,13 +21,13 @@ for i in {1..10}; do echo abc > $i; done
 for i in {1..10}; do rm -f $i; done
 
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 TEST $CLI volume set $V0 cluster.self-heal-daemon on
-EXPECT_WITHIN 20 "Y" glustershd_up_status
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 
 #Since maximum depth of the directory structure that needs healin is 2
 #Trigger two self-heals. That should make sure the heal is complete
 TEST $CLI volume heal $V0
 
-EXPECT_WITHIN 20 "0"  afr_get_index_count $B0/${V0}1
+EXPECT_WITHIN $HEAL_TIMEOUT "0"  afr_get_index_count $B0/${V0}1
 cleanup

@@ -25,16 +25,16 @@ TEST kill_brick $V0 $H0 $B0/r2d2_2
 EXPECT "100" num_files_in_dir $M0
 
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 2
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 2
 
 TEST kill_brick $V0 $H0 $B0/r2d2_1
 TEST kill_brick $V0 $H0 $B0/r2d2_3
 EXPECT "100" num_files_in_dir $M0
 
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 1
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 3
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 3
 
 TEST $CLI volume set $V0 cluster.strict-readdir on
 EXPECT "on" volinfo_field $V0 cluster.strict-readdir
@@ -43,8 +43,8 @@ TEST kill_brick $V0 $H0 $B0/r2d2_2
 EXPECT "100" num_files_in_dir $M0
 
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 2
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 2
 
 TEST kill_brick $V0 $H0 $B0/r2d2_1
 TEST kill_brick $V0 $H0 $B0/r2d2_3

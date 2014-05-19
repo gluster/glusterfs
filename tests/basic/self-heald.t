@@ -34,15 +34,11 @@ TEST ! $CLI volume heal $V0 info
 TEST ! $CLI volume heal $V0
 TEST $CLI volume start $V0 force
 TEST $CLI volume set $V0 cluster.self-heal-daemon on
-EXPECT_WITHIN 20 "Y" glustershd_up_status
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 2
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 4
-TEST $CLI volume heal $V0
-sleep 5 #Until the heal-statistics command implementation
-#check that this heals the contents partially
-TEST [ $HEAL_FILES -gt $(afr_get_pending_heal_count $V0) ]
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 2
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 4
 
 TEST $CLI volume heal $V0 full
-EXPECT_WITHIN 30 "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 cleanup
