@@ -510,9 +510,6 @@ gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         gf_cli_rsp                 rsp                  = {0};
         char                      *caps                 = NULL;
         int                        k __attribute__((unused)) = 0;
-        /* snap_volume variable helps in showing whether a volume is a normal
-         * volume or a volume for the snapshot */
-        int32_t                    snap_volume          = 0;
 
         if (-1 == req->rpc_status)
                 goto out;
@@ -634,11 +631,6 @@ xml_output:
                 if (ret)
                         goto out;
 
-                snprintf (key, sizeof (key), "volume%d.snap_volume", i);
-                ret = dict_get_int32 (dict, key, &snap_volume);
-                if (ret)
-                        goto out;
-
                 snprintf (key, 256, "volume%d.brick_count", i);
                 ret = dict_get_int32 (dict, key, &brick_count);
                 if (ret)
@@ -679,10 +671,6 @@ xml_output:
                 cli_out ("Type: %s", cli_vol_type_str[vol_type]);
                 cli_out ("Volume ID: %s", volume_id_str);
                 cli_out ("Status: %s", cli_vol_status_str[status]);
-                if (snap_volume)
-                        cli_out ("Snap Volume: %s", "yes");
-                else
-                        cli_out ("Snap Volume: %s", "no");
 
 #ifdef HAVE_BD_XLATOR
                 k = 0;

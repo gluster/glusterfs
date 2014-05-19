@@ -378,21 +378,6 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        /* As of now, the snap volumes are also displayed as part of
-           volume info command. So this change is to display whether
-           the volume is original volume or the snap_volume. If
-           displaying of snap volumes in volume info o/p is not needed
-           this should be removed.
-        */
-        snprintf (key, 256, "volume%d.snap_volume", count);
-        ret = dict_set_int32 (volumes, key, volinfo->is_snap_volume);
-        if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "failed to set whether "
-                        "the volume is a snap volume or actual volume (%s)",
-                        volinfo->volname);
-                goto out;
-        }
-
         snprintf (key, 256, "volume%d.brick_count", count);
         ret = dict_set_int32 (volumes, key, volinfo->brick_count);
         if (ret)
