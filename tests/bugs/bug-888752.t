@@ -13,7 +13,7 @@ cleanup
 
 TEST launch_cluster 2;
 TEST $CLI_1 peer probe $H2;
-EXPECT_WITHIN 5 1 get_peer_count
+EXPECT_WITHIN $PROBE_TIMEOUT 1 get_peer_count
 TEST $CLI_1 volume create $V0 $H1:$B1/$V0 $H2:$B2/$V0
 TEST $CLI_1 volume start $V0
 

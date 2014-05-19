@@ -13,7 +13,7 @@ TEST launch_cluster 3; # start 3-node virtual cluster
 TEST $CLI_1 peer probe $H2; # peer probe server 2 from server 1 cli
 TEST $CLI_1 peer probe $H3; # peer probe server 3 from server 1 cli
 
-EXPECT_WITHIN 20 2 check_peers;
+EXPECT_WITHIN $PROBE_TIMEOUT 2 check_peers;
 
 TEST $CLI_1 volume create $V0 replica 2 $H1:$B1/$V0 $H1:$B1/${V0}_1 $H2:$B2/$V0 $H3:$B3/$V0
 TEST $CLI_1 volume start $V0

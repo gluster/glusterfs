@@ -15,7 +15,7 @@ sleep 2;
 ## Mount FUSE with caching disabled
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
 
-EXPECT_WITHIN 20 "1" is_nfs_export_available;
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 
 
 useradd tmp_user 2>/dev/null 1>/dev/null;
@@ -34,7 +34,7 @@ TEST $CLI volume set $V0 server.root-squash on;
 
 sleep 2;
 
-EXPECT_WITHIN 20 "1" is_nfs_export_available;
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 
 # create files and directories in the root of the glusterfs and nfs mount
 # which is owned by root and hence the right behavior is getting EACCESS

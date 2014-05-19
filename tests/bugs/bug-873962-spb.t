@@ -24,12 +24,12 @@ exec 5<$M0/a
 kill_brick $V0 $H0 $B0/${V0}0
 echo "hi" > $M0/a
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 
 kill_brick $V0 $H0 $B0/${V0}1
 echo "bye" > $M0/a
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1
 
 TEST ! cat $M0/a #To mark split-brain
 

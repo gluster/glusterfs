@@ -50,7 +50,7 @@ TEST 'mount -t fuse.glusterfs | grep -E "^$H0:$V0 .+ \(ro,"';
 TEST 'grep -E "^$H0:$V0 .+ ,?ro,.+" /proc/mounts';
 
 ## Wait for volume to register with rpc.mountd
-EXPECT_WITHIN 20 "1" is_nfs_export_available;
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 
 ## Mount NFS
 TEST mount -t nfs -o nolock,soft,intr $H0:/$V0 $N0;

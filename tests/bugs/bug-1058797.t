@@ -28,7 +28,7 @@ EXPECT "s" echo $setuid_bit1
 
 #Restart volume and do lookup from mount to trigger heal
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1
 TEST dd if=$M0/file of=/dev/null
 
 #Get file permissions from healed brick1 and verify that S_ISUID is indeed set

@@ -76,7 +76,7 @@ TEST setup_lvm 3
 
 TEST $CLI_1 peer probe $H2;
 TEST $CLI_1 peer probe $H3;
-EXPECT_WITHIN 20 2 peer_count;
+EXPECT_WITHIN $PROBE_TIMEOUT 2 peer_count;
 
 create_volumes
 EXPECT 'Created' volinfo_field $V0 'Status';

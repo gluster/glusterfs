@@ -79,7 +79,7 @@ TEST launch_cluster 3;
 TEST $CLI_1 peer probe $H2;
 TEST $CLI_1 peer probe $H3;
 
-EXPECT_WITHIN 20 2 check_peers
+EXPECT_WITHIN $PROBE_TIMEOUT 2 check_peers
 
 two_diff_vols_create
 EXPECT 'Created' volinfo_field $V0 'Status';
@@ -92,12 +92,12 @@ EXPECT 'Started' volinfo_field $V1 'Status';
 same_vol_remove_brick $V0 $H2:$B2/$V0
 # Checking glusterd crashed or not after same volume remove brick
 # on both nodes.
-EXPECT_WITHIN 20 2 check_peers
+EXPECT_WITHIN $PROBE_TIMEOUT 2 check_peers
 
 same_vol_remove_brick $V1 $H2:$B2/$V1
 # Checking glusterd crashed or not after same volume remove brick
 # on both nodes.
-EXPECT_WITHIN 20 2 check_peers
+EXPECT_WITHIN $PROBE_TIMEOUT 2 check_peers
 
 $CLI_1 volume set $V0 diagnostics.client-log-level DEBUG &
 $CLI_1 volume set $V1 diagnostics.client-log-level DEBUG
@@ -105,7 +105,7 @@ kill_glusterd 3
 $CLI_1 volume status $V0
 $CLI_2 volume status $V1
 $CLI_1 peer status
-EXPECT_WITHIN 20 1 check_peers
+EXPECT_WITHIN $PROBE_TIMEOUT 1 check_peers
 EXPECT 'Started' volinfo_field $V0 'Status';
 EXPECT 'Started' volinfo_field $V1 'Status';
 
@@ -113,9 +113,9 @@ TEST $glusterd_3
 $CLI_1 volume status $V0
 $CLI_2 volume status $V1
 $CLI_1 peer status
-#EXPECT_WITHIN 20 2 check_peers
+#EXPECT_WITHIN $PROBE_TIMEOUT 2 check_peers
 #EXPECT 'Started' volinfo_field $V0 'Status';
 #EXPECT 'Started' volinfo_field $V1 'Status';
 #two_diff_vols_stop_force
-#EXPECT_WITHIN 20 2 check_peers
+#EXPECT_WITHIN $PROBE_TIMEOUT 2 check_peers
 cleanup;

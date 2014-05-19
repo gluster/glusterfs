@@ -34,13 +34,13 @@ TEST glusterfs -s $H0 --volfile-id $V0 $M0;
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}2 start
 
 ## remove-brick status == rebalance_status
-EXPECT_WITHIN 30 "0" remove_brick_completed
+EXPECT_WITHIN $REBALANCE_TIMEOUT "0" remove_brick_completed
 
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}2 stop
 
 TEST $CLI volume rebalance $V0 fix-layout start
 
-EXPECT_WITHIN 30 "0" rebalance_completed
+EXPECT_WITHIN $REBALANCE_TIMEOUT "0" rebalance_completed
 
 TEST mkdir $M0/dir 2>/dev/null;
 

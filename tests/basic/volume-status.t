@@ -24,8 +24,8 @@ TEST mount -t nfs -o vers=3,nolock,soft,intr $H0:/$V0 $N0;
 TEST $CLI volume status all
 TEST $CLI volume status $V0
 
-EXPECT_WITHIN 10 'Y' nfs_up_status
-EXPECT_WITHIN 10 'Y' glustershd_up_status
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Y' nfs_up_status
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Y' glustershd_up_status
 function test_nfs_cmds () {
     local ret=0
     declare -a nfs_cmds=("clients" "mem" "inode" "callpool")

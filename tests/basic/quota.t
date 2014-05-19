@@ -74,20 +74,20 @@ TEST ! dd if=/dev/urandom of=$M0/test_dir/1.txt bs=1M count=12
 TEST rm $M0/test_dir/1.txt
 
 # wait for marker's accounting to complete
-EXPECT_WITHIN 10 "0Bytes" usage "/test_dir"
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" usage "/test_dir"
 
 TEST dd if=/dev/urandom of=$M0/test_dir/2.txt bs=1M count=8
-EXPECT_WITHIN 20 "8.0MB" usage "/test_dir"
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "8.0MB" usage "/test_dir"
 TEST rm $M0/test_dir/2.txt
-EXPECT_WITHIN 10 "0Bytes" usage "/test_dir"
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" usage "/test_dir"
 
 ## rename tests
 TEST dd if=/dev/urandom of=$M0/test_dir/2 bs=1M count=8
-EXPECT_WITHIN 20 "8.0MB" usage "/test_dir"
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "8.0MB" usage "/test_dir"
 TEST mv $M0/test_dir/2 $M0/test_dir/0
-EXPECT_WITHIN 10 "8.0MB" usage "/test_dir"
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "8.0MB" usage "/test_dir"
 TEST rm $M0/test_dir/0
-EXPECT_WITHIN 10 "0Bytes" usage "/test_dir"
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" usage "/test_dir"
 
 ## ---------------------------
 

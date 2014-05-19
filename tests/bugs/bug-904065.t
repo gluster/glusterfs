@@ -34,7 +34,7 @@ TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status'
 
 # glusterfs/nfs needs some time to start up in the background
-EXPECT_WITHIN 20 1 is_nfs_export_available
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT 1 is_nfs_export_available
 
 # before mounting the rmtab should be empty
 EXPECT '0' count_lines /var/lib/glusterd/nfs/rmtab
@@ -73,7 +73,7 @@ EXPECT '2' count_lines $M0/rmtab
 TEST gluster volume set $V0 nfs.mount-rmtab $M0/rmtab
 
 # glusterfs/nfs needs some time to restart
-EXPECT_WITHIN 20 1 is_nfs_export_available
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT 1 is_nfs_export_available
 
 # a new mount should be added to the rmtab, not overwrite exiting ones
 TEST mount_nfs $H0:/$V0 $N0 nolock

@@ -19,7 +19,7 @@ TEST $CLI volume set $V0 cluster.post-op-delay-secs 3
 
 TEST $CLI volume start $V0
 TEST $CLI volume profile $V0 start
-EXPECT_WITHIN 20 "1" is_nfs_export_available;
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 TEST mount_nfs $H0:/$V0 $N0 nolock;
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id=$V0 $M0
 echo 1 > $N0/1 && chmod +x $N0/1

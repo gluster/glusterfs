@@ -18,12 +18,12 @@ TEST touch $M0/{1..100}
 for i in {1..100}; do fd[$i]=`fd_available`; fd_open ${fd[$i]} 'w' $M0/$i; done
 TEST $CLI volume add-brick $V0 $H0:$B0/${V0}{2,3}
 TEST $CLI volume rebalance $V0 start force
-EXPECT_WITHIN 120 "completed" rebalance_status_field $V0
+EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" rebalance_status_field $V0
 TEST cat $M0/{1..100}
 for i in {1..100}; do fd_write ${fd[$i]} 'abc'; done
 TEST $CLI volume add-brick $V0 $H0:$B0/${V0}{4,5}
 TEST $CLI volume rebalance $V0 start force
-EXPECT_WITHIN 120 "completed" rebalance_status_field $V0
+EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" rebalance_status_field $V0
 for i in {1..100}; do fd_write ${fd[$i]} 'abc'; done
 TEST cat $M0/{1..100}
 cleanup

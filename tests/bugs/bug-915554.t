@@ -60,7 +60,7 @@ TEST $CLI volume rebalance $V0 start force
 
 # check if rebalance has completed for upto 15 secs
 
-EXPECT_WITHIN 30 "0" rebalance_completed
+EXPECT_WITHIN $REBALANCE_TIMEOUT "0" rebalance_completed
 
 # validate the file size after the migration
 SIZE2=`stat -c %s $M0/$i`

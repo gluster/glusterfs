@@ -62,7 +62,7 @@ sleep 10
 gluster volume heal $V0 full
 
 ## Make sure brick 2 now has the correct contents.
-EXPECT_WITHIN 30 "test_data" cat $B0/${V0}-2/a_file
+EXPECT_WITHIN $HEAL_TIMEOUT "test_data" cat $B0/${V0}-2/a_file
 
 if [ "$EXIT_EARLY" = "1" ]; then
 	exit 0;
