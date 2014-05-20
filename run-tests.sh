@@ -2,6 +2,7 @@
 # Copyright (c) 2013-2014 Red Hat, Inc. <http://www.redhat.com>
 #
 
+export TZ=UTC
 function check_dependencies()
 {
     ## Check all dependencies are present
