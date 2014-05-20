@@ -748,6 +748,9 @@ int32_t
 glusterd_mount_lvm_snapshot (char *device_path, char *brick_mount_path);
 
 int32_t
+glusterd_umount (const char *path);
+
+int32_t
 glusterd_add_snapshots_to_export_dict (dict_t *peer_data);
 
 int32_t

@@ -1891,24 +1891,24 @@ glusterd_do_lvm_snapshot_remove (glusterd_volinfo_t *snap_vol,
            of shutdown, so give three re-tries */
         while (retry_count < 3) {
                 retry_count++;
-                ret = umount2(mount_pt, MNT_FORCE);
+                /*umount2 system call doesn't cleanup mtab entry after un-mount.
+                  So use external umount command*/
+                ret = glusterd_umount(mount_pt);
                 if (!ret)
                         break;
 
-                if (errno == EBUSY) {
-                        gf_log (this->name, GF_LOG_DEBUG, "umount failed for "
-                                "path %s (brick: %s): %s. Retry(%d)", mount_pt,
-                                brickinfo->path, strerror (errno), retry_count);
-                } else {
-                        gf_log (this->name, GF_LOG_ERROR, "umount failed for "
-                                "path %s (brick: %s): %s.", mount_pt,
-                                brickinfo->path, strerror (errno));
-                        goto out;
-                }
+                gf_log (this->name, GF_LOG_DEBUG, "umount failed for "
+                        "path %s (brick: %s): %s. Retry(%d)", mount_pt,
+                        brickinfo->path, strerror (errno), retry_count);
+
                 sleep (1);
         }
-        if (ret)
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "umount failed for "
+                        "path %s (brick: %s): %s.", mount_pt,
+                        brickinfo->path, strerror (errno));
                 goto out;
+        }
 
         runinit (&runner);
         snprintf (msg, sizeof(msg), "remove snapshot of the brick %s:%s, "
@@ -3686,11 +3686,9 @@ out:
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING, "unmounting the snap brick"
                         " mount %s", snap_brick_mount_path);
-#if !defined(GF_DARWIN_HOST_OS) && !defined(__NetBSD__)
-                umount (snap_brick_mount_path);
-#else
-		unmount (snap_brick_mount_path, 0);
-#endif
+                /*umount2 system call doesn't cleanup mtab entry after un-mount.
+                  So use external umount command*/
+                glusterd_umount (snap_brick_mount_path);
         }
 
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
