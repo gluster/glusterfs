@@ -120,6 +120,7 @@ typedef struct clnt_conf {
 						*/
         gf_boolean_t           filter_o_direct; /* if set, filter O_DIRECT from
                                                    the flags list of open() */
+        gf_boolean_t           send_gids; /* let the server resolve gids */
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {

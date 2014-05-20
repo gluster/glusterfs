@@ -2583,7 +2583,16 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 }
         }
 
-	ret = client_graph_set_perf_options(graph, volinfo, set_dict);
+        ret = dict_get_str_boolean (set_dict, "server.manage-gids", _gf_false);
+        if (ret != -1) {
+               ret = dict_set_str (set_dict, "client.send-gids",
+                                   ret ? "false" : "true");
+               if (ret)
+                       gf_log (THIS->name, GF_LOG_WARNING, "changing client"
+                               " protocol option failed");
+        }
+
+        ret = client_graph_set_perf_options(graph, volinfo, set_dict);
         if (ret)
                 goto out;
 
