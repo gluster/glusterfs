@@ -54,7 +54,7 @@ extern struct rpcsvc_program gd_svc_mgmt_prog;
 extern struct rpcsvc_program gd_svc_mgmt_v3_prog;
 extern struct rpcsvc_program gd_svc_peer_prog;
 extern struct rpcsvc_program gd_svc_cli_prog;
-extern struct rpcsvc_program gd_svc_cli_prog_ro;
+extern struct rpcsvc_program gd_svc_cli_trusted_progs;
 extern struct rpc_clnt_program gd_brick_prog;
 extern struct rpcsvc_program glusterd_mgmt_hndsk_prog;
 
@@ -68,7 +68,7 @@ rpcsvc_cbk_program_t glusterd_cbk_prog = {
 
 struct rpcsvc_program *gd_inet_programs[] = {
         &gd_svc_peer_prog,
-        &gd_svc_cli_prog_ro,
+        &gd_svc_cli_trusted_progs,
         &gd_svc_mgmt_prog,
         &gd_svc_mgmt_v3_prog,
         &gluster_pmap_prog,
