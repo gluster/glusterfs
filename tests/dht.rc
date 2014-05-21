@@ -91,3 +91,22 @@ function remove_brick_completed()
        echo $val
        return $val
 }
+
+function dht_get_linkto_target()
+{
+        local path=$1;
+        echo `getfattr -d -m . -e text --only-values --absolute-names --name=trusted.glusterfs.dht.linkto $path`
+}
+
+function is_dht_linkfile()
+{
+        local path=$1
+        retval=0
+        local output=`stat --format=%a $path`
+        if [ $output -eq 1000 ]; then
+                 retval=1
+        fi
+
+        echo $retval
+        return $retval
+}

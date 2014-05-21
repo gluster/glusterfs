@@ -135,6 +135,7 @@ int
 dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
 	int            i            = 0;
+        int            ret          = -1;
 	dht_conf_t    *conf         = NULL;
 	call_frame_t  *statfs_frame = NULL;
 	dht_local_t   *statfs_local = NULL;
@@ -164,12 +165,25 @@ dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
 			goto err;
 		}
 
+                statfs_local->params = dict_new ();
+                if (!statfs_local->params)
+                        goto err;
+
+                ret = dict_set_int8 (statfs_local->params,
+                                     GF_INTERNAL_IGNORE_DEEM_STATFS, 1);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set "
+                                GF_INTERNAL_IGNORE_DEEM_STATFS" in dict");
+                        goto err;
+                }
+
 		statfs_local->call_cnt = conf->subvolume_cnt;
 		for (i = 0; i < conf->subvolume_cnt; i++) {
 			STACK_WIND (statfs_frame, dht_du_info_cbk,
 				    conf->subvolumes[i],
 				    conf->subvolumes[i]->fops->statfs,
-				    &tmp_loc, NULL);
+				    &tmp_loc, statfs_local->params);
 		}
 
 		conf->last_stat_fetch.tv_sec = tv.tv_sec;

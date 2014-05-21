@@ -3808,15 +3808,23 @@ out:
 int32_t
 quota_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-        quota_local_t   *local          = NULL;
-        int              op_errno       = 0;
-        int              ret            = -1;
-        quota_priv_t    *priv           = NULL;
+        int              op_errno            = 0;
+        int              ret                 = -1;
+        int8_t           ignore_deem_statfs  = 0;
+        quota_priv_t    *priv                = NULL;
+        quota_local_t   *local               = NULL;
 
         priv = this->private;
         GF_ASSERT (loc);
 
         WIND_IF_QUOTAOFF (priv->is_quota_on, off);
+
+        ret = dict_get_int8 (xdata, GF_INTERNAL_IGNORE_DEEM_STATFS,
+                             &ignore_deem_statfs);
+        ret = 0;
+
+        if (ignore_deem_statfs)
+                goto off;
 
 	if (priv->consider_statfs && loc->inode) {
                 local = quota_local_new ();

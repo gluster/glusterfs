@@ -89,6 +89,7 @@
 #define GF_XATTR_USER_PATHINFO_KEY   "glusterfs.pathinfo"
 #define QUOTA_LIMIT_KEY "trusted.glusterfs.quota.limit-set"
 #define VIRTUAL_QUOTA_XATTR_CLEANUP_KEY "glusterfs.quota-xattr-cleanup"
+#define GF_INTERNAL_IGNORE_DEEM_STATFS "ignore-deem-statfs"
 
 #define GF_READDIR_SKIP_DIRS       "readdir-filter-directories"
 
