@@ -92,10 +92,12 @@ struct HBitmap {
     unsigned long *levels[HBITMAP_LEVELS];
 };
 
+#ifndef __NetBSD__ /* we have it in <strings.h> */
 static inline int popcountl(unsigned long l)
 {
     return BITS_PER_LONG == 32 ? ctpop32(l) : ctpop64(l);
 }
+#endif
 
 /* Advance hbi to the next nonzero word and return it.  hbi->pos
  * is updated.  Returns zero if we reach the end of the bitmap.
