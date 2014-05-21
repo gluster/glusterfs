@@ -307,7 +307,7 @@ gf_changelog_start_fresh ()
 ssize_t
 gf_changelog_next_change (char *bufptr, size_t maxlen)
 {
-        ssize_t         size       = 0;
+        ssize_t         size       = -1;
         int             tracker_fd = 0;
         xlator_t       *this       = NULL;
         gf_changelog_t *gfc        = NULL;
@@ -326,18 +326,19 @@ gf_changelog_next_change (char *bufptr, size_t maxlen)
         tracker_fd = gfc->gfc_fd;
 
         size = gf_readline (tracker_fd, buffer, maxlen);
-        if (size < 0)
+        if (size < 0) {
+                size = -1;
                 goto out;
+        }
+
         if (size == 0)
-                return 0;
+                goto out;
 
         memcpy (bufptr, buffer, size - 1);
-        *(buffer + size) = '\0';
+        bufptr[size - 1] = '\0';
 
+out:
         return size;
-
- out:
-        return -1;
 }
 
 /**
