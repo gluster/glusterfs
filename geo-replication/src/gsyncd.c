@@ -116,6 +116,7 @@ invoke_gsyncd (int argc, char **argv)
                 /* in restricted mode we forcibly use the system-wide config */
                 runinit (&runner);
                 runner_add_args (&runner, SBIN_DIR"/gluster",
+                                 "--remote-host=localhost",
                                  "--log-file=-", "system::", "getwd",
                                  NULL);
                 runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
