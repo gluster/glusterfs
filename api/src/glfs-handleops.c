@@ -217,6 +217,60 @@ out:
 }
 
 int
+glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object, const char *name,
+                  void *value, size_t size)
+{
+        int             ret = 0;
+        xlator_t        *subvol = NULL;
+        inode_t         *inode = NULL;
+        loc_t            loc = {0, };
+        dict_t          *xattr = NULL;
+
+        /* validate in args */
+        if ((fs == NULL) || (object == NULL)) {
+                errno = EINVAL;
+                return -1;
+        }
+
+        __glfs_entry_fs (fs);
+
+        /* get the active volume */
+        subvol = glfs_active_subvol (fs);
+        if (!subvol) {
+                ret = -1;
+                errno = EIO;
+                goto out;
+        }
+
+        /* get/refresh the in arg objects inode in correlation to the xlator */
+        inode = glfs_resolve_inode (fs, subvol, object);
+        if (!inode) {
+                errno = ESTALE;
+                goto out;
+        }
+
+        /* populate loc */
+        GLFS_LOC_FILL_INODE (inode, loc, out);
+
+        ret = syncop_getxattr (subvol, &loc, &xattr, name);
+
+        if (ret)
+                goto out;
+
+        ret = glfs_getxattr_process (value, size, xattr, name);
+
+out:
+        loc_wipe (&loc);
+
+        if (inode)
+                inode_unref (inode);
+
+        glfs_subvol_done (fs, subvol);
+
+        return ret;
+}
+
+int
 glfs_h_setattrs (struct glfs *fs, struct glfs_object *object, struct stat *stat,
 		 int valid)
 {
@@ -267,6 +321,115 @@ out:
 	glfs_subvol_done (fs, subvol);
 
 	return ret;
+}
+
+int
+glfs_h_setxattrs (struct glfs *fs, struct glfs_object *object, const char *name,
+                  const void *value, size_t size, int flags)
+{
+        int              ret = -1;
+        xlator_t        *subvol = NULL;
+        inode_t         *inode = NULL;
+        loc_t            loc = {0, };
+        dict_t          *xattr = NULL;
+
+        /* validate in args */
+        if ((fs == NULL) || (object == NULL) ||
+                 (name == NULL) || (value == NULL)) {
+                errno = EINVAL;
+                return -1;
+        }
+
+        __glfs_entry_fs (fs);
+
+        /* get the active volume */
+        subvol = glfs_active_subvol (fs);
+        if (!subvol) {
+                ret = -1;
+                errno = EIO;
+                goto out;
+        }
+
+        /* get/refresh the in arg objects inode in correlation to the xlator */
+        inode = glfs_resolve_inode (fs, subvol, object);
+        if (!inode) {
+                errno = ESTALE;
+                goto out;
+        }
+
+        xattr = dict_for_key_value (name, value, size);
+        if (!xattr) {
+                ret = -1;
+                errno = ENOMEM;
+                goto out;
+        }
+
+        /* populate loc */
+        GLFS_LOC_FILL_INODE (inode, loc, out);
+
+        /* fop/op */
+        ret = syncop_setxattr (subvol, &loc, xattr, flags);
+
+out:
+        loc_wipe (&loc);
+
+        if (inode)
+                inode_unref (inode);
+
+        if (xattr)
+                dict_unref (xattr);
+
+        glfs_subvol_done (fs, subvol);
+
+        return ret;
+}
+
+int
+glfs_h_removexattrs (struct glfs *fs, struct glfs_object *object, const char *name)
+{
+        int              ret = -1;
+        xlator_t        *subvol = NULL;
+        inode_t         *inode = NULL;
+        loc_t            loc = {0, };
+
+        /* validate in args */
+        if ((fs == NULL) || (object == NULL) || (name == NULL)) {
+                errno = EINVAL;
+                return -1;
+        }
+
+        __glfs_entry_fs (fs);
+
+        /* get the active volume */
+        subvol = glfs_active_subvol (fs);
+        if (!subvol) {
+                ret = -1;
+                errno = EIO;
+                goto out;
+        }
+
+        /* get/refresh the in arg objects inode in correlation to the xlator */
+        inode = glfs_resolve_inode (fs, subvol, object);
+        if (!inode) {
+                errno = ESTALE;
+                goto out;
+        }
+
+        /* populate loc */
+        GLFS_LOC_FILL_INODE (inode, loc, out);
+
+        /* fop/op */
+        ret = syncop_removexattr (subvol, &loc, name);
+
+out:
+        loc_wipe (&loc);
+
+        if (inode)
+                inode_unref (inode);
+
+        glfs_subvol_done (fs, subvol);
+
+        return ret;
 }
 
 struct glfs_fd *
