@@ -2258,6 +2258,12 @@ posix_open (call_frame_t *frame, xlator_t *this,
 
         MAKE_INODE_HANDLE (real_path, this, loc, &stbuf);
 
+        if (IA_ISLNK (stbuf.ia_type)) {
+                op_ret = -1;
+                op_errno = ELOOP;
+                goto out;
+        }
+
         op_ret = -1;
         SET_FS_ID (frame->root->uid, frame->root->gid);
 
@@ -2268,8 +2274,8 @@ posix_open (call_frame_t *frame, xlator_t *this,
         if (_fd == -1) {
                 op_ret   = -1;
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "open on %s: %s", real_path, strerror (op_errno));
+                gf_log (this->name, GF_LOG_ERROR, "open on %s, flags: %d: %s",
+                        real_path, flags, strerror (op_errno));
                 goto out;
         }
 
