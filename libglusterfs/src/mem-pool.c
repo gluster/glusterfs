@@ -314,9 +314,10 @@ mem_pool_new_fn (unsigned long sizeof_type,
         INIT_LIST_HEAD (&mem_pool->global_list);
 
         mem_pool->padded_sizeof_type = padded_sizeof_type;
-        mem_pool->cold_count = count;
         mem_pool->real_sizeof_type = sizeof_type;
 
+#ifndef DEBUG
+        mem_pool->cold_count = count;
         pool = GF_CALLOC (count, padded_sizeof_type, gf_common_mt_long);
         if (!pool) {
                 GF_FREE (mem_pool->name);
@@ -332,6 +333,7 @@ mem_pool_new_fn (unsigned long sizeof_type,
 
         mem_pool->pool = pool;
         mem_pool->pool_end = pool + (count * (padded_sizeof_type));
+#endif
 
         /* add this pool to the global list */
         ctx = THIS->ctx;
