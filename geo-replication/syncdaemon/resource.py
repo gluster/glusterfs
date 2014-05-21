@@ -1137,7 +1137,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
 
         @classmethod
         def make_cli_argv(cls):
-            return [cls.get_glusterprog()] + \
+            return [cls.get_glusterprog()] + ['--remote-host=localhost'] + \
                 gconf.gluster_cli_options.split() + ['system::']
 
         @classmethod
