@@ -267,7 +267,7 @@ def distribute(*resources):
         sbricks = {'host': 'localhost', 'dir': si.path}
         suuid = uuid.uuid5(uuid.NAMESPACE_URL, slave.get_url(canonical=True))
     elif isinstance(si, GLUSTER):
-        svol = Volinfo(si.volume, slave.remote_addr)
+        svol = Volinfo(si.volume, slave.remote_addr.split('@')[-1])
         sbricks = svol.bricks
         suuid = svol.uuid
     else:
