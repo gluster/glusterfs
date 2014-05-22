@@ -831,4 +831,9 @@ glusterd_launch_synctask (synctask_fn_t fn, void *opaque);
 int
 glusterd_enable_default_options (glusterd_volinfo_t *volinfo, char *option);
 
+int
+glusterd_snapshot_restore_cleanup (dict_t *rsp_dict,
+                                   glusterd_volinfo_t *volinfo,
+                                   glusterd_snap_t *snap);
+
 #endif
