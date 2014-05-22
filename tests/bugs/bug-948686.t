@@ -28,7 +28,7 @@ TEST $CLI_1 volume set $V0 write-behind off
 TEST touch $M0/{1..100};
 TEST $CLI_1 volume stop $V0;
 TEST $glusterd_3;
-sleep 3;
+EXPECT_WITHIN $PROBE_TIMEOUT 2 check_peers;
 TEST $CLI_3 volume start $V0;
 TEST $CLI_2 volume stop $V0;
 TEST $CLI_2 volume delete $V0;
