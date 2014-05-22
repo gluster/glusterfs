@@ -3879,14 +3879,6 @@ glusterd_take_brick_snapshot (dict_t *dict, glusterd_volinfo_t *snap_vol,
                 goto out;
         }
 
-         ret = glusterd_brick_start (snap_vol, brickinfo, _gf_false);
-         if (ret) {
-                 gf_log (this->name, GF_LOG_WARNING, "starting the "
-                         "brick %s:%s for the snap %s (volume: %s) "
-                         "failed", brickinfo->hostname, brickinfo->path,
-                         snap_vol->snapshot->snapname, snap_vol->volname);
-         }
-
 out:
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
@@ -4871,6 +4863,7 @@ glusterd_snapshot_create_commit (dict_t *dict, char **op_errstr,
         glusterd_snap_t         *snap                   = NULL;
         glusterd_volinfo_t      *origin_vol             = NULL;
         glusterd_volinfo_t      *snap_vol               = NULL;
+        glusterd_brickinfo_t    *brickinfo              = NULL;
         glusterd_conf_t         *priv                   = NULL;
 
         this = THIS;
@@ -4956,7 +4949,25 @@ glusterd_snapshot_create_commit (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
+        /*TODO: As of now start the bricks as part of snapshot creation op.
+         brick_start releases the big_lock and this can cause regression
+         for bug# 1088355.
+         We need to fix brick_connect not to release big_lock*/
         list_for_each_entry (snap_vol, &snap->volumes, vol_list) {
+                list_for_each_entry (brickinfo, &snap_vol->bricks, brick_list) {
+                        ret = glusterd_brick_start (snap_vol, brickinfo,
+                                                    _gf_false);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_WARNING, "starting "
+                                        "the brick %s:%s for the snap %s "
+                                        "(volume: %s) failed",
+                                        brickinfo->hostname, brickinfo->path,
+                                        snap_vol->snapshot->snapname,
+                                        snap_vol->volname);
+                                goto out;
+                        }
+                }
+
                 snap_vol->status = GLUSTERD_STATUS_STARTED;
                 ret = glusterd_store_volinfo (snap_vol,
                                              GLUSTERD_VOLINFO_VER_AC_INCREMENT);
