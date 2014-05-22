@@ -190,11 +190,11 @@ glusterd_handle_mgmt_v3_lock_fn (rpcsvc_request_t *req)
 
 out:
 
-        if (ret || free_ctx) {
+        if (ctx && (ret || free_ctx)) {
                 if (ctx->dict)
                         dict_unref (ctx->dict);
-                if (ctx)
-                        GF_FREE (ctx);
+
+                GF_FREE (ctx);
         }
 
         free (lock_req.dict.dict_val);
@@ -861,11 +861,11 @@ glusterd_handle_mgmt_v3_unlock_fn (rpcsvc_request_t *req)
 
 out:
 
-        if (ret || free_ctx) {
+        if (ctx && (ret || free_ctx)) {
                 if (ctx->dict)
                         dict_unref (ctx->dict);
-                if (ctx)
-                        GF_FREE (ctx);
+
+                GF_FREE (ctx);
         }
 
         free (lock_req.dict.dict_val);
