@@ -4695,6 +4695,16 @@ glusterd_perform_missed_op (glusterd_snap_t *snap, int32_t op)
                                 volinfo->version++;
                                 goto out;
                         }
+
+                        ret = glusterd_snapshot_restore_cleanup (dict, volinfo,
+                                                                 snap);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to perform snapshot restore "
+                                        "cleanup for %s volume",
+                                        snap_volinfo->parent_volname);
+                                goto out;
+                        }
                 }
 
                 break;
