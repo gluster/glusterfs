@@ -961,6 +961,15 @@ fi
 %config(noreplace) %{_sysconfdir}/logrotate.d/glusterfsd
 %config(noreplace) %{_sysconfdir}/sysconfig/glusterfsd
 %endif
+%config %{_sharedstatedir}/glusterd/hooks/1/add-brick/post/disabled-quota-root-xattr-heal.sh
+%config %{_sharedstatedir}/glusterd/hooks/1/add-brick/pre/S28Quota-enable-root-xattr-heal.sh
+%config %{_sharedstatedir}/glusterd/hooks/1/set/post/S30samba-set.sh
+%config %{_sharedstatedir}/glusterd/hooks/1/set/post/S31ganesha-set.sh
+%config %{_sharedstatedir}/glusterd/hooks/1/start/post/S29CTDBsetup.sh
+%config %{_sharedstatedir}/glusterd/hooks/1/start/post/S30samba-start.sh
+%config %{_sharedstatedir}/glusterd/hooks/1/stop/pre/S30samba-stop.sh
+%config %{_sharedstatedir}/glusterd/hooks/1/stop/pre/S29CTDB-teardown.sh
+%config %{_sharedstatedir}/glusterd/hooks/1/reset/post/S31ganesha-reset.sh
 # init files
 %_init_glusterd
 %if ( 0%{_for_fedora_koji_builds} )
@@ -1013,6 +1022,9 @@ fi
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %changelog
+* Thu May 22 2014 Poornima G <pgurusid@redhat.com>
+- Rename old hookscripts in an RPM-standard way.
+
 * Tue May 20 2014 Niels de Vos <ndevos@redhat.com>
 - Almost drop calling ./autogen.sh
 
