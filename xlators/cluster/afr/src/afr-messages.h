@@ -18,6 +18,10 @@
 
 #include "glfs-message-id.h"
 
+/*! \file afr-messages.h
+ *  \brief AFR log-message IDs and their descriptions.
+ */
+
 /* NOTE: Rules for message additions
  * 1) Each instance of a message is _better_ left with a unique message ID, even
  * if the message format is the same. Reasoning is that, if the message
@@ -46,15 +50,86 @@
 
 #define glfs_msg_start_x GLFS_COMP_BASE_AFR, "Invalid: Start of messages"
 
+/*!
+ * @messageid 108001
+ * @diagnosis Client quorum is not met due to which file modification
+ * operations are disallowed.
+ * @recommendedaction Some brick processes are down/ not visible from the
+ * client. Ensure that the bricks are up/ network traffic is not blocked.
+ */
 #define AFR_MSG_QUORUM_FAIL             (GLFS_COMP_BASE_AFR + 1)
+
+
+/*!
+ * @messageid 108002
+ * @diagnosis The bricks that were down are now up and quorum is restored.
+ * @recommendedaction Possibly check why the bricks went down to begin with.
+ */
 #define AFR_MSG_QUORUM_MET              (GLFS_COMP_BASE_AFR + 2)
+
+
+/*!
+ * @messageid 108003
+ * @diagnosis Client quorum-type was set to auto due to which the quorum-count
+ * option is no longer valid.
+ * @recommendedaction None.
+ */
 #define AFR_MSG_QUORUM_OVERRIDE         (GLFS_COMP_BASE_AFR + 3)
+
+
+/*!
+ * @messageid 108004
+ * @diagnosis Replication sub volume witnessed a connection notification
+ * from a brick which does not belong to it's replica set.
+ * @recommendedaction None. This is a safety check in code.
+ */
 #define AFR_MSG_INVALID_CHILD_UP        (GLFS_COMP_BASE_AFR + 4)
+
+
+/*!
+ * @messageid 108005
+ * @diagnosis A brick that was down earlier has come back up.
+ * @recommendedaction Possibly check why the brick went down to begin with.
+ */
 #define AFR_MSG_SUBVOL_UP               (GLFS_COMP_BASE_AFR + 5)
+
+
+/*!
+ * @messageid 108006
+ * @diagnosis All bricks of a replica set are down. Data residing in that
+ * replica cannot be accessed until one of the bricks come back up.
+ * @recommendedaction Ensure that the bricks are up.
+ */
 #define AFR_MSG_ALL_SUBVOLS_DOWN        (GLFS_COMP_BASE_AFR + 6)
+
+
+/*!
+ * @messageid 108007
+ * @diagnosis Entry unlocks failed on a brick.
+ * @recommendedaction Error number in the log should give the reason why it
+ * failed. Also observe brick logs for more information.
+*/
 #define AFR_MSG_ENTRY_UNLOCK_FAIL       (GLFS_COMP_BASE_AFR + 7)
+
+
+/*!
+ * @messageid 108008
+ * @diagnosis There is an inconsistency in the file's data/metadata/gfid
+ * amongst the bricks of a replica set.
+ * @recommendedaction Resolve the split brain by clearing the AFR changelog
+ * attributes from the appropriate brick and trigger self-heal.
+ */
 #define AFR_MSG_SPLIT_BRAIN             (GLFS_COMP_BASE_AFR + 8)
+
+
+/*!
+ * @messageid 108009
+ * @diagnosis open/opendir failed on a brick.
+ * @recommendedaction Error number in the log should give the reason why it
+ * failed. Also observe brick logs for more information.
+ */
 #define AFR_MSG_OPEN_FAIL               (GLFS_COMP_BASE_AFR + 9)
+
 
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 
