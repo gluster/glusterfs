@@ -374,10 +374,8 @@ glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
         }
 
         glusterd_volinfo_ref (volinfo);
-        synclock_unlock (&priv->big_lock);
         ret = glusterd_rpc_create (&defrag->rpc, options,
                                    glusterd_defrag_notify, volinfo);
-        synclock_lock (&priv->big_lock);
         if (ret) {
                 gf_msg (THIS->name, GF_LOG_ERROR, 0, GD_MSG_RPC_CREATE_FAIL,
                         "Glusterd RPC creation failed");

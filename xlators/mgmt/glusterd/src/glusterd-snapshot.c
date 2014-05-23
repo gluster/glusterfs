@@ -4812,10 +4812,6 @@ glusterd_snapshot_create_commit (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-        /*TODO: As of now start the bricks as part of snapshot creation op.
-         brick_start releases the big_lock and this can cause regression
-         for bug# 1088355.
-         We need to fix brick_connect not to release big_lock*/
         list_for_each_entry (snap_vol, &snap->volumes, vol_list) {
                 list_for_each_entry (brickinfo, &snap_vol->bricks, brick_list) {
                         ret = glusterd_brick_start (snap_vol, brickinfo,

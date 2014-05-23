@@ -429,10 +429,6 @@ rpc_clnt_reconnect (void *conn_ptr)
         }
         pthread_mutex_unlock (&conn->lock);
 
-        if ((ret == -1) && (errno != EINPROGRESS) && (clnt->notifyfn)) {
-                clnt->notifyfn (clnt, clnt->mydata, RPC_CLNT_DISCONNECT, NULL);
-        }
-
         return;
 }
 
