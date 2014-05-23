@@ -16,6 +16,7 @@ REBALANCE_TIMEOUT=120
 REOPEN_TIMEOUT=20
 HEAL_TIMEOUT=60
 MARKER_UPDATE_TIMEOUT=20
+JANITOR_TIMEOUT=60
 
 statedumpdir=`gluster --print-statedumpdir`; # Default directory for statedump
 
