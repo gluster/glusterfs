@@ -49,13 +49,15 @@ To install Gluster Native Client on RPM distribution-based systems
 
 2.  Ensure that TCP and UDP ports 24007 and 24008 are open on all
     Gluster servers. Apart from these ports, you need to open one port
-    for each brick starting from port 24009. For example: if you have
-    five bricks, you need to have ports 24009 to 24013 open.
+    for each brick starting from port 49152 (instead of 24009 onwards as
+    with previous releases). The brick ports assignment scheme is now
+    compliant with IANA guidelines. For example: if you have
+    five bricks, you need to have ports 49152 to 49156 open.
 
     You can use the following chains with iptables:
 
     `$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 24007:24008 -j ACCEPT `
-    `$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 24009:24014 -j ACCEPT`
+    `$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 49152:49156 -j ACCEPT`
 
     > **Note**
     >
@@ -121,13 +123,15 @@ To install Gluster Native Client on Debian-based distributions
 
 6.  Ensure that TCP and UDP ports 24007 and 24008 are open on all
     Gluster servers. Apart from these ports, you need to open one port
-    for each brick starting from port 24009. For example: if you have
-    five bricks, you need to have ports 24009 to 24013 open.
+    for each brick starting from port 49152 (instead of 24009 onwards as
+    with previous releases). The brick ports assignment scheme is now
+    compliant with IANA guidelines. For example: if you have
+    five bricks, you need to have ports 49152 to 49156 open.
 
     You can use the following chains with iptables:
 
     `$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 24007:24008 -j ACCEPT `
-    `$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 24009:24014 -j ACCEPT`
+    `$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 49152:49156 -j ACCEPT`
 
     > **Note**
     >
