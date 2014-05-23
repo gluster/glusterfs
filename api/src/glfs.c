@@ -726,6 +726,7 @@ glfs_fini (struct glfs *fs)
         xlator_t        *subvol = NULL;
         glusterfs_ctx_t *ctx = NULL;
         call_pool_t     *call_pool = NULL;
+        int             fs_init = 0;
 
         ctx = fs->ctx;
 
@@ -750,22 +751,29 @@ glfs_fini (struct glfs *fs)
          *pool*/
         ret = (call_pool->cnt == 0)? 0: -1;
 
-        subvol = glfs_active_subvol (fs);
-        if (subvol) {
-                /* PARENT_DOWN within glfs_subvol_done() is issued only
-                   on graph switch (new graph should activiate and
-                   decrement the extra @winds count taken in glfs_graph_setup()
-
-                   Since we are explicitly destroying, PARENT_DOWN is necessary
-                */
-                xlator_notify (subvol, GF_EVENT_PARENT_DOWN, subvol, 0);
-                /* TBD: wait for CHILD_DOWN before exiting, in case of
-                   asynchronous cleanup like graceful socket disconnection
-                   in the future.
-                */
+        pthread_mutex_lock (&fs->mutex);
+        {
+                fs_init = fs->init;
         }
+        pthread_mutex_unlock (&fs->mutex);
 
-        glfs_subvol_done (fs, subvol);
+        if (fs_init != 0) {
+                subvol = glfs_active_subvol (fs);
+                if (subvol) {
+                        /* PARENT_DOWN within glfs_subvol_done() is issued only
+                           on graph switch (new graph should activiate and
+                           decrement the extra @winds count taken in glfs_graph_setup()
+
+                           Since we are explicitly destroying, PARENT_DOWN is necessary
+                        */
+                        xlator_notify (subvol, GF_EVENT_PARENT_DOWN, subvol, 0);
+                        /* TBD: wait for CHILD_DOWN before exiting, in case of
+                           asynchronous cleanup like graceful socket
+                           disconnection in the future.
+                        */
+                }
+                glfs_subvol_done (fs, subvol);
+        }
 
         if (gf_log_fini(ctx) != 0)
                 ret = -1;
