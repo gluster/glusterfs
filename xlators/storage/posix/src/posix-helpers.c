@@ -972,6 +972,67 @@ out:
         return ret;
 }
 
+static void
+del_stale_dir_handle (xlator_t *this, uuid_t gfid)
+{
+        char    newpath[PATH_MAX] = {0, };
+        uuid_t       gfid_curr = {0, };
+        ssize_t      size = -1;
+        gf_boolean_t stale = _gf_false;
+        char         *hpath = NULL;
+        struct stat  stbuf = {0, };
+        struct iatt  iabuf = {0, };
+
+        MAKE_HANDLE_GFID_PATH (hpath, this, gfid, NULL);
+
+        /* check that it is valid directory handle */
+        size = sys_lstat (hpath, &stbuf);
+        if (size < 0) {
+                gf_log (this->name, GF_LOG_DEBUG, "%s: Handle stat failed: "
+                        "%s", hpath, strerror (errno));
+                goto out;
+        }
+
+        iatt_from_stat (&iabuf, &stbuf);
+        if (iabuf.ia_nlink != 1 || !IA_ISLNK (iabuf.ia_type)) {
+                gf_log (this->name, GF_LOG_DEBUG, "%s: Handle nlink %d %d",
+                        hpath, iabuf.ia_nlink, IA_ISLNK (iabuf.ia_type));
+                goto out;
+        }
+
+        size = posix_handle_path (this, gfid, NULL, newpath, sizeof (newpath));
+        if (size <= 0 && errno == ENOENT) {
+                gf_log (this->name, GF_LOG_DEBUG, "%s: %s", newpath,
+                        strerror (ENOENT));
+                stale = _gf_true;
+                goto out;
+        }
+
+        size = sys_lgetxattr (newpath, GFID_XATTR_KEY, gfid_curr, 16);
+        if (size < 0 && errno == ENOENT) {
+                gf_log (this->name, GF_LOG_DEBUG, "%s: %s", newpath,
+                        strerror (ENOENT));
+                stale = _gf_true;
+        } else if (size == 16 && uuid_compare (gfid, gfid_curr)) {
+                gf_log (this->name, GF_LOG_DEBUG, "%s: mismatching gfid: %s, "
+                        "at %s", hpath, uuid_utoa (gfid_curr), newpath);
+                stale = _gf_true;
+        }
+
+out:
+        if (stale) {
+                size = sys_unlink (hpath);
+                if (size < 0 && errno != ENOENT)
+                        gf_log (this->name, GF_LOG_ERROR, "%s: Failed to "
+                                "remove handle to %s (%s)", hpath, newpath,
+                                strerror (errno));
+        } else if (size == 16) {
+                gf_log (this->name, GF_LOG_DEBUG, "%s: Fresh handle for "
+                        "%s with gfid %s", hpath, newpath,
+                        uuid_utoa (gfid_curr));
+        }
+        return;
+}
 
 static int
 janitor_walker (const char *fpath, const struct stat *sb,
@@ -1002,7 +1063,7 @@ janitor_walker (const char *fpath, const struct stat *sb,
                                 "removing directory %s", fpath);
 
                         rmdir (fpath);
-                        posix_handle_unset (this, stbuf.ia_gfid, NULL);
+                        del_stale_dir_handle (this, stbuf.ia_gfid);
                 }
                 break;
         }

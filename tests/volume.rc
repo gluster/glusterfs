@@ -364,3 +364,8 @@ function afr_get_index_count {
         local brick=$1
         ls $1/.glusterfs/indices/xattrop | grep -v xattrop | wc -l
 }
+
+function landfill_entry_count {
+        local brick=$1
+        ls $brick/.glusterfs/landfill | wc -l
+}
