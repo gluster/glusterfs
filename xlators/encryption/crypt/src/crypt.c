@@ -3120,10 +3120,8 @@ static int32_t linkop_begin(call_frame_t *frame,
 	uint32_t new_mtd_size;
 	uint64_t value = 0;
 	void (*unwind_fn)(call_frame_t *frame);
-	void (*wind_fn)(call_frame_t *frame, xlator_t *this);
 	mtd_op_t mop;
 
-	wind_fn = linkop_wind_dispatch(local->fop);
 	unwind_fn = linkop_unwind_dispatch(local->fop);
 	mop = linkop_mtdop_dispatch(local->fop);
 

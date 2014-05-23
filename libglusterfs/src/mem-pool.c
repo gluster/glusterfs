@@ -284,10 +284,10 @@ mem_pool_new_fn (unsigned long sizeof_type,
 {
         struct mem_pool  *mem_pool = NULL;
         unsigned long     padded_sizeof_type = 0;
-        void             *pool = NULL;
-        int               i = 0;
+        GF_UNUSED void             *pool = NULL;
+        GF_UNUSED int               i = 0;
         int               ret = 0;
-        struct list_head *list = NULL;
+        GF_UNUSED struct list_head *list = NULL;
         glusterfs_ctx_t  *ctx = NULL;
 
         if (!sizeof_type || !count) {
