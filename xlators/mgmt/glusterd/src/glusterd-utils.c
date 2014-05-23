@@ -1717,11 +1717,9 @@ glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
                 if (ret < 0)
                         goto out;
 
-                synclock_unlock (&priv->big_lock);
                 ret = glusterd_rpc_create (&rpc, options,
                                            glusterd_brick_rpc_notify,
                                            brickid);
-                synclock_lock (&priv->big_lock);
                 if (ret) {
                         GF_FREE (brickid);
                         goto out;
@@ -5735,11 +5733,9 @@ glusterd_nodesvc_connect (char *server, char *socketpath)
                                                         600);
                 if (ret)
                         goto out;
-                synclock_unlock (&priv->big_lock);
                 ret = glusterd_rpc_create (&rpc, options,
                                            glusterd_nodesvc_rpc_notify,
                                            server);
-                synclock_lock (&priv->big_lock);
                 if (ret)
                         goto out;
                 (void) glusterd_nodesvc_set_rpc (server, rpc);

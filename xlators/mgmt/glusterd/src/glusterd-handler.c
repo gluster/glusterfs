@@ -3135,9 +3135,7 @@ glusterd_friend_add (const char *hoststr, int port,
         if (!restore) {
                 ret = glusterd_store_peerinfo (*friend);
                 if (ret == 0) {
-                        synclock_unlock (&conf->big_lock);
                         ret = glusterd_friend_rpc_create (this, *friend, args);
-                        synclock_lock (&conf->big_lock);
                 }
                 else {
                         gf_log (this->name, GF_LOG_ERROR,
