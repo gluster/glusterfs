@@ -73,10 +73,11 @@ class Monitor(object):
     """class which spawns and manages gsyncd workers"""
 
     ST_INIT = 'Initializing...'
+    ST_INIT_PAUSE = 'Initializing...(Paused)'
     ST_STABLE = 'Stable'
     ST_FAULTY = 'faulty'
     ST_INCON = 'inconsistent'
-    _ST_ORD = [ST_STABLE, ST_INIT, ST_FAULTY, ST_INCON]
+    _ST_ORD = [ST_STABLE, ST_INIT, ST_INIT_PAUSE, ST_FAULTY, ST_INCON]
 
     def __init__(self):
         self.lock = Lock()
@@ -128,7 +129,11 @@ class Monitor(object):
         due to the keep-alive thread)
         """
 
-        self.set_state(self.ST_INIT, w)
+        if gconf.pause_on_start:
+            self.set_state(self.ST_INIT_PAUSE, w)
+        else:
+            self.set_state(self.ST_INIT, w)
+
         ret = 0
 
         def nwait(p, o=0):

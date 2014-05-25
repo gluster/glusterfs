@@ -6572,6 +6572,7 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         char               *op_errstr                   = NULL;
         glusterd_conf_t    *priv                        = NULL;
         gf_boolean_t        is_template_in_use          = _gf_false;
+        gf_boolean_t        is_paused                    = _gf_false;
 
         GF_ASSERT (THIS);
         priv = THIS->private;
@@ -6665,9 +6666,9 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
                         "%s and %s::%s. Not Restarting", volinfo->volname,
                         slave_ip, slave_vol);
                 goto out;
-        }
-
-        if ((!strcmp (buf, "Config Corrupted"))) {
+        } else if (strstr(buf, "Paused")) {
+                is_paused = _gf_true;
+        } else if ((!strcmp (buf, "Config Corrupted"))) {
                 gf_log ("", GF_LOG_INFO,
                         "Recovering from a corrupted config. "
                         "Not Restarting. Use start (force) to "
@@ -6677,8 +6678,12 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
                 goto out;
         }
 
-        glusterd_start_gsync (volinfo, slave, path_list, confpath,
-                              uuid_str, NULL);
+        if (is_paused)
+                glusterd_start_gsync (volinfo, slave, path_list, confpath,
+                                      uuid_str, NULL, _gf_true);
+        else
+                glusterd_start_gsync (volinfo, slave, path_list, confpath,
+                                      uuid_str, NULL, _gf_false);
 
 out:
         if (statefile)
@@ -8294,7 +8299,7 @@ int
 glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
                       char *path_list, char *conf_path,
                       char *glusterd_uuid_str,
-                      char **op_errstr)
+                      char **op_errstr, gf_boolean_t is_pause)
 {
         int32_t         ret     = 0;
         int32_t         status  = 0;
@@ -8356,6 +8361,8 @@ glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
         runner_argprintf (&runner, "--glusterd-uuid=%s",
                           uuid_utoa (priv->uuid));
         runner_add_arg   (&runner, slave);
+        if (is_pause)
+                runner_add_arg   (&runner, "--pause-on-start");
         synclock_unlock (&priv->big_lock);
         ret = runner_run (&runner);
         synclock_lock (&priv->big_lock);
