@@ -3724,7 +3724,7 @@ glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave,
         if (ret == 0)
                 ret = glusterd_start_gsync (volinfo, slave, path_list,
                                             conf_path, uuid_utoa(MY_UUID),
-                                            NULL);
+                                            NULL, _gf_false);
 
  out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
@@ -4499,7 +4499,8 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 }
 
                 ret = glusterd_start_gsync (volinfo, slave, path_list,
-                                            conf_path, host_uuid, op_errstr);
+                                            conf_path, host_uuid, op_errstr,
+                                            _gf_false);
         }
 
         if (type == GF_GSYNC_OPTION_TYPE_STOP ||

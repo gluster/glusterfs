@@ -413,7 +413,7 @@ int
 glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
                       char *path_list, char *conf_path,
                       char *glusterd_uuid_str,
-                      char **op_errstr);
+                      char **op_errstr, gf_boolean_t is_pause);
 int
 glusterd_get_local_brickpaths (glusterd_volinfo_t *volinfo,
                                char **pathlist);

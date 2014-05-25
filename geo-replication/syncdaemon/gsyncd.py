@@ -227,6 +227,7 @@ def main_i():
     op.add_option('--ignore-deletes', default=False, action='store_true')
     op.add_option('--isolated-slave', default=False, action='store_true')
     op.add_option('--use-rsync-xattrs', default=False, action='store_true')
+    op.add_option('--pause-on-start', default=False, action='store_true')
     op.add_option('-L', '--log-level', metavar='LVL')
     op.add_option('-r', '--remote-gsyncd', metavar='CMD',
                   default=os.path.abspath(sys.argv[0]))
