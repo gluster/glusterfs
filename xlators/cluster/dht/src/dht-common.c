@@ -4134,7 +4134,7 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 out:
         DHT_STRIP_PHASE1_FLAGS (stbuf);
         DHT_STACK_UNWIND (create, frame, op_ret, op_errno, fd, inode, stbuf, preparent,
-                          postparent, NULL);
+                          postparent, xdata);
         return 0;
 }
 
