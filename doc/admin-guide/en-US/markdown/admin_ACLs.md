@@ -180,6 +180,5 @@ accessing or mounting a Samba share.
 
 ##NFS and ACLs
 
-Currently we do not support ACLs configuration through NFS, i.e. setfacl
-and getfacl commands do not work. However, ACLs permissions set using
-Gluster Native Client is applicable on NFS mounts.
+Currently GlusterFS supports POSIX ACL configuration through NFS mount,
+i.e. setfacl and getfacl commands work through NFS mount.
