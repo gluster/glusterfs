@@ -336,16 +336,18 @@ quota_enforcer_init (xlator_t *this, dict_t *options)
         int              ret  = -1;
 
         priv = this->private;
-        if (priv->rpc_clnt) {
-                gf_log (this->name, GF_LOG_TRACE, "quota enforcer clnt already "
-                        "inited");
-                //Turns out to be a NOP if the clnt is already connected.
-                ret = quota_enforcer_blocking_connect (priv->rpc_clnt);
-                if (ret)
-                        goto out;
 
-                return priv->rpc_clnt;
+        LOCK (&priv->lock);
+        {
+                if (priv->rpc_clnt) {
+                        ret = 0;
+                        rpc = priv->rpc_clnt;
+                }
         }
+        UNLOCK (&priv->lock);
+
+        if (rpc)
+                goto out;
 
         priv->quota_enforcer = &quota_enforcer_clnt;
 
