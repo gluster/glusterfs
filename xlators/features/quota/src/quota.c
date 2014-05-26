@@ -4268,8 +4268,9 @@ quota_forget (xlator_t *this, inode_t *inode)
 int32_t
 init (xlator_t *this)
 {
-        int32_t       ret       = -1;
-        quota_priv_t *priv      = NULL;
+        int32_t       ret  = -1;
+        quota_priv_t *priv = NULL;
+        rpc_clnt_t   *rpc  = NULL;
 
         if ((this->children == NULL)
             || this->children->next) {
@@ -4308,13 +4309,19 @@ init (xlator_t *this)
         }
 
         if (priv->is_quota_on) {
-                priv->rpc_clnt = quota_enforcer_init (this, this->options);
-                if (priv->rpc_clnt == NULL) {
+                rpc = quota_enforcer_init (this, this->options);
+                if (rpc == NULL) {
                         ret = -1;
                         gf_log (this->name, GF_LOG_WARNING,
                                 "quota enforcer rpc init failed");
                         goto err;
                 }
+
+                LOCK (&priv->lock);
+                {
+                        priv->rpc_clnt = rpc;
+                }
+                UNLOCK (&priv->lock);
         }
 
         ret = 0;
@@ -4328,6 +4335,7 @@ reconfigure (xlator_t *this, dict_t *options)
         int32_t       ret      = -1;
         quota_priv_t *priv     = NULL;
         gf_boolean_t  quota_on = _gf_false;
+        rpc_clnt_t   *rpc      = NULL;
 
         priv = this->private;
 
@@ -4355,13 +4363,20 @@ reconfigure (xlator_t *this, dict_t *options)
                 }
 
         } else {
-                if (priv->rpc_clnt) {
+                LOCK (&priv->lock);
+                {
+                        rpc = priv->rpc_clnt;
+                        priv->rpc_clnt = NULL;
+                }
+                UNLOCK (&priv->lock);
+
+                if (rpc != NULL) {
                         // Quotad is shutdown when there is no started volume
                         // which has quota enabled. So, we should disable the
                         // enforcer client when quota is disabled on a volume,
                         // to avoid spurious reconnect attempts to a service
                         // (quotad), that is known to be down.
-                        rpc_clnt_disable (priv->rpc_clnt);
+                        rpc_clnt_unref (rpc);
                 }
         }
 
