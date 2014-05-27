@@ -12759,7 +12759,7 @@ int32_t
 glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
                             char **op_errstr)
 {
-        int32_t             ret               = 0;
+        int32_t             ret               = -1;
         xlator_t           *this              = NULL;
         int32_t             snap_command      = 0;
         char                err_str[PATH_MAX] = {0, };
@@ -12793,6 +12793,7 @@ glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
         case GF_SNAP_OPTION_TYPE_DELETE:
         case GF_SNAP_OPTION_TYPE_RESTORE:
                 if (!does_gd_meet_server_quorum (this)) {
+                        ret = -1;
                         snprintf (err_str, sizeof (err_str),
                                   "glusterds are not in quorum");
                         gf_log (this->name, GF_LOG_WARNING, "%s",
