@@ -3034,16 +3034,15 @@ out:
 }
 
 static int32_t
-glusterd_store_recreate_brick_mounts (glusterd_volinfo_t *volinfo)
+glusterd_recreate_vol_brick_mounts (xlator_t  *this,
+                                    glusterd_volinfo_t *volinfo)
 {
         char                    *brick_mount_path    = NULL;
         glusterd_brickinfo_t    *brickinfo           = NULL;
         int32_t                  ret                 = -1;
         int32_t                  brick_count         = -1;
         struct stat              st_buf              = {0, };
-        xlator_t                *this                = NULL;
 
-        this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (volinfo);
 
@@ -3893,33 +3892,6 @@ out:
                 closedir (dir);
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
-        return ret;
-}
-
-static int32_t
-glusterd_recreate_vol_brick_mounts (xlator_t  *this,
-                                    glusterd_volinfo_t *volinfo)
-{
-        int32_t                  ret       = 0;
-        glusterd_conf_t         *priv      = NULL;
-        glusterd_brickinfo_t    *brickinfo = NULL;
-
-        GF_ASSERT (this);
-        priv = this->private;
-        GF_ASSERT (priv);
-
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                ret = glusterd_store_recreate_brick_mounts (volinfo);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to recreate brick mounts "
-                                "for %s", volinfo->volname);
-                        goto out;
-                }
-        }
-
-out:
-        gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
         return ret;
 }
 
