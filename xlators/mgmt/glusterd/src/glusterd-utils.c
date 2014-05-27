@@ -8270,15 +8270,17 @@ glusterd_peerinfo_new (glusterd_peerinfo_t **peerinfo,
         if (!peerinfo)
                 goto out;
 
+        if (!hostname)
+                goto out;
+
         new_peer = GF_CALLOC (1, sizeof (*new_peer), gf_gld_mt_peerinfo_t);
         if (!new_peer)
                 goto out;
 
         new_peer->state.state = state;
-        if (hostname)
-                new_peer->hostname = gf_strdup (hostname);
+        new_peer->hostname = gf_strdup (hostname);
 
-        INIT_LIST_HEAD (new_peer->hostnames);
+        INIT_LIST_HEAD (&new_peer->hostnames);
         ret = glusterd_peer_hostname_new (hostname, &peer_hostname);
         if (ret)
                 goto out;
