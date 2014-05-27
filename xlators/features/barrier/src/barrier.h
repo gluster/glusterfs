@@ -16,15 +16,6 @@
 #include "timer.h"
 #include "call-stub.h"
 
-#define BARRIER_SAFE_ASSIGN(lock, to, value)                    \
-        do {                                                    \
-                LOCK (&(lock));                                 \
-                {                                               \
-                        to = value;                             \
-                }                                               \
-                UNLOCK (&(lock));                               \
-        } while (0)
-
 #define BARRIER_FOP_CBK(fop_name, label, frame, this, params ...)       \
         do {                                                            \
                 barrier_priv_t         *_priv           = NULL;         \
@@ -44,7 +35,7 @@
                                                                         \
                                 _stub = fop_##fop_name##_cbk_stub       \
                                         (frame,                         \
-                                         default_##fop_name##_cbk_resume,\
+                                         barrier_##fop_name##_cbk_resume,\
                                          params);                       \
                                 if (!_stub) {                           \
                                         __barrier_disable (this, &queue);\
@@ -67,7 +58,7 @@ unlock:                                                                 \
                                 #fop_name, strerror (ENOMEM));          \
                         barrier_dequeue_all (this, &queue);             \
                 }                                                       \
-                                                                        \
+                barrier_local_free_gfid (frame);                        \
                 STACK_UNWIND_STRICT (fop_name, frame, params);          \
                 goto label;                                             \
         } while (0)

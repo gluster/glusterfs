@@ -19,6 +19,134 @@
 
 #include "statedump.h"
 
+void
+barrier_local_set_gfid (call_frame_t *frame, uuid_t gfid, xlator_t *this)
+{
+        if (gfid) {
+                uuid_t *id = GF_MALLOC (sizeof (uuid_t), gf_common_mt_uuid_t);
+                if (!id) {
+                        gf_log (this->name, GF_LOG_WARNING, "Could not set gfid"
+                                ". gfid will not be dumped in statedump file.");
+                        return;
+                }
+                uuid_copy (*id, gfid);
+                frame->local = id;
+        }
+}
+
+void
+barrier_local_free_gfid (call_frame_t *frame)
+{
+        if (frame->local) {
+                GF_FREE (frame->local);
+                frame->local = NULL;
+        }
+}
+
+int32_t
+barrier_truncate_cbk_resume (call_frame_t *frame, void *cookie, xlator_t *this,
+                             int32_t op_ret, int32_t op_errno,
+                             struct iatt *prebuf, struct iatt *postbuf,
+                             dict_t *xdata)
+{
+        barrier_local_free_gfid (frame);
+        STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, prebuf, postbuf,
+                             xdata);
+        return 0;
+}
+
+int32_t
+barrier_ftruncate_cbk_resume (call_frame_t *frame, void *cookie, xlator_t *this,
+                              int32_t op_ret, int32_t op_errno,
+                              struct iatt *prebuf, struct iatt *postbuf,
+                              dict_t *xdata)
+{
+        barrier_local_free_gfid (frame);
+        STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, prebuf,
+                             postbuf, xdata);
+        return 0;
+}
+
+int32_t
+barrier_unlink_cbk_resume (call_frame_t *frame, void *cookie, xlator_t *this,
+                           int32_t op_ret, int32_t op_errno,
+                           struct iatt *preparent, struct iatt *postparent,
+                           dict_t *xdata)
+{
+        barrier_local_free_gfid (frame);
+        STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno, preparent,
+                             postparent, xdata);
+        return 0;
+}
+
+int32_t
+barrier_rmdir_cbk_resume (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int32_t op_ret, int32_t op_errno,
+                          struct iatt *preparent, struct iatt *postparent,
+                          dict_t *xdata)
+{
+        barrier_local_free_gfid (frame);
+        STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno, preparent,
+                             postparent, xdata);
+        return 0;
+}
+
+int32_t
+barrier_rename_cbk_resume (call_frame_t *frame, void *cookie, xlator_t *this,
+                           int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                           struct iatt *preoldparent, struct iatt *postoldparent,
+                           struct iatt *prenewparent, struct iatt *postnewparent,
+                           dict_t *xdata)
+{
+        barrier_local_free_gfid (frame);
+        STACK_UNWIND_STRICT (rename, frame, op_ret, op_errno, buf, preoldparent,
+                             postoldparent, prenewparent, postnewparent, xdata);
+        return 0;
+}
+
+int32_t
+barrier_writev_cbk_resume (call_frame_t *frame, void *cookie, xlator_t *this,
+                           int32_t op_ret, int32_t op_errno,
+                           struct iatt *prebuf, struct iatt *postbuf,
+                           dict_t *xdata)
+{
+        barrier_local_free_gfid (frame);
+        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf,
+                             xdata);
+        return 0;
+}
+
+int32_t
+barrier_fsync_cbk_resume (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                          struct iatt *postbuf, dict_t *xdata)
+{
+        barrier_local_free_gfid (frame);
+        STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, prebuf, postbuf,
+                             xdata);
+        return 0;
+}
+
+int32_t
+barrier_removexattr_cbk_resume (call_frame_t *frame, void *cookie,
+                                xlator_t *this, int32_t op_ret,
+                                int32_t op_errno, dict_t *xdata)
+{
+        barrier_local_free_gfid (frame);
+        STACK_UNWIND_STRICT (removexattr, frame, op_ret, op_errno, xdata);
+        return 0;
+}
+
+int32_t
+barrier_fremovexattr_cbk_resume (call_frame_t *frame, void *cookie,
+                                 xlator_t *this, int32_t op_ret,
+                                 int32_t op_errno, dict_t *xdata)
+{
+        barrier_local_free_gfid (frame);
+        STACK_UNWIND_STRICT (fremovexattr, frame, op_ret, op_errno, xdata);
+        return 0;
+}
+
 int32_t
 barrier_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
@@ -133,6 +261,7 @@ barrier_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 return 0;
         }
 
+        barrier_local_set_gfid (frame, fd->inode->gfid, this);
         STACK_WIND (frame, barrier_writev_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev, fd, vector, count,
                     off, flags, iobref, xdata);
@@ -143,6 +272,7 @@ int32_t
 barrier_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                       const char *name, dict_t *xdata)
 {
+        barrier_local_set_gfid (frame, fd->inode->gfid, this);
         STACK_WIND (frame, barrier_fremovexattr_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->fremovexattr,
                     fd, name, xdata);
@@ -153,6 +283,7 @@ int32_t
 barrier_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                      const char *name, dict_t *xdata)
 {
+        barrier_local_set_gfid (frame, loc->inode->gfid, this);
         STACK_WIND (frame, barrier_removexattr_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->removexattr,
                     loc, name, xdata);
@@ -163,16 +294,19 @@ int32_t
 barrier_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
                   off_t offset, dict_t *xdata)
 {
+        barrier_local_set_gfid (frame, loc->inode->gfid, this);
         STACK_WIND (frame, barrier_truncate_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->truncate,
                     loc, offset, xdata);
         return 0;
 }
 
+
 int32_t
 barrier_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                 loc_t *newloc, dict_t *xdata)
 {
+        barrier_local_set_gfid (frame, oldloc->inode->gfid, this);
         STACK_WIND (frame, barrier_rename_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->rename,
                     oldloc, newloc, xdata);
@@ -183,6 +317,7 @@ int
 barrier_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
                dict_t *xdata)
 {
+        barrier_local_set_gfid (frame, loc->inode->gfid, this);
         STACK_WIND (frame, barrier_rmdir_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->rmdir,
                     loc, flags, xdata);
@@ -193,6 +328,7 @@ int32_t
 barrier_unlink (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, int xflag, dict_t *xdata)
 {
+        barrier_local_set_gfid (frame, loc->inode->gfid, this);
         STACK_WIND (frame, barrier_unlink_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->unlink,
                     loc, xflag, xdata);
@@ -203,6 +339,7 @@ int32_t
 barrier_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd,
                    off_t offset, dict_t *xdata)
 {
+        barrier_local_set_gfid (frame, fd->inode->gfid, this);
         STACK_WIND (frame, barrier_ftruncate_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->ftruncate,
                     fd, offset, xdata);
@@ -213,6 +350,7 @@ int32_t
 barrier_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
                int32_t flags, dict_t *xdata)
 {
+        barrier_local_set_gfid (frame, fd->inode->gfid, this);
         STACK_WIND (frame, barrier_fsync_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->fsync,
                     fd, flags, xdata);
@@ -552,9 +690,11 @@ barrier_dump_stub (call_stub_t *stub, char *prefix)
         gf_proc_dump_build_key (key, prefix, "fop");
         gf_proc_dump_write (key, "%s", gf_fop_list[stub->fop]);
 
-        gf_proc_dump_build_key (key, prefix, "gfid");
-        gf_proc_dump_write (key, "%s", uuid_utoa (stub->args.loc.gfid));
-
+        if (stub->frame->local) {
+                gf_proc_dump_build_key (key, prefix, "gfid");
+                gf_proc_dump_write (key, "%s",
+                                    uuid_utoa (*(uuid_t*)(stub->frame->local)));
+        }
         if (stub->args.loc.path) {
                 gf_proc_dump_build_key (key, prefix, "path");
                 gf_proc_dump_write (key, "%s", stub->args.loc.path);
