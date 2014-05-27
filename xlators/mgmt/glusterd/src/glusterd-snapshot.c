@@ -1932,14 +1932,17 @@ out:
 int32_t
 glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
 {
-        char                 *mnt_pt            = NULL;
-        struct mntent        *entry             = NULL;
-        struct mntent         save_entry        = {0,};
-        int32_t               brick_count       = -1;
-        int32_t               ret               = -1;
-        glusterd_brickinfo_t *brickinfo         = NULL;
-        xlator_t             *this              = NULL;
-        char                  buff [PATH_MAX]   = "";
+        char                 *mnt_pt               = NULL;
+        struct mntent        *entry                = NULL;
+        struct mntent         save_entry           = {0,};
+        int32_t               brick_count          = -1;
+        int32_t               ret                  = -1;
+        glusterd_brickinfo_t *brickinfo            = NULL;
+        xlator_t             *this                 = NULL;
+        char                  buff[PATH_MAX]       = "";
+        char                  brick_dir[PATH_MAX]  = "";
+        char                 *tmp                  = NULL;
+        gf_boolean_t          is_brick_dir_present = _gf_false;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2021,10 +2024,65 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
                         goto out;
                 }
 
+                ret = rmdir (mnt_pt);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to rmdir: %s, err: %s",
+                                mnt_pt, strerror (errno));
+                        goto out;
+                }
+
+                /* After removing the brick dir fetch the parent path
+                 * i.e /var/run/gluster/snaps/<snap-vol-id>/
+                 */
+                if (is_brick_dir_present == _gf_false) {
+                        /* Peers not hosting bricks will have _gf_false */
+                        is_brick_dir_present = _gf_true;
+
+                        /* Need to fetch brick_dir to be removed from
+                         * brickinfo->path, as in a restored volume,
+                         * snap_vol won't have the non-hyphenated snap_vol_id
+                         */
+                        tmp = strstr (mnt_pt, "brick");
+                        if (!tmp) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Invalid brick %s", brickinfo->path);
+                                ret = -1;
+                                goto out;
+                        }
+
+                        strncpy (brick_dir, mnt_pt, (size_t) (tmp - mnt_pt));
+                }
+
+                GF_FREE (mnt_pt);
+                mnt_pt = NULL;
+        }
+
+        if (is_brick_dir_present == _gf_true) {
+                ret = rmdir (brick_dir);
+                if (ret) {
+                        if (errno == ENOTEMPTY) {
+                                /* Will occur when multiple glusterds
+                                 * are running in the same node
+                                 */
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Failed to rmdir: %s, err: %s. "
+                                        "More than one glusterd running "
+                                        "on this node.",
+                                        brick_dir, strerror (errno));
+                                ret = 0;
+                                goto out;
+                        } else
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to rmdir: %s, err: %s",
+                                        brick_dir, strerror (errno));
+                                goto out;
+                }
         }
 
         ret = 0;
 out:
+        GF_FREE (mnt_pt);
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
