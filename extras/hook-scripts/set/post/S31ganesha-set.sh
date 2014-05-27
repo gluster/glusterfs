@@ -9,7 +9,6 @@ LOG="/tmp/ganesha.log"
 gnfs="enabled"
 enable_ganesha=""
 host_name="none"
-IS_HOST_SET="NO"
 LOC=""
 
 
@@ -52,9 +51,9 @@ function parse_args ()
 
 function check_if_host_set()
 {
-        if cat /var/lib/glusterd/vols/$VOL/info | grep -q "nfs-ganesha.host"
+        if ! cat /var/lib/glusterd/vols/$VOL/info | grep -q "nfs-ganesha.host"
                 then
-                IS_HOST_SET="YES"
+                exit 1
         fi
 }
 
@@ -103,9 +102,10 @@ function write_conf()
         echo "}"
         echo "Access_type = RW;"
         echo "Squash = No_root_squash;"
+        echo "Disable_ACL = TRUE;"
         echo "Pseudo=\"/$1\";"
-        echo "NFS_Protocols = \"3,4\" ;"
-        echo "Transport_Protocols = \"UDP,TCP\" ;"
+        echo "Protocols = \"3,4\" ;"
+        echo "Transports = \"UDP,TCP\" ;"
         echo "SecType = \"sys\";"
         echo "Tag = \"$1\";"
         echo "}"
@@ -144,53 +144,52 @@ function dynamic_export_remove()
         removed_id=`cat $GANESHA_DIR/exports/export.$VOL.conf |\
 grep Export_Id | cut -d " " -f3`
         check_cmd_status `echo $?`
-        dbus-send  --system \
+        dbus-send --print-reply --system \
 --dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
 org.ganesha.nfsd.exportmgr.RemoveExport int32:$removed_id
+        check_cmd_status `echo $?`
 
 }
 
 #This function adds a new export dynamically by sending dbus signals
 function dynamic_export_add()
 {
-        dbus-send  --system --dest=org.ganesha.nfsd \
+        dbus-send --print-reply --system --dest=org.ganesha.nfsd \
 /org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.AddExport \
-string:$GANESHA_DIR/exports/export.$VOL.conf
-        echo $?
+string:$GANESHA_DIR/exports/export.$VOL.conf string:"EXPORT(Tag=$VOL)"
+        check_cmd_status `echo $?`
+
 }
 
 function start_ganesha()
 {
-        if [ "$IS_HOST_SET" = "YES" ]
+        check_gluster_nfs
+        #Remove export entry from nfs-ganesha.conf
+        sed -i /$VOL.conf/d  $CONF1
+        #Create a new export entry
+        export_add
+        if ! ps aux | grep -q  "[g]anesha.nfsd"
                 then
-                check_gluster_nfs
-                #Remove export entry from nfs-ganesha.conf
-                sed -i /$VOL.conf/d  $CONF1
-                sleep 4
-                #Create a new export entry
-                export_add
-                if ! ps aux | grep -q  "[g]anesha.nfsd"
-                        then
-                        if ls /usr/bin/ | grep -q "ganesha.nfsd"
-                                then
-                                /usr/bin/ganesha.nfsd -f $CONF1 -L $LOG -N NIV_FULL_DEBUG -d
-                                sleep 2
-                        else
-                                /usr/local/bin/ganesha.nfsd -f $CONF1 -L $LOG -N NIV_FULL_DEBUG -d
-                                sleep 2
-                        fi
+                if ls /usr/bin/ganesha.nfsd
+                       then
+                       /usr/bin/ganesha.nfsd -f $CONF1 -L $LOG -N NIV_EVENT -d
+                        sleep 2
                 else
-                        ret=$(dynamic_export_add $VOL)
+                        /usr/local/bin/ganesha.nfsd -f $CONF1 -L $LOG -N NIV_EVENT -d
+                        sleep 2
                 fi
+        else
+                        dynamic_export_add $VOL
+        fi
 
 
-              if  !(  ps aux | grep -q "[g]anesha.nfsd") || [ "$ret" == "1" ]
-                        then
-                         rm -rf $GANESHA_DIR/exports/*
-                         rm -rf $GANESHA_DIR/.export_added
-                         exit 1
-                fi
-         fi
+        if  !(  ps aux | grep -q "[g]anesha.nfsd")
+                then
+                rm -rf $GANESHA_DIR/exports/*
+                rm -rf $GANESHA_DIR/.export_added
+                exit 1
+        fi
+
 }
 
 #This function generates a new config file when ganesha.host is set
@@ -218,9 +217,18 @@ function check_ganesha_dir()
                 if [ ! -d "$GANESHA_DIR" ];
                          then
                          mkdir $GANESHA_DIR
+                         check_cmd_status `echo $?`
                 fi
                 cp /etc/glusterfs-ganesha/nfs-ganesha.conf $GANESHA_DIR/
+                check_cmd_status `echo $?`
         fi
+        if [ ! -d "$GANESHA_DIR/exports" ];
+                then
+                mkdir $GANESHA_DIR/exports
+                check_cmd_status `echo $?`
+        fi
+
+
 }
 
 function stop_ganesha()
@@ -240,35 +248,29 @@ function stop_ganesha()
 
         parse_args $@
         check_ganesha_dir $VOL
-        if [ ! -d "$GANESHA_DIR/exports" ];
-                then
-                mkdir $GANESHA_DIR/exports
-        fi
         if echo $enable_ganesha | grep -q -i "ON"
                 then
                 check_if_host_set $VOL
-                start_ganesha
+                if ! showmount -e localhost | cut -d "" -f1 | grep -q "$VOL[[:space:]]"
+                        then
+                        start_ganesha
+                fi
         elif echo $enable_ganesha | grep -q -i "OFF"
                 then
                 check_if_host_set $VOL
-                if [ "$IS_HOST_SET" = "YES" ]
-                        then
-                        stop_ganesha
-                        exit 0
-                fi
+                stop_ganesha
         fi
         if [ "$host_name" != "none" ];
                 then
-                check_if_host_set $VOL
-                set_hostname
-                         if  cat /var/lib/glusterd/vols/$VOL/info\
-| grep -i -q  "nfs-ganesha.enable=on"
-                                  then
-                                  dynamic_export_remove $VOL
-                                  rm -rf $GANESHA_DIR/exports/export.$VOL.conf
-                                  set_hostname
-                                  start_ganesha
-                         fi
+                if showmount -e localhost | cut -d "" -f1 | grep -q "$VOL[[:space:]]"
+                        then
+                        dynamic_export_remove $VOL
+                        set_hostname
+                        start_ganesha
+                else
+                        set_hostname
+                fi
+
         fi
 
 
