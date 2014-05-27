@@ -253,6 +253,10 @@ check_delete_stale_index_file (xlator_t *this, char *filename)
         if (priv->to_be_healed_states != synced_state)
                 return;
 
+        /*Don't delete the index if is the current xattrop index*/
+        if (!strcmp (&filename[8], uuid_utoa (priv->index)))
+                return;
+
         make_file_path (priv->index_basepath, XATTROP_SUBDIR,
                         filename, filepath, sizeof (filepath));
 
