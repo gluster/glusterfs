@@ -50,6 +50,9 @@ fi
 # checkout the sources to a new directory to execute ./configure and all
 REPO=${PWD}
 COMMIT=$(git describe)
+
+# make sure to cleanup in case DEBUG was enabled in a previous run
+[ -d rpmbuild-mock.d ] && rm -rf rpmbuild-mock.d
 mkdir rpmbuild-mock.d
 pushd rpmbuild-mock.d 2>/dev/null
 
