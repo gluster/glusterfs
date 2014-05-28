@@ -10,7 +10,7 @@ Infiniband requires addresses of end points to be exchanged using an out-of-band
 
 ### Limitations ###
 * Because of bug [890502](https://bugzilla.redhat.com/show_bug.cgi?id=890502), we've to probe the peer on an IPoIB address. This imposes a restriction that all volumes created in the future have to communicate over IPoIB address (irrespective of whether they use gluster's tcp or rdma transport).
- 
+
 * Currently client has independence to choose b/w tcp and rdma transports while communicating with the server (by creating volumes with **transport-type tcp,rdma**). This independence was a by-product of our ability to use the tcp/ip channel - transports with *option transport-type tcp* - for rdma connection establishment handshake too. However, with new requirement of IPoIB address for connection establishment, we loose this independence (till we bring in [multi-network support](https://bugzilla.redhat.com/show_bug.cgi?id=765437) - where a brick can be identified by a set of ip-addresses and we can choose different pairs of ip-addresses for communication based on our requirements - in glusterd).
 
 ### External links ###
