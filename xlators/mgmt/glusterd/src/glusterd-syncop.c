@@ -13,6 +13,7 @@
 #include "xdr-generic.h"
 #include "glusterd1-xdr.h"
 #include "glusterd-syncop.h"
+#include "glusterd-mgmt.h"
 
 #include "glusterd.h"
 #include "glusterd-op-sm.h"
@@ -31,62 +32,6 @@ gd_synctask_barrier_wait (struct syncargs *args, int count)
         synclock_lock (&conf->big_lock);
 
 	syncbarrier_destroy (&args->barrier);
-}
-
-static void
-gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
-                           char *op_errstr, int op_code,
-                           glusterd_peerinfo_t *peerinfo, u_char *uuid)
-{
-        char     err_str[PATH_MAX] = "Please check log file for details.";
-        char     op_err[PATH_MAX] = "";
-        char    *peer_str      = NULL;
-
-        if (op_ret) {
-                args->op_ret = op_ret;
-                args->op_errno = op_errno;
-
-                if (peerinfo)
-                        peer_str = peerinfo->hostname;
-                else
-                        peer_str = uuid_utoa (uuid);
-
-                if (op_errstr && strcmp (op_errstr, ""))
-                        snprintf (err_str, sizeof(err_str) - 1,
-                                  "Error: %s", op_errstr);
-
-                switch (op_code) {
-                        case GLUSTERD_MGMT_V3_LOCK:
-                        {
-                                snprintf (op_err, sizeof(op_err) - 1,
-                                          "Locking failed "
-                                          "on %s. %s", peer_str, err_str);
-                                break;
-                        }
-                        case GLUSTERD_MGMT_V3_UNLOCK:
-                        {
-                                snprintf (op_err, sizeof(op_err) - 1,
-                                          "Unlocking failed "
-                                          "on %s. %s", peer_str, err_str);
-                                break;
-                        }
-                }
-
-                if (args->errstr) {
-                        snprintf (err_str, sizeof(err_str) - 1,
-                                  "%s\n%s", args->errstr,
-                                  op_err);
-                        GF_FREE (args->errstr);
-                        args->errstr = NULL;
-                } else
-                        snprintf (err_str, sizeof(err_str) - 1,
-                                  "%s", op_err);
-
-                gf_log ("", GF_LOG_ERROR, "%s", op_err);
-                args->errstr = gf_strdup (err_str);
-        }
-
-        return;
 }
 
 static void

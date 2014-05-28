@@ -25,7 +25,7 @@
 extern struct rpc_clnt_program gd_mgmt_v3_prog;
 
 
-static void
+void
 gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
                            char *op_errstr, int op_code,
                            glusterd_peerinfo_t *peerinfo, u_char *uuid)
@@ -35,6 +35,9 @@ gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
         char       op_err[PATH_MAX]  = "";
         int32_t    len               = -1;
         xlator_t  *this              = NULL;
+        int        is_operrstr_blk   = 0;
+        char       *err_string       = NULL;
+        char       *cli_err_str      = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -50,68 +53,76 @@ gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
                 else
                         peer_str = uuid_utoa (uuid);
 
-                if (op_errstr && strcmp (op_errstr, "")) {
-                        len = snprintf (err_str, sizeof(err_str) - 1,
-                                        "Error: %s", op_errstr);
-                        err_str[len] = '\0';
-                }
+                is_operrstr_blk = (op_errstr && strcmp (op_errstr, ""));
+                err_string     = (is_operrstr_blk) ? op_errstr : err_str;
 
                 switch (op_code) {
                 case GLUSTERD_MGMT_V3_LOCK:
                         {
-                                len = snprintf (op_err, sizeof(op_err) - 1,
+                                len = snprintf (op_err, sizeof(op_err),
                                                 "Locking failed "
-                                                "on %s. %s", peer_str, err_str);
+                                                "on %s. %s", peer_str,
+                                                err_string);
                                 break;
                         }
                 case GLUSTERD_MGMT_V3_PRE_VALIDATE:
                         {
-                                len = snprintf (op_err, sizeof(op_err) - 1,
+                                len = snprintf (op_err, sizeof(op_err),
                                                 "Pre Validation failed "
-                                                "on %s. %s", peer_str, err_str);
+                                                "on %s. %s", peer_str,
+                                                err_string);
                                 break;
                         }
                 case GLUSTERD_MGMT_V3_BRICK_OP:
                         {
-                                len = snprintf (op_err, sizeof(op_err) - 1,
+                                len = snprintf (op_err, sizeof(op_err),
                                                 "Brick ops failed "
-                                                "on %s. %s", peer_str, err_str);
+                                                "on %s. %s", peer_str,
+                                                err_string);
                                 break;
                         }
                 case GLUSTERD_MGMT_V3_COMMIT:
                         {
-                                len = snprintf (op_err, sizeof(op_err) - 1,
-                                                "Commit failed on %s. %s",
-                                                peer_str, err_str);
+                                len = snprintf (op_err, sizeof(op_err),
+                                                "Commit failed"
+                                                " on %s. %s", peer_str,
+                                                err_string);
                                 break;
                         }
                 case GLUSTERD_MGMT_V3_POST_VALIDATE:
                         {
-                                len = snprintf (op_err, sizeof(op_err) - 1,
+                                len = snprintf (op_err, sizeof(op_err),
                                                 "Post Validation failed "
-                                                "on %s. %s", peer_str, err_str);
+                                                "on %s. %s", peer_str,
+                                                err_string);
                                 break;
                         }
                 case GLUSTERD_MGMT_V3_UNLOCK:
                         {
-                                len = snprintf (op_err, sizeof(op_err) - 1,
+                                len = snprintf (op_err, sizeof(op_err),
                                                 "Unlocking failed "
-                                                "on %s. %s", peer_str, err_str);
+                                                "on %s. %s", peer_str,
+                                                err_string);
                                 break;
                         }
+                default :
+                        len = snprintf (op_err, sizeof(op_err),
+                                       "Unknown error! "
+                                       "on %s. %s", peer_str,
+                                        err_string);
                 }
-                op_err[len] = '\0';
+
+                cli_err_str = ((is_operrstr_blk) ? op_errstr : op_err);
 
                 if (args->errstr) {
-                        len = snprintf (err_str, sizeof(err_str) - 1,
-                                        "%s\n%s", args->errstr,
-                                        op_err);
+                        len = snprintf (err_str, sizeof(err_str),
+                                      "%s\n%s", args->errstr,
+                                      cli_err_str);
                         GF_FREE (args->errstr);
                         args->errstr = NULL;
                 } else
-                        len = snprintf (err_str, sizeof(err_str) - 1,
-                                        "%s", op_err);
-                err_str[len] = '\0';
+                        len = snprintf (err_str, sizeof(err_str),
+                                "%s", cli_err_str);
 
                 gf_log (this->name, GF_LOG_ERROR, "%s", op_err);
                 args->errstr = gf_strdup (err_str);
@@ -567,7 +578,7 @@ out:
         if (rsp_dict)
                 dict_unref (rsp_dict);
 
-        gd_mgmt_v3_collate_errors (args, op_ret, op_errno, NULL,
+        gd_mgmt_v3_collate_errors (args, op_ret, op_errno, rsp.op_errstr,
                                   GLUSTERD_MGMT_V3_PRE_VALIDATE,
                                   peerinfo, rsp.uuid);
 
@@ -802,7 +813,7 @@ gd_mgmt_v3_brick_op_cbk_fn (struct rpc_req *req, struct iovec *iov,
         op_errno = rsp.op_errno;
 
 out:
-        gd_mgmt_v3_collate_errors (args, op_ret, op_errno, NULL,
+        gd_mgmt_v3_collate_errors (args, op_ret, op_errno, rsp.op_errstr,
                                    GLUSTERD_MGMT_V3_BRICK_OP,
                                    peerinfo, rsp.uuid);
 
@@ -1032,7 +1043,7 @@ out:
         if (rsp_dict)
                 dict_unref (rsp_dict);
 
-        gd_mgmt_v3_collate_errors (args, op_ret, op_errno, NULL,
+        gd_mgmt_v3_collate_errors (args, op_ret, op_errno, rsp.op_errstr,
                                   GLUSTERD_MGMT_V3_COMMIT,
                                   peerinfo, rsp.uuid);
 
@@ -1230,7 +1241,7 @@ gd_mgmt_v3_post_validate_cbk_fn (struct rpc_req *req, struct iovec *iov,
         op_errno = rsp.op_errno;
 
 out:
-        gd_mgmt_v3_collate_errors (args, op_ret, op_errno, NULL,
+        gd_mgmt_v3_collate_errors (args, op_ret, op_errno, rsp.op_errstr,
                                   GLUSTERD_MGMT_V3_POST_VALIDATE,
                                   peerinfo, rsp.uuid);
         if (rsp.op_errstr)
