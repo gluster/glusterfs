@@ -2316,6 +2316,136 @@ out:
         return ret;
 }
 
+/* Exports a bricks snapshot details only if required
+ *
+ * The details will be exported only if the cluster op-version is greather than
+ * 4, ie. snapshot is supported in the cluster
+ */
+int
+gd_add_brick_snap_details_to_dict (dict_t *dict, char *prefix,
+                                   glusterd_brickinfo_t *brickinfo)
+{
+        int ret = -1;
+        xlator_t *this = NULL;
+        glusterd_conf_t *conf = NULL;
+        char key[256] = {0,};
+
+        this = THIS;
+        GF_ASSERT (this != NULL);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, (conf != NULL), out);
+
+        GF_VALIDATE_OR_GOTO (this->name, (dict != NULL), out);
+        GF_VALIDATE_OR_GOTO (this->name, (prefix != NULL), out);
+        GF_VALIDATE_OR_GOTO (this->name, (brickinfo != NULL), out);
+
+        if (conf->op_version < GD_OP_VERSION_4) {
+                ret = 0;
+                goto out;
+        }
+
+        snprintf (key, sizeof (key), "%s.snap_status", prefix);
+        ret = dict_set_int32 (dict, key, brickinfo->snap_status);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set snap_status for %s:%s",
+                        brickinfo->hostname, brickinfo->path);
+                goto out;
+        }
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.device_path", prefix);
+        ret = dict_set_str (dict, key, brickinfo->device_path);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set snap_device for %s:%s",
+                         brickinfo->hostname, brickinfo->path);
+                goto out;
+        }
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.mount_dir", prefix);
+        ret = dict_set_str (dict, key, brickinfo->mount_dir);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set mount_dir for %s:%s",
+                         brickinfo->hostname, brickinfo->path);
+
+out:
+        return ret;
+}
+
+/* Exports a volumes snapshot details only if required.
+ *
+ * The snapshot details will only be exported if the cluster op-version is
+ * greater than 4, ie. snapshot is supported in the cluster
+ */
+int
+gd_add_vol_snap_details_to_dict (dict_t *dict, char *prefix,
+                                 glusterd_volinfo_t *volinfo)
+{
+        int ret = -1;
+        xlator_t *this = NULL;
+        glusterd_conf_t *conf = NULL;
+        char key[256] = {0,};
+
+        this = THIS;
+        GF_ASSERT (this != NULL);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, (conf != NULL), out);
+
+        GF_VALIDATE_OR_GOTO (this->name, (dict != NULL), out);
+        GF_VALIDATE_OR_GOTO (this->name, (volinfo != NULL), out);
+        GF_VALIDATE_OR_GOTO (this->name, (prefix != NULL), out);
+
+        if (conf->op_version < GD_OP_VERSION_4) {
+                ret =0;
+                goto out;
+        }
+
+        snprintf (key, sizeof (key), "%s.restored_from_snap", prefix);
+        ret = dict_set_dynstr_with_alloc
+                                  (dict, key,
+                                   uuid_utoa (volinfo->restored_from_snap));
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to set %s for volume"
+                        "%s", key, volinfo->volname);
+                goto out;
+        }
+
+        if (strlen (volinfo->parent_volname) > 0) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.parent_volname", prefix);
+                ret = dict_set_dynstr_with_alloc (dict, key,
+                                                  volinfo->parent_volname);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Unable to set %s "
+                                "for volume %s", key, volinfo->volname);
+                        goto out;
+                }
+        }
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.is_snap_volume", prefix);
+        ret = dict_set_uint32 (dict, key, volinfo->is_snap_volume);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to set %s for volume"
+                        "%s", key, volinfo->volname);
+                goto out;
+        }
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.snap-max-hard-limit", prefix);
+        ret = dict_set_uint64 (dict, key, volinfo->snap_max_hard_limit);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to set %s for volume"
+                        "%s", key, volinfo->volname);
+        }
+
+out:
+        return ret;
+}
+
 /* The prefix represents the type of volume to be added.
  * It will be "volume" for normal volumes, and snap# like
  * snap1, snap2, for snapshot volumes
@@ -2355,27 +2485,6 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         ret = dict_set_int32 (dict, key, volinfo->type);
         if (ret)
                 goto out;
-
-        snprintf (key, sizeof (key), "%s%d.restored_from_snap",
-                  prefix, count);
-        ret = dict_set_dynstr_with_alloc
-                                  (dict, key,
-                                   uuid_utoa (volinfo->restored_from_snap));
-        if (ret)
-                goto out;
-
-        if (strlen (volinfo->parent_volname) > 0) {
-                snprintf (key, sizeof (key), "%s%d.parent_volname",
-                          prefix, count);
-                ret = dict_set_dynstr_with_alloc (dict, key,
-                                                  volinfo->parent_volname);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to set parent_volname for %s",
-                                volinfo->volname);
-                        goto out;
-                }
-        }
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.brick_count", prefix, count);
@@ -2431,19 +2540,11 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        snprintf (key, sizeof (key), "%s%d.is_snap_volume", prefix, count);
-        ret = dict_set_uint32 (dict, key, volinfo->is_snap_volume);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Unable to set %s", key);
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d", prefix, count);
+        ret = gd_add_vol_snap_details_to_dict (dict, key, volinfo);
+        if (ret)
                 goto out;
-        }
-
-        snprintf (key, sizeof (key), "%s%d.snap-max-hard-limit", prefix, count);
-        ret = dict_set_uint64 (dict, key, volinfo->snap_max_hard_limit);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Unable to set %s", key);
-                goto out;
-        }
 
         volume_id_str = gf_strdup (uuid_utoa (volinfo->volume_id));
         if (!volume_id_str) {
@@ -2620,38 +2721,11 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                 if (ret)
                         goto out;
 
-                snprintf (key, sizeof (key), "%s%d.brick%d.snap_status",
-                          prefix, count, i);
-                ret = dict_set_int32 (dict, key, brickinfo->snap_status);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to set snap_status for %s:%s",
-                                brickinfo->hostname,
-                                brickinfo->path);
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s%d.brick%d", prefix, count, i);
+                ret = gd_add_brick_snap_details_to_dict (dict, key, brickinfo);
+                if (ret)
                         goto out;
-                }
-
-                snprintf (key, sizeof (key), "%s%d.brick%d.device_path",
-                          prefix, count, i);
-                ret = dict_set_str (dict, key, brickinfo->device_path);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to set snap_device for %s:%s",
-                                brickinfo->hostname,
-                                brickinfo->path);
-                        goto out;
-                }
-
-                snprintf (key, sizeof (key), "%s%d.brick%d.mount_dir",
-                          prefix, count, i);
-                ret = dict_set_str (dict, key, brickinfo->mount_dir);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to set mount_dir for %s:%s",
-                                brickinfo->hostname,
-                                brickinfo->path);
-                        goto out;
-                }
 
                 i++;
         }
@@ -3603,6 +3677,64 @@ out:
         return ret;
 }
 
+/* Imports the snapshot details of a brick if required and available
+ *
+ * Snapshot details will be imported only if the cluster op-verison is >= 4
+ */
+int
+gd_import_new_brick_snap_details (dict_t *dict, char *prefix,
+                                  glusterd_brickinfo_t *brickinfo)
+{
+        int              ret         = -1;
+        xlator_t        *this        = NULL;
+        glusterd_conf_t *conf        = NULL;
+        char             key[512]    = {0,};
+        char            *snap_device = NULL;
+        char            *mount_dir   = NULL;
+
+        this = THIS;
+        GF_ASSERT (this != NULL);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, (conf != NULL), out);
+
+        GF_VALIDATE_OR_GOTO (this->name, (dict != NULL), out);
+        GF_VALIDATE_OR_GOTO (this->name, (prefix != NULL), out);
+        GF_VALIDATE_OR_GOTO (this->name, (brickinfo != NULL), out);
+
+        if (conf->op_version < GD_OP_VERSION_4) {
+                ret = 0;
+                goto out;
+        }
+
+        snprintf (key, sizeof (key), "%s.snap_status", prefix);
+        ret = dict_get_int32 (dict, key, &brickinfo->snap_status);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "%s missing in payload", key);
+                goto out;
+        }
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.device_path", prefix);
+        ret = dict_get_str (dict, key, &snap_device);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "%s missing in payload", key);
+                goto out;
+        }
+        strcpy (brickinfo->device_path, snap_device);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.mount_dir", prefix);
+        ret = dict_get_str (dict, key, &mount_dir);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "%s missing in payload", key);
+                goto out;
+        }
+        strcpy (brickinfo->mount_dir, mount_dir);
+
+out:
+        return ret;
+}
+
 /* The prefix represents the type of volume to be added.
  * It will be "volume" for normal volumes, and snap# like
  * snap1, snap2, for snapshot volumes
@@ -3615,9 +3747,6 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
 {
         char                    key[512] = {0,};
         int                     ret = -1;
-        int32_t                 snap_status = 0;
-        char                    *snap_device = NULL;
-        char                    *mount_dir = NULL;
         char                    *hostname = NULL;
         char                    *path = NULL;
         char                    *brick_id = NULL;
@@ -3665,42 +3794,23 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
                 ret = 0;
         }
 
-        snprintf (key, sizeof (key), "%s%d.brick%d.snap_status",
-                  prefix, vol_count, brick_count);
-        ret = dict_get_int32 (peer_data, key, &snap_status);
-        if (ret) {
-                snprintf (msg, sizeof (msg), "%s missing in payload", key);
-                goto out;
-        }
-
-        snprintf (key, sizeof (key), "%s%d.brick%d.device_path",
-                  prefix, vol_count, brick_count);
-        ret = dict_get_str (peer_data, key, &snap_device);
-        if (ret) {
-                snprintf (msg, sizeof (msg), "%s missing in payload", key);
-                goto out;
-        }
-
-        snprintf (key, sizeof (key), "%s%d.brick%d.mount_dir",
-                  prefix, vol_count, brick_count);
-        ret = dict_get_str (peer_data, key, &mount_dir);
-        if (ret) {
-                snprintf (msg, sizeof (msg), "%s missing in payload", key);
-                goto out;
-        }
-
         ret = glusterd_brickinfo_new (&new_brickinfo);
         if (ret)
                 goto out;
 
         strcpy (new_brickinfo->path, path);
         strcpy (new_brickinfo->hostname, hostname);
-        strcpy (new_brickinfo->device_path, snap_device);
-        strcpy (new_brickinfo->mount_dir, mount_dir);
-        new_brickinfo->snap_status = snap_status;
         new_brickinfo->decommissioned = decommissioned;
         if (brick_id)
                 strcpy (new_brickinfo->brick_id, brick_id);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.brick%d", prefix, vol_count,
+                  brick_count);
+        ret = gd_import_new_brick_snap_details (peer_data, key, new_brickinfo);
+        if (ret)
+                goto out;
+
         //peerinfo might not be added yet
         (void) glusterd_resolve_brick (new_brickinfo);
         ret = 0;
@@ -3900,6 +4010,67 @@ out:
         return ret;
 }
 
+/*
+ * Imports the snapshot details of a volume if required and available
+ *
+ * Snapshot details will be imported only if cluster.op_version is greater than
+ * or equal to GD_OP_VERSION_4, the op-version from which volume snapshot is
+ * supported.
+ */
+int
+gd_import_volume_snap_details (dict_t *dict, glusterd_volinfo_t *volinfo,
+                               char *prefix, char *volname)
+{
+        int              ret           = -1;
+        xlator_t        *this          = NULL;
+        glusterd_conf_t *conf          = NULL;
+        char             key[256]      = {0,};
+        char            *restored_snap = NULL;
+
+        this = THIS;
+        GF_ASSERT (this != NULL);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, (conf != NULL), out);
+
+        GF_VALIDATE_OR_GOTO (this->name, (dict != NULL), out);
+        GF_VALIDATE_OR_GOTO (this->name, (volinfo != NULL), out);
+        GF_VALIDATE_OR_GOTO (this->name, (prefix != NULL), out);
+        GF_VALIDATE_OR_GOTO (this->name, (volname != NULL), out);
+
+        if (conf->op_version < GD_OP_VERSION_4) {
+                ret = 0;
+                goto out;
+        }
+
+        snprintf (key, sizeof (key), "%s.is_snap_volume", prefix);
+        ret = dict_get_uint32 (dict, key, &volinfo->is_snap_volume);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "%s missing in payload "
+                        "for %s", key, volname);
+                goto out;
+        }
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.restored_from_snap", prefix);
+        ret = dict_get_str (dict, key, &restored_snap);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "%s missing in payload "
+                        "for %s", key, volname);
+                goto out;
+        }
+
+        uuid_parse (restored_snap, volinfo->restored_from_snap);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.snap-max-hard-limit", prefix);
+        ret = dict_get_uint64 (dict, key,
+                               &volinfo->snap_max_hard_limit);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR, "%s missing in payload "
+                        "for %s", key, volname);
+out:
+        return ret;
+}
 /* The prefix represents the type of volume to be added.
  * It will be "volume" for normal volumes, and snap# like
  * snap1, snap2, for snapshot volumes
@@ -3925,7 +4096,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         char               *rb_id_str        = NULL;
         int                op_version        = 0;
         int                client_op_version = 0;
-        uint32_t           is_snap_volume    = 0;
 
         GF_ASSERT (peer_data);
         GF_ASSERT (volinfo);
@@ -3935,15 +4105,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         ret = dict_get_str (peer_data, key, &volname);
         if (ret) {
                 snprintf (msg, sizeof (msg), "%s missing in payload", key);
-                goto out;
-        }
-
-        memset (key, 0, sizeof (key));
-        snprintf (key, sizeof (key), "%s%d.is_snap_volume", prefix, count);
-        ret = dict_get_uint32 (peer_data, key, &is_snap_volume);
-        if (ret) {
-                snprintf (msg, sizeof (msg), "%s missing in payload for %s",
-                          key, volname);
                 goto out;
         }
 
@@ -4078,27 +4239,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
                 goto out;
         }
 
-        new_volinfo->is_snap_volume = is_snap_volume;
-
-        snprintf (key, sizeof (key), "%s%d.restored_from_snap", prefix, count);
-        ret = dict_get_str (peer_data, key, &restored_snap);
-        if (ret) {
-                snprintf (msg, sizeof (msg), "%s missing in payload for %s",
-                          key, volname);
-                goto out;
-        }
-
-        uuid_parse (restored_snap, new_volinfo->restored_from_snap);
-
-        snprintf (key, sizeof (key), "%s%d.snap-max-hard-limit", prefix, count);
-        ret = dict_get_uint64 (peer_data, key,
-                               &new_volinfo->snap_max_hard_limit);
-        if (ret) {
-                snprintf (msg, sizeof (msg), "%s missing in payload for %s",
-                          key, volname);
-                goto out;
-        }
-
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.rebalance", prefix, count);
         ret = dict_get_uint32 (peer_data, key, &new_volinfo->rebal.defrag_cmd);
@@ -4190,6 +4330,15 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
                 }
         }
 
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d", prefix, count);
+        ret = gd_import_volume_snap_details (peer_data, new_volinfo, key,
+                                             volname);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Failed to import snapshot "
+                        "details for volume %s", volname);
+                goto out;
+        }
 
         ret = glusterd_import_friend_volume_opts (peer_data, count,
                                                   new_volinfo);
