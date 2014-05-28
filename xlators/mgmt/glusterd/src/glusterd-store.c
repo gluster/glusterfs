@@ -249,6 +249,58 @@ glusterd_store_create_brick_shandle_on_absence (glusterd_volinfo_t *volinfo,
         return ret;
 }
 
+/* Store the bricks snapshot details only if required
+ *
+ * The snapshot details will be stored only if the cluster op-version is
+ * greater than or equal to 4
+ */
+int
+gd_store_brick_snap_details_write (int fd, glusterd_brickinfo_t *brickinfo)
+{
+        int ret = -1;
+        xlator_t *this = NULL;
+        glusterd_conf_t *conf = NULL;
+        char value[256] = {0,};
+
+        this = THIS;
+        GF_ASSERT (this != NULL);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, (conf != NULL), out);
+
+        GF_VALIDATE_OR_GOTO (this->name, (fd > 0), out);
+        GF_VALIDATE_OR_GOTO (this->name, (brickinfo != NULL), out);
+
+        if (conf->op_version < GD_OP_VERSION_4) {
+                ret = 0;
+                goto out;
+        }
+
+        if (strlen(brickinfo->device_path) > 0) {
+                snprintf (value, sizeof(value), "%s", brickinfo->device_path);
+                ret = gf_store_save_value (fd,
+                                GLUSTERD_STORE_KEY_BRICK_DEVICE_PATH, value);
+                if (ret)
+                        goto out;
+        }
+
+        if (strlen(brickinfo->mount_dir) > 0) {
+                memset (value, 0, sizeof (value));
+                snprintf (value, sizeof(value), "%s", brickinfo->mount_dir);
+                ret = gf_store_save_value (fd,
+                                GLUSTERD_STORE_KEY_BRICK_MOUNT_DIR, value);
+                if (ret)
+                        goto out;
+        }
+
+        memset (value, 0, sizeof (value));
+        snprintf (value, sizeof(value), "%d", brickinfo->snap_status);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS,
+                                   value);
+
+out:
+        return ret;
+}
+
 int32_t
 glusterd_store_brickinfo_write (int fd, glusterd_brickinfo_t *brickinfo)
 {
@@ -286,25 +338,7 @@ glusterd_store_brickinfo_write (int fd, glusterd_brickinfo_t *brickinfo)
         if (ret)
                 goto out;
 
-        if (strlen(brickinfo->device_path) > 0) {
-                snprintf (value, sizeof(value), "%s", brickinfo->device_path);
-                ret = gf_store_save_value (fd,
-                                GLUSTERD_STORE_KEY_BRICK_DEVICE_PATH, value);
-                if (ret)
-                        goto out;
-        }
-
-        if (strlen(brickinfo->mount_dir) > 0) {
-                snprintf (value, sizeof(value), "%s", brickinfo->mount_dir);
-                ret = gf_store_save_value (fd,
-                                GLUSTERD_STORE_KEY_BRICK_MOUNT_DIR, value);
-                if (ret)
-                        goto out;
-        }
-
-        snprintf (value, sizeof(value), "%d", brickinfo->snap_status);
-        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS,
-                                   value);
+        ret = gd_store_brick_snap_details_write (fd, brickinfo);
         if (ret)
                 goto out;
 
@@ -568,6 +602,64 @@ int _storeopts (dict_t *this, char *key, data_t *value, void *data)
         return 0;
 }
 
+/* Store the volumes snapshot details only if required
+ *
+ * The snapshot details will be stored only if the cluster op-version is
+ * greater than or equal to 4
+ */
+int
+glusterd_volume_write_snap_details (int fd, glusterd_volinfo_t *volinfo)
+{
+        int              ret           = -1;
+        xlator_t        *this          = NULL;
+        glusterd_conf_t *conf          = NULL;
+        char             buf[PATH_MAX] = {0,};
+
+        this = THIS;
+        GF_ASSERT (this != NULL);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, (conf != NULL), out);
+
+        GF_VALIDATE_OR_GOTO (this->name, (fd > 0), out);
+        GF_VALIDATE_OR_GOTO (this->name, (volinfo != NULL), out);
+
+        if (conf->op_version < GD_OP_VERSION_4) {
+                ret = 0;
+                goto out;
+        }
+
+        snprintf (buf, sizeof (buf), "%s", volinfo->parent_volname);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_PARENT_VOLNAME, buf);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to store "
+                        GLUSTERD_STORE_KEY_PARENT_VOLNAME);
+                goto out;
+        }
+
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_RESTORED_SNAP,
+                                   uuid_utoa (volinfo->restored_from_snap));
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to write restored_from_snap");
+                goto out;
+        }
+
+        memset (buf, 0, sizeof (buf));
+        snprintf (buf, sizeof (buf), "%"PRIu64, volinfo->snap_max_hard_limit);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
+                                   buf);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to write snap-max-hard-limit");
+                goto out;
+        }
+
+out:
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR, "Failed to write snap details"
+                        " for volume %s", volinfo->volname);
+        return ret;
+}
 int32_t
 glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
 {
@@ -622,14 +714,6 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        snprintf (buf, sizeof (buf), "%s", volinfo->parent_volname);
-        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_PARENT_VOLNAME, buf);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to store "
-                        GLUSTERD_STORE_KEY_PARENT_VOLNAME);
-                goto out;
-        }
-
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_ID,
                                    uuid_utoa (volinfo->volume_id));
         if (ret)
@@ -669,22 +753,7 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
                         goto out;
         }
 
-        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_RESTORED_SNAP,
-                                   uuid_utoa (volinfo->restored_from_snap));
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Unable to write restored_from_snap");
-                goto out;
-        }
-
-        snprintf (buf, sizeof (buf), "%"PRIu64, volinfo->snap_max_hard_limit);
-        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
-                                   buf);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Unable to write snap-max-hard-limit");
-                goto out;
-        }
+        ret = glusterd_volume_write_snap_details (fd, volinfo);
 
 out:
         if (ret)
