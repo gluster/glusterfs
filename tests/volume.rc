@@ -237,6 +237,13 @@ function kill_brick {
         kill -9 $(get_brick_pid $vol $host $brick)
 }
 
+function hang_brick {
+        local vol=$1
+        local host=$2
+        local brick=$3
+        kill -STOP $(get_brick_pid $vol $host $brick)
+}
+
 function check_option_help_presence {
         local option=$1
         $CLI volume set help | grep "^Option:" | grep -w $option

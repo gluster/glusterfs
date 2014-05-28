@@ -122,6 +122,7 @@ call_bail (void *data)
         struct iovec           iov = {0,};
         char                   peerid[UNIX_PATH_MAX] = {0};
         gf_boolean_t           need_unref = _gf_false;
+        gf_boolean_t           timedout_frames = _gf_false;
 
         GF_VALIDATE_OR_GOTO ("client", data, out);
 
@@ -198,7 +199,6 @@ call_bail (void *data)
                         "--",
                         trav->rpcreq->procnum, trav->rpcreq->xid, frame_sent,
                         conn->frame_timeout, peerid);
-
                 clnt = rpc_clnt_ref (clnt);
                 trav->rpcreq->rpc_status = -1;
 		trav->rpcreq->cbkfn (trav->rpcreq, &iov, 1, trav->frame);
@@ -207,7 +207,30 @@ call_bail (void *data)
                 clnt = rpc_clnt_unref (clnt);
                 list_del_init (&trav->list);
                 mem_put (trav);
+                timedout_frames = _gf_true;
         }
+        /* So what on earth is this you ask?  It was observed while testing
+         * the SHD threading code, that under high loads SHD/AFR related
+         * SyncOps & SyncTasks can actually hang/deadlock as the transport
+         * disconnected event never gets bubbled up correctly.  Various
+         * tests indicated the ping timeouts worked fine, while "frame timeouts"
+         * did not.  The only difference?  Ping timeouts actually disconnect
+         * the transport while frame timeouts did not.  So from a high-level we
+         * know this prevents deadlock as subsequent tests showed the deadlocks
+         * no longer ocurred (after this change).  That said, there may be some
+         * more elegant solution.  For now though, forcing a reconnect is
+         * preferential vs hanging clients or deadlocking the SHD.
+         *
+         * I suspect the culprit might be in
+         * afr-self-heal-common.c:afr_sh_common_lookup_cbk as this function
+         * will early-return if the callcount never actually reaches 0,
+         * which ordinarily is fine (you only want your callback called if
+         * the Nth response is received), but what happens if callcount
+         * never rearches 0?  The callback won't be called. Theory at this
+         * point, but a good spot to start when we get a chance.
+         */
+        if (timedout_frames)
+                rpc_transport_disconnect (clnt->conn.trans);
 out:
         rpc_clnt_unref (clnt);
         if (need_unref)
