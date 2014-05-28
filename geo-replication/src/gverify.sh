@@ -81,8 +81,7 @@ function slave_stats()
     local status;
 
     d=$(mktemp -d 2>/dev/null);
-    glusterfs --xlator-option="*dht.lookup-unhashed=off" --volfile-server $SLAVEHOST --volfile-id $SLAVEVOL -l $slave_log_file \$d;
-    mount -t glusterfs $SLAVEHOST:$SLAVEVOL $d
+    glusterfs --xlator-option="*dht.lookup-unhashed=off" --volfile-server $SLAVEHOST --volfile-id $SLAVEVOL -l $slave_log_file $d;
     i=$(stat -c "%i" $d);
     if [[ "$i" -ne "1" ]]; then
         echo 0:0;
