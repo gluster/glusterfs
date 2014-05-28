@@ -4018,7 +4018,7 @@ __glusterd_handle_barrier (rpcsvc_request_t *req)
                         "dict");
                 goto out;
         }
-        gf_log (this->name, GF_LOG_INFO, "Recieved barrier volume request for "
+        gf_log (this->name, GF_LOG_INFO, "Received barrier volume request for "
                 "volume %s", volname);
 
         ret = glusterd_op_begin_synctask (req, GD_OP_BARRIER, dict);
