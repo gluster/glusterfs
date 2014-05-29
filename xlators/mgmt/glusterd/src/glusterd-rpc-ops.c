@@ -897,11 +897,16 @@ __glusterd_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         char                          err_str[2048] = {0};
         char                          *peer_str = NULL;
         xlator_t                      *this = NULL;
+        glusterd_conf_t               *priv = NULL;
         uuid_t                        *txn_id = NULL;
 
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (req);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        txn_id = &priv->global_txn_id;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -951,17 +956,14 @@ out:
                 (op_ret) ? "RJT" : "ACC", uuid_utoa (rsp.uuid));
 
         ret = dict_get_bin (dict, "transaction_id", (void **)&txn_id);
-
-        gf_log ("", GF_LOG_DEBUG, "transaction ID = %s", uuid_utoa (*txn_id));
+        gf_log (this->name, GF_LOG_DEBUG, "transaction ID = %s",
+                uuid_utoa (*txn_id));
 
         ret = glusterd_friend_find (rsp.uuid, NULL, &peerinfo);
-
-        if (ret) {
+        if (ret)
                 gf_log (this->name, GF_LOG_CRITICAL, "Stage response received "
                         "from unknown peer: %s. Ignoring response.",
                         uuid_utoa (rsp.uuid));
-                goto out;
-        }
 
         if (op_ret) {
                 event_type = GD_OP_EVENT_RCVD_RJT;
@@ -977,10 +979,8 @@ out:
                                   OPERRSTR_STAGE_FAIL, peer_str);
                         opinfo.op_errstr = gf_strdup (err_str);
                 }
-                if (!opinfo.op_errstr) {
+                if (!opinfo.op_errstr)
                         ret = -1;
-                        goto out;
-                }
         } else {
                 event_type = GD_OP_EVENT_RCVD_ACC;
         }
@@ -1031,12 +1031,16 @@ __glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         char                          err_str[2048] = {0};
         char                          *peer_str = NULL;
         xlator_t                      *this = NULL;
+        glusterd_conf_t               *priv = NULL;
         uuid_t                        *txn_id = NULL;
-
 
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (req);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        txn_id = &priv->global_txn_id;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -1087,11 +1091,10 @@ __glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 (op_ret)?"RJT":"ACC", uuid_utoa (rsp.uuid));
 
         ret = dict_get_bin (dict, "transaction_id", (void **)&txn_id);
-
-        gf_log ("", GF_LOG_DEBUG, "transaction ID = %s", uuid_utoa (*txn_id));
+        gf_log (this->name, GF_LOG_DEBUG, "transaction ID = %s",
+                uuid_utoa (*txn_id));
 
         ret = glusterd_friend_find (rsp.uuid, NULL, &peerinfo);
-
         if (ret) {
                 gf_log (this->name, GF_LOG_CRITICAL, "Commit response for "
                         "'Volume %s' received from unknown peer: %s",
@@ -1791,9 +1794,12 @@ __glusterd_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
         }
 out:
 
-        ret = dict_get_bin (req_ctx->dict, "transaction_id", (void **)&txn_id);
-
-        gf_log ("", GF_LOG_DEBUG, "transaction ID = %s", uuid_utoa (*txn_id));
+        if (req_ctx && req_ctx->dict) {
+                ret = dict_get_bin (req_ctx->dict, "transaction_id",
+                                    (void **)&txn_id);
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "transaction ID = %s", uuid_utoa (*txn_id));
+        }
 
         ev_ctx = GF_CALLOC (1, sizeof (*ev_ctx), gf_gld_mt_brick_rsp_ctx_t);
         GF_ASSERT (ev_ctx);
@@ -1857,6 +1863,11 @@ glusterd_brick_op (call_frame_t *frame, xlator_t *this,
         req_ctx = data;
         GF_ASSERT (req_ctx);
         INIT_LIST_HEAD (&opinfo.pending_bricks);
+
+        ret = dict_get_bin (req_ctx->dict, "transaction_id", (void **)&txn_id);
+        gf_log (this->name, GF_LOG_DEBUG, "transaction ID = %s",
+                uuid_utoa (*txn_id));
+
         ret = glusterd_op_bricks_select (req_ctx->op, req_ctx->dict, &op_errstr,
                                          &opinfo.pending_bricks, NULL);
 
@@ -1867,11 +1878,6 @@ glusterd_brick_op (call_frame_t *frame, xlator_t *this,
                 opinfo.op_errstr = op_errstr;
                 goto out;
         }
-
-
-        ret = dict_get_bin (req_ctx->dict, "transaction_id", (void **)&txn_id);
-
-        gf_log ("", GF_LOG_DEBUG, "transaction ID = %s", uuid_utoa (*txn_id));
 
         list_for_each_entry (pending_node, &opinfo.pending_bricks, list) {
                 dummy_frame = create_frame (this, this->ctx->pool);

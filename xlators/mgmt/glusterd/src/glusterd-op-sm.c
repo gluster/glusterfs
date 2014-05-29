@@ -6488,7 +6488,7 @@ glusterd_op_sm ()
                                 "type: '%s'",
                                 glusterd_op_sm_event_name_get(event_type));
 
-                        gf_log ("", GF_LOG_DEBUG, "transaction ID = %s",
+                        gf_log (this->name, GF_LOG_DEBUG, "transaction ID = %s",
                                 uuid_utoa (event->txn_id));
 
                         ret = glusterd_get_txn_opinfo (&event->txn_id,
