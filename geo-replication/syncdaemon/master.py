@@ -241,6 +241,8 @@ class TarSSHEngine(object):
     def a_syncdata(self, files):
         self.unlinked_gfids = []
         logging.debug('files: %s' % (files))
+        self.current_files_skipped_count = 0
+        del self.skipped_gfid_list[:]
         for f in files:
             pb = self.syncer.add(f)
 
@@ -256,6 +258,9 @@ class TarSSHEngine(object):
                         self.unlinked_gfids.append(se)
                         return True
                     logging.warn('tar+ssh: %s [errcode: %d]' % (se, rv[1]))
+                    se_list = se.split('/');
+                    self.current_files_skipped_count += 1
+                    self.skipped_gfid_list.append(se_list[1])
             self.add_job(self.FLAT_DIR_HIERARCHY, 'reg', regjob, f, None, pb)
 
     def syncdata_wait(self):
@@ -274,6 +279,8 @@ class RsyncEngine(object):
     def a_syncdata(self, files):
         self.unlinked_gfids = []
         logging.debug('files: %s' % (files))
+        self.current_files_skipped_count = 0
+        del self.skipped_gfid_list[:]
         for f in files:
             logging.debug('candidate for syncing %s' % f)
             pb = self.syncer.add(f)
@@ -292,6 +299,9 @@ class RsyncEngine(object):
                             self.unlinked_gfids.append(se)
                             return True
                     logging.warn('Rsync: %s [errcode: %d]' % (se, rv[1]))
+                    se_list = se.split('/');
+                    self.current_files_skipped_count += 1
+                    self.skipped_gfid_list.append(se_list[1])
             self.add_job(self.FLAT_DIR_HIERARCHY, 'reg', regjob, f, None, pb)
 
     def syncdata_wait(self):
