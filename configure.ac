@@ -601,7 +601,7 @@ dnl FreeBSD, NetBSD
 AC_CHECK_MEMBERS([struct stat.st_atimespec.tv_nsec])
 case $host_os in
         *netbsd*)
-        CFLAGS="${CFLAGS} -D_INCOMPLETE_XOPEN_C063"
+        CFLAGS="${CFLAGS} -D_INCOMPLETE_XOPEN_C063 -DCONFIG_MACHINE_BSWAP_H"
         ;;
 esac
 AC_CHECK_FUNC([linkat], [have_linkat=yes])
@@ -775,6 +775,8 @@ BUILD_READLINE=no
 AC_CHECK_LIB([readline -lcurses],[readline],[RLLIBS="-lreadline -lcurses"])
 AC_CHECK_LIB([readline -ltermcap],[readline],[RLLIBS="-lreadline -ltermcap"])
 AC_CHECK_LIB([readline -lncurses],[readline],[RLLIBS="-lreadline -lncurses"])
+
+AC_CHECK_LIB([intl], [gettext])
 
 if test "x$RLLIBS" != "x"; then
    AC_DEFINE(HAVE_READLINE, 1, [readline enabled CLI])

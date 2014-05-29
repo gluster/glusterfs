@@ -42,6 +42,15 @@
 #include <dirent.h>
 #include <sys/statvfs.h>
 
+/* Portability non glibc c++ build systems */
+#ifndef __THROW
+# if defined __cplusplus
+#  define __THROW       throw ()
+# else
+#  define __THROW
+# endif
+#endif
+
 __BEGIN_DECLS
 
 /* The filesystem object. One object per 'virtual mount' */

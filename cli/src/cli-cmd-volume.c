@@ -16,6 +16,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <netinet/in.h>
 
 #ifndef _CONFIG_H
