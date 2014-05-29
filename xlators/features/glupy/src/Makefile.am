@@ -16,6 +16,6 @@ noinst_HEADERS = glupy.h
 
 # Install glupy.py into the Python site-packages area
 pyglupydir = $(pythondir)/gluster
-pyglupy_PYTHON = glupy.py
+pyglupy_PYTHON = glupy.py __init__.py
 
 CLEANFILES =
