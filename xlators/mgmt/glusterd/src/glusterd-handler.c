@@ -905,6 +905,18 @@ __glusterd_handle_stage_op (rpcsvc_request_t *req)
                 goto out;
         }
 
+        ret = glusterd_req_ctx_create (req, op_req.op, op_req.uuid,
+                                       op_req.buf.buf_val, op_req.buf.buf_len,
+                                       gf_gld_mt_op_stage_ctx_t, &req_ctx);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to create req_ctx");
+                goto out;
+        }
+
+        ret = dict_get_bin (req_ctx->dict, "transaction_id", (void **)&txn_id);
+        gf_log (this->name, GF_LOG_DEBUG, "transaction ID = %s",
+                uuid_utoa (*txn_id));
+
         if (glusterd_friend_find_by_uuid (op_req.uuid, &peerinfo)) {
                 gf_log (this->name, GF_LOG_WARNING, "%s doesn't "
                         "belong to the cluster. Ignoring request.",
@@ -912,16 +924,6 @@ __glusterd_handle_stage_op (rpcsvc_request_t *req)
                 ret = -1;
                 goto out;
         }
-
-        ret = glusterd_req_ctx_create (req, op_req.op, op_req.uuid,
-                                       op_req.buf.buf_val, op_req.buf.buf_len,
-                                       gf_gld_mt_op_stage_ctx_t, &req_ctx);
-        if (ret)
-                goto out;
-
-        ret = dict_get_bin (req_ctx->dict, "transaction_id", (void **)&txn_id);
-
-        gf_log ("", GF_LOG_DEBUG, "transaction ID = %s", uuid_utoa (*txn_id));
 
         /* In cases where there is no volname, the receivers won't have a
          * transaction opinfo created, as for those operations, the locking
@@ -1009,8 +1011,8 @@ __glusterd_handle_commit_op (rpcsvc_request_t *req)
                 goto out;
 
         ret = dict_get_bin (req_ctx->dict, "transaction_id", (void **)&txn_id);
-
-        gf_log ("", GF_LOG_DEBUG, "transaction ID = %s", uuid_utoa (*txn_id));
+        gf_log (this->name, GF_LOG_DEBUG, "transaction ID = %s",
+                uuid_utoa (*txn_id));
 
         ret = glusterd_op_sm_inject_event (GD_OP_EVENT_COMMIT_OP,
                                            txn_id, req_ctx);

@@ -1929,6 +1929,7 @@ glusterd_do_replace_brick (void *data)
         int32_t                 op      = 0;
         int32_t                 src_port = 0;
         int32_t                 dst_port = 0;
+        int32_t                 ret      = 0;
         dict_t                 *dict    = NULL;
         char                   *src_brick = NULL;
         char                   *dst_brick = NULL;
@@ -1937,16 +1938,16 @@ glusterd_do_replace_brick (void *data)
         glusterd_brickinfo_t   *dst_brickinfo = NULL;
 	glusterd_conf_t	       *priv = NULL;
         uuid_t                 *txn_id = NULL;
+        xlator_t               *this = NULL;
 
-        int ret = 0;
-
-        dict = data;
-
-	GF_ASSERT (THIS);
-	priv = THIS->private;
+        this = THIS;
+	GF_ASSERT (this);
+	priv = this->private;
         GF_ASSERT (priv);
+        GF_ASSERT (data);
 
         txn_id = &priv->global_txn_id;
+        dict = data;
 
 	if (priv->timer) {
 		gf_timer_call_cancel (THIS->ctx, priv->timer);
@@ -1959,8 +1960,8 @@ glusterd_do_replace_brick (void *data)
                 "Replace brick operation detected");
 
         ret = dict_get_bin (dict, "transaction_id", (void **)&txn_id);
-
-        gf_log ("", GF_LOG_DEBUG, "transaction ID = %s", uuid_utoa (*txn_id));
+        gf_log (this->name, GF_LOG_DEBUG, "transaction ID = %s",
+                uuid_utoa (*txn_id));
 
         ret = dict_get_int32 (dict, "operation", &op);
         if (ret) {
