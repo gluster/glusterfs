@@ -10,7 +10,7 @@ function launch_cluster() {
 
     define_backends $count;
     define_hosts $count;
-    define_glusterds $count;
+    define_glusterds $count $2;
     define_clis $count;
 
     start_glusterds;
@@ -46,9 +46,18 @@ function define_glusterds() {
 	bopt="management.transport.socket.bind-address=${!h}";
 	popt="--pid-file=${!b}/glusterd.pid";
         sopt="management.glusterd-sockfile=${!b}/glusterd/gd.sock"
-        lopt="--log-file=${!b}/glusterd.log"
-	eval "glusterd_$i='glusterd --xlator-option $wopt --xlator-option $bopt --xlator-option $sopt $lopt $popt'";
-	eval "glusterd$i='glusterd --xlator-option $wopt --xlator-option $bopt --xlator-option $sopt $lopt $popt'";
+        #Get the logdir
+        logdir=`gluster --print-logdir`
+        #Fetch the testcases name and prefix the glusterd log with it
+        logfile=`echo ${0##*/}`_glusterd$i.log
+        lopt="--log-file=$logdir/$logfile"
+        if [ "$2" == "-LDEBUG" ]; then
+            eval "glusterd_$i='glusterd -LDEBUG --xlator-option $wopt --xlator-option $bopt --xlator-option $sopt $lopt $popt'";
+            eval "glusterd$i='glusterd -LDEBUG --xlator-option $wopt --xlator-option $bopt --xlator-option $sopt $lopt $popt'";
+        else
+            eval "glusterd_$i='glusterd --xlator-option $wopt --xlator-option $bopt --xlator-option $sopt $lopt $popt'";
+            eval "glusterd$i='glusterd --xlator-option $wopt --xlator-option $bopt --xlator-option $sopt $lopt $popt'";
+        fi
     done
 }
 
