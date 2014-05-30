@@ -18,6 +18,7 @@
 #include "xlator.h"
 #include "compat.h"
 #include "dht-common.h"
+#include "dht-messages.h"
 
 int
 dht_linkfile_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -29,6 +30,7 @@ dht_linkfile_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_conf_t   *conf          = NULL;
         dht_local_t  *local         = NULL;
         call_frame_t *prev          = NULL;
+        char         gfid[GF_UUID_BUF_SIZE] = {0};
 
         local = frame->local;
         prev = cookie;
@@ -37,11 +39,14 @@ dht_linkfile_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret)
                 goto out;
 
+        uuid_unparse(local->loc.gfid, gfid);
+
         is_linkfile = check_is_linkfile (inode, stbuf, xattr,
                                          conf->link_xattr_name);
         if (!is_linkfile)
-                gf_log (this->name, GF_LOG_WARNING, "got non-linkfile %s:%s",
-                        prev->this->name, local->loc.path);
+                gf_log (this->name, GF_LOG_WARNING, 
+                        "got non-linkfile %s:%s, gfid = %s",
+                        prev->this->name, local->loc.path, gfid);
 out:
         local->linkfile.linkfile_cbk (frame, cookie, this, op_ret, op_errno,
                                       inode, stbuf, postparent, postparent,
@@ -49,7 +54,7 @@ out:
         return 0;
 }
 
-#define is_equal(a, b) (a == b)
+#define is_equal(a, b) ((a) == (b))
 int
 dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          int op_ret, int op_errno, inode_t *inode,
@@ -81,8 +86,10 @@ dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto out;
                 ret = dict_set_uint32 (xattrs, conf->link_xattr_name, 256);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to set linkto key");
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_DICT_SET_FAILED,
+                                "Failed to set dictionary value. key : %s",
+                                conf->link_xattr_name);
                         goto out;
                 }
 
@@ -112,6 +119,7 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
         int          need_unref = 0;
         int          ret = 0;
         dht_conf_t  *conf = this->private;
+        char           gfid[GF_UUID_BUF_SIZE] = {0};
 
         local = frame->local;
         local->linkfile.linkfile_cbk = linkfile_cbk;
@@ -127,24 +135,35 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
                 need_unref = 1;
         }
 
+
         if (!uuid_is_null (local->gfid)) {
+                uuid_unparse(local->gfid, gfid);
+
                 ret = dict_set_static_bin (dict, "gfid-req", local->gfid, 16);
                 if (ret)
-                        gf_log ("dht-linkfile", GF_LOG_INFO,
-                                "%s: gfid set failed", loc->path);
+                        gf_msg ("dht-linkfile", GF_LOG_INFO, 0,
+                                DHT_MSG_DICT_SET_FAILED,
+                                "%s: Failed to set dictionary value: "
+                                "key = gfid-req, gfid = %s ", loc->path, gfid);
+        } else {
+                uuid_unparse(loc->gfid, gfid);
         }
 
         ret = dict_set_str (dict, GLUSTERFS_INTERNAL_FOP_KEY, "yes");
         if (ret)
-                gf_log ("dht-linkfile", GF_LOG_INFO,
-                        "%s: internal-fop set failed", loc->path);
+                gf_msg ("dht-linkfile", GF_LOG_INFO, 0,
+                        DHT_MSG_DICT_SET_FAILED,
+                        "%s: Failed to set dictionary value: key = %s,"
+                        " gfid = %s", loc->path,
+                        GLUSTERFS_INTERNAL_FOP_KEY, gfid);
 
         ret = dict_set_str (dict, conf->link_xattr_name, tovol->name);
 
         if (ret < 0) {
-                gf_log (frame->this->name, GF_LOG_INFO,
-                        "%s: failed to initialize linkfile data",
-                        loc->path);
+                gf_msg (frame->this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_CREATE_LINK_FAILED,
+                        "%s: failed to initialize linkfile data, gfid = %s",
+                        loc->path, gfid);
                 goto out;
         }
 
@@ -180,15 +199,21 @@ dht_linkfile_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t   *local = NULL;
         call_frame_t  *prev = NULL;
         xlator_t      *subvol = NULL;
+        char           gfid[GF_UUID_BUF_SIZE] = {0};
 
         local = frame->local;
         prev = cookie;
         subvol = prev->this;
 
+
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "unlinking linkfile %s on %s failed (%s)",
-                        local->loc.path, subvol->name, strerror (op_errno));
+
+                uuid_unparse(local->loc.gfid, gfid);
+                gf_msg (this->name, GF_LOG_INFO, op_errno,
+                        DHT_MSG_UNLINK_FAILED,
+                        "Unlinking linkfile %s (gfid = %s)on "
+                        "subvolume %s failed ",
+                        local->loc.path, gfid, subvol->name);
         }
 
         DHT_STACK_DESTROY (frame);
@@ -272,10 +297,12 @@ dht_linkfile_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         loc = &local->loc;
 
         if (op_ret)
-                gf_log (this->name, GF_LOG_ERROR, "setattr of uid/gid on %s"
-                        " :<gfid:%s> failed (%s)",
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        DHT_MSG_SETATTR_FAILED,
+                        "Failed to set attr uid/gid on %s"
+                        " :<gfid:%s> ",
                         (loc->path? loc->path: "NULL"),
-                        uuid_utoa(local->gfid), strerror(op_errno));
+                        uuid_utoa(local->gfid));
 
         DHT_STACK_DESTROY (frame);
 

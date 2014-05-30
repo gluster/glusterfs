@@ -62,9 +62,9 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 /* non-directory and not a linkfile */
                 ret = dht_layout_preset (this, prev->this, inode);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "could not set pre-set layout for subvol %s",
-                                prev->this->name);
+                        gf_msg_debug (this->name, 0,
+                                      "could not set pre-set layout for subvol"
+                                      " %s", prev->this->name);
                         op_ret   = -1;
                         op_errno = EINVAL;
                         goto err;
@@ -102,9 +102,9 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 subvol = dht_linkfile_subvol (this, inode, stbuf, xattr);
 
                 if (!subvol) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "linkfile not having link subvolume. path=%s",
-                                loc->path);
+                        gf_msg_debug (this->name, 0,
+                                      "linkfile has no link subvolume. path=%s",
+                                      loc->path);
                         dht_lookup_everywhere (frame, this, loc);
                         return 0;
                 }
@@ -118,9 +118,9 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         if (!local->hashed_subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no subvolume in layout for path=%s",
-                        local->loc.path);
+                gf_msg_debug (this->name, 0,
+                              "no subvolume in layout for path=%s",
+                              local->loc.path);
                 local->op_errno = ENOENT;
                 dht_lookup_everywhere (frame, this, loc);
                 return 0;
@@ -180,17 +180,17 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
         if (is_revalidate (loc)) {
                 layout = local->layout;
                 if (!layout) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "revalidate without cache. path=%s",
-                                loc->path);
+                        gf_msg_debug (this->name, 0,
+                                      "revalidate lookup without cache. "
+                                      "path=%s", loc->path);
                         op_errno = EINVAL;
                         goto err;
                 }
 
                 if (layout->gen && (layout->gen < conf->gen)) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "incomplete layout failure for path=%s",
-                                loc->path);
+                        gf_msg_debug (this->name, 0,
+                                      "incomplete layout failure for path=%s",
+                                      loc->path);
                         dht_layout_unref (this, local->layout);
                         goto do_fresh_lookup;
                 }
@@ -312,9 +312,9 @@ nufa_create (call_frame_t *frame, xlator_t *this,
 
         subvol = dht_subvol_get_hashed (this, loc);
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no subvolume in layout for path=%s",
-                        loc->path);
+                gf_msg_debug (this->name, 0,
+                              "no subvolume in layout for path=%s",
+                              loc->path);
                 op_errno = ENOENT;
                 goto err;
         }
@@ -339,8 +339,8 @@ nufa_create (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "creating %s on %s", loc->path, subvol->name);
+        gf_msg_trace (this->name, 0,
+                      "creating %s on %s", loc->path, subvol->name);
 
         STACK_WIND (frame, dht_create_cbk,
                     subvol, subvol->fops->create,
@@ -416,9 +416,9 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
 
         subvol = dht_subvol_get_hashed (this, loc);
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no subvolume in layout for path=%s",
-                        loc->path);
+                gf_msg_debug (this->name, 0,
+                              "no subvolume in layout for path=%s",
+                              loc->path);
                 op_errno = ENOENT;
                 goto err;
         }
@@ -446,8 +446,8 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "creating %s on %s", loc->path, subvol->name);
+        gf_msg_trace (this->name, 0,
+                      "creating %s on %s", loc->path, subvol->name);
 
         STACK_WIND_COOKIE (frame, dht_newfile_cbk, (void *)subvol, subvol,
                            subvol->fops->mknod, loc, mode, rdev, umask,

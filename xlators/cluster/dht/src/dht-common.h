@@ -17,6 +17,7 @@
 #include <signal.h>
 
 #include "dht-mem-types.h"
+#include "dht-messages.h"
 #include "libxlator.h"
 #include "syncop.h"
 

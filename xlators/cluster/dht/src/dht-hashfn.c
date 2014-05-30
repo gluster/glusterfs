@@ -94,12 +94,12 @@ dht_hash_compute (xlator_t *this, int type, const char *name, uint32_t *hash_p)
         if (!munged && priv->rsync_regex_valid) {
                 len = strlen(name) + 1;
                 rsync_friendly_name = alloca(len);
-                gf_log (this->name, GF_LOG_TRACE, "trying regex for %s", name);
+                gf_msg_trace (this->name, 0, "trying regex for %s", name);
                 munged = dht_munge_name (name, rsync_friendly_name, len,
                                          &priv->rsync_regex);
                 if (munged) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "munged down to %s", rsync_friendly_name);
+                        gf_msg_debug (this->name, 0,
+                                      "munged down to %s", rsync_friendly_name);
                 }
         }
 

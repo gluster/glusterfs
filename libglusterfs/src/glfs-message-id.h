@@ -61,6 +61,11 @@
 #define GLFS_MSGID_COMP_AFR_END            GLFS_MSGID_COMP_AFR +\
                                            GLFS_MSGID_SEGMENT
 
+#define GLFS_MSGID_COMP_DHT                GLFS_MSGID_COMP_AFR_END
+#define GLFS_MSGID_COMP_DHT_END            GLFS_MSGID_COMP_DHT +\
+                                           GLFS_MSGID_SEGMENT
+
+
 /* --- new segments for messages goes above this line --- */
 
 #endif /* !_GLFS_MESSAGE_ID_H_ */

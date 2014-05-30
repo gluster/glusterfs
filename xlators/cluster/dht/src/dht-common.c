@@ -43,8 +43,9 @@ dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
                         size = GF_CALLOC (1, sizeof (int64_t),
                                           gf_common_mt_char);
                         if (size == NULL) {
-                                gf_log ("dht", GF_LOG_WARNING,
-                                        "memory allocation failed");
+                                gf_msg ("dht", GF_LOG_WARNING, 0,
+                                        DHT_MSG_NO_MEMORY,
+                                        "Memory allocation failed");
                                 return -1;
                         }
                         ret = dict_set_bin (dst, key, size, sizeof (int64_t));
@@ -75,13 +76,17 @@ dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
                         if (!ret && dict_data && value) {
                                 ret = is_data_equal (dict_data, value);
                                 if (!ret)
-                                        gf_log ("dht", GF_LOG_DEBUG,
-                                                "xattr mismatch for %s", key);
+                                        gf_msg_debug ("dht", 0,
+                                                      "xattr mismatch for %s",
+                                                      key);
                         }
                 }
                 ret = dict_set (dst, key, value);
                 if (ret)
-                        gf_log ("dht", GF_LOG_WARNING, "xattr dict set failed");
+                        gf_msg ("dht", GF_LOG_WARNING, 0,
+                                DHT_MSG_DICT_SET_FAILED,
+                                "Failed to set dictionary value: key = %s",
+                                key);
         }
 
         return 0;
@@ -171,7 +176,8 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
                 return 0;
 
         if (local->file_count && local->dir_count) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_FILE_TYPE_MISMATCH,
                         "path %s exists as a file on one subvolume "
                         "and directory on another. "
                         "Please fix it manually",
@@ -184,7 +190,8 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
                 ret = dht_layout_preset (this, local->cached_subvol,
                                          local->inode);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_LAYOUT_SET_FAILED,
                                 "failed to set layout for subvolume %s",
                                 local->cached_subvol ? local->cached_subvol->name : "<nil>");
                         op_errno = EINVAL;
@@ -196,11 +203,11 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
                         /* either the layout is incorrect or the directory is
                          * not found even in one subvolume.
                          */
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "normalizing failed on %s "
-                                "(overlaps/holes present: %s, "
-                                "ENOENT errors: %d)", local->loc.path,
-                                (ret < 0) ? "yes" : "no", (ret > 0) ? ret : 0);
+                        gf_msg_debug (this->name, 0,
+                                      "normalizing failed on %s "
+                                      "(overlaps/holes present: %s, "
+                                      "ENOENT errors: %d)", local->loc.path,
+                                      (ret < 0) ? "yes" : "no", (ret > 0) ? ret : 0);
                         if ((ret > 0) && (ret == conf->subvolume_cnt)) {
                                 op_errno = ESTALE;
                                 goto out;
@@ -238,6 +245,8 @@ dht_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           is_linkfile             = 0;
         int           attempt_unwind          = 0;
         dht_conf_t   *conf                    = 0;
+        char         gfid_local[GF_UUID_BUF_SIZE]  = {0};
+        char         gfid_node[GF_UUID_BUF_SIZE]  = {0};
 
         GF_VALIDATE_OR_GOTO ("dht", frame, out);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -251,11 +260,19 @@ dht_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         layout = local->layout;
 
+
         /* Check if the gfid is different for file from other node */
         if (!op_ret && uuid_compare (local->gfid, stbuf->ia_gfid)) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s: gfid different on %s",
-                        local->loc.path, prev->this->name);
+
+                uuid_unparse(stbuf->ia_gfid, gfid_node);
+                uuid_unparse(local->gfid, gfid_local);
+
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_GFID_MISMATCH,
+                        "%s: gfid different on %s, gfid local = %s"
+                        "gfid other = %s",
+                        local->loc.path, prev->this->name,
+                        gfid_local, gfid_node);
         }
 
 
@@ -269,15 +286,17 @@ dht_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 ret = dht_layout_merge (this, layout, prev->this,
                                         op_ret, op_errno, xattr);
                 if (ret)
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "%s: failed to merge layouts", local->loc.path);
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_LAYOUT_MERGE_FAILED,
+                                "%s: failed to merge layouts for subvol %s",
+                                local->loc.path, prev->this->name);
 
                 if (op_ret == -1) {
                         local->op_errno = op_errno;
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "lookup of %s on %s returned error (%s)",
-                                local->loc.path, prev->this->name,
-                                strerror (op_errno));
+                        gf_msg_debug (this->name, 0,
+                                      "lookup of %s on %s returned error (%s)",
+                                      local->loc.path, prev->this->name,
+                                      strerror (op_errno));
 
                         goto unlock;
                 }
@@ -347,14 +366,16 @@ dht_discover (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         ret = dict_set_uint32 (local->xattr_req, conf->xattr_name, 4 * 4);
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s: failed to set '%s' key",
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_DICT_SET_FAILED,
+                        "%s: Failed to set dictionary value:key = %s",
                         loc->path, conf->xattr_name);
 
         ret = dict_set_uint32 (local->xattr_req, conf->link_xattr_name, 256);
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s: failed to set '%s' key",
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_DICT_SET_FAILED,
+                        "%s: Failed to set dictionary value:key = %s",
                         loc->path, conf->link_xattr_name);
 
         call_cnt        = conf->subvolume_cnt;
@@ -408,6 +429,8 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_layout_t *layout                  = NULL;
         int           ret                     = -1;
         int           is_dir                  = 0;
+        char         gfid_local[GF_UUID_BUF_SIZE]  = {0};
+        char         gfid_node[GF_UUID_BUF_SIZE]  = {0};
 
         GF_VALIDATE_OR_GOTO ("dht", frame, out);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -423,11 +446,19 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!op_ret && uuid_is_null (local->gfid))
                 memcpy (local->gfid, stbuf->ia_gfid, 16);
 
+
         /* Check if the gfid is different for file from other node */
         if (!op_ret && uuid_compare (local->gfid, stbuf->ia_gfid)) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s: gfid different on %s",
-                        local->loc.path, prev->this->name);
+
+                uuid_unparse(stbuf->ia_gfid, gfid_node);
+                uuid_unparse(local->gfid, gfid_local);
+
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_GFID_MISMATCH,
+                        "%s: gfid different on %s."
+                        " gfid local = %s, gfid subvol = %s",
+                        local->loc.path, prev->this->name,
+                        gfid_local, gfid_node);
         }
 
         LOCK (&frame->lock);
@@ -442,20 +473,20 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (op_ret == -1) {
                         local->op_errno = op_errno;
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "lookup of %s on %s returned error (%s)",
-                                local->loc.path, prev->this->name,
-                                strerror (op_errno));
+                        gf_msg_debug (this->name, 0,
+                                      "lookup of %s on %s returned error (%s)",
+                                      local->loc.path, prev->this->name,
+                                      strerror (op_errno));
 
                         goto unlock;
                 }
 
                 is_dir = check_is_dir (inode, stbuf, xattr);
                 if (!is_dir) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "lookup of %s on %s returned non dir 0%o",
-                                local->loc.path, prev->this->name,
-                                stbuf->ia_type);
+                        gf_msg_debug (this->name, 0,
+                                      "lookup of %s on %s returned non dir 0%o",
+                                      local->loc.path, prev->this->name,
+                                      stbuf->ia_type);
                         local->need_selfheal = 1;
                         goto unlock;
                 }
@@ -491,9 +522,9 @@ unlock:
                         ret = dht_layout_normalize (this, &local->loc, layout);
 
                         if (ret != 0) {
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "fixing assignment on %s",
-                                        local->loc.path);
+                                gf_msg_debug (this->name, 0,
+                                              "fixing assignment on %s",
+                                              local->loc.path);
                                 goto selfheal;
                         }
 
@@ -538,6 +569,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           is_linkfile = 0;
         call_frame_t *copy          = NULL;
         dht_local_t  *copy_local    = NULL;
+        char gfid[GF_UUID_BUF_SIZE] = {0};
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
         GF_VALIDATE_OR_GOTO ("dht", this, err);
@@ -550,6 +582,8 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!conf)
                 goto out;
 
+        uuid_unparse (local->loc.gfid, gfid);
+
         LOCK (&frame->lock);
         {
                 if (op_ret == -1) {
@@ -559,9 +593,10 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             && (op_errno != ENOENT)
                             && (op_errno != ESTALE)) {
 				gf_log (this->name, GF_LOG_INFO,
-					"subvolume %s for %s returned -1 (%s)",
+					"Revalidate: subvolume %s for %s "
+                                        "(gfid = %s) returned -1 (%s)",
 					prev->this->name, local->loc.path,
-                                        strerror (op_errno));
+                                        gfid, strerror (op_errno));
 			}
                         if (op_errno == ESTALE) {
                                 /* propagate the ESTALE to parent.
@@ -582,10 +617,12 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 if (stbuf->ia_type != local->inode->ia_type) {
-                        gf_log (this->name, GF_LOG_INFO,
-                                "mismatching filetypes 0%o v/s 0%o for %s",
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_FILE_TYPE_MISMATCH,
+                                "mismatching filetypes 0%o v/s 0%o for %s,"
+                                " gfid = %s",
                                 (stbuf->ia_type), (local->inode->ia_type),
-                                local->loc.path);
+                                local->loc.path, gfid);
 
                         local->op_ret = -1;
                         local->op_errno = EINVAL;
@@ -601,8 +638,8 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (is_linkfile) {
                         gf_log (this->name, GF_LOG_INFO,
-                                "linkfile found in revalidate for %s",
-                                local->loc.path);
+                                "Revalidate: linkfile found %s, (gfid = %s)",
+                                local->loc.path, gfid);
                         local->return_estale = 1;
 
                         goto unlock;
@@ -630,9 +667,10 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                        prev->this, &local->loc,
                                                        xattr);
                         if (ret != 0) {
-                                gf_log (this->name, GF_LOG_INFO,
-                                        "mismatching layouts for %s",
-                                        local->loc.path);
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        DHT_MSG_LAYOUT_MISMATCH,
+                                        "Mismatching layouts for %s, gfid = %s",
+                                        local->loc.path, gfid);
 
                                 local->layout_mismatch = 1;
 
@@ -739,6 +777,7 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         xlator_t     *cached_subvol = NULL;
         dht_conf_t   *conf = NULL;
         int           ret = -1;
+        char          gfid[GF_UUID_BUF_SIZE] = {0};
 
         GF_VALIDATE_OR_GOTO ("dht", frame, out);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -750,11 +789,15 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         cached_subvol = local->cached_subvol;
         conf = this->private;
 
+        uuid_unparse(local->loc.gfid, gfid);
+
         ret = dht_layout_preset (this, local->cached_subvol, local->loc.inode);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failed to set layout for subvolume %s",
-                        cached_subvol ? cached_subvol->name : "<nil>");
+                gf_msg_debug (this->name, 0,
+                              "Failed to set layout for subvolume %s, "
+                              "(gfid = %s)",
+                              cached_subvol ? cached_subvol->name : "<nil>",
+                              gfid);
                 local->op_ret = -1;
                 local->op_errno = EINVAL;
                 goto unwind;
@@ -792,17 +835,21 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
         xlator_t     *hashed_subvol = NULL;
         xlator_t     *cached_subvol = NULL;
         dht_layout_t *layout = NULL;
+        char gfid[GF_UUID_BUF_SIZE] = {0};
 
         local = frame->local;
         hashed_subvol = local->hashed_subvol;
         cached_subvol = local->cached_subvol;
 
+        uuid_unparse (local->loc.gfid, gfid);
+
         if (local->file_count && local->dir_count) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "path %s exists as a file on one subvolume "
-                        "and directory on another. "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_FILE_TYPE_MISMATCH,
+                        "path %s (gfid = %s)exists as a file on one "
+                        "subvolume and directory on another. "
                         "Please fix it manually",
-                        local->loc.path);
+                        local->loc.path, gfid);
                 DHT_STACK_UNWIND (lookup, frame, -1, EIO, NULL, NULL, NULL,
                                   NULL);
                 return 0;
@@ -831,19 +878,21 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                 layout = dht_layout_for_subvol (this, cached_subvol);
                 if (!layout) {
                         gf_log (this->name, GF_LOG_INFO,
-                                "%s: no pre-set layout for subvolume %s",
+                                "%s: no pre-set layout for subvolume %s,"
+                                " gfid = %s",
                                 local->loc.path, (cached_subvol ?
                                                   cached_subvol->name :
-                                                  "<nil>"));
+                                                  "<nil>"), gfid);
                 }
 
                 ret = dht_layout_set (this, local->inode, layout);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_INFO,
-                                "%s: failed to set layout for subvol %s",
+                                "%s: failed to set layout for subvol %s, "
+                                "gfid = %s",
                                 local->loc.path, (cached_subvol ?
                                                   cached_subvol->name :
-                                                  "<nil>"));
+                                                  "<nil>"), gfid);
                 }
 
                 if (local->loc.parent) {
@@ -860,10 +909,11 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
         }
 
         if (!hashed_subvol) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_HASHED_SUBVOL_GET_FAILED,
                         "cannot create linkfile file for %s on %s: "
-                        "hashed subvolume cannot be found.",
-                        local->loc.path, cached_subvol->name);
+                        "hashed subvolume cannot be found, gfid = %s.",
+                        local->loc.path, cached_subvol->name, gfid);
 
                 local->op_ret = 0;
                 local->op_errno = 0;
@@ -872,9 +922,10 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                                          local->inode);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_INFO,
-                                "failed to set layout for subvol %s",
+                                "Failed to set layout for subvol %s"
+                                ", gfid = %s",
                                 cached_subvol ? cached_subvol->name :
-                                "<nil>");
+                                "<nil>", gfid);
                         local->op_ret = -1;
                         local->op_errno = EINVAL;
                 }
@@ -892,10 +943,10 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                 return 0;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG,
-                "linking file %s existing on %s to %s (hash)",
-                local->loc.path, cached_subvol->name,
-                hashed_subvol->name);
+        gf_msg_debug (this->name, 0,
+                      "Linking file %s on %s to %s (hash)(gfid = %s)",
+                      local->loc.path, cached_subvol->name,
+                      hashed_subvol->name, gfid);
 
         ret = dht_linkfile_create (frame,
                                    dht_lookup_linkfile_create_cbk, this,
@@ -939,6 +990,7 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           ret           = -1;
         int32_t       fd_count      = 0;
         dht_conf_t   *conf          = NULL;
+        char         gfid[GF_UUID_BUF_SIZE] = {0};
 
         GF_VALIDATE_OR_GOTO ("dht", frame, out);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -964,10 +1016,15 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (uuid_is_null (local->gfid))
                         uuid_copy (local->gfid, buf->ia_gfid);
 
+                uuid_unparse(local->gfid, gfid);
+
                 if (uuid_compare (local->gfid, buf->ia_gfid)) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "%s: gfid differs on subvolume %s",
-                                loc->path, prev->this->name);
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_GFID_MISMATCH,
+                                "%s: gfid differs on subvolume %s,"
+                                " gfid local = %s, gfid node = %s",
+                                loc->path, prev->this->name, gfid,
+                                uuid_utoa(buf->ia_gfid));
                 }
 
                 is_linkfile = check_is_linkfile (inode, buf, xattr,
@@ -977,10 +1034,10 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (is_linkfile) {
                         link_subvol = dht_linkfile_subvol (this, inode, buf,
                                                            xattr);
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "found on %s linkfile %s (-> %s)",
-                                subvol->name, loc->path,
-                                link_subvol ? link_subvol->name : "''");
+                        gf_msg_debug (this->name, 0,
+                                      "found on %s linkfile %s (-> %s)",
+                                      subvol->name, loc->path,
+                                      link_subvol ? link_subvol->name : "''");
                         goto unlock;
                 }
 
@@ -990,9 +1047,9 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (is_dir) {
                         local->dir_count++;
 
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "found on %s directory %s",
-                                subvol->name, loc->path);
+                        gf_msg_debug (this->name, 0,
+                                      "found on %s directory %s",
+                                      subvol->name, loc->path);
                 } else {
                         local->file_count++;
 
@@ -1002,18 +1059,19 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                 subvol);
                                 local->xattr = dict_ref (xattr);
                                 local->cached_subvol = subvol;
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "found on %s file %s",
-                                        subvol->name, loc->path);
+                                gf_msg_debug (this->name, 0,
+                                              "found on %s file %s",
+                                              subvol->name, loc->path);
 
                                 dht_iatt_merge (this, &local->postparent,
                                                 postparent, subvol);
                         } else {
                                 /* This is where we need 'rename' both entries logic */
-                                gf_log (this->name, GF_LOG_WARNING,
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        DHT_MSG_FILE_ON_MULT_SUBVOL,
                                         "multiple subvolumes (%s and %s) have "
                                         "file %s (preferably rename the file "
-                                        "in the backend, and do a fresh lookup)",
+                                        "in the backend,and do a fresh lookup)",
                                         local->cached_subvol->name,
                                         subvol->name, local->loc.path);
                         }
@@ -1096,6 +1154,7 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
         loc_t        *loc           = NULL;
         dht_conf_t   *conf          = NULL;
         int           ret           = 0;
+        char          gfid[GF_UUID_BUF_SIZE]     = {0};
 
         GF_VALIDATE_OR_GOTO ("dht", frame, out);
         GF_VALIDATE_OR_GOTO ("dht", this, unwind);
@@ -1109,10 +1168,13 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
         local  = frame->local;
         loc    = &local->loc;
 
+        uuid_unparse(loc->gfid, gfid);
+
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "lookup of %s on %s (following linkfile) failed (%s)",
-                        local->loc.path, subvol->name, strerror (op_errno));
+                        "Lookup of %s on %s (following linkfile) failed (%s)"
+                        ",gfid = %s", local->loc.path, subvol->name, 
+                        strerror (op_errno), gfid);
 
                 /* If cached subvol returned ENOTCONN, do not do
                 lookup_everywhere. We need to make sure linkfile does not get
@@ -1127,22 +1189,25 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
 
         if (check_is_dir (inode, stbuf, xattr)) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "lookup of %s on %s (following linkfile) reached dir",
-                        local->loc.path, subvol->name);
+                        "Lookup of %s on %s (following linkfile) reached dir,"
+                        " gfid = %s", local->loc.path, subvol->name, gfid);
                 goto err;
         }
 
         if (check_is_linkfile (inode, stbuf, xattr, conf->link_xattr_name)) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "lookup of %s on %s (following linkfile) reached link",
-                        local->loc.path, subvol->name);
+                        "lookup of %s on %s (following linkfile) reached link,"
+                        "gfid = %s", local->loc.path, subvol->name, gfid);
                 goto err;
         }
 
         if (uuid_compare (local->gfid, stbuf->ia_gfid)) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s: gfid different on data file on %s",
-                        local->loc.path, subvol->name);
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_GFID_MISMATCH,
+                        "%s: gfid different on data file on %s,"
+                        " gfid local = %s, gfid node = %s ",
+                        local->loc.path, subvol->name, gfid,
+                        uuid_utoa(stbuf->ia_gfid));
                 goto err;
         }
 
@@ -1154,8 +1219,8 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
         ret = dht_layout_preset (this, prev->this, inode);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "failed to set layout for subvolume %s",
-                        prev->this->name);
+                        "Failed to set layout for subvolume %s,"
+                        "gfid = %s", prev->this->name, gfid);
                 op_ret   = -1;
                 op_errno = EINVAL;
         }
@@ -1214,8 +1279,10 @@ dht_lookup_directory (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 ret = dict_set_static_bin (local->xattr_req, "gfid-req",
                                            local->gfid, 16);
                 if (ret)
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "%s: failed to set gfid", local->loc.path);
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_DICT_SET_FAILED,
+                                "%s: Failed to set dictionary value:"
+                                " key = gfid-req", local->loc.path);
         }
 
         for (i = 0; i < call_cnt; i++) {
@@ -1268,8 +1335,8 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 memcpy (local->gfid, stbuf->ia_gfid, 16);
 
         if (ENTRY_MISSING (op_ret, op_errno)) {
-                gf_log (this->name, GF_LOG_TRACE, "Entry %s missing on subvol"
-                        " %s", loc->path, prev->this->name);
+                gf_msg_trace (this->name, 0, "Entry %s missing on subvol"
+                              " %s", loc->path, prev->this->name);
                 if (conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_ON) {
                         local->op_errno = ENOENT;
                         dht_lookup_everywhere (frame, this, loc);
@@ -1303,9 +1370,9 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "Lookup of %s for subvolume"
-                       " %s failed with error %s", loc->path, prev->this->name,
-                       strerror (op_errno));
+                gf_msg_debug (this->name, 0, "Lookup of %s for subvolume"
+                              " %s failed with error %s", loc->path,
+                              prev->this->name, strerror (op_errno));
                 goto out;
         }
 
@@ -1329,9 +1396,9 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         subvol = dht_linkfile_subvol (this, inode, stbuf, xattr);
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "linkfile not having link subvolume. path=%s",
-                        loc->path);
+                gf_msg_debug (this->name, 0,
+                              "linkfile not having link subvolume. path=%s",
+                              loc->path);
                 dht_lookup_everywhere (frame, this, loc);
                 return 0;
         }
@@ -1380,16 +1447,18 @@ dht_check_and_set_acl_xattr_req (inode_t *inode, dict_t *xattr_req)
         if (!dict_get (xattr_req, POSIX_ACL_ACCESS_XATTR)) {
                 ret = dict_set_int8 (xattr_req, POSIX_ACL_ACCESS_XATTR, 0);
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_WARNING,
-                                "failed to set key %s",
+                        gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_DICT_SET_FAILED,
+                                "Failed to set dictionary value:key = %s",
                                 POSIX_ACL_ACCESS_XATTR);
         }
 
         if (!dict_get (xattr_req, POSIX_ACL_DEFAULT_XATTR)) {
                 ret = dict_set_int8 (xattr_req, POSIX_ACL_DEFAULT_XATTR, 0);
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_WARNING,
-                                "failed to set key %s",
+                        gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_DICT_SET_FAILED,
+                                "Failed to set dictionary value:key = %s",
                                 POSIX_ACL_DEFAULT_XATTR);
         }
 
@@ -1438,9 +1507,9 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                 /* check if loc_dup() is successful */
                 if (ret == -1) {
                         op_errno = errno;
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "copying location failed for path=%s",
-                                loc->path);
+                        gf_msg_debug (this->name, 0,
+                                      "copying location failed for path=%s",
+                                      loc->path);
                         goto err;
                 }
         }
@@ -1465,17 +1534,17 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
         if (is_revalidate (loc)) {
                 layout = local->layout;
                 if (!layout) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "revalidate without cache. path=%s",
-                                loc->path);
+                        gf_msg_debug (this->name, 0,
+                                      "Revalidate lookup without cache."
+                                      " path=%s", loc->path);
                         op_errno = EINVAL;
                         goto err;
                 }
 
                 if (layout->gen && (layout->gen < conf->gen)) {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "incomplete layout failure for path=%s",
-                                loc->path);
+                        gf_msg_trace (this->name, 0,
+                                      "incomplete layout failure for path=%s",
+                                      loc->path);
 
                         dht_layout_unref (this, local->layout);
                         local->layout = NULL;
@@ -1538,10 +1607,10 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                 dht_check_and_set_acl_xattr_req (loc->inode, local->xattr_req);
 
                 if (!hashed_subvol) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "no subvolume in layout for path=%s, "
-                                "checking on all the subvols to see if "
-                                "it is a directory", loc->path);
+                        gf_msg_debug (this->name, 0,
+                                      "no subvolume in layout for path=%s, "
+                                      "checking on all the subvols to see if "
+                                      "it is a directory", loc->path);
                         call_cnt        = conf->subvolume_cnt;
                         local->call_cnt = call_cnt;
 
@@ -1592,9 +1661,9 @@ dht_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (op_ret == -1) {
                         local->op_ret   = -1;
                         local->op_errno = op_errno;
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "subvolume %s returned -1 (%s)",
-                                prev->this->name, strerror (op_errno));
+                        gf_msg_debug (this->name, 0,
+                                      "Unlink: subvolume %s returned -1 (%s)",
+                                       prev->this->name, strerror (op_errno));
                         goto unlock;
                 }
 
@@ -1638,9 +1707,11 @@ dht_unlink_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if ((op_ret == -1) && !((op_errno == ENOENT) ||
                                         (op_errno == ENOTCONN))) {
                         local->op_errno = op_errno;
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "subvolume %s returned -1 (%s)",
-                                prev->this->name, strerror (op_errno));
+                        gf_msg_debug (this->name, 0,
+                                      "Unlink link: subvolume %s"
+                                      " returned -1 (%s)",
+                                      prev->this->name, 
+                                      strerror (op_errno));
                         goto unlock;
                 }
 
@@ -1654,9 +1725,9 @@ unlock:
 
         cached_subvol = dht_subvol_get_cached (this, local->loc.inode);
         if (!cached_subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no cached subvolume for path=%s",
-                        local->loc.path);
+                gf_msg_debug (this->name, 0,
+                              "no cached subvolume for path=%s",
+                              local->loc.path);
                 local->op_errno = EINVAL;
                 goto err;
         }
@@ -1688,9 +1759,10 @@ dht_err_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         {
                 if (op_ret == -1) {
                         local->op_errno = op_errno;
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "subvolume %s returned -1 (%s)",
-                                prev->this->name, strerror (op_errno));
+                        gf_msg_debug (this->name, 0,
+                                      "subvolume %s returned -1 (%s)",
+                                      prev->this->name, 
+                                      strerror (op_errno));
                         goto unlock;
                 }
 
@@ -1935,7 +2007,8 @@ dht_vgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret < 0) {
                 local->op_ret = -1;
                 local->op_errno = op_errno;
-                gf_log (this->name, GF_LOG_ERROR, "Subvolume %s returned -1 "
+                gf_log (this->name, GF_LOG_ERROR, 
+                        "vgetxattr: Subvolume %s returned -1 "
                         "(%s)", prev->this->name, strerror (op_errno));
                 goto unwind;
         }
@@ -1943,8 +2016,9 @@ dht_vgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ret = dht_vgetxattr_alloc_and_fill (local, xattr, this,
                                             op_errno);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "alloc or fill failure");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_NO_MEMORY,
+                        "Allocation or fill failure");
                 goto unwind;
         }
 
@@ -1980,8 +2054,8 @@ dht_linkinfo_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (!ret) {
                         ret = dict_set_str (xattr, GF_XATTR_LINKINFO_KEY, value);
                         if (!ret)
-                                gf_log (this->name, GF_LOG_TRACE,
-                                        "failed to set linkinfo");
+                                gf_msg_trace (this->name, 0,
+                                              "failed to set linkinfo");
                 }
         }
 
@@ -2138,8 +2212,9 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
 
         layout = local->layout;
         if (!layout) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "layout is NULL");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LAYOUT_NULL,
+                        "Layout is NULL");
                 op_errno = ENOENT;
                 goto err;
         }
@@ -2199,16 +2274,20 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         if (key && (strcmp (key, GF_XATTR_LINKINFO_KEY) == 0)) {
                 hashed_subvol = dht_subvol_get_hashed (this, loc);
                 if (!hashed_subvol) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to get"
-                                "hashed subvol for %s", loc->path);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_HASHED_SUBVOL_GET_FAILED,
+                                "Failed to get hashed subvol for %s", 
+                                loc->path);
                         op_errno = EINVAL;
                         goto err;
                 }
 
                 cached_subvol = dht_subvol_get_cached (this, loc->inode);
                 if (!cached_subvol) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to get"
-                                "cached subvol for %s", loc->path);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_CACHED_SUBVOL_GET_FAILED,
+                                "Failed to get cached subvol for %s", 
+                                loc->path);
                         op_errno = EINVAL;
                         goto err;
                 }
@@ -2337,8 +2416,9 @@ dht_fgetxattr (call_frame_t *frame, xlator_t *this,
 
         layout = local->layout;
         if (!layout) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "layout is NULL");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LAYOUT_NULL,
+                        "Layout is NULL");
                 op_errno = ENOENT;
                 goto err;
         }
@@ -2403,8 +2483,8 @@ dht_fsetxattr (call_frame_t *frame, xlator_t *this,
 
         subvol = local->cached_subvol;
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no cached subvolume for fd=%p", fd);
+                gf_msg_debug (this->name, 0,
+                              "no cached subvolume for fd=%p", fd);
                 op_errno = EINVAL;
                 goto err;
         }
@@ -2510,16 +2590,17 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
 
         subvol = local->cached_subvol;
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no cached subvolume for path=%s", loc->path);
+                gf_msg_debug (this->name, 0,
+                              "no cached subvolume for path=%s", 
+                              loc->path);
                 op_errno = EINVAL;
                 goto err;
         }
 
         layout = local->layout;
         if (!layout) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no layout for path=%s", loc->path);
+                gf_msg_debug (this->name, 0,
+                              "no layout for path=%s", loc->path);
                 op_errno = EINVAL;
                 goto err;
         }
@@ -2545,8 +2626,10 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
 
                 local->rebalance.target_node = dht_subvol_get_hashed (this, loc);
                 if (!local->rebalance.target_node) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to get "
-                                "hashed subvol for %s", loc->path);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_HASHED_SUBVOL_GET_FAILED,
+                                "Failed to get hashed subvol for %s", 
+                                loc->path);
                         op_errno = EINVAL;
                         goto err;
                 }
@@ -2564,8 +2647,9 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                         if (!ret)
                                 return 0;
 
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s: failed to create a new synctask",
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_REBALANCE_START_FAILED,
+                                "%s: failed to create a new rebalance synctask",
                                 loc->path);
                 }
                 op_errno = EINVAL;
@@ -2665,9 +2749,10 @@ dht_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         {
                 if (op_ret == -1) {
                         local->op_errno = op_errno;
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "subvolume %s returned -1 (%s)",
-                                prev->this->name, strerror (op_errno));
+                        gf_msg_debug (this->name, 0,
+                                      "subvolume %s returned -1 (%s)",
+                                      prev->this->name, 
+                                      strerror (op_errno));
                         goto unlock;
                 }
 
@@ -2696,7 +2781,6 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
         dht_layout_t *layout = NULL;
         int           call_cnt = 0;
         dht_conf_t   *conf = NULL;
-
         int i;
 
         VALIDATE_OR_GOTO (this, err);
@@ -2718,16 +2802,17 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
 
         subvol = local->cached_subvol;
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no cached subvolume for path=%s", loc->path);
+                gf_msg_debug (this->name, 0,
+                              "no cached subvolume for path=%s", 
+                              loc->path);
                 op_errno = EINVAL;
                 goto err;
         }
 
         layout = local->layout;
         if (!local->layout) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no layout for path=%s", loc->path);
+                gf_msg_debug (this->name, 0,
+                              "no layout for path=%s", loc->path);
                 op_errno = EINVAL;
                 goto err;
         }
@@ -2781,17 +2866,18 @@ dht_fremovexattr (call_frame_t *frame, xlator_t *this,
 
         subvol = local->cached_subvol;
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no cached subvolume for inode=%s",
-                        uuid_utoa (fd->inode->gfid));
+                gf_msg_debug (this->name, 0,
+                              "no cached subvolume for inode=%s",
+                              uuid_utoa (fd->inode->gfid));
                 op_errno = EINVAL;
                 goto err;
         }
 
         layout = local->layout;
         if (!local->layout) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no layout for inode=%s", uuid_utoa (fd->inode->gfid));
+                gf_msg_debug (this->name, 0,
+                              "no layout for inode=%s", 
+                              uuid_utoa (fd->inode->gfid));
                 op_errno = EINVAL;
                 goto err;
         }
@@ -2831,9 +2917,9 @@ dht_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         {
                 if (op_ret == -1) {
                         local->op_errno = op_errno;
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "subvolume %s returned -1 (%s)",
-                                prev->this->name, strerror (op_errno));
+                        gf_msg_debug (this->name, 0,
+                                      "subvolume %s returned -1 (%s)",
+                                      prev->this->name, strerror (op_errno));
                         goto unlock;
                 }
 
@@ -2984,8 +3070,9 @@ dht_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
         subvol = dht_subvol_get_cached (this, loc->inode);
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no cached subvolume for path=%s", loc->path);
+                gf_msg_debug (this->name, 0,
+                              "no cached subvolume for path=%s", 
+                              loc->path);
                 op_errno = EINVAL;
                 goto err;
         }
@@ -3155,7 +3242,8 @@ list:
                         ret = dht_layout_preset (this, prev->this,
                                                  orig_entry->inode);
                         if (ret)
-                                gf_log (this->name, GF_LOG_WARNING,
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        DHT_MSG_LAYOUT_SET_FAILED,
                                         "failed to link the layout in inode");
                         entry->inode = inode_ref (orig_entry->inode);
                 } else if (orig_entry->inode) {
@@ -3197,8 +3285,11 @@ done:
                                 ret = dict_set_int32 (local->xattr,
                                                       GF_READDIR_SKIP_DIRS, 1);
                                 if (ret)
-                                        gf_log (this->name, GF_LOG_ERROR,
-					         "dict set failed");
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                DHT_MSG_DICT_SET_FAILED,
+					        "Failed to set dictionary value"
+                                                ":key = %s",
+                                                GF_READDIR_SKIP_DIRS );
 		        } else {
                                  dict_del (local->xattr,
                                            GF_READDIR_SKIP_DIRS);
@@ -3261,8 +3352,9 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (!subvol || (subvol == prev->this)) {
                         entry = gf_dirent_for_name (orig_entry->d_name);
                         if (!entry) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "memory allocation failed :(");
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        DHT_MSG_NO_MEMORY,
+                                        "Memory allocation failed ");
                                 goto unwind;
                         }
 
@@ -3363,17 +3455,24 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                         ret = dict_set_uint32 (local->xattr,
                                                conf->link_xattr_name, 256);
                         if (ret)
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "failed to set '%s' key",
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        DHT_MSG_DICT_SET_FAILED,
+                                        "Failed to set dictionary value"
+                                        " : key = %s",
                                         conf->link_xattr_name);
+
 			if (conf->readdir_optimize == _gf_true) {
                                 if (xvol != local->first_up_subvol) {
 				        ret = dict_set_int32 (local->xattr,
 			                               GF_READDIR_SKIP_DIRS, 1);
 				        if (ret)
-					        gf_log (this->name,
-                                                        GF_LOG_ERROR,
-						        "Dict set failed");
+					        gf_msg (this->name,
+                                                        GF_LOG_ERROR, 0,
+                                                        DHT_MSG_DICT_SET_FAILED,
+                                                        "Failed to set "
+                                                        "dictionary value: "
+                                                        "key = %s",
+						        GF_READDIR_SKIP_DIRS);
                                 } else {
                                         dict_del (local->xattr,
                                                   GF_READDIR_SKIP_DIRS);
@@ -3539,9 +3638,9 @@ dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = dht_layout_preset (this, prev, inode);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "could not set pre-set layout for subvolume %s",
-                        prev? prev->name: NULL);
+                gf_msg_debug (this->name, 0,
+                              "could not set pre-set layout for subvolume %s",
+                              prev? prev->name: NULL);
                 op_ret   = -1;
                 op_errno = EINVAL;
                 goto out;
@@ -3619,16 +3718,17 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
 
         subvol = dht_subvol_get_hashed (this, loc);
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no subvolume in layout for path=%s",
-                        loc->path);
+                gf_msg_debug (this->name, 0,
+                              "no subvolume in layout for path=%s",
+                              loc->path);
                 op_errno = ENOENT;
                 goto err;
         }
 
         if (!dht_is_subvol_filled (this, subvol)) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "creating %s on %s", loc->path, subvol->name);
+                gf_msg_trace (this->name, 0,
+                              "creating %s on %s", loc->path,
+                              subvol->name);
 
                 STACK_WIND_COOKIE (frame, dht_newfile_cbk, (void *)subvol,
                                    subvol, subvol->fops->mknod, loc, mode,
@@ -3650,8 +3750,9 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
                                              dht_mknod_linkfile_create_cbk,
                                              this, avail_subvol, subvol, loc);
                 } else {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "creating %s on %s", loc->path, subvol->name);
+                        gf_msg_trace (this->name, 0,
+                                      "creating %s on %s", loc->path, 
+                                      subvol->name);
 
                         STACK_WIND_COOKIE (frame, dht_newfile_cbk,
                                            (void *)subvol, subvol,
@@ -3691,15 +3792,15 @@ dht_symlink (call_frame_t *frame, xlator_t *this,
 
         subvol = dht_subvol_get_hashed (this, loc);
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no subvolume in layout for path=%s",
-                        loc->path);
+                gf_msg_debug (this->name, 0,
+                              "no subvolume in layout for path=%s",
+                              loc->path);
                 op_errno = ENOENT;
                 goto err;
         }
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "creating %s on %s", loc->path, subvol->name);
+        gf_msg_trace (this->name, 0,
+                      "creating %s on %s", loc->path, subvol->name);
 
         STACK_WIND_COOKIE (frame, dht_newfile_cbk, (void *)subvol, subvol,
                            subvol->fops->symlink, linkname, loc, umask,
@@ -3751,15 +3852,15 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
         /* Dont fail unlink if hashed_subvol is NULL which can be the result
          * of layout anomaly */
         if (!hashed_subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no subvolume in layout for path=%s",
-                        loc->path);
+                gf_msg_debug (this->name, 0,
+                              "no subvolume in layout for path=%s",
+                              loc->path);
         }
 
         cached_subvol = local->cached_subvol;
         if (!cached_subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no cached subvolume for path=%s", loc->path);
+                gf_msg_debug (this->name, 0,
+                              "no cached subvolume for path=%s", loc->path);
                 op_errno = EINVAL;
                 goto err;
         }
@@ -3803,9 +3904,9 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         layout = dht_layout_for_subvol (this, prev->this);
         if (!layout) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no pre-set layout for subvolume %s",
-                        prev->this->name);
+                gf_msg_debug (this->name, 0,
+                              "no pre-set layout for subvolume %s",
+                              prev->this->name);
                 op_ret   = -1;
                 op_errno = EINVAL;
                 goto out;
@@ -3884,17 +3985,18 @@ dht_link (call_frame_t *frame, xlator_t *this,
 
         cached_subvol = local->cached_subvol;
         if (!cached_subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no cached subvolume for path=%s", oldloc->path);
+                gf_msg_debug (this->name, 0,
+                              "no cached subvolume for path=%s", 
+                              oldloc->path);
                 op_errno = ENOENT;
                 goto err;
         }
 
         hashed_subvol = dht_subvol_get_hashed (this, newloc);
         if (!hashed_subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no subvolume in layout for path=%s",
-                        newloc->path);
+                gf_msg_debug (this->name, 0,
+                              "no subvolume in layout for path=%s",
+                              newloc->path);
                 op_errno = ENOENT;
                 goto err;
         }
@@ -3957,9 +4059,9 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = dht_layout_preset (this, prev->this, inode);
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "could not set preset layout for subvol %s",
-                        prev->this->name);
+                gf_msg_debug (this->name, 0,
+                              "could not set preset layout for subvol %s",
+                              prev->this->name);
                 op_ret   = -1;
                 op_errno = EINVAL;
                 goto out;
@@ -4040,16 +4142,17 @@ dht_create (call_frame_t *frame, xlator_t *this,
 
         subvol = dht_subvol_get_hashed (this, loc);
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no subvolume in layout for path=%s",
-                        loc->path);
+                gf_msg_debug (this->name, 0,
+                              "no subvolume in layout for path=%s",
+                              loc->path);
                 op_errno = ENOENT;
                 goto err;
         }
 
         if (!dht_is_subvol_filled (this, subvol)) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "creating %s on %s", loc->path, subvol->name);
+                gf_msg_trace (this->name, 0,
+                              "creating %s on %s", loc->path, 
+                               subvol->name);
                 STACK_WIND (frame, dht_create_cbk,
                             subvol, subvol->fops->create,
                             loc, flags, mode, umask, fd, params);
@@ -4065,15 +4168,15 @@ dht_create (call_frame_t *frame, xlator_t *this,
                 local->umask = umask;
                 local->cached_subvol = avail_subvol;
                 local->hashed_subvol = subvol;
-                gf_log (this->name, GF_LOG_TRACE,
-                        "creating %s on %s (link at %s)", loc->path,
-                        avail_subvol->name, subvol->name);
+                gf_msg_trace (this->name, 0,
+                              "creating %s on %s (link at %s)", loc->path,
+                              avail_subvol->name, subvol->name);
                 dht_linkfile_create (frame, dht_create_linkfile_create_cbk,
                                      this, avail_subvol, subvol, loc);
                 goto done;
         }
-        gf_log (this->name, GF_LOG_TRACE,
-                "creating %s on %s", loc->path, subvol->name);
+        gf_msg_trace (this->name, 0,
+                      "creating %s on %s", loc->path, subvol->name);
         STACK_WIND (frame, dht_create_cbk,
                     subvol, subvol->fops->create,
                     loc, flags, mode, umask, fd, params);
@@ -4155,8 +4258,10 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                 op_ret, op_errno, NULL);
                 }
                 if (ret)
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "%s: failed to merge layouts", local->loc.path);
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_LAYOUT_MERGE_FAILED,
+                                "%s: failed to merge layouts for subvol %s",
+                                local->loc.path, prev->this->name);
 
                 if (op_ret == -1) {
                         local->op_errno = op_errno;
@@ -4215,8 +4320,10 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
         /* TODO: we may have to return from the function
            if layout merge fails. For now, lets just log an error */
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s: failed to merge layouts", local->loc.path);
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_LAYOUT_MERGE_FAILED,
+                        "%s: failed to merge layouts for subvol %s",
+                        local->loc.path, prev->this->name);
 
         if (op_ret == -1) {
                 local->op_errno = op_errno;
@@ -4281,9 +4388,9 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
 
         hashed_subvol = dht_subvol_get_hashed (this, loc);
         if (hashed_subvol == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "hashed subvol not found for %s",
-                        loc->path);
+                gf_msg_debug (this->name, 0,
+                              "hashed subvol not found for %s",
+                              loc->path);
                 op_errno = ENOENT;
                 goto err;
         }
@@ -4339,9 +4446,12 @@ dht_rmdir_hashed_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t  *local = NULL;
         int           this_call_cnt = 0;
         call_frame_t *prev = NULL;
+        char gfid[GF_UUID_BUF_SIZE] ={0};
 
         local = frame->local;
         prev  = cookie;
+
+        uuid_unparse(local->loc.gfid, gfid);
 
         LOCK (&frame->lock);
         {
@@ -4353,10 +4463,11 @@ dht_rmdir_hashed_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         }
 
 
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "rmdir on %s for %s failed (%s)",
-                                prev->this->name, local->loc.path,
-                                strerror (op_errno));
+                        gf_msg_debug (this->name, 0,
+                                      "rmdir on %s for %s failed "
+                                      "(gfid = %s) (%s)",
+                                      prev->this->name, local->loc.path, 
+                                      gfid, strerror (op_errno));
                         goto unlock;
                 }
 
@@ -4413,9 +4524,11 @@ dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           this_call_cnt = 0;
         call_frame_t *prev = NULL;
         int           done = 0;
+        char gfid[GF_UUID_BUF_SIZE] ={0};
 
         local = frame->local;
         prev  = cookie;
+
 
         LOCK (&frame->lock);
         {
@@ -4426,11 +4539,13 @@ dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (op_errno != ENOENT && op_errno != EACCES) {
                                 local->need_selfheal = 1;
                         }
+                        uuid_unparse(local->loc.gfid, gfid);
 
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "rmdir on %s for %s failed (%s)",
-                                prev->this->name, local->loc.path,
-                                strerror (op_errno));
+                        gf_msg_debug (this->name, 0,
+                                      "rmdir on %s for %s failed."
+                                      "(gfid = %s) (%s)",
+                                      prev->this->name, local->loc.path,
+                                      gfid, strerror (op_errno));
                         goto unlock;
                 }
 
@@ -4507,6 +4622,7 @@ dht_rmdir_do (call_frame_t *frame, xlator_t *this)
         dht_conf_t   *conf = NULL;
         int           i = 0;
         xlator_t     *hashed_subvol = NULL;
+        char gfid[GF_UUID_BUF_SIZE] ={0};
 
         VALIDATE_OR_GOTO (this->private, err);
 
@@ -4518,12 +4634,17 @@ dht_rmdir_do (call_frame_t *frame, xlator_t *this)
 
         local->call_cnt = conf->subvolume_cnt;
 
+
         /* first remove from non-hashed_subvol */
         hashed_subvol = dht_subvol_get_hashed (this, &local->loc);
 
         if (!hashed_subvol) {
-                gf_log (this->name, GF_LOG_WARNING, "failed to get hashed "
-                        "subvol for %s",local->loc.path);
+                uuid_unparse(local->loc.gfid, gfid);
+
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_HASHED_SUBVOL_GET_FAILED,
+                        "Failed to get hashed subvol for %s (gfid = %s)",
+                        local->loc.path, gfid);
         } else {
                 local->hashed_subvol = hashed_subvol;
         }
@@ -4568,6 +4689,8 @@ dht_rmdir_linkfile_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this
         call_frame_t   *main_frame = NULL;
         dht_local_t    *main_local = NULL;
         int             this_call_cnt = 0;
+        char gfid[GF_UUID_BUF_SIZE] ={0};
+
 
         local  = frame->local;
         prev   = cookie;
@@ -4576,16 +4699,19 @@ dht_rmdir_linkfile_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this
         main_frame = local->main_frame;
         main_local = main_frame->local;
 
+        uuid_unparse(local->loc.gfid, gfid);
+
         if (op_ret == 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "unlinked linkfile %s on %s",
-                        local->loc.path, src->name);
+                gf_msg_trace (this->name, 0,
+                              "Unlinked linkfile %s on %s, gfid = %s",
+                              local->loc.path, src->name, gfid);
         } else {
                 main_local->op_ret   = -1;
                 main_local->op_errno = op_errno;
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "unlink of %s on %s failed (%s)",
-                        local->loc.path, src->name, strerror (op_errno));
+                gf_msg_debug (this->name, 0,
+                              "Unlink of %s on %s failed. (gfid = %s) (%s)",
+                              local->loc.path, src->name, gfid,
+                              strerror (op_errno));
         }
 
         this_call_cnt = dht_frame_return (main_frame);
@@ -4609,6 +4735,7 @@ dht_rmdir_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t    *main_local = NULL;
         int             this_call_cnt = 0;
         dht_conf_t     *conf = this->private;
+        char               gfid[GF_UUID_BUF_SIZE] = {0};
 
         local = frame->local;
         prev  = cookie;
@@ -4624,9 +4751,11 @@ dht_rmdir_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 main_local->op_ret  = -1;
                 main_local->op_errno = ENOTEMPTY;
 
+                 uuid_unparse(local->loc.gfid, gfid);
+
                 gf_log (this->name, GF_LOG_WARNING,
-                        "%s on %s found to be not a linkfile (type=0%o)",
-                        local->loc.path, src->name, stbuf->ia_type);
+                        "%s on %s is not a linkfile (type=0%o, gfid = %s)",
+                        local->loc.path, src->name, stbuf->ia_type, gfid);
                 goto err;
         }
 
@@ -4687,8 +4816,10 @@ dht_rmdir_cached_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = dict_set_uint32 (xattrs, conf->link_xattr_name, 256);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to set linkto key"
-                        " in dict");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_DICT_SET_FAILED,
+                        "Failed to set dictionary value: key = %s",
+                        conf->link_xattr_name);
                 if (xattrs)
                         dict_unref (xattrs);
                 goto err;
@@ -4724,6 +4855,7 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
         dict_t             *xattrs       = NULL;
         dht_conf_t         *conf         = this->private;
         xlator_t           *subvol       = NULL;
+        char               gfid[GF_UUID_BUF_SIZE] = {0};
 
         local = frame->local;
 
@@ -4753,8 +4885,11 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
 
         ret = dict_set_uint32 (xattrs, conf->link_xattr_name, 256);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to set linkto key"
-                        " in dict");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_DICT_SET_FAILED,
+                        "Failed to set dictionary value: key = %s",
+                        conf->link_xattr_name);
+
                 if (xattrs)
                         dict_unref (xattrs);
                 return -1;
@@ -4792,9 +4927,11 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
 
                 uuid_copy (lookup_local->loc.gfid, trav->d_stat.ia_gfid);
 
-                gf_log (this->name, GF_LOG_TRACE,
-                        "looking up %s on %s",
-                        lookup_local->loc.path, src->name);
+                uuid_unparse(lookup_local->loc.gfid, gfid);
+
+                gf_msg_trace (this->name, 0,
+                              "looking up %s on subvolume %s, gfid = %s",
+                              lookup_local->loc.path, src->name, gfid);
 
                 LOCK (&frame->lock);
                 {
@@ -4806,8 +4943,9 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                                               trav->dict);
                 if (!subvol) {
                         gf_log (this->name, GF_LOG_INFO,
-                                "linkfile not having link subvolume. path=%s",
-                                lookup_local->loc.path);
+                                "Linkfile does not have link subvolume. "
+                                "path = %s, gfid = %s", 
+                                lookup_local->loc.path, gfid);
                         STACK_WIND (lookup_frame, dht_rmdir_lookup_cbk,
                                     src, src->fops->lookup,
                                     &lookup_local->loc, xattrs);
@@ -4852,17 +4990,19 @@ dht_rmdir_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 switch (ret) {
                 case 0: /* non linkfiles exist */
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "readdir on %s for %s returned %d entries",
-                                prev->this->name, local->loc.path, op_ret);
+                        gf_msg_trace (this->name, 0,
+                                      "readdir on %s for %s returned %d "
+                                      "entries", prev->this->name, 
+                                      local->loc.path, op_ret);
                         local->op_ret = -1;
                         local->op_errno = ENOTEMPTY;
                         break;
                 default:
                         /* @ret number of linkfiles are getting unlinked */
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "readdir on %s for %s found %d linkfiles",
-                                prev->this->name, local->loc.path, ret);
+                        gf_msg_trace (this->name, 0,
+                                      "readdir on %s for %s found %d "
+                                      "linkfiles", prev->this->name, 
+                                      local->loc.path, ret);
                         break;
                 }
         }
@@ -4888,16 +5028,21 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           ret           = 0;
         dht_conf_t   *conf          = this->private;
         int           i             = 0;
+        char               gfid[GF_UUID_BUF_SIZE] = {0};
 
         local = frame->local;
         prev  = cookie;
 
+
         this_call_cnt = dht_frame_return (frame);
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "opendir on %s for %s failed (%s)",
-                        prev->this->name, local->loc.path,
-                        strerror (op_errno));
+                uuid_unparse(local->loc.gfid, gfid);
+
+                gf_msg_debug (this->name, 0,
+                              "opendir on %s for %s failed, "
+                              "gfid = %s, (%s)",
+                              prev->this->name, local->loc.path, gfid,
+                              strerror (op_errno));
                 if (op_errno != ENOENT) {
                         local->op_ret = -1;
                         local->op_errno = op_errno;
@@ -4920,8 +5065,9 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = dict_set_uint32 (dict, conf->link_xattr_name, 256);
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s: failed to set '%s' key",
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_DICT_SET_FAILED,
+                        "%s: Failed to set dictionary value:key = %s",
                         local->loc.path, conf->link_xattr_name);
 
         local->call_cnt = conf->subvolume_cnt;
@@ -5018,6 +5164,7 @@ dht_entrylk (call_frame_t *frame, xlator_t *this,
         xlator_t     *subvol = NULL;
         int           op_errno = -1;
         dht_local_t  *local = NULL;
+        char          gfid[GF_UUID_BUF_SIZE] = {0};
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -5030,10 +5177,14 @@ dht_entrylk (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
+
         subvol = local->cached_subvol;
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no cached subvolume for path=%s", loc->path);
+                uuid_unparse(loc->gfid, gfid);
+
+                gf_msg_debug (this->name, 0,
+                              "no cached subvolume for path=%s, "
+                              "gfid = %s", loc->path, gfid);
                 op_errno = EINVAL;
                 goto err;
         }
@@ -5071,15 +5222,21 @@ dht_fentrylk (call_frame_t *frame, xlator_t *this,
 {
         xlator_t     *subvol = NULL;
         int           op_errno = -1;
+        char               gfid[GF_UUID_BUF_SIZE] = {0};
+
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
+        VALIDATE_OR_GOTO(fd->inode, err);
+
+        uuid_unparse(fd->inode->gfid, gfid);
 
         subvol = dht_subvol_get_cached (this, fd->inode);
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no cached subvolume for fd=%p", fd);
+                gf_msg_debug (this->name, 0,
+                              "No cached subvolume for fd=%p,"
+                              " gfid = %s", fd, gfid);
                 op_errno = EINVAL;
                 goto err;
         }
@@ -5167,9 +5324,10 @@ dht_notify (xlator_t *this, int event, void *data, ...)
                 }
 
                 if (cnt == -1) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "got GF_EVENT_CHILD_UP bad subvolume %s",
-                                subvol->name);
+                        gf_msg_debug (this->name, 0,
+                                      "got GF_EVENT_CHILD_UP bad "
+                                      "subvolume %s",
+                                      subvol->name);
                         break;
                 }
 
@@ -5217,9 +5375,9 @@ dht_notify (xlator_t *this, int event, void *data, ...)
                 }
 
                 if (cnt == -1) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "got GF_EVENT_CHILD_DOWN bad subvolume %s",
-                                subvol->name);
+                        gf_msg_debug (this->name, 0,
+                                      "got GF_EVENT_CHILD_DOWN bad "
+                                      "subvolume %s", subvol->name);
                         break;
                 }
 
@@ -5244,9 +5402,10 @@ dht_notify (xlator_t *this, int event, void *data, ...)
                 }
 
                 if (cnt == -1) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "got GF_EVENT_CHILD_CONNECTING bad subvolume %s",
-                                subvol->name);
+                        gf_msg_debug (this->name, 0,
+                                      "got GF_EVENT_CHILD_CONNECTING"
+                                      " bad subvolume %s",
+                                      subvol->name);
                         break;
                 }
 
