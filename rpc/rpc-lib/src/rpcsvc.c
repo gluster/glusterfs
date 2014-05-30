@@ -1988,11 +1988,17 @@ rpcsvc_reconfigure_options (rpcsvc_t *svc, dict_t *options)
                         return (-1);
                 }
 
-                /* If found the srchkey, delete old key/val pair
-                 * and set the key with new value.
+                /* key-string: rpc-auth.addr.<volname>.allow
+                 *
+                 * IMP: Delete the OLD key/value pair from dict.
+                 * And set the NEW key/value pair IFF the option is SET
+                 * in reconfigured volfile.
+                 *
+                 * NB: If rpc-auth.addr.<volname>.allow is not SET explicitly,
+                 *     build_nfs_graph() sets it as "*" i.e. anonymous.
                  */
+                dict_del (svc->options, srchkey);
                 if (!dict_get_str (options, srchkey, &keyval)) {
-                        dict_del (svc->options, srchkey);
                         ret = dict_set_str (svc->options, srchkey, keyval);
                         if (ret < 0) {
                                 gf_log (GF_RPCSVC, GF_LOG_ERROR,
@@ -2016,11 +2022,16 @@ rpcsvc_reconfigure_options (rpcsvc_t *svc, dict_t *options)
                         return (-1);
                 }
 
-                /* If found the srchkey, delete old key/val pair
-                 * and set the key with new value.
+                /* key-string: rpc-auth.addr.<volname>.reject
+                 *
+                 * IMP: Delete the OLD key/value pair from dict.
+                 * And set the NEW key/value pair IFF the option is SET
+                 * in reconfigured volfile.
+                 *
+                 * NB: No default value for reject key.
                  */
+                dict_del (svc->options, srchkey);
                 if (!dict_get_str (options, srchkey, &keyval)) {
-                        dict_del (svc->options, srchkey);
                         ret = dict_set_str (svc->options, srchkey, keyval);
                         if (ret < 0) {
                                 gf_log (GF_RPCSVC, GF_LOG_ERROR,
