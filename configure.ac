@@ -774,7 +774,7 @@ AC_COMPILE_IFELSE(
 AC_MSG_RESULT([$CLANG])
 
 if test "x$CLANG" = "xyes"; then
-    GF_COMPILER_FLAGS="-Wno-gnu -Wno-unknown-pragmas -Wno-deprecated-declarations -Wno-enum-conversion"
+    GF_COMPILER_FLAGS="-Wno-gnu -Wno-deprecated-declarations -Wno-enum-conversion"
 fi
 
 
