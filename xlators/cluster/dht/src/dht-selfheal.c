@@ -17,16 +17,18 @@
 #include "glusterfs.h"
 #include "xlator.h"
 #include "dht-common.h"
+#include "dht-messages.h"
 #include "glusterfs-acl.h"
 
 #define DHT_SET_LAYOUT_RANGE(layout,i,srt,chunk,cnt,path)    do {       \
                 layout->list[i].start = srt;                            \
                 layout->list[i].stop  = srt + chunk - 1;                \
                                                                         \
-                gf_log (this->name, GF_LOG_TRACE,                       \
-                        "gave fix: %u - %u on %s for %s",               \
-                        layout->list[i].start, layout->list[i].stop,    \
-                        layout->list[i].xlator->name, path);            \
+                gf_msg_trace (this->name, 0,                       \
+                              "gave fix: %u - %u on %s for %s",         \
+                              layout->list[i].start,                    \
+                              layout->list[i].stop,                     \
+                              layout->list[i].xlator->name, path);      \
         } while (0)
 
 #define DHT_RESET_LAYOUT_RANGE(layout)    do {                          \
@@ -128,6 +130,7 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
         dht_local_t       *local = NULL;
         dht_conf_t        *conf = NULL;
         data_t            *data = NULL;
+        char              gfid[GF_UUID_BUF_SIZE] = {0};
 
         local = frame->local;
         if (req_subvol)
@@ -149,27 +152,33 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
                 goto err;
         }
 
+        uuid_unparse(loc->inode->gfid, gfid);
+
         ret = dht_disk_layout_extract (this, layout, i, &disk_layout);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s: (subvol %s) failed to extract disk layout",
-                        loc->path, subvol->name);
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_DIR_SELFHEAL_XATTR_FAILED,
+                        "Directory self heal xattr failed:"
+                        " %s: (subvol %s) Failed to extract disk layout,"
+                        " gfid = %s", loc->path, subvol->name, gfid);
                 goto err;
         }
 
         ret = dict_set_bin (xattr, conf->xattr_name, disk_layout, 4 * 4);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s: (subvol %s) failed to set xattr dictionary",
-                        loc->path, subvol->name);
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_DIR_SELFHEAL_XATTR_FAILED,
+                        "Directory self heal xattr failed:"
+                        "%s: (subvol %s) Failed to set xattr dictionary,"
+                        " gfid = %s", loc->path, subvol->name, gfid);
                 goto err;
         }
         disk_layout = NULL;
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "setting hash range %u - %u (type %d) on subvolume %s for %s",
-                layout->list[i].start, layout->list[i].stop,
-                layout->type, subvol->name, loc->path);
+        gf_msg_trace (this->name, 0,
+                      "setting hash range %u - %u (type %d) on subvolume %s"
+                      " for %s", layout->list[i].start, layout->list[i].stop,
+                      layout->type, subvol->name, loc->path);
 
         dict_ref (xattr);
         if (local->xattr) {
@@ -177,8 +186,11 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
                 if (data) {
                         ret = dict_add (xattr, QUOTA_LIMIT_KEY, data);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
-                                        "set quota limit key on %s",loc->path);
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        DHT_MSG_DICT_SET_FAILED,
+                                        "%s: Failed to set dictionary value:"
+                                        " key = %s",
+                                        loc->path, QUOTA_LIMIT_KEY);
                         }
                 }
         }
@@ -218,8 +230,9 @@ dht_fix_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
         this = frame->this;
         conf = this->private;
 
-        gf_log (this->name, GF_LOG_DEBUG,
-                "writing the new range for all subvolumes");
+        gf_msg_debug (this->name, 0,
+                      "%s: Writing the new range for all subvolumes",
+                      loc->path);
 
         local->call_cnt = count = conf->subvolume_cnt;
 
@@ -283,9 +296,9 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
                         missing_xattr++;
                 }
         }
-        gf_log (this->name, GF_LOG_TRACE,
-                "%d subvolumes missing xattr for %s",
-                missing_xattr, loc->path);
+        gf_msg_trace (this->name, 0,
+                      "%d subvolumes missing xattr for %s",
+                      missing_xattr, loc->path);
 
         if (missing_xattr == 0) {
                 dht_selfheal_dir_finish (frame, this, 0);
@@ -369,9 +382,10 @@ dht_selfheal_dir_setattr (call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
         local->call_cnt = missing_attr;
         for (i = 0; i < layout->cnt; i++) {
                 if (layout->list[i].err == -1) {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "setattr for %s on subvol %s",
-                                loc->path, layout->list[i].xlator->name);
+                        gf_msg_trace (this->name, 0,
+                                      "%s: setattr on subvol %s, gfid = %s",
+                                      loc->path, layout->list[i].xlator->name,
+                                      uuid_utoa(loc->gfid));
 
                         STACK_WIND (frame, dht_selfheal_dir_setattr_cbk,
                                     layout->list[i].xlator,
@@ -396,7 +410,7 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         xlator_t      *subvol = NULL;
         int            i = 0;
         int            this_call_cnt = 0;
-
+        char           gfid[GF_UUID_BUF_SIZE] = {0};
 
         local  = frame->local;
         layout = local->selfheal.layout;
@@ -413,10 +427,13 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (op_ret) {
-                gf_log (this->name, ((op_errno == EEXIST) ? GF_LOG_DEBUG :
+
+                uuid_unparse(local->loc.gfid, gfid);
+                gf_msg (this->name, ((op_errno == EEXIST) ? 0 :
                                      GF_LOG_WARNING),
-                        "selfhealing directory %s failed: %s",
-                        local->loc.path, strerror (op_errno));
+                        op_errno, DHT_MSG_DIR_SELFHEAL_FAILED,
+                        "Directory selfheal failed: path = %s, gfid = %s",
+                        local->loc.path, gfid );
                 goto out;
         }
 
@@ -451,25 +468,29 @@ dht_selfheal_dir_mkdir_setacl (dict_t *xattr, dict_t *dict)
         acl_default = dict_get (xattr, POSIX_ACL_DEFAULT_XATTR);
 
         if (!acl_default) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "ACL_DEFAULT xattr not present");
+                gf_msg_debug (this->name, 0,
+                              "ACL_DEFAULT xattr not present");
                 goto cont;
         }
         ret = dict_set (dict, POSIX_ACL_DEFAULT_XATTR, acl_default);
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING,
-                        "Could not set ACL_DEFAULT xattr");
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_DICT_SET_FAILED,
+                        "Failed to set dictionary value.key = %s",
+                        POSIX_ACL_DEFAULT_XATTR);
 cont:
         acl_access = dict_get (xattr, POSIX_ACL_ACCESS_XATTR);
         if (!acl_access) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "ACL_ACCESS xattr not present");
+                gf_msg_debug (this->name, 0,
+                              "ACL_ACCESS xattr not present");
                 goto out;
         }
         ret = dict_set (dict, POSIX_ACL_ACCESS_XATTR, acl_access);
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING,
-                        "Could not set ACL_ACCESS xattr");
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_DICT_SET_FAILED,
+                        "Failed to set dictionary value.key = %s",
+                        POSIX_ACL_ACCESS_XATTR);
 
 out:
         return;
@@ -507,8 +528,10 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
 
                 ret = dict_set_static_bin (dict, "gfid-req", local->gfid, 16);
                 if (ret)
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "%s: failed to set gfid in dict", loc->path);
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_DICT_SET_FAILED,
+                                "%s: Failed to set dictionary value:"
+                                " key = gfid-req", loc->path);
         } else if (local->params) {
                 /* Send the dictionary from higher layers directly */
                 dict = dict_ref (local->params);
@@ -523,9 +546,9 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
 
         for (i = 0; i < layout->cnt; i++) {
                 if (layout->list[i].err == ENOENT || force) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "creating directory %s on subvol %s",
-                                loc->path, layout->list[i].xlator->name);
+                        gf_msg_debug (this->name, 0,
+                                      "Creating directory %s on subvol %s",
+                                      loc->path, layout->list[i].xlator->name);
 
                         STACK_WIND (frame, dht_selfheal_dir_mkdir_cbk,
                                     layout->list[i].xlator,
@@ -742,8 +765,8 @@ dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
         local = frame->local;
 
         if (layout->type == DHT_HASH_TYPE_DM_USER) {
-                gf_log (THIS->name, GF_LOG_DEBUG, "leaving %s alone",
-                        loc->path);
+                gf_msg_debug (THIS->name, 0, "leaving %s alone",
+                              loc->path);
                 goto done;
         }
 
@@ -756,7 +779,9 @@ dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
                                     &subvol_down, NULL, NULL);
 
         if (subvol_down || (ret == -1)) {
-                gf_log (this->name, GF_LOG_WARNING, "%u subvolume(s) are down"
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_LAYOUT_FIX_FAILED,
+                        "Layout fix failed: %u subvolume(s) are down"
                         ". Skipping fix layout.", subvol_down);
                 GF_FREE (new_layout);
                 return NULL;
@@ -931,9 +956,13 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
         uint32_t     misc     = 0;
         int          ret      = 0;
         xlator_t    *this     = NULL;
+        char         gfid[GF_UUID_BUF_SIZE] = {0};
 
         local = frame->local;
         this = frame->this;
+
+        uuid_unparse(loc->gfid, gfid);
+
 
         dht_layout_anomalies (this, loc, layout,
                               &local->selfheal.hole_cnt,
@@ -948,15 +977,22 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
         local->selfheal.layout = dht_layout_ref (this, layout);
 
         if (down) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%d subvolumes down -- not fixing", down);
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_DIR_SELFHEAL_FAILED,
+                        "Directory selfheal failed: %d subvolumes down."
+                        "Not fixing. path = %s, gfid = %s",
+                        down, loc->path, gfid);
                 ret = 0;
                 goto sorry_no_fix;
         }
 
         if (misc) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%d subvolumes have unrecoverable errors", misc);
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_DIR_SELFHEAL_FAILED,
+                        "Directory selfheal failed : %d subvolumes "
+                        "have unrecoverable errors. path = %s, gfid = %s",
+                        misc, loc->path, gfid);
+
                 ret = 0;
                 goto sorry_no_fix;
         }
@@ -965,8 +1001,11 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
         ret = dht_selfheal_dir_getafix (frame, loc, layout);
 
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "not able to form layout for the directory");
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_DIR_SELFHEAL_FAILED,
+                        "Directory selfheal failed: "
+                        "Unable to form layout for directory %s",
+                        loc->path);
                 goto sorry_no_fix;
         }
 
@@ -1010,6 +1049,8 @@ dht_dir_attr_heal (void *data)
         int              call_cnt = 0;
         int              ret   = -1;
         int              i     = 0;
+        char         gfid[GF_UUID_BUF_SIZE] = {0};
+
 
         GF_VALIDATE_OR_GOTO ("dht", data, out);
 
@@ -1031,9 +1072,13 @@ dht_dir_attr_heal (void *data)
                                       (GF_SET_ATTR_UID | GF_SET_ATTR_GID),
                                       NULL, NULL);
                 if (ret) {
-                        gf_log ("dht", GF_LOG_ERROR, "Failed to set uid/gid on"
-                                " %s on %s subvol (%s)", local->loc.path,
-                                subvol->name, strerror (-ret));
+                        uuid_unparse(local->loc.gfid, gfid);
+
+                        gf_msg ("dht", GF_LOG_ERROR, -ret,
+                                DHT_MSG_DIR_ATTR_HEAL_FAILED,
+                                "Directory attr heal failed. Failed to set"
+                                " uid/gid on path %s on subvol %s, gfid = %s ",
+                                local->loc.path, subvol->name, gfid);
                 }
         }
 out:

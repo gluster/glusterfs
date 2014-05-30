@@ -133,8 +133,8 @@ dht_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         subvol = local->cached_subvol;
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no cached subvolume for fd=%p", fd);
+                gf_msg_debug (this->name, 0,
+                              "no cached subvolume for fd=%p", fd);
                 op_errno = EINVAL;
                 goto err;
         }
@@ -184,9 +184,9 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if ((op_ret == -1) && !dht_inode_missing(op_errno)) {
                 local->op_errno = op_errno;
                 local->op_ret = -1;
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "subvolume %s returned -1 (%s)",
-                        prev->this->name, strerror (op_errno));
+                gf_msg_debug (this->name, 0,
+                              "subvolume %s returned -1 (%s)",
+                              prev->this->name, strerror (op_errno));
 
                 goto out;
         }
@@ -288,8 +288,8 @@ dht_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
         local->call_cnt = 1;
         subvol = local->cached_subvol;
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no cached subvolume for path=%s", loc->path);
+                gf_msg_debug (this->name, 0,
+                              "no cached subvolume for path=%s", loc->path);
                 op_errno = EINVAL;
                 goto err;
         }
@@ -329,8 +329,8 @@ dht_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         local->call_cnt = 1;
         subvol = local->cached_subvol;
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no cached subvolume for fd=%p", fd);
+                gf_msg_debug (this->name, 0,
+                              "no cached subvolume for fd=%p", fd);
                 op_errno = EINVAL;
                 goto err;
         }
@@ -370,9 +370,9 @@ dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if ((op_ret == -1) && !dht_inode_missing(op_errno)) {
                 local->op_errno = op_errno;
                 local->op_ret = -1;
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "subvolume %s returned -1 (%s)",
-                        prev->this->name, strerror (op_errno));
+                gf_msg_debug (this->name, 0,
+                              "subvolume %s returned -1 (%s)",
+                              prev->this->name, strerror (op_errno));
 
                 goto out;
         }
@@ -463,8 +463,8 @@ dht_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
         local->call_cnt = 1;
         subvol = local->cached_subvol;
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no cached subvolume for fd=%p", fd);
+                gf_msg_debug (this->name, 0,
+                              "no cached subvolume for fd=%p", fd);
                 op_errno = EINVAL;
                 goto err;
         }
@@ -504,9 +504,9 @@ dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if ((op_ret == -1) && !dht_inode_missing(op_errno)) {
                 local->op_errno = op_errno;
                 local->op_ret = -1;
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "subvolume %s returned -1 (%s)",
-                        prev->this->name, strerror (op_errno));
+                gf_msg_debug (this->name, 0,
+                              "subvolume %s returned -1 (%s)",
+                              prev->this->name, strerror (op_errno));
 
                 goto out;
         }
@@ -596,8 +596,8 @@ dht_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         local->call_cnt = 1;
         subvol = local->cached_subvol;
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no cached subvolume for fd=%p", fd);
+                gf_msg_debug (this->name, 0,
+                              "no cached subvolume for fd=%p", fd);
                 op_errno = EINVAL;
                 goto err;
         }
@@ -634,9 +634,9 @@ dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if ((op_ret == -1) && !dht_inode_missing(op_errno)) {
                 local->op_errno = op_errno;
                 local->op_ret = -1;
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "subvolume %s returned -1 (%s)",
-                        prev->this->name, strerror (op_errno));
+                gf_msg_debug (this->name, 0,
+                              "subvolume %s returned -1 (%s)",
+                              prev->this->name, strerror (op_errno));
                 goto out;
         }
 
@@ -729,8 +729,8 @@ dht_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         local->call_cnt = 1;
         subvol = local->cached_subvol;
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no cached subvolume for fd=%p", fd);
+                gf_msg_debug (this->name, 0,
+                              "no cached subvolume for fd=%p", fd);
                 op_errno = EINVAL;
                 goto err;
         }
@@ -764,9 +764,9 @@ dht_file_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local->op_errno = op_errno;
         if ((op_ret == -1) && !dht_inode_missing(op_errno)) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "subvolume %s returned -1 (%s)",
-                        prev->this->name, strerror (op_errno));
+                gf_msg_debug (this->name, 0,
+                              "subvolume %s returned -1 (%s)",
+                              prev->this->name, strerror (op_errno));
                 goto out;
         }
 
@@ -847,9 +847,9 @@ dht_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         {
                 if (op_ret == -1) {
                         local->op_errno = op_errno;
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "subvolume %s returned -1 (%s)",
-                                prev->this->name, strerror (op_errno));
+                        gf_msg_debug (this->name, 0,
+                                      "subvolume %s returned -1 (%s)",
+                                      prev->this->name, strerror (op_errno));
                         goto unlock;
                 }
 
@@ -899,15 +899,15 @@ dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         layout = local->layout;
         if (!layout) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no layout for path=%s", loc->path);
+                gf_msg_debug (this->name, 0,
+                              "no layout for path=%s", loc->path);
                 op_errno = EINVAL;
                 goto err;
         }
 
         if (!layout_is_sane (layout)) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "layout is not sane for path=%s", loc->path);
+                gf_msg_debug (this->name, 0,
+                              "layout is not sane for path=%s", loc->path);
                 op_errno = EINVAL;
                 goto err;
         }
@@ -970,15 +970,15 @@ dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
 
         layout = local->layout;
         if (!layout) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no layout for fd=%p", fd);
+                gf_msg_debug (this->name, 0,
+                              "no layout for fd=%p", fd);
                 op_errno = EINVAL;
                 goto err;
         }
 
         if (!layout_is_sane (layout)) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "layout is not sane for fd=%p", fd);
+                gf_msg_debug (this->name, 0,
+                              "layout is not sane for fd=%p", fd);
                 op_errno = EINVAL;
                 goto err;
         }
