@@ -189,21 +189,22 @@ class Monitor(object):
             self.lock.release()
             os.close(pw)
 
-            t0 = time.time()
-            so = select((pr,), (), (), conn_timeout)[0]
-            os.close(pr)
-
             # close all RPC pipes in monitor
             os.close(ra)
             os.close(wa)
             os.close(rw)
             os.close(ww)
 
+            t0 = time.time()
+            so = select((pr,), (), (), conn_timeout)[0]
+            os.close(pr)
+
             if so:
                 ret = nwait(cpid, os.WNOHANG)
                 if ret is not None:
                     logging.info("worker(%s) died before establishing "
                                  "connection" % w[0])
+                    nwait(apid) #wait for agent
                 else:
                     logging.debug("worker(%s) connected" % w[0])
                     while time.time() < t0 + conn_timeout:
@@ -211,15 +212,20 @@ class Monitor(object):
                         if ret is not None:
                             logging.info("worker(%s) died in startup "
                                          "phase" % w[0])
+                            nwait(apid) #wait for agent
                             break
                         time.sleep(1)
             else:
                 logging.info("worker(%s) not confirmed in %d sec, "
                              "aborting it" % (w[0], conn_timeout))
                 os.kill(cpid, signal.SIGKILL)
+                nwait(apid) #wait for agent
                 ret = nwait(cpid)
             if ret is None:
                 self.set_state(self.ST_STABLE, w)
+                #If worker dies, agent terminates on EOF.
+                #So lets wait for agent first.
+                nwait(apid)
                 ret = nwait(cpid)
             if exit_signalled(ret):
                 ret = 0
@@ -249,6 +255,8 @@ class Monitor(object):
                 self.lock.acquire()
                 for cpid in cpids:
                     os.kill(cpid, signal.SIGKILL)
+                for apid in agents:
+                    os.kill(apid, signal.SIGKILL)
                 self.lock.release()
                 finalize(exval=1)
             t = Thread(target=wmon, args=[wx])
