@@ -2943,15 +2943,20 @@ glusterd_add_snap_to_dict (glusterd_snap_t *snap, dict_t *peer_data,
                         goto out;
                 }
 
-                ret = glusterd_vol_add_quota_conf_to_dict (volinfo, peer_data,
-                                                           volcount, prefix);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to add quota conf for "
-                                "snap:%s volume:%s to peer_data "
-                                "dict for handshake", snap->snapname,
-                                volinfo->volname);
-                        goto out;
+                if (glusterd_is_volume_quota_enabled (volinfo)) {
+
+                        ret = glusterd_vol_add_quota_conf_to_dict (volinfo,
+                                                                   peer_data,
+                                                                   volcount,
+                                                                   prefix);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to add quota conf for "
+                                        "snap:%s volume:%s to peer_data "
+                                        "dict for handshake", snap->snapname,
+                                        volinfo->volname);
+                                goto out;
+                        }
                 }
 
                 list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
