@@ -239,19 +239,24 @@ transport=transport-type
 
 direct-io-mode=[enable|disable]
 
+use-readdirp=[yes|no]
+
 For example:
 
-`# mount -t glusterfs -o backupvolfile-server=volfile_server2 --volfile-max-fetch-attempts=2 log-level=WARNING,log-file=/var/log/gluster.log server1:/test-volume /mnt/glusterfs`
+`# mount -t glusterfs -o backupvolfile-server=volfile_server2,use-readdirp=no,volfile-max-fetch-attempts=2,log-level=WARNING,log-file=/var/log/gluster.log server1:/test-volume /mnt/glusterfs`
 
 If `backupvolfile-server` option is added while mounting fuse client,
 when the first volfile server fails, then the server specified in
 `backupvolfile-server` option is used as volfile server to mount the
 client.
 
-In `--volfile-max-fetch-attempts=X` option, specify the number of
+In `volfile-max-fetch-attempts=X` option, specify the number of
 attempts to fetch volume files while mounting a volume. This option is
 useful when you mount a server with multiple IP addresses or when
 round-robin DNS is configured for the server-name..
+
+If `use-readdirp` is set to ON, it forces the use of readdirp
+mode in fuse kernel module
 
 <a name="auto-mount" />
 ### Automatically Mounting Volumes
@@ -285,6 +290,8 @@ log-file=logfile
 transport=transport-type
 
 direct-io-mode=[enable|disable]
+
+use-readdirp=no
 
 For example:
 
