@@ -30,7 +30,8 @@ afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this);
 
 void
 afr_sh_print_split_brain_log (int32_t *pending_matrix[], xlator_t *this,
-                              const char *loc);
+                              const char *loc, afr_spb_state_t mdata,
+                              afr_spb_state_t data);
 
 int
 afr_build_pending_matrix (char **pending_key, int32_t **pending_matrix,
@@ -141,4 +142,8 @@ afr_log_self_heal_completion_status (afr_local_t *local, gf_loglevel_t  logl);
 
 char*
 afr_get_pending_matrix_str (int32_t *pending_matrix[], xlator_t *this);
+
+void
+afr_set_sh_info_str (afr_local_t *local, afr_self_heal_t *sh,
+                     afr_self_heal_type type, xlator_t *this);
 #endif /* __AFR_SELF_HEAL_COMMON_H__ */

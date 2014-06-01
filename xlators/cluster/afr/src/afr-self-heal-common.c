@@ -216,7 +216,8 @@ out:
 
 void
 afr_sh_print_split_brain_log (int32_t *pending_matrix[], xlator_t *this,
-                              const char *loc)
+                              const char *loc, afr_spb_state_t mdata,
+                              afr_spb_state_t data)
 {
         char *buf      = NULL;
         char *free_ptr = NULL;
@@ -229,8 +230,9 @@ afr_sh_print_split_brain_log (int32_t *pending_matrix[], xlator_t *this,
 
 
         gf_log (this->name, GF_LOG_ERROR, "Unable to self-heal contents of '%s'"
-                " (possible split-brain). Please delete the file from all but "
-                "the preferred subvolume.%s", loc, buf);
+                " (possible %s split-brain). Please delete the file from all but "
+                "the preferred subvolume.%s", loc, (mdata == SPB) ? "metadata" :
+                (data == SPB) ? "data" : "", buf);
         GF_FREE (free_ptr);
         return;
 }
@@ -2272,6 +2274,7 @@ afr_self_heal_local_init (afr_local_t *l, xlator_t *this)
         shc->type = sh->type;
         shc->data_sh_info = "";
         shc->metadata_sh_info =  "";
+        shc->entry_sh_info =  "";
 
         uuid_copy (shc->sh_gfid_req, sh->sh_gfid_req);
         if (l->loc.path) {
@@ -2824,6 +2827,166 @@ get_sh_completion_status (afr_self_heal_status status)
 }
 
 void
+afr_set_sh_info_str (afr_local_t *local, afr_self_heal_t *sh,
+                     afr_self_heal_type type, xlator_t *this)
+{
+        afr_private_t    *priv = NULL;
+        int              i = 0;
+        char             num[1024] = {0};
+        size_t           len = 0;
+        char             *string = NULL;
+        size_t           off = 0;
+        char             *source_child =  " from source %s to";
+        char             *format = " %s, ";
+        char             *string_msg = NULL;
+        char             *pending_matrix_str = NULL;
+        int              down_child_present = 0;
+        int              unknown_child_present = 0;
+        char             *down_subvol_1 = " down subvolume is ";
+        char             *unknown_subvol_1 = " unknown subvolume is";
+        char             *down_subvol_2 = " down subvolumes are ";
+        char             *unknown_subvol_2 = " unknown subvolumes are ";
+        int              down_count = 0;
+        int              unknown_count = 0;
+
+        switch (type) {
+        case AFR_SELF_HEAL_ENTRY:
+                string_msg = " entry self heal";
+                break;
+
+        case AFR_SELF_HEAL_METADATA:
+                string_msg = " metadata self heal";
+                break;
+
+        default:
+                break;
+        }
+
+        priv = this->private;
+
+        pending_matrix_str = afr_get_pending_matrix_str (sh->pending_matrix,
+                                                         this);
+
+        if (!pending_matrix_str)
+                pending_matrix_str = "";
+
+        len += snprintf (num, sizeof (num), "%s", string_msg);
+
+        for (i = 0; i < priv->child_count; i++) {
+                if ((sh->source == i) && (local->child_up[i] == 1)) {
+                        len += snprintf (num, sizeof (num), source_child,
+                                         priv->children[i]->name);
+                } else if ((local->child_up[i] == 1) && (sh->sources[i] == 0)) {
+                        len += snprintf (num, sizeof (num), format,
+                                         priv->children[i]->name);
+                } else if (local->child_up[i] == 0) {
+                        len += snprintf (num, sizeof (num), format,
+                                         priv->children[i]->name);
+                        if (!down_child_present)
+                                down_child_present = 1;
+                        down_count++;
+                } else if (local->child_up[i] == -1) {
+                        len += snprintf (num, sizeof (num), format,
+                                         priv->children[i]->name);
+                        if (!unknown_child_present)
+                                unknown_child_present = 1;
+                        unknown_count++;
+                }
+        }
+
+        if (down_child_present) {
+                if (down_count > 1) {
+                        len += snprintf (num, sizeof (num), "%s",
+                                         down_subvol_2);
+                } else {
+                        len += snprintf (num, sizeof (num), "%s",
+                                         down_subvol_1);
+                }
+        }
+        if (unknown_child_present) {
+                if (unknown_count > 1) {
+                        len += snprintf (num, sizeof (num), "%s",
+                                         unknown_subvol_2);
+                } else {
+                        len += snprintf (num, sizeof (num), "%s",
+                                         unknown_subvol_1);
+                }
+        }
+
+        len ++;
+
+        string = GF_CALLOC (len, sizeof (char), gf_common_mt_char);
+        if (!string)
+                return;
+
+        off += snprintf (string + off, len - off, "%s", string_msg);
+        for (i=0; i < priv->child_count; i++) {
+                if ((sh->source == i) && (local->child_up[i] == 1))
+                        off += snprintf (string + off, len - off, source_child,
+                                         priv->children[i]->name);
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                if ((local->child_up[i] == 1)&& (sh->sources[i] == 0))
+                        off += snprintf (string + off, len - off, format,
+                                         priv->children[i]->name);
+        }
+
+        if (down_child_present) {
+                if (down_count > 1) {
+                        off += snprintf (string + off, len - off, "%s",
+                                         down_subvol_2);
+                } else {
+                        off += snprintf (string + off, len - off, "%s",
+                                         down_subvol_1);
+                }
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->child_up[i] == 0)
+                        off += snprintf (string + off, len - off, format,
+                                         priv->children[i]->name);
+        }
+
+        if (unknown_child_present) {
+                if (unknown_count > 1) {
+                        off += snprintf (string + off, len - off, "%s",
+                                 unknown_subvol_2);
+                } else {
+                        off += snprintf (string + off, len - off, "%s",
+                                         unknown_subvol_1);
+                }
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->child_up[i] == -1)
+                        off += snprintf (string + off, len - off, format,
+                                         priv->children[i]->name);
+        }
+
+        switch (type) {
+        case AFR_SELF_HEAL_ENTRY:
+                gf_asprintf (&sh->entry_sh_info, "%s entry %s,", string,
+                             pending_matrix_str);
+                break;
+
+        case AFR_SELF_HEAL_METADATA:
+                gf_asprintf (&sh->metadata_sh_info, "%s metadata %s,", string,
+                             pending_matrix_str);
+                break;
+
+        default:
+                break;
+        }
+
+        if (pending_matrix_str && strcmp (pending_matrix_str, ""))
+                GF_FREE (pending_matrix_str);
+
+        if (string && strcmp (string, ""))
+                GF_FREE (string);
+}
+
+void
 afr_log_self_heal_completion_status (afr_local_t *local, gf_loglevel_t loglvl)
 {
 
@@ -2834,6 +2997,7 @@ afr_log_self_heal_completion_status (afr_local_t *local, gf_loglevel_t loglvl)
         size_t        off              = 0;
         int           data_sh          = 0;
         int           metadata_sh      = 0;
+        int           entry_sh         = 0;
         int           print_log        = 0;
 
         this = THIS;
@@ -2858,12 +3022,16 @@ afr_log_self_heal_completion_status (afr_local_t *local, gf_loglevel_t loglvl)
         if (AFR_SELF_HEAL_SYNC_BEGIN == all_status.metadata_self_heal &&
 	    strcmp (sh->metadata_sh_info, "") && sh->metadata_sh_info)
                 metadata_sh = 1;
+        if (AFR_SELF_HEAL_SYNC_BEGIN == all_status.entry_self_heal &&
+	    sh->entry_sh_info && strcmp (sh->entry_sh_info, ""))
+                entry_sh = 1;
 
         if (!print_log)
                 return;
 
-        gf_log (this->name, loglvl, "%s %s %s on %s", sh_log,
+        gf_log (this->name, loglvl, "%s %s %s %s on %s", sh_log,
                 ((data_sh == 1) ? sh->data_sh_info : ""),
                 ((metadata_sh == 1) ? sh->metadata_sh_info : ""),
+                ((entry_sh == 1) ? sh->entry_sh_info : ""),
                 local->loc.path);
 }

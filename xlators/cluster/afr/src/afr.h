@@ -311,6 +311,7 @@ struct afr_self_heal_ {
 
         char    *data_sh_info;
         char    *metadata_sh_info;
+        char    *entry_sh_info;
 
         loc_t parent_loc;
         call_frame_t *orig_frame;
