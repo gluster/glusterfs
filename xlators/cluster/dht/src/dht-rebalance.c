@@ -141,6 +141,8 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
         struct iatt             iatt            = {0,};
         int32_t                 op_errno        = 0;
         dht_conf_t             *conf            = NULL;
+        gf_loglevel_t          loglevel         = 0;
+        dict_t                 *link_xattr      = NULL;
 
         GF_VALIDATE_OR_GOTO ("defrag", loc, out);
         GF_VALIDATE_OR_GOTO ("defrag", loc->name, out);
@@ -160,6 +162,13 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
         if (uuid_is_null (loc->gfid)) {
                 gf_log ("", GF_LOG_ERROR, "loc->gfid is NULL for "
                         "%s", loc->path);
+                goto out;
+        }
+
+        link_xattr = dict_new ();
+        if (!link_xattr) {
+                ret = -1;
+                errno = ENOMEM;
                 goto out;
         }
 
@@ -183,7 +192,7 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
         data = dict_get (xattrs, conf->link_xattr_name);
         /* set linkto on cached -> hashed if not present, else link it */
         if (!data) {
-                ret = dict_set_str (xattrs, conf->link_xattr_name,
+                ret = dict_set_str (link_xattr, conf->link_xattr_name,
                                     hashed_subvol->name);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "Failed to set "
@@ -191,7 +200,7 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                         goto out;
                 }
 
-                ret = syncop_setxattr (cached_subvol, loc, xattrs, 0);
+                ret = syncop_setxattr (cached_subvol, loc, link_xattr, 0);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "Linkto setxattr "
                                 "failed %s -> %s (%s)", cached_subvol->name,
@@ -214,7 +223,10 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                 if  (ret) {
                         op_errno = -ret;
                         ret = -1;
-                        gf_log (this->name, GF_LOG_ERROR, "link of %s -> %s"
+
+                        loglevel = (op_errno == EEXIST) ? GF_LOG_DEBUG : \
+                                    GF_LOG_ERROR;
+                        gf_log (this->name, loglevel, "link of %s -> %s"
                                 " failed on  subvol %s (%s)", loc->name,
                                 uuid_utoa(loc->gfid),
                                 hashed_subvol->name, strerror (op_errno));
@@ -238,6 +250,8 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
         }
         ret = -2;
 out:
+        if (link_xattr)
+                dict_unref (link_xattr);
         return ret;
 }
 
