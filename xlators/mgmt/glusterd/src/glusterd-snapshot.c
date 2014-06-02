@@ -5681,7 +5681,6 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
         glusterd_snap_t    *snap                = NULL;
         glusterd_volinfo_t *tmp_volinfo         = NULL;
         glusterd_volinfo_t *other_volinfo       = NULL;
-        int64_t             var                 = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -5727,35 +5726,30 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
                 if (count <= 0)
                         goto out;
 
-                list_for_each_entry_safe (tmp_volinfo, other_volinfo,
-                                         &volinfo->snap_volumes, snapvol_list) {
-                        if (var == count)
-                                break;
+                tmp_volinfo = list_entry (volinfo->snap_volumes.next,
+                                          glusterd_volinfo_t, snapvol_list);
+                snap = tmp_volinfo->snapshot;
+                GF_ASSERT (snap);
 
-                        snap = tmp_volinfo->snapshot;
-                        GF_ASSERT (snap);
-
-                        LOCK (&snap->lock);
-                        {
-                                snap->snap_status = GD_SNAP_STATUS_DECOMMISSION;
-                                ret = glusterd_store_snap (snap);
-                                if (ret) {
-                                        gf_log (this->name, GF_LOG_ERROR, "could "
-                                                "not store snap object %s",
-                                                snap->snapname);
-                                        goto unlock;
-                                }
-
-                                ret = glusterd_snap_remove (rsp_dict, snap,
-                                                            _gf_true, _gf_true);
-                                if (ret)
-                                        gf_log (this->name, GF_LOG_WARNING,
-                                                "failed to remove snap %s",
-                                                snap->snapname);
+                LOCK (&snap->lock);
+                {
+                        snap->snap_status = GD_SNAP_STATUS_DECOMMISSION;
+                        ret = glusterd_store_snap (snap);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "could "
+                                        "not store snap object %s",
+                                        snap->snapname);
+                                goto unlock;
                         }
-                unlock: UNLOCK (&snap->lock);
-                        var++;
+
+                        ret = glusterd_snap_remove (rsp_dict, snap,
+                                                    _gf_true, _gf_true);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "failed to remove snap %s",
+                                        snap->snapname);
                 }
+        unlock: UNLOCK (&snap->lock);
         }
 
 out:
