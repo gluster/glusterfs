@@ -925,6 +925,8 @@ svs_revalidate (xlator_t *this, loc_t *loc, inode_t *parent,
                 */
                 if (!loc->name || !parent_ctx) {
                         *op_errno = ESTALE;
+                        gf_log (this->name, GF_LOG_ERROR, "%s is NULL",
+                                loc->name?"parent context":"loc->name");
                         goto out;
                 }
 
@@ -936,8 +938,6 @@ svs_revalidate (xlator_t *this, loc_t *loc, inode_t *parent,
                         op_ret = svs_lookup_entry (this, loc, buf, postparent,
                                                    parent, parent_ctx,
                                                    op_errno);
-                if (op_ret)
-                        *op_errno = ESTALE;
 
                 goto out;
         }
@@ -1600,7 +1600,7 @@ svs_glfs_readdir (xlator_t *this, glfs_fd_t *glfd, gf_dirent_t *entries,
                                         strerror (errno));
                                 break;
                         }
-                        entry->d_off = de.d_off;
+                        entry->d_off = glfs_telldir (glfd);
                         entry->d_ino = de.d_ino;
                         entry->d_type = de.d_type;
                         iatt_from_stat (buf, &statbuf);
