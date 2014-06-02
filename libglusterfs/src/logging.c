@@ -2004,6 +2004,7 @@ _gf_msg (const char *domain, const char *file, const char *function,
         glusterfs_ctx_t *ctx = NULL;
         char             callstr[GF_LOG_BACKTRACE_SIZE] = {0,};
         int              passcallstr = 0;
+        int              log_inited = 0;
 
         /* in args check */
         if (!domain || !file || !function || !fmt) {
@@ -2043,21 +2044,38 @@ _gf_msg (const char *domain, const char *file, const char *function,
         }
 #endif /* HAVE_BACKTRACE */
 
+        pthread_mutex_lock (&ctx->log.logfile_mutex);
+        {
+                if (ctx->log.logfile) {
+                        log_inited = 1;
+                }
+        }
+        pthread_mutex_unlock (&ctx->log.logfile_mutex);
+
         /* form the message */
         va_start (ap, fmt);
         ret = vasprintf (&msgstr, fmt, ap);
         va_end (ap);
 
         /* log */
-        if (ret != -1)
-                ret = _gf_msg_internal (domain, file, function, line, level,
-                                       errnum, msgid, &msgstr,
-                                       (passcallstr? callstr : NULL),
-                                       (this->graph)? this->graph->id : 0);
-        else
+        if (ret != -1) {
+                if (!log_inited && ctx->log.gf_log_syslog) {
+                        ret = gf_log_syslog (ctx, domain, file, function, line,
+                                            level, errnum, msgid, &msgstr,
+                                            (passcallstr? callstr : NULL),
+                                            (this->graph)? this->graph->id : 0,
+                                            gf_logformat_traditional);
+                } else {
+                        ret = _gf_msg_internal (domain, file, function, line,
+                                            level, errnum, msgid, &msgstr,
+                                            (passcallstr? callstr : NULL),
+                                            (this->graph)? this->graph->id : 0);
+                }
+        } else {
                 /* man (3) vasprintf states on error strp contents
                  * are undefined, be safe */
                 msgstr = NULL;
+        }
 
         FREE (msgstr);
 
