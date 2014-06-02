@@ -935,6 +935,9 @@ void xlator_foreach_depth_first (xlator_t *this,
 
 xlator_t *xlator_search_by_name (xlator_t *any, const char *name);
 
+void
+xlator_set_inode_lru_limit (xlator_t *this, void *data);
+
 void inode_destroy_notify (inode_t *inode, const char *xlname);
 
 int loc_copy (loc_t *dst, loc_t *src);
