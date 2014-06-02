@@ -166,7 +166,8 @@ htime_update (xlator_t *this,
         if (sys_fsetxattr (priv->htime_fd, HTIME_KEY, x_value,
                        strlen (x_value),  XATTR_REPLACE)) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "Htime xattr updation failed");
+                        "Htime xattr updation failed, "
+                        "reason (%s)",strerror (errno));
                 goto out;
         }
 
@@ -209,6 +210,7 @@ changelog_rollover_changelog (xlator_t *this,
 
         if (ret && (errno == ENOENT)) {
                 ret = 0;
+                goto out;
         }
 
         if (ret) {

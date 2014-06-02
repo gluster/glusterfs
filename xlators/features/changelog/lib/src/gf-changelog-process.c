@@ -471,16 +471,10 @@ gf_changelog_publish (xlator_t *this, gf_changelog_t *gfc, char *from_path)
                          gfc->gfc_current_dir, basename (from_path));
 
         /* handle zerob file that wont exist in current */
-        ret = stat (from_path, &stbuf);
-        if (ret)
-                goto out;
-
-        if (stbuf.st_size == 0) {
-                ret = unlink (from_path);
-                if (ret)
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "could not unlink %s (reason %s)",
-                                from_path, strerror (errno));
+        ret = stat (to_path, &stbuf);
+        if (ret){
+                if (errno == ENOENT)
+                        ret = 0;
                 goto out;
         }
 
@@ -546,7 +540,7 @@ gf_changelog_consume (xlator_t *this,
                 close (fd2);
 
                 if (!ret) {
-                        /* move it to processing on a successfull
+                        /* move it to processing on a successful
                            decode */
                         if (no_publish == _gf_true)
                                 goto close_fd;
@@ -560,11 +554,7 @@ gf_changelog_consume (xlator_t *this,
 
                 /* remove it from .current if it's an empty file */
                 if (zerob) {
-                        if (no_publish == _gf_true) {
-                                ret = 0;
-                                goto close_fd;
-                        }
-
+                        /* zerob changelogs must be unlinked */
                         ret = unlink (to_path);
                         if (ret)
                                 gf_log (this->name, GF_LOG_ERROR,
