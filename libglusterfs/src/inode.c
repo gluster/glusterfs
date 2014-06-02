@@ -1238,6 +1238,27 @@ inode_path (inode_t *inode, const char *name, char **bufp)
         return ret;
 }
 
+void
+__inode_table_set_lru_limit (inode_table_t *table, uint32_t lru_limit)
+{
+        table->lru_limit = lru_limit;
+        return;
+}
+
+
+void
+inode_table_set_lru_limit (inode_table_t *table, uint32_t lru_limit)
+{
+        pthread_mutex_lock (&table->lock);
+        {
+                __inode_table_set_lru_limit (table, lru_limit);
+        }
+        pthread_mutex_unlock (&table->lock);
+
+        inode_table_prune (table);
+
+        return;
+}
 
 static int
 inode_table_prune (inode_table_t *table)

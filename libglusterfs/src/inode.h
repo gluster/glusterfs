@@ -251,4 +251,10 @@ inode_ctx_put(inode_t *inode, xlator_t *this, uint64_t v)
 gf_boolean_t
 __is_root_gfid (uuid_t gfid);
 
+void
+__inode_table_set_lru_limit (inode_table_t *table, uint32_t lru_limit);
+
+void
+inode_table_set_lru_limit (inode_table_t *table, uint32_t lru_limit);
+
 #endif /* _INODE_H */

@@ -291,6 +291,25 @@ xlator_set_type (xlator_t *xl, const char *type)
         return ret;
 }
 
+void
+xlator_set_inode_lru_limit (xlator_t *this, void *data)
+{
+        int inode_lru_limit = 0;
+
+        if (this->itable) {
+                if (!data) {
+                        gf_log (this->name, GF_LOG_WARNING, "input data is "
+                                "NULL. Cannot update the lru limit of the inode"
+                                " table. Continuing with older value");
+                        goto out;
+                }
+                inode_lru_limit = *(int *)data;
+                inode_table_set_lru_limit (this->itable, inode_lru_limit);
+        }
+
+out:
+        return;
+}
 
 void
 xlator_foreach (xlator_t *this,

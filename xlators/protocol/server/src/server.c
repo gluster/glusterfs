@@ -677,6 +677,8 @@ reconfigure (xlator_t *this, dict_t *options)
         data_t                   *data;
         int                       ret = 0;
         char                     *statedump_path = NULL;
+        xlator_t                 *xl     = NULL;
+
         conf = this->private;
 
         if (!conf) {
@@ -687,6 +689,14 @@ reconfigure (xlator_t *this, dict_t *options)
                 conf->inode_lru_limit = inode_lru_limit;
                 gf_log (this->name, GF_LOG_TRACE, "Reconfigured inode-lru-limit"
                         " to %d", conf->inode_lru_limit);
+
+                /* traverse through the xlator graph. For each xlator in the
+                   graph check whether it is a bound_xl or not (bound_xl means
+                   the xlator will have its itable pointer set). If so, then
+                   set the lru limit for the itable.
+                */
+                xlator_foreach (this, xlator_set_inode_lru_limit,
+                                &inode_lru_limit);
         }
 
         data = dict_get (options, "trace");
