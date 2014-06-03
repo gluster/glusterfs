@@ -637,7 +637,7 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
         }
 
         /* Based on the op_version, acquire a cluster or mgmt_v3 lock */
-        if (priv->op_version < GD_OP_VERSION_4) {
+        if (priv->op_version < GD_OP_VERSION_3_6_0) {
                 ret = glusterd_lock (MY_UUID);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -684,7 +684,7 @@ local_locking_done:
 
         /* If no volname is given as a part of the command, locks will
          * not be held, hence sending stage event. */
-        if (volname || (priv->op_version < GD_OP_VERSION_4))
+        if (volname || (priv->op_version < GD_OP_VERSION_3_6_0))
                 event_type = GD_OP_EVENT_START_LOCK;
         else {
                 txn_op_info.state.state = GD_OP_STATE_LOCK_SENT;
@@ -714,7 +714,7 @@ out:
         if (locked && ret) {
                 /* Based on the op-version, we release the
                  * cluster or mgmt_v3 lock */
-                if (priv->op_version < GD_OP_VERSION_4)
+                if (priv->op_version < GD_OP_VERSION_3_6_0)
                         glusterd_unlock (MY_UUID);
                 else {
                         ret = glusterd_mgmt_v3_unlock (volname, MY_UUID,
@@ -4339,7 +4339,7 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                         glusterd_friend_sm_state_name_get (peerinfo->state.state));
 
                 if (peerinfo->connected) {
-                        if (conf->op_version < GD_OP_VERSION_4) {
+                        if (conf->op_version < GD_OP_VERSION_3_6_0) {
                                 glusterd_get_lock_owner (&uuid);
                                 if (!uuid_is_null (uuid) &&
                                     !uuid_compare (peerinfo->uuid, uuid))

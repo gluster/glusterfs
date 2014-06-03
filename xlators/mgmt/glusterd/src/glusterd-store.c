@@ -270,7 +270,7 @@ gd_store_brick_snap_details_write (int fd, glusterd_brickinfo_t *brickinfo)
         GF_VALIDATE_OR_GOTO (this->name, (fd > 0), out);
         GF_VALIDATE_OR_GOTO (this->name, (brickinfo != NULL), out);
 
-        if (conf->op_version < GD_OP_VERSION_4) {
+        if (conf->op_version < GD_OP_VERSION_3_6_0) {
                 ret = 0;
                 goto out;
         }
@@ -623,7 +623,7 @@ glusterd_volume_write_snap_details (int fd, glusterd_volinfo_t *volinfo)
         GF_VALIDATE_OR_GOTO (this->name, (fd > 0), out);
         GF_VALIDATE_OR_GOTO (this->name, (volinfo != NULL), out);
 
-        if (conf->op_version < GD_OP_VERSION_4) {
+        if (conf->op_version < GD_OP_VERSION_3_6_0) {
                 ret = 0;
                 goto out;
         }
