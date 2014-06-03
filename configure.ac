@@ -928,7 +928,7 @@ dnl include tirpc for FB builds
 if test "x$BUILD_FBEXTRAS" = "xyes"; then
         TIRPC_CFLAGS="-I/usr/include/tirpc"
         GF_LDFLAGS="-lfbtirpc $GF_LDFLAGS"
-        GF_CFLAGS="$GF_CFLAGS $TIRPC_CFLAGS -DIPV6_DEFAULT"
+        GF_CFLAGS="$GF_CFLAGS $TIRPC_CFLAGS -DIPV6_DEFAULT -DGF_FBEXTRAS"
         TESTER_CFLAGS="$TESTER_CFLAGS -lfbtirpc"
 fi
 

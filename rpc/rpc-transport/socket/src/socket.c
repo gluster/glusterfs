@@ -55,7 +55,11 @@
 /* TBD: do automake substitutions etc. (ick) to set these. */
 #if !defined(DEFAULT_ETC_SSL)
 #  ifdef GF_LINUX_HOST_OS
+#   ifdef GF_FBEXTRAS
+#    define DEFAULT_ETC_SSL "/var/lib/glusterd/ssl"
+#   else
 #    define DEFAULT_ETC_SSL "/etc/ssl"
+#   endif
 #  endif
 #  ifdef GF_BSD_HOST_OS
 #    define DEFAULT_ETC_SSL "/etc/openssl"
