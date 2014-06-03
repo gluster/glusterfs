@@ -12607,7 +12607,7 @@ glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
         int64_t             volcount          = 0;
         char                key[PATH_MAX]     = {0, };
         int64_t             i                 = 0;
-        int32_t             ret               = 0;
+        int32_t             ret               = -1;
         xlator_t           *this              = NULL;
 
         this = THIS;
@@ -12630,6 +12630,7 @@ glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
                 if (!snap) {
                         gf_log (this->name, GF_LOG_ERROR, "failed to "
                                 "get the snapshot %s", snapname);
+                        ret = -1;
                         goto out;
                 }
         }
@@ -12649,6 +12650,7 @@ glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
                         gf_log (this->name, GF_LOG_WARNING, "%s",
                                 err_str);
                         *op_errstr = gf_strdup (err_str);
+                        ret = -1;
                         goto out;
                 }
 
