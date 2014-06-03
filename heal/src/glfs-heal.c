@@ -318,8 +318,10 @@ glfsh_print_brick (xlator_t *xl, loc_t *rootloc)
         char    *brick_end = NULL;
 
         ret = syncop_getxattr (xl, rootloc, &xattr, GF_XATTR_PATHINFO_KEY);
-        if (ret < 0)
+        if (ret < 0) {
+                ret = -errno;
                 goto out;
+        }
 
         ret = dict_get_str (xattr, GF_XATTR_PATHINFO_KEY, &pathinfo);
         if (ret < 0)
@@ -369,7 +371,7 @@ glfsh_print_pending_heals (xlator_t *xl, loc_t *rootloc)
         ret = glfsh_print_brick (xl, rootloc);
         if (ret < 0) {
                 glfsh_print_brick_from_xl (xl);
-                printf ("Status: %s\n", strerror (errno));
+                printf ("Status: %s\n", strerror (-ret));
                 goto out;
         }
 
