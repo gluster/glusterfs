@@ -890,5 +890,8 @@ glusterd_snapd_set_online_status (glusterd_volinfo_t *volinfo,
 
 int
 glusterd_restart_snapds (glusterd_conf_t *priv);
+
+int32_t
+glusterd_check_and_set_config_limit (glusterd_conf_t *priv);
 /* End snapd functions */
 #endif

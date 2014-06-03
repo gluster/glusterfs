@@ -215,6 +215,8 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
         uint64_t            soft_limit_value     = -1;
         uint64_t            count                = 0;
         xlator_t           *this                 = NULL;
+        uint64_t            opt_hard_max         = 0;
+        uint64_t            opt_soft_max         = 0;
 
         this = THIS;
 
@@ -226,18 +228,40 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
 
         GF_ASSERT (conf);
 
+        ret = dict_get_uint64 (conf->opts,
+                               GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
+                               &opt_hard_max);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                        "%s from opts dictionary",
+                        GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
+                goto out;
+        }
+
+        ret = dict_get_uint64 (conf->opts,
+                              GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT,
+                              &opt_soft_max);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                        "%s from options",
+                        GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT);
+                goto out;
+        }
+
         if (!volname) {
                 /* For system limit */
                 list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                         if (volinfo->is_snap_volume == _gf_true)
                                 continue;
+
                         snap_max_limit = volinfo->snap_max_hard_limit;
-                        if (snap_max_limit > conf->snap_max_hard_limit)
-                                active_hard_limit = conf->snap_max_hard_limit;
+                        if (snap_max_limit > opt_hard_max)
+                                active_hard_limit = opt_hard_max;
                         else
                                 active_hard_limit = snap_max_limit;
-                        soft_limit_value = (active_hard_limit *
-                                            conf->snap_max_soft_limit) / 100;
+
+                        soft_limit_value = (opt_soft_max *
+                                            active_hard_limit) / 100;
 
                         snprintf (buf, sizeof(buf), "volume%"PRId64"-volname",
                                   count);
@@ -294,13 +318,13 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                 }
 
                 snap_max_limit = volinfo->snap_max_hard_limit;
-                if (snap_max_limit > conf->snap_max_hard_limit)
-                        active_hard_limit = conf->snap_max_hard_limit;
+                if (snap_max_limit > opt_hard_max)
+                        active_hard_limit = opt_hard_max;
                 else
                         active_hard_limit = snap_max_limit;
 
-                soft_limit_value = (active_hard_limit *
-                                    conf->snap_max_soft_limit) / 100;
+                soft_limit_value = (opt_soft_max *
+                                    active_hard_limit) / 100;
 
                 snprintf (buf, sizeof(buf), "volume%"PRId64"-volname", count);
                 ret = dict_set_str (rsp_dict, buf, volinfo->volname);
@@ -348,19 +372,23 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
 
         }
 
-        ret = dict_set_uint64 (rsp_dict, "snap-max-hard-limit",
-                               conf->snap_max_hard_limit);
+        ret = dict_set_uint64 (rsp_dict,
+                               GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
+                               opt_hard_max);
         if (ret) {
                 snprintf (err_str, PATH_MAX,
-                          "Failed to set sys-snap-max-hard-limit ");
+                          "Failed to set %s in reponse dictionary",
+                          GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
                 goto out;
         }
 
-        ret = dict_set_uint64 (rsp_dict, "snap-max-soft-limit",
-                               conf->snap_max_soft_limit);
+        ret = dict_set_uint64 (rsp_dict,
+                               GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT,
+                               opt_soft_max);
         if (ret) {
                 snprintf (err_str, PATH_MAX,
-                          "Failed to set sys-snap-max-hard-limit ");
+                         "Failed to set %s in response dictionary",
+                         GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT);
                 goto out;
         }
 
@@ -952,6 +980,7 @@ snap_max_hard_limits_validate (dict_t *dict, char *volname,
         int                 ret               = -1;
         uint64_t            max_limit         = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
         xlator_t           *this              = NULL;
+        uint64_t            opt_hard_max      = 0;
 
         this = THIS;
 
@@ -977,15 +1006,23 @@ snap_max_hard_limits_validate (dict_t *dict, char *volname,
                 }
         }
 
-        if (value) {
-                /* Max limit for the system is GLUSTERD_SNAPS_MAX_HARD_LIMIT
-                 * but max limit for a volume is conf->snap_max_hard_limit.
-                 */
-                if (volname) {
-                        max_limit = conf->snap_max_hard_limit;
-                } else {
-                        max_limit = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
-                }
+        ret = dict_get_uint64 (conf->opts,
+                               GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
+                               &opt_hard_max);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                        "%s from opts dictionary",
+                        GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
+                goto out;
+        }
+
+        /* volume snap-max-hard-limit cannot exceed system snap-max-hard-limit.
+         * Hence during prevalidate following checks are made to ensure the
+         * snap-max-hard-limit set on one particular volume does not
+         * exceed snap-max-hard-limit set globally (system limit).
+         */
+        if (value && volname) {
+                max_limit = opt_hard_max;
         }
 
         if ((value < 0) || (value > max_limit)) {
@@ -1508,6 +1545,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
         glusterd_conf_t       *conf                      = NULL;
         int64_t                effective_max_limit       = 0;
         int                    flags                     = 0;
+        uint64_t               opt_hard_max              = 0;
 
         this = THIS;
         GF_ASSERT (op_errstr);
@@ -1584,10 +1622,20 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                         goto out;
                 }
 
-                if (volinfo->snap_max_hard_limit < conf->snap_max_hard_limit)
+                ret = dict_get_uint64 (conf->opts,
+                                      GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
+                                      &opt_hard_max);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                                "%s from opts dictionary",
+                                GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
+                        goto out;
+                }
+
+                if (volinfo->snap_max_hard_limit < opt_hard_max)
                         effective_max_limit = volinfo->snap_max_hard_limit;
                 else
-                        effective_max_limit = conf->snap_max_hard_limit;
+                        effective_max_limit = opt_hard_max;
 
                 if (volinfo->snap_count >= effective_max_limit) {
                         snprintf (err_str, sizeof (err_str),
@@ -2269,6 +2317,7 @@ glusterd_snapshot_get_snapvol_detail (dict_t *dict,
         glusterd_volinfo_t *origin_vol    = NULL;
         glusterd_conf_t    *conf          = NULL;
         xlator_t           *this          = NULL;
+        uint64_t           opt_hard_max   = 0;
 
         this = THIS;
         conf = this->private;
@@ -2339,8 +2388,19 @@ glusterd_snapshot_get_snapvol_detail (dict_t *dict,
         }
 
         /* Snaps available */
-        if (conf->snap_max_hard_limit < origin_vol->snap_max_hard_limit) {
-                snap_limit = conf->snap_max_hard_limit;
+
+        ret = dict_get_uint64 (conf->opts,
+                               GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
+                               &opt_hard_max);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                        "%s from opts dictionary",
+                        GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
+                goto out;
+        }
+
+        if (opt_hard_max < origin_vol->snap_max_hard_limit) {
+                snap_limit = opt_hard_max;
                 gf_log(this->name, GF_LOG_DEBUG, "system snap-max-hard-limit is"
                        " lesser than volume snap-max-hard-limit, "
                        "snap-max-hard-limit value is set to %d", snap_limit);
@@ -2622,6 +2682,7 @@ glusterd_snapshot_get_info_by_volume (dict_t *dict, char *volname,
         glusterd_volinfo_t  *tmp_vol       = NULL;
         glusterd_conf_t     *conf          = NULL;
         xlator_t            *this          = NULL;
+        uint64_t            opt_hard_max   = 0;
 
         this = THIS;
         conf = this->private;
@@ -2638,8 +2699,18 @@ glusterd_snapshot_get_info_by_volume (dict_t *dict, char *volname,
         }
 
         /* Snaps available */
-        if (conf->snap_max_hard_limit < volinfo->snap_max_hard_limit) {
-                snap_limit = conf->snap_max_hard_limit;
+        ret = dict_get_uint64 (conf->opts,
+                               GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
+                               &opt_hard_max);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                        "%s from opts dictionary",
+                        GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
+                goto out;
+        }
+
+        if (opt_hard_max < volinfo->snap_max_hard_limit) {
+                snap_limit = opt_hard_max;
                 gf_log(this->name, GF_LOG_DEBUG, "system snap-max-hard-limit is"
                        " lesser than volume snap-max-hard-limit, "
                        "snap-max-hard-limit value is set to %d", snap_limit);
@@ -4918,6 +4989,7 @@ snap_max_hard_limit_set_commit (dict_t *dict, uint64_t value,
         glusterd_volinfo_t *volinfo              = NULL;
         int                 ret                  = -1;
         xlator_t           *this                 = NULL;
+        char               *next_version         = NULL;
 
         this = THIS;
 
@@ -4932,12 +5004,31 @@ snap_max_hard_limit_set_commit (dict_t *dict, uint64_t value,
         /* TODO: Initiate auto deletion when there is a limit change */
         if (!volname) {
                 /* For system limit */
-                conf->snap_max_hard_limit = value;
-
-                ret = glusterd_store_global_info (this);
+                ret = dict_set_uint64 (conf->opts,
+                                       GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
+                                       value);
                 if (ret) {
-                        snprintf (err_str, PATH_MAX, "Failed to store "
-                                  "snap-max-hard-limit for system");
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to store "
+                                "%s in the options",
+                                GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
+                        goto out;
+                }
+
+
+                ret = glusterd_get_next_global_opt_version_str (conf->opts,
+                                                                &next_version);
+                if (ret)
+                        goto out;
+
+                ret = dict_set_str (conf->opts, GLUSTERD_GLOBAL_OPT_VERSION,
+                                    next_version);
+                if (ret)
+                        goto out;
+
+                ret = glusterd_store_options (this, conf->opts);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to store "
+                                "options");
                         goto out;
                 }
         } else {
@@ -4981,6 +5072,7 @@ glusterd_snapshot_config_commit (dict_t *dict, char **op_errstr,
         int                 config_command       = 0;
         uint64_t            hard_limit           = 0;
         uint64_t            soft_limit           = 0;
+        char               *next_version         = NULL;
 
         this = THIS;
 
@@ -5025,15 +5117,33 @@ glusterd_snapshot_config_commit (dict_t *dict, char **op_errstr,
 
                 if (soft_limit) {
                         /* For system limit */
-                        conf->snap_max_soft_limit = soft_limit;
 
-                        ret = glusterd_store_global_info (this);
+                        ret = dict_set_uint64 (conf->opts,
+                                        GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT,
+                                        soft_limit);
                         if (ret) {
-                                snprintf (err_str, PATH_MAX, "Failed to store "
-                                          "snap-max-soft-limit for system");
-                                *op_errstr = gf_strdup (err_str);
-                                gf_log (this->name, GF_LOG_ERROR, "%s",
-                                        err_str);
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "save %s in the dictionary",
+                                        GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT);
+                                goto out;
+                        }
+
+                        ret = glusterd_get_next_global_opt_version_str
+                                                         (conf->opts,
+                                                          &next_version);
+                        if (ret)
+                                goto out;
+
+                        ret = dict_set_str (conf->opts,
+                                            GLUSTERD_GLOBAL_OPT_VERSION,
+                                            next_version);
+                        if (ret)
+                                goto out;
+
+                        ret = glusterd_store_options (this, conf->opts);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "store options");
                                 goto out;
                         }
                 }
@@ -5741,6 +5851,8 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
         glusterd_snap_t    *snap                = NULL;
         glusterd_volinfo_t *tmp_volinfo         = NULL;
         glusterd_volinfo_t *other_volinfo       = NULL;
+        uint64_t            opt_max_hard        = 0;
+        uint64_t            opt_max_soft        = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -5775,12 +5887,32 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
                 /* The minimum of the 2 limits i.e system wide limit and
                    volume wide limit will be considered
                 */
-                if (volinfo->snap_max_hard_limit < priv->snap_max_hard_limit)
+
+                ret = dict_get_uint64 (priv->opts,
+                                       GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
+                                       &opt_max_hard);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                                "%s", GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
+                        goto out;
+                }
+
+                if (volinfo->snap_max_hard_limit < opt_max_hard)
                         effective_max_limit = volinfo->snap_max_hard_limit;
                 else
-                        effective_max_limit = priv->snap_max_hard_limit;
+                        effective_max_limit = opt_max_hard;
 
-                limit = (priv->snap_max_soft_limit * effective_max_limit)/100;
+                ret = dict_get_uint64 (priv->opts,
+                                       GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT,
+                                       &opt_max_soft);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                                "%s from opts dictionary",
+                                GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT);
+                        goto out;
+                }
+
+                limit = (opt_max_soft * effective_max_limit)/100;
 
                 count = volinfo->snap_count - limit;
                 if (count <= 0)

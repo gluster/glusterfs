@@ -13429,3 +13429,55 @@ glusterd_handle_snapd_option (glusterd_volinfo_t *volinfo)
 out:
         return ret;
 }
+
+int32_t
+glusterd_check_and_set_config_limit (glusterd_conf_t *priv)
+{
+        int32_t         ret     =       -1;
+        xlator_t        *this   =       NULL;
+        uint64_t        hard_limit = 0;
+        uint64_t        soft_limit = 0;
+
+        GF_ASSERT (priv);
+        this = THIS;
+        GF_ASSERT (this);
+
+
+        ret = dict_get_uint64 (priv->opts,
+                              GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
+                              &hard_limit);
+        if (ret) {
+                ret = dict_set_uint64 (priv->opts,
+                                GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
+                                GLUSTERD_SNAPS_MAX_HARD_LIMIT);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                               "store %s during glusterd init",
+                               GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
+                        goto out;
+                }
+        }
+
+        ret = dict_get_uint64 (priv->opts,
+                              GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT,
+                              &soft_limit);
+        if (ret) {
+                ret = dict_set_uint64 (priv->opts,
+                                GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT,
+                                GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                "store %s during glusterd init",
+                                GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT);
+                        goto out;
+                }
+        }
+        ret = glusterd_store_options (this, priv->opts);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to store version");
+                return ret;
+        }
+out:
+        return ret;
+}

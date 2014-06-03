@@ -1784,24 +1784,6 @@ glusterd_store_global_info (xlator_t *this)
                 goto out;
         }
 
-        snprintf (buf, sizeof (buf), "%"PRIu64, conf->snap_max_hard_limit);
-        ret = gf_store_save_value (handle->fd,
-                                   GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT, buf);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Storing snap-max-hard-limit failed ret = %d", ret);
-                goto out;
-        }
-
-        snprintf (buf, sizeof (buf), "%"PRIu64, conf->snap_max_soft_limit);
-        ret = gf_store_save_value (handle->fd,
-                                   GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT, buf);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Storing snap-max-soft-limit failed ret = %d", ret);
-                goto out;
-        }
-
         ret = gf_store_rename_tmppath (handle);
 out:
         if (handle) {
@@ -1939,28 +1921,6 @@ glusterd_restore_op_version (xlator_t *this)
         int              op_version     = 0;
 
         conf = this->private;
-
-        ret = glusterd_retrieve_sys_snap_max_limit (this,
-                                                    &conf->snap_max_hard_limit,
-                                                    GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
-        if (ret) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "Unable to retrieve system snap-max-hard-limit, "
-                        "setting it to default value(%d)",
-                        GLUSTERD_SNAPS_MAX_HARD_LIMIT);
-                conf->snap_max_hard_limit = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
-        }
-
-        ret = glusterd_retrieve_sys_snap_max_limit (this,
-                                                    &conf->snap_max_soft_limit,
-                                                    GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT);
-        if (ret) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "Unable to retrieve system snap-max-soft-limit, "
-                        "setting it to default value(%d)",
-                        GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT);
-                conf->snap_max_soft_limit = GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT;
-        }
 
         ret = glusterd_retrieve_op_version (this, &op_version);
         if (!ret) {
