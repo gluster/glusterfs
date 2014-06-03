@@ -173,8 +173,6 @@ typedef struct {
         gf_boolean_t               restart_done;
         rpcsvc_t                  *uds_rpc; /* RPCSVC for the unix domain socket */
         uint32_t                   base_port;
-        uint64_t                   snap_max_hard_limit;
-        uint64_t                   snap_max_soft_limit;
         char                      *snap_bricks_directory;
         gf_store_handle_t         *missed_snaps_list_shandle;
         struct list_head           missed_snaps_list;
