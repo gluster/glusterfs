@@ -1116,7 +1116,7 @@ gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
         synctask_barrier_init((&args));
         peer_cnt = 0;
         list_for_each_entry (peerinfo, peers, op_peers_list) {
-                if (conf->op_version < GD_OP_VERSION_4) {
+                if (conf->op_version < GD_OP_VERSION_3_6_0) {
                         /* Reset lock status */
                         peerinfo->locked = _gf_false;
                         gd_syncop_mgmt_lock (peerinfo, &args,
@@ -1378,7 +1378,7 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
         this = THIS;
         synctask_barrier_init((&args));
         peer_cnt = 0;
-        if (conf->op_version < GD_OP_VERSION_4) {
+        if (conf->op_version < GD_OP_VERSION_3_6_0) {
                 list_for_each_entry_safe (peerinfo, tmp, peers, op_peers_list) {
                         /* Only unlock peers that were locked */
                         if (peerinfo->locked) {
@@ -1424,7 +1424,7 @@ out:
                  * and clear the op */
 
                 glusterd_op_clear_op (op);
-                if (conf->op_version < GD_OP_VERSION_4)
+                if (conf->op_version < GD_OP_VERSION_3_6_0)
                         glusterd_unlock (MY_UUID);
                 else {
                         if (volname) {
@@ -1595,7 +1595,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         }
 
         /* Based on the op_version, acquire a cluster or mgmt_v3 lock */
-        if (conf->op_version < GD_OP_VERSION_4) {
+        if (conf->op_version < GD_OP_VERSION_3_6_0) {
                 ret = glusterd_lock (MY_UUID);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -1645,7 +1645,7 @@ local_locking_done:
 
         /* If no volname is given as a part of the command, locks will
          * not be held */
-        if (volname || (conf->op_version < GD_OP_VERSION_4)) {
+        if (volname || (conf->op_version < GD_OP_VERSION_3_6_0)) {
                 ret = gd_lock_op_phase (conf, op, op_ctx, &op_errstr,
                                         npeers, *txn_id);
                 if (ret) {

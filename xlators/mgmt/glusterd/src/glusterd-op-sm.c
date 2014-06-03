@@ -153,7 +153,7 @@ glusterd_generate_txn_id (dict_t *dict, uuid_t **txn_id)
         if (!*txn_id)
                 goto out;
 
-        if (priv->op_version < GD_OP_VERSION_4)
+        if (priv->op_version < GD_OP_VERSION_3_6_0)
                 uuid_copy (**txn_id, priv->global_txn_id);
         else
                 uuid_generate (**txn_id);
@@ -2824,7 +2824,7 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
                         continue;
 
                 /* Based on the op_version, acquire a cluster or mgmt_v3 lock */
-                if (priv->op_version < GD_OP_VERSION_4) {
+                if (priv->op_version < GD_OP_VERSION_3_6_0) {
                         proc = &peerinfo->mgmt->proctable
                                           [GLUSTERD_MGMT_CLUSTER_LOCK];
                         if (proc->fn) {
@@ -2907,7 +2907,7 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
 
                 /* Based on the op_version,
                  * release the cluster or mgmt_v3 lock */
-                if (priv->op_version < GD_OP_VERSION_4) {
+                if (priv->op_version < GD_OP_VERSION_3_6_0) {
                         proc = &peerinfo->mgmt->proctable
                                           [GLUSTERD_MGMT_CLUSTER_UNLOCK];
                         if (proc->fn) {
@@ -4403,7 +4403,7 @@ glusterd_op_txn_complete (uuid_t *txn_id)
         glusterd_op_clear_errstr ();
 
         /* Based on the op-version, we release the cluster or mgmt_v3 lock */
-        if (priv->op_version < GD_OP_VERSION_4) {
+        if (priv->op_version < GD_OP_VERSION_3_6_0) {
                 ret = glusterd_unlock (MY_UUID);
                 /* unlock cant/shouldnt fail here!! */
                 if (ret)

@@ -2339,7 +2339,7 @@ gd_add_brick_snap_details_to_dict (dict_t *dict, char *prefix,
         GF_VALIDATE_OR_GOTO (this->name, (prefix != NULL), out);
         GF_VALIDATE_OR_GOTO (this->name, (brickinfo != NULL), out);
 
-        if (conf->op_version < GD_OP_VERSION_4) {
+        if (conf->op_version < GD_OP_VERSION_3_6_0) {
                 ret = 0;
                 goto out;
         }
@@ -2398,7 +2398,7 @@ gd_add_vol_snap_details_to_dict (dict_t *dict, char *prefix,
         GF_VALIDATE_OR_GOTO (this->name, (volinfo != NULL), out);
         GF_VALIDATE_OR_GOTO (this->name, (prefix != NULL), out);
 
-        if (conf->op_version < GD_OP_VERSION_4) {
+        if (conf->op_version < GD_OP_VERSION_3_6_0) {
                 ret =0;
                 goto out;
         }
@@ -3701,7 +3701,7 @@ gd_import_new_brick_snap_details (dict_t *dict, char *prefix,
         GF_VALIDATE_OR_GOTO (this->name, (prefix != NULL), out);
         GF_VALIDATE_OR_GOTO (this->name, (brickinfo != NULL), out);
 
-        if (conf->op_version < GD_OP_VERSION_4) {
+        if (conf->op_version < GD_OP_VERSION_3_6_0) {
                 ret = 0;
                 goto out;
         }
@@ -4014,7 +4014,7 @@ out:
  * Imports the snapshot details of a volume if required and available
  *
  * Snapshot details will be imported only if cluster.op_version is greater than
- * or equal to GD_OP_VERSION_4, the op-version from which volume snapshot is
+ * or equal to GD_OP_VERSION_3_6_0, the op-version from which volume snapshot is
  * supported.
  */
 int
@@ -4037,7 +4037,7 @@ gd_import_volume_snap_details (dict_t *dict, glusterd_volinfo_t *volinfo,
         GF_VALIDATE_OR_GOTO (this->name, (prefix != NULL), out);
         GF_VALIDATE_OR_GOTO (this->name, (volname != NULL), out);
 
-        if (conf->op_version < GD_OP_VERSION_4) {
+        if (conf->op_version < GD_OP_VERSION_3_6_0) {
                 ret = 0;
                 goto out;
         }
