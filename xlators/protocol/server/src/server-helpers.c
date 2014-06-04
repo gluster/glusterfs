@@ -467,7 +467,8 @@ get_frame_from_request (rpcsvc_request_t *req)
                         if (client->auth.username &&
                             req->pid != GF_CLIENT_PID_NO_ROOT_SQUASH &&
                             req->pid != GF_CLIENT_PID_GSYNCD &&
-                            req->pid != GF_CLIENT_PID_DEFRAG)
+                            req->pid != GF_CLIENT_PID_DEFRAG &&
+                            req->pid != GF_CLIENT_PID_QUOTA_MOUNT)
                                 RPC_AUTH_ROOT_SQUASH (req);
 
                         /* For nfs clients the server processes will be running

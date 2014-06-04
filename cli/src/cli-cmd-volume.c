@@ -29,6 +29,7 @@
 #include "cli1-xdr.h"
 #include "run.h"
 #include "syscall.h"
+#include "common-utils.h"
 
 extern struct rpc_clnt *global_rpc;
 extern struct rpc_clnt *global_quotad_rpc;
@@ -1038,6 +1039,7 @@ gf_cli_create_auxiliary_mount (char *volname)
         char     mountdir[PATH_MAX]      = {0,};
         char     pidfile_path[PATH_MAX]  = {0,};
         char     logfile[PATH_MAX]       = {0,};
+        char     qpid [16]               = {0,};
 
         GLUSTERFS_GET_AUX_MOUNT_PIDFILE (pidfile_path, volname);
 
@@ -1059,14 +1061,16 @@ gf_cli_create_auxiliary_mount (char *volname)
 
         snprintf (logfile, PATH_MAX-1, "%s/quota-mount-%s.log",
                   DEFAULT_LOG_FILE_DIRECTORY, volname);
+        snprintf(qpid, 15, "%d", GF_CLIENT_PID_QUOTA_MOUNT);
 
         ret = runcmd (SBIN_DIR"/glusterfs",
                       "-s", "localhost",
                       "--volfile-id", volname,
                       "-l", logfile,
                       "-p", pidfile_path,
+                      "--client-pid", qpid,
                       mountdir,
-                      "--client-pid", "-42", NULL);
+                      NULL);
 
         if (ret) {
                 gf_log ("cli", GF_LOG_WARNING, "failed to mount glusterfs "

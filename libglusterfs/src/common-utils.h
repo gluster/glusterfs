@@ -106,11 +106,12 @@ enum _gf_boolean
  */
 enum _gf_client_pid
 {
-        GF_CLIENT_PID_MAX    =  0,
-        GF_CLIENT_PID_GSYNCD = -1,
-        GF_CLIENT_PID_HADOOP = -2,
-        GF_CLIENT_PID_DEFRAG = -3,
-        GF_CLIENT_PID_NO_ROOT_SQUASH = -4,
+        GF_CLIENT_PID_MAX               =  0,
+        GF_CLIENT_PID_GSYNCD            = -1,
+        GF_CLIENT_PID_HADOOP            = -2,
+        GF_CLIENT_PID_DEFRAG            = -3,
+        GF_CLIENT_PID_NO_ROOT_SQUASH    = -4,
+        GF_CLIENT_PID_QUOTA_MOUNT       = -5,
 };
 
 typedef enum _gf_boolean gf_boolean_t;
