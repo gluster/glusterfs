@@ -644,9 +644,10 @@ class Server(object):
                 else:
                     errno_wrap(os.rename, [entry, en], [ENOENT, EEXIST])
             if blob:
-                errno_wrap(Xattr.lsetxattr_l, [pg, 'glusterfs.gfid.newfile',
-                                               blob],
-                           [EEXIST], [ENOENT, ESTALE, EINVAL])
+                errno_wrap(Xattr.lsetxattr,
+                           [pg, 'glusterfs.gfid.newfile', blob],
+                           [EEXIST],
+                           [ENOENT, ESTALE, EINVAL])
 
     @classmethod
     def meta_ops(cls, meta_entries):

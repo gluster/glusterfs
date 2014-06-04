@@ -78,11 +78,6 @@ class Xattr(object):
             cls.raise_oserr()
 
     @classmethod
-    def lsetxattr_l(cls, path, attr, val):
-        """ lazy lsetxattr(): caller handles errno """
-        cls.libc.lsetxattr(path, attr, val, len(val), 0)
-
-    @classmethod
     def lremovexattr(cls, path, attr):
         ret = cls.libc.lremovexattr(path, attr)
         if ret == -1:
