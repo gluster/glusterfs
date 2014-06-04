@@ -362,8 +362,6 @@ done:
 
         memcpy (volid, fs->vol_uuid, uuid_size);
 
-        gf_log (THIS->name, GF_LOG_INFO, "volume uuid: %s", volid);
-
         return uuid_size;
 }
 
