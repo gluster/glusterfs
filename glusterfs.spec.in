@@ -702,6 +702,11 @@ install -p -m 0744 extras/hook-scripts/S56glusterd-geo-rep-create-post.sh \
 
 find ./tests ./run-tests.sh -type f | cpio -pd %{buildroot}%{_prefix}/share/glusterfs
 
+## Install bash completion for cli
+install -p -m 0744 -D extras/command-completion/gluster.bash \
+    %{buildroot}%{_sysconfdir}/bash_completion.d/gluster
+
+
 %clean
 rm -rf %{buildroot}
 
@@ -868,6 +873,7 @@ fi
 %files cli
 %{_sbindir}/gluster
 %{_mandir}/man8/gluster.8*
+%{_sysconfdir}/bash_completion.d/gluster
 
 %files devel
 %{_includedir}/glusterfs
@@ -1022,6 +1028,9 @@ fi
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %changelog
+* Thu Jun 12 2014 Varun Shastry <vshastry@redhat.com>
+- Add bash completion config to the cli package
+
 * Thu May 22 2014 Poornima G <pgurusid@redhat.com>
 - Rename old hookscripts in an RPM-standard way.
 
