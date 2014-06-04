@@ -5615,6 +5615,13 @@ glusterd_compare_friend_data (dict_t *peer_data, int32_t *status,
         GF_ASSERT (peer_data);
         GF_ASSERT (status);
 
+        ret = glusterd_import_global_opts (peer_data);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Importing global "
+                        "options failed");
+                goto out;
+        }
+
         ret = dict_get_int32 (peer_data, "count", &count);
         if (ret)
                 goto out;
@@ -5642,9 +5649,6 @@ glusterd_compare_friend_data (dict_t *peer_data, int32_t *status,
                         stale_shd = _gf_true;
                 if (glusterd_is_nodesvc_running ("quotad"))
                         stale_qd  = _gf_true;
-                ret = glusterd_import_global_opts (peer_data);
-                if (ret)
-                        goto out;
                 ret = glusterd_import_friend_volumes (peer_data);
                 if (ret)
                         goto out;
