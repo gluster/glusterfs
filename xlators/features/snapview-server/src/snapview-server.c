@@ -521,7 +521,7 @@ svs_get_latest_snap_entry (xlator_t *this)
 
         dirents = priv->dirents;
 
-        if (priv->num_snaps) {
+        if (priv->num_snaps && dirents) {
                 tmp_dirent = &dirents[priv->num_snaps - 1];
                 dirent = tmp_dirent;
         }
@@ -604,8 +604,8 @@ svs_lookup_entry_point (xlator_t *this, loc_t *loc, inode_t *parent,
                         }
                 }
         }
-                op_ret = 0;
-                goto out;
+
+        op_ret = 0;
 
 out:
         return op_ret;
@@ -690,7 +690,7 @@ svs_lookup_gfid (xlator_t *this, loc_t *loc, struct iatt *buf,
         }
 
         iatt_from_stat (buf, &statbuf);
-        if (loc->gfid)
+        if (!uuid_is_null (loc->gfid))
                 uuid_copy (buf->ia_gfid, loc->gfid);
         else
                 uuid_copy (buf->ia_gfid, loc->inode->gfid);
@@ -995,7 +995,7 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
         /* Initialize latest snapshot, which is used for nameless lookups */
         dirent = svs_get_latest_snap_entry (this);
-        if (!dirent->fs)
+        if (dirent && !dirent->fs)
                 fs = svs_initialise_snapshot_volume (this, dirent->name);
 
         /* lookup is on the entry point to the snapshot world */
@@ -1155,7 +1155,7 @@ svs_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
                 fs = inode_ctx->fs;
                 object = inode_ctx->object;
                 size = glfs_h_getxattrs (fs, object, name, NULL, 0);
-                if (!size == -1) {
+                if (size == -1) {
                         gf_log (this->name, GF_LOG_ERROR, "getxattr on %s "
                                 "failed (key: %s)", loc->name, name);
                         op_ret = -1;
@@ -1262,7 +1262,7 @@ svs_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
 
         if (inode_ctx->type == SNAP_VIEW_VIRTUAL_INODE) {
                 size = glfs_fgetxattr (glfd, name, NULL, 0);
-                if (!size == -1) {
+                if (size == -1) {
                         gf_log (this->name, GF_LOG_ERROR, "getxattr on %s "
                                 "failed (key: %s)", uuid_utoa (fd->inode->gfid),
                                 name);
@@ -1497,6 +1497,9 @@ svs_get_snapshot_list (xlator_t *this, svs_private_t *priv)
         ret = 0;
 
 out:
+        if (ret)
+                GF_FREE (dirents);
+
         return ret;
 }
 
