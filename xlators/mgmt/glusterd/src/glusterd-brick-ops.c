@@ -889,7 +889,7 @@ _glusterd_restart_gsync_session (dict_t *this, char *key,
         char                          *path_list  = NULL;
         char                          *slave_vol  = NULL;
         char                          *slave_host = NULL;
-        char                          *slave_ip   = NULL;
+        char                          *slave_url  = NULL;
         char                          *conf_path  = NULL;
         char                         **errmsg     = NULL;
         int                            ret        = -1;
@@ -925,7 +925,7 @@ _glusterd_restart_gsync_session (dict_t *this, char *key,
         }
 
         ret = glusterd_get_slave_details_confpath (param->volinfo,
-                                                   param->rsp_dict, &slave_ip,
+                                                   param->rsp_dict, &slave_url,
                                                    &slave_host, &slave_vol,
                                                    &conf_path, errmsg);
         if (ret) {

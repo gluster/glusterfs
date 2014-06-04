@@ -624,7 +624,7 @@ glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
 
 int
 glusterd_get_slave_details_confpath (glusterd_volinfo_t *volinfo,
-                                     dict_t *dict, char **slave_ip,
+                                     dict_t *dict, char **slave_url,
                                      char **slave_host, char **slave_vol,
                                      char **conf_path, char **op_errstr);
 
@@ -642,7 +642,7 @@ int
 glusterd_gsync_read_frm_status (char *path, char *buf, size_t blen);
 
 int
-glusterd_create_status_file (char *master, char *slave, char *slave_ip,
+glusterd_create_status_file (char *master, char *slave, char *slave_url,
                              char *slave_vol, char *status);
 
 int
