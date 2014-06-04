@@ -258,6 +258,7 @@ ga_fill_tmp_loc (loc_t *loc, xlator_t *this, uuid_t gfid,
         int       ret    = -1;
         uint64_t  value  = 0;
         inode_t  *parent = NULL;
+        uuid_t *gfid_ptr = NULL;
 
         parent = loc->inode;
         ret = inode_ctx_get (loc->inode, this, &value);
@@ -278,17 +279,21 @@ ga_fill_tmp_loc (loc_t *loc, xlator_t *this, uuid_t gfid,
         loc_path (new_loc, bname);
         new_loc->name = basename (new_loc->path);
 
-        /* As GFID would not be set on the entry yet, lets not send entry
-           gfid in the request */
-        /*uuid_copy (new_loc->gfid, (const unsigned char *)gfid); */
-
-        ret = dict_set_static_bin (xdata, "gfid-req", gfid, 16);
+        gfid_ptr = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        if (!gfid_ptr) {
+                ret = -1;
+                goto out;
+        }
+        uuid_copy (*gfid_ptr, gfid);
+        ret = dict_set_dynptr (xdata, "gfid-req", gfid_ptr, sizeof (uuid_t));
         if (ret < 0)
                 goto out;
 
         ret = 0;
 
 out:
+        if (ret && gfid_ptr)
+                GF_FREE (gfid_ptr);
         return ret;
 }
 
