@@ -1200,7 +1200,7 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
         }
 
         if (is_run && param.is_active) {
-                gf_log (this->name, GF_LOG_WARNING, GEOREP" sessions active"
+                gf_log (this->name, GF_LOG_WARNING, GEOREP" sessions active "
                         "for the volume %s ", volname);
                 snprintf (msg, sizeof(msg), GEOREP" sessions are active "
                           "for the volume '%s'.\nUse 'volume "GEOREP" "

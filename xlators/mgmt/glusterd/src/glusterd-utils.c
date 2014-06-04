@@ -6716,7 +6716,7 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
 {
         char               *path_list                   = NULL;
         char               *slave                       = NULL;
-        char               *slave_ip                    = NULL;
+        char               *slave_url                   = NULL;
         char               *slave_vol                   = NULL;
         char               *slave_host                  = NULL;
         char               *statefile                   = NULL;
@@ -6751,7 +6751,7 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         ret = glusterd_get_local_brickpaths (volinfo, &path_list);
 
         /*Generating the conf file path needed by gsyncd */
-        ret = glusterd_get_slave_info (slave, &slave_ip, &slave_host,
+        ret = glusterd_get_slave_info (slave, &slave_url, &slave_host,
                                        &slave_vol, &op_errstr);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
@@ -6763,7 +6763,7 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         ret = snprintf (confpath, sizeof(confpath) - 1,
                         "%s/"GEOREP"/%s_%s_%s/gsyncd.conf",
                         priv->workdir, volinfo->volname,
-                        slave_ip, slave_vol);
+                        slave_host, slave_vol);
         confpath[ret] = '\0';
 
         /* Fetching the last status of the node */
@@ -6822,7 +6822,7 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
                 gf_log ("", GF_LOG_INFO,
                         "Geo-Rep Session was not started between "
                         "%s and %s::%s. Not Restarting", volinfo->volname,
-                        slave_ip, slave_vol);
+                        slave_url, slave_vol);
                 goto out;
         } else if (strstr(buf, "Paused")) {
                 is_paused = _gf_true;
@@ -6832,7 +6832,7 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
                         "Not Restarting. Use start (force) to "
                         "start the session between %s and %s::%s.",
                         volinfo->volname,
-                        slave_ip, slave_vol);
+                        slave_url, slave_vol);
                 goto out;
         }
 
@@ -6849,7 +6849,7 @@ out:
 
         if (is_template_in_use) {
                 ret = glusterd_create_status_file (volinfo->volname, slave,
-                                                   slave_ip, slave_vol,
+                                                   slave_host, slave_vol,
                                                    "Config Corrupted");
                if (ret) {
                         gf_log ("", GF_LOG_ERROR,
