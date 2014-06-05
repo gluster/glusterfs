@@ -577,13 +577,7 @@ ga_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         int      ret      = 0;
         inode_t *unref    = NULL;
 
-        if ((loc->name && !strcmp (GF_GFID_DIR, loc->name)) &&
-            ((loc->parent &&
-              __is_root_gfid (loc->parent->gfid)) ||
-             __is_root_gfid (loc->pargfid))) {
-                op_errno = EPERM;
-                goto err;
-        }
+        GFID_ACCESS_INODE_OP_CHECK (loc, op_errno, err);
 
         data = dict_get (dict, GF_FUSE_AUX_GFID_NEWFILE);
         if (data) {
@@ -1102,7 +1096,7 @@ ga_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         int op_errno = 0;
 
-        GFID_ACCESS_ENTRY_OP_CHECK (loc, op_errno, err);
+        GFID_ACCESS_INODE_OP_CHECK (loc, op_errno, err);
 
         /* also check if the loc->inode itself is virtual
            inode, if yes, return with failure, mainly because we
@@ -1126,8 +1120,10 @@ int32_t
 ga_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
              const char *name, dict_t *xdata)
 {
-        inode_t *unref = NULL;
+        inode_t     *unref     = NULL;
+        int         op_errno   = 0;
 
+        GFID_ACCESS_INODE_OP_CHECK (loc, op_errno, err);
         GFID_ACCESS_GET_VALID_DIR_INODE (this, loc, unref, wind);
 
 wind:
@@ -1138,13 +1134,28 @@ wind:
                 inode_unref (unref);
 
         return 0;
+
+err:
+        STACK_UNWIND_STRICT (getxattr, frame, -1, op_errno, NULL, xdata);
+        return 0;
 }
 
 int32_t
 ga_stat (call_frame_t *frame, xlator_t *this, loc_t *loc,
          dict_t *xdata)
 {
-        inode_t *unref = NULL;
+        inode_t          *unref         = NULL;
+        ga_private_t     *priv          = NULL;
+
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        /* If stat is on ".gfid" itself, do not wind further,
+         * return fake stat and return success.
+         */
+        if (__is_gfid_access_dir(loc->gfid))
+                goto out;
 
         GFID_ACCESS_GET_VALID_DIR_INODE (this, loc, unref, wind);
 
@@ -1155,6 +1166,10 @@ wind:
                 inode_unref (unref);
 
         return 0;
+
+out:
+        STACK_UNWIND_STRICT (stat, frame, 0, 0, &priv->gfiddir_stbuf, xdata);
+        return 0;
 }
 
 int32_t
@@ -1162,8 +1177,10 @@ ga_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
             struct iatt *stbuf, int32_t valid,
             dict_t *xdata)
 {
-        inode_t *unref = NULL;
+        inode_t     *unref       = NULL;
+        int         op_errno     = 0;
 
+        GFID_ACCESS_INODE_OP_CHECK (loc, op_errno, err);
         GFID_ACCESS_GET_VALID_DIR_INODE (this, loc, unref, wind);
 
 wind:
@@ -1174,14 +1191,19 @@ wind:
                 inode_unref (unref);
 
         return 0;
+err:
+        STACK_UNWIND_STRICT (setattr, frame, -1, op_errno, NULL, NULL, xdata);
+        return 0;
 }
 
 int32_t
 ga_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 const char *name, dict_t *xdata)
 {
-        inode_t *unref = NULL;
+        inode_t     *unref       = NULL;
+        int         op_errno     = 0;
 
+        GFID_ACCESS_INODE_OP_CHECK (loc, op_errno, err);
         GFID_ACCESS_GET_VALID_DIR_INODE (this, loc, unref, wind);
 
 wind:
@@ -1191,6 +1213,9 @@ wind:
         if (unref)
                 inode_unref (unref);
 
+        return 0;
+err:
+        STACK_UNWIND_STRICT (removexattr, frame, -1, op_errno, xdata);
         return 0;
 }
 
