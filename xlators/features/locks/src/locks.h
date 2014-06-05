@@ -146,6 +146,10 @@ struct __pl_inode {
 
         inode_t          *refkeeper;     /* hold refs on an inode while locks are
                                             held to prevent pruning */
+        uuid_t            gfid;          /* placeholder for gfid of the inode */
+        inode_t          *inode;         /* pointer to be used for ref and unref
+                                            of inode_t as long as there are
+                                            locks on it */
 };
 typedef struct __pl_inode pl_inode_t;
 

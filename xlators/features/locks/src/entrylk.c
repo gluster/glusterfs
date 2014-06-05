@@ -517,18 +517,19 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
                    dict_t *xdata)
 
 {
-        int32_t          op_ret   = -1;
-        int32_t          op_errno = 0;
-        int              ret      = -1;
-        char             unwind   = 1;
-        GF_UNUSED int    dict_ret = -1;
-        pl_inode_t      *pinode   = NULL;
-        pl_entry_lock_t *reqlock  = NULL;
-        pl_entry_lock_t *unlocked = NULL;
-        pl_dom_list_t   *dom      = NULL;
-        char            *conn_id  = NULL;
-        pl_ctx_t        *ctx      = NULL;
-	int              nonblock = 0;
+        int32_t          op_ret           = -1;
+        int32_t          op_errno         =  0;
+        int              ret              = -1;
+        char             unwind           =  1;
+        GF_UNUSED int    dict_ret         = -1;
+        pl_inode_t      *pinode           =  NULL;
+        pl_entry_lock_t *reqlock          =  NULL;
+        pl_entry_lock_t *unlocked         =  NULL;
+        pl_dom_list_t   *dom              =  NULL;
+        char            *conn_id          =  NULL;
+        pl_ctx_t        *ctx              =  NULL;
+	int              nonblock         =  0;
+        gf_boolean_t     need_inode_unref =  _gf_false;
 
         if (xdata)
                 dict_ret = dict_get_str (xdata, "connection-id", &conn_id);
@@ -564,6 +565,25 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
+        /* Ideally, AFTER a successful lock (both blocking and non-blocking) or
+         * an unsuccessful blocking lock operation, the inode needs to be ref'd.
+         *
+         * But doing so might give room to a race where the lock-requesting
+         * client could send a DISCONNECT just before this thread refs the inode
+         * after the locking is done, and the epoll thread could unref the inode
+         * in cleanup which means the inode's refcount would come down to 0, and
+         * the call to pl_forget() at this point destroys @pinode. Now when
+         * the io-thread executing this function tries to access pinode,
+         * it could crash on account of illegal memory access.
+         *
+         * To get around this problem, the inode is ref'd once even before
+         * adding the lock into client_list as a precautionary measure.
+         * This way even if there are DISCONNECTs, there will always be 1 extra
+         * ref on the inode, so @pinode is still alive until after the
+         * current stack unwinds.
+         */
+        pinode->inode = inode_ref (inode);
+
         switch (cmd) {
         case ENTRYLK_LOCK_NB:
 		nonblock = 1;
@@ -593,6 +613,13 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 			} else {
 				__pl_entrylk_unref (reqlock);
 			}
+
+                        /* For all but the case where a non-blocking lock
+                         * attempt fails, the extra ref taken before the switch
+                         * block must be negated.
+                         */
+                        if ((ret == -EAGAIN) && (nonblock))
+                                need_inode_unref = _gf_true;
                 }
                 pthread_mutex_unlock (&pinode->mutex);
 		if (ctx)
@@ -604,6 +631,12 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 			pthread_mutex_lock (&ctx->lock);
                 pthread_mutex_lock (&pinode->mutex);
                 {
+                        /* Irrespective of whether unlock succeeds or not,
+                         * the extra inode ref that was done before the switch
+                         * block must be negated. Towards this,
+                         * @need_inode_unref flag is set unconditionally here.
+                         */
+                        need_inode_unref = _gf_true;
                         unlocked = __unlock_entrylk (dom, reqlock);
 			if (unlocked) {
 				list_del_init (&unlocked->client_list);
@@ -623,13 +656,22 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
                 break;
 
         default:
+                inode_unref (pinode->inode);
                 gf_log (this->name, GF_LOG_ERROR,
                         "Unexpected case in entrylk (cmd=%d). Please file"
                         "a bug report at http://bugs.gluster.com", cmd);
                 goto out;
         }
+        if (need_inode_unref)
+                inode_unref (pinode->inode);
+
+        /* The following (extra) unref corresponds to the ref that
+         * was done at the time the lock was granted.
+         */
+        if ((cmd == ENTRYLK_UNLOCK) && (op_ret == 0))
+                inode_unref (pinode->inode);
+
 out:
-        pl_update_refkeeper (this, inode);
 
         if (unwind) {
                 entrylk_trace_out (this, frame, volume, fd, loc, basename,
@@ -684,24 +726,14 @@ static void
 pl_entrylk_log_cleanup (pl_entry_lock_t *lock)
 {
 	pl_inode_t *pinode = NULL;
-        char *path = NULL;
-        char *file = NULL;
 
 	pinode = lock->pinode;
 
-	inode_path (pinode->refkeeper, NULL, &path);
-
-	if (path)
-		file = path;
-	else
-		file = uuid_utoa (pinode->refkeeper->gfid);
-
-	gf_log (THIS->name, GF_LOG_WARNING,
-		"releasing lock on %s held by "
-		"{client=%p, pid=%"PRId64" lk-owner=%s}",
-		file, lock->client, (uint64_t) lock->client_pid,
-		lkowner_utoa (&lock->owner));
-	GF_FREE (path);
+        gf_log (THIS->name, GF_LOG_WARNING,
+                "releasing lock on %s held by "
+                "{client=%p, pid=%"PRId64" lk-owner=%s}",
+                uuid_utoa (pinode->gfid), lock->client,
+                (uint64_t) lock->client_pid, lkowner_utoa (&lock->owner));
 }
 
 
@@ -800,6 +832,7 @@ pl_entrylk_client_cleanup (xlator_t *this, pl_ctx_t *ctx)
 			__pl_entrylk_unref (l);
 		}
 		pthread_mutex_unlock (&pinode->mutex);
+                inode_unref (pinode->inode);
         }
 
         return 0;
