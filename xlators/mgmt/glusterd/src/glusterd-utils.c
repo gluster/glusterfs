@@ -571,7 +571,7 @@ glusterd_volinfo_dup (glusterd_volinfo_t *volinfo,
 
         dict_copy (volinfo->dict, new_volinfo->dict);
         dict_copy (volinfo->gsync_slaves, new_volinfo->gsync_slaves);
-        gd_update_volume_op_versions (new_volinfo);
+        new_volinfo->op_version = volinfo->op_version;
 
         if (set_userauth) {
                 glusterd_auth_set_username (new_volinfo,

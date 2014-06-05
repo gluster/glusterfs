@@ -3846,9 +3846,11 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
          * and in-turn snapshot restore the barrier value is set to enable.
          * Because of this further I/O on the mount point fails.
          * Hence remove the barrier key from newly created snap volinfo
-         * before storing and generating the brick volfiles.
+         * before storing and generating the brick volfiles. Also update
+         * the snap vol's version after removing the barrier key.
          */
         dict_del (snap_vol->dict, "features.barrier");
+        gd_update_volume_op_versions (snap_vol);
 
         ret = glusterd_store_volinfo (snap_vol,
                                       GLUSTERD_VOLINFO_VER_AC_INCREMENT);
