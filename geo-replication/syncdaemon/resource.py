@@ -633,10 +633,10 @@ class Server(object):
                         break
             elif op in ['CREATE', 'MKNOD']:
                 blob = entry_pack_reg(
-                    gfid, bname, e['mode'], e['uid'], e['uid'])
+                    gfid, bname, e['mode'], e['uid'], e['gid'])
             elif op == 'MKDIR':
                 blob = entry_pack_mkdir(
-                    gfid, bname, e['mode'], e['uid'], e['uid'])
+                    gfid, bname, e['mode'], e['uid'], e['gid'])
             elif op == 'LINK':
                 slink = os.path.join(pfx, gfid)
                 st = lstat(slink)
