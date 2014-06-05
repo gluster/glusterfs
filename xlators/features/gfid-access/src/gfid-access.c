@@ -438,8 +438,16 @@ ga_new_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
         if (ret)
                 goto out;
 
-        if (!xdata)
+        if (!xdata) {
                 xdata = dict_new ();
+        } else {
+                xdata = dict_ref (xdata);
+        }
+
+        if (!xdata) {
+                ret = -1;
+                goto out;
+        }
 
         ret = ga_fill_tmp_loc (loc, this, gfid,
                                args->bname, xdata, &tmp_loc);
@@ -486,6 +494,11 @@ ga_new_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
 out:
         ga_newfile_args_free (args);
 
+        if (xdata)
+                dict_unref (xdata);
+
+        loc_wipe (&tmp_loc);
+
         return ret;
 }
 
@@ -509,6 +522,13 @@ ga_heal_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
 
         if (!xdata)
                 xdata = dict_new ();
+        else
+                xdata = dict_ref (xdata);
+
+        if (!xdata) {
+                ret = -1;
+                goto out;
+        }
 
         ret = ga_fill_tmp_loc (loc, this, gfid, args->bname,
                                xdata, &tmp_loc);
@@ -518,6 +538,7 @@ ga_heal_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
         new_frame = copy_frame (frame);
         if (!new_frame)
                 goto out;
+
         new_frame->local = (void *)frame;
 
         STACK_WIND (new_frame, ga_heal_cbk, FIRST_CHILD (this),
@@ -528,6 +549,11 @@ ga_heal_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
 out:
         if (args)
                 ga_heal_args_free (args);
+
+        loc_wipe (&tmp_loc);
+
+        if (xdata)
+                dict_unref (xdata);
 
         return ret;
 }
