@@ -68,7 +68,7 @@
                     ((loc->parent &&                                    \
                       __is_root_gfid (loc->parent->gfid)) ||            \
                       __is_root_gfid (loc->pargfid))) {                 \
-                        err = EEXIST;                                   \
+                        err = ENOTSUP;                                  \
                         goto lbl;                                       \
                 }                                                       \
                                                                         \
@@ -82,7 +82,13 @@
                 }                                                       \
         } while (0)
 
-
+#define GFID_ACCESS_INODE_OP_CHECK(loc,err,lbl) do {                    \
+                /*Check if it is on .gfid*/                             \
+                if (__is_gfid_access_dir(loc->gfid)) {  \
+                        err = ENOTSUP;                                  \
+                        goto lbl;                                       \
+                }                                                       \
+        } while (0)
 typedef struct {
         unsigned int  uid;
         unsigned int  gid;
