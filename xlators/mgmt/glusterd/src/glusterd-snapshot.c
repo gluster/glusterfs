@@ -3680,6 +3680,74 @@ out:
         return ret;
 }
 
+/* This function will update the backend file-system
+ * type in origin and snap brickinfo. This will be later
+ * used to perform file-system specific operation during
+ * LVM snapshot.
+ *
+ * @param orig_brickinfo        brickinfo of origin volume
+ * @param snap_brickinfo        brickinfo of snap volume
+ *
+ * @return 0 on success and -1 on failure
+ */
+static int
+glusterd_update_fstype (glusterd_brickinfo_t *orig_brickinfo,
+                        glusterd_brickinfo_t *snap_brickinfo)
+{
+        int32_t               ret               = -1;
+        char                 *mnt_pt            = NULL;
+        char                 *fstype            = NULL;
+        char                  buff [PATH_MAX]   = "";
+        char                  msg [PATH_MAX]    = "";
+        char                 *cmd               = NULL;
+        struct mntent        *entry             = NULL;
+        struct mntent         save_entry        = {0,};
+        runner_t              runner            = {0,};
+        xlator_t             *this              = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (orig_brickinfo);
+        GF_ASSERT (snap_brickinfo);
+
+        fstype = orig_brickinfo->fstype;
+
+        /* If the file-system type is not set then set the file-system type
+         * in origin brickinfo */
+        if (0 == fstype [0]) {
+                ret = glusterd_get_brick_root (orig_brickinfo->path, &mnt_pt);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "getting the root "
+                                "of the brick (%s) failed ",
+                                orig_brickinfo->path);
+                        goto out;
+                }
+
+                entry = glusterd_get_mnt_entry_info (mnt_pt, buff,
+                                                sizeof (buff), &save_entry);
+                if (!entry) {
+                        gf_log (this->name, GF_LOG_ERROR, "getting the mount "
+                                "entry for the brick (%s) failed",
+                                orig_brickinfo->path);
+                        ret = -1;
+                        goto out;
+                }
+
+                /* Update the origin brickinfo with the backend file-system
+                 * type */
+                snprintf (fstype, sizeof (orig_brickinfo->fstype), "%s",
+                          entry->mnt_type);
+        }
+
+        /* Update the file-system type for snap brickinfo */
+        snprintf (snap_brickinfo->fstype, sizeof (snap_brickinfo->fstype),
+                  "%s", fstype);
+
+        ret = 0;
+out:
+        return ret;
+}
+
 static int32_t
 glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
                                     glusterd_volinfo_t  *snap_vol,
@@ -3717,6 +3785,17 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
                         "volume failed (snapname: %s)",
                         snap_vol->snapshot->snapname);
                 goto out;
+        }
+
+        /* Update the backend file-system type of snap brick in
+         * snap volinfo. */
+        ret = glusterd_update_fstype (original_brickinfo, snap_brickinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to update "
+                        "file-system type for %s brick",
+                        snap_brickinfo->path);
+                /* We should not fail snapshot operation if we fail to get
+                 * the file-system type */
         }
 
         snprintf (key, sizeof(key) - 1, "vol%"PRId64".brickdir%d", volcount,
@@ -3813,6 +3892,123 @@ out:
         return ret;
 }
 
+/* This function will update the file-system UUID of the
+ * backend snapshot brick.
+ *
+ * @param brickinfo     brickinfo of the snap volume
+ *
+ * @return 0 on success and -1 on failure
+ */
+static int
+glusterd_update_fs_uuid (glusterd_brickinfo_t *brickinfo)
+{
+        int32_t         ret                     = -1;
+        char            msg [PATH_MAX]          = "";
+        char            uuid_str [NAME_MAX]     = "";
+        char            template []             = "/tmp/xfsmountXXXXXX";
+        char           *mount_path              = NULL;
+        char           *cmd                     = NULL;
+        uuid_t          uuid                    = {0,};
+        runner_t        runner                  = {0,};
+        xlator_t       *this                    = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (brickinfo);
+
+        /* Generate a new UUID */
+        uuid_generate (uuid);
+
+        if (NULL == uuid_utoa_r (uuid, uuid_str)) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to convert "
+                        "uuid to string for %s brick", brickinfo->path);
+                goto out;
+        }
+
+        runinit (&runner);
+        snprintf (msg, sizeof (msg), "Changing filesystem uuid of %s brick to "
+                  "%s", brickinfo->path, uuid_str);
+
+        /* Call the file-system specific tools to update the file-system
+         * UUID. Currently we are only supporting xfs and ext2/ext3/ext4
+         * file-system.
+         */
+        if (0 == strcmp (brickinfo->fstype, "xfs")) {
+                /* TODO: xfs_admin tool is used to replace the file-system
+                 * UUID. As of now the tool is failing with error when trying
+                 * to replace the UUID. Therefore as a workaround we mount
+                 * the file-system to a temporary location and then unmount
+                 * it.
+                 * After this xfs_admin tool works fine.
+                 */
+                mount_path = mkdtemp (template);
+                if (NULL == mount_path) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to create "
+                                "temporary folder name");
+                        runner_end (&runner);
+                        goto out;
+                }
+
+                /* First we mount the brick to a temporary path. Please
+                 * note that we are using "nouuid" option here because
+                 * both the origin volume brick and this brick will have
+                 * the same UUID. And XFS does not allow us to mount a
+                 * file-system which is sharing the UUID with any other
+                 * file-system on the system.
+                 */
+                ret = mount (brickinfo->device_path, mount_path,
+                             brickinfo->fstype, 0, "nouuid");
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to mount "
+                                "%s at %s", brickinfo->device_path,
+                                mount_path);
+                        runner_end (&runner);
+                        goto out;
+                }
+
+                /* Now unmount the brick. */
+                ret = glusterd_umount (mount_path);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to unmount "
+                                "%s from %s", brickinfo->device_path,
+                                mount_path);
+                        runner_end (&runner);
+                        goto out;
+                }
+
+                /* Now we are ready to run xfs_admin tool */
+                runner_add_args (&runner, "xfs_admin", "-U", uuid_str,
+                                 brickinfo->device_path, NULL);
+        } else if (0 == strcmp (brickinfo->fstype, "ext4") ||
+                   0 == strcmp (brickinfo->fstype, "ext3") ||
+                   0 == strcmp (brickinfo->fstype, "ext2")) {
+                /* For ext2/ext3/ext4 run tune2fs to change the
+                 * file-system UUID */
+                runner_add_args (&runner, "tune2fs", "-U", uuid_str,
+                                 brickinfo->device_path, NULL);
+        } else {
+                gf_log (this->name, GF_LOG_WARNING, "Changing file-system "
+                        "UUID of %s file-system is not supported as of now",
+                        brickinfo->fstype);
+                runner_end (&runner);
+                ret = -1;
+                goto out;
+        }
+
+        runner_log (&runner, this->name, GF_LOG_DEBUG, msg);
+        ret = runner_run (&runner);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to change "
+                        "filesystem uuid of %s brick to %s",
+                        brickinfo->path, uuid_str);
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
 static int32_t
 glusterd_take_brick_snapshot (dict_t *dict, glusterd_volinfo_t *snap_vol,
                               glusterd_brickinfo_t *brickinfo,
@@ -3851,6 +4047,22 @@ glusterd_take_brick_snapshot (dict_t *dict, glusterd_volinfo_t *snap_vol,
                         "brick %s:%s", brickinfo->hostname, origin_brick_path);
                 goto out;
         }
+
+        /* After the snapshot both the origin brick (LVM brick) and
+         * the snapshot brick will have the same file-system UUID. This
+         * will cause lot of problems at mount time. Therefore we must
+         * generate a new UUID for the snapshot brick
+         */
+        ret = glusterd_update_fs_uuid (brickinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to update "
+                        "file-system uuid for %s brick", brickinfo->path);
+                /* Failing to update UUID should not cause snapshot failure.
+                 * Currently UUID is updated only for XFS and ext2/ext3/ext4
+                 * file-system.
+                 */
+        }
+
 
         /* create the complete brick here */
         ret = glusterd_snap_brick_create (snap_vol, brickinfo, brick_count);

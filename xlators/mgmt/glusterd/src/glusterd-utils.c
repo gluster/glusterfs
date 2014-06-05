@@ -12094,10 +12094,9 @@ glusterd_mount_lvm_snapshot (char *device_path, char *brick_mount_path)
 
 
         runinit (&runner);
-        snprintf (msg, sizeof (msg), "mount -o nouuid %s %s",
+        snprintf (msg, sizeof (msg), "mount %s %s",
                   device_path, brick_mount_path);
-        runner_add_args (&runner, "mount", "-o", "nouuid", device_path,
-                         brick_mount_path, NULL);
+        runner_add_args (&runner, "mount", device_path, brick_mount_path, NULL);
         runner_log (&runner, this->name, GF_LOG_DEBUG, msg);
         ret = runner_run (&runner);
         if (ret) {
