@@ -100,16 +100,35 @@ function slave_stats()
     echo $status
 }
 
+function ping_host ()
+{
+    ### Use bash internal socket support
+    {
+        exec 400<>/dev/tcp/$1/$2
+        if [ $? -ne '0' ]; then
+            return 1;
+        else
+            exec 400>&-
+            return 0;
+        fi
+    } 1>&2 2>/dev/null
+}
 
 function main()
 {
     log_file=$5
     > $log_file
 
+    SSH_PORT=22
     # Use FORCE_BLOCKER flag in the error message to differentiate
     # between the errors which the force command should bypass
 
-    ping -w 5 $3;
+    # Test tcp connection to port 22, this is necessary since `ping`
+    # does not work on all environments where 'ssh' is allowed but
+    # ICMP is filterd
+
+    ping_host $3 ${SSH_PORT}
+
     if [ $? -ne 0 ]; then
         echo "FORCE_BLOCKER|$3 not reachable." > $log_file
         exit 1;
