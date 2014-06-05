@@ -3081,6 +3081,11 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
                         ret = dict_set(options,
                                        "transport.socket.source-addr",data);
                 }
+                data = dict_get(this->options,"ping-timeout");
+                if (data) {
+                        ret = dict_set(options,
+                                       "ping-timeout",data);
+                }
         }
 
         ret = glusterd_rpc_create (&peerinfo->rpc, options,
