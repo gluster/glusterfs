@@ -191,6 +191,7 @@ struct glusterd_brickinfo {
         char               device_path[PATH_MAX];
         char               mount_dir[PATH_MAX];
         char               brick_id[1024];/*Client xlator name, AFR changelog name*/
+        char               fstype [NAME_MAX]; /* Brick file-system type */
         struct list_head   brick_list;
         uuid_t             uuid;
         int                port;
