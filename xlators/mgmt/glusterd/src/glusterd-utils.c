@@ -571,7 +571,7 @@ glusterd_volinfo_dup (glusterd_volinfo_t *volinfo,
 
         dict_copy (volinfo->dict, new_volinfo->dict);
         dict_copy (volinfo->gsync_slaves, new_volinfo->gsync_slaves);
-        new_volinfo->op_version = volinfo->op_version;
+        gd_update_volume_op_versions (new_volinfo);
 
         if (set_userauth) {
                 glusterd_auth_set_username (new_volinfo,
@@ -5195,29 +5195,6 @@ glusterd_gen_snap_volfiles (glusterd_volinfo_t *snap_vol, char *peer_snap_name)
 
         glusterd_list_add_snapvol (parent_volinfo, snap_vol);
 
-        list_for_each_entry (brickinfo, &snap_vol->bricks, brick_list) {
-                if (uuid_compare (brickinfo->uuid, MY_UUID))
-                        continue;
-
-                if (brickinfo->snap_status == -1) {
-                        gf_log (this->name, GF_LOG_INFO,
-                                "not starting snap brick %s:%s for "
-                                "for the snap %s (volume: %s)",
-                                brickinfo->hostname, brickinfo->path,
-                                peer_snap_name, parent_volinfo->volname);
-                        continue;
-                }
-
-                ret = glusterd_brick_start (snap_vol, brickinfo, _gf_true);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_WARNING, "starting the "
-                                "brick %s:%s for the snap %s (volume: %s) "
-                                "failed", brickinfo->hostname, brickinfo->path,
-                                peer_snap_name, parent_volinfo->volname);
-                        goto out;
-                }
-        }
-
         snap_vol->status = GLUSTERD_STATUS_STARTED;
 
         ret = glusterd_store_volinfo (snap_vol, GLUSTERD_VOLINFO_VER_AC_NONE);
@@ -5264,6 +5241,14 @@ glusterd_import_friend_snap (dict_t *peer_data, int32_t snap_count,
                 goto out;
         }
 
+        dict = dict_new ();
+        if (!dict) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to create dict");
+                ret = -1;
+                goto out;
+        }
+
         strcpy (snap->snapname, peer_snap_name);
         uuid_parse (peer_snap_id, snap->snap_id);
 
@@ -5294,6 +5279,18 @@ glusterd_import_friend_snap (dict_t *peer_data, int32_t snap_count,
                 gf_log (this->name, GF_LOG_ERROR,
                         "Unable to get snap_status for snap %s",
                         peer_snap_name);
+                goto out;
+        }
+
+        /* If the snap is scheduled to be decommissioned, then
+         * don't accept the snap */
+        if (snap->snap_status == GD_SNAP_STATUS_DECOMMISSION) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "The snap(%s) is scheduled to be decommissioned "
+                        "Not accepting the snap.", peer_snap_name);
+                glusterd_snap_remove (dict, snap,
+                                      _gf_true, _gf_true);
+                ret = 0;
                 goto out;
         }
 
@@ -12562,7 +12559,7 @@ glusterd_recursive_rmdir (const char *delete_path)
         glusterd_for_each_entry (entry, dir);
         while (entry) {
                 snprintf (path, PATH_MAX, "%s/%s", delete_path, entry->d_name);
-                ret = stat (path, &st);
+                ret = lstat (path, &st);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_DEBUG, "Failed to stat "
                                 "entry %s : %s", path, strerror (errno));
