@@ -250,6 +250,8 @@ def main_i():
     op.add_option('--connection-timeout', metavar='SEC',
                   type=int, default=60, help=SUPPRESS_HELP)
     op.add_option('--sync-jobs', metavar='N', type=int, default=3)
+    op.add_option('--replica-failover-interval', metavar='N',
+                  type=int, default=1)
     op.add_option(
         '--turns', metavar='N', type=int, default=0, help=SUPPRESS_HELP)
     op.add_option('--allow-network', metavar='IPS', default='')

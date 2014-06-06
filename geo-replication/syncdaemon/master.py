@@ -478,7 +478,7 @@ class GMasterCommon(object):
                                        turns=self.turns,
                                        time=self.start)
             t1 = time.time()
-            if int(t1 - t0) >= 60:  # lets hardcode this check to 60 seconds
+            if int(t1 - t0) >= int(gconf.replica_failover_interval):
                 crawl = self.should_crawl()
                 t0 = t1
             self.update_worker_remote_node()
