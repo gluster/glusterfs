@@ -719,12 +719,12 @@ rpcsvc_drc_init (rpcsvc_t *svc, dict_t *options)
         GF_ASSERT (options);
 
         /* Toggle DRC on/off, when more drc types(persistent/cluster)
-           are added, we shouldn't treat this as boolean */
-        ret = dict_get_str_boolean (options, "nfs.drc", _gf_true);
+         * are added, we shouldn't treat this as boolean. */
+        ret = dict_get_str_boolean (options, "nfs.drc", _gf_false);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_INFO,
                         "drc user options need second look");
-                ret = _gf_true;
+                ret = _gf_false;
         }
 
         gf_log (GF_RPCSVC, GF_LOG_INFO, "DRC is turned %s", (ret?"ON":"OFF"));
@@ -870,12 +870,12 @@ rpcsvc_drc_reconfigure (rpcsvc_t *svc, dict_t *options)
          *     case 2: DRC is "OFF"
          *         ACTION: rpcsvc_drc_deinit()
          */
-        ret = dict_get_str_boolean (options, "nfs.drc", _gf_true);
-        if (ret < 0) {
-                enable_drc = _gf_true;
-        } else {
-                enable_drc = ret;
-        }
+        ret = dict_get_str_boolean (options, "nfs.drc", _gf_false);
+        if (ret < 0)
+                ret = _gf_false;
+
+        enable_drc = ret;
+        gf_log (GF_RPCSVC, GF_LOG_INFO, "DRC is turned %s", (ret?"ON":"OFF"));
 
         /* case 1: DRC is "ON"*/
         if (enable_drc) {
@@ -893,6 +893,5 @@ rpcsvc_drc_reconfigure (rpcsvc_t *svc, dict_t *options)
         }
 
         /* case 2: DRC is "OFF" */
-        gf_log (GF_RPCSVC, GF_LOG_INFO, "DRC is manually turned OFF");
         return rpcsvc_drc_deinit (svc);
 }
