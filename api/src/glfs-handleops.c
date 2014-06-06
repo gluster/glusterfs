@@ -500,6 +500,7 @@ glfs_h_open (struct glfs *fs, struct glfs_object *object, int flags)
                 errno = ENOMEM;
                 goto out;
         }
+        glfd->fd->flags = flags;
 
         /* populate loc */
         GLFS_LOC_FILL_INODE (inode, loc, out);
@@ -518,7 +519,6 @@ out:
                 glfs_fd_destroy (glfd);
                 glfd = NULL;
         } else {
-                glfd->fd->flags = flags;
                 fd_bind (glfd->fd);
                 glfs_fd_bind (glfd);
         }
@@ -592,6 +592,7 @@ glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
                 errno = ENOMEM;
                 goto out;
         }
+        glfd->fd->flags = flags;
 
         /* fop/op */
         ret = syncop_create (subvol, &loc, flags, mode, glfd->fd,

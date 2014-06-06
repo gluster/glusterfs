@@ -124,6 +124,7 @@ retry:
 		errno = ENOMEM;
 		goto out;
 	}
+        glfd->fd->flags = flags;
 
 	ret = syncop_open (subvol, &loc, flags, glfd->fd);
         DECODE_SYNCOP_ERR (ret);
@@ -136,7 +137,6 @@ out:
 		glfs_fd_destroy (glfd);
 		glfd = NULL;
 	} else if (glfd) {
-                glfd->fd->flags = flags;
 		fd_bind (glfd->fd);
 		glfs_fd_bind (glfd);
 	}
@@ -394,6 +394,7 @@ retry:
 		errno = ENOMEM;
 		goto out;
 	}
+        glfd->fd->flags = flags;
 
 	if (ret == 0) {
 		ret = syncop_open (subvol, &loc, flags, glfd->fd);
@@ -418,7 +419,6 @@ out:
 		glfs_fd_destroy (glfd);
 		glfd = NULL;
 	} else if (glfd) {
-                glfd->fd->flags = flags;
 		fd_bind (glfd->fd);
 		glfs_fd_bind (glfd);
 	}
