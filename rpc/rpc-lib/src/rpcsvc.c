@@ -61,7 +61,7 @@ rpcsvc_notify (rpc_transport_t *trans, void *mydata,
                rpc_transport_event_t event, void *data, ...);
 
 static int
-match_subnet_v4 (const char *addrtok, const char *ipaddr);
+rpcsvc_match_subnet_v4 (const char *addrtok, const char *ipaddr);
 
 rpcsvc_notify_wrapper_t *
 rpcsvc_notify_wrapper_alloc (void)
@@ -2265,9 +2265,9 @@ rpcsvc_transport_peer_check_search (dict_t *options, char *pattern,
                                 goto err;
                 }
 
-                /* Compare IPv4 subnetwork */
+                /* Compare IPv4 subnetwork, TODO: IPv6 subnet support */
                 if (strchr (addrtok, '/')) {
-                        ret = match_subnet_v4 (addrtok, ip);
+                        ret = rpcsvc_match_subnet_v4 (addrtok, ip);
                         if (ret == 0)
                                 goto err;
                 }
@@ -2565,9 +2565,9 @@ out:
 }
 
 /*
- * match_subnet_v4() takes subnetwork address pattern and checks
- * if the target IPv4 address has the same network address with
- * the help of network mask.
+ * rpcsvc_match_subnet_v4() takes subnetwork address pattern and checks
+ * if the target IPv4 address has the same network address with the help
+ * of network mask.
  *
  * Returns 0 for SUCCESS and -1 otherwise.
  *
@@ -2575,12 +2575,12 @@ out:
  *     as it's already being done at the time of CLI SET.
  */
 static int
-match_subnet_v4 (const char *addrtok, const char *ipaddr)
+rpcsvc_match_subnet_v4 (const char *addrtok, const char *ipaddr)
 {
         char                 *slash     = NULL;
         char                 *netaddr   = NULL;
-        long                  prefixlen = -1;
         int                   ret       = -1;
+        uint32_t              prefixlen = 0;
         uint32_t              shift     = 0;
         struct sockaddr_in    sin1      = {0, };
         struct sockaddr_in    sin2      = {0, };
@@ -2602,28 +2602,19 @@ match_subnet_v4 (const char *addrtok, const char *ipaddr)
                 goto out;
 
         /*
-         * Find the network mask in network byte order.
-         * NB: 32 : Max len of IPv4 address.
+         * Find the IPv4 network mask in network byte order.
+         * IMP: String slash+1 is already validated, it cant have value
+         * more than IPv4_ADDR_SIZE (32).
          */
-        prefixlen = atoi (slash + 1);
-        shift = 32 - (uint32_t)prefixlen;
+        prefixlen = (uint32_t) atoi (slash + 1);
+        shift = IPv4_ADDR_SIZE - prefixlen;
         mask.sin_addr.s_addr = htonl ((uint32_t)~0 << shift);
 
-        /*
-         * Check if both have same network address.
-         * Extract the network address from the IP addr by applying the
-         * network mask. If they match, return SUCCESS. i.e.
-         *
-         * (x == y) <=> (x ^ y == 0)
-         * (x & y) ^ (x & z) <=> x & (y ^ z)
-         *
-         * ((ip1 & mask) == (ip2 & mask)) <=> ((mask & (ip1 ^ ip2)) == 0)
-         */
-        if (((mask.sin_addr.s_addr) &
-             (sin1.sin_addr.s_addr ^ sin2.sin_addr.s_addr)) != 0)
-                goto out;
-
-        ret = 0; /* SUCCESS */
+        if (mask_match (sin1.sin_addr.s_addr,
+                        sin2.sin_addr.s_addr,
+                        mask.sin_addr.s_addr)) {
+                ret = 0; /* SUCCESS */
+        }
 out:
         GF_FREE (netaddr);
         return ret;

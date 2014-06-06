@@ -68,7 +68,7 @@ struct mountentry {
 /* Structure to hold export-dir AUTH parameter */
 struct host_auth_spec {
         char                    *host_addr;    /* Allowed IP or host name */
-        int                     routeprefix;   /* Routing prefix */
+        uint32_t                netmask;       /* Network mask (Big-Endian) */
         struct host_auth_spec   *next;         /* Pointer to next AUTH struct */
 };
 

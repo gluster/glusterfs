@@ -37,22 +37,6 @@
 #include <sys/uio.h>
 
 
-#define IPv4_ADDR_SIZE  32
-
-/* Macro to typecast the parameter to struct sockaddr_in
- */
-#define SA(addr) ((struct sockaddr_in*)(addr))
-
-/* Macro will mask the ip address with netmask.
- */
-#define MASKED_IP(ipv4addr, netmask)                    \
-                (ntohl(SA(ipv4addr)->sin_addr.s_addr) & (netmask))
-
-/* Macro will compare two IP address after applying the mask
- */
-#define COMPARE_IPv4_ADDRS(ip1, ip2, netmask)           \
-                ((MASKED_IP(ip1, netmask)) == (MASKED_IP(ip2, netmask)))
-
 /* This macro will assist in freeing up entire link list
  * of host_auth_spec structure.
  */
@@ -1015,6 +999,23 @@ err:
 }
 
 
+static gf_boolean_t
+mnt3_match_subnet_v4 (struct addrinfo *ai, uint32_t saddr, uint32_t mask)
+{
+        for (; ai; ai = ai->ai_next) {
+                struct sockaddr_in *sin = (struct sockaddr_in *)ai->ai_addr;
+
+                if (sin->sin_family != AF_INET)
+                        continue;
+
+                if (mask_match (saddr, sin->sin_addr.s_addr, mask))
+                        return _gf_true;
+        }
+
+        return _gf_false;
+}
+
+
 /**
  * This function will verify if the client is allowed to mount
  * the directory or not. Client's IP address will be compared with
@@ -1024,19 +1025,24 @@ err:
  * @param export - mnt3_export structure. Contains allowed IP list/range.
  *
  * @return 0 - on Success and -EACCES on failure.
+ *
+ * TODO: Support IPv6 subnetwork
  */
 int
 mnt3_verify_auth (rpcsvc_request_t *req, struct mnt3_export *export)
 {
         int                     retvalue = -EACCES;
         int                     ret = 0;
-        int                     shiftbits = 0;
-        uint32_t                ipv4netmask = 0;
-        uint32_t                routingprefix = 0;
         struct host_auth_spec   *host = NULL;
         struct sockaddr_in      *client_addr = NULL;
         struct sockaddr_in      *allowed_addr = NULL;
         struct addrinfo         *allowed_addrinfo = NULL;
+
+        struct addrinfo         hint = {
+                .ai_family      = AF_INET,
+                .ai_protocol    = (int)IPPROTO_TCP,
+                .ai_flags       = AI_CANONNAME,
+        };
 
         /* Sanity check */
         if ((NULL == req) ||
@@ -1049,9 +1055,18 @@ mnt3_verify_auth (rpcsvc_request_t *req, struct mnt3_export *export)
 
         host = export->hostspec;
 
-
         /* Client's IP address. */
         client_addr = (struct sockaddr_in *)(&(req->trans->peerinfo.sockaddr));
+
+        /*
+         * Currently IPv4 subnetwork is supported i.e. AF_INET.
+         * TODO: IPv6 subnetwork i.e. AF_INET6.
+         */
+        if (client_addr->sin_family != AF_INET) {
+                gf_log (GF_MNT, GF_LOG_ERROR,
+                        "Only IPv4 is supported for subdir-auth");
+                return retvalue;
+        }
 
         /* Try to see if the client IP matches the allowed IP list.*/
         while (NULL != host){
@@ -1063,77 +1078,38 @@ mnt3_verify_auth (rpcsvc_request_t *req, struct mnt3_export *export)
                 }
 
                 /* Get the addrinfo for the allowed host (host_addr). */
-                ret = getaddrinfo (host->host_addr,
-                                NULL,
-                                NULL,
-                                &allowed_addrinfo);
+                ret = getaddrinfo (host->host_addr, NULL,
+                                   &hint, &allowed_addrinfo);
                 if (0 != ret){
-                        gf_log (GF_MNT, GF_LOG_ERROR, "getaddrinfo: %s\n",
-                                gai_strerror (ret));
-                        host = host->next;
-
-                        /* Failed to get IP addrinfo. Continue to check other
-                         * allowed IPs in the list.
+                        /*
+                         * getaddrinfo() FAILED for the host IP addr. Continue
+                         * to search other allowed hosts in the  hostspec list.
                          */
+                        gf_log (GF_MNT, GF_LOG_DEBUG,
+                                "getaddrinfo: %s\n", gai_strerror (ret));
+                        host = host->next;
                         continue;
                 }
 
                 allowed_addr = (struct sockaddr_in *)(allowed_addrinfo->ai_addr);
-
                 if (NULL == allowed_addr) {
                         gf_log (GF_MNT, GF_LOG_ERROR, "Invalid structure");
                         break;
                 }
 
-                if (AF_INET == allowed_addr->sin_family){
-                        if (IPv4_ADDR_SIZE < host->routeprefix) {
-                                gf_log (GF_MNT, GF_LOG_ERROR, "invalid IP "
-                                        "configured for export-dir AUTH");
-                                host = host->next;
-                                continue;
-                        }
-
-                        /* -1 means no route prefix is provided. In this case
-                         * the IP should be an exact match. Which is same as
-                         * providing a route prefix of IPv4_ADDR_SIZE.
-                         */
-                        if (-1 == host->routeprefix) {
-                                routingprefix = IPv4_ADDR_SIZE;
-                        } else {
-                                routingprefix = host->routeprefix;
-                        }
-
-                        /* Create a mask from the routing prefix. User provided
-                         * CIDR address is split into IP address (host_addr) and
-                         * routing prefix (routeprefix). This CIDR address may
-                         * denote a single, distinct interface address or the
-                         * beginning address of an entire network.
-                         *
-                         * e.g. the IPv4 block 192.168.100.0/24 represents the
-                         * 256 IPv4 addresses from 192.168.100.0 to
-                         * 192.168.100.255.
-                         * Therefore to check if an IP matches 192.168.100.0/24
-                         * we should mask the IP with FFFFFF00 and compare it
-                         * with host address part of CIDR.
-                         */
-                        shiftbits = IPv4_ADDR_SIZE - routingprefix;
-                        ipv4netmask = 0xFFFFFFFFUL << shiftbits;
-
-                        /* Mask both the IPs and then check if they match
-                         * or not. */
-                        if (COMPARE_IPv4_ADDRS (allowed_addr,
-                                                client_addr,
-                                                ipv4netmask)){
-                                retvalue = 0;
-                                break;
-                        }
+                /* Check if the network addr of both IPv4 socket match */
+                if (mnt3_match_subnet_v4 (allowed_addrinfo,
+                                          client_addr->sin_addr.s_addr,
+                                          host->netmask)) {
+                        retvalue = 0;
+                        break;
                 }
 
-                /* Client IP didn't match the allowed IP.
-                 * Check with the next allowed IP.*/
+                /* No match yet, continue the search */
                host = host->next;
         }
 
+        /* FREE the dynamic memory allocated by getaddrinfo() */
         if (NULL != allowed_addrinfo) {
                freeaddrinfo (allowed_addrinfo);
         }
@@ -2040,15 +2016,21 @@ mount3udp_delete_mountlist (char *hostname, dirpath *expname)
  * @param hostip   - IP address, IP range (CIDR format) or hostname
  *
  * @return 0 - on success and -1 on failure
+ *
+ * NB: This does not support IPv6 currently.
  */
 int
 mnt3_export_fill_hostspec (struct host_auth_spec* hostspec, const char* hostip)
 {
-        char *ipdupstr = NULL;
-        char *savptr = NULL;
-        char *ip = NULL;
-        char *token = NULL;
-        int  ret = -1;
+        char     *ipdupstr = NULL;
+        char     *savptr = NULL;
+        char     *endptr = NULL;
+        char     *ip = NULL;
+        char     *token = NULL;
+        int      ret = -1;
+        long     prefixlen = IPv4_ADDR_SIZE; /* default */
+        uint32_t shiftbits = 0;
+        size_t   length = 0;
 
         /* Create copy of the string so that the source won't change
          */
@@ -2059,25 +2041,58 @@ mnt3_export_fill_hostspec (struct host_auth_spec* hostspec, const char* hostip)
         }
 
         ip = strtok_r (ipdupstr, "/", &savptr);
+        /* Validate the Hostname or IPv4 address
+         * TODO: IPv6 support for subdir auth.
+         */
+        length = strlen (ip);
+        if ((!valid_ipv4_address (ip, (int)length, _gf_false)) &&
+            (!valid_host_name (ip, (int)length))) {
+                gf_log (GF_MNT, GF_LOG_ERROR,
+                        "Invalid hostname or IPv4 address: %s", ip);
+                goto err;
+        }
+
         hostspec->host_addr = gf_strdup (ip);
         if (NULL == hostspec->host_addr) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation failed");
                 goto err;
         }
 
-        /* Check if the IP is in <IP address> / <Range> format.
-         * If yes, then strip the range and store it separately.
+        /**
+         * User provided CIDR address (xx.xx.xx.xx/n format) is split
+         * into HOST (IP addr or hostname) and network prefix(n) from
+         * which netmask would be calculated. This CIDR address may
+         * denote a single, distinct interface address or the beginning
+         * address of an entire network.
+         *
+         * e.g. the IPv4 block 192.168.100.0/24 represents the 256
+         * IPv4 addresses from 192.168.100.0 to 192.168.100.255.
+         * Therefore to check if an IP matches 192.168.100.0/24
+         * we should mask the IP with FFFFFF00 and compare it with
+         * host address part of CIDR.
+         *
+         * Refer: mask_match() in common-utils.c.
          */
         token = strtok_r (NULL, "/", &savptr);
-
-        if (NULL == token) {
-              hostspec->routeprefix = -1;
-        } else {
-              hostspec->routeprefix = atoi (token);
+        if (token != NULL) {
+              prefixlen = strtol (token, &endptr, 10);
+              if ((errno != 0) || (*endptr != '\0') ||
+                  (prefixlen < 0) || (prefixlen > IPv4_ADDR_SIZE)) {
+                      gf_log (THIS->name, GF_LOG_WARNING,
+                              "Invalid IPv4 subnetwork mask");
+                      goto err;
+              }
         }
 
-        // success
-        ret = 0;
+        /*
+         * 1. Calculate the network mask address.
+         * 2. Convert it into Big-Endian format.
+         * 3. Store it in hostspec netmask.
+         */
+        shiftbits = IPv4_ADDR_SIZE - prefixlen;
+        hostspec->netmask = htonl ((uint32_t)~0 << shiftbits);
+
+        ret = 0; /* SUCCESS */
 err:
         if (NULL != ipdupstr) {
                 GF_FREE (ipdupstr);

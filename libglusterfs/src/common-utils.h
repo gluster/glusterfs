@@ -50,6 +50,8 @@ void trap (void);
 #define roof(a,b) ((((a)+(b)-1)/((b)?(b):1))*(b))
 #define floor(a,b) (((a)/((b)?(b):1))*(b))
 
+#define IPv4_ADDR_SIZE 32
+
 
 #define GF_UNIT_KB    1024ULL
 #define GF_UNIT_MB    1048576ULL
@@ -582,6 +584,7 @@ void skip_word (char **str);
 /* returns a new string with nth word of given string. n>=1 */
 char *get_nth_word (const char *str, int n);
 
+gf_boolean_t mask_match (const uint32_t a, const uint32_t b, const uint32_t m);
 char valid_host_name (char *address, int length);
 char valid_ipv4_address (char *address, int length, gf_boolean_t wildcard_acc);
 char valid_ipv6_address (char *address, int length, gf_boolean_t wildcard_acc);

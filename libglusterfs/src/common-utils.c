@@ -1936,7 +1936,7 @@ valid_ipv4_subnetwork (const char *address)
 
         prefixlen = strtol (slash + 1, &endptr, 10);
         if ((errno != 0) || (*endptr != '\0') ||
-            (prefixlen < 0) || (prefixlen > 32)) {
+            (prefixlen < 0) || (prefixlen > IPv4_ADDR_SIZE)) {
                 gf_log_callingfn (THIS->name, GF_LOG_WARNING,
                                   "Invalid IPv4 subnetwork mask");
                 retv = _gf_false;
@@ -2131,6 +2131,23 @@ gf_sock_union_equal_addr (union gf_sock_union *a,
 
         return _gf_false;
 }
+
+/*
+ * Check if both have same network address.
+ * Extract the network address from the sockaddr(s) addr by applying the
+ * network mask. If they match, return boolean _gf_true, _gf_false otherwise.
+ *
+ * (x == y) <=> (x ^ y == 0)
+ * (x & y) ^ (x & z) <=> x & (y ^ z)
+ *
+ * ((ip1 & mask) == (ip2 & mask)) <=> ((mask & (ip1 ^ ip2)) == 0)
+ */
+gf_boolean_t
+mask_match(const uint32_t a, const uint32_t b, const uint32_t m)
+{
+        return (((a ^ b) & m) == 0);
+}
+
 
 /*Thread safe conversion function*/
 char *
