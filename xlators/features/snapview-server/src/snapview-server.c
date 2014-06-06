@@ -598,7 +598,7 @@ svs_inode_ctx_get_or_new (xlator_t *this, inode_t *inode)
         {
                 svs_inode = __svs_inode_ctx_get (this, inode);
                 if (!svs_inode) {
-                        svs_inode = svs_inode_new (this, inode);
+                        svs_inode = svs_inode_new ();
                         if (svs_inode) {
                                 ret = __svs_inode_ctx_set (this, inode,
                                                            svs_inode);
@@ -723,7 +723,7 @@ __svs_fd_ctx_get_or_new (xlator_t *this, fd_t *fd)
                 goto out;
         }
 
-        svs_fd = svs_fd_new (this, fd);
+        svs_fd = svs_fd_new ();
         if (!svs_fd) {
                 gf_log (this->name, GF_LOG_ERROR, "failed to allocate new fd "
                         "context for gfid %s", uuid_utoa (inode->gfid));
@@ -1386,9 +1386,6 @@ svs_revalidate (xlator_t *this, loc_t *loc, inode_t *parent,
                 struct iatt *buf, struct iatt *postparent, int32_t *op_errno)
 {
         int32_t         op_ret                          = -1;
-        glfs_t         *fs                              = NULL;
-        glfs_object_t  *object                          = NULL;
-        unsigned char   handle_obj[GFAPI_HANDLE_LENGTH] = {0, };
 
         GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
         GF_VALIDATE_OR_GOTO (this->name, buf, out);
@@ -1566,7 +1563,6 @@ int32_t
 svs_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
              dict_t *xdata)
 {
-        int32_t        ret        = -1;
         svs_inode_t   *inode_ctx  = NULL;
         int32_t        op_ret     = -1;
         int32_t        op_errno   = EINVAL;
@@ -1643,7 +1639,6 @@ svs_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
         char          *value      = 0;
         ssize_t        size       = 0;
         dict_t        *dict       = NULL;
-        int            ret        = -1;
 
         GF_VALIDATE_OR_GOTO ("snap-view-daemon", this, out);
         GF_VALIDATE_OR_GOTO ("snap-view-daemon", frame, out);
@@ -2189,7 +2184,6 @@ svs_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         int                     count                           = 0;
         int                     op_ret                          = -1;
         int                     op_errno                        = EINVAL;
-        svs_inode_t            *inode_ctx                       = NULL;
         svs_inode_t            *parent_ctx                      = NULL;
         svs_fd_t               *svs_fd                          = NULL;
 
@@ -2460,7 +2454,6 @@ int32_t
 svs_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
           fd_t *fd, dict_t *xdata)
 {
-        int32_t        ret       = -1;
         svs_inode_t   *inode_ctx = NULL;
         svs_fd_t      *sfd       = NULL;
         int32_t        op_ret    = -1;
@@ -2701,7 +2694,6 @@ svs_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask,
         glfs_object_t  *object       = NULL;
         svs_inode_t    *inode_ctx    = NULL;
         gf_boolean_t    is_fuse_call = 0;
-        int             perm         = 0;
         int             mode         = 0;
 
         GF_VALIDATE_OR_GOTO ("svs", this, out);
