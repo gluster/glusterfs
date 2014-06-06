@@ -3424,7 +3424,7 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
         if (ret)
                 goto out;
 
-        ret = xlator_set_option (nfsxl, "nfs.drc", "on");
+        ret = xlator_set_option (nfsxl, "nfs.drc", "off");
         if (ret)
                 goto out;
 

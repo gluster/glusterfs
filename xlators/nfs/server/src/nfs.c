@@ -1897,7 +1897,7 @@ struct volume_options options[] = {
         },
         { .key  = {"nfs.drc"},
           .type = GF_OPTION_TYPE_STR,
-          .default_value = "on",
+          .default_value = "off",
           .description = "Enable Duplicate Request Cache in gNFS server to "
                          "improve correctness of non-idempotent operations like "
                          "write, delete, link, et al"
