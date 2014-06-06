@@ -2036,7 +2036,9 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
         char                  buff[PATH_MAX]       = "";
         char                  brick_dir[PATH_MAX]  = "";
         char                 *tmp                  = NULL;
+        char                 *brick_mount_path     = NULL;
         gf_boolean_t          is_brick_dir_present = _gf_false;
+        struct stat           stbuf                = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -2057,6 +2059,15 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "%s:%s belongs to a different node",
                                 brickinfo->hostname, brickinfo->path);
+                        continue;
+                }
+
+                ret = lstat (brickinfo->path, &stbuf);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Brick %s:%s already deleted.",
+                                brickinfo->hostname, brickinfo->path);
+                        ret = 0;
                         continue;
                 }
 
@@ -2094,7 +2105,28 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
                         gf_log (this->name, GF_LOG_WARNING, "getting the root "
                                "of the brick for volume %s (snap %s) failed ",
                                snap_vol->volname, snap_vol->snapshot->snapname);
-                        goto out;
+                        continue;
+                }
+
+                /* Fetch the brick mount path from the brickinfo->path */
+                ret = glusterd_find_brick_mount_path (brickinfo->path,
+                                                      brick_count + 1,
+                                                      &brick_mount_path);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to find brick_mount_path for %s",
+                                brickinfo->path);
+                        GF_FREE (mnt_pt);
+                        mnt_pt = NULL;
+                        continue;
+                }
+
+                if (!strstr (mnt_pt, snap_vol->volname)) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Lvm is not mounted for brick %s:%s. "
+                                "Removing the brick path.",
+                                brickinfo->hostname, brickinfo->path);
+                        goto remove_brick_path;
                 }
 
                 entry = glusterd_get_mnt_entry_info (mnt_pt, buff,
@@ -2106,7 +2138,7 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
                                 brickinfo->path, snap_vol->snapshot->snapname,
                                 snap_vol->volname);
                         ret = -1;
-                        goto out;
+                        goto remove_brick_path;
                 }
                 ret = glusterd_do_lvm_snapshot_remove (snap_vol, brickinfo,
                                                        mnt_pt,
@@ -2115,45 +2147,43 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
                         gf_log (this->name, GF_LOG_ERROR, "failed to "
                                 "remove the snapshot %s (%s)",
                                 brickinfo->path, entry->mnt_fsname);
-                        goto out;
                 }
 
-                ret = rmdir (mnt_pt);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to rmdir: %s, err: %s",
-                                mnt_pt, strerror (errno));
-                        goto out;
-                }
-
+remove_brick_path:
                 /* After removing the brick dir fetch the parent path
                  * i.e /var/run/gluster/snaps/<snap-vol-id>/
                  */
                 if (is_brick_dir_present == _gf_false) {
-                        /* Peers not hosting bricks will have _gf_false */
-                        is_brick_dir_present = _gf_true;
-
                         /* Need to fetch brick_dir to be removed from
                          * brickinfo->path, as in a restored volume,
                          * snap_vol won't have the non-hyphenated snap_vol_id
                          */
-                        tmp = strstr (mnt_pt, "brick");
+                        tmp = strstr (brick_mount_path, "brick");
                         if (!tmp) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Invalid brick %s", brickinfo->path);
-                                ret = -1;
-                                goto out;
+                                GF_FREE (mnt_pt);
+                                GF_FREE (brick_mount_path);
+                                mnt_pt = NULL;
+                                brick_mount_path = NULL;
+                                continue;
                         }
 
-                        strncpy (brick_dir, mnt_pt, (size_t) (tmp - mnt_pt));
+                        strncpy (brick_dir, brick_mount_path,
+                                 (size_t) (tmp - brick_mount_path));
+
+                        /* Peers not hosting bricks will have _gf_false */
+                        is_brick_dir_present = _gf_true;
                 }
 
                 GF_FREE (mnt_pt);
+                GF_FREE (brick_mount_path);
                 mnt_pt = NULL;
+                brick_mount_path = NULL;
         }
 
         if (is_brick_dir_present == _gf_true) {
-                ret = rmdir (brick_dir);
+                ret = glusterd_recursive_rmdir (brick_dir);
                 if (ret) {
                         if (errno == ENOTEMPTY) {
                                 /* Will occur when multiple glusterds
@@ -2177,6 +2207,7 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
         ret = 0;
 out:
         GF_FREE (mnt_pt);
+        GF_FREE (brick_mount_path);
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
@@ -4779,6 +4810,19 @@ glusterd_snapshot_remove_commit (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
+        /* Save the snap status as GD_SNAP_STATUS_DECOMMISSION so
+         * that if the node goes down the snap would be removed
+         */
+        snap->snap_status = GD_SNAP_STATUS_DECOMMISSION;
+        ret = glusterd_store_snap (snap);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                        "store snap object %s", snap->snapname);
+                goto out;
+        } else
+                gf_log (this->name, GF_LOG_INFO, "Successfully marked "
+                        "snap %s for decommission.", snap->snapname);
+
         if (is_origin_glusterd (dict) == _gf_true) {
                 /* TODO : As of now there is only volume in snapshot.
                  * Change this when multiple volume snapshot is introduced
@@ -6961,6 +7005,13 @@ glusterd_snapshot_postvalidate (dict_t *dict, int32_t op_ret, char **op_errstr,
                 }
                 break;
         case GF_SNAP_OPTION_TYPE_DELETE:
+                if (op_ret) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "op_ret = %d. Not performing delete "
+                                "post_validate", op_ret);
+                        ret = 0;
+                        goto out;
+                }
                 ret = glusterd_snapshot_update_snaps_post_validate (dict,
                                                                     op_errstr,
                                                                     rsp_dict);

@@ -898,4 +898,9 @@ int32_t
 glusterd_is_snap_soft_limit_reached (glusterd_volinfo_t *volinfo,
                                      dict_t *dict);
 /* End snapd functions */
+
+int32_t
+glusterd_find_brick_mount_path (char *brick_path, int32_t brick_count,
+                                char **brick_mount_path);
+
 #endif

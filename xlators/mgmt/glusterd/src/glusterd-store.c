@@ -1498,12 +1498,8 @@ glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
         char             pathname[PATH_MAX]    = {0,};
         int32_t          ret                   = 0;
         glusterd_conf_t *priv                  = NULL;
-        DIR             *dir                   = NULL;
-        struct dirent   *entry                 = NULL;
-        char             path[PATH_MAX]        = {0,};
         char             delete_path[PATH_MAX] = {0,};
         char             trashdir[PATH_MAX]    = {0,};
-        struct stat      st                    = {0, };
         xlator_t        *this                  = NULL;
         gf_boolean_t     rename_fail           = _gf_false;
 
@@ -1540,61 +1536,7 @@ glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
                 goto out;
         }
 
-        dir = opendir (delete_path);
-        if (!dir) {
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to open directory %s."
-                        " Reason : %s", delete_path, strerror (errno));
-                ret = 0;
-                goto out;
-        }
-        ret = glusterd_store_remove_bricks (volinfo, delete_path);
-
-        if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "Remove bricks failed for %s",
-                        volinfo->volname);
-        }
-
-        glusterd_for_each_entry (entry, dir);
-        while (entry) {
-
-                snprintf (path, PATH_MAX, "%s/%s", delete_path, entry->d_name);
-                ret = stat (path, &st);
-                if (ret == -1) {
-                        gf_log (this->name, GF_LOG_DEBUG, "Failed to stat "
-                                "entry %s : %s", path, strerror (errno));
-                        goto stat_failed;
-                }
-
-                if (S_ISDIR (st.st_mode))
-                        ret = rmdir (path);
-                else
-                        ret = unlink (path);
-
-                if (ret) {
-                        gf_log (this->name, GF_LOG_DEBUG, " Failed to remove "
-                                "%s. Reason : %s", path, strerror (errno));
-                }
-
-                gf_log (this->name, GF_LOG_DEBUG, "%s %s",
-                                ret ? "Failed to remove":"Removed",
-                                entry->d_name);
-stat_failed:
-                memset (path, 0, sizeof(path));
-                glusterd_for_each_entry (entry, dir);
-        }
-
-        ret = closedir (dir);
-        if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to close dir %s. "
-                        "Reason : %s",delete_path, strerror (errno));
-        }
-
-        ret = rmdir (delete_path);
-        if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to rmdir: %s,err: %s",
-                        delete_path, strerror (errno));
-        }
-        ret = rmdir (trashdir);
+        ret = glusterd_recursive_rmdir (trashdir);
         if (ret) {
                 gf_log (this->name, GF_LOG_DEBUG, "Failed to rmdir: %s, Reason:"
                         " %s", trashdir, strerror (errno));
@@ -3059,7 +3001,6 @@ glusterd_recreate_vol_brick_mounts (xlator_t  *this,
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to mount brick_mount_path");
-                        goto out;
                 }
 
                 if (brick_mount_path) {
@@ -3926,6 +3867,7 @@ glusterd_snap_cleanup (xlator_t  *this)
         int32_t               ret  = 0;
         glusterd_conf_t      *priv = NULL;
         glusterd_snap_t      *snap = NULL;
+        glusterd_snap_t      *tmp_snap = NULL;
 
         GF_ASSERT (this);
         priv = this->private;
@@ -3939,7 +3881,7 @@ glusterd_snap_cleanup (xlator_t  *this)
                 goto out;
         }
 
-        list_for_each_entry (snap, &priv->snapshots, snap_list) {
+        list_for_each_entry_safe (snap, tmp_snap, &priv->snapshots, snap_list) {
                 if (snap->snap_status == GD_SNAP_STATUS_RESTORED) {
                         ret = glusterd_snapshot_revert_restore_from_snap (snap);
                         if (ret) {
