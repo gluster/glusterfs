@@ -6,13 +6,15 @@
 #   restarts smb service.
 # - P.S: There are other 'tasks' that need to be done outside this script
 #   to get CTDB based failover up and running.
-
 SMB_CONF=/etc/samba/smb.conf
 
 CTDB_MNT=/gluster/lock
 PING_TIMEOUT_SECS=10
 PROGNAME="ctdb"
 OPTSPEC="volname:"
+HOSTNAME=`hostname`
+MNTOPTS="_netdev,defaults"
+MNTOPTS_GLUSTERFS="transport=tcp,xlator-option=*client*.ping-timeout=${PING_TIMEOUT_SECS}"
 VOL=
 # $META is the volume that will be used by CTDB as a shared filesystem.
 # It is not desirable to use this volume for storing 'data' as well.
@@ -56,31 +58,26 @@ function add_glusterfs_ctdb_options () {
 function add_fstab_entry () {
         volname=$1
         mntpt=$2
-        mntent="`hostname`:/$volname $mntpt glusterfs _netdev,defaults,transport=tcp 0 0"
-        exists=`grep "^$mntent" /etc/fstab`
+        mntopts="${MNTOPTS},${MNTOPTS_GLUSTERFS}"
+
+        mntent="${HOSTNAME}:/${volname} ${mntpt} glusterfs ${mntopts} 0 0"
+        exists=`grep "${mntpt}" /etc/fstab`
         if [ "$exists" == "" ]
         then
-            echo "$mntent" >> /etc/fstab
+            echo "${mntent}" >> /etc/fstab
         fi
-}
-
-function add_ping_timeout () {
-    volname=$1
-    value=$2
-    gluster volume set $volname network.ping-timeout $value
 }
 
 parse_args $@
 if [ "$META" = "$VOL" ]
 then
-    #expects ctdb service to manage smb
-    service smb stop
-    add_glusterfs_ctdb_options
-    mkdir -p $CTDB_MNT
-    sleep 5
-    # Make sure ping-timeout is not default for CTDB volume
-    add_ping_timeout $VOL $PING_TIMEOUT_SECS;
-    mount -t glusterfs `hostname`:$VOL "$CTDB_MNT" && \
-        add_fstab_entry $VOL $CTDB_MNT
-    chkconfig ctdb on
+        # expects ctdb service to manage smb
+        service smb stop
+        add_glusterfs_ctdb_options
+        mkdir -p $CTDB_MNT
+        sleep 5
+        # Make sure ping-timeout is not default for CTDB volume
+        mount -t glusterfs -oxlator-option=*client*.ping-timeout=${PING_TIMEOUT_SECS} `hostname`:$VOL "$CTDB_MNT" && \
+            add_fstab_entry $VOL $CTDB_MNT
+        chkconfig ctdb on
 fi
