@@ -58,15 +58,20 @@ function remove_ctdb_options () {
 }
 
 function remove_fstab_entry () {
-	volname=$1
-	mntpt=$2
-	mntent="`hostname`:/$volname $mntpt glusterfs _netdev,defaults,transport=tcp 0 0"
-	esc_mntent=$(echo -e "$mntent" | sed 's/\//\\\//g')
-	exists=`grep "^$mntent" /etc/fstab`
-	if [ "$exists" != " " ]
-	then
-		sed -i /"$esc_mntent"/d /etc/fstab
-	fi
+        mntpt=$1
+        fstab="/etc/fstab"
+        exists=`grep "$mntpt" ${fstab}`
+        esc_mntpt=$(echo -e $mntpt | sed 's/\//\\\//g')
+        if [ "$exists" != " " ]
+        then
+            sed -i /"$esc_mntpt"/d $fstab
+            exists=`grep "$mntpt" ${fstab}`
+            if [ "$exists" != " " ]
+            then
+                echo "fstab entry cannot be removed for unknown reason"
+                exit 1
+            fi
+        fi
 }
 
 parse_args $@
@@ -74,7 +79,7 @@ if [ "$META" = "$VOL" ]
 then
         umount "$CTDB_MNT"
         chkconfig ctdb off
-	remove_fstab_entry $VOL $CTDB_MNT
+        remove_fstab_entry $CTDB_MNT
         remove_ctdb_options
         sighup_samba
 fi
