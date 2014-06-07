@@ -1221,7 +1221,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
 {
         int32_t               op_ret        = -1;
         int32_t               op_errno      = 0;
-        char                 *real_path     = NULL;
+        char                 *real_path     = NULL, *gfid_path = NULL;
         char                 *par_path      = NULL;
         struct iatt           stbuf         = {0, };
         struct posix_private *priv          = NULL;
@@ -1229,6 +1229,8 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         struct iatt           preparent     = {0,};
         struct iatt           postparent    = {0,};
         gf_boolean_t          entry_created = _gf_false, gfid_set = _gf_false;
+        void                 *uuid_req      = NULL;
+        ssize_t               size          = 0;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1258,6 +1260,29 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         op_ret = posix_pstat (this, NULL, real_path, &stbuf);
 
         SET_FS_ID (frame->root->uid, gid);
+
+        op_ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
+        if (uuid_req && !uuid_is_null (uuid_req)) {
+                op_ret = posix_istat (this, uuid_req, NULL, &stbuf);
+                if ((op_ret == 0) && IA_ISDIR (stbuf.ia_type)) {
+                        size = posix_handle_path (this, uuid_req, NULL, NULL,
+                                                  0);
+                        if (size > 0)
+                                gfid_path = alloca (size);
+
+                        if (gfid_path)
+                                posix_handle_path (this, uuid_req, NULL,
+                                                   gfid_path, size);
+
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "mkdir (%s): gfid (%s) is already associated "
+                                "with directory (%s). Hence, both directories "
+                                "will share same gfid and this can lead to "
+                                "inconsistencies.", loc->path,
+                                uuid_utoa (uuid_req), gfid_path ? gfid_path
+                                : "<NULL>");
+                }
+        }
 
         op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
         if (op_ret == -1) {
