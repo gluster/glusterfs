@@ -96,7 +96,6 @@ ga_newfile_parse_args (xlator_t *this, data_t *data)
         blob_len -= sizeof (uint32_t);
 
         len = strnlen (blob, blob_len);
-        if (len == blob_len)
         if (len == blob_len) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "gfid: %s. No null byte present.",
@@ -277,7 +276,11 @@ ga_fill_tmp_loc (loc_t *loc, xlator_t *this, uuid_t gfid,
                 new_loc->inode = inode_new (parent->table);
 
         loc_path (new_loc, bname);
-        new_loc->name = basename (new_loc->path);
+        if (new_loc->path) {
+                new_loc->name = strrchr (new_loc->path, '/');
+                if (new_loc->name)
+                        new_loc->name++;
+        }
 
         gfid_ptr = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
         if (!gfid_ptr) {

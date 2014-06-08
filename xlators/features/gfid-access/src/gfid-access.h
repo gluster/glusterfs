@@ -34,7 +34,6 @@
 #define GFID_ACCESS_GET_VALID_DIR_INODE(x,l,unref,lbl) do {             \
                 int       ret       = 0;                                \
                 uint64_t  value     = 0;                                \
-                inode_t  *tmp_inode = NULL;                             \
                                                                         \
                 /* if its an entry operation, on the virtual */         \
                 /* directory inode as parent, we need to handle */      \
@@ -43,8 +42,8 @@
                         ret = inode_ctx_get (l->parent, x, &value);     \
                         if (ret)                                        \
                                 goto lbl;                               \
-                        tmp_inode = (inode_t *)value;                   \
-                        l->parent = inode_ref (tmp_inode);                          \
+                        unref = (inode_t *)value;                       \
+                        l->parent = inode_ref (unref);                  \
                         /* if parent is virtual, no need to handle */   \
                         /* loc->inode */                                \
                         break;                                          \
@@ -57,8 +56,8 @@
                         ret = inode_ctx_get (l->inode, x, &value);      \
                         if (ret)                                        \
                                 goto lbl;                               \
-                        tmp_inode = (inode_t *)value;                   \
-                        l->inode = inode_ref (tmp_inode);                           \
+                        unref = (inode_t *)value;                       \
+                        l->inode = inode_ref (unref);                   \
                 }                                                       \
                                                                         \
         } while (0)
