@@ -21,16 +21,22 @@
  *
  * 3.3.0                - 1
  * 3.4.0                - 2
- * 3.next (3.5?)        - 3
+ * 3.5.0                - 3
+ * 3.5.1                - 30501
+ * 3.next (3.6?)        - 30600
  *
- * TODO: Change above comment once gluster version is finalised
- * TODO: Finalize the op-version ranges
+ * Starting with Gluster v3.6 and v3.5.1, the op-version will be multi-digit
+ * integer values based on the Glusterfs version, instead of a simply
+ * incrementing integer value. The op-version for a given X.Y.Z release will be
+ * an integer XYZ, with Y and Z 2 digit always 2 digits wide and padded with 0
+ * when needed. This should allow for some gaps between two Y releases for
+ * backports of features in Z releases.
  */
 #define GD_OP_VERSION_MIN  1 /* MIN is the fresh start op-version, mostly
                                 should not change */
-#define GD_OP_VERSION_MAX  3 /* MAX VERSION is the maximum count in VME table,
-                                should keep changing with introduction of newer
-                                versions */
+#define GD_OP_VERSION_MAX  30501 /* MAX VERSION is the maximum count in VME
+                                    table, should keep changing with
+                                    introduction of newer versions */
 
 #include "xlator.h"
 
