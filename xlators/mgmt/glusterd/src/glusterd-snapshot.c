@@ -7043,6 +7043,10 @@ glusterd_snapshot_postvalidate (dict_t *dict, int32_t op_ret, char **op_errstr,
                 break;
         case GF_SNAP_OPTION_TYPE_ACTIVATE:
         case GF_SNAP_OPTION_TYPE_DEACTIVATE:
+        case GF_SNAP_OPTION_TYPE_STATUS:
+        case GF_SNAP_OPTION_TYPE_CONFIG:
+        case GF_SNAP_OPTION_TYPE_INFO:
+        case GF_SNAP_OPTION_TYPE_LIST:
                  /*Nothing to be done. But want to
                  * avoid the default case warning*/
                 ret = 0;
