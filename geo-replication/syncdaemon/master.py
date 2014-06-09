@@ -1379,6 +1379,7 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                 self.write_entry_change("E", [gfid, 'MKDIR', str(mo), str(
                     st.st_uid), str(st.st_gid), escape(os.path.join(pargfid,
                                                                     bname))])
+                self.write_entry_change("M", [gfid, "SETATTR"])
                 self.Xcrawl(e, xtr_root)
                 self.stimes.append((e, xte))
             elif stat.S_ISLNK(mo):
@@ -1398,6 +1399,7 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                                              str(st.st_gid),
                                              escape(os.path.join(
                                                  pargfid, bname))])
+                    self.write_entry_change("M", [gfid, "SETATTR"])
                 else:
                     self.write_entry_change(
                         "E", [gfid, 'LINK', escape(os.path.join(pargfid,
