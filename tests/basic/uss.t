@@ -56,6 +56,7 @@ TEST umount $M0;
 
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0;
 
+# test 15
 TEST ls $M0/.snaps;
 
 NUM_SNAPS=$(ls $M0/.snaps | wc -l);
@@ -105,6 +106,7 @@ TEST fd_close $fd3
 
 
 # similar tests on nfs mount
+# test 44
 TEST mount_nfs $H0:/$V0 $N0 nolock;
 
 TEST ls $N0/.snaps;
@@ -147,6 +149,103 @@ TEST fd_open $fd3 'r' $N0/dir1/.snaps/snap3/foo1
 
 TEST fd_cat $fd3;
 
+
+TEST fd_close $fd1;
+TEST fd_close $fd2;
+TEST fd_close $fd3;
+
+# test 73
+TEST $CLI volume set $V0 "features.snapshot-directory" .history
+
+TEST ls $M0/.history;
+
+NUM_SNAPS=$(ls $M0/.history | wc -l);
+
+TEST [ $NUM_SNAPS == 4 ]
+
+TEST ls $M0/.history/snap1;
+TEST ls $M0/.history/snap2;
+TEST ls $M0/.history/snap3;
+TEST ls $M0/.history/snap4;
+
+TEST ls $M0/.history/snap3/dir1;
+TEST ls $M0/.history/snap3/dir2;
+
+TEST ls $M0/.history/snap4/dir1;
+TEST ls $M0/.history/snap4/dir2;
+
+TEST ls $M0/dir1/.history/
+TEST ! ls $M0/dir1/.history/snap1;
+TEST ! ls $M0/dir2/.history/snap2;
+TEST   ls $M0/dir1/.history/snap3;
+TEST   ls $M0/dir2/.history/snap4;
+
+TEST fd1=`fd_available`
+TEST fd_open $fd1 'r' $M0/.history/snap1/file1;
+TEST fd_cat $fd1
+
+# opening fd with in write mode for snapshot files should fail
+TEST fd2=`fd_available`
+TEST ! fd_open $fd1 'w' $M0/.history/snap1/file2;
+
+# lookup on .history in the snapshot world should fail
+TEST ! stat $M0/.history/snap1/.history
+
+# creating new entries in snapshots should fail
+TEST ! mkdir $M0/.history/new
+TEST ! touch $M0/.history/snap2/other;
+
+TEST fd3=`fd_available`
+TEST fd_open $fd3 'r' $M0/dir1/.history/snap3/foo1
+
+TEST fd_cat $fd3;
+
+TEST fd_close $fd1;
+TEST fd_close $fd2;
+TEST fd_close $fd3
+
+
+# similar tests on nfs mount
+# test 103
+TEST ls $N0/.history;
+
+NUM_SNAPS=$(ls $N0/.history | wc -l);
+
+TEST [ $NUM_SNAPS == 4 ];
+
+TEST ls $N0/.history/snap1;
+TEST ls $N0/.history/snap2;
+TEST ls $N0/.history/snap3;
+TEST ls $N0/.history/snap4;
+
+TEST ls $N0/.history/snap3/dir1;
+TEST ls $N0/.history/snap3/dir2;
+
+TEST ls $N0/.history/snap4/dir1;
+TEST ls $N0/.history/snap4/dir2;
+
+TEST ! ls $N0/dir1/.history/snap1;
+TEST ! ls $N0/dir2/.history/snap2;
+TEST   ls $N0/dir1/.history/snap3;
+TEST   ls $N0/dir2/.history/snap4;
+
+TEST fd1=`fd_available`
+TEST fd_open $fd1 'r' $N0/.history/snap1/file1;
+TEST fd_cat $fd1
+
+TEST fd2=`fd_available`
+TEST ! fd_open $fd1 'w' $N0/.history/snap1/file2;
+
+TEST ! stat $N0/.history/snap1/.stat
+
+TEST ! mkdir $N0/.history/new
+
+TEST ! touch $N0/.history/snap2/other;
+
+TEST fd3=`fd_available`
+TEST fd_open $fd3 'r' $N0/dir1/.history/snap3/foo1
+
+TEST fd_cat $fd3;
 
 TEST fd_close $fd1;
 TEST fd_close $fd2;
