@@ -1097,11 +1097,19 @@ struct volopt_map_entry glusterd_volopt_map[] = {
 
         { .key         = "features.uss",
           .voltype     = "features/snapview-server",
-          .op_version  = 4,
-          .value       = "uss",
+          .op_version  = GD_OP_VERSION_3_6_0,
+          .value       = "off",
           .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT,
           .description = "Enable/Disable User Servicable Snapshots on the "
                          "volume."
+        },
+
+        { .key         = "features.snapshot-directory",
+          .voltype     = "features/snapview-client",
+          .op_version  = GD_OP_VERSION_3_6_0,
+          .value       = ".snaps",
+          .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT,
+          .description = "Entry point directory for entering snapshot world"
         },
 
 #ifdef HAVE_LIB_Z
