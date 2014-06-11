@@ -31,37 +31,6 @@
 #define GF_GFID_DIR ".gfid"
 #define GF_AUX_GFID 0xd
 
-#define GFID_ACCESS_GET_VALID_DIR_INODE(x,l,unref,lbl) do {             \
-                int       ret       = 0;                                \
-                uint64_t  value     = 0;                                \
-                                                                        \
-                /* if its an entry operation, on the virtual */         \
-                /* directory inode as parent, we need to handle */      \
-                /* it properly */                                       \
-                if (l->parent) {                                        \
-                        ret = inode_ctx_get (l->parent, x, &value);     \
-                        if (ret)                                        \
-                                goto lbl;                               \
-                        unref = (inode_t *)value;                       \
-                        l->parent = inode_ref (unref);                  \
-                        /* if parent is virtual, no need to handle */   \
-                        /* loc->inode */                                \
-                        break;                                          \
-                }                                                       \
-                                                                        \
-                /* if its an inode operation, on the virtual */         \
-                /* directory inode itself, we need to handle */         \
-                /* it properly */                                       \
-                if (l->inode) {                                         \
-                        ret = inode_ctx_get (l->inode, x, &value);      \
-                        if (ret)                                        \
-                                goto lbl;                               \
-                        unref = (inode_t *)value;                       \
-                        l->inode = inode_ref (unref);                   \
-                }                                                       \
-                                                                        \
-        } while (0)
-
 #define GFID_ACCESS_ENTRY_OP_CHECK(loc,err,lbl)    do {                 \
                 /* need to check if the lookup is on virtual dir */     \
                 if ((loc->name && !strcmp (GF_GFID_DIR, loc->name)) &&  \
