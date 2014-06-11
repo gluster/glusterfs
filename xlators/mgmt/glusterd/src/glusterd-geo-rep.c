@@ -3085,7 +3085,7 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
         if (op_value)
                 runner_add_arg (&runner, op_value);
 
-        if ( strcmp(op_name,"checkpoint") != 0 ) {
+        if ( strcmp(op_name,"checkpoint") != 0 && strtail (subop, "set")) {
                 ret = glusterd_gsync_op_already_set(master,slave,conf_path,
                                                            op_name,op_value);
                 if (ret == -1) {
