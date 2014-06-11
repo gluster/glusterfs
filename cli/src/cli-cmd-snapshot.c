@@ -102,7 +102,9 @@ struct cli_cmd snapshot_cmds[] = {
           cli_cmd_snapshot_cbk,
           "Snapshot List."
         },
-        {"snapshot config [volname] [snap-max-hard-limit <count>] [snap-max-soft-limit <percent>]",
+        {"snapshot config [volname] ([snap-max-hard-limit <count>] "
+         "[snap-max-soft-limit <percent>]) "
+         "| ([auto-delete <enable|disable>])",
           cli_cmd_snapshot_cbk,
           "Snapshot Config."
         },

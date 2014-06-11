@@ -10612,6 +10612,7 @@ glusterd_snap_create_use_rsp_dict (dict_t *dst, dict_t *src)
         int32_t        src_missed_snap_count    = -1;
         int32_t        dst_missed_snap_count    = -1;
         xlator_t      *this                     = NULL;
+        int8_t         soft_limit_flag          = -1;
 
         this = THIS;
         GF_ASSERT (this);
@@ -10627,6 +10628,18 @@ glusterd_snap_create_use_rsp_dict (dict_t *dst, dict_t *src)
                 gf_log (this->name, GF_LOG_ERROR, "failed to merge brick "
                         "status");
                 goto out;
+        }
+
+        /* set in dst dictionary soft-limit-reach only if soft-limit-reach
+         * is present src dictionary */
+        ret = dict_get_int8 (src, "soft-limit-reach", &soft_limit_flag);
+        if (!ret) {
+                ret = dict_set_int8 (dst, "soft-limit-reach", soft_limit_flag);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to set "
+                                "soft_limit_flag");
+                        goto out;
+                }
         }
 
         ret = dict_get_int32 (src, "missed_snap_count",
@@ -13433,10 +13446,11 @@ out:
 int32_t
 glusterd_check_and_set_config_limit (glusterd_conf_t *priv)
 {
-        int32_t         ret     =       -1;
-        xlator_t        *this   =       NULL;
-        uint64_t        hard_limit = 0;
-        uint64_t        soft_limit = 0;
+        int32_t         ret          = -1;
+        xlator_t        *this        = NULL;
+        uint64_t        hard_limit   = 0;
+        uint64_t        soft_limit   = 0;
+        char            *auto_delete = NULL;
 
         GF_ASSERT (priv);
         this = THIS;
@@ -13472,6 +13486,21 @@ glusterd_check_and_set_config_limit (glusterd_conf_t *priv)
                         goto out;
                 }
         }
+
+        ret = dict_get_str (priv->opts,
+                            GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
+                            &auto_delete);
+        if (ret) {
+                ret = dict_set_dynstr_with_alloc (priv->opts, "auto-delete",
+                                                  "disable");
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to store "
+                                "auto-delete value as disabled during "
+                                "glusterd init");
+                        goto out;
+                }
+        }
+
         ret = glusterd_store_options (this, priv->opts);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -13479,5 +13508,75 @@ glusterd_check_and_set_config_limit (glusterd_conf_t *priv)
                 return ret;
         }
 out:
+        return ret;
+}
+
+int32_t
+glusterd_is_snap_soft_limit_reached (glusterd_volinfo_t *volinfo, dict_t *dict)
+{
+        int32_t         ret                 = -1;
+        uint64_t        opt_max_hard        = 0;
+        uint64_t        opt_max_soft        = 0;
+        uint64_t        limit               = 0;
+        char            *auto_delete        = NULL;
+        uint64_t        effective_max_limit = 0;
+        xlator_t        *this               = NULL;
+        glusterd_conf_t *priv               = NULL;
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (dict);
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = dict_get_uint64 (priv->opts,
+                               GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
+                               &opt_max_hard);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                        "%s", GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
+                goto out;
+        }
+
+        if (volinfo->snap_max_hard_limit < opt_max_hard)
+                effective_max_limit = volinfo->snap_max_hard_limit;
+        else
+                effective_max_limit = opt_max_hard;
+
+        ret = dict_get_uint64 (priv->opts,
+                               GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT,
+                               &opt_max_soft);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                        "%s from opts dictionary",
+                        GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT);
+                goto out;
+        }
+
+        ret = dict_get_str (priv->opts,
+                            GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
+                            &auto_delete);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                        "auto-delete from options dictionary");
+                goto out;
+        }
+
+        limit = (opt_max_soft * effective_max_limit)/100;
+
+        if (volinfo->snap_count >= limit &&
+                (strcmp (auto_delete, "enable") != 0)) {
+                ret = dict_set_int8 (dict, "soft-limit-reach",
+                                     _gf_true);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                "set soft limit exceed flag in "
+                                "response dictionary");
+                }
+                goto out;
+        }
+out :
         return ret;
 }

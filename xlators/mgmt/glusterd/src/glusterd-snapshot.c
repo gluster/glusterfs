@@ -203,7 +203,7 @@ out:
 
 int
 snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
-                                char *op_errstr)
+                                char *op_errstr, int len)
 {
         char                err_str[PATH_MAX]    = "";
         char                buf[PATH_MAX]        = "";
@@ -217,6 +217,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
         xlator_t           *this                 = NULL;
         uint64_t            opt_hard_max         = 0;
         uint64_t            opt_soft_max         = 0;
+        char               *auto_delete          = NULL;
 
         this = THIS;
 
@@ -312,8 +313,8 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                 /*  For one volume */
                 ret = glusterd_volinfo_find (volname, &volinfo);
                 if (ret) {
-                        snprintf (err_str, PATH_MAX, "Failed to get the"
-                                   " volinfo for volume %s", volname);
+                        snprintf (err_str, PATH_MAX, "Volume (%s) does not "
+                                  "exist", volname);
                         goto out;
                 }
 
@@ -392,10 +393,30 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                 goto out;
         }
 
+        ret = dict_get_str (conf->opts,
+                            GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
+                            &auto_delete);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                        "%s from options",
+                        GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE);
+                goto out;
+        }
+
+        ret = dict_set_dynstr_with_alloc (rsp_dict,
+                                     GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
+                                     auto_delete);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set "
+                        "%s in response dictionary",
+                        GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE);
+                goto out;
+        }
+
         ret = 0;
 out:
         if (ret) {
-                op_errstr = gf_strdup (err_str);
+                strncpy (op_errstr, err_str, len);
                 gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
         }
         return ret;
@@ -1056,6 +1077,8 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
         uint64_t            soft_limit          = 0;
         gf_loglevel_t       loglevel            = GF_LOG_ERROR;
         uint64_t            max_limit           = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
+        char               *req_auto_delete     = NULL;
+        char               *cur_auto_delete     = NULL;
 
         this = THIS;
 
@@ -1077,6 +1100,9 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
         ret = dict_get_uint64 (dict, "snap-max-hard-limit", &hard_limit);
 
         ret = dict_get_uint64 (dict, "snap-max-soft-limit", &soft_limit);
+
+        ret = dict_get_str (dict, GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
+                           &req_auto_delete);
 
         ret = dict_get_str (dict, "volname", &volname);
 
@@ -1114,6 +1140,24 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
                                 goto out;
                         }
                         break;
+                }
+
+                if (req_auto_delete) {
+                        ret = dict_get_str (conf->opts,
+                                         GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
+                                         &cur_auto_delete);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "get auto-delete value from options");
+                                goto out;
+                        }
+
+                        if (strcmp (req_auto_delete, cur_auto_delete) == 0) {
+                                ret = -1;
+                                snprintf (err_str, PATH_MAX, "auto-delete "
+                                          "is already %sd", req_auto_delete);
+                                goto out;
+                        }
                 }
         default:
                 break;
@@ -1185,13 +1229,14 @@ glusterd_handle_snapshot_config (rpcsvc_request_t *req, glusterd_op_t op,
         case GF_SNAP_CONFIG_DISPLAY:
                 /* Reading data from local node only */
                 ret = snap_max_limits_display_commit (dict, volname,
-                                                      err_str);
+                                                      err_str, len);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "snap-max-limit "
                                 "display commit failed.");
                         goto out;
                 }
+
                 /* If everything is successful then send the response
                  * back to cli
                  */
@@ -1325,7 +1370,6 @@ glusterd_snap_create_pre_val_use_rsp_dict (dict_t *dst, dict_t *src)
                         brick_online = 0;
                 }
         }
-
         ret = 0;
 out:
 
@@ -1638,11 +1682,13 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                         effective_max_limit = opt_hard_max;
 
                 if (volinfo->snap_count >= effective_max_limit) {
+                        ret = -1;
                         snprintf (err_str, sizeof (err_str),
                                   "The number of existing snaps has reached "
-                                  "the effective maximum limit of %"PRIu64" ,"
-                                  "for the volume %s", effective_max_limit,
-                                  volname);
+                                  "the effective maximum limit of %"PRIu64", "
+                                  "for the volume (%s). Please delete few "
+                                  "snapshots before taking further snapshots.",
+                                  effective_max_limit, volname);
                         loglevel = GF_LOG_WARNING;
                         goto out;
                 }
@@ -5133,6 +5179,17 @@ glusterd_snapshot_create_commit (dict_t *dict, char **op_errstr,
                         goto out;
                 }
 
+                if (is_origin_glusterd (dict)) {
+                        ret = glusterd_is_snap_soft_limit_reached (origin_vol,
+                                                                   rsp_dict);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "check soft limit exceeded or not, "
+                                        "for volume %s ", origin_vol->volname);
+                                goto out;
+                        }
+                }
+
                 snap_vol = glusterd_do_snap_vol (origin_vol, snap, dict,
                                                  rsp_dict, i);
                 if (!snap_vol) {
@@ -5285,6 +5342,7 @@ glusterd_snapshot_config_commit (dict_t *dict, char **op_errstr,
         uint64_t            hard_limit           = 0;
         uint64_t            soft_limit           = 0;
         char               *next_version         = NULL;
+        char               *auto_delete          = NULL;
 
         this = THIS;
 
@@ -5311,6 +5369,9 @@ glusterd_snapshot_config_commit (dict_t *dict, char **op_errstr,
         ret = dict_get_uint64 (dict, "snap-max-hard-limit", &hard_limit);
 
         ret = dict_get_uint64 (dict, "snap-max-soft-limit", &soft_limit);
+
+        ret = dict_get_str (dict, GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
+                            &auto_delete);
 
         switch (config_command) {
         case GF_SNAP_CONFIG_TYPE_SET:
@@ -5351,6 +5412,32 @@ glusterd_snapshot_config_commit (dict_t *dict, char **op_errstr,
                                             next_version);
                         if (ret)
                                 goto out;
+
+                        ret = glusterd_store_options (this, conf->opts);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "store options");
+                                goto out;
+                        }
+                }
+
+                if (auto_delete) {
+                        ret = glusterd_get_next_global_opt_version_str
+                                                (conf->opts, &next_version);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "get next global opt-version");
+                                goto out;
+                        }
+
+                        ret = dict_set_dynstr_with_alloc (conf->opts,
+                                GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
+                                auto_delete);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Could not "
+                                        "save auto-delete value in conf->opts");
+                                goto out;
+                        }
 
                         ret = glusterd_store_options (this, conf->opts);
                         if (ret) {
@@ -6096,19 +6183,19 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
                         goto out;
                 }
 
-                /* The minimum of the 2 limits i.e system wide limit and
-                   volume wide limit will be considered
-                */
-
                 ret = dict_get_uint64 (priv->opts,
                                        GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
                                        &opt_max_hard);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "Failed to get "
-                                "%s", GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
+                                "%s from opts dictionary",
+                                GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
                         goto out;
                 }
 
+                /* The minimum of the 2 limits i.e system wide limit and
+                   volume wide limit will be considered
+                */
                 if (volinfo->snap_max_hard_limit < opt_max_hard)
                         effective_max_limit = volinfo->snap_max_hard_limit;
                 else
@@ -6170,6 +6257,7 @@ glusterd_snapshot_create_postvalidate (dict_t *dict, int32_t op_ret,
         int32_t          cleanup        = 0;
         glusterd_snap_t *snap           = NULL;
         char            *snapname       = NULL;
+        char            *auto_delete    = NULL;
 
         this = THIS;
 
@@ -6188,9 +6276,14 @@ glusterd_snapshot_create_postvalidate (dict_t *dict, int32_t op_ret,
                         if (ret) {
                                 gf_log (this->name, GF_LOG_WARNING, "cleanup "
                                         "operation failed");
-                                goto out;
                         }
                 }
+                /* Irrespective of status of cleanup its better
+                 * to return from this function. As the functions
+                 * following this block is not required to be
+                 * executed in case of failure scenario.
+                 */
+                goto out;
         }
 
         ret = dict_get_str (dict, "snapname", &snapname);
@@ -6224,8 +6317,17 @@ glusterd_snapshot_create_postvalidate (dict_t *dict, int32_t op_ret,
                 goto out;
         }
 
+        ret = dict_get_str (priv->opts, GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
+                           &auto_delete);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                        "the value of auto-delete from options");
+                goto out;
+        }
+
         //ignore the errors of autodelete
-        ret = glusterd_handle_snap_limit (dict, rsp_dict);
+        if (strcmp (auto_delete, "enable") == 0)
+                ret = glusterd_handle_snap_limit (dict, rsp_dict);
 
         ret = 0;
 out:

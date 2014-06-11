@@ -7682,6 +7682,7 @@ cli_snapshot_config_display (dict_t *dict, gf_cli_rsp *rsp)
         uint64_t            soft_limit           = 0;
         uint64_t            i                    = 0;
         uint64_t            voldisplaycount      = 0;
+        char               *auto_delete          = NULL;
 
         GF_ASSERT (dict);
         GF_ASSERT (rsp);
@@ -7711,8 +7712,11 @@ cli_snapshot_config_display (dict_t *dict, gf_cli_rsp *rsp)
         /* Ignore the error, as the key specified is optional */
         ret = dict_get_uint64 (dict, "snap-max-soft-limit", &soft_limit);
 
+        ret = dict_get_str (dict, "auto-delete", &auto_delete);
+
         if (!hard_limit && !soft_limit
-                        && config_command != GF_SNAP_CONFIG_DISPLAY) {
+                        && config_command != GF_SNAP_CONFIG_DISPLAY
+                        && !auto_delete) {
                 ret = -1;
                 gf_log(THIS->name, GF_LOG_ERROR,
                        "Could not fetch config-key");
@@ -7733,6 +7737,10 @@ cli_snapshot_config_display (dict_t *dict, gf_cli_rsp *rsp)
                         cli_out ("snapshot config: %s "
                                  "for snap-max-soft-limit set successfully",
                                  volname);
+                } else if (auto_delete) {
+                        cli_out ("snapshot config: %s "
+                                 "auto-delete successfully %sd",
+                                 volname, auto_delete);
                 }
                 break;
 
@@ -7756,8 +7764,10 @@ cli_snapshot_config_display (dict_t *dict, gf_cli_rsp *rsp)
                         ret = -1;
                         goto out;
                 }
-                cli_out ("snap-max-soft-limit : %"PRIu64"%%\n",
+                cli_out ("snap-max-soft-limit : %"PRIu64"%%",
                          soft_limit);
+
+                cli_out ("auto-delete : %s\n", auto_delete);
 
                 cli_out ("Snapshot Volume Configuration:");
 
@@ -8501,6 +8511,8 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t               type                     =  0;
         call_frame_t         *frame                    = NULL;
         gf_boolean_t         snap_driven               = _gf_false;
+        int8_t               soft_limit_flag           = -1;
+        char                 *volname                  = NULL;
 
         if (req->rpc_status == -1) {
                 ret = -1;
@@ -8550,8 +8562,29 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
                                 "Failed to get snap name");
                         goto out;
                 }
+
+                /* TODO : Instead of using volname1 directly use
+                 * volname$i in loop once snapshot of multiple
+                 * volumes are supported
+                 */
+                ret = dict_get_str (dict, "volname1", &volname);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Failed to get volume name");
+                        goto out;
+                }
+
                 cli_out ("snapshot create: success: Snap %s created "
                                         "successfully", snap_name);
+
+                ret = dict_get_int8 (dict, "soft-limit-reach",
+                                    &soft_limit_flag);
+                if (soft_limit_flag == 1) {
+                        cli_out ("Warning: Soft-limit of volume (%s) is "
+                                "reached. Snapshot creation is not possible "
+                                "once hard-limit is reached.", volname);
+                }
+                ret = 0;
                 break;
 
         case GF_SNAP_OPTION_TYPE_RESTORE:
