@@ -96,11 +96,10 @@ void
 __chlog_barrier_disable (xlator_t *this, struct list_head *queue)
 {
         changelog_priv_t  *priv   = this->private;
-        int                ret    = 0;
         GF_ASSERT (priv);
 
         if (priv->timer) {
-                ret = gf_timer_call_cancel (this->ctx, priv->timer);
+                gf_timer_call_cancel (this->ctx, priv->timer);
                 priv->timer = NULL;
         }
 
