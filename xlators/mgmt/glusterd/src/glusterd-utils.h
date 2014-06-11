@@ -893,5 +893,9 @@ glusterd_restart_snapds (glusterd_conf_t *priv);
 
 int32_t
 glusterd_check_and_set_config_limit (glusterd_conf_t *priv);
+
+int32_t
+glusterd_is_snap_soft_limit_reached (glusterd_volinfo_t *volinfo,
+                                     dict_t *dict);
 /* End snapd functions */
 #endif
