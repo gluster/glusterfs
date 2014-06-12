@@ -1486,6 +1486,7 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         dict_t                  *dict           = NULL;
         off_t                    offset         = 0;
         struct iatt              iatt           = {0,};
+        inode_t                 *linked_inode   = NULL, *inode = NULL;
 
         ret = syncop_lookup (this, loc, NULL, &iatt, NULL, NULL);
         if (ret) {
@@ -1551,6 +1552,7 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                 continue;
 
                         loc_wipe (&entry_loc);
+
                         ret =dht_build_child_loc (this, &entry_loc, loc,
                                                   entry->d_name);
                         if (ret) {
@@ -1566,9 +1568,23 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                 continue;
                         }
 
-                        entry_loc.inode->ia_type = entry->d_stat.ia_type;
 
                         uuid_copy (entry_loc.gfid, entry->d_stat.ia_gfid);
+
+                        /*In case the gfid stored in the inode by inode_link
+                         * and the gfid obtained in the lookup differs, then
+                         * client3_3_lookup_cbk will return ESTALE and proper
+                         * error will be captured
+                         */
+
+                        linked_inode = inode_link (entry_loc.inode, loc->parent,
+                                                   entry->d_name,
+                                                   &entry->d_stat);
+
+                        inode = entry_loc.inode;
+                        entry_loc.inode = linked_inode;
+                        inode_unref (inode);
+
                         if (uuid_is_null (loc->gfid)) {
                                 gf_log (this->name, GF_LOG_ERROR, "%s/%s"
                                         " gfid not present", loc->path,
