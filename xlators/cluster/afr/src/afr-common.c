@@ -1157,17 +1157,18 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 	afr_inode_read_subvol_get (local->loc.parent, this, readable,
 				   NULL, &event);
 
-	/* First, check if we have an ESTALE from somewhere,
-	   If so, propagate that so that a revalidate can be
+	/* First, check if we have a gfid-change from somewhere,
+	   If so, propagate that so that a fresh lookup can be
 	   issued
 	*/
+        if (local->cont.lookup.needs_fresh_lookup) {
+                local->op_ret = -1;
+                local->op_errno = ESTALE;
+                goto unwind;
+        }
+
 	op_errno = afr_final_errno (frame->local, this->private);
 	local->op_errno = op_errno;
-        if (op_errno == ESTALE) {
-		local->op_errno = op_errno;
-		local->op_ret = -1;
-                goto unwind;
-	}
 
 	read_subvol = -1;
 	for (i = 0; i < priv->child_count; i++) {
@@ -1270,7 +1271,7 @@ unwind:
  * others in that they must be given higher priority while
  * returning to the user.
  *
- * The hierarchy is ESTALE > ENOENT > others
+ * The hierarchy is ENODATA > ENOENT > ESTALE > others
  */
 
 int
@@ -1278,10 +1279,10 @@ afr_higher_errno (int32_t old_errno, int32_t new_errno)
 {
 	if (old_errno == ENODATA || new_errno == ENODATA)
 		return ENODATA;
+        if (old_errno == ENOENT || new_errno == ENOENT)
+                return ENOENT;
 	if (old_errno == ESTALE || new_errno == ESTALE)
 		return ESTALE;
-	if (old_errno == ENOENT || new_errno == ENOENT)
-		return ENOENT;
 
 	return new_errno;
 }
@@ -1523,6 +1524,14 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	local->replies[child_index].valid = 1;
 	local->replies[child_index].op_ret = op_ret;
 	local->replies[child_index].op_errno = op_errno;
+        /*
+         * On revalidate lookup if the gfid-changed, afr should unwind the fop
+         * with ESTALE so that a fresh lookup will be sent by the top xlator.
+         * So remember it.
+         */
+        if (xdata && dict_get (xdata, "gfid-changed"))
+                local->cont.lookup.needs_fresh_lookup = _gf_true;
+
 	if (op_ret != -1) {
 		local->replies[child_index].poststat = *buf;
 		local->replies[child_index].postparent = *postparent;

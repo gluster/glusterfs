@@ -418,6 +418,10 @@ typedef struct _afr_local {
 
         struct {
                 struct {
+                        gf_boolean_t needs_fresh_lookup;
+                } lookup;
+
+                struct {
                         unsigned char buf_set;
                         struct statvfs buf;
                 } statfs;

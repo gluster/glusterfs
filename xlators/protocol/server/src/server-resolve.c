@@ -48,11 +48,6 @@ resolve_loc_touchup (call_frame_t *frame)
                         loc->name = resolve->bname;
                 } else if (loc->inode) {
                         ret = inode_path (loc->inode, NULL, &path);
-                        if (path) {
-                                loc->name = strrchr (path, '/');
-                                if (loc->name)
-                                        loc->name++;
-                        }
                 }
                 if (ret)
                         gf_log (frame->this->name, GF_LOG_TRACE,

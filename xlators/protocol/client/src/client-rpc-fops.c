@@ -2737,8 +2737,12 @@ client3_3_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
             && (uuid_compare (stbuf.ia_gfid, inode->gfid) != 0)) {
                 gf_log (frame->this->name, GF_LOG_DEBUG,
                         "gfid changed for %s", local->loc.path);
+
                 rsp.op_ret = -1;
                 op_errno = ESTALE;
+                if (xdata)
+                        ret = dict_set_int32 (xdata, "gfid-changed", 1);
+
                 goto out;
         }
 
