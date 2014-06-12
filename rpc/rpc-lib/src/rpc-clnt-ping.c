@@ -255,7 +255,7 @@ rpc_clnt_start_ping (void *rpc_ptr)
                         gf_log (THIS->name, GF_LOG_DEBUG,
                                 "returning as transport is already disconnected"
                                 " OR there are no frames (%d || %d)",
-                                frame_count, !conn->connected);
+                                !conn->connected, frame_count);
 
                         pthread_mutex_unlock (&conn->lock);
                         return;
