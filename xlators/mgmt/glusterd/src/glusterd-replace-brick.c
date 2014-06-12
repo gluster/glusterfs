@@ -544,7 +544,10 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                         ret = -1;
                         goto out;
                 }
-        } else {
+        } else if (priv->op_version >= GD_OP_VERSION_3_6_0) {
+                /* A bricks mount dir is required only by snapshots which were
+                 * introduced in gluster-3.6.0
+                 */
                 ret = glusterd_get_brick_mount_dir (dst_brickinfo->path,
                                                     dst_brickinfo->hostname,
                                                     dst_brickinfo->mount_dir);
@@ -1525,11 +1528,15 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
         glusterd_brickinfo_t                    *new_brickinfo = NULL;
         int32_t                                 ret = -1;
         xlator_t                                *this = NULL;
+        glusterd_conf_t                         *conf = NULL;
 
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (dict);
         GF_ASSERT (volinfo);
+
+        conf = this->private;
+        GF_ASSERT (conf);
 
         ret = glusterd_brickinfo_new_from_brick (new_brick,
                                                  &new_brickinfo);
@@ -1549,14 +1556,19 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
         strncpy (new_brickinfo->brick_id, old_brickinfo->brick_id,
                  sizeof (new_brickinfo->brick_id));
 
-        ret = dict_get_str (dict, "brick1.mount_dir", &brick_mount_dir);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "brick1.mount_dir not present");
-                goto out;
+        /* A bricks mount dir is required only by snapshots which were
+         * introduced in gluster-3.6.0
+         */
+        if (conf->op_version >= GD_OP_VERSION_3_6_0) {
+                ret = dict_get_str (dict, "brick1.mount_dir", &brick_mount_dir);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "brick1.mount_dir not present");
+                        goto out;
+                }
+                strncpy (new_brickinfo->mount_dir, brick_mount_dir,
+                         sizeof(new_brickinfo->mount_dir));
         }
-        strncpy (new_brickinfo->mount_dir, brick_mount_dir,
-                 sizeof(new_brickinfo->mount_dir));
 
         list_add_tail (&new_brickinfo->brick_list,
                        &old_brickinfo->brick_list);

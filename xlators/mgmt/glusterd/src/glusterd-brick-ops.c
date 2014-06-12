@@ -1000,10 +1000,14 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
         char                          key[PATH_MAX]  = "";
         char                         *brick_mount_dir  = NULL;
         xlator_t                     *this           = NULL;
+        glusterd_conf_t              *conf           = NULL;
 
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (volinfo);
+
+        conf = this->private;
+        GF_ASSERT (conf);
 
         if (bricks) {
                 brick_list = gf_strdup (bricks);
@@ -1040,17 +1044,22 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                 GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO (brickinfo, volinfo,
                                                       brickid++);
 
-                brick_mount_dir = NULL;
+                /* A bricks mount dir is required only by snapshots which were
+                 * introduced in gluster-3.6.0
+                 */
+                if (conf->op_version >= GD_OP_VERSION_3_6_0) {
+                        brick_mount_dir = NULL;
 
-                snprintf (key, sizeof(key), "brick%d.mount_dir", i);
-                ret = dict_get_str (dict, key, &brick_mount_dir);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s not present", key);
-                        goto out;
+                        snprintf (key, sizeof(key), "brick%d.mount_dir", i);
+                        ret = dict_get_str (dict, key, &brick_mount_dir);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                                "%s not present", key);
+                                goto out;
+                        }
+                        strncpy (brickinfo->mount_dir, brick_mount_dir,
+                                 sizeof(brickinfo->mount_dir));
                 }
-                strncpy (brickinfo->mount_dir, brick_mount_dir,
-                         sizeof(brickinfo->mount_dir));
 
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret)
@@ -1241,9 +1250,12 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         char                                    *all_bricks = NULL;
         char                                    *str_ret = NULL;
         gf_boolean_t                            is_force = _gf_false;
+        glusterd_conf_t                         *conf = NULL;
 
         this = THIS;
         GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
 
         ret = dict_get_int32 (dict, "replica-count", &replica_count);
         if (ret) {
@@ -1369,24 +1381,30 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         if (ret)
                                 goto out;
 
-                        ret = glusterd_get_brick_mount_dir
-                                                         (brickinfo->path,
-                                                          brickinfo->hostname,
-                                                          brickinfo->mount_dir);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Failed to get brick mount_dir");
-                                goto out;
+                        /* A bricks mount dir is required only by snapshots which were
+                         * introduced in gluster-3.6.0
+                         */
+                        if (conf->op_version >= GD_OP_VERSION_3_6_0) {
+                                ret = glusterd_get_brick_mount_dir
+                                        (brickinfo->path, brickinfo->hostname,
+                                         brickinfo->mount_dir);
+                                if (ret) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Failed to get brick mount_dir");
+                                        goto out;
+                                }
+
+                                snprintf (key, sizeof(key), "brick%d.mount_dir",
+                                          i + 1);
+                                ret = dict_set_dynstr_with_alloc
+                                        (rsp_dict, key, brickinfo->mount_dir);
+                                if (ret) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Failed to set %s", key);
+                                        goto out;
+                                }
                         }
 
-                        snprintf (key, sizeof(key), "brick%d.mount_dir", i + 1);
-                        ret = dict_set_dynstr_with_alloc (rsp_dict, key,
-                                                          brickinfo->mount_dir);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Failed to set %s", key);
-                                goto out;
-                        }
                         local_brick_count = i + 1;
                 }
 
