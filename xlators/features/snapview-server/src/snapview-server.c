@@ -970,7 +970,25 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
         private = this->private;
 
-        if (loc->name) {
+        /* For lookups sent on inodes (i.e not parent inode + basename, but
+           direct inode itself which usually is a nameless lookup or revalidate
+           on the inode), loc->name will not be there. Get it from path if
+           it is there.
+           This is the difference between nameless lookup and revalidate lookup
+           on an inode:
+           nameless lookup: loc->path contains gfid and strrchr on it fails
+           revalidate lookup: loc->path contains the entry name of the inode
+                              and strrchr gives the name of the entry from path
+        */
+        if (loc->path) {
+                if (!loc->name || (loc->name && !strcmp (loc->name, ""))) {
+                        loc->name = strrchr (loc->path, '/');
+                        if (loc->name)
+                                loc->name++;
+                }
+        }
+
+        if (loc->name && strlen (loc->name)) {
                 ret = dict_get_str_boolean (xdata, "entry-point", _gf_false);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_ERROR, "failed to get the "
