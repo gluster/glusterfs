@@ -4,6 +4,8 @@
 . $(dirname $0)/../volume.rc
 . $(dirname $0)/../dht.rc
 
+cleanup
+
 #This script checks command "gluster volume rebalance <volname> status will not
 #show any output when user have done only remove-brick start and command
 #'gluster volume remove-brick <volname> <brick_name> status' will not show
