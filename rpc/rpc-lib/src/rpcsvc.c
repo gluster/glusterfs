@@ -612,7 +612,7 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
 
         if (0 == svc->allow_insecure && unprivileged && !actor->unprivileged) {
                         /* Non-privileged user, fail request */
-                        gf_log ("glusterd", GF_LOG_ERROR,
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR,
                                 "Request received from non-"
                                 "privileged port. Failing request");
                         rpcsvc_request_destroy (req);
