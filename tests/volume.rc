@@ -474,3 +474,35 @@ function mount_get_option_value {
 function get_volume_mark {
         getfattr -n trusted.glusterfs.volume-mark -ehex $1 | sed -n 's/^trusted.glusterfs.volume-mark=0x//p' | cut -b5-36 | sed 's/\([a-f0-9]\{8\}\)\([a-f0-9]\{4\}\)\([a-f0-9]\{4\}\)\([a-f0-9]\{4\}\)/\1-\2-\3-\4-/'
 }
+
+# setup geo-rep in a single a node.
+
+function setup_georep {
+
+    $CLI volume create $GMV0 replica 2  $H0:$B0/${GMV0}{1,2,3,4};
+
+    $CLI volume start $GMV0
+
+    $CLI volume create $GSV0 replica 2  $H0:$B0/${GSV0}{1,2,3,4};
+
+    $CLI volume start $GSV0
+
+    $CLI system:: execute gsec_create
+
+    $CLI volume geo-rep $GMV0 $H0::$GSV0 create push-pem
+
+    $CLI volume geo-rep $GMV0 $H0::$GSV0 start
+
+    sleep 80 # after start geo-rep takes a minute to get stable
+
+}
+
+
+# stop and delete geo-rep session
+
+function cleanup_georep {
+
+    $CLI volume geo-rep $GMV0 $H0::$GSV0 stop
+
+    $CLI volume geo-rep $GMV0 $H0::$GSV0 delete
+}

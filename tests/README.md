@@ -5,6 +5,11 @@ Regression tests framework for GlusterFS
 - Build and install the version of glusterfs with your changes. Make
   sure the installed version is accessible from $PATH.
 
+## Prereq for geo-rep regression tests.
+- Passwordless ssh on the test system to itself
+- arequal-checksum installed on the test-system.
+  You can find the repo here - https://github.com/raghavendrabhat/arequal
+
 ## How-To
 - To mount glusterfs, NEVER use 'mount -t glusterfs', instead use
   'glusterfs -s ' method. This is because with the patch build setup
@@ -30,6 +35,7 @@ Regression tests framework for GlusterFS
       `tests/bugs/` directory.
     - a glob pattern (see `man 7 glob` for mor info on globs)
 
+- To execute single ".t" file, use "prove -vf /path/to/.t"
 - If some test cases fail, report to GlusterFS community at
   `gluster-devel@gluster.org`.
 
