@@ -7403,6 +7403,20 @@ glusterd_snapshot_restore_postop (dict_t *dict, int32_t op_ret,
                 goto out;
         }
 
+        ret = dict_get_str (dict, "snapname", &name);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "getting the snap "
+                        "name failed (volume: %s)", volinfo->volname);
+                goto out;
+        }
+
+        snap = glusterd_find_snap_by_name (name);
+        if (!snap) {
+                gf_log (this->name, GF_LOG_ERROR, "snap %s is not found", name);
+                ret = -1;
+                goto out;
+        }
+
         /* On success perform the cleanup operation */
         if (0 == op_ret) {
                 ret = glusterd_snapshot_restore_cleanup (rsp_dict, volinfo,

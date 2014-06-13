@@ -1713,9 +1713,15 @@ glusterd_op_stage_sys_exec (dict_t *dict, char **op_errstr)
 
 out:
         if (ret) {
-                if (errmsg[0] == '\0')
-                        snprintf (errmsg, sizeof (errmsg), "%s not found.",
-                                  command);
+                if (errmsg[0] == '\0') {
+                        if (command)
+                                snprintf (errmsg, sizeof (errmsg),
+                                          "gsync peer_%s command not found.",
+                                          command);
+                        else
+                                snprintf (errmsg, sizeof (errmsg), "%s",
+                                          "gsync peer command was not specified");
+                }
                 *op_errstr = gf_strdup (errmsg);
                 gf_log ("", GF_LOG_ERROR, "%s", errmsg);
         }

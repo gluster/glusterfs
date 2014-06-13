@@ -77,15 +77,15 @@ nfs_xlator_to_xlid (xlator_list_t *cl, xlator_t *xl)
 xlator_t *
 nfs_mntpath_to_xlator (xlator_list_t *cl, char *path)
 {
-        char            volname[MNTPATHLEN];
+        char            *volname = NULL;
         char            *volptr = NULL;
-        size_t          pathlen;
+        size_t           pathlen;
         xlator_t        *targetxl = NULL;
 
         if ((!cl) || (!path))
                 return NULL;
 
-        strncpy (volname, path, MNTPATHLEN);
+        volname = strdupa (path);
         pathlen = strlen (volname);
         gf_log (GF_NFS, GF_LOG_TRACE, "Subvolume search: %s", path);
         if (volname[0] == '/')

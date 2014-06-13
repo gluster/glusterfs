@@ -3107,6 +3107,8 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         priv = this->private;
 
+        GET_STATE (this, finh, state);
+
 #ifdef GF_DARWIN_HOST_OS
         if (fsi->position) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
@@ -3167,7 +3169,6 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
-        GET_STATE (this, finh, state);
         state->size = fsi->size;
 
         fuse_resolve_inode_init (state, &state->resolve, finh->nodeid);
@@ -4715,7 +4716,7 @@ fuse_thread_proc (void *data)
         fuse_private_t           *priv = NULL;
         ssize_t                   res = 0;
         struct iobuf             *iobuf = NULL;
-        fuse_in_header_t         *finh;
+        fuse_in_header_t         *finh = NULL;
         struct iovec              iov_in[2];
         void                     *msg = NULL;
         const size_t              msg0_size = sizeof (*finh) + 128;
