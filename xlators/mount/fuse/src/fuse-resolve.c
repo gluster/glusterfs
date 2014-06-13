@@ -33,27 +33,11 @@ fuse_resolve_loc_touchup (fuse_state_t *state)
 {
         fuse_resolve_t *resolve = NULL;
         loc_t          *loc     = NULL;
-        char           *path    = NULL;
-        int             ret     = 0;
 
         resolve = state->resolve_now;
         loc     = state->loc_now;
 
-        if (!loc->path) {
-                if (loc->parent && resolve->bname) {
-                        ret = inode_path (loc->parent, resolve->bname, &path);
-			uuid_copy (loc->pargfid, loc->parent->gfid);
-			loc->name = resolve->bname;
-                } else if (loc->inode) {
-                        ret = inode_path (loc->inode, NULL, &path);
-			uuid_copy (loc->gfid, loc->inode->gfid);
-                }
-                if (ret)
-                        gf_log (THIS->name, GF_LOG_TRACE,
-                                "return value inode_path %d", ret);
-                loc->path = path;
-        }
-
+        loc_touchup (loc, resolve->bname);
         return 0;
 }
 
