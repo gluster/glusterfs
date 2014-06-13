@@ -897,8 +897,10 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
         {
                 if (ctx->log.logfile) {
                         fprintf (ctx->log.logfile, "%s\n", msg);
+                        fflush (ctx->log.logfile);
                 } else if (ctx->log.loglevel >= level) {
                         fprintf (stderr, "%s\n", msg);
+                        fflush (stderr);
                 }
 
 #ifdef GF_LINUX_HOST_OS
