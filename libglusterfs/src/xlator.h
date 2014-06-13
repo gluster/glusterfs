@@ -964,4 +964,7 @@ is_graph_topology_equal (glusterfs_graph_t *graph1, glusterfs_graph_t *graph2);
 int
 glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
                                glusterfs_ctx_t *ctx, const char *oldvolfile);
+
+int
+loc_touchup (loc_t *loc, const char *name);
 #endif /* _XLATOR_H */
