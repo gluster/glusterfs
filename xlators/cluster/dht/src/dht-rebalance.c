@@ -1974,7 +1974,7 @@ out:
         {
                 status = dict_new ();
                 gf_defrag_status_get (defrag, status);
-                if (ctx->notify)
+                if (ctx && ctx->notify)
                         ctx->notify (GF_EN_DEFRAG_STATUS, status);
                 if (status)
                         dict_unref (status);

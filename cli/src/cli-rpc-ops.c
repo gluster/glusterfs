@@ -9179,11 +9179,10 @@ gf_cli_snapshot (call_frame_t *frame, xlator_t *this,
         if (!frame || !this || !data)
                 goto out;
 
-        if (frame->local) {
-                local = frame->local;
-        } else {
+        if (!frame->local)
                 goto out;
-        }
+
+        local = frame->local;
 
         options = data;
 
@@ -9240,7 +9239,7 @@ gf_cli_snapshot (call_frame_t *frame, xlator_t *this,
         ret = 0;
 
 out:
-        if (ret && GF_SNAP_OPTION_TYPE_STATUS == type) {
+        if (ret && local && GF_SNAP_OPTION_TYPE_STATUS == type) {
                 tmp_ret = dict_get_str (local->dict, "op_err_str", &err_str);
                 if (err_str) {
                         cli_err ("Snapshot Status : failed: %s", err_str);
