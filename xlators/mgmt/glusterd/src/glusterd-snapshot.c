@@ -768,6 +768,15 @@ glusterd_snapshot_restore (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         goto out;
                 }
 
+                /* Take backup of the volinfo folder */
+                ret = glusterd_snapshot_backup_vol (parent_volinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to backup "
+                                "volume backend files for %s volume",
+                                parent_volinfo->volname);
+                        goto out;
+                }
+
                 if (is_origin_glusterd (dict) == _gf_true) {
                         /* From origin glusterd check if      *
                          * any peers with snap bricks is down */
@@ -916,15 +925,6 @@ glusterd_snapshot_restore_prevalidate (dict_t *dict, char **op_errstr,
                         }
                         gf_log (this->name, GF_LOG_ERROR, "%s", *op_errstr);
                         ret = -1;
-                        goto out;
-                }
-
-                /* Take backup of the volinfo folder */
-                ret = glusterd_snapshot_backup_vol (volinfo);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to backup "
-                                "volume backend files for %s volume",
-                                volinfo->volname);
                         goto out;
                 }
         }
