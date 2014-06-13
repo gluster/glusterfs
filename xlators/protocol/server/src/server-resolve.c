@@ -42,19 +42,7 @@ resolve_loc_touchup (call_frame_t *frame)
         resolve = state->resolve_now;
         loc     = state->loc_now;
 
-        if (!loc->path) {
-                if (loc->parent && resolve->bname) {
-                        ret = inode_path (loc->parent, resolve->bname, &path);
-                        loc->name = resolve->bname;
-                } else if (loc->inode) {
-                        ret = inode_path (loc->inode, NULL, &path);
-                }
-                if (ret)
-                        gf_log (frame->this->name, GF_LOG_TRACE,
-                                "return value inode_path %d", ret);
-                loc->path = path;
-        }
-
+        loc_touchup (loc, resolve->bname);
         return 0;
 }
 

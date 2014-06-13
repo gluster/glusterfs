@@ -735,6 +735,39 @@ loc_gfid_utoa (loc_t *loc)
 }
 
 int
+loc_touchup (loc_t *loc, const char *name)
+{
+        char   *path   = NULL;
+        int    ret     = 0;
+
+        if (loc->path)
+                goto out;
+
+        if (loc->parent && name && strlen (name)) {
+                ret = inode_path (loc->parent, name, &path);
+                if (path) /*Guaranteed to have trailing '/' */
+                        loc->name = strrchr (path, '/') + 1;
+
+                if (uuid_is_null (loc->pargfid))
+                        uuid_copy (loc->pargfid, loc->parent->gfid);
+        } else if (loc->inode) {
+                ret = inode_path (loc->inode, 0, &path);
+                if (uuid_is_null (loc->gfid))
+                        uuid_copy (loc->gfid, loc->inode->gfid);
+        }
+
+        if (ret < 0 || !path) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        loc->path = path;
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 loc_copy_overload_parent (loc_t *dst, loc_t *src, inode_t *parent)
 {
         int ret = -1;
