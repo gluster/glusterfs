@@ -36,6 +36,11 @@ function check_dependencies()
         MISSING="$MISSING perl-Test-Harness"
     fi
 
+    # Check for YAJL
+    if [ ! -x /usr/bin/json_verify ]; then
+        MISSING="$MISSING yajl"
+    fi
+
     # Check for XFS programs
     env mkfs.xfs -V > /dev/null 2>&1
     if [ $? -ne 0 ]; then

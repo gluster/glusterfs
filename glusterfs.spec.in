@@ -403,7 +403,7 @@ Requires:         %{name} = %{version}-%{release}
 Requires:         %{name}-fuse = %{version}-%{release}
 Requires:         %{name}-server = %{version}-%{release}
 Requires:         perl(App::Prove) perl(Test::Harness) gcc util-linux-ng lvm2
-Requires:         python attr dbench git nfs-utils xfsprogs
+Requires:         python attr dbench file git libacl-devel mock net-tools nfs-utils xfsprogs yajl
 
 %description regression-tests
 The Gluster Test Framework, is a suite of scripts used for
