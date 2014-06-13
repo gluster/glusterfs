@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#LOG_DIR="$DEFAULT_LOG_FILE_DIRECTORY/glusterfs/geo-rep-auto-logs"
+LOG_DIR="/usr/local/var/log/geo-rep-auto-logs"
+LOG_FILE="$LOG_DIR/geo-rep-auto.log.`date +%Y%m%d-%H%M%S`"
+FILE_TYPE="text" # it can text, sparse or tar
+nf="5" # number of files in each directory when DIR_STR is MULTI
+ns="500" # number of files when DIR_STR is SINGLE
+DIR_STR="MULTI" # It can be either SINGLE or MULTI
+
+# Not using this option for now, can be used in the future.
+SYNC_MODE="rsync" # this option can take another option "tarssh"
+
+mkdir -p $LOG_DIR
