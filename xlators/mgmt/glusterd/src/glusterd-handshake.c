@@ -347,16 +347,17 @@ int32_t
 glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
                              glusterd_snap_op_t *snap_opinfo)
 {
-        char                        *device      = NULL;
-        glusterd_conf_t             *priv        = NULL;
-        glusterd_snap_t             *snap        = NULL;
-        glusterd_volinfo_t          *snap_vol    = NULL;
-        glusterd_volinfo_t          *volinfo     = NULL;
-        glusterd_brickinfo_t        *brickinfo   = NULL;
-        int32_t                      ret         = -1;
-        int32_t                      i           = 0;
-        uuid_t                       snap_uuid   = {0,};
-        xlator_t                    *this        = NULL;
+        char                        *device           = NULL;
+        char                         fstype[NAME_MAX] = "";
+        glusterd_conf_t             *priv             = NULL;
+        glusterd_snap_t             *snap             = NULL;
+        glusterd_volinfo_t          *snap_vol         = NULL;
+        glusterd_volinfo_t          *volinfo          = NULL;
+        glusterd_brickinfo_t        *brickinfo        = NULL;
+        int32_t                      ret              = -1;
+        int32_t                      i                = 0;
+        uuid_t                       snap_uuid        = {0,};
+        xlator_t                    *this             = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -431,12 +432,39 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         strncpy (brickinfo->device_path, device,
                  sizeof(brickinfo->device_path));
 
+        /* Update the backend file-system type of snap brick in
+         * snap volinfo. */
+        ret = glusterd_update_fstype (snap_opinfo->brick_path, brickinfo,
+                                      fstype, sizeof(fstype));
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to update "
+                        "file-system type for %s brick",
+                        brickinfo->path);
+                /* We should not fail snapshot operation if we fail to get
+                 * the file-system type */
+        }
+
         ret = glusterd_take_lvm_snapshot (brickinfo, snap_opinfo->brick_path);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to take snapshot of %s",
                         snap_opinfo->brick_path);
                 goto out;
+        }
+
+        /* After the snapshot both the origin brick (LVM brick) and
+         * the snapshot brick will have the same file-system UUID. This
+         * will cause lot of problems at mount time. Therefore we must
+         * generate a new UUID for the snapshot brick
+         */
+        ret = glusterd_update_fs_uuid (brickinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to update "
+                        "file-system uuid for %s brick", brickinfo->path);
+                /* Failing to update UUID should not cause snapshot failure.
+                 * Currently UUID is updated only for XFS and ext2/ext3/ext4
+                 * file-system.
+                 */
         }
 
         /* Create and mount the snap brick */
@@ -449,6 +477,7 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
                         snap_vol->snapshot->snapname);
                 goto out;
         }
+
         brickinfo->snap_status = 0;
         ret = glusterd_store_volinfo (snap_vol,
                                       GLUSTERD_VOLINFO_VER_AC_NONE);
@@ -458,7 +487,6 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
                         snap->snapname);
                 goto out;
         }
-
 
         ret = glusterd_brick_start (snap_vol, brickinfo, _gf_false);
         if (ret) {

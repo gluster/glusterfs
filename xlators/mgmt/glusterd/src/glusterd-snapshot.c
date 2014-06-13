@@ -3767,13 +3767,13 @@ out:
  *
  * @return 0 on success and -1 on failure
  */
-static int
-glusterd_update_fstype (glusterd_brickinfo_t *orig_brickinfo,
-                        glusterd_brickinfo_t *snap_brickinfo)
+int
+glusterd_update_fstype (char *orig_brick_path,
+                        glusterd_brickinfo_t *snap_brickinfo,
+                        char *fstype, size_t fslen)
 {
         int32_t               ret               = -1;
         char                 *mnt_pt            = NULL;
-        char                 *fstype            = NULL;
         char                  buff [PATH_MAX]   = "";
         char                  msg [PATH_MAX]    = "";
         char                 *cmd               = NULL;
@@ -3784,19 +3784,18 @@ glusterd_update_fstype (glusterd_brickinfo_t *orig_brickinfo,
 
         this = THIS;
         GF_ASSERT (this);
-        GF_ASSERT (orig_brickinfo);
+        GF_ASSERT (orig_brick_path);
         GF_ASSERT (snap_brickinfo);
-
-        fstype = orig_brickinfo->fstype;
+        GF_ASSERT (fstype);
 
         /* If the file-system type is not set then set the file-system type
          * in origin brickinfo */
         if (0 == fstype [0]) {
-                ret = glusterd_get_brick_root (orig_brickinfo->path, &mnt_pt);
+                ret = glusterd_get_brick_root (orig_brick_path, &mnt_pt);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "getting the root "
                                 "of the brick (%s) failed ",
-                                orig_brickinfo->path);
+                                orig_brick_path);
                         goto out;
                 }
 
@@ -3805,14 +3804,14 @@ glusterd_update_fstype (glusterd_brickinfo_t *orig_brickinfo,
                 if (!entry) {
                         gf_log (this->name, GF_LOG_ERROR, "getting the mount "
                                 "entry for the brick (%s) failed",
-                                orig_brickinfo->path);
+                                orig_brick_path);
                         ret = -1;
                         goto out;
                 }
 
                 /* Update the origin brickinfo with the backend file-system
                  * type */
-                snprintf (fstype, sizeof (orig_brickinfo->fstype), "%s",
+                snprintf (fstype, fslen, "%s",
                           entry->mnt_type);
         }
 
@@ -3866,7 +3865,9 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
 
         /* Update the backend file-system type of snap brick in
          * snap volinfo. */
-        ret = glusterd_update_fstype (original_brickinfo, snap_brickinfo);
+        ret = glusterd_update_fstype (original_brickinfo->path, snap_brickinfo,
+                                      original_brickinfo->fstype,
+                                      sizeof(original_brickinfo->fstype));
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to update "
                         "file-system type for %s brick",
@@ -3976,7 +3977,7 @@ out:
  *
  * @return 0 on success and -1 on failure
  */
-static int
+int
 glusterd_update_fs_uuid (glusterd_brickinfo_t *brickinfo)
 {
         int32_t         ret                     = -1;
@@ -4139,7 +4140,6 @@ glusterd_take_brick_snapshot (dict_t *dict, glusterd_volinfo_t *snap_vol,
                  * file-system.
                  */
         }
-
 
         /* create the complete brick here */
         ret = glusterd_snap_brick_create (snap_vol, brickinfo, brick_count);
