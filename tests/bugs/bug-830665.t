@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../nfs.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -26,6 +27,16 @@ function volinfo_field()
     $CLI volume info $vol | grep "^$field: " | sed 's/.*: //';
 }
 
+#EXPECT_WITHIN fails the test if the command it executes fails. This function
+#returns "" when the file doesn't exist
+function friendly_cat {
+        if [ ! -f $1 ];
+        then
+                echo "";
+        else
+                cat $1;
+        fi
+}
 
 ## Verify volume is created
 EXPECT "$V0" volinfo_field $V0 'Volume Name';
@@ -81,7 +92,9 @@ sleep 5;
 
 ## Force entry self-heal.
 TEST $CLI volume set $V0 cluster.self-heal-daemon on
-sleep 1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST gluster volume heal $V0 full
 #ls -lR $N0 > /dev/null;
 
@@ -89,8 +102,8 @@ TEST gluster volume heal $V0 full
 ## check, but we want to test whether self-heal already happened.
 
 ## Make sure everything's in order on the recreated brick.
-EXPECT_WITHIN $HEAL_TIMEOUT 'test_data' cat $B0/${V0}-0/a_file;
-EXPECT_WITHIN $HEAL_TIMEOUT 'more_test_data' cat $B0/${V0}-0/a_dir/another_file;
+EXPECT_WITHIN $HEAL_TIMEOUT 'test_data' friendly_cat $B0/${V0}-0/a_file;
+EXPECT_WITHIN $HEAL_TIMEOUT 'more_test_data' friendly_cat $B0/${V0}-0/a_dir/another_file;
 
 if [ "$EXIT_EARLY" = "1" ]; then
 	exit 0;
