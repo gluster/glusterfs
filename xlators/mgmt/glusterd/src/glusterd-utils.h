@@ -890,6 +890,7 @@ glusterd_snapd_set_online_status (glusterd_volinfo_t *volinfo,
 
 int
 glusterd_restart_snapds (glusterd_conf_t *priv);
+/* End snapd functions */
 
 int32_t
 glusterd_check_and_set_config_limit (glusterd_conf_t *priv);
@@ -897,10 +898,17 @@ glusterd_check_and_set_config_limit (glusterd_conf_t *priv);
 int32_t
 glusterd_is_snap_soft_limit_reached (glusterd_volinfo_t *volinfo,
                                      dict_t *dict);
-/* End snapd functions */
 
 int32_t
 glusterd_find_brick_mount_path (char *brick_path, int32_t brick_count,
                                 char **brick_mount_path);
+
+int
+glusterd_update_fstype (char *orig_brick_path,
+                        glusterd_brickinfo_t *snap_brickinfo,
+                        char *fstype, size_t fslen);
+
+int
+glusterd_update_fs_uuid (glusterd_brickinfo_t *brickinfo);
 
 #endif
