@@ -1451,6 +1451,14 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                 local->xattr_req = dict_new ();
         }
 
+        /* Older (glusterfs 3.4) clients don't set this. If set, the server
+         * sends ESTALE when ENOENT occurs. */
+        ret = dict_set_int32 (local->xattr_req, "missing-gfid-ESTALE", 1);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "%s: Unable to set dict value for missing-gfid-ESTALE",
+                        loc->path);
+        }
         if (uuid_is_null (loc->pargfid) && !uuid_is_null (loc->gfid) &&
             !__is_root_gfid (loc->inode->gfid)) {
                 local->cached_subvol = NULL;

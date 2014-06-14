@@ -99,6 +99,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         int32_t     op_ret             = -1;
         int32_t     entry_ret          = 0;
         int32_t     op_errno           = 0;
+        int32_t missing_gfid_estale    = 0;
         dict_t *    xattr              = NULL;
         char *      real_path          = NULL;
         char *      par_path           = NULL;
@@ -125,6 +126,8 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         }
 
         op_ret = dict_get_int32 (xdata, GF_GFIDLESS_LOOKUP, &gfidless);
+        op_ret = dict_get_int32 (xdata, "missing-gfid-ESTALE",
+                                 &missing_gfid_estale);
         op_ret = -1;
         if (uuid_is_null (loc->pargfid) || (loc->name == NULL)) {
                 /* nameless lookup */
@@ -165,12 +168,17 @@ parent:
                         gf_log (this->name, GF_LOG_ERROR,
                                 "post-operation lstat on parent %s failed: %s",
                                 par_path, strerror (op_errno));
-			if (op_errno == ENOENT)
+			if (op_errno == ENOENT) {
 				/* If parent directory is missing in a lookup,
 				   errno should be ESTALE (bad handle) and not
-				   ENOENT (missing entry)
+				   ENOENT (missing entry). But do this only for
+                                   3.5 clients or newer. Older clients (AFR)
+                                   still expect ENOENT to function correctly.
 				*/
-				op_errno = ESTALE;
+                                if (missing_gfid_estale) {
+				        op_errno = ESTALE;
+                                }
+                        }
                         goto out;
                 }
         }
