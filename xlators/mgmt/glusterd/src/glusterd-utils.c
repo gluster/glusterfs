@@ -5814,7 +5814,7 @@ out:
         return rpc;
 }
 
-inline struct rpc_clnt*
+static inline struct rpc_clnt*
 glusterd_snapd_get_rpc (glusterd_volinfo_t *volinfo)
 {
         return volinfo->snapd.rpc;
@@ -13215,7 +13215,7 @@ glusterd_snapd_set_online_status (glusterd_volinfo_t *volinfo,
         volinfo->snapd.online = status;
 }
 
-inline void
+static inline void
 glusterd_snapd_set_rpc (glusterd_volinfo_t *volinfo, struct rpc_clnt *rpc)
 {
         volinfo->snapd.rpc = rpc;
@@ -13265,7 +13265,8 @@ glusterd_snapd_disconnect (glusterd_volinfo_t *volinfo)
         glusterd_conf_t         *priv = THIS->private;
 
         rpc = glusterd_snapd_get_rpc (volinfo);
-        (void)glusterd_snapd_set_rpc (volinfo, NULL);
+
+        (void) glusterd_snapd_set_rpc (volinfo, NULL);
 
         if (rpc)
                 glusterd_rpc_clnt_unref (priv, rpc);
