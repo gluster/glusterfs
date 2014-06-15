@@ -7,6 +7,10 @@ function get_mtime {
         local f=$1
         stat $f | grep Modify | awk '{print $2 $3}' | cut -f1 -d'.'
 }
+
+function file_exists {
+        if [ -f $1 ]; then echo "Y"; else echo "N"; fi
+}
 cleanup;
 
 ## Tests if mtime is correct after self-heal.
@@ -39,11 +43,17 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1
 
 TEST $CLI volume set $V0 cluster.self-heal-daemon on
-sleep 1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
+
 TEST gluster volume heal $V0 full
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" file_exists $B0/gfs0/brick01/a
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" file_exists $B0/gfs0/brick01/b
+EXPECT_WITHIN $HEAL_TIMEOUT 0 afr_get_pending_heal_count $V0
 
 size=`stat -c '%s' /etc/passwd`
-EXPECT_WITHIN $HEAL_TIMEOUT $size stat -c '%s' $B0/gfs0/brick01/a
+EXPECT $size stat -c '%s' $B0/gfs0/brick01/a
 
 TEST modify_atstamp1=$(get_mtime $B0/gfs0/brick01/a)
 TEST modify_atstamp2=$(get_mtime $B0/gfs0/brick02/a)
