@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -23,13 +24,13 @@ TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $
 dd of=$M0/a if=/dev/urandom bs=1M count=1 2>&1 > /dev/null
 B0_hiphenated=`echo $B0 | tr '/' '-'`
 ## Bring a brick down
-kill -9 `cat /var/lib/glusterd/vols/$V0/run/$H0$B0_hiphenated-${V0}1.pid`
+TEST kill_brick $V0 $H0 $B0/${V0}1
 EXPECT '1' echo `pgrep glusterfsd | wc -l`
 ## Rewrite the file
 dd of=$M0/a if=/dev/urandom bs=1M count=1 2>&1 > /dev/null
 TEST $CLI volume start $V0 force
 ## Wait for the brick to give CHILD_UP in client protocol
-sleep 5
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 md5offile2=`md5sum $B0/${V0}2/a | awk '{print $1}'`
 
 ##trigger self-heal

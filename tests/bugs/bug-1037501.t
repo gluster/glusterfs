@@ -40,11 +40,38 @@ TEST $CLI volume add-brick $V0 replica 4 $H0:$B0/$V0-3 force
 TEST $CLI volume add-brick $V0 replica 5 $H0:$B0/$V0-4 force
 TEST $CLI volume add-brick $V0 replica 6 $H0:$B0/$V0-5 force
 
-sleep 5
-
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 3
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 4
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 5
 TEST gluster volume heal $V0 full
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-0/File
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-1/File
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-2/File
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-3/File
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-4/File
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-5/File
 
-sleep 5
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-0/Link
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-1/Link
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-2/Link
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-3/Link
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-4/Link
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-5/Link
+
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-0/Dir
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-1/Dir
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-2/Dir
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-3/Dir
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-4/Dir
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-5/Dir
+
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-0/FIFO
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-1/FIFO
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-2/FIFO
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-3/FIFO
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-4/FIFO
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/$V0-5/FIFO
 
 EXPECT 10 stat -c '%s' $B0/$V0-0/File
 EXPECT 10 stat -c '%s' $B0/$V0-1/File

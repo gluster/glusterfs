@@ -25,7 +25,6 @@ TEST $CLI volume start $V0
 
 ## Mount FUSE
 TEST glusterfs -s $H0 --volfile-id $V0 $M0;
-sleep 5;
 
 TEST touch $M0/files{1..10000};
 

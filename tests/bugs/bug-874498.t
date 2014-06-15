@@ -1,5 +1,6 @@
 #!/bin/bash
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 . $(dirname $0)/../afr.rc
 
 cleanup;
@@ -48,7 +49,9 @@ EXPECT "3" echo $count
 
 
 TEST $CLI volume start $V0 force
-sleep 5
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
 
 

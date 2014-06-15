@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 . $(dirname $0)/../nfs.rc
 
 cleanup;
@@ -28,10 +29,7 @@ do
 done;
 
 cd ..
-kill  `cat /var/lib/glusterd/vols/$V0/run/$H0-d-backends-brick0.pid`
-sleep 2
-
-
+TEST kill_brick $V0 $H0 $B0/brick0
 cd test_hardlink_self_heal;
 
 RET=0

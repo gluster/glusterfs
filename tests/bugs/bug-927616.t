@@ -11,7 +11,6 @@ TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{1,2};
 TEST $CLI volume set $V0 performance.open-behind off;
 TEST $CLI volume start $V0
 
-sleep 1;
 ## Mount FUSE with caching disabled
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
 

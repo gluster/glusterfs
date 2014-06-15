@@ -11,7 +11,6 @@ TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{1,2};
 TEST $CLI volume set $V0 performance.open-behind off;
 TEST $CLI volume start $V0
 
-sleep 2;
 ## Mount FUSE with caching disabled
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
 
@@ -31,8 +30,6 @@ chown -R nfsnobody:nfsnobody $M0/dir;
 chown -R tmp_user:tmp_user $M0/other;
 
 TEST $CLI volume set $V0 server.root-squash on;
-
-sleep 2;
 
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 

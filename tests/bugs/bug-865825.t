@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -58,7 +59,10 @@ setfattr -x trusted.afr.${V0}-client-2 $B0/${V0}-1/a_file
 echo "wrong_data" > $B0/${V0}-2/a_file
 
 gluster volume set $V0 cluster.self-heal-daemon on
-sleep 10
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 2
 gluster volume heal $V0 full
 
 ## Make sure brick 2 now has the correct contents.
