@@ -369,3 +369,8 @@ function landfill_entry_count {
         local brick=$1
         ls $brick/.glusterfs/landfill | wc -l
 }
+
+function path_exists {
+        stat $1
+        if [ $? -eq 0 ]; then echo "Y"; else echo "N"; fi
+}
