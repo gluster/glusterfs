@@ -14,11 +14,8 @@ TEST $CLI volume set $V0 debug.log-history on
 
 TEST $CLI volume start $V0;
 
-sleep 1;
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 \
 $M0;
-
-sleep 5;
 
 touch $M0/{1..22};
 rm -f $M0/*;

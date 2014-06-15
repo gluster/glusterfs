@@ -32,7 +32,7 @@ TEST $CLI volume set $V0 debug.error-gen client
 TEST $CLI volume set $V0 debug.error-fops stat
 TEST $CLI volume set $V0 debug.error-failure 100
 
-sleep 1
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 
 pid_file=$(read_nfs_pidfile);
 

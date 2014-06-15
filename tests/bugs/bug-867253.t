@@ -1,6 +1,8 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
+. $(dirname $0)/../nfs.rc
 
 cleanup;
 
@@ -26,7 +28,7 @@ TEST pidof glusterd
 TEST $CLI volume create $V0 $H0:$B0/${V0}0 $H0:$B0/${V0}1
 TEST $CLI volume start $V0
 
-sleep 5;
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 ## Mount nfs, with nocache option
 TEST mount -o vers=3,nolock,noac -t nfs $H0:/$V0 $M0;
 

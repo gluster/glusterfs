@@ -9,9 +9,6 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 $H0:$B0/brick0
 TEST $CLI volume start $V0
-
-sleep 5
-
 TEST glusterfs -s $H0 --volfile-id $V0 $M0
 
 mount_pid=$(get_mount_process_pid $V0);

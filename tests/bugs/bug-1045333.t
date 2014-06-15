@@ -30,16 +30,8 @@ TEST snapshot_exists 0 $S3
 
 
 TEST glusterfs -s $H0 --volfile-id=/snaps/$S1/$V0 $M0
-sleep 2
-TEST umount -f $M0
-
-TEST glusterfs -s $H0 --volfile-id=/snaps/$S2/$V0 $M0
-sleep 2
-TEST umount -f $M0
-
-TEST glusterfs -s $H0 --volfile-id=/snaps/$S3/$V0 $M0
-sleep 2
-TEST umount -f $M0
+TEST glusterfs -s $H0 --volfile-id=/snaps/$S2/$V0 $M1
+TEST glusterfs -s $H0 --volfile-id=/snaps/$S3/$V0 $M2
 
 #Clean up
 #TEST $CLI snapshot delete $S1
