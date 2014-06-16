@@ -112,6 +112,7 @@ enum gf_probe_resp {
         GF_PROBE_QUORUM_NOT_MET,
         GF_PROBE_MISSED_SNAP_CONFLICT,
         GF_PROBE_SNAP_CONFLICT,
+        GF_PROBE_FRIEND_DETACHING,
 };
 
 enum gf_deprobe_resp {
@@ -121,6 +122,7 @@ enum gf_deprobe_resp {
         GF_DEPROBE_BRICK_EXIST,
         GF_DEPROBE_FRIEND_DOWN,
         GF_DEPROBE_QUORUM_NOT_MET,
+        GF_DEPROBE_FRIEND_DETACHING,
 };
 
 enum gf_cbk_procnum {

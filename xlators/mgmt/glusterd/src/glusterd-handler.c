@@ -1042,6 +1042,7 @@ __glusterd_handle_cli_probe (rpcsvc_request_t *req)
         dict_t                        *dict = NULL;
         char                      *hostname = NULL;
         int                            port = 0;
+        int                        op_errno = 0;
 
         GF_ASSERT (req);
         this = THIS;
@@ -1119,12 +1120,17 @@ __glusterd_handle_cli_probe (rpcsvc_request_t *req)
                         goto out;
                 }
         }
-        ret = glusterd_probe_begin (req, hostname, port, dict);
+        ret = glusterd_probe_begin (req, hostname, port, dict, &op_errno);
 
         if (ret == GLUSTERD_CONNECTION_AWAITED) {
                 //fsm should be run after connection establishes
                 run_fsm = _gf_false;
                 ret = 0;
+
+        } else if (ret == -1) {
+                glusterd_xfer_cli_probe_resp (req, -1, op_errno,
+                                              NULL, hostname, port, dict);
+                goto out;
         }
 
 out:
@@ -1254,9 +1260,11 @@ __glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
         }
 
         if (!uuid_is_null (uuid)) {
-                ret = glusterd_deprobe_begin (req, hostname, port, uuid, dict);
+                ret = glusterd_deprobe_begin (req, hostname, port, uuid, dict,
+                                              &op_errno);
         } else {
-                ret = glusterd_deprobe_begin (req, hostname, port, NULL, dict);
+                ret = glusterd_deprobe_begin (req, hostname, port, NULL, dict,
+                                              &op_errno);
         }
 
 out:
@@ -3160,7 +3168,7 @@ out:
 
 int
 glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
-                      dict_t *dict)
+                      dict_t *dict, int *op_errno)
 {
         int                             ret = -1;
         glusterd_peerinfo_t             *peerinfo = NULL;
@@ -3186,6 +3194,12 @@ glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
 
         } else if (peerinfo->connected &&
                    (GD_FRIEND_STATE_BEFRIENDED == peerinfo->state.state)) {
+                if (peerinfo->detaching) {
+                        ret = -1;
+                        if (op_errno)
+                                *op_errno = GF_PROBE_FRIEND_DETACHING;
+                        goto out;
+                }
                 ret = glusterd_friend_hostname_update (peerinfo, (char*)hoststr,
                                                        _gf_false);
                 if (ret)
@@ -3212,7 +3226,7 @@ out:
 
 int
 glusterd_deprobe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
-                        uuid_t uuid, dict_t *dict)
+                        uuid_t uuid, dict_t *dict, int *op_errno)
 {
         int                             ret = -1;
         glusterd_peerinfo_t             *peerinfo = NULL;
@@ -3232,6 +3246,13 @@ glusterd_deprobe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
 
         if (!peerinfo->rpc) {
                 //handle this case
+                goto out;
+        }
+
+        if (peerinfo->detaching) {
+                ret = -1;
+                if (op_errno)
+                        *op_errno = GF_DEPROBE_FRIEND_DETACHING;
                 goto out;
         }
 
@@ -3266,6 +3287,7 @@ glusterd_deprobe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
                         "ret = %d", event->event, ret);
                 goto out;
         }
+        peerinfo->detaching = _gf_true;
 
 out:
         return ret;
@@ -3353,6 +3375,12 @@ set_probe_error_str (int op_ret, int op_errno, char *op_errstr, char *errstr,
                                           " in peer list", hostname, port);
                                 break;
 
+                        case GF_PROBE_FRIEND_DETACHING:
+                                snprintf (errstr, len, "Peer is already being "
+                                          "detached from cluster.\n"
+                                          "Check peer status by running "
+                                          "gluster peer status");
+                                break;
                         default:
                                 if (op_errno != 0)
                                         snprintf (errstr, len, "Probe returned "
@@ -3498,6 +3526,12 @@ set_deprobe_error_str (int op_ret, int op_errno, char *op_errstr, char *errstr,
                                           "in this state");
                                 break;
 
+                        case GF_DEPROBE_FRIEND_DETACHING:
+                                snprintf (errstr, len, "Peer is already being "
+                                          "detached from cluster.\n"
+                                          "Check peer status by running "
+                                          "gluster peer status");
+                                break;
                         default:
                                 snprintf (errstr, len, "Detach returned with "
                                           "unknown errno %d", op_errno);

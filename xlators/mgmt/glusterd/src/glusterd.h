@@ -638,7 +638,7 @@ glusterd_brick_from_brickinfo (glusterd_brickinfo_t *brickinfo,
                                char **new_brick);
 int
 glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
-                      dict_t *dict);
+                      dict_t *dict, int *op_errno);
 
 int
 glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *myhostname,
@@ -732,7 +732,7 @@ glusterd_xfer_friend_remove_resp (rpcsvc_request_t *req, char *hostname, int por
 
 int
 glusterd_deprobe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
-                        uuid_t uuid, dict_t *dict);
+                        uuid_t uuid, dict_t *dict, int *op_errno);
 
 int
 glusterd_handle_cli_deprobe (rpcsvc_request_t *req);
