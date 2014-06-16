@@ -486,13 +486,14 @@ typedef enum {
         gf_timefmt_default = 0,
         gf_timefmt_FT = 0,  /* YYYY-MM-DD hh:mm:ss */
         gf_timefmt_Ymd_T,   /* YYYY/MM-DD-hh:mm:ss */
-        gf_timefmt_bdT,     /* ddd DD hh:mm:ss */
+        gf_timefmt_bdT,     /* MMM DD hh:mm:ss */
         gf_timefmt_F_HMS,   /* YYYY-MM-DD hhmmss */
 	gf_timefmt_dirent,
+        gf_timefmt_s,
         gf_timefmt_last
 } gf_timefmts;
 
-static inline void
+static inline char *
 gf_time_fmt (char *dst, size_t sz_dst, time_t utime, unsigned int fmt)
 {
         extern void _gf_timestuff (gf_timefmts *, const char ***, const char ***);
@@ -509,6 +510,7 @@ gf_time_fmt (char *dst, size_t sz_dst, time_t utime, unsigned int fmt)
         } else {
                 strncpy (dst, "N/A", sz_dst);
         }
+        return dst;
 }
 
 int

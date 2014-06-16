@@ -2476,6 +2476,7 @@ int
 client_init_grace_timer (xlator_t *this, dict_t *options,
                          clnt_conf_t *conf)
 {
+        char      timestr[64]    = {0,};
         char     *lk_heal        = NULL;
         int32_t   ret            = -1;
         int32_t   grace_timeout  = -1;
@@ -2501,8 +2502,10 @@ client_init_grace_timer (xlator_t *this, dict_t *options,
 
         conf->grace_ts.tv_nsec  = 0;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Client grace timeout "
-                "value = %"GF_PRI_SECOND, conf->grace_ts.tv_sec);
+        gf_time_fmt (timestr, sizeof timestr, conf->grace_ts.tv_sec,
+                     gf_timefmt_s);
+        gf_log (this->name, GF_LOG_DEBUG, "Client grace timeout value = %s",
+                timestr);
 
         ret = 0;
 out:

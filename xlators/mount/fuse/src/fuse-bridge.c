@@ -5003,21 +5003,15 @@ out:
 int
 dump_history_fuse (circular_buffer_t *cb, void *data)
 {
-        char       *string   =  NULL;
-        struct tm  *tm       =  NULL;
         char       timestr[256] = {0,};
 
-        string = (char *)cb->data;
-        tm = localtime (&cb->tv.tv_sec);
+        gf_time_fmt (timestr, sizeof timestr, cb->tv.tv_sec, gf_timefmt_F_HMS);
 
-        if (tm) {
-                strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
-                snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
-                          ".%"GF_PRI_SUSECONDS, cb->tv.tv_usec);
-                gf_proc_dump_write ("TIME", "%s", timestr);
-        }
+        snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                  ".%"GF_PRI_SUSECONDS, cb->tv.tv_usec);
+        gf_proc_dump_write ("TIME", "%s", timestr);
 
-        gf_proc_dump_write ("message", "%s\n", string);
+        gf_proc_dump_write ("message", "%s\n", cb->data);
 
         return 0;
 }
