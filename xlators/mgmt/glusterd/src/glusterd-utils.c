@@ -13385,6 +13385,8 @@ glusterd_snapd_start (glusterd_volinfo_t *volinfo, gf_boolean_t wait)
                 synclock_lock (&priv->big_lock);
         }
 
+        volinfo->snapd.port = snapd_port;
+
 connect:
         if (ret == 0)
                 glusterd_snapd_connect (volinfo, sockfpath);

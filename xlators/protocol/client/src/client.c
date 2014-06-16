@@ -2756,6 +2756,8 @@ client_priv_dump (xlator_t *this)
 
         gf_proc_dump_write("connecting", "%d", conf->connecting);
 
+        gf_proc_dump_write ("connected", "%d", conf->connected);
+
         if (conf->rpc) {
                 gf_proc_dump_write("total_bytes_read", "%"PRIu64,
                                    conf->rpc->conn.trans->total_bytes_read);
