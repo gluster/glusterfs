@@ -42,14 +42,6 @@ for i in {11..20} ; do echo "foo" > $M0/dir2/foo$i ; done
 
 TEST $CLI snapshot create snap4 $V0;
 
-UUIDS=$($CLI snapshot info | grep  -i snap | grep -i Volume | grep -i Name | cut -d':' -f 2);
-
-echo $UUIDS > /tmp/tmp-snap-uuids;
-
-NAMES=$($CLI snapshot info | grep Snapshot  | cut -d':' -f 2);
-
-echo $NAMES > /tmp/tmp-snap_names;
-
 TEST $CLI volume set $V0 features.uss enable;
 
 TEST umount $M0;
@@ -250,8 +242,5 @@ TEST fd_cat $fd3;
 TEST fd_close $fd1;
 TEST fd_close $fd2;
 TEST fd_close $fd3;
-
-rm -f /tmp/tmp-snap-uuids;
-rm -f /tmp/tmp-snap_names;
 
 cleanup;
