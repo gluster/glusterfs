@@ -1673,7 +1673,7 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                          * error will be captured
                          */
 
-                        linked_inode = inode_link (entry_loc.inode, loc->parent,
+                        linked_inode = inode_link (entry_loc.inode, loc->inode,
                                                    entry->d_name,
                                                    &entry->d_stat);
 
