@@ -989,7 +989,8 @@ glusterd_quotad_op (int opcode)
                         if (glusterd_all_volumes_with_quota_stopped ())
                                 ret = glusterd_quotad_stop ();
                         else
-                                ret = glusterd_check_generate_start_quotad ();
+                                ret = glusterd_check_generate_start_quotad_wait
+                                        ();
                         break;
 
                 default:

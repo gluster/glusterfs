@@ -6037,6 +6037,12 @@ glusterd_shd_start ()
 int
 glusterd_quotad_start ()
 {
+        return glusterd_nodesvc_start ("quotad", _gf_false);
+}
+
+int
+glusterd_quotad_start_wait ()
+{
         return glusterd_nodesvc_start ("quotad", _gf_true);
 }
 
@@ -6411,6 +6417,20 @@ glusterd_check_generate_start_quotad ()
         ret = glusterd_check_generate_start_service (glusterd_create_quotad_volfile,
                                                      glusterd_quotad_stop,
                                                      glusterd_quotad_start);
+        if (ret == -EINVAL)
+                ret = 0;
+        return ret;
+}
+
+/* Blocking start variant of glusterd_check_generate_start_quotad */
+int
+glusterd_check_generate_start_quotad_wait ()
+{
+        int ret = 0;
+
+        ret = glusterd_check_generate_start_service
+                (glusterd_create_quotad_volfile, glusterd_quotad_stop,
+                 glusterd_quotad_start_wait);
         if (ret == -EINVAL)
                 ret = 0;
         return ret;

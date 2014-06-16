@@ -223,6 +223,9 @@ int32_t
 glusterd_quotad_start ();
 
 int32_t
+glusterd_quotad_start_wait ();
+
+int32_t
 glusterd_quotad_stop ();
 
 void
@@ -266,6 +269,9 @@ glusterd_check_generate_start_shd (void);
 
 int
 glusterd_check_generate_start_quotad (void);
+
+int
+glusterd_check_generate_start_quotad_wait (void);
 
 int
 glusterd_nodesvcs_handle_graph_change (glusterd_volinfo_t *volinfo);
