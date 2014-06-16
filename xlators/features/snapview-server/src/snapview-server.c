@@ -58,9 +58,17 @@ snaplist_worker (void *data)
         ctx = this->ctx;
         GF_ASSERT (ctx);
 
-        pthread_mutex_lock (&priv->snaplist_lock);
+        ret = pthread_mutex_lock (&priv->snaplist_lock);
+        if (ret != 0) {
+                goto out;
+        }
+
         priv->is_snaplist_done = 1;
-        pthread_mutex_unlock (&priv->snaplist_lock);
+
+        ret = pthread_mutex_unlock (&priv->snaplist_lock);
+        if (ret != 0) {
+                goto out;
+        }
 
         while (1) {
                 timeout.tv_sec = 300;
@@ -68,15 +76,36 @@ snaplist_worker (void *data)
                 priv->snap_timer = gf_timer_call_after (ctx, timeout,
                                                         snaplist_refresh,
                                                         data);
-
-                pthread_mutex_lock (&mutex);
+                ret = pthread_mutex_lock (&mutex);
+                if (ret != 0) {
+                        goto out;
+                }
+                        /*
+                         * We typically expect this mutex lock to succeed
+                         * A corner case might be when snaplist_worker is
+                         * scheduled and it tries to acquire this lock
+                         * but we are in the middle of xlator _fini()
+                         * when the mutex is itself being destroyed.
+                         * To prevent any undefined behavior or segfault
+                         * at that point, we check the ret here.
+                         * If mutex is destroyed we expect a EINVAL for a
+                         * mutex which is not initialized properly.
+                         * Bail then.
+                         * Same for the unlock case.
+                         */
                 while (!snap_worker_resume) {
                         pthread_cond_wait (&condvar, &mutex);
                 }
+
                 snap_worker_resume = _gf_false;
-                pthread_mutex_unlock (&mutex);
+
+                ret = pthread_mutex_unlock (&mutex);
+                if (ret != 0) {
+                        goto out;
+                }
         }
 
+out:
         return NULL;
 }
 
@@ -371,6 +400,12 @@ out:
         free (rsp.dict.dict_val);
         free (rsp.op_errstr);
 
+        if (ret && dirents) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Could not update dirents with refreshed snap list");
+                GF_FREE (dirents);
+        }
+
         if (myframe)
                 SVS_STACK_DESTROY (myframe);
 
@@ -381,12 +416,13 @@ error_out:
 int
 svs_get_snapshot_list (xlator_t *this)
 {
-        gf_getsnap_name_uuid_req        req     = {{0,}};
-        int                             ret     = 0;
-        dict_t                          *dict   = NULL;
-        glusterfs_ctx_t                 *ctx    = NULL;
-        call_frame_t                    *frame  = NULL;
-        svs_private_t                   *priv   = NULL;
+        gf_getsnap_name_uuid_req        req             = {{0,}};
+        int                             ret             = 0;
+        dict_t                          *dict           = NULL;
+        glusterfs_ctx_t                 *ctx            = NULL;
+        call_frame_t                    *frame          = NULL;
+        svs_private_t                   *priv           = NULL;
+        gf_boolean_t                    frame_cleanup   = _gf_false;
 
         ctx  = this->ctx;
         if (!ctx) {
@@ -409,22 +445,28 @@ svs_get_snapshot_list (xlator_t *this)
         dict = dict_new ();
         if (!dict) {
                 ret = -1;
-                goto frame_destroy;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Error allocating dictionary");
+                frame_cleanup = _gf_true;
+                goto out;
         }
 
         ret = dict_set_str (dict, "volname", priv->volname);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Error setting volname in dict");
-                goto frame_destroy;
+                frame_cleanup = _gf_true;
+                goto out;
         }
+
         ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
                                            &req.dict.dict_len);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to serialize dictionary");
                 ret = -1;
-                goto frame_destroy;
+                frame_cleanup = _gf_true;
+                goto out;
         }
 
         ret = svs_mgmt_submit_request (&req, frame, ctx,
@@ -436,7 +478,6 @@ svs_get_snapshot_list (xlator_t *this)
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Error sending snapshot names RPC request");
-                goto frame_destroy;
         }
 
 out:
@@ -445,16 +486,16 @@ out:
         }
         GF_FREE (req.dict.dict_val);
 
-        return ret;
+        if (frame_cleanup) {
+                /*
+                 * Destroy the frame if we encountered an error
+                 * Else we need to clean it up in
+                 * mgmt_get_snapinfo_cbk
+                 */
+                SVS_STACK_DESTROY (frame);
+        }
 
-frame_destroy:
-        /*
-         * Destroy the frame if we encountered an error
-         * Else we need to clean it up in
-         * mgmt_get_snapinfo_cbk
-         */
-        SVS_STACK_DESTROY (frame);
-        goto out;
+        return ret;
 }
 
 int
@@ -2765,9 +2806,12 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("volname", priv->volname, str, out);
         pthread_mutex_init (&(priv->snaplist_lock), NULL);
+
+        pthread_mutex_lock (&priv->snaplist_lock);
         priv->is_snaplist_done = 0;
         priv->num_snaps = 0;
         snap_worker_resume = _gf_false;
+        pthread_mutex_unlock (&priv->snaplist_lock);
 
         /* get the list of snaps first to return to client xlator */
         ret = svs_get_snapshot_list (this);
