@@ -22,1026 +22,6 @@
 #include "syscall.h"
 #include <pthread.h>
 
-static pthread_mutex_t  mutex   = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t   condvar = PTHREAD_COND_INITIALIZER;
-static gf_boolean_t     snap_worker_resume;
-
-void
-snaplist_refresh (void *data)
-{
-        xlator_t        *this   = NULL;
-        int             ret     = 0;
-        svs_private_t   *priv   = NULL;
-
-        this = data;
-        priv = this->private;
-
-        ret = svs_get_snapshot_list (this);
-        if (ret) {
-                gf_log ("snapview-server", GF_LOG_WARNING,
-                        "Error retrieving refreshed snapshot list");
-        }
-
-        return;
-}
-
-void *
-snaplist_worker (void *data)
-{
-        xlator_t        *this   = NULL;
-        int             ret     = 0;
-        struct timespec timeout = {0, };
-        svs_private_t   *priv   = NULL;
-        glusterfs_ctx_t *ctx    = NULL;
-
-        this = data;
-        priv = this->private;
-        ctx = this->ctx;
-        GF_ASSERT (ctx);
-
-        ret = pthread_mutex_lock (&priv->snaplist_lock);
-        if (ret != 0) {
-                goto out;
-        }
-
-        priv->is_snaplist_done = 1;
-
-        ret = pthread_mutex_unlock (&priv->snaplist_lock);
-        if (ret != 0) {
-                goto out;
-        }
-
-        while (1) {
-                timeout.tv_sec = 300;
-                timeout.tv_nsec = 0;
-                priv->snap_timer = gf_timer_call_after (ctx, timeout,
-                                                        snaplist_refresh,
-                                                        data);
-                ret = pthread_mutex_lock (&mutex);
-                if (ret != 0) {
-                        goto out;
-                }
-                        /*
-                         * We typically expect this mutex lock to succeed
-                         * A corner case might be when snaplist_worker is
-                         * scheduled and it tries to acquire this lock
-                         * but we are in the middle of xlator _fini()
-                         * when the mutex is itself being destroyed.
-                         * To prevent any undefined behavior or segfault
-                         * at that point, we check the ret here.
-                         * If mutex is destroyed we expect a EINVAL for a
-                         * mutex which is not initialized properly.
-                         * Bail then.
-                         * Same for the unlock case.
-                         */
-                while (!snap_worker_resume) {
-                        pthread_cond_wait (&condvar, &mutex);
-                }
-
-                snap_worker_resume = _gf_false;
-
-                ret = pthread_mutex_unlock (&mutex);
-                if (ret != 0) {
-                        goto out;
-                }
-        }
-
-out:
-        return NULL;
-}
-
-int
-svs_mgmt_submit_request (void *req, call_frame_t *frame,
-                         glusterfs_ctx_t *ctx,
-                         rpc_clnt_prog_t *prog, int procnum,
-                         fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
-{
-        int                     ret        = -1;
-        int                     count      = 0;
-        struct iovec            iov        = {0, };
-        struct iobuf            *iobuf     = NULL;
-        struct iobref           *iobref    = NULL;
-        ssize_t                 xdr_size   = 0;
-
-        GF_VALIDATE_OR_GOTO ("snapview-server", frame, out);
-        GF_VALIDATE_OR_GOTO ("snapview-server", req, out);
-        GF_VALIDATE_OR_GOTO ("snapview-server", ctx, out);
-        GF_VALIDATE_OR_GOTO ("snapview-server", prog, out);
-
-        GF_ASSERT (frame->this);
-
-        iobref = iobref_new ();
-        if (!iobref) {
-                goto out;
-        }
-
-        if (req) {
-                xdr_size = xdr_sizeof (xdrproc, req);
-
-                iobuf = iobuf_get2 (ctx->iobuf_pool, xdr_size);
-                if (!iobuf) {
-                        goto out;
-                }
-
-                iobref_add (iobref, iobuf);
-
-                iov.iov_base = iobuf->ptr;
-                iov.iov_len  = iobuf_pagesize (iobuf);
-
-                /* Create the xdr payload */
-                ret = xdr_serialize_generic (iov, req, xdrproc);
-                if (ret == -1) {
-                        gf_log (frame->this->name, GF_LOG_WARNING,
-                                "Failed to create XDR payload");
-                        goto out;
-                }
-                iov.iov_len = ret;
-                count = 1;
-        }
-
-        ret = rpc_clnt_submit (ctx->mgmt, prog, procnum, cbkfn,
-                               &iov, count,
-                               NULL, 0, iobref, frame, NULL, 0, NULL, 0, NULL);
-
-out:
-        if (iobref)
-                iobref_unref (iobref);
-
-        if (iobuf)
-                iobuf_unref (iobuf);
-        return ret;
-}
-
-
-int mgmt_get_snapinfo_cbk (struct rpc_req *req, struct iovec *iov,
-                           int count, void *myframe)
-{
-        gf_getsnap_name_uuid_rsp        rsp             = {0,};
-        call_frame_t                    *frame          = NULL;
-        glusterfs_ctx_t                 *ctx            = NULL;
-        int                             ret             = 0;
-        dict_t                          *dict           = NULL;
-        char                            key[1024]       = {0};
-        int                             snapcount       = 0;
-        svs_private_t                   *priv           = NULL;
-        xlator_t                        *this           = NULL;
-        int                             i               = 0;
-        int                             j               = 0;
-        char                            *value          = NULL;
-        snap_dirent_t                   *dirents        = NULL;
-        snap_dirent_t                   *old_dirents    = NULL;
-
-        GF_VALIDATE_OR_GOTO ("snapview-server", req, error_out);
-        GF_VALIDATE_OR_GOTO ("snapview-server", myframe, error_out);
-        GF_VALIDATE_OR_GOTO ("snapview-server", iov, error_out);
-
-        frame       = myframe;
-        this        = frame->this;
-        ctx         = frame->this->ctx;
-        priv        = this->private;
-        old_dirents = priv->dirents;
-
-        if (!ctx) {
-                gf_log (frame->this->name, GF_LOG_ERROR, "NULL context");
-                errno = EINVAL;
-                ret = -1;
-                goto out;
-        }
-
-        if (-1 == req->rpc_status) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
-                        "RPC call is not successful");
-                errno = EINVAL;
-                ret = -1;
-                goto out;
-        }
-
-        ret = xdr_to_generic (*iov, &rsp,
-                              (xdrproc_t)xdr_gf_getsnap_name_uuid_rsp);
-        if (ret < 0) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
-                        "Failed to decode xdr response, rsp.op_ret = %d",
-                        rsp.op_ret);
-                goto out;
-        }
-
-        if (rsp.op_ret == -1) {
-                errno = rsp.op_errno;
-                ret = -1;
-                goto out;
-        }
-
-        if (!rsp.dict.dict_len) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
-                        "Response dict is not populated");
-                ret = -1;
-                errno = EINVAL;
-                goto out;
-        }
-
-        dict = dict_new ();
-        if (!dict) {
-                ret = -1;
-                errno = ENOMEM;
-                goto out;
-        }
-
-        ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len, &dict);
-        if (ret) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
-                        "Failed to unserialize dictionary");
-                errno = EINVAL;
-                goto out;
-        }
-
-        ret = dict_get_int32 (dict, "snap-count", (int32_t*)&snapcount);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Error retrieving snapcount");
-                        errno = EINVAL;
-                        ret = -1;
-                        goto out;
-        }
-
-        pthread_mutex_lock (&priv->snaplist_lock);
-
-        if ((priv->num_snaps == 0) &&
-            (snapcount != 0)) {
-                /* first time we are fetching snap list */
-                dirents = GF_CALLOC (snapcount, sizeof (snap_dirent_t),
-                                     gf_svs_mt_dirents_t);
-                if (!dirents) {
-                        gf_log (frame->this->name, GF_LOG_ERROR,
-                                "Unable to allocate memory");
-                        errno = ENOMEM;
-                        ret = -1;
-                        goto unlock;
-                }
-        } else {
-                /* fetch snaplist dynamically at run-time */
-                dirents = GF_CALLOC (snapcount, sizeof (snap_dirent_t),
-                                     gf_svs_mt_dirents_t);
-                if (!dirents) {
-                        gf_log (frame->this->name, GF_LOG_ERROR,
-                                "Unable to allocate memory");
-                                errno = ENOMEM;
-                                ret = -1;
-                                goto unlock;
-                }
-        }
-
-        for (i = 0; i < snapcount; i++) {
-                snprintf (key, sizeof (key), "snap-volname.%d", i+1);
-                ret = dict_get_str (dict, key, &value);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Error retrieving snap volname %d", i+1);
-                        errno = EINVAL;
-                        ret = -1;
-                        goto unlock;
-                }
-                strncpy (dirents[i].snap_volname, value,
-                         sizeof (dirents[i].snap_volname));
-
-                snprintf (key, sizeof (key), "snap-id.%d", i+1);
-                ret = dict_get_str (dict, key, &value);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Error retrieving snap uuid %d", i+1);
-                        errno = EINVAL;
-                        ret = -1;
-                        goto unlock;
-                }
-                strncpy (dirents[i].uuid, value, sizeof (dirents[i].uuid));
-
-                snprintf (key, sizeof (key), "snapname.%d", i+1);
-                ret = dict_get_str (dict, key, &value);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Error retrieving snap name %d", i+1);
-                        errno = EINVAL;
-                        ret = -1;
-                        goto unlock;
-                }
-                strncpy (dirents[i].name, value, sizeof (dirents[i].name));
-        }
-
-        /*
-         * Got the new snap list populated in dirents
-         * The new snap list is either a subset or a superset of
-         * the existing snaplist old_dirents which has priv->num_snaps
-         * number of entries.
-         *
-         * If subset, then clean up the fs for entries which are
-         * no longer relevant.
-         *
-         * For other overlapping entries set the fs for new dirents
-         * entries which have a fs assigned already in old_dirents
-         *
-         * We do this as we don't want to do new glfs_init()s repeatedly
-         * as the dirents entries for snapshot volumes get repatedly
-         * cleaned up and allocated. And if we don't then that will lead
-         * to memleaks
-         */
-        for (i = 0; i < priv->num_snaps; i++) {
-                for (j = 0; j < snapcount; j++) {
-                        if ((!strcmp (old_dirents[i].name,
-                                      dirents[j].name)) &&
-                            (!strcmp (old_dirents[i].uuid,
-                                      dirents[j].uuid)))    {
-                                dirents[j].fs = old_dirents[i].fs;
-                                old_dirents[i].fs = NULL;
-                                break;
-                        }
-                }
-        }
-
-        if (old_dirents) {
-                for (i=0; i < priv->num_snaps; i++) {
-                        if (old_dirents[i].fs)
-                                glfs_fini (old_dirents[i].fs);
-                }
-        }
-
-        priv->dirents = dirents;
-        priv->num_snaps = snapcount;
-
-        GF_FREE (old_dirents);
-
-        ret = 0;
-
-unlock:
-        /*
-         *
-         * We will unlock the snaplist_lock here for two reasons:
-         * 1. We ideally would like to avoid nested locks
-         * 2. The snaplist_lock and the mutex protecting the condvar
-         *    are independent of each other and don't need to be
-         *    mixed together
-         */
-        pthread_mutex_unlock (&priv->snaplist_lock);
-
-out:
-        pthread_mutex_lock (&mutex);
-        snap_worker_resume = _gf_true;
-        if (priv->is_snaplist_done) {
-                /*
-                 * No need to signal if it is the first time
-                 * refresh of the snaplist as no thread is
-                 * waiting on this. It is only when the snaplist_worker
-                 * is started that we have a thread waiting on this
-                 */
-                pthread_cond_signal (&condvar);
-        }
-        pthread_mutex_unlock (&mutex);
-
-        if (dict) {
-                dict_unref (dict);
-        }
-        free (rsp.dict.dict_val);
-        free (rsp.op_errstr);
-
-        if (ret && dirents) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "Could not update dirents with refreshed snap list");
-                GF_FREE (dirents);
-        }
-
-        if (myframe)
-                SVS_STACK_DESTROY (myframe);
-
-error_out:
-        return ret;
-}
-
-int
-svs_get_snapshot_list (xlator_t *this)
-{
-        gf_getsnap_name_uuid_req        req             = {{0,}};
-        int                             ret             = 0;
-        dict_t                          *dict           = NULL;
-        glusterfs_ctx_t                 *ctx            = NULL;
-        call_frame_t                    *frame          = NULL;
-        svs_private_t                   *priv           = NULL;
-        gf_boolean_t                    frame_cleanup   = _gf_false;
-
-        ctx  = this->ctx;
-        if (!ctx) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "ctx is NULL");
-                ret = -1;
-                goto out;
-        }
-
-        frame = create_frame (this, ctx->pool);
-        if (!frame) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Error allocating frame");
-                ret = -1;
-                goto out;
-        }
-
-        priv = this->private;
-
-        dict = dict_new ();
-        if (!dict) {
-                ret = -1;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Error allocating dictionary");
-                frame_cleanup = _gf_true;
-                goto out;
-        }
-
-        ret = dict_set_str (dict, "volname", priv->volname);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Error setting volname in dict");
-                frame_cleanup = _gf_true;
-                goto out;
-        }
-
-        ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
-                                           &req.dict.dict_len);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Failed to serialize dictionary");
-                ret = -1;
-                frame_cleanup = _gf_true;
-                goto out;
-        }
-
-        ret = svs_mgmt_submit_request (&req, frame, ctx,
-                                       &svs_clnt_handshake_prog,
-                                       GF_HNDSK_GET_SNAPSHOT_INFO,
-                                       mgmt_get_snapinfo_cbk,
-                                       (xdrproc_t)xdr_gf_getsnap_name_uuid_req);
-
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Error sending snapshot names RPC request");
-        }
-
-out:
-        if (dict) {
-                dict_unref (dict);
-        }
-        GF_FREE (req.dict.dict_val);
-
-        if (frame_cleanup) {
-                /*
-                 * Destroy the frame if we encountered an error
-                 * Else we need to clean it up in
-                 * mgmt_get_snapinfo_cbk
-                 */
-                SVS_STACK_DESTROY (frame);
-        }
-
-        return ret;
-}
-
-int
-__svs_inode_ctx_set (xlator_t *this, inode_t *inode, svs_inode_t *svs_inode)
-{
-        uint64_t    value = 0;
-        int         ret   = -1;
-
-        GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, inode, out);
-        GF_VALIDATE_OR_GOTO (this->name, svs_inode, out);
-
-        value = (uint64_t)(long) svs_inode;
-
-        ret = __inode_ctx_set (inode, this, &value);
-
-out:
-        return ret;
-}
-
-
-svs_inode_t *
-__svs_inode_ctx_get (xlator_t *this, inode_t *inode)
-{
-        svs_inode_t *svs_inode = NULL;
-        uint64_t     value     = 0;
-        int          ret       = -1;
-
-        GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, inode, out);
-
-        ret = __inode_ctx_get (inode, this, &value);
-        if (ret)
-                goto out;
-
-        svs_inode = (svs_inode_t *) ((long) value);
-
-out:
-        return svs_inode;
-}
-
-
-svs_inode_t *
-svs_inode_ctx_get (xlator_t *this, inode_t *inode)
-{
-        svs_inode_t *svs_inode = NULL;
-
-        GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, inode, out);
-
-        LOCK (&inode->lock);
-        {
-                svs_inode = __svs_inode_ctx_get (this, inode);
-        }
-        UNLOCK (&inode->lock);
-
-out:
-        return svs_inode;
-}
-
-int32_t
-svs_inode_ctx_set (xlator_t *this, inode_t *inode, svs_inode_t *svs_inode)
-{
-        int32_t    ret = -1;
-
-        GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, inode, out);
-        GF_VALIDATE_OR_GOTO (this->name, svs_inode, out);
-
-        LOCK (&inode->lock);
-        {
-                ret = __svs_inode_ctx_set (this, inode, svs_inode);
-        }
-        UNLOCK (&inode->lock);
-
-out:
-        return ret;
-}
-
-svs_inode_t *
-svs_inode_new ()
-{
-        svs_inode_t    *svs_inode = NULL;
-
-        svs_inode = GF_CALLOC (1, sizeof (*svs_inode), gf_svs_mt_svs_inode_t);
-
-        return svs_inode;
-}
-
-svs_inode_t *
-svs_inode_ctx_get_or_new (xlator_t *this, inode_t *inode)
-{
-        svs_inode_t   *svs_inode = NULL;
-        int            ret       = -1;
-
-        GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, inode, out);
-
-        LOCK (&inode->lock);
-        {
-                svs_inode = __svs_inode_ctx_get (this, inode);
-                if (!svs_inode) {
-                        svs_inode = svs_inode_new ();
-                        if (svs_inode) {
-                                ret = __svs_inode_ctx_set (this, inode,
-                                                           svs_inode);
-                                if (ret) {
-                                        GF_FREE (svs_inode);
-                                        svs_inode = NULL;
-                                }
-                        }
-                }
-        }
-        UNLOCK (&inode->lock);
-
-out:
-        return svs_inode;
-}
-
-svs_fd_t *
-svs_fd_new ()
-{
-        svs_fd_t    *svs_fd = NULL;
-
-        svs_fd = GF_CALLOC (1, sizeof (*svs_fd), gf_svs_mt_svs_fd_t);
-
-        return svs_fd;
-}
-
-int
-__svs_fd_ctx_set (xlator_t *this, fd_t *fd, svs_fd_t *svs_fd)
-{
-        uint64_t    value = 0;
-        int         ret   = -1;
-
-        GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, fd, out);
-        GF_VALIDATE_OR_GOTO (this->name, svs_fd, out);
-
-        value = (uint64_t)(long) svs_fd;
-
-        ret = __fd_ctx_set (fd, this, value);
-
-out:
-        return ret;
-}
-
-
-svs_fd_t *
-__svs_fd_ctx_get (xlator_t *this, fd_t *fd)
-{
-        svs_fd_t *svs_fd = NULL;
-        uint64_t  value  = 0;
-        int       ret    = -1;
-
-        GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, fd, out);
-
-        ret = __fd_ctx_get (fd, this, &value);
-        if (ret)
-                return NULL;
-
-        svs_fd = (svs_fd_t *) ((long) value);
-
-out:
-        return svs_fd;
-}
-
-
-svs_fd_t *
-svs_fd_ctx_get (xlator_t *this, fd_t *fd)
-{
-        svs_fd_t *svs_fd = NULL;
-
-        GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, fd, out);
-
-        LOCK (&fd->lock);
-        {
-                svs_fd = __svs_fd_ctx_get (this, fd);
-        }
-        UNLOCK (&fd->lock);
-
-out:
-        return svs_fd;
-}
-
-int32_t
-svs_fd_ctx_set (xlator_t *this, fd_t *fd, svs_fd_t *svs_fd)
-{
-        int32_t    ret = -1;
-
-        GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, fd, out);
-        GF_VALIDATE_OR_GOTO (this->name, svs_fd, out);
-
-        LOCK (&fd->lock);
-        {
-                ret = __svs_fd_ctx_set (this, fd, svs_fd);
-        }
-        UNLOCK (&fd->lock);
-
-out:
-        return ret;
-}
-
-svs_fd_t *
-__svs_fd_ctx_get_or_new (xlator_t *this, fd_t *fd)
-{
-        svs_fd_t        *svs_fd    = NULL;
-        int              ret       = -1;
-        glfs_t          *fs        = NULL;
-        glfs_object_t   *object    = NULL;
-        svs_inode_t     *inode_ctx = NULL;
-        glfs_fd_t       *glfd      = NULL;
-        inode_t         *inode     = NULL;
-
-        GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, fd, out);
-
-        inode = fd->inode;
-        svs_fd = __svs_fd_ctx_get (this, fd);
-        if (svs_fd) {
-                ret = 0;
-                goto out;
-        }
-
-        svs_fd = svs_fd_new ();
-        if (!svs_fd) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to allocate new fd "
-                        "context for gfid %s", uuid_utoa (inode->gfid));
-                goto out;
-        }
-
-        if (fd_is_anonymous (fd)) {
-                inode_ctx = svs_inode_ctx_get (this, inode);
-                if (!inode_ctx) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to get inode "
-                                "context for %s", uuid_utoa (inode->gfid));
-                        goto out;
-                }
-
-                fs = inode_ctx->fs;
-                object = inode_ctx->object;
-
-                if (inode->ia_type == IA_IFDIR) {
-                        glfd = glfs_h_opendir (fs, object);
-                        if (!glfd) {
-                                gf_log (this->name, GF_LOG_ERROR, "failed to "
-                                        "open the directory %s",
-                                        uuid_utoa (inode->gfid));
-                                goto out;
-                        }
-                }
-
-                if (inode->ia_type == IA_IFREG) {
-                        glfd = glfs_h_open (fs, object, O_RDONLY|O_LARGEFILE);
-                        if (!glfd) {
-                                gf_log (this->name, GF_LOG_ERROR, "failed to "
-                                        "open the file %s",
-                                        uuid_utoa (inode->gfid));
-                                goto out;
-                        }
-                }
-
-                svs_fd->fd = glfd;
-        }
-
-        ret = __svs_fd_ctx_set (this, fd, svs_fd);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to set fd context "
-                        "for gfid %s", uuid_utoa (inode->gfid));
-                if (svs_fd->fd) {
-                        if (inode->ia_type == IA_IFDIR) {
-                                ret = glfs_closedir (svs_fd->fd);
-                                if (ret)
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "failed to close the fd for %s",
-                                                uuid_utoa (inode->gfid));
-                        }
-                        if (inode->ia_type == IA_IFREG) {
-                                ret = glfs_close (svs_fd->fd);
-                                if (ret)
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "failed to close the fd for %s",
-                                                uuid_utoa (inode->gfid));
-                        }
-                }
-                ret = -1;
-        }
-
-out:
-        if (ret) {
-                GF_FREE (svs_fd);
-                svs_fd = NULL;
-        }
-
-        return svs_fd;
-}
-
-svs_fd_t *
-svs_fd_ctx_get_or_new (xlator_t *this, fd_t *fd)
-{
-        svs_fd_t  *svs_fd = NULL;
-
-        GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, fd, out);
-
-        LOCK (&fd->lock);
-        {
-                svs_fd = __svs_fd_ctx_get_or_new (this, fd);
-        }
-        UNLOCK (&fd->lock);
-
-out:
-        return svs_fd;
-}
-
-void
-svs_fill_ino_from_gfid (struct iatt *buf)
-{
-        uint64_t  temp_ino = 0;
-        int       j        = 0;
-        int       i        = 0;
-        xlator_t *this     = NULL;
-
-        this = THIS;
-
-        GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, buf, out);
-
-        /* consider least significant 8 bytes of value out of gfid */
-        if (uuid_is_null (buf->ia_gfid)) {
-                buf->ia_ino = -1;
-                goto out;
-        }
-        for (i = 15; i > (15 - 8); i--) {
-                temp_ino += (uint64_t)(buf->ia_gfid[i]) << j;
-                j += 8;
-        }
-        buf->ia_ino = temp_ino;
-out:
-        return;
-}
-
-void
-svs_iatt_fill (uuid_t gfid, struct iatt *buf)
-{
-        struct timeval  tv    = {0, };
-        xlator_t       *this  = NULL;
-
-        this = THIS;
-
-        GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, buf, out);
-
-        buf->ia_type = IA_IFDIR;
-        buf->ia_uid  = 0;
-        buf->ia_gid  = 0;
-        buf->ia_size = 0;
-        buf->ia_nlink = 2;
-        buf->ia_blocks = 8;
-        buf->ia_size = 4096;
-
-        uuid_copy (buf->ia_gfid, gfid);
-        svs_fill_ino_from_gfid (buf);
-
-        buf->ia_prot = ia_prot_from_st_mode (0755);
-
-        gettimeofday (&tv, 0);
-
-        buf->ia_mtime = buf->ia_atime = buf->ia_ctime = tv.tv_sec;
-        buf->ia_mtime_nsec = buf->ia_atime_nsec = buf->ia_ctime_nsec =
-                (tv.tv_usec * 1000);
-
-out:
-        return;
-}
-
-snap_dirent_t *
-svs_get_snap_dirent (xlator_t *this, const char *name)
-{
-        svs_private_t      *private     = NULL;
-        int                 i           = 0;
-        snap_dirent_t      *dirents     = NULL;
-        snap_dirent_t      *tmp_dirent  = NULL;
-        snap_dirent_t      *dirent      = NULL;
-
-        GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
-        GF_VALIDATE_OR_GOTO (this->name, name, out);
-
-        private = this->private;
-
-        pthread_mutex_lock (&private->snaplist_lock);
-
-        dirents = private->dirents;
-        if (!dirents) {
-                pthread_mutex_unlock (&private->snaplist_lock);
-                goto out;
-        }
-
-        tmp_dirent = dirents;
-        for (i = 0; i < private->num_snaps; i++) {
-                if (!strcmp (tmp_dirent->name, name)) {
-                        dirent = tmp_dirent;
-                        break;
-                }
-                tmp_dirent++;
-        }
-
-        pthread_mutex_unlock (&private->snaplist_lock);
-
-out:
-        return dirent;
-}
-
-glfs_t *
-svs_initialise_snapshot_volume (xlator_t *this, const char *name)
-{
-        svs_private_t      *priv              = NULL;
-        int32_t             ret               = -1;
-        snap_dirent_t      *dirent            = NULL;
-        char                volname[PATH_MAX] = {0, };
-        glfs_t             *fs                = NULL;
-        int                 loglevel          = GF_LOG_INFO;
-        char                logfile[PATH_MAX] = {0, };
-
-        GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
-        GF_VALIDATE_OR_GOTO (this->name, name, out);
-
-        priv = this->private;
-
-        dirent = svs_get_snap_dirent (this, name);
-        if (!dirent) {
-                gf_log (this->name, GF_LOG_ERROR, "snap entry for name %s "
-                        "not found", name);
-                goto out;
-        }
-
-        if (dirent->fs) {
-                ret = 0;
-                fs = dirent->fs;
-                goto out;
-        }
-
-        snprintf (volname, sizeof (volname), "/snaps/%s/%s",
-                  dirent->name, dirent->snap_volname);
-
-        fs = glfs_new (volname);
-        if (!fs) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "glfs instance for snap volume %s "
-                        "failed", dirent->name);
-                goto out;
-        }
-
-        ret = glfs_set_volfile_server (fs, "tcp", "localhost",
-                                       24007);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "setting the "
-                        "volfile srever for snap volume %s "
-                        "failed", dirent->name);
-                goto out;
-        }
-
-        ret = glfs_init (fs);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "initing the "
-                        "fs for %s failed", dirent->name);
-                goto out;
-        }
-
-        snprintf (logfile, sizeof (logfile),
-                  DEFAULT_SVD_LOG_FILE_DIRECTORY "/%s-%s.log",
-                  name, dirent->uuid);
-
-        ret = glfs_set_logging(fs, logfile, loglevel);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to set the "
-                        "log file path");
-                goto out;
-        }
-
-        ret = 0;
-
-out:
-        if (ret && fs) {
-                glfs_fini (fs);
-                fs = NULL;
-        }
-
-        if (fs)
-                dirent->fs = fs;
-
-        return fs;
-}
-
-snap_dirent_t *
-svs_get_latest_snap_entry (xlator_t *this)
-{
-        svs_private_t *priv       = NULL;
-        snap_dirent_t *dirents    = NULL;
-        snap_dirent_t *dirent     = NULL;
-
-        GF_VALIDATE_OR_GOTO ("svs", this, out);
-
-        priv = this->private;
-
-        pthread_mutex_lock (&priv->snaplist_lock);
-        dirents = priv->dirents;
-        if (!dirents) {
-                pthread_mutex_unlock (&priv->snaplist_lock);
-                goto out;
-        }
-        if (priv->num_snaps)
-                dirent = &dirents[priv->num_snaps - 1];
-
-        pthread_mutex_unlock (&priv->snaplist_lock);
-out:
-        return dirent;
-}
-
-glfs_t *
-svs_get_latest_snapshot (xlator_t *this)
-{
-        glfs_t        *fs         = NULL;
-        snap_dirent_t *dirent     = NULL;
-        svs_private_t *priv       = NULL;
-
-        GF_VALIDATE_OR_GOTO ("svs", this, out);
-        priv = this->private;
-
-        dirent = svs_get_latest_snap_entry (this);
-
-        if (dirent) {
-                pthread_mutex_lock (&priv->snaplist_lock);
-                fs = dirent->fs;
-                pthread_mutex_unlock (&priv->snaplist_lock);
-        }
-
-out:
-        return fs;
-}
 
 int32_t
 svs_lookup_entry_point (xlator_t *this, loc_t *loc, inode_t *parent,
@@ -2096,33 +1076,43 @@ svs_fill_readdir (xlator_t *this, gf_dirent_t *entries, size_t size, off_t off)
         GF_ASSERT (priv);
 
         /* create the dir entries */
-        pthread_mutex_lock (&priv->snaplist_lock);
-        dirents = priv->dirents;
+        LOCK (&priv->snaplist_lock);
+        {
+                dirents = priv->dirents;
 
-        for (i = off; i < priv->num_snaps; ) {
-                this_size = sizeof (gf_dirent_t) +
-                        strlen (dirents[i].name) + 1;
-                if (this_size + filled_size > size )
-                        goto unlock;
+                for (i = off; i < priv->num_snaps; ) {
+                        this_size = sizeof (gf_dirent_t) +
+                                strlen (dirents[i].name) + 1;
+                        if (this_size + filled_size > size )
+                                goto unlock;
 
-                entry = gf_dirent_for_name (dirents[i].name);
-                if (!entry) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to allocate "
-                                "dentry for %s", dirents[i].name);
-                        goto unlock;
+                        entry = gf_dirent_for_name (dirents[i].name);
+                        if (!entry) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "failed to allocate dentry for %s",
+                                        dirents[i].name);
+                                goto unlock;
+                        }
+
+                        entry->d_off = i + 1;
+                        /*
+                         * readdir on the entry-point directory to the snapshot
+                         * world, will return elements in the list of the
+                         * snapshots as the directory entries. Since the entries
+                         * returned are virtual entries which does not exist
+                         * physically on the disk, pseudo inode numbers are
+                         * generated.
+                         */
+                        entry->d_ino = i + 2*42;
+                        entry->d_type = DT_DIR;
+                        list_add_tail (&entry->list, &entries->list);
+                        ++i;
+                        count++;
+                        filled_size += this_size;
                 }
-
-                entry->d_off = i + 1;
-                entry->d_ino = i + 2*42;
-                entry->d_type = DT_DIR;
-                list_add_tail (&entry->list, &entries->list);
-                ++i;
-                count++;
-                filled_size += this_size;
         }
-
 unlock:
-        pthread_mutex_unlock (&priv->snaplist_lock);
+        UNLOCK (&priv->snaplist_lock);
 
 out:
         return count;
@@ -2843,6 +1833,10 @@ svs_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask,
 
         is_fuse_call = __is_fuse_call (frame);
 
+        /*
+         * For entry-point directory, set read and execute bits. But not write
+         * permissions.
+         */
         if (inode_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
                 if (is_fuse_call) {
                         op_ret = 0;
@@ -2859,6 +1853,10 @@ svs_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask,
         fs = inode_ctx->fs;
         object = inode_ctx->object;
 
+        /* The actual posix_acl xlator does acl checks differently for
+           fuse and nfs. So set frame->root->pid as fspid of the syncop
+           if the call came from nfs
+        */
         if (!is_fuse_call)
                 syncopctx_setfspid (&frame->root->pid);
 
@@ -2870,12 +1868,6 @@ svs_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask,
                 op_errno = errno;
                 goto out;
         }
-
-        /* The actual posix_acl xlator does acl checks differently for
-           fuse and nfs. In this case how to send the information of
-           whether the call came from fuse or nfs to the snapshot volume
-           via gfapi?
-        */
 
         op_ret = 0;
         op_errno = ret;
@@ -2926,13 +1918,24 @@ init (xlator_t *this)
         this->private = priv;
 
         GF_OPTION_INIT ("volname", priv->volname, str, out);
-        pthread_mutex_init (&(priv->snaplist_lock), NULL);
+        LOCK_INIT (&priv->snaplist_lock);
 
-        pthread_mutex_lock (&priv->snaplist_lock);
-        priv->is_snaplist_done = 0;
-        priv->num_snaps = 0;
-        snap_worker_resume = _gf_false;
-        pthread_mutex_unlock (&priv->snaplist_lock);
+        LOCK (&priv->snaplist_lock);
+        {
+                priv->num_snaps = 0;
+        }
+        UNLOCK (&priv->snaplist_lock);
+
+        /* What to do here upon failure? should init be failed or succeed? */
+        /* If succeeded, then dynamic management of snapshots will not */
+        /* happen.*/
+        ret = svs_mgmt_init (this);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING, "failed to initiate the "
+                        "mgmt rpc callback for svs. Dymamic management of the"
+                        "snapshots will not happen");
+                goto out;
+        }
 
         /* get the list of snaps first to return to client xlator */
         ret = svs_get_snapshot_list (this);
@@ -2943,25 +1946,11 @@ init (xlator_t *this)
                 goto out;
         }
 
-        if ((ret = pthread_attr_init (&priv->thr_attr)) != 0) {
-                gf_log (this->name, GF_LOG_ERROR, "pthread attr init failed");
-                goto out;
-        }
-
-        ret = gf_thread_create (&snap_thread,
-                                &priv->thr_attr,
-                                snaplist_worker,
-                                this);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Failed to create snaplist worker thread");
-                goto out;
-        }
-
         ret = 0;
 
 out:
         if (ret && priv) {
+                LOCK_DESTROY (&priv->snaplist_lock);
                 GF_FREE (priv->dirents);
                 GF_FREE (priv);
         }
@@ -2985,33 +1974,23 @@ fini (xlator_t *this)
                         "Invalid ctx found");
 
         if (priv) {
-                gf_timer_call_cancel (ctx, priv->snap_timer);
-                priv->snap_timer = NULL;
-                ret = pthread_mutex_destroy (&priv->snaplist_lock);
+                ret = LOCK_DESTROY (&priv->snaplist_lock);
                 if (ret != 0) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "Could not destroy mutex snaplist_lock");
                 }
-                ret = pthread_attr_destroy (&priv->thr_attr);
-                if (ret != 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "Could not destroy pthread attr");
-                }
+
                 if (priv->dirents) {
                         GF_FREE (priv->dirents);
                 }
-                GF_FREE (priv);
-        }
 
-        ret = pthread_mutex_destroy (&mutex);
-        if (ret != 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "Could not destroy mutex");
-        }
-        pthread_cond_destroy (&condvar);
-        if (ret != 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "Could not destroy condition variable");
+                if (priv->rpc) {
+                        /* cleanup the saved-frames before last unref */
+                        rpc_clnt_connection_cleanup (&priv->rpc->conn);
+                        rpc_clnt_unref (priv->rpc);
+                }
+
+                GF_FREE (priv);
         }
 
         return;

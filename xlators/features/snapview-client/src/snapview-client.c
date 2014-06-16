@@ -148,12 +148,14 @@ svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
            So if lookup fails with ENOENT and the inode context is not there,
            then send the lookup to the 2nd child of svc.
         */
-        ret = svc_inode_ctx_get (this, inode, &inode_type);
         if (op_ret) {
-                if (op_errno == ENOENT && (ret < 0) &&
-                    !uuid_is_null (local->loc.gfid) &&
-                    !__is_root_gfid (local->loc.gfid)) {
-                        if (subvolume == FIRST_CHILD (this)) {
+                if (op_errno == ENOENT &&
+                    !uuid_is_null (local->loc.gfid)) {
+                        ret = svc_inode_ctx_get (this, inode, &inode_type);
+                        if (ret < 0 && subvolume == FIRST_CHILD (this)) {
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "Lookup on normal graph failed. "
+                                        "Sending lookup to snapview-server");
                                 subvolume = SECOND_CHILD (this);
                                 STACK_WIND (frame, svc_lookup_cbk, subvolume,
                                             subvolume->fops->lookup,
@@ -162,8 +164,10 @@ svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         }
                 }
 
-                gf_log (this->name, GF_LOG_WARNING,
-                        "Lookup on normal graph failed");
+                gf_log (this->name,
+                        (op_errno == ENOENT)?GF_LOG_DEBUG:GF_LOG_ERROR,
+                        "Lookup on normal graph failed with error %s",
+                        strerror (op_errno));
                 goto out;
         }
 

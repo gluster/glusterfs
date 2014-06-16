@@ -6751,6 +6751,7 @@ glusterd_snapshot_create_postvalidate (dict_t *dict, int32_t op_ret,
                 ret = glusterd_handle_snap_limit (dict, rsp_dict);
         }
         ret = 0;
+
 out:
         return ret;
 }
@@ -7401,6 +7402,7 @@ glusterd_snapshot_postvalidate (dict_t *dict, int32_t op_ret, char **op_errstr,
                                 "post-validation failed");
                         goto out;
                 }
+                glusterd_fetchsnap_notify (this);
                 break;
         case GF_SNAP_OPTION_TYPE_DELETE:
                 if (op_ret) {
@@ -7418,6 +7420,7 @@ glusterd_snapshot_postvalidate (dict_t *dict, int32_t op_ret, char **op_errstr,
                                 "update missed snaps list");
                         goto out;
                 }
+                glusterd_fetchsnap_notify (this);
                 break;
         case GF_SNAP_OPTION_TYPE_RESTORE:
                 ret = glusterd_snapshot_update_snaps_post_validate (dict,
@@ -7436,6 +7439,7 @@ glusterd_snapshot_postvalidate (dict_t *dict, int32_t op_ret, char **op_errstr,
                                 "perform snapshot restore post-op");
                         goto out;
                 }
+                glusterd_fetchsnap_notify (this);
                 break;
         case GF_SNAP_OPTION_TYPE_ACTIVATE:
         case GF_SNAP_OPTION_TYPE_DEACTIVATE:
