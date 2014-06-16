@@ -836,6 +836,9 @@ int
 glusterd_fetchspec_notify (xlator_t *this);
 
 int
+glusterd_fetchsnap_notify (xlator_t *this);
+
+int
 glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                                     dict_t  *volumes, int   count);
 

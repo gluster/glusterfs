@@ -216,6 +216,7 @@ glusterd_options_init (xlator_t *this)
 out:
         return 0;
 }
+
 int
 glusterd_fetchspec_notify (xlator_t *this)
 {
@@ -231,6 +232,42 @@ glusterd_fetchspec_notify (xlator_t *this)
                         rpcsvc_callback_submit (priv->rpc, trans,
                                                 &glusterd_cbk_prog,
                                                 GF_CBK_FETCHSPEC, NULL, 0);
+                }
+        }
+        pthread_mutex_unlock (&priv->xprt_lock);
+
+        ret = 0;
+
+        return ret;
+}
+
+int
+glusterd_fetchsnap_notify (xlator_t *this)
+{
+        int              ret   = -1;
+        glusterd_conf_t *priv  = NULL;
+        rpc_transport_t *trans = NULL;
+
+        priv = this->private;
+
+        /*
+         * TODO: As of now, the identification of the rpc clients in the
+         * handshake protocol is not there. So among so many glusterfs processes
+         * registered with glusterd, it is hard to identify one particular
+         * process (in this particular case, the snap daemon). So the callback
+         * notification is sent to all the transports from the transport list.
+         * Only those processes which have a rpc client registered for this
+         * callback will respond to the notification. Once the identification
+         * of the rpc clients becomes possible, the below section can be changed
+         * to send callback notification to only those rpc clients, which have
+         * registered.
+         */
+        pthread_mutex_lock (&priv->xprt_lock);
+        {
+                list_for_each_entry (trans, &priv->xprt_list, list) {
+                        rpcsvc_callback_submit (priv->rpc, trans,
+                                                &glusterd_cbk_prog,
+                                                GF_CBK_GET_SNAPS, NULL, 0);
                 }
         }
         pthread_mutex_unlock (&priv->xprt_lock);

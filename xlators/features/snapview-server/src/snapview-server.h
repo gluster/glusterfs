@@ -38,6 +38,8 @@
 #include "timer.h"
 #include "rpc-clnt.h"
 #include "protocol-common.h"
+#include "xdr-generic.h"
+
 
 #define DEFAULT_SVD_LOG_FILE_DIRECTORY DATADIR "/log/glusterfs"
 
@@ -51,6 +53,7 @@
                 STACK_DESTROY (((call_frame_t *)_frame)->root);     \
         } while (0)
 
+
 int
 svs_mgmt_submit_request (void *req, call_frame_t *frame,
                          glusterfs_ctx_t *ctx,
@@ -63,22 +66,6 @@ svs_get_snapshot_list (xlator_t *this);
 int
 mgmt_get_snapinfo_cbk (struct rpc_req *req, struct iovec *iov,
                        int count, void *myframe);
-
-char *clnt_handshake_procs[GF_HNDSK_MAXVALUE] = {
-        [GF_HNDSK_NULL]         = "NULL",
-        [GF_HNDSK_SETVOLUME]    = "SETVOLUME",
-        [GF_HNDSK_GETSPEC]      = "GETSPEC",
-        [GF_HNDSK_PING]         = "PING",
-        [GF_HNDSK_EVENT_NOTIFY] = "EVENTNOTIFY",
-};
-
-rpc_clnt_prog_t svs_clnt_handshake_prog = {
-        .progname  = "GlusterFS Handshake",
-        .prognum   = GLUSTER_HNDSK_PROGRAM,
-        .progver   = GLUSTER_HNDSK_VERSION,
-        .procnames = clnt_handshake_procs,
-};
-
 
 typedef enum {
         SNAP_VIEW_ENTRY_POINT_INODE = 0,
@@ -116,17 +103,69 @@ struct svs_private {
         int                     num_snaps;
         char                    *volname;
         struct list_head        snaplist;
-        pthread_mutex_t         snaplist_lock;
-        uint32_t                is_snaplist_done;
-        gf_timer_t              *snap_timer;
-        pthread_attr_t          thr_attr;
+        gf_lock_t               snaplist_lock;
+        struct rpc_clnt         *rpc;
 };
 typedef struct svs_private svs_private_t;
 
+int
+__svs_inode_ctx_set (xlator_t *this, inode_t *inode, svs_inode_t *svs_inode);
+
+svs_inode_t *
+__svs_inode_ctx_get (xlator_t *this, inode_t *inode);
+
+svs_inode_t *
+svs_inode_ctx_get (xlator_t *this, inode_t *inode);
+
+int32_t
+svs_inode_ctx_set (xlator_t *this, inode_t *inode, svs_inode_t *svs_inode);
+
+svs_inode_t *
+svs_inode_new ();
+
+svs_inode_t *
+svs_inode_ctx_get_or_new (xlator_t *this, inode_t *inode);
+
+svs_fd_t *
+svs_fd_new ();
+
+int
+__svs_fd_ctx_set (xlator_t *this, fd_t *fd, svs_fd_t *svs_fd);
+
+svs_fd_t *
+__svs_fd_ctx_get (xlator_t *this, fd_t *fd);
+
+svs_fd_t *
+svs_fd_ctx_get (xlator_t *this, fd_t *fd);
+
+int32_t
+svs_fd_ctx_set (xlator_t *this, fd_t *fd, svs_fd_t *svs_fd);
+
+svs_fd_t *
+__svs_fd_ctx_get_or_new (xlator_t *this, fd_t *fd);
+
+svs_fd_t *
+svs_fd_ctx_get_or_new (xlator_t *this, fd_t *fd);
+
+void
+svs_fill_ino_from_gfid (struct iatt *buf);
+
+void
+svs_iatt_fill (uuid_t gfid, struct iatt *buf);
+
+snap_dirent_t *
+svs_get_latest_snap_entry (xlator_t *this);
+
 glfs_t *
-svs_intialise_snapshot_volume (xlator_t *this, const char *name);
+svs_get_latest_snapshot (xlator_t *this);
+
+glfs_t *
+svs_initialise_snapshot_volume (xlator_t *this, const char *name);
 
 snap_dirent_t *
 svs_get_snap_dirent (xlator_t *this, const char *name);
+
+int
+svs_mgmt_init (xlator_t *this);
 
 #endif /* __SNAP_VIEW_H__ */

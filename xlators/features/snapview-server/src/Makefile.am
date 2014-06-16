@@ -3,7 +3,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 snapview_server_la_LDFLAGS = -module -avoid-version
 
-snapview_server_la_SOURCES = snapview-server.c
+snapview_server_la_SOURCES = snapview-server.c snapview-server-mgmt.c snapview-server-helpers.c
 snapview_server_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la\
                             $(top_builddir)/api/src/libgfapi.la\
                             $(RLLIBS) $(top_builddir)/rpc/xdr/src/libgfxdr.la \

@@ -160,3 +160,50 @@ Details:
 Deactivates the mentioned snapshot.
 
 -------------------------------------------------------------------------
+
+**Accessing the snapshot**
+
+Snapshots can be activated in 2 ways.
+
+1) Mounting the snapshot:
+
+The snapshot can be accessed via FUSE mount (only fuse). To do that it has to be
+mounted first. A snapshot can be mounted via fuse by below command
+
+*mount -t glusterfs <hostname>:/snaps/<snap-name>/<volume-name> <mount-path>*
+
+i.e. say "host1" is one of the peers. Let "vol" be the volume name and "my-snap"
+be the snapshot name. In this case a snapshot can be mounted via this command
+
+*mount -t glusterfs host1:/snaps/my-snap/vol /mnt/snapshot*
+
+
+2) User serviceability:
+
+Apart from the above method of mounting the snapshot, a list of available
+snapshots and the contents of each snapshot can be viewed from any of the mount
+points accessing the glusterfs volume (either FUSE or NFS or SMB). For having
+user serviceable snapshots, it has to be enabled for a volume first. User
+serviceability can be enabled for a volume using the below command.
+
+*gluster volume set <volname> features.uss enable*
+
+Once enabled, from any of the directory (including root of the filesystem) an
+access point will be created to the snapshot world. The access point is a hidden
+directory cding into which will make the user enter the snapshot world. By
+default the hidden directory is ".snaps". Once user serviceability is enabled,
+one will be able to cd into .snaps from any directory. Doing "ls" on that
+directory shows a list of directories which are nothing but the snapshots
+present for that volume. Say if there are 3 snapshots ("snap1", "snap2",
+"snap3"), then doing ls in .snaps directory will show those 3 names as the
+directory entries. They represent the state of the directory from which .snaps
+was entered, at different points in time.
+
+NOTE: The access to the snapshots are read-only.
+
+Also, the name of the hidden directory (or the access point to the snapshot
+world) can be changed using the below command.
+
+*gluster volume set <volname> snapshot-directory <new-name>*
+
+--------------------------------------------------------------------------------------
