@@ -217,7 +217,7 @@ changelog_unlink (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
-        CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO (xdata, wind);
+        CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, wind);
 
         CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, loc->inode->gfid, 2);
 
@@ -428,7 +428,7 @@ changelog_link (call_frame_t *frame,
         priv = this->private;
 
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
-        CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO (xdata, wind);
+        CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, wind);
 
         CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, oldloc->gfid, 2);
 
@@ -642,6 +642,7 @@ changelog_mknod (call_frame_t *frame,
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
+        CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, wind);
 
         ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
         if (ret) {

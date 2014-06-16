@@ -522,9 +522,10 @@ int __chlog_barrier_enable (xlator_t *this, changelog_priv_t *priv);
         } while (0)
 
 /* ignore internal fops */
-#define CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO(dict, label) do {           \
-                if (dict && dict_get (dict, GLUSTERFS_INTERNAL_FOP_KEY)) \
-                        goto label;                                     \
+#define CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO(frame, dict, label) do {     \
+                if ((frame->root->pid > 0) &&                            \
+                    dict && dict_get (dict, GLUSTERFS_INTERNAL_FOP_KEY)) \
+                        goto label;                                      \
         } while (0)
 
 #define CHANGELOG_COND_GOTO(priv, cond, label) do {                    \
