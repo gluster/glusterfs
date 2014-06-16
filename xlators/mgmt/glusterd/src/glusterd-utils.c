@@ -13408,8 +13408,17 @@ glusterd_handle_snapd_option (glusterd_volinfo_t *volinfo)
                 return 0;
 
         if (glusterd_is_snapd_enabled (volinfo)) {
-                if (!glusterd_is_volume_started (volinfo))
+                if (!glusterd_is_volume_started (volinfo)) {
+                        if (glusterd_is_snapd_running (volinfo)) {
+                                ret = glusterd_snapd_stop (volinfo);
+                                if (ret)
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Couldn't stop snapd for "
+                                                "volume: %s",
+                                                volinfo->volname);
+                        }
                         goto out;
+                }
 
                 ret = glusterd_create_snapd_volfile (volinfo);
                 if (ret) {
