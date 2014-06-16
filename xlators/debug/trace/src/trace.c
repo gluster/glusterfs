@@ -25,21 +25,18 @@ trace_stat_to_str(struct iatt *buf, char *str, size_t len)
         char     atime_buf[256]    = {0,};
         char     mtime_buf[256]    = {0,};
         char     ctime_buf[256]    = {0,};
-        uint64_t ia_time           = 0;
 
         if (!buf)
                 return;
 
-        ia_time = buf->ia_atime;
-        strftime (atime_buf, 256, "[%b %d %H:%M:%S]",
-                  localtime ((time_t *)&ia_time));
-        ia_time = buf->ia_mtime;
-        strftime (mtime_buf, 256, "[%b %d %H:%M:%S]",
-                  localtime ((time_t *)&ia_time));
+        gf_time_fmt (atime_buf, sizeof atime_buf, buf->ia_atime,
+                     gf_timefmt_dirent);
 
-        ia_time = buf->ia_ctime;
-        strftime (ctime_buf, 256, "[%b %d %H:%M:%S]",
-                  localtime ((time_t *)&ia_time));
+        gf_time_fmt (mtime_buf, sizeof mtime_buf, buf->ia_mtime,
+                     gf_timefmt_dirent);
+
+        gf_time_fmt (ctime_buf, sizeof ctime_buf, buf->ia_ctime,
+                     gf_timefmt_dirent);
 
         snprintf (str, len,
                   "gfid=%s ino=%"PRIu64", mode=%o, "
@@ -60,24 +57,18 @@ trace_stat_to_str(struct iatt *buf, char *str, size_t len)
 int
 dump_history_trace (circular_buffer_t *cb, void *data)
 {
-        char    *string      = NULL;
-        struct  tm      *tm  = NULL;
-        char    timestr[256] = {0,};
-
-        string = (char *)cb->data;
-        tm    = localtime (&cb->tv.tv_sec);
+        char     timestr[256] = {0,};
 
         /* Since we are continuing with adding entries to the buffer even when
            gettimeofday () fails, it's safe to check tm and then dump the time
            at which the entry was added to the buffer */
-        if (tm) {
-                strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
-                snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
-                          ".%"GF_PRI_SUSECONDS, cb->tv.tv_usec);
-                gf_proc_dump_write ("TIME", "%s", timestr);
-        }
 
-        gf_proc_dump_write ("FOP", "%s\n", string);
+        gf_time_fmt (timestr, sizeof timestr, cb->tv.tv_sec, gf_timefmt_Ymd_T);
+        snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                  ".%"GF_PRI_SUSECONDS, cb->tv.tv_usec);
+        gf_proc_dump_write ("TIME", "%s", timestr);
+
+        gf_proc_dump_write ("FOP", "%s\n", cb->data);
 
         return 0;
 }
@@ -2033,7 +2024,6 @@ int
 trace_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
-        uint64_t     ia_time          = 0;
         char         actime_str[256]  = {0,};
         char         modtime_str[256] = {0,};
         trace_conf_t *conf            = NULL;
@@ -2070,13 +2060,11 @@ trace_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 }
 
                 if (valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME)) {
-                        ia_time = stbuf->ia_atime;
-                        strftime (actime_str, 256, "[%b %d %H:%M:%S]",
-                                  localtime ((time_t *)&ia_time));
+                        gf_time_fmt (actime_str, sizeof actime_str,
+                                     stbuf->ia_atime, gf_timefmt_bdT);
 
-                        ia_time = stbuf->ia_mtime;
-                        strftime (modtime_str, 256, "[%b %d %H:%M:%S]",
-                                  localtime ((time_t *)&ia_time));
+                        gf_time_fmt (modtime_str, sizeof modtime_str,
+                                     stbuf->ia_mtime, gf_timefmt_bdT);
 
                         snprintf (string, sizeof (string),
                                   "%"PRId64": gfid=%s path=%s "
@@ -2104,7 +2092,6 @@ int
 trace_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
-        uint64_t       ia_time          = 0;
         char           actime_str[256]  = {0,};
         char           modtime_str[256] = {0,};
         trace_conf_t   *conf            = NULL;
@@ -2139,13 +2126,11 @@ trace_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 }
 
                 if (valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME)) {
-                        ia_time = stbuf->ia_atime;
-                        strftime (actime_str, 256, "[%b %d %H:%M:%S]",
-                                  localtime ((time_t *)&ia_time));
+                        gf_time_fmt (actime_str, sizeof actime_str,
+                                     stbuf->ia_atime, gf_timefmt_bdT);
 
-                        ia_time = stbuf->ia_mtime;
-                        strftime (modtime_str, 256, "[%b %d %H:%M:%S]",
-                                  localtime ((time_t *)&ia_time));
+                        gf_time_fmt (modtime_str, sizeof modtime_str,
+                                     stbuf->ia_mtime, gf_timefmt_bdT);
 
                         snprintf (string, sizeof (string),
                                   "%"PRId64": gfid=%s fd=%p "

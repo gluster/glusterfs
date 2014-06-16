@@ -2470,6 +2470,7 @@ static const char *__gf_timefmts[] = {
         "%b %d %T",
         "%F %H%M%S",
 	"%Y-%m-%d-%T",
+        "%s",
 };
 
 static const char *__gf_zerotimes[] = {
@@ -2478,6 +2479,7 @@ static const char *__gf_zerotimes[] = {
         "xxx 00 00:00:00",
         "0000-00-00 000000",
 	"0000-00-00-00:00:00",
+        "0",
 };
 
 void

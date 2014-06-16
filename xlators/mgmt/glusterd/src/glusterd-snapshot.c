@@ -2852,9 +2852,8 @@ glusterd_snapshot_get_snap_detail (dict_t *dict, glusterd_snap_t *snap,
         int                 ret           = -1;
         int                 volcount      = 0;
         char                key[PATH_MAX] = {0,};
+        char                timestr[64]   = {0,};
         char               *value         = NULL;
-        char               *timestr       = NULL;
-        struct tm          *tmptr         = NULL;
         glusterd_volinfo_t *snap_vol      = NULL;
         glusterd_volinfo_t *tmp_vol       = NULL;
         xlator_t           *this          = NULL;
@@ -2894,36 +2893,23 @@ glusterd_snapshot_get_snap_detail (dict_t *dict, glusterd_snap_t *snap,
         }
         value = NULL;
 
-        tmptr = localtime (&(snap->time_stamp));
-        if (NULL == tmptr) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to convert "
-                                "time_t to *tm");
-                ret = -1;
-                goto out;
-        }
+        gf_time_fmt (timestr, sizeof timestr, snap->time_stamp,
+                     gf_timefmt_FT);
+        value = gf_strdup (timestr);
 
-        timestr = GF_CALLOC (1, PATH_MAX, gf_gld_mt_char);
-        if (NULL == timestr) {
-                ret = -1;
-                goto out;
-        }
-
-        ret = strftime (timestr, PATH_MAX, "%Y-%m-%d %H:%M:%S", tmptr);
-        if (0 == ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to convert time_t "
-                        "to string");
+        if (NULL == value) {
                 ret = -1;
                 goto out;
         }
 
         snprintf (key, sizeof (key), "%s.snap-time", keyprefix);
-        ret = dict_set_dynstr (dict, key, timestr);
+        ret = dict_set_dynstr (dict, key, value);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to set "
                                 "snap time stamp in dictionary");
                 goto out;
         }
-        timestr = NULL;
+        value = NULL;
 
         /* If snap description is provided then add that into dictionary */
         if (NULL != snap->description) {
@@ -3011,9 +2997,6 @@ done:
 out:
         if (value)
                 GF_FREE (value);
-
-        if (timestr)
-                GF_FREE(timestr);
 
         return ret;
 }
