@@ -48,13 +48,13 @@ SNAPD_PID=$(ps aux | grep snapd | grep -v grep | awk '{print $2}');
 
 TEST [ $SNAPD_PID -gt 0 ];
 
-TEST $CLI volume stop $V0;
+TEST $CLI volume set $V0 features.uss disable;
 
 SNAPD_PID=$(ps aux | grep snapd | grep -v grep | awk '{print $2}');
 
 TEST ! [ $SNAPD_PID -gt 0 ];
 
-TEST $CLI volume start $V0;
+TEST $CLI volume set $V0 features.uss enable;
 
 SNAPD_PID=$(ps aux | grep snapd | grep -v grep | awk '{print $2}');
 
