@@ -176,6 +176,10 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("data-self-heal-algorithm",
                           priv->data_self_heal_algorithm, options, str, out);
 
+        GF_OPTION_RECONF ("halo-enabled",
+                          priv->halo_enabled, options, bool,
+                          out);
+
         GF_OPTION_RECONF ("halo-shd-max-latency",
                           priv->shd.halo_max_latency_msec, options, uint32,
                           out);
@@ -412,6 +416,9 @@ init (xlator_t *this)
                         out);
 
         GF_OPTION_INIT ("entry-self-heal", priv->entry_self_heal, bool, out);
+
+        GF_OPTION_INIT ("halo-enabled",
+                        priv->halo_enabled, bool, out);
 
         GF_OPTION_INIT ("halo-shd-max-latency", priv->shd.halo_max_latency_msec,
                         uint32, out);
@@ -704,21 +711,26 @@ struct volume_options options[] = {
           .type  = GF_OPTION_TYPE_INT,
           .min   = 1,
           .max   = 99999,
-          .default_value = "500",
+          .default_value = "99999",
            .description = "Maximum latency for shd halo replication in msec."
+        },
+        { .key   = {"halo-enabled"},
+          .type  = GF_OPTION_TYPE_BOOL,
+          .default_value = "False",
+           .description = "Enable Halo (geo) replication mode."
         },
         { .key   = {"halo-nfsd-max-latency"},
           .type  = GF_OPTION_TYPE_INT,
           .min   = 1,
           .max   = 99999,
-          .default_value = "10",
-           .description = "Maximum latency for nfsd halo replication in msec."
+          .default_value = "5",
+          .description = "Maximum latency for nfsd halo replication in msec."
         },
         { .key   = {"halo-max-latency"},
           .type  = GF_OPTION_TYPE_INT,
           .min   = 1,
           .max   = 99999,
-          .default_value = "10",
+          .default_value = "5",
            .description = "Maximum latency for halo replication in msec."
         },
         { .key   = {"halo-max-replicas"},
@@ -734,8 +746,8 @@ struct volume_options options[] = {
           .type  = GF_OPTION_TYPE_INT,
           .min   = 1,
           .max   = 99999,
-          .default_value = "1",
-           .description = "The minimmum number of halo replicas, before adding "
+          .default_value = "2",
+           .description = "The minimum number of halo replicas, before adding "
                           "out of region replicas."
          },
          { .key  = {"heal-wait-queue-length"},
@@ -948,7 +960,7 @@ struct volume_options options[] = {
 	},
         { .key  = {"heal-timeout"},
           .type = GF_OPTION_TYPE_INT,
-          .min  = 60,
+          .min  = 5,
           .max  = INT_MAX,
           .default_value = "600",
           .description = "time interval for checking the need to self-heal "

@@ -147,6 +147,8 @@ typedef struct _afr_private {
         gf_boolean_t           ensure_durability;
         char                   *sh_domain;
 	char                   *afr_dirty;
+        gf_boolean_t           halo_enabled;
+
         uint32_t               halo_max_latency_msec;
         uint32_t               halo_max_replicas;
         uint32_t               halo_min_replicas;
