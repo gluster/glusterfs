@@ -8,27 +8,33 @@ cleanup;
 function get_layout()
 {
         layout1=`getfattr -n trusted.glusterfs.dht -e hex $1 2>&1|grep dht |cut -d = -f2`
+	layout1_s=$(echo $layout1 | cut -c 19-26)
+	layout1_e=$(echo $layout1 | cut -c 27-34)
+	#echo "layout1 from $layout1_s to $layout1_e" > /dev/tty
         layout2=`getfattr -n trusted.glusterfs.dht -e hex $2 2>&1|grep dht |cut -d = -f2`
+	layout2_s=$(echo $layout2 | cut -c 19-26)
+	layout2_e=$(echo $layout2 | cut -c 27-34)
+	#echo "layout2 from $layout2_s to $layout2_e" > /dev/tty
 
-        if [ $layout1 == "0x0000000100000000000000007ffffffe" ]
-        then
-                if [ $layout2 == "0x00000001000000007fffffffffffffff" ]
-		then
-			return 0
-		else
-			return 1
-		fi
-        fi
+	if [ x"$layout2_s" = x"00000000" ]; then
+		# Reverse so we only have the real logic in one place.
+		tmp_s=$layout1_s
+		tmp_e=$layout1_e
+		layout1_s=$layout2_s
+		layout1_e=$layout2_e
+		layout2_s=$tmp_s
+		layout2_e=$tmp_e
+	fi
 
-	if [ $layout2 == "0x0000000100000000000000007ffffffe" ]
-        then
-                if [ $layout1 == "0x00000001000000007fffffffffffffff" ]
-		then
-			return 0
-		else
-			return 1
-		fi
-        fi
+	# Figure out where the join point is.
+	target=$(python -c "print '%08x' % (0x$layout1_e + 1)")
+	#echo "target for layout2 = $target" > /dev/tty
+
+	# The second layout should cover everything that the first doesn't.
+	if [ x"$layout2_s" = x"$target" -a x"$layout2_e" = x"ffffffff" ]; then
+		return 0
+	fi
+
 	return 1
 }
 
