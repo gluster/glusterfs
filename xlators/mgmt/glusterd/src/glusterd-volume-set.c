@@ -398,7 +398,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 3,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
-
+        { .key        = "cluster.randomize-hash-range-by-gfid",
+          .voltype    = "cluster/distribute",
+          .option     = "randomize-hash-range-by-gfid",
+          .type       = NO_DOC,
+          .op_version = GD_OP_VERSION_3_6_0,
+          .flags      = OPT_FLAG_CLIENT_OPT,
+        },
         /* NUFA xlator options (Distribute special case) */
         { .key        = "cluster.nufa",
           .voltype    = "cluster/distribute",

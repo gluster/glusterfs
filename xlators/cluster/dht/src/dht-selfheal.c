@@ -566,16 +566,26 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
         return 0;
 }
 
-
 int
 dht_selfheal_layout_alloc_start (xlator_t *this, loc_t *loc,
                                  dht_layout_t *layout)
 {
-        int           start = 0;
-        uint32_t      hashval = 0;
-        int           ret = 0;
+        int         start                               = 0;
+        uint32_t    hashval                             = 0;
+        int         ret                                 = 0;
+        const char *str                                 = NULL;
+        dht_conf_t *conf                                = NULL;
+        char           buf[UUID_CANONICAL_FORM_LEN + 1] = {0, };
 
-        ret = dht_hash_compute (this, layout->type, loc->path, &hashval);
+        conf = this->private;
+
+        if (conf->randomize_by_gfid) {
+                str = uuid_utoa_r (loc->gfid, buf);
+        } else {
+                str = loc->path;
+        }
+
+        ret = dht_hash_compute (this, layout->type, str, &hashval);
         if (ret == 0) {
                 start = (hashval % layout->cnt);
         }
