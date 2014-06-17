@@ -1010,6 +1010,8 @@ volgen_apply_filters (char *orig_volfile)
 free_fp:
                 GF_FREE(filterpath);
         }
+
+        closedir (filterdir);
 }
 
 static int
