@@ -4,7 +4,7 @@
 CFLAGS   = -Wall -g $(shell pkg-config --cflags glusterfs-api)
 LDFLAGS  = $(shell pkg-config --libs glusterfs-api)
 
-BINARIES = upcall-cache-invalidate
+BINARIES = upcall-cache-invalidate libgfapi-fini-hang
 
 %: %.c
 
