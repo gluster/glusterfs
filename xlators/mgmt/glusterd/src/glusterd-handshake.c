@@ -738,8 +738,6 @@ __server_getspec (rpcsvc_request_t *req)
                         goto fail;
                 }
                 ret = read (spec_fd, rsp.spec, file_len);
-
-                close (spec_fd);
         }
 
         if (brick_name) {
@@ -756,6 +754,9 @@ __server_getspec (rpcsvc_request_t *req)
 
         /* convert to XDR */
 fail:
+        if (spec_fd > 0)
+                close (spec_fd);
+
         rsp.op_ret   = ret;
 
         if (op_errno)
