@@ -442,7 +442,6 @@ dht_layout_entry_cmp_volname (dht_layout_t *layout, int i, int j)
                         layout->list[j].xlator->name));
 }
 
-
 gf_boolean_t
 dht_is_subvol_in_layout (dht_layout_t *layout, xlator_t *xlator)
 {

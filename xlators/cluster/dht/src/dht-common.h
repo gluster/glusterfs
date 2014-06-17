@@ -456,6 +456,12 @@ int                                       dht_lookup_everywhere (call_frame_t *f
 int
 dht_selfheal_directory (call_frame_t     *frame, dht_selfheal_dir_cbk_t cbk,
                         loc_t            *loc, dht_layout_t *layout);
+
+int
+dht_selfheal_directory_for_nameless_lookup (call_frame_t  *frame,
+                                            dht_selfheal_dir_cbk_t cbk,
+                                            loc_t  *loc, dht_layout_t *layout);
+
 int
 dht_selfheal_new_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t cbk,
                             dht_layout_t *layout);
