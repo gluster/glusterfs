@@ -13079,7 +13079,7 @@ glusterd_enable_default_options (glusterd_volinfo_t *volinfo, char *option)
         conf = this->private;
         GF_ASSERT (conf);
 
-        if (conf->op_version >= 4) {
+        if (conf->op_version >= GD_OP_VERSION_3_6_0) {
                 /* Set needed volume options in volinfo->dict
                  * For ex.,
                  *
@@ -13088,7 +13088,6 @@ glusterd_enable_default_options (glusterd_volinfo_t *volinfo, char *option)
                  *      ...
                  * }
                  * */
-
         }
 out:
         return ret;

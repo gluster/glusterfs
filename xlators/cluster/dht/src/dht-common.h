@@ -303,6 +303,7 @@ struct dht_conf {
         char            *xattr_name;
         char            *link_xattr_name;
         char            *wild_xattr_name;
+        gf_boolean_t    randomize_by_gfid;
 };
 typedef struct dht_conf dht_conf_t;
 

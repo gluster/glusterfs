@@ -395,6 +395,10 @@ dht_reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("readdir-optimize", conf->readdir_optimize, options,
                           bool, out);
+        GF_OPTION_RECONF ("randomize-hash-range-by-gfid",
+                          conf->randomize_by_gfid,
+                          options, bool, out);
+
         if (conf->defrag) {
                 GF_OPTION_RECONF ("rebalance-stats", conf->defrag->stats,
                                   options, bool, out);
@@ -643,6 +647,9 @@ dht_init (xlator_t *this)
                 goto err;
         }
 
+        GF_OPTION_INIT ("randomize-hash-range-by-gfid",
+                        conf->randomize_by_gfid, bool, err);
+
         GF_OPTION_INIT ("xattr-name", conf->xattr_name, str, err);
         gf_asprintf (&conf->link_xattr_name, "%s."DHT_LINKFILE_STR,
                      conf->xattr_name);
@@ -791,6 +798,15 @@ struct volume_options options[] = {
         /* switch option */
         { .key  = {"pattern.switch.case"},
           .type = GF_OPTION_TYPE_ANY
+        },
+
+        { .key =  {"randomize-hash-range-by-gfid"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "Use gfid of directory to determine the subvolume "
+          "from which hash ranges are allocated starting with 0. "
+          "Note that we still use a directory/file's name to determine the "
+          "subvolume to which it hashes"
         },
 
         { .key  = {NULL} },
