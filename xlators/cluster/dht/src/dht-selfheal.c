@@ -332,6 +332,144 @@ out:
         return 0;
 }
 
+gf_boolean_t
+dht_is_subvol_part_of_layout (dht_layout_t *layout, xlator_t *xlator)
+{
+        int               i = 0;
+        gf_boolean_t    ret = _gf_false;
+
+        for (i = 0; i < layout->cnt; i++) {
+                if (!strcmp (layout->list[i].xlator->name, xlator->name)) {
+                        ret = _gf_true;
+                        break;
+
+                }
+        }
+
+        return ret;
+}
+
+int
+dht_layout_index_from_conf (dht_layout_t *layout, xlator_t *xlator)
+{
+        int i = -1;
+        int j = 0;
+
+        for (j = 0; j < layout->cnt; j++) {
+                if (!strcmp (layout->list[j].xlator->name, xlator->name)) {
+                        i = j;
+                        break;
+                }
+        }
+
+        return i;
+}
+
+
+static int
+dht_selfheal_dir_xattr_for_nameless_lookup (call_frame_t *frame, loc_t *loc,
+                                            dht_layout_t  *layout)
+{
+        dht_local_t     *local = NULL;
+        int             missing_xattr = 0;
+        int             i = 0;
+        xlator_t        *this = NULL;
+        dht_conf_t      *conf = NULL;
+        dht_layout_t    *dummy = NULL;
+        int             j = 0;
+
+        local = frame->local;
+        this = frame->this;
+        conf = this->private;
+
+        for (i = 0; i < layout->cnt; i++) {
+                if (layout->list[i].err != -1 || !layout->list[i].stop) {
+                        /* err != -1 would mean xattr present on the directory
+                           or the directory is non existent.
+                           !layout->list[i].stop would mean layout absent
+                        */
+
+                        continue;
+                }
+                missing_xattr++;
+        }
+
+        /* Also account for subvolumes with no-layout. Used for zero'ing out
+           the layouts and for setting quota key's if present */
+
+        /* Send  where either the subvol is not part of layout,
+         * or it is part of the layout but error is non-zero but error
+         * is not equal to -1 or ENOENT.
+         */
+
+        for (i = 0; i < conf->subvolume_cnt; i++) {
+                if (dht_is_subvol_part_of_layout (layout, conf->subvolumes[i])
+                    == _gf_false) {
+                        missing_xattr++;
+                        continue;
+                }
+
+                j = dht_layout_index_from_conf (layout, conf->subvolumes[i]);
+
+                if ((j != -1) && (layout->list[j].err != -1) &&
+                   (layout->list[j].err != 0) &&
+                   (layout->list[j].err != ENOENT)) {
+                        missing_xattr++;
+                }
+
+        }
+
+
+        gf_log (this->name, GF_LOG_TRACE,
+                "%d subvolumes missing xattr for %s",
+                missing_xattr, loc->path);
+
+        if (missing_xattr == 0) {
+                dht_selfheal_dir_finish (frame, this, 0);
+                return 0;
+        }
+
+        local->call_cnt = missing_xattr;
+        for (i = 0; i < layout->cnt; i++) {
+                if (layout->list[i].err != -1 || !layout->list[i].stop)
+                        continue;
+
+                dht_selfheal_dir_xattr_persubvol (frame, loc, layout, i, NULL);
+
+                if (--missing_xattr == 0)
+                        break;
+        }
+
+        dummy = dht_layout_new (this, 1);
+        if (!dummy)
+                goto out;
+
+        for (i = 0; i < conf->subvolume_cnt && missing_xattr; i++) {
+              if (dht_is_subvol_part_of_layout (layout, conf->subvolumes[i])
+                  == _gf_false) {
+                        dht_selfheal_dir_xattr_persubvol (frame, loc, dummy, 0,
+                                                          conf->subvolumes[i]);
+                        missing_xattr--;
+                        continue;
+              }
+
+                j = dht_layout_index_from_conf (layout, conf->subvolumes[i]);
+
+                if ((j != -1) && (layout->list[j].err != -1) &&
+                    (layout->list[j].err != ENOENT) &&
+                    (layout->list[j].err != 0)) {
+                        dht_selfheal_dir_xattr_persubvol (frame, loc, dummy, 0,
+                                                          conf->subvolumes[i]);
+                        missing_xattr--;
+                }
+        }
+
+        dht_layout_unref (this, dummy);
+out:
+        return 0;
+
+}
+
 int
 dht_selfheal_dir_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                               int op_ret, int op_errno, struct iatt *statpre,
@@ -1030,6 +1168,65 @@ sorry_no_fix:
         return 0;
 }
 
+int
+dht_selfheal_directory_for_nameless_lookup (call_frame_t *frame,
+                                            dht_selfheal_dir_cbk_t dir_cbk,
+                                            loc_t *loc, dht_layout_t *layout)
+{
+        dht_local_t     *local  = NULL;
+        uint32_t        down    = 0;
+        uint32_t        misc    = 0;
+        int             ret     = 0;
+        xlator_t        *this   = NULL;
+
+        local = frame->local;
+        this = frame->this;
+        dht_layout_anomalies (this, loc, layout,
+                              &local->selfheal.hole_cnt,
+                              &local->selfheal.overlaps_cnt,
+                              NULL, &local->selfheal.down,
+                              &local->selfheal.misc, NULL);
+
+        down     = local->selfheal.down;
+        misc     = local->selfheal.misc;
+
+        local->selfheal.dir_cbk = dir_cbk;
+        local->selfheal.layout = dht_layout_ref (this, layout);
+
+        if (down) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%d subvolumes down -- not fixing", down);
+                ret = 0;
+                goto sorry_no_fix;
+        }
+
+        if (misc) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%d subvolumes have unrecoverable errors", misc);
+                ret = 0;
+                goto sorry_no_fix;
+        }
+
+        dht_layout_sort_volname (layout);
+        ret = dht_selfheal_dir_getafix (frame, loc, layout);
+
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "not able to form layout for the directory");
+                goto sorry_no_fix;
+        }
+
+        dht_selfheal_dir_xattr_for_nameless_lookup (frame, &local->loc, layout);
+        return 0;
+
+sorry_no_fix:
+        /* TODO: need to put appropriate local->op_errno */
+        dht_selfheal_dir_finish (frame, this, ret);
+
+        return 0;
+
+
+}
 
 int
 dht_selfheal_restore (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,

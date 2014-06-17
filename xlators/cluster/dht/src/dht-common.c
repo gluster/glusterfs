@@ -212,6 +212,17 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
                                 op_errno = ESTALE;
                                 goto out;
                         }
+
+                        /* For fixing the directory layout, we need to choose
+                         * the subvolume on which layout will be set first.
+                         * Because in nameless lookup, we have gfid only,
+                         * we are dependent on gfid. Therefore if conf->
+                         * randomize_by_gfid is set, then only we proceed for
+                         * healing layout of directory otherwise we don't heal.
+                         */
+
+                        if (local->inode && conf->randomize_by_gfid)
+                                goto selfheal;
                 }
 
                 if (local->inode)
@@ -227,6 +238,18 @@ out:
                           NULL);
 
         return ret;
+
+selfheal:
+
+        main_frame->local = local;
+        discover_frame->local =  NULL;
+        FRAME_SU_DO (main_frame, dht_local_t);
+        uuid_copy (local->loc.gfid, local->gfid);
+        ret = dht_selfheal_directory_for_nameless_lookup (main_frame,
+                                                        dht_lookup_selfheal_cbk,
+                                                          &local->loc, layout);
+        return ret;
+
 }
 
 
