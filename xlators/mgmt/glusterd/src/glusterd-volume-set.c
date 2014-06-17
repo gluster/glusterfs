@@ -420,6 +420,10 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 3,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key        = "cluster.weighted-rebalance",
+          .voltype    = "cluster/distribute",
+          .op_version = GD_OP_VERSION_3_6_0,
+        },
 
         /* Switch xlator options (Distribute special case) */
         { .key        = "cluster.switch",

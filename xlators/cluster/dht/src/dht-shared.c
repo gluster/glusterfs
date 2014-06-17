@@ -419,6 +419,9 @@ dht_reconfigure (xlator_t *this, dict_t *options)
         dht_init_regex (this, options, "extra-hash-regex",
                         &conf->extra_regex, &conf->extra_regex_valid);
 
+        GF_OPTION_RECONF ("weighted-rebalance", conf->do_weighting, options,
+                          bool, out);
+
         ret = 0;
 out:
         return ret;
@@ -658,6 +661,8 @@ dht_init (xlator_t *this)
                 goto err;
         }
 
+        GF_OPTION_INIT ("weighted-rebalance", conf->do_weighting, bool, err);
+
         this->private = conf;
 
         return 0;
@@ -788,6 +793,14 @@ struct volume_options options[] = {
           .description = "Base for extended attributes used by this "
           "translator instance, to avoid conflicts with others above or "
           "below it."
+        },
+
+        { .key = {"weighted-rebalance"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "on",
+          .description = "When enabled, files will be allocated to bricks "
+          "with a probability proportional to their size.  Otherwise, all "
+          "bricks will have the same probability (legacy behavior)."
         },
 
         /* NUFA option */

@@ -208,6 +208,7 @@ struct dht_du {
 	double   avail_inodes;
         uint64_t avail_space;
         uint32_t log;
+        uint32_t chunks;
 };
 typedef struct dht_du dht_du_t;
 
@@ -315,6 +316,9 @@ struct dht_conf {
         char            *xattr_name;
         char            *link_xattr_name;
         char            *wild_xattr_name;
+
+        /* Support size-weighted rebalancing (heterogeneous bricks). */
+        gf_boolean_t    do_weighting;
         gf_boolean_t    randomize_by_gfid;
 };
 typedef struct dht_conf dht_conf_t;

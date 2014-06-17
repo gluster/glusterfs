@@ -37,6 +37,8 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	double         percent = 0;
 	double         percent_inodes = 0;
 	uint64_t       bytes = 0;
+        uint32_t       bpc;     /* blocks per chunk */
+        uint32_t       chunks   = 0;
 
 	conf = this->private;
 	prev = cookie;
@@ -50,17 +52,28 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (statvfs && statvfs->f_blocks) {
 		percent = (statvfs->f_bavail * 100) / statvfs->f_blocks;
 		bytes = (statvfs->f_bavail * statvfs->f_frsize);
+                /*
+                 * A 32-bit count of 1MB chunks allows a maximum brick size of
+                 * ~4PB.  It's possible that we could see a single local FS
+                 * bigger than that some day, but this code is likely to be
+                 * irrelevant by then.  Meanwhile, it's more important to keep
+                 * the chunk size small so the layout-calculation code that
+                 * uses this value can be tested on normal machines.
+                 */
+                bpc = (1 << 20) / statvfs->f_bsize;
+                chunks = (statvfs->f_blocks + bpc - 1) / bpc;
 	}
 
 	if (statvfs && statvfs->f_files) {
 		percent_inodes = (statvfs->f_ffree * 100) / statvfs->f_files;
 	} else {
-		/* set percent inodes to 100 for dynamically allocated inode filesystems
-		   this logic holds good so that, distribute has nothing to worry about
-		   total inodes rather let the 'create()' to be scheduled on the hashed
-		   subvol regardless of the total inodes. since we have no awareness on
-		   loosing inodes this logic fits well
-		*/
+                /*
+                 * Set percent inodes to 100 for dynamically allocated inode
+                 * filesystems. The rationale is that distribute need not
+                 * worry about total inodes; rather, let the 'create()' be
+                 * scheduled on the hashed subvol regardless of the total
+                 * inodes.
+		 */
 		percent_inodes = 100;
 	}
 
@@ -71,6 +84,7 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				conf->du_stats[i].avail_percent = percent;
 				conf->du_stats[i].avail_space   = bytes;
 				conf->du_stats[i].avail_inodes  = percent_inodes;
+                                conf->du_stats[i].chunks        = chunks;
 				gf_msg_debug (this->name, 0,
 				              "subvolume '%s': avail_percent "
 					      "is: %.2f and avail_space "
@@ -80,6 +94,7 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 					      conf->du_stats[i].avail_percent,
 					      conf->du_stats[i].avail_space,
 					      conf->du_stats[i].avail_inodes);
+                                break;  /* no point in looping further */
 			}
 	}
 	UNLOCK (&conf->subvolume_lock);

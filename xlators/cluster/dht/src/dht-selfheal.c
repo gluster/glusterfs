@@ -20,11 +20,11 @@
 #include "dht-messages.h"
 #include "glusterfs-acl.h"
 
-#define DHT_SET_LAYOUT_RANGE(layout,i,srt,chunk,cnt,path)    do {       \
+#define DHT_SET_LAYOUT_RANGE(layout,i,srt,chunk,path)    do {           \
                 layout->list[i].start = srt;                            \
                 layout->list[i].stop  = srt + chunk - 1;                \
                                                                         \
-                gf_msg_trace (this->name, 0,                       \
+                gf_msg_trace (this->name, 0,                            \
                               "gave fix: %u - %u on %s for %s",         \
                               layout->list[i].start,                    \
                               layout->list[i].stop,                     \
@@ -952,6 +952,18 @@ dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
 		new_layout->list[i].xlator = layout->list[i].xlator;
         }
 
+        if (priv->du_stats) {
+                for (i = 0; i < priv->subvolume_cnt; ++i) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "subvolume %d (%s): %u chunks", i,
+                                priv->subvolumes[i]->name,
+                                priv->du_stats[i].chunks);
+                }
+        }
+        else {
+                gf_log (this->name, GF_LOG_WARNING, "no du stats ?!?");
+        }
+
 	/* First give it a layout as though it is a new directory. This
 	   ensures rotation to kick in */
         dht_layout_sort_volname (new_layout);
@@ -976,6 +988,32 @@ done:
 }
 
 
+/*
+ * Having to call this 2x for each entry in the layout is pretty horrible, but
+ * that's what all of this layout-sorting nonsense gets us.
+ */
+uint32_t
+dht_get_chunks_from_xl (xlator_t *parent, xlator_t *child)
+{
+        dht_conf_t      *priv   = parent->private;
+        xlator_list_t   *trav;
+        uint32_t        index   = 0;
+
+        if (!priv->du_stats) {
+                return 0;
+        }
+
+        for (trav = parent->children; trav; trav = trav->next) {
+                if (trav->xlator == child) {
+                        return priv->du_stats[index].chunks;
+                }
+                ++index;
+        }
+
+        return 0;
+}
+
+
 void
 dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
                                    dht_layout_t *layout)
@@ -984,44 +1022,92 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
         uint32_t     chunk = 0;
         int          i = 0;
         uint32_t     start = 0;
-        int          cnt = 0;
+        int          bricks_to_use = 0;
         int          err = 0;
         int          start_subvol = 0;
+        uint32_t     curr_size;
+        uint32_t     total_size = 0;
+        int          real_i;
+        dht_conf_t   *priv;
+        gf_boolean_t weight_by_size;
+        int          bricks_used = 0;
 
         this = frame->this;
+        priv = this->private;
+        weight_by_size = priv->do_weighting;
 
-        cnt = dht_get_layout_count (this, layout, 1);
+        bricks_to_use = dht_get_layout_count (this, layout, 1);
+        GF_ASSERT (bricks_to_use > 0);
 
-        chunk = ((unsigned long) 0xffffffff) / ((cnt) ? cnt : 1);
+        bricks_used = 0;
+        for (i = 0; i < layout->cnt; ++i) {
+                err = layout->list[i].err;
+                if ((err != -1) && (err != ENOENT)) {
+                        continue;
+                }
+                curr_size = dht_get_chunks_from_xl (this,
+                                                    layout->list[i].xlator);
+                if (!curr_size) {
+                        weight_by_size = _gf_false;
+                        break;
+                }
+                total_size += curr_size;
+                if (++bricks_used >= bricks_to_use) {
+                        break;
+                }
+        }
+
+        if (weight_by_size) {
+                /* We know total_size is not zero. */
+                chunk = ((unsigned long) 0xffffffff) / total_size;
+                gf_log (this->name, GF_LOG_INFO,
+                        "chunk size = 0xffffffff / %u = 0x%x",
+                        total_size, chunk);
+        }
+        else {
+                chunk = ((unsigned long) 0xffffffff) / bricks_used;
+        }
 
         start_subvol = dht_selfheal_layout_alloc_start (this, loc, layout);
 
         /* clear out the range, as we are re-computing here */
         DHT_RESET_LAYOUT_RANGE (layout);
-        for (i = start_subvol; i < layout->cnt; i++) {
-                err = layout->list[i].err;
-                if (err == -1 || err == ENOENT) {
-                        DHT_SET_LAYOUT_RANGE(layout, i, start, chunk,
-                                             cnt, loc->path);
-                        if (--cnt == 0) {
-                                layout->list[i].stop = 0xffffffff;
-                                goto done;
-                        }
-                        start += chunk;
-                }
-        }
 
-        for (i = 0; i < start_subvol; i++) {
+        /*
+         * OK, what's this "real_i" stuff about?  This used to be two loops -
+         * from start_subvol to layout->cnt-1, then from 0 to start_subvol-1.
+         * That way is practically an open invitation to bugs when only one
+         * of the loops is updated.  Using real_i and modulo operators to make
+         * it one loop avoids this problem.  Remember, folks: it's everyone's
+         * responsibility to help stamp out copy/paste abuse.
+         */
+        bricks_used = 0;
+        for (real_i = 0; real_i < layout->cnt; real_i++) {
+                i = (real_i + start_subvol) % layout->cnt;
                 err = layout->list[i].err;
-                if (err == -1 || err == ENOENT) {
-                        DHT_SET_LAYOUT_RANGE(layout, i, start, chunk,
-                                             cnt, loc->path);
-                        if (--cnt == 0) {
-                                layout->list[i].stop = 0xffffffff;
-                                goto done;
-                        }
-                        start += chunk;
+                if ((err != -1) && (err != ENOENT)) {
+                        continue;
                 }
+                if (weight_by_size) {
+                        curr_size = dht_get_chunks_from_xl (this,
+                                layout->list[i].xlator);
+                        if (!curr_size) {
+                                continue;
+                        }
+                }
+                else {
+                        curr_size = 1;
+                }
+                gf_log (this->name, GF_LOG_INFO,
+                        "assigning range size 0x%x to %s", chunk * curr_size,
+                        layout->list[i].xlator->name);
+                DHT_SET_LAYOUT_RANGE(layout, i, start, chunk * curr_size,
+                                     loc->path);
+                if (++bricks_used >= bricks_to_use) {
+                        layout->list[i].stop = 0xffffffff;
+                        goto done;
+                }
+                start += (chunk * curr_size);
         }
 
 done:
