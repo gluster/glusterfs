@@ -702,6 +702,9 @@ quota_validate (call_frame_t *frame, inode_t *inode, xlator_t *this,
 
         ret = 0;
 err:
+        if (xdata)
+                dict_unref (xdata);
+
         return ret;
 }
 
