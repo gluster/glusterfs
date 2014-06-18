@@ -152,9 +152,9 @@ char *page_aligned_alloc (size_t size, char **aligned_buf);
 int bd_validate_bd_xattr (xlator_t *this, char *bd, char **type,
                           uint64_t *lv_size, uuid_t uuid);
 uint64_t bd_get_default_extent (bd_priv_t *priv);
-uint64_t bd_adjust_size (bd_priv_t *priv, uint64_t size);
+uint64_t bd_adjust_size (bd_priv_t *priv, size_t size);
 int bd_create (uuid_t uuid, uint64_t size, char *type, bd_priv_t *priv);
-int bd_resize (bd_priv_t *priv, uuid_t uuid, off_t size);
+int bd_resize (bd_priv_t *priv, uuid_t uuid, size_t size);
 int bd_delete_lv (bd_priv_t *priv, const char *lv_name, int *op_errno);
 int bd_snapshot_create (bd_local_t *local, bd_priv_t *priv);
 int bd_clone (bd_local_t *local, bd_priv_t *priv);
@@ -167,7 +167,7 @@ int bd_clone (bd_local_t *local, bd_priv_t *priv);
 int bd_merge (bd_priv_t *priv, uuid_t gfid);
 int bd_get_origin (bd_priv_t *priv, loc_t *loc, fd_t *fd, dict_t *dict);
 int bd_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
-                   off_t offset, off_t len, struct iatt *prebuf,
+                   off_t offset, size_t len, struct iatt *prebuf,
                    struct iatt *postbuf);
 
 #endif

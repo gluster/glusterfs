@@ -6633,7 +6633,7 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
         glusterd_conf_t    *priv                = NULL;
         uint64_t            effective_max_limit = 0;
         int64_t             volcount            = 0;
-        int64_t             i                   = 0;
+        int                 i                   = 0;
         char               *volname             = NULL;
         char                key[PATH_MAX]       = {0, };
         glusterd_volinfo_t *volinfo             = NULL;
@@ -6660,7 +6660,7 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
         }
 
         for (i = 1; i <= volcount; i++) {
-                snprintf (key, sizeof (key), "volname%ld", i);
+                snprintf (key, sizeof (key), "volname%d", i);
                 ret = dict_get_str (dict, key, &volname);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "failed to get the "

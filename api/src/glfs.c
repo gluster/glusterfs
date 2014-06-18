@@ -872,13 +872,13 @@ pub_glfs_get_volfile (struct glfs *fs, void *buf, size_t len)
 
         glfs_lock(fs);
         if (len >= fs->oldvollen) {
-                gf_log ("glfs", GF_LOG_TRACE, "copying %lu to %p", len, buf);
+                gf_log ("glfs", GF_LOG_TRACE, "copying %zu to %p", len, buf);
                 memcpy(buf,fs->oldvolfile,len);
                 res = len;
         }
         else {
                 res = len - fs->oldvollen;
-                gf_log ("glfs", GF_LOG_TRACE, "buffer is %ld too short", -res);
+                gf_log ("glfs", GF_LOG_TRACE, "buffer is %zd too short", -res);
         }
         glfs_unlock(fs);
 
