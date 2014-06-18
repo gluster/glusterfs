@@ -5468,6 +5468,15 @@ glusterd_snapshot_config_commit (dict_t *dict, char **op_errstr,
                 }
 
                 if (auto_delete) {
+                        ret = dict_set_dynstr_with_alloc (conf->opts,
+                                GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
+                                auto_delete);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Could not "
+                                        "save auto-delete value in conf->opts");
+                                goto out;
+                        }
+
                         ret = glusterd_get_next_global_opt_version_str
                                                 (conf->opts, &next_version);
                         if (ret) {
@@ -5476,12 +5485,12 @@ glusterd_snapshot_config_commit (dict_t *dict, char **op_errstr,
                                 goto out;
                         }
 
-                        ret = dict_set_dynstr_with_alloc (conf->opts,
-                                GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
-                                auto_delete);
+                        ret = dict_set_str (conf->opts,
+                                            GLUSTERD_GLOBAL_OPT_VERSION,
+                                            next_version);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR, "Could not "
-                                        "save auto-delete value in conf->opts");
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "set next global opt-version");
                                 goto out;
                         }
 
