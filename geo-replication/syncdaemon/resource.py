@@ -1294,13 +1294,6 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                 logging.debug("Changelog register failed: %s - %s" %
                               (e.errno, e.strerror))
 
-            # Check if gsyncd restarted in pause state. If
-            # yes, send SIGSTOP to negative of monitor pid
-            # to go back to pause state.
-            if gconf.pause_on_start:
-                os.kill(-os.getppid(), signal.SIGSTOP)
-                gconf.pause_on_start = False
-
             # oneshot: Try to use changelog history api, if not
             # available switch to FS crawl
             # Note: if config.change_detector is xsync then

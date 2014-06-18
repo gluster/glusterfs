@@ -73,11 +73,10 @@ class Monitor(object):
     """class which spawns and manages gsyncd workers"""
 
     ST_INIT = 'Initializing...'
-    ST_INIT_PAUSE = 'Initializing...(Paused)'
     ST_STABLE = 'Stable'
     ST_FAULTY = 'faulty'
     ST_INCON = 'inconsistent'
-    _ST_ORD = [ST_STABLE, ST_INIT, ST_INIT_PAUSE, ST_FAULTY, ST_INCON]
+    _ST_ORD = [ST_STABLE, ST_INIT, ST_FAULTY, ST_INCON]
 
     def __init__(self):
         self.lock = Lock()
@@ -97,8 +96,17 @@ class Monitor(object):
             if state != old_state:
                 self.set_state(state)
         else:
-            logging.info('new state: %s' % state)
             if getattr(gconf, 'state_file', None):
+                # If previous state is paused, suffix the
+                # new state with '(Paused)'
+                try:
+                    with open(gconf.state_file, "r") as f:
+                        content = f.read()
+                        if "paused" in content.lower():
+                            state = state + '(Paused)'
+                except IOError:
+                    pass
+                logging.info('new state: %s' % state)
                 update_file(gconf.state_file, lambda f: f.write(state + '\n'))
 
     @staticmethod
@@ -129,10 +137,7 @@ class Monitor(object):
         due to the keep-alive thread)
         """
 
-        if gconf.pause_on_start:
-            self.set_state(self.ST_INIT_PAUSE, w)
-        else:
-            self.set_state(self.ST_INIT, w)
+        self.set_state(self.ST_INIT, w)
 
         ret = 0
 
@@ -310,5 +315,11 @@ def distribute(*resources):
 
 
 def monitor(*resources):
+    # Check if gsyncd restarted in pause state. If
+    # yes, send SIGSTOP to negative of monitor pid
+    # to go back to pause state.
+    if gconf.pause_on_start:
+        os.kill(-os.getpid(), signal.SIGSTOP)
+
     """oh yeah, actually Monitor is used as singleton, too"""
     return Monitor().multiplex(*distribute(*resources))
