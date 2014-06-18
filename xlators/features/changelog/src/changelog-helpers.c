@@ -25,6 +25,28 @@
 #include "changelog-encoders.h"
 #include <pthread.h>
 
+inline void
+__mask_cancellation (xlator_t *this)
+{
+        int ret = 0;
+
+        ret = pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to disable thread cancellation");
+}
+
+inline void
+__unmask_cancellation (xlator_t *this)
+{
+        int ret = 0;
+
+        ret = pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to enable thread cancellation");
+}
+
 static void
 changelog_cleanup_free_mutex (void *arg_mutex)
 {
@@ -618,6 +640,8 @@ changelog_rollover (void *data)
         slice = &priv->slice;
 
         while (1) {
+                (void) pthread_testcancel();
+
                 tv.tv_sec  = priv->rollover_time;
                 tv.tv_usec = 0;
                 FD_ZERO(&rset);
@@ -708,6 +732,8 @@ changelog_rollover (void *data)
                         continue;
                 }
 
+                __mask_cancellation (this);
+
                 LOCK (&priv->lock);
                 {
                         ret = changelog_inject_single_event (this, priv, &cld);
@@ -715,6 +741,8 @@ changelog_rollover (void *data)
                                 SLICE_VERSION_UPDATE (slice);
                 }
                 UNLOCK (&priv->lock);
+
+                __unmask_cancellation (this);
         }
 
         return NULL;
@@ -733,6 +761,8 @@ changelog_fsync_thread (void *data)
         cld.cld_type = CHANGELOG_TYPE_FSYNC;
 
         while (1) {
+                (void) pthread_testcancel();
+
                 tv.tv_sec  = priv->fsync_interval;
                 tv.tv_usec = 0;
 
@@ -740,10 +770,14 @@ changelog_fsync_thread (void *data)
                 if (ret)
                         continue;
 
+                __mask_cancellation (this);
+
                 ret = changelog_inject_single_event (this, priv, &cld);
                 if (ret)
                         gf_log (this->name, GF_LOG_ERROR,
                                 "failed to inject fsync event");
+
+                __unmask_cancellation (this);
         }
 
         return NULL;
