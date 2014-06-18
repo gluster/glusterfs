@@ -209,7 +209,7 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "Migrate file failed :"
                                 "Failed to set dictionary value:"
-                                " key = %s for %s", 
+                                " key = %s for %s",
                                 conf->link_xattr_name, loc->name);
                         goto out;
                 }
@@ -219,7 +219,7 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "Migrate file failed :"
-                                "Linkto setxattr failed %s -> %s (%s)", 
+                                "Linkto setxattr failed %s -> %s (%s)",
                                 cached_subvol->name,
                                 loc->name, strerror (-ret));
                         ret = -1;
@@ -1002,7 +1002,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                               (GF_SET_ATTR_MTIME | GF_SET_ATTR_ATIME),
                               NULL, NULL);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, 
+                gf_log (this->name, GF_LOG_WARNING,
                         "%s: failed to perform setattr on %s ",
                         loc->path, to->name);
                 ret = -1;
@@ -1423,7 +1423,7 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         DHT_MSG_MIGRATE_FILE_FAILED,
                                         "Migrate file failed:"
-                                        "Failed to get node-uuid for %s", 
+                                        "Failed to get node-uuid for %s",
                                         entry_loc.path);
                                 ret = -1;
                                 continue;
@@ -1450,7 +1450,7 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                          */
                         if (uuid_compare (node_uuid, defrag->node_uuid)) {
                                 gf_msg_trace (this->name, 0, "%s does not"
-                                              "belong to this node", 
+                                              "belong to this node",
                                               entry_loc.path);
                                 continue;
                         }
@@ -1716,7 +1716,7 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         DHT_MSG_LAYOUT_FIX_FAILED,
-                                        "Fix layout failed for %s", 
+                                        "Fix layout failed for %s",
                                         entry_loc.path);
                                 defrag->total_failures++;
                                 goto out;
