@@ -382,3 +382,8 @@ function path_exists {
         stat $1
         if [ $? -eq 0 ]; then echo "Y"; else echo "N"; fi
 }
+
+function force_umount {
+        umount -f $1
+        if [ $? -eq 0 ]; then echo "Y"; else echo "N"; fi
+}
