@@ -235,8 +235,7 @@ dht_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->op_errno = op_errno;
                         gf_msg_debug (this->name, 0,
                                       "subvolume %s returned -1 (%s)",
-                                      prev->this->name, 
-                                      strerror (op_errno));
+                                      prev->this->name, strerror (op_errno));
 
                         goto unlock;
                 }
@@ -600,8 +599,7 @@ dht_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask,
         subvol = local->cached_subvol;
         if (!subvol) {
                 gf_msg_debug (this->name, 0,
-                              "no cached subvolume for path=%s", 
-                              loc->path);
+                              "no cached subvolume for path=%s", loc->path);
                 op_errno = EINVAL;
                 goto err;
         }
@@ -977,8 +975,7 @@ dht_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         subvol = local->cached_subvol;
         if (!subvol) {
                 gf_msg_debug (this->name, 0,
-                              "no cached subvolume for path=%s", 
-                              loc->path);
+                              "no cached subvolume for path=%s", loc->path);
                 op_errno = EINVAL;
                 goto err;
         }
@@ -1077,8 +1074,7 @@ dht_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
         subvol = local->cached_subvol;
         if (!subvol) {
                 gf_msg_debug (this->name, 0,
-                              "no cached subvolume for path=%s", 
-                              loc->path);
+                              "no cached subvolume for path=%s", loc->path);
                 op_errno = EINVAL;
                 goto err;
         }

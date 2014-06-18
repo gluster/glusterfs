@@ -461,7 +461,7 @@ gf_defrag_pattern_list_fill (xlator_t *this, gf_defrag_info_t *defrag, char *dat
                                 pattern = "*";
                         }
                 } else if (gf_string2bytesize_uint64 (num, &pattern_list->size) != 0) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0, 
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_INVALID_OPTION,
                                 "Invalid option. Defrag pattern:"
                                 " Invalid number format \"%s\"", num);
@@ -597,9 +597,9 @@ dht_init (xlator_t *this)
                         if (gf_defrag_pattern_list_fill (this, defrag, temp_str)
                             == -1) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        DHT_MSG_INVALID_OPTION, 
+                                        DHT_MSG_INVALID_OPTION,
                                         "Invalid option:"
-                                        " Cannot parse rebalance-filter (%s)", 
+                                        " Cannot parse rebalance-filter (%s)",
                                         temp_str);
 
                                 goto err;

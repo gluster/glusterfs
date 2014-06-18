@@ -459,7 +459,7 @@ dht_rename_cleanup (call_frame_t *frame)
 
                 gf_msg_trace (this->name, 0,
                               "unlinking linkfile %s @ %s => %s, (gfid = %s)",
-                              local->loc.path, dst_hashed->name, 
+                              local->loc.path, dst_hashed->name,
                               src_cached->name, gfid);
 
                 xattr_new = dict_copy_with_ref (xattr, NULL);
@@ -479,8 +479,8 @@ dht_rename_cleanup (call_frame_t *frame)
                 dict_t *xattr_new = NULL;
 
                 gf_msg_trace (this->name, 0,
-                              "unlinking link %s => %s (%s), (gfid = %s)", 
-                              local->loc.path, local->loc2.path, 
+                              "unlinking link %s => %s (%s), (gfid = %s)",
+                              local->loc.path, local->loc2.path,
                               src_cached->name, gfid);
 
                 xattr_new = dict_copy_with_ref (xattr, NULL);
@@ -579,7 +579,7 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1) {
                 gf_msg (this->name, GF_LOG_WARNING, op_errno,
                         DHT_MSG_RENAME_FAILED,
-                        "%s: Rename on %s failed, (gfid = %s) ", 
+                        "%s: Rename on %s failed, (gfid = %s) ",
                         local->loc.path, prev->this->name,
                         local->loc.inode? uuid_utoa(local->loc.inode->gfid):"");
                 local->op_ret   = op_ret;

@@ -833,7 +833,7 @@ dht_migration_complete_check_task (void *data)
         if (ret != 0) {
                 gf_msg_debug (this->name, 0,
                               "%s: could not set preset layout "
-                              "for subvol %s", local->loc.path, 
+                              "for subvol %s", local->loc.path,
                               dst_node->name);
                 ret   = -1;
                 local->op_errno = EINVAL;
