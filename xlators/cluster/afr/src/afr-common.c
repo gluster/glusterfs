@@ -4211,8 +4211,8 @@ find_best_down_child (xlator_t *this)
         priv = this->private;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (priv->child_up[i] &&
-                    priv->child_latency[i] >= 0.0 &&
+                if (!priv->child_up[i] &&
+                    priv->child_latency[i] >= 0 &&
                     priv->child_latency[i] < best_latency) {
                         best_child = i;
                         best_latency = priv->child_latency[i];
@@ -4237,7 +4237,7 @@ find_worst_up_child (xlator_t *this)
 
         for (i = 0; i < priv->child_count; i++) {
                 if (priv->child_up[i] &&
-                    priv->child_latency[i] >= 0.0 &&
+                    priv->child_latency[i] >= 0 &&
                     priv->child_latency[i] > worst_latency) {
                         worst_child = i;
                         worst_latency = priv->child_latency[i];
@@ -4510,7 +4510,7 @@ afr_notify (xlator_t *this, int32_t event,
         gf_boolean_t    had_quorum          = _gf_false;
         gf_boolean_t    has_quorum          = _gf_false;
         int64_t         halo_max_latency_msec = 0;
-        int64_t         child_latency_msec   = 0;
+        int64_t         child_latency_msec   = -1;
 
         child_xlator = (xlator_t *)data;
         priv = this->private;
