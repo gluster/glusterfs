@@ -289,7 +289,7 @@ fuse_invalidate_entry (xlator_t *this, uint64_t fuse_ino)
                                      dentry->name,
                                      uuid_utoa (dentry->parent->gfid));
                 } else {
-                        fuse_log_eh (this, "Invalidated entry %s(nodeid: %ld)",
+                        fuse_log_eh (this, "Invalidated entry %s(nodeid: %" PRIu64 ")",
                                      dentry->name, fnieo->parent);
                 }
         }
@@ -341,13 +341,14 @@ fuse_invalidate_inode(xlator_t *this, uint64_t fuse_ino)
                 close(priv->fd);
         }
 
-        gf_log("glusterfs-fuse", GF_LOG_TRACE, "INVALIDATE inode: %lu", fuse_ino);
+        gf_log ("glusterfs-fuse", GF_LOG_TRACE, "INVALIDATE inode: %" PRIu64,
+                fuse_ino);
 
         if (inode) {
-                fuse_log_eh (this, "Invalidated inode %lu (gfid: %s)",
+                fuse_log_eh (this, "Invalidated inode %" PRIu64 " (gfid: %s)",
                              fuse_ino, uuid_utoa (inode->gfid));
         } else {
-                fuse_log_eh (this, "Invalidated inode %lu ", fuse_ino);
+                fuse_log_eh (this, "Invalidated inode %" PRIu64, fuse_ino);
         }
 
         if (inode)

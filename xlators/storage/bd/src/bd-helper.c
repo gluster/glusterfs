@@ -444,7 +444,7 @@ bd_create (uuid_t uuid, uint64_t size, char *type, bd_priv_t *priv)
 }
 
 int32_t
-bd_resize (bd_priv_t *priv, uuid_t uuid, off_t size)
+bd_resize (bd_priv_t *priv, uuid_t uuid, size_t size)
 {
         uint64_t        new_size  = 0;
         runner_t        runner    = {0, };
@@ -481,8 +481,9 @@ bd_resize (bd_priv_t *priv, uuid_t uuid, off_t size)
         new_size = lvm_lv_get_size (lv);
 
         if (new_size != size) {
-                gf_log (THIS->name, GF_LOG_WARNING, "resized LV size %ld does "
-                        "not match requested size %ld", new_size, size);
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "resized LV size %" PRIu64 " does "
+                        "not match requested size %zd", new_size, size);
                 ret = EIO;
         }
 
@@ -515,7 +516,7 @@ bd_get_default_extent (bd_priv_t *priv)
  * Adjusts the user specified size to VG specific extent size
  */
 uint64_t
-bd_adjust_size (bd_priv_t *priv, uint64_t size)
+bd_adjust_size (bd_priv_t *priv, size_t size)
 {
         uint64_t extent = 0;
         uint64_t nr_ex  = 0;
@@ -966,7 +967,7 @@ skip:
 
 int
 bd_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
-               off_t offset, off_t len, struct iatt *prebuf,
+               off_t offset, size_t len, struct iatt *prebuf,
                struct iatt *postbuf)
 {
         int          ret   = -1;
@@ -996,7 +997,7 @@ bd_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
 #endif
         if (ret) {
                 gf_log(this->name, GF_LOG_ERROR,
-                       "zerofill failed on fd %d length %ld %s",
+                       "zerofill failed on fd %d length %zu %s",
                        bd_fd->fd, len, strerror (ret));
                 goto out;
         }
