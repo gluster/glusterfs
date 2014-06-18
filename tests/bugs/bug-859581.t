@@ -31,7 +31,7 @@ TEST [ -d $B0/${V0}1/dir1/dir2 ]
 TEST [ ! -d $(gf_get_gfid_backend_file_path $B0/${V0}1 "dir1") ]
 
 # Stop the volume to flush caches and force symlink recreation
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 EXPECT 'Stopped' volinfo_field $V0 'Status';
 TEST $CLI volume start $V0
@@ -50,7 +50,7 @@ ls -l $M0/dir1;
 
 TEST [ -h $(gf_get_gfid_backend_file_path $B0/${V0}1 "dir1") ]
 
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0
 
