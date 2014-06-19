@@ -3830,6 +3830,16 @@ __glusterd_handle_status_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
+        if ((cmd & GF_CLI_STATUS_SNAPD) &&
+            (conf->op_version < GD_OP_VERSION_3_6_0)) {
+                snprintf (err_str, sizeof (err_str), "The cluster is operating "
+                          "at a lesser version than %d. Getting the status of "
+                          "snapd is not allowed in this state",
+                          GD_OP_VERSION_3_6_0);
+                ret = -1;
+                goto out;
+        }
+
         ret = glusterd_op_begin_synctask (req, GD_OP_STATUS_VOLUME, dict);
 
 out:

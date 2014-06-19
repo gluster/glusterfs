@@ -5781,6 +5781,7 @@ glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node)
         glusterd_volinfo_t      *volinfo   = NULL;
         nodesrv_t               *nfs       = NULL;
         nodesrv_t               *quotad    = NULL;
+        glusterd_snapd_t        *snapd     = NULL;
 
         GF_VALIDATE_OR_GOTO (THIS->name, pending_node, out);
         GF_VALIDATE_OR_GOTO (THIS->name, pending_node->node, out);
@@ -5805,7 +5806,9 @@ glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node)
         } else if (pending_node->type == GD_NODE_QUOTAD) {
                 quotad = pending_node->node;
                 rpc = quotad->rpc;
-
+        } else if (pending_node->type == GD_NODE_SNAPD) {
+                snapd = pending_node->node;
+                rpc = quotad->rpc;
         } else {
                 GF_ASSERT (0);
         }
@@ -7474,6 +7477,67 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
                 goto out;
 
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, priv);
+
+        brick_online = gf_is_service_running (pidfile, &pid);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.pid", base_key);
+        ret = dict_set_int32 (dict, key, pid);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.status", base_key);
+        ret = dict_set_int32 (dict, key, brick_online);
+
+out:
+        if (ret)
+                gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+int32_t
+glusterd_add_snapd_to_dict (glusterd_volinfo_t *volinfo,
+                            dict_t  *dict, int32_t count)
+{
+
+        int             ret                   = -1;
+        int32_t         pid                   = -1;
+        int32_t         brick_online          = -1;
+        char            key[1024]             = {0};
+        char            base_key[1024]        = {0};
+        char            pidfile[PATH_MAX]     = {0};
+        xlator_t        *this                 = NULL;
+        glusterd_conf_t *priv                 = NULL;
+
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (dict);
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+
+        snprintf (base_key, sizeof (base_key), "brick%d", count);
+        snprintf (key, sizeof (key), "%s.hostname", base_key);
+        ret = dict_set_str (dict, key, "Snap Daemon");
+        if (ret)
+                goto out;
+
+        snprintf (key, sizeof (key), "%s.path", base_key);
+        ret = dict_set_dynstr (dict, key, gf_strdup (uuid_utoa (MY_UUID)));
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.port", base_key);
+        ret = dict_set_int32 (dict, key, volinfo->snapd.port);
+        if (ret)
+                goto out;
+
+        glusterd_get_snapd_pidfile (volinfo, pidfile, sizeof (pidfile));
 
         brick_online = gf_is_service_running (pidfile, &pid);
 
@@ -13497,6 +13561,7 @@ glusterd_handle_snapd_option (glusterd_volinfo_t *volinfo)
                                 volinfo->volname);
                         goto out;
                 }
+                volinfo->snapd.port = 0;
         }
 
 out:

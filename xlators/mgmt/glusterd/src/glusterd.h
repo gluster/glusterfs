@@ -123,9 +123,10 @@ typedef struct {
 } nodesrv_t;
 
 typedef struct {
-        struct rpc_clnt  *rpc;
-        int               port;
-        gf_boolean_t      online;
+        struct rpc_clnt   *rpc;
+        int                port;
+        gf_boolean_t       online;
+        gf_store_handle_t *handle;
 } glusterd_snapd_t;
 
 typedef struct {
@@ -426,6 +427,7 @@ typedef enum gd_node_type_ {
         GD_NODE_REBALANCE,
         GD_NODE_NFS,
         GD_NODE_QUOTAD,
+        GD_NODE_SNAPD,
 } gd_node_type;
 
 typedef enum missed_snap_stat {
@@ -466,6 +468,7 @@ enum glusterd_vol_comp_status_ {
 #define GLUSTERD_VOLUME_DIR_PREFIX "vols"
 #define GLUSTERD_PEER_DIR_PREFIX "peers"
 #define GLUSTERD_VOLUME_INFO_FILE "info"
+#define GLUSTERD_VOLUME_SNAPD_INFO_FILE "snapd.info"
 #define GLUSTERD_SNAP_INFO_FILE "info"
 #define GLUSTERD_VOLUME_RBSTATE_FILE "rbstate"
 #define GLUSTERD_BRICK_INFO_DIR "bricks"

@@ -2412,6 +2412,8 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
                                         cmd |= GF_CLI_STATUS_SHD;
                                 } else if (!strcmp (words[3], "quotad")) {
                                         cmd |= GF_CLI_STATUS_QUOTAD;
+                                } else if (!strcmp (words[3], "snapd")) {
+                                        cmd |= GF_CLI_STATUS_SNAPD;
                                 } else {
                                         cmd = GF_CLI_STATUS_BRICK;
                                         ret = dict_set_str (dict, "brick",
@@ -2478,6 +2480,17 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
                                 goto out;
                         }
                         cmd |= GF_CLI_STATUS_QUOTAD;
+                } else if  (!strcmp (words[3], "snapd")) {
+                        if (cmd == GF_CLI_STATUS_FD ||
+                            cmd == GF_CLI_STATUS_CLIENTS ||
+                            cmd == GF_CLI_STATUS_DETAIL ||
+                            cmd == GF_CLI_STATUS_INODE) {
+                                cli_err ("Detail/FD/Clients/Inode status not "
+                                         "available for snap daemon");
+                                ret = -1;
+                                goto out;
+                        }
+                        cmd |= GF_CLI_STATUS_SNAPD;
                 } else {
                         if (cmd == GF_CLI_STATUS_TASKS) {
                                 cli_err ("Tasks status not available for "

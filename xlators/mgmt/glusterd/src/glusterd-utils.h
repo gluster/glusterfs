@@ -442,6 +442,10 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
                             dict_t  *dict, int32_t count);
 
 int32_t
+glusterd_add_snapd_to_dict (glusterd_volinfo_t *volinfo,
+                            dict_t  *dict, int32_t count);
+
+int32_t
 glusterd_get_all_volnames (dict_t *dict);
 
 gf_boolean_t

@@ -1262,6 +1262,16 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        if ((cmd & GF_CLI_STATUS_SNAPD) &&
+            (priv->op_version < GD_OP_VERSION_3_6_0)) {
+                snprintf (msg, sizeof (msg), "The cluster is operating at "
+                          "version less than %d. Getting the "
+                          "status of snapd is not allowed in this state.",
+                          GD_OP_VERSION_3_6_0);
+                ret = -1;
+                goto out;
+        }
+
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
@@ -1323,6 +1333,13 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
                         ret = -1;
                         snprintf (msg, sizeof (msg), "Volume %s does not have "
                                   "quota enabled", volname);
+                        goto out;
+                }
+        } else if ((cmd & GF_CLI_STATUS_SNAPD) != 0) {
+                if (!glusterd_is_snapd_enabled (volinfo)) {
+                        ret = -1;
+                        snprintf (msg, sizeof (msg), "Volume %s does not have "
+                                  "uss enabled", volname);
                         goto out;
                 }
         } else if ((cmd & GF_CLI_STATUS_BRICK) != 0) {
@@ -2661,7 +2678,13 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                         goto out;
                 other_count++;
                 node_count++;
-
+        } else if ((cmd & GF_CLI_STATUS_SNAPD) != 0) {
+                ret = glusterd_add_node_to_dict ("snapd", rsp_dict, 0,
+                                                 vol_opts);
+                if (ret)
+                        goto out;
+                other_count++;
+                node_count++;
         } else if ((cmd & GF_CLI_STATUS_BRICK) != 0) {
                 ret = dict_get_str (dict, "brick", &brick);
                 if (ret)
@@ -2708,6 +2731,16 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
 
                 if ((cmd & GF_CLI_STATUS_MASK) == GF_CLI_STATUS_NONE) {
                         other_index = brick_index + 1;
+                        if (glusterd_is_snapd_enabled (volinfo)) {
+                                ret = glusterd_add_snapd_to_dict (volinfo,
+                                                                  rsp_dict,
+                                                                  other_index);
+                                if (ret)
+                                        goto out;
+                                other_count++;
+                                other_index++;
+                                node_count++;
+                        }
 
                         nfs_disabled = dict_get_str_boolean (vol_opts,
                                                              "nfs.disable",
@@ -5717,6 +5750,7 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
         glusterd_pending_node_t *pending_node = NULL;
         xlator_t                *this = NULL;
         glusterd_conf_t         *priv = NULL;
+        glusterd_snapd_t        *snapd = NULL;
 
         GF_ASSERT (dict);
 
@@ -5743,6 +5777,7 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
         case GF_CLI_STATUS_NFS:
         case GF_CLI_STATUS_SHD:
         case GF_CLI_STATUS_QUOTAD:
+        case GF_CLI_STATUS_SNAPD:
                 break;
         default:
                 goto out;
@@ -5839,6 +5874,28 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                 }
                 pending_node->node = priv->quotad;
                 pending_node->type = GD_NODE_QUOTAD;
+                pending_node->index = 0;
+                list_add_tail (&pending_node->list, selected);
+
+                ret = 0;
+        } else if ((cmd & GF_CLI_STATUS_SNAPD) != 0) {
+                if (!glusterd_is_snapd_online (volinfo)) {
+                        gf_log (this->name, GF_LOG_ERROR, "snapd is not "
+                                "running");
+                        ret = -1;
+                        goto out;
+                }
+                pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                          gf_gld_mt_pending_node_t);
+                if (!pending_node) {
+                        gf_log (this->name, GF_LOG_ERROR, "failed to allocate "
+                                "memory for pending node");
+                        ret = -1;
+                        goto out;
+                }
+
+                pending_node->node = (void *)(&volinfo->snapd);
+                pending_node->type = GD_NODE_SNAPD;
                 pending_node->index = 0;
                 list_add_tail (&pending_node->list, selected);
 

@@ -6531,7 +6531,7 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         if ((cmd & GF_CLI_STATUS_NFS) || (cmd & GF_CLI_STATUS_SHD) ||
-            (cmd & GF_CLI_STATUS_QUOTAD))
+            (cmd & GF_CLI_STATUS_QUOTAD) || (cmd & GF_CLI_STATUS_SNAPD))
                 notbrick = _gf_true;
 
         if (global_state->mode & GLUSTER_MODE_XML) {
@@ -6647,7 +6647,8 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
                 memset (status.brick, 0, PATH_MAX + 255);
                 if (!strcmp (hostname, "NFS Server") ||
                     !strcmp (hostname, "Self-heal Daemon") ||
-                    !strcmp (hostname, "Quota Daemon"))
+                    !strcmp (hostname, "Quota Daemon") ||
+                    !strcmp (hostname, "Snapshot Daemon"))
                         snprintf (status.brick, PATH_MAX + 255, "%s on %s",
                                   hostname, path);
                 else

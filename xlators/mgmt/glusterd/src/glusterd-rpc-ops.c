@@ -1886,6 +1886,7 @@ glusterd_brick_op (call_frame_t *frame, xlator_t *this,
 
                 if ((pending_node->type == GD_NODE_NFS) ||
                     (pending_node->type == GD_NODE_QUOTAD) ||
+                    (pending_node->type == GD_NODE_SNAPD) ||
                     ((pending_node->type == GD_NODE_SHD) &&
                      (req_ctx->op == GD_OP_STATUS_VOLUME)))
                         ret = glusterd_node_op_build_payload
