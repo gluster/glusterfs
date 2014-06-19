@@ -2295,15 +2295,22 @@ glfs_fchmod (struct glfs_fd *glfd, mode_t mode)
 int
 glfs_chown (struct glfs *fs, const char *path, uid_t uid, gid_t gid)
 {
-	int              ret = -1;
+	int              ret = 0;
 	int              valid = 0;
 	struct iatt      iatt = {0, };
 
-	iatt.ia_uid = uid;
-	iatt.ia_gid = gid;
-	valid = GF_SET_ATTR_UID|GF_SET_ATTR_GID;
+        if (uid != (uid_t) -1) {
+                iatt.ia_uid = uid;
+                valid = GF_SET_ATTR_UID;
+        }
 
-	ret = glfs_setattr (fs, path, &iatt, valid, 1);
+        if (gid != (uid_t) -1) {
+                iatt.ia_gid = gid;
+                valid = valid | GF_SET_ATTR_GID;
+        }
+
+        if (valid)
+	        ret = glfs_setattr (fs, path, &iatt, valid, 1);
 
 	return ret;
 }
@@ -2312,15 +2319,22 @@ glfs_chown (struct glfs *fs, const char *path, uid_t uid, gid_t gid)
 int
 glfs_lchown (struct glfs *fs, const char *path, uid_t uid, gid_t gid)
 {
-	int              ret = -1;
+	int              ret = 0;
 	int              valid = 0;
 	struct iatt      iatt = {0, };
 
-	iatt.ia_uid = uid;
-	iatt.ia_gid = gid;
-	valid = GF_SET_ATTR_UID|GF_SET_ATTR_GID;
+        if (uid != (uid_t) -1) {
+	        iatt.ia_uid = uid;
+	        valid = GF_SET_ATTR_UID;
+        }
 
-	ret = glfs_setattr (fs, path, &iatt, valid, 0);
+        if (gid != (uid_t) -1) {
+                iatt.ia_gid = gid;
+                valid = valid | GF_SET_ATTR_GID;
+        }
+
+        if (valid)
+	        ret = glfs_setattr (fs, path, &iatt, valid, 0);
 
 	return ret;
 }
@@ -2329,15 +2343,22 @@ glfs_lchown (struct glfs *fs, const char *path, uid_t uid, gid_t gid)
 int
 glfs_fchown (struct glfs_fd *glfd, uid_t uid, gid_t gid)
 {
-	int              ret = -1;
+	int              ret = 0;
 	int              valid = 0;
 	struct iatt      iatt = {0, };
 
-	iatt.ia_uid = uid;
-	iatt.ia_gid = gid;
-	valid = GF_SET_ATTR_UID|GF_SET_ATTR_GID;
+        if (uid != (uid_t) -1) {
+                iatt.ia_uid = uid;
+                valid = GF_SET_ATTR_UID;
+        }
 
-	ret = glfs_fsetattr (glfd, &iatt, valid);
+        if (gid != (uid_t) -1) {
+                iatt.ia_gid = gid;
+                valid = valid | GF_SET_ATTR_GID;
+        }
+
+        if (valid)
+	        ret = glfs_fsetattr (glfd, &iatt, valid);
 
 	return ret;
 }
