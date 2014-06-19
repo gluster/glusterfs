@@ -13944,3 +13944,17 @@ glusterd_check_client_op_version_support (char *volname, uint32_t op_version,
         }
         return 0;
 }
+
+gf_boolean_t
+glusterd_have_peers ()
+{
+        xlator_t        *this = NULL;
+        glusterd_conf_t *conf = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        return !list_empty (&conf->peers);
+}

@@ -61,13 +61,17 @@ function define_glusterds() {
     done
 }
 
+function start_glusterd() {
+    local g
+    local index=$1
+
+    g="glusterd_${index}"
+    ${!g}
+}
 
 function start_glusterds() {
-    local g;
-
     for i in `seq 1 $CLUSTER_COUNT`; do
-        g="glusterd_$i";
-        ${!g};
+        start_glusterd $i
     done
 }
 

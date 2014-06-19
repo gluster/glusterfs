@@ -912,4 +912,7 @@ glusterd_get_default_val_for_volopt (dict_t *dict, gf_boolean_t all_opts,
 int
 glusterd_check_client_op_version_support (char *volname, uint32_t op_version,
                                           char **op_errstr);
+
+gf_boolean_t
+glusterd_have_peers ();
 #endif
