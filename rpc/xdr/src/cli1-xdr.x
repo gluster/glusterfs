@@ -135,7 +135,8 @@ enum gf_cli_status_type {
         GF_CLI_STATUS_BRICK        = 0x0400,    /*00010000000000*/
         GF_CLI_STATUS_NFS          = 0x0800,    /*00100000000000*/
         GF_CLI_STATUS_SHD          = 0x1000,    /*01000000000000*/
-        GF_CLI_STATUS_QUOTAD       = 0x2000     /*10000000000000*/
+        GF_CLI_STATUS_QUOTAD       = 0x2000,     /*10000000000000*/
+        GF_CLI_STATUS_SNAPD        = 0x4000     /*100000000000000*/
 };
 
 /* Identifiers for snapshot clis */
