@@ -23,7 +23,7 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
 
 # Wait for self-heal to complete
-EXPECT_WITHIN $HEAL_TIMEOUT '0' count_sh_entries $BRICK;
+EXPECT_WITHIN $HEAL_TIMEOUT '1' count_sh_entries $BRICK;
 
 TEST getfattr -n "user.foo" $B0/${V0}0/f1;
 
