@@ -238,6 +238,15 @@ make_file_path (char *base, const char *subdir, const char *filename,
                   "/%s", filename);
 }
 
+static int
+is_index_file_current (char *filename, uuid_t priv_index)
+{
+        char *current_index = alloca (strlen ("xattrop-") + GF_UUID_BUF_SIZE);
+
+        sprintf (current_index, "xattrop-%s", uuid_utoa(priv_index));
+        return (!strcmp(filename, current_index));
+}
+
 static void
 check_delete_stale_index_file (xlator_t *this, char *filename)
 {
@@ -247,6 +256,10 @@ check_delete_stale_index_file (xlator_t *this, char *filename)
         index_priv_t    *priv = NULL;
 
         priv = this->private;
+
+        if (is_index_file_current (filename, priv->index))
+                return;
+
         make_file_path (priv->index_basepath, XATTROP_SUBDIR,
                         filename, filepath, sizeof (filepath));
         ret = stat (filepath, &st);
