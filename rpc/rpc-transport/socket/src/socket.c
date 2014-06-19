@@ -291,6 +291,22 @@ ssl_do (rpc_transport_t *this, void *buf, size_t len, SSL_trinary_func *func)
 		case SSL_ERROR_NONE:
 			return r;
 		case SSL_ERROR_WANT_READ:
+                        /* If we are attempting to connect/accept then we
+                         * should wait here on the poll, for the SSL
+                         * (re)negotiation to complete, else we would error out
+                         * on the accept/connect.
+                         * If we are here when attempting to read/write
+                         * then we return r (or -1) as the socket is always
+                         * primed for the read event, and it would eventually
+                         * call one of the SSL routines */
+                        /* NOTE: Only way to determine this is a accept/connect
+                         * is to examine buf or func, which is not very
+                         * clean */
+                        if ((func == (SSL_trinary_func *)SSL_read)
+                            || (func == (SSL_trinary_func *) SSL_write)) {
+                                return r;
+                        }
+
 			pfd.fd = priv->sock;
 			pfd.events = POLLIN;
 			if (poll(&pfd,1,-1) < 0) {
@@ -944,9 +960,8 @@ __socket_reset (rpc_transport_t *this)
 
         memset (&priv->incoming, 0, sizeof (priv->incoming));
 
-        event_unregister (this->ctx->event_pool, priv->sock, priv->idx);
+        event_unregister_close (this->ctx->event_pool, priv->sock, priv->idx);
 
-        close (priv->sock);
         priv->sock = -1;
         priv->idx = -1;
         priv->connected = -1;
@@ -2236,9 +2251,16 @@ socket_event_poll_in (rpc_transport_t *this)
         rpc_transport_pollin_t *pollin = NULL;
         socket_private_t       *priv = this->private;
 
-        ret = socket_proto_state_machine (this, &pollin);
+	do {
+		/* consume all we can, this is our only chance
+		   (Edge Triggered polling in epoll)
+		*/
+		pollin = NULL;
+		ret = socket_proto_state_machine (this, &pollin);
 
-        if (pollin != NULL) {
+		if (!pollin)
+			break;
+
                 priv->ot_state = OT_CALLBACK;
                 ret = rpc_transport_notify (this, RPC_TRANSPORT_MSG_RECEIVED,
                                             pollin);
@@ -2246,7 +2268,8 @@ socket_event_poll_in (rpc_transport_t *this)
                         priv->ot_state = OT_RUNNING;
                 }
                 rpc_transport_pollin_destroy (pollin);
-        }
+
+        } while (pollin);
 
         return ret;
 }

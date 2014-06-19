@@ -26,6 +26,16 @@
 #include "config.h"
 #endif
 
+
+
+struct event_slot_poll {
+	int fd;
+	int events;
+	void *data;
+	event_handler_t handler;
+};
+
+
 static int
 event_register_poll (struct event_pool *event_pool, int fd,
                      event_handler_t handler,
@@ -63,12 +73,16 @@ __event_getindex (struct event_pool *event_pool, int fd, int idx)
 
         GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
+        /* lookup in used space based on index provided */
         if (idx > -1 && idx < event_pool->used) {
-                if (event_pool->reg[idx].fd == fd)
+                if (event_pool->reg[idx].fd == fd) {
                         ret = idx;
+                        goto out;
+                }
         }
 
-        for (i=0; ret == -1 && i<event_pool->used; i++) {
+        /* search in used space, if lookup fails */
+        for (i = 0; i < event_pool->used; i++) {
                 if (event_pool->reg[i].fd == fd) {
                         ret = i;
                         break;
@@ -264,6 +278,20 @@ out:
 
 
 static int
+event_unregister_close_poll (struct event_pool *event_pool, int fd,
+			     int idx_hint)
+{
+	int ret = -1;
+
+	ret = event_unregister_poll (event_pool, fd, idx_hint);
+
+	close (fd);
+
+        return ret;
+}
+
+
+static int
 event_select_on_poll (struct event_pool *event_pool, int fd, int idx_hint,
                       int poll_in, int poll_out)
 {
@@ -443,9 +471,10 @@ out:
 
 
 struct event_ops event_ops_poll = {
-        .new              = event_pool_new_poll,
-        .event_register   = event_register_poll,
-        .event_select_on  = event_select_on_poll,
-        .event_unregister = event_unregister_poll,
-        .event_dispatch   = event_dispatch_poll
+        .new                    = event_pool_new_poll,
+        .event_register         = event_register_poll,
+        .event_select_on        = event_select_on_poll,
+        .event_unregister       = event_unregister_poll,
+        .event_unregister_close = event_unregister_close_poll,
+        .event_dispatch         = event_dispatch_poll
 };
