@@ -32,10 +32,10 @@ struct event_pool *
 event_pool_new (int count)
 {
         struct event_pool *event_pool = NULL;
-        extern struct event_ops event_ops_poll;
+	extern struct event_ops event_ops_poll;
 
 #ifdef HAVE_SYS_EPOLL_H
-        extern struct event_ops event_ops_epoll;
+	extern struct event_ops event_ops_epoll;
 
         event_pool = event_ops_epoll.new (count);
 
@@ -82,6 +82,20 @@ event_unregister (struct event_pool *event_pool, int fd, int idx)
         GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
         ret = event_pool->ops->event_unregister (event_pool, fd, idx);
+
+out:
+        return ret;
+}
+
+
+int
+event_unregister_close (struct event_pool *event_pool, int fd, int idx)
+{
+        int ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("event", event_pool, out);
+
+        ret = event_pool->ops->event_unregister_close (event_pool, fd, idx);
 
 out:
         return ret;
