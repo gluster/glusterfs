@@ -14,6 +14,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../fileio.rc
+. $(dirname $0)/../volume.rc
 . $(dirname $0)/../nfs.rc
 
 cleanup;
@@ -71,6 +72,6 @@ TEST grep -e "\"Usage is above soft limit:.*used by /\"" -- $BRICK_LOG_DIR/*
 
 #25
 ## Step 7
-TEST umount -f $N0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 
 cleanup;

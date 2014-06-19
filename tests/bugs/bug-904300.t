@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../nfs.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -15,7 +16,7 @@ EXPECT_WITHIN $NFS_EXPORT_TIMEOUT 1 is_nfs_export_available
 
 TEST mount_nfs $H0:/$V0 $N0 nolock
 TEST mkdir $N0/dir1
-TEST umount $N0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 
 #
 # Case 1: Allow "dir1" to be mounted only from 127.0.0.1
@@ -24,7 +25,7 @@ TEST $CLI volume set $V0 export-dir \""/dir1(127.0.0.1)"\"
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT 2 is_nfs_export_available
 
 TEST mount_nfs localhost:/$V0/dir1 $N0 nolock
-TEST umount $N0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 
 #
 # Case 2: Allow "dir1" to be mounted only from 8.8.8.8. This is
@@ -44,7 +45,7 @@ TEST $CLI volume set $V0 export-dir \""/dir1($H0)"\"
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT 2 is_nfs_export_available
 
 TEST mount_nfs $H0:/$V0/dir1 $N0 nolock
-TEST umount $N0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 
 # Case 4: Variation of test case1. Here we are checking with IP range
 # 21-24
@@ -52,7 +53,7 @@ TEST $CLI volume set $V0 export-dir \""/dir1(127.0.0.0/24)"\"
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT 2 is_nfs_export_available
 
 TEST mount_nfs localhost:/$V0/dir1 $N0 nolock
-TEST umount $N0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 
 ## Finish up
 TEST $CLI volume stop $V0;

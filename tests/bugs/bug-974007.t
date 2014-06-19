@@ -44,7 +44,7 @@ EXPECT "success" remove_brick_commit_status;
 # Check the volume type
 EXPECT "Replicate" echo `$CLI volume info |grep Type |awk '{print $2}'`
 
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0;
 TEST ! $CLI volume info $V0;

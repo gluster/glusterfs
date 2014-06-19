@@ -27,7 +27,7 @@ HEAL_FILES=$(($HEAL_FILES+3)) #count brick root distribute-subvol num of times
 cd ~
 EXPECT "$HEAL_FILES" afr_get_pending_heal_count $V0
 TEST rm -f $M0/*
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume heal $V0 info
 #Only root dir should be present now in the indices
 EXPECT "1" afr_get_num_indices_in_brick $B0/${V0}1

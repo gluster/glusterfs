@@ -27,7 +27,7 @@ TEST ls $M0/
 TEST ln $M0/foo $M0/bar
 
 
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0;
 TEST ! $CLI volume info $V0;

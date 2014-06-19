@@ -13,6 +13,7 @@
 ########
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -81,7 +82,7 @@ xa=`getfattr -n trusted.afr.test-locks-0 -e hex $B0/test2/file 2>&1 | grep = | c
 EXPECT_NOT 0x000000000000000000000000 echo $xa
 
 TEST rm -f $M0/file
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 rm -f $B0/test.vol
 rm -rf $B0/test1 $B0/test2

@@ -44,7 +44,7 @@ TEST $CLI snapshot create snap4 $V0;
 
 TEST $CLI volume set $V0 features.uss enable;
 
-TEST umount $M0;
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0;
 

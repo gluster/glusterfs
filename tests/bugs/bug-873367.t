@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 SSL_BASE=/etc/ssl
 SSL_KEY=$SSL_BASE/glusterfs.key
@@ -27,14 +28,14 @@ TEST $CLI volume start $V0
 
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0
 echo some_data > $M0/data_file
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 # If the bug is not fixed, the next mount will fail.
 
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0
 EXPECT some_data cat $M0/data_file
 
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0
 

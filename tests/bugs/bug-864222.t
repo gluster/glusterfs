@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../nfs.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -21,6 +22,6 @@ TEST $CLI volume set $V0 nfs.enable-ino32 on
 TEST ls
 
 cd
-TEST umount $N0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 cleanup
 

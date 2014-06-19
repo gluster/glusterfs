@@ -46,6 +46,6 @@ fi
 
 TEST [ $nfs_pid -eq $pid_file ]
 
-TEST   umount $MOUNTDIR -l
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $MOUNTDIR
 
 cleanup;

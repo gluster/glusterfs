@@ -89,7 +89,7 @@ TEST test ${checksum[client-file]} = ${checksum[dump-file-readv]}
 
 ## Cleanup files and unmount
 TEST rm -f /tmp/cdc* $M0/cdc*
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 ## Stop the volume
 TEST $CLI volume stop $V0;
@@ -115,7 +115,7 @@ TEST ! test -e /tmp/cdcdump.gz
 
 ## Cleanup files and unmount
 TEST rm -f /tmp/cdc* $M0/cdc*
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 ## Reset the network.compression options
 TEST $CLI volume reset $V0 network.compression.debug

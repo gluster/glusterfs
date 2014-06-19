@@ -33,5 +33,5 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_nfs $V0 1
 TEST ls $N0/1
 TEST ! cat $N0/1
 
-TEST umount $N0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 cleanup

@@ -1,6 +1,7 @@
 #!/bin/bash
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../dht.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 BRICK_COUNT=3
@@ -63,7 +64,7 @@ rm -rf $B0/${V0}$cached/$i
 
 # without a unmount, we are not able to trigger a lookup based heal
 
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 ## Mount FUSE
 TEST glusterfs --attribute-timeout=0 --entry-timeout=0 -s $H0 --volfile-id $V0 $M0;

@@ -9,6 +9,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../fallocate.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -46,7 +47,7 @@ TEST [ ! $(($blksz * $nblks)) -eq 0 ]
 
 TEST unlink $M0/file
 
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0

@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../nfs.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -29,7 +30,7 @@ cd;
 
 kill %1;
 
-TEST umount $N0
-TEST umount $N1;
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N1
 
 cleanup

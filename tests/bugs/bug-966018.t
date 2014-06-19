@@ -30,6 +30,6 @@ echo 1 > $M0/1 && chmod +x $M0/1
 inodelk_max_latency=$($CLI volume profile $V0 info | grep INODELK | awk 'BEGIN {max = 0} {if ($6 > max) max=$6;} END {print max}' | cut -d. -f 1 | egrep "[0-9]{7,}")
 
 TEST [ -z $inodelk_max_latency ]
-TEST umount $N0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 
 cleanup;

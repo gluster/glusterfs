@@ -183,7 +183,7 @@ TEST getfattr -d -m "trusted.glusterfs.quota.limit-set" -e hex \
 ## </Test quota functionality in add-brick senarios>
 ## -------------------------------------------------
 
-umount -l $N0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 
 TEST $CLI volume quota $V0 disable
 TEST $CLI volume stop $V0;

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -44,7 +45,7 @@ TEST   name=":d1/d:1/d1:"
 TEST   set_quota
 EXPECT "80%" quota_list
 
-TEST   umount $MOUNTDIR
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $MOUNTDIR
 TEST   rm -rf $MOUNTDIR
 
 cleanup;

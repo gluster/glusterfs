@@ -56,6 +56,6 @@ NEW_FILE_COUNT1=`echo $?`;
 
 EXPECT "0" file_count $NEW_FILE_COUNT $NEW_FILE_COUNT1
 
-TEST umount -l $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 cleanup

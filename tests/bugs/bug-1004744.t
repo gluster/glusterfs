@@ -38,7 +38,7 @@ TEST $CLI volume rebalance $V0 fix-layout start
 
 EXPECT_WITHIN $REBALANCE_TIMEOUT "fix-layout completed" rebalance_status_field $V0;
 
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0;
 TEST ! $CLI volume info $V0;

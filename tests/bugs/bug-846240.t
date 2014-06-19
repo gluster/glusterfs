@@ -53,6 +53,6 @@ TEST fd_close $fd;
 
 TEST rm -rf $MOUNTDIR/*
 
-TEST   umount $MOUNTDIR -l
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $MOUNTDIR
 
 cleanup;

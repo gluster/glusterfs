@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 cleanup
 
 # Is there a good reason to require --fqdn elsewhere?  It's worse than useless
@@ -62,7 +63,7 @@ if [ "$EXIT_EARLY" = "1" ]; then
 fi
 
 ## Finish up
-TEST umount $M0;
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0;
 EXPECT 'Stopped' volinfo_field $V0 'Status';
 

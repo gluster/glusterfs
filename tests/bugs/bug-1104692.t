@@ -1,5 +1,6 @@
 #!/bin/bash
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -24,7 +25,7 @@ TEST $CLI volume quota $V0 limit-usage /limit_four 1GB
 TEST $CLI volume quota $V0 limit-usage /limit_one/limit_five 1GB
 
 #Cleanup
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0
 
