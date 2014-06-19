@@ -733,29 +733,34 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
                       unsigned long end, int n_parallel,
                       unsigned long *actual_end)
 {
-        int                          ret             = 0;
-        int                          len             = -1;
-        int                          fd              = -1;
-        int                          n_read          = -1;
-        unsigned long                min_ts          = 0;
-        unsigned long                max_ts          = 0;
-        unsigned long                end2            = 0;
-        unsigned long                ts1             = 0;
-        unsigned long                ts2             = 0;
-        unsigned long                to              = 0;
-        unsigned long                from            = 0;
-        unsigned long                total_changelog = 0;
-        xlator_t                    *this            = NULL;
-        gf_changelog_t              *gfc             = NULL;
-        gf_changelog_t              *hist_gfc        = NULL;
-        gf_changelog_history_data_t *hist_data       = NULL;
-        DIR                         *dirp            = NULL;
-        struct dirent               *dp              = NULL;
-        pthread_t                    consume_th      = 0;
-        char            htime_dir[PATH_MAX]          = {0,};
-        char buffer[PATH_MAX]                        = {0,};
+        int                             ret                     = 0;
+        int                             len                     = -1;
+        int                             fd                      = -1;
+        int                             n_read                  = -1;
+        unsigned long                   min_ts                  = 0;
+        unsigned long                   max_ts                  = 0;
+        unsigned long                   end2                    = 0;
+        unsigned long                   ts1                     = 0;
+        unsigned long                   ts2                     = 0;
+        unsigned long                   to                      = 0;
+        unsigned long                   from                    = 0;
+        unsigned long                   total_changelog         = 0;
+        xlator_t                        *this                   = NULL;
+        gf_changelog_t                  *gfc                    = NULL;
+        gf_changelog_t                  *hist_gfc               = NULL;
+        gf_changelog_history_data_t     *hist_data              = NULL;
+        DIR                             *dirp                   = NULL;
+        struct dirent                   *dp                     = NULL;
+        pthread_t                       consume_th              = 0;
+        char                            htime_dir[PATH_MAX]     = {0,};
+        char                            buffer[PATH_MAX]        = {0,};
 
         pthread_attr_t attr;
+
+        ret = pthread_attr_init (&attr);
+        if (ret != 0) {
+                return -1;
+        }
 
         this = THIS;
         if (!this) {
@@ -873,12 +878,6 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
                         hist_data->to         = to;
                         hist_data->len        = len;
                         hist_data->n_parallel = n_parallel;
-
-                        ret = pthread_attr_init (&attr);
-                        if (ret != 0) {
-                                ret = -1;
-                                goto out;
-                        }
 
                         ret = pthread_attr_setdetachstate
                                 (&attr, PTHREAD_CREATE_DETACHED);
