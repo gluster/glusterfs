@@ -1942,6 +1942,10 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
         if (conf->op_version >= GD_OP_VERSION_3_6_0) {
                 list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                         brick_count++;
+                        /* Don't check bricks that are not owned by you
+                         */
+                        if (uuid_compare (brickinfo->uuid, MY_UUID))
+                                continue;
                         if (strlen(brickinfo->mount_dir) < 1) {
                                 brick_mount_dir = NULL;
                                 snprintf (key, sizeof(key), "brick%d.mount_dir",
