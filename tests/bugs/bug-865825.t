@@ -49,7 +49,7 @@ TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0
 echo "test_data" > $M0/a_file;
 
 ## Unmount.
-TEST umount $M0;
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 ## Mess with the flags as though brick-0 accuses brick-2 while brick-1 is
 ## missing its brick-2 changelog altogether.

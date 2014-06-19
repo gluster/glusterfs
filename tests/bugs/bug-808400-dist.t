@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -26,6 +27,6 @@ TEST $(dirname $0)/bug-808400-fcntl $MOUNTDIR/testfile \'gluster volume set $V0 
 TEST rm -rf $MOUNTDIR/*
 TEST rm -rf $(dirname $0)/bug-808400-flock $(dirname $0)/bug-808400-fcntl $(dirname $0)/glusterfs.log
 
-TEST   umount $MOUNTDIR -l
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $MOUNTDIR
 
 cleanup;

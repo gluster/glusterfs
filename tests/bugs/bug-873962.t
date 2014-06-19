@@ -80,8 +80,8 @@ TEST dd if=$M0/b of=/dev/null bs=1M
 EXPECT "def" getfattr -n trusted.mdata --only-values $M0/b 2>/dev/null
 EXPECT "def" getfattr -n trusted.mdata --only-values $M1/b 2>/dev/null
 
-TEST umount $M0
-TEST umount $M1
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M1
 
 TEST $CLI volume set $V0 cluster.data-self-heal off
 TEST $CLI volume set $V0 cluster.metadata-self-heal off

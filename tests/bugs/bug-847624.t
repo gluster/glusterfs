@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../nfs.rc
+. $(dirname $0)/../volume.rc
 cleanup
 
 #1
@@ -18,7 +19,7 @@ cd $N0
 TEST dbench -t 10 10
 TEST rm -rf $N0/*
 cd
-TEST umount $N0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 #10
 TEST $CLI volume set $V0 nfs.drc-size 10000
 cleanup

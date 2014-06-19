@@ -27,7 +27,7 @@ TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "10485760" echo `ls -l $M0/afr_success_5.txt | awk '{ print $5}'`
 
 #Cleanup
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0
 TEST rm -rf $B0/*

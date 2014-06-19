@@ -38,7 +38,7 @@ EXPECT "s" echo $setuid_bit2
 
 #Also compare the entire permission string,just to be sure
 EXPECT $file_permissions1 echo $file_permissions2
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0;
 

@@ -3,6 +3,7 @@
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../fileio.rc
 . $(dirname $0)/../dht.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 wait_check_status ()
@@ -82,7 +83,7 @@ done
 TEST [ $ret == 0 ];
 TEST fd_close $fd;
 
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0
 

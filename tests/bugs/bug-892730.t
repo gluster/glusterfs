@@ -10,6 +10,7 @@
 ########
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -67,7 +68,7 @@ TEST glusterfs --volfile=$B0/test.vol --attribute-timeout=0 --entry-timeout=0 $M
 TEST touch $M0/file
 TEST rm $M0/file
 
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 rm -f $B0/test.vol
 rm -rf $B0/test1 $B0/test2

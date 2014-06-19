@@ -12,6 +12,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../dht.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -68,7 +69,7 @@ SIZE2=`stat -c %s $M0/$i`
 TEST [ $SIZE1 -eq $SIZE2 ]
 
 TEST rm -f $M0/$i
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0
 

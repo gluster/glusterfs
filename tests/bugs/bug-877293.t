@@ -32,8 +32,8 @@ TEST kill_brick $V0 $H0 $B0/${V0}-0
 
 TEST "getfattr -n $xtime $M1 | grep -q ${xtime}="
 
-TEST umount $M0
-TEST umount $M1
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M1
 
 TEST $CLI volume stop $V0;
 TEST $CLI volume delete $V0;

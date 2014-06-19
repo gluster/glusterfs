@@ -46,8 +46,8 @@ TEST mv $M0/file $M0/file.link
 TEST stat $M0/file.link
 TEST ! stat $M0/file
 
-TEST umount $M1
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M1
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0

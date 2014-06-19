@@ -28,7 +28,7 @@ kill -SIGTERM $back_pid;
 wait >/dev/null 2>&1;
 
 TEST rm -f $M0/touchfile $M0/file;
-TEST umount $M0;
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 rm -f $statedumpdir/glusterdump.$mount_pid.*;
 cleanup

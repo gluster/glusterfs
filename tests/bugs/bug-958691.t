@@ -41,7 +41,7 @@ TEST [ $? -ne 0 ];
 
 TEST $CLI volume set $V0 server.root-squash disable;
 TEST rm -rf $N0/dir;
-TEST umount $N0;
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 
 TEST $CLI volume stop $V0;
 TEST $CLI volume delete $V0;

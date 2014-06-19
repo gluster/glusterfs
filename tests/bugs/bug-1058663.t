@@ -20,7 +20,7 @@ gcc $(dirname $0)/bug-1058663.c -o $(dirname $0)/bug-1058663;
 TEST $(dirname $0)/bug-1058663 $M0/bug-1058663.bin;
 rm -f $(dirname $0)/M0/bug-1058663.bin;
 
-TEST umount $M0;
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 TEST $CLI volume stop $V0;
 TEST $CLI volume delete $V0;

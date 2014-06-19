@@ -37,7 +37,7 @@ done
 
 EXPECT "$MOUNT_PID" pidgrep $MOUNT_PID
 TEST rm -rf $M0/*
-umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 ## Finish up
 TEST $CLI volume stop $V0;

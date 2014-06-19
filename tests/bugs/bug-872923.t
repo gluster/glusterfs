@@ -49,7 +49,7 @@ do
 done;
 
 cd
-umount $N0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 
 EXPECT "0" echo $RET;
 

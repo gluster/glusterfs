@@ -32,7 +32,7 @@ TEST [[ $(num_fsyncs) -ge 0 ]]
 #Stop the volume to erase the profile info of old operations
 TEST $CLI volume profile $V0 stop
 TEST $CLI volume stop $V0
-umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 #Disable ensure-durability now to disable fsyncs in afr.
 TEST $CLI volume set $V0 ensure-durability off
 TEST $CLI volume start $V0

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -25,6 +26,6 @@ TEST chown 100:100 $M0/dirname/filename;
 TEST chown 100:100 $M0/dirname;
 TEST rm -rf $M0/filename $M0/dirname;
 
-TEST umount $M0;
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 cleanup;

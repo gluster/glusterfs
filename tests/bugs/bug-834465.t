@@ -39,6 +39,6 @@ TEST rm -rf $MOUNTDIR/*
 TEST rm -rf $(dirname $0)/bug-834465
 cleanup_mount_statedump $V0
 
-TEST   umount $MOUNTDIR -l
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $MOUNTDIR
 
 cleanup;

@@ -64,7 +64,7 @@ mkdir $N0/a_dir;
 echo "more_test_data" > $N0/a_dir/another_file;
 
 ## Unmount and stop the volume.
-TEST umount $N0;
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 TEST $CLI volume stop $V0;
 
 # Recreate the brick. Note that because of http://review.gluster.org/#change,4202
@@ -110,7 +110,7 @@ if [ "$EXIT_EARLY" = "1" ]; then
 fi
 
 ## Finish up
-TEST umount $N0;
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 TEST $CLI volume stop $V0;
 EXPECT 'Stopped' volinfo_field $V0 'Status';
 

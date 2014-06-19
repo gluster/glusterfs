@@ -2,6 +2,7 @@
 #Test that GFID mismatches result in EIO
 
 . $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 cleanup;
 
 #Init
@@ -20,7 +21,7 @@ TEST setfattr -n trusted.gfid -v 0sBfz5vAdHTEK1GZ99qjqTIg== $B0/brick0/file
 TEST ! "find $M0/file | xargs stat"
 
 #Cleanup
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0
 TEST rm -rf $B0/*
