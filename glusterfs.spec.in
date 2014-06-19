@@ -729,6 +729,11 @@ rm -rf %{buildroot}
 
 %post api -p /sbin/ldconfig
 
+%post fuse
+%if ( 0%{?rhel} == 5 )
+modprobe fuse
+%endif
+
 %if ( 0%{!?_without_georeplication:1} )
 %post geo-replication
 #restart glusterd.
@@ -1035,6 +1040,9 @@ fi
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %changelog
+* Thu Jun 29 2014 Humble Chirammal <hchiramm@redhat.com>
+- Added dynamic loading of fuse module with glusterfs-fuse package installation in el5.
+
 * Fri Jun 27 2014 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - killall --wait in %%post server, (#1113543)
 
