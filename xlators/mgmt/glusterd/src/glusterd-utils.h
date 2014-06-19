@@ -900,4 +900,7 @@ glusterd_update_fs_label (glusterd_brickinfo_t *brickinfo);
 void
 gd_get_snap_conf_values_if_present (dict_t *opts, uint64_t *sys_hard_limit,
                                     uint64_t *sys_soft_limit);
+
+gf_boolean_t
+glusterd_have_peers ();
 #endif

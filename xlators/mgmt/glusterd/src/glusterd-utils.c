@@ -13620,3 +13620,18 @@ out:
         GF_FREE (mnt_pt);
         return ret;
 }
+
+
+gf_boolean_t
+glusterd_have_peers ()
+{
+        xlator_t        *this = NULL;
+        glusterd_conf_t *conf = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        return !list_empty (&conf->peers);
+}

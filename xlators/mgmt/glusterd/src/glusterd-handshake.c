@@ -881,6 +881,43 @@ out:
         return ret;
 }
 
+/* Validate if glusterd can serve the management handshake request
+ *
+ * Requests are allowed if,
+ *  - glusterd has no peers, or
+ *  - the request came from a known peer
+ */
+gf_boolean_t
+gd_validate_mgmt_hndsk_req (rpcsvc_request_t *req)
+{
+        int                  ret                         = -1;
+        char                 hostname[UNIX_PATH_MAX + 1] = {0,};
+        glusterd_peerinfo_t *peer                        = NULL;
+        xlator_t            *this                        = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        if (!glusterd_have_peers ())
+                return _gf_true;
+
+        /* If you cannot get the hostname, you cannot authenticate */
+        ret = glusterd_remote_hostname_get (req, hostname, sizeof (hostname));
+        if (ret)
+                return _gf_false;
+
+        peer = glusterd_peerinfo_find (NULL, hostname);
+        if (peer == NULL) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR, "Rejecting management "
+                        "handshake request from unknown peer %s",
+                        req->trans->peerinfo.identifier);
+                return _gf_false;
+        }
+
+        return _gf_true;
+}
+
 int
 __glusterd_mgmt_hndsk_versions (rpcsvc_request_t *req)
 {
@@ -894,6 +931,12 @@ __glusterd_mgmt_hndsk_versions (rpcsvc_request_t *req)
 
         this = THIS;
         conf = this->private;
+
+        /* Check if we can service the request */
+        if (!gd_validate_mgmt_hndsk_req (req)) {
+                ret = -1;
+                goto out;
+        }
 
         ret = xdr_to_generic (req->msg[0], &args,
                               (xdrproc_t)xdr_gf_mgmt_hndsk_req);
@@ -978,6 +1021,12 @@ __glusterd_mgmt_hndsk_versions_ack (rpcsvc_request_t *req)
 
         this = THIS;
         conf = this->private;
+
+        /* Check if we can service the request */
+        if (!gd_validate_mgmt_hndsk_req (req)) {
+                ret = -1;
+                goto out;
+        }
 
         ret = xdr_to_generic (req->msg[0], &args,
                               (xdrproc_t)xdr_gf_mgmt_hndsk_req);
