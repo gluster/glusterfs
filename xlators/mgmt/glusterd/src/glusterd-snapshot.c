@@ -2033,6 +2033,7 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
         struct mntent         save_entry           = {0,};
         int32_t               brick_count          = -1;
         int32_t               ret                  = -1;
+        int32_t               err                  = 0;
         glusterd_brickinfo_t *brickinfo            = NULL;
         xlator_t             *this                 = NULL;
         char                  buff[PATH_MAX]       = "";
@@ -2128,6 +2129,7 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
                                 "Lvm is not mounted for brick %s:%s. "
                                 "Removing the brick path.",
                                 brickinfo->hostname, brickinfo->path);
+                        err = -1; /* We need to record this failure */
                         goto remove_brick_path;
                 }
 
@@ -2139,7 +2141,7 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
                                 "(volume: %s) failed", brickinfo->hostname,
                                 brickinfo->path, snap_vol->snapshot->snapname,
                                 snap_vol->volname);
-                        ret = -1;
+                        err = -1; /* We need to record this failure */
                         goto remove_brick_path;
                 }
                 ret = glusterd_do_lvm_snapshot_remove (snap_vol, brickinfo,
@@ -2149,6 +2151,7 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
                         gf_log (this->name, GF_LOG_ERROR, "failed to "
                                 "remove the snapshot %s (%s)",
                                 brickinfo->path, entry->mnt_fsname);
+                        err = -1; /* We need to record this failure */
                 }
 
 remove_brick_path:
@@ -2208,6 +2211,9 @@ remove_brick_path:
 
         ret = 0;
 out:
+        if (err) {
+                ret = err;
+        }
         GF_FREE (mnt_pt);
         GF_FREE (brick_mount_path);
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
@@ -6396,6 +6402,8 @@ glusterd_snapshot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         xlator_t        *this           = NULL;
         glusterd_conf_t *priv           = NULL;
         int32_t          snap_command   = 0;
+        char            *snap_name      = NULL;
+        char             temp[PATH_MAX] = "";
         int              ret            = -1;
 
         this = THIS;
@@ -6436,6 +6444,24 @@ glusterd_snapshot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "Failed to "
                                 "delete snapshot");
+                        if (*op_errstr) {
+                                /* If error string is already set
+                                 * then goto out */
+                                goto out;
+                        }
+
+                        ret = dict_get_str (dict, "snapname", &snap_name);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to get snapname");
+                                snap_name = "NA";
+                        }
+
+                        snprintf (temp, sizeof (temp), "Snapshot %s might "
+                                  "not be in an usable state.", snap_name);
+
+                        *op_errstr = gf_strdup (temp);
+                        ret = -1;
                         goto out;
                 }
                 break;
