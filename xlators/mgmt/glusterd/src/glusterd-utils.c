@@ -7071,6 +7071,21 @@ out:
         return needle;
 }
 
+static struct fs_info {
+        char *fs_type_name;
+        char *fs_tool_name;
+        char *fs_tool_arg;
+        char *fs_tool_pattern;
+        char *fs_tool_pkg;
+} glusterd_fs[] = {
+        /* some linux have these in /usr/sbin/and others in /sbin/? */
+        { "xfs", "xfs_info", NULL, "isize=", "xfsprogs" },
+        { "ext3", "tune2fs", "-l", "Inode size:", "e2fsprogs" },
+        { "ext4", "tune2fs", "-l", "Inode size:", "e2fsprogs" },
+        { "btrfs", NULL, NULL, NULL, NULL },
+        { NULL, NULL, NULL, NULL, NULL}
+};
+
 static int
 glusterd_add_inode_size_to_dict (dict_t *dict, int count)
 {
@@ -7081,15 +7096,25 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
         char           *device            = NULL;
         char           *fs_name           = NULL;
         char           *cur_word          = NULL;
-        char           *pattern           = NULL;
         char           *trail             = NULL;
         runner_t        runner            = {0, };
+        struct fs_info *fs                = NULL;
+        char            fs_tool_name[256] = {0, };
+        static dict_t  *cached_fs         = NULL;
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.device", count);
         ret = dict_get_str (dict, key, &device);
         if (ret)
                 goto out;
+
+        if (cached_fs) {
+                if (dict_get_str (cached_fs, device, &cur_word) == 0) {
+                        goto cached;
+                }
+        } else {
+                cached_fs = dict_new ();
+        }
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.fs_name", count);
@@ -7099,23 +7124,25 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
 
         runinit (&runner);
         runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
-        /* get inode size for xfs or ext2/3/4 */
-        if (!strcmp (fs_name, "xfs")) {
 
-                runner_add_args (&runner, "xfs_info", device, NULL);
-                pattern = "isize=";
-
-        } else if (IS_EXT_FS(fs_name)) {
-
-                runner_add_args (&runner, "tune2fs", "-l", device, NULL);
-                pattern = "Inode size:";
-
-        } else {
-                ret = 0;
-                gf_log (THIS->name, GF_LOG_INFO, "Skipped fetching "
-                        "inode size for %s: FS type not recommended",
-                        fs_name);
-                goto out;
+        for (fs = glusterd_fs ; glusterd_fs->fs_type_name; fs++) {
+                if (strcmp (fs_name, fs->fs_type_name) == 0) {
+                        snprintf (fs_tool_name, sizeof fs_tool_name,
+                                  "/usr/sbin/%s", fs->fs_tool_name);
+                        if (access (fs_tool_name, R_OK|X_OK) == 0)
+                                runner_add_arg (&runner, fs_tool_name);
+                        else {
+                                snprintf (fs_tool_name, sizeof fs_tool_name,
+                                          "/sbin/%s", fs->fs_tool_name);
+                                if (access (fs_tool_name, R_OK|X_OK) == 0)
+                                        runner_add_arg (&runner, fs_tool_name);
+                        }
+                        if (runner.argv[0]) {
+                                if (fs->fs_tool_arg)
+                                        runner_add_arg (&runner, fs->fs_tool_arg);
+                        }
+                        break;
+                }
         }
 
         ret = runner_start (&runner);
@@ -7131,10 +7158,7 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
                  * child and free resources.  Fortunately, that seems to
                  * be harmless for other kinds of failures.
                  */
-                if (runner_end(&runner)) {
-                        gf_log (THIS->name, GF_LOG_ERROR,
-                                "double failure calling runner_end");
-                }
+                (void) runner_end(&runner);
                 goto out;
         }
 
@@ -7146,32 +7170,40 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
                 if (trail)
                         *trail = '\0';
 
-                cur_word = glusterd_parse_inode_size (buffer, pattern);
+                cur_word =
+                        glusterd_parse_inode_size (buffer, fs->fs_tool_pattern);
+
                 if (cur_word)
                         break;
         }
 
         ret = runner_end (&runner);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "%s exited with non-zero "
-                        "exit status", ((!strcmp (fs_name, "xfs")) ?
-                        "xfs_info" : "tune2fs"));
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "%s exited with non-zero exit status",
+                        fs->fs_tool_name);
+
                 goto out;
         }
         if (!cur_word) {
                 ret = -1;
-                gf_log (THIS->name, GF_LOG_ERROR, "Unable to retrieve inode "
-                        "size using %s",
-                        (!strcmp (fs_name, "xfs")? "xfs_info": "tune2fs"));
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Unable to retrieve inode size using %s",
+                        fs->fs_tool_name);
                 goto out;
         }
 
-        inode_size = gf_strdup (cur_word);
+        if (dict_set_dynstr_with_alloc (cached_fs, device, cur_word)) {
+                /* not fatal if not entered into the cache */
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "failed to cache fs inode size for %s", device);
+        }
 
+cached:
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.inode_size", count);
 
-        ret = dict_set_dynstr (dict, key, inode_size);
+        ret = dict_set_dynstr_with_alloc (dict, key, cur_word);
 
  out:
         if (ret)
