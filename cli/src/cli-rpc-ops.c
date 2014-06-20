@@ -7648,16 +7648,17 @@ cli_snapshot_remove_reply (gf_cli_rsp *rsp, dict_t *dict)
         GF_ASSERT (rsp);
         GF_ASSERT (dict);
 
-        ret = dict_get_str (dict, "snapname", &snap_name);
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Failed to get snapname");
+        if (rsp->op_ret) {
+                cli_err ("snapshot delete: failed: %s",
+                        rsp->op_errstr ? rsp->op_errstr :
+                        "Please check log file for details");
+                ret = rsp->op_ret;
                 goto out;
         }
 
-        if (rsp->op_ret) {
-                cli_err("snapshot delete: failed: snap %s "
-                        "might not be in an usable state.", snap_name);
-                ret = rsp->op_ret;
+        ret = dict_get_str (dict, "snapname", &snap_name);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snapname");
                 goto out;
         }
 
