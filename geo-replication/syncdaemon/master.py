@@ -704,6 +704,13 @@ class GMasterCommon(object):
         self.set_slave_xtime(path, mark)
 
 
+class XCrawlMetadata(object):
+    def __init__(self, st_uid, st_gid, st_mode):
+        self.st_uid = int(st_uid)
+        self.st_gid = int(st_gid)
+        self.st_mode = int(st_mode)
+
+
 class GMasterChangelogMixin(GMasterCommon):
 
     """ changelog based change detection and syncing """
@@ -837,7 +844,15 @@ class GMasterChangelogMixin(GMasterCommon):
                 datas.add(os.path.join(pfx, ec[0]))
             elif et == self.TYPE_META:
                 if ec[1] == 'SETATTR':  # only setattr's for now...
-                    meta_gfid.add(os.path.join(pfx, ec[0]))
+                    if len(ec) == 5:
+                        # In xsync crawl, we already have stat data
+                        # avoid doing stat again
+                        meta_gfid.add((os.path.join(pfx, ec[0]),
+                                       XCrawlMetadata(st_uid=ec[2],
+                                                      st_gid=ec[3],
+                                                      st_mode=ec[4])))
+                    else:
+                        meta_gfid.add((os.path.join(pfx, ec[0]), ))
             else:
                 logging.warn('got invalid changelog type: %s' % (et))
         logging.debug('entries: %s' % repr(entries))
@@ -850,11 +865,14 @@ class GMasterChangelogMixin(GMasterCommon):
         if meta_gfid:
             meta_entries = []
             for go in meta_gfid:
-                st = lstat(go)
+                if len(go) > 1:
+                    st = go[1]
+                else:
+                    st = lstat(go[0])
                 if isinstance(st, int):
-                    logging.debug('file %s got purged in the interim' % go)
+                    logging.debug('file %s got purged in the interim' % go[0])
                     continue
-                meta_entries.append(edct('META', go=go, stat=st))
+                meta_entries.append(edct('META', go=go[0], stat=st))
             if meta_entries:
                 self.slave.server.meta_ops(meta_entries)
         # sync data
@@ -1381,7 +1399,8 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                 self.write_entry_change("E", [gfid, 'MKDIR', str(mo), str(
                     st.st_uid), str(st.st_gid), escape(os.path.join(pargfid,
                                                                     bname))])
-                self.write_entry_change("M", [gfid, "SETATTR"])
+                self.write_entry_change("M", [gfid, "SETATTR", str(st.st_uid),
+                                              str(st.st_gid), str(st.st_mode)])
                 self.Xcrawl(e, xtr_root)
                 self.stimes.append((e, xte))
             elif stat.S_ISLNK(mo):
@@ -1401,7 +1420,6 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                                              str(st.st_gid),
                                              escape(os.path.join(
                                                  pargfid, bname))])
-                    self.write_entry_change("M", [gfid, "SETATTR"])
                 else:
                     self.write_entry_change(
                         "E", [gfid, 'LINK', escape(os.path.join(pargfid,
