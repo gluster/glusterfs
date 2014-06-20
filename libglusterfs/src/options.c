@@ -58,11 +58,21 @@ xlator_option_validate_int (xlator_t *xl, const char *key, const char *value,
                             volume_option_t *opt, char **op_errstr)
 {
         long long inputll = 0;
+        unsigned long long uinputll = 0;
         int       ret = -1;
         char      errstr[256];
 
         /* Check the range */
         if (gf_string2longlong (value, &inputll) != 0) {
+                snprintf (errstr, 256,
+                          "invalid number format \"%s\" in option \"%s\"",
+                          value, key);
+                gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
+                goto out;
+        }
+
+        /* Handle '-0' */
+        if ((inputll == 0) && (gf_string2ulonglong (value, &uinputll) != 0)) {
                 snprintf (errstr, 256,
                           "invalid number format \"%s\" in option \"%s\"",
                           value, key);
