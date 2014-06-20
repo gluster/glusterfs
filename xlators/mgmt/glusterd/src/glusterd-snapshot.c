@@ -4030,7 +4030,8 @@ glusterd_update_fs_uuid (glusterd_brickinfo_t *brickinfo)
                 mount_path = mkdtemp (template);
                 if (NULL == mount_path) {
                         gf_log (this->name, GF_LOG_ERROR, "Failed to create "
-                                "temporary folder name");
+                                "temporary folder. Error: %s",
+                                strerror (errno));
                         runner_end (&runner);
                         goto out;
                 }
@@ -4092,6 +4093,13 @@ glusterd_update_fs_uuid (glusterd_brickinfo_t *brickinfo)
 
         ret = 0;
 out:
+        if (NULL != mount_path) {
+                if (rmdir (mount_path)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to remove "
+                                "temporary folder %s. Error: %s",
+                                mount_path, strerror (errno));
+                }
+        }
         return ret;
 }
 
