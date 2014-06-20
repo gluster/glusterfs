@@ -21,8 +21,10 @@
 void
 svc_local_free (svc_local_t *local)
 {
-        if (local)
+        if (local) {
                 loc_wipe (&local->loc);
+                mem_put (local);
+        }
 }
 
 xlator_t *
