@@ -265,17 +265,34 @@ out:
 int
 gf_cli_output_pool_list (dict_t *dict, int count)
 {
-        int                        ret   = -1;
-        char                       *uuid_buf = NULL;
-        char                       *hostname_buf = NULL;
-        int32_t                    i = 1;
-        char                       key[256] = {0,};
-        int32_t                    connected = 0;
+        int                         ret           = -1;
+        char                       *uuid_buf      = NULL;
+        char                       *hostname_buf  = NULL;
+        int32_t                     hostname_len  = 8; /*min len 8 chars*/
+        int32_t                     i             = 1;
+        char                        key[256]      = {0,};
+        int32_t                     connected     = 0;
         char                       *connected_str = NULL;
 
-        if (count >= 1)
-                cli_out ("UUID\t\t\t\t\tHostname\tState");
+        if (count <= 0)
+                goto out;
 
+        while (i <= count) {
+                snprintf (key, 256, "friend%d.hostname", i);
+                ret = dict_get_str (dict, key, &hostname_buf);
+                if (ret)
+                        goto out;
+
+                ret = strlen(hostname_buf);
+                if (ret > hostname_len)
+                        hostname_len = ret;
+
+                i++;
+        }
+
+        cli_out ("UUID\t\t\t\t\t%-*s\tState", hostname_len, "Hostname");
+
+        i = 1;
         while ( i <= count) {
                 snprintf (key, 256, "friend%d.uuid", i);
                 ret = dict_get_str (dict, key, &uuid_buf);
@@ -296,7 +313,7 @@ gf_cli_output_pool_list (dict_t *dict, int count)
                 else
                         connected_str = "Disconnected";
 
-                cli_out ("%s\t%-9s\t%s ", uuid_buf, hostname_buf,
+                cli_out ("%s\t%-*s\t%s ", uuid_buf, hostname_len, hostname_buf,
                          connected_str);
                 i++;
         }
