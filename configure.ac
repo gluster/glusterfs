@@ -199,6 +199,8 @@ AC_CONFIG_FILES([Makefile
                 api/Makefile
                 api/src/Makefile
                 api/examples/Makefile
+                api/examples/__init__.py
+                api/examples/setup.py
                 geo-replication/Makefile
                 geo-replication/src/Makefile
                 geo-replication/syncdaemon/Makefile

@@ -501,11 +501,20 @@ pushd xlators/features/glupy/src
 FLAGS="$RPM_OPT_FLAGS" python setup.py build
 popd
 
+# Build the Python libgfapi examples
+pushd api/examples
+FLAGS="$RPM_OPT_FLAGS" python setup.py build
+popd
+
 %install
 rm -rf %{buildroot}
 make install DESTDIR=%{buildroot}
 # install the Glupy Python library in /usr/lib/python*/site-packages
 pushd xlators/features/glupy/src
+python setup.py install --skip-build --verbose --root %{buildroot}
+popd
+# install the gfapi Python library in /usr/lib/python*/site-packages
+pushd api/examples
 python setup.py install --skip-build --verbose --root %{buildroot}
 popd
 # Install include directory
@@ -844,9 +853,16 @@ fi
 
 %files api
 %exclude %{_libdir}/*.so
+# Shared Python-GlusterFS files
+%{python_sitelib}/gluster/__init__.*
 # libgfapi files
 %{_libdir}/libgfapi.*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/api*
+%{python_sitelib}/gluster/gfapi.*
+# Don't expect a .egg-info file on EL5
+%if ( ! ( 0%{?rhel} && 0%{?rhel} < 6 ) )
+%{python_sitelib}/glusterfs_api*.egg-info
+%endif
 
 %files api-devel
 %{_libdir}/pkgconfig/glusterfs-api.pc
