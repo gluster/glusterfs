@@ -25,6 +25,8 @@
 
 #ifdef HAVE_BACKTRACE
 #include <execinfo.h>
+#else
+#include "execinfo_compat.h"
 #endif
 
 #include <sys/stat.h>
@@ -814,8 +816,6 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
         else
                 basename = file;
 
-#if HAVE_BACKTRACE
-        /* Print 'calling function' */
         do {
                 void *array[5];
                 char **callingfn = NULL;
@@ -838,7 +838,6 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
 
                 free (callingfn);
         } while (0);
-#endif /* HAVE_BACKTRACE */
 
         if (ctx->log.log_control_file_found)
         {
@@ -1070,7 +1069,6 @@ out:
         return ret;
 }
 
-#if HAVE_BACKTRACE
 void
 _gf_msg_backtrace_nomem (gf_loglevel_t level, int stacksize)
 {
@@ -1105,7 +1103,8 @@ _gf_msg_backtrace_nomem (gf_loglevel_t level, int stacksize)
                         fileno (stderr);
                 if (bt_size && (fd != -1)) {
                         /* print to the file fd, to prevent any
-                        * allocations from backtrace_symbols */
+                           allocations from backtrace_symbols
+                         */
                         backtrace_symbols_fd (&array[0], bt_size, fd);
                 }
         }
@@ -1153,7 +1152,6 @@ out:
         FREE (callingfn);
         return ret;
 }
-#endif /* HAVE_BACKTRACE */
 
 int
 _gf_msg_nomem (const char *domain, const char *file,
@@ -1261,9 +1259,7 @@ _gf_msg_nomem (const char *domain, const char *file,
                 }
                 pthread_mutex_unlock (&ctx->log.logfile_mutex);
 
-#ifdef HAVE_BACKTRACE
                 _gf_msg_backtrace_nomem (level, GF_LOG_BACKTRACE_DEPTH);
-#endif
 
                 break;
         }
@@ -2035,7 +2031,6 @@ _gf_msg (const char *domain, const char *file, const char *function,
         if (level > ctx->log.loglevel)
                 goto out;
 
-#if HAVE_BACKTRACE
         if (trace) {
                 ret = _gf_msg_backtrace (GF_LOG_BACKTRACE_DEPTH, callstr,
                                          GF_LOG_BACKTRACE_DEPTH);
@@ -2044,7 +2039,6 @@ _gf_msg (const char *domain, const char *file, const char *function,
                 else
                         ret = 0;
         }
-#endif /* HAVE_BACKTRACE */
 
         pthread_mutex_lock (&ctx->log.logfile_mutex);
         {

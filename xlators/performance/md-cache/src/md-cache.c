@@ -18,6 +18,7 @@
 #include "dict.h"
 #include "xlator.h"
 #include "md-cache-mem-types.h"
+#include "compat-errno.h"
 #include "glusterfs-acl.h"
 #include <assert.h>
 #include <sys/time.h>

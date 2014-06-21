@@ -19,6 +19,7 @@
 #include "meta-mem-types.h"
 #include "meta.h"
 
+#include "compat-errno.h"
 
 int
 meta_default_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,

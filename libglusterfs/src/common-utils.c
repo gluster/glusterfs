@@ -15,6 +15,8 @@
 
 #ifdef HAVE_BACKTRACE
 #include <execinfo.h>
+#else
+#include "execinfo_compat.h"
 #endif
 
 #include <stdio.h>
@@ -33,7 +35,7 @@
 #include <signal.h>
 #include <assert.h>
 
-#if defined GF_BSD_HOST_OS || defined GF_DARWIN_HOST_OS
+#if defined(GF_BSD_HOST_OS) || defined(GF_DARWIN_HOST_OS)
 #include <sys/sysctl.h>
 #endif
 
@@ -531,11 +533,9 @@ gf_print_trace (int32_t signum, glusterfs_ctx_t *ctx)
         }
 
         gf_dump_config_flags ();
-#if HAVE_BACKTRACE
         gf_msg_backtrace_nomem (GF_LOG_ALERT, 200);
         sprintf (msg, "---------");
         gf_msg_plain_nomem (GF_LOG_ALERT, msg);
-#endif /* HAVE_BACKTRACE */
 
         /* Send a signal to terminate the process */
         signal (signum, SIG_DFL);
@@ -3062,82 +3062,29 @@ gf_set_log_ident (cmd_args_t *cmd_args)
 
 int
 gf_thread_create (pthread_t *thread, const pthread_attr_t *attr,
-		  void *(*start_routine)(void *), void *arg)
+                  void *(*start_routine)(void *), void *arg)
 {
-	sigset_t set, old;
-	int ret;
+        sigset_t set, old;
+        int ret;
 
-	sigemptyset (&set);
+        sigemptyset (&set);
 
-	sigfillset (&set);
-	sigdelset (&set, SIGSEGV);
-	sigdelset (&set, SIGBUS);
-	sigdelset (&set, SIGILL);
-	sigdelset (&set, SIGSYS);
-	sigdelset (&set, SIGFPE);
-	sigdelset (&set, SIGABRT);
+        sigfillset (&set);
+        sigdelset (&set, SIGSEGV);
+        sigdelset (&set, SIGBUS);
+        sigdelset (&set, SIGILL);
+        sigdelset (&set, SIGSYS);
+        sigdelset (&set, SIGFPE);
+        sigdelset (&set, SIGABRT);
 
-	pthread_sigmask (SIG_BLOCK, &set, &old);
+        pthread_sigmask (SIG_BLOCK, &set, &old);
 
-	ret = pthread_create (thread, attr, start_routine, arg);
+        ret = pthread_create (thread, attr, start_routine, arg);
 
-	pthread_sigmask (SIG_SETMASK, &old, NULL);
+        pthread_sigmask (SIG_SETMASK, &old, NULL);
 
-	return ret;
+        return ret;
 }
-
-#ifdef __NetBSD__
-#ifdef __MACHINE_STACK_GROWS_UP
-#define BELOW >
-#else
-#define BELOW <
-#endif
-
-struct frameinfo {
-	struct frameinfo *next;
-	void *return_address;
-};
-
-size_t
-backtrace(void **trace, size_t len)
-{
-	const struct frameinfo *frame = __builtin_frame_address(0);
-	void *stack = &stack;
-	size_t i;
-
-	for (i = 0; i < len; i++) {
-		if ((void *)frame BELOW stack)
-			return i;
-		trace[i] = frame->return_address;
-		frame = frame->next;
-	}
-
-	return len;
-}
-
-char **
-backtrace_symbols(void *const *trace, size_t len)
-{
-	static const size_t slen = sizeof("0x123456789abcdef");
-	char **ptr = calloc(len, sizeof(*ptr) + slen);
-	size_t i;
-
-	if (ptr == NULL)
-		return NULL;
-
-	char *str = (void *)(ptr + len);
-	size_t cur = 0, left = len * slen;
-
-	for (i = 0; i < len; i++) {
-		ptr[i] = str + cur;
-		cur += snprintf(str + cur, left - cur, "%p", trace[i]) + 1;
-		assert(cur < left);
-	}
-
-	return ptr;
-}
-#undef BELOW
-#endif /* __NetBSD__ */
 
 int
 gf_skip_header_section (int fd, int header_len)

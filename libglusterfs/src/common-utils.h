@@ -621,12 +621,7 @@ gf_boolean_t gf_is_same_address (char *host1, char *host2);
 void md5_wrapper(const unsigned char *data, size_t len, char *md5);
 
 int gf_thread_create (pthread_t *thread, const pthread_attr_t *attr,
-		      void *(*start_routine)(void *), void *arg);
-#ifdef __NetBSD__
-size_t backtrace(void **, size_t);
-char **backtrace_symbols(void *const *, size_t);
-#endif
-
+                      void *(*start_routine)(void *), void *arg);
 gf_boolean_t
 gf_is_service_running (char *pidfile, int *pid);
 int

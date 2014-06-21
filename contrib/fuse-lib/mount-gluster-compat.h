@@ -21,32 +21,31 @@
 #include <errno.h>
 #include <dirent.h>
 #include <signal.h>
-#if !defined(__NetBSD__) && !defined(GF_DARWIN_HOST_OS)
+#if defined(GF_LINUX_HOST_OS)
 #include <mntent.h>
-#endif /* __NetBSD__ */
+#endif /* GF_LINUX_HOST_OS */
 #include <sys/stat.h>
 #include <sys/poll.h>
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <sys/mount.h>
 
-#ifdef __NetBSD__
+#if defined(__NetBSD__)
 #include <perfuse.h>
 #define umount2(dir, flags) unmount(dir, ((flags) != 0) ? MNT_FORCE : 0)
 #define MS_RDONLY MNT_RDONLY
 #endif
 
-#ifdef GF_DARWIN_HOST_OS
+#if defined(GF_DARWIN_HOST_OS) || defined(__FreeBSD__)
 #include <sys/param.h>
 #include <sys/mount.h>
 #define umount2(dir, flags) unmount(dir, ((flags) != 0) ? MNT_FORCE : 0)
 #define MS_RDONLY MNT_RDONLY
 #endif
 
-
 #ifdef GF_LINUX_HOST_OS
 #define _PATH_MOUNT "/bin/mount"
-#else /* NetBSD, MacOS X */
+#else /* FreeBSD, NetBSD, MacOS X */
 #define _PATH_MOUNT "/sbin/mount"
 #endif
 

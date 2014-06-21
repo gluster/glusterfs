@@ -26,6 +26,8 @@
 #include "xlator.h"
 #include "syscall.h"
 
+#include "compat-errno.h"
+
 inode_t *
 posix_resolve (xlator_t *this, inode_table_t *itable, inode_t *parent,
                char *bname, struct iatt *iabuf)

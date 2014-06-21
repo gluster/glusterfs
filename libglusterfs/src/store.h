@@ -15,6 +15,7 @@
 #include "config.h"
 #endif
 
+#include "compat.h"
 #include "glusterfs.h"
 
 struct gf_store_handle_ {

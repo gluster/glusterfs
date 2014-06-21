@@ -13,7 +13,7 @@
 #endif
 #include <inttypes.h>
 
-#if !defined(__NetBSD__) && !defined(GF_DARWIN_HOST_OS)
+#if defined(GF_LINUX_HOST_OS)
 #include <mntent.h>
 #else
 #include "mntent_compat.h"
@@ -722,7 +722,7 @@ glusterd_snap_volinfo_restore (dict_t *dict, dict_t *rsp_dict,
                                              new_volinfo->volume_id,
                                              sizeof (new_volinfo->volume_id),
                                              XATTR_REPLACE);
-                        if (ret) {
+                        if (ret == -1) {
                                 gf_log (this->name, GF_LOG_ERROR, "Failed to "
                                         "set extended attribute %s on %s. "
                                         "Reason: %s, snap: %s",
@@ -7438,7 +7438,6 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
         xlator_t        *this                 = NULL;
         glusterd_conf_t *priv                 = NULL;
 
-
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
         GF_ASSERT (dict);
@@ -8109,7 +8108,7 @@ glusterd_check_and_set_brick_xattr (char *host, char *path, uuid_t uuid,
         /* Check for xattr support in backend fs */
         ret = sys_lsetxattr (path, "trusted.glusterfs.test",
                              "working", 8, 0);
-        if (ret) {
+        if (ret == -1) {
                 snprintf (msg, sizeof (msg), "Glusterfs is not"
                           " supported on brick: %s:%s.\nSetting"
                           " extended attributes failed, reason:"
@@ -8135,7 +8134,7 @@ glusterd_check_and_set_brick_xattr (char *host, char *path, uuid_t uuid,
 
         ret = sys_lsetxattr (path, GF_XATTR_VOL_ID_KEY, uuid, 16,
                              flags);
-        if (ret) {
+        if (ret == -1) {
                 snprintf (msg, sizeof (msg), "Failed to set extended "
                           "attributes %s, reason: %s",
                           GF_XATTR_VOL_ID_KEY, strerror (errno));

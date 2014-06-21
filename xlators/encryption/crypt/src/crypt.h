@@ -39,7 +39,7 @@
 #define MASTER_VOL_KEY_SIZE (32)
 #define NMTD_VOL_KEY_SIZE (16)
 
-#if defined(__NetBSD__)
+#if defined(GF_BSD_HOST_OS)
 typedef off_t loff_t;
 #endif
 

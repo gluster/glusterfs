@@ -32,8 +32,6 @@
 #include "statedump.h"
 
 #ifdef GF_DARWIN_HOST_OS
-/* This is MacFUSE's marker for MacFUSE-specific code */
-#define __FreeBSD__ 10
 #include "fuse_kernel_macfuse.h"
 #else
 #include "fuse_kernel.h"
@@ -47,7 +45,7 @@
 #include "syncop.h"
 #include "gidcache.h"
 
-#if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
+#if defined(GF_LINUX_HOST_OS) || defined(__FreeBSD__) || defined(__NetBSD__)
 #define FUSE_OP_HIGH (FUSE_READDIRPLUS + 1)
 #endif
 #ifdef GF_DARWIN_HOST_OS

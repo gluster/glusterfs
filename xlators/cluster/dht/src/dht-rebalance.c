@@ -18,6 +18,7 @@
 #include "xlator.h"
 #include <signal.h>
 #include <fnmatch.h>
+#include <signal.h>
 
 #define GF_DISK_SECTOR_SIZE             512
 #define DHT_REBALANCE_PID               4242 /* Change it if required */

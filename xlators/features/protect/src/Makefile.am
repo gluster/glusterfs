@@ -14,8 +14,8 @@ prot_server_la_LDFLAGS = -module -avoid-version
 prot_server_la_SOURCES = prot_server.c
 prot_server_la_LIBADD  = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src
+AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
+	 -I$(CONTRIBDIR)/libexecinfo
 AM_CFLAGS = -Wall $(GF_CFLAGS)
 
-CLEANFILES = 
-
+CLEANFILES =

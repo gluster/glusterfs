@@ -1,3 +1,4 @@
+
 /*
   Copyright (c) 2012 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
@@ -13,6 +14,7 @@
 #include "glfs-mem-types.h"
 #include "syncop.h"
 #include "glfs.h"
+#include "compat-errno.h"
 #include <limits.h>
 
 #ifdef NAME_MAX

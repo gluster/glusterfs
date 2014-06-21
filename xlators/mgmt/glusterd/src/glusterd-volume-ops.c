@@ -1055,7 +1055,7 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
                                              GF_XATTR_VOL_ID_KEY,
                                              volinfo->volume_id, 16,
                                              XATTR_CREATE);
-                        if (ret) {
+                        if (ret == -1) {
                                 snprintf (msg, sizeof (msg), "Failed to set "
                                         "extended attribute %s on %s. Reason: "
                                         "%s", GF_XATTR_VOL_ID_KEY,

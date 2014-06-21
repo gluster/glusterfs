@@ -170,6 +170,7 @@ AC_CONFIG_FILES([Makefile
                 extras/init.d/glusterd.plist
                 extras/init.d/glusterd-Debian
                 extras/init.d/glusterd-Redhat
+                extras/init.d/glusterd-FreeBSD
                 extras/init.d/glusterd-SuSE
                 extras/systemd/Makefile
                 extras/systemd/glusterd.service
@@ -436,10 +437,10 @@ AC_ARG_ENABLE([fusermount],
 
 BUILD_FUSERMOUNT="yes"
 if test "x$enable_fusermount" = "xno"; then
-  BUILD_FUSERMOUNT="no"
+   BUILD_FUSERMOUNT="no"
 else
-  AC_DEFINE(GF_FUSERMOUNT, 1, [Use our own fusermount])
-  FUSERMOUNT_SUBDIR="contrib/fuse-util"
+   AC_DEFINE(GF_FUSERMOUNT, 1, [Use our own fusermount])
+   FUSERMOUNT_SUBDIR="contrib/fuse-util"
 fi
 
 AC_SUBST(FUSERMOUNT_SUBDIR)
@@ -639,17 +640,13 @@ else
 fi
 # end of xml-output
 
-dnl FreeBSD > 5 has execinfo as a Ported library for giving a workaround
-dnl solution to GCC backtrace functionality
-
-AC_CHECK_HEADERS([execinfo.h], [have_backtrace=yes],
-               AC_CHECK_LIB([execinfo], [backtrace], [have_backtrace=yes]))
-dnl               AC_MSG_ERROR([libexecinfo not found libexecinfo required.])))
-
+AC_CHECK_HEADERS([execinfo.h], [have_backtrace=yes])
 if test "x${have_backtrace}" = "xyes"; then
    AC_DEFINE(HAVE_BACKTRACE, 1, [define if found backtrace])
 fi
 AC_SUBST(HAVE_BACKTRACE)
+
+AC_CHECK_LIB([m], [ceil], , AC_MSG_ERROR([glibc math package missing - required]))
 
 dnl glusterfs prints memory usage to stderr by sending it SIGUSR1
 AC_CHECK_FUNC([malloc_stats], [have_malloc_stats=yes])
@@ -774,9 +771,23 @@ AC_COMPILE_IFELSE(
 AC_MSG_RESULT([$CLANG])
 
 if test "x$CLANG" = "xyes"; then
-    GF_COMPILER_FLAGS="-Wno-gnu -Wno-deprecated-declarations -Wno-enum-conversion"
+   GF_COMPILER_FLAGS="-Wno-gnu"
 fi
 
+if test "x$ac_cv_header_execinfo_h" = "xno"; then
+   # The reason is that __builtin_frame_address(n) for n > 0 seems
+   # to just crash on most platforms when -fomit-stack-pointer is
+   # specified, which seems to be the default for many platforms on
+   # -O2. The documentation says that __builtin_frame_address()
+   # should return NULL in case it can't get the frame, but it
+   # seems to crash instead.
+
+   # execinfo.c in ./contrib/libexecinfo uses __builtin_frame_address(n)
+   # for providing cross platform backtrace*() functions.
+   if test "x$CLANG" = "xno"; then
+      CFLAGS="$CFLAGS -fno-omit-frame-pointer"
+   fi
+fi
 
 case $host_os in
      linux*)
@@ -799,6 +810,7 @@ case $host_os in
         GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D_INCOMPLETE_XOPEN_C063"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_DIRNAME"
+        GF_FUSE_CFLAGS="-DFUSERMOUNT_DIR=\\\"\$(sbindir)\\\""
         GF_LDADD="${ARGP_STANDALONE_LDADD}"
         if test "x$ac_cv_header_execinfo_h" = "xyes"; then
            GF_GLUSTERFS_LIBS="-lexecinfo"
@@ -806,17 +818,34 @@ case $host_os in
         GF_FUSE_LDADD="-lperfuse"
         BUILD_FUSE_CLIENT=yes
         LEXLIB=""
+        BUILD_FUSERMOUNT=no
+        FUSERMOUNT_SUBDIR=""
         ;;
-     *bsd*)
+     *freebsd*)
         GF_HOST_OS="GF_BSD_HOST_OS"
-        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS}"
+        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -O0"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_DIRNAME"
-        GF_LDADD="${ARGP_STANDALONE_LDADD}"
+        GF_CFLAGS="${GF_CFLAGS} -D_LIBGEN_H_"
+        GF_CFLAGS="${GF_CFLAGS} -DO_DSYNC=0"
+        GF_CFLAGS="${GF_CFLAGS} -Dxdr_quad_t=xdr_longlong_t"
+        GF_CFLAGS="${GF_CFLAGS} -Dxdr_u_quad_t=xdr_u_longlong_t"
+        GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
+        GF_FUSE_CFLAGS="-DFUSERMOUNT_DIR=\\\"\$(sbindir)\\\""
+        GF_FUSE_LIBS="${GF_FUSE_LIBS} /usr/lib/libutil.so"
+        GF_FUSE_LDADD="-lutil"
+        GF_CFLAGS=" -I/usr/local/include ${GF_CFLAGS}"
+        CFLAGS=" -std=gnu89 ${CFLAGS}"
+        GF_CFLAGS=" -std=gnu89 ${GF_CFLAGS}"
+        GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
+        GF_LDADD="${ARGP_STANDALONE_LDADD} /usr/local/lib/libpython2.7.so /usr/local/lib/libintl.so"
+        LDFLAGS="${LDFLAGS} -L/usr/local/lib"
         if test "x$ac_cv_header_execinfo_h" = "xyes"; then
            GF_GLUSTERFS_LIBS="-lexecinfo"
         fi
-        BUILD_FUSE_CLIENT=no
+        BUILD_FUSERMOUNT=no
+        BUILD_QEMU_BLOCK=no
+        FUSERMOUNT_SUBDIR=""
         ;;
      darwin*)
         GF_HOST_OS="GF_DARWIN_HOST_OS"
@@ -994,7 +1023,9 @@ GF_CPPINCLUDES='-I$(top_srcdir)/libglusterfs/src -I$(CONTRIBDIR)/uuid'
 GF_CPPFLAGS="$GF_CPPDEFINES $GF_CPPINCLUDES"
 AC_SUBST([GF_CPPFLAGS])
 
+AM_CONDITIONAL([GF_LINUX_HOST_OS], test "${GF_HOST_OS}" = "GF_LINUX_HOST_OS")
 AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")
+AM_CONDITIONAL([GF_BSD_HOST_OS], test "${GF_HOST_OS}" = "GF_BSD_HOST_OS")
 
 AM_CONDITIONAL([GF_INSTALL_VAR_LIB_GLUSTERD], test ! -d ${localstatedir}/lib/glusterd && test -d ${sysconfdir}/glusterd )
 

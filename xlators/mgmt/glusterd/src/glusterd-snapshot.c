@@ -20,7 +20,7 @@
 #include <sys/mount.h>
 #include <signal.h>
 
-#if !defined(__NetBSD__) && !defined(GF_DARWIN_HOST_OS)
+#if defined(GF_LINUX_HOST_OS)
 #include <mntent.h>
 #else
 #include "mntent_compat.h"
@@ -30,7 +30,7 @@
 #define umount2(dir, flags) unmount(dir, ((flags) != 0) ? MNT_FORCE : 0)
 #endif
 
-#ifdef GF_DARWIN_HOST_OS
+#if defined(GF_DARWIN_HOST_OS) || defined(__FreeBSD__)
 #include <sys/param.h>
 #include <sys/mount.h>
 #define umount2(dir, flags) unmount(dir, ((flags) != 0) ? MNT_FORCE : 0)
@@ -3743,7 +3743,7 @@ glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
                              GF_XATTR_VOL_ID_KEY,
                              snap_volinfo->volume_id, 16,
                              XATTR_REPLACE);
-        if (ret) {
+        if (ret == -1) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to set "
                         "extended attribute %s on %s. Reason: "
                         "%s, snap: %s", GF_XATTR_VOL_ID_KEY,
@@ -4043,8 +4043,13 @@ glusterd_update_fs_uuid (glusterd_brickinfo_t *brickinfo)
                  * file-system which is sharing the UUID with any other
                  * file-system on the system.
                  */
+#ifdef GF_LINUX_HOST_OS
                 ret = mount (brickinfo->device_path, mount_path,
                              brickinfo->fstype, 0, "nouuid");
+#else
+                ret = -1;
+#endif
+
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "Failed to mount "
                                 "%s at %s", brickinfo->device_path,

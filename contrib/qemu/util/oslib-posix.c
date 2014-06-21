@@ -93,7 +93,7 @@ void *qemu_memalign(size_t alignment, size_t size)
                 size, strerror(ret));
         abort();
     }
-#elif defined(CONFIG_BSD)
+#elif defined(GF_BSD_HOST_OS)
     ptr = qemu_oom_check(valloc(size));
 #else
     ptr = qemu_oom_check(memalign(alignment, size));
@@ -193,7 +193,7 @@ int qemu_utimens(const char *path, const struct timespec *times)
     struct timeval tv[2], tv_now;
     struct stat st;
     int i;
-#ifdef CONFIG_UTIMENSAT
+#if defined(CONFIG_UTIMENSAT) && !defined(__FreeBSD__)
     int ret;
 
     ret = utimensat(AT_FDCWD, path, times, AT_SYMLINK_NOFOLLOW);
