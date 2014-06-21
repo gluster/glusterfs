@@ -4594,12 +4594,14 @@ dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         LOCK (&frame->lock);
         {
                 if (op_ret == -1) {
-                        local->op_errno = op_errno;
-                        local->op_ret   = -1;
+                        if ((op_errno != ENOENT) && (op_errno != ESTALE)) {
+                                local->op_errno = op_errno;
+                                local->op_ret = -1;
 
-                        if (op_errno != ENOENT && op_errno != EACCES) {
-                                local->need_selfheal = 1;
+                                if (op_errno != EACCES)
+                                        local->need_selfheal = 1;
                         }
+
                         uuid_unparse(local->loc.gfid, gfid);
 
                         gf_msg_debug (this->name, 0,
@@ -5104,7 +5106,7 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                               "gfid = %s, (%s)",
                               prev->this->name, local->loc.path, gfid,
                               strerror (op_errno));
-                if (op_errno != ENOENT) {
+                if ((op_errno != ENOENT) && (op_errno != ESTALE)) {
                         local->op_ret = -1;
                         local->op_errno = op_errno;
                 }
