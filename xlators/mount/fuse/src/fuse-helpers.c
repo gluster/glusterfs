@@ -11,13 +11,17 @@
 #define _KMEMUSER
 #endif
 
-#include "fuse-bridge.h"
 #if defined(GF_SOLARIS_HOST_OS)
 #include <sys/procfs.h>
+#elif defined(__FreeBSD__)
+#include <sys/types.h>
+#include <libutil.h>
+#include <sys/user.h>
 #else
 #include <sys/sysctl.h>
 #endif
 
+#include "fuse-bridge.h"
 
 static void
 fuse_resolve_wipe (fuse_resolve_t *resolve)
@@ -154,7 +158,8 @@ frame_fill_groups (call_frame_t *frame)
         char        *endptr = NULL;
         int          ret = 0;
 
-        ret = snprintf (filename, sizeof filename, "/proc/%d/status", frame->root->pid);
+        ret = snprintf (filename, sizeof filename, "/proc/%d/status",
+                        frame->root->pid);
         if (ret >= sizeof filename)
                 goto out;
 
@@ -162,8 +167,8 @@ frame_fill_groups (call_frame_t *frame)
         if (!fp)
                 goto out;
 
-	if (call_stack_alloc_groups (frame->root, FUSE_MAX_AUX_GROUPS) != 0)
-		goto out;
+        if (call_stack_alloc_groups (frame->root, FUSE_MAX_AUX_GROUPS) != 0)
+                goto out;
 
         while ((ptr = fgets (line, sizeof line, fp))) {
                 if (strncmp (ptr, "Groups:", 7) != 0)
@@ -197,7 +202,7 @@ out:
         prcred_t    *prcred = (prcred_t *) scratch;
         FILE        *fp = NULL;
         int          ret = 0;
-	int          ngrps;
+        int          ngrps;
 
         ret = snprintf (filename, sizeof filename,
                         "/proc/%d/cred", frame->root->pid);
@@ -207,21 +212,21 @@ out:
                 if (fp != NULL) {
                         if (fgets (scratch, sizeof scratch, fp) != NULL) {
                                 ngrps = MIN(prcred->pr_ngroups,
-					    GF_MAX_AUX_GROUPS);
-				if (call_stack_alloc_groups (frame->root,
-							     ngrps) != 0)
-					return;
+                                            FUSE_MAX_AUX_GROUPS);
+                                if (call_stack_alloc_groups (frame->root,
+                                                             ngrps) != 0)
+                                        return;
                         }
                         fclose (fp);
                  }
          }
 #elif defined(CTL_KERN) /* DARWIN and *BSD */
-        /* 
+        /*
            N.B. CTL_KERN is an enum on Linux. (Meaning, if it's not
-           obvious, that it's not subject to preprocessor directives 
+           obvious, that it's not subject to preprocessor directives
            like '#if defined'.)
            Unlike Linux, on Mac OS and the BSDs it is a #define. We
-           could test to see that KERN_PROC is defined, but, barring any 
+           could test to see that KERN_PROC is defined, but, barring any
            evidence to the contrary, I think that's overkill.
            We might also test that GF_DARWIN_HOST_OS is defined, why
            limit this to just Mac OS. It's equally valid for the BSDs
@@ -236,8 +241,8 @@ out:
         if (sysctl(name, namelen, &kp, &kplen, NULL, 0) != 0)
                 return;
         ngroups = MIN(kp.kp_eproc.e_ucred.cr_ngroups, NGROUPS_MAX);
-	if (call_stack_alloc_groups (frame->root, ngroups) != 0)
-		return;
+        if (call_stack_alloc_groups (frame->root, ngroups) != 0)
+                return;
         for (i = 0; i < ngroups; i++)
                 frame->root->groups[i] = kp.kp_eproc.e_ucred.cr_groups[i];
         frame->root->ngrps = ngroups;

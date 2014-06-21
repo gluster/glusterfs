@@ -35,7 +35,7 @@
  * SUCH DAMAGE.
  */
 
-#if defined(GF_DARWIN_HOST_OS) || defined(__NetBSD__)
+#if !defined(GF_LINUX_HOST_OS)
 #include <stdlib.h>
 #include <string.h>
 #include <sys/param.h>
@@ -103,7 +103,9 @@ flags2opts (int flags)
         if (flags & MNT_SYNCHRONOUS)    res = concatopt(res, "sync");
         if (flags & MNT_NOEXEC)         res = concatopt(res, "noexec");
         if (flags & MNT_NOSUID)         res = concatopt(res, "nosuid");
+#if !defined(__FreeBSD__)
         if (flags & MNT_NODEV)          res = concatopt(res, "nodev");
+#endif /* __FreeBSD__ */
         if (flags & MNT_UNION)          res = concatopt(res, "union");
         if (flags & MNT_ASYNC)          res = concatopt(res, "async");
 #if !defined(GF_DARWIN_HOST_OS)
@@ -211,4 +213,4 @@ endmntent (FILE *fp)
         return 1; /* endmntent() always returns 1 */
 }
 
-#endif /* GF_DARWIN_HOST_OS || __NetBSD__ */
+#endif /* !GF_LINUX_HOST_OS */

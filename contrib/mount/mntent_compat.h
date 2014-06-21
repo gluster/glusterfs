@@ -11,7 +11,7 @@
 #ifndef _MNTENT_H
 #define _MNTENT_H
 
-#if defined(GF_DARWIN_HOST_OS) || defined(__NetBSD__)
+#if !defined(GF_LINUX_HOST_OS)
 #include <stdio.h>
 
 struct mntent {

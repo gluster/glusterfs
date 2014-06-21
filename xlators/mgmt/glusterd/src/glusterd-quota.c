@@ -482,7 +482,7 @@ glusterd_set_quota_limit (char *volname, char *path, char *hard_limit,
 
         ret = sys_lsetxattr (abspath, "trusted.glusterfs.quota.limit-set",
                              (char *)(void *)&new_limit, sizeof (new_limit), 0);
-        if (ret) {
+        if (ret == -1) {
                 gf_asprintf (op_errstr, "setxattr of "
                              "'trusted.glusterfs.quota.limit-set' failed on %s."
                              " Reason : %s", abspath, strerror (errno));

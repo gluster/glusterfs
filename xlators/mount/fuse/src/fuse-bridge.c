@@ -12,6 +12,8 @@
 #include "fuse-bridge.h"
 #include "mount-gluster-compat.h"
 #include "glusterfs.h"
+#include "byte-order.h"
+#include "compat-errno.h"
 #include "glusterfs-acl.h"
 
 #ifdef __NetBSD__

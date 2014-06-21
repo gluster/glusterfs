@@ -766,7 +766,7 @@ __socket_keepalive (int fd, int family, int keepalive_intvl, int keepalive_idle)
                 goto done;
 
 #if !defined(GF_LINUX_HOST_OS) && !defined(__NetBSD__)
-#ifdef GF_SOLARIS_HOST_OS
+#if defined(GF_SOLARIS_HOST_OS) || defined(__FreeBSD__)
         ret = setsockopt (fd, SOL_SOCKET, SO_KEEPALIVE, &keepalive_intvl,
                           sizeof (keepalive_intvl));
 #else

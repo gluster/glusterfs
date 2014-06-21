@@ -311,6 +311,8 @@ sys_fdatasync (int fd)
 {
 #ifdef GF_DARWIN_HOST_OS
         return fcntl (fd, F_FULLFSYNC);
+#elif __FreeBSD__
+	return fsync (fd);
 #else
         return fdatasync (fd);
 #endif

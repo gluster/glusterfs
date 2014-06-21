@@ -5344,7 +5344,7 @@ init (xlator_t *this)
         /* Check for Extended attribute support, if not present, log it */
         op_ret = sys_lsetxattr (dir_data->data,
                                 "trusted.glusterfs.test", "working", 8, 0);
-        if (op_ret == 0) {
+        if (op_ret != -1) {
                 sys_lremovexattr (dir_data->data, "trusted.glusterfs.test");
         } else {
                 tmp_data = dict_get (this->options,
@@ -5451,7 +5451,7 @@ init (xlator_t *this)
                 /* First time volume, set the GFID */
                 size = sys_lsetxattr (dir_data->data, "trusted.gfid", rootgfid,
                                      16, XATTR_CREATE);
-                if (size) {
+                if (size == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "%s: failed to set gfid (%s)",
                                 dir_data->data, strerror (errno));

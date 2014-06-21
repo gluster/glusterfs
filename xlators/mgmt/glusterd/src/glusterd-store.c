@@ -45,7 +45,7 @@
 #include <inttypes.h>
 #include <dirent.h>
 
-#if !defined(__NetBSD__) && !defined(GF_DARWIN_HOST_OS)
+#if defined(GF_LINUX_HOST_OS)
 #include <mntent.h>
 #else
 #include "mntent_compat.h"
