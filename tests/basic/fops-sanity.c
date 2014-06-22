@@ -22,7 +22,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <attr/xattr.h>
+#include <sys/xattr.h>
 #include <errno.h>
 #include <string.h>
 #include <dirent.h>
