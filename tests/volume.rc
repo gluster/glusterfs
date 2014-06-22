@@ -154,6 +154,10 @@ function glustershd_up_status {
         gluster volume status | grep "Self-heal Daemon" | awk '{print $6}'
 }
 
+function quotad_up_status {
+        gluster volume status | grep "Quota Daemon" | awk '{print $6}'
+}
+
 function get_brick_pid {
         local vol=$1
         local host=$2

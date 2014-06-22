@@ -298,7 +298,6 @@ stripe_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (loc, err);
-        VALIDATE_OR_GOTO (loc->path, err);
         VALIDATE_OR_GOTO (loc->inode, err);
 
         priv = this->private;
