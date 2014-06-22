@@ -13628,6 +13628,13 @@ glusterd_is_snap_soft_limit_reached (glusterd_volinfo_t *volinfo, dict_t *dict)
 
         if (volinfo->snap_count >= limit &&
                 (strcmp (auto_delete, "enable") != 0)) {
+
+                gf_log (this->name, GF_LOG_WARNING, "Soft-limit "
+                        "(value = %"PRIu64") of volume %s is reached. "
+                        "Snapshot creation is not possible once effective "
+                        "hard-limit (value = %"PRIu64") is reached.",
+                        limit, volinfo->volname, effective_max_limit);
+
                 ret = dict_set_int8 (dict, "soft-limit-reach",
                                      _gf_true);
                 if (ret) {
