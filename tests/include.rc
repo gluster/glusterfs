@@ -10,6 +10,7 @@ statedumpdir=`gluster --print-statedumpdir`; # Default directory for statedump
 CHILD_UP_TIMEOUT=60
 CLI="gluster --mode=script";
 
+PROCESS_UP_TIMEOUT=20
 mkdir -p $B0;
 mkdir -p $M0 $M1;
 mkdir -p $N0 $N1;
