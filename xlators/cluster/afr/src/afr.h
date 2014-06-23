@@ -550,6 +550,7 @@ typedef struct _afr_local {
                         int32_t **pending_matrix;
                         gf_boolean_t fresh_lookup;
                         gf_boolean_t possible_spb;
+                        gf_boolean_t needs_fresh_lookup;
                 } lookup;
 
                 struct {

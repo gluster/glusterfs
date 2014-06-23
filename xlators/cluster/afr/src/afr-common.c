@@ -2321,18 +2321,18 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
  * others in that they must be given higher priority while
  * returning to the user.
  *
- * The hierarchy is ESTALE > EIO > ENOENT > others
+ * The hierarchy is EIO > ENOENT > ESTALE > others
  */
 int32_t
 afr_most_important_error(int32_t old_errno, int32_t new_errno,
 			 gf_boolean_t eio)
 {
-	if (old_errno == ESTALE || new_errno == ESTALE)
-		return ESTALE;
 	if (eio && (old_errno == EIO || new_errno == EIO))
 		return EIO;
 	if (old_errno == ENOENT || new_errno == ENOENT)
 		return ENOENT;
+        if (old_errno == ESTALE || new_errno == ESTALE)
+                return ESTALE;
 
 	return new_errno;
 }
@@ -2361,8 +2361,19 @@ afr_resultant_errno_get (int32_t *children,
 }
 
 static void
-afr_lookup_handle_error (afr_local_t *local, int32_t op_ret,  int32_t op_errno)
+afr_lookup_handle_error (afr_local_t *local, int32_t op_ret,  int32_t op_errno,
+                         dict_t *xattr)
 {
+        if (local->cont.lookup.needs_fresh_lookup)
+                return;
+
+        if (xattr && dict_get (xattr, "gfid-changed")) {
+                local->op_ret = -1;
+                local->op_errno = ESTALE;
+                local->cont.lookup.needs_fresh_lookup = _gf_true;
+                return;
+        }
+
         if ((local->loc.name == NULL) && (op_errno == ESTALE))
                 op_errno = ENOENT;
 
@@ -2371,10 +2382,6 @@ afr_lookup_handle_error (afr_local_t *local, int32_t op_ret,  int32_t op_errno)
 
 	local->op_errno = afr_most_important_error(local->op_errno, op_errno,
 						   _gf_false);
-
-        if (local->op_errno == ESTALE) {
-                local->op_ret = -1;
-        }
 }
 
 static void
@@ -2491,7 +2498,7 @@ afr_lookup_handle_success (afr_local_t *local, xlator_t *this, int32_t child_ind
         afr_private_t   *priv   = this->private;
 
         if (local->success_count == 0) {
-                if (local->op_errno != ESTALE) {
+                if (!local->cont.lookup.needs_fresh_lookup) {
                         local->op_ret = op_ret;
                         local->op_errno = 0;
                 }
@@ -2528,7 +2535,8 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
                 local = frame->local;
 
                 if (op_ret == -1) {
-                        afr_lookup_handle_error (local, op_ret, op_errno);
+                        afr_lookup_handle_error (local, op_ret, op_errno,
+                                                 xattr);
                         goto unlock;
                 }
                 afr_lookup_handle_success (local, this, child_index, op_ret,

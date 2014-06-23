@@ -2755,6 +2755,8 @@ client3_3_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         "gfid changed for %s", local->loc.path);
                 rsp.op_ret = -1;
                 op_errno = ESTALE;
+                if (xdata)
+                        ret = dict_set_int32 (xdata, "gfid-changed", 1);
                 goto out;
         }
 
